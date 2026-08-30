@@ -16,10 +16,10 @@ function Shell() {
         ) : (
           <div className="hero">
             <div className="hero-title">做点什么？</div>
+            <div className="hero-sub">用 DeepSeek 智能体开始任何工作。</div>
             <div className="hero-composer">
               <Composer sessionId={null} />
             </div>
-            <div className="hero-hint">⌥Space 唤起 · ⌘K 命令（即将）</div>
           </div>
         )}
       </main>

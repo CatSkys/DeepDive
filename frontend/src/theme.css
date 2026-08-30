@@ -170,12 +170,19 @@ button {
   padding: 0 48px;
 }
 .hero-title {
-  margin-top: 40vh;
-  transform: translateY(-50%);
-  font-size: 21px;
+  margin-top: 36vh;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: .01em;
   color: var(--dsh-text-primary);
+}
+.hero-sub {
+  margin-top: 10px;
+  max-width: 560px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: rgba(255,255,255,.62);
 }
 .hero-composer {
   margin-top: auto;
@@ -183,29 +190,23 @@ button {
   margin-bottom: 9vh;
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-.hero-hint {
-  position: absolute;
-  bottom: 5.5vh;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--dsh-text-tertiary);
-  font-size: 11.5px;
-  letter-spacing: .02em;
+  gap: 14px;
 }
 
+/* Reference look: dark glass bar at the panel bottom (position from the
+   Raycast panel; material from the Ask Anything reference — not a light bar). */
 .composer {
   flex: 1;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255,255,255,.055);
-  border: 1px solid rgba(255,255,255,.12);
-  box-shadow: 0 12px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
-  backdrop-filter: blur(28px) saturate(150%);
+  padding: 0 16px;
+  height: 46px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 12px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter: blur(24px) saturate(150%);
 }
 .composer:focus-within { border-color: rgba(255,255,255,.22); }
 .composer textarea {
@@ -223,11 +224,12 @@ button {
 .composer textarea::placeholder { color: var(--dsh-text-tertiary); }
 
 .round-btn {
-  width: 30px;
-  height: 30px;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  border: 1px solid var(--dsh-border-default);
-  background: rgba(255,255,255,.05);
+  background: rgba(255,255,255,.09);
+  border: 1px solid rgba(255,255,255,.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -236,17 +238,17 @@ button {
 .round-btn:disabled { opacity: .35; }
 .send-btn {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,.10);
-  border: 1px solid var(--dsh-border-default);
+  background: rgba(255,255,255,.09);
+  border: 1px solid rgba(255,255,255,.12);
   color: var(--dsh-text-primary);
 }
-.send-btn:disabled { opacity: .3; }
+.send-btn:disabled { opacity: .35; }
 
 /* ---------- session view ---------- */
 
