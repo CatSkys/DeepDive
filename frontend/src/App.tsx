@@ -40,8 +40,8 @@ function Shell() {
     } catch { /* engine may be booting */ }
   };
   return (
-    <div className="app">
-      <div className="window-top">
+    <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
+      <div className={`window-top${store.sidebarCollapsed ? " collapsed" : ""}`}>
         <button className="window-top-btn" title="新会话" onClick={() => void store.createSession()}>
           <Plus size={15} />
         </button>
@@ -49,7 +49,7 @@ function Shell() {
           <PanelLeft size={15} />
         </button>
       </div>
-      {!store.sidebarCollapsed && <Sidebar />}
+      <Sidebar />
       <main className="main">
         {active ? (
           <SessionView sessionId={active} />

@@ -66,21 +66,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
         super.init(window: window)
 
+        // Frame-based fullbleed layout (robust across window resize / autosave
+        // restore; constraint re-layout was hanging behind some frames).
         window.contentView = effectView
-        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.frame = effectView.bounds
+        overlay.autoresizingMask = [.width, .height]
         effectView.addSubview(overlay)
-        webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.frame = effectView.bounds
+        webView.autoresizingMask = [.width, .height]
         effectView.addSubview(webView)
-        NSLayoutConstraint.activate([
-            overlay.topAnchor.constraint(equalTo: effectView.topAnchor),
-            overlay.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
-            overlay.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
-            overlay.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
-            webView.topAnchor.constraint(equalTo: effectView.topAnchor),
-            webView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
-            webView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
-        ])
 
         webView.navigationDelegate = self
         window.delegate = self
@@ -145,6 +139,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         }
     }
 
+
     func hidePanel() {
         guard let window, window.isVisible else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
@@ -155,6 +150,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
             window.alphaValue = 1
         })
     }
+
 
     // MARK: - NSWindowDelegate
 
