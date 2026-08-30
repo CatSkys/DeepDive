@@ -125,6 +125,11 @@ button {
 }
 .window-top-btn:hover { background: rgba(255,255,255,.09); color: rgba(255,255,255,.92); }
 
+/* no backdrop-filter outside the floating menus: WebKit light-leak on large
+   translucent surfaces paints oversized halos into the view (the "circles"). */
+.app :not(.action-menu):not(.model-menu) *,
+.app :not(.action-menu):not(.model-menu) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
 /* ---------- layout ---------- */
 
 .app { display: flex; height: 100%; }
@@ -418,16 +423,16 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 54px;
-  padding: 0 14px 0 18px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  height: 46px;
+  padding: 0 10px 0 16px;
+  border-radius: 999px;
+  background: rgba(64,66,72,.32);
   border: 1px solid rgba(255,255,255,.10);
   box-shadow:
-    inset 0 1px 1px rgba(255,255,255,.09),
-    inset 0 -1px 1px rgba(0,0,0,.18),
-    0 14px 36px rgba(0,0,0,.30);
-  backdrop-filter: blur(30px) saturate(160%);
+    inset 0 1px 1px rgba(255,255,255,.08),
+    inset 0 -1px 1px rgba(0,0,0,.20),
+    0 10px 28px rgba(0,0,0,.25);
+  backdrop-filter: blur(24px) saturate(150%);
 }
 .composer-inner::before {
   content: "";
@@ -464,7 +469,6 @@ button {
   justify-content: center;
   color: rgba(255,255,255,.92);
   box-shadow: 0 6px 16px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.10);
-  backdrop-filter: blur(20px) saturate(150%);
   transition: background 120ms ease;
 }
 .bar-btn:hover { color: #FFFFFF; background: rgba(255,255,255,.12); }
