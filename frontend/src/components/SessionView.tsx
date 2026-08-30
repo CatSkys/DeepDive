@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Hammer, ShieldCheck, X } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { Composer } from "./Composer";
+import { Markdown } from "./Markdown";
 import type { HistoryEntry, SessionEvent } from "../types";
 
 interface RenderItem {
@@ -119,11 +120,12 @@ function Item({ item }: { item: RenderItem }) {
     );
   }
   if (item.kind === "assistant") {
-    return (
+    const t = textOf(item.event);
+    return t ? (
       <div className="msg assistant">
-        <div className="text">{textOf(item.event)}</div>
+        <Markdown text={t} />
       </div>
-    );
+    ) : null;
   }
   if (item.kind === "tool-call" || item.kind === "tool-result") {
     return <ToolCardItem item={item} />;

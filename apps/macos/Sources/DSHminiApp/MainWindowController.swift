@@ -163,6 +163,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         EngineLog.shared.append("[web] didFinish \(webView.url?.absoluteString ?? "")")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+            webView.evaluateJavaScript(
+                "(() => { const el = document.querySelector('.window-top'); const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); const app = document.querySelector('.app'); return JSON.stringify({pos: cs.position, top: cs.top, left: cs.left, rect: {x: Math.round(r.x), y: Math.round(r.y)}, appPos: getComputedStyle(app).position, appTop: getComputedStyle(app).top, innerH: window.innerHeight}); })()"
+            ) { result, error in
+                EngineLog.shared.append("[row] \(result ?? error?.localizedDescription ?? "nil")")
+            }
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
