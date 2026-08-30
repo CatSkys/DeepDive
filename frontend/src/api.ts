@@ -47,7 +47,9 @@ export const api = {
   answerApproval: (value: { approvalId: string; outcome: "allowed-once" | "rejected" }) =>
     respond({ type: "client-response", rpcId: crypto.randomUUID(), result: { ok: true, value } }),
   agentPresets: () =>
-    unary<{ items: Array<{ id: string; name: string; description?: string; user?: boolean }> }>("agentPreset.list", {}),
+    unary<{ presets: Array<{ id: string; name: string; description?: string; trust?: string; isDefault?: boolean }> }>("agentPreset.list", {}),
+  selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
+    unary("session.selectModel", payload),
   llmModels: () => unary<{ groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }> }>("llm.models", {}),
   openMux: (onFrame: (frame: MuxFrame) => void, onOpen: () => void) => openMux(onFrame, onOpen),
 };

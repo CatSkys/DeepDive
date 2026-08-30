@@ -39,7 +39,7 @@ export function Sidebar() {
   useEffect(() => {
     api
       .agentPresets()
-      .then((r) => setPresets(r.items.slice(0, 3)))
+      .then((r) => setPresets((r?.presets ?? []).slice(0, 3)))
       .catch(() => void 0);
   }, []);
 
