@@ -35,6 +35,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [muxHandlers] = useState<Set<MuxHandler>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const forceRefreshSessions = async () => {
+    try {
+      const ss = await api.sessions();
+      setSessions(ss.items.sort((a, b) => b.updatedAt - a.updatedAt));
+    } catch { /* engine restarting; ignore */ }
+  };
+  const forceRefreshSessionsRef = useRef(forceRefreshSessions);
+  forceRefreshSessionsRef.current = forceRefreshSessions;
+
   const refresh = async () => {
     try {
       const [ws, ss] = await Promise.all([api.workspaces(), api.sessions()]);
@@ -42,17 +51,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setWorkspaces(ws.items);
       setSessions(sorted);
       setEngineUp(true);
+      // Boot policy: always land on a chat — reuse an existing blank session,
+      // otherwise create one. No separate "default page" exists.
+      setActiveSessionId((cur) => {
+        if (cur) return cur;
+        const blank = sorted.find((x) => x.blank);
+        if (blank) return blank.sessionId;
+        const recent = sorted.find((x) => !x.blank);
+        if (recent) return recent.sessionId;
+        void (async () => {
+          const res = await api.createSession({ workspaceId: ws.items[0]?.workspaceId });
+          setActiveSessionId(res.sessionId);
+          await forceRefreshSessionsRef.current();
+        })();
+        return null;
+      });
     } catch {
       setEngineUp(false);
-    }
-  };
-
-  const forceRefreshSessions = async () => {
-    try {
-      const ss = await api.sessions();
-      setSessions(ss.items.sort((a, b) => b.updatedAt - a.updatedAt));
-    } catch {
-      // engine restarting; ignore
     }
   };
 
