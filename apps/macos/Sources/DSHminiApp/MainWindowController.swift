@@ -6,6 +6,7 @@ import WebKit
 /// occlusion detection off, animate in only after the view settled.
 final class MainWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
     private let webView: WKWebView
+    private let effectView = NSVisualEffectView()
     private var themeEnabled: Bool
     private var pendingURL: URL?
 
@@ -28,13 +29,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // query (dark-glass reference style); nil lets the system decide.
         window.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
 
-        // Solid graphite base (#1A1B1E, reference panel). NOTE: an
-        // NSVisualEffectView ignores manual layer backgrounds — its material
-        // renders on top — so a plain layer-backed view is the base; all glass
-        // depth comes from the app's translucent layers + highlights.
-        let base = NSView()
-        base.wantsLayer = true
-        base.layer?.backgroundColor = NSColor(srgbRed: 26/255, green: 27/255, blue: 30/255, alpha: 1.0).cgColor
+        // Semi-transparent dark glass: real vibrancy (behindWindow) + a dark
+        // overlay at ~85% opaque. Content stays readable, the wallpaper still
+        // ghosts through — the reference panel look. (0.42 washed out; a fully
+        // opaque base killed the glass entirely.)
+        effectView.material = .hudWindow
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        let overlay = NSView()
+        overlay.wantsLayer = true
+        overlay.layer?.backgroundColor = NSColor(srgbRed: 16/255, green: 17/255, blue: 19/255, alpha: 0.85).cgColor
 
         // WKWebView tuned for a launcher-style surface.
         let config = WKWebViewConfiguration()
@@ -51,14 +55,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
         super.init(window: window)
 
-        window.contentView = base
-        base.addSubview(webView)
+        window.contentView = effectView
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        effectView.addSubview(overlay)
         webView.translatesAutoresizingMaskIntoConstraints = false
+        effectView.addSubview(webView)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: base.topAnchor),
-            webView.bottomAnchor.constraint(equalTo: base.bottomAnchor),
-            webView.leadingAnchor.constraint(equalTo: base.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: base.trailingAnchor),
+            overlay.topAnchor.constraint(equalTo: effectView.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
+            overlay.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
+            webView.topAnchor.constraint(equalTo: effectView.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
+            webView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
         ])
 
         webView.navigationDelegate = self
