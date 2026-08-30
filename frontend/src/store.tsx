@@ -38,8 +38,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const refresh = async () => {
     try {
       const [ws, ss] = await Promise.all([api.workspaces(), api.sessions()]);
+      const sorted = ss.items.sort((a, b) => b.updatedAt - a.updatedAt);
       setWorkspaces(ws.items);
-      setSessions(ss.items.sort((a, b) => b.updatedAt - a.updatedAt));
+      setSessions(sorted);
       setEngineUp(true);
     } catch {
       setEngineUp(false);
@@ -58,8 +59,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let alive = true;
     const tick = async () => {
-      if (alive) await refresh();
+      if (alive) {
+        await refresh();
+        setActiveSessionId((cur) => cur ?? sessions2[0] ?? cur);
+      }
     };
+    const sessions2: any[] = [];
     void tick();
     const iv = setInterval(() => void tick(), 3000);
     return () => {

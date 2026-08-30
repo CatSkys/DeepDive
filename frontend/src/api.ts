@@ -48,6 +48,8 @@ export const api = {
     respond({ type: "client-response", rpcId: crypto.randomUUID(), result: { ok: true, value } }),
   agentPresets: () =>
     unary<{ presets: Array<{ id: string; name: string; description?: string; trust?: string; isDefault?: boolean }> }>("agentPreset.list", {}),
+  sessionModels: (payload: { sessionId: string }) =>
+    unary<{ current: { provider: string; model: string } }>("session.models", payload),
   selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
     unary("session.selectModel", payload),
   llmModels: () => unary<{ groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }> }>("llm.models", {}),

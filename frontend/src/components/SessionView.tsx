@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Hammer, ShieldCheck, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Hammer, ShieldCheck, X, ChevronLeft } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
+import { Composer } from "./Composer";
 import type { HistoryEntry, SessionEvent } from "../types";
 
 interface RenderItem {
@@ -16,11 +17,23 @@ interface RenderItem {
 }
 
 export function SessionView({ sessionId }: { sessionId: string }) {
-  const { approvals, subscribeMux } = useStore();
+  const { approvals, subscribeMux, openSession, sessions } = useStore();
   const [items, setItems] = useState<RenderItem[]>([]);
   const [streaming, setStreaming] = useState("");
+  const [modelName, setModelName] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
+  const summary = sessions.find((s) => s.sessionId === sessionId);
+  const title = summary
+    ? (summary.projections?.values?.title as string) || (summary.blank ? "新会话" : "会话")
+    : "会话";
+
+  useEffect(() => {
+    api
+      .sessionModels({ sessionId })
+      .then((r) => setModelName(r.current?.model ?? ""))
+      .catch(() => void 0);
+  }, [sessionId]);
 
   useEffect(() => {
     let alive = true;
@@ -69,6 +82,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   return (
     <>
+      <div className="session-header">
+        <button className="back" title="返回" onClick={() => openSession(null)}>
+          <ChevronLeft size={18} />
+        </button>
+        <div className="left">
+          <div className="title">{title}</div>
+          <div className="model">{modelName}</div>
+        </div>
+      </div>
       <div className="flow" ref={scrollRef} onScroll={() => setFollow(false)}>
         <div className="flow-inner">
           {items.map((item) => (
@@ -84,25 +106,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           ))}
         </div>
       </div>
-      <div className="session-composer">
-        <div className="inner">
-          <textarea
-            placeholder="回复，或继续描述你的任务"
-            rows={1}
-            onKeyDown={(e) => {
-              const el = e.currentTarget;
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                const value = el.value.trim();
-                if (!value) return;
-                api
-                  .prompt({ sessionId, mode: "steer", content: [{ type: "text", text: value }] })
-                  .then(() => { el.value = ""; })
-                  .catch(() => void 0);
-              }
-            }}
-          />
-        </div>
+      <div className="session-bottom">
+        <Composer sessionId={sessionId} />
       </div>
     </>
   );
