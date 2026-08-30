@@ -27,7 +27,6 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [presets, setPresets] = useState<Array<{ id: string; name: string }>>([]);
-  const [models, setModels] = useState<Array<{ provider: string; model: string; label: string }>>([]);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -35,14 +34,6 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
 
   useEffect(() => {
     api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);
-    api
-      .llmModels()
-      .then((r) => {
-        const flat: Array<{ provider: string; model: string; label: string }> = [];
-        for (const g of r?.groups ?? []) for (const m of g?.models ?? []) flat.push({ provider: g.id, model: m.id, label: m.name ?? m.id });
-        setModels(flat.slice(0, 8));
-      })
-      .catch(() => void 0);
   }, []);
 
   useEffect(() => {
@@ -119,17 +110,6 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
       id: "new", icon: Sparkles, section: "命令", label: "新会话",
       run: () => { setMenu(null); void store.createSession(); },
     },
-    ...models.map((m) => ({
-      id: `model:${m.provider}/${m.model}`, icon: LayoutGrid, section: "模型", label: m.label,
-      run: async () => {
-        setMenu(null);
-        let sid = sessionId ?? (await store.createSession());
-        if (!sid) return;
-        try {
-          await api.selectModel({ sessionId: sid, provider: m.provider, model: m.model });
-        } catch { /* ignore */ }
-      },
-    })),
   ];
 
   const rows = menu === "attach" ? attachRows : commandRows;
