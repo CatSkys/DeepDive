@@ -18,16 +18,10 @@ interface Store {
   openSession: (id: string | null) => void;
   createSession: (presetId?: string) => Promise<string | null>;
   forceRefreshSessions: () => Promise<void>;
-  /** sidebar pinned open (docked card layout). Persisted; default expanded. */
-  sidebarPinned: boolean;
+  sidebarCollapsed: boolean;
   toggleSidebar: () => void;
-  /** unpinned + mouse near the left edge → floating sidebar peeks over content. */
-  sidebarHover: boolean;
-  setSidebarHover: (v: boolean) => void;
   subscribeMux: (handler: MuxHandler) => () => void;
 }
-
-const PIN_KEY = "dshmini.sidebar.pinned";
 
 const Ctx = createContext<Store>(null as unknown as Store);
 export const useStore = () => useContext(Ctx);
