@@ -43,10 +43,10 @@ function Shell() {
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
       <div className={`window-top${store.sidebarCollapsed ? " collapsed" : ""}`}>
         <button className="window-top-btn" title="新会话" onClick={() => void store.createSession()}>
-          <Plus size={15} />
+          <Plus size={17} />
         </button>
         <button className="window-top-btn" title="边栏收起" onClick={() => store.toggleSidebar()}>
-          <PanelLeft size={15} />
+          <PanelLeft size={17} />
         </button>
       </div>
       <Sidebar />

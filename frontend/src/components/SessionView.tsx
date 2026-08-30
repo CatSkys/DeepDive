@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Hammer, ShieldCheck, X, ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronUp, Hammer, ShieldCheck, X } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { Composer } from "./Composer";
@@ -83,9 +83,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   return (
     <>
       <div className="session-header">
-        <button className="back" title="返回" onClick={() => openSession(null)}>
-          <ChevronLeft size={18} />
-        </button>
         <div className="left">
           <div className="title">{title}</div>
           <div className="model">{modelName}</div>
