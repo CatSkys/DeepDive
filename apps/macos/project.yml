@@ -1,0 +1,44 @@
+name: DSHmini
+options:
+  bundleIdPrefix: com.dshmini
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    ENABLE_HARDENED_RUNTIME: NO
+    DEAD_CODE_STRIPPING: YES
+targets:
+  DSHminiApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dshmini.app
+        PRODUCT_NAME: DSHmini
+    info:
+      path: Info.plist
+      properties:
+        CFBundleName: DSHmini
+        CFBundleDisplayName: DSHmini
+        CFBundleIdentifier: com.dshmini.app
+        CFBundleVersion: "0.1.0"
+        CFBundleShortVersionString: "0.1.0"
+        LSUIElement: true
+        NSHumanReadableCopyright: "MIT"
+        NSHighResolutionCapable: true
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+schemes:
+  DSHmini:
+    build:
+      targets:
+        DSHminiApp: all
+    run:
+      config: Debug
