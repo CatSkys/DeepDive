@@ -110,3 +110,9 @@ WKWebView ── http://127.0.0.1:<bridgePort> ── 自建 SPA（Vite+React+Lu
 - 标题截断/时间分组更细粒度（Last Week/April 版）待微调；菜单栏 popover 为原生占位
 - approval 应答 UI 已实现（respond 协议已验）；question 帧与工具卡文案精修待做
 - Master 分支 mux 移至 SSE + `?token=` cookie 认证——升级引擎时 Bridge 需同步（协议层适配点已在文档标注）
+
+## 8. 玻璃与字体修复（用户反馈迭代，2026-08-30）
+
+- **字体衬线 bug 根因**：`--dsh-font-ui-family` 未被 gen-tokens 生成（walk 缺 font 组）→ `var()` 无效 → 回退 serif。修复：gen-tokens.mjs 增加 `walk({font})`；tokens.css 现含 font family（-apple-system/"PingFang SC"/SF Pro Text）
+- **玻璃感**：窗口恢复真 vibrancy（hudWindow + behindWindow）+ 轻暗 tint（alpha .42）；页面层全部改半透明 + `backdrop-filter: blur(24~28px) saturate(150%)`（侧栏/卡片/composer）+ 顶部 1px 内高光 + 大阴影——截图验证：背后内容被磨砂透出，参考图同款材质层次
+- **布局对照参考图**：hero 标题 40vh 居中；composer 底部锚定（宽 680、圆角 16、左侧圆钮+右侧发送圆钮）；侧栏行高 28/字号 12.5/分组中文（今天/昨天/上周/N月）；状态点常态淡（running/waiting 高亮呼吸）

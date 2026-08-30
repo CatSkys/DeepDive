@@ -7,9 +7,14 @@ function bucketLabel(updatedAt: number): string {
   const now = Date.now();
   const day = 24 * 3600 * 1000;
   const diff = now - updatedAt;
-  if (diff < day) return "Today";
-  if (diff < 7 * day) return "Last Week";
-  return "Earlier";
+  if (diff < day) {
+    const d = new Date(updatedAt);
+    const t = new Date(now);
+    return d.getDate() === t.getDate() ? "今天" : "昨天";
+  }
+  if (diff < 7 * day) return "上周";
+  const d = new Date(updatedAt);
+  return `${d.getMonth() + 1} 月`;
 }
 
 export function StatusDot({ s }: { s: SessionSummary }) {

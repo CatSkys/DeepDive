@@ -29,15 +29,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // query (dark-glass reference style); nil lets the system decide.
         window.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
 
-        // Constant near-black base under the transparent web view. The glass
-        // depth comes from the app's own translucent layers + backdrop blur
-        // (reference style); a fixed dark base keeps the look identical no
-        // matter what sits behind the window.
+        // Glass: real vibrancy behind a translucent web view. A light dark
+        // tint keeps it near-black over any wallpaper while the effect view
+        // still blurs what is behind the window (reference-style depth). The
+        // page's own translucent layers do the rest of the glass work.
         effectView.material = .hudWindow
-        effectView.blendingMode = .withinWindow
+        effectView.blendingMode = .behindWindow
         effectView.state = .active
         effectView.wantsLayer = true
-        effectView.layer?.backgroundColor = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 1.0).cgColor
+        effectView.layer?.backgroundColor = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.42).cgColor
 
         // WKWebView tuned for a launcher-style surface.
         let config = WKWebViewConfiguration()
