@@ -674,6 +674,8 @@ button {
 .flow-inner { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
 
 .msg, .flow, .flow-inner, .md, .md * { background: transparent !important; }
+/* Composition isolation: any compositor-level halo is confined to the flow. */
+.main, .flow, .hero { isolation: isolate; }
 .flow *::before, .flow *::after,
 .msg *::before, .msg *::after,
 .hero *::before, .hero *::after { background: transparent !important; background-image: none !important; }
