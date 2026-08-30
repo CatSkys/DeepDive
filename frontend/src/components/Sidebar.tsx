@@ -64,7 +64,7 @@ export function Sidebar() {
           <Pencil size={14} />
         </button>
       </div>
-      <button className="new-session" onClick={() => void store.createSession(p.id)}>
+      <button className="new-session" onClick={() => void store.createSession()}>
         <Plus size={14} />
         新会话
       </button>

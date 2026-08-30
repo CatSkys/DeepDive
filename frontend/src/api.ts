@@ -35,7 +35,7 @@ async function respond(message: unknown): Promise<void> {
 export const api = {
   workspaces: () => unary<{ items: WorkspaceView[]; archivedSessionIds: string[] }>("workspace.list"),
   sessions: () => unary<{ items: SessionSummary[] }>("session.list"),
-  createSession: (payload: { workspaceId?: string; cwd?: string; sessionId?: string }) =>
+  createSession: (payload: { workspaceId?: string; cwd?: string; sessionId?: string; agentPreset?: string }) =>
     unary<{ sessionId: string; agentPreset?: string }>("session.create", payload),
   history: (payload: { sessionId: string; atSeq?: number; maxMessages?: number }) =>
     unary<{ events: HistoryEntry[]; hasMore: boolean }>("session.history", payload),
