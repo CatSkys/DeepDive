@@ -1,14 +1,13 @@
 import AppKit
 import WebKit
 
-/// The single glass window hosting the official DSH web UI.
-/// Anti-flicker contract (UI-SPEC §4): stage via alphaValue, keep the
-/// occlusion detection off, animate in only after the view settled.
+/// The single glass window hosting the DSHmini SPA.
+/// Anti-flicker contract (UI-SPEC §4): stage via alphaValue, animate in after
+/// the view settled; layout is frame-based fullbleed.
 final class MainWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
     private let webView: WKWebView
     private let effectView = NSVisualEffectView()
     private var themeEnabled: Bool
-    private var pendingURL: URL?
 
     init(themeEnabled: Bool) {
         self.themeEnabled = themeEnabled
@@ -25,21 +24,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 900, height: 560)
         window.setFrameAutosaveName("DSHminiMain")
-        // Forces the official web UI's `prefers-color-scheme: dark` media
-        // query (dark-glass reference style); nil lets the system decide.
         window.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
 
-        // Semi-transparent dark glass: real vibrancy (behindWindow) + a dark
-        // overlay at ~85% opaque. Content stays readable, the wallpaper still
-        // ghosts through — the reference panel look. (0.42 washed out; a fully
-        // opaque base killed the glass entirely.)
+        // Semi-transparent dark glass: vibrancy + dark overlay (~85% opaque).
         effectView.material = .hudWindow
         effectView.blendingMode = .behindWindow
         effectView.state = .active
         let overlay = NSView()
         overlay.wantsLayer = true
         overlay.layer?.backgroundColor = NSColor(srgbRed: 16/255, green: 17/255, blue: 19/255, alpha: 0.85).cgColor
-        // Liquid-glass specular arc across the window top (radial white falloff).
         let arc = CAGradientLayer()
         arc.colors = [
             NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.09).cgColor,
@@ -51,7 +44,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         arc.frame = NSRect(x: 0, y: 0, width: 1100, height: 220)
         overlay.layer?.addSublayer(arc)
 
-        // WKWebView tuned for a launcher-style surface.
         let config = WKWebViewConfiguration()
         config.userContentController = WKUserContentController()
         let wv = WKWebView(frame: .zero, configuration: config)
@@ -59,15 +51,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         wv.underPageBackgroundColor = .clear
         wv.allowsMagnification = false
         wv.isInspectable = true
-        // prefers-color-scheme follows the web view's own appearance, not the
-        // window's; pin it so the SPA always renders the dark glass palette.
         wv.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
         webView = wv
 
         super.init(window: window)
 
-        // Frame-based fullbleed layout (robust across window resize / autosave
-        // restore; constraint re-layout was hanging behind some frames).
         window.contentView = effectView
         overlay.frame = effectView.bounds
         overlay.autoresizingMask = [.width, .height]
@@ -86,7 +74,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     // MARK: - URL
 
     func load(url: URL) {
-        pendingURL = nil
         applyTheme()
         webView.load(URLRequest(url: url))
     }
@@ -94,7 +81,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     func setTheme(_ enabled: Bool) {
         themeEnabled = enabled
         applyTheme()
-        // The official UI reads `prefers-color-scheme`; on = dark glass.
         window?.appearance = enabled ? NSAppearance(named: .darkAqua) : nil
         if let url = webView.url {
             webView.load(URLRequest(url: url))
@@ -130,7 +116,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        // Wait one runloop turn; WebKit had a frame to draw while alpha = 0.
         DispatchQueue.main.async {
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.12
@@ -138,7 +123,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
             }
         }
     }
-
 
     func hidePanel() {
         guard let window, window.isVisible else { return }
@@ -151,7 +135,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         })
     }
 
-
     // MARK: - NSWindowDelegate
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
@@ -163,13 +146,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         EngineLog.shared.append("[web] didFinish \(webView.url?.absoluteString ?? "")")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
-            webView.evaluateJavaScript(
-                "(() => { const el = document.querySelector('.window-top'); const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); const app = document.querySelector('.app'); return JSON.stringify({pos: cs.position, top: cs.top, left: cs.left, rect: {x: Math.round(r.x), y: Math.round(r.y)}, appPos: getComputedStyle(app).position, appTop: getComputedStyle(app).top, innerH: window.innerHeight}); })()"
-            ) { result, error in
-                EngineLog.shared.append("[row] \(result ?? error?.localizedDescription ?? "nil")")
-            }
-        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

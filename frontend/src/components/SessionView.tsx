@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Hammer, ShieldCheck, X } from "lucide-react";
+import { ModelMenu, type ModelOption } from "./ModelMenu";
 import { api } from "../api";
 import { useStore } from "../store";
 import { Composer } from "./Composer";
@@ -22,6 +23,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [items, setItems] = useState<RenderItem[]>([]);
   const [streaming, setStreaming] = useState("");
   const [modelName, setModelName] = useState("");
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [showModels, setShowModels] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
   const summary = sessions.find((s) => s.sessionId === sessionId);
@@ -34,7 +37,25 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       .sessionModels({ sessionId })
       .then((r) => setModelName(r.current?.model ?? ""))
       .catch(() => void 0);
+    api
+      .llmModels()
+      .then((r: any) => {
+        const flat: ModelOption[] = [];
+        for (const g of r?.groups ?? []) for (const m of g?.models ?? []) {
+          flat.push({ provider: g.id, model: m.id, label: m.name ?? m.id, providerLabel: g.name ?? g.id });
+        }
+        setModels(flat);
+      })
+      .catch(() => void 0);
   }, [sessionId]);
+
+  const pickModel = async (m: ModelOption) => {
+    setShowModels(false);
+    setModelName(m.label);
+    try {
+      await api.selectModel({ sessionId, provider: m.provider, model: m.model });
+    } catch { /* engine may be busy */ }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -86,7 +107,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       <div className="session-header">
         <div className="left">
           <div className="title">{title}</div>
-          <div className="model">{modelName}</div>
+          <button className="model" title="更换模型" onClick={() => setShowModels((v) => !v)}>
+            {modelName || "Auto"}
+          </button>
+          {showModels && (
+            <ModelMenu
+              options={models}
+              current={modelName}
+              onPick={(m) => void pickModel(m)}
+              onClose={() => setShowModels(false)}
+            />
+          )}
         </div>
       </div>
       <div className="flow" ref={scrollRef} onScroll={() => setFollow(false)}>
