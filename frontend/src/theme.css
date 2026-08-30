@@ -448,14 +448,6 @@ button {
   mask-composite: exclude;
   pointer-events: none;
 }
-.composer-inner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(140% 90% at 50% -40%, rgba(255,255,255,.06), transparent 60%);
-  pointer-events: none;
-}
 .composer-inner:focus-within { border-color: rgba(255,255,255,.14); }
 .bar-btn {
   flex-shrink: 0;
@@ -682,6 +674,9 @@ button {
 .flow-inner { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
 
 .msg, .flow, .flow-inner, .md, .md * { background: transparent !important; }
+.flow *::before, .flow *::after,
+.msg *::before, .msg *::after,
+.hero *::before, .hero *::after { background: transparent !important; background-image: none !important; }
 .msg { display: flex; flex-direction: column; gap: 4px; }
 .flow *, .msg * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 .msg.user .bubble { backdrop-filter: none !important; }
