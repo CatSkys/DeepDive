@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Command } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { api } from "./api";
 import { StoreProvider, useStore } from "./store";
 import { Sidebar } from "./components/Sidebar";
@@ -22,12 +22,21 @@ function Shell() {
   }, []);
   return (
     <div className="app">
-      <Sidebar />
+      {!store.sidebarCollapsed && <Sidebar />}
       <main className="main">
         {active ? (
           <SessionView sessionId={active} />
         ) : (
           <div className="hero">
+            <div className="hero-top">
+              <div className="left">
+                <div className="title">新会话</div>
+                <div className="model">{modelName}</div>
+              </div>
+              <button className="right" title="面板" onClick={() => store.toggleSidebar()}>
+                <PanelLeft size={18} />
+              </button>
+            </div>
             <div className="hero-title">做点什么？</div>
             <div className="hero-sub">用 DeepSeek 智能体开始任何工作。</div>
             <div className="hero-composer">

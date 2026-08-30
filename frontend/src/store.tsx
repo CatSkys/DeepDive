@@ -18,6 +18,8 @@ interface Store {
   openSession: (id: string | null) => void;
   createSession: (presetId?: string) => Promise<string | null>;
   forceRefreshSessions: () => Promise<void>;
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
   subscribeMux: (handler: MuxHandler) => () => void;
 }
 
@@ -31,6 +33,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<Map<string, ApprovalRequestFrame & { sessionId: string }>>(new Map());
   const [muxHandlers] = useState<Set<MuxHandler>>(new Set());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const refresh = async () => {
     try {
@@ -116,12 +119,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       openSession: setActiveSessionId,
       createSession,
       forceRefreshSessions,
+      sidebarCollapsed,
+      toggleSidebar: () => setSidebarCollapsed((v) => !v),
       subscribeMux: (h) => {
         muxHandlers.add(h);
         return () => muxHandlers.delete(h);
       },
     }),
-    [workspaces, sessions, engineUp, activeSessionId, approvals]
+    [workspaces, sessions, engineUp, activeSessionId, approvals, sidebarCollapsed]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

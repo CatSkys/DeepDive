@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Settings, Plus, Pencil, Sparkles, Code, Gem, NotebookPen, Cpu } from "lucide-react";
+import { Search, Settings, Plus, PanelLeft, Sparkles, Code, Gem, NotebookPen, Cpu } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import type { SessionSummary } from "../types";
@@ -34,7 +34,6 @@ export function Sidebar() {
   const store = useStore();
   const [query, setQuery] = useState("");
   const [presets, setPresets] = useState<Array<{ id: string; name: string }>>([]);
-  const wsTitle = store.workspaces[0]?.title ?? "No Workspace";
 
   useEffect(() => {
     api
@@ -58,10 +57,12 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-title-row">
-        <span className="sidebar-title">{wsTitle}</span>
-        <button className="title-edit" title="重命名">
-          <Pencil size={14} />
+      <div className="sidebar-top-actions">
+        <button className="top-icon-btn" title="新会话" onClick={() => void store.createSession()}>
+          <Plus size={15} />
+        </button>
+        <button className="top-icon-btn" title="边栏收起" onClick={() => store.toggleSidebar()}>
+          <PanelLeft size={15} />
         </button>
       </div>
       <button className="new-session" onClick={() => void store.createSession()}>

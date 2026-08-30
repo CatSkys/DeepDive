@@ -105,13 +105,30 @@ button {
 
 .app { display: flex; height: 100%; }
 
+.sidebar-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 2px;
+}
+.top-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: rgba(255,255,255,.55);
+}
+.top-icon-btn:hover { background: rgba(255,255,255,.08); color: rgba(255,255,255,.9); }
+
 .sidebar {
   width: 240px;
   min-width: 200px;
   max-width: 320px;
   display: flex;
   flex-direction: column;
-  padding: 12px 10px;
+  padding: 46px 10px 12px;
   gap: 8px;
   background:
     linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015) 30%, rgba(255,255,255,.02));
@@ -227,30 +244,41 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 48px;
+  padding: 0 32px;
 }
 .hero-title {
   margin-top: 33vh;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 600;
   letter-spacing: .01em;
   color: #FFFFFF;
 }
 .hero-sub {
-  margin-top: 10px;
-  max-width: 560px;
+  margin-top: 14px;
+  max-width: 640px;
   text-align: center;
-  font-size: 12.5px;
-  line-height: 18px;
+  font-size: 13.5px;
+  line-height: 21px;
   color: rgba(255,255,255,.78);
 }
+.hero-top {
+  display: flex;
+  align-items: flex-start;
+  padding: 64px 40px 0 72px;
+  width: 100%;
+}
+.hero-top .left { flex: 1; }
+.hero-top .title { font-size: 14px; font-weight: 600; color: rgba(255,255,255,.96); }
+.hero-top .model { font-size: 12px; color: rgba(255,255,255,.55); margin-top: 3px; }
+.hero-top .right { color: rgba(255,255,255,.50); }
+
 .hero-composer {
   margin-top: auto;
-  width: min(680px, 100%);
-  margin-bottom: 9vh;
+  width: min(1080px, calc(100% - 64px));
+  margin-bottom: 28px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
 }
 
 /* Reference look: the bar reads DARKER than the panel — near-black glass
@@ -268,7 +296,7 @@ button {
   flex: 1;
   display: flex;
   align-items: center;
-  height: 52px;
+  height: 54px;
   padding: 0 18px;
   border-radius: 14px;
   background: rgba(0,0,0,.52);
