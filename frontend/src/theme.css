@@ -642,6 +642,7 @@ button {
 
 /* ---------- session view ---------- */
 
+.session { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .session-header {
   display: flex;
   align-items: flex-start;
@@ -672,6 +673,37 @@ button {
   margin: 0 auto 24px;
   width: min(1080px, calc(100% - 64px));
 }
+/* soft falloff: the message flow dissolves into the input area — a gradient
+   overlay, not a hard bar cut (reference: record/riff effect). */
+.flow-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 96px;
+  height: 72px;
+  background: linear-gradient(to bottom, rgba(18,19,22,0), rgba(18,19,22,.96));
+  pointer-events: none;
+  z-index: 30;
+}
+.jump-down {
+  position: absolute;
+  right: 26px;
+  bottom: 104px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.18);
+  color: rgba(255,255,255,.95);
+  box-shadow: 0 10px 26px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.14);
+  z-index: 31;
+  animation: fadein 160ms ease;
+}
+.jump-down:hover { background: rgba(255,255,255,.20); }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
 
 .flow { flex: 1; overflow-y: auto; padding: 0 40px 16px; }
 .flow-inner { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }

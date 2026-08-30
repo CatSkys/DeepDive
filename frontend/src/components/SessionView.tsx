@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Hammer, ShieldCheck, X } from "lucide-react";
+import { ArrowDown, ChevronDown, ChevronUp, Hammer, ShieldCheck, X } from "lucide-react";
 import { ModelMenu, type ModelOption } from "./ModelMenu";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -135,7 +135,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <>
+    <div className="session">
       <div className="session-header">
         <div className="left">
           <div className="title">{title}</div>
@@ -152,7 +152,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           )}
         </div>
       </div>
-      <div className="flow" ref={scrollRef} onScroll={() => setFollow(false)}>
+      <div className="flow" ref={scrollRef} onScroll={(e) => {
+        const el = e.currentTarget;
+        setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
+      }}>
         <div className="flow-inner">
           {items.map((item) => (
             <Item key={item.key} item={item} />
@@ -167,10 +170,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           ))}
         </div>
       </div>
+      <div className="flow-fade" />
+      {!follow && (
+        <button
+          className="jump-down"
+          title="回到最新"
+          onClick={() => {
+            scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+            setFollow(true);
+          }}
+        >
+          <ArrowDown size={16} />
+        </button>
+      )}
       <div className="session-bottom">
         <Composer sessionId={sessionId} />
       </div>
-    </>
+    </div>
   );
 }
 
