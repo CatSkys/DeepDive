@@ -14,6 +14,7 @@ xcodebuild -project apps/macos/DSHmini.xcodeproj -scheme DSHmini \
 APP=.build/release/Build/Products/Release/DSHmini.app
 test -d "$APP" || { echo "build failed"; exit 1; }
 
+sh scripts/embed-web.sh "$APP"
 codesign --force -s - "$APP" >/dev/null 2>&1 || true
 
 mkdir -p dist

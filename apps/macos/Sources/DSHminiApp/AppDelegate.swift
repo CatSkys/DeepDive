@@ -15,6 +15,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         adjustOcclusionDetection()
         config = AppConfig.load()
 
+        // Same-origin bridge seat: serves the self-built SPA and relays /api.
+        try? FileManager.default.createDirectory(
+            at: AppPaths.supportDir, withIntermediateDirectories: true
+        )
+        BridgeServer.shared.configure(webRoot: webRoot())
+        _ = BridgeServer.shared.start()
+
         supervisor = EngineSupervisor(home: AppPaths.harnessHome, workspace: config.workspaceURL)
         windowController = MainWindowController(themeEnabled: config.themeEnabled)
         recovery = RecoveryWindowController()
@@ -57,6 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         supervisor.start()
+
+        // Load the bridge (SPA shows "引擎启动中" until the engine is up).
+        if let bridgeURL = BridgeServer.shared.url {
+            windowController.load(url: bridgeURL)
+        }
 
         // Second launch of the same app: bring the existing window forward.
         DistributedNotificationCenter.default().addObserver(
@@ -120,13 +132,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch state {
         case .ready(let url):
             recovery.hide()
-            windowController.load(url: url)
+            BridgeServer.shared.setEngine(url)
+            // The SPA may have loaded while the engine was still booting
+            // (bridge answers 503); reload now that the upstream is live.
+            if let bridgeURL = BridgeServer.shared.url {
+                windowController.load(url: bridgeURL)
+            }
         case .failed(let reason):
             statusItem.setState(state)
             recovery.show(reason: reason, log: EngineLog.shared.tailText)
         case .launching, .restarting, .idle:
             break
         }
+    }
+
+    private func webRoot() -> URL? {
+        if let env = ProcessInfo.processInfo.environment["DSHMINI_WEB_ROOT"] {
+            return URL(fileURLWithPath: env, isDirectory: true)
+        }
+        return Bundle.main.resourceURL?.appendingPathComponent("web", isDirectory: true)
     }
 
     // MARK: - workspace picker

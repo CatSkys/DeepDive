@@ -68,3 +68,45 @@
 | UI 结构扩展 | `dsh.client` 包 + `window.__DSH_BOOT__` 图 + Slots（`settings.general.item` 等） | P2 自建前端/组件时使用 |
 
 **主题升级（v1.1）**：`WebViewTheme.swift` 重写为 token 级黑白玻璃覆盖（surface/brand/buttons/status/scrollbar/selection/cursor），覆盖 40+ `--dsw-alias-*`；窗口 `darkAqua` 强制官方暗色；菜单栏「黑白主题」开关 = 完整开关（关=官方默认跟随系统）。截屏验证：全站暗玻璃、无彩色。
+
+## 7. 自建前端（用户拍板：不再使用官方布局，2026-08-30）
+
+**决策**：按 UI-SPEC（参考图基调）自建前端，舍弃官方布局；引擎与 API 协议全部复用。
+
+### 架构落地
+```
+WKWebView ── http://127.0.0.1:<bridgePort> ── 自建 SPA（Vite+React+Lucide 黑白玻璃）
+   │ BridgeServer（Swift，壳内进程）:
+   │   ├─ GET /、/assets/*  → 自建 SPA 静态（bundle Resources/web）
+   │   ├─ POST /api/<method> → 引擎 unary 代理（URLSession，无 Origin → 引擎信托放行）
+   │   └─ GET /api/events.mux (WebSocket upgrade) → TCP 盲中继（升级握手原样转发+双向泵）
+   └─ 数据面：官方 API Gateway（session.*/workspace.*/agentPreset.*/approval respond）
+```
+
+### 协议逆向成果（本机 rc.2 实测，均为一手代码依据）
+- **unary**：`POST /api/<method>` body `{type:"client-request", rpcId, method, payload}` → `{rpcId, result:{ok,value|error}}`（方法表：session.list/search/create/history/prompt/cancel/rename/fork/updateQueue、workspace.*、agentPreset.*、llm.*、settings.* 等 40+）
+- **mux 下行 = WebSocket**（非 SSE！rc.2 客户端为 readWebSocket；SSE 版在 master）：帧为 `server-request` wrapper（`payload.type ∈ session/event | session/subscribed | approval/requested | approval/resolved`）
+- **审批应答**：`POST /api/respond` body `{rpcId, result:{ok:true, value:{approvalId, outcome}}}`（outcome: allowed-once/rejected/cancelled/unavailable）
+- **会话自动标题**：`session.list` 行 `projections.values.title`（引擎 title provider 产物，直读直用）
+- **SSE→WS 差异是此前"帧抓不到"的根因；另修复盲泵共享缓冲 race**
+
+### 壳侧新增（本阶段）
+- `MiniHTTPServer.swift`：无依赖 POSIX HTTP/1.1 + 连接级解析（含 upgrade case）
+- `BridgeServer.swift`：静态/代理/WS 盲中继（升级头去 Origin、Host 改写引擎、101 原样回、双向字节泵）
+- `MainWindowController`：webView 强制 darkAqua + 窗口恒定近黑底层（14,14,16，玻璃感由页面自身 blur 承担）
+- 引擎 ready 后自动 reload 桥页面（修复首载 503 空白）
+
+### 前端
+- `frontend/`：Vite+React+TS+Lucide；`api.ts`（unary/respond/WS mux 重连）；`store.tsx`（工作区/会话/审批/事件流）；组件 Sidebar/Hero/Composer/SessionView（消息流/工具卡/审批卡）+ tokens.css（恒定暗色 pinned）
+- 截图验证：近黑玻璃窗口、側栏（工作区/新会话/搜索/Today 分组/自动标题/状态点）、hero「做点什么？」、玻璃 Composer、会话标题来自引擎
+
+### 验证矩阵（实测）
+- create/prompt → running；list 含新会话且 titles 由引擎生成 ✅
+- mux WS 经桥：101 握手 + subscribed 帧 435B 完整转发 ✅
+- 视觉：darkAqua + 深底 + 页面暗 token 全时生效 ✅
+
+### 已知限制（下一迭代）
+- 会话视图交互未端到端点击验证（UI 组件就绪；协议侧均已验证）
+- 标题截断/时间分组更细粒度（Last Week/April 版）待微调；菜单栏 popover 为原生占位
+- approval 应答 UI 已实现（respond 协议已验）；question 帧与工具卡文案精修待做
+- Master 分支 mux 移至 SSE + `?token=` cookie 认证——升级引擎时 Bridge 需同步（协议层适配点已在文档标注）

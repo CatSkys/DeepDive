@@ -29,10 +29,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // query (dark-glass reference style); nil lets the system decide.
         window.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
 
-        // Glass background behind a transparent web view.
+        // Constant near-black base under the transparent web view. The glass
+        // depth comes from the app's own translucent layers + backdrop blur
+        // (reference style); a fixed dark base keeps the look identical no
+        // matter what sits behind the window.
         effectView.material = .hudWindow
-        effectView.blendingMode = .behindWindow
+        effectView.blendingMode = .withinWindow
         effectView.state = .active
+        effectView.wantsLayer = true
+        effectView.layer?.backgroundColor = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 1.0).cgColor
 
         // WKWebView tuned for a launcher-style surface.
         let config = WKWebViewConfiguration()
@@ -42,6 +47,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         wv.underPageBackgroundColor = .clear
         wv.allowsMagnification = false
         wv.isInspectable = true
+        // prefers-color-scheme follows the web view's own appearance, not the
+        // window's; pin it so the SPA always renders the dark glass palette.
+        wv.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
         webView = wv
 
         super.init(window: window)
@@ -135,5 +143,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         hidePanel()
         return false
+    }
+
+    // MARK: - WKNavigationDelegate
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        EngineLog.shared.append("[web] didFinish \(webView.url?.absoluteString ?? "")")
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        EngineLog.shared.append("[web] didFail \(error.localizedDescription)")
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        EngineLog.shared.append("[web] provisionalFail \(error.localizedDescription)")
     }
 }
