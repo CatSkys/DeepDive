@@ -49,7 +49,11 @@ input, textarea, [contenteditable="true"] { cursor: text !important; font-family
   border: 2px solid transparent;
   background-clip: content-box;
 }
-::selection { background: rgba(255,255,255,.25); }
+::selection { background: rgba(255,255,255,.20); }
+/* Selection painting inside the message area renders as full-block rounded
+   slabs in WebKit — it accounts for the "cards" seen in screenshots. Keep
+   text selectable, silence the highlight. */
+.flow ::selection, .md ::selection, .agent-message ::selection { background: transparent; }
 
 button {
   border: none;
@@ -433,8 +437,8 @@ button {
   border: 1px solid rgba(255,255,255,.10);
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.08),
-    inset 0 -1px 1px rgba(0,0,0,.20),
-    0 10px 28px rgba(0,0,0,.25);
+    inset 0 -1px 1px rgba(0,0,0,.18),
+    0 8px 20px rgba(0,0,0,.18);
   backdrop-filter: blur(24px) saturate(150%);
 }
 .composer-inner::before {
@@ -679,9 +683,9 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 96px;
-  height: 72px;
-  background: linear-gradient(to bottom, rgba(18,19,22,0), rgba(18,19,22,.96));
+  bottom: 92px;
+  height: 44px;
+  background: linear-gradient(to bottom, rgba(18,19,22,0), rgba(18,19,22,.82));
   pointer-events: none;
   z-index: 30;
 }
@@ -706,7 +710,7 @@ button {
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
 
 .flow { flex: 1; overflow-y: auto; padding: 0 40px 16px; }
-.flow-inner { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.flow-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
 
 .flow, .flow-inner, .md, .md *, .agent-message, .agent-message * { background: transparent !important; }
 /* Composition isolation: any compositor-level halo is confined to the flow. */
@@ -718,8 +722,8 @@ button {
 .user-bubble {
   align-self: flex-end;
   max-width: 62%;
-  padding: 7px 13px;
-  border-radius: 14px;
+  padding: 7px 14px;
+  border-radius: 20px;
   background: rgba(255,255,255,.07);
   border: 1px solid rgba(255,255,255,.10);
   box-shadow: inset 0 1px 1px rgba(255,255,255,.08);
