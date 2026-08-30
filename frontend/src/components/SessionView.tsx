@@ -176,19 +176,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
 function Item({ item }: { item: RenderItem }) {
   if (item.kind === "user") {
-    return (
-      <div className="msg user">
-        <div className="bubble">{textOf(item.event)}</div>
-      </div>
-    );
+    return <UserBubble text={textOf(item.event)} />;
   }
   if (item.kind === "assistant") {
     const t = textOf(item.event);
-    return t ? (
-      <div className="msg assistant">
-        <Markdown text={t} />
-      </div>
-    ) : null;
+    return t ? <AgentMessage text={t} /> : null;
   }
   if (item.kind === "tool-call" || item.kind === "tool-result") {
     return <ToolCardItem item={item} />;
@@ -199,6 +191,22 @@ function Item({ item }: { item: RenderItem }) {
     ) : null;
   }
   return null;
+}
+
+/// User message: down-scaled bubble (deliberately quiet, weak layer).
+function UserBubble({ text }: { text: string }) {
+  return (
+    <div className="user-bubble">{text}</div>
+  );
+}
+
+/// Agent reply: pure text — NO bubble, NO element background (design rule).
+function AgentMessage({ text }: { text: string }) {
+  return (
+    <div className="agent-message">
+      <Markdown text={text} />
+    </div>
+  );
 }
 
 function ToolCardItem({ item }: { item: RenderItem }) {
