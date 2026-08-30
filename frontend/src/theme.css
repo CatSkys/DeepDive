@@ -7,22 +7,22 @@
 :root {
   color-scheme: dark;
   /* Dark-glass palette pinned: the shell forces dark on window + web view. */
-  --dsh-text-primary: #F2F2F3;
-  --dsh-text-secondary: #9E9EA3;
-  --dsh-text-tertiary: #6E6E73;
-  --dsh-text-disabled: #454548;
-  --dsh-surface-panel: rgba(14,14,16,.42);
-  --dsh-surface-raised: rgba(34,34,38,.55);
+  --dsh-text-primary: #F5F5F6;
+  --dsh-text-secondary: #C2C2C7;
+  --dsh-text-tertiary: #8A8A90;
+  --dsh-text-disabled: #55555A;
+  --dsh-surface-panel: rgba(26,27,30,1);
+  --dsh-surface-raised: rgba(255,255,255,.06);
   --dsh-surface-input: rgba(255,255,255,.05);
-  --dsh-surface-selected: rgba(255,255,255,.12);
-  --dsh-surface-inverted: #F2F2F3;
-  --dsh-border-default: rgba(255,255,255,.09);
-  --dsh-border-strong: rgba(255,255,255,.16);
-  --dsh-status-running: #D8D8DC;
-  --dsh-status-waiting: #F2F2F3;
-  --dsh-status-failed: #E4E4E8;
-  --dsh-status-done: #9E9EA3;
-  --dsh-shadow-floating: 0 16px 48px rgba(0,0,0,.50);
+  --dsh-surface-selected: rgba(255,255,255,.13);
+  --dsh-surface-inverted: #FFFFFF;
+  --dsh-border-default: rgba(255,255,255,.10);
+  --dsh-border-strong: rgba(255,255,255,.18);
+  --dsh-status-running: #E4E4E8;
+  --dsh-status-waiting: #FFFFFF;
+  --dsh-status-failed: #F0F0F4;
+  --dsh-status-done: #A8A8AE;
+  --dsh-shadow-floating: 0 16px 48px rgba(0,0,0,.30);
 }
 
 html, body, #root {
@@ -98,10 +98,10 @@ button {
   gap: 8px;
   height: 32px;
   border-radius: var(--dsh-radius-input);
-  background: rgba(255,255,255,.08);
+  background: rgba(255,255,255,.09);
   font-size: 12.5px;
   font-weight: 500;
-  color: var(--dsh-text-primary);
+  color: #FFFFFF;
 }
 .new-session:active { opacity: .8; }
 
@@ -129,7 +129,7 @@ button {
 
 .section-label {
   font-size: 11.5px;
-  color: var(--dsh-text-tertiary);
+  color: rgba(255,255,255,.45);
   padding: 12px 9px 4px;
   font-weight: 500;
 }
@@ -141,7 +141,7 @@ button {
   height: 28px;
   padding: 0 9px;
   border-radius: 9px;
-  color: var(--dsh-text-secondary);
+  color: rgba(255,255,255,.88);
   font-size: 12.5px;
   overflow: hidden;
 }
@@ -154,7 +154,7 @@ button {
   gap: 8px;
   height: 28px;
   padding: 0 9px;
-  color: var(--dsh-text-tertiary);
+  color: rgba(255,255,255,.55);
   font-size: 12px;
 }
 
@@ -170,11 +170,11 @@ button {
   padding: 0 48px;
 }
 .hero-title {
-  margin-top: 36vh;
-  font-size: 22px;
+  margin-top: 33vh;
+  font-size: 24px;
   font-weight: 600;
   letter-spacing: .01em;
-  color: var(--dsh-text-primary);
+  color: #FFFFFF;
 }
 .hero-sub {
   margin-top: 10px;
@@ -182,8 +182,19 @@ button {
   text-align: center;
   font-size: 12.5px;
   line-height: 18px;
-  color: rgba(255,255,255,.62);
+  color: rgba(255,255,255,.78);
 }
+.hero-top {
+  display: flex;
+  align-items: flex-start;
+  padding: 58px 60px 0 74px;
+  width: 100%;
+}
+.hero-top .left { flex: 1; }
+.hero-top .title { font-size: 14px; font-weight: 600; color: #FFFFFF; }
+.hero-top .model { font-size: 12px; color: rgba(255,255,255,.55); margin-top: 3px; }
+.hero-top .right { color: rgba(255,255,255,.45); }
+
 .hero-composer {
   margin-top: auto;
   width: min(680px, 100%);
@@ -193,47 +204,44 @@ button {
   gap: 14px;
 }
 
-/* Reference look: dark glass bar at the panel bottom (position from the
-   Raycast panel; material from the Ask Anything reference — not a light bar). */
+/* Reference look: white input bar + dark round buttons on the graphite panel. */
 .composer {
   flex: 1;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 16px;
+  padding: 0 18px;
   height: 46px;
   border-radius: 14px;
-  background: rgba(255,255,255,.07);
-  border: 1px solid rgba(255,255,255,.14);
-  box-shadow: 0 12px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.07);
-  backdrop-filter: blur(24px) saturate(150%);
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 14px 36px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.2);
 }
-.composer:focus-within { border-color: rgba(255,255,255,.22); }
+.composer:focus-within { background: #FFFFFF; }
 .composer textarea {
   flex: 1;
   background: transparent;
   border: none;
   outline: none;
   resize: none;
-  color: var(--dsh-text-primary);
+  color: #1E1F22;
   font-size: 14px;
   line-height: 20px;
   min-height: 22px;
   max-height: 160px;
 }
-.composer textarea::placeholder { color: var(--dsh-text-tertiary); }
+.composer textarea::placeholder { color: #8E8E93; }
 
 .round-btn {
   flex-shrink: 0;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255,255,255,.09);
-  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(18,19,21,.96);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--dsh-text-secondary);
+  color: rgba(255,255,255,.95);
+  box-shadow: 0 8px 20px rgba(0,0,0,.35);
 }
 .round-btn:disabled { opacity: .35; }
 .send-btn {
@@ -244,11 +252,11 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,.09);
-  border: 1px solid rgba(255,255,255,.12);
-  color: var(--dsh-text-primary);
+  background: rgba(18,19,21,.96);
+  color: rgba(255,255,255,.95);
+  box-shadow: 0 8px 20px rgba(0,0,0,.35);
 }
-.send-btn:disabled { opacity: .35; }
+.send-btn:disabled { opacity: .4; }
 
 /* ---------- session view ---------- */
 

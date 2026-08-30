@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { Command } from "lucide-react";
+import { api } from "./api";
 import { StoreProvider, useStore } from "./store";
 import { Sidebar } from "./components/Sidebar";
 import { Composer } from "./components/Composer";
@@ -7,6 +10,16 @@ import "./theme.css";
 function Shell() {
   const store = useStore();
   const active = store.activeSessionId;
+  const [modelName, setModelName] = useState("DeepSeek");
+  useEffect(() => {
+    api
+      .llmModels()
+      .then((r: any) => {
+        const first = r?.groups?.[0]?.models?.[0]?.name;
+        if (first) setModelName(first);
+      })
+      .catch(() => void 0);
+  }, []);
   return (
     <div className="app">
       <Sidebar />
@@ -15,6 +28,15 @@ function Shell() {
           <SessionView sessionId={active} />
         ) : (
           <div className="hero">
+            <div className="hero-top">
+              <div className="left">
+                <div className="title">新会话</div>
+                <div className="model">{modelName}</div>
+              </div>
+              <button className="right" title="命令">
+                <Command size={18} />
+              </button>
+            </div>
             <div className="hero-title">做点什么？</div>
             <div className="hero-sub">用 DeepSeek 智能体开始任何工作。</div>
             <div className="hero-composer">

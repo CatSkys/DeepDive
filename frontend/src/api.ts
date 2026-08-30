@@ -46,6 +46,7 @@ export const api = {
   search: (payload: { query: string }) => unary("session.search", payload),
   answerApproval: (value: { approvalId: string; outcome: "allowed-once" | "rejected" }) =>
     respond({ type: "client-response", rpcId: crypto.randomUUID(), result: { ok: true, value } }),
+  llmModels: () => unary<{ groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }> }>("llm.models", {}),
   openMux: (onFrame: (frame: MuxFrame) => void, onOpen: () => void) => openMux(onFrame, onOpen),
 };
 
