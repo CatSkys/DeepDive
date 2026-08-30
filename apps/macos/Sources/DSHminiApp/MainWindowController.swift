@@ -25,6 +25,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 900, height: 560)
         window.setFrameAutosaveName("DSHminiMain")
+        // Forces the official web UI's `prefers-color-scheme: dark` media
+        // query (dark-glass reference style); nil lets the system decide.
+        window.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
 
         // Glass background behind a transparent web view.
         effectView.material = .hudWindow
@@ -71,6 +74,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     func setTheme(_ enabled: Bool) {
         themeEnabled = enabled
         applyTheme()
+        // The official UI reads `prefers-color-scheme`; on = dark glass.
+        window?.appearance = enabled ? NSAppearance(named: .darkAqua) : nil
         if let url = webView.url {
             webView.load(URLRequest(url: url))
         }

@@ -20,6 +20,8 @@ enum AppPaths {
 /// Minimal shell configuration (v1).
 struct AppConfig: Codable {
     var hotkey: String = "option+space"
+    /// Monochrome dark-glass theme (CSS token overrides + forced dark
+    /// appearance). Off = stock official UI following the system.
     var themeEnabled: Bool = true
     var launchWorkspace: String?
     var openAtLogin: Bool = false

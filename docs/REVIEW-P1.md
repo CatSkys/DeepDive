@@ -1,6 +1,7 @@
 # P1 实施评审（对照 docs/PLAN-P1.md）
 
 > 评审日期：2026-08-30 · 结论：**计划全部实现，附偏差与遗留说明**
+> v1.1 追加：官方 UI 自定义机制调研 + 黑白玻璃主题升级（见 §6）
 
 ## 1. 范围对照（PLAN §2）
 
@@ -51,3 +52,19 @@
 - 主题覆盖目前为"透明底 + 无 pointer 光标 + 中性滚动条/选区"最小集；官方 UI 的明暗跟随系统（不强制暗色），深色玻璃观感在暗色系统下最佳。
 - Sparkle 自动更新、公证分发、Windows 外壳、bundled Node 运行时。
 - UI-SPEC §2 组件库与 §3 参考图布局（P2 自建前端时落地）。
+
+## 6. 官方 UI 自定义机制调研（v1.1，主题升级依据）
+
+**结论：官方 web 前端本身就是一个可组合的 Cordis 浏览器插件系统，UI 自定义是一等能力，且拥有完整主题体系。**
+
+官方机制（`docs/subsystems/slots.md` / `packages/client/ui-theme/README.md` / 本地包源码核对）：
+
+| 能力 | 官方路径 | v1 采用 |
+|---|---|---|
+| 明暗主题 | 设置内 light/dark/**system**，持久化 `$DSH_HOME/settings.yaml`（`ui-theme` namespace）；`system` 解析 `prefers-color-scheme` | 窗口强制 `darkAqua` → 官方自带暗色主题自动启用（无 hack） |
+| 颜色体系 | `--dsw-*` 静态尺 + `--dsw-alias-*` 语义别名（token sheets 是唯一色权） | **覆盖同名 alias 令牌**（品牌蓝→白/黑、状态色→灰阶、表面→半透明暗玻璃），与官方 `overrideTokens` 物理等价 |
+| 第三方主题 | `ctx.theme.register(definition)`（主题 id + alias 覆盖对，可成为设置中的外观选项） | P2 转正目标 |
+| Token 覆盖层 | `ctx.theme.overrideTokens(source, tokens)`（每个 token 必须 `{light,dark}` 对，seq 叠加） | CSS 注入同名覆盖（v1 载体差异；P2 改为 `dsh.client` 插件直调 `ctx.theme`，覆盖可进官方外观选择器） |
+| UI 结构扩展 | `dsh.client` 包 + `window.__DSH_BOOT__` 图 + Slots（`settings.general.item` 等） | P2 自建前端/组件时使用 |
+
+**主题升级（v1.1）**：`WebViewTheme.swift` 重写为 token 级黑白玻璃覆盖（surface/brand/buttons/status/scrollbar/selection/cursor），覆盖 40+ `--dsw-alias-*`；窗口 `darkAqua` 强制官方暗色；菜单栏「黑白主题」开关 = 完整开关（关=官方默认跟随系统）。截屏验证：全站暗玻璃、无彩色。
