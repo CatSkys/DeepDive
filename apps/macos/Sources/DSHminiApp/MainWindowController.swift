@@ -33,16 +33,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         let overlay = NSView()
         overlay.wantsLayer = true
         overlay.layer?.backgroundColor = NSColor(srgbRed: 16/255, green: 17/255, blue: 19/255, alpha: 0.85).cgColor
-        let arc = CAGradientLayer()
-        arc.colors = [
-            NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.09).cgColor,
-            NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.0).cgColor,
-        ]
-        arc.locations = [0.0, 0.28]
-        arc.startPoint = CGPoint(x: 0.5, y: 0)
-        arc.endPoint = CGPoint(x: 0.5, y: 1)
-        arc.frame = NSRect(x: 0, y: 0, width: 1100, height: 220)
-        overlay.layer?.addSublayer(arc)
 
         let config = WKWebViewConfiguration()
         config.userContentController = WKUserContentController()
@@ -146,6 +136,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         EngineLog.shared.append("[web] didFinish \(webView.url?.absoluteString ?? "")")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+            webView.evaluateJavaScript(
+                "(() => { const out = []; for (const el of document.querySelectorAll('.flow *')) { const cs = getComputedStyle(el); const bg = cs.backgroundImage + '|' + cs.backgroundColor; if (el.classList.length && (bg.includes('gradient') || (cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent'))) out.push(el.className + ' :: ' + bg.slice(0,90)); } return JSON.stringify(out.slice(0, 12)); })()"
+            ) { result, _ in
+                if let r = result { EngineLog.shared.append("[bg] \(r)") }
+            }
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

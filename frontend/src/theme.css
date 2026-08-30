@@ -688,6 +688,8 @@ button {
 .flow-inner { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
 
 .msg { display: flex; flex-direction: column; gap: 4px; }
+.flow *, .msg * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.msg.user .bubble { backdrop-filter: none !important; }
 .msg.user { align-items: flex-end; }
 .msg.user .bubble {
   max-width: 70%;

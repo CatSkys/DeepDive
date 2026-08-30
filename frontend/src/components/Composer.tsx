@@ -3,7 +3,6 @@ import {
   ArrowUp, Square, Plus, Command, Image as ImageIcon, Clipboard, Sparkles,
   Code, Gem, NotebookPen, Cpu,
 } from "lucide-react";
-import { useEffect } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
 
@@ -30,10 +29,9 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   const [presets, setPresets] = useState<Array<{ id: string; name: string }>>([]);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
-  useEffect(() => {}, [busy]);
   const rootRef = useRef<HTMLDivElement>(null);
   const store = useStore();
+  const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
   useEffect(() => {
     api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);

@@ -102,6 +102,38 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
 
+  const isBlank = !!summary?.blank;
+
+  if (isBlank) {
+    return (
+      <>
+        <div className="session-header">
+          <div className="left">
+            <div className="title">{title}</div>
+            <button className="model" title="更换模型" onClick={() => setShowModels((v) => !v)}>
+              {modelName || "Auto"}
+            </button>
+            {showModels && (
+              <ModelMenu
+                options={models}
+                current={modelName}
+                onPick={(m) => void pickModel(m)}
+                onClose={() => setShowModels(false)}
+              />
+            )}
+          </div>
+        </div>
+        <div className="hero">
+          <div className="hero-title">做点什么？</div>
+          <div className="hero-sub">用 DeepSeek 智能体开始任何工作。</div>
+          <div className="hero-composer">
+            <Composer sessionId={sessionId} />
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="session-header">
