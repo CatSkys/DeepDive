@@ -60,6 +60,47 @@ button {
   cursor: default;
 }
 
+
+/* ---------- liquid glass (Apple Tahoe-style, WebKit-safe layers) ---------- */
+
+.glass {
+  position: relative;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.085), rgba(255,255,255,.02) 45%, rgba(255,255,255,.05));
+  backdrop-filter: blur(32px) saturate(170%);
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.16),
+    inset 0 -1px 1px rgba(0,0,0,.28),
+    inset 0 0 0 .5px rgba(255,255,255,.05),
+    0 24px 60px rgba(0,0,0,.45),
+    0 4px 16px rgba(0,0,0,.25);
+}
+/* refraction edge: bright top-left -> dark bottom-right */
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(165deg,
+    rgba(255,255,255,.30), rgba(255,255,255,.07) 30%,
+    rgba(255,255,255,.02) 62%, rgba(0,0,0,.22) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+/* specular arc over the top edge */
+.glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(140% 70% at 50% -20%, rgba(255,255,255,.10), transparent 55%);
+  pointer-events: none;
+}
+
 /* ---------- layout ---------- */
 
 .app { display: flex; height: 100%; }
@@ -72,9 +113,11 @@ button {
   flex-direction: column;
   padding: 12px 10px;
   gap: 8px;
-  background: rgba(255,255,255,.025);
-  backdrop-filter: blur(24px);
-  border-right: 1px solid var(--dsh-border-default);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015) 30%, rgba(255,255,255,.02));
+  backdrop-filter: blur(28px) saturate(160%);
+  border-right: 1px solid rgba(255,255,255,.10);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,.03);
 }
 
 .sidebar-workspace {
@@ -214,12 +257,39 @@ button {
   padding: 0 16px;
   height: 46px;
   border-radius: 12px;
-  background: rgba(0,0,0,.52);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.05), rgba(255,255,255,.01) 45%, rgba(0,0,0,.10)),
+    rgba(0,0,0,.38);
   border: 1px solid rgba(255,255,255,.08);
-  box-shadow: 0 14px 36px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.05);
-  backdrop-filter: blur(20px);
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.14),
+    inset 0 -1px 1px rgba(0,0,0,.30),
+    0 14px 36px rgba(0,0,0,.30);
+  backdrop-filter: blur(24px) saturate(160%);
 }
-.composer:focus-within { border-color: rgba(255,255,255,.16); background: rgba(0,0,0,.58); }
+.composer:focus-within { border-color: rgba(255,255,255,.18); }
+.composer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(165deg,
+    rgba(255,255,255,.26), rgba(255,255,255,.06) 30%,
+    rgba(255,255,255,.02) 62%, rgba(0,0,0,.24) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.composer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 80% at 50% -30%, rgba(255,255,255,.07), transparent 60%);
+  pointer-events: none;
+}
 .composer textarea {
   flex: 1;
   background: transparent;
@@ -291,7 +361,8 @@ button {
   max-width: 80%;
   padding: 8px 12px;
   border-radius: var(--dsh-radius-input);
-  background: var(--dsh-surface-selected);
+  background: linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.12);
   font-size: 14px;
   line-height: 20px;
   white-space: pre-wrap;
@@ -309,10 +380,11 @@ button {
 }
 
 .tool-card {
-  border: 1px solid var(--dsh-border-default);
+  border: 1px solid rgba(255,255,255,.10);
   border-radius: var(--dsh-radius-card);
-  background: rgba(255,255,255,.035);
-  backdrop-filter: blur(16px);
+  background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.015));
+  backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.10), 0 10px 30px rgba(0,0,0,.25);
   overflow: hidden;
 }
 .tool-card.bad { border-color: rgba(255,255,255,.35); }
@@ -342,10 +414,11 @@ button {
 }
 
 .approval-card {
-  border: 1px solid rgba(255,255,255,.30);
+  border: 1px solid rgba(255,255,255,.22);
   border-radius: var(--dsh-radius-card);
-  background: rgba(255,255,255,.06);
-  backdrop-filter: blur(24px);
+  background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+  backdrop-filter: blur(24px) saturate(150%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.14), 0 12px 36px rgba(0,0,0,.30);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;

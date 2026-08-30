@@ -39,6 +39,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         let overlay = NSView()
         overlay.wantsLayer = true
         overlay.layer?.backgroundColor = NSColor(srgbRed: 16/255, green: 17/255, blue: 19/255, alpha: 0.85).cgColor
+        // Liquid-glass specular arc across the window top (radial white falloff).
+        let arc = CAGradientLayer()
+        arc.colors = [
+            NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.09).cgColor,
+            NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.0).cgColor,
+        ]
+        arc.locations = [0.0, 0.28]
+        arc.startPoint = CGPoint(x: 0.5, y: 0)
+        arc.endPoint = CGPoint(x: 0.5, y: 1)
+        arc.frame = NSRect(x: 0, y: 0, width: 1100, height: 220)
+        overlay.layer?.addSublayer(arc)
 
         // WKWebView tuned for a launcher-style surface.
         let config = WKWebViewConfiguration()
