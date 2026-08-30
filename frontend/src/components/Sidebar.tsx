@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Settings, Plus, PanelLeft, Sparkles, Code, Gem, NotebookPen, Cpu } from "lucide-react";
+import { Search, Settings, Sparkles, Code, Gem, NotebookPen, Cpu } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import type { SessionSummary } from "../types";
@@ -57,18 +57,6 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-top-actions">
-        <button className="top-icon-btn" title="新会话" onClick={() => void store.createSession()}>
-          <Plus size={15} />
-        </button>
-        <button className="top-icon-btn" title="边栏收起" onClick={() => store.toggleSidebar()}>
-          <PanelLeft size={15} />
-        </button>
-      </div>
-      <button className="new-session" onClick={() => void store.createSession()}>
-        <Plus size={14} />
-        新会话
-      </button>
       <div className="search-row">
         <Search size={14} />
         <input
@@ -98,10 +86,9 @@ export function Sidebar() {
             {items.map((s) => (
               <button
                 key={s.sessionId}
-                className={`task-row${s.sessionId === store.activeSessionId ? " selected" : ""}`}
+                className={`task-row${s.sessionId === store.activeSessionId ? " selected" : ""}${s.running ? " running" : ""}`}
                 onClick={() => store.openSession(s.sessionId)}
               >
-                <StatusDot s={s} />
                 <span className="title">{titleOf(s)}</span>
               </button>
             ))}

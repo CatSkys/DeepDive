@@ -101,21 +101,16 @@ button {
   pointer-events: none;
 }
 
-/* ---------- layout ---------- */
-
-.app { display: flex; height: 100%; }
-
-.sidebar-top-actions {
+/* window-top: persistent actions beside the traffic lights (never collapses) */
+.window-top {
+  position: absolute;
+  top: 8px;
+  left: 88px;
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
   gap: 4px;
-  height: 34px;
-  padding: 0 4px;
-  margin-top: -34px;
-  margin-bottom: 8px;
+  z-index: 60;
 }
-.top-icon-btn {
+.window-top-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -124,7 +119,11 @@ button {
   border-radius: 8px;
   color: rgba(255,255,255,.55);
 }
-.top-icon-btn:hover { background: rgba(255,255,255,.08); color: rgba(255,255,255,.9); }
+.window-top-btn:hover { background: rgba(255,255,255,.09); color: rgba(255,255,255,.92); }
+
+/* ---------- layout ---------- */
+
+.app { display: flex; height: 100%; }
 
 .sidebar {
   width: 240px;
@@ -132,7 +131,7 @@ button {
   max-width: 320px;
   display: flex;
   flex-direction: column;
-  padding: 38px 10px 12px;
+  padding: 40px 10px 12px;
   gap: 8px;
   background:
     linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015) 30%, rgba(255,255,255,.02));
@@ -219,14 +218,17 @@ button {
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 28px;
-  padding: 0 9px;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
   border-radius: 9px;
   color: rgba(255,255,255,.88);
   font-size: 12.5px;
   overflow: hidden;
 }
-.task-row.selected { background: var(--dsh-surface-selected); color: var(--dsh-text-primary); }
+.task-row:hover { background: rgba(255,255,255,.05); }
+.task-row.running .title { color: #FFFFFF; }
+.task-row.selected { background: rgba(255,255,255,.11); color: #FFFFFF; }
 .task-row .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .sidebar-foot {
@@ -348,6 +350,7 @@ button {
 .model-menu-row svg { color: rgba(255,255,255,.55); flex-shrink: 0; }
 .model-menu-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-menu-row .provider { font-size: 12px; color: rgba(255,255,255,.45); }
+.model-menu-row:hover { background: rgba(255,255,255,.05); }
 .model-menu-row.active { background: rgba(255,255,255,.10); color: #FFFFFF; }
 .model-menu-row.active svg { color: rgba(255,255,255,.90); }
 .model-menu-empty { padding: 16px; color: rgba(255,255,255,.45); font-size: 13px; text-align: center; }
@@ -546,6 +549,7 @@ button {
 }
 .action-row svg { color: rgba(255,255,255,.55); flex-shrink: 0; }
 .action-row .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action-row:hover { background: rgba(255,255,255,.05); }
 .action-row.active { background: rgba(255,255,255,.10); color: #FFFFFF; }
 .action-row.active svg { color: rgba(255,255,255,.85); }
 .action-search {
