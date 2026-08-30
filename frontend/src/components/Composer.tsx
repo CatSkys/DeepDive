@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUp, RotateCcw, Plus, Command, Image as ImageIcon, Clipboard, Sparkles,
-  Code, Gem, NotebookPen, Cpu, Monitor, LayoutGrid,
+  ArrowUp, Square, Plus, Command, Image as ImageIcon, Clipboard, Sparkles,
+  Code, Gem, NotebookPen, Cpu,
 } from "lucide-react";
+import { useEffect } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
 
@@ -29,6 +30,8 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   const [presets, setPresets] = useState<Array<{ id: string; name: string }>>([]);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
+  useEffect(() => {}, [busy]);
   const rootRef = useRef<HTMLDivElement>(null);
   const store = useStore();
 
@@ -178,6 +181,19 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
             />
           )}
         </div>
+        {running ? (
+          <button
+            className="send-btn stop"
+            title="停止"
+            onClick={() => sessionId && void api.cancel({ sessionId }).catch(() => void 0)}
+          >
+            <Square size={15} fill="currentColor" />
+          </button>
+        ) : text.trim() ? (
+          <button className="send-btn" title="发送" onClick={() => void submit()}>
+            <ArrowUp size={16} />
+          </button>
+        ) : null}
         <button className="bar-btn" title="命令" onClick={() => setMenu(menu === "command" ? null : "command")}>
           <Command size={17} />
         </button>
