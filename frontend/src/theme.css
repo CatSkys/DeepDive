@@ -108,8 +108,12 @@ button {
 .sidebar-top-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 4px;
-  padding: 0 2px;
+  height: 34px;
+  padding: 0 4px;
+  margin-top: -34px;
+  margin-bottom: 8px;
 }
 .top-icon-btn {
   display: flex;
@@ -128,7 +132,7 @@ button {
   max-width: 320px;
   display: flex;
   flex-direction: column;
-  padding: 46px 10px 12px;
+  padding: 38px 10px 12px;
   gap: 8px;
   background:
     linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015) 30%, rgba(255,255,255,.02));
@@ -264,7 +268,7 @@ button {
 .hero-top {
   display: flex;
   align-items: flex-start;
-  padding: 64px 40px 0 72px;
+  padding: 56px 20px 0 28px;
   width: 100%;
 }
 .hero-top .left { flex: 1; }
@@ -283,7 +287,7 @@ button {
 
 /* Reference look: the bar reads DARKER than the panel — near-black glass
    with a subtle edge, not a light bar. */
-.composer-wrap { position: relative; }
+.composer-wrap { position: relative; flex: 1; min-width: 0; }
 .composer {
   display: flex;
   align-items: center;
