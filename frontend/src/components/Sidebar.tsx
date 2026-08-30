@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Settings, Folder, Plus, Pencil } from "lucide-react";
+import { Search, Settings, Plus, Pencil, Sparkles, Code, Gem, NotebookPen, Cpu } from "lucide-react";
+import { api } from "../api";
 import { useStore } from "../store";
 import type { SessionSummary } from "../types";
+
+const presetIcons: Record<string, any> = {
+  standard: Sparkles,
+  code: Code,
+  minimal: Cpu,
+  cordis: NotebookPen,
+};
 
 function bucketLabel(updatedAt: number): string {
   const now = Date.now();
@@ -25,7 +33,15 @@ export function StatusDot({ s }: { s: SessionSummary }) {
 export function Sidebar() {
   const store = useStore();
   const [query, setQuery] = useState("");
+  const [presets, setPresets] = useState<Array<{ id: string; name: string }>>([]);
   const wsTitle = store.workspaces[0]?.title ?? "No Workspace";
+
+  useEffect(() => {
+    api
+      .agentPresets()
+      .then((r) => setPresets(r.items.slice(0, 3)))
+      .catch(() => void 0);
+  }, []);
 
   const groups = useMemo(() => {
     const list = query
@@ -42,12 +58,13 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-workspace">
-        <Folder size={14} />
-        <span className="ws-title">{wsTitle}</span>
-        <Pencil size={13} />
+      <div className="sidebar-title-row">
+        <span className="sidebar-title">{wsTitle}</span>
+        <button className="title-edit" title="重命名">
+          <Pencil size={14} />
+        </button>
       </div>
-      <button className="new-session" onClick={() => void store.createSession()}>
+      <button className="new-session" onClick={() => void store.createSession(p.id)}>
         <Plus size={14} />
         新会话
       </button>
@@ -59,6 +76,20 @@ export function Sidebar() {
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
+      {presets.length > 0 && (
+        <div>
+          <div className="section-label">Pinned</div>
+          {presets.map((p) => {
+            const Icon = presetIcons[p.id] ?? Sparkles;
+            return (
+              <button key={p.id} className="task-row pinned" onClick={() => void store.createSession(p.id)}>
+                <Icon size={14} />
+                <span className="title">{p.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="sessions">
         {groups.map(([label, items]) => (
           <div key={label}>

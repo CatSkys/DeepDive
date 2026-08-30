@@ -28,15 +28,6 @@ function Shell() {
           <SessionView sessionId={active} />
         ) : (
           <div className="hero">
-            <div className="hero-top">
-              <div className="left">
-                <div className="title">新会话</div>
-                <div className="model">{modelName}</div>
-              </div>
-              <button className="right" title="命令">
-                <Command size={18} />
-              </button>
-            </div>
             <div className="hero-title">做点什么？</div>
             <div className="hero-sub">用 DeepSeek 智能体开始任何工作。</div>
             <div className="hero-composer">

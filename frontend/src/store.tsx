@@ -16,7 +16,7 @@ interface Store {
   approvals: Map<string, ApprovalRequestFrame & { sessionId: string }>;
   refresh: () => Promise<void>;
   openSession: (id: string | null) => void;
-  createSession: () => Promise<string | null>;
+  createSession: (presetId?: string) => Promise<string | null>;
   forceRefreshSessions: () => Promise<void>;
   subscribeMux: (handler: MuxHandler) => () => void;
 }
@@ -93,10 +93,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     await forceRefreshSessions();
   };
 
-  const createSession = async () => {
+  const createSession = async (presetId?: string) => {
     const ws = workspaces[0];
     try {
-      const res = await api.createSession({ workspaceId: ws?.workspaceId });
+      const res = await api.createSession({ workspaceId: ws?.workspaceId, agentPreset: presetId });
       await forceRefreshSessions();
       setActiveSessionId(res.sessionId);
       return res.sessionId;

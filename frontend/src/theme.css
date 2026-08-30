@@ -120,43 +120,59 @@ button {
   box-shadow: inset -1px 0 0 rgba(255,255,255,.03);
 }
 
-.sidebar-workspace {
+.sidebar-title-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 9px;
-  border-radius: var(--dsh-radius-input);
-  background: var(--dsh-surface-input);
-  font-size: 12.5px;
-  color: var(--dsh-text-primary);
+  height: 34px;
+  padding: 0 6px 0 10px;
 }
-.sidebar-workspace svg { color: var(--dsh-text-secondary); }
-.sidebar-workspace .ws-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-title {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255,255,255,.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.title-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: rgba(255,255,255,.45);
+}
+.title-edit:hover { background: rgba(255,255,255,.08); color: rgba(255,255,255,.8); }
 
 .new-session {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 32px;
-  border-radius: var(--dsh-radius-input);
-  background: rgba(255,255,255,.09);
-  font-size: 12.5px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 18px rgba(0,0,0,.18);
+  font-size: 13px;
   font-weight: 500;
   color: #FFFFFF;
 }
+.new-session:active { opacity: .85; }
 .new-session:active { opacity: .8; }
 
 .search-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 30px;
-  padding: 0 9px;
-  border-radius: var(--dsh-radius-input);
-  background: var(--dsh-surface-input);
-  color: var(--dsh-text-tertiary);
+  height: 36px;
+  padding: 0 11px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.05);
+  color: rgba(255,255,255,.45);
 }
 .search-row input {
   flex: 1;
@@ -177,6 +193,7 @@ button {
   font-weight: 500;
 }
 
+.task-row.pinned svg { color: rgba(255,255,255,.55); }
 .task-row {
   display: flex;
   align-items: center;
@@ -227,17 +244,6 @@ button {
   line-height: 18px;
   color: rgba(255,255,255,.78);
 }
-.hero-top {
-  display: flex;
-  align-items: flex-start;
-  padding: 58px 60px 0 74px;
-  width: 100%;
-}
-.hero-top .left { flex: 1; }
-.hero-top .title { font-size: 14px; font-weight: 600; color: #FFFFFF; }
-.hero-top .model { font-size: 12px; color: rgba(255,255,255,.55); margin-top: 3px; }
-.hero-top .right { color: rgba(255,255,255,.45); }
-
 .hero-composer {
   margin-top: auto;
   width: min(680px, 100%);
