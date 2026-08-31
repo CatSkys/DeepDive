@@ -1150,6 +1150,35 @@ button {
 .meta-action.active { color: rgba(255,255,255,.92); }
 .meta-action[data-unavailable] { cursor: default; opacity: .4; }
 .meta-action[data-unavailable]:hover { background: transparent; color: rgba(255,255,255,.30); }
+
+/* ---- turn tail（DSH turn-tail 节点：产物行 + 复制/分支/时钟/统计） ----
+   独立于最后一条 assistant 文本，工具-only/中断轮次也保留 meta。
+   data-actions-reveal 复用上方规则：最新 turn 尾部 always 常驻，其余 hover。 */
+.turn-tail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.turn-tail .produced { margin-top: 12px; }
+.turn-tail .meta-actions { margin-top: 2px; }
+
+/* 分页：载入更早 + 首行锚点容器 */
+.load-older {
+  display: block;
+  width: 100%;
+  padding: 6px 0 14px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,.35);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  transition: color 120ms ease;
+}
+.load-older:hover { color: rgba(255,255,255,.75); }
+.load-older:disabled { color: rgba(255,255,255,.22); cursor: default; }
+.chat-anchor-row { position: relative; }
 .meta-clock {
   display: inline-flex;
   align-items: center;

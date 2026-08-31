@@ -42,7 +42,22 @@ final class EngineSupervisor {
     func start() {
         stopping = false
         guard process == nil else { return }
+        guard ensureCredentials() else { return }
         spawn()
+    }
+
+    /// The independent DSH_HOME must carry credentials for the engine to reach
+    /// the LLM. Missing `.credentials.yaml` makes every turn resolve an empty
+    /// assistant reply (silent). Fail loud instead of starting a dead engine.
+    private func ensureCredentials() -> Bool {
+        let creds = home.appendingPathComponent(".credentials.yaml")
+        let ok = FileManager.default.fileExists(atPath: creds.path)
+        if !ok {
+            log.append("[engine] MISSING credentials at \(creds.path) — 无法调用 LLM（每轮将空回复）。请将 ~/.dsh/.credentials.yaml 复制到 DSHmini 的 harness home。")
+            state = .failed(reason: "缺少 LLM 凭据：\(creds.path)\n\n请将 `~/.dsh/.credentials.yaml` 复制到 DSHmini 的 `\(home.path)`。")
+            return false
+        }
+        return true
     }
 
     func stop() {

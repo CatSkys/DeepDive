@@ -18,11 +18,21 @@ import {
   IconSearchOutline16,
   IconThinkOutline16,
 } from "./Icons";
-import type { HistoryEntry, SessionEvent } from "../types";
+import type {
+  AssistantMessageData,
+  ContentBlock,
+  ReasoningBlock,
+  StreamChunk,
+  TextBlock,
+  ToolCallData,
+  ToolResultData,
+  SessionEvent,
+  UserMessageData,
+} from "../types";
 
 interface RenderItem {
   key: string;
-  kind: "user" | "assistant" | "tool-call" | "approval" | "think" | "chunk";
+  kind: "user" | "assistant" | "tool-call" | "approval" | "think" | "chunk" | "turn-tail";
   event?: SessionEvent;
   toolName?: string;
   toolCallId?: string;
@@ -55,18 +65,27 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [modelName, setModelName] = useState("");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [showModels, setShowModels] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [earliestSeq, setEarliestSeq] = useState<number | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
+  const olderAnchorRef = useRef<HTMLElement | null>(null);
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary
     ? (summary.projections?.values?.title as string) || (summary.blank ? "新会话" : "会话")
     : "会话";
 
-  // Turn-level aggregations and produced-file lanes, keyed by seq scope.
-  // History replay + live mux share one pass, so the derivations are identical.
-  const turnTiming = useRef(new Map<number, { start?: number; end?: number; firstToken?: number }>());
-  const callOutputs = useRef(new Map<string, { output: string; failed: boolean }>());
-  const produced = useRef(new Map<number, string[]>());
+  // Turn-level aggregations + stable-id indexes, shared by the history replay
+  // and live mux passes so the derivations stay identical.
+  const ctx = useRef<IngestCtx>({
+    timing: new Map(),
+    outputs: new Map(),
+    produced: new Map(),
+    callIndex: new Map(),
+    turnText: new Map(),
+    turnTime: new Map(),
+  });
 
   useEffect(() => {
     api
@@ -75,7 +94,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       .catch(() => void 0);
     api
       .llmModels()
-      .then((r: any) => {
+      .then((r) => {
         const flat: ModelOption[] = [];
         for (const g of r?.groups ?? []) for (const m of g?.models ?? []) {
           flat.push({ provider: g.id, model: m.id, label: m.name ?? m.id, providerLabel: g.name ?? g.id });
@@ -93,25 +112,42 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     } catch { /* engine may be busy */ }
   };
 
+  // Full event log (ascending seq) backing this session. Most recent page is
+  // loaded from history; older pages are prepended on "载入更早". Every render
+  // rebuilds `items` from the whole log so ordering/dedup is deterministic —
+  // the official append-only log + derived UI model.
+  const eventLog = useRef<SessionEvent[]>([]);
+
+  /** Rebuild rendered items from the full asc event log + ctx. */
+  const rebuild = useMemo(() => (events: SessionEvent[]) => {
+    const rendered: RenderItem[] = [];
+    ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), turnText: new Map(), turnTime: new Map() };
+    for (const ev of events) {
+      ingest(rendered, { event: ev }, ctx.current);
+    }
+    finalizeTurns(rendered, ctx.current);
+    return rendered;
+  }, []);
+
   useEffect(() => {
     let alive = true;
     let seqFloor = -1;
-    turnTiming.current = new Map();
-    callOutputs.current = new Map();
-    produced.current = new Map();
+    eventLog.current = [];
+    ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), turnText: new Map(), turnTime: new Map() };
     setItems([]);
     setStreaming("");
+    setHasMore(false);
+    setEarliestSeq(undefined);
 
     api
-      .history({ sessionId })
-      .then(({ events }) => {
+      .history({ sessionId, maxMessages: 120 })
+      .then(({ events, hasMore: more }) => {
         if (!alive) return;
-        const rendered: RenderItem[] = [];
-        for (const entry of events) {
-          ingest(rendered, entry, turnTiming.current, callOutputs.current, produced.current);
-        }
-        finalizeTurns(rendered, turnTiming.current, callOutputs.current, produced.current);
-        setItems(rendered);
+        eventLog.current = events.map((e) => e.event);
+        setItems(rebuild(eventLog.current));
+        setHasMore(more);
+        const first = events[0];
+        if (first) setEarliestSeq(first.event.seq);
         const last = events[events.length - 1];
         if (last) seqFloor = last.event.seq + 1;
       })
@@ -121,7 +157,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     const tickPlan = () => {
       api.sessions().then((r) => {
         const s = (r.items ?? []).find((x) => x.sessionId === sessionId);
-        const planVal = (s?.projections as any)?.values?.plan as { active?: boolean; pending?: boolean } | undefined;
+        const planVal = s?.projections?.values?.plan as { active?: boolean; pending?: boolean } | undefined;
         if (planVal) {
           setPlan({ active: !!planVal.active, pending: !!planVal.pending });
         }
@@ -130,28 +166,34 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     tickPlan();
     const planIv = setInterval(tickPlan, 3000);
 
-    const off = subscribeMux((frame: any) => {
-      if (frame.type !== "session/event" || frame.sessionId !== sessionId) return;
-      const seq = frame.event?.seq ?? -1;
+    const off = subscribeMux((frame) => {
+      // MuxFrame's catch-all `{ type: string; [k: string]: unknown }` prevents
+      // clean narrowing, so pull the event out with an explicit guard.
+      if (frame.type !== "session/event") return;
+      const ev = (frame as { type: "session/event"; sessionId: string; event: SessionEvent }).event;
+      if (ev === undefined || (frame as { sessionId?: string }).sessionId !== sessionId) return;
+      const seq = ev.seq ?? -1;
       if (seq >= 0 && seq < seqFloor) return;
+      // Append to the log (asc seq) and rebuild. Overlap with history is safe:
+      // any already-present seq gets replaced by the identical event, and the
+      // rebuild sorts nothing — the log stays ascending.
       setItems((prev) => {
-        const next = prev.slice();
-        const before = next.length;
-        ingest(next, { event: frame.event }, turnTiming.current, callOutputs.current, produced.current);
-        const added = next.length > before;
-        if (frame.event?.type === "turn/end" || frame.event?.type === "assistant/message") {
-          finalizeTurns(next, turnTiming.current, callOutputs.current, produced.current);
+        const log = eventLog.current;
+        if (seq >= 0 && log.length && seq <= log[log.length - 1].seq) {
+          // duplicate/late frame: drop (log is strictly ascending)
+          return prev;
         }
-        return added || frame.event?.type === "turn/end" || frame.event?.type === "assistant/message" ? next : prev;
+        log.push(ev);
+        return rebuild(log);
       });
-      if (frame.event?.type === "turn/end" || frame.event?.type === "assistant/message") {
+      if (ev.type === "turn/end" || ev.type === "assistant/message") {
         setStreaming("");
       }
       // running state: turn/start → turn/end window (DSH TurnStatus)
-      if (frame.event?.type === "turn/start") {
+      if (ev.type === "turn/start") {
         setRunning(true);
-        setRunningSince(frame.event.time as number);
-      } else if (frame.event?.type === "turn/end") {
+        setRunningSince(ev.time);
+      } else if (ev.type === "turn/end") {
         setRunning(false);
         setRunningSince(undefined);
       }
@@ -171,6 +213,38 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [items, streaming, follow]);
+
+  const loadOlder = async () => {
+    if (loadingOlder) return;
+    const atSeq = earliestSeq;
+    if (atSeq === undefined) return;
+    setLoadingOlder(true);
+    try {
+      // Capture the scrollport position of the current first row so we can
+      // keep it visually pinned after older rows are prepended.
+      const el = olderAnchorRef.current;
+      const anchorTop = el ? el.getBoundingClientRect().top - scrollRef.current!.getBoundingClientRect().top : 0;
+      const { events, hasMore: more } = await api.history({ sessionId, atSeq, maxMessages: 120 });
+      eventLog.current = [...events.map((e) => e.event), ...eventLog.current];
+      setItems(rebuild(eventLog.current));
+      // After render, restore the anchor row to its captured offset.
+      requestAnimationFrame(() => {
+        const sc = scrollRef.current;
+        const a = olderAnchorRef.current;
+        if (sc && a) {
+          const delta = a.getBoundingClientRect().top - sc.getBoundingClientRect().top - anchorTop;
+          sc.scrollTop += delta;
+        }
+      });
+      setHasMore(more);
+      const first = events[0];
+      if (first) setEarliestSeq(first.event.seq);
+    } catch {
+      // engine may be busy; keep current state
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
 
@@ -248,22 +322,38 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
       }}>
         <div className="flow-inner">
+          {hasMore && (
+            <button
+              type="button"
+              className="load-older"
+              disabled={loadingOlder}
+              onClick={() => void loadOlder()}
+            >
+              {loadingOlder ? "加载中…" : "载入更早"}
+            </button>
+          )}
           {(() => {
-            // DSH data-actions-reveal gate: latest of each kind stays visible
-            // ('always'); every earlier row reveals on hover / focus-within.
+            // DSH data-actions-reveal gate: the latest user row and the latest
+            // turn tail hold 'always' (kept visible); earlier rows reveal on
+            // hover / focus-within.
             let lastUserIdx = -1;
             let lastTailIdx = -1;
             for (let i = 0; i < items.length; i++) {
               if (items[i].kind === "user") lastUserIdx = i;
-              if (items[i].kind === "assistant" && items[i].meta) lastTailIdx = i;
+              if (items[i].kind === "turn-tail") lastTailIdx = i;
             }
             return items.map((item, idx) => (
-              <Item
+              <div
                 key={item.key}
-                item={item}
-                latestUser={idx === lastUserIdx}
-                latestTurn={idx === lastTailIdx}
-              />
+                className="chat-anchor-row"
+                ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
+              >
+                <Item
+                  item={item}
+                  latestUser={idx === lastUserIdx}
+                  latestTurn={idx === lastTailIdx}
+                />
+              </div>
             ));
           })()}
           {streaming && (
@@ -296,7 +386,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   );
 }
 
-function Item({ item, latestUser, latestTurn }: { item: RenderItem; latestUser: boolean; latestTurn: boolean }) {
+function Item({ item, latestUser, latestTurn }: {
+  item: RenderItem;
+  latestUser: boolean;
+  latestTurn: boolean;
+}) {
   if (item.kind === "user") {
     return (
       <div className="msg-block user" data-actions-reveal={latestUser ? "always" : "hover"}>
@@ -314,25 +408,31 @@ function Item({ item, latestUser, latestTurn }: { item: RenderItem; latestUser: 
     const t = textOf(item.event);
     if (!t) return null;
     const blocks = blocksOf(item.event);
-    // DSH turn-tail chrome: copy + branch + clock("end") + usage stats.
-    // Attaches to the closing message of the turn only.
-    const meta = item.meta ? (
-      <MessageMeta
-        time={item.time}
-        clockSide="end"
-        runMs={item.meta.runMs}
-        ttftMs={item.meta.ttftMs ?? undefined}
-        tokensPerSecond={item.meta.tokensPerSecond ?? undefined}
-        copiedText={t}
-        branch
-      />
-    ) : null;
     return (
-      <div className="msg-block assistant" data-actions-reveal={latestTurn ? "always" : "hover"}>
+      <div className="msg-block assistant">
         {blocks.think && <ThinkRow reasoning={blocks.think} />}
         <AgentMessage text={t} />
+      </div>
+    );
+  }
+  if (item.kind === "turn-tail") {
+    // DSH turn-tail chrome: produced files + copy / branch / clock("end") +
+    // usage stats, in its own node so tool-only / interrupted turns keep them.
+    const time = item.time;
+    const meta = item.meta;
+    const copiedText = item.event ? textOf(item.event) : "";
+    return (
+      <div className="turn-tail" data-actions-reveal={latestTurn ? "always" : "hover"}>
         <ProducedFiles paths={item.produced ?? []} />
-        {meta}
+        <MessageMeta
+          time={time}
+          clockSide="end"
+          runMs={meta?.runMs}
+          ttftMs={meta?.ttftMs ?? undefined}
+          tokensPerSecond={meta?.tokensPerSecond ?? undefined}
+          copiedText={copiedText}
+          branch
+        />
       </div>
     );
   }
@@ -459,10 +559,11 @@ function parseTodos(args: string): { done: number; total: number; active: number
     const p = JSON.parse(args);
     const todos = p?.todos ?? (Array.isArray(p) ? p : null);
     if (!Array.isArray(todos) || todos.length === 0) return null;
-    const items = todos.map((t: any) => ({
-      content: typeof t?.content === "string" ? t.content : typeof t?.todo === "string" ? t.todo : t?.description ? String(t.description) : JSON.stringify(t),
-      status: typeof t?.status === "string" ? t.status : "pending",
-    }));
+    const items = todos.map((t: unknown) => {
+      const o = (t ?? {}) as Record<string, unknown>;
+      const content = typeof o.content === "string" ? o.content : typeof o.todo === "string" ? o.todo : typeof o.description === "string" ? o.description : JSON.stringify(t);
+      return { content, status: typeof o.status === "string" ? o.status : "pending" };
+    });
     const done = items.filter((x) => x.status === "completed").length;
     const active = items.filter((x) => x.status === "in_progress").length;
     return { done, total: items.length, active, pending: items.length - done - active, items };
@@ -705,171 +806,207 @@ function ApprovalCard({ approvalId, sessionId, toolName, reason }: { approvalId:
 }
 
 // ---------- derivations ----------
+//
+// Payload accessors are typed against SessionEvent's discriminated union, so
+// `switch (event.type)` narrows `event.data` — no `as any`. Unknown event
+// types fall through the default branch below.
+
+function isTextBlock(b: ContentBlock | undefined): b is TextBlock {
+  return !!b && (b as TextBlock).type === "text" && typeof (b as TextBlock).text === "string";
+}
+
+/// Plain text of an assistant/user message (text blocks only, never reasoning).
+function messageText(content: ContentBlock[] | undefined): string {
+  if (!Array.isArray(content)) return "";
+  return content.filter(isTextBlock).map((b) => (b as TextBlock).text).join("");
+}
+
+/// Reasoning (think) text of an assistant message; null when absent.
+function messageReasoning(content: ContentBlock[] | undefined): string | null {
+  if (!Array.isArray(content)) return null;
+  const parts: string[] = [];
+  for (const b of content) {
+    if (b && (b as ReasoningBlock).type === "reasoning" && typeof (b as ReasoningBlock).text === "string" && (b as ReasoningBlock).text) {
+      parts.push((b as ReasoningBlock).text);
+    }
+  }
+  return parts.length ? parts.join("\n\n") : null;
+}
+
+/// Text of a user/message event, honoring its `source.kind` (only real user
+/// input is chat content; injected plugin/skill-catalog context is not).
+function userText(d: UserMessageData): string {
+  const kind = (d.source as { kind?: string })?.kind;
+  if (kind !== "user" && kind !== undefined) return "";
+  return messageText(d.content);
+}
 
 function textOf(event?: SessionEvent): string {
   if (!event) return "";
-  const d = event.data ?? {};
-  if (Array.isArray(d.message?.content)) return contentText(d.message.content);
-  if (Array.isArray(d.content)) return contentText(d.content);
-  if (typeof d.text === "string") return d.text;
-  return "";
+  switch (event.type) {
+    case "user/message": return userText(event.data as UserMessageData);
+    case "assistant/message": return messageText((event.data as AssistantMessageData).message?.content);
+    default: return "";
+  }
 }
 
-/// Text + reasoning split of an assistant message content.
+/// Text + reasoning split for an assistant message (render-time, from the
+/// final event). Folds reasoning into the same assistant container (official
+/// AssistantMarkdown) so it is never a separate duplicate row.
 function blocksOf(event?: SessionEvent): { text: string; think: string | null } {
   if (!event) return { text: "", think: null };
-  const d = event.data ?? {};
-  const content = Array.isArray(d.message?.content) ? d.message.content : Array.isArray(d.content) ? d.content : null;
-  if (!content) return { text: textOf(event), think: null };
-  let text = "";
-  let think: string[] = [];
-  for (const b of content as any[]) {
-    if (b?.type === "text" && typeof b.text === "string") text += b.text;
-    else if (b?.type === "reasoning" && typeof b.text === "string" && b.text) think.push(b.text);
-  }
-  return { text, think: think.length ? think.join("\n\n") : null };
+  const content = event.type === "assistant/message" ? (event.data as AssistantMessageData).message?.content : undefined;
+  return { text: messageText(content), think: messageReasoning(content) };
 }
 
-function contentText(content: any): string {
-  if (!Array.isArray(content)) return "";
-  return content
-    .map((b: any) => (b?.type === "text" && typeof b.text === "string" ? b.text : ""))
-    .join("");
+function toolCallIdOf(data: ToolCallData): string {
+  return data.callId ?? data.id ?? "";
 }
 
-function ingest(
-  out: RenderItem[],
-  entry: { event: SessionEvent; output?: string },
-  timing: Map<number, { start?: number; end?: number; firstToken?: number }>,
-  outputs: Map<string, { output: string; failed: boolean }>,
-  produced: Map<number, string[]>
-) {
+function toolArgsString(argumentsField: unknown): string {
+  if (typeof argumentsField === "string") return argumentsField;
+  if (argumentsField === undefined || argumentsField === null) return "";
+  try { return JSON.stringify(argumentsField, null, 2); } catch { return String(argumentsField); }
+}
+
+/// Pull the output text + failure + path from a tool/result payload (typed).
+function extractToolResult(data: ToolResultData): { callId?: string; output: string; failed: boolean; path?: string } {
+  const msg = data.message;
+  let output = "";
+  const parts: string[] = [];
+  const walk = (c: unknown) => {
+    if (!c) return;
+    if (typeof c === "string") { parts.push(c); return; }
+    if (Array.isArray(c)) { c.forEach(walk); return; }
+    if (typeof c === "object") {
+      const o = c as Record<string, unknown>;
+      if (typeof o.text === "string") parts.push(o.text);
+      if (o.content !== undefined) walk(o.content);
+    }
+  };
+  walk(msg?.content);
+  if (parts.length) output = parts.join("\n");
+  if (!output && typeof data.output === "string") output = data.output;
+  if (!output && data.text) output = String(data.text);
+  if (!output && data.result !== undefined) output = JSON.stringify(data.result);
+  if (!output) output = truncate(JSON.stringify(data));
+  const failed = data.isError === true || msg?.isError === true || data.ok === false;
+  const callId = data.toolCallId ?? data.callId ?? msg?.source?.callId;
+  const path = typeof data.path === "string" ? data.path : undefined;
+  return { callId, output, failed, path };
+}
+
+/**
+ * Ingest context passed through the append pass. Holds O(1) indexes keyed by
+ * stable business id (call id, turn) instead of scanning the rendered array —
+ * the official ConversationAssembler "hot append must not scan the window"
+ * rule.
+ */
+interface IngestCtx {
+  timing: Map<number, { start?: number; end?: number; firstToken?: number }>;
+  outputs: Map<string, { output: string; failed: boolean }>;
+  produced: Map<number, string[]>;
+  /** callId → rendered tool-call item index (stable identity). */
+  callIndex: Map<string, number>;
+  /** turn → the latest accumulated assistant text (copy-able tail payload). */
+  turnText: Map<number, string>;
+  /** turn → tail anchor time (the closing assistant message, if any). */
+  turnTime: Map<number, number>;
+}
+
+function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
   const ev = entry.event;
-  const data: any = ev.data ?? {};
-  const base = { key: `${ev.seq}:${ev.type}`, event: ev, time: ev.time as number | undefined };
+  const base = { key: `${ev.seq}:${ev.type}`, event: ev, time: ev.time };
+  // `ev.data` is a union of every event payload (the trailing catch-all is
+  // `unknown`), so a `type` switch does not auto-narrow it. Each branch casts
+  // to its own payload type — the narrow, exhaustive case union does that work.
   switch (ev.type) {
     case "user/message": {
-      const kind = (data.source as any)?.kind;
-      if (kind === "user" || kind === undefined) {
-        out.push({ ...base, kind: "user" });
-      }
+      const d = ev.data as UserMessageData;
+      const txt = userText(d);
+      if (txt) out.push({ ...base, kind: "user" });
       break;
     }
     case "turn/start": {
-      const turn = data.turn as number;
-      timing.set(turn, { start: ev.time as number, end: undefined, firstToken: undefined });
+      const d = ev.data as { turn: number };
+      ctx.timing.set(d.turn, { start: ev.time, end: undefined, firstToken: undefined });
       break;
     }
     case "turn/end": {
-      const turn = data.turn as number;
-      const t = timing.get(turn) ?? {};
-      t.end = ev.time as number;
-      timing.set(turn, t);
+      const d = ev.data as { turn: number; reason: unknown };
+      const t = ctx.timing.get(d.turn) ?? {};
+      t.end = ev.time;
+      ctx.timing.set(d.turn, t);
       break;
     }
     case "assistant/chunk": {
-      const ct: any = data.chunk ?? {};
-      const ctype = ct.type ?? data.type;
-      const t = typeof ct.text === "string" ? ct.text : "";
-      if (ctype === "text-delta" && t !== "") {
-        const turn = data.turn as number;
-        const t0 = timing.get(turn);
-        if (t0 && t0.firstToken === undefined) t0.firstToken = ev.time as number;
-        const prev = out[out.length - 1];
-        if (prev && prev.kind === "chunk") prev.output = (prev.output ?? "") + t;
-        else out.push({ ...base, kind: "chunk", output: t, turn: data.turn });
+      // Stream frames append a chunk item for text-deltas; reasoning deltas
+      // are intentionally not surfaced until the final assistant/message.
+      const d = ev.data as { turn: number; step: number; chunk: StreamChunk };
+      const chunk = d.chunk;
+      if (chunk.type === "text-delta" && typeof chunk.text === "string" && chunk.text) {
+        const turn = d.turn;
+        const t0 = ctx.timing.get(turn);
+        if (t0 && t0.firstToken === undefined) t0.firstToken = ev.time;
+        const last = out[out.length - 1];
+        if (last && last.kind === "chunk" && last.turn === turn) last.output = (last.output ?? "") + chunk.text;
+        else out.push({ ...base, kind: "chunk", output: chunk.text, turn });
       }
       break;
     }
     case "assistant/message": {
-      const msg: any = data.message ?? data;
-      const content: any[] = Array.isArray(msg.content) ? msg.content : [];
-      const turn = data.turn as number;
-      // Replace the live-streamed chunk item (this turn) with the final
-      // blocks. The superseded chunk(s) are DISCARDED — re-appending them
-      // interleaves stale stream fragments between steps of a multi-step turn.
+      const d = ev.data as AssistantMessageData;
+      const turn = d.turn;
+      const text = messageText(d.message?.content);
+      // Replace the live-streamed chunk item(s) for this step with the final
+      // blocks. Discard them — re-appending interleaves stale fragments.
       let cut = out.length - 1;
       while (cut >= 0 && out[cut].kind === "chunk" && out[cut].turn === turn) cut -= 1;
       out.length = cut + 1;
-
-      const pushed: RenderItem[] = [];
-      let text = "";
-      for (const b of content) {
-        if (b?.type === "reasoning" && typeof b.text === "string" && b.text.trim()) {
-          // Official DSH renders reasoning inside the same AssistantMarkdown
-          // container as the text (a collapsible row), NOT as a separate item.
-          // It re-surfaces from the event's blocks in the Item renderer.
-          void b;
-        } else if (b?.type === "text" && typeof b.text === "string") {
-          text += b.text;
-        } else if (b?.type === "tool-call") {
-          const callId = String(b.id ?? "");
-          const callArgs = typeof b.arguments === "string" ? b.arguments : JSON.stringify(b.arguments ?? {});
-          // dedupe: a matching tool/call event may already be in the stream
-          if (!out.some((x) => x.kind === "tool-call" && x.toolCallId === callId)) {
-            const prevOutput = callId ? outputs.get(callId) : undefined;
-            pushed.push({
-              ...base,
-              kind: "tool-call",
-              toolName: b.name ?? "tool",
-              toolCallId: callId,
-              args: callArgs,
-              output: prevOutput?.output,
-              failed: prevOutput?.failed,
-              turn,
-            });
-          } else if (callId) {
-            const prevOutput = outputs.get(callId);
-            const existing = out.find((x) => x.kind === "tool-call" && x.toolCallId === callId);
-            if (existing && prevOutput) {
-              existing.output = prevOutput.output;
-              existing.failed = prevOutput.failed;
-            }
-          }
-        }
-      }
-      if (text) pushed.push({ ...base, kind: "assistant", turn });
-      out.push(...pushed);
+      // Track the accumulated tail payload.
+      if (text) out.push({ ...base, kind: "assistant", turn });
+      if (text) ctx.turnText.set(turn, text);
+      ctx.turnTime.set(turn, ev.time);
       break;
     }
     case "tool/call": {
-      const callId = data.callId ?? data.id;
-      let args = "";
-      if (typeof data.arguments === "string") args = data.arguments;
-      else if (data.arguments) args = JSON.stringify(data.arguments, null, 2);
-      else args = data.argsRaw ?? data.command ?? "";
-      const existing = callId ? out.find((x) => x.kind === "tool-call" && x.toolCallId === callId) : undefined;
-      if (existing) {
-        existing.args = args || existing.args;
+      const d = ev.data as ToolCallData;
+      const callId = toolCallIdOf(d);
+      const args = d.arguments !== undefined ? toolArgsString(d.arguments) : d.argsRaw ?? d.command ?? "";
+      const prev = ctx.callIndex.get(callId);
+      if (prev !== undefined) {
+        out[prev].args = args || out[prev].args;
       } else {
+        const idx = out.length;
         out.push({
           ...base,
           kind: "tool-call",
-          toolName: data.name ?? data.toolName ?? "tool",
+          toolName: d.name ?? "tool",
           toolCallId: callId,
           args,
-          turn: data.turn,
+          turn: d.turn,
         });
+        if (callId) ctx.callIndex.set(callId, idx);
       }
       break;
     }
     case "tool/result": {
-      const extract = extractToolResult(data);
-      const callId = extract.callId ?? data.toolCallId ?? data.callId ?? data.id ?? "";
-      const failed = extract.failed;
-      outputs.set(callId, { output: extract.output, failed });
-      const existing = callId ? out.find((x) => x.kind === "tool-call" && x.toolCallId === callId) : undefined;
-      if (existing) {
-        existing.output = extract.output;
-        existing.failed = failed;
+      const d = ev.data as ToolResultData;
+      const extracted = extractToolResult(d);
+      const callId = extracted.callId ?? "";
+      ctx.outputs.set(callId, { output: extracted.output, failed: extracted.failed });
+      const prevIdx = ctx.callIndex.get(callId);
+      if (prevIdx !== undefined) {
+        const item = out[prevIdx];
+        if (item) { item.output = extracted.output; item.failed = extracted.failed; }
       }
-      // produced files: successful read/write/edit calls with a path
-      if (!failed && extract.path) {
-        const turn = (data.turn as number) ?? existing?.turn ?? -1;
-        const list = produced.get(turn) ?? [];
-        if (!list.includes(extract.path)) {
-          list.push(extract.path);
-          produced.set(turn, list);
+      // produced files: successful mutation calls carrying a path
+      if (!extracted.failed && extracted.path) {
+        const turn = d.turn ?? (prevIdx !== undefined ? out[prevIdx]?.turn : undefined) ?? -1;
+        const list = ctx.produced.get(turn) ?? [];
+        if (!list.includes(extracted.path)) {
+          list.push(extracted.path);
+          ctx.produced.set(turn, list);
         }
       }
       break;
@@ -877,6 +1014,60 @@ function ingest(
     default:
       break;
   }
+}
+
+/**
+ * Emit a per-turn tail item (meta + produced files). Official DSH renders a
+ * `turn-tail` node per closed turn independent of whether the last block is
+ * assistant text, so interrupted / tool-only turns keep their metrics+files.
+ * Inserted right after the turn's last assistant item; a turn already having
+ * a tail is updated in place.
+ */
+function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
+  const closed = [...ctx.timing.entries()].filter(([, t]) => t.start !== undefined && t.end !== undefined);
+  if (closed.length === 0) return;
+  // Build the tail payload per closed turn once.
+  const tails = new Map<number, RenderItem>();
+  for (const [turn, t] of closed) {
+    const runMs = Math.max(0, (t.end ?? 0) - (t.start ?? 0));
+    const ttftMs = t.firstToken !== undefined ? Math.max(0, t.firstToken - (t.start ?? 0)) : null;
+    const tokensPerSecond = ttftMs !== null && runMs > ttftMs ? Math.round(((runMs - ttftMs) / 1000) * 100) / 100 : null;
+    const txt = ctx.turnText.get(turn) ?? "";
+    tails.set(turn, {
+      key: `tail:${turn}`,
+      kind: "turn-tail",
+      turn,
+      time: ctx.turnTime.get(turn),
+      event: txt
+        ? ({ type: "assistant/message", seq: -1, time: ctx.turnTime.get(turn) ?? 0, data: { turn, step: 1, message: { role: "assistant", content: [{ type: "text", text: txt }], source: { kind: "model", provider: "", model: "" }, id: `tail:${turn}` } } } as SessionEvent)
+        : undefined,
+      meta: { runMs, ttftMs, tokensPerSecond },
+      produced: ctx.produced.get(turn) ?? [],
+    });
+  }
+  // Insert each turn's tail right after the LAST item belonging to that turn,
+  // scanning left-to-right so earlier splices never invalidate a later anchor.
+  const order: RenderItem[] = [];
+  const emitted = new Set<number>();
+  let i = 0;
+  while (i < items.length) {
+    const item = items[i];
+    order.push(item);
+    const turn = item.turn;
+    if (turn !== undefined) {
+      // Is this the last item carrying this turn? (look ahead)
+      let j = i + 1;
+      while (j < items.length && items[j].turn !== turn) j++;
+      const isLastOfTurn = j < items.length && items[j].turn === turn ? false : j >= items.length;
+      if (isLastOfTurn && tails.has(turn) && !emitted.has(turn)) {
+        order.push(tails.get(turn)!);
+        emitted.add(turn);
+      }
+    }
+    i++;
+  }
+  items.length = 0;
+  items.push(...order);
 }
 
 /// Derived DSH-style tool summary from arguments (first line of the payload).
@@ -913,62 +1104,6 @@ function prettyArgs(args: string): string {
     return JSON.stringify(JSON.parse(args), null, 2);
   } catch {
     return args;
-  }
-}
-
-function extractToolResult(data: any): { callId?: string; output: string; failed: boolean; path?: string } {
-  const msg = data.message ?? data;
-  let output = "";
-  const parts: any[] = [];
-  const walk = (c: any) => {
-    if (!c) return;
-    if (typeof c === "string") { parts.push(c); return; }
-    if (Array.isArray(c)) { c.forEach(walk); return; }
-    if (typeof c === "object") {
-      if (typeof c.text === "string") parts.push(c.text);
-      const cc = c.content;
-      if (cc !== undefined) walk(cc);
-    }
-  };
-  walk(msg);
-  if (parts.length) output = parts.join("\n");
-  if (!output && typeof data.output === "string") output = data.output;
-  if (!output && data.text) output = String(data.text);
-  if (!output && data.result) output = JSON.stringify(data.result);
-  if (!output) output = truncate(JSON.stringify(data));
-  const failed = data.ok === false || msg?.isError === true || data.isError === true;
-  // path for produced-files: lookup args of the matching call is done by caller;
-  // here we re-read if tool/result carries a path field directly.
-  const path = typeof data.path === "string" ? data.path : undefined;
-  return { callId: msg?.toolCallId ?? data.toolCallId ?? msg?.source?.callId, output, failed, path };
-}
-
-function finalizeTurns(
-  items: RenderItem[],
-  timing: Map<number, { start?: number; end?: number; firstToken?: number }>,
-  outputs: Map<string, { output: string; failed: boolean }>,
-  produced: Map<number, string[]>
-) {
-  void outputs;
-  void produced;
-  // Attach turn meta to the LAST assistant message of each turn (closing reply),
-  // mirroring DSH's per-turn metrics row placement.
-  const closed = [...timing.entries()].filter(([, t]) => t.start !== undefined && t.end !== undefined);
-  for (const [turn, t] of closed) {
-    // find index of last assistant item for this turn
-    let last = -1;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].turn === turn && items[i].kind === "assistant") last = i;
-    }
-    if (last === -1) continue;
-    const runMs = Math.max(0, (t.end ?? 0) - (t.start ?? 0));
-    const ttftMs = t.firstToken !== undefined ? Math.max(0, t.firstToken - (t.start ?? 0)) : null;
-    const tokensPerSecond = ttftMs !== null && runMs > ttftMs ? Math.round(((runMs - ttftMs) / 1000) * 100) / 100 : null;
-    items[last] = {
-      ...items[last],
-      meta: { runMs, ttftMs, tokensPerSecond },
-      produced: produced.get(turn) ?? [],
-    };
   }
 }
 
