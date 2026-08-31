@@ -744,6 +744,20 @@ button {
   color: rgba(255,255,255,.93);
   user-select: text;
 }
+/* streaming / chunked agent output: same pure-text treatment (no bubble) */
+.msg.assistant, .msg.assistant .text {
+  align-self: stretch;
+  width: 100%;
+  font-size: 14px;
+  line-height: 21px;
+  color: rgba(255,255,255,.93);
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  user-select: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 .tool-card {
   border: 1px solid rgba(255,255,255,.10);

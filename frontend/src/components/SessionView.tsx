@@ -273,14 +273,18 @@ function ApprovalCard({ approvalId, sessionId, toolName, reason }: { approvalId:
 function textOf(event?: SessionEvent): string {
   if (!event) return "";
   const d = event.data ?? {};
-  if (Array.isArray(d.content)) {
-    return d.content
-      .map((b: any) => (typeof b?.text === "string" ? b.text : b?.type ? `[${b.type}]` : ""))
-      .join("");
-  }
+  if (Array.isArray(d.message?.content)) return contentText(d.message.content);
+  if (Array.isArray(d.content)) return contentText(d.content);
   if (typeof d.text === "string") return d.text;
-  if (typeof d.name === "string") return "";
   return "";
+}
+
+/// Only real text blocks (type === "text"); never reasoning / tool blocks.
+function contentText(content: any): string {
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((b: any) => (b?.type === "text" && typeof b.text === "string" ? b.text : ""))
+    .join("");
 }
 
 function pushRenderable(out: RenderItem[], entry: { event: SessionEvent; output?: string }) {
@@ -288,20 +292,42 @@ function pushRenderable(out: RenderItem[], entry: { event: SessionEvent; output?
   const data = ev.data ?? {};
   const base = { key: `${ev.seq}:${ev.type}`, event: ev };
   switch (ev.type) {
-    case "user/message":
-      out.push({ ...base, kind: "user" });
-      break;
-    case "assistant/chunk": {
-      const text = data.text ?? "";
-      const prev = out[out.length - 1];
-      // merge consecutive chunks into the last assistant item
-      if (prev && prev.kind === "chunk") prev.output = (prev.output ?? "") + text;
-      else out.push({ ...base, kind: "chunk", output: text });
+    case "user/message": {
+      // Engine injects runtime context / skill catalog as user-messages with
+      // source.kind = "plugin" | "skill-catalog" | … These are system payloads,
+      // NOT chat content: rendering them as bubbles paints giant cards into the
+      // flow. Only genuine user input (source.kind === "user") gets a bubble.
+      const kind = (data.source as any)?.kind;
+      if (kind === "user" || kind === undefined) {
+        out.push({ ...base, kind: "user" });
+      }
       break;
     }
-    case "assistant/message":
-      out.push({ ...base, kind: "assistant" });
+    case "assistant/chunk": {
+      // Stream frames carry text under data.chunk → {type, text}. Only text
+      // deltas are appendable; reasoning deltas / block-start / usage / finish
+      // are not content and would render as empty bubbles.
+      const ct = (data as any).chunk ?? {};
+      const ctype = ct.type ?? (data as any).type;
+      const t = typeof ct.text === "string" ? ct.text : "";
+      if (ctype !== "text-delta" || t === "") break;
+      const prev = out[out.length - 1];
+      if (prev && prev.kind === "chunk") prev.output = (prev.output ?? "") + t;
+      else out.push({ ...base, kind: "chunk", output: t });
       break;
+    }
+    case "assistant/message": {
+      // Full message text lives under data.message.content (delivery of the
+      // streamed reply). Replaces the merged chunk item so text isn't doubled.
+      const msg: any = (data as any).message ?? data;
+      const txt = Array.isArray(msg.content) ? contentText(msg.content) : "";
+      const last = out[out.length - 1];
+      if (txt) {
+        if (last && last.kind === "chunk") out[out.length - 1] = { ...base, kind: "assistant" };
+        else out.push({ ...base, kind: "assistant" });
+      }
+      break;
+    }
     case "tool/call":
       out.push({ ...base, kind: "tool-call", toolName: data.name ?? data.toolName ?? "tool", toolCallId: data.id ?? data.callId });
       break;
