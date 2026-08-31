@@ -651,7 +651,7 @@ button {
 .session-header {
   display: flex;
   align-items: flex-start;
-  padding: 10px 20px 0 28px;
+  padding: 10px 20px 8px 28px;
 }
 .session-header .left { flex: 1; min-width: 0; }
 .session-header .title {
@@ -698,7 +698,7 @@ button {
 .jump-down:hover { background: rgba(255,255,255,.20); }
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
 
-.flow { flex: 1; overflow-y: auto; padding: 0 28px 16px; scrollbar-gutter: stable; }
+.flow { flex: 1; overflow-y: auto; padding: 10px 28px 16px; scrollbar-gutter: stable; }
 .flow-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
 
 .flow, .flow-inner, .md, .md *, .agent-message, .agent-message * { background: transparent !important; }
@@ -1098,18 +1098,24 @@ button {
    turn tail (= 'always') keep their actions row visible; earlier rows reveal
    on hover / focus-within (opacity keeps layout stable). ---- */
 .msg-block { position: relative; }
-/* DSH userRow: right-aligned column (bubble + IconActions), gap 6 */
+/* DSH userRow: right-aligned column (bubble + IconActions).
+   flow-inner is a flex column with default align-items:stretch. Setting the
+   block to align-self:flex-end + margin-left:auto pins it right; max-width
+   caps the bubble. The block is NOT a flex container so the bubble fills it
+   and lands flush right. */
 .msg-block.user {
   align-self: flex-end;
+  margin-left: auto;
   max-width: 62%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
 }
 .msg-block.user .user-bubble {
   width: 100%;
   max-width: none;
+}
+/* user chrome sits inside the right-aligned block: pin the actions row to the
+   right too, so 时钟 + 复制 follow the bubble instead of drifting left. */
+.msg-block.user .meta-actions {
+  justify-content: flex-end;
 }
 .meta-actions {
   display: flex;
