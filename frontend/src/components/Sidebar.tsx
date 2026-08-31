@@ -99,6 +99,7 @@ export function Sidebar() {
       <div className="sidebar-foot">
         <Settings size={13} />
         设置
+        <span className="build-tag">v-50ecf97</span>
       </div>
     </aside>
   );

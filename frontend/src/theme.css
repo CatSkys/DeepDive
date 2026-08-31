@@ -270,6 +270,7 @@ button {
   text-align: left;
   justify-content: flex-start;
 }
+.build-tag { margin-left: auto; font-size: 10.5px; color: rgba(255,255,255,.30); font-family: var(--dsh-font-mono-family); }
 
 /* ---------- content / hero ---------- */
 
