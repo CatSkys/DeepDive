@@ -55,9 +55,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // otherwise create one. No separate "default page" exists.
       setActiveSessionId((cur) => {
         if (cur) return cur;
-        // TEMP VERIFY: open the multi-step task session directly
-        const fix = sorted.find((x) => x.sessionId === "session-a7416705-9fdd-4343-bb8f-8a61a542b89f");
-        if (fix) return fix.sessionId;
         // Deep link: ?sid=… opens a specific session on boot (verification aid).
         const sid = new URLSearchParams(location.search).get("sid");
         if (sid && sorted.some((x) => x.sessionId === sid)) return sid;

@@ -46,7 +46,7 @@ interface TurnMeta {
 }
 
 export function SessionView({ sessionId }: { sessionId: string }) {
-  const { approvals, subscribeMux, openSession, sessions } = useStore();
+  const { approvals, subscribeMux, sessions } = useStore();
   const [items, setItems] = useState<RenderItem[]>([]);
   const [streaming, setStreaming] = useState("");
   const [running, setRunning] = useState(false);
