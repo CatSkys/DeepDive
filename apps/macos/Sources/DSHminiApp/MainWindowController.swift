@@ -1,9 +1,52 @@
 import AppKit
 import WebKit
 
-/// The single glass window hosting the DSHmini SPA.
-/// Anti-flicker contract (UI-SPEC §4): stage via alphaValue, animate in after
-/// the view settled; layout is frame-based fullbleed.
+/// Drag handle sitting BELOW the webview. The webview returns nil from
+/// hitTest on blank titlebar-strip space, so mouseDown lands here and drags;
+/// everything the strip keeps (buttons, inputs) is hit by the webview itself.
+private final class TitlebarDragView: NSView {
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+}
+
+/// WKWebView that turns blank space in the top strip into a window drag while
+/// keeping real controls clickable. The frontend (frontend/src/titlebar.ts)
+/// pushes a rect table of every interactive element intersecting the strip —
+/// CSS viewport coords, y-down — through the "dshmini" message handler
+/// whenever layout changes (resize, sidebar slide, menus). Rects are matched
+/// against the live bounds height at hit time, so no cached height can go
+/// stale. Until the first table arrives the view behaves like a plain
+/// WKWebView (fail-open: no drag, no swallowed clicks).
+private final class TitlebarAwareWebView: WKWebView {
+    static let dragStripHeight: CGFloat = 52 // keep in sync with titlebar.ts
+    /// Near-miss clicks around a control land on the control, not a drag.
+    static let rectPadding: CGFloat = 6
+    private var controlRects: [NSRect] = [] // CSS viewport coords (y-down)
+
+    func setTitlebarControlRects(_ rects: [NSRect]) {
+        if rects.count != controlRects.count {
+            EngineLog.shared.append("[titlebar] control rects -> \(rects.count)")
+        }
+        controlRects = rects
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        guard hit != nil else { return nil }
+        guard !controlRects.isEmpty else { return hit }
+        // Strip = top dragStripHeight points (AppKit y-up).
+        guard point.y >= bounds.height - Self.dragStripHeight else { return hit }
+        // The same point in CSS viewport coords (y-down from the top).
+        let viewportPoint = NSPoint(x: point.x, y: bounds.height - point.y)
+        for r in controlRects
+        where r.insetBy(dx: -Self.rectPadding, dy: -Self.rectPadding).contains(viewportPoint) {
+            return hit
+        }
+        return nil
+    }
+}
+
 final class MainWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
     private let webView: WKWebView
     private let effectView = NSVisualEffectView()
@@ -36,7 +79,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
         let config = WKWebViewConfiguration()
         config.userContentController = WKUserContentController()
-        let wv = WKWebView(frame: .zero, configuration: config)
+        let wv = TitlebarAwareWebView(frame: .zero, configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
         wv.underPageBackgroundColor = .clear
         wv.allowsMagnification = false
@@ -46,16 +89,27 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
         super.init(window: window)
 
+        // Rect-table channel from frontend/src/titlebar.ts; register before
+        // any page load so the first push is never dropped.
+        webView.configuration.userContentController.add(self, name: "dshmini")
+
         window.contentView = effectView
         overlay.frame = effectView.bounds
         overlay.autoresizingMask = [.width, .height]
         effectView.addSubview(overlay)
+        // Full-bleed handle UNDER the webview: it only receives events the
+        // webview lets fall through (blank strip space).
+        let dragView = TitlebarDragView()
+        dragView.frame = effectView.bounds
+        dragView.autoresizingMask = [.width, .height]
+        effectView.addSubview(dragView)
         webView.frame = effectView.bounds
         webView.autoresizingMask = [.width, .height]
         effectView.addSubview(webView)
 
         webView.navigationDelegate = self
         window.delegate = self
+
         applyTheme()
     }
 
@@ -69,7 +123,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     }
 
     func reloadWeb() {
-        if let url = webView.url {
+        if webView.url != nil {
             webView.reload()
             EngineLog.shared.append("[web] manual reload")
         }
@@ -151,5 +205,24 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         EngineLog.shared.append("[web] provisionalFail \(error.localizedDescription)")
+    }
+}
+
+// MARK: - WKScriptMessageHandler (titlebar rect table)
+
+extension MainWindowController: WKScriptMessageHandler {
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "dshmini",
+              let body = message.body as? [String: Any],
+              body["type"] as? String == "titlebar-rects" else { return }
+        let rects: [NSRect] = ((body["rects"] as? [[String: Any]]) ?? []).map { d in
+            NSRect(
+                x: d["x"] as? Double ?? 0,
+                y: d["y"] as? Double ?? 0,
+                width: d["w"] as? Double ?? 0,
+                height: d["h"] as? Double ?? 0
+            )
+        }
+        (webView as? TitlebarAwareWebView)?.setTitlebarControlRects(rects)
     }
 }
