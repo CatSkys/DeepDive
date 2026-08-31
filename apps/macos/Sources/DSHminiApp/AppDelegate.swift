@@ -68,7 +68,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Load the bridge (SPA shows "引擎启动中" until the engine is up).
         if let bridgeURL = BridgeServer.shared.url {
-            windowController.load(url: bridgeURL)
+            // Deep link aid: DSHMINI_OPEN_SID=<session-id> opens that session on boot.
+            if let sid = ProcessInfo.processInfo.environment["DSHMINI_OPEN_SID"],
+               !sid.isEmpty,
+               var comps = URLComponents(url: bridgeURL, resolvingAgainstBaseURL: false) {
+                comps.queryItems = [URLQueryItem(name: "sid", value: sid)]
+                windowController.load(url: comps.url ?? bridgeURL)
+            } else {
+                windowController.load(url: bridgeURL)
+            }
         }
 
         // Second launch of the same app: bring the existing window forward.

@@ -860,3 +860,445 @@ button {
   color: var(--dsh-text-tertiary);
   font-size: 13px;
 }
+
+/* ---------- DSH 移植：工具行 / 终端 / 思考 / 消息元信息 / 产物 ---------- */
+/* 样式与图标直接取自 @deepseek-ai/dsh-web-frontend（黑白映射） */
+
+:root {
+  --dsl-terminal-radius: 12px;
+  --dsl-terminal-line-height: 22px;
+  --dsl-terminal-font: var(--dsh-font-mono-family);
+  --dsl-terminal-gutter: 30px;
+}
+
+/* ---- tool row：图标 + 名称 · 摘要 + chevron（DSH ToolRow） ---- */
+.tool-row {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.tool-row-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 24px;
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  border: none;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.tool-row-main:hover .tool-title { color: rgba(255,255,255,.92); }
+.tool-leading {
+  width: 16px;
+  height: 16px;
+  color: rgba(255,255,255,.55);
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  margin-right: 6px;
+}
+.tool-title {
+  color: rgba(255,255,255,.62);
+  flex: none;
+  font-size: 14px;
+  line-height: 24px;
+  font-weight: 400;
+}
+.tool-sep {
+  background: rgba(255,255,255,.28);
+  border-radius: 1px;
+  flex: none;
+  width: 2px;
+  height: 2px;
+  margin: 0 8px;
+}
+.tool-summary {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  color: rgba(255,255,255,.34);
+  flex: auto;
+  font-size: 14px;
+  line-height: 24px;
+  overflow: hidden;
+}
+.tool-chevron {
+  color: rgba(255,255,255,.35);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+}
+.tool-shield { color: rgba(255,255,255,.45); margin-left: 6px; }
+.tool-row.bad .tool-title { color: rgba(255,255,255,.85); }
+.tool-body {
+  padding: 8px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tool-io-label {
+  font-size: 11px;
+  color: rgba(255,255,255,.35);
+  margin: 2px 0 -2px;
+  user-select: none;
+}
+.tool-io-text {
+  font-family: var(--dsh-font-mono-family);
+  font-size: 12.5px;
+  line-height: 19px;
+  color: rgba(255,255,255,.78);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  padding: 0;
+  user-select: text;
+}
+
+/* ---- terminal（bash 执行状态；DSH TerminalBlock） ---- */
+.terminal-block {
+  border-radius: var(--dsl-terminal-radius);
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.42);
+  overflow: hidden;
+}
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  background: rgba(255,255,255,.02);
+}
+.terminal-command {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--dsl-terminal-font);
+  font-size: 12.5px;
+  line-height: var(--dsl-terminal-line-height);
+  color: rgba(255,255,255,.90);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+.terminal-status {
+  flex: none;
+  font-family: var(--dsl-terminal-font);
+  font-size: 12px;
+  color: rgba(255,255,255,.40);
+}
+.terminal-status.error { color: rgba(255,255,255,.75); }
+.terminal-copy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: rgba(255,255,255,.45);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: var(--dsl-terminal-line-height);
+}
+.terminal-copy:hover { color: rgba(255,255,255,.85); }
+.terminal-output {
+  margin: 0;
+  padding: 8px 12px 10px;
+  font-family: var(--dsl-terminal-font);
+  font-size: 12.5px;
+  line-height: var(--dsl-terminal-line-height);
+  color: rgba(255,255,255,.72);
+  overflow-x: auto;
+  white-space: pre;
+  user-select: text;
+}
+.terminal-line { min-height: var(--dsl-terminal-line-height); }
+.terminal-expand {
+  display: block;
+  width: 100%;
+  padding: 4px 12px 8px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,.35);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+.terminal-expand:hover { color: rgba(255,255,255,.70); }
+
+/* ---- think 行（DSH Think 摘要，可展开） ---- */
+.think-row {
+  display: flex;
+  flex-direction: column;
+}
+.think-row-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 24px;
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  border: none;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.think-leading {
+  width: 16px;
+  height: 16px;
+  color: rgba(255,255,255,.50);
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 6px;
+}
+.think-title {
+  color: rgba(255,255,255,.62);
+  flex: none;
+  font-size: 14px;
+  line-height: 24px;
+  font-weight: 500;
+}
+.think-summary {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  color: rgba(255,255,255,.34);
+  flex: auto;
+  font-size: 14px;
+  line-height: 24px;
+  overflow: hidden;
+}
+.think-body {
+  font-size: 12.5px;
+  line-height: 20px;
+  color: rgba(255,255,255,.55);
+  white-space: pre-wrap;
+  user-select: text;
+  padding: 2px 0 6px 22px;
+}
+
+/* ---- meta actions（DSH MessageIconActions：时间 · 用时 · 首 token · tok/s + 复制）
+   默认隐藏：鼠标悬停在消息块上时显示（DSH 悬停语义） ---- */
+.msg-block { position: relative; }
+.msg-block.user {
+  align-self: flex-end;
+  max-width: 62%;
+}
+.msg-block.user .user-bubble {
+  width: 100%;
+  max-width: none;
+}
+.meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 0 2px;
+  color: rgba(255,255,255,.30);
+  font-size: 12px;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+.msg-block:hover .meta-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.meta-action {
+  width: 28px;
+  height: 28px;
+  color: rgba(255,255,255,.30);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 28px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  padding: 6px;
+}
+.meta-action:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.60); }
+.meta-action.active { color: rgba(255,255,255,.92); }
+.meta-action[data-unavailable] { cursor: default; opacity: .4; }
+.meta-action[data-unavailable]:hover { background: transparent; color: rgba(255,255,255,.30); }
+.meta-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  margin-left: 6px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.meta-dot { margin: 0 8px; color: rgba(255,255,255,.22); }
+
+/* ---- state dot（DSH StateDot 语义映射） ---- */
+.state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.state-dot.running { background: rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(255,255,255,.25); animation: pulse 1.2s ease-in-out infinite; }
+.state-dot.error { background: rgba(255,255,255,.95); box-shadow: inset 0 0 0 1px rgba(0,0,0,.6); }
+.state-dot.warning { background: rgba(255,255,255,.60); }
+.state-dot.ok { background: rgba(255,255,255,.40); }
+
+/* ---- produced files lane（DSH ProducedFiles：产物 + 文件 chips） ---- */
+.produced {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 22px;
+  position: relative;
+}
+.produced-label { color: rgba(255,255,255,.30); grid-area: 1/1; }
+.produced-row {
+  flex-wrap: nowrap;
+  grid-area: 1/2;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+.produced-file {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(255,255,255,.06);
+  max-width: 320px;
+  color: rgba(255,255,255,.55);
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  flex: none;
+  margin: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  transition: background 120ms ease;
+}
+.produced-file:hover { background: rgba(255,255,255,.10); color: rgba(255,255,255,.90); }
+.produced-more { white-space: nowrap; color: rgba(255,255,255,.30); flex: none; }
+
+/* ---- todo 列表（任务展开面板） ---- */
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0 2px 22px;
+}
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  font-size: 13px;
+  line-height: 20px;
+  color: rgba(255,255,255,.72);
+}
+.todo-bullet {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,.45);
+}
+.todo-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.35);
+}
+.todo-item.completed .todo-content {
+  color: rgba(255,255,255,.38);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255,255,255,.25);
+}
+.todo-item.in_progress .todo-content { color: rgba(255,255,255,.92); }
+.todo-item.in_progress .todo-dot { background: rgba(255,255,255,.85); }
+.todo-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-status {
+  flex: none;
+  font-size: 11.5px;
+  color: rgba(255,255,255,.35);
+}
+
+/* ---- turn status（Deep diving... 运行中，DSH TurnStatus shimmer） ---- */
+.turn-status {
+  height: 26px;
+  white-space: nowrap;
+  flex: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  background: linear-gradient(90deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.85) 40%, rgba(255,255,255,.30) 50%, rgba(255,255,255,.85) 60%, rgba(255,255,255,.85) 100%);
+  color: transparent;
+  background-position: 100% 0;
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: dsh-turn-status-shimmer 1.8s linear infinite;
+}
+.turn-status-clock {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,.30);
+  -webkit-text-fill-color: rgba(255,255,255,.30);
+  margin-left: 8px;
+  font-weight: 400;
+}
+@keyframes dsh-turn-status-shimmer { to { background-position: 0 0; } }
+
+/* ---- plan chip（Plan 模式指示，DSH PlanChip） ---- */
+.plan-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 20px 0 12px;
+}
+.plan-chip {
+  background: rgba(255,255,255,.14);
+  min-width: 34px;
+  color: rgba(255,255,255,.92);
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  display: inline-flex;
+}
+.plan-chip:hover { color: #FFFFFF; background: rgba(255,255,255,.20); }
