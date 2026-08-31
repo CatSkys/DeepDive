@@ -1093,8 +1093,10 @@ button {
   padding: 2px 0 6px 22px;
 }
 
-/* ---- meta actions（DSH MessageIconActions：时间 · 用时 · 首 token · tok/s + 复制）
-   默认隐藏：鼠标悬停在消息块上时显示（DSH 悬停语义） ---- */
+/* ---- meta actions（DSH MessageIconActions）
+   DSH recency gate via data-actions-reveal: the latest user row and latest
+   turn tail (= 'always') keep their actions row visible; earlier rows reveal
+   on hover / focus-within (opacity keeps layout stable). ---- */
 .msg-block { position: relative; }
 .msg-block.user {
   align-self: flex-end;
@@ -1107,19 +1109,24 @@ button {
 .meta-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   min-height: 28px;
   padding: 0 0 2px;
   color: rgba(255,255,255,.30);
-  font-size: 12px;
+  font-size: 12.5px;
   user-select: none;
-  opacity: 0;
-  transition: opacity 160ms ease;
-  pointer-events: none;
+  transition: opacity 80ms ease;
 }
-.msg-block:hover .meta-actions {
-  opacity: 1;
-  pointer-events: auto;
+@media (hover: hover) {
+  [data-actions-reveal="hover"] .meta-actions {
+    opacity: 0;
+    pointer-events: none;
+  }
+  [data-actions-reveal="hover"]:hover .meta-actions,
+  [data-actions-reveal="hover"]:focus-within .meta-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 .meta-action {
   width: 28px;
@@ -1141,11 +1148,11 @@ button {
 .meta-clock {
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  margin-left: 6px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,.30);
 }
+.msg-block.user .meta-clock { padding-right: 12px; }
 .meta-dot { margin: 0 8px; color: rgba(255,255,255,.22); }
 
 /* ---- state dot（DSH StateDot 语义映射） ---- */

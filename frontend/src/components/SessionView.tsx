@@ -248,9 +248,24 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
       }}>
         <div className="flow-inner">
-          {items.map((item) => (
-            <Item key={item.key} item={item} />
-          ))}
+          {(() => {
+            // DSH recency gate: latest user row and latest turn tail hold
+            // data-actions-reveal="always"; earlier rows reveal on hover.
+            let lastUserIdx = -1;
+            let lastTailIdx = -1;
+            for (let i = 0; i < items.length; i++) {
+              if (items[i].kind === "user") lastUserIdx = i;
+              if (items[i].kind === "assistant" && items[i].meta) lastTailIdx = i;
+            }
+            return items.map((item, idx) => (
+              <Item
+                key={item.key}
+                item={item}
+                latestUser={idx === lastUserIdx}
+                latestTurn={idx === lastTailIdx}
+              />
+            ));
+          })()}
           {streaming && (
             <div className="msg assistant">
               <div className="text">{streaming}</div>
@@ -281,12 +296,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   );
 }
 
-function Item({ item }: { item: RenderItem }) {
+function Item({ item, latestUser, latestTurn }: { item: RenderItem; latestUser: boolean; latestTurn: boolean }) {
   if (item.kind === "user") {
     return (
-      <div className="msg-block user">
+      <div className="msg-block user" data-actions-reveal={latestUser ? "always" : "hover"}>
         <UserBubble text={textOf(item.event)} />
-        <MessageMeta time={item.time} copiedText={textOf(item.event)} />
+        {/* DSH user chrome: copy + clock only, NO branch, clock="start" */}
+        <MessageMeta
+          time={item.time}
+          clockSide="start"
+          copiedText={textOf(item.event)}
+        />
       </div>
     );
   }
@@ -294,19 +314,21 @@ function Item({ item }: { item: RenderItem }) {
     const t = textOf(item.event);
     if (!t) return null;
     const blocks = blocksOf(item.event);
-    // Turn meta (clock · 用时 · tok/s) attaches to the closing message of the
-    // turn only — intermediate steps stay plain (DSH design).
+    // DSH turn-tail chrome: copy + branch + clock("end") + usage stats.
+    // Attaches to the closing message of the turn only.
     const meta = item.meta ? (
       <MessageMeta
         time={item.time}
+        clockSide="end"
         runMs={item.meta.runMs}
         ttftMs={item.meta.ttftMs ?? undefined}
         tokensPerSecond={item.meta.tokensPerSecond ?? undefined}
         copiedText={t}
+        branch
       />
     ) : null;
     return (
-      <div className="msg-block assistant">
+      <div className="msg-block assistant" data-actions-reveal={latestTurn ? "always" : "hover"}>
         {blocks.think && <ThinkRow reasoning={blocks.think} />}
         <AgentMessage text={t} />
         <ProducedFiles paths={item.produced ?? []} />
@@ -531,14 +553,18 @@ function ProducedFiles({ paths }: { paths: string[] }) {
   );
 }
 
-/// Message foot row — clock · [用时 · 首 token · tok/s] + copy.
-/// Quiet by default: the row only surfaces on hover (DSH actions affordance).
-function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText }: {
+/// Message foot row — copy [+ branch] + clock · [用时 · 首 token · tok/s].
+/// Mirrors DSH MessageIconActions: user chrome = copy + clock("start");
+/// assistant turn tail = copy + branch + clock("end") + usage stats.
+/// Quiet by default: reveals on hover (DSH actions affordance).
+function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSide = "end", branch = false }: {
   time?: number;
   runMs?: number;
   ttftMs?: number;
   tokensPerSecond?: number;
   copiedText: string;
+  clockSide?: "start" | "end";
+  branch?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -550,42 +576,46 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText }: {
   };
   const hasStats = runMs !== undefined || ttftMs !== undefined || tokensPerSecond !== undefined;
   const clock = time ? formatClock(time) : undefined;
-  if (!clock && !hasStats) return null;
+  if (!clock && !hasStats && !branch) return null;
+  const clockEl = (
+    <span className="meta-clock">
+      {clock}
+      {runMs !== undefined && (
+        <>
+          <span className="meta-dot" aria-hidden="true">·</span>
+          用时 {formatRunDuration(runMs)}
+        </>
+      )}
+      {ttftMs !== undefined && (
+        <>
+          <span className="meta-dot" aria-hidden="true">·</span>
+          首 token {formatLatencySeconds(ttftMs)}
+        </>
+      )}
+      {tokensPerSecond !== undefined && (
+        <>
+          <span className="meta-dot" aria-hidden="true">·</span>
+          {formatTokensPerSecond(tokensPerSecond)} tok/s
+        </>
+      )}
+    </span>
+  );
   return (
     <div className="meta-actions">
+      {clockSide === "start" ? clockEl : null}
       <button className="meta-action" title={copied ? "复制成功" : "复制"} aria-label={copied ? "复制成功" : "复制"} onClick={() => void copy()}>
         {copied ? <IconCheckOutline16 size={16} /> : <IconCopyOutline16 size={16} />}
       </button>
-      <button
-        className="meta-action"
-        title="分支（当前会话不可分支）"
-        aria-label="分支"
-        aria-disabled="true"
-        data-unavailable=""
-      >
-        <IconBranchOutline16 size={16} />
-      </button>
-      <span className="meta-clock">
-        {clock}
-        {runMs !== undefined && (
-          <>
-            <span className="meta-dot" aria-hidden="true">·</span>
-            用时 {formatRunDuration(runMs)}
-          </>
-        )}
-        {ttftMs !== undefined && (
-          <>
-            <span className="meta-dot" aria-hidden="true">·</span>
-            首 token {formatLatencySeconds(ttftMs)}
-          </>
-        )}
-        {tokensPerSecond !== undefined && (
-          <>
-            <span className="meta-dot" aria-hidden="true">·</span>
-            {formatTokensPerSecond(tokensPerSecond)} tok/s
-          </>
-        )}
-      </span>
+      {branch && (
+        <button
+          className="meta-action"
+          title="分支"
+          aria-label="分支"
+        >
+          <IconBranchOutline16 size={16} />
+        </button>
+      )}
+      {clockSide === "end" ? clockEl : null}
     </div>
   );
 }
