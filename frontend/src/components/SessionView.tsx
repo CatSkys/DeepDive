@@ -83,6 +83,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     outputs: new Map(),
     produced: new Map(),
     callIndex: new Map(),
+    callPaths: new Map(),
     turnText: new Map(),
     turnTime: new Map(),
   });
@@ -121,7 +122,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   /** Rebuild rendered items from the full asc event log + ctx. */
   const rebuild = useMemo(() => (events: SessionEvent[]) => {
     const rendered: RenderItem[] = [];
-    ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), turnText: new Map(), turnTime: new Map() };
+    ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), turnText: new Map(), turnTime: new Map() };
     for (const ev of events) {
       ingest(rendered, { event: ev }, ctx.current);
     }
@@ -133,7 +134,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     let alive = true;
     let seqFloor = -1;
     eventLog.current = [];
-    ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), turnText: new Map(), turnTime: new Map() };
+    ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), turnText: new Map(), turnTime: new Map() };
     setItems([]);
     setStreaming("");
     setHasMore(false);
@@ -863,6 +864,23 @@ function toolCallIdOf(data: ToolCallData): string {
   return data.callId ?? data.id ?? "";
 }
 
+/// Read the stored args of a rendered tool-call item (for derived file path).
+function extractArgsOf(out: RenderItem[], idx: number | undefined): string {
+  return idx !== undefined && out[idx] ? out[idx].args ?? "" : "";
+}
+
+/// Derive an openable file path from a mutation tool's arguments (official
+/// FILE_PATH_KEYS: path / file_path). Only write/edit/read variants produce one.
+function derivePath(toolName: string, args: string): string | undefined {
+  if (!/^(write|edit|read|str_replace_editor|file_read|file_write)$/.test(toolName)) return undefined;
+  try {
+    const p = JSON.parse(args);
+    const picked = p?.path ?? p?.file_path;
+    if (typeof picked === "string" && picked) return picked.split("\n")[0].trim();
+  } catch { /* non-JSON args */ }
+  return undefined;
+}
+
 function toolArgsString(argumentsField: unknown): string {
   if (typeof argumentsField === "string") return argumentsField;
   if (argumentsField === undefined || argumentsField === null) return "";
@@ -908,6 +926,8 @@ interface IngestCtx {
   produced: Map<number, string[]>;
   /** callId → rendered tool-call item index (stable identity). */
   callIndex: Map<string, number>;
+  /** callId → derived file path (from tool/call arguments) for produced lanes. */
+  callPaths: Map<string, string>;
   /** turn → the latest accumulated assistant text (copy-able tail payload). */
   turnText: Map<number, string>;
   /** turn → tail anchor time (the closing assistant message, if any). */
@@ -988,6 +1008,8 @@ function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string
         });
         if (callId) ctx.callIndex.set(callId, idx);
       }
+      const p = derivePath(d.name ?? "tool", args);
+      if (callId && p) ctx.callPaths.set(callId, p);
       break;
     }
     case "tool/result": {
@@ -1000,13 +1022,16 @@ function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string
         const item = out[prevIdx];
         if (item) { item.output = extracted.output; item.failed = extracted.failed; }
       }
-      // produced files: successful mutation calls carrying a path
-      if (!extracted.failed && extracted.path) {
-        const turn = d.turn ?? (prevIdx !== undefined ? out[prevIdx]?.turn : undefined) ?? -1;
-        const list = ctx.produced.get(turn) ?? [];
-        if (!list.includes(extracted.path)) {
-          list.push(extracted.path);
-          ctx.produced.set(turn, list);
+      // produced files: successful mutation calls carrying a derived path
+      if (!extracted.failed) {
+        const filePath = ctx.callPaths.get(callId) ?? extracted.path ?? derivePath(prevIdx !== undefined ? out[prevIdx]?.toolName ?? "" : "", extractArgsOf(out, prevIdx));
+        if (filePath) {
+          const turn = d.turn ?? (prevIdx !== undefined ? out[prevIdx]?.turn : undefined) ?? -1;
+          const list = ctx.produced.get(turn) ?? [];
+          if (!list.includes(filePath)) {
+            list.push(filePath);
+            ctx.produced.set(turn, list);
+          }
         }
       }
       break;
