@@ -678,18 +678,6 @@ button {
   margin: 0 auto 24px;
   width: min(1080px, calc(100% - 64px));
 }
-/* soft falloff: the message flow dissolves into the input area — a gradient
-   overlay, not a hard bar cut (reference: record/riff effect). */
-.flow-fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 92px;
-  height: 36px;
-  background: linear-gradient(to bottom, rgba(18,19,22,0), rgba(18,19,22,.68));
-  pointer-events: none;
-  z-index: 30;
-}
 .jump-down {
   position: absolute;
   right: 26px;

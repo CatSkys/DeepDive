@@ -170,7 +170,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           ))}
         </div>
       </div>
-      <div className="flow-fade" />
       {!follow && (
         <button
           className="jump-down"
