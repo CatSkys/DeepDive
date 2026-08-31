@@ -796,7 +796,10 @@ function ingest(
       let text = "";
       for (const b of content) {
         if (b?.type === "reasoning" && typeof b.text === "string" && b.text.trim()) {
-          pushed.push({ ...base, kind: "think", reasoning: b.text, turn });
+          // Official DSH renders reasoning inside the same AssistantMarkdown
+          // container as the text (a collapsible row), NOT as a separate item.
+          // It re-surfaces from the event's blocks in the Item renderer.
+          void b;
         } else if (b?.type === "text" && typeof b.text === "string") {
           text += b.text;
         } else if (b?.type === "tool-call") {
