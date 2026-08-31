@@ -44,6 +44,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const forceRefreshSessionsRef = useRef(forceRefreshSessions);
   forceRefreshSessionsRef.current = forceRefreshSessions;
 
+  // session/event arrives once per streaming frame (every text delta); a full
+  // session.list per frame hammers the engine and re-renders the whole tree.
+  // Leading edge fires immediately (turn/start must flip the Stop button fast),
+  // then coalesces to at most one refresh per 500ms while events keep flowing.
+  const refreshGate = useRef<{ last: number; timer: ReturnType<typeof setTimeout> | null }>({ last: 0, timer: null });
+  const throttledRefreshSessions = () => {
+    const gate = refreshGate.current;
+    if (gate.timer !== null) return;
+    const wait = Math.max(0, 500 - (Date.now() - gate.last));
+    gate.timer = setTimeout(() => {
+      gate.timer = null;
+      gate.last = Date.now();
+      void forceRefreshSessionsRef.current();
+    }, wait);
+  };
+
   const refresh = async () => {
     try {
       const [ws, ss] = await Promise.all([api.workspaces(), api.sessions()]);
@@ -114,7 +130,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const applyFrame = async (frame: any) => {
     void frame;
-    await forceRefreshSessions();
+    throttledRefreshSessions();
   };
 
   const createSession = async (presetId?: string) => {

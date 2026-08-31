@@ -50,8 +50,12 @@ final class BridgeServer {
 
     private func route(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Stream {
         // Same-origin gate: a browser page from elsewhere must not reach the
-        // bridge (CSRF). No-origin (dev tools) and our origin are fine.
-        if let origin = request.headers["origin"], !origin.hasSuffix(":\(server?.port ?? 0)") {
+        // bridge (CSRF / drive-by WebSocket). Exact scheme+host+port match —
+        // a suffix match like `hasSuffix(":\(port)")` would let any page
+        // served on the same port number through, and WebSocket framing is
+        // not subject to CORS, so it could read the whole event stream.
+        // No-origin (dev tools, our URLSession relay) is fine.
+        if let origin = request.headers["origin"], origin != "http://127.0.0.1:\(server?.port ?? 0)" {
             return .response(.init(status: 403))
         }
 
@@ -190,13 +194,17 @@ final class BridgeServer {
     // MARK: - static
 
     private func serveStatic(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Response {
-        let root = webRoot ?? FileManager.default.homeDirectoryForCurrentUser
+        let root = (webRoot ?? FileManager.default.homeDirectoryForCurrentUser).standardizedFileURL
         var rel = request.path
         if rel == "/" { rel = "/index.html" }
-        let fileURL = root.appendingPathComponent(String(rel.dropFirst()))
-        guard fileURL.path.hasPrefix(root.path),
+        // Percent-decode, then resolve `..` before the containment check — a
+        // raw client can send unencoded `../` and a string-prefix check on the
+        // unresolved path would hand out files outside the web root.
+        let decoded = rel.removingPercentEncoding ?? rel
+        let fileURL = root.appendingPathComponent(String(decoded.dropFirst())).standardizedFileURL
+        guard fileURL.path.hasPrefix(root.path + "/"),
               let data = try? Data(contentsOf: fileURL) else {
-            EngineLog.shared.append("[static] MISS \(fileURL.path) (root=\(root.path))")
+            EngineLog.shared.append("[static] MISS \(decoded) (root=\(root.path))")
             return .init(status: 404)
         }
         var response = MiniHTTPServer.Response(status: 200)

@@ -1,6 +1,6 @@
-# DSHmini — macOS 客户端（套壳 v1）
+# DSHmini — macOS 客户端
 
-按 `docs/PLAN-P1.md` 实现的 DeepSeek Harness 桌面壳：原生玻璃窗口 + 系统 WebView 加载官方 `dsh web`，黑白单一色调，无客户端新功能。
+DeepSeek Harness 桌面客户端：原生玻璃窗口（Swift + AppKit + WKWebView）+ 自建极简 React SPA（会话流/工具行/审批，按 DSH 官方 UI 对齐移植）。SPA 由壳内 BridgeServer 同源托管（静态文件 + `/api` 反代 + WebSocket 盲中继），引擎 `dsh` 为被监督的子进程。黑白单一色调。
 
 ## 环境
 
@@ -26,11 +26,12 @@ make package      # 生成 dev 签名 DMG（dist/）
 ## 结构
 
 ```
-apps/macos/                Swift + AppKit 外壳（XcodeGen）
+apps/macos/                Swift + AppKit 外壳（XcodeGen）：窗口/热键/托盘/引擎监督/恢复界面/Bridge
+frontend/                  自建 SPA（React + TS + Vite）：消息流渲染 + /api 客户端 + 标题栏拖拽桥(titlebar.ts)
 frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css / Tokens.swift
-docs/                      架构/语义/UI 规范 + P1 计划与评审
+docs/                      架构/语义/UI 规范/踩坑记录 + 计划与评审
 ```
 
-## 已知限制（v1，见 docs/PLAN-P1.md §4）
+## 已知限制（见 docs/PLAN-P1.md §4 与 docs/REVIEW-P2.md）
 
-官方 UI 信息架构原样保留；工作区切换需重启引擎（sandbox 根=cwd）；系统通知/Keychain/自动更新属 P2。
+工作区切换需重启引擎（sandbox 根=cwd）；系统通知/Keychain/自动更新属 P2。

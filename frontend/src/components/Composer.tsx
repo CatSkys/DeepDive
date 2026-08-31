@@ -20,6 +20,17 @@ interface MenuRow {
   section: string;
 }
 
+/// base64 in 32k chunks — spreading a whole multi-MB clipboard screenshot
+/// into String.fromCharCode overflows the call stack.
+function base64Of(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
+
 export function Composer({ sessionId, onSent }: { sessionId: string | null; onSent?: () => void }) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -93,7 +104,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
             if (!type) continue;
             const blob = await item.getType(type);
             const buf = await blob.arrayBuffer();
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+            const base64 = base64Of(buf);
             setAttachments((prev) => [...prev, { data: base64, mediaType: type, name: "剪贴板" }]);
             break;
           }

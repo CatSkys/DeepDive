@@ -58,8 +58,9 @@ interface TurnMeta {
 export function SessionView({ sessionId }: { sessionId: string }) {
   const { approvals, subscribeMux, sessions } = useStore();
   const [items, setItems] = useState<RenderItem[]>([]);
-  const [streaming, setStreaming] = useState("");
-  const [running, setRunning] = useState(false);
+  // Live turn state from mux events; `summary.running` (store poll) covers
+  // reload mid-turn, where no turn/start will ever arrive again.
+  const [liveRunning, setLiveRunning] = useState(false);
   const [runningSince, setRunningSince] = useState<number | undefined>(undefined);
   const [plan, setPlan] = useState<{ active: boolean; pending: boolean } | undefined>(undefined);
   const [modelName, setModelName] = useState("");
@@ -136,7 +137,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     eventLog.current = [];
     ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), turnText: new Map(), turnTime: new Map() };
     setItems([]);
-    setStreaming("");
+    setLiveRunning(false);
     setHasMore(false);
     setEarliestSeq(undefined);
 
@@ -187,15 +188,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         log.push(ev);
         return rebuild(log);
       });
-      if (ev.type === "turn/end" || ev.type === "assistant/message") {
-        setStreaming("");
-      }
       // running state: turn/start → turn/end window (DSH TurnStatus)
       if (ev.type === "turn/start") {
-        setRunning(true);
+        setLiveRunning(true);
         setRunningSince(ev.time);
       } else if (ev.type === "turn/end") {
-        setRunning(false);
+        setLiveRunning(false);
         setRunningSince(undefined);
       }
       if (seq >= 0) seqFloor = seq + 1;
@@ -213,7 +211,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (follow && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [items, streaming, follow]);
+  }, [items, follow]);
 
   const loadOlder = async () => {
     if (loadingOlder) return;
@@ -250,6 +248,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
 
   const isBlank = !!summary?.blank;
+  const running = liveRunning || !!summary?.running;
 
   if (isBlank) {
     return (
@@ -357,11 +356,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               </div>
             ));
           })()}
-          {streaming && (
-            <div className="msg assistant">
-              <div className="text">{streaming}</div>
-            </div>
-          )}
           {pending.map((a) => (
             <ApprovalCard key={a.approvalId} approvalId={a.approvalId} sessionId={sessionId} toolName={a.toolName} reason={a.reason} />
           ))}
@@ -1080,11 +1074,11 @@ function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
     order.push(item);
     const turn = item.turn;
     if (turn !== undefined) {
-      // Is this the last item carrying this turn? (look ahead)
+      // Is this the last item carrying this turn? The scan above exits either
+      // at the array end (yes) or on the next item of the same turn (no).
       let j = i + 1;
       while (j < items.length && items[j].turn !== turn) j++;
-      const isLastOfTurn = j < items.length && items[j].turn === turn ? false : j >= items.length;
-      if (isLastOfTurn && tails.has(turn) && !emitted.has(turn)) {
+      if (j >= items.length && tails.has(turn) && !emitted.has(turn)) {
         order.push(tails.get(turn)!);
         emitted.add(turn);
       }

@@ -121,7 +121,12 @@ final class EngineSupervisor {
 
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            guard !data.isEmpty else { return }
+            if data.isEmpty {
+                // EOF: without clearing the handler Foundation keeps invoking
+                // it with empty reads — a busy spin for the process lifetime.
+                handle.readabilityHandler = nil
+                return
+            }
             self?.consume(data)
         }
 

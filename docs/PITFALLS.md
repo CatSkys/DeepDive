@@ -24,8 +24,8 @@
 - 事故：`.flow *, /* comment */ .user-bubble {…}` → `.flow *` 吞了 user-bubble 样式，agent 每段变卡片。
 - 处置：改 CSS 后**先 grep 目标选择器在 dist css 里出现几次 / 是否被合并**，再截图。
 
-### 1.5 壳注入 CSS（WebViewTheme）与主题层叠加
-- 壳级 WebViewTheme 注入的 `.agent-message{background:transparent!important}` 只是兜底；真正样式在 `frontend/src/theme.css`。两层都要同步改，不要只改一层。
+### 1.5 壳注入 CSS（WebViewTheme）与前端样式层
+- 自建 SPA 的样式唯一事实源是 `frontend/src/theme.css`。壳级 `WebViewTheme` 只保留 `html/body` 透明 + `color-scheme: dark`（vibrancy 依赖）；曾在其上叠的 `--dsw-alias-*` token 覆盖是官方 UI 套壳时代的遗物，SPA 零引用，已清除。**不要再往 WebViewTheme 加样式**。
 
 ---
 
@@ -83,6 +83,17 @@
 
 ### 4.2 mux 帧是 `server-request` wrapper，需解包 `payload`
 - `frame = (raw.payload) || raw` 解包正确；帧类型在 `payload.type`（session/event / approval/requested …）。
+
+### 4.3 标题栏拖拽是「穿透 hitTest + JS rect 表」的双端契约
+- 架构：webview 对顶部 52px 条带内的**空白**返回 nil（穿透到下层 TitlebarDragView 拖窗），按钮区返回自身可点；「哪里是按钮」由前端 `titlebar.ts` 每 300ms + resize/transitionend 推送全量 rect 表（CSS 视口坐标，y-down），壳端在 hitTest 时用**实时 bounds.height** 换算。
+- 曾用「didFinish 时一次性采样固定选择器（.window-top-btn）」：收起边栏按钮位移/窗口 resize 后 rect 全错，`.session-header .model` 不在选择器里被整条吞掉 → 误触/按钮失灵。
+- 铁律：① strip=52 与 rectPadding 双端常量必须同步（titlebar.ts ↔ MainWindowController）；② 壳端 **fail-open**（没收到 rect 表前不穿透不吞点击），收到前整条可点、不可拖是预期行为；③ 改动顶层布局（window-top/session-header）必须在壳内实测按钮可点 + 空白可拖。
+
+### 4.4 FileHandle.readabilityHandler 在 EOF 会忙等
+- 引擎进程退出后 availableData 恒为空；handler 不置 nil 会被反复空读调用（CPU 空转）。空数据分支必须 `handle.readabilityHandler = nil`。
+
+### 4.5 桥的 Origin 校验必须 scheme+host+port 全等
+- 曾用 `hasSuffix(":\(port)")`：任何恰好同端口的其他站点（`http://evil.com:5000`）都能过闸；WebSocket 握手不受 CORS 限制，对方页面可读走整条会话事件流。必须是 `origin == "http://127.0.0.1:\(port)"`。
 
 ---
 
