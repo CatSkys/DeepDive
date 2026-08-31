@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem.install()
         statusItem.onShowWindow = { [weak self] in self?.windowController.showPanel() }
+        statusItem.onReloadWeb = { [weak self] in self?.windowController.reloadWeb() }
         statusItem.onRestartEngine = { [weak self] in
             guard let self else { return }
             self.recovery.hide()

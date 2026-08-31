@@ -68,6 +68,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         webView.load(URLRequest(url: url))
     }
 
+    func reloadWeb() {
+        if let url = webView.url {
+            webView.reload()
+            EngineLog.shared.append("[web] manual reload")
+        }
+    }
+
     func setTheme(_ enabled: Bool) {
         themeEnabled = enabled
         applyTheme()

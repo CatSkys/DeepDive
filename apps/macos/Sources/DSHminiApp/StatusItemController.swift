@@ -5,6 +5,7 @@ import AppKit
 /// the "recent sessions" list belongs to the P2 data plane, not v1.
 final class StatusItemController: NSObject, NSMenuDelegate {
     var onShowWindow: (() -> Void)?
+    var onReloadWeb: (() -> Void)?
     var onRestartEngine: (() -> Void)?
     var onToggleTheme: (() -> Void)?
     var onChooseWorkspace: (() -> Void)?
@@ -26,6 +27,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let show = NSMenuItem(title: "显示 DSHmini", action: #selector(showWindowAction), keyEquivalent: "")
         show.target = self
         menu.addItem(show)
+
+        let reload = NSMenuItem(title: "刷新界面", action: #selector(reloadAction), keyEquivalent: "r")
+        reload.target = self
+        menu.addItem(reload)
 
         let restart = NSMenuItem(title: "重启引擎", action: #selector(restartAction), keyEquivalent: "")
         restart.target = self
@@ -70,6 +75,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     // MARK: - actions
 
     @objc private func showWindowAction() { onShowWindow?() }
+    @objc private func reloadAction() { onReloadWeb?() }
     @objc private func restartAction() { onRestartEngine?() }
     @objc private func themeAction() {
         themeEnabled.toggle()
