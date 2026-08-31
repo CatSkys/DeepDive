@@ -76,10 +76,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const tick = async () => {
       if (alive) {
         await refresh();
-        setActiveSessionId((cur) => cur ?? sessions2[0] ?? cur);
       }
     };
-    const sessions2: any[] = [];
     void tick();
     const iv = setInterval(() => void tick(), 3000);
     return () => {

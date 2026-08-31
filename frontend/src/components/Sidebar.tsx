@@ -4,6 +4,8 @@ import { api } from "../api";
 import { useStore } from "../store";
 import type { SessionSummary } from "../types";
 
+declare const __DSH_BUILD_SHA__: string;
+
 const presetIcons: Record<string, any> = {
   standard: Sparkles,
   code: Code,
