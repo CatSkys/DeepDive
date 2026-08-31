@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp, Square, Plus, Command, Image as ImageIcon, Clipboard, Sparkles,
-  Code, Gem, NotebookPen, Cpu,
+  Code, NotebookPen, Cpu,
 } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";

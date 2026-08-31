@@ -14,10 +14,8 @@ interface Store {
   engineUp: boolean;
   activeSessionId: string | null;
   approvals: Map<string, ApprovalRequestFrame & { sessionId: string }>;
-  refresh: () => Promise<void>;
   openSession: (id: string | null) => void;
   createSession: (presetId?: string) => Promise<string | null>;
-  forceRefreshSessions: () => Promise<void>;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   subscribeMux: (handler: MuxHandler) => () => void;
@@ -155,7 +153,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       refresh,
       openSession: setActiveSessionId,
       createSession,
-      forceRefreshSessions,
       sidebarCollapsed,
       toggleSidebar: () => setSidebarCollapsed((v) => !v),
       subscribeMux: (h) => {

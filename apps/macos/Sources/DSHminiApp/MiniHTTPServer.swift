@@ -1,8 +1,8 @@
 import Foundation
 
 /// Minimal threaded HTTP/1.1 server on 127.0.0.1 — the DSHmini bridge origin.
-/// Short connections for static files and unary /api hops; a dedicated stream
-/// seat for SSE pass-through. POSIX sockets keep it dependency-free.
+/// Short connections for static files and unary /api hops; WebSocket upgrades
+/// are handed to the relay raw. POSIX sockets keep it dependency-free.
 final class MiniHTTPServer {
     struct Request {
         let method: String
@@ -19,9 +19,6 @@ final class MiniHTTPServer {
 
     enum Stream {
         case response(Response)
-        /// Headers first, then the byte pump; each pumped chunk is written to
-        /// the client socket. The streaming continues until the closure ends.
-        case stream(Response, ((@escaping (Data) -> Void) -> Void))
         /// WebSocket-style upgrade: the raw client socket is handed to
         /// `upgradeHandler`; the connection stays open.
         case upgrade(Response)
@@ -87,16 +84,7 @@ final class MiniHTTPServer {
         guard let request = readRequest(client) else { return }
         switch callback(request) {
         case .response(let response):
-            writeResponse(client, response, keepAlive: false)
-            close(client)
-        case .stream(let response, let pump):
-            writeResponse(client, response, keepAlive: true, noBody: true)
-            pump { data in
-                data.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
-                    guard let base = ptr.baseAddress else { return }
-                    _ = send(client, base, ptr.count, 0)
-                }
-            }
+            writeResponse(client, response)
             close(client)
         case .upgrade:
             // The relay owns the socket from here (handshake + bidirectional
@@ -146,25 +134,21 @@ final class MiniHTTPServer {
         return Request(method: method, path: path, headers: headers, body: body)
     }
 
-    private func writeResponse(_ client: Int32, _ response: Response, keepAlive: Bool, noBody: Bool = false) {
+    private func writeResponse(_ client: Int32, _ response: Response) {
         var head = "HTTP/1.1 \(response.status) \(statusText(response.status))\r\n"
         head += "Content-Type: \(response.headers["content-type"] ?? "application/json")\r\n"
-        head += "Connection: \(keepAlive ? "keep-alive" : "close")\r\n"
+        head += "Connection: close\r\n"
         for (key, value) in response.headers where key != "content-type" {
             head += "\(key): \(value)\r\n"
         }
-        if !noBody {
-            head += "Content-Length: \(response.body.count)\r\n"
-        }
+        head += "Content-Length: \(response.body.count)\r\n"
         head += "\r\n"
         let headerData = Data(head.utf8)
         headerData.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
             _ = send(client, ptr.baseAddress, ptr.count, 0)
         }
-        if !noBody {
-            response.body.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
-                _ = send(client, ptr.baseAddress, ptr.count, 0)
-            }
+        response.body.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
+            _ = send(client, ptr.baseAddress, ptr.count, 0)
         }
     }
 

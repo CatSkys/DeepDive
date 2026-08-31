@@ -6,7 +6,6 @@ import Carbon.HIToolbox
 final class HotKeyManager {
     var onHotKey: (() -> Void)?
 
-    private(set) var registered = false
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
 
@@ -44,8 +43,7 @@ final class HotKeyManager {
             0,
             &hotKeyRef
         )
-        registered = regStatus == noErr
-        return registered
+        return regStatus == noErr
     }
 
     func unregister() {
@@ -57,7 +55,6 @@ final class HotKeyManager {
             RemoveEventHandler(handler)
             eventHandler = nil
         }
-        registered = false
     }
 
     // MARK: - spec parsing ("option+space", "control+shift+r", …)

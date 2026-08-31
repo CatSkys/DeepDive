@@ -937,7 +937,6 @@ button {
   align-items: center;
   margin-left: 8px;
 }
-.tool-shield { color: rgba(255,255,255,.45); margin-left: 6px; }
 .tool-row.bad .tool-title { color: rgba(255,255,255,.85); }
 .tool-body {
   padding: 8px 0 12px;

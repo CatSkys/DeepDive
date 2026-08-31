@@ -42,8 +42,6 @@ export const api = {
   prompt: (payload: { sessionId: string; mode: "queue" | "steer"; content: Array<{ type: string; text?: string; image?: unknown }> }) =>
     unary<{ accepted: true; command?: { kind: string; text?: string } }>("session.prompt", payload),
   cancel: (payload: { sessionId: string }) => unary("session.cancel", payload),
-  rename: (payload: { sessionId: string; title: string }) => unary("session.rename", payload),
-  search: (payload: { query: string }) => unary("session.search", payload),
   answerApproval: (value: { approvalId: string; outcome: "allowed-once" | "rejected" }) =>
     respond({ type: "client-response", rpcId: crypto.randomUUID(), result: { ok: true, value } }),
   agentPresets: () =>

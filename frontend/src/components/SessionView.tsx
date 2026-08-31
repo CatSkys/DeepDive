@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ChevronDown, ChevronUp, Hammer, ShieldCheck, X } from "lucide-react";
+import { ArrowDown, ChevronDown, ChevronUp, ShieldCheck, X } from "lucide-react";
 import { ModelMenu, type ModelOption } from "./ModelMenu";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -32,15 +32,13 @@ import type {
 
 interface RenderItem {
   key: string;
-  kind: "user" | "assistant" | "tool-call" | "approval" | "think" | "chunk" | "turn-tail";
+  kind: "user" | "assistant" | "tool-call" | "chunk" | "turn-tail";
   event?: SessionEvent;
   toolName?: string;
   toolCallId?: string;
   args?: string;
   output?: string;
   failed?: boolean;
-  pendingApproval?: boolean;
-  reasoning?: string;
   time?: number;
   turn?: number;
   // attached turn-level stats for the closing assistant message meta row
@@ -438,12 +436,8 @@ function Item({ item, latestUser, latestTurn }: {
         args={item.args ?? ""}
         output={item.output}
         failed={item.failed}
-        pendingApproval={item.pendingApproval}
       />
     );
-  }
-  if (item.kind === "think") {
-    return <ThinkRow reasoning={item.reasoning ?? ""} />;
   }
   if (item.kind === "chunk" && item.output) {
     return <div className="msg assistant"><div className="text">{item.output}</div></div>;
@@ -469,14 +463,11 @@ function AgentMessage({ text }: { text: string }) {
 
 /// One-line tool row — DSH ToolRow port: icon + name · summary + chevron,
 /// expandable to reveal terminal output or raw arguments.
-function ToolRow({ toolName, args, output, failed, pendingApproval, turn, sessionId }: {
+function ToolRow({ toolName, args, output, failed }: {
   toolName: string;
   args: string;
   output?: string;
   failed?: boolean;
-  pendingApproval?: boolean;
-  turn?: number;
-  sessionId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
@@ -502,7 +493,6 @@ function ToolRow({ toolName, args, output, failed, pendingApproval, turn, sessio
             <span className="tool-summary">{summary}</span>
           </>
         )}
-        {pendingApproval && <ShieldCheck size={13} className="tool-shield" />}
         {expandable && (
           <span className="tool-chevron">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
         )}

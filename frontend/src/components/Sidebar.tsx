@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Settings, Sparkles, Code, Gem, NotebookPen, Cpu } from "lucide-react";
+import { Search, Settings, Sparkles, Code, NotebookPen, Cpu } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import type { SessionSummary } from "../types";
@@ -107,17 +107,9 @@ export function Sidebar() {
   );
 }
 
-let titleCache = new Map<string, string>();
-
 export function titleOf(s: SessionSummary): string {
   if (s.blank) return "New Chat";
   const proj: any = (s.projections as any)?.values ?? {};
   if (typeof proj.title === "string" && proj.title.trim()) return proj.title;
-  const cached = titleCache.get(s.sessionId);
-  if (cached) return cached;
   return "任务 " + s.sessionId.slice(0, 6);
-}
-
-export function rememberTitle(sessionId: string, title: string) {
-  titleCache.set(sessionId, title);
 }
