@@ -249,8 +249,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       }}>
         <div className="flow-inner">
           {(() => {
-            // DSH recency gate: latest user row and latest turn tail hold
-            // data-actions-reveal="always"; earlier rows reveal on hover.
+            // DSH data-actions-reveal gate: latest of each kind stays visible
+            // ('always'); every earlier row reveals on hover / focus-within.
             let lastUserIdx = -1;
             let lastTailIdx = -1;
             for (let i = 0; i < items.length; i++) {
@@ -785,10 +785,11 @@ function ingest(
       const msg: any = data.message ?? data;
       const content: any[] = Array.isArray(msg.content) ? msg.content : [];
       const turn = data.turn as number;
-      // Replace the live-streamed chunk item (this turn) with the final blocks.
+      // Replace the live-streamed chunk item (this turn) with the final
+      // blocks. The superseded chunk(s) are DISCARDED — re-appending them
+      // interleaves stale stream fragments between steps of a multi-step turn.
       let cut = out.length - 1;
       while (cut >= 0 && out[cut].kind === "chunk" && out[cut].turn === turn) cut -= 1;
-      const tail = out.slice(cut + 1);
       out.length = cut + 1;
 
       const pushed: RenderItem[] = [];
@@ -825,7 +826,7 @@ function ingest(
         }
       }
       if (text) pushed.push({ ...base, kind: "assistant", turn });
-      out.push(...pushed, ...tail);
+      out.push(...pushed);
       break;
     }
     case "tool/call": {

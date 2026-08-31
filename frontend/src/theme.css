@@ -1098,9 +1098,14 @@ button {
    turn tail (= 'always') keep their actions row visible; earlier rows reveal
    on hover / focus-within (opacity keeps layout stable). ---- */
 .msg-block { position: relative; }
+/* DSH userRow: right-aligned column (bubble + IconActions), gap 6 */
 .msg-block.user {
   align-self: flex-end;
   max-width: 62%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
 }
 .msg-block.user .user-bubble {
   width: 100%;
