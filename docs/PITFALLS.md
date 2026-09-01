@@ -95,6 +95,11 @@
 ### 4.5 桥的 Origin 校验必须 scheme+host+port 全等
 - 曾用 `hasSuffix(":\(port)")`：任何恰好同端口的其他站点（`http://evil.com:5000`）都能过闸；WebSocket 握手不受 CORS 限制，对方页面可读走整条会话事件流。必须是 `origin == "http://127.0.0.1:\(port)"`。
 
+### 4.6 alpha.2 引擎 wire 契约（实测 0.1.2-alpha.2 内嵌 runtime，换引擎必查）
+- **HTTP unary 面没有删**：`POST /api/<点号方法>`（`/api/session.list`）+ envelope `method` 必须与路径派生名一致（点号），payload 为**扁平参数**（`session.prompt` = `{sessionId,mode,content}`；`session.history` 的翻页锚叫 **`beforeSeq`** 不是 `atSeq`）。曾把点号转斜杠探测 → 404 → **误判 "HTTP 面已删"** → 整个前端切到 `/api/remote.mux` —— 而该引擎**根本没注册这个升级路由**（只有 `/api/events.mux`、`/api/events.host`，未注册路径直接 destroy socket）→ 所有 RPC 静默失败（表现为"发消息没反应"）。
+- **信任闸里没有 cookie/token**：`isTrustedApiRequest` 只查 Host 回环 + `sec-fetch-site` + Origin==Host。alpha.2 的 `dsh web:` 打印 URL **不带 token**（`localWebUrl` 就是裸回环地址），EngineAuth 的 cookie 交换无害但非必需。
+- 判定接口面用引擎源码：内嵌 runtime 的 `node_modules/@deepseek-ai/dsh-host-apiproxy/lib/index.js` 的 `UNARY_ROUTES` 是**全部** HTTP 方法的权威清单（含每个 payload 的 zod schema），不要靠猜。
+
 ---
 
 ## 5. 版本角标 / 交付自检
@@ -128,3 +133,23 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 ### 6.3 后台 subagent 在此环境会静默失败
 - 观察：`subagent`/`subagent_fork` 后台多次启动后 `failed before it finished. No closing message.`
 - 处置：需要委派时用**前台等待**（`run_in_background:false`），或改为本人直接读官方源码对比。
+
+---
+
+## 7. 引擎跨版本协议断裂（P2 实测，2026-08-31）
+
+### 7.1 alpha.2 两大破坏：mux 改名 + cookie 鉴权 + unary RPC 移除
+- **mux 端点改名**：rc.2 = `ws://…/api/events.mux`；alpha.2 = `ws://…/api/remote.mux`（Gateway-owned WS mux，unary RPC 也走它）。
+- **浏览器鉴权强制**：`dsh web:` 打印的根 URL `?token=` 只用于 `GET /` 换**签名 cookie**（303+Set-Cookie，绑定 Host authority）；之后所有 `/api` 只认 cookie，token 放在 `/api` 路径上**无效**。无 cookie 的 unary `/api/<method>` 在 rc.2 直通、在 alpha.2 回 401 "unauthorized"；再往上 alpha.2 的 unary RPC 干脆不存在（全部 404 "not found"，官方 web 客户端走 remote.mux 流）。
+- **处置**：壳侧 `EngineAuth` 每次引擎就绪先做 token→cookie 交换，`BridgeServer` 两跳（unary+WS upgrade）、`EngineGateway`、`EngineEventObserver` 统一注入 Cookie；观察器 mux 路径按候选表自适应（events.mux → remote.mux）。**引脚保持 rc.2**（SPA 的 unary 协议面成立），升 alpha.2 前必须先把前端 RPC 层移植到 mux 流协议。
+
+- **✅ 已解决（2026-08-31 协议移植完成，引脚切 0.1.2-alpha.2）**：unary HTTP 仍在但形状变了——endpoint 斜杠形 `/api/settings/describe`（点形 404）；信封不变（client-request）；**payload 必须包成 `{args:{…具名参数}}`**。`remote.mux` 只承载流方法与 `$events` 事件流（unary 开流被拒 `gateway/signature-invalid`）。前端传输层 `settings/models/mux.ts` + `api.ts` 探测自动切；BridgeServer WS 盲转发扩展 `/api/remote.mux`；观察者在 remote.mux 上开 `$events`。嵌套依赖漂移（pin alpha.2 拉 dsh-session alpha.3）在同 prerelease 段内警告放行（`DSH_STRICT_NESTED=1` 恢复拒绝）。**embed 必须在实例停止后执行**——覆盖运行中的 node/引擎文件会被 SIGKILL（自检/启动全 137）。
+- 判定代码：`dsh-client-connection/lib/index.js` 的 `BrowserAuth`（`requestRejection` 403/401 分级、`authorizeIndex` 换 cookie）、`dsh-api-gateway/lib/index.js:11` `REMOTE_STREAM_MUX_PATH = "/api/remote.mux"`。
+
+### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
+- main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`，无任何输出——测试新构建时极易误判"app 秒退"。
+- 处置：`DSHMINI_SUPPORT_DIR=<dir>` 隔离支撑目录（P2 新增 dev 钩子），或先退掉运行中的实例。
+
+### 7.3 settings.describe 的真实 namespace 图谱（rc.2 实测）
+- `agent-default-model` = `{provider, model, reasoningEffort}`（对象，不是字符串）；`permission` = `{defaultPreset}`；`ui-theme` = `{preference}`——**都不是以 ns 名直接存标量**，写值要 `settings.update(ns, patch=整值改路径, expectedRevision)` 或 mutate ops 指向子路径。
+- 凭据 ref 名从命名空间的 `apiKeyEnv` 字段发现（如 `llm-deepseek.apiKeyEnv = "DEEPSEEK_API_KEY"`），不要按 provider id 拼猜。

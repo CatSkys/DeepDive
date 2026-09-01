@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, PanelLeft } from "lucide-react";
 import { api } from "./api";
+import { installHostBridge } from "./host";
 import { StoreProvider, useStore } from "./store";
 import { Sidebar } from "./components/Sidebar";
 import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
+import { SettingsPage } from "./components/SettingsPage";
 import { ModelMenu, type ModelOption } from "./components/ModelMenu";
 import "./theme.css";
 
@@ -14,21 +16,40 @@ function Shell() {
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [showModels, setShowModels] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Shell→frontend bridge mount (SPEC-NOTIFICATIONS §3.1): native pushes
+  // navigateToSession/navigateToSettings/themeChanged here; mounted once,
+  // reports host-ready.
   useEffect(() => {
-    api
-      .llmModels()
-      .then((r: any) => {
-        const flat: ModelOption[] = [];
-        for (const g of r?.groups ?? []) {
-          for (const m of g?.models ?? []) {
-            flat.push({ provider: g.id, model: m.id, label: m.name ?? m.id, providerLabel: g.name ?? g.id });
-          }
-        }
-        setModels(flat);
-        if (flat[0]) setModelName(flat[0].label);
-      })
-      .catch(() => void 0);
+    installHostBridge({
+      navigateToSession: (sessionId) => {
+        setSettingsOpen(false);
+        store.openSession(sessionId);
+      },
+      navigateToSettings: () => setSettingsOpen(true),
+      themeChanged: (dark) => {
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Model catalog: reloaded every time the picker opens — the catalog changes
+  // when keys/providers are configured in settings, and a boot-time-only load
+  // would stay empty forever after an early failure (user report).
+  const loadModels = useCallback(async () => {
+    const { options, default: def } = await api.modelOptions();
+    setModels(options);
+    if (def) {
+      const hit = options.find((m) => m.provider === def.provider && m.model === def.model);
+      setModelName(hit?.label ?? `${def.provider} / ${def.model}`);
+    } else if (options[0]) setModelName(options[0].label);
+  }, []);
+  useEffect(() => { void loadModels(); }, [loadModels]);
+  useEffect(() => {
+    if (showModels) void loadModels();
+  }, [showModels, loadModels]);
 
   const pickModel = async (m: ModelOption) => {
     setShowModels(false);
@@ -40,7 +61,7 @@ function Shell() {
     } catch { /* engine may be booting */ }
   };
   return (
-    <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
+    <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}${settingsOpen ? " settings-mode" : ""}`}>
       <div className={`window-top${store.sidebarCollapsed ? " collapsed" : ""}`}>
         <button className="window-top-btn" title="新会话" onClick={() => void store.createSession()}>
           <Plus size={17} />
@@ -49,7 +70,7 @@ function Shell() {
           <PanelLeft size={17} />
         </button>
       </div>
-      <Sidebar />
+      <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
       <main className="main">
         {active ? (
           <SessionView sessionId={active} />
@@ -80,6 +101,7 @@ function Shell() {
           </div>
         )}
       </main>
+      {settingsOpen && <SettingsPage onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

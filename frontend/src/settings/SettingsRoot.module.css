@@ -1,0 +1,195 @@
+/* Full-window settings page (user decision 2026-08-31: covers the whole
+   window, frosted like the main window, with a back row — not a centered
+   modal). Class names kept from the official dsh ui-settings shell; metrics
+   and type retuned to the reference screenshot. All color via --dsw-alias-*
+   tokens (pinned dark in settings-tokens.css). */
+
+/* Full-window layer. The main UI is hidden while settings are open
+   (.app.settings-mode { visibility: hidden }), so this sits directly on the
+   window's native vibrancy glass — the frosted material IS the main
+   window's, by construction. Only a light tint for depth. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  background: rgba(16, 17, 19, 0.32);
+}
+
+.mask {
+  position: absolute;
+  inset: 0;
+}
+
+/* The page itself: fills the window, no radius/shadow. */
+.panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border-radius: 0;
+  overflow: hidden;
+  background: transparent;
+  --dsh-scrollbar-thumb: rgba(255, 255, 255, 0.14);
+  --dsh-scrollbar-thumb-hover: rgba(255, 255, 255, 0.24);
+}
+
+/* Left rail: back row, group label, section cells. */
+.nav {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 216px;
+  padding: 52px 14px 20px;
+  box-sizing: border-box;
+}
+
+.backRow {
+  margin: 0 0 34px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.back:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.navGroupLabel {
+  padding: 0 12px;
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.navTitle {
+  display: none;
+}
+
+.navList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--dsw-alias-label-secondary);
+  text-align: left;
+}
+
+.navCell:hover {
+  background: var(--dsw-specific-sidebar-nav-item-hover);
+}
+
+.navCell.active {
+  background: var(--dsw-specific-sidebar-nav-item-active);
+  color: var(--dsw-alias-label-primary);
+}
+
+.navIcon {
+  flex: none;
+  opacity: 0.9;
+}
+
+.navLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Content column: headline + scrolling option groups. */
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 84px;
+  padding: 10px 28px 0 44px;
+  box-sizing: border-box;
+}
+
+.pageTitle {
+  font-size: 22px;
+  line-height: 34px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 28px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.close:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.hiddenLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.actions {
+  flex: 1;
+}
+
+/* Options area scrolls under the headline. */
+.options {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 56px 56px;
+  box-sizing: border-box;
+}

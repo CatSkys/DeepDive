@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import type { ApprovalRequestFrame, MuxFrame, SessionSummary, WorkspaceView } from "./types";
 
@@ -18,6 +18,12 @@ interface Store {
   createSession: (presetId?: string) => Promise<string | null>;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
+  pinned: Set<string>;
+  unread: Set<string>;
+  togglePin: (id: string) => void;
+  markUnread: (id: string) => void;
+  clearUnread: (id: string) => void;
+  refresh: () => Promise<void>;
   subscribeMux: (handler: MuxHandler) => () => void;
 }
 
@@ -32,6 +38,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [approvals, setApprovals] = useState<Map<string, ApprovalRequestFrame & { sessionId: string }>>(new Map());
   const [muxHandlers] = useState<Set<MuxHandler>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // 任务行本地状态:置顶/未读(localStorage 持久化,官方语义)
+  const [pinned, setPinned] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("dsh.pinned") ?? "[]") as string[]));
+  const [unread, setUnread] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("dsh.unread") ?? "[]") as string[]));
+  const persist = (key: string, set: Set<string>) => localStorage.setItem(key, JSON.stringify([...set]));
+  const togglePin = useCallback((id: string) => setPinned((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    persist("dsh.pinned", next);
+    return next;
+  }), []);
+  const markUnread = useCallback((id: string) => setUnread((prev) => {
+    const next = new Set(prev).add(id);
+    persist("dsh.unread", next);
+    return next;
+  }), []);
+  const clearUnread = useCallback((id: string) => setUnread((prev) => {
+    if (!prev.has(id)) return prev;
+    const next = new Set(prev);
+    next.delete(id);
+    persist("dsh.unread", next);
+    return next;
+  }), []);
+
+  // 未读自动接线：打开（或启动落在）某会话即视为已读。
+  const activeIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeIdRef.current = activeSessionId;
+    if (activeSessionId) clearUnread(activeSessionId);
+  }, [activeSessionId, clearUnread]);
 
   const forceRefreshSessions = async () => {
     try {
@@ -59,10 +94,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refresh = async () => {
+    // workspace.list 面是活的（点号形式，PITFALLS 4.6），且它的
+    // archivedSessionIds 是归档的唯一事实源——session.list 不区分已归档，
+    // 由客户端过滤。workspace 失败独立降级，绝不拖垮会话列表。
+    let archived = new Set<string>();
     try {
-      const [ws, ss] = await Promise.all([api.workspaces(), api.sessions()]);
-      const sorted = ss.items.sort((a, b) => b.updatedAt - a.updatedAt);
-      setWorkspaces(ws.items);
+      const ws = await api.workspaces();
+      setWorkspaces(ws.items ?? []);
+      archived = new Set(ws.archivedSessionIds ?? []);
+    } catch { /* workspace face absent on this engine */ }
+    try {
+      const ss = await api.sessions();
+      const sorted = ss.items
+        .filter((s) => !archived.has(s.sessionId))
+        .sort((a, b) => b.updatedAt - a.updatedAt);
       setSessions(sorted);
       setEngineUp(true);
       // Boot policy: always land on a chat — reuse an existing blank session,
@@ -77,7 +122,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const recent = sorted.find((x) => !x.blank);
         if (recent) return recent.sessionId;
         void (async () => {
-          const res = await api.createSession({ workspaceId: ws.items[0]?.workspaceId });
+          const res = await api.createSession({ workspaceId: workspaces[0]?.workspaceId });
           setActiveSessionId(res.sessionId);
           await forceRefreshSessionsRef.current();
         })();
@@ -108,6 +153,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const close = api.openMux(
       (frame: any) => {
         if (frame.type === "session/event") {
+          // 非当前会话的新动态 → 未读（当前会话正在看，不打点）。
+          const sid = (frame as { sessionId?: string }).sessionId;
+          if (sid && sid !== activeIdRef.current) markUnread(sid);
           void applyFrame(frame);
         } else if (frame.type === "approval/requested") {
           setApprovals((prev) => new Map(prev).set(frame.approvalId as string, frame));
@@ -155,12 +203,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       createSession,
       sidebarCollapsed,
       toggleSidebar: () => setSidebarCollapsed((v) => !v),
+      pinned,
+      unread,
+      togglePin,
+      markUnread,
+      clearUnread,
       subscribeMux: (h) => {
         muxHandlers.add(h);
         return () => muxHandlers.delete(h);
       },
     }),
-    [workspaces, sessions, engineUp, activeSessionId, approvals, sidebarCollapsed]
+    [workspaces, sessions, engineUp, activeSessionId, approvals, sidebarCollapsed, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

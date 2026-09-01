@@ -71,7 +71,9 @@ final class BridgeServer {
         }
 
         // WebSocket upgrade (engine's events.mux/host): blind relay.
-        if request.headers["upgrade"]?.lowercased() == "websocket", request.path.hasPrefix("/api/events") {
+        // events.* (rc.2) and remote.mux (alpha.2) both blind-relay.
+        if request.headers["upgrade"]?.lowercased() == "websocket",
+           request.path.hasPrefix("/api/events") || request.path.hasPrefix("/api/remote.mux") {
             return .upgrade(.init(status: 101))
         }
 
@@ -109,8 +111,14 @@ final class BridgeServer {
         }
         guard rc == 0 else { close(upstream); close(client); return }
 
-        // Forward the upgrade without the browser Origin (engine trust fence).
-        let up = "GET \(request.path) HTTP/1.1\r\nHost: \(host):\(port)\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: \(key)\r\nSec-WebSocket-Version: 13\r\n\r\n"
+        // Forward the upgrade without the browser Origin (engine trust fence),
+        // re-attaching the boot cookie (alpha.2+ enforces it post-upgrade).
+        let tokenQuery = engineBase.query.map { "?\($0)" } ?? ""
+        var cookieLine = ""
+        if let cookie = EngineAuth.shared.currentCookieHeader {
+            cookieLine = "Cookie: \(cookie)\r\n"
+        }
+        let up = "GET \(request.path)\(tokenQuery) HTTP/1.1\r\nHost: \(host):\(port)\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: \(key)\r\nSec-WebSocket-Version: 13\r\n\(cookieLine)\r\n"
         let upData = Data(up.utf8)
         var sent = 0
         while sent < upData.count {
@@ -167,7 +175,11 @@ final class BridgeServer {
     // MARK: - unary relay
 
     private func relayUnary(_ request: MiniHTTPServer.Request, engineBase: URL) -> MiniHTTPServer.Response {
-        guard let engineURL = URL(string: request.path, relativeTo: engineBase) else {
+        // Re-attach the engine's boot token: relative resolution against the
+        // ready URL drops its query, and the engine (0.1.2-alpha.2+) rejects
+        // tokenless gateway calls with "unauthorized".
+        let query = engineBase.query.map { "?\($0)" } ?? ""
+        guard let engineURL = URL(string: request.path + query, relativeTo: engineBase) else {
             return .init(status: 400)
         }
         var urlRequest = URLRequest(url: engineURL)
@@ -175,6 +187,11 @@ final class BridgeServer {
         urlRequest.httpBody = request.body.isEmpty ? nil : request.body
         if let contentType = request.headers["content-type"] {
             urlRequest.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        }
+        // Engine browser-auth cookie (alpha.2+): minted once per boot by
+        // EngineAuth; without it the gateway answers 401.
+        if let cookie = EngineAuth.shared.currentCookieHeader {
+            urlRequest.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
         let semaphore = DispatchSemaphore(value: 0)
         var result = MiniHTTPServer.Response(status: 502)

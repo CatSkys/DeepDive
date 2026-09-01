@@ -54,7 +54,7 @@ interface TurnMeta {
 }
 
 export function SessionView({ sessionId }: { sessionId: string }) {
-  const { approvals, subscribeMux, sessions } = useStore();
+  const { approvals, sessions, subscribeMux } = useStore();
   const [items, setItems] = useState<RenderItem[]>([]);
   // Live turn state from mux events; `summary.running` (store poll) covers
   // reload mid-turn, where no turn/start will ever arrive again.
@@ -88,20 +88,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   });
 
   useEffect(() => {
-    api
-      .sessionModels({ sessionId })
-      .then((r) => setModelName(r.current?.model ?? ""))
-      .catch(() => void 0);
-    api
-      .llmModels()
-      .then((r) => {
-        const flat: ModelOption[] = [];
-        for (const g of r?.groups ?? []) for (const m of g?.models ?? []) {
-          flat.push({ provider: g.id, model: m.id, label: m.name ?? m.id, providerLabel: g.name ?? g.id });
-        }
-        setModels(flat);
-      })
-      .catch(() => void 0);
+    // alpha.2: session/models and llm/models are gone from the browser face —
+    // the unified catalog loader (session/modelCatalog with rc.2 fallback)
+    // provides both the options and the engine default selection.
+    void (async () => {
+      try {
+        const { options, default: def } = await api.modelOptions();
+        setModels(options);
+        if (!def) return;
+        const hit = options.find((m) => m.provider === def.provider && m.model === def.model);
+        setModelName(hit?.label ?? `${def.provider} / ${def.model}`);
+      } catch { /* engine booting */ }
+      // The live per-session selection (when it differs from the default).
+      try {
+        const r = await api.sessionModels({ sessionId });
+        if (r.current?.model) setModelName(r.current.model);
+      } catch { /* optional enrichment */ }
+    })();
   }, [sessionId]);
 
   const pickModel = async (m: ModelOption) => {
@@ -139,6 +142,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setHasMore(false);
     setEarliestSeq(undefined);
 
+    // Verified engine surface (0.1.2-alpha.2): history pages ride HTTP
+    // session.history (dot-form, beforeSeq anchor) and live events ride the
+    // broadcast events.mux downlink — session/follow + remote.mux do not
+    // exist in this build (PITFALLS 4.6).
     api
       .history({ sessionId, maxMessages: 120 })
       .then(({ events, hasMore: more }) => {
@@ -153,6 +160,28 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       })
       .catch(() => void 0);
 
+    const off = subscribeMux((frame) => {
+      if (frame.type !== "session/event") return;
+      const ev = (frame as { type: "session/event"; sessionId: string; event: SessionEvent }).event;
+      if (ev === undefined || (frame as { sessionId?: string }).sessionId !== sessionId) return;
+      const seq = ev.seq ?? -1;
+      if (seq >= 0 && seq < seqFloor) return;
+      setItems((prev) => {
+        const log = eventLog.current;
+        if (seq >= 0 && log.length && seq <= log[log.length - 1].seq) return prev;
+        log.push(ev);
+        return rebuild(log);
+      });
+      if (ev.type === "turn/start") {
+        setLiveRunning(true);
+        setRunningSince(ev.time);
+      } else if (ev.type === "turn/end") {
+        setLiveRunning(false);
+        setRunningSince(undefined);
+      }
+      if (seq >= 0) seqFloor = seq + 1;
+    });
+
     // plan projection: DSH PlanChip visibility (active, or pending when folded)
     const tickPlan = () => {
       api.sessions().then((r) => {
@@ -165,37 +194,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     };
     tickPlan();
     const planIv = setInterval(tickPlan, 3000);
-
-    const off = subscribeMux((frame) => {
-      // MuxFrame's catch-all `{ type: string; [k: string]: unknown }` prevents
-      // clean narrowing, so pull the event out with an explicit guard.
-      if (frame.type !== "session/event") return;
-      const ev = (frame as { type: "session/event"; sessionId: string; event: SessionEvent }).event;
-      if (ev === undefined || (frame as { sessionId?: string }).sessionId !== sessionId) return;
-      const seq = ev.seq ?? -1;
-      if (seq >= 0 && seq < seqFloor) return;
-      // Append to the log (asc seq) and rebuild. Overlap with history is safe:
-      // any already-present seq gets replaced by the identical event, and the
-      // rebuild sorts nothing — the log stays ascending.
-      setItems((prev) => {
-        const log = eventLog.current;
-        if (seq >= 0 && log.length && seq <= log[log.length - 1].seq) {
-          // duplicate/late frame: drop (log is strictly ascending)
-          return prev;
-        }
-        log.push(ev);
-        return rebuild(log);
-      });
-      // running state: turn/start → turn/end window (DSH TurnStatus)
-      if (ev.type === "turn/start") {
-        setLiveRunning(true);
-        setRunningSince(ev.time);
-      } else if (ev.type === "turn/end") {
-        setLiveRunning(false);
-        setRunningSince(undefined);
-      }
-      if (seq >= 0) seqFloor = seq + 1;
-    });
 
     return () => {
       alive = false;
@@ -221,8 +219,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       // keep it visually pinned after older rows are prepended.
       const el = olderAnchorRef.current;
       const anchorTop = el ? el.getBoundingClientRect().top - scrollRef.current!.getBoundingClientRect().top : 0;
-      const { events, hasMore: more } = await api.history({ sessionId, atSeq, maxMessages: 120 });
-      eventLog.current = [...events.map((e) => e.event), ...eventLog.current];
+      const { events: older, hasMore: more } = await api.history({ sessionId, atSeq, maxMessages: 120 });
+      eventLog.current = [...older.map((e) => e.event as import("../types").SessionEvent), ...eventLog.current];
       setItems(rebuild(eventLog.current));
       // After render, restore the anchor row to its captured offset.
       requestAnimationFrame(() => {
@@ -234,8 +232,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         }
       });
       setHasMore(more);
-      const first = events[0];
-      if (first) setEarliestSeq(first.event.seq);
+      const first = older[0] as { event?: { seq?: number } } | undefined;
+      if (first?.event?.seq !== undefined) setEarliestSeq(first.event.seq);
     } catch {
       // engine may be busy; keep current state
     } finally {

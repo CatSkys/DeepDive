@@ -1,0 +1,50 @@
+/* Fixed dark values for the official dsh settings-panel tokens.
+ *
+ * The official SettingsRoot/SettingsRows CSS is copied verbatim and colored
+ * entirely through --dsw-alias-* vars. Those tokens are normally injected by
+ * WebViewTheme.css — but only when the "黑白玻璃" flag is on. The settings
+ * panel must always match the main window's dark glass, so this file pins
+ * the whole token set (color story = WebViewTheme: near-black surfaces,
+ * #F2F2F3 ink, white-on-dark buttons). Loaded by SettingsPage.tsx.
+ */
+:root {
+  /* surfaces */
+  --dsw-alias-bg-layer-1: rgba(255, 255, 255, 0.045);
+  --dsw-alias-bg-layer-2: rgba(24, 24, 27, 0.97);
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.55);
+  --dsw-mask-blur: blur(16px);
+
+  /* text */
+  --dsw-alias-label-primary: #f2f2f3;
+  --dsw-alias-label-primary-foreground: #141416;
+  --dsw-alias-label-secondary: #9e9ea3;
+  --dsw-alias-label-tertiary: #6e6e73;
+
+  /* borders */
+  --dsw-alias-border-l2: rgba(255, 255, 255, 0.1);
+  --dsw-alias-border-l3: rgba(255, 255, 255, 0.16);
+
+  /* buttons */
+  --dsw-alias-button-primary-fill: #f2f2f3;
+  --dsw-alias-button-primary-hover: #ffffff;
+  --dsw-alias-button-contrast-fill: #141416;
+
+  /* interaction */
+  --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.06);
+  --dsw-alias-interactive-bg-hover-solid: rgba(255, 255, 255, 0.1);
+
+  /* nav rail states */
+  --dsw-specific-sidebar-nav-item-hover: rgba(255, 255, 255, 0.06);
+  --dsw-specific-sidebar-nav-item-active: rgba(255, 255, 255, 0.12);
+
+  /* states */
+  --dsw-alias-state-success-primary: #3fcc7a;
+  --dsw-alias-state-error-primary: #e5534b;
+
+  /* scrollbars (panel elevation tokens) */
+  --dsw-alias-scrollbar-bg-l2: rgba(255, 255, 255, 0.14);
+  --dsw-alias-scrollbar-hover-l2: rgba(255, 255, 255, 0.24);
+
+  /* lv3 elevation shadow (panel) */
+  --dsw-shadow-lv3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35);
+}

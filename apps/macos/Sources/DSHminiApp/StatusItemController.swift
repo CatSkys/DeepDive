@@ -1,22 +1,27 @@
 import AppKit
 
 /// Menu bar residency (no Dock; LSUIElement). Shows the engine state glyph
-/// and the minimal control surface. Business data stays out of the shell —
-/// the "recent sessions" list belongs to the P2 data plane, not v1.
+/// plus live activity (SPEC-NOTIFICATIONS §1.4): attention state wins, then
+/// running, then idle. Business data stays out of the shell.
 final class StatusItemController: NSObject, NSMenuDelegate {
+    static var shared: StatusItemController?
+
     var onShowWindow: (() -> Void)?
+    var onOpenSettings: (() -> Void)?
     var onReloadWeb: (() -> Void)?
     var onRestartEngine: (() -> Void)?
-    var onToggleTheme: (() -> Void)?
     var onChooseWorkspace: (() -> Void)?
     var onQuit: (() -> Void)?
 
-    var themeEnabled = true {
-        didSet { themeMenuItem?.state = themeEnabled ? .on : .off }
-    }
-
     private var item: NSStatusItem?
-    private var themeMenuItem: NSMenuItem?
+    private var engineState: EngineSupervisor.State = .launching
+    private var activityRunning = false
+    private var activityAttention = false
+
+    override init() {
+        super.init()
+        StatusItemController.shared = self
+    }
 
     func install() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -28,6 +33,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         show.target = self
         menu.addItem(show)
 
+        let settings = NSMenuItem(title: "设置…", action: #selector(openSettingsAction), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+
         let reload = NSMenuItem(title: "刷新界面", action: #selector(reloadAction), keyEquivalent: "r")
         reload.target = self
         menu.addItem(reload)
@@ -37,12 +46,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(restart)
 
         menu.addItem(.separator())
-
-        let theme = NSMenuItem(title: "黑白主题", action: #selector(themeAction), keyEquivalent: "")
-        theme.target = self
-        theme.state = themeEnabled ? .on : .off
-        themeMenuItem = theme
-        menu.addItem(theme)
 
         let workspace = NSMenuItem(title: "设置启动工作区…", action: #selector(workspaceAction), keyEquivalent: "")
         workspace.target = self
@@ -55,32 +58,48 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(quit)
 
         item.menu = menu
+        // 「黑白主题」menu item removed in P2: theme lives in settings → 外观
+        // (SPEC-NOTIFICATIONS §1.4); single entry point, no dual controls.
         setState(.launching)
     }
 
     func setState(_ state: EngineSupervisor.State) {
-        let symbol: String
-        switch state {
-        case .ready: symbol = "circle.fill"
-        case .idle, .launching: symbol = "arrow.triangle.2.circlepath"
-        case .restarting: symbol = "arrow.triangle.2.circlepath"
-        case .failed: symbol = "exclamationmark.triangle.fill"
+        engineState = state
+        render()
+        item?.button?.toolTip = "DSHmini — \(state.shortLabel)"
+    }
+
+    /// Live activity from EngineEventObserver (§1.4): attention > running.
+    func setActivity(running: Bool, attention: Bool) {
+        activityRunning = running
+        activityAttention = attention
+        render()
+    }
+
+    private func render() {
+        // Idle glyph = the dsh whale, unified with the floating bubble
+        // (user decision); engine failure/launching keep the distinct system
+        // glyphs so a broken engine reads at a glance. Activity rides as a
+        // marker on the whale: attention dot wins, then running ring.
+        let image: NSImage?
+        switch engineState {
+        case .failed:
+            image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "DSHmini 引擎")
+        case .launching, .restarting:
+            image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "DSHmini 引擎")
+        case .idle, .ready:
+            image = WhaleAsset.statusIcon(running: activityRunning, attention: activityAttention)
         }
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "DSHmini 引擎")
         image?.isTemplate = true
         item?.button?.image = image
-        item?.button?.toolTip = "DSHmini — \(state.shortLabel)"
     }
 
     // MARK: - actions
 
     @objc private func showWindowAction() { onShowWindow?() }
+    @objc private func openSettingsAction() { onOpenSettings?() }
     @objc private func reloadAction() { onReloadWeb?() }
     @objc private func restartAction() { onRestartEngine?() }
-    @objc private func themeAction() {
-        themeEnabled.toggle()
-        onToggleTheme?()
-    }
     @objc private func workspaceAction() { onChooseWorkspace?() }
     @objc private func quitAction() { onQuit?() }
 }

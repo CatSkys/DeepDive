@@ -1,7 +1,9 @@
-# ENGINE-RUNTIME — 引擎捆绑与版本韧性 spec（P2 · 待确认）
+# ENGINE-RUNTIME — 引擎捆绑与版本韧性 spec（P2 · v2.1 复审收口）
 
 > 工程流 A。目标：**用户无需安装 dsh** + **引擎版本变化对客户端无感**。
 > 参考：`luochenw/deepseek-harness-macos` 的 `scripts/prepare-dsh-runtime.sh`、`scripts/build-macos-app.sh`、`scripts/dsh-runtime-version.txt`、`DSHHostProtocol` 的 settings/credentials 端点。
+> v2 变更：钉死 bundled 入口形状（node + `lib/bin.js`，修 v1 的路径自相矛盾）；node 二进制版本同样引脚化；新增 §4.4 凭据冷启动闭环。
+> v2.1 变更：入口优先级修正（`DSHMINI_DSH_ENTRY` 显式 env 最强覆盖、压过 bundled，否则 §5"对照不同版本"失效）；子命令形状以实测为准；`PATH` 注入 bundled node；`package-macos.sh` 签名改 `--deep`；node 引脚不符改 fail-loud（不做自动下载）。
 
 ---
 
@@ -20,11 +22,12 @@
 ## 3. 引擎捆绑（构建期）
 
 ### 3.1 运行时来源引脚
-- 文件：`scripts/dsh-runtime-version.txt`，内容为单一版本号（当前 `0.1.2-alpha.2`）。
+- 文件：`scripts/dsh-runtime-version.txt`，内容为单一版本号（**当前 `0.1.2-alpha.2`**——v3.1 协议移植完成后切回：前端具备 mux 传输层（`settings/models/mux.ts`）与 alpha.2 unary wire（斜杠 endpoint + `{args}` 包裹），官方模型全功能面板可用；过程记录见 PITFALLS「引擎跨版本协议断裂」）。
+- **node 二进制版本同样引脚化**：`scripts/node-version.txt` 单一版本号（对齐 `ARCHITECTURE §5.4`"启动时禁止复用系统 Node，保证版本钉死"的精神——只钉 dsh 不钉 node 会随构建机漂移）。构建机 node 与引脚不符时**直接报错**（提示切到引脚版本后重试，如 nvm / 官方 tarball 手动安装），**不静默用本机版本**；不做自动下载（控制实现面——参考项目亦只用构建机 node，自动下载是超出参考的新逻辑）。
 
 ### 3.2 准备脚本 `scripts/prepare-dsh-runtime.sh`（对齐参考项目）
 - 读 `dsh-runtime-version.txt` 得到 `EXPECTED_VERSION`。
-- 可选 `DSH_RUNTIME_VERIFY_LATEST=1`：`npm view @deepseek-ai/dsh version` 须等于引脚，否则报错提示"更新 runtime 与测试后再构建"。
+- 可选 `DSH_RUNTIME_VERIFY_LATEST=1`：`npm view @deepseek-ai/dsh version` 须等于引脚，否则报错提示"更新 runtime 与测试后再构建"（对齐参考项目；opt-in。prerelease 引脚下 npm `latest` 前移后此校验按设计失败，提示的正是"该升引脚+回归测试了"）。
 - 可用 `DSH_SOURCE` 复用**同版本完整 runtime**（严格校验版本 + `lib/bin.js` + 嵌套依赖 `@deepseek-ai/dsh-subagent`/`dsh-session`/`dsh-web-app` 版本一致）。
 - 否则安装到隔离缓存：`dist/.dsh-runtime-cache/$VERSION/lib/node_modules/@deepseek-ai/dsh`（加 build 目录锁防并行构建互删）。
 - 输出缓存中的 runtime 源路径。
@@ -32,15 +35,17 @@
 ### 3.3 嵌入 App `scripts/embed-engine.sh`
 - 在 `build-release.sh` / `package-macos.sh` / `dev.sh` 中追加一步（与 `embed-web.sh` 平级）。
 - 将：
-  - `node` 可执行（构建机 `command -v node`）→ `Contents/MacOS/node`（校验架构匹配、复制 `libnode*.dylib` 到 `Contents/lib`）。
-  - 准备好的 DSH runtime 闭包（`prepare-dsh-runtime.sh` 输出）→ `Contents/Resources/Runtime/dsh`。
+  - `node` 可执行（按 §3.1 `node-version.txt` 引脚取，非本机随手版）→ `Contents/MacOS/node`（校验架构匹配、复制 `libnode*.dylib` 到 `Contents/lib`）。
+  - 准备好的 DSH runtime 闭包（`prepare-dsh-runtime.sh` 输出）→ **`Contents/Resources/Runtime/dsh/`（整目录拷入，入口脚本为 `Runtime/dsh/lib/bin.js`）**。
 - 记录/声明运行时许可（Node LICENSE、DSH runtime THIRD_PARTY_NOTICES）。
 
-### 3.4 入口解析 `EngineSupervisor.resolveDshEntry()` 调整
-- 优先：`Bundle.main.url(forResource: "dsh", withExtension: nil, subdirectory: "Runtime/Contents")`（或按构建布局）下的可执行。
-- 其次：`DSHMINI_DSH_ENTRY`（若可执行）。
-- 其次：系统路径探测（现状）→ `PATH` 的 `dsh`。
-- 运行时子命令仍为 `--profile web --no-open --port 0`；`DSH_HOME` 仍指向应用数据目录（隔离）。无 Dock（LSUIElement）沿用。
+### 3.4 入口解析与 spawn 形状（`EngineSupervisor`）
+- **入口形状改变**：bundled 场景不再是"单一 `dsh` 可执行直启"，而是 **bundled node + 入口脚本**——`executableURL = <bundle>/Contents/MacOS/node`，`arguments = [<bundle>/Contents/Resources/Runtime/dsh/lib/bin.js, "--profile", "web", "--no-open", "--port", "0"]`。**子命令形状以实测为准**：现状系统 dsh 用 `--profile web` 标志式，参考项目 bin.js 用 `web` 子命令式（`bin.js web --host 127.0.0.1 --port 0 --no-open`）——两者应等价，验收标准是能输出 `dsh web:` URL 行。`DSH_HOME` 仍指向应用数据目录（隔离）；环境 `PATH` 前置 bundled node 所在目录（runtime 内子进程需要，对齐参考项目）；无 Dock（LSUIElement）沿用。
+- `resolveDshEntry()` 优先级（返回入口形状枚举，供 spawn 区分）：
+  1. `DSHMINI_DSH_ENTRY`（若可执行）→ 单可执行直启（现状形状）。**显式 env 是最强覆盖、压过 bundled**——§5"对照不同版本 API 面"依赖此优先级（若 bundled 更高，设了 env 仍启动 bundled，覆盖即失效）；普通用户无此 env，不受影响。
+  2. **bundled**：`Bundle.main` 下 `Resources/Runtime/dsh/lib/bin.js` 存在**且** `Contents/MacOS/node` 存在 → node + bin.js 形状。（注意 `Bundle.main.url(forResource:subdirectory:)` 相对 `Contents/Resources` 解析，subdirectory 应为 `Runtime/dsh/lib`——v1 写的 `Runtime/Contents` 有误。）
+  3. 系统路径探测（现状）→ `PATH` 的 `dsh`。
+- **失败文案随来源区分**：bundled 缺失/损坏（bin.js 或 node 不存在、启动即崩）提示"引擎程序不完整，请重新安装 App"；仅系统 dsh 找不到时才提示"请安装 dsh"（现状文案）。
 
 ## 4. 版本韧性
 
@@ -58,6 +63,11 @@
 - 一切 `settings.update/mutate/replace` 都带 `expectedRevision`（读自 `settings.describe` 的 `revision`）。
 - 返回 `settings/conflict` 时：UI 给两选一恢复——"放弃修改，载入最新" / "保留修改，基于最新版本重试"（对齐参考项目 `SettingsEditorView`）。不做静默覆盖。
 
+### 4.4 凭据冷启动闭环（P2 设置窗口就绪后接通）
+- 现状 fail-loud：DSH_HOME 缺 `.credentials.yaml` 即 `failed`，文案让用户**手动复制** `~/.dsh/.credentials.yaml`。
+- 设置窗口提供 `credentials.set`（`SPEC-SETTINGS-WINDOW §3.3`）后，恢复界面改为引导"打开设置 → 模型 → 配置 API Key"；配置成功且引擎处于 `failed` 时**自动重启引擎**（`EngineSupervisor.start()`），完成闭环，不再要求手动复制文件。
+- 迁移期兼容：`~/.dsh/.credentials.yaml` 存在而 DSH_HOME 缺失时，恢复界面可提供"一键导入"（复制），降低老用户迁移成本。
+
 ## 5. 引擎升级与更新
 
 - 引擎版本随**应用整体发布**（当前规格）——升级 bundled runtime = 发新版 App。
@@ -72,8 +82,10 @@
 | `scripts/prepare-dsh-runtime.sh` | 新增（对齐参考项目） |
 | `scripts/embed-engine.sh` | 新增 |
 | `scripts/dsh-runtime-version.txt` | 新增（`0.1.2-alpha.2`） |
-| `scripts/build-release.sh` / `package-macos.sh` / `dev.sh` | 追加 embed-engine |
-| `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` | `resolveDshEntry()` 优先 bundled |
-| `apps/macos/Sources/DSHminiApp/AppDelegate.swift` | 必要时校验 bundled 存在/凭据提示 |
+| `scripts/node-version.txt` | 新增（node 二进制引脚，§3.1） |
+| `scripts/build-release.sh` / `package-macos.sh` / `dev.sh` | 追加 embed-engine；`package-macos.sh` 签名改 `codesign --force --deep`（现有浅签不覆盖嵌入的 `MacOS/node`，参考项目 embed 后即深签） |
+| `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` | 入口解析优先 bundled + spawn 形状（node+bin.js）+ 失败文案区分（§3.4） |
+| `apps/macos/Sources/DSHminiApp/AppDelegate.swift` | 校验 bundled 存在；凭据提示改引导设置窗口（§4.4） |
+| `apps/macos/Sources/DSHminiApp/RecoveryWindowController.swift` | 恢复界面加"配置 API Key"入口 + 一键导入（§4.4） |
 
 > 依赖：DSHmini 需在构建机有 Node/npm（仅构建时）。运行时自包含，不依赖全局 npm/PATH。

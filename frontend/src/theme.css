@@ -270,6 +270,23 @@ button {
   text-align: left;
   justify-content: flex-start;
 }
+/* Settings entry button (native settings window; UI-SPEC: no hover glow,
+   focus ring only). */
+.sidebar-foot .settings-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+.sidebar-foot .settings-entry:focus-visible {
+  outline: 2px solid #FFFFFF;
+  outline-offset: 1px;
+}
 .build-tag { margin-left: auto; font-size: 10.5px; color: rgba(255,255,255,.30); font-family: var(--dsh-font-mono-family); }
 
 /* ---------- content / hero ---------- */
@@ -840,16 +857,7 @@ button {
 }
 .session-composer textarea::placeholder { color: var(--dsh-text-tertiary); }
 
-/* status dot */
-.dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--dsh-status-done);
-  flex-shrink: 0;
-  opacity: .55;
-}
-.dot.running { background: var(--dsh-status-running); opacity: 1; animation: pulse 1.2s ease-in-out infinite; }
-.dot.waiting { background: var(--dsh-status-waiting); opacity: 1; animation: pulse 1.2s ease-in-out infinite; }
-.dot.failed { background: var(--dsh-status-failed); opacity: 1; }
+/* pulse 关键帧供 .state-dot 复用 */
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 
 .empty-state {
@@ -1348,3 +1356,113 @@ button {
   display: inline-flex;
 }
 .plan-chip:hover { color: #FFFFFF; background: rgba(255,255,255,.20); }
+
+/* Settings mode: hide the main UI surfaces so the built-in settings page
+   sits directly on the window's native vibrancy glass — same frosted
+   material as the main panel, by construction (CSS backdrop-filter cannot
+   blur the native layer under a transparent WKWebView). visibility is
+   inherited, so hide the three main surfaces explicitly — the settings
+   overlay is a sibling of them and must stay visible. */
+.app.settings-mode .window-top,
+.app.settings-mode .sidebar,
+.app.settings-mode .main {
+  visibility: hidden;
+}
+
+/* SEMANTICS §5: a task waiting for you (approval/question) lights its row. */
+.task-row.waiting .title { color: #FFFFFF; }
+.task-row.waiting::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  margin-left: auto;
+  animation: waiting-pulse 1.4s ease-in-out infinite;
+}
+@keyframes waiting-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* ---- 任务行:悬停操作区(归档/时间/置顶)+ 右键菜单 ---- */
+.task-row { position: relative; }
+.task-row .row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+/* 时间常驻;hover 时归档按钮替换时间(参考图交互) */
+.task-row .row-archive { display: none; }
+.task-row:hover .row-time { display: none; }
+.task-row:hover .row-archive { display: inline-flex; }
+.task-row .row-time { font-size: 11px; color: rgba(255,255,255,.38); white-space: nowrap; }
+.task-row .row-archive {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.85);
+  cursor: pointer;
+}
+.task-row:hover .row-archive { display: inline-flex; }
+.task-row .row-archive:hover { background: rgba(255,255,255,.16); }
+.task-row .row-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.85);
+  font-size: 11px;
+  cursor: pointer;
+}
+.task-row .row-btn:hover { background: rgba(255,255,255,.14); }
+/* 行首槽位：每条任务行预留一个 14px 图标位（与 pinned 行图标对齐），
+   未读点落在槽内 —— 后续通知/状态标志也放这里（参考交互图） */
+.task-row .row-slot {
+  width: 14px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.task-row .unread-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #FFFFFF;
+}
+.task-row.unread .title { color: #FFFFFF; font-weight: 500; }
+
+/* 右键任务菜单 */
+.ctx-menu {
+  position: fixed;
+  z-index: 2000;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  background: rgba(28,28,31,.98);
+  box-shadow: 0 16px 40px rgba(0,0,0,.5);
+}
+.ctx-item {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(255,255,255,.92);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ctx-item:hover { background: rgba(255,255,255,.07); }
+.ctx-item.disabled { color: rgba(255,255,255,.32); cursor: default; }
+.ctx-item.disabled:hover { background: transparent; }
+.ctx-sep { height: 1px; margin: 5px 8px; background: rgba(255,255,255,.08); }
+
+.set-inline { display: flex; align-items: center; gap: 8px; }

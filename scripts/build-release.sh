@@ -10,4 +10,5 @@ xcodebuild -project apps/macos/DSHmini.xcodeproj -scheme DSHmini \
   | tail -3
 APP=.build/release/Build/Products/Release/DSHmini.app
 sh scripts/embed-web.sh "$APP"
+sh scripts/embed-engine.sh "$APP"
 echo "OK: $APP"

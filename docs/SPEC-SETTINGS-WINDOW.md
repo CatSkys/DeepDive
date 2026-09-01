@@ -1,7 +1,12 @@
-# SETTINGS-WINDOW — 原生设置窗口 spec（P2 · 待确认）
+# SETTINGS-WINDOW — 设置 spec（P2 · v3 改内置方案）
 
-> 工程流 B。目标：落实 `UI-SPEC §3.3` 的**独立原生 480×600 设置窗口**，左导航 160，6 分区全做，黑白灰阶、token 单一来源。
-> 参考：`luochenw/deepseek-harness-macos` 的 `DSHSettingsView.swift`（左导航+右内容）、`DSHSettingsEditor.swift`（命名空间通用编辑 + revision 冲突恢复）、`DSHSettingsMutate.swift`（path ops）、`DSHHostProtocol`（settings/credentials 端点）。
+> 工程流 B。目标：提供模型/审批/快捷键/外观/通知/数据六分区设置。
+> **v3 形态变更（用户拍板 2026-08-31）**：独立原生 AppKit 窗口方案（v1/v2）试作后废弃——面板风格与主界面割裂、不可收敛。现行形态为 **WebView 内浮层**：复用官方 dsh `ui-settings-general` 的面板外壳（mask + 800px panel + nav rail，CSS 原样拷贝于 `frontend/src/settings/SettingsRoot.module.css`）与 `ui-settings-models` 的行/卡片/按钮类（`SettingsRows.module.css`），token 驱动自动继承主窗暗玻璃；数据层走前端 same-origin RPC（`settings.describe/update/mutate`、`credentials.*`、能力探测），revision 围栏与两选一冲突恢复保留。
+> 原生侧职责收缩为桥指令（§3.1）：`restart-engine`/`rebind-hotkey`（录制窗）/`set-pref`/`set-theme`/`get-prefs`/`reveal-home`/`open-host-doc`，及 `prefs`/`hotkeyChanged` 回推；原生设置窗口三文件已删除。
+> 快捷键/通知/悬浮球等纯原生开关经桥读写 UserDefaults（DSHAppPrefs/FloatingBubbleManager）；凭据配置后 `restart-engine` 保持 §4.4 冷启动闭环。
+> **v3.1 分区扩展（2026-08-31，对齐官方全功能）**：分区在六分区基础上增加 **预设**（Agent 预设列表+设为默认；复制/删除按引擎端点探测降级）与 **插件**（inventory 端点探测，不可用则明示）；模型分区完整移植官方 `ui-settings-models`（自定义 Provider 增删改/协议选择/模型发现/DeepSeek 多模型编辑/Key 管理，`frontend/src/settings/models/`），并保留 SPEC §4.2 降级——rc.2 无目录端点时自动回退"默认模型+目录点选+Key"精简页；数据分区提供**任意命名空间原始 JSON 编辑**（§3.2 diff→ops + revision 围栏 + 冲突两选一）。
+> **wire 移植说明**：前端 `api.ts` 统一按 Typert 描述符参数名打包（`settings/models/wire-params.json`，自 pinned 引擎描述符提取，26 方法），HTTP（斜杠 endpoint + `{args}`）与 mux 双传输自动探测。预设分区接官方端点 `agentPreset/list|copy|deletePreset`（探测降级）；插件分区接 `pluginInventory/list`（真实清单，只读）。
+> **会话历史移植**：alpha.2 移除 `session/history`/`events.mux`，会话视图改接 **`session/follow` 流**（首帧 snapshot=历史+cursor，后续帧=实时事件）与 **`session/page` 翻页**（`session/models`/`llm/models` 同批移除，模型选择统一走 `session/modelCatalog`）。实现：`settings/models/mux.ts` 的 `sessionFollow/sessionHistoryPage`，SessionView 数据源切换。
 
 ---
 
@@ -20,15 +25,16 @@
 |---|---|---|
 | **模型** | 引擎 `llm-deepseek`/`agent-default-model`/`llm-pi-ai`/`web-search-deepseek` + `credentials` | 官方/自定义分区、各管各的 key 与模型；当前使用摘要；点某模型即选用；添加/删除 provider（**能力探测 `llm.listProviders` 可用才显示**） |
 | **审批** | 引擎 `permission.defaultPreset` + 审批/交互 | 默认权限与当前会话权限分别管理；完整访问需确认（对齐参考项目/`D5` 原生审批） |
-| **快捷键** | DSHmini 原生 `HotKeyManager` | 展示/修改全局热键（`⌥Space` 唤起面板、`⌘,` 设置、`⌘T` 轨迹等） |
-| **外观** | 引擎 `ui-theme.preference` + 外壳 `themeEnabled` | 明/暗联动：写 `ui-theme` + 通知外壳刷新 `NSAppearance`/`data-theme`；黑白 token 统一 |
-| **通知** | DSHmini 原生（`UNUserNotificationCenter` 开关） | 回合完成提醒 / 待审批·提问提醒（默认开）；菜单栏状态图标不受开关影响 | 
+| **快捷键** | DSHmini 原生 `HotKeyManager` + `UI-SPEC §2.3` | 分两类：**全局热键可修改**（现状仅 1 个：唤起面板 `⌥Space`，经 `HotKeyManager` 注册/注销重注册）；**应用内快捷键仅展示、不可改**（`⌘,` 为 NSMenu keyEquivalent、`⌘T` 为 WebView 内映射，固定于 `UI-SPEC §2.3`，不提供自定义——三套机制混改无收益） |
+| **外观** | 引擎 `ui-theme.preference` + 外壳 `themeEnabled` | 明/暗联动：写 `ui-theme` + 外壳刷新 `NSAppearance`；**WebView 侧联动走 `SPEC-NOTIFICATIONS §3.1` 外壳→前端通道**（`themeChanged` 指令；降级：前端在 `focus`/`visibilitychange` 时重读 `ui-theme`）；黑白 token 统一 |
+| **通知** | DSHmini 原生（`UNUserNotificationCenter` 开关） | 回合完成提醒 / 待审批·提问提醒（默认开）；悬浮球开关（默认开，`SPEC-NOTIFICATIONS §2.4`，开关仅显隐、状态图标不受影响）；菜单栏状态图标不受开关影响 | 
 | **数据** | 引擎 会话/工作区 + `settings.openDocument` | 打开 `settings.yaml`、存储位置（`DSH_HOME`）、会话管理（归档/删除需确认） |
 
 ## 3. 通用编辑机制（一切命名空间）
 
 ### 3.1 读取
 - `settings.describe`（`redactSecrets`）：得到每个命名空间的 `schema/value/base/user/revision/secrets`。UI 只渲染 `value`（已脱敏，`role('secret')` 字段已被结构移除，仅以 `secrets:[{path,set}]` 枚举）。
+- **namespace 清单动态渲染、不写死**：分区 UI 以 `describe` 返回的 `namespaces`/`schema` 驱动；本 spec 提到的 `llm-deepseek`/`agent-default-model`/`llm-pi-ai`/`web-search-deepseek`/`ui-theme.preference`/`permission.defaultPreset` 等名均为引脚版本 `0.1.2-alpha.2` 实测值，引擎升级后以 `describe` 实际返回为准（配合 `SPEC-ENGINE-RUNTIME §4.2` 能力探测）。
 
 ### 3.2 编辑与保存（diff → path ops）
 - 编辑器把某个命名空间的当前 `value` 作为可编辑 JSON 文本显示。
@@ -38,6 +44,7 @@
 ### 3.3 凭据
 - `credentials.describe(refs)` 读取某引用（如 `DEEPSEEK_API_KEY`）是否已配置（`configured`/`source`/`writable`）。
 - `credentials.set(ref, value)` / `credentials.unset(ref)` 写/删。UI 给"只写输入 + 已配置状态点"（不读回密钥明文）。
+- **冷启动闭环**：配置成功时若引擎因缺凭据处于 `failed`，触发 `EngineSupervisor.start()` 自动重启引擎——接通 `SPEC-ENGINE-RUNTIME §4.4`，替代"手动复制 `.credentials.yaml`"的老路径。
 
 ### 3.4 冲突恢复
 - 保存收到 `settings/conflict`（revision 已前进）：两选一——"放弃修改，载入最新" / "保留修改，基于最新版本重试"（对齐参考项目）。绝不静默覆盖。
@@ -58,6 +65,7 @@
 | `apps/macos/Sources/DSHminiApp/SettingsWindowController.swift` | 新增（原生窗口壳） |
 | `apps/macos/Sources/DSHminiApp/...`（原生设置控件/视图） | 各分区视图 + 命名空间编辑器 + 凭据区 |
 | `apps/macos/Sources/DSHminiApp/AppDelegate.swift` / `StatusItemController.swift` | 接入设置入口 |
+| `apps/macos/Sources/DSHminiApp/MainWindowController.swift` | WebView 挂 `__dshminiHost` 钩子 + `evaluateJavaScript` 注入（`themeChanged` 等，见 `SPEC-NOTIFICATIONS §3.1`） |
 | `frontend/src/api.ts` | 加 settings/credentials 通道 + 能力探测（若设置内容部分走 WebView） |
 | `frontend/src/components/Settings*.tsx` | 如需 WebView 渲染则新增设置入口 |
 | `frontend/src/theme.css`（+tokens） | 设置样式 + 明/暗（若走 WebView） |

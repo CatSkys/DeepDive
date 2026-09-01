@@ -52,6 +52,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     private let effectView = NSVisualEffectView()
     private var themeEnabled: Bool
 
+    /// Frontend asks the shell to act (SPEC-NOTIFICATIONS §3.1 前端→外壳):
+    /// host-ready / restart-engine / rebind-hotkey / set-pref / set-theme /
+    /// get-prefs / reveal-home / open-host-doc. Routed to AppDelegate.
+    var onHostMessage: (([String: Any]) -> Void)?
+    /// Shell→frontend pending instruction: at most one, last-wins; flushed
+    /// when the page finishes loading or the frontend reports `host-ready`.
+    private var pendingHostCommand: (cmd: String, payload: String)?
+
     init(themeEnabled: Bool) {
         self.themeEnabled = themeEnabled
 
@@ -92,6 +100,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // Rect-table channel from frontend/src/titlebar.ts; register before
         // any page load so the first push is never dropped.
         webView.configuration.userContentController.add(self, name: "dshmini")
+        // Host-command channel (§3.1): frontend posts open-settings/host-ready.
+        webView.configuration.userContentController.add(self, name: "dshminiHost")
 
         window.contentView = effectView
         overlay.frame = effectView.bounds
@@ -108,6 +118,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         effectView.addSubview(webView)
 
         webView.navigationDelegate = self
+        // JS alert()/confirm()/prompt() need a WKUIDelegate; without one they
+        // are silent no-ops (the ctx-menu rename used window.prompt and just
+        // did nothing).
+        webView.uiDelegate = self
         window.delegate = self
 
         applyTheme()
@@ -136,6 +150,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         if let url = webView.url {
             webView.load(URLRequest(url: url))
         }
+        // §3.1 联动指令：reload 已同步主题；再推一次 themeChanged 供前端钩子
+        // 做 data-theme 切换（未就绪时经 pending 在新页面加载后投递）。
+        pushHostCommand("themeChanged", payload: #"{"dark":\#(enabled ? "true" : "false")}"#)
     }
 
     private func applyTheme() {
@@ -147,6 +164,43 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
                 injectionTime: .atDocumentEnd,
                 forMainFrameOnly: true
             ))
+        }
+    }
+
+    // MARK: - shell → frontend bridge (SPEC-NOTIFICATIONS §3.1)
+
+    /// Pushes one instruction to `window.__dshminiHost.dispatch(cmd, payload)`.
+    /// If the host hook is not mounted (cold start / reload in progress) the
+    /// command is staged as pending (single, last-wins) and flushed after the
+    /// next page load — a click intent is never silently dropped (§3.1 v2.1).
+    func pushHostCommand(_ cmd: String, payload: String) {
+        dispatchHostCommand(cmd, payload: payload) { [weak self] delivered in
+            if !delivered {
+                self?.pendingHostCommand = (cmd, payload)
+            }
+        }
+    }
+
+    private func dispatchHostCommand(_ cmd: String, payload: String, completion: @escaping (Bool) -> Void) {
+        guard webView.url != nil else {
+            completion(false)
+            return
+        }
+        let js = "window.__dshminiHost ? (window.__dshminiHost.dispatch('\(cmd)', \(payload)), 'ok') : 'no-host'"
+        webView.evaluateJavaScript(js) { result, _ in
+            completion((result as? String) == "ok")
+        }
+    }
+
+    private func flushPendingHostCommand() {
+        guard let (cmd, payload) = pendingHostCommand else { return }
+        pendingHostCommand = nil
+        dispatchHostCommand(cmd, payload: payload) { [weak self] delivered in
+            if !delivered {
+                self?.pendingHostCommand = (cmd, payload)
+            } else {
+                EngineLog.shared.append("[bridge] flushed pending host command \(cmd)")
+            }
         }
     }
 
@@ -197,6 +251,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         EngineLog.shared.append("[web] didFinish \(webView.url?.absoluteString ?? "")")
+        // Backup flush for the `host-ready` signal (handler may fire before
+        // React mounts the hook; if it is still missing the command re-stages).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.flushPendingHostCommand()
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -212,8 +271,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
 extension MainWindowController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.name == "dshmini",
-              let body = message.body as? [String: Any],
+        if message.name == "dshmini" {
+            handleTitlebarRects(message)
+            return
+        }
+        if message.name == "dshminiHost" {
+            handleHostMessage(message)
+            return
+        }
+    }
+
+    private func handleTitlebarRects(_ message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
               body["type"] as? String == "titlebar-rects" else { return }
         let rects: [NSRect] = ((body["rects"] as? [[String: Any]]) ?? []).map { d in
             NSRect(
@@ -224,5 +293,64 @@ extension MainWindowController: WKScriptMessageHandler {
             )
         }
         (webView as? TitlebarAwareWebView)?.setTitlebarControlRects(rects)
+    }
+
+    private func handleHostMessage(_ message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
+              let type = body["type"] as? String else { return }
+        EngineLog.shared.append("[bridge] host message: \(type)")
+        onHostMessage?(body)
+    }
+}
+
+// MARK: - WKUIDelegate (JS alert / confirm / prompt panels)
+
+extension MainWindowController: WKUIDelegate {
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptAlertPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping () -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = "DSHmini"
+        alert.informativeText = message
+        alert.addButton(withTitle: "好")
+        alert.runModal()
+        completionHandler()
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptConfirmPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = "DSHmini"
+        alert.informativeText = message
+        alert.addButton(withTitle: "好")
+        alert.addButton(withTitle: "取消")
+        completionHandler(alert.runModal() == .alertFirstButtonReturn)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptTextInputPanelWithPrompt prompt: String,
+        defaultText: String?,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping (String?) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = "DSHmini"
+        alert.informativeText = prompt
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        input.stringValue = defaultText ?? ""
+        alert.accessoryView = input
+        alert.addButton(withTitle: "好")
+        alert.addButton(withTitle: "取消")
+        alert.window.initialFirstResponder = input
+        let ok = alert.runModal() == .alertFirstButtonReturn
+        completionHandler(ok ? input.stringValue : nil)
     }
 }

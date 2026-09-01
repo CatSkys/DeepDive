@@ -1,0 +1,217 @@
+import AppKit
+import Foundation
+
+/// Native-side engine event subscription (SPEC-NOTIFICATIONS §3, option A):
+/// the shell opens its own `ws://engine/api/events.mux` and derives
+/// running / turn-finished / attention states without depending on the
+/// frontend. Everything notifications, the bubble and the menu bar badge show
+/// flows from here.
+final class EngineEventObserver {
+    static let shared = EngineEventObserver()
+
+    /// Derived state, consumed by FloatingBubbleManager / StatusItemController.
+    private(set) var runningSessions = Set<String>()
+    private(set) var pendingApprovals = Set<String>()
+    private(set) var pendingQuestions = Set<String>()
+
+    var needsAttention: Bool { !pendingApprovals.isEmpty || !pendingQuestions.isEmpty }
+    var isRunning: Bool { !runningSessions.isEmpty }
+
+    private var task: URLSessionWebSocketTask?
+    private var session: URLSession?
+    private var base: URL?
+    private var reconnectDelay = 1.0
+    private var titles: [String: String] = [:]
+    /// Mux path drifted across engine versions (rc.2 = events.mux; alpha.2 =
+    /// remote.mux, see PITFALLS). Probe candidates in order; the first one
+    /// that survives upgrade+auth wins and is remembered for this boot.
+    private var muxPathIndex = 0
+    private static let muxPaths = ["/api/events.mux", "/api/remote.mux"]
+
+    private init() {}
+
+    func update(base: URL?) {
+        base?.port.map { _ in }
+        task?.cancel(with: .goingAway, reason: nil)
+        task = nil
+        self.base = base
+        runningSessions.removeAll()
+        pendingApprovals.removeAll()
+        pendingQuestions.removeAll()
+        titles.removeAll()
+        reconnectDelay = 1.0
+        muxPathIndex = 0
+        publish()
+        if base != nil {
+            connect()
+        }
+    }
+
+    // MARK: - connection
+
+    private func connect() {
+        guard let base, let host = base.host, let port = base.port else { return }
+        // The engine enforces its boot cookie post-upgrade (alpha.2+); without
+        // it the mux connects then is closed immediately.
+        let tokenQuery = base.query.map { "?\($0)" } ?? ""
+        let path = Self.muxPaths[min(muxPathIndex, Self.muxPaths.count - 1)]
+        guard let url = URL(string: "ws://\(host):\(port)\(path)\(tokenQuery)") else { return }
+        var request = URLRequest(url: url)
+        if let cookie = EngineAuth.shared.currentCookieHeader {
+            request.setValue(cookie, forHTTPHeaderField: "Cookie")
+        }
+        let session = URLSession(configuration: .ephemeral)
+        self.session = session
+        let task = session.webSocketTask(with: request)
+        self.task = task
+        task.resume()
+        // alpha.2 carries forwarded events on the $events internal stream —
+        // open it right after the socket is up (remote.mux candidate only).
+        if path == "/api/remote.mux" {
+            let open: [String: Any] = ["type": "open", "streamId": UUID().uuidString,
+                                       "endpoint": "", "payload": ["args": [:]]]
+            if let data = try? JSONSerialization.data(withJSONObject: open) {
+                task.send(.data(data)) { _ in }
+            }
+        }
+        receive()
+        EngineLog.shared.append("[observer] mux connected \(url.absoluteString)")
+    }
+
+    /// A path that cannot serve us closes within moments of connect; advance
+    /// to the next candidate before the ordinary reconnect backoff.
+    private func advanceMuxCandidate() {
+        if muxPathIndex < Self.muxPaths.count - 1 {
+            muxPathIndex += 1
+            EngineLog.shared.append("[observer] mux path unavailable, falling back to \(Self.muxPaths[muxPathIndex])")
+        }
+    }
+
+    private func receive() {
+        let connectStart = Date()
+        task?.receive { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let message):
+                    self.reconnectDelay = 1.0
+                    if case .string(let text) = message {
+                        self.consume(text)
+                    }
+                    self.receive()
+                case .failure(let error):
+                    // A failed first receive means the path/auth was rejected —
+                    // try the next mux candidate before backing off.
+                    if Date().timeIntervalSince(connectStart) < 2 {
+                        self.advanceMuxCandidate()
+                    }
+                    EngineLog.shared.append("[observer] mux dropped: \(error.localizedDescription); reconnect in \(Int(self.reconnectDelay))s")
+                    self.retry()
+                }
+            }
+        }
+    }
+
+    private func retry() {
+        guard base != nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + reconnectDelay) { [weak self] in
+            guard let self, self.base != nil, self.task == nil || !(self.task?.state == .running) else { return }
+            self.connect()
+        }
+        reconnectDelay = min(30.0, reconnectDelay * 2)
+    }
+
+    // MARK: - frame consumption
+
+    private func consume(_ text: String) {
+        guard let raw = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any] else { return }
+        // Engine mux wraps logical frames in a server-request envelope
+        // (`{type, payload}`); unwrap like the frontend does.
+        let frame = (raw["payload"] as? [String: Any]) ?? raw
+        guard let type = frame["type"] as? String else { return }
+        switch type {
+        case "session/event":
+            guard let sessionId = frame["sessionId"] as? String,
+                  let event = frame["event"] as? [String: Any],
+                  let eventType = event["type"] as? String else { return }
+            switch eventType {
+            case "turn/start":
+                // First task dispatch is the notification-authorization moment
+                // (SPEC-NOTIFICATIONS §1.1 v2: never at app boot).
+                NativeAlerts.requestAuthorizationIfNeeded()
+                runningSessions.insert(sessionId)
+                FloatingBubbleManager.shared.noteRunningStarted(sessionId: sessionId)
+                publish()
+            case "turn/end":
+                runningSessions.remove(sessionId)
+                // alpha.2 moved reason into an object ({kind:"completed"});
+                // rc.2 used a plain string — accept both shapes.
+                let reason: String
+                if let raw = (event["data"] as? [String: Any])?["reason"] {
+                    if let s = raw as? String { reason = s }
+                    else if let d = raw as? [String: Any] { reason = d["kind"] as? String ?? "completed" }
+                    else { reason = "completed" }
+                } else { reason = "completed" }
+                if reason == "completed" || reason == "cancelled" {
+                    noteTurnFinished(sessionId: sessionId, failed: reason == "cancelled")
+                }
+                publish()
+            default:
+                break
+            }
+        case "approval/requested":
+            guard let sessionId = frame["sessionId"] as? String else { return }
+            let approvalId = frame["approvalId"] as? String ?? UUID().uuidString
+            pendingApprovals.insert(approvalId)
+            let toolName = frame["toolName"] as? String ?? "工具调用"
+            FloatingBubbleManager.shared.noteNeedsAttention()
+            NativeAlerts.notifyApprovalNeeded(toolName: toolName, sessionId: sessionId)
+            publish()
+        case "approval/resolved":
+            let approvalId = frame["approvalId"] as? String ?? ""
+            pendingApprovals.remove(approvalId)
+            publish()
+        default:
+            // Question surfaces are engine-version dependent; match by name.
+            if type.lowercased().contains("question"), type.lowercased().contains("request") {
+                let sessionId = frame["sessionId"] as? String
+                pendingQuestions.insert(frame["questionId"] as? String ?? UUID().uuidString)
+                FloatingBubbleManager.shared.noteNeedsAttention()
+                NativeAlerts.notifyQuestionNeeded(sessionId: sessionId)
+                publish()
+            }
+        }
+    }
+
+    private func noteTurnFinished(sessionId: String, failed: Bool) {
+        let appInactive = !NSApp.isActive
+        FloatingBubbleManager.shared.noteTurnFinished(sessionId: sessionId, appInactive: appInactive)
+        if appInactive, !failed {
+            let summary = title(for: sessionId)
+            NativeAlerts.notifyTurnFinished(summary: summary, sessionId: sessionId)
+        }
+    }
+
+    /// Best-effort session title for the finished-turn notification; falls
+    /// back to a short id. Cached to avoid hammering the gateway.
+    private func title(for sessionId: String) -> String {
+        if let cached = titles[sessionId] { return cached }
+        let fallback = "会话 " + sessionId.prefix(6)
+        titles[sessionId] = fallback
+        Task { @MainActor in
+            guard let items = (try? await EngineGateway.shared.call("session.list"))?.at("items")?.anyValue as? [[String: Any]] else { return }
+            for item in items where (item["sessionId"] as? String) == sessionId {
+                let proj = (item["projections"] as? [String: Any])?["values"] as? [String: Any] ?? [:]
+                if let title = proj["title"] as? String, !title.isEmpty {
+                    titles[sessionId] = title
+                }
+            }
+        }
+        return fallback
+    }
+
+    private func publish() {
+        FloatingBubbleManager.shared.sync(running: isRunning, attention: needsAttention)
+        StatusItemController.shared?.setActivity(running: isRunning, attention: needsAttention)
+    }
+}
