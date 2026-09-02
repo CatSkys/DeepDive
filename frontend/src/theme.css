@@ -555,12 +555,21 @@ button {
   /* 自动外边距：品牌组在欢迎区标题行与输入框之间垂直居中 */
   margin: auto 0;
 }
+/* 渐变底托板：从下往上由浅变深（底 40% → 顶 80%），随主题切换 */
+.hero-logo-plate {
+  padding: 24px 44px;
+  border-radius: 20px;
+  background: linear-gradient(to top, rgba(8,8,10,.4), rgba(8,8,10,.8));
+}
+:root[data-theme="light"] .hero-logo-plate {
+  background: linear-gradient(to top, rgba(255,255,255,.4), rgba(255,255,255,.8));
+}
 .hero-logo {
-  width: 128px;
+  /* 512 母版按 256px 显示（BRANDING：主资产禁硬缩至 128，失认） */
+  width: 256px;
   height: auto;
-  margin-bottom: 18px;
   user-select: none;
-  animation: row-in var(--dur-slow) var(--ease-out) both;
+  display: block;
 }
 html[data-theme="dark"] .hero-logo { filter: invert(1); }
 .hero-title {
