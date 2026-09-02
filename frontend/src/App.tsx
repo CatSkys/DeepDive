@@ -4,6 +4,7 @@ import { api } from "./api";
 import { installHostBridge } from "./host";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
+import heroLogo from "./assets/deepdive-logo-ascii-black-256.png";
 import { Sidebar, WorkspacePill } from "./components/Sidebar";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
@@ -131,8 +132,8 @@ function Shell() {
                 )}
               </div>
             </div>
+            <img className="hero-logo" src={heroLogo} alt="DeepDive" />
             <div className="hero-title">{t("做点什么？")}</div>
-            <div className="hero-sub">{t("用 DeepSeek 智能体开始任何工作。")}</div>
             <div className="hero-composer">
               <Composer sessionId={null} />
             </div>

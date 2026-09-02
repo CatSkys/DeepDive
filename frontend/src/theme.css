@@ -547,6 +547,14 @@ button {
   align-items: center;
   padding: 0 24px;
 }
+/* 品牌 ASCII 鲸鱼（黑墨资产）：暗色主题反白显示 */
+.hero-logo {
+  width: 128px;
+  height: auto;
+  margin-bottom: 20px;
+  user-select: none;
+}
+html[data-theme="dark"] .hero-logo { filter: invert(1); }
 .hero-title {
   margin-top: 30vh;
   font-size: 28px;
@@ -2230,7 +2238,6 @@ button {
 
 /* Hero 首屏：标题 → 副标题 → 输入框三档交错浮现。 */
 .hero-title { animation: row-in var(--dur-slow) var(--ease-out) both; }
-.hero-sub { animation: row-in var(--dur-slow) var(--ease-out) 60ms both; }
 .hero-composer { animation: row-in var(--dur-slow) var(--ease-out) 120ms both; }
 
 /* 通用悬浮过渡补齐（hover 背景都应有短过渡）。 */
