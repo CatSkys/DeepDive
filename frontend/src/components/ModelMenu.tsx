@@ -163,11 +163,27 @@ function EffortSlider({
   const fillFrac = n <= 1 ? 1 : frac(idx);
   const showDots = n >= 3 && n <= 6;
   const [dragging, setDragging] = useState(false);
-  // 能量感（同 LoadingState 像素风）：填充区内一排闪烁的像素方块，
-  // 强度越高 → 闪烁越快；最低档静止（无方块）。
+  const fillRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState<{ cols: number; rows: number } | null>(null);
+  useEffect(() => {
+    const el = fillRef.current;
+    if (!el) return;
+    // ASCII 马赛克：格子 ≈6px 见方，完全铺满填充区（余量由 1fr 拉伸吸收）
+    const update = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      if (w < 20 || h < 12) return;
+      setDims({ cols: Math.max(10, Math.min(60, Math.round(w / 6))), rows: Math.max(4, Math.min(16, Math.round(h / 6))) });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // 能量涌动（像素网格风）：填充区铺满十排像素方块，列相位波 + 行相位
+  // 微差形成波浪推进；强度越高 → 涌动越快。最低档静止（无方块）。
   const energy = n <= 1 ? 0 : idx / (n - 1);
-  const cellDur = `${(2.2 - 1.5 * energy).toFixed(2)}s`;
-  const cellCount = energy <= 0.01 ? 0 : 18;
+  const dur = `${(1.8 - 1.3 * energy).toFixed(2)}s`;
+  const cellCount = energy <= 0.01 || !dims ? 0 : dims.cols * dims.rows;
 
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
@@ -202,16 +218,22 @@ function EffortSlider({
         style={{ ["--p" as string]: frac(idx) } as React.CSSProperties}
       >
         <div className="effort-track" />
-        <div className="effort-fill" style={{ width: `${fillFrac * 100}%` }}>
-          {energy > 0.01 && (
-            <div className="effort-cells" style={{ ["--dur" as string]: cellDur } as React.CSSProperties}>
-              {Array.from({ length: cellCount }, (_, i) => (
-                <span
-                  key={i}
-                  className="effort-cell"
-                  style={{ animationDelay: `${((i % 6) * (parseFloat(cellDur) / 6)).toFixed(2)}s` }}
-                />
-              ))}
+        <div className="effort-fill" ref={fillRef} style={{ width: `${fillFrac * 100}%` }}>
+          {dims !== null && energy > 0.01 && (
+            <div
+              className="effort-cells"
+              style={{
+                gridTemplateColumns: `repeat(${dims.cols}, 1fr)`,
+                gridTemplateRows: `repeat(${dims.rows}, 1fr)`,
+                ["--dur" as string]: dur,
+              } as React.CSSProperties}
+            >
+              {Array.from({ length: dims.cols * dims.rows }, (_, i) => {
+                const col = i % dims.cols;
+                const row = Math.floor(i / dims.cols);
+                const delay = ((col / dims.cols) * 0.7 + (row / dims.rows) * 0.3) * parseFloat(dur);
+                return <span key={i} className="effort-cell" style={{ animationDelay: `${delay.toFixed(2)}s` }} />;
+              })}
             </div>
           )}
         </div>
