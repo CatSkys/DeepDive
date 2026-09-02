@@ -78,13 +78,13 @@ function Shell() {
     if (showModels) void loadModels();
   }, [showModels, loadModels]);
 
-  const pickModel = async (m: ModelOption) => {
+  const pickModel = async (m: ModelOption, reasoningEffort?: string) => {
     setShowModels(false);
     setModelName(m.label);
     let sid = store.activeSessionId ?? (await store.createSession());
     if (!sid) return;
     try {
-      await api.selectModel({ sessionId: sid, provider: m.provider, model: m.model });
+      await api.selectModel({ sessionId: sid, provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });
     } catch { /* engine may be booting */ }
   };
   return (
@@ -119,7 +119,9 @@ function Shell() {
                   <ModelMenu
                     options={models}
                     current={modelName}
+                    effortValue={undefined}
                     onPick={(m) => void pickModel(m)}
+                    onApplyEffort={(m, effort) => void pickModel(m, effort)}
                     onClose={() => setShowModels(false)}
                   />
                 )}

@@ -707,30 +707,81 @@ button {
 .model-menu-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-menu-row.active svg { color: var(--ink); }
 
-/* 推理等级子视图：inset pill 行（参考样式），左档位名 / 右对勾 */
-.model-menu-pills {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 4px 2px 2px;
+.model-menu-row .provider {
+  flex: none;
+  margin-left: 2px;
+  font-size: 11px;
+  color: var(--ink-3);
+  transform: translateY(2px);
 }
-.model-menu-pill {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  height: 36px;
-  padding: 0 12px;
+.model-menu-row .chev { color: var(--ink-3); flex-shrink: 0; }
+
+/* ── 思考强度页：离散档位滑杆 + 应用按钮（参考双层结构第二层） ── */
+.effort-wrap { padding: 8px 12px 2px; }
+.effort-slider {
+  position: relative;
+  height: 26px;
+  cursor: pointer;
+  touch-action: none;
+}
+.effort-track {
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  background: var(--fill-strong);
+}
+.effort-fill {
+  position: absolute;
+  left: 0; top: 50%;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  background: var(--ink);
+}
+.effort-tick {
+  position: absolute;
+  top: 50%;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--ink-3);
+}
+.effort-thumb {
+  position: absolute;
+  top: 50%;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--ink-bright);
+  border: 2px solid var(--line-heavy);
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+}
+.effort-labels { position: relative; height: 18px; margin-top: 2px; }
+.effort-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.effort-label.active { color: var(--ink); font-weight: 600; }
+.effort-apply {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px 12px;
+  height: 32px;
   border-radius: var(--dsh-radius-control);
-  background: var(--fill);
+  background: var(--fill-strong);
   color: var(--ink);
   font-size: 13px;
-  text-align: left;
+  font-weight: 600;
+  text-align: center;
+  transition: background-color var(--dur-fast) ease;
 }
-.model-menu-pill:hover { background: var(--fill); }
-.model-menu-pill.active { background: var(--fill-strong); color: var(--ink-bright); }
-.model-menu-pill svg { color: var(--ink); flex-shrink: 0; }
+.effort-apply:hover { background: var(--fill-heavy); }
+.effort-apply:active { opacity: .85; }
 .model-menu-row:hover { background: var(--fill); }
 .model-menu-row.active { background: var(--fill-strong); color: var(--ink-bright); }
 .model-menu-empty { padding: 16px; color: var(--ink-3); font-size: 13px; text-align: center; }

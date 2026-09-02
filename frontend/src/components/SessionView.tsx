@@ -133,12 +133,27 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         const model = group?.models?.find((m) => m.id === cur?.model);
         setEffortLevels(model?.reasoning?.efforts ?? []);
         setEffortDefault(model?.reasoning?.defaultEffort);
+        // 分组目录里每个模型自带 reasoning 档位元数据 —— 并进选项，
+        // 模型菜单据此决定"点了直接选"还是"进档位滑杆页"。
+        const effortByModel = new Map<string, { efforts: Array<{ id: string; name: string }>; defaultEffort?: string }>();
+        for (const g of r.groups ?? []) {
+          for (const m of g.models ?? []) {
+            if (m.reasoning?.efforts?.length) {
+              effortByModel.set(`${g.id}/${m.id}`, { efforts: m.reasoning.efforts, defaultEffort: m.reasoning.defaultEffort });
+            }
+          }
+        }
+        setModels(options.map((o) => {
+          const meta = effortByModel.get(`${o.provider}/${o.model}`);
+          return meta ? { ...o, efforts: meta.efforts, defaultEffort: meta.defaultEffort } : o;
+        }));
       } catch { /* optional enrichment */ }
     })();
   }, [sessionId]);
 
   const pickModel = async (m: ModelOption) => {
-    setShowModels(false);
+    // 菜单关闭由 ModelMenu 决定：无档位模型选完即关；带档位的进滑杆页，
+    // 点"应用"走 applyModelEffort 一次提交模型+档位后才关。
     setModelName(m.label);
     try {
       await api.selectModel({ sessionId, provider: m.provider, model: m.model });
@@ -147,15 +162,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const effortLabel = (id: string | undefined) => effortDisplayName(id, effortLevels);
 
-  const pickEffort = async (id: string | undefined) => {
-    setShowModels(false);
-    if (!currentModel) return;
+  const applyModelEffort = async (m: ModelOption, id: string | undefined) => {
+    setModelName(m.label);
+    setCurrentModel({ provider: m.provider, model: m.model });
     setEffort(id);
     try {
       await api.selectModel({
         sessionId,
-        provider: currentModel.provider,
-        model: currentModel.model,
+        provider: m.provider,
+        model: m.model,
         ...(id === undefined ? {} : { reasoningEffort: id }),
       });
     } catch { /* engine may be busy */ }
@@ -313,15 +328,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <ModelMenu
                 options={models}
                 current={modelName}
+                currentModel={currentModel}
+                effortValue={effort}
                 onPick={(m) => void pickModel(m)}
+                onApplyEffort={(m, id) => void applyModelEffort(m, id)}
                 onClose={() => setShowModels(false)}
-                effort={effortLevels.length > 0 && currentModel ? {
-                  text: effortLabel(effort),
-                  levels: effortLevels,
-                  showDefault: effortDefault !== undefined,
-                  value: effort,
-                  onPick: (id) => void pickEffort(id),
-                } : undefined}
               />
             )}
           </div>
@@ -354,15 +365,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <ModelMenu
               options={models}
               current={modelName}
+              currentModel={currentModel}
+              effortValue={effort}
               onPick={(m) => void pickModel(m)}
+              onApplyEffort={(m, id) => void applyModelEffort(m, id)}
               onClose={() => setShowModels(false)}
-              effort={effortLevels.length > 0 && currentModel ? {
-                text: effortLabel(effort),
-                levels: effortLevels,
-                showDefault: effortDefault !== undefined,
-                value: effort,
-                onPick: (id) => void pickEffort(id),
-              } : undefined}
             />
           )}
         </div>
