@@ -88,7 +88,7 @@ function Shell() {
     } catch { /* engine may be booting */ }
   };
   return (
-    <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}${settingsOpen ? " settings-mode" : ""}`}>
+    <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
       {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。 */}
       <div className="window-top">
         <button className="window-top-btn" title={t("新会话")} onClick={() => void store.createSession()}>
@@ -98,6 +98,10 @@ function Shell() {
           <PanelLeft size={17} />
         </button>
       </div>
+      {settingsOpen ? (
+        <SettingsPage onClose={() => setSettingsOpen(false)} />
+      ) : (
+        <>
       <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
       {/* SessionView key：会话切换必须全新挂载——无 key 时 React 复用实例，
           旧会话的 items/eventLog 残留会在新会话 summary 就位前闪现旧内容。 */}
@@ -135,7 +139,8 @@ function Shell() {
           </div>
         )}
       </main>
-      {settingsOpen && <SettingsPage onClose={() => setSettingsOpen(false)} />}
+        </>
+      )}
     </div>
   );
 }

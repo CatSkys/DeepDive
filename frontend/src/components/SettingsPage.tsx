@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Archive, Bot, Cpu, Folder, Keyboard, Moon,
+  Archive, Bot, ChevronLeft, Cpu, Folder, Keyboard, Moon,
   Monitor, Plug, Settings as SettingsIcon, Sun, X,
 } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
@@ -47,27 +47,32 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   ];
   const active = nav.find((n) => n.id === activeId) ?? nav[0];
 
+  // 不是覆盖层：侧栏仍是同一个 .sidebar（同一层 chrome 背景），主区仍是
+  // 同一个 .main 卡片（同一 --card-gradient/圆角/描边）—— 只是内容换成了
+  // 设置。颜色/样式与主界面"字面相同"，因为它就是同一批元素。
   return (
-    <div className={rowsCss.overlay}>
-      <div className={rowsCss.mask} />
-      <div className={rowsCss.panel} role="dialog" aria-modal="true" aria-label={t("设置")}>
-        <nav className={rowsCss.nav}>
-          <div className={rowsCss.brand}>{t("设置")}</div>
-          {nav.map((n) => (
-            <button
-              key={n.id}
-              className={`${rowsCss.navItem}${n.id === activeId ? ` ${rowsCss.active}` : ""}`}
-              onClick={() => setActiveId(n.id)}
-            >
-              <n.icon size={15} />
-              {n.label}
-            </button>
-          ))}
-        </nav>
-        <div className={rowsCss.content}>
-          <div className={rowsCss.contentHead}>
-            <div className={rowsCss.contentTitle}>{active.label}</div>
-            <button className={rowsCss.closeBtn} onClick={onClose} aria-label={t("关闭")}>
+    <>
+      <nav className="sidebar" aria-label={t("设置")}>
+        <button className="snav-back" onClick={onClose}>
+          <ChevronLeft size={15} />
+          {t("返回工作区")}
+        </button>
+        {nav.map((n) => (
+          <button
+            key={n.id}
+            className={`snav-item${n.id === activeId ? " active" : ""}`}
+            onClick={() => setActiveId(n.id)}
+          >
+            <n.icon size={15} />
+            {n.label}
+          </button>
+        ))}
+      </nav>
+      <main className="main" aria-label={t("设置")}>
+        <div className="settings-content">
+          <div className="settings-head">
+            <div className="settings-title">{active.label}</div>
+            <button className="settings-close" onClick={onClose} aria-label={t("关闭")}>
               <X size={16} />
             </button>
           </div>
@@ -79,8 +84,8 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           {activeId === "archived" && <ArchivedSection />}
           {activeId === "data" && <DataSection />}
         </div>
-      </div>
-    </div>
+      </main>
+    </>
   );
 }
 
