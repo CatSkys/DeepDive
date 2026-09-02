@@ -231,7 +231,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         const log = eventLog.current;
         if (seq >= 0 && log.length && seq <= log[log.length - 1].seq) return prev;
         log.push(ev);
-        return rebuild(log);
+        // 增量摄取：流式期间每条增量只 ingest 新事件（append-only，seq
+        // 递增已由上方守卫），不再对整份 event log 做全量重建 —— 长会话
+        // 流式卡顿的主要来源。turn/end 时重插 turn-tail；历史页加载/
+        // 载入更早仍走全量 rebuild（前插需要重排序）。
+        ingest(prev, { event: ev }, ctx.current);
+        if (ev.type === "turn/end") finalizeTurns(prev, ctx.current);
+        return prev.slice();
       });
       if (ev.type === "turn/start") {
         setLiveRunning(true);

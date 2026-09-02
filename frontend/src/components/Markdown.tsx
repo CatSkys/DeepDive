@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { memo, useState, type ReactNode } from "react";
 import { IconCodeOutline16 } from "./Icons";
 
 // Lightweight monochrome Markdown renderer (no deps): headings, paragraphs,
@@ -126,7 +126,9 @@ function CodeBlock({ lines, lang, keyBase }: { lines: string[]; lang: string; ke
   );
 }
 
-export function Markdown({ text }: { text: string }) {
+/** memo：流式期间每条增量都会重渲整个消息列表 —— 未变化的文本
+ *  （历史消息占绝大多数）直接跳过 parseBlocks + 全量 reconcile。 */
+export const Markdown = memo(function Markdown({ text }: { text: string }) {
   const blocks = parseBlocks(text);
   return (
     <div className="md">
@@ -161,4 +163,4 @@ export function Markdown({ text }: { text: string }) {
       })}
     </div>
   );
-}
+});

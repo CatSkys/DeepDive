@@ -249,6 +249,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }, wait);
   };
 
+  // 轮询签名：数据没变就不 setState，避免每 3s 一次的全树重渲染
+  // （长会话 + 侧栏百余行的场景下这是周期性卡顿的来源）。
+  const sessionsSigRef = useRef("");
+  const wsSigRef = useRef("");
+
   const refresh = async () => {
     // workspace.list 面是活的（点号形式，PITFALLS 4.6），且它的
     // archivedSessionIds 是归档的唯一事实源——session.list 不区分已归档，
@@ -258,8 +263,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const ws = await api.workspaces();
       wsItems = ws.items ?? [];
-      workspacesRef.current = wsItems;
-      setWorkspaces(wsItems);
+      const wsSig = wsItems.map((w) => `${w.workspaceId}:${w.title}:${(w.sessionIds ?? []).length}`).join("|");
+      if (wsSig !== wsSigRef.current) {
+        wsSigRef.current = wsSig;
+        workspacesRef.current = wsItems;
+        setWorkspaces(wsItems);
+      }
       archived = new Set(ws.archivedSessionIds ?? []);
       archivedRef.current = archived;
     } catch { /* workspace face absent on this engine; keep cached archive set */ }
@@ -268,7 +277,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const sorted = ss.items
         .filter((s) => !archived.has(s.sessionId))
         .sort((a, b) => b.updatedAt - a.updatedAt);
-      setSessions(sorted);
+      const sig = sorted
+        .map((s) => `${s.sessionId}:${s.updatedAt}:${s.running ? 1 : 0}:${(s.projections?.values as { title?: string } | undefined)?.title ?? ""}`)
+        .join("|");
+      if (sig !== sessionsSigRef.current) {
+        sessionsSigRef.current = sig;
+        setSessions(sorted);
+      }
       setEngineUp(true);
       // 工作空间解析：持久化的"最后使用空间"已不存在则回退第一个空间；
       // 只在尚未解析时执行一次，之后轮询不覆盖用户的即时切换。

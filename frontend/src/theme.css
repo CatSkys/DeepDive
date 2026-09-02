@@ -1422,6 +1422,8 @@ button {
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
 }
 .tool-row-main {
   display: flex;
@@ -1681,7 +1683,13 @@ button {
    DSH recency gate via data-actions-reveal: the latest user row and latest
    turn tail (= 'always') keep their actions row visible; earlier rows reveal
    on hover / focus-within (opacity keeps layout stable). ---- */
-.msg-block { position: relative; }
+.msg-block {
+  position: relative;
+  /* 长会话性能：离屏消息跳过排版与绘制（Content Visibility）。
+     contain-intrinsic-size 给出屏外估高，滚动条保持稳定。 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
+}
 /* assistant 块内部（思考轨迹 + 正文）沿用全局 12px 行距节奏，
    不再让思考行贴着正文。 */
 .msg-block.assistant {
