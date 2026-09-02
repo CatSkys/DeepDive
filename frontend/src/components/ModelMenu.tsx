@@ -201,7 +201,6 @@ function EffortSlider({
             <div key={s.id} className="effort-tick" style={{ ["--f" as string]: frac(i) } as React.CSSProperties} />
           ) : null,
         )}
-        {dragging && <div className="effort-thumb" />}
       </div>
     </div>
   );
