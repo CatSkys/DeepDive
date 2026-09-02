@@ -155,13 +155,16 @@ function EffortSlider({
   const idx = Math.max(0, stops.findIndex((s) => s.id === value));
   const n = stops.length;
   const frac = (i: number) => (n <= 1 ? 0 : i / (n - 1));
+  // 自适应：任意档位数。单档位视为满格；停靠点只在 3-6 档时显示
+  // （档位再多点会拥挤，纯填充条更干净）。
+  const fillFrac = n <= 1 ? 1 : frac(idx);
+  const showDots = n >= 3 && n <= 6;
   const [dragging, setDragging] = useState(false);
 
-  // 停靠点/拖柄几何：左右各内缩 14px（=拖柄半径），点不顶到胶囊两端
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
-    if (!r || r.width <= 28) return stops[idx]?.id;
-    const tFrac = Math.min(1, Math.max(0, (clientX - (r.left + 14)) / (r.width - 28)));
+    if (!r || r.width === 0) return stops[idx]?.id;
+    const tFrac = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
     return stops[Math.min(n - 1, Math.max(0, Math.round(tFrac * (n - 1))))].id;
   };
 
@@ -191,13 +194,13 @@ function EffortSlider({
         style={{ ["--p" as string]: frac(idx) } as React.CSSProperties}
       >
         <div className="effort-track" />
-        <div className="effort-fill" />
-        {stops.map((s, i) =>
-          // 已覆盖（填充区）与 Default 不显示停靠点；只标未覆盖的其他档位
-          i > idx && i < stops.length - 1 ? (
-            <div key={s.id} className="effort-tick" style={{ ["--f" as string]: frac(i) } as React.CSSProperties} />
-          ) : null,
-        )}
+        <div className="effort-fill" style={{ width: `${fillFrac * 100}%` }} />
+        {showDots &&
+          stops.map((s, i) =>
+            i > idx && i < n - 1 ? (
+              <div key={s.id} className="effort-tick" style={{ left: `${frac(i) * 100}%` }} />
+            ) : null,
+          )}
       </div>
     </div>
   );
