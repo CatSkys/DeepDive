@@ -142,10 +142,8 @@ export function ModelMenu({
   );
 }
 
-/** 思考强度滑杆：厚胶囊填充条。胶囊内左"思考强度/effort"右"当前档位"
- *  （双层 clip 文字：覆盖区反色、轨道区墨色，颜色自动做出差异）；
- *  停靠点只标在未覆盖档位上（Default 恒不显示）；拖柄仅拖动时出现；
- *  填充/裁切带滚动动画，松手时值文本按方向上下滑入。 */
+/** 思考强度滑杆：厚胶囊填充条 —— 无文字（档位名在头部模型名右侧）、
+ *  无常驻拖柄（拖动时才出现）；停靠点只标未覆盖档位且内缩不顶两端。 */
 function EffortSlider({
   levels,
   value,
@@ -155,32 +153,29 @@ function EffortSlider({
   value: string | undefined;
   onChange: (id: string) => void;
 }) {
-  const { t } = useT();
   const ref = useRef<HTMLDivElement>(null);
   const stops = useMemo(() => [{ id: "__default__", name: "Default" }, ...levels], [levels]);
   const idx = Math.max(0, stops.findIndex((s) => s.id === value));
   const n = stops.length;
   const frac = (i: number) => (n <= 1 ? 0 : i / (n - 1));
   const [dragging, setDragging] = useState(false);
-  const [valueAnim, setValueAnim] = useState<{ k: number; dir: "up" | "down" }>({ k: 0, dir: "up" });
 
+  // 停靠点/拖柄几何：左右各内缩 14px（=拖柄半径），点不顶到胶囊两端
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
-    if (!r || r.width === 0) return stops[idx]?.id;
-    const tFrac = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    if (!r || r.width <= 28) return stops[idx]?.id;
+    const tFrac = Math.min(1, Math.max(0, (clientX - (r.left + 14)) / (r.width - 28)));
     return stops[Math.min(n - 1, Math.max(0, Math.round(tFrac * (n - 1))))].id;
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    const startIdx = idx;
     setDragging(true);
+    onChange(idAt(e.clientX));
     const onMove = (ev: PointerEvent) => onChange(idAt(ev.clientX));
-    const onUp = (ev: PointerEvent) => {
+    const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       setDragging(false);
-      const endIdx = Math.max(0, stops.findIndex((s) => s.id === idAt(ev.clientX)));
-      if (endIdx !== startIdx) setValueAnim({ k: startIdx + 1, dir: endIdx > startIdx ? "down" : "up" });
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -203,23 +198,10 @@ function EffortSlider({
         {stops.map((s, i) =>
           // 已覆盖（填充区）与 Default 不显示停靠点；只标未覆盖的其他档位
           i > idx && s.id !== "__default__" ? (
-            <div key={s.id} className="effort-tick" style={{ left: `${frac(i) * 100}%` }} />
+            <div key={s.id} className="effort-tick" style={{ ["--f" as string]: frac(i) } as React.CSSProperties} />
           ) : null,
         )}
-        {dragging && <div className="effort-thumb" style={{ left: `${frac(idx) * 100}%` }} />}
-        {/* 双层 clip 文字：base = 轨道区墨色；clip = 填充区反色（裁剪同步填充宽度） */}
-        <div className="effort-bar-text base">
-          <span className="left">{t("思考强度")}</span>
-          <span key={`b${valueAnim.k}`} className={`right${valueAnim.dir === "down" ? " switch down" : valueAnim.k ? " switch" : ""}`}>
-            {effortDisplayName(value, stops)}
-          </span>
-        </div>
-        <div className="effort-bar-text clip" aria-hidden="true">
-          <span className="left">{t("思考强度")}</span>
-          <span key={`c${valueAnim.k}`} className={`right${valueAnim.dir === "down" ? " switch down" : valueAnim.k ? " switch" : ""}`}>
-            {effortDisplayName(value, stops)}
-          </span>
-        </div>
+        {dragging && <div className="effort-thumb" />}
       </div>
     </div>
   );

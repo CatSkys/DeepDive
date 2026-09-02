@@ -724,22 +724,22 @@ button {
 .effort-slider {
   --p: 0;
   position: relative;
-  height: 34px;
+  height: 28px;
   cursor: pointer;
   touch-action: none;
 }
 .effort-slider.dragging { cursor: grabbing; }
 .effort-track {
   position: absolute;
-  inset: 0;
+  left: 14px; right: 14px; top: 0; bottom: 0;
   border-radius: 999px;
   background: var(--fill-strong);
   box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
 }
 .effort-fill {
   position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: calc(var(--p) * 100%);
+  left: 14px; top: 0; bottom: 0;
+  width: calc(var(--p) * (100% - 28px));
   border-radius: 999px;
   background: var(--ink);
   transition: width 200ms var(--ease-out);
@@ -747,6 +747,7 @@ button {
 .effort-tick {
   position: absolute;
   top: 50%;
+  left: calc(14px + var(--f) * (100% - 28px));
   width: 5px; height: 5px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -755,37 +756,13 @@ button {
 .effort-thumb {
   position: absolute;
   top: 50%;
-  left: calc(var(--p) * 100%);
-  width: 30px; height: 30px;
+  left: calc(14px + var(--p) * (100% - 28px));
+  width: 28px; height: 28px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   background: var(--ink-bright);
   box-shadow: 0 1px 8px rgba(0,0,0,.4);
 }
-.effort-bar-text {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  font-size: 12.5px;
-  pointer-events: none;
-}
-.effort-bar-text.base { color: var(--ink); }
-.effort-bar-text.clip {
-  color: var(--menu-solid);
-  clip-path: inset(0 calc((1 - var(--p)) * 100%) 0 0);
-  transition: clip-path 200ms var(--ease-out);
-}
-.effort-slider.dragging .effort-fill,
-.effort-slider.dragging .effort-bar-text.clip { transition: none; }
-.effort-bar-text .left { flex: none; }
-.effort-bar-text .right { flex: none; display: inline-block; font-weight: 600; }
-.effort-bar-text .right.switch { animation: effort-val-up 180ms var(--ease-out); }
-.effort-bar-text .right.switch.down { animation-name: effort-val-down; }
-@keyframes effort-val-up { from { transform: translateY(7px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes effort-val-down { from { transform: translateY(-7px); opacity: 0; } to { transform: none; opacity: 1; } }
 .effort-head-value { font-size: 11.5px; font-weight: 400; color: var(--ink-3); margin-left: 4px; }
 .effort-apply {
   display: block;
