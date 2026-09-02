@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n";
 import { Check, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { ProviderIcon } from "./ProviderIcon";
+import { HoverScrollText } from "./HoverScrollText";
 
 export interface ModelOption {
   provider: string;
@@ -97,7 +98,7 @@ export function ModelMenu({
               return (
                 <button key={`${m.provider}/${m.model}`} className={`model-menu-row${active ? " active" : ""}`} onClick={() => onRowClick(m)}>
                   <ProviderIcon provider={m.provider} size={15} />
-                  <span className="name">{m.label}</span>
+                  <HoverScrollText className="name">{m.label}</HoverScrollText>
                   <span className="provider">{m.providerLabel}</span>
                   {hasEfforts ? (
                     <ChevronRight size={14} className="chev" />

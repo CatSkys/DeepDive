@@ -4,7 +4,6 @@ import { api } from "./api";
 import { installHostBridge } from "./host";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
-import heroLogo from "./assets/deepdive-logo-ascii-black-512.png";
 import { Sidebar, WorkspacePill } from "./components/Sidebar";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
@@ -134,8 +133,7 @@ function Shell() {
             </div>
             <div className="hero-brand">
               <div className="hero-logo-plate">
-              <img className="hero-logo" src={heroLogo} alt="DeepDive" />
-            </div>
+              </div>
               <div className="hero-title">{t("做点什么？")}</div>
             </div>
             <div className="hero-composer">

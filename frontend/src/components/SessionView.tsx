@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, GripVertical, Pencil, ShieldCheck, Trash2, X } from "lucide-react";
 import { ModelMenu, effortDisplayName, type ModelOption } from "./ModelMenu";
 import { ProviderIcon } from "./ProviderIcon";
-import heroLogo from "../assets/deepdive-logo-ascii-black-512.png";
 import { WorkspacePill } from "./Sidebar";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -348,8 +347,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         <div className="hero">
           <div className="hero-brand">
             <div className="hero-logo-plate">
-              <img className="hero-logo" src={heroLogo} alt="DeepDive" />
-            </div>
+              </div>
             <div className="hero-title">{t("做点什么？")}</div>
           </div>
           <div className="hero-composer">

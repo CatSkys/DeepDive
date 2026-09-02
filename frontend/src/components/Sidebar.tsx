@@ -6,6 +6,7 @@ import { api } from "../api";
 import { sendToShell } from "../host";
 import { useStore } from "../store";
 import { useT } from "../i18n";
+import { HoverScrollText } from "./HoverScrollText";
 import type { SessionSummary, WorkspaceView } from "../types";
 
 interface CtxMenu { sessionId: string; title: string; cwd?: string; x: number; y: number }
@@ -164,7 +165,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           store.unread.has(s.sessionId) && <span className="unread-dot" />
         )}
       </span>
-      <span className="title">{titleOf(s, lang)}</span>
+      <HoverScrollText className="title">{titleOf(s, lang)}</HoverScrollText>
       <span className="row-actions"
         onClick={(e) => e.stopPropagation()}
         onContextMenu={(e) => {
