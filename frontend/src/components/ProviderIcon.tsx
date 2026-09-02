@@ -59,18 +59,22 @@ export function ProviderIcon({
 }) {
   const icon = providerIconFor(provider);
   if (!icon) return <Cpu size={size} className={className} />;
+  // 品牌原色（icon.hex）+ 白色小圆角底：深色 logo（如 Anthropic）在暗色
+  // 主题下也能保持可读，亮色主题下与卡片同为白底不突兀。
   return (
-    <svg
-      role="img"
-      aria-label={icon.title}
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="currentColor"
-      className={className}
-      style={{ flexShrink: 0 }}
-    >
-      <path d={icon.path} />
-    </svg>
+    <span className="provider-chip" style={{ width: size + 8, height: size + 8 }}>
+      <svg
+        role="img"
+        aria-label={icon.title}
+        viewBox="0 0 24 24"
+        width={size}
+        height={size}
+        fill={`#${icon.hex}`}
+        className={className}
+        style={{ display: "block" }}
+      >
+        <path d={icon.path} />
+      </svg>
+    </span>
   );
 }

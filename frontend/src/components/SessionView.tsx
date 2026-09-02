@@ -327,10 +327,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <WorkspacePill />
             </div>
             <button className="model trigger" data-open={showModels ? "true" : "false"} title={t("模型与推理")} onClick={() => setShowModels(true)}>
-              <ProviderIcon provider={currentModel?.provider} size={13} />
               {modelName || "Auto"}
               {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
-              <ChevronDown size={12} />
+              <ChevronDown size={12} className="trigger-chev" />
             </button>
             {showModels && (
               <ModelMenu
@@ -365,10 +364,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <WorkspacePill />
           </div>
           <button className="model trigger" data-open={showModels ? "true" : "false"} title={t("模型与推理")} onClick={() => setShowModels(true)}>
-            <ProviderIcon provider={currentModel?.provider} size={13} />
             {modelName || "Auto"}
             {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
-            <ChevronDown size={12} />
+            <ChevronDown size={12} className="trigger-chev" />
           </button>
           {showModels && (
             <ModelMenu

@@ -2203,8 +2203,8 @@ button {
 }
 
 /* 触发器 chevron 随开合旋转。 */
-.model.trigger > svg { transition: transform var(--dur-med) var(--ease-out); }
-.model.trigger[data-open="true"] > svg { transform: rotate(180deg); }
+.model.trigger .trigger-chev { transition: transform var(--dur-med) var(--ease-out); }
+.model.trigger[data-open="true"] .trigger-chev { transform: rotate(180deg); }
 
 /* Hero 首屏：标题 → 副标题 → 输入框三档交错浮现。 */
 .hero-title { animation: row-in var(--dur-slow) var(--ease-out) both; }
@@ -2386,3 +2386,13 @@ button {
 }
 .settings-close:hover { background: var(--fill); color: var(--ink); }
 
+/* ── 提供方品牌图标底座：白底圆角，任何品牌原色在亮/暗主题下都可读 ── */
+.provider-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 5px;
+  background: #FFFFFF;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+}
