@@ -16,7 +16,6 @@ export interface ModelOption {
 interface EffortDraft {
   model: ModelOption;
   levels: Array<{ id: string; name: string }>;
-  showDefault: boolean;
   value: string | undefined;
 }
 
@@ -72,12 +71,10 @@ export function ModelMenu({
       onPick(m);      // 切换模型（父级不再负责关菜单）
       // 进入该模型的思考强度页；初始档位：当前模型用会话生效档，新模型用其默认档
       const isCurrent = currentModel?.provider === m.provider && currentModel?.model === m.model;
-      setDraft({
-        model: m,
-        levels: m.efforts,
-        showDefault: true,
-        value: isCurrent ? effortValue : m.defaultEffort,
-      });
+      // 没有"默认档"这个档位：初始值取会话生效档（当前模型）或该模型默认档，
+      // 都为空则取第一档 —— 滑杆上只有真实档位，应用必提交具体 id。
+      const initial = (isCurrent ? effortValue : undefined) ?? m.defaultEffort ?? m.efforts[0]?.id;
+      setDraft({ model: m, levels: m.efforts, value: initial });
     } else {
       onPick(m);
       onClose();      // 无档位可调：选择即完成
@@ -117,7 +114,7 @@ export function ModelMenu({
           <button className="model-menu-back" onClick={() => setDraft(null)}>
             <ChevronLeft size={14} /> {draft.model.label}
             <span className="effort-head-value">
-              {effortDisplayName(draft.value, [{ id: "__default__", name: "Default" }, ...draft.levels])}
+              {effortDisplayName(draft.value, draft.levels)}
             </span>
           </button>
           <div className="model-menu-body">
@@ -154,7 +151,7 @@ function EffortSlider({
   onChange: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const stops = useMemo(() => [{ id: "__default__", name: "Default" }, ...levels], [levels]);
+  const stops = levels;
   const idx = Math.max(0, stops.findIndex((s) => s.id === value));
   const n = stops.length;
   const frac = (i: number) => (n <= 1 ? 0 : i / (n - 1));
@@ -197,7 +194,7 @@ function EffortSlider({
         <div className="effort-fill" />
         {stops.map((s, i) =>
           // 已覆盖（填充区）与 Default 不显示停靠点；只标未覆盖的其他档位
-          i > idx && s.id !== "__default__" ? (
+          i > idx ? (
             <div key={s.id} className="effort-tick" style={{ ["--f" as string]: frac(i) } as React.CSSProperties} />
           ) : null,
         )}

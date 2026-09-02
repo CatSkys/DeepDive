@@ -712,7 +712,6 @@ button {
   margin-left: 2px;
   font-size: 11px;
   color: var(--ink-3);
-  transform: translateY(2px);
 }
 .model-menu-row .chev { color: var(--ink-3); flex-shrink: 0; }
 
@@ -739,7 +738,7 @@ button {
 .effort-fill {
   position: absolute;
   left: 14px; top: 0; bottom: 0;
-  width: calc(var(--p) * (100% - 28px));
+  width: calc(8px + var(--p) * (100% - 44px));
   border-radius: 999px;
   /* 减淡墨色（用户定）：亮 #3A3A40，暗为柔和白 */
   background: rgba(255,255,255,.88);
@@ -748,7 +747,7 @@ button {
 .effort-tick {
   position: absolute;
   top: 50%;
-  left: calc(14px + var(--f) * (100% - 28px));
+  left: calc(22px + var(--f) * (100% - 44px));
   width: 5px; height: 5px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -1055,7 +1054,8 @@ button {
   white-space: nowrap;
 }
 .session-header .model {
-  display: block;
+  display: inline-flex;
+  align-items: center;
   font-size: 11.5px;
   color: var(--ink-2);
   margin-top: 2px;
