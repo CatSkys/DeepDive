@@ -125,16 +125,8 @@ export function ModelMenu({
               levels={draft.levels}
               value={draft.value}
               onChange={(id) => setDraft((d) => (d ? { ...d, value: id } : d))}
+              onCommit={(id) => onApplyEffort(draft.model, id)}
             />
-            <button
-              className="effort-apply"
-              onClick={() => {
-                onApplyEffort(draft.model, draft.value);
-                onClose();
-              }}
-            >
-              {t("应用")}
-            </button>
           </div>
         </div>
       )}
@@ -148,10 +140,13 @@ function EffortSlider({
   levels,
   value,
   onChange,
+  onCommit,
 }: {
   levels: Array<{ id: string; name: string }>;
   value: string | undefined;
   onChange: (id: string) => void;
+  /** 松手即应用：选择就是提交（本页不再有"应用"按钮）。 */
+  onCommit: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const stops = levels;
@@ -194,12 +189,15 @@ function EffortSlider({
 
   const onPointerDown = (e: React.PointerEvent) => {
     setDragging(true);
-    onChange(idAt(e.clientX));
+    const startId = idAt(e.clientX);
+    onChange(startId);
     const onMove = (ev: PointerEvent) => onChange(idAt(ev.clientX));
-    const onUp = () => {
+    const onUp = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       setDragging(false);
+      const finalId = idAt(ev.clientX);
+      if (finalId !== value) onCommit(finalId);   // 松手即应用
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);

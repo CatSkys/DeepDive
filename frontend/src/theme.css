@@ -763,12 +763,12 @@ html[data-theme="dark"] .hero-logo { filter: invert(1); }
 .effort-cell {
   border-radius: 1px;
   background: var(--menu-solid);
-  opacity: .1;
+  opacity: .07;
   animation: cell-wave var(--dur, 1.4s) ease-in-out infinite;
 }
 @keyframes cell-wave {
-  0%, 100% { opacity: .1; }
-  50% { opacity: .72; }
+  0%, 100% { opacity: .06; }
+  50% { opacity: .36; }
 }
 @media (prefers-reduced-motion: reduce) {
   .effort-cell { animation: none; }
