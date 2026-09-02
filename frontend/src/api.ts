@@ -160,6 +160,7 @@ export const api = {
     unary<{ credentials: Record<string, { configured: boolean; source?: string; writable?: boolean }> }>("credentials.describe", payload),
   credentialsSet: (payload: { ref: string; value: string }) => unary("credentials.set", payload),
   credentialsUnset: (payload: { ref: string }) => unary("credentials.unset", payload),
+  llmProviders: () => unary<{ providers: Array<{ provider: string; displayName: string; settingsNs: string; settingsPath: string[]; active: boolean; declared?: boolean }> }>("llm.providers", {}),
   openMux: (onFrame: (frame: MuxFrame, rpcId?: string) => void, onOpen: () => void) => openMux(onFrame, onOpen),
   /** Escape hatch for the settings panes: same dot-form + flat payload rules. */
   callRaw: <T = unknown>(method: string, payload: unknown) => unary<T>(method, payload),

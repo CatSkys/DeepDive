@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { createPortal } from "react-dom";
-import { IconCheckOutline16 } from "../settings/primitives/icons";
+import { Check } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 
 /** Shared controls for the built-in settings sections: monochrome toggle,
@@ -78,7 +78,7 @@ export function Dropdown({ options, value, onChange }: { options: Array<{ v: str
           }}
         >
           <span>{o.label}</span>
-          {o.v === value && <IconCheckOutline16 size={14} className={rowsCss.ddCheck} />}
+          {o.v === value && <Check size={14} className={rowsCss.ddCheck} />}
         </button>
       ))}
     </div>,
