@@ -548,15 +548,23 @@ button {
   padding: 0 24px;
 }
 /* 品牌 ASCII 鲸鱼（黑墨资产）：暗色主题反白显示 */
+.hero-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 自动外边距：品牌组在欢迎区标题行与输入框之间垂直居中 */
+  margin: auto 0;
+}
 .hero-logo {
   width: 128px;
   height: auto;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   user-select: none;
+  animation: row-in var(--dur-slow) var(--ease-out) both;
 }
 html[data-theme="dark"] .hero-logo { filter: invert(1); }
 .hero-title {
-  margin-top: 30vh;
+  animation: row-in var(--dur-slow) var(--ease-out) 80ms both;
   font-size: 28px;
   font-weight: 600;
   letter-spacing: .01em;

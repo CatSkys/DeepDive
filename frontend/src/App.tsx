@@ -132,8 +132,10 @@ function Shell() {
                 )}
               </div>
             </div>
-            <img className="hero-logo" src={heroLogo} alt="DeepDive" />
-            <div className="hero-title">{t("做点什么？")}</div>
+            <div className="hero-brand">
+              <img className="hero-logo" src={heroLogo} alt="DeepDive" />
+              <div className="hero-title">{t("做点什么？")}</div>
+            </div>
             <div className="hero-composer">
               <Composer sessionId={null} />
             </div>
