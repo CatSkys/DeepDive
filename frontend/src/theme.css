@@ -716,25 +716,33 @@ button {
 }
 .model-menu-row .chev { color: var(--ink-3); flex-shrink: 0; }
 
-/* ── 思考强度页：离散档位滑杆 + 应用按钮（参考双层结构第二层） ── */
-.effort-wrap { padding: 8px 12px 2px; }
+/* ── 思考强度页：厚胶囊填充滑杆（无拖柄/无下方档位名） ──
+   胶囊内双层 clip 文字：左"思考强度"右"当前档位"；填充区反色、
+   轨道区墨色（clip-path 随填充宽度裁剪，颜色自动做出差异）。
+   停靠点只标未覆盖档位；拖柄仅拖动时出现。 */
+.effort-wrap { padding: 10px 12px 2px; }
 .effort-slider {
+  --p: 0;
   position: relative;
-  height: 28px;
+  height: 34px;
   cursor: pointer;
   touch-action: none;
 }
+.effort-slider.dragging { cursor: grabbing; }
 .effort-track {
   position: absolute;
   inset: 0;
   border-radius: 999px;
   background: var(--fill-strong);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
 }
 .effort-fill {
   position: absolute;
   left: 0; top: 0; bottom: 0;
+  width: calc(var(--p) * 100%);
   border-radius: 999px;
   background: var(--ink);
+  transition: width 200ms var(--ease-out);
 }
 .effort-tick {
   position: absolute;
@@ -744,25 +752,41 @@ button {
   transform: translate(-50%, -50%);
   background: var(--ink-3);
 }
-.effort-tick.on-fill { background: var(--menu-solid); }
 .effort-thumb {
   position: absolute;
   top: 50%;
-  width: 28px; height: 28px;
+  left: calc(var(--p) * 100%);
+  width: 30px; height: 30px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   background: var(--ink-bright);
-  box-shadow: 0 1px 6px rgba(0,0,0,.35);
+  box-shadow: 0 1px 8px rgba(0,0,0,.4);
 }
-.effort-labels { position: relative; height: 18px; margin-top: 2px; }
-.effort-label {
+.effort-bar-text {
   position: absolute;
-  transform: translateX(-50%);
-  font-size: 11px;
-  color: var(--ink-3);
-  white-space: nowrap;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 12.5px;
+  pointer-events: none;
 }
-.effort-label.active { color: var(--ink); font-weight: 600; }
+.effort-bar-text.base { color: var(--ink); }
+.effort-bar-text.clip {
+  color: var(--menu-solid);
+  clip-path: inset(0 calc((1 - var(--p)) * 100%) 0 0);
+  transition: clip-path 200ms var(--ease-out);
+}
+.effort-slider.dragging .effort-fill,
+.effort-slider.dragging .effort-bar-text.clip { transition: none; }
+.effort-bar-text .left { flex: none; }
+.effort-bar-text .right { flex: none; display: inline-block; font-weight: 600; }
+.effort-bar-text .right.switch { animation: effort-val-up 180ms var(--ease-out); }
+.effort-bar-text .right.switch.down { animation-name: effort-val-down; }
+@keyframes effort-val-up { from { transform: translateY(7px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes effort-val-down { from { transform: translateY(-7px); opacity: 0; } to { transform: none; opacity: 1; } }
+.effort-head-value { font-size: 11.5px; font-weight: 400; color: var(--ink-3); margin-left: 4px; }
 .effort-apply {
   display: block;
   width: calc(100% - 24px);

@@ -145,6 +145,7 @@ const EN: Record<string, string> = {
   "点击卡片即设为新会话的默认预设；运行中的会话保持它开始时的预设。": "Click a card to set the default for new sessions; running sessions keep their starting preset.",
   "预设即一个会话的 Agent 所运行的插件组装 —— 它的工具、提示词与能力。点击卡片设为新会话的默认。": "A preset is the plugin assembly a session's agent runs with — its tools, prompts and abilities. Click a card to set the default.",
   "恢复": "Restore",
+  "思考强度": "Effort",
   // settings — sections
   "设置": "Settings",
   "模型": "Models",

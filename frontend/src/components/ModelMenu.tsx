@@ -116,6 +116,9 @@ export function ModelMenu({
         <div className="model-menu-view" key="effort">
           <button className="model-menu-back" onClick={() => setDraft(null)}>
             <ChevronLeft size={14} /> {draft.model.label}
+            <span className="effort-head-value">
+              {effortDisplayName(draft.value, [{ id: "__default__", name: "Default" }, ...draft.levels])}
+            </span>
           </button>
           <div className="model-menu-body">
             <EffortSlider
@@ -139,8 +142,10 @@ export function ModelMenu({
   );
 }
 
-/** 思考强度滑杆：离散档位进度条 —— 轨道 + 已选填充 + 停靠点 + 拖柄，
- *  点击/拖动就近吸附档位；档位名排在各停靠点正下方，当前档高亮。 */
+/** 思考强度滑杆：厚胶囊填充条。胶囊内左"思考强度/effort"右"当前档位"
+ *  （双层 clip 文字：覆盖区反色、轨道区墨色，颜色自动做出差异）；
+ *  停靠点只标在未覆盖档位上（Default 恒不显示）；拖柄仅拖动时出现；
+ *  填充/裁切带滚动动画，松手时值文本按方向上下滑入。 */
 function EffortSlider({
   levels,
   value,
@@ -150,11 +155,14 @@ function EffortSlider({
   value: string | undefined;
   onChange: (id: string) => void;
 }) {
+  const { t } = useT();
   const ref = useRef<HTMLDivElement>(null);
   const stops = useMemo(() => [{ id: "__default__", name: "Default" }, ...levels], [levels]);
   const idx = Math.max(0, stops.findIndex((s) => s.id === value));
   const n = stops.length;
   const frac = (i: number) => (n <= 1 ? 0 : i / (n - 1));
+  const [dragging, setDragging] = useState(false);
+  const [valueAnim, setValueAnim] = useState<{ k: number; dir: "up" | "down" }>({ k: 0, dir: "up" });
 
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
@@ -164,11 +172,15 @@ function EffortSlider({
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    onChange(idAt(e.clientX));
+    const startIdx = idx;
+    setDragging(true);
     const onMove = (ev: PointerEvent) => onChange(idAt(ev.clientX));
-    const onUp = () => {
+    const onUp = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      setDragging(false);
+      const endIdx = Math.max(0, stops.findIndex((s) => s.id === idAt(ev.clientX)));
+      if (endIdx !== startIdx) setValueAnim({ k: startIdx + 1, dir: endIdx > startIdx ? "down" : "up" });
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -176,20 +188,38 @@ function EffortSlider({
 
   return (
     <div className="effort-wrap">
-      <div className="effort-slider" ref={ref} onPointerDown={onPointerDown} role="slider" aria-valuemin={1} aria-valuemax={n} aria-valuenow={idx + 1}>
+      <div
+        className={`effort-slider${dragging ? " dragging" : ""}`}
+        ref={ref}
+        onPointerDown={onPointerDown}
+        role="slider"
+        aria-valuemin={1}
+        aria-valuemax={n}
+        aria-valuenow={idx + 1}
+        style={{ ["--p" as string]: frac(idx) } as React.CSSProperties}
+      >
         <div className="effort-track" />
-        <div className="effort-fill" style={{ width: `${frac(idx) * 100}%` }} />
-        {stops.map((s, i) => (
-          <div key={s.id} className={`effort-tick${i <= idx ? " on-fill" : ""}`} style={{ left: `${frac(i) * 100}%` }} />
-        ))}
-        <div className="effort-thumb" style={{ left: `${frac(idx) * 100}%` }} />
-      </div>
-      <div className="effort-labels">
-        {stops.map((s, i) => (
-          <span key={s.id} className={`effort-label${i === idx ? " active" : ""}`} style={{ left: `${frac(i) * 100}%` }}>
-            {s.name}
+        <div className="effort-fill" />
+        {stops.map((s, i) =>
+          // 已覆盖（填充区）与 Default 不显示停靠点；只标未覆盖的其他档位
+          i > idx && s.id !== "__default__" ? (
+            <div key={s.id} className="effort-tick" style={{ left: `${frac(i) * 100}%` }} />
+          ) : null,
+        )}
+        {dragging && <div className="effort-thumb" style={{ left: `${frac(idx) * 100}%` }} />}
+        {/* 双层 clip 文字：base = 轨道区墨色；clip = 填充区反色（裁剪同步填充宽度） */}
+        <div className="effort-bar-text base">
+          <span className="left">{t("思考强度")}</span>
+          <span key={`b${valueAnim.k}`} className={`right${valueAnim.dir === "down" ? " switch down" : valueAnim.k ? " switch" : ""}`}>
+            {effortDisplayName(value, stops)}
           </span>
-        ))}
+        </div>
+        <div className="effort-bar-text clip" aria-hidden="true">
+          <span className="left">{t("思考强度")}</span>
+          <span key={`c${valueAnim.k}`} className={`right${valueAnim.dir === "down" ? " switch down" : valueAnim.k ? " switch" : ""}`}>
+            {effortDisplayName(value, stops)}
+          </span>
+        </div>
       </div>
     </div>
   );
