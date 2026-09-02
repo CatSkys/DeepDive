@@ -194,7 +194,7 @@ function EffortSlider({
         <div className="effort-fill" />
         {stops.map((s, i) =>
           // 已覆盖（填充区）与 Default 不显示停靠点；只标未覆盖的其他档位
-          i > idx ? (
+          i > idx && i < stops.length - 1 ? (
             <div key={s.id} className="effort-tick" style={{ ["--f" as string]: frac(i) } as React.CSSProperties} />
           ) : null,
         )}

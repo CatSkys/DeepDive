@@ -737,8 +737,8 @@ button {
 }
 .effort-fill {
   position: absolute;
-  left: 14px; top: 0; bottom: 0;
-  width: calc(8px + var(--p) * (100% - 44px));
+  left: 0; top: 0; bottom: 0;
+  width: calc(var(--p) * 100%);
   border-radius: 999px;
   /* 减淡墨色（用户定）：亮 #3A3A40，暗为柔和白 */
   background: rgba(255,255,255,.88);
@@ -747,7 +747,7 @@ button {
 .effort-tick {
   position: absolute;
   top: 50%;
-  left: calc(22px + var(--f) * (100% - 44px));
+  left: calc(var(--f) * 100%);
   width: 5px; height: 5px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
