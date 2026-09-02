@@ -180,7 +180,7 @@ function EffortSlider({
         <div className="effort-track" />
         <div className="effort-fill" style={{ width: `${frac(idx) * 100}%` }} />
         {stops.map((s, i) => (
-          <div key={s.id} className="effort-tick" style={{ left: `${frac(i) * 100}%` }} />
+          <div key={s.id} className={`effort-tick${i <= idx ? " on-fill" : ""}`} style={{ left: `${frac(i) * 100}%` }} />
         ))}
         <div className="effort-thumb" style={{ left: `${frac(idx) * 100}%` }} />
       </div>

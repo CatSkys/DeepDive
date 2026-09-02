@@ -720,24 +720,20 @@ button {
 .effort-wrap { padding: 8px 12px 2px; }
 .effort-slider {
   position: relative;
-  height: 26px;
+  height: 28px;
   cursor: pointer;
   touch-action: none;
 }
 .effort-track {
   position: absolute;
-  left: 0; right: 0; top: 50%;
-  height: 6px;
-  transform: translateY(-50%);
-  border-radius: 3px;
+  inset: 0;
+  border-radius: 999px;
   background: var(--fill-strong);
 }
 .effort-fill {
   position: absolute;
-  left: 0; top: 50%;
-  height: 6px;
-  transform: translateY(-50%);
-  border-radius: 3px;
+  left: 0; top: 0; bottom: 0;
+  border-radius: 999px;
   background: var(--ink);
 }
 .effort-tick {
@@ -748,15 +744,15 @@ button {
   transform: translate(-50%, -50%);
   background: var(--ink-3);
 }
+.effort-tick.on-fill { background: var(--menu-solid); }
 .effort-thumb {
   position: absolute;
   top: 50%;
-  width: 16px; height: 16px;
+  width: 28px; height: 28px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   background: var(--ink-bright);
-  border: 2px solid var(--line-heavy);
-  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+  box-shadow: 0 1px 6px rgba(0,0,0,.35);
 }
 .effort-labels { position: relative; height: 18px; margin-top: 2px; }
 .effort-label {
