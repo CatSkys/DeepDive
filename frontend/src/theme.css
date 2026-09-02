@@ -742,6 +742,26 @@ button {
   border-radius: 999px;
   /* 减淡墨色（用户定）：亮 #3A3A40，暗为柔和白 */
   background: rgba(255,255,255,.88);
+  overflow: hidden;
+}
+/* 能量涌动：像素方块（复用全局 pixel-on 闪烁动画，同 LoadingState），随档位加速 */
+.effort-cells {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  pointer-events: none;
+}
+.effort-cell {
+  width: 4px; height: 4px;
+  border-radius: 1px;
+  background: var(--menu-solid);
+  opacity: .15;
+  animation: pixel-on var(--dur, 2s) ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .effort-cell { animation: none; }
 }
 :root[data-theme="light"] .effort-fill { background: #3A3A40; }
 .effort-tick {

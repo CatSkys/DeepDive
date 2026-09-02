@@ -163,6 +163,11 @@ function EffortSlider({
   const fillFrac = n <= 1 ? 1 : frac(idx);
   const showDots = n >= 3 && n <= 6;
   const [dragging, setDragging] = useState(false);
+  // 能量感（同 LoadingState 像素风）：填充区内一排闪烁的像素方块，
+  // 强度越高 → 闪烁越快；最低档静止（无方块）。
+  const energy = n <= 1 ? 0 : idx / (n - 1);
+  const cellDur = `${(2.2 - 1.5 * energy).toFixed(2)}s`;
+  const cellCount = energy <= 0.01 ? 0 : 18;
 
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
@@ -197,7 +202,19 @@ function EffortSlider({
         style={{ ["--p" as string]: frac(idx) } as React.CSSProperties}
       >
         <div className="effort-track" />
-        <div className="effort-fill" style={{ width: `${fillFrac * 100}%` }} />
+        <div className="effort-fill" style={{ width: `${fillFrac * 100}%` }}>
+          {energy > 0.01 && (
+            <div className="effort-cells" style={{ ["--dur" as string]: cellDur } as React.CSSProperties}>
+              {Array.from({ length: cellCount }, (_, i) => (
+                <span
+                  key={i}
+                  className="effort-cell"
+                  style={{ animationDelay: `${((i % 6) * (parseFloat(cellDur) / 6)).toFixed(2)}s` }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
         {showDots &&
           stops.map((s, i) =>
             i > idx && i < n - 1 ? (
