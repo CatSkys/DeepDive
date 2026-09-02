@@ -10,7 +10,9 @@ import AppKit
 /// color-scheme. Do NOT grow token/catalog overrides here — the era of
 /// restyling the official `dsh web` UI is gone; style the SPA in theme.css.
 enum WebViewTheme {
+    // color-scheme 现由前端 theme.css 声明为 light dark（外观三态跟随），
+    // 这里只保留透明底，让原生 vibrancy 透出。
     static let css = """
-    html, body { background: transparent !important; color-scheme: dark; }
+    html, body { background: transparent !important; }
     """
 }

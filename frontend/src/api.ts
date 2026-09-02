@@ -1,4 +1,4 @@
-import type { HistoryEntry, MuxFrame, RpcResult, SessionSummary, WorkspaceView } from "./types";
+import type { HistoryEntry, MuxFrame, QuestionAnswerItem, RpcResult, SessionSummary, WorkspaceView } from "./types";
 
 // Same-origin bridge (/api → engine). Verified wire contract for the pinned
 // 0.1.2-alpha.2 runtime (see docs/PITFALLS.md §4.6 — audited against the
@@ -28,11 +28,34 @@ async function unary<T = unknown>(method: string, payload: unknown = {}): Promis
   return full.result.value as T;
 }
 
-async function respond(message: unknown): Promise<void> {
+/** Respond to a pending server-request (approval / question). The rpcId must
+ *  be the one carried by the request's server-request envelope — the engine
+ *  routes /api/respond strictly through its pending table, so a fresh random
+ *  id is silently dropped as not-pending. */
+async function respondTo(rpcId: string, value: unknown): Promise<{ accepted: boolean; reason?: string }> {
   const res = await fetch("/api/respond", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(message),
+    body: JSON.stringify({
+      type: "client-response",
+      rpcId,
+      result: { ok: true, value },
+    }),
+  });
+  if (!res.ok) throw new Error(`respond HTTP ${res.status}`);
+  return res.json();
+}
+
+/** Reject a pending server-request (question cancel path: error.code=cancelled). */
+async function respondCancel(rpcId: string): Promise<void> {
+  const res = await fetch("/api/respond", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      type: "client-response",
+      rpcId,
+      result: { ok: false, error: { code: "cancelled", message: "cancelled by user" } },
+    }),
   });
   if (!res.ok) throw new Error(`respond HTTP ${res.status}`);
 }
@@ -52,13 +75,42 @@ export const api = {
     }),
   prompt: (payload: { sessionId: string; mode: "queue" | "steer"; content: Array<{ type: string; text?: string; image?: unknown }> }) =>
     unary<{ accepted: true; command?: { kind: string; text?: string } }>("session.prompt", payload),
+  /** 修改一条仍挂起的排队消息（引擎源码契约：edit 仅接受文本 content）。 */
+  updateQueue: (payload: {
+    sessionId: string;
+    itemId: string;
+    action: { kind: "edit"; content: Array<{ type: "text"; text: string }> } | { kind: "remove" } | { kind: "steer" };
+  }) => unary<{ accepted: true }>("session.updateQueue", payload),
   cancel: (payload: { sessionId: string }) => unary("session.cancel", payload),
-  answerApproval: (value: { approvalId: string; outcome: "allowed-once" | "rejected" }) =>
-    respond({ type: "client-response", rpcId: crypto.randomUUID(), result: { ok: true, value } }),
+  answerApproval: (value: { rpcId: string; sessionId: string; approvalId: string; outcome: "allowed-once" | "rejected" }) =>
+    respondTo(value.rpcId, {
+      sessionId: value.sessionId,
+      approvalId: value.approvalId,
+      outcome: value.outcome,
+    }),
+  /** Answer a pending ask_user_question request (outcome: answered). */
+  answerQuestion: (value: { rpcId: string; sessionId: string; answers: QuestionAnswerItem[] }) =>
+    respondTo(value.rpcId, {
+      sessionId: value.sessionId,
+      answer: { answers: value.answers },
+    }),
+  /** Cancel a pending ask_user_question request (outcome: cancelled → ASK_CANCELLED). */
+  cancelQuestion: (rpcId: string) => respondCancel(rpcId),
   agentPresets: () =>
     unary<{ presets: Array<{ id: string; name: string; description?: string; trust?: string; isDefault?: boolean }> }>("agentPreset.list", {}),
   sessionModels: (payload: { sessionId: string }) =>
-    unary<{ current: { provider: string; model: string } }>("session.models", payload),
+    unary<{
+      current: { provider: string; model: string; reasoningEffort?: string };
+      groups?: Array<{
+        id: string;
+        name: string;
+        models: Array<{
+          id: string;
+          name: string;
+          reasoning?: { efforts: Array<{ id: string; name: string }>; defaultEffort?: string };
+        }>;
+      }>;
+    }>("session.models", payload),
   selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
     unary("session.selectModel", payload),
   llmModels: () => unary<{ groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }> }>("llm.models", {}),
@@ -87,6 +139,14 @@ export const api = {
     unary("session.rename", { sessionId: payload.sessionId, title: payload.title }),
   workspaceArchiveSession: (payload: { sessionId: string }) =>
     unary("workspace.archiveSession", { sessionId: payload.sessionId }),
+  /** 注册一个已存在的目录为工作空间（官方 DSH「添加项目」同款路由）。
+   *  已注册过则幂等返回 created:false。 */
+  workspaceCreate: (payload: { path: string }) =>
+    unary<{ workspace: WorkspaceView; created: boolean }>("workspace.create", payload),
+  workspaceRename: (payload: { workspaceId: string; title: string }) =>
+    unary<{ workspace: WorkspaceView }>("workspace.rename", payload),
+  workspaceDelete: (payload: { workspaceId: string }) =>
+    unary<{ deleted: true }>("workspace.delete", payload),
   sessionModelCatalog: () => unary<{
     default: { provider: string; model: string };
     routableProviders?: string[];
@@ -100,7 +160,7 @@ export const api = {
     unary<{ credentials: Record<string, { configured: boolean; source?: string; writable?: boolean }> }>("credentials.describe", payload),
   credentialsSet: (payload: { ref: string; value: string }) => unary("credentials.set", payload),
   credentialsUnset: (payload: { ref: string }) => unary("credentials.unset", payload),
-  openMux: (onFrame: (frame: MuxFrame) => void, onOpen: () => void) => openMux(onFrame, onOpen),
+  openMux: (onFrame: (frame: MuxFrame, rpcId?: string) => void, onOpen: () => void) => openMux(onFrame, onOpen),
   /** Escape hatch for the settings panes: same dot-form + flat payload rules. */
   callRaw: <T = unknown>(method: string, payload: unknown) => unary<T>(method, payload),
 };
@@ -139,10 +199,12 @@ export async function probeMethod(method: string): Promise<boolean> {
   }
 }
 
-/** Broadcast event downlink: every session's events + approval frames, one
- *  frame per WS message, `server-request`-wrapped (`payload` holds the
- *  logical frame). Engine-verified: reconnects every 2s while down. */
-function openMux(onFrame: (frame: MuxFrame) => void, onOpen: () => void): () => void {
+/** Broadcast event downlink: every session's events + approval/question
+ *  request frames, one frame per WS message. `server-request`-wrapped (the
+ *  `payload` holds the logical frame; the envelope's rpcId is passed through
+ *  because approvals and questions must answer with that exact id).
+ *  Engine-verified: reconnects every 2s while down. */
+function openMux(onFrame: (frame: MuxFrame, rpcId?: string) => void, onOpen: () => void): () => void {
   let ws: WebSocket | null = null;
   let closed = false;
   let retry: number | null = null;
@@ -155,7 +217,8 @@ function openMux(onFrame: (frame: MuxFrame) => void, onOpen: () => void): () => 
       try {
         const raw = JSON.parse(String(e.data));
         const frame = (raw && raw.payload) || raw;
-        onFrame(frame);
+        const rpcId = raw && typeof raw.rpcId === "string" ? raw.rpcId : undefined;
+        onFrame(frame, rpcId);
       } catch {
         // one corrupt frame must not kill the stream
       }

@@ -19,6 +19,16 @@ const isColorPair = (v) =>
 
 const cssId = (path) => "--dsh-" + path.join("-");
 
+// Radius tokens must carry a unit: `border-radius: var(--dsh-radius-x)` with
+// a bare number is invalid at computed-value time and silently becomes 0
+// (square corners). Tokens.swift keeps the raw CGFloat, so the unit is
+// CSS-only.
+const emitStatic = (id, raw) => {
+  const v = String(raw);
+  const unit = id.startsWith("--dsh-radius-") && !/(px|%)$/.test(v) ? "px" : "";
+  return `  ${id}: ${v}${unit};`;
+};
+
 // ---------- tokens.css ----------
 const cssLight = [];
 const cssDark = [];
@@ -42,9 +52,9 @@ function walk(obj, prefix = []) {
         value && typeof value === "object"
           ? value.px ?? value.ms ?? value.width ?? value.linecap ?? value.linejoin ?? value.family ?? value.easing ?? value.scaleFrom ?? value.translateY ?? value.duration
           : value;
-      cssStatic.push(`  ${cssId(path)}: ${raw};`);
+      cssStatic.push(emitStatic(cssId(path), raw));
     } else {
-      cssStatic.push(`  ${cssId(path)}: ${value};`);
+      cssStatic.push(emitStatic(cssId(path), value));
     }
   }
 }

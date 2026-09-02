@@ -68,6 +68,14 @@ fi
 rm -rf "$STAGE/Resources/Runtime/dsh"
 ditto "$RUNTIME_SOURCE" "$STAGE/Resources/Runtime/dsh"
 
+# Re-seal the bundle AFTER all file mutations, BEFORE the self-check.
+# xcodebuild leaves an (adhoc) seal over Contents; embed-web + this script
+# then add/replace files under it. A stale LaunchServices registration of
+# the same .app path + broken seal makes macOS 26 SIGKILL (137, silent —
+# no dyld/AMFI message) every exec of the newly embedded binaries. Hit in
+# the wild: engine "exited; restart" x3 right after a rebuild in place.
+codesign --force --deep --sign - "$APP" >/dev/null
+
 # Licenses: prefer files shipped inside the runtime closure; fall back to the
 # official source for the Node license only.
 [[ -f "$RUNTIME_SOURCE/LICENSE" ]] && cp -f "$RUNTIME_SOURCE/LICENSE" "$STAGE/Resources/Licenses/dsh-LICENSE" || true

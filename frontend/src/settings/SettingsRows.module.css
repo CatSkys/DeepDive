@@ -247,13 +247,22 @@
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: 40;
+  /* 必须 > SettingsRoot 浮层的 1000：菜单 portal 到 body，此前 z=40 被
+     压在设置面板之下 —— "看得见点不到" 的根因 */
+  z-index: 1100;
   min-width: 100%;
-  padding: 6px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
-  background: var(--dsw-alias-bg-layer-2);
-  box-shadow: var(--dsw-shadow-lv3);
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-card);
+  /* 统一弹出面板配方（与 .model-menu/.ctx-menu 同材质）；
+     叠在设置亮元素上方，用实底档 --menu-solid 保证可读性 */
+  background: var(--menu-solid);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 16px 40px rgba(0,0,0,.45),
+    0 4px 12px rgba(0,0,0,.25);
 }
 
 .ddItem {
@@ -262,17 +271,14 @@
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  padding: 9px 12px;
+  height: 30px;
+  padding: 0 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: transparent;
-  color: var(--dsw-alias-label-primary);
-  font-family: inherit;
-  font-size: 12.5px;
-  line-height: 18px;
+  color: var(--ink);
+  font-size: 13px;
   text-align: left;
-  cursor: pointer;
-  white-space: nowrap;
 }
 
 .ddItem:hover {

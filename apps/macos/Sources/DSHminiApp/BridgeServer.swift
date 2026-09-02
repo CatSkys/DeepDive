@@ -228,6 +228,15 @@ final class BridgeServer {
         response.body = data
         let ext = fileURL.pathExtension
         response.headers["content-type"] = mimeType(for: ext)
+        // Cache policy: hashed assets (/assets/*) are immutable — cache hard.
+        // Everything else (index.html first of all) must revalidate on every
+        // load, or WKWebView keeps serving a stale SPA after a bundle update
+        // (user-visible as "my fix isn't there" after relaunch).
+        if decoded.hasPrefix("/assets/") {
+            response.headers["cache-control"] = "public, max-age=31536000, immutable"
+        } else {
+            response.headers["cache-control"] = "no-cache"
+        }
         return response
     }
 

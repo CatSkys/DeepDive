@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, PanelLeft } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { api } from "./api";
 import { installHostBridge } from "./host";
-import { StoreProvider, useStore } from "./store";
-import { Sidebar } from "./components/Sidebar";
+import { StoreProvider, useStore } from "./store"
+import { useT } from "./i18n";
+import { Sidebar, WorkspacePill } from "./components/Sidebar";
+import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
 import { SettingsPage } from "./components/SettingsPage";
@@ -12,11 +14,31 @@ import "./theme.css";
 
 function Shell() {
   const store = useStore();
+  const { t } = useT();
   const active = store.activeSessionId;
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [showModels, setShowModels] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Deferred native navigation: a navigateToSession push (notification /
+  // bubble) can arrive before the session list has loaded — hold it until the
+  // list is in, then navigate only if the id is a live session (dropped/
+  // archived ones must not resurrect as ghost conversations).
+  const [deferredNav, setDeferredNav] = useState<string | null>(null);
+  useEffect(() => {
+    if (!deferredNav) return;
+    const hit = store.sessions.find((s) => s.sessionId === deferredNav);
+    if (hit) {
+      store.openSession(hit.sessionId);
+      setDeferredNav(null);
+    } else if (store.sessions.length > 0) {
+      // List is loaded and the id isn't in it — stale push, drop it.
+      setDeferredNav(null);
+    }
+    // An empty list means "not loaded yet" — keep waiting.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deferredNav, store.sessions]);
 
   // Shell→frontend bridge mount (SPEC-NOTIFICATIONS §3.1): native pushes
   // navigateToSession/navigateToSettings/themeChanged here; mounted once,
@@ -25,11 +47,16 @@ function Shell() {
     installHostBridge({
       navigateToSession: (sessionId) => {
         setSettingsOpen(false);
-        store.openSession(sessionId);
+        const listed = store.sessions.some((s) => s.sessionId === sessionId);
+        if (listed) store.openSession(sessionId);
+        else setDeferredNav(sessionId);
       },
       navigateToSettings: () => setSettingsOpen(true),
       themeChanged: (dark) => {
         document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      },
+      workspacePicked: (path) => {
+        void store.createWorkspace(path);
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -62,24 +89,30 @@ function Shell() {
   };
   return (
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}${settingsOpen ? " settings-mode" : ""}`}>
-      <div className={`window-top${store.sidebarCollapsed ? " collapsed" : ""}`}>
-        <button className="window-top-btn" title="新会话" onClick={() => void store.createSession()}>
-          <Plus size={17} />
+      {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。 */}
+      <div className="window-top">
+        <button className="window-top-btn" title={t("新会话")} onClick={() => void store.createSession()}>
+          <IconNewChatOutline16 size={17} />
         </button>
-        <button className="window-top-btn" title="边栏收起" onClick={() => store.toggleSidebar()}>
+        <button className="window-top-btn" title={t("收起侧栏")} onClick={() => store.toggleSidebar()}>
           <PanelLeft size={17} />
         </button>
       </div>
       <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
+      {/* SessionView key：会话切换必须全新挂载——无 key 时 React 复用实例，
+          旧会话的 items/eventLog 残留会在新会话 summary 就位前闪现旧内容。 */}
       <main className="main">
         {active ? (
-          <SessionView sessionId={active} />
+          <SessionView key={active} sessionId={active} />
         ) : (
           <div className="hero">
             <div className="hero-top">
               <div className="left">
-                <div className="title">新会话</div>
-                <button className="model" title="更换模型" onClick={() => setShowModels((v) => !v)}>
+                <div className="title-row">
+                  <div className="title">{t("新会话")}</div>
+                  <WorkspacePill />
+                </div>
+                <button className="model" title={t("更换模型")} onClick={() => setShowModels((v) => !v)}>
                   {modelName}
                 </button>
                 {showModels && (
@@ -91,10 +124,9 @@ function Shell() {
                   />
                 )}
               </div>
-
             </div>
-            <div className="hero-title">做点什么？</div>
-            <div className="hero-sub">用 DeepSeek 智能体开始任何工作。</div>
+            <div className="hero-title">{t("做点什么？")}</div>
+            <div className="hero-sub">{t("用 DeepSeek 智能体开始任何工作。")}</div>
             <div className="hero-composer">
               <Composer sessionId={null} />
             </div>

@@ -11,6 +11,8 @@ import rowsCss from "../settings/SettingsRows.module.css";
 import "../settings/settings-tokens.css";
 import { api, probeMethod, type SettingsNamespaceEntry } from "../api";
 import { onHostEvent, sendToShell } from "../host";
+import { useT, tt } from "../i18n";
+import { useStore } from "../store";
 import { Toggle, Row, Section, Dropdown } from "../settings/controls";
 import { diffOps, setPath, type Json } from "../settings/jsonDiff";
 import { ModelsSettingsPane } from "../settings/models/ModelsSettingsPane";
@@ -22,16 +24,17 @@ import { ModelsSettingsPane } from "../settings/models/ModelsSettingsPane";
 // fence with two-choice conflict recovery (SPEC-SETTINGS §3.4).
 
 export function SettingsPage({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
   const [activeId, setActiveId] = useState("models");
   const rows: SettingsSectionRow[] = [
-    { id: "models", label: "模型", icon: IconDataOutline16, content: <ModelsSection /> },
-    { id: "presets", label: "预设", icon: IconAgentPresetOutline16, content: <PresetsSection /> },
-    { id: "plugins", label: "插件", icon: IconEnhanceOutline16, content: <PluginsSection /> },
-    { id: "approval", label: "审批", icon: IconCheckOutline16, content: <ApprovalSection /> },
-    { id: "hotkeys", label: "快捷键", icon: IconSettingsOutline16, content: <HotkeysSection /> },
-    { id: "appearance", label: "外观", icon: IconDarkOutline16, content: <AppearanceSection /> },
-    { id: "notifications", label: "通知", icon: IconAlarmClockOutline16, content: <NotificationsSection /> },
-    { id: "data", label: "数据", icon: IconDatabaseOutline16, content: <DataSection /> },
+    { id: "models", label: t("模型"), icon: IconDataOutline16, content: <ModelsSection /> },
+    { id: "presets", label: t("预设"), icon: IconAgentPresetOutline16, content: <PresetsSection /> },
+    { id: "plugins", label: t("插件"), icon: IconEnhanceOutline16, content: <PluginsSection /> },
+    { id: "approval", label: t("审批"), icon: IconCheckOutline16, content: <ApprovalSection /> },
+    { id: "hotkeys", label: t("快捷键"), icon: IconSettingsOutline16, content: <HotkeysSection /> },
+    { id: "appearance", label: t("外观"), icon: IconDarkOutline16, content: <AppearanceSection /> },
+    { id: "notifications", label: t("通知"), icon: IconAlarmClockOutline16, content: <NotificationsSection /> },
+    { id: "data", label: t("数据"), icon: IconDatabaseOutline16, content: <DataSection /> },
   ];
   return <SettingsPanel rows={rows} activeId={activeId} onSelect={setActiveId} onClose={onClose} />;
 }
@@ -53,6 +56,7 @@ function useNamespaces() {
 }
 
 function useNamespaceSaver(namespaces: Record<string, SettingsNamespaceEntry>, describe: () => Promise<void>) {
+  const { t } = useT();
   const [conflict, setConflict] = useState<{ ns: string; patch: unknown } | null>(null);
   const saveNs = useCallback(async (ns: string, nextValue: Json) => {
     const entry = namespaces[ns];
@@ -66,7 +70,7 @@ function useNamespaceSaver(namespaces: Record<string, SettingsNamespaceEntry>, d
       if (String((err as Error).message).startsWith("settings/conflict")) {
         setConflict({ ns, patch: nextValue });
       } else {
-        alert(`保存失败：${(err as Error).message}`);
+        alert(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
       }
     }
   }, [namespaces, describe]);
@@ -76,12 +80,12 @@ function useNamespaceSaver(namespaces: Record<string, SettingsNamespaceEntry>, d
     await saveNs(ns, setPath((entry.value ?? {}) as Json, path.split("."), value));
   }, [namespaces, saveNs]);
   const conflictDialog = conflict && (
-    <Section title="冲突">
-      <Row title="设置已在其他位置被修改" caption={`「${conflict.ns}」的版本已前进。载入最新版本，或基于最新版本重试你的修改？`}>
+    <Section title={t("冲突")}>
+      <Row title={t("设置已在其他位置被修改")} caption={tt(`「${conflict.ns}」的版本已前进。载入最新版本，或基于最新版本重试你的修改？`, `“${conflict.ns}” has moved on. Load the latest version, or retry your change on top of it?`)}>
         <button className={rowsCss.secondaryButton} onClick={async () => {
           setConflict(null);
           await describe();
-        }}>载入最新</button>
+        }}>{t("载入最新")}</button>
         <button className={rowsCss.primaryButton} onClick={async () => {
           const { ns, patch } = conflict;
           setConflict(null);
@@ -91,9 +95,9 @@ function useNamespaceSaver(namespaces: Record<string, SettingsNamespaceEntry>, d
             if (fresh) await api.settingsUpdate({ ns, patch, expectedRevision: fresh.revision });
             await describe();
           } catch (err) {
-            alert(`重试失败：${(err as Error).message}`);
+            alert(tt("重试失败：{m}", "Retry failed: {m}", { m: (err as Error).message }));
           }
-        }}>基于最新重试</button>
+        }}>{t("基于最新重试")}</button>
       </Row>
     </Section>
   );
@@ -109,30 +113,31 @@ function ModelsSection() {
 // ---------- 审批
 
 function ApprovalSection() {
+  const { t } = useT();
   const { namespaces, describe } = useNamespaces();
   const { savePath, conflictDialog } = useNamespaceSaver(namespaces, describe);
   const entry = namespaces["permission"];
   const current = (entry?.value as { defaultPreset?: string } | null)?.defaultPreset ?? "workspace-write";
   const options = [
-    { v: "read-only", label: "read-only（只读）" },
-    { v: "workspace-write", label: "workspace-write（默认）" },
-    { v: "danger-full-access", label: "danger-full-access（完整访问）" },
+    { v: "read-only", label: t("read-only（只读）") },
+    { v: "workspace-write", label: t("workspace-write（默认）") },
+    { v: "danger-full-access", label: t("danger-full-access（完整访问）") },
   ];
   return (
     <>
-      <Section title="默认权限预设" intro="新建会话的初始权限。">
-        <Row title="默认预设">
+      <Section title={t("默认权限预设")} intro={t("新建会话的初始权限。")}>
+        <Row title={t("默认预设")}>
           <Dropdown
             options={options}
             value={current}
             onChange={(v) => {
-              if (v === "danger-full-access" && !confirm("启用完整访问？将不再逐步审批命令与文件写入。")) return;
+              if (v === "danger-full-access" && !confirm(t("启用完整访问？将不再逐步审批命令与文件写入。"))) return;
               void savePath("permission", "defaultPreset", v);
             }}
           />
         </Row>
       </Section>
-      <p className={rowsCss.intro}>完整访问（danger-full-access）需要逐次确认；当前会话权限由会话内原生审批弹窗分别管理。</p>
+      <p className={rowsCss.intro}>{t("完整访问（danger-full-access）需要逐次确认；当前会话权限由会话内原生审批弹窗分别管理。")}</p>
       {conflictDialog}
     </>
   );
@@ -141,6 +146,7 @@ function ApprovalSection() {
 // ---------- 快捷键
 
 function HotkeysSection() {
+  const { t } = useT();
   const [hotkey, setHotkey] = useState("⌥Space");
   const [recording, setRecording] = useState(false);
   useEffect(() => onHostEvent((cmd, payload) => {
@@ -150,23 +156,23 @@ function HotkeysSection() {
     }
   }), [hotkey]);
   const inApp: Array<[string, string]> = [
-    ["⌘K", "命令"], ["⌘T", "轨迹"], ["⌘,", "设置"], ["Esc", "收起 / 打断 / 取消"],
-    ["⌘W", "关窗"], ["⌘1..9", "切任务"], ["⌘V", "粘贴附件"], ["@", "引用"], ["/", "命令"], ["Tab", "补全"],
+    ["⌘K", t("命令面板")], ["⌘T", t("轨迹")], ["⌘,", t("设置")], ["Esc", t("收起 / 打断 / 取消")],
+    ["⌘W", t("关窗")], ["⌘1..9", t("切任务")], ["⌘V", t("粘贴附件")], ["@", t("引用")], ["/", t("命令")], ["Tab", t("补全")],
   ];
   return (
     <>
-      <Section title="全局热键" intro="任意应用下生效。">
-        <Row title="唤起面板" caption={recording ? "按下新的组合键…" : `当前：${hotkey}`}>
+      <Section title={t("全局热键")} intro={t("任意应用下生效。")}>
+        <Row title={t("唤起面板")} caption={recording ? t("按下新的组合键…") : tt("当前：{k}", "Current: {k}", { k: hotkey })}>
           <button
             className={rowsCss.secondaryButton}
             style={recording ? { opacity: 0.6 } : undefined}
             onClick={() => { if (!recording) { setRecording(true); sendToShell({ type: "rebind-hotkey" }); } }}
           >
-            {recording ? "录制中…" : "修改"}
+            {recording ? t("录制中…") : t("修改")}
           </button>
         </Row>
       </Section>
-      <Section title="应用内快捷键" intro="固定映射，不可自定义。">
+      <Section title={t("应用内快捷键")} intro={t("固定映射，不可自定义。")}>
         {inApp.map(([key, desc]) => (
           <Row key={key} title={desc}>
             <span className={rowsCss.rowName}>{key}</span>
@@ -180,31 +186,32 @@ function HotkeysSection() {
 // ---------- 外观
 
 function AppearanceSection() {
+  const { t } = useT();
+  const store = useStore();
   const { namespaces, describe } = useNamespaces();
   const { savePath, conflictDialog } = useNamespaceSaver(namespaces, describe);
-  const [glassOn, setGlassOn] = useState(true);
-  useEffect(() => onHostEvent((cmd, payload) => {
-    if (cmd === "prefs" && payload) setGlassOn((payload as { glass?: boolean }).glass ?? true);
-  }), []);
-  const entry = namespaces["ui-theme"];
-  const pref = (entry?.value as { preference?: string } | null)?.preference ?? "dark";
   return (
     <>
-      <Section title="界面设置" intro="设置应用主题和外观表现。">
-        <Row title="黑白玻璃（暗色）" caption="关闭后界面跟随系统外观">
-          <Toggle on={glassOn} onChange={(v) => {
-            setGlassOn(v);
-            sendToShell({ type: "set-theme", enabled: v });
-          }} />
-        </Row>
-        <Row title="引擎界面明暗" caption="写入引擎 ui-theme 偏好">
+      <Section title={t("外观设置")} intro={t("亮色下主窗口偏白、会话卡偏灰。")}>
+        <Row title={t("外观")} caption={t("跟随系统明暗，切换时实时跟随。")}>
           <Dropdown
-            options={[{ v: "dark", label: "暗" }, { v: "light", label: "明" }]}
-            value={pref}
-            onChange={(v) => void savePath("ui-theme", "preference", v)}
+            options={[
+              { v: "system", label: t("跟随系统") },
+              { v: "light", label: t("亮色") },
+              { v: "dark", label: t("暗色") },
+            ]}
+            value={store.appearance}
+            onChange={(v) => store.setAppearance(v as "system" | "light" | "dark")}
           />
         </Row>
-        <Row title="繁忙时 Enter 键行为" caption="仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为">
+        <Row title={t("语言")} caption={t("界面与菜单语言")}>
+          <Dropdown
+            options={[{ v: "zh", label: t("中文（简体）") }, { v: "en", label: t("English") }]}
+            value={store.lang}
+            onChange={(v) => store.setLang(v as "zh" | "en")}
+          />
+        </Row>
+        <Row title={t("繁忙时 Enter 键行为")} caption={t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")}>
           <BusyEnterDropdown savePath={savePath} />
         </Row>
       </Section>
@@ -239,7 +246,7 @@ function BusyEnterDropdown({ savePath }: { savePath: (ns: string, path: string, 
             if (!ns) return;
             const base = (ns.value ?? {}) as { busyEnter?: string };
             await api.settingsUpdate({ ns: "ui-conversation", patch: { ...base, busyEnter: v }, expectedRevision: ns.revision });
-          } catch (err) { alert(`保存失败：${(err as Error).message}`); }
+          } catch (err) { alert(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message })); }
         })();
       }}
     />
@@ -249,6 +256,7 @@ function BusyEnterDropdown({ savePath }: { savePath: (ns: string, path: string, 
 // ---------- 通知
 
 function NotificationsSection() {
+  const { t } = useT();
   const [prefs, setPrefs] = useState({ notifyTurnEnd: true, notifyAttention: true, bubble: true });
   useEffect(() => {
     sendToShell({ type: "get-prefs" });
@@ -267,18 +275,18 @@ function NotificationsSection() {
   };
   return (
     <>
-      <Section title="提醒">
-        <Row title="回合完成提醒" caption="静默通知，不打扰">
+      <Section title={t("提醒")}>
+        <Row title={t("回合完成提醒")} caption={t("静默通知，不打扰")}>
           <Toggle on={prefs.notifyTurnEnd} onChange={(v) => change("notifyTurnEnd", v)} />
         </Row>
-        <Row title="待审批 / 待提问提醒" caption="通知 + Dock 弹跳">
+        <Row title={t("待审批 / 待提问提醒")} caption={t("通知 + Dock 弹跳")}>
           <Toggle on={prefs.notifyAttention} onChange={(v) => change("notifyAttention", v)} />
         </Row>
-        <Row title="悬浮球" caption="常驻置顶，单击回主窗">
+        <Row title={t("悬浮球")} caption={t("常驻置顶，单击回主窗")}>
           <Toggle on={prefs.bubble} onChange={(v) => change("bubble", v)} />
         </Row>
       </Section>
-      <p className={rowsCss.intro}>菜单栏状态图标始终实时反映状态，不受以上开关影响。</p>
+      <p className={rowsCss.intro}>{t("菜单栏状态图标始终实时反映状态，不受以上开关影响。")}</p>
     </>
   );
 }
@@ -286,6 +294,7 @@ function NotificationsSection() {
 // ---------- 数据
 
 function DataSection() {
+  const { t } = useT();
   const [sessions, setSessions] = useState<Array<{ sessionId: string; title: string }>>([]);
   const [deletable, setDeletable] = useState(false);
   const [deleteMethod, setDeleteMethod] = useState("session.delete");
@@ -298,10 +307,10 @@ function DataSection() {
     try {
       const d = await api.settingsDescribe();
       const entry = (d.namespaces ?? []).find((n) => n.ns === ns);
-      if (!entry) { alert(`引擎未返回「${ns}」`); return; }
+      if (!entry) { alert(tt("引擎未返回「{ns}」", "Engine did not return “{ns}”", { ns })); return; }
       setJsonEdit({ ns, text: JSON.stringify(entry.value ?? null, null, 2), revision: entry.revision, err: undefined });
     } catch (err) {
-      alert(`读取失败：${(err as Error).message}`);
+      alert(tt("读取失败：{m}", "Read failed: {m}", { m: (err as Error).message }));
     }
   };
 
@@ -309,19 +318,19 @@ function DataSection() {
     if (!jsonEdit) return;
     let edited: Json;
     try { edited = JSON.parse(jsonEdit.text) as Json; } catch {
-      setJsonEdit({ ...jsonEdit, err: "JSON 解析失败" }); return;
+      setJsonEdit({ ...jsonEdit, err: t("JSON 解析失败") }); return;
     }
     try {
       const d = await api.settingsDescribe();
       const entry = (d.namespaces ?? []).find((n) => n.ns === jsonEdit.ns);
-      if (!entry) { setJsonEdit({ ...jsonEdit, err: "引擎未返回该命名空间" }); return; }
+      if (!entry) { setJsonEdit({ ...jsonEdit, err: t("引擎未返回该命名空间") }); return; }
       const ops = diffOps((entry.value ?? null) as Json, edited);
       if (ops.length === 0) { setJsonEdit(null); return; }
       await api.settingsMutate({ ns: jsonEdit.ns, ops, expectedRevision: entry.revision });
       setJsonEdit(null);
     } catch (err) {
       const msg = String((err as Error).message);
-      setJsonEdit({ ...jsonEdit, err: msg.startsWith("settings/conflict") ? "版本已前进——请取消后重新打开(将载入最新)" : `保存失败：${msg}` });
+      setJsonEdit({ ...jsonEdit, err: msg.startsWith("settings/conflict") ? t("版本已前进——请取消后重新打开(将载入最新)") : tt("保存失败：{m}", "Save failed: {m}", { m: msg }) });
     }
   };
 
@@ -352,43 +361,45 @@ function DataSection() {
 
   return (
     <>
-      <Section title="数据与存储">
-        <Row title="存储位置（DSH_HOME）" caption={home || "加载中…"}>
-          <button className={rowsCss.secondaryButton} onClick={() => sendToShell({ type: "reveal-home" })}>在访达中打开</button>
+      <Section title={t("数据与存储")}>
+        <Row title={t("存储位置（DSH_HOME）")} caption={home || t("加载中…")}>
+          <button className={rowsCss.secondaryButton} onClick={() => sendToShell({ type: "reveal-home" })}>{t("在访达中打开")}</button>
         </Row>
-        <Row title="settings.yaml" caption="引擎配置文档">
-          <button className={rowsCss.secondaryButton} onClick={() => sendToShell({ type: "open-host-doc" })}>打开</button>
+        <Row title="settings.yaml" caption={t("引擎配置文档")}>
+          <button className={rowsCss.secondaryButton} onClick={() => sendToShell({ type: "open-host-doc" })}>{t("打开")}</button>
         </Row>
       </Section>
-      <Section title="高级（命名空间原始 JSON 编辑）" intro="diff 后只提交改到的路径；revision 围栏防串写。">
-        <Row title="命名空间">
+      <Section title={t("高级（命名空间原始 JSON 编辑）")} intro={t("diff 后只提交改到的路径；revision 围栏防串写。")}>
+        <Row title={t("命名空间")}>
           <div className="set-inline">
-            <select className={rowsCss.selectField} value={editNs} onChange={(e) => setEditNs(e.target.value)}>
-              {nsList.map((ns) => <option key={ns} value={ns}>{ns}</option>)}
-            </select>
-            <button className={rowsCss.secondaryButton} onClick={() => void openJsonEditor(editNs)}>编辑 JSON…</button>
+            <Dropdown
+              options={nsList.map((ns) => ({ v: ns, label: ns }))}
+              value={editNs}
+              onChange={(v) => setEditNs(v)}
+            />
+            <button className={rowsCss.secondaryButton} onClick={() => void openJsonEditor(editNs)}>{t("编辑 JSON…")}</button>
           </div>
         </Row>
       </Section>
-      <Section title="会话管理" intro="删除需确认且不可撤销。">
-        {!deletable && <Row title="—" caption="本引擎版本不支持会话删除" />}
+      <Section title={t("会话管理")} intro={t("删除需确认且不可撤销。")}>
+        {!deletable && <Row title="—" caption={t("本引擎版本不支持会话删除")} />}
         {deletable && sessions.map((s) => (
           <Row key={s.sessionId} title={s.title}>
             <button className={rowsCss.secondaryButton} onClick={async () => {
-              if (!confirm(`删除会话？该操作不可撤销：${s.title}`)) return;
+              if (!confirm(tt("删除会话？该操作不可撤销：{t}", "Delete session? This cannot be undone: {t}", { t: s.title }))) return;
               try {
                 await api.callRaw(deleteMethod, { sessionId: s.sessionId });
                 setSessions((list) => list.filter((x) => x.sessionId !== s.sessionId));
               } catch (err) {
-                alert(`删除失败：${(err as Error).message}`);
+                alert(tt("删除失败：{m}", "Delete failed: {m}", { m: (err as Error).message }));
               }
-            }}>删除</button>
+            }}>{t("删除")}</button>
           </Row>
         ))}
       </Section>
       {jsonEdit && (
         <div className={rowsCss.ddMenu} style={{ position: "fixed", inset: "8%", padding: 16, minWidth: 0, zIndex: 60 }}>
-          <div className={rowsCss.rowName}>编辑 {jsonEdit.ns}（原始 JSON）</div>
+          <div className={rowsCss.rowName}>{tt("编辑 {ns}（原始 JSON）", "Edit {ns} (raw JSON)", { ns: jsonEdit.ns })}</div>
           <textarea
             className={rowsCss.textField}
             style={{ width: "100%", height: "56vh", marginTop: 10, fontFamily: "var(--dsh-font-mono-family, monospace)", fontSize: 11.5 }}
@@ -397,8 +408,8 @@ function DataSection() {
           />
           {jsonEdit.err && <div className={rowsCss.rowCaption} style={{ color: "var(--dsw-alias-state-error-primary)", marginTop: 6 }}>{jsonEdit.err}</div>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
-            <button className={rowsCss.secondaryButton} onClick={() => setJsonEdit(null)}>取消</button>
-            <button className={rowsCss.primaryButton} onClick={() => void saveJson()}>保存（diff → ops）</button>
+            <button className={rowsCss.secondaryButton} onClick={() => setJsonEdit(null)}>{t("取消")}</button>
+            <button className={rowsCss.primaryButton} onClick={() => void saveJson()}>{t("保存（diff → ops）")}</button>
           </div>
         </div>
       )}
@@ -445,6 +456,7 @@ function useInventory() {
 }
 
 function PresetsSection() {
+  const { t } = useT();
   const { namespaces, describe } = useNamespaces();
   const { presets, available, reloadPresets } = useInventory();
   const entry = namespaces["agent-presets"];
@@ -453,13 +465,13 @@ function PresetsSection() {
     ?? "standard";
   return (
     <>
-      <Section title="Agent 预设" intro="新建任务时可选的角色;当前默认已标记。">
-        {available !== true && presets.length === 0 && <Row title="载入中…" />}
-        {available === true && presets.length === 0 && <Row title="—" caption="本引擎未提供预设。" />}
+      <Section title={t("Agent 预设")} intro={t("新建任务时可选的角色;当前默认已标记。")}>
+        {available !== true && presets.length === 0 && <Row title={t("载入中…")} />}
+        {available === true && presets.length === 0 && <Row title="—" caption={t("本引擎未提供预设。")} />}
         {presets.map((p) => (
           <Row key={p.id} title={p.name ?? p.id} caption={[p.description, p.trust ? `trust: ${p.trust}` : undefined].filter(Boolean).join(" · ")}>
             <div className="set-inline">
-              {p.id === current || p.isDefault ? <span style={{ color: "var(--dsw-alias-label-secondary)", fontSize: 11.5 }}>默认</span> : null}
+              {p.id === current || p.isDefault ? <span style={{ color: "var(--dsw-alias-label-secondary)", fontSize: 11.5 }}>{t("默认")}</span> : null}
               <button className={rowsCss.secondaryButton} onClick={() => {
                 if (!entry) return;
                 const base = (entry.value ?? {}) as { default?: string };
@@ -468,31 +480,32 @@ function PresetsSection() {
                     await api.settingsUpdate({ ns: "agent-presets", patch: { ...base, default: p.id }, expectedRevision: entry.revision });
                     await describe();
                     await reloadPresets();
-                  } catch (err) { alert(`保存失败：${(err as Error).message}`); }
+                  } catch (err) { alert(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message })); }
                 })();
-              }}>设为默认</button>
+              }}>{t("设为默认")}</button>
             </div>
           </Row>
         ))}
       </Section>
-      <p className={rowsCss.intro}>预设的复制/删除依赖 agentPreset 端点的浏览器面(当前引擎未暴露,仅可切换默认)。</p>
+      <p className={rowsCss.intro}>{t("预设的复制/删除依赖 agentPreset 端点的浏览器面(当前引擎未暴露,仅可切换默认)。")}</p>
     </>
   );
 }
 
 function PluginsSection() {
+  const { t } = useT();
   const { entries, available } = useInventory();
   return (
-    <Section title="插件" intro="本引擎装载的扩展模块。">
+    <Section title={t("插件")} intro={t("本引擎装载的扩展模块。")}>
       {available === null || (available && entries === null) ? (
-        <Row title="载入中…" />
+        <Row title={t("载入中…")} />
       ) : !available || entries === null || entries.length === 0 ? (
-        <Row title="—" caption="本引擎未提供插件清单。" />
+        <Row title="—" caption={t("本引擎未提供插件清单。")} />
       ) : (
         entries.map((e) => (
           <Row key={e.entryId} title={e.moduleName} caption={`${e.entryId}${e.fiberPhase ? ` · ${e.fiberPhase}` : ""}`}>
             <span style={{ color: e.enabled ? "var(--dsw-alias-label-primary)" : "var(--dsw-alias-label-tertiary)", fontSize: 11.5 }}>
-              {e.enabled ? "已启用" : "已停用"}
+              {e.enabled ? t("已启用") : t("已停用")}
             </span>
           </Row>
         ))

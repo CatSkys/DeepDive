@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recovery = RecoveryWindowController()
         statusItem = StatusItemController()
         hotKey = HotKeyManager()
+        installDictation()
 
         statusItem.install()
         statusItem.onShowWindow = { [weak self] in self?.windowController.showPanel() }
@@ -163,12 +164,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             beginHotkeyRecording()
         case "set-pref":
             guard let key = body["key"] as? String else { return }
-            let value = body["value"] as? Bool ?? false
-            switch key {
-            case "notifyTurnEnd": DSHAppPrefs.setNotifyTurnEnd(value)
-            case "notifyAttention": DSHAppPrefs.setNotifyAttention(value)
-            case "bubble": FloatingBubbleManager.shared.setEnabled(value)
-            default: break
+            // 字符串偏好（外观三态 / 语言）：JS string 桥接成 NSString。
+            if let mode = body["value"] as? String {
+                if key == "appearance" {
+                    DSHAppPrefs.setAppearance(mode)
+                    windowController.applyAppearanceMode()
+                } else if key == "language" {
+                    DSHAppPrefs.setLanguage(mode)
+                }
+                break
+            }
+            guard let raw = body["value"] as? NSNumber else { break }
+            // JS true/false 与数字都桥接成 NSNumber，且数字能被 as? Bool
+            // 误转成功 —— 必须按 CFBoolean 类型判别分流，不能靠 cast 试探。
+            if CFGetTypeID(raw) == CFBooleanGetTypeID() {
+                let value = raw.boolValue
+                switch key {
+                case "notifyTurnEnd": DSHAppPrefs.setNotifyTurnEnd(value)
+                case "notifyAttention": DSHAppPrefs.setNotifyAttention(value)
+                case "bubble": FloatingBubbleManager.shared.setEnabled(value)
+                default: break
+                }
+            } else if key == "sidebarWidth" {
+                DSHAppPrefs.setSidebarWidth(raw.doubleValue)
             }
         case "set-theme":
             let enabled = body["enabled"] as? Bool ?? true
@@ -199,8 +217,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             }
+        case "pick-workspace":
+            pickWorkspaceDirectory()
+        case "dictation-start":
+            DictationController.shared.start()
+        case "dictation-stop":
+            DictationController.shared.stop()
         default:
             EngineLog.shared.append("[bridge] unhandled host message: \(type)")
+        }
+    }
+
+    /// 听写事件回推：partial 实时、final 终稿、error 权限/设备问题。
+    /// pending 槽位是 last-wins，partial 相互覆盖正是期望行为。
+    private func installDictation() {
+        func payload(_ text: String) -> String {
+            let data = try? JSONSerialization.data(withJSONObject: ["text": text])
+            return String(data: data ?? Data(), encoding: .utf8) ?? "{}"
+        }
+        DictationController.shared.onPartial = { [weak self] text in
+            self?.windowController.pushHostCommand("dictation-partial", payload: payload(text))
+        }
+        DictationController.shared.onFinal = { [weak self] text in
+            self?.windowController.pushHostCommand("dictation-final", payload: payload(text))
+        }
+        DictationController.shared.onError = { [weak self] text in
+            self?.windowController.pushHostCommand("dictation-error", payload: payload(text))
+        }
+    }
+
+    /// 目录选择器（侧栏「＋新建空间」）：选一个已有文件夹，把绝对路径推回
+    /// 前端，由前端调引擎 `workspace.create` 注册（与官方 DSH 一致）；取消
+    /// 不发任何消息。sheet 挂主窗口，不阻塞 webview 其余交互。
+    private func pickWorkspaceDirectory() {
+        guard let window = windowController.window else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.message = "选择要添加为工作空间的项目文件夹"
+        panel.prompt = "添加"
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            let path = url.path
+            guard let data = try? JSONSerialization.data(withJSONObject: ["path": path]),
+                  let payload = String(data: data, encoding: .utf8) else { return }
+            self?.windowController.pushHostCommand("workspacePicked", payload: payload)
         }
     }
 
@@ -212,6 +275,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "notifyAttention": DSHAppPrefs.notifyAttention,
             "bubble": FloatingBubbleManager.shared.enabled,
             "glass": config.themeEnabled,
+            "sidebarWidth": DSHAppPrefs.sidebarWidth,
+            "appearance": DSHAppPrefs.appearance,
+            "language": DSHAppPrefs.language,
+            "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),

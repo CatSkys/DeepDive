@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ChevronDown, ChevronUp, ShieldCheck, X } from "lucide-react";
-import { ModelMenu, type ModelOption } from "./ModelMenu";
+import { ArrowDown, ArrowUp, ChevronDown, GripVertical, Pencil, ShieldCheck, Trash2, X } from "lucide-react";
+import { ModelMenu, effortDisplayName, type ModelOption } from "./ModelMenu";
+import { WorkspacePill } from "./Sidebar";
 import { api } from "../api";
 import { useStore } from "../store";
+import { t, tt, useT } from "../i18n";
 import { Composer } from "./Composer";
 import { Markdown } from "./Markdown";
+import LoadingState from "./LoadingState";
+import ThinkingState from "./ThinkingState";
 import {
   IconApiOutline14,
   IconBrowseOutline16,
@@ -16,7 +20,8 @@ import {
   IconEditOutline16,
   IconQuestionOutline14,
   IconSearchOutline16,
-  IconThinkOutline16,
+  IconSkillOutline16,
+  IconSparkle16,
 } from "./Icons";
 import type {
   AssistantMessageData,
@@ -27,12 +32,13 @@ import type {
   ToolCallData,
   ToolResultData,
   SessionEvent,
+  SessionQueuedItem,
   UserMessageData,
 } from "../types";
 
 interface RenderItem {
   key: string;
-  kind: "user" | "assistant" | "tool-call" | "chunk" | "turn-tail";
+  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail";
   event?: SessionEvent;
   toolName?: string;
   toolCallId?: string;
@@ -54,7 +60,8 @@ interface TurnMeta {
 }
 
 export function SessionView({ sessionId }: { sessionId: string }) {
-  const { approvals, sessions, subscribeMux } = useStore();
+  const { lang } = useT();
+  const { approvals, questions, queues, sessions, subscribeMux } = useStore();
   const [items, setItems] = useState<RenderItem[]>([]);
   // Live turn state from mux events; `summary.running` (store poll) covers
   // reload mid-turn, where no turn/start will ever arrive again.
@@ -64,6 +71,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [modelName, setModelName] = useState("");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [showModels, setShowModels] = useState(false);
+  // 思考强度（推理档位）：随所选模型的能力元数据出现，无 reasoning 元数据的
+  // 模型不显示档位。effort === undefined 表示跟随提供商默认档。
+  const [currentModel, setCurrentModel] = useState<{ provider: string; model: string } | undefined>(undefined);
+  const [effortLevels, setEffortLevels] = useState<Array<{ id: string; name: string }>>([]);
+  const [effortDefault, setEffortDefault] = useState<string | undefined>(undefined);
+  const [effort, setEffort] = useState<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [earliestSeq, setEarliestSeq] = useState<number | undefined>(undefined);
@@ -72,8 +85,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const olderAnchorRef = useRef<HTMLElement | null>(null);
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary
-    ? (summary.projections?.values?.title as string) || (summary.blank ? "新会话" : "会话")
-    : "会话";
+    ? (summary.projections?.values?.title as string) || (summary.blank ? t("新会话") : t("会话"))
+    : t("会话");
 
   // Turn-level aggregations + stable-id indexes, shared by the history replay
   // and live mux passes so the derivations stay identical.
@@ -92,17 +105,34 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     // the unified catalog loader (session/modelCatalog with rc.2 fallback)
     // provides both the options and the engine default selection.
     void (async () => {
+      let options: ModelOption[] = [];
       try {
-        const { options, default: def } = await api.modelOptions();
+        const r = await api.modelOptions();
+        options = r.options;
         setModels(options);
-        if (!def) return;
-        const hit = options.find((m) => m.provider === def.provider && m.model === def.model);
-        setModelName(hit?.label ?? `${def.provider} / ${def.model}`);
+        // llm/models 兜底路径没有 default 字段——不能在这里提前 return，
+        // 否则下面的 session.models（实时选择 + 思考强度元数据）永远不跑。
+        if (r.default) {
+          const hit = options.find((m) => m.provider === r.default!.provider && m.model === r.default!.model);
+          setModelName(hit?.label ?? `${r.default!.provider} / ${r.default!.model}`);
+        }
       } catch { /* engine booting */ }
       // The live per-session selection (when it differs from the default).
+      // session.models 一次带回当前选择（含 reasoningEffort）与分组目录
+      // （含各模型的 reasoning 档位元数据），无需第二次调用。
       try {
         const r = await api.sessionModels({ sessionId });
-        if (r.current?.model) setModelName(r.current.model);
+        const cur = r.current;
+        if (cur?.model) {
+          const hit = options.find((m) => m.provider === cur.provider && m.model === cur.model);
+          setModelName(hit?.label ?? cur.model);
+        }
+        if (cur?.provider && cur?.model) setCurrentModel({ provider: cur.provider, model: cur.model });
+        setEffort(cur?.reasoningEffort ?? undefined);
+        const group = (r.groups ?? []).find((g) => g.id === cur?.provider);
+        const model = group?.models?.find((m) => m.id === cur?.model);
+        setEffortLevels(model?.reasoning?.efforts ?? []);
+        setEffortDefault(model?.reasoning?.defaultEffort);
       } catch { /* optional enrichment */ }
     })();
   }, [sessionId]);
@@ -112,6 +142,22 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     setModelName(m.label);
     try {
       await api.selectModel({ sessionId, provider: m.provider, model: m.model });
+    } catch { /* engine may be busy */ }
+  };
+
+  const effortLabel = (id: string | undefined) => effortDisplayName(id, effortLevels);
+
+  const pickEffort = async (id: string | undefined) => {
+    setShowModels(false);
+    if (!currentModel) return;
+    setEffort(id);
+    try {
+      await api.selectModel({
+        sessionId,
+        provider: currentModel.provider,
+        model: currentModel.model,
+        ...(id === undefined ? {} : { reasoningEffort: id }),
+      });
     } catch { /* engine may be busy */ }
   };
 
@@ -242,8 +288,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   };
 
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
+  const sessionQuestions = [...questions.values()].filter((q) => q.sessionId === sessionId);
+  // 排队消息（placement=queued 才可操作；steering/context 正在处理）
+  const queuedItems = (queues.get(sessionId) ?? []).filter((i) => i.placement === "queued");
 
-  const isBlank = !!summary?.blank;
+  const isBlank = summary ? !!summary.blank : items.length === 0;
   const running = liveRunning || !!summary?.running;
 
   if (isBlank) {
@@ -251,9 +300,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       <>
         <div className="session-header">
           <div className="left">
-            <div className="title">{title}</div>
-            <button className="model" title="更换模型" onClick={() => setShowModels((v) => !v)}>
+            <div className="title-row">
+              <div className="title">{title}</div>
+              <WorkspacePill />
+            </div>
+            <button className="model trigger" data-open={showModels ? "true" : "false"} title={t("模型与推理")} onClick={() => setShowModels(true)}>
               {modelName || "Auto"}
+              {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
+              <ChevronDown size={12} />
             </button>
             {showModels && (
               <ModelMenu
@@ -261,13 +315,20 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 current={modelName}
                 onPick={(m) => void pickModel(m)}
                 onClose={() => setShowModels(false)}
+                effort={effortLevels.length > 0 && currentModel ? {
+                  text: effortLabel(effort),
+                  levels: effortLevels,
+                  showDefault: effortDefault !== undefined,
+                  value: effort,
+                  onPick: (id) => void pickEffort(id),
+                } : undefined}
               />
             )}
           </div>
         </div>
         <div className="hero">
-          <div className="hero-title">做点什么？</div>
-          <div className="hero-sub">用 DeepSeek 智能体开始任何工作。</div>
+          <div className="hero-title">{t("做点什么？")}</div>
+          <div className="hero-sub">{t("用 DeepSeek 智能体开始任何工作。")}</div>
           <div className="hero-composer">
             <Composer sessionId={sessionId} />
           </div>
@@ -280,9 +341,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     <div className="session">
       <div className="session-header">
         <div className="left">
-          <div className="title">{title}</div>
-          <button className="model" title="更换模型" onClick={() => setShowModels((v) => !v)}>
+          <div className="title-row">
+            <div className="title">{title}</div>
+            <WorkspacePill />
+          </div>
+          <button className="model trigger" data-open={showModels ? "true" : "false"} title={t("模型与推理")} onClick={() => setShowModels(true)}>
             {modelName || "Auto"}
+            {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
+            <ChevronDown size={12} />
           </button>
           {showModels && (
             <ModelMenu
@@ -290,6 +356,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               current={modelName}
               onPick={(m) => void pickModel(m)}
               onClose={() => setShowModels(false)}
+              effort={effortLevels.length > 0 && currentModel ? {
+                text: effortLabel(effort),
+                levels: effortLevels,
+                showDefault: effortDefault !== undefined,
+                value: effort,
+                onPick: (id) => void pickEffort(id),
+              } : undefined}
             />
           )}
         </div>
@@ -298,8 +371,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <button
               type="button"
               className="plan-chip"
-              title="退出计划模式"
-              aria-label="退出计划模式"
+              title={t("退出计划模式")}
+              aria-label={t("退出计划模式")}
               onClick={() => {
                 api.prompt({
                   sessionId,
@@ -325,7 +398,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               disabled={loadingOlder}
               onClick={() => void loadOlder()}
             >
-              {loadingOlder ? "加载中…" : "载入更早"}
+              {loadingOlder ? t("加载中…") : t("载入更早")}
             </button>
           )}
           {(() => {
@@ -348,20 +421,24 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   item={item}
                   latestUser={idx === lastUserIdx}
                   latestTurn={idx === lastTailIdx}
+                  turnRunning={running}
                 />
               </div>
             ));
           })()}
           {pending.map((a) => (
-            <ApprovalCard key={a.approvalId} approvalId={a.approvalId} sessionId={sessionId} toolName={a.toolName} reason={a.reason} />
+            <ApprovalCard key={a.approvalId} approvalId={a.approvalId} rpcId={a.rpcId} sessionId={sessionId} toolName={a.toolName} reason={a.reason} />
           ))}
-          {running && <TurnStatus startTime={runningSince} />}
+          {sessionQuestions.map((q) => (
+            <QuestionCard key={q.rpcId} rpcId={q.rpcId} sessionId={sessionId} questions={q.questions} />
+          ))}
+          {running && <LoadingState label="Deep diving..." since={runningSince} />}
         </div>
       </div>
       {!follow && (
         <button
           className="jump-down"
-          title="回到最新"
+          title={t("回到最新")}
           onClick={() => {
             scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
             setFollow(true);
@@ -370,6 +447,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <ArrowDown size={16} />
         </button>
       )}
+      {queuedItems.length > 0 && (
+        <div className="queue-dock-wrap">
+          <QueueDock sessionId={sessionId} items={queuedItems} />
+        </div>
+      )}
       <div className="session-bottom">
         <Composer sessionId={sessionId} />
       </div>
@@ -377,10 +459,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   );
 }
 
-function Item({ item, latestUser, latestTurn }: {
+function Item({ item, latestUser, latestTurn, turnRunning }: {
   item: RenderItem;
   latestUser: boolean;
   latestTurn: boolean;
+  turnRunning: boolean;
 }) {
   if (item.kind === "user") {
     return (
@@ -401,10 +484,17 @@ function Item({ item, latestUser, latestTurn }: {
     const blocks = blocksOf(item.event);
     return (
       <div className="msg-block assistant">
-        {blocks.think && <ThinkRow reasoning={blocks.think} />}
+        {blocks.think && <ThinkingState reasoning={blocks.think} running={false} />}
         <AgentMessage text={t} />
       </div>
     );
+  }
+  if (item.kind === "reasoning") {
+    // Live reasoning-delta accumulation; exists only mid-turn until the final
+    // assistant message replaces it with the settled trace.
+    const text = item.output ?? "";
+    if (!text) return null;
+    return <ThinkingState reasoning={text} running={turnRunning} />;
   }
   if (item.kind === "turn-tail") {
     // DSH turn-tail chrome: produced files + copy / branch / clock("end") +
@@ -459,6 +549,21 @@ function AgentMessage({ text }: { text: string }) {
   );
 }
 
+/** 常见工具名的中文标题；未收录的显示原名。 */
+const TOOL_TITLE_ZH: Record<string, string> = {
+  ask_user_question: "提问",
+  todo_write: "任务",
+  todos: "任务",
+  str_replace_editor: "编辑",
+  multiedit: "批量编辑",
+  apply_patch: "应用补丁",
+  glob: "查找文件",
+  grep: "搜索内容",
+  web_search: "联网搜索",
+  web_fetch: "抓取网页",
+  list_files: "列出文件",
+};
+
 /// One-line tool row — DSH ToolRow port: icon + name · summary + chevron,
 /// expandable to reveal terminal output or raw arguments.
 function ToolRow({ toolName, args, output, failed }: {
@@ -470,9 +575,12 @@ function ToolRow({ toolName, args, output, failed }: {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
   const isTodo = toolName === "todo_write" || toolName === "todos" || todo !== null;
-  const summary = todo !== null ? `${todo.done}/${todo.total} 已完成 · ${todo.active} 进行中 · ${todo.pending} 待处理` : summarizeArgs(toolName, args);
+  const isAsk = toolName === "ask_user_question" || toolName === "ask_user";
+  const summary = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : summarizeArgs(toolName, args);
+  const filePath = derivePath(toolName, args);
   const isBash = toolName === "bash" || toolName === "terminal-bash";
   const state = failed ? "error" : output !== undefined ? "done" : "running";
+  const title = isTodo ? t("任务") : isAsk && state === "running" ? t("等待回答") : state === "running" ? t("正在执行") : t(TOOL_TITLE_ZH[toolName] ?? toolName);
   const expandable = (output !== undefined && output !== "") || args !== "" || isTodo;
   return (
     <div className={`tool-row${state === "error" ? " bad" : ""}`} data-state={state} data-tool={toolName}>
@@ -484,35 +592,40 @@ function ToolRow({ toolName, args, output, failed }: {
         <span className="tool-leading">
           {state === "error" ? <StateDot state="error" /> : state === "running" ? <StateDot state="running" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} />}
         </span>
-        <span className="tool-title">{isTodo ? "任务" : state === "running" ? "正在执行" : toolName}</span>
+        <span className="tool-title">{title}</span>
         {summary && (
           <>
             <span className="tool-sep" aria-hidden="true" />
+            {filePath && <FileLangIcon file={filePath} />}
             <span className="tool-summary">{summary}</span>
           </>
         )}
         {expandable && (
-          <span className="tool-chevron">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
+          <span className="tool-chevron" data-open={open ? "true" : "false"}>
+            <ChevronDown size={14} />
+          </span>
         )}
       </button>
-      {open && (
-        <div className="tool-body">
-          {isTodo && todo !== null ? (
-            <TodoList todos={todo.items} />
-          ) : isBash ? (
-            <TerminalBlock command={commandOf(args)} output={output ?? ""} failed={failed} />
-          ) : (
-            <>
-              {args && <div className="tool-io-label">输入</div>}
-              {args && <pre className="tool-io-text">{prettyArgs(args)}</pre>}
-              {output !== undefined && output !== "" && (
-                <>
-                  <div className="tool-io-label">输出</div>
-                  <pre className="tool-io-text">{output}</pre>
-                </>
-              )}
-            </>
-          )}
+      {expandable && (
+        <div className="tool-collapse" data-open={open ? "true" : "false"}>
+          <div className="tool-body">
+            {isTodo && todo !== null ? (
+              <TodoList todos={todo.items} />
+            ) : isBash ? (
+              <TerminalBlock command={commandOf(args)} output={output ?? ""} failed={failed} />
+            ) : (
+              <>
+                {args && <div className="tool-io-label">{t("输入")}</div>}
+                {args && <pre className="tool-io-text">{prettyArgs(args)}</pre>}
+                {output !== undefined && output !== "" && (
+                  <>
+                    <div className="tool-io-label">{t("输出")}</div>
+                    <pre className="tool-io-text">{output}</pre>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -529,11 +642,22 @@ function TodoList({ todos }: { todos: Array<{ content: string; status: string }>
             {t.status === "completed" ? <IconCheckOutline16 size={12} /> : <span className="todo-dot" />}
           </span>
           <span className="todo-content">{t.content}</span>
-          <span className="todo-status">{t.status === "completed" ? "已完成" : t.status === "in_progress" ? "进行中" : "待处理"}</span>
+          <span className="todo-status">{t.status === "completed" ? tt("已完成", "Done") : t.status === "in_progress" ? tt("进行中", "In progress") : tt("待处理", "Pending")}</span>
         </div>
       ))}
     </div>
   );
+}
+
+/// ask_user_question 行摘要：首题问题文本（多题标注数量），避免裸 JSON。
+function askSummary(args: string): string {
+  try {
+    const p = JSON.parse(args);
+    const questions = p?.questions ?? (Array.isArray(p) ? p : null);
+    if (!Array.isArray(questions) || questions.length === 0) return "";
+    const first = String(questions[0]?.question ?? "").split("\n")[0].trim();
+    return questions.length > 1 ? tt("{first} 等 {n} 题", "{first} +{n} more", { first, n: questions.length }) : first;
+  } catch { return ""; }
 }
 
 function parseTodos(args: string): { done: number; total: number; active: number; pending: number; items: Array<{ content: string; status: string }> } | null {
@@ -575,11 +699,11 @@ function TerminalBlock({ command, output, failed }: { command: string; output: s
       <div className="terminal-header">
         <code className="terminal-command">$ {command}</code>
         <span className={`terminal-status${failed ? " error" : ""}`}>
-          {failed ? "退出码 非 0" : output && lines.length > MAX_LINES ? `${hidden} 行` : ""}
+          {failed ? t("退出码 非 0") : output && lines.length > MAX_LINES ? tt("{n} 行", "{n} lines", { n: hidden }) : ""}
         </span>
         <button type="button" className="terminal-copy" onClick={() => void copy()}>
           {copied ? <IconCheckOutline16 size={13} /> : <IconCopyOutline16 size={13} />}
-          {copied ? "复制成功" : "复制"}
+          {copied ? t("复制成功") : t("复制")}
         </button>
       </div>
       {output !== "" && (
@@ -591,28 +715,9 @@ function TerminalBlock({ command, output, failed }: { command: string; output: s
       )}
       {hidden > 0 && (
         <button className="terminal-expand" onClick={() => setExpanded((v) => !v)}>
-          {expanded ? "收起" : `… 其余 ${hidden} 行`}
+          {expanded ? t("收起") : tt("… 其余 {n} 行", "… {n} more lines", { n: hidden })}
         </button>
       )}
-    </div>
-  );
-}
-
-/// Collapsible reasoning row — DSH Think summary.
-function ThinkRow({ reasoning }: { reasoning: string }) {
-  const [open, setOpen] = useState(false);
-  const first = reasoning.split("\n")[0].trim();
-  const summary = first.length > 120 ? first.slice(0, 120) + "…" : first;
-  return (
-    <div className="think-row">
-      <button className="think-row-main" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <span className="think-leading"><IconThinkOutline16 size={16} /></span>
-        <span className="think-title">Think</span>
-        <span className="tool-sep" aria-hidden="true" />
-        <span className="think-summary">{summary || "思考中…"}</span>
-        <span className="tool-chevron">{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
-      </button>
-      {open && <div className="think-body">{reasoning}</div>}
     </div>
   );
 }
@@ -624,14 +729,14 @@ function ProducedFiles({ paths }: { paths: string[] }) {
   const hidden = paths.length - shown.length;
   return (
     <div className="produced">
-      <span className="produced-label">产物</span>
+      <span className="produced-label">{t("产物")}</span>
       <div className="produced-row">
         {shown.map((p) => (
           <button type="button" key={p} className="produced-file" title={p}>
             {basename(p)}
           </button>
         ))}
-        {hidden > 0 && <span className="produced-more">+ {hidden} 个文件</span>}
+        {hidden > 0 && <span className="produced-more">{tt("+ {n} 个文件", "+{n} files", { n: hidden })}</span>}
       </div>
     </div>
   );
@@ -667,13 +772,13 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSi
       {runMs !== undefined && (
         <>
           <span className="meta-dot" aria-hidden="true">·</span>
-          用时 {formatRunDuration(runMs)}
+          {t("用时")} {formatRunDuration(runMs)}
         </>
       )}
       {ttftMs !== undefined && (
         <>
           <span className="meta-dot" aria-hidden="true">·</span>
-          首 token {formatLatencySeconds(ttftMs)}
+          {t("首 token")} {formatLatencySeconds(ttftMs)}
         </>
       )}
       {tokensPerSecond !== undefined && (
@@ -687,40 +792,19 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSi
   return (
     <div className="meta-actions">
       {clockSide === "start" ? clockEl : null}
-      <button className="meta-action" title={copied ? "复制成功" : "复制"} aria-label={copied ? "复制成功" : "复制"} onClick={() => void copy()}>
+      <button className="meta-action" title={copied ? t("复制成功") : t("复制")} aria-label={copied ? t("复制成功") : t("复制")} onClick={() => void copy()}>
         {copied ? <IconCheckOutline16 size={16} /> : <IconCopyOutline16 size={16} />}
       </button>
       {branch && (
         <button
           className="meta-action"
-          title="分支"
-          aria-label="分支"
+          title={t("分支")}
+          aria-label={t("分支")}
         >
           <IconBranchOutline16 size={16} />
         </button>
       )}
       {clockSide === "end" ? clockEl : null}
-    </div>
-  );
-}
-
-/// Running-turn status row — DSH TurnStatus port ("Deep diving..." + clock).
-function TurnStatus({ startTime }: { startTime?: number }) {
-  const [mountedAt] = useState(() => Date.now());
-  const anchor = startTime ?? mountedAt;
-  const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - anchor));
-  useEffect(() => {
-    if (startTime === undefined) return;
-    const tick = () => setElapsedMs(Math.max(0, Date.now() - (startTime as number)));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [startTime]);
-  const showClock = elapsedMs >= 15000;
-  return (
-    <div className="turn-status" role="status" aria-live="polite">
-      Deep diving...
-      {showClock && <span className="turn-status-clock" aria-hidden="true">{formatRunDuration(elapsedMs)}</span>}
     </div>
   );
 }
@@ -732,6 +816,12 @@ function StateDot({ state }: { state: "running" | "error" | "warning" | "ok" }) 
 /// Variant leading icons — DSH figma table (all glyphs render at 14 inside the
 /// 16px leading box): search / read(browse) / bash(api) / write-edit(edit) /
 /// code / question for unknown. Ported from ui-tool GenericToolCard.
+/// Variant leading icons — 对齐官方 tool-call-model 的 TOOL_VARIANTS（figma 表，
+/// 所有 glyph 在 16px 前导盒内按 14 渲染）：bash/pwsh → api；read 家族（含
+/// web_fetch、read_image、cordis inspect）→ browse；search 家族（web_search/
+/// grep/glob）→ search；write/edit → edit；run_code → code；skill → 专用图标；
+/// 未分类（含 jobs/goal/subagent/ralph 等）→ sparkle。ask_user_question 保留
+/// 问号：与等待回答行语义直接对应。
 function ToolIcon({ name }: { name: string }) {
   switch (name) {
     case "bash":
@@ -742,28 +832,99 @@ function ToolIcon({ name }: { name: string }) {
     case "edit":
     case "str_replace_editor":
     case "patch":
+    case "multiedit":
+    case "apply_patch":
       return <IconEditOutline16 size={14} />;
     case "read":
     case "read_file":
     case "file_read":
+    case "read_image":
+    case "web_fetch":
+    case "fetch":
+    case "cordis_package_inspect":
+    case "cordis_runtime_inspect":
       return <IconBrowseOutline16 size={14} />;
-    case "search":
     case "web_search":
     case "grep":
+    case "glob":
+    case "search":
       return <IconSearchOutline16 size={14} />;
+    case "run_code":
     case "code":
     case "code_execute":
+    case "code_interpreter":
       return <IconCodeOutline16 size={14} />;
-    default:
+    case "skill":
+      return <IconSkillOutline16 size={14} />;
+    case "ask_user_question":
+    case "ask_user":
       return <IconQuestionOutline14 size={14} />;
+    default:
+      return <IconSparkle16 size={14} />;
   }
 }
 
-function ApprovalCard({ approvalId, sessionId, toolName, reason }: { approvalId: string; sessionId: string; toolName: string; reason?: string }) {
+/// 文件语言徽标 — 文件工具行按扩展名显示彩色语言图标（DSH 编辑行同款）：
+/// tsx/jsx 画 React 原子标，其余用 VS Code 风格的彩色缩写徽标。
+const LANG_BADGES: Record<string, { bg: string; fg?: string; label: string }> = {
+  ts: { bg: "#3178C6", label: "TS" },
+  js: { bg: "#F7DF1E", fg: "#323330", label: "JS" },
+  mjs: { bg: "#F7DF1E", fg: "#323330", label: "JS" },
+  cjs: { bg: "#F7DF1E", fg: "#323330", label: "JS" },
+  css: { bg: "#663399", label: "CSS" },
+  scss: { bg: "#CF649A", label: "SCS" },
+  less: { bg: "#2B5E91", label: "LES" },
+  json: { bg: "#E8A33D", fg: "#26221E", label: "{}" },
+  md: { bg: "#519ABA", label: "MD" },
+  txt: { bg: "#6E7681", label: "TXT" },
+  py: { bg: "#3572A5", label: "PY" },
+  rs: { bg: "#CE4A2F", label: "RS" },
+  go: { bg: "#00ADD8", label: "GO" },
+  rb: { bg: "#CC342D", label: "RB" },
+  php: { bg: "#777BB4", label: "PHP" },
+  java: { bg: "#B07219", label: "JAVA" },
+  swift: { bg: "#F05138", label: "SW" },
+  vue: { bg: "#41B883", label: "VUE" },
+  html: { bg: "#E34C26", label: "<>" },
+  sh: { bg: "#89E051", fg: "#243018", label: "$" },
+  bash: { bg: "#89E051", fg: "#243018", label: "$" },
+  zsh: { bg: "#89E051", fg: "#243018", label: "$" },
+  yml: { bg: "#CB171E", label: "YML" },
+  yaml: { bg: "#CB171E", label: "YML" },
+  toml: { bg: "#9C4221", label: "TML" },
+  sql: { bg: "#DD6B20", label: "SQL" },
+};
+
+function ReactLangIcon() {
+  return (
+    <svg className="lang-badge" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#61DAFB" strokeWidth="1.4" aria-hidden="true">
+      <circle cx="12" cy="12" r="2.1" fill="#61DAFB" stroke="none" />
+      <ellipse cx="12" cy="12" rx="10" ry="4.2" />
+      <ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(60 12 12)" />
+      <ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(120 12 12)" />
+    </svg>
+  );
+}
+
+function FileLangIcon({ file }: { file: string }) {
+  const name = file.split(/[/\\]/).pop() ?? file;
+  const ext = (name.split(".").pop() ?? "").toLowerCase();
+  if (ext === "tsx" || ext === "jsx") return <ReactLangIcon />;
+  const badge = LANG_BADGES[ext];
+  if (!badge) return null;
+  return (
+    <span className="lang-badge" style={{ background: badge.bg, color: badge.fg ?? "#FFFFFF" }} aria-hidden="true">
+      {badge.label}
+    </span>
+  );
+}
+
+function ApprovalCard({ approvalId, rpcId, sessionId, toolName, reason }: { approvalId: string; rpcId?: string; sessionId: string; toolName: string; reason?: string }) {
   const [done, setDone] = useState(false);
   const answer = async (outcome: "allowed-once" | "rejected") => {
+    if (!rpcId) return;
     try {
-      await api.answerApproval({ approvalId, outcome });
+      await api.answerApproval({ rpcId, sessionId, approvalId, outcome });
       setDone(true);
     } catch {
       // ignore; card stays until approval/resolved
@@ -773,16 +934,155 @@ function ApprovalCard({ approvalId, sessionId, toolName, reason }: { approvalId:
     <div className="approval-card">
       <div className="head">
         <ShieldCheck size={15} />
-        请求授权
+        {t("请求授权")}
       </div>
       <div className="cmd">{reason || toolName}</div>
       <div className="actions">
-        <button className="btn-plain" disabled={done} onClick={() => void answer("rejected")}>
-          <X size={13} style={{ verticalAlign: -2 }} /> 拒绝
+        <button className="btn-plain" disabled={done || !rpcId} onClick={() => void answer("rejected")}>
+          <X size={13} style={{ verticalAlign: -2 }} /> {t("拒绝")}
         </button>
-        <button className="btn-primary" disabled={done} onClick={() => void answer("allowed-once")}>
-          允许一次
+        <button className="btn-primary" disabled={done || !rpcId} onClick={() => void answer("allowed-once")}>
+          {t("允许一次")}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** 意图澄清卡片 — 官方 ui-user-questions QuestionComposer 的卡片化移植。
+ *  单选题点击即锁定并推进（最后一题自动提交整批答案）；多选题勾选后用
+ *  底部按钮推进；每题可跳过（selected: []）；关闭 = ASK_CANCELLED。
+ *  应答回传请求信封上的 rpcId，卡片由 question/resolved 帧清除。 */
+function QuestionCard({ rpcId, sessionId, questions }: {
+  rpcId: string;
+  sessionId: string;
+  questions: Array<{ id: string; question: string; header?: string; detail?: string; options?: Array<{ label: string; description?: string }>; multiSelect?: boolean }>;
+}) {
+  const [page, setPage] = useState(0);
+  const [drafts, setDrafts] = useState<Record<string, { selected: string[]; custom?: string }>>({});
+  const [custom, setCustom] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const q = questions[Math.min(page, questions.length - 1)];
+  if (!q) return null;
+  const multi = q.multiSelect === true;
+  const options = q.options ?? [];
+  const draft = drafts[q.id];
+  const isLast = page >= questions.length - 1;
+
+  const setDraft = (next: { selected: string[]; custom?: string }) => {
+    setDrafts((prev) => ({ ...prev, [q.id]: next }));
+  };
+
+  const submitAll = async (final: Record<string, { selected: string[]; custom?: string }>) => {
+    setSubmitting(true);
+    try {
+      await api.answerQuestion({
+        rpcId,
+        sessionId,
+        answers: questions.map((item) => {
+          const d = final[item.id] ?? { selected: [] };
+          return { id: item.id, selected: d.selected, ...(d.custom ? { custom: d.custom } : {}) };
+        }),
+      });
+      // 卡片由 question/resolved 帧负责移除；这里只防重复提交。
+    } catch {
+      setSubmitting(false); // 引擎不可达：留在卡片上可重试
+    }
+  };
+
+  const advanceOrSubmit = async (next: { selected: string[]; custom?: string }) => {
+    const final = { ...drafts, [q.id]: next };
+    setDrafts(final);
+    if (isLast) {
+      await submitAll(final);
+    } else {
+      setCustom("");
+      setPage((p) => p + 1);
+    }
+  };
+
+  const pick = async (label: string) => {
+    if (multi) {
+      const sel = draft?.selected ?? [];
+      const next = sel.includes(label) ? sel.filter((s) => s !== label) : [...sel, label];
+      setDraft({ selected: next });
+    } else {
+      await advanceOrSubmit({ selected: [label] });
+    }
+  };
+
+  const skip = () => void advanceOrSubmit({ selected: [] });
+  const sendCustom = () => {
+    const text = custom.trim();
+    if (!text) return;
+    void advanceOrSubmit(multi ? { selected: draft?.selected ?? [], custom: text } : { selected: [], custom: text });
+  };
+  const cancel = async () => {
+    setSubmitting(true);
+    try { await api.cancelQuestion(rpcId); } catch { setSubmitting(false); }
+  };
+
+  return (
+    <div className="question-card">
+      <div className="head">
+        <IconQuestionOutline14 size={14} />
+        {t("澄清一下")}
+        {questions.length > 1 && <span className="pager">{page + 1}/{questions.length}</span>}
+        <button className="q-close" title={t("取消提问")} disabled={submitting} onClick={() => void cancel()}>
+          <X size={13} />
+        </button>
+      </div>
+      {q.header && <div className="q-header">{q.header}</div>}
+      <div className="q-text">{q.question}</div>
+      {q.detail && <div className="q-detail">{q.detail}</div>}
+      {options.length > 0 && (
+        <div className="q-options">
+          {options.map((o) => {
+            const active = (draft?.selected ?? []).includes(o.label);
+            return (
+              <button
+                key={o.label}
+                className={`q-option${active ? " active" : ""}`}
+                disabled={submitting}
+                onClick={() => void pick(o.label)}
+              >
+                <span className="q-option-mark" aria-hidden="true" />
+                <span className="q-option-body">
+                  <span className="q-option-label">{o.label}</span>
+                  {o.description && <span className="q-option-desc">{o.description}</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <div className="q-custom">
+        <input
+          placeholder={t("自定义回答…")}
+          value={custom}
+          disabled={submitting}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              sendCustom();
+            }
+          }}
+        />
+      </div>
+      <div className="actions">
+        <button className="btn-plain" disabled={submitting} onClick={skip}>
+          {t("跳过此题")}
+        </button>
+        {multi && (
+          <button
+            className="btn-primary"
+            disabled={submitting || (draft?.selected ?? []).length === 0}
+            onClick={() => void advanceOrSubmit({ selected: draft?.selected ?? [], custom: custom.trim() || undefined })}
+          >
+            {isLast ? t("提交") : t("下一题")}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -942,8 +1242,9 @@ function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string
       break;
     }
     case "assistant/chunk": {
-      // Stream frames append a chunk item for text-deltas; reasoning deltas
-      // are intentionally not surfaced until the final assistant/message.
+      // Stream frames append chunk items for text-deltas; reasoning deltas
+      // accumulate into a live trace item that the final assistant/message
+      // replaces with the settled ThinkingState.
       const d = ev.data as { turn: number; step: number; chunk: StreamChunk };
       const chunk = d.chunk;
       if (chunk.type === "text-delta" && typeof chunk.text === "string" && chunk.text) {
@@ -954,16 +1255,23 @@ function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string
         if (last && last.kind === "chunk" && last.turn === turn) last.output = (last.output ?? "") + chunk.text;
         else out.push({ ...base, kind: "chunk", output: chunk.text, turn });
       }
+      if (chunk.type === "reasoning-delta" && typeof chunk.text === "string" && chunk.text) {
+        const turn = d.turn;
+        const last = out[out.length - 1];
+        if (last && last.kind === "reasoning" && last.turn === turn) last.output = (last.output ?? "") + chunk.text;
+        else out.push({ ...base, kind: "reasoning", output: chunk.text, turn });
+      }
       break;
     }
     case "assistant/message": {
       const d = ev.data as AssistantMessageData;
       const turn = d.turn;
       const text = messageText(d.message?.content);
-      // Replace the live-streamed chunk item(s) for this step with the final
-      // blocks. Discard them — re-appending interleaves stale fragments.
+      // Replace the live-streamed chunk/reasoning items for this step with
+      // the final blocks. Discard them — re-appending interleaves stale
+      // fragments.
       let cut = out.length - 1;
-      while (cut >= 0 && out[cut].kind === "chunk" && out[cut].turn === turn) cut -= 1;
+      while (cut >= 0 && (out[cut].kind === "chunk" || out[cut].kind === "reasoning") && out[cut].turn === turn) cut -= 1;
       out.length = cut + 1;
       // Track the accumulated tail payload.
       if (text) out.push({ ...base, kind: "assistant", turn });
@@ -1133,10 +1441,10 @@ function formatClock(ms: number): string {
 
 function formatRunDuration(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000));
-  if (total < 60) return `${total}秒`;
+  if (total < 60) return tt(`${total}秒`, `${total}s`);
   const m = Math.floor(total / 60);
   const s = total % 60;
-  return `${m}分${s}秒`;
+  return tt(`${m}分${s}秒`, `${m}m${s}s`);
 }
 
 function formatLatencySeconds(ms: number): string {
@@ -1151,4 +1459,83 @@ function formatTokensPerSecond(tps: number): string {
 function truncate(s: string, n = 400): string {
   if (s.length <= n) return s;
   return s.slice(0, n) + "…";
+}
+
+/** 排队消息文本（edit 仅支持文本，取 text 块拼接）。 */
+function queueText(item: SessionQueuedItem): string {
+  return item.message.content
+    .filter((c) => c.type === "text" && typeof c.text === "string")
+    .map((c) => c.text as string)
+    .join("");
+}
+
+/** 排队消息卡（官方 QueueDock 式）：挂在会话框上方，行内 立即/编辑/删除。
+ *  数据来自 store.queues（session/queue 帧），操作走 session.updateQueue，
+ *  引擎应用后广播新快照，卡片随之刷新。 */
+function QueueDock({ sessionId, items }: { sessionId: string; items: SessionQueuedItem[] }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const mutate = async (itemId: string, action: Parameters<typeof api.updateQueue>[0]["action"]) => {
+    try {
+      await api.updateQueue({ sessionId, itemId, action });
+    } catch (err) {
+      alert(tt("排队消息操作失败：{m}", "Queue update failed: {m}", { m: (err as Error).message }));
+    }
+  };
+  const saveEdit = (itemId: string) => {
+    if (!draft.trim()) return;
+    void mutate(itemId, { kind: "edit", content: [{ type: "text", text: draft.trim() }] });
+    setEditingId(null);
+  };
+  return (
+    <div className="queue-dock">
+      {items.map((item) => {
+        const text = queueText(item);
+        const editing = editingId === item.id;
+        return (
+          <div className="queue-row" key={item.id}>
+            <span className="queue-handle" aria-hidden="true"><GripVertical size={13} /></span>
+            {editing ? (
+              <>
+                <input
+                  className="queue-edit"
+                  value={draft}
+                  autoFocus
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEdit(item.id);
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                />
+                <div className="queue-actions">
+                  <button className="queue-btn" title={t("保存排队消息")} onClick={() => saveEdit(item.id)}>
+                    <IconCheckOutline16 size={14} />
+                  </button>
+                  <button className="queue-btn" title={t("取消编辑")} onClick={() => setEditingId(null)}>
+                    <X size={14} />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="queue-text" title={text}>{text}</span>
+                <div className="queue-actions">
+                  <button className="queue-now" title={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
+                    <ArrowUp size={13} />
+                    {t("立即")}
+                  </button>
+                  <button className="queue-btn" title={t("编辑排队消息")} onClick={() => { setEditingId(item.id); setDraft(text); }}>
+                    <Pencil size={13} />
+                  </button>
+                  <button className="queue-btn" title={t("删除排队消息")} onClick={() => void mutate(item.id, { kind: "remove" })}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }

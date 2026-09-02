@@ -48,3 +48,34 @@
   /* lv3 elevation shadow (panel) */
   --dsw-shadow-lv3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35);
 }
+
+/* 亮色外观（html[data-theme="light"]，由 store 的 schemeDark 驱动）：
+   设置面板跟随系统明暗，不再恒为暗色玻璃。 */
+:root[data-theme="light"] {
+  --dsw-alias-bg-layer-1: rgba(0, 0, 0, 0.04);
+  --dsw-alias-bg-layer-2: rgba(250, 250, 251, 0.97);
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.25);
+
+  --dsw-alias-label-primary: #1a1a1e;
+  --dsw-alias-label-primary-foreground: #ffffff;
+  --dsw-alias-label-secondary: #59595e;
+  --dsw-alias-label-tertiary: #8a8a90;
+
+  --dsw-alias-border-l2: rgba(0, 0, 0, 0.12);
+  --dsw-alias-border-l3: rgba(0, 0, 0, 0.18);
+
+  --dsw-alias-button-primary-fill: #1a1a1e;
+  --dsw-alias-button-primary-hover: #000000;
+  --dsw-alias-button-contrast-fill: #ffffff;
+
+  --dsw-alias-interactive-bg-hover: rgba(0, 0, 0, 0.055);
+  --dsw-alias-interactive-bg-hover-solid: rgba(0, 0, 0, 0.09);
+
+  --dsw-specific-sidebar-nav-item-hover: rgba(0, 0, 0, 0.055);
+  --dsw-specific-sidebar-nav-item-active: rgba(0, 0, 0, 0.1);
+
+  --dsw-alias-scrollbar-bg-l2: rgba(0, 0, 0, 0.14);
+  --dsw-alias-scrollbar-hover-l2: rgba(0, 0, 0, 0.24);
+
+  --dsw-shadow-lv3: 0 24px 64px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.12);
+}

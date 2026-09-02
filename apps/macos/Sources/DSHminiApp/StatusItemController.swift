@@ -1,8 +1,9 @@
 import AppKit
 
-/// Menu bar residency (no Dock; LSUIElement). Shows the engine state glyph
-/// plus live activity (SPEC-NOTIFICATIONS §1.4): attention state wins, then
-/// running, then idle. Business data stays out of the shell.
+/// Menu bar status item (regular Dock app since the AppIcon landed;
+/// LSUIElement=false). Shows the engine state glyph plus live activity
+/// (SPEC-NOTIFICATIONS §1.4): attention state wins, then running, then
+/// idle. Business data stays out of the shell.
 final class StatusItemController: NSObject, NSMenuDelegate {
     static var shared: StatusItemController?
 

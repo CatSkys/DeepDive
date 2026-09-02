@@ -130,11 +130,68 @@ export interface ApprovalResolvedFrame {
   outcome: "allowed-once" | "rejected" | "cancelled" | "unavailable";
 }
 
+/* ── 用户提问（ask_user_question）线路契约，对照 apiproxy 引擎源码 ──
+   question/requested 以 server-request 信封推送（rpcId 在信封上，应答时
+   必须原样回传）；value 走 /api/respond：{sessionId, answer:{answers}}。 */
+
+export interface QuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface QuestionItem {
+  id: string;
+  question: string;
+  header?: string;
+  detail?: string;
+  options?: QuestionOption[];
+  multiSelect?: boolean;
+  intent?: { kind: "plan-review"; approve: string };
+}
+
+export interface QuestionAnswerItem {
+  id: string;
+  selected: string[];
+  custom?: string;
+}
+
+export interface QuestionRequestedFrame {
+  type: "question/requested";
+  sessionId: string;
+  questions: QuestionItem[];
+}
+
+export interface QuestionResolvedFrame {
+  type: "question/resolved";
+  sessionId: string;
+  questionRpcId: string;
+  outcome: "answered" | "cancelled";
+}
+
+/* ── 排队消息（pending inbox）线路契约，对照引擎源码 ──
+   session/queue 帧由 events.mux 广播（每变化一次全量 items）；操作走
+   session.updateQueue unary：{sessionId, itemId, action}，action = edit
+   （仅文本）/ remove / steer（=立即插队）。 */
+
+export interface SessionQueuedItem {
+  id: string;
+  placement: "queued" | "steering" | "context";
+  /** 排队消息 user source 上的 Prompt-RPC 身份。 */
+  rpcId?: string;
+  message: {
+    id: string;
+    content: Array<{ type: string; text?: string; [k: string]: unknown }>;
+  };
+}
+
 export type MuxFrame =
   | { type: "session/event"; sessionId: string; event: SessionEvent }
   | { type: "session/subscribed"; sessionId: string; lastSeq: number }
+  | { type: "session/queue"; sessionId: string; items: SessionQueuedItem[] }
   | ApprovalRequestFrame
   | ApprovalResolvedFrame
+  | QuestionRequestedFrame
+  | QuestionResolvedFrame
   | { type: string; [k: string]: unknown };
 
 export interface HistoryEntry {

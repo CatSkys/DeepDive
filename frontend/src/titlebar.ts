@@ -30,7 +30,9 @@ function handler(): { postMessage(msg: unknown): void } | null {
   return ((window as unknown as BridgeHost).webkit?.messageHandlers?.dshmini) ?? null;
 }
 
-const INTERACTIVE = "button, a, input, textarea, select, [role='button']";
+// data-strip-interactive: 非控件但必须可在顶条内交互的元素（侧栏拖拽
+// 调宽热区）——不加会被"空白条带 = 拖窗"契约吃掉上段热区。
+const INTERACTIVE = "button, a, input, textarea, select, [role='button'], [data-strip-interactive]";
 
 function pushRects() {
   const target = handler();

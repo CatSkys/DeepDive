@@ -35,6 +35,8 @@ export function installHostBridge(handlers: {
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;
   themeChanged: (dark: boolean) => void;
+  /** 壳端目录选择器（＋新建空间）选定后的回推；取消时不推送。 */
+  workspacePicked: (path: string) => void;
 }): void {
   if (window.__dshminiHost) return; // idempotent mount (StrictMode/reloads)
   window.__dshminiHost = {
@@ -52,6 +54,11 @@ export function installHostBridge(handlers: {
         case "themeChanged": {
           const dark = (payload as { dark?: boolean } | undefined)?.dark ?? true;
           handlers.themeChanged(dark);
+          break;
+        }
+        case "workspacePicked": {
+          const path = (payload as { path?: string } | undefined)?.path;
+          if (typeof path === "string" && path) handlers.workspacePicked(path);
           break;
         }
         default:

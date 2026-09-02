@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { IconCodeOutline16 } from "./Icons";
 
 // Lightweight monochrome Markdown renderer (no deps): headings, paragraphs,
 // ordered/unordered lists, quotes, fenced + inline code, bold/italic, tables.
@@ -6,6 +7,7 @@ import type { ReactNode } from "react";
 interface Block {
   kind: "h1" | "h2" | "h3" | "p" | "ul" | "ol" | "quote" | "code" | "table";
   lines: string[];
+  lang?: string;
 }
 
 function parseBlocks(text: string): Block[] {
@@ -15,14 +17,17 @@ function parseBlocks(text: string): Block[] {
   while (i < lines.length) {
     const line = lines[i];
     if (line.trim() === "") { i++; continue; }
-    const fence = /^```/.exec(line.trim());
+    const fence = /^```([A-Za-z0-9_+#.-]*)\s*$/.exec(line.trim());
     if (fence) {
       const start = i + 1;
       let end = lines.length;
       for (let j = start; j < lines.length; j++) {
         if (/^```\s*$/.test(lines[j].trim())) { end = j; break; }
       }
-      blocks.push({ kind: "code", lines: lines.slice(start, end) });
+      const body = lines.slice(start, end);
+      if (body.length > 0 || (fence[1] ?? "") !== "") {
+        blocks.push({ kind: "code", lines: body, lang: fence[1] ?? "" });
+      }
       i = end + 1;
       continue;
     }
@@ -71,8 +76,7 @@ function parseBlocks(text: string): Block[] {
   return blocks;
 }
 
-function inline(text: string, keyBase: string): ReactNode[] {
-  const out: ReactNode[] = [];
+function inline(text: string, keyBase: string): ReactNode[] {  const out: ReactNode[] = [];
   const re = /(\*\*([^*]+)\*\*|`([^`]+)`|\*([^*\n]+)\*)/g;
   let last = 0;
   let m: RegExpExecArray | null;
@@ -87,6 +91,39 @@ function inline(text: string, keyBase: string): ReactNode[] {
   }
   if (last < text.length) out.push(text.slice(last));
   return out;
+}
+
+/** 代码预览卡：头栏（语言 + 复制）+ 行号 gutter 代码体（官方代码块样式）。 */
+function CodeBlock({ lines, lang, keyBase }: { lines: string[]; lang: string; keyBase: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch { /* clipboard unavailable */ }
+  };
+  return (
+    <div className="cb">
+      <div className="cbHead">
+        <span className="cbFile">
+          <IconCodeOutline16 size={15} className="cbIcon" />
+          <span className="cbLang">{lang || "code"}</span>
+        </span>
+        <button className="cbCopy" onClick={() => void copy()}>{copied ? "已复制" : "复制"}</button>
+      </div>
+      <div className="cbBody">
+        <div className="cbLines">
+          {lines.map((l, j) => (
+            <div className="cbRow" key={`${keyBase}-r${j}`}>
+              <span className="cbLn">{j + 1}</span>
+              <span className="cbCode">{l === "" ? " " : l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function Markdown({ text }: { text: string }) {
@@ -106,7 +143,7 @@ export function Markdown({ text }: { text: string }) {
           case "ol": return (
             <ol key={key}>{b.lines.map((l, j) => <li key={j}>{inline(l, `${key}-${j}`)}</li>)}</ol>
           );
-          case "code": return <pre key={key}><code>{b.lines.join("\n")}</code></pre>;
+          case "code": return <CodeBlock key={key} keyBase={key} lines={b.lines} lang={b.lang ?? ""} />;
           case "table": {
             const header = (b.lines[0] ?? "").split("||").map((c) => c.trim());
             const rows = b.lines.slice(1).map((r) => r.split("|").map((c) => c.trim()).filter((c) => c !== ""));

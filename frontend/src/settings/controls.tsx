@@ -24,11 +24,15 @@ export function Dropdown({ options, value, onChange }: { options: Array<{ v: str
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // portal 菜单也在"内部"：否则 mousedown 命中选项时先被判为外部点击而
+  // 卸载菜单，click 永远到不了选项（用户报告的下拉"看得到点不了"）。
+  const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null);
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onDoc);
@@ -50,6 +54,7 @@ export function Dropdown({ options, value, onChange }: { options: Array<{ v: str
   // absolutely-positioned menus (user report).
   const menu = open && pos && createPortal(
     <div
+      ref={menuRef}
       className={rowsCss.ddMenu}
       role="listbox"
       style={{
