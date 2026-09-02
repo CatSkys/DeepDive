@@ -8,6 +8,7 @@ import { Dropdown, Toggle } from "../settings/controls";
 import { api, probeMethod } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
+import { ProviderIcon } from "./ProviderIcon";
 import { useT } from "../i18n";
 
 // 设置页 —— 与主界面同一套设计体系：主界面语义变量 + 统一弹出配方 +
@@ -277,7 +278,8 @@ function ModelsSection() {
       {rows !== null && rows.map((r) => (
         <div key={r.provider} className={rowsCss.rowCard}>
           <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>
+            <div className={rowsCss.rowName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ProviderIcon provider={r.provider} size={14} />
               {r.displayName}
               {r.active && (
                 <span className={rowsCss.badge}>

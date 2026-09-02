@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, GripVertical, Pencil, ShieldCheck, Trash2, X } from "lucide-react";
 import { ModelMenu, effortDisplayName, type ModelOption } from "./ModelMenu";
+import { ProviderIcon } from "./ProviderIcon";
 import { WorkspacePill } from "./Sidebar";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -326,6 +327,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <WorkspacePill />
             </div>
             <button className="model trigger" data-open={showModels ? "true" : "false"} title={t("模型与推理")} onClick={() => setShowModels(true)}>
+              <ProviderIcon provider={currentModel?.provider} size={13} />
               {modelName || "Auto"}
               {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
               <ChevronDown size={12} />
@@ -363,6 +365,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <WorkspacePill />
           </div>
           <button className="model trigger" data-open={showModels ? "true" : "false"} title={t("模型与推理")} onClick={() => setShowModels(true)}>
+            <ProviderIcon provider={currentModel?.provider} size={13} />
             {modelName || "Auto"}
             {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
             <ChevronDown size={12} />

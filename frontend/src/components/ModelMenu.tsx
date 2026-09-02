@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n";
-import { Check, ChevronRight, ChevronLeft, Cpu, Search } from "lucide-react";
+import { Check, ChevronRight, ChevronLeft, Search } from "lucide-react";
+import { ProviderIcon } from "./ProviderIcon";
 
 export interface ModelOption {
   provider: string;
@@ -95,7 +96,7 @@ export function ModelMenu({
               const hasEfforts = !!m.efforts && m.efforts.length > 0;
               return (
                 <button key={`${m.provider}/${m.model}`} className={`model-menu-row${active ? " active" : ""}`} onClick={() => onRowClick(m)}>
-                  <Cpu size={15} />
+                  <ProviderIcon provider={m.provider} size={15} />
                   <span className="name">{m.label}</span>
                   <span className="provider">{m.providerLabel}</span>
                   {hasEfforts ? (
@@ -112,7 +113,9 @@ export function ModelMenu({
       ) : (
         <div className="model-menu-view" key="effort">
           <button className="model-menu-back" onClick={() => setDraft(null)}>
-            <ChevronLeft size={14} /> {draft.model.label}
+            <ChevronLeft size={14} />
+            <ProviderIcon provider={draft.model.provider} size={15} />
+            {draft.model.label}
             <span className="effort-head-value">
               {effortDisplayName(draft.value, draft.levels)}
             </span>
