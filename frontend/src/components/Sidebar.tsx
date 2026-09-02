@@ -282,7 +282,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           className="ws-add"
           title={t("新建空间（选择项目文件夹）")}
           onClick={() => {
-            if (window.webkit?.messageHandlers?.dshminiHost) {
+            if (window.webkit?.messageHandlers?.deepdiveHost) {
               sendToShell({ type: "pick-workspace" });
             } else {
               const path = prompt(t("输入要添加为工作空间的文件夹绝对路径："));

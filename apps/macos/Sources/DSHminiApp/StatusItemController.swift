@@ -30,7 +30,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         let menu = NSMenu()
 
-        let show = NSMenuItem(title: "显示 DSHmini", action: #selector(showWindowAction), keyEquivalent: "")
+        let show = NSMenuItem(title: "显示 DeepDive", action: #selector(showWindowAction), keyEquivalent: "")
         show.target = self
         menu.addItem(show)
 
@@ -54,7 +54,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        let quit = NSMenuItem(title: "退出 DSHmini", action: #selector(quitAction), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "退出 DeepDive", action: #selector(quitAction), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
 
@@ -67,7 +67,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func setState(_ state: EngineSupervisor.State) {
         engineState = state
         render()
-        item?.button?.toolTip = "DSHmini — \(state.shortLabel)"
+        item?.button?.toolTip = "DeepDive — \(state.shortLabel)"
     }
 
     /// Live activity from EngineEventObserver (§1.4): attention > running.
@@ -85,9 +85,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let image: NSImage?
         switch engineState {
         case .failed:
-            image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "DSHmini 引擎")
+            image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "DeepDive 引擎")
         case .launching, .restarting:
-            image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "DSHmini 引擎")
+            image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "DeepDive 引擎")
         case .idle, .ready:
             image = WhaleAsset.statusIcon(running: activityRunning, attention: activityAttention)
         }

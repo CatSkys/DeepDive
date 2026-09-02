@@ -1,8 +1,8 @@
 // Shell↔frontend bridge mount (SPEC-NOTIFICATIONS-FLOATING-BALL §3.1).
 //
 // The native shell pushes instructions via WKWebView evaluateJavaScript on
-// `window.__dshminiHost.dispatch(cmd, payload)`; the frontend reports the
-// mounted hook with a `host-ready` message on the "dshminiHost" script
+// `window.__deepDiveHost.dispatch(cmd, payload)`; the frontend reports the
+// mounted hook with a `host-ready` message on the "deepdiveHost" script
 // message handler. The shell stages at most one pending command until this
 // hook reports ready, so a notification tap during cold start is never lost.
 // Degradation: in a plain browser (no webkit messageHandlers) everything
@@ -14,8 +14,8 @@ interface HostBridge {
 
 declare global {
   interface Window {
-    __dshminiHost?: HostBridge;
-    webkit?: { messageHandlers?: { dshminiHost?: { postMessage: (msg: unknown) => void } } };
+    __deepDiveHost?: HostBridge;
+    webkit?: { messageHandlers?: { deepdiveHost?: { postMessage: (msg: unknown) => void } } };
   }
 }
 
@@ -28,7 +28,7 @@ export function onHostEvent(cb: HostEvent): () => void {
 }
 
 export function sendToShell(message: Record<string, unknown>): void {
-  window.webkit?.messageHandlers?.dshminiHost?.postMessage(message);
+  window.webkit?.messageHandlers?.deepdiveHost?.postMessage(message);
 }
 
 export function installHostBridge(handlers: {
@@ -38,8 +38,8 @@ export function installHostBridge(handlers: {
   /** 壳端目录选择器（＋新建空间）选定后的回推；取消时不推送。 */
   workspacePicked: (path: string) => void;
 }): void {
-  if (window.__dshminiHost) return; // idempotent mount (StrictMode/reloads)
-  window.__dshminiHost = {
+  if (window.__deepDiveHost) return; // idempotent mount (StrictMode/reloads)
+  window.__deepDiveHost = {
     dispatch(cmd: string, payload?: unknown) {
       switch (cmd) {
         case "navigateToSession": {

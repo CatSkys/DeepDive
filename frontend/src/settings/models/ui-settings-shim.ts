@@ -2,7 +2,7 @@
 import type { SettingsNamespaceView } from './remotes-shim'
 
 /* Shims replacing the official packages' context-bound faces with plain
-   object implementations (DSHmini talks to the gateway via same-origin
+   object implementations (DeepDive talks to the gateway via same-origin
    fetch, not cordis). */
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }

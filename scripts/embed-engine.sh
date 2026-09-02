@@ -1,5 +1,5 @@
 #!/bin/bash
-# DSHmini — embed the pinned engine (Node binary + DSH runtime closure) into a
+# DeepDive — embed the pinned engine (Node binary + DSH runtime closure) into a
 # built .app. Counterpart of embed-web.sh; run AFTER xcodebuild.
 #
 # Bundle layout (SPEC-ENGINE-RUNTIME §3.3/§3.4):

@@ -1,6 +1,6 @@
 name: DSHmini
 options:
-  bundleIdPrefix: com.dshmini
+  bundleIdPrefix: com.deepdive
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
@@ -21,15 +21,15 @@ targets:
       - path: Assets.xcassets
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dshmini.app
-        PRODUCT_NAME: DSHmini
+        PRODUCT_BUNDLE_IDENTIFIER: com.deepdive.app
+        PRODUCT_NAME: DeepDive
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: Info.plist
       properties:
-        CFBundleName: DSHmini
-        CFBundleDisplayName: DSHmini
-        CFBundleIdentifier: com.dshmini.app
+        CFBundleName: DeepDive
+        CFBundleDisplayName: DeepDive
+        CFBundleIdentifier: com.deepdive.app
         CFBundleVersion: "0.1.0"
         CFBundleShortVersionString: "0.1.0"
         LSUIElement: false

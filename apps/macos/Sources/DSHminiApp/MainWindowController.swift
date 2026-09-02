@@ -104,7 +104,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
             backing: .buffered,
             defer: false
         )
-        window.title = "DSHmini"
+        window.title = "DeepDive"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         // Tahoe large-corner class (see EmptyToolbarDelegate): an empty,
@@ -112,13 +112,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // traffic lights' default center line moves 16 → 26pt, exactly our
         // headerCenterY, so alignTrafficLights() becomes a no-op there and
         // stays as the belt-and-suspenders for fullscreen/edge cases.
-        let toolbar = NSToolbar(identifier: "DSHminiTitlebar")
+        let toolbar = NSToolbar(identifier: "DeepDiveTitlebar")
         toolbar.delegate = emptyToolbarDelegate
         window.toolbar = toolbar
         window.titlebarSeparatorStyle = .none
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 900, height: 560)
-        window.setFrameAutosaveName("DSHminiMain")
+        window.setFrameAutosaveName("DeepDiveMain")
         window.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
 
         // Semi-transparent dark glass: vibrancy + dark overlay (~85% opaque).
@@ -143,9 +143,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
         // Rect-table channel from frontend/src/titlebar.ts; register before
         // any page load so the first push is never dropped.
-        webView.configuration.userContentController.add(self, name: "dshmini")
+        webView.configuration.userContentController.add(self, name: "deepdive")
         // Host-command channel (§3.1): frontend posts open-settings/host-ready.
-        webView.configuration.userContentController.add(self, name: "dshminiHost")
+        webView.configuration.userContentController.add(self, name: "deepdiveHost")
 
         window.contentView = effectView
         overlay.frame = effectView.bounds
@@ -301,7 +301,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
             completion(false)
             return
         }
-        let js = "window.__dshminiHost ? (window.__dshminiHost.dispatch('\(cmd)', \(payload)), 'ok') : 'no-host'"
+        let js = "window.__deepDiveHost ? (window.__deepDiveHost.dispatch('\(cmd)', \(payload)), 'ok') : 'no-host'"
         webView.evaluateJavaScript(js) { result, _ in
             completion((result as? String) == "ok")
         }
@@ -403,11 +403,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
 extension MainWindowController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "dshmini" {
+        if message.name == "deepdive" {
             handleTitlebarRects(message)
             return
         }
-        if message.name == "dshminiHost" {
+        if message.name == "deepdiveHost" {
             handleHostMessage(message)
             return
         }
@@ -445,7 +445,7 @@ extension MainWindowController: WKUIDelegate {
         completionHandler: @escaping () -> Void
     ) {
         let alert = NSAlert()
-        alert.messageText = "DSHmini"
+        alert.messageText = "DeepDive"
         alert.informativeText = message
         alert.addButton(withTitle: "好")
         alert.runModal()
@@ -459,7 +459,7 @@ extension MainWindowController: WKUIDelegate {
         completionHandler: @escaping (Bool) -> Void
     ) {
         let alert = NSAlert()
-        alert.messageText = "DSHmini"
+        alert.messageText = "DeepDive"
         alert.informativeText = message
         alert.addButton(withTitle: "好")
         alert.addButton(withTitle: "取消")
@@ -474,7 +474,7 @@ extension MainWindowController: WKUIDelegate {
         completionHandler: @escaping (String?) -> Void
     ) {
         let alert = NSAlert()
-        alert.messageText = "DSHmini"
+        alert.messageText = "DeepDive"
         alert.informativeText = prompt
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         input.stringValue = defaultText ?? ""

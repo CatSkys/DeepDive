@@ -158,25 +158,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [schemeDark]);
   useEffect(() => { setI18nLang(lang); }, [lang]);
   // 任务行本地状态:置顶/未读(localStorage 持久化,官方语义)
-  const [pinned, setPinned] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("dsh.pinned") ?? "[]") as string[]));
-  const [unread, setUnread] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("dsh.unread") ?? "[]") as string[]));
+  const [pinned, setPinned] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("deepdive.pinned") ?? "[]") as string[]));
+  const [unread, setUnread] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("deepdive.unread") ?? "[]") as string[]));
   const persist = (key: string, set: Set<string>) => localStorage.setItem(key, JSON.stringify([...set]));
   const togglePin = useCallback((id: string) => setPinned((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
-    persist("dsh.pinned", next);
+    persist("deepdive.pinned", next);
     return next;
   }), []);
   const markUnread = useCallback((id: string) => setUnread((prev) => {
     const next = new Set(prev).add(id);
-    persist("dsh.unread", next);
+    persist("deepdive.unread", next);
     return next;
   }), []);
   const clearUnread = useCallback((id: string) => setUnread((prev) => {
     if (!prev.has(id)) return prev;
     const next = new Set(prev);
     next.delete(id);
-    persist("dsh.unread", next);
+    persist("deepdive.unread", next);
     return next;
   }), []);
 
@@ -201,7 +201,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   wsOfRef.current = wsOfSession;
   const persistActiveWs = (id: string) => {
     activeWsRef.current = id;
-    localStorage.setItem("dsh.workspace", JSON.stringify(id));
+    localStorage.setItem("deepdive.workspace", JSON.stringify(id));
     setActiveWorkspaceId(id);
   };
 
@@ -274,7 +274,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // 只在尚未解析时执行一次，之后轮询不覆盖用户的即时切换。
       if (!activeWsRef.current && wsItems.length > 0) {
         let stored: string | null = null;
-        try { stored = JSON.parse(localStorage.getItem("dsh.workspace") ?? "null"); } catch { /* corrupt */ }
+        try { stored = JSON.parse(localStorage.getItem("deepdive.workspace") ?? "null"); } catch { /* corrupt */ }
         const resolved = (wsItems.find((w) => w.workspaceId === stored) ?? wsItems[0])?.workspaceId ?? null;
         if (resolved) {
           activeWsRef.current = resolved;

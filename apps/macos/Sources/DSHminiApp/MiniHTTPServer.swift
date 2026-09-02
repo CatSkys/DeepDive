@@ -28,7 +28,7 @@ final class MiniHTTPServer {
     var upgradeHandler: ((Int32, Request) -> Void)?
 
     private var listenFD: Int32 = -1
-    private let socketQueue = DispatchQueue(label: "dshmini.bridge.accept")
+    private let socketQueue = DispatchQueue(label: "deepdive.bridge.accept")
     private var running = false
     private let callback: (Request) -> Stream
 

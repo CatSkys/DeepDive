@@ -23,11 +23,11 @@ interface Rect {
 }
 
 interface BridgeHost {
-  webkit?: { messageHandlers?: { dshmini?: { postMessage(msg: unknown): void } } };
+  webkit?: { messageHandlers?: { deepdive?: { postMessage(msg: unknown): void } } };
 }
 
 function handler(): { postMessage(msg: unknown): void } | null {
-  return ((window as unknown as BridgeHost).webkit?.messageHandlers?.dshmini) ?? null;
+  return ((window as unknown as BridgeHost).webkit?.messageHandlers?.deepdive) ?? null;
 }
 
 // data-strip-interactive: 非控件但必须可在顶条内交互的元素（侧栏拖拽

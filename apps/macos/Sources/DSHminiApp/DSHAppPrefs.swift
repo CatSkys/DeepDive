@@ -1,13 +1,29 @@
 import Foundation
 
+/// 品牌改名（BRANDING §5）一次性迁移：旧 com.dshmini.app 域里的 dsh.*
+/// 偏好（通知开关/侧栏宽/外观/语言）搬到新域 deepdive.*。bundle id 变更
+/// 意味着默认域换了 plist，不做这步用户的设置会全部回到默认。在进程早期
+/// （main.swift）调用，早于任何 DSHAppPrefs/AppConfig 读取。
+enum LegacyPrefsMigration {
+    static func run() {
+        guard !UserDefaults.standard.bool(forKey: "deepdive.prefsMigrated") else { return }
+        if let old = UserDefaults(suiteName: "com.dshmini.app") {
+            for (k, v) in old.dictionaryRepresentation() where k.hasPrefix("dsh.") {
+                UserDefaults.standard.set(v, forKey: "deepdive." + k.dropFirst(4))
+            }
+        }
+        UserDefaults.standard.set(true, forKey: "deepdive.prefsMigrated")
+    }
+}
+
 /// App-wide toggle prefs for the native alert surface (SPEC-NOTIFICATIONS
 /// §1.3, defaults on — aligned with the reference host's DSHAppPrefs).
 enum DSHAppPrefs {
-    static let notifyTurnEndKey = "dsh.alerts.notifyTurnEnd"
-    static let notifyAttentionKey = "dsh.alerts.notifyAttention"
-    static let sidebarWidthKey = "dsh.ui.sidebarWidth"
-    static let appearanceKey = "dsh.ui.appearance" // "system" | "light" | "dark"
-    static let languageKey = "dsh.ui.language"     // "zh" | "en"
+    static let notifyTurnEndKey = "deepdive.alerts.notifyTurnEnd"
+    static let notifyAttentionKey = "deepdive.alerts.notifyAttention"
+    static let sidebarWidthKey = "deepdive.ui.sidebarWidth"
+    static let appearanceKey = "deepdive.ui.appearance" // "system" | "light" | "dark"
+    static let languageKey = "deepdive.ui.language"     // "zh" | "en"
 
     /// Sidebar drag-resize bounds — keep in sync with tokens.json
     /// size.sidebarMin / size.sidebarMax (the frontend clamps too).

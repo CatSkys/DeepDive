@@ -104,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DistributedNotificationCenter.default().addObserver(
             self,
             selector: #selector(showFromOtherInstance(_:)),
-            name: Notification.Name("com.dshmini.app.show"),
+            name: Notification.Name("com.deepdive.app.show"),
             object: nil
         )
 

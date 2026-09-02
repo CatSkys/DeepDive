@@ -64,7 +64,7 @@ final class BridgeServer {
         }
 
         // Frontend diagnostics channel.
-        if request.method == "POST", request.path == "/__dshmini_error" {
+        if request.method == "POST", request.path == "/__deepdive_error" {
             let body = String(data: request.body, encoding: .utf8) ?? ""
             EngineLog.shared.append("[web] " + body)
             return .response(.init(status: 204))

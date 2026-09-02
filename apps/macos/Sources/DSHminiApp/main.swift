@@ -3,6 +3,7 @@ import AppKit
 // Single-instance guard: two shells must never own one DSH_HOME (session
 // persistence would interleave). A second launch pings the running instance
 // through a distributed notification and exits.
+LegacyPrefsMigration.run()
 _ = AppPaths.supportDir
 let lockPath = AppPaths.supportDir.appendingPathComponent("instance.lock").path
 let lockFD: Int32 = open(lockPath, O_CREAT | O_RDWR, 0o644)

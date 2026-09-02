@@ -69,7 +69,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   // 听写（壳端 SFSpeechRecognizer）：partial 进 placeholder，final 落入草稿。
   const [listening, setListening] = useState(false);
   const [partial, setPartial] = useState("");
-  const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.dshminiHost);
+  const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.deepdiveHost);
   const fileRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);

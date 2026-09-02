@@ -122,7 +122,7 @@ final class FloatingBubblePanel: NSPanel {
         isMovableByWindowBackground = true
         isReleasedWhenClosed = false
         contentView = NSHostingView(rootView: FloatingBubbleView())
-        setAccessibilityIdentifier("dshmini.floatingBubble")
+        setAccessibilityIdentifier("deepdive.floatingBubble")
     }
 
     func showBubble() {
@@ -225,7 +225,7 @@ struct FloatingBubbleView: View {
         .onTapGesture {
             manager.bubbleClicked()
         }
-        .accessibilityLabel("DSHmini 悬浮球")
+        .accessibilityLabel("DeepDive 悬浮球")
         .accessibilityHint("单击打开主窗口")
     }
 }
