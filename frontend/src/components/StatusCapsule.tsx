@@ -180,7 +180,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
       {open && (
         <div className="capsule-panel">
           <div className="capsule-head">
-            <span className="capsule-title">{t("会话状态")}</span>
+            <span className="capsule-title">{t("摘要")}</span>
             <button type="button" className="capsule-fold" data-tip={t("收起")} onClick={() => setOpen(false)}>
               <ChevronUp size={14} />
             </button>

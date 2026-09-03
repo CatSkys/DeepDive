@@ -16,7 +16,7 @@ const EN: Record<string, string> = {
   "更换模型": "Change Model",
   "模型与推理": "Model & Reasoning",
   "设置 ⌘,": "Settings ⌘,",
-  "新建空间（选择项目文件夹）": "Add Workspace (Choose Folder)",
+  "新建项目空间": "New project workspace",
   "输入要添加为工作空间的文件夹绝对路径：": "Enter the absolute folder path to add as a workspace:",
   "展开会话": "Expand Sessions",
   "收起会话": "Collapse Sessions",
@@ -83,7 +83,7 @@ const EN: Record<string, string> = {
   "… 其余 {n} 行": "… {n} more lines",
   "收起": "Collapse",
   // 会话状态胶囊（StatusCapsule）
-  "会话状态": "Session status",
+  "摘要": "Summary",
   "任务与计划": "Tasks & plan",
   "已完成 {n} 项": "Completed {n}",
   "{n} 运行中": "{n} running",

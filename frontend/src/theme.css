@@ -2696,17 +2696,33 @@ button {
   box-shadow: 0 12px 36px rgba(0,0,0,.35);
 }
 .capsule-head {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 8px 14px 6px;
-  border-bottom: 1px solid var(--line);
+}
+/* 头部分隔线两侧内缩留呼吸空隙（不通到边） */
+.capsule-head::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 1px;
+  background: var(--line);
 }
 .capsule-title { font-size: 12px; font-weight: 600; color: var(--ink-2); }
 .capsule-fold { color: var(--ink-3); padding: 3px; border-radius: var(--dsh-radius-keycap); }
 .capsule-fold:hover { color: var(--ink); background: var(--fill); }
 .capsule-sec { padding: 8px 14px; }
-.capsule-sec + .capsule-sec { border-top: 1px solid var(--line); }
+.capsule-sec + .capsule-sec::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: -3px 14px 5px;
+  background: var(--line);
+}
 .capsule-sec-name {
   display: flex;
   align-items: center;
