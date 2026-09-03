@@ -194,6 +194,12 @@ export type MuxFrame =
   | QuestionResolvedFrame
   | { type: string; [k: string]: unknown };
 
+/* ── session.prompt 的 content 分块（引擎 wire：文本在前、图像附件在后）── */
+
+export type PromptContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; mediaType: string; data: string; name?: string };
+
 export interface HistoryEntry {
   event: SessionEvent;
   view?: { for: "call" | "result"; view: { card?: string } };

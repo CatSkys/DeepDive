@@ -380,7 +380,7 @@ function SidebarResizer() {
 
 export function titleOf(s: SessionSummary, lang: "zh" | "en" = "zh"): string {
   if (s.blank) return "New Chat";
-  const proj: any = (s.projections as any)?.values ?? {};
-  if (typeof proj.title === "string" && proj.title.trim()) return proj.title;
+  const title = (s.projections?.values ?? {}).title;
+  if (typeof title === "string" && title.trim()) return title;
   return `${lang === "zh" ? "任务" : "Task"} ${s.sessionId.slice(0, 6)}`;
 }

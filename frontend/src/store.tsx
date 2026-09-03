@@ -348,7 +348,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const close = api.openMux(
-      (frame: any, rpcId?: string) => {
+      (frame: MuxFrame, rpcId?: string) => {
         if (frame.type === "session/event") {
           // 非当前会话的新动态 → 未读（当前会话正在看，不打点）。
           const sid = (frame as { sessionId?: string }).sessionId;
@@ -356,16 +356,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           void applyFrame(frame);
         } else if (frame.type === "approval/requested") {
           // rpcId（信封上）必须随帧保存：/api/respond 严格按它查 pending 表。
-          setApprovals((prev) => new Map(prev).set(frame.approvalId as string, { ...frame, rpcId }));
+          const a = frame as ApprovalRequestFrame;
+          setApprovals((prev) => new Map(prev).set(a.approvalId, { ...a, rpcId }));
         } else if (frame.type === "approval/resolved") {
           setApprovals((prev) => {
             const next = new Map(prev);
-            next.delete(frame.approvalId as string);
+            next.delete((frame as { approvalId: string }).approvalId);
             return next;
           });
         } else if (frame.type === "session/queue") {
           // 排队消息全量快照（engine 每次变化广播）。
-          setQueues((prev) => new Map(prev).set(frame.sessionId, frame.items ?? []));
+          const q = frame as { sessionId: string; items?: SessionQueuedItem[] };
+          setQueues((prev) => new Map(prev).set(q.sessionId, q.items ?? []));
         } else if (frame.type === "question/requested") {
           if (rpcId) {
             const q = frame as { sessionId: string; questions: QuestionItem[] };
@@ -389,7 +391,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const applyFrame = async (frame: any) => {
+  const applyFrame = async (frame: MuxFrame) => {
     void frame;
     throttledRefreshSessions();
   };
@@ -448,7 +450,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       alert(`添加工作空间失败：${(err as Error).message}`);
       return null;
     }
-  }, []);
+  }, [switchWorkspace]);
 
   const value = useMemo<Store>(
     () => ({
@@ -485,7 +487,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return () => muxHandlers.delete(h);
       },
     }),
-    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, activeSessionId, approvals, questions, queues, openSession, switchWorkspace, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
+    // AUD-027 约定：refresh/createSession 是渲染期函数（全部可变量经 ref 读取），
+    // 进 deps 会让 value 每次渲染重建——ref 镜像约定下显式排除，P2-6 snapshot
+    // store 决策时一并处理；其余稳定标识（useCallback/useState）如实入表。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, activeSessionId, approvals, questions, queues, openSession, switchWorkspace, createWorkspace, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

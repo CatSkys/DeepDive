@@ -1,4 +1,4 @@
-import type { HistoryEntry, MuxFrame, QuestionAnswerItem, RpcResult, SessionSummary, WorkspaceView } from "./types";
+import type { HistoryEntry, MuxFrame, PromptContentPart, QuestionAnswerItem, RpcResult, SessionSummary, WorkspaceView } from "./types";
 
 // Same-origin bridge (/api → engine). Wire contract audited against the
 // engine's own UNARY_ROUTES (see docs/PITFALLS.md §4.6 — do not guess); the
@@ -75,7 +75,7 @@ export const api = {
       beforeSeq: payload.atSeq,
       maxMessages: payload.maxMessages,
     }),
-  prompt: (payload: { sessionId: string; mode: "queue" | "steer"; content: Array<{ type: string; text?: string; image?: unknown }> }) =>
+  prompt: (payload: { sessionId: string; mode: "queue" | "steer"; content: PromptContentPart[] }) =>
     unary<{ accepted: true; command?: { kind: string; text?: string } }>("session.prompt", payload),
   /** 修改一条仍挂起的排队消息（引擎源码契约：edit 仅接受文本 content）。 */
   updateQueue: (payload: {

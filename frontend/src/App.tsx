@@ -82,7 +82,7 @@ function Shell() {
   const pickModel = async (m: ModelOption, reasoningEffort?: string) => {
     setShowModels(false);
     setModelName(m.label);
-    let sid = store.activeSessionId ?? (await store.createSession());
+    const sid = store.activeSessionId ?? (await store.createSession());
     if (!sid) return;
     try {
       await api.selectModel({ sessionId: sid, provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });

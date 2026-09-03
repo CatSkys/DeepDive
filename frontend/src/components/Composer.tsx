@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp, Square, Plus, Mic, Image as ImageIcon, Clipboard, Sparkles,
-  Code, NotebookPen, Cpu,
+  Code, NotebookPen, Cpu, type LucideIcon,
 } from "lucide-react";
 import { api } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
-import { useT } from "../i18n";
+import { useT, t as globalT } from "../i18n";
+import type { PromptContentPart } from "../types";
 
 interface Attachment {
   data: string; // base64 (no prefix)
@@ -16,7 +17,7 @@ interface Attachment {
 
 interface MenuRow {
   id: string;
-  icon: any;
+  icon: LucideIcon;
   label: string;
   section: string;
   run: () => void;
@@ -93,6 +94,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   }, [plusOpen]);
 
   // 听写事件：partial 进占位文案；final 拼接到草稿末尾；error 弹提示。
+  // 模块级 globalT 读最新 currentLang（useT 的闭包随渲染重建，订阅只挂一次）。
   useEffect(() => onHostEvent((cmd, payload) => {
     const text = (payload as { text?: string } | undefined)?.text ?? "";
     if (cmd === "dictation-partial") {
@@ -106,7 +108,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
     } else if (cmd === "dictation-error") {
       setListening(false);
       setPartial("");
-      alert(text || t("听写失败"));
+      alert(text || globalT("听写失败"));
     }
   }), []);
 
@@ -125,7 +127,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   // ---------- prompt assembly ----------
 
   const content = useMemo(() => {
-    const parts: Array<Record<string, unknown>> = [];
+    const parts: PromptContentPart[] = [];
     for (const a of attachments) parts.push({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name });
     if (text.trim()) parts.push({ type: "text", text: text.trim() });
     return parts;
@@ -138,11 +140,11 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
       const create = await store.createSession();
       if (!create) { setBusy(false); return; }
       try {
-        await api.prompt({ sessionId: create, mode: "queue", content: content as any });
+        await api.prompt({ sessionId: create, mode: "queue", content });
       } catch { setBusy(false); return; }
     } else {
       try {
-        await api.prompt({ sessionId, mode: "queue", content: content as any });
+        await api.prompt({ sessionId, mode: "queue", content });
       } catch { setBusy(false); return; }
     }
     setText("");
@@ -360,7 +362,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   );
 }
 
-function presetIcon(id: string): any {
+function presetIcon(id: string): LucideIcon {
   switch (id) {
     case "code": return Code;
     case "standard": return Sparkles;
