@@ -2669,6 +2669,8 @@ button {
   background: var(--fill-soft);
   color: var(--ink-2);
   font-size: 12px;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  animation: fadein var(--dur-fast) ease both;
 }
 .capsule-trigger:hover, .capsule-trigger[data-open="true"] { background: var(--fill); color: var(--ink); }
 .capsule-live { width: 6px; height: 6px; border-radius: 50%; background: #7FDBCA; animation: pulse 1.2s ease-in-out infinite; flex: none; }
@@ -2681,6 +2683,8 @@ button {
   top: calc(100% + 6px);
   right: 0;
   z-index: 70;
+  transform-origin: top right;
+  animation: pop-in var(--dur-med) var(--ease-out) both;
   width: 360px;
   max-width: calc(100vw - 48px);
   max-height: 70vh;
@@ -2742,8 +2746,8 @@ button {
 .capsule-row-btn:hover:not(:disabled) { color: var(--ink); }
 .capsule-row-btn:disabled { opacity: .5; }
 .capsule-row-btn > svg { flex: none; }
-.capsule-row-go { margin-left: auto; color: var(--ink-3); flex: none; }
-.capsule-branches { display: flex; flex-direction: column; padding: 2px 0 4px 21px; gap: 1px; }
+.capsule-row-go { margin-left: auto; color: var(--ink-3); flex: none; transition: transform var(--dur-fast) ease; }
+.capsule-branches { display: flex; flex-direction: column; padding: 2px 0 4px 21px; gap: 1px; animation: fadein var(--dur-fast) ease both; }
 .capsule-branch {
   display: flex;
   align-items: center;
@@ -2756,7 +2760,7 @@ button {
 }
 .capsule-branch:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
 .capsule-branch:disabled { cursor: default; color: var(--ink); }
-.capsule-commit { display: flex; gap: 6px; padding: 4px 0 4px 21px; }
+.capsule-commit { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 4px 21px; animation: fadein var(--dur-fast) ease both; }
 .capsule-input {
   flex: 1;
   min-width: 0;
@@ -2809,6 +2813,16 @@ button {
 }
 .capsule-sec-toggle:hover { color: var(--ink); background: var(--fill); }
 .capsule-note { font-size: 11px; color: var(--ink-3); padding: 4px 0 2px; }
+
+.capsule-row-btn, .capsule-branch, .capsule-commit-btn, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.capsule-input { transition: border-color var(--dur-fast) ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .capsule-trigger, .capsule-panel, .capsule-branches, .capsule-commit { animation: none; }
+}
+
 
 .workflow-card { margin: 4px 0; border: 1px solid var(--line); border-radius: var(--dsh-radius-card); background: var(--fill-soft); overflow: hidden; }
 .workflow-main {
