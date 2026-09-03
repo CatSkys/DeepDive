@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  ArrowUpFromLine, Check, ChevronDown, FileDiff, GitBranch,
+  Check, ChevronDown, CloudUpload, Diff, GitBranch,
   GitCommitHorizontal,
 } from "lucide-react";
 import { gitRun } from "../host";
@@ -80,7 +80,7 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
   return (
     <div className="capsule-sec">
       <div className="capsule-row">
-        <FileDiff size={14} />
+        <Diff size={14} />
         <span className="capsule-row-text">{t("变更")}</span>
         <span className="capsule-row-meta"><b className="capsule-add">+{git.additions}</b> <b className="capsule-del">−{git.deletions}</b></span>
       </div>
@@ -131,10 +131,10 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
             <GitCommitHorizontal size={14} /><span>{tt("提交", "Commit")}</span>
           </button>
           <button type="button" className="capsule-row-btn" disabled={busy !== null || !msg.trim()} onClick={() => void commit(true)}>
-            <ArrowUpFromLine size={14} /><span>{t("提交并推送")}</span>
+            <CloudUpload size={14} /><span>{t("提交并推送")}</span>
           </button>
           <button type="button" className="capsule-row-btn" disabled={busy !== null} onClick={() => void doPush()}>
-            <ArrowUpFromLine size={14} /><span>{t("推送")}</span>
+            <CloudUpload size={14} /><span>{t("推送")}</span>
           </button>
         </div>
       )}

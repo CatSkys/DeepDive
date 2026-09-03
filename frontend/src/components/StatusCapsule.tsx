@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlarmClock, ArrowRight, ChevronDown, ChevronUp, Circle,
-  CircleCheck, Flag, GitBranch, ListTodo, RefreshCw, Square, Users,
+  AlarmClock, ArrowRight, Bot, ChevronDown, ChevronUp, Circle,
+  CircleCheck, Flag, GitBranch, ListTodo, RefreshCw, Square,
 } from "lucide-react";
 import { api } from "../api";
 import { gitStatus } from "../host";
@@ -157,7 +157,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
       {cat && (
         <button type="button" className="capsule-trigger" data-open={open ? "true" : "false"} onClick={() => setOpen((v) => !v)}>
           {cat.kind === "agents" && <>
-            <Users size={13} />
+            <Bot size={13} />
             <span>{tt("{n} 运行中", "{n} running", { n: cat.count })}</span>
             <span className="capsule-live" aria-hidden="true" />
           </>}
@@ -229,7 +229,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
           {children.length > 0 && (
             <div className="capsule-sec">
               <div className="capsule-sec-name">
-                <Users size={12} />{t("子智能体")}
+                <Bot size={12} />{t("子智能体")}
                 <button type="button" className="capsule-refresh" title={t("刷新")} onClick={loadChildren}>
                   <RefreshCw size={11} />
                 </button>
