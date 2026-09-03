@@ -10,6 +10,12 @@ DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit �
 - `docs/UI-SPEC.md` / `docs/SPEC-SEMANTICS.md` — 视觉规范 / 产品语义（头部有已实现/未实现状态）
 - `docs/DSH-SOURCE-MAP.md` — 移植官方 UI 的源码对照图（对照仓内 vendored 副本 `deepseek-harness-master/`，勿自行发挥）
 
+## 心法
+
+- **本仓库由 AI 维护**，用户通过提交信息、文档与截图消费代码：写给下一个 agent 看，用该技术栈最主流、最默认的写法；禁止自造轮子、禁止聪明写法。
+- 简单直白优于优雅抽象；只写当前需要的，不做未来预留。
+- 目录即地图：文件名/目录名必须能说明里面是什么；新文件开头一两句注明职责（管什么、不管什么）。
+
 ## 仓库布局
 
 ```
@@ -31,9 +37,15 @@ make package    # Release + adhoc 深签 + DMG（dist/）
 make tokens     # tokens.json → tokens.css + Tokens.swift（改 token 后必跑）
 make clean      # 清 .build 与 dist
 
-cd frontend && npm run build   # tsc -b --noEmit && vite build（提交前门槛）
+cd frontend && npm run build   # tsc -b --noEmit && vite build
 cd apps/macos && xcodegen generate   # 改 project.yml 后重新生成工程
 ```
+
+## 完成的定义
+
+- `cd frontend && npm run build` 通过，且 `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` 零错误。
+- 改前端/UI 的提交走完交付链并截图自查（铁律 2）。
+- 无死代码残留：删除功能时代码、样式、文案、文档引用一并删干净；禁止留下注释掉的代码。
 
 ## 工程铁律
 
@@ -43,15 +55,18 @@ cd apps/macos && xcodegen generate   # 改 project.yml 后重新生成工程
 2. **交付链固定**：前端 build → package → pkill 旧进程 → open 最新包 → 日志确认 → 截图亲自看图后再回复（WORKING-AGREEMENTS §2/§4；PITFALLS §5.2）。改前端/UI 必须走全链。
 3. **单一事实源**：token=`tokens.json`、样式=`theme.css`、引擎版本=`scripts/dsh-runtime-version.txt`。易变值（版本号、端口、状态）**不内联**进文档正文与代码注释，指向事实源。
 4. **wire 契约勿猜**：新 RPC 方法先查引擎源码 `UNARY_ROUTES`（PITFALLS §4.6）；版本敏感面用 `probeMethod` 能力探测降级，缺则隐藏不崩溃。
-5. **空 catch 必须写明吞掉了什么**（`/* engine may be busy */` 式）；降级与静默必须是显式决定。
+5. **空 catch 必须写明吞掉了什么**（`/* engine may be busy */` 式）；降级与静默必须是显式决定，外部输入只在边界处校验（wire/解析/持久化），同进程信任类型。
 6. **只修用户指出的问题**：不扩大范围、不顺手"根除"（WORKING-AGREEMENTS §3）。
-7. **改动即提交**（中文详述因果）；临时验证代码当轮还原（WORKING-AGREEMENTS §4）。
+7. **新增依赖先停下来问用户**：是否主流、是否必要；不得擅自引入新技术栈。
+8. **改动即提交**（中文详述因果）；临时验证代码当轮还原（WORKING-AGREEMENTS §4）。
 
 ## 代码约定
 
+- **写新代码前先搜项目内同类实现**；同一功能禁止出现第二份拷贝。统一入口：RPC 只走 `api.ts`、壳桥只走 `host.ts`、共享状态经 `store.tsx`、样式用语义变量——同类通道禁止另开第二份。
+- **新文件 ≤300 行、函数 ≤50 行**，超了先拆再继续；存量大文件（`SessionView.tsx`、`theme.css` 等）不强制重构，但新逻辑放新文件，不再向上堆。
 - TypeScript 严格：无可辨识联合不用 `as any` 溢出；`sessionId`/`callId`/`toolCallId` 是裸 string，同名概念勿混用。
 - 事件摄取热路径 O(1)（Map 索引），禁止整窗扫描（PITFALLS §3.3）。
-- UI 文案一律经 `t()`/`tt()` 词典（`frontend/src/i18n.ts`），JSX 不写裸中文。
+- UI 文案一律经 `t()`/`tt()` 词典（`frontend/src/i18n.ts`），JSX 不写裸中文；同一概念全项目同一词。
 - 注释只写代码看不出的约束（契约/边界/为什么），不写实现叙述。
 - 平行值的未解释不对称通常意味着漏了一次抽取——优先补齐而非各写一套。
 - 引擎/壳侧标识符用 `deepdive.*` 命名空间（桥钩子 `__deepDiveHost`、消息通道 `deepdive`/`deepdiveHost`），勿再用 dshmini 旧名。
