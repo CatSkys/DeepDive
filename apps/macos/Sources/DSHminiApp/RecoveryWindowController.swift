@@ -24,6 +24,9 @@ final class RecoveryWindowController: NSWindowController {
         )
         window.title = "DSHmini — 引擎异常"
         window.isReleasedWhenClosed = false
+        // 恢复屏是"当次启动"的诊断面：不参与 macOS 窗口状态恢复，否则引擎
+        // 健康的新实例会被历史恢复窗骚扰（实测：pkill 交付链反复复现）。
+        window.isRestorable = false
         super.init(window: window)
         window.center()
 
