@@ -126,7 +126,7 @@ function Shell() {
                   <div className="title">{t("新会话")}</div>
                   <WorkspacePill />
                 </div>
-                <button className="model" data-tip={t("更换模型")} onClick={() => setShowModels((v) => !v)}>
+                <button className="model" onClick={() => setShowModels((v) => !v)}>
                   {modelName}
                 </button>
                 {showModels && (

@@ -244,7 +244,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             className={`ws-row${wsCollapsed ? " collapsed" : ""}`}
             role="treeitem"
             aria-expanded={!wsCollapsed}
-            data-tip={wsCollapsed ? t("展开会话") : t("收起会话")}
+           
             onClick={() => setWsCollapsed((v) => !v)}
           >
             <span className="ws-lead" aria-hidden="true">
@@ -318,7 +318,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             退化为手输绝对路径。 */}
         <button
           className="ws-add"
-          data-tip={t("新建空间（选择项目文件夹）")}
+         
           onClick={() => {
             if (window.webkit?.messageHandlers?.deepdiveHost) {
               sendToShell({ type: "pick-workspace" });
