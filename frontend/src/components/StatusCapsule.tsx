@@ -155,7 +155,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   return (
     <div className="capsule-wrap" ref={ref}>
       {cat && (
-        <button type="button" className="capsule-trigger" data-open={open ? "true" : "false"} onClick={() => setOpen((v) => !v)}>
+        <button type="button" className="capsule-trigger" data-tip={t("摘要")} data-open={open ? "true" : "false"} onClick={() => setOpen((v) => !v)}>
           {cat.kind === "agents" && <>
             <Bot size={13} />
             <span>{tt("{n} 运行中", "{n} running", { n: cat.count })}</span>
