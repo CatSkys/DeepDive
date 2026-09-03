@@ -132,7 +132,28 @@ export type SessionEvent =
   | { type: "command/done"; seq: number; time: number; data: CommandDoneData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "compaction/summary"; seq: number; time: number; data: CompactionSummaryData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "llm/retry"; seq: number; time: number; data: LlmRetryData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "tool-workflow/run-start"; seq: number; time: number; data: WorkflowRunStartData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "tool-workflow/agent-start"; seq: number; time: number; data: WorkflowAgentStartData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "tool-workflow/agent-end"; seq: number; time: number; data: WorkflowAgentEndData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "tool-workflow/run-end"; seq: number; time: number; data: WorkflowRunEndData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "schedule/change"; seq: number; time: number; data: ScheduleChangeData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: string; seq: number; time: number; data: unknown; sourceEventSeqs?: number[]; surfaceOp?: unknown; ignorable?: boolean };
+
+/** mux 下行帧的投影推送（goal 等键的实时整值）。 */
+export interface ProjectionFrame {
+  type: "session/projection";
+  sessionId: string;
+  key: string;
+  value: unknown;
+  seq: number;
+}
+
+/** mux 下行帧的后台任务快照（每次变化全量 jobs）。 */
+export interface JobsFrame {
+  type: "session/jobs";
+  sessionId: string;
+  jobs: JobView[];
+}
 
 /** 斜杠命令生命周期（docs/DSH-WIRE.md §3.5）；run/done 以 commandId 配对。 */
 export interface CommandRunData {
@@ -172,6 +193,87 @@ export interface LlmRetryData {
   maxRetries?: number;
   delayMs?: number;
   failure?: { message?: string; code?: string; status?: number };
+}
+
+/* ── 阶段 5：长任务与并行工作面（载荷出处 docs/DSH-WIRE.md §7）── */
+
+/** goal 投影值（goal/change 全值 last-wins；CAS 修订在其 goal.revision 上）。 */
+export interface GoalProjection {
+  goal: {
+    id: string;
+    revision: number;
+    objective: string;
+    phase: "active" | "paused" | "blocked" | "complete";
+    blockedReason?: { code: string; message: string };
+    maxGoalRounds: number;
+  };
+  roundsStarted: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** session/jobs 帧的单条后台任务视图。 */
+export interface JobView {
+  id: string;
+  kind: string;
+  label: string;
+  status: "running" | "stopping" | "completed" | "killed" | "failed";
+  detail?: string;
+  startedAt: number;
+  finishedAt?: number;
+}
+
+/** subagent.list 的单条目（谱系树；diagnostic 为坏账行）。 */
+export type SubagentListEntry =
+  | {
+    kind: "child";
+    id: string;
+    activity: "running" | "inactive";
+    hasChildren: boolean;
+    mode: "one-shot" | "continuable";
+    label?: string;
+  }
+  | { kind: "diagnostic"; id: string; reason: "corrupt" | "unsupported" | "unavailable" };
+
+/** tool-workflow/*：工作流运行记录（父会话事件流内的嵌套卡数据）。 */
+export interface WorkflowRunStartData {
+  runId: string;
+  name: string;
+}
+export interface WorkflowAgentStartData {
+  runId: string;
+  seq: number;
+  label: string;
+  phase?: string;
+  childId?: string;
+}
+export interface WorkflowAgentEndData {
+  runId: string;
+  seq: number;
+  outcome: "completed" | "failed" | "cancelled";
+}
+export interface WorkflowRunEndData {
+  runId: string;
+  stopReason: "completed" | "cancelled" | "error";
+}
+
+/** schedule/change：会话本地提醒的版本化变更（v1）。 */
+export type ScheduleChangeData =
+  | { version: 1; operation: "create"; schedule: ScheduleRecord }
+  | { version: 1; operation: "delete"; id: string }
+  | { version: 1; operation: "dispatch"; id: string }
+  | { version: 1; operation: "advance"; id: string; scheduledAt: string };
+
+export interface ScheduleRecord {
+  id: string;
+  kind: "after" | "at" | "every";
+  prompt: string;
+  /** kind=at/every：RFC 3339 UTC 目标时间。 */
+  scheduledAt?: string;
+  /** kind=every：固定间隔秒（≥300）。 */
+  everySeconds?: number;
+  /** kind=after：相对秒。 */
+  delaySeconds?: number;
 }
 
 /** 轮的 token 用量（usage 字段，rc.2 实测形状）。 */
@@ -257,6 +359,8 @@ export type MuxFrame =
   | { type: "session/event"; sessionId: string; event: SessionEvent }
   | { type: "session/subscribed"; sessionId: string; lastSeq: number }
   | { type: "session/queue"; sessionId: string; items: SessionQueuedItem[] }
+  | ProjectionFrame
+  | JobsFrame
   | ApprovalRequestFrame
   | ApprovalResolvedFrame
   | QuestionRequestedFrame

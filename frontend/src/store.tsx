@@ -59,6 +59,8 @@ interface Store {
   questions: Map<string, PendingQuestion>;
   /** 各会话的排队消息（session/queue 帧，全量 items）。 */
   queues: Map<string, SessionQueuedItem[]>;
+  /** 各会话的后台任务快照（session/jobs 帧，5.3）。 */
+  jobsBySession: Map<string, import("./types").JobView[]>;
   openSession: (id: string | null) => void;
   /** 切换工作空间：持久化 + 主区跟随（目标空间最近会话；空空间 → 欢迎页）。 */
   switchWorkspace: (id: string) => void;
@@ -103,6 +105,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [approvals, setApprovals] = useState<Map<string, ApprovalRequestFrame & { sessionId: string; rpcId?: string }>>(new Map());
   const [questions, setQuestions] = useState<Map<string, PendingQuestion>>(new Map());
   const [queues, setQueues] = useState<Map<string, SessionQueuedItem[]>>(new Map());
+  const [jobsBySession, setJobsBySession] = useState<Map<string, import("./types").JobView[]>>(new Map());
   const [muxHandlers] = useState<Set<MuxHandler>>(new Set());
   // 响应式侧栏：窄窗口自动收起，手动开合在同断点内优先；跨越断点时重置。
   const [sidebarOverride, setSidebarOverride] = useState<boolean | null>(null);
@@ -379,6 +382,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // 排队消息全量快照（engine 每次变化广播）。
           const q = frame as { sessionId: string; items?: SessionQueuedItem[] };
           setQueues((prev) => new Map(prev).set(q.sessionId, q.items ?? []));
+        } else if (frame.type === "session/jobs") {
+          // 后台任务全量快照（5.3；registry 每次变化广播）。
+          const j = frame as { sessionId: string; jobs?: import("./types").JobView[] };
+          setJobsBySession((prev) => new Map(prev).set(j.sessionId, j.jobs ?? []));
         } else if (frame.type === "question/requested") {
           if (rpcId) {
             const q = frame as { sessionId: string; questions: QuestionItem[] };
@@ -475,6 +482,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       approvals,
       questions,
       queues,
+      jobsBySession,
       refresh,
       openSession,
       switchWorkspace,
@@ -503,7 +511,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // 进 deps 会让 value 每次渲染重建——ref 镜像约定下显式排除，P2-6 snapshot
     // store 决策时一并处理；其余稳定标识（useCallback/useState）如实入表。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, everConnected, activeSessionId, approvals, questions, queues, openSession, switchWorkspace, createWorkspace, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -43,10 +43,21 @@ import { planReviewOf } from "../planReview";
 import { DiffBlock } from "./DiffBlock";
 import { PlanReviewCard } from "./PlanReviewCard";
 import { ContextRing, TurnUsagePop } from "./UsageMeter";
+import { GoalBar } from "./GoalBar";
+import { SubagentLineage, SubagentReadOnlyNotice } from "./SubagentLineage";
+import { JobsMenu, ScheduleMenu } from "./JobsMenu";
+
+export interface WorkflowMember {
+  seq: number;
+  label: string;
+  phase?: string;
+  childId?: string;
+  outcome?: "completed" | "failed" | "cancelled";
+}
 
 export interface RenderItem {
   key: string;
-  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail" | "command" | "injection" | "compaction" | "retry";
+  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail" | "command" | "injection" | "compaction" | "retry" | "workflow";
   event?: SessionEvent;
   toolName?: string;
   toolCallId?: string;
@@ -59,6 +70,8 @@ export interface RenderItem {
   commandId?: string;
   commandStatus?: "running" | "success" | "error";
   commandText?: string;
+  /** 工作流卡：成员按 seq 归并（agent-start/end 配对）。 */
+  members?: WorkflowMember[];
   /** 注入行：user/message 的 source.kind（plugin/skill-catalog…）。 */
   injectionLabel?: string;
   /** 压缩卡：compactionId 去重键。 */
@@ -166,6 +179,17 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [earliestSeq, setEarliestSeq] = useState<number | undefined>(undefined);
+  // 5.1 Goal：goal 投影整值（mux session/projection 实时推，3s 轮询兜底）
+  const [goalProj, setGoalProj] = useState<import("../types").GoalProjection | null | undefined>(undefined);
+  const refreshGoal = () => {
+    void api.sessions().then((r) => {
+      const s = (r.items ?? []).find((x) => x.sessionId === sessionId);
+      const v = s?.projections?.values?.goal as import("../types").GoalProjection | null | undefined;
+      setGoalProj(v ?? null);
+    }).catch(() => void 0);
+  };
+  // 5.3 Schedule：schedule/change 折叠出的会话提醒目录（只读）
+  const [scheduleRecords, setScheduleRecords] = useState<import("../types").ScheduleRecord[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
@@ -285,13 +309,35 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     // session.history (dot-form, beforeSeq anchor) and live events ride the
     // broadcast events.mux downlink — session/follow + remote.mux do not
     // exist in this build (PITFALLS 4.6).
-    api
-      .history({ sessionId, maxMessages: 120 })
+    // 子会话（origin==='subagent'）冷读失败时走 subagent.history 面兜底
+    //（未激活子会话不在 session store 里，session.history 会 404）。
+    const loadPage = async (): Promise<{ events: HistoryEntry[]; hasMore: boolean }> => {
+      try {
+        return await api.history({ sessionId, maxMessages: 120 });
+      } catch (err) {
+        const sum = store.sessions.find((x) => x.sessionId === sessionId);
+        if (sum?.origin !== "subagent" || !sum.parentSessionId) throw err;
+        const list = await api.subagentList({ parentSessionId: sum.parentSessionId });
+        const self = list.entries.find((e): e is Extract<import("../types").SubagentListEntry, { kind: "child" }> => e.kind === "child" && e.id === sessionId);
+        const mode = self?.mode ?? "continuable";
+        const page = await api.subagentHistory({ parentSessionId: sum.parentSessionId, childSessionId: sessionId, mode, maxMessages: 120 });
+        return { events: page.events, hasMore: page.hasMore };
+      }
+    };
+    loadPage()
       .then(({ events, hasMore: more }) => {
         if (!alive) return;
         eventLog.current = events;
         setItems(rebuild(eventLog.current));
         setHasMore(more);
+        // 历史窗口内的 schedule/change 一并折叠（增量变化由 mux 帧驱动）
+        let recs: import("../types").ScheduleRecord[] = [];
+        for (const e of events) {
+          if (e.event.type === "schedule/change") {
+            recs = foldSchedule(recs, e.event.data as import("../types").ScheduleChangeData);
+          }
+        }
+        setScheduleRecords(recs);
         const first = events[0];
         if (first) setEarliestSeq(first.event.seq);
         const last = events[events.length - 1];
@@ -300,9 +346,19 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       .catch(() => void 0);
 
     const off = subscribeMux((frame) => {
+      if (frame.type === "session/projection") {
+        const p = frame as import("../types").ProjectionFrame;
+        if (p.sessionId === sessionId && p.key === "goal") {
+          setGoalProj((p.value ?? null) as import("../types").GoalProjection | null);
+        }
+        return;
+      }
       if (frame.type !== "session/event") return;
       const ev = (frame as { type: "session/event"; sessionId: string; event: SessionEvent }).event;
       if (ev === undefined || (frame as { sessionId?: string }).sessionId !== sessionId) return;
+      if (ev.type === "schedule/change") {
+        setScheduleRecords((prev) => foldSchedule(prev, ev.data as import("../types").ScheduleChangeData));
+      }
       const seq = ev.seq ?? -1;
       if (seq >= 0 && seq < seqFloor) return;
       setItems((prev) => {
@@ -328,6 +384,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     });
 
     // plan projection: DSH PlanChip visibility (active, or pending when folded)
+    // + goal 投影兜底（正常路径走 session/projection 实时推送）
     const tickPlan = () => {
       api.sessions().then((r) => {
         const s = (r.items ?? []).find((x) => x.sessionId === sessionId);
@@ -335,6 +392,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         if (planVal) {
           setPlan({ active: !!planVal.active, pending: !!planVal.pending });
         }
+        const goalVal = s?.projections?.values?.goal as import("../types").GoalProjection | null | undefined;
+        setGoalProj(goalVal ?? null);
       }).catch(() => void 0);
     };
     tickPlan();
@@ -366,6 +425,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const anchorTop = el ? el.getBoundingClientRect().top - scrollRef.current!.getBoundingClientRect().top : 0;
       const { events: older, hasMore: more } = await api.history({ sessionId, atSeq, maxMessages: 120 });
       eventLog.current = [...older, ...eventLog.current];
+      let recs: import("../types").ScheduleRecord[] = [];
+      for (const e of eventLog.current) {
+        if (e.event.type === "schedule/change") {
+          recs = foldSchedule(recs, e.event.data as import("../types").ScheduleChangeData);
+        }
+      }
+      setScheduleRecords(recs);
       setItems(rebuild(eventLog.current));
       // After render, restore the anchor row to its captured offset.
       requestAnimationFrame(() => {
@@ -440,6 +506,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         <div className="hero">
           <HeroBrand />
           <div className="hero-composer">
+            <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
             <Composer sessionId={sessionId} />
           </div>
         </div>
@@ -492,6 +559,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           </span>
         )}
         <AccessChip sessionId={sessionId} />
+        <SubagentLineage sessionId={sessionId} />
+        <JobsMenu sessionId={sessionId} />
+        <ScheduleMenu records={scheduleRecords} />
         <ContextRing projected={projVals.contextPressure?.projectedTokens} window={projVals.contextPressure?.contextWindow} usage={projVals.tokenUsage} />
       </div>
       <div className="flow" ref={scrollRef} onScroll={(e) => {
@@ -570,7 +640,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         </div>
       )}
       <div className="session-bottom">
-        <Composer sessionId={sessionId} />
+        <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
+        {summary?.origin === "subagent" ? (
+          <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
+        ) : (
+          <Composer sessionId={sessionId} />
+        )}
       </div>
     </div>
   );
@@ -681,6 +756,9 @@ function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onContinue 
   }
   if (item.kind === "command") {
     return <CommandCard name={item.toolName ?? "cmd"} args={item.args ?? ""} status={item.commandStatus ?? "running"} text={item.commandText} />;
+  }
+  if (item.kind === "workflow") {
+    return <WorkflowCard name={item.args ?? t("工作流")} members={item.members ?? []} status={item.commandStatus} stopReason={item.commandText} />;
   }
   if (item.kind === "chunk" && item.output) {
     return <div className="msg assistant"><div className="text">{item.output}</div></div>;
@@ -818,6 +896,72 @@ function CommandCard({ name, args, status, text }: {
     </div>
   );
 }
+
+/** 工作流运行卡（5.4）：tool-workflow/* 事件驱动的嵌套成员卡。
+ *  成员行=状态点+标签（+阶段），点击切入成员子会话；run-end 后定格终止原因。 */
+function WorkflowCard({ name, members, status, stopReason }: {
+  name: string;
+  members: WorkflowMember[];
+  status?: "running" | "success" | "error";
+  stopReason?: string;
+}) {
+  const { openSession } = useStore();
+  const [open, setOpen] = useState(true);
+  const done = members.filter((m) => m.outcome).length;
+  const failed = members.filter((m) => m.outcome === "failed").length;
+  return (
+    <div className="workflow-card" data-status={status ?? "running"}>
+      <button type="button" className="workflow-main" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span className="workflow-leading">
+          {status === "success" ? <IconCheckOutline16 size={13} /> : status === "error" ? <StateDot state="error" /> : <StateDot state="running" />}
+        </span>
+        <span className="workflow-name">{name}</span>
+        <span className="workflow-count">
+          {tt("{done}/{total} 成员", "{done}/{total} members", { done, total: members.length })}
+          {failed > 0 ? ` · ${tt("{n} 失败", "{n} failed", { n: failed })}` : ""}
+        </span>
+        {status === "error" && stopReason && <span className="workflow-reason">{stopReason}</span>}
+        <ChevronDown size={13} className="injection-chev" data-open={open ? "true" : "false"} />
+      </button>
+      {open && (
+        <div className="workflow-members">
+          {members.map((m) => (
+            <button
+              key={m.seq}
+              type="button"
+              className="workflow-member"
+              onClick={() => (m.childId ? openSession(m.childId) : undefined)}
+              disabled={!m.childId}
+            >
+              <span className={`state-dot ${m.outcome === "failed" || m.outcome === "cancelled" ? "error" : m.outcome === "completed" ? "ok" : "running"}`} aria-hidden="true" />
+              <span className="workflow-member-label">{m.label}</span>
+              {m.phase && <span className="workflow-phase">{m.phase}</span>}
+              <span className="workflow-outcome">{m.outcome ? tt(...(MEMBER_OUTCOME[m.outcome] ?? ["", ""])) : ""}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** schedule/change 折叠（5.3，官方 schedule 域 fold）：create→登记、
+ *  delete→移除、dispatch/advance→定格。纯函数，vitest 钉住。 */
+export function foldSchedule(records: import("../types").ScheduleRecord[], data: import("../types").ScheduleChangeData): import("../types").ScheduleRecord[] {
+  if (data.operation === "create") {
+    if (records.some((r) => r.id === data.schedule.id)) return records;
+    return [...records, data.schedule];
+  }
+  if (data.operation === "delete") return records.filter((r) => r.id !== data.id);
+  return records; // dispatch/advance 只影响投递史，目录不展示已派发项
+}
+
+/** 工作流成员结果文案。 */
+const MEMBER_OUTCOME: Record<string, [string, string]> = {
+  completed: ["完成", "done"],
+  failed: ["失败", "failed"],
+  cancelled: ["已取消", "cancelled"],
+};
 
 /// Task list panel inside the todo row — DSH todo body list.
 function TodoList({ todos }: { todos: Array<{ content: string; status: string }> }) {  return (
@@ -1448,6 +1592,8 @@ export interface IngestCtx {
   commandIndex: Map<string, number>;
   /** retryId → rendered retry item index（同一等待去重更新）. */
   retryIndex: Map<string, number>;
+  /** runId → rendered workflow item index（成员就地归并，O(1)）. */
+  workflowIndex: Map<string, number>;
   /** turn → 轮终原因 / 累计用量（轮尾渲染）. */
   turnReason: Map<number, import("../types").TurnEndReason>;
   turnUsage: Map<number, import("../types").TokenUsage>;
@@ -1459,7 +1605,7 @@ export interface IngestCtx {
 
 /** Fresh ingest context — history replay, live mux passes and tests share one shape. */
 export function makeIngestCtx(): IngestCtx {
-  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map() };
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map() };
 }
 
 export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string; view?: HistoryEntryView }, ctx: IngestCtx) {
@@ -1649,6 +1795,40 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         const idx = out.length;
         out.push({ ...base, kind: "retry", retryId: d.retryId, output: retryText(d) });
         if (d.retryId) ctx.retryIndex.set(d.retryId, idx);
+      }
+      break;
+    }
+    case "tool-workflow/run-start":
+    case "tool-workflow/agent-start":
+    case "tool-workflow/agent-end":
+    case "tool-workflow/run-end": {
+      // 工作流运行卡（5.4）：run-start 开卡，成员按 seq 就地归并，run-end 定格
+      const d = ev.data as import("../types").WorkflowRunStartData & Partial<import("../types").WorkflowAgentStartData & import("../types").WorkflowAgentEndData & import("../types").WorkflowRunEndData>;
+      let idx = ctx.workflowIndex.get(d.runId);
+      if (idx === undefined || !out[idx]) {
+        idx = out.length;
+        out.push({
+          ...base,
+          kind: "workflow",
+          toolCallId: d.runId,
+          args: ev.type === "tool-workflow/run-start" ? (ev.data as import("../types").WorkflowRunStartData).name : "",
+        });
+        ctx.workflowIndex.set(d.runId, idx);
+      }
+      const card = out[idx]!;
+      if (ev.type === "tool-workflow/agent-start") {
+        const s = ev.data as import("../types").WorkflowAgentStartData;
+        card.members = card.members ?? [];
+        card.members.push({ seq: s.seq, label: s.label, phase: s.phase, childId: s.childId, outcome: undefined });
+        if (!card.args) card.args = s.label;
+      } else if (ev.type === "tool-workflow/agent-end") {
+        const e2 = ev.data as import("../types").WorkflowAgentEndData;
+        card.members = card.members ?? [];
+        const m = card.members.find((x) => x.seq === e2.seq);
+        if (m) m.outcome = e2.outcome;
+      } else if (ev.type === "tool-workflow/run-end") {
+        card.commandStatus = (ev.data as import("../types").WorkflowRunEndData).stopReason === "completed" ? "success" : "error";
+        card.commandText = (ev.data as import("../types").WorkflowRunEndData).stopReason;
       }
       break;
     }

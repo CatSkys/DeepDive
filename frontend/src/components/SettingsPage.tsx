@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Archive, Bot, ChevronLeft, Cpu, Folder, Keyboard, Moon,
   Monitor, Plug, Settings as SettingsIcon, Sun, X,
 } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown, Toggle } from "../settings/controls";
+import { ModelCatalog } from "../settings/ModelCatalog";
+import { PluginConfigCards } from "../settings/PluginConfigCards";
 import { api, probeMethod } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
@@ -324,6 +326,7 @@ function ModelsSection() {
         </div>
       ))}
       {rows !== null && rows.length === 0 && <div className={rowsCss.muted}>{t("无结果")}</div>}
+      <ModelCatalog />
     </div>
   );
 }
@@ -395,57 +398,15 @@ function PresetsSection() {
 
 /* ───────────────────────── 插件 ───────────────────────── */
 
+/// rc.2 无 pluginInventory 浏览器面（404，DSH-WIRE §1）——原清单面降级为
+/// 设置命名空间驱动的可配置项卡（官方 ui-settings-plugins 的 Bash/AgentLoop/
+/// WebSearch 卡同构），清单不再渲染死面。
 function PluginsSection() {
   const { t } = useT();
-  const [entries, setEntries] = useState<Array<{ entryId: string; moduleName: string; enabled: boolean }> | null>(null);
-  const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const r = await api.callRaw<{ entries?: Array<{ entryId: string; moduleName: string; enabled: boolean }> }>("pluginInventory/list", {});
-        setEntries((r.entries ?? []).sort((a, b) => a.entryId.localeCompare(b.entryId)));
-      } catch { setEntries([]); }
-    })();
-  }, []);
-
-  const filtered = useMemo(
-    () => (entries ?? []).filter((e) => e.entryId.toLowerCase().includes(query.trim().toLowerCase())),
-    [entries, query],
-  );
-
   return (
     <div className={rowsCss.section}>
-      <div className={rowsCss.sectionIntro}>{t("本引擎装载的扩展模块。")}</div>
-      <div className={rowsCss.setInline} style={{ marginBottom: 10 }}>
-        <input
-          className={rowsCss.textField}
-          style={{ flex: 1 }}
-          placeholder={t("搜索插件")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      {entries === null && <div className={rowsCss.muted}>{t("载入中…")}</div>}
-      {entries !== null && (
-        <>
-          <div className={rowsCss.muted} style={{ marginBottom: 6 }}>
-            {t("插件")} · {filtered.length}
-          </div>
-          <div>
-            {filtered.map((e) => (
-              <div key={e.entryId} className={rowsCss.listRow}>
-                <span className={rowsCss.listName}>{e.entryId}</span>
-                <span className={rowsCss.badge}>
-                  <span className={`${rowsCss.badgeDot}${e.enabled ? ` ${rowsCss.on}` : ""}`} />
-                  <span className={`${rowsCss.badgeText}${e.enabled ? ` ${rowsCss.on}` : ""}`}>{e.enabled ? t("已启用") : t("已停用")}</span>
-                </span>
-              </div>
-            ))}
-            {filtered.length === 0 && <div className={rowsCss.muted}>{t("无结果")}</div>}
-          </div>
-        </>
-      )}
+      <div className={rowsCss.sectionIntro}>{t("本引擎装载的扩展模块的可配置项（按设置命名空间呈现）。")}</div>
+      <PluginConfigCards />
     </div>
   );
 }

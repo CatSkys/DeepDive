@@ -2622,3 +2622,165 @@ button {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
+/* ── 阶段 5：Goal 条 / 谱系 / 后台任务与提醒 / 工作流卡 / 子会话只读 ── */
+.goal-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 0 auto 8px;
+  max-width: 720px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--dsh-radius-keycap);
+  background: linear-gradient(135deg, var(--fill), var(--fill-soft));
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.goal-glyph { color: var(--ink-3); display: inline-flex; }
+.goal-bar[data-phase="active"] .goal-glyph { color: #7FDBCA; }
+.goal-bar[data-phase="paused"] .goal-glyph { color: #FFCB6B; }
+.goal-bar[data-phase="blocked"] .goal-glyph { color: #FF9F0A; }
+.goal-phase { font-weight: 600; color: var(--ink-soft); flex: none; }
+.goal-objective { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+.goal-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--fill-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink);
+  font-size: 12.5px;
+  padding: 3px 8px;
+}
+.goal-actions { display: inline-flex; gap: 2px; margin-left: auto; flex: none; }
+.goal-act {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+}
+.goal-act:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
+.goal-act:disabled { opacity: .4; }
+.goal-error { font-size: 11px; color: #FF9F0A; flex: none; }
+
+.lineage-wrap, .jobs-wrap { position: relative; }
+.lineage-trigger, .jobs-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: var(--dsh-radius-keycap);
+  border: 1px solid var(--line-strong);
+  background: var(--fill-soft);
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.lineage-trigger:hover, .jobs-trigger:hover, .lineage-trigger[data-open="true"], .jobs-trigger[data-open="true"] { background: var(--fill); color: var(--ink); }
+.lineage-live { width: 6px; height: 6px; border-radius: 50%; background: #7FDBCA; animation: pulse 1.2s ease-in-out infinite; }
+.lineage-menu, .jobs-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 280px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 5px;
+  border-radius: var(--dsh-radius-card);
+  border: 1px solid var(--line-strong);
+  background: var(--menu-solid);
+  box-shadow: 0 12px 36px rgba(0,0,0,.35);
+}
+.lineage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.lineage-refresh { color: var(--ink-3); padding: 2px; border-radius: 4px; }
+.lineage-refresh:hover { color: var(--ink); }
+.lineage-row, .jobs-row { display: flex; align-items: center; gap: 8px; padding: 2px 4px; border-radius: var(--dsh-radius-keycap); }
+.lineage-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 4px 6px;
+  border-radius: var(--dsh-radius-keycap);
+}
+.lineage-main:hover { background: var(--fill); }
+.lineage-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); flex: none; }
+.lineage-dot.live { background: #7FDBCA; animation: pulse 1.2s ease-in-out infinite; }
+.lineage-label { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lineage-mode, .lineage-diag { font-size: 11px; color: var(--ink-3); flex: none; }
+.lineage-diag { padding: 4px 8px; }
+.lineage-stop { color: var(--ink-3); padding: 3px; border-radius: 4px; flex: none; }
+.lineage-stop:hover:not(:disabled) { color: #FF9F0A; background: var(--fill); }
+
+.jobs-trigger { position: relative; }
+.jobs-row { padding: 5px 6px; align-items: flex-start; }
+.jobs-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.jobs-label { font-size: 12px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jobs-meta { font-size: 11px; color: var(--ink-3); }
+.jobs-elapsed { font-size: 11px; color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
+
+.workflow-card { margin: 4px 0; border: 1px solid var(--line); border-radius: var(--dsh-radius-card); background: var(--fill-soft); overflow: hidden; }
+.workflow-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  text-align: left;
+}
+.workflow-leading { display: inline-flex; color: var(--ink-3); }
+.workflow-name { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+.workflow-count { font-size: 11.5px; color: var(--ink-3); }
+.workflow-reason { font-size: 11.5px; color: var(--ink-3); margin-left: auto; }
+.workflow-main .injection-chev[data-open="false"] { transform: rotate(-90deg); }
+.workflow-members { border-top: 1px solid var(--line); padding: 4px 6px; display: flex; flex-direction: column; gap: 1px; }
+.workflow-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: var(--dsh-radius-keycap);
+  text-align: left;
+}
+.workflow-member:hover:not(:disabled) { background: var(--fill); }
+.workflow-member:disabled { cursor: default; }
+.workflow-member-label { font-size: 12px; color: var(--ink-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workflow-phase { font-size: 11px; color: var(--ink-3); }
+.workflow-outcome { font-size: 11px; color: var(--ink-3); flex: none; }
+
+.subagent-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  max-width: 720px;
+  margin: 0 auto 8px;
+  padding: 10px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--dsh-radius-card);
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.subagent-readonly strong { color: var(--ink); font-size: 13px; }
+.subagent-parent-link {
+  padding: 3px 12px;
+  border-radius: 18px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-2);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.subagent-parent-link:hover { background: var(--fill); color: var(--ink); }

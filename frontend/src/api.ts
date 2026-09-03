@@ -92,6 +92,24 @@ export const api = {
    *  未放行的部署上这里会 reject，调用方按 title-only 降级。 */
   search: (payload: { query: string }) =>
     unary<{ items: Array<{ sessionId: string; snippet: string }>; hasMore: boolean }>("session.search", payload),
+  /** Goal 长任务（5.1）：全部走 CAS 修订围栏，ref.revision 必须是投影里的当前值。 */
+  goalCreate: (payload: { sessionId: string; objective: string; maxGoalRounds?: number }) =>
+    unary<{ ref: { id: string; revision: number } }>("goal.create", payload),
+  goalEdit: (payload: { sessionId: string; ref: { id: string; revision: number }; objective?: string; maxGoalRounds?: number }) =>
+    unary<{ ref: { id: string; revision: number } }>("goal.edit", payload),
+  goalPause: (payload: { sessionId: string; ref: { id: string; revision: number } }) =>
+    unary<{ ref: { id: string; revision: number } }>("goal.pause", payload),
+  goalResume: (payload: { sessionId: string; ref: { id: string; revision: number } }) =>
+    unary<{ ref: { id: string; revision: number } }>("goal.resume", payload),
+  goalClear: (payload: { sessionId: string; ref: { id: string; revision: number } }) =>
+    unary<{ ref: { id: string; revision: number } }>("goal.clear", payload),
+  /** Subagent 谱系（5.2）：parentSessionId 的直接子会话目录。 */
+  subagentList: (payload: { parentSessionId: string }) =>
+    unary<{ entries: import("./types").SubagentListEntry[]; parentAvailable: boolean }>("subagent.list", payload),
+  subagentInterrupt: (payload: { parentSessionId: string; childSessionId: string; mode: "continuable" }) =>
+    unary<{ accepted: true }>("subagent.interrupt", payload),
+  subagentHistory: (payload: { parentSessionId: string; childSessionId: string; mode: "one-shot" | "continuable"; beforeSeq?: number; maxMessages?: number }) =>
+    unary<{ events: HistoryEntry[]; hasMore: boolean }>("subagent.history", payload),
   answerApproval: (value: { rpcId: string; sessionId: string; approvalId: string; outcome: "allowed-once" | "rejected" }) =>
     respondTo(value.rpcId, {
       sessionId: value.sessionId,
@@ -171,6 +189,9 @@ export const api = {
   credentialsSet: (payload: { ref: string; value: string }) => unary("credentials.set", payload),
   credentialsUnset: (payload: { ref: string }) => unary("credentials.unset", payload),
   llmProviders: () => unary<{ providers: Array<{ provider: string; displayName: string; settingsNs: string; settingsPath: string[]; active: boolean; declared?: boolean }> }>("llm.providers", {}),
+  /** 探测端点可用模型（5.5 自定义提供方）：apiKey 只上送不存储。 */
+  discoverModels: (payload: { settingsNs: string; provider?: string; baseURL?: string; api?: string; apiKey?: string }) =>
+    unary<{ models: Array<{ id: string; name?: string; contextWindow?: number; maxTokens?: number }> }>("llm.discoverModels", payload),
   openMux: (onFrame: (frame: MuxFrame, rpcId?: string) => void, onOpen: () => void) => openMux(onFrame, onOpen),
   /** Escape hatch for the settings panes: same dot-form + flat payload rules. */
   callRaw: <T = unknown>(method: string, payload: unknown) => unary<T>(method, payload),
@@ -184,7 +205,7 @@ export interface SettingsNamespaceEntry {
   user?: unknown;
   applies?: unknown;
   revision: unknown;
-  secrets?: Array<{ path: string; set: boolean }>;
+  secrets?: Array<{ path: string[]; set: boolean }>;
   writable?: boolean;
 }
 
