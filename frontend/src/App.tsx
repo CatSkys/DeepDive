@@ -11,6 +11,7 @@ import { SessionView } from "./components/SessionView";
 import { HeroBrand } from "./components/HeroBrand";
 import { SettingsPage } from "./components/SettingsPage";
 import { ModelMenu, type ModelOption } from "./components/ModelMenu";
+import { TooltipHost } from "./components/Tooltip";
 import "./theme.css";
 
 function Shell() {
@@ -90,6 +91,7 @@ function Shell() {
   };
   return (
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
+      <TooltipHost />
       {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失 */}
       {store.everConnected && !store.engineUp && (
         <div className="engine-banner" role="status">
@@ -99,10 +101,10 @@ function Shell() {
       )}
       {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。 */}
       <div className="window-top">
-        <button className="window-top-btn" title={t("新会话")} onClick={() => void store.createSession()}>
+        <button className="window-top-btn" data-tip={t("新会话")} onClick={() => void store.createSession()}>
           <IconNewChatOutline16 size={17} />
         </button>
-        <button className="window-top-btn" title={t("收起侧栏")} onClick={() => store.toggleSidebar()}>
+        <button className="window-top-btn" data-tip={t("收起侧栏")} onClick={() => store.toggleSidebar()}>
           <PanelLeft size={17} />
         </button>
       </div>
@@ -124,7 +126,7 @@ function Shell() {
                   <div className="title">{t("新会话")}</div>
                   <WorkspacePill />
                 </div>
-                <button className="model" title={t("更换模型")} onClick={() => setShowModels((v) => !v)}>
+                <button className="model" data-tip={t("更换模型")} onClick={() => setShowModels((v) => !v)}>
                   {modelName}
                 </button>
                 {showModels && (

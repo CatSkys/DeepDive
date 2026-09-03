@@ -450,7 +450,7 @@ function PresetsSection() {
                 key={p.id}
                 className={`${rowsCss.presetCard}${current ? ` ${rowsCss.current}` : ""}`}
                 onClick={() => void setDefault(p.id)}
-                title={t("设为默认")}
+                data-tip={t("设为默认")}
               >
                 <div className={rowsCss.presetHead}>
                   <span className={rowsCss.presetName}>{p.name ?? p.id}</span>

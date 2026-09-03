@@ -87,10 +87,10 @@ export function GoalBar({ projection, onChange, sessionId }: {
           }}
         />
         {error && <span className="goal-error" role="alert">{error}</span>}
-        <button className="goal-act" title={t("保存")} disabled={pending || !draft.trim()} onClick={() => void edit()}>
+        <button className="goal-act" data-tip={t("保存")} disabled={pending || !draft.trim()} onClick={() => void edit()}>
           <Check size={13} />
         </button>
-        <button className="goal-act" title={t("取消")} disabled={pending} onClick={() => setEditing(false)}>
+        <button className="goal-act" data-tip={t("取消")} disabled={pending} onClick={() => setEditing(false)}>
           <X size={13} />
         </button>
       </div>
@@ -102,31 +102,31 @@ export function GoalBar({ projection, onChange, sessionId }: {
     ? (goal!.blockedReason?.message ?? tt(...PHASE_LABEL.blocked!))
     : tt(...phasePair);
   return (
-    <div className="goal-bar" data-goal-bar="" data-phase={goal!.phase} title={goal!.phase === "blocked" ? goal!.blockedReason?.message : undefined}>
+    <div className="goal-bar" data-goal-bar="" data-phase={goal!.phase} data-tip={goal!.phase === "blocked" ? goal!.blockedReason?.message : undefined}>
       <span className="goal-glyph"><Flag size={13} /></span>
       <span className="goal-phase">{phaseLabel}</span>
       <span className="goal-objective">{goal!.objective}</span>
       {error && <span className="goal-error" role="alert">{error}</span>}
       <div className="goal-actions">
         {goal!.phase === "active" && (
-          <button className="goal-act" title={t("暂停目标")} disabled={pending} onClick={() => void run(() => api.goalPause({ sessionId, ref: cas() }))}>
+          <button className="goal-act" data-tip={t("暂停目标")} disabled={pending} onClick={() => void run(() => api.goalPause({ sessionId, ref: cas() }))}>
             <Pause size={13} />
           </button>
         )}
         {goal!.phase === "paused" && (
-          <button className="goal-act" title={t("恢复目标")} disabled={pending} onClick={() => void run(() => api.goalResume({ sessionId, ref: cas() }))}>
+          <button className="goal-act" data-tip={t("恢复目标")} disabled={pending} onClick={() => void run(() => api.goalResume({ sessionId, ref: cas() }))}>
             <Play size={13} />
           </button>
         )}
         <button
           className="goal-act"
-          title={t("编辑目标")}
+          data-tip={t("编辑目标")}
           disabled={pending}
           onClick={() => { setDraft(goal!.objective); setEditing(true); }}
         >
           <Pencil size={13} />
         </button>
-        <button className="goal-act" title={t("清除目标")} disabled={pending} onClick={() => void run(() => api.goalClear({ sessionId, ref: cas() }))}>
+        <button className="goal-act" data-tip={t("清除目标")} disabled={pending} onClick={() => void run(() => api.goalClear({ sessionId, ref: cas() }))}>
           <Trash2 size={13} />
         </button>
       </div>

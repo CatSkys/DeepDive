@@ -436,7 +436,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <div className="title">{title}</div>
               <WorkspacePill />
             </div>
-            <button className="model trigger" data-open={showModels ? "true" : "false"} title={t("模型与推理")} onClick={() => setShowModels(true)}>
+            <button className="model trigger" data-open={showModels ? "true" : "false"} data-tip={t("模型与推理")} onClick={() => setShowModels(true)}>
               {modelName || "Auto"}
               {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
               <ChevronDown size={12} className="trigger-chev" />
@@ -473,7 +473,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <div className="title">{title}</div>
             <WorkspacePill />
           </div>
-          <button className="model trigger" data-open={showModels ? "true" : "false"} title={t("模型与推理")} onClick={() => setShowModels(true)}>
+          <button className="model trigger" data-open={showModels ? "true" : "false"} data-tip={t("模型与推理")} onClick={() => setShowModels(true)}>
             {modelName || "Auto"}
             {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
             <ChevronDown size={12} className="trigger-chev" />
@@ -495,7 +495,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <button
               type="button"
               className="plan-chip"
-              title={t("退出计划模式")}
+              data-tip={t("退出计划模式")}
               aria-label={t("退出计划模式")}
               onClick={() => {
                 api.prompt({
@@ -610,7 +610,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       {!follow && (
         <button
           className="jump-down"
-          title={t("回到最新")}
+          data-tip={t("回到最新")}
           onClick={() => {
             scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
             setFollow(true);
@@ -1048,7 +1048,7 @@ function ProducedFiles({ paths }: { paths: string[] }) {
       <span className="produced-label">{t("产物")}</span>
       <div className="produced-row">
         {shown.map((p) => (
-          <button type="button" key={p} className="produced-file" title={p}>
+          <button type="button" key={p} className="produced-file" data-tip={p}>
             {basename(p)}
           </button>
         ))}
@@ -1118,7 +1118,7 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSi
       {branch && (
         <button
           className="meta-action"
-          title={t("分支")}
+          data-tip={t("分支")}
           aria-label={t("分支")}
           onClick={onBranch}
         >
@@ -1388,7 +1388,7 @@ function QuestionCard({ rpcId, sessionId, questions }: {
         <IconQuestionOutline14 size={14} />
         {t("澄清一下")}
         {questions.length > 1 && <span className="pager">{page + 1}/{questions.length}</span>}
-        <button className="q-close" title={t("取消提问")} disabled={submitting} onClick={() => void cancel()}>
+        <button className="q-close" data-tip={t("取消提问")} disabled={submitting} onClick={() => void cancel()}>
           <X size={13} />
         </button>
       </div>
@@ -2023,17 +2023,17 @@ function QueueDock({ sessionId, items }: { sessionId: string; items: SessionQueu
                   }}
                 />
                 <div className="queue-actions">
-                  <button className="queue-btn" title={t("保存排队消息")} onClick={() => saveEdit(item.id)}>
+                  <button className="queue-btn" data-tip={t("保存排队消息")} onClick={() => saveEdit(item.id)}>
                     <IconCheckOutline16 size={14} />
                   </button>
-                  <button className="queue-btn" title={t("取消编辑")} onClick={() => setEditingId(null)}>
+                  <button className="queue-btn" data-tip={t("取消编辑")} onClick={() => setEditingId(null)}>
                     <X size={14} />
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <span className="queue-text" title={text}>{text}</span>
+                <span className="queue-text" data-tip={text}>{text}</span>
                 <div className="queue-actions">
                   <button className="queue-now" title={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
                     <ArrowUp size={13} />

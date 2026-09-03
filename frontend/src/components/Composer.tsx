@@ -386,7 +386,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
         <button
           type="button"
           className="composer-icon"
-          title={t("添加附件（输入 @）")}
+          data-tip={t("添加附件（输入 @）")} data-tip-keys="@"
           aria-expanded={plusOpen}
           onClick={() => { setPlusOpen((v) => !v); setDismissed(false); taRef.current?.focus(); }}
         >
@@ -435,19 +435,19 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
           <button
             type="button"
             className="composer-send stop"
-            title={t("停止")}
+            data-tip={t("停止")}
             onClick={() => sessionId && void api.cancel({ sessionId }).catch(() => void 0)}
           >
             <Square size={13} fill="currentColor" />
           </button>
         ) : canSend ? (
-          <button type="button" className="composer-send" title={t("发送")} onClick={() => void submit()}>
+          <button type="button" className="composer-send" data-tip={t("发送")} data-tip-keys="Enter" onClick={() => void submit()}>
             <ArrowUp size={15} strokeWidth={2.4} />
           </button>        ) : hasShell ? (
           <button
             type="button"
             className={`composer-mic${listening ? " live" : ""}`}
-            title={listening ? t("停止听写") : t("听写")}
+            data-tip={listening ? t("停止听写") : t("听写")}
             onClick={toggleDictation}
           >
             {listening ? (

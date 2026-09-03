@@ -2821,6 +2821,47 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 黑白主题下 goal 编辑框的聚焦反馈（此前无规则，露出系统蓝环） */
 .goal-input:focus { outline: none; border-color: var(--ink-3); background: var(--fill); }
 
+/* 全局悬浮注释（data-tip）：与触发元素四边对齐，键帽快捷键右置 */
+.tip {
+  position: fixed;
+  z-index: 1300;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 320px;
+  padding: 5px 10px;
+  border-radius: var(--dsh-radius-control);
+  border: 1px solid var(--line-strong);
+  background: var(--menu-solid);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 18px;
+  animation: tip-in var(--dur-fast) var(--ease-out) both;
+}
+.tip[data-pos="top"] { --tip-x: 0px; --tip-y: 6px; }
+.tip[data-pos="bottom"] { --tip-x: 0px; --tip-y: -6px; }
+.tip[data-pos="left"] { --tip-x: -6px; --tip-y: 0px; }
+.tip[data-pos="right"] { --tip-x: 6px; --tip-y: 0px; }
+@keyframes tip-in {
+  from { opacity: 0; transform: translate(var(--tip-x), var(--tip-y)); }
+  to { opacity: 1; transform: translate(0px, 0px); }
+}
+.tip-keys {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--fill-strong);
+  color: var(--ink-2);
+  font-size: 11px;
+  line-height: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tip { animation: none; }
+}
+
 .capsule-row-btn, .capsule-branch, .capsule-commit-btn, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
   transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }

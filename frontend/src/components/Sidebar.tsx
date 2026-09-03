@@ -215,7 +215,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         <span className="row-time">{fmtTime(s.updatedAt, lang)}</span>
         <button
           className="row-archive"
-          title={t("归档任务")}
+          data-tip={t("归档任务")}
           onClick={async () => {
             try { await api.workspaceArchiveSession({ sessionId: s.sessionId }); await store.refresh(); } catch { /* surfaced by poll */ }
           }}
@@ -244,7 +244,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             className={`ws-row${wsCollapsed ? " collapsed" : ""}`}
             role="treeitem"
             aria-expanded={!wsCollapsed}
-            title={wsCollapsed ? t("展开会话") : t("收起会话")}
+            data-tip={wsCollapsed ? t("展开会话") : t("收起会话")}
             onClick={() => setWsCollapsed((v) => !v)}
           >
             <span className="ws-lead" aria-hidden="true">
@@ -255,7 +255,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             <span className="ws-row-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="ws-act"
-                title={t("工作空间操作")}
+                data-tip={t("工作空间操作")}
                 onClick={(e) => {
                   const r = e.currentTarget.getBoundingClientRect();
                   setCtx(null);
@@ -264,7 +264,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
               >
                 <Ellipsis size={14} />
               </button>
-              <button className="ws-act" title={t("新建会话")} onClick={() => void store.createSession()}>
+              <button className="ws-act" data-tip={t("新建会话")} onClick={() => void store.createSession()}>
                 <Plus size={14} />
               </button>
             </span>
@@ -294,8 +294,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       <div className="sidebar-foot">
         <button
           className="settings-entry"
-          title={t("设置 ⌘,")}
-          onClick={() => {
+                    onClick={() => {
             onOpenSettings();
           }}
         >
@@ -307,7 +306,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
               <button
                 key={w.workspaceId}
                 className={`ws-cell${w.workspaceId === store.activeWorkspaceId ? " active" : ""}`}
-                title={w.title}
+                data-tip={w.title}
                 onClick={() => store.switchWorkspace(w.workspaceId)}
               >
                 {(w.title.trim()[0] ?? "?").toUpperCase()}
@@ -319,7 +318,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             退化为手输绝对路径。 */}
         <button
           className="ws-add"
-          title={t("新建空间（选择项目文件夹）")}
+          data-tip={t("新建空间（选择项目文件夹）")}
           onClick={() => {
             if (window.webkit?.messageHandlers?.deepdiveHost) {
               sendToShell({ type: "pick-workspace" });

@@ -181,7 +181,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
         <div className="capsule-panel">
           <div className="capsule-head">
             <span className="capsule-title">{t("会话状态")}</span>
-            <button type="button" className="capsule-fold" title={t("收起")} onClick={() => setOpen(false)}>
+            <button type="button" className="capsule-fold" data-tip={t("收起")} onClick={() => setOpen(false)}>
               <ChevronUp size={14} />
             </button>
           </div>
@@ -230,7 +230,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
             <div className="capsule-sec">
               <div className="capsule-sec-name">
                 <Bot size={12} />{t("子智能体")}
-                <button type="button" className="capsule-refresh" title={t("刷新")} onClick={loadChildren}>
+                <button type="button" className="capsule-refresh" data-tip={t("刷新")} onClick={loadChildren}>
                   <RefreshCw size={11} />
                 </button>
               </div>
@@ -245,7 +245,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                       <span className="capsule-row-meta">{modeLabel}{childRunning ? ` · ${t("运行中")}` : ""}</span>
                     </button>
                     {childRunning && c.mode === "continuable" && (
-                      <button type="button" className="capsule-stop" title={t("中断子智能体")} disabled={busy} onClick={() => void interrupt(c.id)}>
+                      <button type="button" className="capsule-stop" data-tip={t("中断子智能体")} disabled={busy} onClick={() => void interrupt(c.id)}>
                         <Square size={11} />
                       </button>
                     )}

@@ -42,7 +42,7 @@ export function PlanReviewCard({ rpcId, sessionId, review }: { rpcId: string; se
         {review.decline && (
           <button
             className="btn-plain"
-            title={review.decline.description}
+            data-tip={review.decline.description}
             disabled={busy}
             onClick={() => decide(review.decline!.label)}
           >
@@ -51,13 +51,13 @@ export function PlanReviewCard({ rpcId, sessionId, review }: { rpcId: string; se
         )}
         <button
           className="btn-primary"
-          title={review.approve.description}
+          data-tip={review.approve.description}
           disabled={busy}
           onClick={() => decide(review.approve.label)}
         >
           {review.approve.label}
         </button>
-        <button className="q-close" title={t("取消提问")} disabled={busy} onClick={discuss}>
+        <button className="q-close" data-tip={t("取消提问")} disabled={busy} onClick={discuss}>
           <X size={13} />
         </button>
       </div>

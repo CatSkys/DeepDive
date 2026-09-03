@@ -56,7 +56,7 @@ function Thumb({ sessionId, att, onOpen }: { sessionId: string; att: Att; onOpen
       type="button"
       className="user-attachment-thumb"
       onClick={() => src && onOpen(src)}
-      title={att.name ?? att.attachmentId.slice(0, 16)}
+      data-tip={att.name ?? att.attachmentId.slice(0, 16)}
     >
       {src ? <img src={src} alt={att.name ?? ""} /> : <span className="user-attachment-loading" aria-hidden="true" />}
     </button>
