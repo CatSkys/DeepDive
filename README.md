@@ -26,6 +26,7 @@ make package      # 生成 dev 签名 DMG（dist/）
 ## 结构
 
 ```
+AGENTS.md                  Agent 常备军令：布局/命令/铁律（会话开始先读；frontend/ 与 apps/macos/ 各有局部版）
 apps/macos/                Swift + AppKit 外壳（XcodeGen）：窗口/热键/托盘/悬浮球/通知/引擎监督/恢复界面/Bridge
 frontend/                  自建 SPA（React + TS + Vite）：消息流渲染 + /api 客户端 + 标题栏拖拽桥(titlebar.ts)
 frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css / Tokens.swift
