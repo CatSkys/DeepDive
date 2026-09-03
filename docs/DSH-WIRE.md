@@ -1,0 +1,120 @@
+# DSH Wire 契约与载荷形状（rc.2 实测）
+
+> 本文拥有「引擎 wire 面的载荷形状与通道可用性」这一事实。全部条目来自
+> 对引脚引擎（版本见 `scripts/dsh-runtime-version.txt`）的**实机 POST 实测**
+> 或引擎源码实读，非猜测；升级引脚时须复核并整篇更新。RPC 信封与传输层见
+> `frontend/src/api.ts` 头注；路由权威清单是内嵌 runtime 的
+> `dsh-host-apiproxy/lib/index.js` `UNARY_ROUTES`（含每个 payload 的 zod schema）。
+
+## 1. 通道可用性（2026-09-03 实测）
+
+| 方法 | 结果 | 结论 |
+|---|---|---|
+| `fileReferences.list` | 404 `not found` | Remote domain RPC，rc.2 无 `/api/remote.mux` 承载（PITFALLS §7.1）；@ 候选**不走引擎发现** |
+| `messageFeedback.list` | 404 | 同上；**消息反馈（点赞）无通道，UI 不做**，待升 alpha.2+ |
+| `pluginInventory.list` | 404 | 插件清单无浏览器面；设置页插件分区维持降级文案 |
+| `host.listDirectory` | 403 `directory-picker-unavailable` | web-app bundle 挂 `directory-picker-auto`，darwin+回环+ attended 事实解析为 native（browse 能力关闭）；patch 层**不能换模块**（`applyEntryPatches` 对 `name` 不匹配直接 skip），auto 亦无 config 覆盖点 → 该 RPC 在桌面部署不可用 |
+| `session.search` | 默认禁用；`--patch` 后可用 | web-app bundle patch 显式 `session-query-sqlite { path: ':memory:', openAt: never }`；经 `dsh --profile web --patch <overlay>` 覆盖 `openAt: first-search` 实测放行（中文可搜，snippet 正常） |
+| `session.fork` / `session.attachment` / `goal.*` / `subagent.*` / `skill.list` / `host.openPath` | 白名单内 | 可用 |
+
+## 2. 关键 unary 契约（schema 摘录）
+
+- `session.fork { sessionId, atSeq? }` → `{ sessionId }`（子会话 id）
+- `session.search { query(1..500) }` → `{ items: [{sessionId, snippet≤240}], hasMore }`（≤20 条）
+- `session.attachment { sessionId, attachmentId }` → `{ attachment, data }`（图片字节）
+- `host.openPath { path }` → 在 Finder 打开/揭示路径（壳侧已接 `reveal-path` 语义）
+- `goal.*`：`{ sessionId, ref?, objective?, maxGoalRounds? }`（阶段 5 面向）
+
+## 3. 事件载荷形状（实测/引擎源码）
+
+### 3.1 `turn/end` — `reason` 是对象，不是字符串
+
+```json
+{ "type": "turn/end", "data": { "turn": 1, "reason": { "kind": "completed" } } }
+```
+
+实测四种 `reason.kind`：`completed` / `interrupted` /
+`{kind:"aborted", reason:{kind:"user"}}` /
+`{kind:"error", error:{message, code:"MISSING_CREDENTIAL"}}`。
+agent-loop 源码另有 `max-tokens`（finish.kind 映射）。
+
+### 3.2 usage
+
+`assistant/chunk` 的 `chunk.type:"usage"` 与 `assistant/message` 的 `data.usage`：
+`{ inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens?, reasoningTokens }`。
+
+### 3.3 投影值（`session.list[].projections.values`，实测键集）
+
+| 键 | 形状 |
+|---|---|
+| `tokenUsage` | `{uncachedInputTokens, outputTokens, cacheReadTokens, cacheWriteTokens}` |
+| `contextPressure` | `{pressureTokens, projectedTokens, contextWindow}` |
+| `contextBreakdown` | `{systemTokens, toolsTokens, messageTokens}` |
+| `sessionStats` | `{turns, steps, llmMs, toolMs, ttftMs, ttftSteps, decodeMs, decodeTokens}` |
+| `permissions` | `{options:[{value,name}], currentValue}` |
+| `plan` | `{active, pending}` |
+| `goal` / `subagent` / `todos` | 未用时为 `null` |
+| `imageLimits` | `{maxImageBytes, maxImagesPerMessage, mediaTypes:[…png/jpeg/webp/gif]}` |
+| `sessionListMetadata` | `{blank, lastPromptAt}` |
+
+### 3.4 `tool/result` 的 diff 槽位
+
+`data.meta.diffs: FileDiff[]`，`FileDiff = { path, oldText: string|null, newText }`
+（`oldText:null` = 新建/覆盖无前文；来源 `core/tools/src/presentation.ts`）。
+编辑类工具的 call 侧 arguments 也推导同形 diffs（结果先于结果事件时）。
+
+### 3.5 命令生命周期事件
+
+```
+command/run  { commandId, name, args?, source:{kind:'user'} }
+command/done { commandId, kind:'success'|'error', text?, sourceEventSeq? }
+```
+
+### 3.6 压缩事件（`compaction/*`，log-only）
+
+`compaction/start {compactionId, turn|null}` →
+`compaction/summary {compactionId, summary:ContentBlock[], shadowedRange, shadowedSeqs, shadowedTokenCount, provider, model, usage?}` →
+`compaction/end {compactionId, error?}`。表面替换由紧随的 `user/message`
+（shadow 定价）承担——渲染压缩卡应以 `compaction/summary` 为准。
+
+### 3.7 `llm/retry`（重试链）
+
+`{retryId, turn, step, provider, mode:'normal'|'always', policyKey, retry, maxRetries?, delayMs, failure:{message, code, status?, providerRetryAfterMs?}}`；
+`llm/retry-started {retryId, turn, step, retry}` 收尾一次等待。
+
+### 3.8 会话预设/上下文事件
+
+- `permission/preset {preset}`；`sandbox/mode {mode}`；`approval/policy {policy}`
+- `request/context {provider, model, contextWindow}`（占用环分母来源）
+- `agent/inbox/spliced {target, start, inserted[]}`（steer 插队落点）
+- `session/title {title, messageSeqs, source}`
+
+## 4. 命令目录（引擎内注册，静态内置依据）
+
+| 命令 | 描述（引擎原文） | 输入 |
+|---|---|---|
+| `compact` | Compact older conversation history | — |
+| `goal` | set or view the goal for a long-running task | `[<objective>|clear|edit <objective>|pause|resume]` |
+| `permission` | Switch the permission preset (sandbox mode + approval policy) | `<preset>` |
+| `plan` | Enter or leave plan mode | `[off|message]` |
+| `feedback` | record feedback about this session | `<text>` |
+
+`/export`（Download this Session log as a ZIP archive）在引擎侧存在但按范围
+拍板**不入本轮目录**。无 `commands.list` RPC——目录静态内置，升引擎时对照
+上表来源复核（`command-compact` / `command-goal` / `permission-presets` /
+`plan-mode` / `command-feedback` 各自的注册处）。
+
+## 5. @ 引用 grammar（官方 `dsh-file-reference/grammar`，浏览器安全可移植）
+
+- 触发：行首或空白后的 `@`；`@"` 开启带引号路径（可含空格）
+- 补全候选缺失时的降级：@ 菜单候选由**壳侧 FileManager 列目录**提供
+  （`list-dir` host 指令），引擎在 prompt 侧自行解析 `@path` 文本
+  （`dsh-file-reference-local` 注入 `FILE_REFERENCE_PROMPT`），插入纯文本即生效
+- 格式化：目录补尾 `/`；含空格路径用 `@"…"`；目录保持引号开启以便续层
+
+## 6. plan-review 收窄规则（官方 `PlanReviewPanel` + `planReviewOf`）
+
+单题 + `intent.kind==='plan-review'` + `detail`（计划正文 markdown）+
+非 multiSelect + options ≤2 + 存在 label===`intent.approve` 的选项，才由
+计划审查卡接管。批准/拒绝 = 应答 `selected:[对应 option.label]`；
+继续讨论 = cancel（ASK_CANCELLED）。不满足则回退通用提问流。
