@@ -119,6 +119,17 @@ command/done { commandId, kind:'success'|'error', text?, sourceEventSeq? }
 计划审查卡接管。批准/拒绝 = 应答 `selected:[对应 option.label]`；
 继续讨论 = cancel（ASK_CANCELLED）。不满足则回退通用提问流。
 
+**rc.2 可达性（2026-09-03 三门实证，卡片在当前引擎下不可触发）**：
+intent+detail 只由 plan-mode 插件的 `EXIT_PLAN_MODE` 流程注入（`packages/plan/plan-mode/src/index.ts`），
+而到达它需过三道门，rc.2 浏览器面全关：① plan mode 只能由 `/plan` 命令激活
+（`session.append('plan/mode')` 仅命令处理器调用），命令执行走 `commands/execute`
+mux RPC——HTTP `UNARY_ROUTES` 无此方法、本构建无 `/api/remote.mux` Gateway 上行；
+② `session.prompt` 不派发斜杠命令——严格单文本块 `/plan` 实测 `accepted:true`
+无 command 槽位、事件尾为普通 assistant turn；③ 模型面 `ask_user_question` 工具
+入参被剥到 id/question/header/options/multiSelect（`packages/interaction/tool-ask-user`），
+模型结构上无法自造 intent+detail。前端 `planReview.ts`+`PlanReviewCard` 为正确移植、
+vitest 钉住，问题真到达即接管，勿因不可达删码。
+
 ## 7. 阶段 5 面：长任务与并行工作（2026-09-03 实测/实读）
 
 ### 7.1 Goal（投影 + CAS RPC）
@@ -144,6 +155,6 @@ command/done { commandId, kind:'success'|'error', text?, sourceEventSeq? }
 
 ### 7.5 Provider/模型目录与插件配置（settings 面）
 
-- `llm.providers` → `{provider, displayName, settingsNs, settingsPath, active, declared?}`；`llm.discoverModels {settingsNs, provider?, baseURL?, api?, apiKey?}` → `{models: [{id, name?, contextWindow?, maxTokens?}]}`（apiKey 只上送不存储）
+- `llm.providers` → `{provider, displayName, settingsNs, settingsPath, active, declared?}`；`llm.discoverModels {settingsNs, provider?, baseURL?, api?, apiKey?}` → `{models: [{id, name?, contextWindow?, maxTokens?}]}`（apiKey 只上送不存储）。`api` 仅 `openai-completions`/`openai-responses` 可发现（引擎 discovery 只读这两种 OpenAI 兼容清单；其余报 `model-discovery-failed` "no model listing this build can read"，实测 2026-09-03 mock 端点 `GET {baseURL}/models` 即通）
 - 模型/路由配置写 `settings.update`（revision 围栏）：`llm-deepseek.models = [{id, name, contextWindow, inputModalities, …}]`；`llm-pi-ai.providers = {<route>: {apiKeyEnv?, displayName?, api?, baseURL?, models?}}`
 - 插件配置命名空间（实测）：`shell {timeoutMs, maxTimeoutMs, maxOutputBytes, maxSpillBytes, graceMs}`、`agent-loop {maxParallelToolCalls}`、`web-search-deepseek {apiKeyEnv, model, apiVersion, maxTokens, maxUses}` + secret `apiKey`（credentials 写入）

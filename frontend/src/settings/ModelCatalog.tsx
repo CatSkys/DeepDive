@@ -187,7 +187,7 @@ function PiProviders({ providers, onSave, notice }: {
             <input
               className={cssRows.textField}
               style={{ width: 130 }}
-              placeholder={t("协议（openai 等）")}
+              placeholder={t("协议（openai-completions / openai-responses）")}
               value={p.api ?? ""}
               onChange={(e) => patch(id, { ...p, api: e.target.value })}
             />

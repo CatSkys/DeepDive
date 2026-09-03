@@ -181,7 +181,7 @@ const EN: Record<string, string> = {
   "自定义提供方": "Custom providers",
   "OpenAI 兼容路由：填 baseURL 与 API 协议，发现模型后保存即生效。": "OpenAI-compatible routes: set baseURL and wire API, discover models, save to activate.",
   "显示名": "Display name",
-  "协议（openai 等）": "API (openai, …)",
+  "协议（openai-completions / openai-responses）": "API (openai-completions / openai-responses)",
   "发现模型": "Discover models",
   "发现模型失败：{m}": "Model discovery failed: {m}",
   "未配置模型清单（可发现后并入）": "No model list yet (discover to fill)",
