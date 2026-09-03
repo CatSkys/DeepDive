@@ -231,7 +231,7 @@ struct FloatingBubbleView: View {
 }
 
 /// The dsh whale (official favicon path, viewBox 0 0 50 50; vendored source
-/// `deepseek-harness-master/apps/web/public/favicon.svg` — SPEC §2.3).
+/// `deepseek-harness/apps/web/public/favicon.svg` — SPEC §2.3).
 /// NSImage renders SVG natively (macOS 11+); the fill is forced white so the
 /// whale reads as a monochrome silhouette on the dark circle.
 enum WhaleAsset {

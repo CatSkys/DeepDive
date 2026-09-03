@@ -31,6 +31,9 @@ ACTUAL_NODE_VERSION="$("$NODE" -p 'process.versions.node')"
   exit 1
 }
 
+# The vendored reference source must match the runtime pin before we embed it.
+sh "$ROOT/scripts/check-dsh-source.sh"
+
 if [[ -z "$RUNTIME_SOURCE" ]]; then
   RUNTIME_SOURCE="$(sh "$ROOT/scripts/prepare-dsh-runtime.sh")"
 fi

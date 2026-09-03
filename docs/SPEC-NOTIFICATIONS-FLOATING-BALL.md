@@ -49,7 +49,7 @@
 
 ### 2.3 交互
 - 单击：激活 App + 主窗到前。**拖**：用 `isMovableByWindowBackground`，**不得加 SwiftUI 手势**（会吃 mouseDown，拖不动）。**hover**：用 `onHover`（不消费事件），缩放到 1.06；光标处理按 `UI-SPEC` 无 `pointer` 纪律（可不用 pointingHand，或仅悬浮球保留）。
-- **中央图形 = dsh 官方 logo（鲸鱼）**：资产取自**本仓库 vendored 的 dsh 源码副本**（与 runtime 引脚同版，勿取 `DSH-SOURCE-MAP` 指向的 `~/Downloads/` 副本）——`deepseek-harness-master/apps/web/public/favicon.svg` 的鲸鱼 path（viewBox 0 0 50 50），或 `deepseek-harness-master/packages/client/ui-primitives/src/FishLogo.tsx`（`FISH_LOGO_PATH`，viewBox 23.16×17.04，`fill="currentColor"`）。渲染 `currentColor` 单色，融入黑白。
+- **中央图形 = dsh 官方 logo（鲸鱼）**：资产取自**本仓库 vendored 的 dsh 源码副本**（版本恒等于 runtime 引脚）——`deepseek-harness/apps/web/public/favicon.svg` 的鲸鱼 path（viewBox 0 0 50 50），或 `deepseek-harness/packages/client/ui-primitives/src/FishLogo.tsx`（`FISH_LOGO_PATH`，viewBox 23.16×17.04，`fill="currentColor"`）。渲染 `currentColor` 单色，融入黑白。
 - 状态表达（**monochrome 移植**，不用红点/彩色海景）：在鲸鱼上做**环绕状态环/点**——运行=亮环（呼吸）、后台完成未读=白点（呼吸）/灰✓；语音/听写涟漪按需（P2）。中央鲸鱼本体保持黑白剪影。
 
 ### 2.4 入口

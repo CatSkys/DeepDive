@@ -77,7 +77,7 @@ frontend/                  自建 SPA（Vite 单入口）；packages/design = to
 design/logo/               DeepDive ASCII 鲸鱼 logo 种子工程与导出（BRANDING.md）
 scripts/                   构建/打包/嵌入/运行时准备脚本 + 版本引脚
 docs/                      本架构 + 规范（UI/SEMANTICS/三个 P2 SPEC）+ PITFALLS + WORKING-AGREEMENTS
-deepseek-harness-master/   官方 DSH 源码 vendored 副本（与运行时引脚同版）——资产/移植对照/DSH_SOURCE 复用，勿当运行时
+deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引脚，embed 时 check-dsh-source.sh 强校验）——资产/移植对照，勿当运行时
 ```
 
 ## 8. 与原蓝图（v0.3）的偏差（有意为之）

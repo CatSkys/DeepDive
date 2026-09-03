@@ -8,7 +8,7 @@ DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit �
 - `docs/PITFALLS.md` — 踩坑记录：**改相关代码前必读对应条目**（每条都来自真实事故）
 - `docs/WORKING-AGREEMENTS.md` — 用户定稿的协作与交付纪律，每轮改动必须遵守
 - `docs/UI-SPEC.md` / `docs/SPEC-SEMANTICS.md` — 视觉规范 / 产品语义（头部有已实现/未实现状态）
-- `docs/DSH-SOURCE-MAP.md` — 移植官方 UI 的源码对照图（对照仓内 vendored 副本 `deepseek-harness-master/`，勿自行发挥）
+- `docs/DSH-SOURCE-MAP.md` — 移植官方 UI 的源码对照图（对照仓内 vendored 副本 `deepseek-harness/`，勿自行发挥）
 
 ## 心法
 
@@ -26,7 +26,7 @@ frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → to
 design/logo/               品牌 logo 种子工程（BRANDING.md）
 scripts/                   构建/打包/引擎嵌入脚本 + 运行时版本引脚
 docs/                      架构/规范/踩坑/协作约定
-deepseek-harness-master/   官方 DSH 源码 vendored 副本：资产源/移植对照，勿当运行时、勿改动
+deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引脚，embed 时强校验）：资产源/移植对照，勿当运行时、勿改动
 ```
 
 ## 命令
