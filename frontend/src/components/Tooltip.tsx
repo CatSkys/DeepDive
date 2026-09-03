@@ -3,12 +3,12 @@ import { createPortal } from "react-dom";
 
 // 全局悬浮注释（替代原生 title）：任意元素加
 //   data-tip="文案"  data-tip-keys="⌘,"（右侧键帽快捷键，可省）
-//   data-tip-pos="top|bottom|left|right"（缺省 top）
-// 注释与触发元素四边对齐并夹在视口内；悬停 450ms 弹出（已显示时切换
-// 目标立即换内容），沿来源方向滑动入场；滚动/按下/移出即收，防位置漂移。
+//   data-tip-pos="top|bottom|left|right"（缺省 top，空间不足自动翻转到对侧）
+// 注释与触发元素四边对齐并夹在视口内；悬停立即弹出，沿来源方向滑动入场；
+// 滚动/按下/移出即收。目标元素从 DOM 移除时 mouseout 不会触发（偶发不消失
+// 的根因），可见期以 400ms 轮询校验连接性与 ：hover/:focus 兜底隐藏。
 
 type Pos = "top" | "bottom" | "left" | "right";
-const SHOW_DELAY = 450;
 const GAP = 8;
 const MARGIN = 8;
 
@@ -23,18 +23,19 @@ export function TooltipHost() {
   const [tip, setTip] = useState<Tip | null>(null);
   const [placed, setPlaced] = useState<{ top: number; left: number } | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-  const timer = useRef<number | undefined>(undefined);
   const current = useRef<HTMLElement | null>(null);
 
   const hide = () => {
-    window.clearTimeout(timer.current);
     current.current = null;
     setTip(null);
     setPlaced(null);
   };
 
   useEffect(() => {
-    const show = (el: HTMLElement) => {
+    const over = (e: Event) => {
+      const el = (e.target as HTMLElement | null)?.closest?.("[data-tip]") as HTMLElement | null;
+      if (!el) return;
+      if (el === current.current) return;
       current.current = el;
       setTip({
         el,
@@ -44,20 +45,19 @@ export function TooltipHost() {
       });
       setPlaced(null); // 渲染后测量再落位
     };
-    const over = (e: Event) => {
-      const el = (e.target as HTMLElement | null)?.closest?.("[data-tip]") as HTMLElement | null;
-      if (!el) return;
-      if (el === current.current) return;
-      window.clearTimeout(timer.current);
-      if (current.current) show(el); // 已在展示：换目标立即切换
-      else timer.current = window.setTimeout(() => show(el), SHOW_DELAY);
-    };
     const out = (e: Event) => {
       const el = (e.target as HTMLElement | null)?.closest?.("[data-tip]");
       if (el && el === current.current) hide();
     };
     const down = () => hide();
     const onScroll = () => hide();
+    // 兜底巡检：目标已脱离文档、或指针/焦点已不在其上（重渲染吞掉
+    // mouseout 的场景）→ 收起。轮询只在注释可见期间运行。
+    const watch = setInterval(() => {
+      const el = current.current;
+      if (el && el.isConnected && el.matches(":hover, :focus")) return;
+      hide();
+    }, 400);
     document.addEventListener("mouseover", over);
     document.addEventListener("mouseout", out);
     document.addEventListener("focusin", over);
@@ -71,24 +71,33 @@ export function TooltipHost() {
       document.removeEventListener("focusout", out);
       document.removeEventListener("mousedown", down);
       window.removeEventListener("scroll", onScroll, true);
-      window.clearTimeout(timer.current);
+      clearInterval(watch);
     };
   }, []);
 
-  // 渲染后按实测尺寸落位：四边对齐触发元素并夹在视口内
+  // 渲染后按实测尺寸落位：先按偏好边对齐，空间不足翻转到对侧，再夹进视口
   useLayoutEffect(() => {
     if (!tip || !boxRef.current) return;
     const b = boxRef.current.getBoundingClientRect();
     const r = tip.el.getBoundingClientRect();
+    let pos = tip.pos;
+    const fits = (p: Pos) => {
+      if (p === "top") return r.top - b.height - GAP >= MARGIN;
+      if (p === "bottom") return window.innerHeight - r.bottom - b.height - GAP >= MARGIN;
+      if (p === "left") return r.left - b.width - GAP >= MARGIN;
+      return window.innerWidth - r.right - b.width - GAP >= MARGIN;
+    };
+    const flip: Record<Pos, Pos> = { top: "bottom", bottom: "top", left: "right", right: "left" };
+    if (!fits(pos)) pos = flip[pos];
     let top: number;
     let left: number;
-    if (tip.pos === "top") {
+    if (pos === "top") {
       top = r.top - b.height - GAP;
       left = r.left + r.width / 2 - b.width / 2;
-    } else if (tip.pos === "bottom") {
+    } else if (pos === "bottom") {
       top = r.bottom + GAP;
       left = r.left + r.width / 2 - b.width / 2;
-    } else if (tip.pos === "left") {
+    } else if (pos === "left") {
       top = r.top + r.height / 2 - b.height / 2;
       left = r.left - b.width - GAP;
     } else {
