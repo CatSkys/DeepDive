@@ -199,6 +199,8 @@ const EN: Record<string, string> = {
   "每轮调用上限": "Max uses per turn",
   "API Key": "API Key",
   "（已配置）": " (configured)",
+  // turn folding
+  "已折叠早前 {n} 轮 · 点击展开": "Folded {n} earlier turns · click to expand",
   // model menu
   "搜索模型…": "Search models…",
   "推理等级": "Reasoning",

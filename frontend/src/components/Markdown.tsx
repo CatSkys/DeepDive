@@ -3,6 +3,8 @@ import { IconCodeOutline16 } from "./Icons";
 import { Lightbox } from "./Lightbox";
 import { sendToShell } from "../host";
 import { t } from "../i18n";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 // Lightweight monochrome Markdown renderer (no deps): headings, paragraphs,
 // ordered/unordered lists (task lists), quotes, fenced + inline code with
@@ -10,7 +12,7 @@ import { t } from "../i18n";
 // (click → Lightbox).
 
 interface Block {
-  kind: "h1" | "h2" | "h3" | "p" | "ul" | "ol" | "quote" | "code" | "table";
+  kind: "h1" | "h2" | "h3" | "p" | "ul" | "ol" | "quote" | "code" | "table" | "math";
   lines: string[];
   lang?: string;
 }
@@ -34,6 +36,26 @@ function parseBlocks(text: string): Block[] {
         blocks.push({ kind: "code", lines: body, lang: fence[1] ?? "" });
       }
       i = end + 1;
+      continue;
+    }
+    // 块级数学：$$ … $$（同行或跨行）；未闭合回退普通段落
+    if (line.trim().startsWith("$$")) {
+      const startLine = i;
+      let tex = line.trim().slice(2);
+      let closed = false;
+      if (tex.endsWith("$$")) { tex = tex.slice(0, -2); closed = true; }
+      i++;
+      while (!closed && i < lines.length) {
+        const closeIdx = lines[i].indexOf("$$");
+        if (closeIdx >= 0) { tex += "\n" + lines[i].slice(0, closeIdx); closed = true; }
+        else tex += "\n" + lines[i];
+        i++;
+      }
+      if (closed) {
+        blocks.push({ kind: "math", lines: [tex] });
+        continue;
+      }
+      i = startLine;
       continue;
     }
     const h = /^(#{1,3})\s+(.*)$/.exec(line);
@@ -80,11 +102,11 @@ function parseBlocks(text: string): Block[] {
   return blocks;
 }
 
-/** 行内语法：粗体/斜体/删除线/行内代码/链接/图片。链接经壳 open-url
- *  打开（WebKit 内网页面跳转会离开 SPA）；图片点击进 Lightbox。 */
+/** 行内语法：粗体/斜体/删除线/行内代码/行内数学/链接/图片。链接经壳
+ *  open-url 打开（WebKit 内网页面跳转会离开 SPA）；图片点击进 Lightbox。 */
 function inline(text: string, keyBase: string, onImage: (src: string, alt: string) => void): ReactNode[] {
   const out: ReactNode[] = [];
-  const re = /(\*\*([^*]+)\*\*|`([^`]+)`|\*([^*\n]+)\*|~~([^~\n]+)~~|!\[([^\]]*)\]\(([^)\s]+)\)|\[([^\]]+)\]\(([^)\s]+)\))/g;
+  const re = /(\*\*([^*]+)\*\*|`([^`]+)`|\*([^*\n]+)\*|~~([^~\n]+)~~|\$([^$\n]+?)\$|!\[([^\]]*)\]\(([^)\s]+)\)|\[([^\]]+)\]\(([^)\s]+)\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let k = 0;
@@ -96,6 +118,12 @@ function inline(text: string, keyBase: string, onImage: (src: string, alt: strin
     else if (mm[3] !== undefined) out.push(<code key={key}>{mm[3]}</code>);
     else if (mm[4] !== undefined) out.push(<em key={key}>{mm[4]}</em>);
     else if (mm[5] !== undefined) out.push(<del key={key}>{mm[5]}</del>);
+    else if (mm[6] !== undefined) {
+      const tex = mm[6];
+      out.push(
+        <span key={key} className="md-math" dangerouslySetInnerHTML={{ __html: renderMath(tex, false) }} />,
+      );
+    }
     else if (mm[7] !== undefined) {
       const src = mm[7];
       const alt = mm[6] ?? "";
@@ -144,6 +172,11 @@ function taskOf(line: string): { done: boolean; text: string } | null {
 // highlight.js：common 语言集同步高亮（流式增量友好）。逐行高亮——多行
 // 语法（块注释/多行字符串）的续行不着色，但任何输入下都结构安全。
 import hljs from "highlight.js/lib/common";
+
+/** KaTeX 同步渲染；throwOnError:false 时坏 TeX 输出红色原文而非抛错。 */
+function renderMath(tex: string, displayMode: boolean): string {
+  return katex.renderToString(tex, { displayMode, throwOnError: false, strict: false });
+}
 
 function highlightLine(line: string, lang: string): string | null {
   if (!lang || !hljs.getLanguage(lang)) return null;
@@ -225,6 +258,7 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
             <ol key={key}>{b.lines.map((l, j) => <li key={j}>{inline(l, `${key}-${j}`, onImage)}</li>)}</ol>
           );
           case "code": return <CodeBlock key={key} keyBase={key} lines={b.lines} lang={b.lang ?? ""} />;
+          case "math": return <div key={key} className="md-math-block" dangerouslySetInnerHTML={{ __html: renderMath(b.lines[0] ?? "", true) }} />;
           case "table": {
             const header = (b.lines[0] ?? "").split("||").map((c) => c.trim());
             const rows = b.lines.slice(1).map((r) => r.split("|").map((c) => c.trim()).filter((c) => c !== ""));

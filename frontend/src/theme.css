@@ -2784,3 +2784,37 @@ button {
   margin-top: 2px;
 }
 .subagent-parent-link:hover { background: var(--fill); color: var(--ink); }
+
+/* ── 补齐：轮折叠条 / 用户消息图片缩略图 / 行内与块级公式 ── */
+.turn-fold {
+  display: block;
+  width: 100%;
+  margin: 4px 0;
+  padding: 5px 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  border: 1px dashed var(--line);
+  border-radius: var(--dsh-radius-keycap);
+}
+.turn-fold:hover { background: var(--fill-soft); color: var(--ink-2); }
+
+.user-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; justify-content: flex-end; }
+.user-attachment-thumb {
+  width: 92px;
+  height: 68px;
+  border-radius: var(--dsh-radius-keycap);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: var(--fill-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-in;
+}
+.user-attachment-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.user-attachment-loading { width: 100%; height: 100%; background: var(--fill); animation: pulse 1.2s ease-in-out infinite; }
+
+.md .md-math .katex { font-size: 1.02em; }
+.md-math-block { margin: 6px 0; overflow-x: auto; }
+.md-math-block .katex-display { margin: 0; }

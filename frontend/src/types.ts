@@ -38,7 +38,12 @@ export interface WorkspaceView {
 export type TextBlock = { type: "text"; text: string };
 export type ReasoningBlock = { type: "reasoning"; text: string };
 export type ToolCallBlock = { type: "tool-call"; id: string; name: string; arguments: string | unknown };
-export type ContentBlock = TextBlock | ReasoningBlock | ToolCallBlock | { type: string; [k: string]: unknown };
+/** 用户消息里的图片块（rc.2 实测）：attachment 引用，字节经 session.attachment 取。 */
+export type ImageAttachmentBlock = {
+  type: "image";
+  attachment: { attachmentId: string; mediaType: string; width?: number; height?: number; bytes?: number; name?: string };
+};
+export type ContentBlock = TextBlock | ReasoningBlock | ToolCallBlock | ImageAttachmentBlock | { type: string; [k: string]: unknown };
 
 export interface UserMessageData {
   content: ContentBlock[];

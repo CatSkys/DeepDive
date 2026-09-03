@@ -92,6 +92,9 @@ export const api = {
    *  未放行的部署上这里会 reject，调用方按 title-only 降级。 */
   search: (payload: { query: string }) =>
     unary<{ items: Array<{ sessionId: string; snippet: string }>; hasMore: boolean }>("session.search", payload),
+  /** 取一条图片附件的字节（base64，渲染用户消息图片用）。 */
+  attachment: (payload: { sessionId: string; attachmentId: string }) =>
+    unary<{ attachment: { attachmentId: string; mediaType: string; name?: string }; data: string }>("session.attachment", payload),
   /** Goal 长任务（5.1）：全部走 CAS 修订围栏，ref.revision 必须是投影里的当前值。 */
   goalCreate: (payload: { sessionId: string; objective: string; maxGoalRounds?: number }) =>
     unary<{ ref: { id: string; revision: number } }>("goal.create", payload),

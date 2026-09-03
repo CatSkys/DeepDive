@@ -46,6 +46,8 @@ import { ContextRing, TurnUsagePop } from "./UsageMeter";
 import { GoalBar } from "./GoalBar";
 import { SubagentLineage, SubagentReadOnlyNotice } from "./SubagentLineage";
 import { JobsMenu, ScheduleMenu } from "./JobsMenu";
+import { UserAttachments } from "./AttachmentImage";
+import { groupTurns, foldDecision, type TurnGroup } from "../turnGroups";
 
 export interface WorkflowMember {
   seq: number;
@@ -190,6 +192,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   };
   // 5.3 Schedule：schedule/change 折叠出的会话提醒目录（只读）
   const [scheduleRecords, setScheduleRecords] = useState<import("../types").ScheduleRecord[]>([]);
+  // 轮折叠开关（长会话默认折叠早前轮；点击折叠条或关闭开关展开）
+  const [turnsFolded, setTurnsFolded] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
@@ -583,30 +587,62 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             // DSH data-actions-reveal gate: the latest user row and the latest
             // turn tail hold 'always' (kept visible); earlier rows reveal on
             // hover / focus-within.
+            // 轮折叠：长会话默认折叠早前轮（除最近 2 轮），折叠条点击展开。
             let lastUserIdx = -1;
             let lastTailIdx = -1;
             for (let i = 0; i < items.length; i++) {
               if (items[i].kind === "user") lastUserIdx = i;
               if (items[i].kind === "turn-tail") lastTailIdx = i;
             }
-            return items.map((item, idx) => (
-              <div
-                key={item.key}
-                className="chat-anchor-row"
-                ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
-              >
-                <Item
-                  item={item}
-                  latestUser={idx === lastUserIdx}
-                  latestTurn={idx === lastTailIdx}
-                  turnRunning={running}
-                  onBranch={branchFrom}
-                  onContinue={() => {
-                    void api.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0);
-                  }}
-                />
-              </div>
-            ));
+            const keyIdx = new Map(items.map((it, i) => [it.key, i] as const));
+            const groups = groupTurns(items);
+            const fold = foldDecision(groups.length);
+            const foldFrom = fold && turnsFolded ? fold.foldFrom : groups.length;
+            const nodes: React.ReactNode[] = [];
+            let foldedCount = 0;
+            groups.forEach((g: TurnGroup, gi: number) => {
+              if (gi < foldFrom) {
+                foldedCount += g.items.length;
+                return;
+              }
+              if (foldedCount > 0) {
+                nodes.push(
+                  <button
+                    key="turn-fold-bar"
+                    type="button"
+                    className="turn-fold"
+                    ref={(el: HTMLButtonElement | null) => { olderAnchorRef.current = el; }}
+                    onClick={() => setTurnsFolded(false)}
+                  >
+                    {tt("已折叠早前 {n} 轮 · 点击展开", "Folded {n} earlier turns · click to expand", { n: foldedCount })}
+                  </button>,
+                );
+                foldedCount = 0;
+              }
+              for (const item of g.items) {
+                const idx = keyIdx.get(item.key) ?? -1;
+                nodes.push(
+                  <div
+                    key={item.key}
+                    className="chat-anchor-row"
+                    ref={idx === 0 && foldFrom === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
+                  >
+                    <Item
+                      item={item}
+                      latestUser={idx === lastUserIdx}
+                      latestTurn={idx === lastTailIdx}
+                      turnRunning={running}
+                      onBranch={branchFrom}
+                      sessionId={sessionId}
+                      onContinue={() => {
+                        void api.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0);
+                      }}
+                    />
+                  </div>,
+                );
+              }
+            });
+            return nodes;
           })()}
           {pending.map((a) => (
             <ApprovalCard key={a.approvalId} approvalId={a.approvalId} rpcId={a.rpcId} sessionId={sessionId} toolName={a.toolName} reason={a.reason} />
@@ -651,18 +687,20 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   );
 }
 
-function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onContinue }: {
+function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onContinue, sessionId }: {
   item: RenderItem;
   latestUser: boolean;
   latestTurn: boolean;
   turnRunning: boolean;
   onBranch?: (forkSeq: number) => void;
   onContinue?: () => void;
+  sessionId: string;
 }) {
   if (item.kind === "user") {
     return (
       <div className="msg-block user" data-actions-reveal={latestUser ? "always" : "hover"}>
         <UserBubble text={textOf(item.event)} />
+        <UserAttachments sessionId={sessionId} event={item.event} />
         {/* DSH user chrome: copy + clock only, NO branch, clock="start" */}
         <MessageMeta
           time={item.time}
