@@ -45,7 +45,7 @@ import { PlanReviewCard } from "./PlanReviewCard";
 
 export interface RenderItem {
   key: string;
-  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail";
+  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail" | "command";
   event?: SessionEvent;
   toolName?: string;
   toolCallId?: string;
@@ -54,6 +54,10 @@ export interface RenderItem {
   failed?: boolean;
   time?: number;
   turn?: number;
+  /** 命令卡：run/done 以 commandId 配对，done 到达时就地补状态与结果文本。 */
+  commandId?: string;
+  commandStatus?: "running" | "success" | "error";
+  commandText?: string;
   // 编辑类工具的文件变更（call 侧=pending 态；result 侧=已应用，权威）
   diffs?: import("../types").FileDiff[];
   // attached turn-level stats for the closing assistant message meta row
@@ -68,6 +72,66 @@ interface TurnMeta {
   runMs: number;
   ttftMs: number | null;
   tokensPerSecond: number | null;
+}
+
+/** Access chip（官方 permission 预设呈现）：当前预设 + 点击切换菜单。
+ *  切换 = `/permission <preset>` 文本透传，引擎发 permission/preset 事件并
+ *  更新 permissions 投影，chip 随 3s 轮询刷新。数据缺省时不渲染。 */
+function AccessChip({ sessionId }: { sessionId: string }) {
+  const { sessions } = useStore();
+  const { t } = useT();
+  const summary = sessions.find((s) => s.sessionId === sessionId);
+  const perm = summary?.projections?.values?.permissions as
+    | { options?: Array<{ value: string; name?: string }>; currentValue?: string }
+    | undefined;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  if (!perm?.currentValue || !perm.options?.length) return null;
+  const pick = (value: string) => {
+    setOpen(false);
+    if (value === perm.currentValue) return;
+    void api.prompt({
+      sessionId,
+      mode: "queue",
+      content: [{ type: "text", text: `/permission ${value}` }],
+    }).catch(() => void 0);
+  };
+  return (
+    <div className="access-chip-wrap" ref={ref}>
+      <button
+        type="button"
+        className="access-chip"
+        data-open={open ? "true" : "false"}
+        title={t("权限预设")}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ShieldCheck size={12} />
+        {perm.currentValue}
+      </button>
+      {open && (
+        <div className="permission-menu">
+          {perm.options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={`permission-row${o.value === perm.currentValue ? " current" : ""}`}
+              onClick={() => pick(o.value)}
+            >
+              {o.name ?? o.value}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function SessionView({ sessionId }: { sessionId: string }) {
@@ -410,6 +474,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           </span>
         )}
+        <AccessChip sessionId={sessionId} />
       </div>
       <div className="flow" ref={scrollRef} onScroll={(e) => {
         const el = e.currentTarget;
@@ -561,6 +626,9 @@ function Item({ item, latestUser, latestTurn, turnRunning, onBranch }: {
       />
     );
   }
+  if (item.kind === "command") {
+    return <CommandCard name={item.toolName ?? "cmd"} args={item.args ?? ""} status={item.commandStatus ?? "running"} text={item.commandText} />;
+  }
   if (item.kind === "chunk" && item.output) {
     return <div className="msg assistant"><div className="text">{item.output}</div></div>;
   }
@@ -668,9 +736,38 @@ function ToolRow({ toolName, args, output, failed, diffs }: {
   );
 }
 
-/// Task list panel inside the todo row — DSH todo body list.
-function TodoList({ todos }: { todos: Array<{ content: string; status: string }> }) {
+/** 命令卡：`/name args` 单行 + 状态点 + 结果文本（success 提示/error 展开）。
+ *  对照官方 ui-conversation command 节点：命令是 log-only 的静默行，不抢消息流的戏。 */
+function CommandCard({ name, args, status, text }: {
+  name: string;
+  args: string;
+  status: "running" | "success" | "error";
+  text?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasBody = !!text;
   return (
+    <div className="command-card" data-status={status}>
+      <button
+        type="button"
+        className="command-main"
+        onClick={() => (hasBody ? setOpen((v) => !v) : undefined)}
+        aria-expanded={open}
+      >
+        <span className="command-leading">
+          {status === "running" ? <StateDot state="running" /> : status === "error" ? <StateDot state="error" /> : <IconCheckOutline16 size={13} />}
+        </span>
+        <span className="command-name">/{name}</span>
+        {args && <span className="command-args">{args}</span>}
+        {status === "success" && !text && <span className="command-hint">{t("已完成")}</span>}
+      </button>
+      {hasBody && open && <div className="command-body">{text}</div>}
+    </div>
+  );
+}
+
+/// Task list panel inside the todo row — DSH todo body list.
+function TodoList({ todos }: { todos: Array<{ content: string; status: string }> }) {  return (
     <div className="todo-list">
       {todos.map((t, i) => (
         <div key={i} className={`todo-item ${t.status}`}>
@@ -1247,6 +1344,8 @@ export interface IngestCtx {
   callIndex: Map<string, number>;
   /** callId → derived file path (from tool/call arguments) for produced lanes. */
   callPaths: Map<string, string>;
+  /** commandId → rendered command item index (run/done 配对，O(1) 定位). */
+  commandIndex: Map<string, number>;
   /** turn → the latest accumulated assistant text (copy-able tail payload). */
   turnText: Map<number, string>;
   /** turn → tail anchor time (the closing assistant message, if any). */
@@ -1255,7 +1354,7 @@ export interface IngestCtx {
 
 /** Fresh ingest context — history replay, live mux passes and tests share one shape. */
 export function makeIngestCtx(): IngestCtx {
-  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), turnText: new Map(), turnTime: new Map() };
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), turnText: new Map(), turnTime: new Map() };
 }
 
 export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string; view?: HistoryEntryView }, ctx: IngestCtx) {
@@ -1378,6 +1477,29 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
             ctx.produced.set(turn, list);
           }
         }
+      }
+      break;
+    }
+    case "command/run": {
+      const d = ev.data as import("../types").CommandRunData;
+      const idx = out.length;
+      out.push({
+        ...base,
+        kind: "command",
+        commandId: d.commandId,
+        toolName: d.name,
+        args: d.args ?? "",
+        commandStatus: "running",
+      });
+      if (d.commandId) ctx.commandIndex.set(d.commandId, idx);
+      break;
+    }
+    case "command/done": {
+      const d = ev.data as import("../types").CommandDoneData;
+      const idx = ctx.commandIndex.get(d.commandId);
+      if (idx !== undefined && out[idx]) {
+        out[idx].commandStatus = d.kind;
+        out[idx].commandText = d.text;
       }
       break;
     }

@@ -1,12 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp, Square, Plus, Mic, Image as ImageIcon, Clipboard, Sparkles,
-  Code, NotebookPen, Cpu, type LucideIcon,
+  Code, NotebookPen, Cpu, File as FileIcon, Folder, TerminalSquare, type LucideIcon,
 } from "lucide-react";
 import { api } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
 import { useT, t as globalT } from "../i18n";
+import { SLASH_COMMANDS } from "../commands";
+import { activeAtToken, formatMention } from "../atGrammar";
+import { useAtCandidates } from "../useAtCandidates";
 import type { PromptContentPart } from "../types";
 
 interface Attachment {
@@ -19,6 +22,8 @@ interface MenuRow {
   id: string;
   icon: LucideIcon;
   label: string;
+  /** 次要说明（命令描述/参数提示/路径），随行展示。 */
+  detail?: string;
   section: string;
   run: () => void;
 }
@@ -34,16 +39,12 @@ function base64Of(buf: ArrayBuffer): string {
   return btoa(bin);
 }
 
-/// The trailing @word / /word being typed, if any (reference PromptBar).
-/// CJK is allowed in the query so 中文 labels filter correctly.
-function parseToken(text: string): { kind: "at" | "slash"; query: string; start: number } | null {
-  const match = /(^|\s)([@/])([\w\u4e00-\u9fff-]*)$/.exec(text);
+/** 旧式 parseToken 已由官方 activeAtToken grammar 取代（引号路径/空白触发）；
+ *  斜杠触发保持整词行首/空白后判定，CJK 查询可过滤中文标签。 */
+function parseSlashToken(text: string): { query: string; start: number } | null {
+  const match = /(^|\s)\/([\w\u4e00-\u9fff-]*)$/.exec(text);
   if (!match) return null;
-  return {
-    kind: match[2] === "@" ? "at" : "slash",
-    query: match[3].toLowerCase(),
-    start: match.index + match[1].length,
-  };
+  return { query: match[2].toLowerCase(), start: match.index + match[1].length };
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -73,13 +74,18 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   const [listening, setListening] = useState(false);
   const [partial, setPartial] = useState("");
   const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.deepdiveHost);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  /** textarea 光标位（@ grammar 的 cursorCol）；onSelect 跟随 caret 更新。 */
+  const [cursor, setCursorState] = useState(0);
   const store = useStore();
   const { t, tt } = useT();
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
+  // @ 引用候选：工作空间根目录（无空间面时退化为不提供候选）
+  const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
 
   useEffect(() => {
     api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);
@@ -140,6 +146,20 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
     return parts;
   }, [attachments, text]);
 
+  // ---------- 草稿持久化（按会话；空稿清除）----------
+  const draftKey = sessionId ? `deepdive.draft.${sessionId}` : null;
+  useEffect(() => {
+    if (draftKey) setText(localStorage.getItem(draftKey) ?? "");
+  }, [draftKey]);
+  useEffect(() => {
+    if (!draftKey) return;
+    const timer = setTimeout(() => {
+      if (text) localStorage.setItem(draftKey, text);
+      else localStorage.removeItem(draftKey);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [text, draftKey]);
+
   const submit = async (modeOverride?: "queue" | "steer") => {
     if (content.length === 0 || busy) return;
     setBusy(true);
@@ -161,6 +181,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
     }
     setText("");
     setAttachments([]);
+    if (draftKey) localStorage.removeItem(draftKey);
     setBusy(false);
     onSent?.();
   };
@@ -186,7 +207,39 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
     { id: "clip-image", icon: Clipboard, label: t("剪贴板图片…"), section: t("附件"), run: () => void readClipboardImage() },
   ];
 
-  const commandRows: MenuRow[] = [
+  // token 派生：@ 用官方 grammar（光标位置），/ 保持行尾判定。
+  const atTok = dismissed || composing ? undefined : activeAtToken(text, cursor);
+  const slashTok = dismissed || composing ? null : parseSlashToken(text);
+
+  // 命令行（2.1）：目录来自 commands.ts 静态内置；选中填 `/name ` 透传执行。
+  const slashRows: MenuRow[] = SLASH_COMMANDS.map((c) => ({
+    id: `cmd:${c.name}`,
+    icon: TerminalSquare,
+    label: `/${c.name}`,
+    detail: c.hint ? `${tt(c.zh, c.en)} ${c.hint}` : tt(c.zh, c.en),
+    section: t("命令"),
+    run: () => {
+      if (!slashTok) return;
+      setText(text.slice(0, slashTok.start) + `/${c.name} `);
+    },
+  }));
+
+  const atEntries = useAtCandidates(atTok && !atTok.quoted ? atTok.query : "", wsPath);
+  const atRows: MenuRow[] = atEntries.map((e) => ({
+    id: e.path,
+    icon: e.isDir ? Folder : FileIcon,
+    label: e.name,
+    detail: e.path,
+    section: t("引用"),
+    run: () => {
+      if (!atTok) return;
+      const mention = formatMention({ path: e.path, kind: e.isDir ? "directory" : "file" }, atTok.quoted);
+      if (mention === undefined) return;
+      setText(text.slice(0, cursor - atTok.prefix.length) + mention);
+    },
+  }));
+
+  const agentRows: MenuRow[] = [
     { id: "new", icon: Sparkles, label: t("新会话"), section: t("命令"), run: () => void store.createSession() },
     ...presets.map((p) => ({
       id: `preset:${p.id}`, icon: presetIcon(p.id), label: p.name, section: "Agents",
@@ -194,10 +247,15 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
     })),
   ];
 
-  const token = dismissed || composing ? null : parseToken(text);
-  const menu: "at" | "slash" | null = plusOpen ? "at" : token?.kind ?? null;
-  const query = plusOpen ? "" : token?.query ?? "";
-  const allRows = menu === "at" ? attachRows : commandRows;
+  const menu: "attach" | "at" | "slash" | null = plusOpen
+    ? "attach"
+    : atTok
+      ? "at"
+      : slashTok
+        ? "slash"
+        : null;
+  const query = menu === "slash" ? slashTok?.query ?? "" : "";
+  const allRows = menu === "attach" ? attachRows : menu === "at" ? atRows : [...slashRows, ...agentRows];
   const rows = query ? allRows.filter((r) => r.label.toLowerCase().includes(query)) : allRows;
 
   useEffect(() => setActive(0), [menu, query]);
@@ -211,7 +269,14 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) addImageFile(file);
+    e.target.value = "";
+  };
+
+  /** 图片附件入列（文件选择/拖放共用）；非图片忽略——引擎 imageLimits
+   *  只收 png/jpeg/webp/gif。 */
+  const addImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = () => {
       const dataURL = String(reader.result);
@@ -220,7 +285,6 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
       setAttachments((prev) => [...prev, { data: dataURL.slice(comma + 1), mediaType, name: file.name }]);
     };
     reader.readAsDataURL(file);
-    e.target.value = "";
   };
 
   const autoGrow = (el: HTMLTextAreaElement) => {
@@ -230,10 +294,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
 
   const pick = (row: MenuRow) => {
     row.run();
-    // consume the typed @xxx / /xxx token that opened this menu
-    if (token) setText(text.slice(0, token.start));
-    setPlusOpen(false);
-    setDismissed(false);
+    if (plusOpen) { setPlusOpen(false); setDismissed(false); }
     taRef.current?.focus();
   };
 
@@ -252,7 +313,16 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
           ))}
         </div>
       )}
-      <div className={`composer${wide ? " wide" : ""}`}>
+      <div
+        className={`composer${wide ? " wide" : ""}${dragOver ? " drag-over" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          for (const f of Array.from(e.dataTransfer.files)) addImageFile(f);
+        }}
+      >
         {menu && (() => {
           // 分组渲染（参考图 3：小节标题 + 图标行），行索引取自过滤后的扁平列表
           const sections: Array<{ name: string; rows: MenuRow[] }> = [];
@@ -282,9 +352,11 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
                         onMouseEnter={() => setActive(i)}
                         onClick={() => pick(r)}
                         className="menu-row"
+                        title={r.detail}
                       >
                         <r.icon size={15} />
                         <span className="label">{r.label}</span>
+                        {r.detail && <span className="menu-detail">{r.detail}</span>}
                       </button>
                     );
                   })}
@@ -308,7 +380,8 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
           rows={1}
           value={text}
           placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
-          onChange={(e) => { setText(e.target.value); setPlusOpen(false); setDismissed(false); autoGrow(e.target); }}
+          onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setPlusOpen(false); setDismissed(false); autoGrow(e.target); }}
+          onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
           onCompositionStart={() => setComposing(true)}
           onCompositionEnd={(e) => { setComposing(false); autoGrow(e.currentTarget); }}
           onKeyDown={(e) => {

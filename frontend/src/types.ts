@@ -128,7 +128,24 @@ export type SessionEvent =
   | { type: "assistant/message"; seq: number; time: number; data: AssistantMessageData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "tool/call"; seq: number; time: number; data: ToolCallData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "tool/result"; seq: number; time: number; data: ToolResultData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "command/run"; seq: number; time: number; data: CommandRunData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "command/done"; seq: number; time: number; data: CommandDoneData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: string; seq: number; time: number; data: unknown; sourceEventSeqs?: number[]; surfaceOp?: unknown; ignorable?: boolean };
+
+/** 斜杠命令生命周期（docs/DSH-WIRE.md §3.5）；run/done 以 commandId 配对。 */
+export interface CommandRunData {
+  commandId: string;
+  name: string;
+  args?: string;
+  source?: { kind: string };
+}
+
+export interface CommandDoneData {
+  commandId: string;
+  kind: "success" | "error";
+  text?: string;
+  sourceEventSeq?: number;
+}
 
 export interface ApprovalRequestFrame {
   type: "approval/requested";

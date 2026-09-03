@@ -229,6 +229,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         case "pick-workspace":
             pickWorkspaceDirectory()
+        case "list-dir":
+            listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "dictation-start":
             DictationController.shared.start()
         case "dictation-stop":
@@ -254,6 +256,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DictationController.shared.onError = { [weak self] text in
             self?.windowController.pushHostCommand("dictation-error", payload: payload(text))
         }
+    }
+
+    /// 壳侧目录列举（@ 引用候选源，host.listDir 契约见 frontend/src/host.ts）：
+    /// 一层目录、目录优先、隐藏文件排除。错误也回包（entries 空 + error），
+    /// 前端按 reqId 配对。
+    private func listDirectory(reqId: String, path: String) {
+        func reply(_ entries: [[String: Any]], error: String? = nil) {
+            var fields: [String: Any] = ["reqId": reqId, "entries": entries]
+            if let error { fields["error"] = error }
+            windowController.pushHostCommand("dirListing", payload: Self.jsonPayload(fields))
+        }
+        let base = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: base.path) else {
+            reply([], error: "not-found")
+            return
+        }
+        let items = (try? FileManager.default.contentsOfDirectory(
+            at: base,
+            includingPropertiesForKeys: [.isDirectoryKey, .isHiddenKey],
+        )) ?? []
+        struct Row { let name: String; let path: String; let isDir: Bool }
+        var rows: [Row] = []
+        for url in items {
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isHiddenKey]),
+                  values.isHidden != true else { continue }
+            rows.append(Row(name: url.lastPathComponent, path: url.path, isDir: values.isDirectory ?? false))
+        }
+        rows.sort { a, b in
+            if a.isDir != b.isDir { return a.isDir }
+            return a.name < b.name
+        }
+        reply(rows.prefix(200).map { ["name": $0.name, "path": $0.path, "isDir": $0.isDir] })
     }
 
     /// 目录选择器（侧栏「＋新建空间」）：选一个已有文件夹，把绝对路径推回

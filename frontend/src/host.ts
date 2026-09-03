@@ -31,6 +31,26 @@ export function sendToShell(message: Record<string, unknown>): void {
   window.webkit?.messageHandlers?.deepdiveHost?.postMessage(message);
 }
 
+/** 壳侧目录列举（@ 引用候选源；引擎 browse 通道在桌面部署不可用，
+ *  docs/DSH-WIRE.md §1）。纯浏览器环境 resolve 空数组。 */
+export function listDir(path: string): Promise<Array<{ name: string; path: string; isDir: boolean }>> {
+  return new Promise((resolve) => {
+    if (!window.webkit?.messageHandlers?.deepdiveHost) {
+      resolve([]);
+      return;
+    }
+    const reqId = crypto.randomUUID();
+    const off = onHostEvent((cmd, payload) => {
+      if (cmd !== "dirListing") return;
+      const p = payload as { reqId?: string; entries?: Array<{ name: string; path: string; isDir: boolean }>; error?: string };
+      if (p.reqId !== reqId) return;
+      off();
+      resolve(p.error ? [] : p.entries ?? []);
+    });
+    sendToShell({ type: "list-dir", reqId, path });
+  });
+}
+
 export function installHostBridge(handlers: {
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;

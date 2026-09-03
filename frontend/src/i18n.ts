@@ -131,6 +131,8 @@ const EN: Record<string, string> = {
   "计划审查": "Plan review",
   "继续讨论": "Discuss instead",
   "与引擎的连接已断开，正在重试…": "Engine connection lost — retrying…",
+  // phase 2 commands & input
+  "权限预设": "Permission preset",
   // model menu
   "搜索模型…": "Search models…",
   "推理等级": "Reasoning",
