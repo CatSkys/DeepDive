@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlarmClock, ArrowRight, ChevronDown, ChevronUp, Circle,
-  CircleCheck, GitBranch, ListTodo, RefreshCw, Square, Users,
+  CircleCheck, Flag, GitBranch, ListTodo, RefreshCw, Square, Users,
 } from "lucide-react";
 import { api } from "../api";
 import { gitStatus } from "../host";
@@ -9,7 +9,7 @@ import { useStore } from "../store";
 import { t, tt } from "../i18n";
 import { CapsuleGitSection } from "./CapsuleGitSection";
 import { capsuleCategory, todoStats, type CapsuleTodo } from "./capsuleModel";
-import type { GitStatus, ScheduleRecord, SubagentListEntry } from "../types";
+import type { GitStatus, GoalProjection, ScheduleRecord, SubagentListEntry } from "../types";
 
 // 会话状态胶囊：头部右上角的聚合信息框，收编原 JobsMenu/ScheduleMenu/
 // SubagentLineage 三个 chip。收起态按当前运行状态固定显示一类（优先级见
@@ -17,6 +17,13 @@ import type { GitStatus, ScheduleRecord, SubagentListEntry } from "../types";
 // 全空自动隐藏。Git 数据来自壳层 run-git 桥消息（引擎无 git 能力）。
 
 type ChildEntry = Extract<SubagentListEntry, { kind: "child" }>;
+
+const GOAL_PHASE: Record<string, [string, string]> = {
+  active: ["进行中", "Active"],
+  paused: ["已暂停", "Paused"],
+  blocked: ["受阻", "Blocked"],
+  complete: ["已完成", "Complete"],
+};
 
 const JOB_STATUS: Record<string, [string, string]> = {
   running: ["运行中", "running"],
@@ -62,6 +69,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   const liveJobs = jobs.filter((j) => j.status === "running" || j.status === "stopping");
   const storeTodos = sessions.find((s) => s.sessionId === sessionId)?.projections?.values?.todos as CapsuleTodo[] | null | undefined;
   const todos = liveTodos ?? storeTodos;
+  const goal = (sessions.find((s) => s.sessionId === sessionId)?.projections?.values?.goal as GoalProjection | null | undefined)?.goal;
 
   // todo 投影实时帧（session/projection key=todos 整表推送）快过 3s 轮询
   useEffect(() => subscribeMux((frame) => {
@@ -177,6 +185,16 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
               <ChevronUp size={14} />
             </button>
           </div>
+          {goal && (
+            <div className="capsule-sec">
+              <div className="capsule-sec-name"><Flag size={12} />{t("目标")}</div>
+              <div className="capsule-row">
+                <span className={`state-dot ${goal.phase === "active" ? "running" : goal.phase === "complete" ? "ok" : "warning"}`} aria-hidden="true" />
+                <span className="capsule-row-text">{goal.objective}</span>
+                <span className="capsule-row-meta">{tt(...(GOAL_PHASE[goal.phase] ?? GOAL_PHASE.active!))}</span>
+              </div>
+            </div>
+          )}
           {(todos ?? []).length > 0 && (
             <div className="capsule-sec">
               <div className="capsule-sec-name"><ListTodo size={12} />{t("任务与计划")}</div>

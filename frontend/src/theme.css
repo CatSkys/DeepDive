@@ -2814,6 +2814,13 @@ button {
 .capsule-sec-toggle:hover { color: var(--ink); background: var(--fill); }
 .capsule-note { font-size: 11px; color: var(--ink-3); padding: 4px 0 2px; }
 
+/* 输入类统一去系统蓝色聚焦框：可见性由各控件自身的边框/底色反馈承担
+   （queue-edit/q-custom/capsule-input 同款）；新增输入面不需要再逐个补。 */
+input:focus, textarea:focus, select:focus { outline: none; }
+
+/* 黑白主题下 goal 编辑框的聚焦反馈（此前无规则，露出系统蓝环） */
+.goal-input:focus { outline: none; border-color: var(--ink-3); background: var(--fill); }
+
 .capsule-row-btn, .capsule-branch, .capsule-commit-btn, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
   transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }
