@@ -54,7 +54,7 @@
 | `components/SessionView.tsx` | 会话流渲染核心：事件日志 → RenderItem 摄取（O(1) callIndex 索引、独立 turn-tail、增量 ingest）、审批/提问/排队卡、工具行家族 |
 | `components/Composer.tsx` / `ModelMenu.tsx`（思考强度滑杆） / `Sidebar.tsx`（多工作区+会话列表） / `SettingsPage.tsx` + `settings/` | 输入框（@附件 //命令/听写）、模型与推理档位、侧栏、设置浮层 |
 | `components/Markdown.tsx` / `ThinkingState.tsx` / `LoadingState.tsx` / `Icons.tsx` / `ProviderIcon.tsx` / `HoverScrollText.tsx` / `HeroBrand.tsx` | 呈现组件 |
-| `store.tsx` / `api.ts` / `types.ts` / `host.ts` / `titlebar.ts` / `i18n.ts` | zustand 状态（轮询签名去抖）、same-origin RPC 客户端、事件可辨识联合、壳桥挂载、标题栏 rect 推送、中英词典 |
+| `store.tsx` / `api.ts` / `types.ts` / `host.ts` / `titlebar.ts` / `i18n.ts` | React Context 手写 store（轮询签名去抖）、same-origin RPC 客户端、事件可辨识联合、壳桥挂载、标题栏 rect 推送、中英词典 |
 | `theme.css` | 全部样式（唯一事实源，含亮/暗语义变量）；tokens 变量来自 `packages/design/generated/tokens.css` |
 
 ## 5. 引擎运行时（SPEC-ENGINE-RUNTIME）

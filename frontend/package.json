@@ -10,14 +10,10 @@
     "gen": "node packages/design/gen-tokens.mjs"
   },
   "dependencies": {
-    "clsx": "^2.1.1",
-    "immer": "^11.1.18",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "schemastery": "^3.18.0",
-    "simple-icons": "^16.29.0",
-    "zustand": "^5.0.15"
+    "simple-icons": "^16.29.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
