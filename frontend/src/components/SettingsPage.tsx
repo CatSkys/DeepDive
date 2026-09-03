@@ -542,7 +542,7 @@ function HotkeysSection() {
 /* ───────────────────────── 已归档的聊天 ───────────────────────── */
 
 function ArchivedSection() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [rows, setRows] = useState<Array<{ sessionId: string; title: string; updatedAt: number }> | null>(null);
   const [unarchiveSupported, setUnarchiveSupported] = useState(false);
 
@@ -571,7 +571,8 @@ function ArchivedSection() {
       } catch { if (!cancelled) setRows([]); }
     })();
     return () => { cancelled = true; };
-  }, [t]);
+    // t 经 useT 按 lang 缓存为稳定引用（i18n.ts tFuncCache），入表不会触发每渲染重跑
+  }, [t, lang]);
 
   return (
     <div className={rowsCss.section}>

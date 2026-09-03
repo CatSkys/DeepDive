@@ -394,8 +394,18 @@ export type TFunc = {
   lang: Lang;
 };
 
+/** t/tt 闭包按 lang 缓存：useT 每渲染返回同一引用——把 t 放进 effect
+ *  依赖不再引发每渲染重跑（SettingsPage ArchivedSection 曾因新闭包身份
+ * 陷入 fetch→setState→重渲→再 fetch 的无限拉取循环）。 */
+const tFuncCache = new Map<Lang, TFunc>();
+
 export function useT(): TFunc {
   const { lang } = useStore();
   currentLang = lang;
-  return { t: (s: string) => translate(s, lang), tt: (zh, en, vars) => render(zh, en, lang, vars), lang };
+  let fn = tFuncCache.get(lang);
+  if (!fn) {
+    fn = { t: (s) => translate(s, lang), tt: (zh, en, vars) => render(zh, en, lang, vars), lang };
+    tFuncCache.set(lang, fn);
+  }
+  return fn;
 }
