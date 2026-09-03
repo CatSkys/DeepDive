@@ -42,7 +42,7 @@ import { narrowDiffs } from "../diffModel";
 import { planReviewOf } from "../planReview";
 import { DiffBlock } from "./DiffBlock";
 import { PlanReviewCard } from "./PlanReviewCard";
-import { ContextRing, TurnUsagePop } from "./UsageMeter";
+import { TurnUsagePop } from "./UsageMeter";
 import { GoalBar } from "./GoalBar";
 import { SubagentLineage, SubagentReadOnlyNotice } from "./SubagentLineage";
 import { JobsMenu, ScheduleMenu } from "./JobsMenu";
@@ -435,10 +435,18 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const isBlank = summary ? !!summary.blank : items.length === 0;
   const running = liveRunning || !!summary?.running;
-  // 用量/占用投影（3.1）：空值时 ContextRing 自己返回 null
+  // 用量/占用投影（3.1）：空值时 Composer 内的容量圈不渲染
   const projVals = (summary?.projections?.values ?? {}) as {
     tokenUsage?: { uncachedInputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
     contextPressure?: { projectedTokens?: number; contextWindow?: number };
+    contextBreakdown?: { systemTokens?: number; toolsTokens?: number; messageTokens?: number };
+  };
+  // 容量圈数据挂在输入框上（发送/听写钮左侧，hover 出面板）
+  const ctxData = {
+    projected: projVals.contextPressure?.projectedTokens,
+    window: projVals.contextPressure?.contextWindow,
+    usage: projVals.tokenUsage,
+    breakdown: projVals.contextBreakdown,
   };
 
   if (isBlank) {
@@ -467,13 +475,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               />
             )}
           </div>
-          <ContextRing projected={projVals.contextPressure?.projectedTokens} window={projVals.contextPressure?.contextWindow} usage={projVals.tokenUsage} />
         </div>
         <div className="hero">
           <HeroBrand />
           <div className="hero-composer">
             <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
-            <Composer sessionId={sessionId} />
+            <Composer sessionId={sessionId} ctx={ctxData} />
           </div>
         </div>
       </>
@@ -528,7 +535,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         <SubagentLineage sessionId={sessionId} />
         <JobsMenu sessionId={sessionId} />
         <ScheduleMenu records={scheduleRecords} />
-        <ContextRing projected={projVals.contextPressure?.projectedTokens} window={projVals.contextPressure?.contextWindow} usage={projVals.tokenUsage} />
       </div>
       <div className="flow" ref={scrollRef} onScroll={(e) => {
         const el = e.currentTarget;
@@ -645,7 +651,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         {summary?.origin === "subagent" ? (
           <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
         ) : (
-          <Composer sessionId={sessionId} />
+          <Composer sessionId={sessionId} ctx={ctxData} />
         )}
       </div>
     </div>

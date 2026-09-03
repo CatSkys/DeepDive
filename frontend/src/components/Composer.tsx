@@ -9,6 +9,7 @@ import { useStore } from "../store";
 import { useT, t as globalT } from "../i18n";
 import { activeAtToken, formatMention } from "../atGrammar";
 import { useAtCandidates } from "../useAtCandidates";
+import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { PromptContentPart } from "../types";
 
 interface Attachment {
@@ -51,17 +52,18 @@ function parseSlashToken(text: string): { query: string; start: number } | null 
 }
 
 /* ─────────────────────────────────────────────────────────
- * COMPOSER — single glass pill: [＋] [textarea] [发送]
+ * COMPOSER — single glass pill: [＋] [textarea] [容量圈] [发送]
  *
  * Menus are keyboard-first, no dedicated buttons: typing "@"
  * opens 附件/引用, typing "/" opens 命令; the ＋ button forces
  * the @ menu for discoverability. ↑↓ + Enter/Tab pick, Esc
  * dismisses until the next edit, click-outside closes. The
  * send control is always visible — tactile when it can send,
- * a stop button while the turn is running.
+ * a stop button while the turn is running. 容量圈 hover 出弹层，
+ * 无投影数据时不渲染也不占网格位。
  * ───────────────────────────────────────────────────────── */
 
-export function Composer({ sessionId, onSent }: { sessionId: string | null; onSent?: () => void }) {
+export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null; onSent?: () => void; ctx?: ContextData }) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [plusOpen, setPlusOpen] = useState(false);
@@ -311,6 +313,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
 
   const canSend = content.length > 0 && !busy;
   const wide = text.includes("\n");
+  const showCtx = hasContextData(ctx);
   return (
     <div className="composer-wrap" ref={rootRef}>
       {attachments.length > 0 && (
@@ -325,7 +328,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
         </div>
       )}
       <div
-        className={`composer${wide ? " wide" : ""}${dragOver ? " drag-over" : ""}`}
+        className={`composer${wide ? " wide" : ""}${dragOver ? " drag-over" : ""}${showCtx ? " has-ctx" : ""}`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
@@ -422,6 +425,8 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
             }
           }}
         />
+        {/* 容量圈在右钮（发送/停止/听写）左侧，hover 出容量面板 */}
+        {showCtx && <ContextRing ctx={ctx} />}
         {/* 右侧单槽位：空=听写 → 有内容=发送 → 运行中=停止（参考图 1-4） */}
         {running ? (
           <button
