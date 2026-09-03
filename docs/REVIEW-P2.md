@@ -4,6 +4,15 @@
 对照依据：`/Users/hanbyking/Downloads/deepseek-harness-master`（官方源码 + docs/architecture.zh.md / AGENTS.md / docs/subsystems/{session,conversation}.zh.md）
 结论先行：**功能可用，但事件→UI 模型与官方有结构性差距**。当前是"能跑的自建"，若要长期对齐官方、避免反复踩坑，需按本文优先级收敛。
 
+> **收口状态（2026-09-03 更新）**：§6 建议清单里 P0 与 P1 各项**均已落地**——
+> ① 可辨识联合：`types.ts` 已类型化，`ingest` 各分支显式收窄，`as any` 已消灭；
+> ② O(1) 索引：`IngestCtx.callIndex/callPaths`（Map<callId, …>）取代整窗扫描（PITFALLS §3.3）；
+> ③ 独立 turn-tail 渲染单元（`finalizeTurns`，与"最后一条 assistant 文本"解耦，PITFALLS §3.4）；
+> ④ 加载更早历史（`loadOlder` + `beforeSeq` 翻页 + olderAnchorRef 滚动锚定）；
+> ⑤ 凭据冷启动闭环（`EngineAuth` + 恢复屏「配置 API Key / 从 ~/.dsh 导入」自动重启）。
+> 另有超出本 review 的性能落地：Markdown memo、增量摄取（流式只 ingest 新事件）、store 轮询签名去抖。
+> **仍开放**：P2-6（评估官方 snapshot store 取代组件内 `RenderItem[]`，建议 UI 需求稳定后再做）；§1 的 `seq` 作 key（现仅 turn-tail 用稳定 `tail:{turn}` key，事件项仍 `${seq}:${type}`）。
+
 ---
 
 ## 1. 渲染模型：官方快照 vs 我们事件增量

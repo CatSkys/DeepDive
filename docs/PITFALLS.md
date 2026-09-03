@@ -77,9 +77,9 @@
 
 ## 4. Engine / 壳端
 
-### 4.1 DSHmini 独立 harness home 需自带 `.credentials.yaml`
-- 事故：`DSH_HOME` 指向 `~/Library/Application Support/DSHmini/harness`，无 `~/.dsh/.credentials.yaml` → LLM 每轮返回**空回复**（assistant 文本为空），且无报错。
-- 处置：`EngineSupervisor.start()` 前**断言凭据存在**，缺失即 `state = .failed(...)` fail-loud，不再静默空引擎。启动时若缺，需 `cp ~/.dsh/.credentials.yaml <harness-home>/`。
+### 4.1 独立 harness home 需自带 `.credentials.yaml`
+- 事故：`DSH_HOME` 指向独立 harness home（现为 `~/Library/Application Support/DeepDive/harness`；改名前 `…/DSHmini/…`，首启动已自动迁移），无 `~/.dsh/.credentials.yaml` → LLM 每轮返回**空回复**（assistant 文本为空），且无报错。
+- 处置：`EngineSupervisor.start()` 前**断言凭据存在**，缺失即 `state = .failed(...)` fail-loud，不再静默空引擎；恢复屏提供「配置 API Key / 从 ~/.dsh 导入凭据」，配好自动重启（冷启动闭环）。
 
 ### 4.2 mux 帧是 `server-request` wrapper，需解包 `payload`
 - `frame = (raw.payload) || raw` 解包正确；帧类型在 `payload.type`（session/event / approval/requested …）。
@@ -150,6 +150,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 
 - **✅ 已解决（2026-08-31 协议移植完成，引脚切 0.1.2-alpha.2）**：unary HTTP 仍在但形状变了——endpoint 斜杠形 `/api/settings/describe`（点形 404）；信封不变（client-request）；**payload 必须包成 `{args:{…具名参数}}`**。`remote.mux` 只承载流方法与 `$events` 事件流（unary 开流被拒 `gateway/signature-invalid`）。前端传输层 `settings/models/mux.ts` + `api.ts` 探测自动切；BridgeServer WS 盲转发扩展 `/api/remote.mux`；观察者在 remote.mux 上开 `$events`。嵌套依赖漂移（pin alpha.2 拉 dsh-session alpha.3）在同 prerelease 段内警告放行（`DSH_STRICT_NESTED=1` 恢复拒绝）。**embed 必须在实例停止后执行**——覆盖运行中的 node/引擎文件会被 SIGKILL（自检/启动全 137）。
 - 判定代码：`dsh-client-connection/lib/index.js` 的 `BrowserAuth`（`requestRejection` 403/401 分级、`authorizeIndex` 换 cookie）、`dsh-api-gateway/lib/index.js:11` `REMOTE_STREAM_MUX_PATH = "/api/remote.mux"`。
+- **↩️ 后续回退（c590653，现行状态）**：引脚**回退 0.1.1-rc.2**——alpha.2 的 UNARY 面实测不可用。`api.ts` 回到点形 endpoint + 扁平参数 + `events.mux` 下行，同时保留 beforeSeq/atSeq 映射与能力探测，两版兼容；上面的 alpha.2 记录留作下次升级的对照清单。引脚现值永远以 `scripts/dsh-runtime-version.txt` 为准。
 
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
 - main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`，无任何输出——测试新构建时极易误判"app 秒退"。

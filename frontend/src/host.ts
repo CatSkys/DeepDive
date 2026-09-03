@@ -70,7 +70,3 @@ export function installHostBridge(handlers: {
   sendToShell({ type: "host-ready" });
 }
 
-/** Frontend→shell ask (§3.1): open the native settings window. */
-export function requestOpenSettings(): void {
-  sendToShell({ type: "open-settings" });
-}

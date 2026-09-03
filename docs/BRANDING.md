@@ -22,14 +22,15 @@
 - 图标容器：浅磨砂玻璃 squircle（`deepdive-icon-frosted-1024-squircle.png`），已切 AppIcon 落地
 - 出处：鲸鱼 path 派生自官方 `favicon.svg`（50×50 viewBox）——**派生自官方图形，非原创**（分发注意见 §4）
 
-## 3. 资产清单与落地状态（2026-09-02）
+## 3. 资产清单与落地状态（2026-09-03 复核）
 
 | 资产/场景 | 状态 |
 | --- | --- |
 | 主 PNG（透明底黑墨，1024…32） | ✅ `design/logo/exports/`（文件名前缀随工程改名统一，种子固定产物可复现） |
 | AppIcon | ✅ `apps/macos/Assets.xcassets/AppIcon.appiconset/`（Apple 网格母版 1024/824/185.4 圆角，10 档）；`project.yml` 已挂 + `LSUIElement` false（进 Dock + ⌘⇥） |
 | 菜单栏状态点 | ✅ 不占用简化小标（沿用圆点） |
-| 深色场景反白版 | ⬜ 未做（同算法换 `INK` 即可；深色底黑墨不可见） |
+| 欢迎页 hero logo | ❌ **已决策移除**（38eb6e3）：hero 仅保留「做点什么？」标题；前端 `src/assets` 的鲸鱼 PNG 与托板样式一并删除。logo 只出现在 AppIcon/分发物料 |
+| 深色场景反白版 | ⬜ 未做（hero 已不用 logo，需求随场景再评估） |
 | <128px 简化小标 | ⬜ 未做（Dock 以下无场景；如未来有需按 judge 建议 2 出简化版） |
 
 ## 4. 使用与分发纪律

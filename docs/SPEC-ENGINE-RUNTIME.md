@@ -1,9 +1,11 @@
 # ENGINE-RUNTIME — 引擎捆绑与版本韧性 spec（P2 · v2.1 复审收口）
 
+> **状态（2026-09-03）：已实现**（构建链/入口优先级/能力探测/凭据冷启动均落地，见 `ARCHITECTURE §5` 与 `scripts/`）。本文保留为行为契约与决策依据。
 > 工程流 A。目标：**用户无需安装 dsh** + **引擎版本变化对客户端无感**。
 > 参考：`luochenw/deepseek-harness-macos` 的 `scripts/prepare-dsh-runtime.sh`、`scripts/build-macos-app.sh`、`scripts/dsh-runtime-version.txt`、`DSHHostProtocol` 的 settings/credentials 端点。
 > v2 变更：钉死 bundled 入口形状（node + `lib/bin.js`，修 v1 的路径自相矛盾）；node 二进制版本同样引脚化；新增 §4.4 凭据冷启动闭环。
 > v2.1 变更：入口优先级修正（`DSHMINI_DSH_ENTRY` 显式 env 最强覆盖、压过 bundled，否则 §5"对照不同版本"失效）；子命令形状以实测为准；`PATH` 注入 bundled node；`package-macos.sh` 签名改 `--deep`；node 引脚不符改 fail-loud（不做自动下载）。
+> **引脚版本以 `scripts/dsh-runtime-version.txt` 为唯一事实源，不在本文内联数字**。版本史：rc.2 → 0.1.2-alpha.2 协议移植试验 → c590653 **回退 rc.2**（alpha.2 UNARY 面实测不可用）；前端 `api.ts` 保留 beforeSeq/atSeq 映射与能力探测回退，两版兼容。
 
 ---
 
@@ -22,7 +24,7 @@
 ## 3. 引擎捆绑（构建期）
 
 ### 3.1 运行时来源引脚
-- 文件：`scripts/dsh-runtime-version.txt`，内容为单一版本号（**当前 `0.1.2-alpha.2`**——v3.1 协议移植完成后切回：前端具备 mux 传输层（`settings/models/mux.ts`）与 alpha.2 unary wire（斜杠 endpoint + `{args}` 包裹），官方模型全功能面板可用；过程记录见 PITFALLS「引擎跨版本协议断裂」）。
+- 文件：`scripts/dsh-runtime-version.txt`，内容为单一版本号（**当前值以文件为准**）。
 - **node 二进制版本同样引脚化**：`scripts/node-version.txt` 单一版本号（对齐 `ARCHITECTURE §5.4`"启动时禁止复用系统 Node，保证版本钉死"的精神——只钉 dsh 不钉 node 会随构建机漂移）。构建机 node 与引脚不符时**直接报错**（提示切到引脚版本后重试，如 nvm / 官方 tarball 手动安装），**不静默用本机版本**；不做自动下载（控制实现面——参考项目亦只用构建机 node，自动下载是超出参考的新逻辑）。
 
 ### 3.2 准备脚本 `scripts/prepare-dsh-runtime.sh`（对齐参考项目）
@@ -78,10 +80,10 @@
 
 | 文件 | 变更 |
 |---|---|
-| `engine/README.md` | 更新为"已捆绑/版本引脚/覆盖方式" |
+| ~~`engine/README.md`~~ | 已收口：内容并入 `docs/ARCHITECTURE.md §5`，目录删除 |
 | `scripts/prepare-dsh-runtime.sh` | 新增（对齐参考项目） |
 | `scripts/embed-engine.sh` | 新增 |
-| `scripts/dsh-runtime-version.txt` | 新增（`0.1.2-alpha.2`） |
+| `scripts/dsh-runtime-version.txt` | 新增（运行时版本引脚） |
 | `scripts/node-version.txt` | 新增（node 二进制引脚，§3.1） |
 | `scripts/build-release.sh` / `package-macos.sh` / `dev.sh` | 追加 embed-engine；`package-macos.sh` 签名改 `codesign --force --deep`（现有浅签不覆盖嵌入的 `MacOS/node`，参考项目 embed 后即深签） |
 | `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` | 入口解析优先 bundled + spawn 形状（node+bin.js）+ 失败文案区分（§3.4） |

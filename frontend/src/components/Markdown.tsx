@@ -58,7 +58,6 @@ function parseBlocks(text: string): Block[] {
     // table: header row + separator row of |---|
     if (line.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1]) && lines[i + 1].includes("-")) {
       const header = line.split("|").map((c) => c.trim()).filter((c) => c !== "");
-      const start = i;
       i++;
       const rows: string[] = [];
       while (i < lines.length && lines[i].includes("|") && lines[i].trim() !== "") {

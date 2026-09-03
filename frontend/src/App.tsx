@@ -8,6 +8,7 @@ import { Sidebar, WorkspacePill } from "./components/Sidebar";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
+import { HeroBrand } from "./components/HeroBrand";
 import { SettingsPage } from "./components/SettingsPage";
 import { ModelMenu, type ModelOption } from "./components/ModelMenu";
 import "./theme.css";
@@ -131,11 +132,7 @@ function Shell() {
                 )}
               </div>
             </div>
-            <div className="hero-brand">
-              <div className="hero-logo-plate">
-              </div>
-              <div className="hero-title">{t("做点什么？")}</div>
-            </div>
+            <HeroBrand />
             <div className="hero-composer">
               <Composer sessionId={null} />
             </div>

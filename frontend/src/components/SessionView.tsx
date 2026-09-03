@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, GripVertical, Pencil, ShieldCheck, Trash2, X } from "lucide-react";
 import { ModelMenu, effortDisplayName, type ModelOption } from "./ModelMenu";
-import { ProviderIcon } from "./ProviderIcon";
 import { WorkspacePill } from "./Sidebar";
 import { api } from "../api";
 import { useStore } from "../store";
 import { t, tt, useT } from "../i18n";
 import { Composer } from "./Composer";
+import { HeroBrand } from "./HeroBrand";
 import { Markdown } from "./Markdown";
 import LoadingState from "./LoadingState";
 import ThinkingState from "./ThinkingState";
@@ -61,7 +61,7 @@ interface TurnMeta {
 }
 
 export function SessionView({ sessionId }: { sessionId: string }) {
-  const { lang } = useT();
+  useT(); // 订阅语言切换：本组件文案走全局 t()/tt()，语言变更时需重渲染
   const { approvals, questions, queues, sessions, subscribeMux } = useStore();
   const [items, setItems] = useState<RenderItem[]>([]);
   // Live turn state from mux events; `summary.running` (store poll) covers
@@ -76,7 +76,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 模型不显示档位。effort === undefined 表示跟随提供商默认档。
   const [currentModel, setCurrentModel] = useState<{ provider: string; model: string } | undefined>(undefined);
   const [effortLevels, setEffortLevels] = useState<Array<{ id: string; name: string }>>([]);
-  const [effortDefault, setEffortDefault] = useState<string | undefined>(undefined);
   const [effort, setEffort] = useState<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -133,7 +132,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         const group = (r.groups ?? []).find((g) => g.id === cur?.provider);
         const model = group?.models?.find((m) => m.id === cur?.model);
         setEffortLevels(model?.reasoning?.efforts ?? []);
-        setEffortDefault(model?.reasoning?.defaultEffort);
         // 分组目录里每个模型自带 reasoning 档位元数据 —— 并进选项，
         // 模型菜单据此决定"点了直接选"还是"进档位滑杆页"。
         const effortByModel = new Map<string, { efforts: Array<{ id: string; name: string }>; defaultEffort?: string }>();
@@ -154,7 +152,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const pickModel = async (m: ModelOption) => {
     // 菜单关闭由 ModelMenu 决定：无档位模型选完即关；带档位的进滑杆页，
-    // 点"应用"走 applyModelEffort 一次提交模型+档位后才关。
+    // 档位滑杆松手即通过 applyModelEffort 一次提交模型+档位后关闭。
     setModelName(m.label);
     try {
       await api.selectModel({ sessionId, provider: m.provider, model: m.model });
@@ -345,11 +343,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           </div>
         </div>
         <div className="hero">
-          <div className="hero-brand">
-            <div className="hero-logo-plate">
-              </div>
-            <div className="hero-title">{t("做点什么？")}</div>
-          </div>
+          <HeroBrand />
           <div className="hero-composer">
             <Composer sessionId={sessionId} />
           </div>
@@ -593,7 +587,7 @@ function ToolRow({ toolName, args, output, failed }: {
   const todo = parseTodos(args);
   const isTodo = toolName === "todo_write" || toolName === "todos" || todo !== null;
   const isAsk = toolName === "ask_user_question" || toolName === "ask_user";
-  const summary = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : summarizeArgs(toolName, args);
+  const summary = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : summarizeArgs(args);
   const filePath = derivePath(toolName, args);
   const isBash = toolName === "bash" || toolName === "terminal-bash";
   const state = failed ? "error" : output !== undefined ? "done" : "running";
@@ -703,7 +697,6 @@ function TerminalBlock({ command, output, failed }: { command: string; output: s
   const MAX_LINES = 16;
   const lines = useMemo(() => output.split("\n"), [output]);
   const hidden = lines.length - MAX_LINES;
-  const head = lines.slice(0, MAX_LINES);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(output);
@@ -1403,7 +1396,7 @@ function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
 }
 
 /// Derived DSH-style tool summary from arguments (first line of the payload).
-function summarizeArgs(toolName: string, args: string): string {
+function summarizeArgs(args: string): string {
   if (!args) return "";
   try {
     const p = JSON.parse(args);

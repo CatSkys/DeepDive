@@ -14,7 +14,7 @@ export interface ModelOption {
   defaultEffort?: string;
 }
 
-/** 思考强度滑杆草稿：进入第二层时快照，Apply 才提交。 */
+/** 思考强度滑杆草稿：进入第二层时快照，滑杆松手即提交。 */
 interface EffortDraft {
   model: ModelOption;
   levels: Array<{ id: string; name: string }>;
@@ -136,7 +136,7 @@ export function ModelMenu({
 }
 
 /** 思考强度滑杆：厚胶囊填充条 —— 无文字（档位名在头部模型名右侧）、
- *  无常驻拖柄（拖动时才出现）；停靠点只标未覆盖档位且内缩不顶两端。 */
+ *  无拖柄；停靠点只标未覆盖档位且内缩不顶两端。 */
 function EffortSlider({
   levels,
   value,
@@ -179,7 +179,6 @@ function EffortSlider({
   // 微差形成波浪推进；强度越高 → 涌动越快。最低档静止（无方块）。
   const energy = n <= 1 ? 0 : idx / (n - 1);
   const dur = `${(1.8 - 1.3 * energy).toFixed(2)}s`;
-  const cellCount = energy <= 0.01 || !dims ? 0 : dims.cols * dims.rows;
 
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();

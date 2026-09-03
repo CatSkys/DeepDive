@@ -26,12 +26,15 @@ make package      # 生成 dev 签名 DMG（dist/）
 ## 结构
 
 ```
-apps/macos/                Swift + AppKit 外壳（XcodeGen）：窗口/热键/托盘/引擎监督/恢复界面/Bridge
+apps/macos/                Swift + AppKit 外壳（XcodeGen）：窗口/热键/托盘/悬浮球/通知/引擎监督/恢复界面/Bridge
 frontend/                  自建 SPA（React + TS + Vite）：消息流渲染 + /api 客户端 + 标题栏拖拽桥(titlebar.ts)
 frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css / Tokens.swift
-docs/                      架构/语义/UI 规范/踩坑记录 + 计划与评审
+design/logo/               DeepDive ASCII 鲸鱼 logo 种子工程与导出（docs/BRANDING.md）
+scripts/                   构建/打包/引擎嵌入脚本 + 运行时版本引脚（dsh-runtime-version.txt）
+deepseek-harness-master/   官方 DSH 源码 vendored 副本（与运行时引脚同版）：资产源/移植对照，勿当运行时
+docs/                      架构(as-built)/UI 规范/语义蓝图/三个 P2 SPEC/踩坑记录/协作约定
 ```
 
-## 已知限制（见 docs/PLAN-P1.md §4 与 docs/REVIEW-P2.md）
+## 已知限制（见 docs/ARCHITECTURE.md §8 与 docs/REVIEW-P2.md）
 
-工作区切换需重启引擎（sandbox 根=cwd）；系统通知/Keychain/自动更新属 P2。
+工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。

@@ -1,8 +1,10 @@
 import type { HistoryEntry, MuxFrame, QuestionAnswerItem, RpcResult, SessionSummary, WorkspaceView } from "./types";
 
-// Same-origin bridge (/api → engine). Verified wire contract for the pinned
-// 0.1.2-alpha.2 runtime (see docs/PITFALLS.md §4.6 — audited against the
-// engine's own UNARY_ROUTES, do not guess):
+// Same-origin bridge (/api → engine). Wire contract audited against the
+// engine's own UNARY_ROUTES (see docs/PITFALLS.md §4.6 — do not guess); the
+// pinned runtime is whatever scripts/dsh-runtime-version.txt says (rc.2
+// at the time of writing — the alpha.2 detour and its differences are
+// documented in PITFALLS §7.1):
 //   POST /api/<dot-form method>  +  envelope { type:"client-request",
 //   rpcId, method (must equal the path-derived name), payload: <flat params> }
 // Live events ride the broadcast /api/events.mux WebSocket downlink (openMux

@@ -1,11 +1,12 @@
 # DSHmini UI 规范（v0.3 · 黑白 · 少字）
 
 > 上游：语义层 `SPEC-SEMANTICS.md`（对象与交互）→ **本文档**（视觉与呈现）→ 实现（React 组件 + 原生外壳）。
-> **v1 范围界碑（用户定稿）**：P1 = 套壳——本文档的完整组件库/极简布局为 **P2 自建前端的目标**；P1 仅落地二件事：① 外壳自身界面（菜单栏 popover、恢复屏、引导卡——均为壳的必要件）按本规范 ② 以"黑白玻璃 token 覆盖"套在 DSH 官方 web UI 上（最小集：surface/圆角/字体/无 hover/去装饰），**不改官方 UI 的信息架构**。
+> **状态（2026-09-03）**：自建前端已全量落地（套壳时代结束），本文档是**现行视觉规范**；原「P1=套壳、组件库 P2 再做」的范围界碑已失效。后续新增界面以本文档为准。
 > 设计参照（一手资料）：Raycast 官方[设计原则](https://www.raycast.com/blog/a-fresh-look-and-feel)、[Raycast 2.0](https://www.raycast.com/blog/the-new-raycast)、[技术深潜](https://www.raycast.com/blog/a-technical-deep-dive-into-the-new-raycast)（原生惯例）；**视觉基调（用户指定）：近单色玻璃、大圆角、极简、主题纯黑白、无强调色、少字**。
 >
 > **单一事实源规则**：所有颜色、间距、圆角等只存在于 `frontend/packages/design/tokens.json`，
 > 由代码生成 ① CSS Variables（Web） ② Swift 常量（原生）。**任何一端手写数值即违规。**
+> 实现侧补充（现行）：图标经 `Icons.tsx`（官方 ic_ds_* 移植）+ `lucide-react` + `ProviderIcon`（Simple Icons 品牌原色，白色圆角底座）混用，色板语义变量（--ink/--line/--fill 等）承担亮/暗双主题。
 
 ---
 

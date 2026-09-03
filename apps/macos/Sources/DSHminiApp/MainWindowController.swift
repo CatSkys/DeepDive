@@ -74,7 +74,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     /// Frontend asks the shell to act (SPEC-NOTIFICATIONS §3.1 前端→外壳):
     /// host-ready / restart-engine / rebind-hotkey / set-pref / set-theme /
-    /// get-prefs / reveal-home / open-host-doc. Routed to AppDelegate.
+    /// get-prefs / reveal-home / reveal-path / copy-log-path / open-host-doc /
+    /// pick-workspace / dictation-start / dictation-stop. Routed to AppDelegate.
     var onHostMessage: (([String: Any]) -> Void)?
     /// Shell→frontend pending instruction: at most one, last-wins; flushed
     /// when the page finishes loading or the frontend reports `host-ready`.

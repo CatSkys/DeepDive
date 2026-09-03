@@ -1,5 +1,6 @@
 # NOTIFICATIONS-FLOATING-BALL — 通知与悬浮球 spec（P2 · v2.1 复审收口）
 
+> **状态（2026-09-03）：已实现**。落地文件：`NativeAlerts.swift`、`FloatingBubble.swift`（Manager+View 合一）、`EngineEventObserver.swift`（方案 A：壳自读 mux）。工程改名后标识符已变：桥钩子 `__dshminiHost` → **`__deepDiveHost`**、messageHandler `dshminiHost` → **`deepdiveHost`**、偏好键 `dsh.alerts.*` → **`deepdive.alerts.*`**（见 BRANDING §5）。
 > 工程流 C。重点参考 `luochenw/deepseek-harness-macos`：`NativeAlerts.swift`（`UNUserNotificationCenter` + `NSStatusItem`）、`FloatingBubble.swift`（`NSPanel` 悬浮球）。这些是 **WebView 标签页做不到的 OS 级能力**，必须落在原生 Swift 层。
 > 视觉纪律（`UI-SPEC`）：黑白灰阶、无强调色（彩色仅 diff 内容层语义色）；状态用符号+亮度，**不用红点/彩色海景**——参考项目的红点与海景需按 spec 转 monochrome。
 > v2 变更：①通知按 `SPEC-SEMANTICS §5` 分级静默（回合完成不带 sound）②补引擎失败通知③新增 **§3.1 外壳↔前端通道**（通知点击"转入会话"/悬浮球聚焦会话/主题联动的落地前提，现状为零通道）④授权时机定为首次派发任务⑤菜单对现状的两处取舍写明。

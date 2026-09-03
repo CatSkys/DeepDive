@@ -1,8 +1,9 @@
 # DSH 参考源码（已定位，勿再询问）
 
-官方实现源码位于用户本地下载目录，以后移植 DSH UI 直接读这里，**不要自行发挥**。
+官方实现源码的移植对照图。以后移植 DSH UI 直接读源码，**不要自行发挥**。
 
-- 仓库根：`/Users/hanbyking/Downloads/deepseek-harness-master`
+- **首选：本仓库 vendored 副本** `deepseek-harness-master/`（根目录）——随仓库走、与运行时引脚同版（`scripts/dsh-runtime-version.txt`）。
+- 备选（同结构）：`/Users/hanbyking/Downloads/deepseek-harness-master`（本地下载目录，版本可能不同）。
 
 ## 图标
 - `packages/client/ui-primitives/src/icons/index.tsx`
