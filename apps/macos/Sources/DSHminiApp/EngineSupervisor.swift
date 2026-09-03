@@ -202,7 +202,12 @@ final class EngineSupervisor {
 
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            guard !data.isEmpty else { return }
+            guard !data.isEmpty else {
+                // EOF: availableData stays empty forever; without nil-ing the
+                // handler dispatch re-fires it in a busy loop (PITFALLS §4.4).
+                handle.readabilityHandler = nil
+                return
+            }
             self?.consume(data)
         }
 
