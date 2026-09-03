@@ -231,6 +231,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pickWorkspaceDirectory()
         case "list-dir":
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
+        case "run-git":
+            runGit(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "open-url":
             // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
@@ -293,6 +295,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return a.name < b.name
         }
         reply(rows.prefix(200).map { ["name": $0.name, "path": $0.path, "isDir": $0.isDir] })
+    }
+
+    /// 状态胶囊的未提交改动摘要（run-git → gitStatus 回推）。引擎无 git 能力，
+    /// 由壳在工作区路径跑只读 git 命令聚合；非 git 仓库/命令不可用回 repo=false，
+    /// 前端按无 git 数据处理。status 计未提交文件（含未跟踪），numstat 计行数。
+    private func runGit(reqId: String, path: String) {
+        func reply(_ fields: [String: Any]) {
+            var all = fields
+            all["reqId"] = reqId
+            windowController.pushHostCommand("gitStatus", payload: AppDelegate.jsonPayload(all))
+        }
+        func git(_ args: [String]) -> String? {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = args
+            process.currentDirectoryURL = URL(fileURLWithPath: path)
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            do { try process.run() } catch { return nil }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            return String(data: data, encoding: .utf8)
+        }
+        guard FileManager.default.fileExists(atPath: path),
+              let branch = git(["rev-parse", "--abbrev-ref", "HEAD"])?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            reply(["repo": false])
+            return
+        }
+        let files = git(["status", "--porcelain"])?
+            .split(separator: "\n", omittingEmptySubsequences: true).count ?? 0
+        var additions = 0
+        var deletions = 0
+        for line in git(["diff", "HEAD", "--numstat"])?.split(separator: "\n") ?? [] {
+            // 二进制文件两列是 "-"，Int 转换失败即跳过
+            let cols = line.split(separator: "\t")
+            if cols.count >= 3, let a = Int(cols[0]), let d = Int(cols[1]) {
+                additions += a
+                deletions += d
+            }
+        }
+        reply(["repo": true, "branch": branch, "files": files, "additions": additions, "deletions": deletions])
     }
 
     /// 目录选择器（侧栏「＋新建空间」）：选一个已有文件夹，把绝对路径推回

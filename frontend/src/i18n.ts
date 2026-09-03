@@ -82,6 +82,15 @@ const EN: Record<string, string> = {
   "{n} 行": "{n} lines",
   "… 其余 {n} 行": "… {n} more lines",
   "收起": "Collapse",
+  // 会话状态胶囊（StatusCapsule）
+  "会话状态": "Session status",
+  "任务与计划": "Tasks & plan",
+  "已完成 {n} 项": "Completed {n}",
+  "{n} 运行中": "{n} running",
+  "{n} 个文件改动": "{n} files changed",
+  "{n} 个文件未提交": "{n} uncommitted files",
+  "代码改动": "Changes",
+  "提醒与自动化": "Reminders & automation",
   "用时": "Ran for",
   "首 token": "first token",
   // tool titles (DSH 同款英文)

@@ -44,8 +44,7 @@ import { DiffBlock } from "./DiffBlock";
 import { PlanReviewCard } from "./PlanReviewCard";
 import { TurnUsagePop } from "./UsageMeter";
 import { GoalBar } from "./GoalBar";
-import { SubagentLineage, SubagentReadOnlyNotice } from "./SubagentLineage";
-import { JobsMenu, ScheduleMenu } from "./JobsMenu";
+import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { UserAttachments } from "./AttachmentImage";
 import { groupTurns, foldDecision, type TurnGroup } from "../turnGroups";
 
@@ -509,9 +508,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           </span>
         )}
-        <SubagentLineage sessionId={sessionId} />
-        <JobsMenu sessionId={sessionId} />
-        <ScheduleMenu records={scheduleRecords} />
+        <StatusCapsule sessionId={sessionId} scheduleRecords={scheduleRecords} />
       </div>
       <div className="flow" ref={scrollRef} onScroll={(e) => {
         const el = e.currentTarget;

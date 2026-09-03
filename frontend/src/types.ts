@@ -228,6 +228,15 @@ export interface JobView {
   finishedAt?: number;
 }
 
+/** 壳层 run-git 的聚合回包（工作区未提交改动；非 git 仓库 repo=false）。 */
+export interface GitStatus {
+  repo: boolean;
+  branch?: string;
+  files: number;
+  additions: number;
+  deletions: number;
+}
+
 /** subagent.list 的单条目（谱系树；diagnostic 为坏账行）。 */
 export type SubagentListEntry =
   | {

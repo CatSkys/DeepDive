@@ -51,6 +51,26 @@ export function listDir(path: string): Promise<Array<{ name: string; path: strin
   });
 }
 
+/** 壳侧工作区未提交改动摘要（run-git → gitStatus 回推）。引擎无 git 能力，
+ *  这条链路只在桌面壳内可用；纯浏览器/非 git 仓库 resolve null。 */
+export function gitStatus(path: string): Promise<import("./types").GitStatus | null> {
+  return new Promise((resolve) => {
+    if (!window.webkit?.messageHandlers?.deepdiveHost) {
+      resolve(null);
+      return;
+    }
+    const reqId = crypto.randomUUID();
+    const off = onHostEvent((cmd, payload) => {
+      if (cmd !== "gitStatus") return;
+      const p = payload as { reqId?: string } & Partial<import("./types").GitStatus>;
+      if (p.reqId !== reqId) return;
+      off();
+      resolve(p.repo === true ? (p as import("./types").GitStatus) : null);
+    });
+    sendToShell({ type: "run-git", reqId, path });
+  });
+}
+
 export function installHostBridge(handlers: {
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;
