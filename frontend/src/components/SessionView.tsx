@@ -5,6 +5,7 @@ import { WorkspacePill } from "./Sidebar";
 import { api } from "../api";
 import { useStore } from "../store";
 import { t, tt, useT } from "../i18n";
+import { useCompositionGuard } from "../useCompositionGuard";
 import { Composer } from "./Composer";
 import { HeroBrand } from "./HeroBrand";
 import { Markdown } from "./Markdown";
@@ -1317,6 +1318,7 @@ function QuestionCard({ rpcId, sessionId, questions }: {
   const [drafts, setDrafts] = useState<Record<string, { selected: string[]; custom?: string }>>({});
   const [custom, setCustom] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const ime = useCompositionGuard();
   const q = questions[Math.min(page, questions.length - 1)];
   if (!q) return null;
   const multi = q.multiSelect === true;
@@ -1417,8 +1419,11 @@ function QuestionCard({ rpcId, sessionId, questions }: {
           value={custom}
           disabled={submitting}
           onChange={(e) => setCustom(e.target.value)}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            if (ime.swallow(e)) return;
+            if (e.key === "Enter") {
               e.preventDefault();
               sendCustom();
             }
@@ -1978,6 +1983,7 @@ function queueText(item: SessionQueuedItem): string {
 function QueueDock({ sessionId, items }: { sessionId: string; items: SessionQueuedItem[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const ime = useCompositionGuard();
   const mutate = async (itemId: string, action: Parameters<typeof api.updateQueue>[0]["action"]) => {
     try {
       await api.updateQueue({ sessionId, itemId, action });
@@ -2005,7 +2011,10 @@ function QueueDock({ sessionId, items }: { sessionId: string; items: SessionQueu
                   value={draft}
                   autoFocus
                   onChange={(e) => setDraft(e.target.value)}
+                  onCompositionStart={ime.onCompositionStart}
+                  onCompositionEnd={ime.onCompositionEnd}
                   onKeyDown={(e) => {
+                    if (ime.swallow(e)) return;
                     if (e.key === "Enter") saveEdit(item.id);
                     if (e.key === "Escape") setEditingId(null);
                   }}

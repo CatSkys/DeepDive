@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Flag, Pause, Play, Pencil, Trash2, Check, X } from "lucide-react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
+import { useCompositionGuard } from "../useCompositionGuard";
 import type { GoalProjection } from "../types";
 
 // GoalBar（5.1，官方 ui-goal GoalBar 移植）：composer 上方的目标条。
@@ -32,6 +33,7 @@ export function GoalBar({ projection, onChange, sessionId }: {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pendingRef = useRef(false);
+  const ime = useCompositionGuard();
   const goal = projection?.goal;
   const goalId = goal?.id;
 
@@ -76,7 +78,10 @@ export function GoalBar({ projection, onChange, sessionId }: {
           autoFocus
           aria-label={t("目标")}
           onChange={(e) => setDraft(e.target.value)}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
           onKeyDown={(e) => {
+            if (ime.swallow(e)) return;
             if (e.key === "Enter") void edit();
             if (e.key === "Escape") setEditing(false);
           }}
