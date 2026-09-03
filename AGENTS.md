@@ -13,7 +13,8 @@ DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit �
 ## 心法
 
 - **本仓库由 AI 维护**，用户通过提交信息、文档与截图消费代码：写给下一个 agent 看，用该技术栈最主流、最默认的写法；禁止自造轮子、禁止聪明写法。
-- 简单直白优于优雅抽象；只写当前需要的，不做未来预留。
+- 模块化组件化：高内聚、低耦合、单一职责——一个文件/组件/函数只管一件事，跨模块只经显式入口。
+- 简洁、高效、可读优先；只写当前需要的，不做未来预留。警惕过度设计：越强调"设计感"，越容易得到无谓的抽象层和下一个 agent 也看不懂的代码——宁可朴素直白，不可聪明堆叠。
 - 目录即地图：文件名/目录名必须能说明里面是什么；新文件开头一两句注明职责（管什么、不管什么）。
 
 ## 仓库布局
@@ -38,12 +39,16 @@ make tokens     # tokens.json → tokens.css + Tokens.swift（改 token 后必�
 make clean      # 清 .build 与 dist
 
 cd frontend && npm run build   # tsc -b --noEmit && vite build
+cd frontend && npm run test    # vitest run（事件回放/纯函数/api 信封）
+cd frontend && npm run lint    # eslint src，零报错
 cd apps/macos && xcodegen generate   # 改 project.yml 后重新生成工程
+cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -configuration Debug -derivedDataPath ../../.build/debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO   # 壳 XCTest（改 Swift 后必跑）
 ```
 
 ## 完成的定义
 
 - `cd frontend && npm run build` 通过，且 `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` 零错误。
+- `cd frontend && npm run test` 与 `npm run lint` 零失败；改过壳侧 Swift 则 XCTest 全绿。
 - 改前端/UI 的提交走完交付链并截图自查（铁律 2）。
 - 无死代码残留：删除功能时代码、样式、文案、文档引用一并删干净；禁止留下注释掉的代码。
 
@@ -59,6 +64,8 @@ cd apps/macos && xcodegen generate   # 改 project.yml 后重新生成工程
 6. **只修用户指出的问题**：不扩大范围、不顺手"根除"（WORKING-AGREEMENTS §3）。
 7. **新增依赖先停下来问用户**：是否主流、是否必要；不得擅自引入新技术栈。
 8. **改动即提交**（中文详述因果）；临时验证代码当轮还原（WORKING-AGREEMENTS §4）。
+9. **不确定就问，禁止猜测性代码**：字段名、契约、行为含义有任何不确定 → 先查事实源（引擎源码/类型定义/文档），查不到就停下来问用户；禁止枚举猜测掩盖未知（例：不清楚接口响应的 id 字段名，就写 `id ?? userId ?? user_id` 一串猜）。
+10. **禁止兜底/保底/冗余代码**：不为"保证能跑"堆防御——对不该为空的值层层 `?.`、try-catch 包一切、掩盖错误的兜底默认值，都是把问题藏进代码。合法降级只有铁律 4/5 那种查证后显式设计的；拿不准的按铁律 9 问，不写代码垫背。
 
 ## 代码约定
 
