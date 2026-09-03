@@ -1,7 +1,10 @@
 // 静态斜杠命令目录：引擎无 commands.list RPC，目录按 docs/DSH-WIRE.md §4
 // 的引擎注册处静态内置（command-compact / command-goal / permission-presets /
-// plan-mode / command-feedback）；升引擎时对照该表复核。执行一律走
-// session.prompt 文本透传，引擎自行解析 /name 并发 command/run·done 事件。
+// plan-mode / command-feedback）；升引擎时对照该表复核。
+// ⚠ rc.2 实测（DSH-WIRE §4）：session.prompt 的浏览器面**不做斜杠命令派发**
+// （agent 包无 parseCommand 调用方，/plan 探针被当普通文本进模型）——
+// 目录里只有 /goal 经 goal.create RPC 客户端派发入菜单，其余命令升
+// alpha.2（remote 命令通道）后再入。本表保留作为升级时的对照。
 
 export interface SlashCommand {
   /** 无斜杠小写命令名（引擎 parseCommand 同名）。 */

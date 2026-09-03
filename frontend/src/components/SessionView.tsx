@@ -100,9 +100,9 @@ interface TurnMeta {
   tokensPerSecond: number | null;
 }
 
-/** Access chip（官方 permission 预设呈现）：当前预设 + 点击切换菜单。
- *  切换 = `/permission <preset>` 文本透传，引擎发 permission/preset 事件并
- *  更新 permissions 投影，chip 随 3s 轮询刷新。数据缺省时不渲染。 */
+/** Access chip（官方 permission 预设呈现）：只读展示当前预设。
+ *  切换依赖 `/permission` 斜杠命令，而 rc.2 浏览器面不做命令派发
+ *  （DSH-WIRE §4）——升引擎后接回切换菜单。数据缺省时不渲染。 */
 function AccessChip({ sessionId }: { sessionId: string }) {
   const { sessions } = useStore();
   const { t } = useT();
@@ -110,53 +110,15 @@ function AccessChip({ sessionId }: { sessionId: string }) {
   const perm = summary?.projections?.values?.permissions as
     | { options?: Array<{ value: string; name?: string }>; currentValue?: string }
     | undefined;
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
   if (!perm?.currentValue || !perm.options?.length) return null;
-  const pick = (value: string) => {
-    setOpen(false);
-    if (value === perm.currentValue) return;
-    void api.prompt({
-      sessionId,
-      mode: "queue",
-      content: [{ type: "text", text: `/permission ${value}` }],
-    }).catch(() => void 0);
-  };
   return (
-    <div className="access-chip-wrap" ref={ref}>
-      <button
-        type="button"
-        className="access-chip"
-        data-open={open ? "true" : "false"}
-        title={t("权限预设")}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <ShieldCheck size={12} />
-        {perm.currentValue}
-      </button>
-      {open && (
-        <div className="permission-menu">
-          {perm.options.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              className={`permission-row${o.value === perm.currentValue ? " current" : ""}`}
-              onClick={() => pick(o.value)}
-            >
-              {o.name ?? o.value}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <span
+      className="access-chip"
+      title={t("当前权限预设（当前引擎版本不支持会话内切换）")}
+    >
+      <ShieldCheck size={12} />
+      {perm.currentValue}
+    </span>
   );
 }
 
@@ -597,9 +559,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             const keyIdx = new Map(items.map((it, i) => [it.key, i] as const));
             const groups = groupTurns(items);
             const fold = foldDecision(groups.length);
-            const foldFrom = fold && turnsFolded ? fold.foldFrom : groups.length;
+            // turnsFolded=false 时 foldFrom=0（全部渲染）；=groups.length 会把整流折空
+            const foldFrom = fold && turnsFolded ? fold.foldFrom : 0;
             const nodes: React.ReactNode[] = [];
             let foldedCount = 0;
+            let foldBarEmitted = false;
             groups.forEach((g: TurnGroup, gi: number) => {
               if (gi < foldFrom) {
                 foldedCount += g.items.length;
@@ -618,6 +582,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   </button>,
                 );
                 foldedCount = 0;
+                foldBarEmitted = true;
               }
               for (const item of g.items) {
                 const idx = keyIdx.get(item.key) ?? -1;
@@ -625,7 +590,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   <div
                     key={item.key}
                     className="chat-anchor-row"
-                    ref={idx === 0 && foldFrom === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
+                    ref={idx === 0 && !foldBarEmitted ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
                   >
                     <Item
                       item={item}

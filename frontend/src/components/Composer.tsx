@@ -7,7 +7,6 @@ import { api } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
 import { useT, t as globalT } from "../i18n";
-import { SLASH_COMMANDS } from "../commands";
 import { activeAtToken, formatMention } from "../atGrammar";
 import { useAtCandidates } from "../useAtCandidates";
 import type { PromptContentPart } from "../types";
@@ -211,18 +210,26 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   const atTok = dismissed || composing ? undefined : activeAtToken(text, cursor);
   const slashTok = dismissed || composing ? null : parseSlashToken(text);
 
-  // 命令行（2.1）：目录来自 commands.ts 静态内置；选中填 `/name ` 透传执行。
-  const slashRows: MenuRow[] = SLASH_COMMANDS.map((c) => ({
-    id: `cmd:${c.name}`,
+  // 命令行（2.1）：rc.2 浏览器面不做斜杠命令派发（DSH-WIRE §4）——菜单只收
+  // 客户端可派发的 /goal（goal.create RPC）；其余命令升 alpha.2 后恢复。
+  const slashRows: MenuRow[] = [{
+    id: "cmd:goal",
     icon: TerminalSquare,
-    label: `/${c.name}`,
-    detail: c.hint ? `${tt(c.zh, c.en)} ${c.hint}` : tt(c.zh, c.en),
+    label: "/goal",
+    detail: `${tt("设定/查看长任务的 Goal", "Set or view the goal for a long-running task")} ${tt("（输入目标后回车）", "(enter an objective then Enter)")}`,
     section: t("命令"),
     run: () => {
       if (!slashTok) return;
-      setText(text.slice(0, slashTok.start) + `/${c.name} `);
+      const typed = text.slice(slashTok.start).trim();
+      const objective = typed.replace(/^\/goal\b/i, "").trim();
+      if (sessionId && objective) {
+        void api.goalCreate({ sessionId, objective }).catch(() => void 0);
+        setText("");
+      } else {
+        setText(text.slice(0, slashTok.start) + "/goal ");
+      }
     },
-  }));
+  }];
 
   const atEntries = useAtCandidates(atTok && !atTok.quoted ? atTok.query : "", wsPath);
   const atRows: MenuRow[] = atEntries.map((e) => ({

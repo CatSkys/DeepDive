@@ -201,6 +201,9 @@ const EN: Record<string, string> = {
   "（已配置）": " (configured)",
   // turn folding
   "已折叠早前 {n} 轮 · 点击展开": "Folded {n} earlier turns · click to expand",
+  "当前权限预设（当前引擎版本不支持会话内切换）": "Current permission preset (this engine build cannot switch in-session)",
+  "设定/查看长任务的 Goal": "Set or view the goal for a long-running task",
+  "（输入目标后回车）": "(type an objective then Enter)",
   // model menu
   "搜索模型…": "Search models…",
   "推理等级": "Reasoning",
