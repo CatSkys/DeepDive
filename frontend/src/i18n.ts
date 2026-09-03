@@ -87,7 +87,6 @@ const EN: Record<string, string> = {
   "任务与计划": "Tasks & plan",
   "已完成 {n} 项": "Completed {n}",
   "{n} 运行中": "{n} running",
-  "已改动": "Changed",
   "切换分支": "Switch branch",
   "提交改动": "Commit changes",
   "推送": "Push",

@@ -160,7 +160,6 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
           </>}
           {cat.kind === "git" && <>
             <GitBranch size={13} />
-            <span>{t("已改动")}</span>
             <span className="capsule-pill-meta"><b className="capsule-add">+{cat.additions}</b> <b className="capsule-del">−{cat.deletions}</b></span>
           </>}
           {cat.kind === "schedule" && <>
