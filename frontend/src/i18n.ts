@@ -102,7 +102,6 @@ const EN: Record<string, string> = {
   "已提交：{m}": "Committed: {m}",
   "已推送": "Pushed",
   "输入提交信息…": "Commit message…",
-  "代码改动": "Changes",
   "提醒与自动化": "Reminders & automation",
   "用时": "Ran for",
   "首 token": "first token",

@@ -77,7 +77,6 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
 
   return (
     <div className="capsule-sec">
-      <div className="capsule-sec-name">{t("代码改动")}</div>
       <div className="capsule-row">
         <FileDiff size={14} />
         <span className="capsule-row-text">{t("变更")}</span>
