@@ -2373,43 +2373,7 @@ button {
 /* 侧栏置顶钉 */
 .row-pin { color: var(--ink-3); flex: none; }
 
-/* ── 阶段 2：Access chip / 权限菜单 / 命令卡 / 菜单行次文本 / 拖放高亮 ── */
-.access-chip-wrap { position: relative; }
-.access-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: var(--dsh-radius-keycap);
-  border: 1px solid var(--line-strong);
-  background: var(--fill-soft);
-  color: var(--ink-2);
-  font-size: 12px;
-}
-.access-chip:hover, .access-chip[data-open="true"] { background: var(--fill); color: var(--ink); }
-.permission-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 50;
-  min-width: 190px;
-  padding: 4px;
-  border-radius: var(--dsh-radius-card);
-  border: 1px solid var(--line-strong);
-  background: var(--menu-solid);
-  box-shadow: 0 12px 36px rgba(0,0,0,.35);
-}
-.permission-row {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 10px;
-  border-radius: var(--dsh-radius-keycap);
-  font-size: 12.5px;
-  color: var(--ink-2);
-}
-.permission-row:hover { background: var(--fill); color: var(--ink); }
-.permission-row.current { color: var(--ink); font-weight: 600; }
+/* ── 阶段 2：命令卡 / 菜单行次文本 / 拖放高亮 ── */
 
 .command-card { margin: 2px 0; }
 .command-main {

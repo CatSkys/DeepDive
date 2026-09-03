@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
@@ -20,7 +21,17 @@ export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) =
   );
 }
 
-export function Dropdown({ options, value, onChange }: { options: Array<{ v: string; label: string }>; value: string; onChange: (v: string) => void }) {
+export interface DropdownOption {
+  v: string;
+  label: string;
+  /** 次要说明：有则菜单行转两行富行（label + desc），触发钮不带。 */
+  description?: string;
+  icon?: LucideIcon;
+  /** 危险项：当前值命中时触发钮以热点橙提示（如 完全访问）。 */
+  danger?: boolean;
+}
+
+export function Dropdown({ options, value, onChange }: { options: DropdownOption[]; value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -50,6 +61,8 @@ export function Dropdown({ options, value, onChange }: { options: Array<{ v: str
     setOpen((o) => !o);
   };
   const current = options.find((o) => o.v === value);
+  const rich = options.some((o) => o.description);
+  const menuHeight = options.reduce((h, o) => h + (o.description ? 48 : 30), 0) + 24;
   // Portaled to <body> with fixed positioning: the options scroller clips
   // absolutely-positioned menus (user report).
   const menu = open && pos && createPortal(
@@ -60,33 +73,42 @@ export function Dropdown({ options, value, onChange }: { options: Array<{ v: str
       style={{
         position: "fixed",
         // space below the trigger, else flip above it
-        ...(window.innerHeight - pos.top > options.length * 36 + 24
+        ...(window.innerHeight - pos.top > menuHeight
           ? { top: pos.top }
           : { bottom: window.innerHeight - pos.top + 4 }),
-        left: Math.max(8, Math.min(pos.left, window.innerWidth - pos.minWidth - 12)),
-        minWidth: pos.minWidth,
+        left: Math.max(8, Math.min(pos.left, window.innerWidth - Math.max(pos.minWidth, rich ? 272 : 0) - 12)),
+        minWidth: Math.max(pos.minWidth, rich ? 272 : 0),
       }}
     >
-      {options.map((o) => (
-        <button
-          key={o.v}
-          type="button"
-          className={rowsCss.ddItem}
-          onClick={() => {
-            setOpen(false);
-            if (o.v !== value) onChange(o.v);
-          }}
-        >
-          <span>{o.label}</span>
-          {o.v === value && <Check size={14} className={rowsCss.ddCheck} />}
-        </button>
-      ))}
+      {options.map((o) => {
+        const Icon = o.icon;
+        return (
+          <button
+            key={o.v}
+            type="button"
+            className={rowsCss.ddItem}
+            data-rich={o.description ? "true" : undefined}
+            onClick={() => {
+              setOpen(false);
+              if (o.v !== value) onChange(o.v);
+            }}
+          >
+            {Icon && <Icon size={15} className={rowsCss.ddItemIcon} />}
+            <span className={rowsCss.ddItemMain}>
+              <span>{o.label}</span>
+              {o.description && <span className={rowsCss.ddItemDesc}>{o.description}</span>}
+            </span>
+            {o.v === value && <Check size={14} className={rowsCss.ddCheck} />}
+          </button>
+        );
+      })}
     </div>,
     document.body,
   );
   return (
     <div className={rowsCss.dd} ref={rootRef}>
-      <button ref={triggerRef} type="button" className={rowsCss.ddTrigger} onClick={toggle}>
+      <button ref={triggerRef} type="button" className={rowsCss.ddTrigger} data-danger={current?.danger ? "true" : undefined} onClick={toggle}>
+        {current?.icon && <current.icon size={14} className={rowsCss.ddTriggerIcon} />}
         <span>{current?.label ?? value}</span>
         <ChevronDown size={14} className={rowsCss.ddChevron} />
       </button>

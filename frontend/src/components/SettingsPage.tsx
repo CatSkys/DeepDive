@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Archive, Bot, ChevronLeft, Cpu, Folder, Keyboard, Moon,
-  Monitor, Plug, Settings as SettingsIcon, Sun, X,
+  Monitor, Plug, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
+  SquarePen, Sun, X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown, Toggle } from "../settings/controls";
 import { ModelCatalog } from "../settings/ModelCatalog";
 import { PluginConfigCards } from "../settings/PluginConfigCards";
+import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { api, probeMethod } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
@@ -19,7 +22,7 @@ import { useT } from "../i18n";
 // section 独立降级。
 //
 // 分类：通用（外观/语言/Enter 行为/通知）、模型（提供方+密钥）、
-// Agent 预设、插件、快捷键、已归档的聊天、数据。
+// 审批（默认权限预设）、Agent 预设、插件、快捷键、已归档的聊天、数据。
 
 interface InventoryPreset {
   id: string;
@@ -42,6 +45,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const nav = [
     { id: "general", label: t("通用"), icon: SettingsIcon },
     { id: "models", label: t("模型"), icon: Cpu },
+    { id: "approval", label: t("审批"), icon: ShieldCheck },
     { id: "presets", label: t("Agent 预设"), icon: Bot },
     { id: "plugins", label: t("插件"), icon: Plug },
     { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
@@ -81,6 +85,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </div>
           {activeId === "general" && <GeneralSection />}
           {activeId === "models" && <ModelsSection />}
+          {activeId === "approval" && <ApprovalSection />}
           {activeId === "presets" && <PresetsSection />}
           {activeId === "plugins" && <PluginsSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
@@ -327,6 +332,73 @@ function ModelsSection() {
       ))}
       {rows !== null && rows.length === 0 && <div className={rowsCss.muted}>{t("无结果")}</div>}
       <ModelCatalog />
+    </div>
+  );
+}
+
+/* ───────────────────────── 审批 ───────────────────────── */
+
+/// 默认权限预设（permission.defaultPreset）：引擎在新会话创建时按此 pin
+/// 初始权限；运行中的会话不受影响。选项枚举来自 schema（见 permissionPreset.ts）；
+/// 已知预设给本地化标签/说明/图标（UI 参考官方权限菜单），未知预设退回引擎原文。
+const PRESET_META: Record<string, { label: string; desc: string; icon: LucideIcon; danger?: boolean }> = {
+  "read-only": { label: "只读", desc: "只读取与分析，不改文件。", icon: ShieldCheck },
+  "workspace-write": { label: "工作区写入", desc: "工作区内自动改文件，越界先确认。", icon: SquarePen },
+  "danger-full-access": { label: "完全访问", desc: "全部可写，不再逐步确认。", icon: ShieldAlert, danger: true },
+};
+
+function ApprovalSection() {
+  const { t } = useT();
+  // undefined=载入中，null=引擎未提供 permission 命名空间
+  const [view, setView] = useState<PermissionSettingsView | null | undefined>(undefined);
+
+  const load = useCallback(async () => {
+    try {
+      const d = await api.settingsDescribe();
+      setView(permissionPresetView((d.namespaces ?? []).find((n) => n.ns === "permission")));
+    } catch { /* engine booting: stay loading */ }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const setDefault = async (v: string) => {
+    setView((cur) => (cur ? { ...cur, current: v } : cur));
+    try {
+      const d = await api.settingsDescribe();
+      const ns = (d.namespaces ?? []).find((n) => n.ns === "permission");
+      if (!ns) return;
+      const base = (ns.value ?? {}) as Record<string, unknown>;
+      await api.settingsUpdate({ ns: "permission", patch: { ...base, defaultPreset: v }, expectedRevision: ns.revision });
+    } catch (err) { alert(t("保存失败：{m}").replace("{m}", (err as Error).message)); }
+    await load();
+  };
+
+  const options = (view?.options ?? []).map((o) => {
+    const meta = PRESET_META[o.value];
+    return {
+      v: o.value,
+      label: meta ? t(meta.label) : o.label,
+      description: meta ? t(meta.desc) : undefined,
+      icon: meta?.icon,
+      danger: meta?.danger,
+    };
+  });
+
+  return (
+    <div className={rowsCss.section}>
+      <div className={rowsCss.sectionIntro}>{t("控制新会话的文件写入与审批策略；运行中的会话保持开始时的预设。")}</div>
+      {view === undefined && <div className={rowsCss.muted}>{t("载入中…")}</div>}
+      {view === null && <div className={rowsCss.muted}>{t("本引擎未提供权限预设。")}</div>}
+      {view && (
+        <div className={rowsCss.rowCard}>
+          <div className={rowsCss.rowIdentity}>
+            <div className={rowsCss.rowName}>{t("默认权限预设")}</div>
+            <div className={rowsCss.rowCaption}>{t("新建会话的初始权限。")}</div>
+          </div>
+          <div className={rowsCss.rowActions}>
+            <Dropdown options={options} value={view.current} onChange={(v) => void setDefault(v)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

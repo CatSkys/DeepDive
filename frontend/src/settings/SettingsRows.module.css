@@ -47,6 +47,10 @@
 }
 .ddTrigger:hover { background: var(--fill-strong); border-color: var(--line-strong); }
 .ddChevron { color: var(--ink-3); flex-shrink: 0; }
+.ddTriggerIcon { flex-shrink: 0; }
+/* 危险项当前值（如 完全访问）：沿用全站热点橙例外 */
+.ddTrigger[data-danger="true"] { color: #ff9f0a; }
+.ddTrigger[data-danger="true"] .ddTriggerIcon { color: #ff9f0a; }
 
 /* ── 下拉菜单（统一弹出面板配方） ── */
 .ddMenu {
@@ -85,6 +89,11 @@
 .ddItem:hover { background: var(--fill); }
 .ddItem.active { color: var(--ink); font-weight: 600; }
 .ddCheck { color: var(--ink); flex-shrink: 0; }
+/* 富行（图标 + 标签/说明 + 勾选），高度自适应 */
+.ddItem[data-rich="true"] { height: auto; padding: 7px 10px; }
+.ddItemIcon { color: var(--ink-2); flex-shrink: 0; align-self: center; }
+.ddItemMain { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ddItemDesc { font-size: 11.5px; line-height: 15px; color: var(--ink-3); font-weight: 400; white-space: normal; }
 
 /* ── 行 / 分组 ── */
 .section { margin-bottom: 28px; }

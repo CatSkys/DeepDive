@@ -132,7 +132,15 @@ const EN: Record<string, string> = {
   "继续讨论": "Discuss instead",
   "与引擎的连接已断开，正在重试…": "Engine connection lost — retrying…",
   // phase 2 commands & input
-  "权限预设": "Permission preset",
+  "控制新会话的文件写入与审批策略；运行中的会话保持开始时的预设。": "Controls file access and approval policy for new sessions; running sessions keep their starting preset.",
+  "本引擎未提供权限预设。": "This engine exposes no permission presets.",
+  // permission preset labels（引擎键 → 本地化，未知预设回退引擎原文）
+  "只读": "Read-only",
+  "只读取与分析，不改文件。": "Read and analyze; no file changes.",
+  "工作区写入": "Workspace writes",
+  "工作区内自动改文件，越界先确认。": "Edits inside the workspace run automatically; anything beyond asks first.",
+  "完全访问": "Full access",
+  "全部可写，不再逐步确认。": "Everything writable, without step-by-step approvals.",
   // phase 3 usage / info surface
   "上下文占用": "Context usage",
   "上下文容量": "Context capacity",
@@ -207,7 +215,6 @@ const EN: Record<string, string> = {
   "（已配置）": " (configured)",
   // turn folding
   "已折叠早前 {n} 轮 · 点击展开": "Folded {n} earlier turns · click to expand",
-  "当前权限预设（当前引擎版本不支持会话内切换）": "Current permission preset (this engine build cannot switch in-session)",
   "设定/查看长任务的 Goal": "Set or view the goal for a long-running task",
   "（输入目标后回车）": "(type an objective then Enter)",
   // model menu
@@ -263,11 +270,6 @@ const EN: Record<string, string> = {
   // settings — approvals
   "默认权限预设": "Default permission preset",
   "新建会话的初始权限。": "Initial permission for new sessions.",
-  "read-only（只读）": "read-only",
-  "workspace-write（默认）": "workspace-write (default)",
-  "danger-full-access（完整访问）": "danger-full-access",
-  "启用完整访问？将不再逐步审批命令与文件写入。": "Enable full access? Commands and file writes will no longer be step-by-step approved.",
-  "完整访问（danger-full-access）需要逐次确认；当前会话权限由会话内原生审批弹窗分别管理。": "Full access still confirms each run; in-session approvals are managed by the native approval prompts.",
   // settings — hotkeys
   "全局热键": "Global hotkey",
   "任意应用下生效。": "Works from any app.",

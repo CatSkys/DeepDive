@@ -100,28 +100,6 @@ interface TurnMeta {
   tokensPerSecond: number | null;
 }
 
-/** Access chip（官方 permission 预设呈现）：只读展示当前预设。
- *  切换依赖 `/permission` 斜杠命令，而 rc.2 浏览器面不做命令派发
- *  （DSH-WIRE §4）——升引擎后接回切换菜单。数据缺省时不渲染。 */
-function AccessChip({ sessionId }: { sessionId: string }) {
-  const { sessions } = useStore();
-  const { t } = useT();
-  const summary = sessions.find((s) => s.sessionId === sessionId);
-  const perm = summary?.projections?.values?.permissions as
-    | { options?: Array<{ value: string; name?: string }>; currentValue?: string }
-    | undefined;
-  if (!perm?.currentValue || !perm.options?.length) return null;
-  return (
-    <span
-      className="access-chip"
-      title={t("当前权限预设（当前引擎版本不支持会话内切换）")}
-    >
-      <ShieldCheck size={12} />
-      {perm.currentValue}
-    </span>
-  );
-}
-
 export function SessionView({ sessionId }: { sessionId: string }) {
   useT(); // 订阅语言切换：本组件文案走全局 t()/tt()，语言变更时需重渲染
   const store = useStore();
@@ -531,7 +509,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           </span>
         )}
-        <AccessChip sessionId={sessionId} />
         <SubagentLineage sessionId={sessionId} />
         <JobsMenu sessionId={sessionId} />
         <ScheduleMenu records={scheduleRecords} />
