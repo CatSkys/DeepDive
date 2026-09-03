@@ -22,13 +22,20 @@ export function useAtCandidates(query: string, wsPath: string | undefined): AtEn
   const namePart = (slash >= 0 ? query.slice(slash + 1) : query).toLowerCase();
 
   useEffect(() => {
-    if (!wsPath) {
+    // 选中目录后插入的是绝对路径提及（formatMention），续层查询自带根 ——
+    // 绝对查询直列该目录；相对查询才拼工作空间根。
+    const basePath = !wsPath
+      ? undefined
+      : dirPart.startsWith("/")
+        ? dirPart
+        : `${wsPath}/${dirPart}`;
+    if (!basePath) {
       setEntries([]);
       return;
     }
     const seq = ++seqRef.current;
     const timer = setTimeout(() => {
-      void listDir(`${wsPath}/${dirPart}`).then((rows) => {
+      void listDir(basePath).then((rows) => {
         if (seqRef.current === seq) setEntries(rows);
       });
     }, DEBOUNCE_MS);

@@ -5,7 +5,7 @@ dev:
 
 app:
 	sh scripts/build-release.sh
-	open .build/release/Build/Products/Release/DSHmini.app
+	open .build/release/Build/Products/Release/DeepDive.app
 
 package:
 	sh scripts/package-macos.sh
