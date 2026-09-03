@@ -9,7 +9,7 @@ let lockPath = AppPaths.supportDir.appendingPathComponent("instance.lock").path
 let lockFD: Int32 = open(lockPath, O_CREAT | O_RDWR, 0o644)
 if lockFD >= 0, flock(lockFD, LOCK_EX | LOCK_NB) != 0 {
     DistributedNotificationCenter.default().post(
-        name: Notification.Name("com.dshmini.app.show"),
+        name: Notification.Name("com.deepdive.app.show"),
         object: nil
     )
     exit(0)
