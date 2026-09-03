@@ -20,7 +20,6 @@ export default defineConfig({
   },
   build: {
     target: "safari16",
-    minify: "esbuild",
     sourcemap: false,
   },
 });
