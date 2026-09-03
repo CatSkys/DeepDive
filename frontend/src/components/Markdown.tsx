@@ -11,13 +11,13 @@ import "katex/dist/katex.min.css";
 // highlight.js, bold/italic/strikethrough, links (shell opens), tables, images
 // (click → Lightbox).
 
-interface Block {
+export interface Block {
   kind: "h1" | "h2" | "h3" | "p" | "ul" | "ol" | "quote" | "code" | "table" | "math";
   lines: string[];
   lang?: string;
 }
 
-function parseBlocks(text: string): Block[] {
+export function parseBlocks(text: string): Block[] {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
   let i = 0;
@@ -104,7 +104,7 @@ function parseBlocks(text: string): Block[] {
 
 /** 行内语法：粗体/斜体/删除线/行内代码/行内数学/链接/图片。链接经壳
  *  open-url 打开（WebKit 内网页面跳转会离开 SPA）；图片点击进 Lightbox。 */
-function inline(text: string, keyBase: string, onImage: (src: string, alt: string) => void): ReactNode[] {
+export function inline(text: string, keyBase: string, onImage: (src: string, alt: string) => void): ReactNode[] {
   const out: ReactNode[] = [];
   const re = /(\*\*([^*]+)\*\*|`([^`]+)`|\*([^*\n]+)\*|~~([^~\n]+)~~|\$([^$\n]+?)\$|!\[([^\]]*)\]\(([^)\s]+)\)|\[([^\]]+)\]\(([^)\s]+)\))/g;
   let last = 0;
@@ -125,8 +125,9 @@ function inline(text: string, keyBase: string, onImage: (src: string, alt: strin
       );
     }
     else if (mm[7] !== undefined) {
-      const src = mm[7];
-      const alt = mm[6] ?? "";
+      // 图片：g7=alt、g8=src（AUD-021 修复——曾 src/alt 互换且 alt 取数学组）
+      const src = mm[8]!;
+      const alt = mm[7];
       out.push(
         <img
           key={key}
@@ -137,9 +138,11 @@ function inline(text: string, keyBase: string, onImage: (src: string, alt: strin
           onClick={() => onImage(src, alt)}
         />,
       );
-    } else if (mm[8] !== undefined) {
-      const label = mm[8];
-      const url = mm[9]!;
+    } else if (mm[9] !== undefined) {
+      // 链接：g9=label、g10=url（AUD-021 修复——曾条件写 mm[8] 对链接匹配
+      // 恒假，匹配到的 [label](url) 整段被跳过，链接文本静默丢失）
+      const label = mm[9];
+      const url = mm[10]!;
       out.push(
         <a
           key={key}
