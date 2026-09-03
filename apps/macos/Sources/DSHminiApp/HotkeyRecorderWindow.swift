@@ -81,24 +81,11 @@ final class HotkeyRecorderWindow {
         }
     }
 
-    /// NSEvent → "option+space" style spec (HotKeyManager.parse vocabulary:
-    /// option/alt, control/ctrl, shift, command/cmd/meta + space/return/esc/
-    /// tab/backspace or single alphanumerics).
+    /// NSEvent → "option+space" style spec. Key names come from
+    /// HotKeyManager's real Carbon keycode table, so the recorded string
+    /// names the physical key that was pressed.
     static func hotkeySpec(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> String? {
-        var key: String?
-        switch Int(keyCode) {
-        case kVK_Space: key = "space"
-        case kVK_Return: key = "return"
-        case kVK_Escape: key = "esc"
-        case kVK_Tab: key = "tab"
-        case kVK_Delete: key = "backspace"
-        default: break
-        }
-        if key == nil {
-            if (0 <= Int(keyCode) && Int(keyCode) <= 25) { key = String(UnicodeScalar(UInt8(97 + Int(keyCode)))) }
-            else if (29 <= Int(keyCode) && Int(keyCode) <= 38) { key = String(UnicodeScalar(UInt8(48 + Int(keyCode) - 29))) }
-        }
-        guard let k = key else { return nil }
+        guard let k = HotKeyManager.keyNameByCode[UInt32(keyCode)] else { return nil }
         var parts: [String] = []
         if flags.contains(.command) { parts.append("command") }
         if flags.contains(.control) { parts.append("control") }

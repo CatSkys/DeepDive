@@ -2,9 +2,10 @@ import XCTest
 import Carbon.HIToolbox
 @testable import DeepDive
 
-/// 全局热键 spec 解析与录制器词汇的一致性（R-002）。注意：a–z/数字键名走
-/// "序号式"映射（parse 与 hotkeySpec 两端一致），不是 Carbon 真实键码表；
-/// 这里锁的功能性契约是"录制器产出的 spec 能注册回同一物理键"。
+/// 全局热键 spec 解析、录制与共享键码表的一致性（R-002）。parse 与
+/// hotkeySpec 共用 HotKeyManager.ansiKeys（真实 Carbon kVK_ANSI_* 键码，
+/// 字母/数字并非连续序号）：录出的 spec 命名真实物理键，parse 必须注册回
+/// 同一键。
 final class HotKeyManagerTests: XCTestCase {
     func testParseSpecialKeys() throws {
         let r = try XCTUnwrap(HotKeyManager.parse("option+space"))
@@ -33,22 +34,27 @@ final class HotKeyManagerTests: XCTestCase {
         XCTAssertNil(HotKeyManager.parse(""))
     }
 
+    func testParseUsesRealCarbonKeycodes() {
+        // Carbon 字母/数字键码不连续，钉住几个易错点（曾按序号映射错键）
+        XCTAssertEqual(HotKeyManager.parse("option+o")?.keyCode, UInt32(kVK_ANSI_O)) // 0x1F，序号法会得 14
+        XCTAssertEqual(HotKeyManager.parse("option+r")?.keyCode, UInt32(kVK_ANSI_R))
+        XCTAssertEqual(HotKeyManager.parse("option+2")?.keyCode, UInt32(kVK_ANSI_2)) // 0x13，序号法会得 30
+        XCTAssertEqual(HotKeyManager.parse("option+0")?.keyCode, UInt32(kVK_ANSI_0))
+    }
+
     func testRecorderRoundTripPreservesKeyCode() {
-        let flags: NSEvent.ModifierFlags = .option
-        // 覆盖字母序号段/数字序号段/特殊键：录制 spec → parse 必须回到同一 keyCode
-        let codes: [UInt16] = [0, 5, 17, 18, 25, 29, 33, 38, UInt16(kVK_Space), UInt16(kVK_Return)]
-        for code in codes {
-            guard let spec = HotkeyRecorderWindow.hotkeySpec(keyCode: code, flags: flags) else {
-                return XCTFail("no spec for keyCode \(code)")
+        // 遍历整张表：录制 spec → 必须回到同一 keyCode，且字符串命名该键
+        for (name, code) in HotKeyManager.ansiKeys {
+            guard let spec = HotkeyRecorderWindow.hotkeySpec(keyCode: UInt16(code), flags: .option) else {
+                return XCTFail("no spec for \(name)")
             }
-            let back = HotKeyManager.parse(spec)
-            XCTAssertEqual(back?.keyCode, UInt32(code), "spec \"\(spec)\" must re-register keyCode \(code)")
-            XCTAssertEqual(back?.modifiers, Int(optionKey))
+            XCTAssertEqual(spec, "option+\(name)")
+            XCTAssertEqual(HotKeyManager.parse(spec)?.keyCode, code, "spec \"\(spec)\" must re-register keyCode \(code)")
         }
     }
 
     func testRecorderRequiresModifier() {
         XCTAssertNil(HotkeyRecorderWindow.hotkeySpec(keyCode: UInt16(kVK_Space), flags: []))
-        XCTAssertNil(HotkeyRecorderWindow.hotkeySpec(keyCode: 39, flags: .command))  // 序号段外的键
+        XCTAssertNil(HotkeyRecorderWindow.hotkeySpec(keyCode: 39, flags: .command))  // 表外键（' 键）
     }
 }

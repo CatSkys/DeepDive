@@ -78,21 +78,41 @@ final class HotKeyManager {
         return (modifiers, keyCode)
     }
 
+    // MARK: - ANSI key table (real Carbon keycodes)
+
+    /// Key name ↔ real kVK_ANSI_* keycode. Carbon letter/digit codes are NOT
+    /// ordinal (kVK_ANSI_E=14 but kVK_ANSI_R=15, kVK_ANSI_1=18 while
+    /// kVK_ANSI_0=29); an ordinal mapping silently registers the wrong
+    /// physical key. parse (register) and HotkeyRecorderWindow.hotkeySpec
+    /// (record) share this table so a spec string always names the physical
+    /// key it was recorded from. Canonical names only — aliases normalize in
+    /// keyCode(for:) so the reverse map stays deterministic.
+    static let ansiKeys: [String: UInt32] = [
+        "a": UInt32(kVK_ANSI_A), "s": UInt32(kVK_ANSI_S), "d": UInt32(kVK_ANSI_D),
+        "f": UInt32(kVK_ANSI_F), "h": UInt32(kVK_ANSI_H), "g": UInt32(kVK_ANSI_G),
+        "z": UInt32(kVK_ANSI_Z), "x": UInt32(kVK_ANSI_X), "c": UInt32(kVK_ANSI_C),
+        "v": UInt32(kVK_ANSI_V), "b": UInt32(kVK_ANSI_B), "q": UInt32(kVK_ANSI_Q),
+        "w": UInt32(kVK_ANSI_W), "e": UInt32(kVK_ANSI_E), "r": UInt32(kVK_ANSI_R),
+        "y": UInt32(kVK_ANSI_Y), "t": UInt32(kVK_ANSI_T), "o": UInt32(kVK_ANSI_O),
+        "u": UInt32(kVK_ANSI_U), "i": UInt32(kVK_ANSI_I), "p": UInt32(kVK_ANSI_P),
+        "l": UInt32(kVK_ANSI_L), "j": UInt32(kVK_ANSI_J), "k": UInt32(kVK_ANSI_K),
+        "n": UInt32(kVK_ANSI_N), "m": UInt32(kVK_ANSI_M),
+        "0": UInt32(kVK_ANSI_0), "1": UInt32(kVK_ANSI_1), "2": UInt32(kVK_ANSI_2),
+        "3": UInt32(kVK_ANSI_3), "4": UInt32(kVK_ANSI_4), "5": UInt32(kVK_ANSI_5),
+        "6": UInt32(kVK_ANSI_6), "7": UInt32(kVK_ANSI_7), "8": UInt32(kVK_ANSI_8),
+        "9": UInt32(kVK_ANSI_9),
+        "space": UInt32(kVK_Space), "return": UInt32(kVK_Return), "esc": UInt32(kVK_Escape),
+        "tab": UInt32(kVK_Tab), "backspace": UInt32(kVK_Delete),
+    ]
+    static let keyNameByCode: [UInt32: String] = Dictionary(uniqueKeysWithValues: ansiKeys.map { ($0.value, $0.key) })
+
     private static func keyCode(for key: String) -> UInt32? {
+        let normalized: String
         switch key {
-        case "space": return UInt32(kVK_Space)
-        case "return", "enter": return UInt32(kVK_Return)
-        case "esc", "escape": return UInt32(kVK_Escape)
-        case "tab": return UInt32(kVK_Tab)
-        case "backspace": return UInt32(kVK_Delete)
-        default:
-            break
+        case "enter": normalized = "return"
+        case "escape": normalized = "esc"
+        default: normalized = key
         }
-        let scalars = key.unicodeScalars
-        guard scalars.count == 1, let c = scalars.first?.value else { return nil }
-        if c >= 97 && c <= 122 { return UInt32(c - 97) }       // a-z → kVK_ANSI_A..Z
-        if c >= 48 && c <= 57 { return UInt32(c - 48 + 29) }   // 0-9 → kVK_ANSI_0=29
-        if c >= 65 && c <= 90 { return UInt32(c - 65) }        // A-Z (lowered first)
-        return nil
+        return ansiKeys[normalized]
     }
 }
