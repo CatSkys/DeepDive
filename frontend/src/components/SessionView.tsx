@@ -37,7 +37,7 @@ import type {
   UserMessageData,
 } from "../types";
 
-interface RenderItem {
+export interface RenderItem {
   key: string;
   kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail";
   event?: SessionEvent;
@@ -90,15 +90,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // Turn-level aggregations + stable-id indexes, shared by the history replay
   // and live mux passes so the derivations stay identical.
-  const ctx = useRef<IngestCtx>({
-    timing: new Map(),
-    outputs: new Map(),
-    produced: new Map(),
-    callIndex: new Map(),
-    callPaths: new Map(),
-    turnText: new Map(),
-    turnTime: new Map(),
-  });
+  const ctx = useRef<IngestCtx>(makeIngestCtx());
 
   useEffect(() => {
     // alpha.2: session/models and llm/models are gone from the browser face —
@@ -184,7 +176,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   /** Rebuild rendered items from the full asc event log + ctx. */
   const rebuild = useMemo(() => (events: SessionEvent[]) => {
     const rendered: RenderItem[] = [];
-    ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), turnText: new Map(), turnTime: new Map() };
+    ctx.current = makeIngestCtx();
     for (const ev of events) {
       ingest(rendered, { event: ev }, ctx.current);
     }
@@ -196,7 +188,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     let alive = true;
     let seqFloor = -1;
     eventLog.current = [];
-    ctx.current = { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), turnText: new Map(), turnTime: new Map() };
+    ctx.current = makeIngestCtx();
     setItems([]);
     setLiveRunning(false);
     setHasMore(false);
@@ -671,7 +663,7 @@ function askSummary(args: string): string {
   } catch { return ""; }
 }
 
-function parseTodos(args: string): { done: number; total: number; active: number; pending: number; items: Array<{ content: string; status: string }> } | null {
+export function parseTodos(args: string): { done: number; total: number; active: number; pending: number; items: Array<{ content: string; status: string }> } | null {
   if (!args) return null;
   try {
     const p = JSON.parse(args);
@@ -1180,7 +1172,7 @@ function toolArgsString(argumentsField: unknown): string {
 }
 
 /// Pull the output text + failure + path from a tool/result payload (typed).
-function extractToolResult(data: ToolResultData): { callId?: string; output: string; failed: boolean; path?: string } {
+export function extractToolResult(data: ToolResultData): { callId?: string; output: string; failed: boolean; path?: string } {
   const msg = data.message;
   let output = "";
   const parts: string[] = [];
@@ -1212,7 +1204,7 @@ function extractToolResult(data: ToolResultData): { callId?: string; output: str
  * the official ConversationAssembler "hot append must not scan the window"
  * rule.
  */
-interface IngestCtx {
+export interface IngestCtx {
   timing: Map<number, { start?: number; end?: number; firstToken?: number }>;
   outputs: Map<string, { output: string; failed: boolean }>;
   produced: Map<number, string[]>;
@@ -1226,7 +1218,12 @@ interface IngestCtx {
   turnTime: Map<number, number>;
 }
 
-function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
+/** Fresh ingest context — history replay, live mux passes and tests share one shape. */
+export function makeIngestCtx(): IngestCtx {
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), turnText: new Map(), turnTime: new Map() };
+}
+
+export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
   const ev = entry.event;
   const base = { key: `${ev.seq}:${ev.type}`, event: ev, time: ev.time };
   // `ev.data` is a union of every event payload (the trailing catch-all is
@@ -1348,7 +1345,7 @@ function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string
  * Inserted right after the turn's last assistant item; a turn already having
  * a tail is updated in place.
  */
-function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
+export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
   const closed = [...ctx.timing.entries()].filter(([, t]) => t.start !== undefined && t.end !== undefined);
   if (closed.length === 0) return;
   // Build the tail payload per closed turn once.
@@ -1372,8 +1369,11 @@ function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
   }
   // Insert each turn's tail right after the LAST item belonging to that turn,
   // scanning left-to-right so earlier splices never invalidate a later anchor.
+  // The live mux path re-finalizes on every turn/end, so a turn already
+  // carrying a tail keeps it — re-emitting would duplicate every earlier tail.
   const order: RenderItem[] = [];
   const emitted = new Set<number>();
+  const tailed = new Set(items.filter((it) => it.kind === "turn-tail").map((it) => it.turn));
   let i = 0;
   while (i < items.length) {
     const item = items[i];
@@ -1384,7 +1384,7 @@ function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
       // at the array end (yes) or on the next item of the same turn (no).
       let j = i + 1;
       while (j < items.length && items[j].turn !== turn) j++;
-      if (j >= items.length && tails.has(turn) && !emitted.has(turn)) {
+      if (j >= items.length && tails.has(turn) && !emitted.has(turn) && !tailed.has(turn)) {
         order.push(tails.get(turn)!);
         emitted.add(turn);
       }
