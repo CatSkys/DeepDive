@@ -39,6 +39,19 @@ targets:
           NSAllowsLocalNetworking: true
         NSMicrophoneUsageDescription: "听写需要使用麦克风。"
         NSSpeechRecognitionUsageDescription: "听写使用系统语音识别将你的语音转换为文字。"
+  DSHminiAppTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: DSHminiApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.deepdive.appTests
+        # 宿主产物名被 PRODUCT_NAME 覆写为 DeepDive（≠ target 名），显式指向
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/DeepDive.app/Contents/MacOS/DeepDive
+        BUNDLE_LOADER: $(TEST_HOST)
 schemes:
   DSHmini:
     build:
@@ -46,3 +59,12 @@ schemes:
         DSHminiApp: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - DSHminiAppTests
+      environmentVariables:
+        # 隔离支撑目录：测试宿主启动不能撞真实实例的 flock 锁（PITFALLS §7.2）
+        - variable: DSHMINI_SUPPORT_DIR
+          value: /tmp/dshmini-test-support
+          isEnabled: true

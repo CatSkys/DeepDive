@@ -58,8 +58,9 @@ final class HotKeyManager {
     }
 
     // MARK: - spec parsing ("option+space", "control+shift+r", …)
+    // internal for unit tests (@testable)
 
-    private static func parse(_ spec: String) -> (modifiers: Int, keyCode: UInt32)? {
+    static func parse(_ spec: String) -> (modifiers: Int, keyCode: UInt32)? {
         let parts = spec.lowercased().split(separator: "+").map(String.init)
         guard !parts.isEmpty else { return nil }
         var modifiers = 0

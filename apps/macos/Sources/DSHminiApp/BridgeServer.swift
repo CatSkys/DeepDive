@@ -212,21 +212,15 @@ final class BridgeServer {
 
     private func serveStatic(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Response {
         let root = (webRoot ?? FileManager.default.homeDirectoryForCurrentUser).standardizedFileURL
-        var rel = request.path
-        if rel == "/" { rel = "/index.html" }
-        // Percent-decode, then resolve `..` before the containment check — a
-        // raw client can send unencoded `../` and a string-prefix check on the
-        // unresolved path would hand out files outside the web root.
-        let decoded = rel.removingPercentEncoding ?? rel
-        let fileURL = root.appendingPathComponent(String(decoded.dropFirst())).standardizedFileURL
-        guard fileURL.path.hasPrefix(root.path + "/"),
-              let data = try? Data(contentsOf: fileURL) else {
-            EngineLog.shared.append("[static] MISS \(decoded) (root=\(root.path))")
+        guard let resolved = Self.staticFileURL(for: request.path, root: root),
+              let data = try? Data(contentsOf: resolved.url) else {
+            EngineLog.shared.append("[static] MISS \(request.path.removingPercentEncoding ?? request.path) (root=\(root.path))")
             return .init(status: 404)
         }
+        let decoded = resolved.decoded
         var response = MiniHTTPServer.Response(status: 200)
         response.body = data
-        let ext = fileURL.pathExtension
+        let ext = resolved.url.pathExtension
         response.headers["content-type"] = mimeType(for: ext)
         // Cache policy: hashed assets (/assets/*) are immutable — cache hard.
         // Everything else (index.html first of all) must revalidate on every
@@ -238,6 +232,20 @@ final class BridgeServer {
             response.headers["cache-control"] = "no-cache"
         }
         return response
+    }
+
+    /// Resolve a static request path under root: percent-decode, resolve `..`
+    /// via standardization, then require the result under root+/. A raw client
+    /// can send unencoded `../` and a string-prefix check on the unresolved
+    /// path would hand out files outside the web root. Static + pure so the
+    /// traversal guard is unit-testable; nil means the path escapes root.
+    static func staticFileURL(for path: String, root: URL) -> (url: URL, decoded: String)? {
+        var rel = path
+        if rel == "/" { rel = "/index.html" }
+        let decoded = rel.removingPercentEncoding ?? rel
+        let fileURL = root.appendingPathComponent(String(decoded.dropFirst())).standardizedFileURL
+        guard fileURL.path.hasPrefix(root.path + "/") else { return nil }
+        return (fileURL, decoded)
     }
 
     private func mimeType(for ext: String) -> String {
