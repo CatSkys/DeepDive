@@ -71,6 +71,26 @@ export function gitStatus(path: string): Promise<import("./types").GitStatus | n
   });
 }
 
+/** 壳侧执行一条 git 子命令（git-run → gitRunResult 回推；参数数组直传
+ *  Process，不经 shell）。切分支/提交/推送等胶囊动作共用此通道。 */
+export function gitRun(path: string, args: string[]): Promise<{ ok: boolean; output: string } | null> {
+  return new Promise((resolve) => {
+    if (!window.webkit?.messageHandlers?.deepdiveHost) {
+      resolve(null);
+      return;
+    }
+    const reqId = crypto.randomUUID();
+    const off = onHostEvent((cmd, payload) => {
+      if (cmd !== "gitRunResult") return;
+      const p = payload as { reqId?: string; ok?: boolean; output?: string };
+      if (p.reqId !== reqId) return;
+      off();
+      resolve({ ok: !!p.ok, output: p.output ?? "" });
+    });
+    sendToShell({ type: "git-run", reqId, path, args });
+  });
+}
+
 export function installHostBridge(handlers: {
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;

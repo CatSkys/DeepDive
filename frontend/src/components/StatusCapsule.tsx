@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlarmClock, ArrowRight, ArrowUpFromLine, ChevronDown, ChevronUp, Circle,
-  CircleCheck, FileDiff, GitBranch, GitCommitHorizontal, GitMerge, ListTodo,
-  RefreshCw, Square, Users,
+  AlarmClock, ArrowRight, ChevronDown, ChevronUp, Circle,
+  CircleCheck, GitBranch, ListTodo, RefreshCw, Square, Users,
 } from "lucide-react";
 import { api } from "../api";
 import { gitStatus } from "../host";
 import { useStore } from "../store";
 import { t, tt } from "../i18n";
+import { CapsuleGitSection } from "./CapsuleGitSection";
 import { capsuleCategory, todoStats, type CapsuleTodo } from "./capsuleModel";
-import type { GitStatus, JobView, ScheduleRecord, SubagentListEntry } from "../types";
+import type { GitStatus, ScheduleRecord, SubagentListEntry } from "../types";
 
 // 会话状态胶囊：头部右上角的聚合信息框，收编原 JobsMenu/ScheduleMenu/
 // SubagentLineage 三个 chip。收起态按当前运行状态固定显示一类（优先级见
@@ -138,15 +138,6 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
     scheduleRecords,
     fmtScheduleWhen,
   });
-  // 圆形胶囊只放图标，完整信息进 tooltip
-  const pillTitle = cat && (() => {
-    switch (cat.kind) {
-      case "agents": return tt("{n} 运行中", "{n} running", { n: cat.count });
-      case "todo": return `${cat.active}（${cat.done}/${cat.total}）`;
-      case "git": return tt("已改动 +{a} −{d}", "Changed +{a} −{d}", { a: cat.additions, d: cat.deletions });
-      case "schedule": return `${cat.when} ${cat.prompt}`;
-    }
-  })();
   if (!open && !cat) return null;
 
   const stats = todoStats(todos);
@@ -156,12 +147,27 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   return (
     <div className="capsule-wrap" ref={ref}>
       {cat && (
-        <button type="button" className="capsule-trigger" data-open={open ? "true" : "false"} title={pillTitle ?? undefined} onClick={() => setOpen((v) => !v)}>
-          {cat.kind === "agents" && <Users size={15} />}
-          {cat.kind === "todo" && <ArrowRight size={15} />}
-          {cat.kind === "git" && <GitBranch size={15} />}
-          {cat.kind === "schedule" && <AlarmClock size={15} />}
-          {cat.kind === "agents" && <span className="capsule-live" aria-hidden="true" />}
+        <button type="button" className="capsule-trigger" data-open={open ? "true" : "false"} onClick={() => setOpen((v) => !v)}>
+          {cat.kind === "agents" && <>
+            <Users size={13} />
+            <span>{tt("{n} 运行中", "{n} running", { n: cat.count })}</span>
+            <span className="capsule-live" aria-hidden="true" />
+          </>}
+          {cat.kind === "todo" && <>
+            <ArrowRight size={13} />
+            <span className="capsule-pill-text">{cat.active}</span>
+            <span className="capsule-pill-meta">{cat.done}/{cat.total}</span>
+          </>}
+          {cat.kind === "git" && <>
+            <GitBranch size={13} />
+            <span>{tt("已改动 +{a} −{d}", "Changed +{a} −{d}", { a: cat.additions, d: cat.deletions })}</span>
+            <span className="capsule-pill-meta"><b className="capsule-add">+{cat.additions}</b> <b className="capsule-del">−{cat.deletions}</b></span>
+          </>}
+          {cat.kind === "schedule" && <>
+            <AlarmClock size={13} />
+            <span className="capsule-pill-text">{cat.prompt}</span>
+            <span className="capsule-pill-meta">{cat.when}</span>
+          </>}
         </button>
       )}
       {open && (
@@ -232,25 +238,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
               {diag && <div className="capsule-note">{t("部分子会话状态不可读")}</div>}
             </div>
           )}
-          {git && git.files > 0 && (
-            <div className="capsule-sec">
-              <div className="capsule-sec-name"><GitBranch size={12} />{git.branch ?? t("代码改动")}</div>
-              <div className="capsule-row">
-                <FileDiff size={13} />
-                <span className="capsule-row-text">{tt("已改动 +{a} −{d}", "Changed +{a} −{d}", { a: git.additions, d: git.deletions })}</span>
-                <span className="capsule-row-meta">
-                  <b className="capsule-add">+{git.additions}</b> <b className="capsule-del">−{git.deletions}</b>
-                </span>
-              </div>
-              <div className="capsule-row">
-                <GitBranch size={13} />
-                <span className="capsule-row-text">{git.branch ?? "—"}</span>
-              </div>
-              <div className="capsule-row"><GitMerge size={13} /><span className="capsule-row-text">{t("切换分支")}</span></div>
-              <div className="capsule-row"><GitCommitHorizontal size={13} /><span className="capsule-row-text">{t("提交改动")}</span></div>
-              <div className="capsule-row"><ArrowUpFromLine size={13} /><span className="capsule-row-text">{t("推送")}</span></div>
-            </div>
-          )}
+          {git && git.files > 0 && <CapsuleGitSection wsPath={wsPath} git={git} onRefresh={loadGit} />}
           {(scheduleRecords.length > 0 || jobs.length > 0) && (
             <div className="capsule-sec">
               <div className="capsule-sec-name"><AlarmClock size={12} />{t("提醒与自动化")}</div>
@@ -261,7 +249,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                   <span className="capsule-row-meta">{fmtScheduleWhen(r)}</span>
                 </div>
               ))}
-              {jobs.map((j: JobView) => (
+              {jobs.map((j) => (
                 <div key={j.id} className="capsule-row">
                   <span className={`state-dot ${j.status === "failed" ? "error" : j.status === "running" ? "running" : "ok"}`} aria-hidden="true" />
                   <span className="capsule-row-text">{j.label}</span>

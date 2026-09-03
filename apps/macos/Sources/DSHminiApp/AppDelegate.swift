@@ -233,6 +233,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "run-git":
             runGit(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
+        case "git-run":
+            gitRun(reqId: body["reqId"] as? String ?? "",
+                   path: body["path"] as? String ?? "",
+                   args: body["args"] as? [String] ?? [])
         case "open-url":
             // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
@@ -338,6 +342,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         reply(["repo": true, "branch": branch, "files": files, "additions": additions, "deletions": deletions])
+    }
+
+    /// 状态胶囊的 git 动作（git-run → gitRunResult 回推）：切分支/提交/推送。
+    /// 参数数组直传 Process，不经 shell，无注入面；push 等网络操作在后台队列
+    /// 跑，完成后回主线程回推 ok/output（尾部截断，防超长刷屏）。
+    private func gitRun(reqId: String, path: String, args: [String]) {
+        func reply(_ ok: Bool, _ output: String) {
+            let trimmed = output.count > 4000 ? String(output.suffix(4000)) : output
+            windowController.pushHostCommand("gitRunResult", payload: AppDelegate.jsonPayload([
+                "reqId": reqId, "ok": ok, "output": trimmed,
+            ]))
+        }
+        guard !args.isEmpty, FileManager.default.fileExists(atPath: path) else {
+            reply(false, "bad request")
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = args
+            process.currentDirectoryURL = URL(fileURLWithPath: path)
+            let outPipe = Pipe()
+            let errPipe = Pipe()
+            process.standardOutput = outPipe
+            process.standardError = errPipe
+            do { try process.run() } catch {
+                DispatchQueue.main.async { reply(false, "spawn failed") }
+                return
+            }
+            let out = outPipe.fileHandleForReading.readDataToEndOfFile()
+            let err = errPipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            var output = String(data: out, encoding: .utf8) ?? ""
+            if let errText = String(data: err, encoding: .utf8), !errText.isEmpty {
+                output += "\n\(errText)"
+            }
+            let ok = process.terminationStatus == 0
+            DispatchQueue.main.async { reply(ok, output) }
+        }
     }
 
     /// 目录选择器（侧栏「＋新建空间」）：选一个已有文件夹，把绝对路径推回
