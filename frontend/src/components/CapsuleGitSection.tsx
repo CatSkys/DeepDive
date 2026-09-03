@@ -70,7 +70,7 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
       <div className="capsule-sec-name"><GitBranch size={12} />{git.branch ?? t("代码改动")}</div>
       <div className="capsule-row">
         <FileDiff size={13} />
-        <span className="capsule-row-text">{tt("已改动 +{a} −{d}", "Changed +{a} −{d}", { a: git.additions, d: git.deletions })}</span>
+        <span className="capsule-row-text">{t("已改动")}</span>
         <span className="capsule-row-meta"><b className="capsule-add">+{git.additions}</b> <b className="capsule-del">−{git.deletions}</b></span>
       </div>
       <div className="capsule-row">
