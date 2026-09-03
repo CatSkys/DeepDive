@@ -6,6 +6,8 @@
 
 ```sh
 npm run build   # tsc -b --noEmit && vite build —— 提交前必过
+npm run test    # vitest run（事件回放/纯函数/api 信封），零失败
+npm run lint    # eslint src，零报错
 npm run dev     # 本地开发服（浏览器直接开；无壳桥时全部静默降级）
 npm run gen     # 重新生成 packages/design/generated/tokens.css（改 tokens.json 后）
 npx tsc --noEmit --noUnusedLocals --noUnusedParameters   # 死代码门槛，应为零错误

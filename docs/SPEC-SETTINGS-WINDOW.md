@@ -26,8 +26,8 @@
 |---|---|---|
 | **模型** | 引擎 `llm-deepseek`/`agent-default-model`/`llm-pi-ai`/`web-search-deepseek` + `credentials` | 官方/自定义分区、各管各的 key 与模型；当前使用摘要；点某模型即选用；添加/删除 provider（**能力探测 `llm.listProviders` 可用才显示**） |
 | **审批** | 引擎 `permission.defaultPreset` + 审批/交互 | 默认权限与当前会话权限分别管理；完整访问需确认（对齐参考项目/`D5` 原生审批） |
-| **快捷键** | DSHmini 原生 `HotKeyManager` + `UI-SPEC §2.3` | 分两类：**全局热键可修改**（现状仅 1 个：唤起面板 `⌥Space`，经 `HotKeyManager` 注册/注销重注册）；**应用内快捷键仅展示、不可改**（`⌘,` 为 NSMenu keyEquivalent、`⌘T` 为 WebView 内映射，固定于 `UI-SPEC §2.3`，不提供自定义——三套机制混改无收益） |
-| **外观** | 引擎 `ui-theme.preference` + 外壳 `themeEnabled` | 明/暗联动：写 `ui-theme` + 外壳刷新 `NSAppearance`；**WebView 侧联动走 `SPEC-NOTIFICATIONS §3.1` 外壳→前端通道**（`themeChanged` 指令；降级：前端在 `focus`/`visibilitychange` 时重读 `ui-theme`）；黑白 token 统一 |
+| **快捷键** | DSHmini 原生 `HotKeyManager` + `UI-SPEC §2.3` | 分两类：**全局热键可修改**（现状仅 1 个：唤起面板 `⌥Space`，经 `HotKeyManager` 注册/注销重注册）；**应用内快捷键仅展示、不可改**（`⌘,`/`Esc`/`Enter`/`@`/`/`/`Tab`，清单以设置页与 `UI-SPEC §2.3` 为准、未实现的键一律不列，不提供自定义——三套机制混改无收益） |
+| **外观** | 外壳偏好 `deepdive.ui.appearance`（跟随系统/亮/暗）+ 外壳 `themeEnabled` | 三态联动：外壳刷新 `NSAppearance`/材质；**WebView 侧联动走 `SPEC-NOTIFICATIONS §3.1` 外壳→前端通道**（`themeChanged` 指令）；黑白 token 统一 |
 | **通知** | DSHmini 原生（`UNUserNotificationCenter` 开关） | 回合完成提醒 / 待审批·提问提醒（默认开）；悬浮球开关（默认开，`SPEC-NOTIFICATIONS §2.4`，开关仅显隐、状态图标不受影响）；菜单栏状态图标不受开关影响 | 
 | **数据** | 引擎 会话/工作区 + `settings.openDocument` | 打开 `settings.yaml`、存储位置（`DSH_HOME`）、会话管理（归档/删除需确认） |
 
@@ -35,7 +35,7 @@
 
 ### 3.1 读取
 - `settings.describe`（`redactSecrets`）：得到每个命名空间的 `schema/value/base/user/revision/secrets`。UI 只渲染 `value`（已脱敏，`role('secret')` 字段已被结构移除，仅以 `secrets:[{path,set}]` 枚举）。
-- **namespace 清单动态渲染、不写死**：分区 UI 以 `describe` 返回的 `namespaces`/`schema` 驱动；本 spec 提到的 `llm-deepseek`/`agent-default-model`/`llm-pi-ai`/`web-search-deepseek`/`ui-theme.preference`/`permission.defaultPreset` 等名均为引脚版本 `0.1.2-alpha.2` 实测值，引擎升级后以 `describe` 实际返回为准（配合 `SPEC-ENGINE-RUNTIME §4.2` 能力探测）。
+- **namespace 清单动态渲染、不写死**：分区 UI 以 `describe` 返回的 `namespaces`/`schema` 驱动；本 spec 提到的 `llm-deepseek`/`agent-default-model`/`llm-pi-ai`/`web-search-deepseek`/`ui-theme.preference`/`permission.defaultPreset` 等名均为引脚版本实测值（`PITFALLS §7.3`），引擎升级后以 `describe` 实际返回为准（配合 `SPEC-ENGINE-RUNTIME §4.2` 能力探测）。
 
 ### 3.2 编辑与保存（diff → path ops）
 - 编辑器把某个命名空间的当前 `value` 作为可编辑 JSON 文本显示。
@@ -66,7 +66,7 @@
 | `apps/macos/Sources/DSHminiApp/SettingsWindowController.swift` | 新增（原生窗口壳） |
 | `apps/macos/Sources/DSHminiApp/...`（原生设置控件/视图） | 各分区视图 + 命名空间编辑器 + 凭据区 |
 | `apps/macos/Sources/DSHminiApp/AppDelegate.swift` / `StatusItemController.swift` | 接入设置入口 |
-| `apps/macos/Sources/DSHminiApp/MainWindowController.swift` | WebView 挂 `__dshminiHost` 钩子 + `evaluateJavaScript` 注入（`themeChanged` 等，见 `SPEC-NOTIFICATIONS §3.1`） |
+| `apps/macos/Sources/DSHminiApp/MainWindowController.swift` | WebView 挂 `__deepDiveHost` 钩子 + `evaluateJavaScript` 注入（`themeChanged` 等，见 `SPEC-NOTIFICATIONS §3.1`） |
 | `frontend/src/api.ts` | 加 settings/credentials 通道 + 能力探测（若设置内容部分走 WebView） |
 | `frontend/src/components/Settings*.tsx` | 如需 WebView 渲染则新增设置入口 |
 | `frontend/src/theme.css`（+tokens） | 设置样式 + 明/暗（若走 WebView） |

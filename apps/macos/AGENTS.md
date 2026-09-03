@@ -10,7 +10,7 @@ Swift + AppKit 原生壳（XcodeGen）。根规则见 [../../AGENTS.md](../../AG
 ## 勿动的"看起来像死代码"（PITFALLS §4.7、§1.5）
 
 - `MainWindowController` 的**空 NSToolbar**（`EmptyToolbarDelegate`，0 item）唯一作用是把窗口选进 Tahoe 26pt 大圆角档，红绿灯中心线也随之对齐 26pt 头部线——删除/隐藏即退回小圆角档。改动后截图对比 Finder 角部。
-- `WebViewTheme.swift` 只保留 html/body 透明 + color-scheme；SPA 样式唯一事实源在 `theme.css`，勿往壳注入加样式。
+- `WebViewTheme.swift` 只保留 html/body 透明（`color-scheme` 由前端 `theme.css` 声明，外观三态跟随）；SPA 样式唯一事实源在 `theme.css`，勿往壳注入加样式。
 
 ## 引擎（EngineSupervisor 一族）
 

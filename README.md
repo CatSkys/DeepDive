@@ -5,7 +5,7 @@ DeepSeek Harness 桌面客户端：原生玻璃窗口（Swift + AppKit + WKWebVi
 ## 环境
 
 - macOS 14+，Xcode 26（或 16+），[XcodeGen](https://github.com/yonaskolb/XcodeGen)（`brew install xcodegen`）
-- `dsh` CLI：`npm i -g @deepseek-ai/dsh`（v1 使用系统 dsh；`DSHMINI_DSH_ENTRY` 可覆盖路径）
+- `dsh` CLI：`npm i -g @deepseek-ai/dsh`（`make dev` 默认用系统 dsh，Release/package 构建捆绑引脚版运行时；`DSHMINI_DSH_ENTRY` 可覆盖路径）
 
 ## 开发
 
@@ -15,7 +15,7 @@ make app          # Release 构建并打开
 make package      # 生成 dev 签名 DMG（dist/）
 ```
 
-启动后：菜单栏出现引擎状态点；`⌥Space` 显示/隐藏窗口；菜单栏「设置启动工作区…」选择沙箱根目录（重启引擎生效）；「黑白主题」开关即时生效。
+启动后：菜单栏出现引擎状态点；`⌥Space` 显示/隐藏窗口；菜单栏「设置启动工作区…」选择沙箱根目录（重启引擎生效）；设置内「外观」（跟随系统/亮/暗）即时生效。
 
 ## 数据
 

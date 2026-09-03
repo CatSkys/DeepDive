@@ -25,13 +25,13 @@
 > 范围外声明：SEMANTICS §5 的「专注模式（通知时间窗）」为 P2 后续项，不在本 spec 实现；本阶段只做前台抑制。
 
 ### 1.3 开关（默认开，对齐参考 `DSHAppPrefs`）
-- `notifyTurnEndKey = "dsh.alerts.notifyTurnEnd"`（默认 true）——回合完成横幅。
-- `notifyAttentionKey = "dsh.alerts.notifyAttention"`（默认 true）——待审批/待提问横幅 + dock 弹跳。
-- 存储 `UserDefaults`；设置窗口「通知」分区对应这两个开关。
+- `notifyTurnEndKey = "deepdive.alerts.notifyTurnEnd"`（默认 true）——回合完成横幅。
+- `notifyAttentionKey = "deepdive.alerts.notifyAttention"`（默认 true）——待审批/待提问横幅 + dock 弹跳。
+- 存储 `UserDefaults`；设置「通用」分区对应这两个开关。
 
 ### 1.4 菜单栏状态条（`NSStatusItem`，沿用 `StatusItemController` 增强）
 - 图标按状态：空闲 `sparkles` / 运行 `circle.fill` / 需注意 `exclamationmark.circle.fill`（需注意态优先，直到审批/提问被应答）。
-- 菜单：显示主窗、设置…、重启引擎、切换工作区、退出。**对现状菜单的两处取舍**：「黑白主题」**删除**（明/暗移入设置-外观分区，避免双入口）；「刷新界面」**保留**（调试用）。
+- 菜单：显示主窗、设置…、刷新界面、重启引擎、切换工作区、退出。**对现状菜单的两处取舍**：「黑白主题」**删除**（明/暗移入设置-外观分区，避免双入口）；「刷新界面」**保留**（调试用）。
 
 ## 2. 悬浮球（`NSPanel`，常驻置顶）
 
@@ -53,7 +53,7 @@
 - 状态表达（**monochrome 移植**，不用红点/彩色海景）：在鲸鱼上做**环绕状态环/点**——运行=亮环（呼吸）、后台完成未读=白点（呼吸）/灰✓；语音/听写涟漪按需（P2）。中央鲸鱼本体保持黑白剪影。
 
 ### 2.4 入口
-- 开关：设置窗口「通知」分区 + 菜单栏菜单项（对齐 §1.4 菜单）。**悬浮球显隐不占全局热键**——全局键是稀缺资源，仅保留唤起面板一个（与 `SPEC-SETTINGS-WINDOW` 快捷键分区"全局热键 1 个"一致；v1 的 `⌥⌘Y` 设想撤销）。
+- 开关：设置「通用」分区。**悬浮球显隐不占全局热键**——全局键是稀缺资源，仅保留唤起面板一个（与 `SPEC-SETTINGS-WINDOW` 快捷键分区"全局热键 1 个"一致；v1 的 `⌥⌘Y` 设想撤销）。
 
 ## 3. 事件来源（原生侧感知会话状态）
 
@@ -64,8 +64,8 @@
 
 ### 3.1 外壳↔前端通道（v2 新增；§1.1 转入会话、§2.2 聚焦会话、SETTINGS 外观联动的共同前提）
 **现状事实**：外壳与前端之间没有任何直接通道——前端仅 same-origin RPC 经 `BridgeServer` 转发（无 `messageHandlers`/`postMessage`，外壳也不注入 JS）。方案 A 让原生状态自持，但"原生 → 前端下发动作"必须有通道：
-- **外壳→前端（必须，本 spec 落地范围）**：`MainWindowController` 的 WKWebView 经 `evaluateJavaScript` 调用前端暴露的全局钩子 `window.__dshminiHost.<command>(payload)`。**最小指令集：`navigateToSession(sessionId)`**；预留 `themeChanged(dark)`、`engineStateChanged(state)`。前端启动时幂等挂载该钩子（防重复注入）。
-- **前端→外壳（按需，可后置）**：`WKScriptMessageHandler`（`window.webkit.messageHandlers.dshminiHost`）。方案 A 下原生状态自持，P2 若无前端主动上报需求可不实现，仅留扩展位。
+- **外壳→前端（必须，本 spec 落地范围）**：`MainWindowController` 的 WKWebView 经 `evaluateJavaScript` 调用前端暴露的全局钩子 `window.__deepDiveHost.dispatch(cmd, payload)`（单钩子分发；前端 `host.ts` 幂等挂载，挂载完成回发 `host-ready`）。指令集：`navigateToSession(sessionId)`、`navigateToSettings()`、`themeChanged(dark)`、`workspacePicked(path)`。
+- **前端→外壳**：`WKScriptMessageHandler`（`window.webkit.messageHandlers.deepdiveHost`）：`host-ready` 与设置/引擎/听写等前端→壳消息经此上报，壳侧 `AppDelegate.handleHostMessage` 统一分发。
 - **降级纪律**：前端钩子不存在（旧前端/未挂载）时，外壳只做"激活 App + 主窗到前"，不报错、不无限重试——桥是增强，不是依赖。**例外——WebView 尚未就绪**（App 冷启动、页面加载/重载中）：指令**暂存 pending（单条，后到覆盖）**，页面导航完成且钩子就绪后投递一次，避免点击通知的转入意图被静默丢弃；投递仍失败才回落"仅激活+到前"。
 
 ## 4. 文件变更（实现起参考）
@@ -73,11 +73,11 @@
 | 文件 | 变更 |
 |---|---|
 | `apps/macos/Sources/DSHminiApp/NativeAlerts.swift` | 新增（通知 + 状态条徽标） |
-| `apps/macos/Sources/DSHminiApp/FloatingBubbleManager.swift` / `FloatingBubbleView.swift` | 新增（悬浮球） |
+| `apps/macos/Sources/DSHminiApp/FloatingBubble.swift`（Manager+View 合一） | 新增（悬浮球） |
 | `apps/macos/Sources/DSHminiApp/StatusItemController.swift` | 扩展徽标 + 设置入口 |
 | `apps/macos/Sources/DSHminiApp/EngineEventObserver.swift` | 新增（读引擎 mux，派生状态） |
-| `apps/macos/Sources/DSHminiApp/MainWindowController.swift` | `__dshminiHost` 钩子注入 + `evaluateJavaScript` 下发（§3.1；SETTINGS 外观联动复用） |
+| `apps/macos/Sources/DSHminiApp/MainWindowController.swift` | `__deepDiveHost` 钩子注入 + `evaluateJavaScript` 下发（§3.1；SETTINGS 外观联动复用） |
 | `apps/macos/Sources/DSHminiApp/DSHAppPrefs.swift` | 新增（notifyTurnEnd/notifyAttention 开关） |
-| 设置窗口「通知」分区 | 接两个通知开关与悬浮球开关 |
+| 设置「通用」分区 | 接两个通知开关与悬浮球开关 |
 
 > 视觉：悬浮球与通知按 `UI-SPEC` 黑白；彩色仅保留于 diff 内容层语义色。若需在"后台完成"做差异提示，用**亮度/符号**（白点呼吸）而非红点。
