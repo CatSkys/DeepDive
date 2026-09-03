@@ -87,6 +87,11 @@ export const api = {
   /** 从轮收尾 seq 分叉出子会话（官方 forkAt 同款），返回子会话 id。 */
   fork: (payload: { sessionId: string; atSeq: number }) =>
     unary<{ sessionId: string }>("session.fork", payload),
+  /** 全文搜索（标题∪正文，≤20 条 snippet≤240）。引擎侧默认禁用
+   *  session-query 索引——壳以 --patch overlay 放行（DSH-WIRE §1）；
+   *  未放行的部署上这里会 reject，调用方按 title-only 降级。 */
+  search: (payload: { query: string }) =>
+    unary<{ items: Array<{ sessionId: string; snippet: string }>; hasMore: boolean }>("session.search", payload),
   answerApproval: (value: { rpcId: string; sessionId: string; approvalId: string; outcome: "allowed-once" | "rejected" }) =>
     respondTo(value.rpcId, {
       sessionId: value.sessionId,

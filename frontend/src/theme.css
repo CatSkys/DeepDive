@@ -2609,3 +2609,16 @@ button {
   font-size: 12px;
   flex: none;
 }
+
+/* 搜索内容命中行：标题下 snippet 摘要（引擎 ≤240 字符） */
+.row-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.row-snippet {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

@@ -173,13 +173,14 @@ final class EngineSupervisor {
         let cwd = workspace?.path ?? FileManager.default.homeDirectoryForCurrentUser.path
 
         let process = Process()
+        let patchArg = Self.ensureEnginePatchFile()
         switch entry {
         case .bundled(let node, let script):
             process.executableURL = node
-            process.arguments = [script.path, "--profile", "web", "--no-open", "--port", "0"]
+            process.arguments = [script.path, "--profile", "web", "--patch", patchArg.path, "--no-open", "--port", "0"]
         case .single(let url):
             process.executableURL = url
-            process.arguments = ["--profile", "web", "--no-open", "--port", "0"]
+            process.arguments = ["--profile", "web", "--patch", patchArg.path, "--no-open", "--port", "0"]
         }
         process.environment = environment
         process.currentDirectoryURL = URL(fileURLWithPath: cwd, isDirectory: true)
@@ -194,9 +195,9 @@ final class EngineSupervisor {
         state = .launching
         switch entry {
         case .bundled(let node, let script):
-            log.append("[engine] launching bundled: \(node.path) \(script.path) --profile web --no-open --port 0")
+            log.append("[engine] launching bundled: \(node.path) \(script.path) --profile web --patch \(patchArg.path) --no-open --port 0")
         case .single(let url):
-            log.append("[engine] launching \(url.path) --profile web --no-open --port 0")
+            log.append("[engine] launching \(url.path) --profile web --patch \(patchArg.path) --no-open --port 0")
         }
         log.append("[engine] DSH_HOME=\(home.path) cwd=\(cwd)")
 
@@ -220,8 +221,30 @@ final class EngineSupervisor {
         }
     }
 
-    /// Failure copy follows the entry source (SPEC-ENGINE-RUNTIME §3.4):
-    /// a broken bundle means "reinstall the app"; a missing system dsh keeps
+    /// The overlay patch file handed to `dsh --profile web --patch <path>`
+    /// (docs/DSH-WIRE.md §1). The web-app bundle pins the in-memory session
+    /// query index to `openAt: never`, so full-text search never works unless
+    /// a later layer overrides it; the app owns that layer here. Content is
+    /// app-defined — rewritten on every launch so upgrades always win; a
+    /// write failure degrades to content search being unavailable (the
+    /// engine still boots: overlay errors fail-loud, so only a missing file
+    /// is tolerable — it must exist, else the arg points nowhere).
+    static func ensureEnginePatchFile() -> URL {
+        let url = AppPaths.supportDir.appendingPathComponent("engine-patch.yml")
+        let body = """
+        # Written by DSHmini at every engine launch — app-owned overlay layer.
+        # Do not edit: your changes are overwritten on the next launch.
+        - id: session-query-sqlite
+          config:
+            path: ":memory:"
+            openAt: first-search
+        """
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? body.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    /// Failure copy follows the entry source (SPEC-ENGINE-RUNTIME §3.4):    /// a broken bundle means "reinstall the app"; a missing system dsh keeps
     /// the historic "install dsh" hint.
     private func launchFailureCopy(_ entry: Entry, error: Error) -> String {
         switch entry {

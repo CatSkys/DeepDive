@@ -55,6 +55,18 @@ describe("unary 信封", () => {
     vi.stubGlobal("fetch", vi.fn(failWith(500)));
     await expect(api.cancel({ sessionId: "s" })).rejects.toThrow("HTTP 500");
   });
+
+  it("fork 携带 atSeq；search 扁平 query（4.1，引擎禁用部署上 reject 由调用方降级）", async () => {
+    vi.stubGlobal("fetch", vi.fn(respond({ sessionId: "child" })));
+    await api.fork({ sessionId: "s", atSeq: 42 });
+    expect(lastCall().envelope.payload).toEqual({ sessionId: "s", atSeq: 42 });
+    vi.stubGlobal("fetch", vi.fn(failWith(200, "SESSION_QUERY_SEARCH_DISABLED", "session search is disabled")));
+    await expect(api.search({ query: "abc" })).rejects.toThrow("SESSION_QUERY_SEARCH_DISABLED");
+    vi.stubGlobal("fetch", vi.fn(respond({ items: [{ sessionId: "s", snippet: "…" }], hasMore: false })));
+    await api.search({ query: "abc" });
+    expect(lastCall().url).toBe("/api/session.search");
+    expect(lastCall().envelope.payload).toEqual({ query: "abc" });
+  });
 });
 
 describe("server-request 应答", () => {

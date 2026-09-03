@@ -55,6 +55,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const store = useStore();
   const [query, setQuery] = useState("");
   const [ctx, setCtx] = useState<CtxMenu | null>(null);
+  // 全文搜索（4.1）：引擎 session.search（标题∪正文）。内容命中随防抖
+  // 异步到达；禁用部署（无 --patch 放行）下请求失败 → 静默降级 title-only。
+  const [contentHits, setContentHits] = useState<Map<string, string>>(new Map());
   // 项目行：会话列表折叠（点行切换）与 ⋯ 菜单（重命名/删除工作区）。
   const [wsCollapsed, setWsCollapsed] = useState(false);
   const [wsCtx, setWsCtx] = useState<{ x: number; y: number } | null>(null);
@@ -64,6 +67,27 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, []);
+
+  // 全文搜索请求：≥2 字符防抖 250ms；竞态以最新 query 为准（reqRef 门）。
+  const searchReqRef = useRef(0);
+  const trimmedQuery = query.trim();
+  useEffect(() => {
+    if (trimmedQuery.length < 2) {
+      setContentHits(new Map());
+      return;
+    }
+    const seq = ++searchReqRef.current;
+    const timer = setTimeout(() => {
+      void api.search({ query: trimmedQuery }).then((r) => {
+        if (searchReqRef.current !== seq) return;
+        setContentHits(new Map(r.items.map((x) => [x.sessionId, x.snippet])));
+      }).catch(() => {
+        // 引擎未放行 session.query 索引（DSH-WIRE §1）：保持 title-only
+        if (searchReqRef.current === seq) setContentHits(new Map());
+      });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [trimmedQuery]);
 
   // 项目行 ⋯ 菜单动作（官方 ProjectRowItem 的 rename/delete 同款）。
   const renameWorkspace = (ws: WorkspaceView) => {
@@ -128,15 +152,19 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, store.sessions, store.workspaces, store.activeWorkspaceId, store.wsOfSession, store.pinned]);
 
-  // 搜索视图：全空间结果，按来源项目分组（§2.5）；命中行点击经 openSession
+  // 搜索视图：全空间结果，按来源项目分组（§2.5）；标题命中 + 全文命中
+  // 去重合并（标题命中优先，内容命中带 snippet 行）；点击经 openSession
   // 自动切到所属空间。
   const searchGroups = useMemo<Array<{ label: string; items: SessionSummary[] }>>(() => {
     if (!query) return [];
     const q = query.trim().toLowerCase();
     const hits = store.sessions.filter((s) => titleOf(s, lang).toLowerCase().includes(q));
-    if (!hasWs) return [{ label: "", items: hits }];
+    const hitIds = new Set(hits.map((s) => s.sessionId));
+    const contentOnly = store.sessions.filter((s) => !hitIds.has(s.sessionId) && contentHits.has(s.sessionId));
+    const merged = [...hits, ...contentOnly];
+    if (!hasWs) return [{ label: "", items: merged }];
     const byWs = new Map<string, SessionSummary[]>();
-    for (const s of hits) {
+    for (const s of merged) {
       const wid = wsOf(s)!;
       const arr = byWs.get(wid);
       if (arr) arr.push(s); else byWs.set(wid, [s]);
@@ -145,14 +173,14 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       .filter((w) => byWs.has(w.workspaceId))
       .map((w) => ({ label: w.title, items: byWs.get(w.workspaceId)! }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, store.sessions, store.workspaces, store.wsOfSession]);
+  }, [query, store.sessions, store.workspaces, store.wsOfSession, contentHits]);
 
   // 判定"是否在搜索"必须用 trim 后的值：搜索框残留一个空格时原始 query
   // 为真值、而 trim 后的空串会命中全部会话 —— 曾把跨空间搜索视图退化成
   // "所有工作空间的内容混铺一屏"（用户报告的混屏根因）。
   const view = query.trim() ? searchGroups : groups;
 
-  const renderRow = (s: SessionSummary) => (
+  const renderRow = (s: SessionSummary, snippet?: string) => (
     <button
       key={s.sessionId}
       className={`task-row${s.sessionId === store.activeSessionId ? " selected" : ""}${s.running ? " running" : ""}${store.unread.has(s.sessionId) ? " unread" : ""}`}
@@ -169,7 +197,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           store.unread.has(s.sessionId) && <span className="unread-dot" />
         )}
       </span>
-      <HoverScrollText className="title">{titleOf(s, lang)}</HoverScrollText>
+      <span className="row-main">
+        <HoverScrollText className="title">{titleOf(s, lang)}</HoverScrollText>
+        {snippet && <span className="row-snippet">{snippet}</span>}
+      </span>
       {store.pinned.has(s.sessionId) && <Pin size={11} className="row-pin" aria-hidden="true" />}
       <span className="row-actions"
         onClick={(e) => e.stopPropagation()}
@@ -250,7 +281,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           {view.map(({ label, items }) => (
             <div key={label}>
               {label && <div className="section-label">{label}</div>}
-              {items.map(renderRow)}
+              {items.map((s) => renderRow(s, !query.trim() ? undefined : contentHits.get(s.sessionId)))}
             </div>
           ))}
           {view.length === 0 && (
