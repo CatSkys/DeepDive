@@ -125,6 +125,12 @@ const EN: Record<string, string> = {
   "编辑排队消息": "Edit queued message",
   "删除排队消息": "Delete queued message",
   "排队消息操作失败：{m}": "Queue update failed: {m}",
+  // phase 1 closures
+  "置顶": "Pinned",
+  "取消置顶": "Unpin",
+  "计划审查": "Plan review",
+  "继续讨论": "Discuss instead",
+  "与引擎的连接已断开，正在重试…": "Engine connection lost — retrying…",
   // model menu
   "搜索模型…": "Search models…",
   "推理等级": "Reasoning",

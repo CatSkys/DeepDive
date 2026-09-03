@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ChevronDown, Ellipsis, Folder, Plus, Search, Settings, SquarePen, Trash2 } from "lucide-react";
+import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings, SquarePen, Trash2 } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { InlineLoader } from "./LoadingState";
 import { api } from "../api";
@@ -110,19 +110,23 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   }
 
   // 当前空间视图：时间分组。blank 会话不滤——新建的会话要以 "New Chat"
-  // 出现在侧栏顶部（§2.2）。
+  // 出现在侧栏顶部（§2.2）。置顶会话独立成组浮在分组之前。
   const groups = useMemo<Array<{ label: string; items: SessionSummary[] }>>(() => {
     if (query.trim()) return [];
     const list = store.sessions.filter((s) => !hasWs || wsOf(s) === store.activeWorkspaceId);
+    const pinnedList = list.filter((s) => store.pinned.has(s.sessionId));
+    const rest = list.filter((s) => !store.pinned.has(s.sessionId));
     const byBucket = new Map<string, SessionSummary[]>();
-    for (const s of list) {
+    for (const s of rest) {
       const key = bucketLabel(s.updatedAt, lang);
       if (!byBucket.has(key)) byBucket.set(key, []);
       byBucket.get(key)!.push(s);
     }
-    return [...byBucket.entries()].map(([label, items]) => ({ label, items }));
+    const out: Array<{ label: string; items: SessionSummary[] }> = [];
+    if (pinnedList.length > 0) out.push({ label: t("置顶"), items: pinnedList });
+    return [...out, ...[...byBucket.entries()].map(([label, items]) => ({ label, items }))];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, store.sessions, store.workspaces, store.activeWorkspaceId, store.wsOfSession]);
+  }, [query, store.sessions, store.workspaces, store.activeWorkspaceId, store.wsOfSession, store.pinned]);
 
   // 搜索视图：全空间结果，按来源项目分组（§2.5）；命中行点击经 openSession
   // 自动切到所属空间。
@@ -166,6 +170,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         )}
       </span>
       <HoverScrollText className="title">{titleOf(s, lang)}</HoverScrollText>
+      {store.pinned.has(s.sessionId) && <Pin size={11} className="row-pin" aria-hidden="true" />}
       <span className="row-actions"
         onClick={(e) => e.stopPropagation()}
         onContextMenu={(e) => {
@@ -320,6 +325,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             setCtx(null);
           }}>{t("归档任务")}</div>
           <div className="ctx-item" onClick={() => { store.markUnread(ctx.sessionId); setCtx(null); }}>{t("标记为未读")}</div>
+          <div className="ctx-item" onClick={() => { store.togglePin(ctx.sessionId); setCtx(null); }}>
+            {store.pinned.has(ctx.sessionId) ? t("取消置顶") : t("置顶")}
+          </div>
           <div className="ctx-sep" />
           <div className="ctx-item" onClick={() => { sendToShell({ type: "reveal-path", path: ctx.cwd ?? "" }); setCtx(null); }}>{t("在 Finder 中打开")}</div>
           <div className="ctx-item" onClick={() => { if (ctx.cwd) navigator.clipboard.writeText(ctx.cwd); setCtx(null); }}>{t("复制路径")}</div>

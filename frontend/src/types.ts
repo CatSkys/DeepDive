@@ -94,13 +94,29 @@ export interface ToolResultData {
   result?: unknown;
   path?: string;
   isError?: boolean;
+  /** 编辑类工具的结果槽位：本次调用应用的文件变更（docs/DSH-WIRE.md §3.4）。 */
+  meta?: { diffs?: FileDiff[] };
   // tolerated cross-version fields
   toolCallId?: string;
   callId?: string;
   ok?: boolean;
 }
 
-export type TurnEndReason = "completed" | "cancelled" | "failed" | "interrupted" | string;
+/** 一次文件变更（官方 FileDiff/DiffHunk 同形）：oldText=null 表示新建/覆盖无前文。 */
+export interface FileDiff {
+  path: string;
+  oldText: string | null;
+  newText: string;
+}
+
+/** turn/end 的 data.reason（rc.2 实测为对象形，docs/DSH-WIRE.md §3.1）。 */
+export type TurnEndReason =
+  | { kind: "completed" }
+  | { kind: "interrupted" }
+  | { kind: "aborted"; reason?: { kind: string } }
+  | { kind: "max-tokens" }
+  | { kind: "error"; error?: { message?: string; code?: string } }
+  | { kind: string; [k: string]: unknown };
 
 export type SessionEvent =
   | { type: "turn/start"; seq: number; time: number; data: { turn: number }; sourceEventSeqs?: number[]; surfaceOp?: unknown }
@@ -202,5 +218,13 @@ export type PromptContentPart =
 
 export interface HistoryEntry {
   event: SessionEvent;
-  view?: { for: "call" | "result"; view: { card?: string } };
+  view?: HistoryEntryView;
+}
+
+/** 引擎在 history 条目上预计算的工具呈现卡（docs/DSH-WIRE.md §3.4）：
+ *  `card:'diff'` 携带引擎从 arguments/结果推导的 FileDiff，call 侧即
+ *  pending 态 diff，result 侧为已应用的权威 diff。 */
+export interface HistoryEntryView {
+  for: "call" | "result";
+  view: { card: string; diffs?: FileDiff[]; [k: string]: unknown };
 }

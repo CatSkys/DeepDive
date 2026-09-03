@@ -52,6 +52,8 @@ interface Store {
   wsOfSession: Map<string, string>;
   sessions: SessionSummary[];
   engineUp: boolean;
+  /** 曾成功连上引擎。启动期引擎未起不算断线——横幅只在「掉过线」时出现。 */
+  everConnected: boolean;
   activeSessionId: string | null;
   approvals: Map<string, ApprovalRequestFrame & { sessionId: string; rpcId?: string }>;
   questions: Map<string, PendingQuestion>;
@@ -96,6 +98,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [engineUp, setEngineUp] = useState(false);
+  const [everConnected, setEverConnected] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<Map<string, ApprovalRequestFrame & { sessionId: string; rpcId?: string }>>(new Map());
   const [questions, setQuestions] = useState<Map<string, PendingQuestion>>(new Map());
@@ -292,6 +295,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setSessions(sorted);
       }
       setEngineUp(true);
+      setEverConnected(true);
       // 工作空间解析：持久化的"最后使用空间"已不存在则回退第一个空间；
       // 只在尚未解析时执行一次，之后轮询不覆盖用户的即时切换。
       if (!activeWsRef.current && wsItems.length > 0) {
@@ -466,6 +470,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       wsOfSession,
       sessions,
       engineUp,
+      everConnected,
       activeSessionId,
       approvals,
       questions,
@@ -498,7 +503,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // 进 deps 会让 value 每次渲染重建——ref 镜像约定下显式排除，P2-6 snapshot
     // store 决策时一并处理；其余稳定标识（useCallback/useState）如实入表。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, activeSessionId, approvals, questions, queues, openSession, switchWorkspace, createWorkspace, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, everConnected, activeSessionId, approvals, questions, queues, openSession, switchWorkspace, createWorkspace, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

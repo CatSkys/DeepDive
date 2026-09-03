@@ -90,6 +90,13 @@ function Shell() {
   };
   return (
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
+      {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失 */}
+      {store.everConnected && !store.engineUp && (
+        <div className="engine-banner" role="status">
+          <span className="engine-banner-dot" aria-hidden="true" />
+          {t("与引擎的连接已断开，正在重试…")}
+        </div>
+      )}
       {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。 */}
       <div className="window-top">
         <button className="window-top-btn" title={t("新会话")} onClick={() => void store.createSession()}>

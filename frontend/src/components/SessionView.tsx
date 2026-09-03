@@ -27,6 +27,8 @@ import {
 import type {
   AssistantMessageData,
   ContentBlock,
+  HistoryEntry,
+  HistoryEntryView,
   ReasoningBlock,
   StreamChunk,
   TextBlock,
@@ -36,6 +38,10 @@ import type {
   SessionQueuedItem,
   UserMessageData,
 } from "../types";
+import { narrowDiffs } from "../diffModel";
+import { planReviewOf } from "../planReview";
+import { DiffBlock } from "./DiffBlock";
+import { PlanReviewCard } from "./PlanReviewCard";
 
 export interface RenderItem {
   key: string;
@@ -48,10 +54,14 @@ export interface RenderItem {
   failed?: boolean;
   time?: number;
   turn?: number;
+  // 编辑类工具的文件变更（call 侧=pending 态；result 侧=已应用，权威）
+  diffs?: import("../types").FileDiff[];
   // attached turn-level stats for the closing assistant message meta row
   meta?: TurnMeta;
   // turn-local produced file paths (attached during finalizeTurns)
   produced?: string[];
+  // turn/end 的 seq：branch（session.fork atSeq）的收尾锚点
+  forkSeq?: number;
 }
 
 interface TurnMeta {
@@ -62,7 +72,8 @@ interface TurnMeta {
 
 export function SessionView({ sessionId }: { sessionId: string }) {
   useT(); // 订阅语言切换：本组件文案走全局 t()/tt()，语言变更时需重渲染
-  const { approvals, questions, queues, sessions, subscribeMux } = useStore();
+  const store = useStore();
+  const { approvals, questions, queues, sessions, subscribeMux } = store;
   const [items, setItems] = useState<RenderItem[]>([]);
   // Live turn state from mux events; `summary.running` (store poll) covers
   // reload mid-turn, where no turn/start will ever arrive again.
@@ -170,15 +181,16 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // Full event log (ascending seq) backing this session. Most recent page is
   // loaded from history; older pages are prepended on "载入更早". Every render
   // rebuilds `items` from the whole log so ordering/dedup is deterministic —
-  // the official append-only log + derived UI model.
-  const eventLog = useRef<SessionEvent[]>([]);
+  // the official append-only log + derived UI model. Entries keep the engine's
+  // view slot (diff cards) alongside the raw event.
+  const eventLog = useRef<HistoryEntry[]>([]);
 
   /** Rebuild rendered items from the full asc event log + ctx. */
-  const rebuild = useMemo(() => (events: SessionEvent[]) => {
+  const rebuild = useMemo(() => (entries: HistoryEntry[]) => {
     const rendered: RenderItem[] = [];
     ctx.current = makeIngestCtx();
-    for (const ev of events) {
-      ingest(rendered, { event: ev }, ctx.current);
+    for (const entry of entries) {
+      ingest(rendered, entry, ctx.current);
     }
     finalizeTurns(rendered, ctx.current);
     return rendered;
@@ -202,7 +214,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       .history({ sessionId, maxMessages: 120 })
       .then(({ events, hasMore: more }) => {
         if (!alive) return;
-        eventLog.current = events.map((e) => e.event);
+        eventLog.current = events;
         setItems(rebuild(eventLog.current));
         setHasMore(more);
         const first = events[0];
@@ -220,8 +232,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       if (seq >= 0 && seq < seqFloor) return;
       setItems((prev) => {
         const log = eventLog.current;
-        if (seq >= 0 && log.length && seq <= log[log.length - 1].seq) return prev;
-        log.push(ev);
+        if (seq >= 0 && log.length && seq <= log[log.length - 1]!.event.seq) return prev;
+        log.push({ event: ev });
         // 增量摄取：流式期间每条增量只 ingest 新事件（append-only，seq
         // 递增已由上方守卫），不再对整份 event log 做全量重建 —— 长会话
         // 流式卡顿的主要来源。turn/end 时重插 turn-tail；历史页加载/
@@ -278,7 +290,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       const el = olderAnchorRef.current;
       const anchorTop = el ? el.getBoundingClientRect().top - scrollRef.current!.getBoundingClientRect().top : 0;
       const { events: older, hasMore: more } = await api.history({ sessionId, atSeq, maxMessages: 120 });
-      eventLog.current = [...older.map((e) => e.event as import("../types").SessionEvent), ...eventLog.current];
+      eventLog.current = [...older, ...eventLog.current];
       setItems(rebuild(eventLog.current));
       // After render, restore the anchor row to its captured offset.
       requestAnimationFrame(() => {
@@ -303,6 +315,16 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const sessionQuestions = [...questions.values()].filter((q) => q.sessionId === sessionId);
   // 排队消息（placement=queued 才可操作；steering/context 正在处理）
   const queuedItems = (queues.get(sessionId) ?? []).filter((i) => i.placement === "queued");
+
+  // branch（官方 forkAt）：从轮收尾 seq 分叉子会话并切入；失败保持原会话不动。
+  const branchFrom = (atSeq: number) => {
+    api.fork({ sessionId, atSeq })
+      .then((r) => {
+        void store.refresh();
+        store.openSession(r.sessionId);
+      })
+      .catch(() => void 0);
+  };
 
   const isBlank = summary ? !!summary.blank : items.length === 0;
   const running = liveRunning || !!summary?.running;
@@ -425,6 +447,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   latestUser={idx === lastUserIdx}
                   latestTurn={idx === lastTailIdx}
                   turnRunning={running}
+                  onBranch={branchFrom}
                 />
               </div>
             ));
@@ -432,9 +455,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           {pending.map((a) => (
             <ApprovalCard key={a.approvalId} approvalId={a.approvalId} rpcId={a.rpcId} sessionId={sessionId} toolName={a.toolName} reason={a.reason} />
           ))}
-          {sessionQuestions.map((q) => (
-            <QuestionCard key={q.rpcId} rpcId={q.rpcId} sessionId={sessionId} questions={q.questions} />
-          ))}
+          {sessionQuestions.map((q) => {
+            // plan-review 提意 → 决策卡接管；其余保持通用提问流（官方分流规则）
+            const review = planReviewOf(q.questions);
+            if (review) {
+              return <PlanReviewCard key={q.rpcId} rpcId={q.rpcId} sessionId={sessionId} review={review} />;
+            }
+            return <QuestionCard key={q.rpcId} rpcId={q.rpcId} sessionId={sessionId} questions={q.questions} />;
+          })}
           {running && <LoadingState label="Deep diving..." since={runningSince} />}
         </div>
       </div>
@@ -462,11 +490,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   );
 }
 
-function Item({ item, latestUser, latestTurn, turnRunning }: {
+function Item({ item, latestUser, latestTurn, turnRunning, onBranch }: {
   item: RenderItem;
   latestUser: boolean;
   latestTurn: boolean;
   turnRunning: boolean;
+  onBranch?: (forkSeq: number) => void;
 }) {
   if (item.kind === "user") {
     return (
@@ -516,6 +545,7 @@ function Item({ item, latestUser, latestTurn, turnRunning }: {
           tokensPerSecond={meta?.tokensPerSecond ?? undefined}
           copiedText={copiedText}
           branch
+          onBranch={item.forkSeq !== undefined ? () => onBranch?.(item.forkSeq!) : undefined}
         />
       </div>
     );
@@ -527,6 +557,7 @@ function Item({ item, latestUser, latestTurn, turnRunning }: {
         args={item.args ?? ""}
         output={item.output}
         failed={item.failed}
+        diffs={item.diffs}
       />
     );
   }
@@ -569,11 +600,12 @@ const TOOL_TITLE_ZH: Record<string, string> = {
 
 /// One-line tool row — DSH ToolRow port: icon + name · summary + chevron,
 /// expandable to reveal terminal output or raw arguments.
-function ToolRow({ toolName, args, output, failed }: {
+function ToolRow({ toolName, args, output, failed, diffs }: {
   toolName: string;
   args: string;
   output?: string;
   failed?: boolean;
+  diffs?: import("../types").FileDiff[];
 }) {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
@@ -584,7 +616,7 @@ function ToolRow({ toolName, args, output, failed }: {
   const isBash = toolName === "bash" || toolName === "terminal-bash";
   const state = failed ? "error" : output !== undefined ? "done" : "running";
   const title = isTodo ? t("任务") : isAsk && state === "running" ? t("等待回答") : state === "running" ? t("正在执行") : t(TOOL_TITLE_ZH[toolName] ?? toolName);
-  const expandable = (output !== undefined && output !== "") || args !== "" || isTodo;
+  const expandable = (output !== undefined && output !== "") || args !== "" || isTodo || (!!diffs && diffs.length > 0);
   return (
     <div className={`tool-row${state === "error" ? " bad" : ""}`} data-state={state} data-tool={toolName}>
       <button
@@ -618,6 +650,7 @@ function ToolRow({ toolName, args, output, failed }: {
               <TerminalBlock command={commandOf(args)} output={output ?? ""} failed={failed} />
             ) : (
               <>
+                {diffs && diffs.length > 0 && <DiffBlock diffs={diffs} />}
                 {args && <div className="tool-io-label">{t("输入")}</div>}
                 {args && <pre className="tool-io-text">{prettyArgs(args)}</pre>}
                 {output !== undefined && output !== "" && (
@@ -748,7 +781,7 @@ function ProducedFiles({ paths }: { paths: string[] }) {
 /// Mirrors DSH MessageIconActions: user chrome = copy + clock("start");
 /// assistant turn tail = copy + branch + clock("end") + usage stats.
 /// Quiet by default: reveals on hover (DSH actions affordance).
-function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSide = "end", branch = false }: {
+function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSide = "end", branch = false, onBranch }: {
   time?: number;
   runMs?: number;
   ttftMs?: number;
@@ -756,6 +789,7 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSi
   copiedText: string;
   clockSide?: "start" | "end";
   branch?: boolean;
+  onBranch?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -802,6 +836,7 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSi
           className="meta-action"
           title={t("分支")}
           aria-label={t("分支")}
+          onClick={onBranch}
         >
           <IconBranchOutline16 size={16} />
         </button>
@@ -1205,7 +1240,7 @@ export function extractToolResult(data: ToolResultData): { callId?: string; outp
  * rule.
  */
 export interface IngestCtx {
-  timing: Map<number, { start?: number; end?: number; firstToken?: number }>;
+  timing: Map<number, { start?: number; end?: number; firstToken?: number; endSeq?: number }>;
   outputs: Map<string, { output: string; failed: boolean }>;
   produced: Map<number, string[]>;
   /** callId → rendered tool-call item index (stable identity). */
@@ -1223,7 +1258,7 @@ export function makeIngestCtx(): IngestCtx {
   return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), turnText: new Map(), turnTime: new Map() };
 }
 
-export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
+export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string; view?: HistoryEntryView }, ctx: IngestCtx) {
   const ev = entry.event;
   const base = { key: `${ev.seq}:${ev.type}`, event: ev, time: ev.time };
   // `ev.data` is a union of every event payload (the trailing catch-all is
@@ -1245,6 +1280,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       const d = ev.data as { turn: number; reason: unknown };
       const t = ctx.timing.get(d.turn) ?? {};
       t.end = ev.time;
+      t.endSeq = ev.seq;
       ctx.timing.set(d.turn, t);
       break;
     }
@@ -1305,6 +1341,11 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         });
         if (callId) ctx.callIndex.set(callId, idx);
       }
+      // call 侧 diff 视图：引擎从 arguments 预推导的 pending 态变更
+      const pendingDiffs = entry.view?.for === "call" && entry.view.view.card === "diff"
+        ? narrowDiffs(entry.view.view.diffs)
+        : null;
+      if (pendingDiffs && prev !== undefined) out[prev].diffs = pendingDiffs;
       const p = derivePath(d.name ?? "tool", args);
       if (callId && p) ctx.callPaths.set(callId, p);
       break;
@@ -1315,9 +1356,16 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       const callId = extracted.callId ?? "";
       ctx.outputs.set(callId, { output: extracted.output, failed: extracted.failed });
       const prevIdx = ctx.callIndex.get(callId);
+      // result 侧 diff 权威：事件 meta.diffs 优先，缺则用 history 视图槽位
+      const appliedDiffs = narrowDiffs(d.meta?.diffs)
+        ?? (entry.view?.for === "result" && entry.view.view.card === "diff" ? narrowDiffs(entry.view.view.diffs) : null);
       if (prevIdx !== undefined) {
         const item = out[prevIdx];
-        if (item) { item.output = extracted.output; item.failed = extracted.failed; }
+        if (item) {
+          item.output = extracted.output;
+          item.failed = extracted.failed;
+          if (appliedDiffs) item.diffs = appliedDiffs;
+        }
       }
       // produced files: successful mutation calls carrying a derived path
       if (!extracted.failed) {
@@ -1360,6 +1408,7 @@ export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
       kind: "turn-tail",
       turn,
       time: ctx.turnTime.get(turn),
+      forkSeq: t.endSeq,
       event: txt
         ? ({ type: "assistant/message", seq: -1, time: ctx.turnTime.get(turn) ?? 0, data: { turn, step: 1, message: { role: "assistant", content: [{ type: "text", text: txt }], source: { kind: "model", provider: "", model: "" }, id: `tail:${turn}` } } } as SessionEvent)
         : undefined,

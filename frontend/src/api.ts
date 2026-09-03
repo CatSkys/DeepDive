@@ -84,6 +84,9 @@ export const api = {
     action: { kind: "edit"; content: Array<{ type: "text"; text: string }> } | { kind: "remove" } | { kind: "steer" };
   }) => unary<{ accepted: true }>("session.updateQueue", payload),
   cancel: (payload: { sessionId: string }) => unary("session.cancel", payload),
+  /** 从轮收尾 seq 分叉出子会话（官方 forkAt 同款），返回子会话 id。 */
+  fork: (payload: { sessionId: string; atSeq: number }) =>
+    unary<{ sessionId: string }>("session.fork", payload),
   answerApproval: (value: { rpcId: string; sessionId: string; approvalId: string; outcome: "allowed-once" | "rejected" }) =>
     respondTo(value.rpcId, {
       sessionId: value.sessionId,

@@ -67,6 +67,8 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
   const [rowBox, setRowBox] = useState<{ top: number; height: number } | null>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string }>>([]);
   const [busy, setBusy] = useState(false);
+  // 繁忙时 Enter 行为（settings ui-conversation ns，设置页同款；默认排队）
+  const [busyEnter, setBusyEnter] = useState<"queue" | "steer">("queue");
   // 听写（壳端 SFSpeechRecognizer）：partial 进 placeholder，final 落入草稿。
   const [listening, setListening] = useState(false);
   const [partial, setPartial] = useState("");
@@ -81,6 +83,11 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
 
   useEffect(() => {
     api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);
+    api.settingsDescribe().then((d) => {
+      const ns = (d.namespaces ?? []).find((n) => n.ns === "ui-conversation");
+      const v = (ns?.value as { busyEnter?: string } | null)?.busyEnter;
+      if (v === "steer" || v === "queue") setBusyEnter(v);
+    }).catch(() => void 0); // engine booting: keep default
   }, []);
 
   // clicking anywhere outside closes whatever menu is open
@@ -133,18 +140,23 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
     return parts;
   }, [attachments, text]);
 
-  const submit = async () => {
+  const submit = async (modeOverride?: "queue" | "steer") => {
     if (content.length === 0 || busy) return;
     setBusy(true);
+    // 空闲会话两键等价（引擎直接开轮）；运行中按设置分流，修饰键取另一行为
+    //（设置页文案："仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为"）。
+    const mode = running
+      ? (modeOverride ?? busyEnter)
+      : "queue";
     if (sessionId === null) {
       const create = await store.createSession();
       if (!create) { setBusy(false); return; }
       try {
-        await api.prompt({ sessionId: create, mode: "queue", content });
+        await api.prompt({ sessionId: create, mode, content });
       } catch { setBusy(false); return; }
     } else {
       try {
-        await api.prompt({ sessionId, mode: "queue", content });
+        await api.prompt({ sessionId, mode, content });
       } catch { setBusy(false); return; }
     }
     setText("");
@@ -320,7 +332,9 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
             }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              void submit();
+              // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
+              const other = busyEnter === "queue" ? "steer" : "queue";
+              void submit(e.metaKey || e.ctrlKey ? other : undefined);
             }
           }}
         />
@@ -337,8 +351,7 @@ export function Composer({ sessionId, onSent }: { sessionId: string | null; onSe
         ) : canSend ? (
           <button type="button" className="composer-send" title={t("发送")} onClick={() => void submit()}>
             <ArrowUp size={15} strokeWidth={2.4} />
-          </button>
-        ) : hasShell ? (
+          </button>        ) : hasShell ? (
           <button
             type="button"
             className={`composer-mic${listening ? " live" : ""}`}
