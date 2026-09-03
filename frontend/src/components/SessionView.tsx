@@ -42,10 +42,11 @@ import { narrowDiffs } from "../diffModel";
 import { planReviewOf } from "../planReview";
 import { DiffBlock } from "./DiffBlock";
 import { PlanReviewCard } from "./PlanReviewCard";
+import { ContextRing, TurnUsagePop } from "./UsageMeter";
 
 export interface RenderItem {
   key: string;
-  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail" | "command";
+  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail" | "command" | "injection" | "compaction" | "retry";
   event?: SessionEvent;
   toolName?: string;
   toolCallId?: string;
@@ -58,6 +59,12 @@ export interface RenderItem {
   commandId?: string;
   commandStatus?: "running" | "success" | "error";
   commandText?: string;
+  /** 注入行：user/message 的 source.kind（plugin/skill-catalog…）。 */
+  injectionLabel?: string;
+  /** 压缩卡：compactionId 去重键。 */
+  compactionId?: string;
+  /** 重试行：retryId 去重键（同一等待更新不新增）。 */
+  retryId?: string;
   // 编辑类工具的文件变更（call 侧=pending 态；result 侧=已应用，权威）
   diffs?: import("../types").FileDiff[];
   // attached turn-level stats for the closing assistant message meta row
@@ -66,6 +73,10 @@ export interface RenderItem {
   produced?: string[];
   // turn/end 的 seq：branch（session.fork atSeq）的收尾锚点
   forkSeq?: number;
+  // 轮终原因（3.5 轮失败增强：error 消息/max-tokens 继续按钮）
+  endReason?: import("../types").TurnEndReason;
+  // 本轮累计 token 用量（assistant usage，轮尾弹层）
+  usage?: import("../types").TokenUsage;
 }
 
 interface TurnMeta {
@@ -392,6 +403,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const isBlank = summary ? !!summary.blank : items.length === 0;
   const running = liveRunning || !!summary?.running;
+  // 用量/占用投影（3.1）：空值时 ContextRing 自己返回 null
+  const projVals = (summary?.projections?.values ?? {}) as {
+    tokenUsage?: { uncachedInputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
+    contextPressure?: { projectedTokens?: number; contextWindow?: number };
+  };
 
   if (isBlank) {
     return (
@@ -419,6 +435,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               />
             )}
           </div>
+          <ContextRing projected={projVals.contextPressure?.projectedTokens} window={projVals.contextPressure?.contextWindow} usage={projVals.tokenUsage} />
         </div>
         <div className="hero">
           <HeroBrand />
@@ -475,6 +492,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           </span>
         )}
         <AccessChip sessionId={sessionId} />
+        <ContextRing projected={projVals.contextPressure?.projectedTokens} window={projVals.contextPressure?.contextWindow} usage={projVals.tokenUsage} />
       </div>
       <div className="flow" ref={scrollRef} onScroll={(e) => {
         const el = e.currentTarget;
@@ -513,6 +531,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   latestTurn={idx === lastTailIdx}
                   turnRunning={running}
                   onBranch={branchFrom}
+                  onContinue={() => {
+                    void api.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0);
+                  }}
                 />
               </div>
             ));
@@ -555,12 +576,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   );
 }
 
-function Item({ item, latestUser, latestTurn, turnRunning, onBranch }: {
+function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onContinue }: {
   item: RenderItem;
   latestUser: boolean;
   latestTurn: boolean;
   turnRunning: boolean;
   onBranch?: (forkSeq: number) => void;
+  onContinue?: () => void;
 }) {
   if (item.kind === "user") {
     return (
@@ -599,8 +621,27 @@ function Item({ item, latestUser, latestTurn, turnRunning, onBranch }: {
     const time = item.time;
     const meta = item.meta;
     const copiedText = item.event ? textOf(item.event) : "";
+    const reason = item.endReason;
+    const reasonKind = typeof reason === "object" && reason !== null ? (reason as { kind?: string }).kind : undefined;
+    const errMsg = reasonKind === "error" ? (reason as { error?: { message?: string; code?: string } }).error?.message : undefined;
+    const errCode = reasonKind === "error" ? (reason as { error?: { code?: string } }).error?.code : undefined;
     return (
       <div className="turn-tail" data-actions-reveal={latestTurn ? "always" : "hover"}>
+        {reasonKind === "max-tokens" && (
+          <div className="turn-issue">
+            <span>{t("本轮达到 max tokens 上限，输出被截断")}</span>
+            <button className="turn-issue-btn" onClick={onContinue}>{t("继续")}</button>
+          </div>
+        )}
+        {reasonKind === "error" && (
+          <div className="turn-issue" data-code={errCode ?? ""}>
+            <span>
+              {t("本轮失败")}
+              {errMsg ? `：${errMsg}` : ""}
+              {errCode === "MISSING_CREDENTIAL" ? `（${t("请在设置中配置 API Key 后重试")}）` : ""}
+            </span>
+          </div>
+        )}
         <ProducedFiles paths={item.produced ?? []} />
         <MessageMeta
           time={time}
@@ -610,10 +651,22 @@ function Item({ item, latestUser, latestTurn, turnRunning, onBranch }: {
           tokensPerSecond={meta?.tokensPerSecond ?? undefined}
           copiedText={copiedText}
           branch
+          usage={item.usage}
           onBranch={item.forkSeq !== undefined ? () => onBranch?.(item.forkSeq!) : undefined}
         />
       </div>
     );
+  }
+  if (item.kind === "injection") {
+    // 上下文注入折叠行：默认只露来源标签，展开看注入全文
+    const text = item.event ? textOfInjection(item.event) : "";
+    return <InjectionRow label={item.injectionLabel ?? "context"} text={text} />;
+  }
+  if (item.kind === "compaction") {
+    return <CompactionCard summary={item.output ?? ""} shadowedTokens={item.args} />;
+  }
+  if (item.kind === "retry") {
+    return <div className="retry-row"><StateDot state="warning" />{t("模型请求重试")}<span className="retry-detail">{item.output}</span></div>;
   }
   if (item.kind === "tool-call") {
     return (
@@ -878,7 +931,7 @@ function ProducedFiles({ paths }: { paths: string[] }) {
 /// Mirrors DSH MessageIconActions: user chrome = copy + clock("start");
 /// assistant turn tail = copy + branch + clock("end") + usage stats.
 /// Quiet by default: reveals on hover (DSH actions affordance).
-function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSide = "end", branch = false, onBranch }: {
+function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSide = "end", branch = false, onBranch, usage }: {
   time?: number;
   runMs?: number;
   ttftMs?: number;
@@ -887,6 +940,7 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSi
   clockSide?: "start" | "end";
   branch?: boolean;
   onBranch?: () => void;
+  usage?: import("../types").TokenUsage;
 }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -900,27 +954,29 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSi
   const clock = time ? formatClock(time) : undefined;
   if (!clock && !hasStats && !branch) return null;
   const clockEl = (
-    <span className="meta-clock">
-      {clock}
-      {runMs !== undefined && (
-        <>
-          <span className="meta-dot" aria-hidden="true">·</span>
-          {t("用时")} {formatRunDuration(runMs)}
-        </>
-      )}
-      {ttftMs !== undefined && (
-        <>
-          <span className="meta-dot" aria-hidden="true">·</span>
-          {t("首 token")} {formatLatencySeconds(ttftMs)}
-        </>
-      )}
-      {tokensPerSecond !== undefined && (
-        <>
-          <span className="meta-dot" aria-hidden="true">·</span>
-          {formatTokensPerSecond(tokensPerSecond)} tok/s
-        </>
-      )}
-    </span>
+    <TurnUsagePop usage={usage}>
+      <span className="meta-clock">
+        {clock}
+        {runMs !== undefined && (
+          <>
+            <span className="meta-dot" aria-hidden="true">·</span>
+            {t("用时")} {formatRunDuration(runMs)}
+          </>
+        )}
+        {ttftMs !== undefined && (
+          <>
+            <span className="meta-dot" aria-hidden="true">·</span>
+            {t("首 token")} {formatLatencySeconds(ttftMs)}
+          </>
+        )}
+        {tokensPerSecond !== undefined && (
+          <>
+            <span className="meta-dot" aria-hidden="true">·</span>
+            {formatTokensPerSecond(tokensPerSecond)} tok/s
+          </>
+        )}
+      </span>
+    </TurnUsagePop>
   );
   return (
     <div className="meta-actions">
@@ -939,6 +995,44 @@ function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, clockSi
         </button>
       )}
       {clockSide === "end" ? clockEl : null}
+    </div>
+  );
+}
+
+/** 上下文注入折叠行（3.3）：默认一行来源标签，点击展开注入全文。 */
+function InjectionRow({ label, text }: { label: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="injection-row" data-open={open ? "true" : "false"}>
+      <button type="button" className="injection-main" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <ChevronDown size={12} className="injection-chev" />
+        <span>{t("上下文注入")}</span>
+        <span className="injection-label">{label}</span>
+      </button>
+      {open && <pre className="injection-body">{text}</pre>}
+    </div>
+  );
+}
+
+/** 压缩标记卡（3.4）：compaction/summary 的流内标记，展开看压缩摘要。 */
+function CompactionCard({ summary, shadowedTokens }: { summary: string; shadowedTokens?: string }) {
+  const [open, setOpen] = useState(false);
+  const n = shadowedTokens ? Number(shadowedTokens) : NaN;
+  return (
+    <div className="compaction-card" data-open={open ? "true" : "false"}>
+      <button type="button" className="compaction-main" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span className="compaction-ic" aria-hidden="true">⤺</span>
+        <span>
+          {t("已压缩更早的上下文")}
+          {Number.isFinite(n) ? tt("（约 {n} tokens）", " (~{n} tokens)", { n }) : ""}
+        </span>
+        <ChevronDown size={12} className="injection-chev" />
+      </button>
+      {open && summary && (
+        <div className="compaction-body">
+          <Markdown text={summary} />
+        </div>
+      )}
     </div>
   );
 }
@@ -1267,6 +1361,12 @@ function textOf(event?: SessionEvent): string {
   }
 }
 
+/** 注入消息全文（不看 source.kind——注入行展开体专用）。 */
+function textOfInjection(event?: SessionEvent): string {
+  if (!event || event.type !== "user/message") return "";
+  return messageText((event.data as UserMessageData).content);
+}
+
 /// Text + reasoning split for an assistant message (render-time, from the
 /// final event). Folds reasoning into the same assistant container (official
 /// AssistantMarkdown) so it is never a separate duplicate row.
@@ -1346,6 +1446,11 @@ export interface IngestCtx {
   callPaths: Map<string, string>;
   /** commandId → rendered command item index (run/done 配对，O(1) 定位). */
   commandIndex: Map<string, number>;
+  /** retryId → rendered retry item index（同一等待去重更新）. */
+  retryIndex: Map<string, number>;
+  /** turn → 轮终原因 / 累计用量（轮尾渲染）. */
+  turnReason: Map<number, import("../types").TurnEndReason>;
+  turnUsage: Map<number, import("../types").TokenUsage>;
   /** turn → the latest accumulated assistant text (copy-able tail payload). */
   turnText: Map<number, string>;
   /** turn → tail anchor time (the closing assistant message, if any). */
@@ -1354,7 +1459,7 @@ export interface IngestCtx {
 
 /** Fresh ingest context — history replay, live mux passes and tests share one shape. */
 export function makeIngestCtx(): IngestCtx {
-  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), turnText: new Map(), turnTime: new Map() };
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map() };
 }
 
 export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string; view?: HistoryEntryView }, ctx: IngestCtx) {
@@ -1367,7 +1472,14 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
     case "user/message": {
       const d = ev.data as UserMessageData;
       const txt = userText(d);
-      if (txt) out.push({ ...base, kind: "user" });
+      if (txt) {
+        out.push({ ...base, kind: "user" });
+      } else {
+        // 注入上下文（source.kind=plugin/skill-catalog…）：折叠行呈现，
+        // 可展开看全文——不再整条过滤（PITFALLS §2.4 的升级形态）
+        const label = (d.source as { kind?: string })?.kind;
+        if (label) out.push({ ...base, kind: "injection", injectionLabel: label });
+      }
       break;
     }
     case "turn/start": {
@@ -1381,6 +1493,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       t.end = ev.time;
       t.endSeq = ev.seq;
       ctx.timing.set(d.turn, t);
+      ctx.turnReason.set(d.turn, d.reason as import("../types").TurnEndReason);
       break;
     }
     case "assistant/chunk": {
@@ -1418,6 +1531,18 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       // Track the accumulated tail payload.
       if (text) out.push({ ...base, kind: "assistant", turn });
       if (text) ctx.turnText.set(turn, text);
+      if (d.usage) {
+        // 多步轮按官方口径跨 step 求和（turn-metrics 的 fold 规则）
+        const acc = ctx.turnUsage.get(turn) ?? {};
+        const add = (a?: number, b?: number) => (a ?? 0) + (b ?? 0);
+        ctx.turnUsage.set(turn, {
+          inputTokens: add(d.usage.inputTokens, acc.inputTokens),
+          outputTokens: add(d.usage.outputTokens, acc.outputTokens),
+          cacheReadTokens: add(d.usage.cacheReadTokens, acc.cacheReadTokens),
+          cacheWriteTokens: add(d.usage.cacheWriteTokens, acc.cacheWriteTokens),
+          reasoningTokens: add(d.usage.reasoningTokens, acc.reasoningTokens),
+        });
+      }
       ctx.turnTime.set(turn, ev.time);
       break;
     }
@@ -1503,9 +1628,41 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       }
       break;
     }
+    case "compaction/summary": {
+      const d = ev.data as import("../types").CompactionSummaryData;
+      out.push({
+        ...base,
+        kind: "compaction",
+        compactionId: d.compactionId,
+        output: (d.summary ?? []).filter((b) => typeof b.text === "string").map((b) => b.text).join("\n\n"),
+        args: d.shadowedTokenCount !== undefined ? String(d.shadowedTokenCount) : "",
+      });
+      break;
+    }
+    case "llm/retry": {
+      const d = ev.data as import("../types").LlmRetryData;
+      const prev = d.retryId ? ctx.retryIndex.get(d.retryId) : undefined;
+      if (prev !== undefined && out[prev]) {
+        out[prev].time = ev.time;
+        out[prev].output = retryText(d);
+      } else {
+        const idx = out.length;
+        out.push({ ...base, kind: "retry", retryId: d.retryId, output: retryText(d) });
+        if (d.retryId) ctx.retryIndex.set(d.retryId, idx);
+      }
+      break;
+    }
     default:
       break;
   }
+}
+
+/** 重试行文本：延迟与次数 + 失败摘要（failure.code 优先，过长截断）。 */
+function retryText(d: import("../types").LlmRetryData): string {
+  const delay = d.delayMs !== undefined ? `${Math.round(d.delayMs / 1000)}s` : "";
+  const attempt = d.maxRetries !== undefined ? `${d.retry}/${d.maxRetries}` : String(d.retry ?? "");
+  const why = d.failure?.code ?? d.failure?.message ?? "";
+  return [why, delay, attempt].filter(Boolean).join(" · ");
 }
 
 /**
@@ -1536,6 +1693,8 @@ export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
         : undefined,
       meta: { runMs, ttftMs, tokensPerSecond },
       produced: ctx.produced.get(turn) ?? [],
+      endReason: ctx.turnReason.get(turn),
+      usage: ctx.turnUsage.get(turn),
     });
   }
   // Insert each turn's tail right after the LAST item belonging to that turn,

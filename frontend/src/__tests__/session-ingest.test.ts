@@ -65,11 +65,12 @@ function replay(events: SessionEvent[]): RenderItem[] {
 describe("ingest 黄金回放", () => {
   const out = replay(Object.values(EV));
 
-  it("渲染序 = 用户气泡 → turn1 文本+工具+tail → turn2 文本+tail；注入消息被过滤", () => {
+  it("渲染序 = 用户气泡 → 注入折叠行 → turn1 文本+工具+tail → turn2 文本+tail（注入渲染为折叠行，阶段 3.3 升级自『整条过滤』）", () => {
     expect(out.map((x) => x.kind)).toEqual([
-      "user", "assistant", "tool-call", "turn-tail", "assistant", "turn-tail",
+      "user", "injection", "assistant", "tool-call", "turn-tail", "assistant", "turn-tail",
     ]);
     expect(out.filter((x) => x.kind === "user")).toHaveLength(1);
+    expect(out.find((x) => x.kind === "injection")?.injectionLabel).toBe("skill-catalog");
   });
 
   it("流式 chunk 被 assistant/message 取代后不残留（PITFALLS §3.1/§3.2）", () => {

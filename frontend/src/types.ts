@@ -56,7 +56,7 @@ export interface AssistantMessageData {
     source: { kind: "model"; provider: string; model: string };
     id: string;
   };
-  usage?: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; reasoningTokens?: number };
+  usage?: TokenUsage;
 }
 
 export type StreamChunk =
@@ -130,6 +130,8 @@ export type SessionEvent =
   | { type: "tool/result"; seq: number; time: number; data: ToolResultData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "command/run"; seq: number; time: number; data: CommandRunData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "command/done"; seq: number; time: number; data: CommandDoneData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "compaction/summary"; seq: number; time: number; data: CompactionSummaryData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "llm/retry"; seq: number; time: number; data: LlmRetryData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: string; seq: number; time: number; data: unknown; sourceEventSeqs?: number[]; surfaceOp?: unknown; ignorable?: boolean };
 
 /** 斜杠命令生命周期（docs/DSH-WIRE.md §3.5）；run/done 以 commandId 配对。 */
@@ -145,6 +147,40 @@ export interface CommandDoneData {
   kind: "success" | "error";
   text?: string;
   sourceEventSeq?: number;
+}
+
+/* ── 阶段 3 信息面事件（载荷形状出处 docs/DSH-WIRE.md §3.6/§3.7）── */
+
+/** compaction/summary：压缩完成卡（summary 为 ContentBlock[]，渲染取 text 块）。 */
+export interface CompactionSummaryData {
+  compactionId: string;
+  summary?: Array<{ type: string; text?: string }>;
+  shadowedTokenCount?: number;
+  provider?: string;
+  model?: string;
+  usage?: { inputTokens?: number; outputTokens?: number };
+}
+
+/** llm/retry：一次提供商路由重试等待的持久记录。 */
+export interface LlmRetryData {
+  retryId: string;
+  turn?: number;
+  step?: number;
+  provider?: string;
+  mode?: "normal" | "always";
+  retry: number;
+  maxRetries?: number;
+  delayMs?: number;
+  failure?: { message?: string; code?: string; status?: number };
+}
+
+/** 轮的 token 用量（usage 字段，rc.2 实测形状）。 */
+export interface TokenUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  reasoningTokens?: number;
 }
 
 export interface ApprovalRequestFrame {

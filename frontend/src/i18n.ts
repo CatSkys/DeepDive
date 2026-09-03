@@ -133,6 +133,20 @@ const EN: Record<string, string> = {
   "与引擎的连接已断开，正在重试…": "Engine connection lost — retrying…",
   // phase 2 commands & input
   "权限预设": "Permission preset",
+  // phase 3 usage / info surface
+  "上下文占用": "Context usage",
+  "上下文": "Context",
+  "输入（未缓存）": "Input (uncached)",
+  "缓存读取": "Cache read",
+  "推理": "Reasoning",
+  "本轮达到 max tokens 上限，输出被截断": "Turn hit the max-tokens cap; output was truncated",
+  "继续": "Continue",
+  "本轮失败": "Turn failed",
+  "请在设置中配置 API Key 后重试": "Configure an API key in Settings and retry",
+  "模型请求重试": "Model request retrying",
+  "上下文注入": "Context injected",
+  "已压缩更早的上下文": "Earlier context compacted",
+  "（约 {n} tokens）": "(~{n} tokens)",
   // model menu
   "搜索模型…": "Search models…",
   "推理等级": "Reasoning",

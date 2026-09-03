@@ -231,6 +231,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pickWorkspaceDirectory()
         case "list-dir":
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
+        case "open-url":
+            // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
+            if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
+                NSWorkspace.shared.open(url)
+            }
         case "dictation-start":
             DictationController.shared.start()
         case "dictation-stop":
