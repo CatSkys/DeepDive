@@ -509,7 +509,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           </span>
         )}
-        <StatusCapsule sessionId={sessionId} scheduleRecords={scheduleRecords} />
+        {/* 子会话视图不挂状态胶囊：过程查看经只读说明条返回父会话 */}
+        {summary?.origin !== "subagent" && (
+          <StatusCapsule sessionId={sessionId} scheduleRecords={scheduleRecords} />
+        )}
       </div>
       <div className="flow" ref={scrollRef} onScroll={(e) => {
         const el = e.currentTarget;

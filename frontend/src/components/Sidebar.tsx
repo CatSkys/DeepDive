@@ -134,10 +134,11 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   }
 
   // 当前空间视图：时间分组。blank 会话不滤——新建的会话要以 "New Chat"
-  // 出现在侧栏顶部（§2.2）。置顶会话独立成组浮在分组之前。
+  // 出现在侧栏顶部（§2.2）。置顶会话独立成组浮在分组之前。subagent 派生
+  // 会话不进会话栏（引擎自动创建的工作单元，入口在状态胶囊/父会话）。
   const groups = useMemo<Array<{ label: string; items: SessionSummary[] }>>(() => {
     if (query.trim()) return [];
-    const list = store.sessions.filter((s) => !hasWs || wsOf(s) === store.activeWorkspaceId);
+    const list = store.sessions.filter((s) => s.origin !== "subagent" && (!hasWs || wsOf(s) === store.activeWorkspaceId));
     const pinnedList = list.filter((s) => store.pinned.has(s.sessionId));
     const rest = list.filter((s) => !store.pinned.has(s.sessionId));
     const byBucket = new Map<string, SessionSummary[]>();
@@ -158,9 +159,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const searchGroups = useMemo<Array<{ label: string; items: SessionSummary[] }>>(() => {
     if (!query) return [];
     const q = query.trim().toLowerCase();
-    const hits = store.sessions.filter((s) => titleOf(s, lang).toLowerCase().includes(q));
+    const visible = store.sessions.filter((s) => s.origin !== "subagent");
+    const hits = visible.filter((s) => titleOf(s, lang).toLowerCase().includes(q));
     const hitIds = new Set(hits.map((s) => s.sessionId));
-    const contentOnly = store.sessions.filter((s) => !hitIds.has(s.sessionId) && contentHits.has(s.sessionId));
+    const contentOnly = visible.filter((s) => !hitIds.has(s.sessionId) && contentHits.has(s.sessionId));
     const merged = [...hits, ...contentOnly];
     if (!hasWs) return [{ label: "", items: merged }];
     const byWs = new Map<string, SessionSummary[]>();

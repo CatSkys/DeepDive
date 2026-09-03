@@ -13,7 +13,7 @@ import type { GitStatus, GoalProjection, ScheduleRecord, SubagentListEntry } fro
 
 // 会话状态胶囊：头部右上角的聚合信息框，收编原 JobsMenu/ScheduleMenu/
 // SubagentLineage 三个 chip。收起态按当前运行状态固定显示一类（优先级见
-// capsuleModel），点击展开为分区面板（任务/子代理/Git 改动/提醒与自动化）；
+// capsuleModel），点击展开为分区面板（任务/子智能体/Git 改动/提醒与自动化）；
 // 全空自动隐藏。Git 数据来自壳层 run-git 桥消息（引擎无 git 能力）。
 
 type ChildEntry = Extract<SubagentListEntry, { kind: "child" }>;
@@ -80,7 +80,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
     }
   }), [sessionId, subscribeMux]);
 
-  // 子代理目录：subagent.list 是拉取式 RPC，挂载 + 展开时刷，运行中低频轮询
+  // 子智能体目录：subagent.list 是拉取式 RPC，挂载 + 展开时刷，运行中低频轮询
   const loadChildren = useCallback(() => {
     void api.subagentList({ parentSessionId: sessionId }).then((r) => {
       const list = r.entries ?? [];
@@ -229,7 +229,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
           {children.length > 0 && (
             <div className="capsule-sec">
               <div className="capsule-sec-name">
-                <Users size={12} />{t("子代理")}
+                <Users size={12} />{t("子智能体")}
                 <button type="button" className="capsule-refresh" title={t("刷新")} onClick={loadChildren}>
                   <RefreshCw size={11} />
                 </button>
@@ -245,7 +245,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                       <span className="capsule-row-meta">{modeLabel}{childRunning ? ` · ${t("运行中")}` : ""}</span>
                     </button>
                     {childRunning && c.mode === "continuable" && (
-                      <button type="button" className="capsule-stop" title={t("中断子代理")} disabled={busy} onClick={() => void interrupt(c.id)}>
+                      <button type="button" className="capsule-stop" title={t("中断子智能体")} disabled={busy} onClick={() => void interrupt(c.id)}>
                         <Square size={11} />
                       </button>
                     )}
@@ -292,7 +292,7 @@ export function SubagentReadOnlyNotice({ parentSessionId }: { parentSessionId?: 
     ?? t("打开父会话");
   return (
     <div className="subagent-readonly" role="status">
-      <strong>{t("这是子代理会话")}</strong>
+      <strong>{t("这是子智能体会话")}</strong>
       <span>{t("目录寻址的子会话在此只读；继续对话请回到父会话。")}</span>
       {parentSessionId && (
         <button type="button" className="subagent-parent-link" onClick={() => openSession(parentSessionId)}>
