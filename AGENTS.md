@@ -36,6 +36,7 @@ make dev        # Debug 构建并打开（scripts/dev.sh）
 make app        # Release 构建 + 嵌入 web/engine 并打开（scripts/build-release.sh）
 make package    # Release + adhoc 深签 + DMG（dist/）
 make tokens     # tokens.json → tokens.css + Tokens.swift（改 token 后必跑）
+make test       # 前端 vitest + 壳 XCTest 全量（scripts/test.sh）
 make clean      # 清 .build 与 dist
 
 cd frontend && npm run build   # tsc -b --noEmit && vite build

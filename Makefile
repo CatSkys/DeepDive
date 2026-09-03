@@ -1,4 +1,4 @@
-.PHONY: dev app package tokens clean
+.PHONY: dev app package tokens test clean
 
 dev:
 	sh scripts/dev.sh
@@ -12,6 +12,9 @@ package:
 
 tokens:
 	node frontend/packages/design/gen-tokens.mjs
+
+test:
+	sh scripts/test.sh
 
 clean:
 	rm -rf .build dist
