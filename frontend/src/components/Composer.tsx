@@ -9,6 +9,7 @@ import { useStore } from "../store";
 import { useT, t as globalT } from "../i18n";
 import { activeAtToken, formatMention } from "../atGrammar";
 import { useAtCandidates } from "../useAtCandidates";
+import { useCompositionGuard } from "../useCompositionGuard";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { PromptContentPart } from "../types";
 
@@ -81,6 +82,8 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.deepdiveHost);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 中文输入法确认词的回车余波守卫（useCompositionGuard.ts 顶部注释）
+  const ime = useCompositionGuard();
   const rootRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -396,10 +399,10 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
           placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
           onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setPlusOpen(false); setDismissed(false); autoGrow(e.target); }}
           onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
-          onCompositionStart={() => setComposing(true)}
-          onCompositionEnd={(e) => { setComposing(false); autoGrow(e.currentTarget); }}
+          onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
+          onCompositionEnd={(e) => { ime.onCompositionEnd(); setComposing(false); autoGrow(e.currentTarget); }}
           onKeyDown={(e) => {
-            if (e.nativeEvent.isComposing) return;
+            if (ime.swallow(e)) return;
             if (menu && rows.length > 0) {
               if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                 e.preventDefault();

@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { gitRun } from "../host";
 import { t, tt } from "../i18n";
+import { useCompositionGuard } from "../useCompositionGuard";
 import type { GitStatus } from "../types";
 
 // 状态胶囊的 Git 分区（摘要卡片，参考环境信息卡三行式）：变更 / 分支 /
@@ -25,6 +26,7 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState<Busy>(null);
   const [note, setNote] = useState<string | null>(null);
+  const ime = useCompositionGuard();
 
   const run = async (args: string[], kind: Exclude<Busy, null>, done: string): Promise<boolean> => {
     if (!wsPath || busy !== null) return false;
@@ -118,7 +120,12 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
             value={msg}
             autoFocus
             onChange={(e) => setMsg(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && msg.trim() && busy === null) void commit(false); }}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
+            onKeyDown={(e) => {
+              if (ime.swallow(e)) return;
+              if (e.key === "Enter" && msg.trim() && busy === null) void commit(false);
+            }}
           />
           <button type="button" className="capsule-row-btn" disabled={busy !== null || !msg.trim()} onClick={() => void commit(false)}>
             <GitCommitHorizontal size={14} /><span>{tt("提交", "Commit")}</span>
