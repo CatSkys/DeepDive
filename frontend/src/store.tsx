@@ -157,9 +157,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.theme = schemeDark ? "dark" : "light";
   }, [schemeDark]);
   useEffect(() => { setI18nLang(lang); }, [lang]);
-  // 任务行本地状态:置顶/未读(localStorage 持久化,官方语义)
-  const [pinned, setPinned] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("deepdive.pinned") ?? "[]") as string[]));
-  const [unread, setUnread] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem("deepdive.unread") ?? "[]") as string[]));
+  // 任务行本地状态:置顶/未读(localStorage 持久化,官方语义)；值损坏回退空集
+  // （与 deepdive.workspace 键的 corrupt 防护同策略）
+  const readIdSet = (key: string): Set<string> => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(key) ?? "[]") as string[]);
+    } catch { /* corrupt localStorage value → 空集 */ }
+    return new Set();
+  };
+  const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
+  const [unread, setUnread] = useState<Set<string>>(() => readIdSet("deepdive.unread"));
   const persist = (key: string, set: Set<string>) => localStorage.setItem(key, JSON.stringify([...set]));
   const togglePin = useCallback((id: string) => setPinned((prev) => {
     const next = new Set(prev);

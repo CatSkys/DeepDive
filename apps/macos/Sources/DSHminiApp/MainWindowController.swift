@@ -254,7 +254,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     }
 
     private func pushScheme() {
-        pushHostCommand("themeChanged", payload: #"{"dark":\#(isEffectiveDark ? "true" : "false")}"#)
+        pushHostCommand("themeChanged", payload: AppDelegate.jsonPayload(["dark": isEffectiveDark]))
     }
 
     func setTheme(_ enabled: Bool) {
@@ -266,7 +266,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         }
         // §3.1 联动指令：reload 已同步主题；再推一次 themeChanged 供前端钩子
         // 做 data-theme 切换（未就绪时经 pending 在新页面加载后投递）。
-        pushHostCommand("themeChanged", payload: #"{"dark":\#(enabled ? "true" : "false")}"#)
+        pushHostCommand("themeChanged", payload: AppDelegate.jsonPayload(["dark": enabled]))
     }
 
     private func applyTheme() {

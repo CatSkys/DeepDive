@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let sessionId {
                 self?.windowController.pushHostCommand(
                     "navigateToSession",
-                    payload: #"{"sessionId":"\#(sessionId)"}"#
+                    payload: Self.jsonPayload(["sessionId": sessionId])
                 )
             }
         }
@@ -143,8 +143,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func pushNavigateToSession(_ sessionId: String) {
         windowController.pushHostCommand(
             "navigateToSession",
-            payload: #"{"sessionId":"\#(sessionId)"}"#
+            payload: Self.jsonPayload(["sessionId": sessionId])
         )
+    }
+
+    /// JSON payload builder for every bridge pushHostCommand — JSONSerialization
+    /// only, so ids with quotes/backslashes can't produce invalid JSON and the
+    /// shell has a single JSON construction path (hand-built interpolation and
+    /// this helper used to coexist; AUD-013).
+    static func jsonPayload(_ fields: [String: Any]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: fields),
+              let json = String(data: data, encoding: .utf8) else { return "{}" }
+        return json
     }
 
     // MARK: - frontend→shell host commands (SPEC-NOTIFICATIONS §3.1)
