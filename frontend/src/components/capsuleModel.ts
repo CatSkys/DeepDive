@@ -40,7 +40,7 @@ export function nextScheduleRecord(records: ScheduleRecord[]): ScheduleRecord | 
 export type CapsuleCategory =
   | { kind: "agents"; count: number }
   | { kind: "todo"; active: string; done: number; total: number }
-  | { kind: "git"; files: number; additions: number; deletions: number }
+  | { kind: "git"; additions: number; deletions: number }
   | { kind: "schedule"; prompt: string; when: string };
 
 /** 收起态显示哪一类：第一个非空的优先级；全空 → null（胶囊隐藏）。 */
@@ -55,7 +55,7 @@ export function capsuleCategory(input: {
   const s = todoStats(input.todos);
   if (s.active) return { kind: "todo", active: s.active.content, done: s.done, total: s.total };
   if (input.git && input.git.files > 0) {
-    return { kind: "git", files: input.git.files, additions: input.git.additions, deletions: input.git.deletions };
+    return { kind: "git", additions: input.git.additions, deletions: input.git.deletions };
   }
   const next = nextScheduleRecord(input.scheduleRecords);
   if (next) return { kind: "schedule", prompt: next.prompt, when: input.fmtScheduleWhen(next) };

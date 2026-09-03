@@ -57,7 +57,7 @@ describe("capsuleCategory 优先级", () => {
     expect(capsuleCategory({
       agentsRunning: 0, todos: null, git: { repo: true, files: 4, additions: 80, deletions: 26 },
       scheduleRecords: [schedule], fmtScheduleWhen: fmt,
-    })).toEqual({ kind: "git", files: 4, additions: 80, deletions: 26 });
+    })).toEqual({ kind: "git", additions: 80, deletions: 26 });
   });
   it("git 零改动不算数据", () => {
     expect(capsuleCategory({

@@ -2656,24 +2656,32 @@ button {
 .goal-act:disabled { opacity: .4; }
 .goal-error { font-size: 11px; color: #FF9F0A; flex: none; }
 
-/* 会话状态胶囊：收起 pill 按运行状态显示一类，展开为分区面板 */
+/* 会话状态胶囊：圆形图标钮按运行状态显示一类，展开为摘要卡片 */
 .capsule-wrap { position: relative; }
 .capsule-trigger {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  max-width: 360px;
-  padding: 4px 10px;
-  border-radius: var(--dsh-radius-keycap);
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
   border: 1px solid var(--line-strong);
   background: var(--fill-soft);
   color: var(--ink-2);
-  font-size: 12px;
 }
 .capsule-trigger:hover, .capsule-trigger[data-open="true"] { background: var(--fill); color: var(--ink); }
-.capsule-live { width: 6px; height: 6px; border-radius: 50%; background: #7FDBCA; animation: pulse 1.2s ease-in-out infinite; flex: none; }
-.capsule-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.capsule-pill-meta { color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
+.capsule-live {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7FDBCA;
+  animation: pulse 1.2s ease-in-out infinite;
+}
 .capsule-add { color: rgba(120,220,140,.95); font-weight: 600; }
 .capsule-del { color: rgba(255,120,110,.95); font-weight: 600; }
 .capsule-panel {
@@ -2681,7 +2689,7 @@ button {
   top: calc(100% + 6px);
   right: 0;
   z-index: 70;
-  width: 560px;
+  width: 360px;
   max-width: calc(100vw - 48px);
   max-height: 70vh;
   overflow-y: auto;
@@ -2723,6 +2731,8 @@ button {
 }
 .capsule-row > svg, .capsule-row > .state-dot { flex: none; margin-top: 2px; }
 .capsule-row-text { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.capsule-row-done { color: var(--ink-3); text-decoration: line-through; }
+.capsule-check { color: rgba(120,220,140,.95); }
 .capsule-row-meta { margin-left: auto; font-size: 11px; color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
 .capsule-row-main {
   display: flex;
