@@ -39,11 +39,15 @@ function base64Of(buf: ArrayBuffer): string {
 }
 
 /** 旧式 parseToken 已由官方 activeAtToken grammar 取代（引号路径/空白触发）；
- *  斜杠触发保持整词行首/空白后判定，CJK 查询可过滤中文标签。 */
+ *  斜杠触发保持整词行首/空白后判定，CJK 查询可过滤中文标签。
+ *  /goal 特例：行首 "/goal [目标]" 整体保持斜杠上下文——菜单在输入目标时
+ *  不消失，回车即客户端派发（goal.create）。 */
 function parseSlashToken(text: string): { query: string; start: number } | null {
   const match = /(^|\s)\/([\w\u4e00-\u9fff-]*)$/.exec(text);
-  if (!match) return null;
-  return { query: match[2].toLowerCase(), start: match.index + match[1].length };
+  if (match) return { query: match[2].toLowerCase(), start: match.index + match[1].length };
+  const trimmed = text.replace(/^\s+/, "");
+  if (/^\/goal(\s[\s\S]*)?$/.test(trimmed)) return { query: "goal", start: text.length - trimmed.length };
+  return null;
 }
 
 /* ─────────────────────────────────────────────────────────

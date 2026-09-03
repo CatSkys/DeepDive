@@ -238,6 +238,9 @@ final class EngineSupervisor {
           config:
             path: ":memory:"
             openAt: first-search
+        - insert:
+            - id: schedule
+              name: '@deepseek-ai/dsh-schedule'
         """
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? body.write(to: url, atomically: true, encoding: .utf8)

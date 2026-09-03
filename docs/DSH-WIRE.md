@@ -136,7 +136,7 @@ command/done { commandId, kind:'success'|'error', text?, sourceEventSeq? }
 ### 7.3 Jobs（mux 帧广播）与 Schedule（事件折叠）
 
 - `session/jobs { sessionId, jobs: JobView[] }` mux 帧（同 session/queue 族，全量快照）；`JobView = { id, kind, label, status: running|stopping|completed|killed|failed, detail?, startedAt, finishedAt? }`；rc.2 无任务 kill 的浏览器面 → 目录只读
-- Schedule 无任何 RPC/帧；durable 状态在 `schedule/change` 事件（`{version:1, operation: create|delete|dispatch|advance, schedule?|id, scheduledAt?}`）；记录 = `{id, kind: after|at|every, prompt, scheduledAt?|everySeconds?}`；会话本地投递（session-local），无外部通知通道
+- Schedule 无任何 RPC/帧；durable 状态在 `schedule/change` 事件（`{version:1, operation: create|delete|dispatch|advance, schedule?|id, scheduledAt?}`）；记录 = `{id, kind: after|at|every, prompt, afterSeconds?|scheduledAt?|everySeconds?}`（after 携带 `afterSeconds`+`scheduledAt`，at 携带 `scheduledAt`，every 携带 `everySeconds`）；会话本地投递（session-local），无外部通知通道。web profile 默认不装 schedule 插件，壳经 engine-patch overlay 注入 `@deepseek-ai/dsh-schedule`（`EngineSupervisor`），旧会话不补装、新会话生效
 
 ### 7.4 Workflow（父会话事件流嵌套卡）
 

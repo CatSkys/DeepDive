@@ -277,8 +277,8 @@ export interface ScheduleRecord {
   scheduledAt?: string;
   /** kind=every：固定间隔秒（≥300）。 */
   everySeconds?: number;
-  /** kind=after：相对秒。 */
-  delaySeconds?: number;
+  /** kind=after：相对秒（rc.2 实测字段名）。 */
+  afterSeconds?: number;
 }
 
 /** 轮的 token 用量（usage 字段，rc.2 实测形状）。 */

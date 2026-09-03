@@ -102,6 +102,7 @@ export function ScheduleMenu({ records }: { records: ScheduleRecord[] }) {
   if (records.length === 0) return null;
   const fmtWhen = (r: ScheduleRecord): string => {
     if (r.kind === "every") return tt("每 {n} 分钟", "every {n} min", { n: Math.round((r.everySeconds ?? 300) / 60) });
+    if (typeof r.afterSeconds === "number") return tt("{n} 分钟后", "in {n} min", { n: Math.max(1, Math.round(r.afterSeconds / 60)) });
     if (r.scheduledAt) {
       const d = new Date(r.scheduledAt);
       return d.toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });

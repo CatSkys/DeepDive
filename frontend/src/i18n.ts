@@ -169,6 +169,7 @@ const EN: Record<string, string> = {
   "会话提醒": "Session reminders",
   "会话本地 · 到点经会话内续跑投递": "Session-local · delivered in-session when due",
   "每 {n} 分钟": "every {n} min",
+  "{n} 分钟后": "in {n} min",
   "工作流": "Workflow",
   "{done}/{total} 成员": "{done}/{total} members",
   "{n} 失败": "{n} failed",
