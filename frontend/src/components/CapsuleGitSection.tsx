@@ -1,14 +1,16 @@
 import { useState } from "react";
 import {
   ArrowUpFromLine, Check, ChevronDown, FileDiff, GitBranch,
-  GitCommitHorizontal, GitMerge,
+  GitCommitHorizontal,
 } from "lucide-react";
 import { gitRun } from "../host";
-import { t, tt } from "../i18n";import type { GitStatus } from "../types";
+import { t, tt } from "../i18n";
+import type { GitStatus } from "../types";
 
-// 状态胶囊的 Git 分区（摘要卡片）：已改动/当前分支两行实况 + 切换分支/
-// 提交改动/推送三个可执行动作，全部经壳层 git-run 通道（参数数组直传
-// Process，不经 shell）。提交 = git add -A + commit -m（信息行内输入）。
+// 状态胶囊的 Git 分区（摘要卡片，参考环境信息卡三行式）：变更 / 分支 /
+// 提交或推送。动作全部经壳层 git-run 通道（参数数组直传 Process，不经
+// shell）；提交 = git add -A + commit -m（信息行内输入），提交并推送在
+// 其后追加 git push。
 
 type Busy = "checkout" | "commit" | "push" | null;
 
@@ -19,14 +21,14 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
 }) {
   const [branchOpen, setBranchOpen] = useState(false);
   const [branches, setBranches] = useState<string[] | null>(null);
-  const [commitOpen, setCommitOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState<Busy>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  const run = async (args: string[], busyKind: Exclude<Busy, null>, done: string): Promise<boolean> => {
+  const run = async (args: string[], kind: Exclude<Busy, null>, done: string): Promise<boolean> => {
     if (!wsPath || busy !== null) return false;
-    setBusy(busyKind);
+    setBusy(kind);
     const r = await gitRun(wsPath, args);
     setBusy(null);
     const ok = !!r?.ok;
@@ -37,6 +39,7 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
   };
 
   const toggleBranches = async () => {
+    setMenuOpen(false);
     const next = !branchOpen;
     setBranchOpen(next);
     if (!next) return;
@@ -50,13 +53,20 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
     if (ok) setBranchOpen(false);
   };
 
-  const doCommit = async () => {
+  const commit = async (push: boolean) => {
     const message = msg.trim();
-    if (!message) return;
+    if (!wsPath || !message) return;
+    const dir = wsPath;
     setMsg("");
-    if (await run(["add", "-A"], "commit", "")) {
-      await run(["commit", "-m", message], "commit", tt("已提交：{m}", "Committed: {m}", { m: message }));
-    }
+    setBusy("commit");
+    const add = await gitRun(dir, ["add", "-A"]);
+    const created = add?.ok ? await gitRun(dir, ["commit", "-m", message]) : null;
+    let ok = !!created?.ok;
+    if (ok && push) ok = !!(await gitRun(dir, ["push"]))?.ok;
+    setBusy(null);
+    const doneText = push ? t("已提交并推送") : t("已提交");
+    setNote(ok ? doneText : `${t("失败")}：${(created?.output ?? "").trim().split("\n").filter(Boolean).pop() ?? ""}`);
+    if (ok) onRefresh();
   };
 
   const doPush = async () => {
@@ -67,19 +77,16 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
 
   return (
     <div className="capsule-sec">
-      <div className="capsule-sec-name"><GitBranch size={12} />{git.branch ?? t("代码改动")}</div>
+      <div className="capsule-sec-name">{t("代码改动")}</div>
       <div className="capsule-row">
-        <FileDiff size={13} />
+        <FileDiff size={14} />
+        <span className="capsule-row-text">{t("变更")}</span>
         <span className="capsule-row-meta"><b className="capsule-add">+{git.additions}</b> <b className="capsule-del">−{git.deletions}</b></span>
       </div>
-      <div className="capsule-row">
-        <GitBranch size={13} />
-        <span className="capsule-row-text">{git.branch ?? "—"}</span>
-      </div>
       <button type="button" className="capsule-row-btn" disabled={busy !== null} onClick={() => void toggleBranches()}>
-        <GitMerge size={13} />
-        <span className="capsule-row-text">{t("切换分支")}</span>
-        <ChevronDown size={12} className="capsule-row-go" style={branchOpen ? undefined : { transform: "rotate(-90deg)" }} />
+        <GitBranch size={14} />
+        <span className="capsule-row-text">{git.branch ?? "—"}</span>
+        <ChevronDown size={13} className="capsule-row-go" style={branchOpen ? undefined : { transform: "rotate(-90deg)" }} />
       </button>
       {branchOpen && (
         <div className="capsule-branches">
@@ -99,12 +106,12 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
           ))}
         </div>
       )}
-      <button type="button" className="capsule-row-btn" disabled={busy !== null} onClick={() => setCommitOpen((v) => !v)}>
-        <GitCommitHorizontal size={13} />
-        <span className="capsule-row-text">{busy === "commit" ? busyLabel : t("提交改动")}</span>
-        <ChevronDown size={12} className="capsule-row-go" style={commitOpen ? undefined : { transform: "rotate(-90deg)" }} />
+      <button type="button" className="capsule-row-btn" disabled={busy !== null} onClick={() => { setBranchOpen(false); setMenuOpen((v) => !v); }}>
+        <GitCommitHorizontal size={14} />
+        <span className="capsule-row-text">{t("提交或推送")}</span>
+        <ChevronDown size={13} className="capsule-row-go" style={menuOpen ? undefined : { transform: "rotate(-90deg)" }} />
       </button>
-      {commitOpen && (
+      {menuOpen && (
         <div className="capsule-commit">
           <input
             className="capsule-input"
@@ -112,17 +119,20 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
             value={msg}
             autoFocus
             onChange={(e) => setMsg(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && msg.trim() && busy === null) void doCommit(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && msg.trim() && busy === null) void commit(false); }}
           />
-          <button type="button" className="capsule-commit-btn" disabled={!msg.trim() || busy !== null} onClick={() => void doCommit()}>
-            {busy === "commit" ? busyLabel : tt("提交", "Commit")}
+          <button type="button" className="capsule-row-btn" disabled={busy !== null || !msg.trim()} onClick={() => void commit(false)}>
+            <GitCommitHorizontal size={14} /><span>{tt("提交", "Commit")}</span>
+          </button>
+          <button type="button" className="capsule-row-btn" disabled={busy !== null || !msg.trim()} onClick={() => void commit(true)}>
+            <ArrowUpFromLine size={14} /><span>{t("提交并推送")}</span>
+          </button>
+          <button type="button" className="capsule-row-btn" disabled={busy !== null} onClick={() => void doPush()}>
+            <ArrowUpFromLine size={14} /><span>{t("推送")}</span>
           </button>
         </div>
       )}
-      <button type="button" className="capsule-row-btn" disabled={busy !== null} onClick={() => void doPush()}>
-        <ArrowUpFromLine size={13} />
-        <span className="capsule-row-text">{busy === "push" ? busyLabel : t("推送")}</span>
-      </button>
+      {busy && <div className="capsule-note">{busyLabel}</div>}
       {note && <div className="capsule-note">{note}</div>}
     </div>
   );

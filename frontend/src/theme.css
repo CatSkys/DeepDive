@@ -2698,7 +2698,7 @@ button {
   padding: 8px 14px 6px;
   border-bottom: 1px solid var(--line);
 }
-.capsule-title { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.capsule-title { font-size: 12px; font-weight: 600; color: var(--ink-2); }
 .capsule-fold { color: var(--ink-3); padding: 3px; border-radius: var(--dsh-radius-keycap); }
 .capsule-fold:hover { color: var(--ink); background: var(--fill); }
 .capsule-sec { padding: 8px 14px; }
@@ -2707,7 +2707,8 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--ink-3);
   margin-bottom: 4px;
 }
@@ -2717,8 +2718,9 @@ button {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 3px 0;
-  font-size: 12.5px;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 18px;
   color: var(--ink-2);
 }
 .capsule-row > svg, .capsule-row > .state-dot { flex: none; margin-top: 2px; }
@@ -2733,7 +2735,8 @@ button {
   width: 100%;
   text-align: left;
   padding: 4px 0;
-  font-size: 12.5px;
+  font-size: 13px;
+  line-height: 18px;
   color: var(--ink-2);
 }
 .capsule-row-btn:hover:not(:disabled) { color: var(--ink); }
@@ -2747,7 +2750,7 @@ button {
   justify-content: space-between;
   gap: 8px;
   padding: 3px 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink-2);
   border-radius: var(--dsh-radius-keycap);
 }
@@ -2757,19 +2760,19 @@ button {
 .capsule-input {
   flex: 1;
   min-width: 0;
-  height: 26px;
+  height: 28px;
   padding: 0 8px;
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-keycap);
   background: var(--fill);
   color: var(--ink);
-  font-size: 12px;
+  font-size: 13px;
 }
 .capsule-input:focus { outline: none; border-color: var(--ink-3); }
 .capsule-commit-btn {
   flex: none;
   padding: 0 10px;
-  height: 26px;
+  height: 28px;
   border-radius: var(--dsh-radius-keycap);
   border: 1px solid var(--line);
   background: var(--fill);
@@ -2778,7 +2781,7 @@ button {
 }
 .capsule-commit-btn:hover:not(:disabled) { background: var(--fill-strong); }
 .capsule-commit-btn:disabled { opacity: .5; }
-.capsule-row-meta { margin-left: auto; font-size: 11px; color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
+.capsule-row-meta { margin-left: auto; font-size: 12px; color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
 .capsule-row-main {
   display: flex;
   align-items: center;
