@@ -99,21 +99,6 @@ export function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, 
 }
 
 
-/** 上下文注入折叠行（3.3）：默认一行来源标签，点击展开注入全文。 */
-export function InjectionRow({ label, text }: { label: string; text: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="injection-row" data-open={open ? "true" : "false"}>
-      <button type="button" className="injection-main" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <ChevronDown size={12} className="injection-chev" />
-        <span>{t("上下文注入")}</span>
-        <span className="injection-label">{label}</span>
-      </button>
-      {open && <pre className="injection-body">{text}</pre>}
-    </div>
-  );
-}
-
 
 /** 压缩标记卡（3.4）：compaction/summary 的流内标记，展开看压缩摘要。 */
 export function CompactionCard({ summary, shadowedTokens }: { summary: string; shadowedTokens?: string }) {

@@ -183,7 +183,6 @@ const EN: Record<string, string> = {
   "本轮失败": "Turn failed",
   "请在设置中配置 API Key 后重试": "Configure an API key in Settings and retry",
   "模型请求重试": "Model request retrying",
-  "上下文注入": "Context injected",
   "已压缩更早的上下文": "Earlier context compacted",
   "（约 {n} tokens）": "(~{n} tokens)",
   // phase 5 long-running & parallel surface

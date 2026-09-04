@@ -42,11 +42,6 @@ export function textOf(event?: SessionEvent): string {
 }
 
 /** 注入消息全文（不看 source.kind——注入行展开体专用）。 */
-export function textOfInjection(event?: SessionEvent): string {
-  if (!event || event.type !== "user/message") return "";
-  return messageText((event.data as UserMessageData).content);
-}
-
 /// Text + reasoning split for an assistant message (render-time, from the
 /// final event). Folds reasoning into the same assistant container (official
 /// AssistantMarkdown) so it is never a separate duplicate row.

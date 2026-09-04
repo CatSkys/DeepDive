@@ -63,7 +63,7 @@
 ### 2.4 注入上下文也是 `user/message`（source.kind=plugin/skill-catalog）
 - 引擎把运行时上下文（`source.kind:'plugin'`, 467 字符）与技能目录（`source.kind:'skill-catalog'`, 15405 字符 `<system-reminder>`）作为 `user/message` 广播。
 - 事故：全被渲染成右对齐大气泡，旧会话回放时满屏巨型卡片。
-- 处置：`user/message` 只对 `source.kind === 'user'`（真正用户输入）渲染气泡；其余注入消息过滤。
+- 处置：`user/message` 只对 `source.kind === 'user'`（真正用户输入）渲染气泡；注入消息（plugin/skill-catalog/agent-instructions/goal…）**不渲染**（2026-09-04 用户拍板：注入折叠行也已整体移除，事件直接丢弃； Pitfall 本体=它们绝不能渲染成右对齐大气泡）。
 
 ---
 

@@ -1,13 +1,13 @@
 // 单条渲染项的分流组件（R-007 从 SessionView 搬出）：RenderItem.kind →
-// 用户气泡/agent 文本/流式思考/工具行/turn-tail/命令/工作流/注入/压缩卡。
+// 用户气泡/agent 文本/流式思考/工具行/turn-tail/命令/工作流/压缩卡。
 // 不管摄取与分组（renderModel/turnGroups 的下游）。
 
 import { t } from "../i18n";
 import ThinkingState from "../components/ThinkingState";
 import { UserAttachments } from "../components/AttachmentImage";
-import { blocksOf, textOf, textOfInjection } from "./eventText";
+import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
-import { UserBubble, AgentMessage, MessageMeta, InjectionRow, CompactionCard, StateDot } from "./MessageRow";
+import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
 export function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onContinue, sessionId }: {
   item: RenderItem;
@@ -91,11 +91,6 @@ export function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onCo
         />
       </div>
     );
-  }
-  if (item.kind === "injection") {
-    // 上下文注入折叠行：默认只露来源标签，展开看注入全文
-    const text = item.event ? textOfInjection(item.event) : "";
-    return <InjectionRow label={item.injectionLabel ?? "context"} text={text} />;
   }
   if (item.kind === "compaction") {
     return <CompactionCard summary={item.output ?? ""} shadowedTokens={item.args} />;

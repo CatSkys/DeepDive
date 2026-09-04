@@ -19,7 +19,7 @@ export interface WorkflowMember {
 
 export interface RenderItem {
   key: string;
-  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail" | "command" | "injection" | "compaction" | "retry" | "workflow";
+  kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail" | "command" | "compaction" | "retry" | "workflow";
   event?: SessionEvent;
   toolName?: string;
   toolCallId?: string;
@@ -34,8 +34,6 @@ export interface RenderItem {
   commandText?: string;
   /** 工作流卡：成员按 seq 归并（agent-start/end 配对）。 */
   members?: WorkflowMember[];
-  /** 注入行：user/message 的 source.kind（plugin/skill-catalog…）。 */
-  injectionLabel?: string;
   /** 压缩卡：compactionId 去重键。 */
   compactionId?: string;
   /** 重试行：retryId 去重键（同一等待更新不新增）。 */
@@ -188,14 +186,9 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
     case "user/message": {
       const d = ev.data as UserMessageData;
       const txt = userText(d);
-      if (txt) {
-        out.push({ ...base, kind: "user" });
-      } else {
-        // 注入上下文（source.kind=plugin/skill-catalog…）：折叠行呈现，
-        // 可展开看全文——不再整条过滤（PITFALLS §2.4 的升级形态）
-        const label = (d.source as { kind?: string })?.kind;
-        if (label) out.push({ ...base, kind: "injection", injectionLabel: label });
-      }
+      // 注入上下文（source.kind=plugin/skill-catalog/goal…，无正文）不渲染：
+      // 系统提示词/插件/技能目录/goal 注入对用户是噪音（2026-09-04 用户拍板隐藏）
+      if (txt) out.push({ ...base, kind: "user" });
       break;
     }
     case "turn/start": {

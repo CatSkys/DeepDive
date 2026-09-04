@@ -12,7 +12,7 @@ export interface TurnGroup {
 /**
  * 分组规则（对齐事件时序语义）：
  * - 带 turn 的项（assistant/tool/chunk/turn-tail…）开启或延续自己的轮；
- * - user/injection 是"轮前项"——它们先于自己触发的 turn/start 到达，
+ * - user 是"轮前项"——它们先于自己触发的 turn/start 到达，
  *   挂到**下一个**轮；
  * - command/retry/workflow/compaction 是"轮内项"——发生在 turn/start 之后，
  *   挂到**当前**轮；日志开头尚无轮时先入 null 组。
@@ -28,7 +28,7 @@ export function groupTurns(items: readonly RenderItem[]): TurnGroup[] {
     preTurn = [];
   };
   for (const item of items) {
-    const pre = item.kind === "user" || item.kind === "injection";
+    const pre = item.kind === "user";
     if (pre) {
       preTurn.push(item);
       continue;

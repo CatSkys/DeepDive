@@ -36,9 +36,9 @@ describe("groupTurns", () => {
   });
 
   it("日志开头先于任何轮的项归 null 组", () => {
-    const g = groupTurns([mk({ key: "inj", kind: "injection" }), mk({ key: "a1", kind: "assistant", turn: 1 })]);
+    const g = groupTurns([mk({ key: "pre", kind: "user" }), mk({ key: "a1", kind: "assistant", turn: 1 })]);
     expect(g.map((x) => x.turn)).toEqual([1]);
-    expect(g[0].items.map((x) => x.key)).toEqual(["inj", "a1"]);
+    expect(g[0].items.map((x) => x.key)).toEqual(["pre", "a1"]);
   });
 
   it("foldDecision：<阈值不折叠；≥阈值保留最近 keepRecent 轮", () => {
