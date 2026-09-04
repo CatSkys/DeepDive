@@ -134,7 +134,11 @@
 - 处置：`vite.config.ts` 用 `define` 烘焙 `git rev-parse --short HEAD`，Sidebar 渲染 `v-{__DSH_BUILD_SHA__}`。角标永远等于真实构建 SHA。
 - 交付前用 `grep -o "v-<sha>" dist/assets/index-*.js` 核对。
 
-### 5.2 交付前必截图自检（WORKING-AGREEMENTS）
+### 5.2 验收对象必须是 .build/release 最新包——Debug 实例会混入
+- `xcodebuild test` 会产出 `.build/debug` 的 Debug app；它可能被 launchd/误点启动，**内嵌前端是旧的**，在它上面调试/验收会看到与最新代码不符的行为（2026-09-04 事故：快捷键轮在 Debug 残留实例上测，行为对不上源码）。
+- 处置：验收前 `pgrep -f DeepDive.app` 核对路径含 `.build/release`；发现 Debug 实例直接杀掉换最新 Release 包。
+
+### 5.3 交付前必截图自检（WORKING-AGREEMENTS）
 - 改完样式/渲染 → 构建 → 打包 → 启动 → 用 Playwright（channel chrome headless 打开 bridge URL）截图，核对：消息流居中、无卡片、tool 行/产物/turn-tail/meta 位置、用户消息右对齐等。
 - 只改用户指出的项；不质疑用户、不拿"旧实例"当借口。
 
@@ -154,6 +158,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 用 `?sid=` 深链打开指定会话（store boot 支持）。
 - eval 读取 `.flow-inner > *` 的渲染顺序/`turn-tail`/`produced-file`/`load-older` 等，截图验证。
 - 必须装浏览器：`npx playwright install` 或复用系统 Chrome（`channel:'chrome'`）。
+- **tab.reload/页面刷新后 evaluate 的 JS realm 会换新**：`new MouseEvent/Event/HTMLInputElement.prototype` 等构造器要用 `document.defaultView.*` 取页面自己的，用注入侧旧 realm 的构造器会抛 `Illegal invocation`（2026-09-04 快捷键验证踩过）。构造 React 输入事件用原生 value setter + input 事件的标准组合。
 
 ### 6.3 后台 subagent 在此环境会静默失败
 - 观察：`subagent`/`subagent_fork` 后台多次启动后 `failed before it finished. No closing message.`

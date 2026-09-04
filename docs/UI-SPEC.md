@@ -231,7 +231,7 @@
 
 - **弹层材质**：`background: var(--panel-strong)`（.92 毛玻璃底）+ **自带** `backdrop-filter: blur(40px) saturate(160%)`。禁止恢复全局 `* { backdrop-filter:none !important }` 核弹 + 白名单机制——压缩器会把"标准 + `-webkit-`"属性对合并成仅 `-webkit-`，不同引擎静默失效，且 CSS module 类进不了 theme 白名单（PITFALLS §1.8）。新弹层自带 blur 即可；`.flow *` 的禁用保留（合成隔离，弹层不挂 flow 内）。
 - **品牌图标（提供方 logo）**：全部**单色反白**（`fill=currentColor` 随主题），禁品牌彩色、禁白底/彩底 chip。来源顺序：`@lobehub/icons-static-svg`（AI 提供方全覆盖，`?raw` 内联 svg）→ `simple-icons` 单色 → 首字母 monogram。**禁用 React 内联 style 传 `maskImage`**——存在静默丢弃，`?raw` 内联 svg（自带 fill=currentColor）最稳（PITFALLS §1.9）。
-- **分组卡片**：卡片**无描边**，纯底色区分范围（`var(--fill)`）；行间分隔线用缩进 `::before`（左对齐文本、右留空），**禁全宽横线**；区块标题与内容间距 ≥12px（标题贴内容为反复出现的回归）。
+- **分组卡片**：卡片**无描边**，纯底色区分范围（`var(--fill)`）；行间分隔线用缩进 `::before`（左对齐文本、右留空），**禁全宽横线**；区块标题与内容间距 ≥12px（标题贴内容为反复出现的回归）；**页面头已有大标题时，卡片内不再重复同级标题**（2026-09-04 快捷键页"快捷键"×2）。
 - **Meta 胶囊与数值**：标签胶囊只呈现引擎真实数据（reasoning / inputModalities / 上下文窗口），缺的属性不编造；数值紧凑化（1000000→1M、131072→131K）。
 
 ---
