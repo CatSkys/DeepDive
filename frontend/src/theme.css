@@ -219,8 +219,9 @@ button {
    intermediate sizing frames. 顶部钮仍在顶部，会话头让位（同旧版机制）。 */
 .app.collapsed .sidebar { margin-left: calc(-1 * var(--dsh-sidebar-w, 240px)); opacity: 0; pointer-events: none; }
 .session-header, .hero-top { transition: padding-left 220ms cubic-bezier(.2,0,0,1); }
-.app.collapsed .session-header,
-.app.collapsed .hero-top { padding-left: 176px; }
+.app.collapsed .session-header { padding-left: 176px; }
+/* hero 自带 24px 横向 padding：补 152 = 会话头同位（176），两页空隙一致 */
+.app.collapsed .hero-top { padding-left: 152px; }
 
 /* ---- 侧栏拖拽调宽热区：完全不可见（无线条/无底色），只有 col-resize 光标 ----
    data-strip-interactive 让 titlebar.ts 把它计入顶条 rect 表：热区上段
