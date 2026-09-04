@@ -294,7 +294,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       <div className="sidebar-foot">
         <button
           className="settings-entry"
-                    onClick={() => {
+          data-tip={t("设置")}
+          data-tip-keys="⌘,"
+          onClick={() => {
             onOpenSettings();
           }}
         >
@@ -318,7 +320,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             退化为手输绝对路径。 */}
         <button
           className="ws-add"
-         
+          data-tip={t("新建项目空间")}
           onClick={() => {
             if (window.webkit?.messageHandlers?.deepdiveHost) {
               sendToShell({ type: "pick-workspace" });
