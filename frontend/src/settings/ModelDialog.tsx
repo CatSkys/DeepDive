@@ -204,7 +204,11 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
   };
 
   const providerOptions = [
-    ...providers.map((p) => ({ v: p.provider, label: p.displayName })),
+    ...providers.map((p) => ({
+      v: p.provider,
+      label: p.displayName,
+      iconNode: <ProviderIcon provider={p.provider} size={14} />,
+    })),
     { v: NEW_PROVIDER, label: t("＋ 新建自定义提供方…") },
   ];
   const modelOptions = [

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -27,6 +28,8 @@ export interface DropdownOption {
   /** 次要说明：有则菜单行转两行富行（label + desc），触发钮不带。 */
   description?: string;
   icon?: LucideIcon;
+  /** 任意节点图标（如提供方品牌 svg）：Lucide 组件装不下时用。 */
+  iconNode?: ReactNode;
   /** 危险项：当前值命中时触发钮以热点橙提示（如 完全访问）。 */
   danger?: boolean;
 }
@@ -103,6 +106,7 @@ export function Dropdown({ options, value, onChange }: { options: DropdownOption
             }}
           >
             {Icon && <Icon size={15} className={rowsCss.ddItemIcon} />}
+            {o.iconNode && <span className={rowsCss.ddItemIcon}>{o.iconNode}</span>}
             <span className={rowsCss.ddItemMain}>
               <span>{o.label}</span>
               {o.description && <span className={rowsCss.ddItemDesc}>{o.description}</span>}
@@ -118,6 +122,7 @@ export function Dropdown({ options, value, onChange }: { options: DropdownOption
     <div className={rowsCss.dd} ref={rootRef}>
       <button ref={triggerRef} type="button" className={rowsCss.ddTrigger} data-danger={current?.danger ? "true" : undefined} onClick={toggle}>
         {current?.icon && <current.icon size={14} className={rowsCss.ddTriggerIcon} />}
+        {current?.iconNode && <span className={rowsCss.ddTriggerIcon}>{current.iconNode}</span>}
         <span>{current?.label ?? value}</span>
         <ChevronDown size={14} className={rowsCss.ddChevron} />
       </button>
