@@ -148,6 +148,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.showPanel()
     }
 
+    /// Dock 图标点击（运行中 reopen）：主面板是 orderOut 管理的 NSPanel，
+    /// 系统 reopen 不会自动恢复它——显式走 showPanel（与通知点击/菜单栏
+    /// 同一入口），面板已可见时等价于把它带回前台。返回 false 表示已接管。
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showMainWindow()
+        return false
+    }
+
     /// Bridge push helper for native surfaces (bubble, notifications).
     func pushNavigateToSession(_ sessionId: String) {
         windowController.pushHostCommand(
