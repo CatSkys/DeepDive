@@ -168,28 +168,6 @@
 .appearanceCard:hover { background: var(--fill-soft); color: var(--ink); }
 .appearanceCard.active { border-color: var(--ink); color: var(--ink); background: var(--fill-soft); }
 
-/* ── 预设卡片 ── */
-.presetGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-.presetCard {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-control);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
-}
-.presetCard:hover { background: var(--fill-soft); }
-.presetCard.current { border-color: var(--ink); }
-.presetHead { display: flex; align-items: center; gap: 8px; }
-.presetName { font-size: 13px; font-weight: 600; color: var(--ink); }
 .presetBadge {
   font-size: 10.5px;
   padding: 1px 8px;
@@ -198,8 +176,6 @@
   color: var(--ink-2);
 }
 .presetBadge.current { background: var(--ink); color: var(--panel-bg); border-color: var(--ink); font-weight: 600; }
-.presetDesc { font-size: 11.5px; color: var(--ink-2); line-height: 1.55; }
-.presetId { font-family: var(--dsh-font-mono-family); font-size: 10.5px; color: var(--ink-faint); }
 
 /* ── 插件 / 归档行 ── */
 .listRow {

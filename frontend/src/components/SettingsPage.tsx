@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Archive, Bot, ChevronLeft, Cpu, Folder, Keyboard, Moon,
-  Monitor, Plug, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
+  Archive, ChevronLeft, Cpu, Folder, Keyboard, Moon,
+  Monitor, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
   SquarePen, Sun, X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown, Toggle } from "../settings/controls";
 import { ModelsManage } from "../settings/ModelsManage";
-import { PluginConfigCards } from "../settings/PluginConfigCards";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { api, probeMethod } from "../api";
 import { onHostEvent, sendToShell } from "../host";
@@ -24,14 +23,6 @@ import { useT } from "../i18n";
 // 分类：通用（外观/语言/Enter 行为/通知）、模型（提供方+密钥）、
 // 审批（默认权限预设）、Agent 预设、插件、快捷键、已归档的聊天、数据。
 
-interface InventoryPreset {
-  id: string;
-  trust?: string;
-  name?: string;
-  description?: string;
-  isDefault?: boolean;
-}
-
 export function SettingsPage({ onClose }: { onClose: () => void }) {
   const { t } = useT();
   const [activeId, setActiveId] = useState("general");
@@ -46,8 +37,6 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
     { id: "general", label: t("通用"), icon: SettingsIcon },
     { id: "models", label: t("模型"), icon: Cpu },
     { id: "approval", label: t("审批"), icon: ShieldCheck },
-    { id: "presets", label: t("Agent 预设"), icon: Bot },
-    { id: "plugins", label: t("插件"), icon: Plug },
     { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
     { id: "archived", label: t("已归档的聊天"), icon: Archive },
     { id: "data", label: t("数据"), icon: Folder },
@@ -86,8 +75,6 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           {activeId === "general" && <GeneralSection />}
           {activeId === "models" && <ModelsManage />}
           {activeId === "approval" && <ApprovalSection />}
-          {activeId === "presets" && <PresetsSection />}
-          {activeId === "plugins" && <PluginsSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
           {activeId === "archived" && <ArchivedSection />}
           {activeId === "data" && <DataSection />}
@@ -310,86 +297,6 @@ function ApprovalSection() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ───────────────────────── Agent 预设 ───────────────────────── */
-
-function PresetsSection() {
-  const { t } = useT();
-  const [presets, setPresets] = useState<InventoryPreset[] | null>(null);
-  const [defaultId, setDefaultId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const r = await api.callRaw<{ agentPresets?: InventoryPreset[] }>("pluginInventory/list", {});
-      setPresets(r.agentPresets ?? []);
-    } catch { setPresets([]); }
-    try {
-      const d = await api.settingsDescribe();
-      const ns = (d.namespaces ?? []).find((n) => n.ns === "agent-presets");
-      if (ns) setDefaultId(((ns.value as { default?: string } | null)?.default) ?? null);
-    } catch { /* engine booting */ }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
-
-  const setDefault = async (id: string) => {
-    try {
-      const d = await api.settingsDescribe();
-      const ns = (d.namespaces ?? []).find((n) => n.ns === "agent-presets");
-      if (!ns) return;
-      const base = (ns.value ?? {}) as Record<string, unknown>;
-      await api.settingsUpdate({ ns: "agent-presets", patch: { ...base, default: id }, expectedRevision: ns.revision });
-      await load();
-    } catch (err) { alert(t("保存失败：{m}").replace("{m}", (err as Error).message)); }
-  };
-
-  const activeId = defaultId ?? presets?.find((p) => p.isDefault)?.id ?? null;
-
-  return (
-    <div className={rowsCss.section}>
-      <div className={rowsCss.sectionIntro}>{t("预设即一个会话的 Agent 所运行的插件组装 —— 它的工具、提示词与能力。点击卡片设为新会话的默认。")}</div>
-      {presets === null && <div className={rowsCss.muted}>{t("载入中…")}</div>}
-      {presets !== null && presets.length === 0 && <div className={rowsCss.muted}>{t("本引擎未提供预设。")}</div>}
-      {presets !== null && presets.length > 0 && (
-        <div className={rowsCss.presetGrid}>
-          {presets.map((p) => {
-            const current = p.id === activeId || p.isDefault;
-            return (
-              <button
-                key={p.id}
-                className={`${rowsCss.presetCard}${current ? ` ${rowsCss.current}` : ""}`}
-                onClick={() => void setDefault(p.id)}
-                data-tip={t("设为默认")}
-              >
-                <div className={rowsCss.presetHead}>
-                  <span className={rowsCss.presetName}>{p.name ?? p.id}</span>
-                  {current && <span className={`${rowsCss.presetBadge} ${rowsCss.current}`}>{t("当前使用")}</span>}
-                </div>
-                {p.description && <div className={rowsCss.presetDesc}>{p.description}</div>}
-                <div className={rowsCss.presetId}>{p.id}</div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      <p className={rowsCss.intro}>{t("点击卡片即设为新会话的默认预设；运行中的会话保持它开始时的预设。")}</p>
-    </div>
-  );
-}
-
-/* ───────────────────────── 插件 ───────────────────────── */
-
-/// rc.2 无 pluginInventory 浏览器面（404，DSH-WIRE §1）——原清单面降级为
-/// 设置命名空间驱动的可配置项卡（官方 ui-settings-plugins 的 Bash/AgentLoop/
-/// WebSearch 卡同构），清单不再渲染死面。
-function PluginsSection() {
-  const { t } = useT();
-  return (
-    <div className={rowsCss.section}>
-      <div className={rowsCss.sectionIntro}>{t("本引擎装载的扩展模块的可配置项（按设置命名空间呈现）。")}</div>
-      <PluginConfigCards />
     </div>
   );
 }
