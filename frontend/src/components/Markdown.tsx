@@ -85,7 +85,7 @@ export function parseBlocks(text: string): Block[] {
     // table: header row + separator row of |---|
     if (line.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1]) && lines[i + 1].includes("-")) {
       const header = line.split("|").map((c) => c.trim()).filter((c) => c !== "");
-      i++;
+      i += 2; // 跳过表头与分隔行：分隔行曾混进数据行，渲染出一排短横线单元格
       const rows: string[] = [];
       while (i < lines.length && lines[i].includes("|") && lines[i].trim() !== "") {
         rows.push(...[lines[i]]);

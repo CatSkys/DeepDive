@@ -27,14 +27,13 @@ describe("parseBlocks 块级", () => {
     expect(parseBlocks("1. 甲\n2) 乙")[0]).toEqual({ kind: "ol", lines: ["甲", "乙"] });
   });
 
-  it("表格：表头 + 分隔行 + 数据行", () => {
+  it("表格：表头 + 分隔行被跳过 + 数据行", () => {
     const b = parseBlocks("| a | b |\n|---|---|\n| 1 | 2 |")[0];
     expect(b?.kind).toBe("table");
     expect(b?.lines[0]).toBe("a||b");
-    // 现行为怪癖：分隔行 |---|---| 被当作首个数据行保留（渲染成一排短横线
-    // 单元格）。钉住现状防回归；修复决策留给台账（见本轮扫除总结）。
-    expect(b?.lines[1]).toBe("|---|---|");
-    expect(b?.lines[2]).toBe("| 1 | 2 |");
+    // 分隔行不进数据行（曾混入渲染成短横线单元格）
+    expect(b?.lines).toHaveLength(2);
+    expect(b?.lines[1]).toBe("| 1 | 2 |");
   });
 
   it("块级数学跨行闭合（内容保留首尾换行，现状）", () => {
