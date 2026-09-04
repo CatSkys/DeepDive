@@ -7,13 +7,12 @@ import {
 import type { LucideIcon } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown, Toggle } from "../settings/controls";
-import { ModelCatalog } from "../settings/ModelCatalog";
+import { ModelsManage } from "../settings/ModelsManage";
 import { PluginConfigCards } from "../settings/PluginConfigCards";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { api, probeMethod } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
-import { ProviderIcon } from "./ProviderIcon";
 import { sessionTitle } from "../session/sessionTitle";
 import { useT } from "../i18n";
 
@@ -85,7 +84,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
             </button>
           </div>
           {activeId === "general" && <GeneralSection />}
-          {activeId === "models" && <ModelsSection />}
+          {activeId === "models" && <ModelsManage />}
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "presets" && <PresetsSection />}
           {activeId === "plugins" && <PluginsSection />}
@@ -245,114 +244,6 @@ function GeneralSection() {
         </div>
       </div>
     </>
-  );
-}
-
-/* ───────────────────────── 模型（提供方 + 密钥） ───────────────────────── */
-
-const deriveKeyRef = (provider: string) =>
-  `${provider.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_API_KEY`;
-
-interface ProviderRow {
-  provider: string;
-  displayName: string;
-  active: boolean;
-  declared: boolean;
-  keyRef: string;
-  configured?: boolean;
-}
-
-function ModelsSection() {
-  const { t } = useT();
-  const [rows, setRows] = useState<ProviderRow[] | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [KeyValue, setKeyValue] = useState("");
-
-  const load = useCallback(async () => {
-    try {
-      const r = await api.llmProviders();
-      const list: ProviderRow[] = (r.providers ?? []).map((p) => ({
-        provider: p.provider,
-        displayName: p.displayName,
-        active: p.active,
-        declared: p.declared ?? false,
-        keyRef: deriveKeyRef(p.provider),
-      }));
-      const refs = [...new Set(list.map((row) => row.keyRef))];
-      let creds: Record<string, { configured: boolean } | undefined> = {};
-      try { creds = (await api.credentialsDescribe({ refs })).credentials ?? {}; } catch { /* 引擎不可达 */ }
-      setRows(list.map((row) => ({ ...row, configured: !!creds[row.keyRef]?.configured })));
-    } catch { setRows([]); }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
-
-  const saveKey = async (row: ProviderRow, value: string) => {
-    if (!value.trim()) return;
-    try { await api.credentialsSet({ ref: row.keyRef, value: value.trim() }); } catch (err) { alert(t("保存失败：{m}").replace("{m}", (err as Error).message)); }
-    setEditing(null);
-    void load();
-  };
-  const clearKey = async (row: ProviderRow) => {
-    try { await api.credentialsUnset({ ref: row.keyRef }); } catch (err) { alert(t("保存失败：{m}").replace("{m}", (err as Error).message)); }
-    setEditing(null);
-    void load();
-  };
-
-  return (
-    <div className={rowsCss.section}>
-      <div className={rowsCss.sectionIntro}>{t("填入各提供方的 API 密钥即可使用其模型。切换模型在会话头部的选择器进行。")}</div>
-      {rows === null && <div className={rowsCss.muted}>{t("载入中…")}</div>}
-      {rows !== null && rows.map((r) => (
-        <div key={r.provider} className={rowsCss.rowCard}>
-          <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <ProviderIcon provider={r.provider} size={14} />
-              {r.displayName}
-              {r.active && (
-                <span className={rowsCss.badge}>
-                  {" "}
-                  <span className={`${rowsCss.badgeDot} ${rowsCss.on}`} />
-                  {" "}
-                  <span className={`${rowsCss.badgeText} ${rowsCss.on}`}>{t("当前使用")}</span>
-                </span>
-              )}
-            </div>
-            <div className={rowsCss.rowCaption}>
-              <span className={rowsCss.mono}>{r.provider}</span>
-              {" · "}
-              {r.configured ? t("密钥已配置") : t("未配置密钥")}
-            </div>
-          </div>
-          <div className={rowsCss.rowActions}>
-            {editing === r.provider ? (
-              <>
-                <input
-                  className={rowsCss.textField}
-                  style={{ width: 200 }}
-                  type="password"
-                  autoFocus
-                  placeholder="API Key"
-                  value={KeyValue}
-                  onChange={(e) => setKeyValue(e.target.value)}
-                />
-                <button className={rowsCss.primaryButton} onClick={() => void saveKey(r, KeyValue)}>{t("保存")}</button>
-                <button className={rowsCss.secondaryButton} onClick={() => { setEditing(null); setKeyValue(""); }}>{t("取消")}</button>
-              </>
-            ) : (
-              <>
-                <span className={rowsCss.badge}>
-                  <span className={`${rowsCss.badgeDot}${r.configured ? ` ${rowsCss.on}` : ""}`} />
-                </span>
-                <button className={rowsCss.secondaryButton} onClick={() => { setEditing(r.provider); setKeyValue(""); }}>{t("编辑")}</button>
-                {r.configured && <button className={rowsCss.dangerButton} onClick={() => void clearKey(r)}>{t("清除")}</button>}
-              </>
-            )}
-          </div>
-        </div>
-      ))}
-      {rows !== null && rows.length === 0 && <div className={rowsCss.muted}>{t("无结果")}</div>}
-      <ModelCatalog />
-    </div>
   );
 }
 

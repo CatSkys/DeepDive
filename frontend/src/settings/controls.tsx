@@ -64,7 +64,8 @@ export function Dropdown({ options, value, onChange }: { options: DropdownOption
   const rich = options.some((o) => o.description);
   const menuHeight = options.reduce((h, o) => h + (o.description ? 48 : 30), 0) + 24;
   // Portaled to <body> with fixed positioning: the options scroller clips
-  // absolutely-positioned menus (user report).
+  // absolutely-positioned menus (user report). 长清单（模型提供方 38 项）菜单
+  // 高过视口时压限高度内滚——否则首项被顶出屏幕外无法选择。
   const menu = open && pos && createPortal(
     <div
       ref={menuRef}
@@ -72,12 +73,20 @@ export function Dropdown({ options, value, onChange }: { options: DropdownOption
       role="listbox"
       style={{
         position: "fixed",
-        // space below the trigger, else flip above it
+        // space below the trigger, else flip above it。翻转分支必须显式
+        // top:"auto"——.ddMenu 类自带 top:calc(100%+4px)（absolute 时代
+        // 遗留），不清掉会与 bottom 双约束把菜单压成视口外细条（用户报告
+        // 的"提供商没法点"）。
         ...(window.innerHeight - pos.top > menuHeight
-          ? { top: pos.top }
-          : { bottom: window.innerHeight - pos.top + 4 }),
+          ? { top: pos.top, bottom: "auto" }
+          : { top: "auto", bottom: window.innerHeight - pos.top + 4 }),
+        right: "auto",
         left: Math.max(8, Math.min(pos.left, window.innerWidth - Math.max(pos.minWidth, rich ? 272 : 0) - 12)),
         minWidth: Math.max(pos.minWidth, rich ? 272 : 0),
+        maxHeight: Math.max(180, (window.innerHeight - pos.top > menuHeight
+          ? window.innerHeight - pos.top
+          : pos.top) - 24),
+        overflowY: "auto",
       }}
     >
       {options.map((o) => {

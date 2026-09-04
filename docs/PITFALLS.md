@@ -27,6 +27,14 @@
 ### 1.5 壳注入 CSS（WebViewTheme）与前端样式层
 - 自建 SPA 的样式唯一事实源是 `frontend/src/theme.css`。壳级 `WebViewTheme` 只保留 `html/body` 透明（vibrancy 依赖；`color-scheme` 由前端 `theme.css` 声明 `light dark`，外观三态跟随）；曾在其上叠的 `--dsw-alias-*` token 覆盖是官方 UI 套壳时代的遗物，SPA 零引用，已清除。**不要再往 WebViewTheme 加样式**。
 
+### 1.6 flex 嵌套"百分比宽 input"在 WKWebView 塌缩成细条
+- 现象：`.fieldRow{display:flex}` 里套 `<div style={{flex:1}}><input style={{width:"100%"}}>`，WKWebView 实测把兄弟列压成 ~12px 细条且相互重叠（用户截图"编辑栏都重叠了"）；同结构在 Chrome 正常。
+- 处置：这类"标签+输入"并排字段直接用 **grid**（`grid-template-columns: 1.2fr 1fr 110px` + input `width:100%`），见 ModelDialog 的 `fieldGrid`；不要用 flex 子项嵌百分比宽表单控件。
+
+### 1.7 body 级 portal 浮层（position:fixed）双坑：类遗留 top 双约束 + React 事件沿 React 树冒泡
+- **定位**：Dropdown 菜单 portal 到 body、内联 `position:fixed`，但 `.ddMenu` 类自带 `top: calc(100% + 4px)`（absolute 时代遗留）。内联只设 `bottom`（向上翻转分支）时类里的 `top` 仍然生效，top/bottom 双约束把菜单压成视口底边外一条 10px 细条——表现就是"下拉没法点击"（提供方 39 项必然翻转中招；项数少走 top 分支所以语言下拉正常）。翻转分支必须显式 `top:"auto"` 并 `right:"auto"`；长清单再加 `max-height` 内滚（settings/controls.tsx）。在真实 DOM 里量 rect + 读内联 style（bridge URL + 浏览器驱动）一次就能钉死，别靠截图猜。
+- **事件**：React portal 的点击沿 **React 树**冒泡，不沿 DOM 树——菜单在 DOM 上挂 body，选中项的点击仍会路过组件树上的 modal overlay；overlay 用 `onClick` + `.modal` 上 DOM 级 `stopPropagation` 拦不住（选提供方第一下整个弹窗就被关掉）。modal"点空白关闭"必须用 `onMouseDown` 且判 `e.target === e.currentTarget`。
+
 ---
 
 ## 2. 引擎事件载荷（反复踩）
@@ -104,6 +112,10 @@
 - macOS 26 (Tahoe) 窗口圆角分两档（本机 26.5 截图实测，2x 拟合）：纯标题栏窗口 ≈16pt；**带可见 toolbar 的窗口 ≈26pt**（连续曲率，WindowServer 裁切，与 Finder/Notes 同款）。`toolbar.isVisible = false` 也会退回小档。
 - DSHmini 标题栏整个画在 web 层，壳里那个 `NSToolbar`（`EmptyToolbarDelegate`，0 item）唯一作用就是**把窗口选进大圆角档**：`titlebarAppearsTransparent` 让它不可见、0 item 不交互，空白条 hitTest 与无 toolbar 完全一致（实测）。副产物：挂上后红绿灯默认中心线 16→26pt，恰好等于前端 26px 头部中心线，`alignTrafficLights()` 成为 no-op 兜底。
 - 铁律：不要"清理"这个空 toolbar；前端圆角阶梯以 26 为锚（tokens.json v5 `radius.window`，`.main` 18 = 26−8 同心）。改动后必须截图自检圆角档位（对比 Finder 窗口角）。
+
+### 4.8 每次重打包 = adhoc 签名变化 → TCC 授权重置、启动弹系统授权框
+- `make package` 每次重签 bundle，macOS 按（code signature, bundle id）记 TCC 授权，签名一变「文稿访问」等授权全部重置：启动即弹"DeepDive 想访问文稿"系统框，**模态挡住应用初始化**（表现为 AX 查不到窗口/菜单栏、状态项缺失，像启动失败）。
+- 处置：预期行为，点"允许"即可，不是回归；自动化验证前先确认没有授权框挡着。
 
 ---
 
