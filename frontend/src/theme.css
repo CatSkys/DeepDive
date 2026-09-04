@@ -3023,13 +3023,15 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .tip-keys {
   flex: none;
-  padding: 1px 6px;
+  padding: 1px 4px 1px 6px;
   border-radius: 5px;
   border: 1px solid var(--line);
   background: var(--fill-strong);
   color: var(--ink-2);
   font-size: 11px;
   line-height: 14px;
+  /* 多键组合（⌘D / ⌘⇧E）符号间要有正常文字间隔；末字符后也有字距，右 padding 收回 */
+  letter-spacing: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
   .tip { animation: none; }

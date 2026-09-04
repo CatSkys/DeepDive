@@ -357,13 +357,15 @@
 }
 .comboChip {
   min-width: 64px;
-  padding: 4px 10px;
+  padding: 4px 8px 4px 10px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: var(--fill-strong);
   color: var(--ink);
   font-size: 12px;
   text-align: center;
+  /* 与 tooltip 键帽同款：组合符号间留正常文字间隔（末字符后有字距，右 padding 收回） */
+  letter-spacing: 2px;
 }
 .comboChip:hover { background: var(--fill-heavy); }
 .comboChip.recording { border-color: var(--ink); color: var(--ink-2); background: transparent; }
