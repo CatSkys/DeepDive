@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, ChevronDown, Loader2, Pencil, Plug, Plus, Trash2, X } from "lucide-react";
 import { api } from "../api";
-import { t, useT } from "../i18n";
+import { useT } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import {
   ModelDialog, keyRefOf, updateDeepseekModels, updatePiProviders,
-  type DeepseekNs, type EditTarget, type ModelProfile, type PiNs, type PiProviderProfile, type ProviderInfo,
+  type DeepseekNs, type EditTarget, type PiNs, type PiProviderProfile, type ProviderInfo,
 } from "./ModelDialog";
 import cssRows from "./SettingsRows.module.css";
 

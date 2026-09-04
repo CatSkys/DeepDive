@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Archive, ChevronLeft, Cpu, Folder, Keyboard, Moon,
+  Archive, ChartColumn, ChevronLeft, Cpu, Folder, Keyboard, Moon,
   Monitor, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
   SquarePen, Sun, X,
 } from "lucide-react";
@@ -8,6 +8,7 @@ import type { LucideIcon } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown, Toggle } from "../settings/controls";
 import { ModelsManage } from "../settings/ModelsManage";
+import { UsageSection } from "../stats/UsageSection";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { api, probeMethod } from "../api";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "../keybinds";
@@ -42,6 +43,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
     { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
     { id: "archived", label: t("已归档的聊天"), icon: Archive },
     { id: "data", label: t("数据"), icon: Folder },
+    { id: "usage", label: t("使用统计"), icon: ChartColumn },
   ];
   const active = nav.find((n) => n.id === activeId) ?? nav[0];
 
@@ -80,6 +82,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           {activeId === "hotkeys" && <HotkeysSection />}
           {activeId === "archived" && <ArchivedSection />}
           {activeId === "data" && <DataSection />}
+          {activeId === "usage" && <UsageSection />}
         </div>
       </main>
     </>
@@ -306,7 +309,7 @@ function ApprovalSection() {
 /* ───────────────────────── 快捷键 ───────────────────────── */
 
 function HotkeysSection() {
-  const { t, tt } = useT();
+  const { t } = useT();
   const store = useStore();
   const { keybinds, setKeybinds } = store;
   const [hotkey, setHotkey] = useState("⌥Space");
@@ -384,7 +387,7 @@ function HotkeysSection() {
                 >
                   {isRec ? t("按下新组合…") : combo}
                 </button>
-                <Toggle on={!off} onChange={(v) => toggleBind(def.id)} />
+                <Toggle on={!off} onChange={() => toggleBind(def.id)} />
               </div>
             </div>
           );

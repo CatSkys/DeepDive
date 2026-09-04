@@ -120,6 +120,8 @@ function Shell() {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
+    // 真实依赖只有 keybinds；store.openSession/toggleSidebar 按稳定引用约定不入表
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.keybinds]);
   return (
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>

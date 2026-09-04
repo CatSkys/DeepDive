@@ -385,6 +385,28 @@ const EN: Record<string, string> = {
   "排队": "Queue",
   "任务 {id}": "Task {id}",
   "设置已在其他位置被修改。": "Settings were modified elsewhere.",
+  // settings — usage stats
+  "使用统计": "Usage",
+  "累计 Token 数": "Total tokens",
+  "峰值 Token 数": "Peak day",
+  "最长聊天时长": "Longest chat",
+  "当前连续天数": "Current streak",
+  "最长连续天数": "Longest streak",
+  "Token 活动": "Token activity",
+  "每日": "Daily",
+  "每周": "Weekly",
+  "累计": "Cumulative",
+  "时间范围": "Time range",
+  "近 7 日": "Last 7 days",
+  "近 30 日": "Last 30 days",
+  "每日 Token 趋势图": "Daily token trend",
+  "模型用量": "Model usage",
+  "暂无数据": "No data yet",
+  "{s} tokens": "{s} tokens",
+  "{n} 轮消息": "{n} messages",
+  "{s} tokens · {n} 轮消息": "{s} tokens · {n} messages",
+  "{s} tokens · 累计 {c}": "{s} tokens · {c} in total",
+  "{d} · {s} tokens": "{d} · {s} tokens",
 };
 
 // Module-level current language: plain helpers (formatters, tool-row
