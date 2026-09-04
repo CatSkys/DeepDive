@@ -88,6 +88,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             EngineLog.shared.append("[shell] hotkey register FAILED: \(config.hotkey)")
         }
+        // 全局热键开关（设置-快捷键）：关 = 系统级注销，⌥Space 不再触发
+        if !DSHAppPrefs.hotkeyOn {
+            hotKey.unregister()
+            EngineLog.shared.append("[shell] hotkey disabled by pref")
+        }
 
         supervisor.start()
 
@@ -199,6 +204,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 switch key {
                 case "notifyTurnEnd": DSHAppPrefs.setNotifyTurnEnd(value)
                 case "notifyAttention": DSHAppPrefs.setNotifyAttention(value)
+                case "hotkeyOn":
+                    DSHAppPrefs.setHotkeyOn(value)
+                    if value {
+                        hotKey.register(spec: config.hotkey)
+                    } else {
+                        hotKey.unregister()
+                    }
                 case "menuBar":
                     DSHAppPrefs.setMenuBar(value)
                     statusItem.setVisible(value)
@@ -434,6 +446,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "appearance": DSHAppPrefs.appearance,
             "language": DSHAppPrefs.language,
             "keybinds": DSHAppPrefs.keybinds,
+            "hotkeyOn": DSHAppPrefs.hotkeyOn,
             "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
         ]

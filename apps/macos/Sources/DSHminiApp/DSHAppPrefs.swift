@@ -28,6 +28,8 @@ enum DSHAppPrefs {
     static let languageKey = "deepdive.ui.language"     // "zh" | "en"
     /// 应用内快捷键覆盖（前端 keybinds.ts 的 JSON 串；壳只存不解析）
     static let keybindsKey = "deepdive.keybinds"
+    /// 全局热键（唤起面板）启用开关；关 = 系统级注销。
+    static let hotkeyOnKey = "deepdive.hotkey.on"
 
     /// Sidebar drag-resize bounds — keep in sync with tokens.json
     /// size.sidebarMin / size.sidebarMax (the frontend clamps too).
@@ -80,6 +82,14 @@ enum DSHAppPrefs {
 
     static func setKeybinds(_ value: String) {
         UserDefaults.standard.set(value, forKey: keybindsKey)
+    }
+
+    static var hotkeyOn: Bool {
+        UserDefaults.standard.object(forKey: hotkeyOnKey) == nil ? true : UserDefaults.standard.bool(forKey: hotkeyOnKey)
+    }
+
+    static func setHotkeyOn(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: hotkeyOnKey)
     }
 
     static var language: String {

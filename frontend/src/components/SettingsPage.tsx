@@ -348,7 +348,7 @@ function HotkeysSection() {
       <div className={rowsCss.hotkeyCard}>
         <div className={rowsCss.hotkeyRow}>
           <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>
+            <div className={rowsCss.rowName} style={!store.hotkeyOn ? { color: "var(--ink-3)" } : undefined}>
               {t("唤起面板")}
               <span className={rowsCss.metaTag}>{t("全局")}</span>
             </div>
@@ -356,12 +356,13 @@ function HotkeysSection() {
           <div className={rowsCss.rowActions}>
             <button
               type="button"
-              className={`${rowsCss.comboChip}${recording ? ` ${rowsCss.recording}` : ""}`}
-              onClick={() => { if (!recording) { setRecording(true); sendToShell({ type: "rebind-hotkey" }); } }}
+              className={`${rowsCss.comboChip}${recording ? ` ${rowsCss.recording}` : ""}${!store.hotkeyOn ? ` ${rowsCss.off}` : ""}`}
+              onClick={() => { if (store.hotkeyOn && !recording) { setRecording(true); sendToShell({ type: "rebind-hotkey" }); } }}
               aria-label={t("修改快捷键")}
             >
               {recording ? t("录制中…") : hotkey}
             </button>
+            <Toggle on={store.hotkeyOn} onChange={(v) => store.setHotkeyOn(v)} />
           </div>
         </div>
         {KEYBIND_DEFS.map((def) => {
