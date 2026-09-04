@@ -567,7 +567,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // 进 deps 会让 value 每次渲染重建——ref 镜像约定下显式排除，P2-6 snapshot
     // store 决策时一并处理；其余稳定标识（useCallback/useState）如实入表。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -483,29 +483,8 @@ button {
 .app.collapsed .ws-pill { display: inline-flex; }
 /* 模式胶囊：常显（不随侧栏收起）；无描边，与项目胶囊同底色语法 */
 .preset-pill { display: inline-flex; }
-/* hero 会话模式分段选择器：无描边、选中=亮度差（UI-SPEC Segmented） */
-.mode-picker { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
-.mode-seg {
-  height: 24px;
-  padding: 0 12px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-3);
-  font-size: 12px;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
-}
-.mode-seg:hover { background: var(--fill-soft); color: var(--ink-2); }
-.mode-seg.active { background: var(--fill-strong); color: var(--ink); font-weight: 500; }
-/* hero 输入框组：模式选择器叠在 composer 上方（竖排居中） */
-.hero-attach {
-  width: min(1020px, calc(100% - 48px));
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.hero-attach .hero-composer { width: 100%; }
+/* hero 会话模式下拉（招呼语下方）：触发器无描边、随招呼语组居中 */
+.mode-picker { display: flex; justify-content: center; margin-top: 12px; }
 
 /* ---------- content / hero ---------- */
 

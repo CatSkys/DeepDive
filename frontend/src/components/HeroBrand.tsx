@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { ProjectMenu } from "./ProjectMenu";
@@ -7,7 +7,7 @@ import { ProjectMenu } from "./ProjectMenu";
  *  不会只落到一边）：「我们在 {项目名} 做点什么？」——项目名跟随当前工作
  *  空间自动替换；空间未解析（引擎无 workspace 面或首拉未回）时退回
  *  「做点什么？」。项目名可点击（点状虚线）弹出项目切换菜单。 */
-export function HeroBrand() {
+export function HeroBrand({ children }: { children?: ReactNode }) {
   const store = useStore();
   const { t, tt } = useT();
   const ws = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
@@ -26,6 +26,7 @@ export function HeroBrand() {
           </>
         ) : t("做点什么？")}
       </div>
+      {children}
     </div>
   );
 }

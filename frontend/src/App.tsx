@@ -164,12 +164,11 @@ function Shell() {
                 pickModel, applyModelEffort: pickModel,
               }} />
             </div>
-            <HeroBrand />
-            <div className="hero-attach">
+            <HeroBrand>
               <AgentModePicker />
-              <div className="hero-composer">
-                <Composer sessionId={null} />
-              </div>
+            </HeroBrand>
+            <div className="hero-composer">
+              <Composer sessionId={null} />
             </div>
           </div>
         )}

@@ -34,7 +34,7 @@ export interface DropdownOption {
   danger?: boolean;
 }
 
-export function Dropdown({ options, value, onChange }: { options: DropdownOption[]; value: string; onChange: (v: string) => void }) {
+export function Dropdown({ options, value, onChange, variant }: { options: DropdownOption[]; value: string; onChange: (v: string) => void; variant?: "bare" }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -119,7 +119,7 @@ export function Dropdown({ options, value, onChange }: { options: DropdownOption
     document.body,
   );
   return (
-    <div className={rowsCss.dd} ref={rootRef}>
+    <div className={`${rowsCss.dd}${variant === "bare" ? ` ${rowsCss.ddBare}` : ""}`} ref={rootRef}>
       <button ref={triggerRef} type="button" className={rowsCss.ddTrigger} data-danger={current?.danger ? "true" : undefined} onClick={toggle}>
         {current?.icon && <current.icon size={14} className={rowsCss.ddTriggerIcon} />}
         {current?.iconNode && <span className={rowsCss.ddTriggerIcon}>{current.iconNode}</span>}
