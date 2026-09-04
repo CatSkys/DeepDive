@@ -968,6 +968,15 @@ button {
 }
 .chip button { color: var(--ink-2); padding: 0 2px; }
 .chip button:hover { color: var(--ink-bright); }
+/* 图片附件 chip：缩略图 + 点击 Lightbox 预览（× 移除，stopPropagation） */
+.att-chip { padding-left: 4px; }
+.att-chip-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  object-fit: cover;
+  flex: none;
+}
 
 /* ---------- composer menu（@ 附件 / / 命令，参考图 3：小节标题 +
    图标行，单条高亮滑动，紧凑尺寸，无底部提示行） ---------- */
@@ -2527,8 +2536,32 @@ button {
   max-width: 55%;
 }
 
-/* 拖放图片到输入框的高亮 */
-.composer.drag-over { outline: 1.5px dashed var(--line-heavy); outline-offset: 3px; }
+/* 拖放附件：会话界面级虚线框提示（窗口级 dragenter/drop，Composer 渲染） */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0,0,0,.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: drop-in 120ms ease;
+}
+.drop-frame {
+  position: absolute;
+  inset: 14px;
+  border: 1.5px dashed var(--ink-2);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-bright);
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(255,255,255,.04);
+}
+@keyframes drop-in { from { opacity: 0; } }
 
 /* ── 阶段 3：用量环/弹层 · Markdown 补齐（链接/任务/删除线/图片/高亮）·
    注入行 · 压缩卡 · 重试行 · 轮失败条 ─────────────────────────────── */
@@ -2615,18 +2648,28 @@ button {
 .hljs-comment, .hljs-quote, .hljs-deletion { color: var(--ink-3); font-style: italic; }
 .hljs-type, .hljs-built_in, .hljs-class .hljs-title { color: #7FDBCA; }
 
-/* Lightbox */
+/* Lightbox：深色 scrim + 背景模糊（放大后四周虚化），图片圆角浮出 */
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(0,0,0,.82);
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(40px) saturate(160%);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: zoom-out;
+  animation: lightbox-in 160ms cubic-bezier(.2,0,0,1);
 }
-.lightbox img { max-width: 94vw; max-height: 94vh; border-radius: var(--dsh-radius-card); }
+.lightbox img {
+  max-width: 94vw;
+  max-height: 94vh;
+  border-radius: var(--dsh-radius-card);
+  box-shadow: 0 24px 64px rgba(0,0,0,.4);
+  animation: lightbox-zoom 160ms cubic-bezier(.2,0,0,1);
+}
+@keyframes lightbox-in { from { opacity: 0; } }
+@keyframes lightbox-zoom { from { transform: scale(.96); } }
 
 /* 注入折叠行 */
 .injection-row { margin: 2px 0; }

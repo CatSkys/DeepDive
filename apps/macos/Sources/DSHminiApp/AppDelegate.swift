@@ -254,6 +254,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         case "pick-workspace":
             pickWorkspaceDirectory()
+        case "pick-attachments":
+            pickAttachments(reqId: body["reqId"] as? String ?? "")
         case "list-dir":
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "run-git":
@@ -431,6 +433,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.windowController.pushHostCommand("workspacePicked", payload: payload)
         }
     }
+
+    /// 附件选择器（composer ＋）：文件与文件夹都可多选；绝对路径回推给前端
+    /// 走 @ 引用（引擎宿主侧读盘），图片附带 base64 走真字节上传。取消回推
+    /// 空数组——前端据此收尾，不悬挂 reqId。
+    private func pickAttachments(reqId: String) {
+        guard let window = windowController.window else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.message = "选择要附加的文件或文件夹"
+        panel.prompt = "添加"
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            var items: [[String: Any]] = []
+            if response == .OK {
+                for url in panel.urls {
+                    var item: [String: Any] = [
+                        "path": url.path,
+                        "name": url.lastPathComponent,
+                        "isDir": (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false,
+                    ]
+                    // 图片附 base64（引擎 prompt 面 imageLimits 只收这几类），
+                    // 其余类型只回路径；读取失败同样降级为纯路径引用。
+                    if Self.imageExtensions.contains(url.pathExtension.lowercased()),
+                       let data = try? Data(contentsOf: url) {
+                        item["isImage"] = true
+                        item["base64"] = data.base64EncodedString()
+                    }
+                    items.append(item)
+                }
+            }
+            self.windowController.pushHostCommand(
+                "pickedAttachments",
+                payload: Self.jsonPayload(["reqId": reqId, "items": items]),
+            )
+        }
+    }
+
+    /// 与引擎 imageLimits 准入的媒体类型对齐（png/jpeg/webp/gif）。
+    private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "webp", "gif"]
 
     /// Preference + path snapshot for the settings page (推送于 host-ready
     /// 与 get-prefs;键值与 frontend/src/components/SettingsPage.tsx 约定)。

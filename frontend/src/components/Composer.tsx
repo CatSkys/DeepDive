@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  ArrowUp, Square, Plus, Mic, Image as ImageIcon,
+  ArrowUp, Square, Plus, Mic,
   ClipboardList, File as FileIcon, Folder, Route, ShieldCheck, Shrink, TerminalSquare, type LucideIcon,
 } from "lucide-react";
 import { api } from "../api";
-import { onHostEvent, sendToShell } from "../host";
+import { onHostEvent, sendToShell, pickAttachments, type PickedAttachment } from "../host";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
 import { useT, t as globalT } from "../i18n";
@@ -12,6 +13,7 @@ import { activeAtToken, formatMention } from "../atGrammar";
 import { useAtCandidates } from "../useAtCandidates";
 import { useCompositionGuard } from "../useCompositionGuard";
 import { SLASH_COMMANDS } from "../commands";
+import { Lightbox } from "./Lightbox";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { PromptContentPart } from "../types";
 
@@ -60,7 +62,6 @@ function parseSlashToken(text: string): { query: string; start: number } | null 
 export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null; onSent?: () => void; ctx?: ContextData }) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [plusOpen, setPlusOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [composing, setComposing] = useState(false);
   const [active, setActive] = useState(0);
@@ -72,7 +73,11 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   const [listening, setListening] = useState(false);
   const [partial, setPartial] = useState("");
   const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.deepdiveHost);
+  // 拖拽附件：窗口级监听（会话界面任意处），非 composer 局部
   const [dragOver, setDragOver] = useState(false);
+  const dragDepth = useRef(0);
+  // 附件 chip 点击预览（Lightbox）
+  const [preview, setPreview] = useState<Attachment | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // 中文输入法确认词的回车余波守卫（useCompositionGuard.ts 顶部注释）
   const ime = useCompositionGuard();
@@ -94,16 +99,6 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       if (v === "steer" || v === "queue") setBusyEnter(v);
     }).catch(() => void 0); // engine booting: keep default
   }, []);
-
-  // clicking anywhere outside closes whatever menu is open
-  useEffect(() => {
-    if (!plusOpen) return;
-    const close = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) { setPlusOpen(false); setDismissed(true); }
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [plusOpen]);
 
   // 听写事件：partial 进占位文案；final 拼接到草稿末尾；error 弹提示。
   // 模块级 globalT 读最新 currentLang（useT 的闭包随渲染重建，订阅只挂一次）。
@@ -198,14 +193,135 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     onSent?.();
   };
 
-  // ---------- menu rows ----------
+  // ---------- 附件摄入（＋ 选择器 / 拖拽 / ⌘V 共用） ----------
 
-  // 附件（＋ 菜单）：rc.2 prompt 面只收图片附件（PromptContentPart =
-  // text|image，imageLimits 准入）；剪贴板图片走 textarea ⌘V 粘贴（macOS 惯例），
-  // 不再设菜单项。
-  const attachRows: MenuRow[] = [
-    { id: "image", icon: ImageIcon, label: t("图片…"), section: t("附件"), run: () => fileRef.current?.click() },
-  ];
+  // rc.2 prompt 面只收图片字节附件（PromptContentPart = text|image，imageLimits
+  // 准入）；其余文件/文件夹没有上传通道，走 @ 引用（引擎宿主侧读盘，
+  // DSH-WIRE §5）——即原生的"传文件"方式，不造假上传入口。
+  const IMAGE_MIME: Record<string, string> = {
+    png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif",
+  };
+
+  /** 路径 → 自闭合的 @ 引用（目录带引号时 formatMention 保持开引用供续层，
+   *  选择器/拖拽插入的是完整引用，补收引号）。 */
+  const mentionOf = (path: string, isDir: boolean): string | undefined => {
+    const m = formatMention({ path, kind: isDir ? "directory" : "file" }, false);
+    if (m === undefined) return undefined;
+    return m.startsWith(`@"`) && !m.endsWith(`"`) ? `${m}"` : m;
+  };
+
+  const appendMentions = (mentions: string[]) => {
+    setText((cur) => (cur && !/\s$/.test(cur) ? `${cur} ` : cur) + `${mentions.join(" ")} `);
+  };
+
+  const addImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataURL = String(reader.result);
+      const comma = dataURL.indexOf(",");
+      const mediaType = dataURL.slice(5, dataURL.indexOf(";"));
+      setAttachments((prev) => [...prev, { data: dataURL.slice(comma + 1), mediaType, name: file.name }]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  /** 壳选择器结果：图片→字节 chip，其余→@ 引用。 */
+  const ingestPicked = (items: PickedAttachment[]) => {
+    const chips: Attachment[] = [];
+    const mentions: string[] = [];
+    for (const it of items) {
+      const mime = IMAGE_MIME[it.name.split(".").pop()?.toLowerCase() ?? ""];
+      if (it.isImage && it.base64 && mime) {
+        chips.push({ data: it.base64, mediaType: mime, name: it.name });
+      } else {
+        const m = mentionOf(it.path, it.isDir);
+        if (m) mentions.push(m);
+      }
+    }
+    if (chips.length > 0) setAttachments((prev) => [...prev, ...chips]);
+    if (mentions.length > 0) appendMentions(mentions);
+  };
+
+  /** ＋＝上传附件：壳内 NSOpenPanel（文件+文件夹多选）；纯浏览器降级为
+   *  图片选择 input（无路径可引用，非图片明示不可为）。 */
+  const addAttachments = () => {
+    if (hasShell) {
+      void pickAttachments().then((items) => { if (items) ingestPicked(items); });
+    } else {
+      fileRef.current?.click();
+    }
+  };
+
+  // 拖拽：窗口级监听——会话界面任意处拖入文件都出虚线框提示；图片收字节
+  // chip，其余经 WebKit public.file-url 拿路径转 @ 引用（纯浏览器拿不到
+  // 路径，明示不可为）。depth 计数对抗子元素边界的 enter/leave 抖动。
+  useEffect(() => {
+    const isFileDrag = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+    const onDragEnter = (e: DragEvent) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      dragDepth.current += 1;
+      setDragOver(true);
+    };
+    const onDragOver = (e: DragEvent) => {
+      if (dragDepth.current > 0) e.preventDefault();
+    };
+    const onDragLeave = () => {
+      if (dragDepth.current === 0) return;
+      dragDepth.current -= 1;
+      if (dragDepth.current === 0) setDragOver(false);
+    };
+    const fileUrls = (dt: DataTransfer) => new Promise<string[]>((resolve) => {
+      const items = Array.from(dt.items).filter((i) => i.kind === "file" && i.type === "public.file-url");
+      const out: string[] = [];
+      let pending = items.length;
+      if (pending === 0) { resolve(out); return; }
+      for (const item of items) {
+        item.getAsString((s) => {
+          if (s?.startsWith("file://")) out.push(decodeURIComponent(s.replace(/^file:\/\//, "")));
+          pending -= 1;
+          if (pending === 0) resolve(out);
+        });
+      }
+    });
+    const onDrop = (e: DragEvent) => {
+      dragDepth.current = 0;
+      setDragOver(false);
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      const dt = e.dataTransfer;
+      if (!dt) return;
+      let nonImage = 0;
+      let urlless = 0;
+      for (const f of Array.from(dt.files)) {
+        if (f.type.startsWith("image/")) addImageFile(f);
+        else nonImage += 1;
+      }
+      void fileUrls(dt).then((urls) => {
+        const mentions = urls.map((p) => mentionOf(p, p.endsWith("/") || !p.split("/").pop()?.includes("."))).filter((m): m is string => m !== undefined);
+        if (mentions.length > 0) appendMentions(mentions);
+        // WebKit 面非图片文件必带 public.file-url；缺 = 纯浏览器环境
+        urlless = nonImage - mentions.length;
+        if (urlless > 0) {
+          alert(tt("浏览器环境无法引用本地文件，请在桌面端使用", "Local file references need the desktop app"));
+        }
+      });
+    };
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 摄入函数按当前渲染闭包工作，与听写订阅同款
+  }, []);
+
+  // ---------- menu rows ----------
 
   // token 派生：@ 用官方 grammar（光标位置），/ 保持行尾判定。
   const atTok = dismissed || composing ? undefined : activeAtToken(text, cursor);
@@ -272,15 +388,13 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     },
   }));
 
-  const menu: "attach" | "at" | "slash" | null = plusOpen
-    ? "attach"
-    : atTok
-      ? "at"
-      : slashTok
-        ? "slash"
-        : null;
+  const menu: "at" | "slash" | null = atTok
+    ? "at"
+    : slashTok
+      ? "slash"
+      : null;
   const query = menu === "slash" ? slashTok?.query ?? "" : "";
-  const allRows = menu === "attach" ? attachRows : menu === "at" ? atRows : slashRows;
+  const allRows = menu === "at" ? atRows : slashRows;
   const rows = query ? allRows.filter((r) => r.label.toLowerCase().includes(query)) : allRows;
 
   useEffect(() => setActive(0), [menu, query]);
@@ -298,20 +412,6 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     e.target.value = "";
   };
 
-  /** 图片附件入列（文件选择/拖放共用）；非图片忽略——引擎 imageLimits
-   *  只收 png/jpeg/webp/gif。 */
-  const addImageFile = (file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataURL = String(reader.result);
-      const comma = dataURL.indexOf(",");
-      const mediaType = dataURL.slice(5, dataURL.indexOf(";"));
-      setAttachments((prev) => [...prev, { data: dataURL.slice(comma + 1), mediaType, name: file.name }]);
-    };
-    reader.readAsDataURL(file);
-  };
-
   const autoGrow = (el: HTMLTextAreaElement) => {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
@@ -319,7 +419,6 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
 
   const pick = (row: MenuRow) => {
     row.run();
-    if (plusOpen) { setPlusOpen(false); setDismissed(false); }
     taRef.current?.focus();
   };
 
@@ -331,24 +430,15 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       {attachments.length > 0 && (
         <div className="composer-chips">
           {attachments.map((a, i) => (
-            <span key={i} className="chip">
-              <ImageIcon size={12} />
+            <span key={i} className="chip att-chip" onClick={() => setPreview(a)}>
+              <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt="" />
               {a.name}
-              <button onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}>×</button>
+              <button onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
             </span>
           ))}
         </div>
       )}
-      <div
-        className={`composer${wide ? " wide" : ""}${dragOver ? " drag-over" : ""}${showCtx ? " has-ctx" : ""}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          for (const f of Array.from(e.dataTransfer.files)) addImageFile(f);
-        }}
-      >
+      <div className={`composer${wide ? " wide" : ""}${showCtx ? " has-ctx" : ""}`}>
         {menu && (() => {
           // 分组渲染（参考图 3：小节标题 + 图标行），行索引取自过滤后的扁平列表
           const sections: Array<{ name: string; rows: MenuRow[] }> = [];
@@ -396,9 +486,8 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
         <button
           type="button"
           className="composer-icon"
-          data-tip={t("添加附件（输入 @）")} data-tip-keys="@"
-          aria-expanded={plusOpen}
-          onClick={() => { setPlusOpen((v) => !v); setDismissed(false); taRef.current?.focus(); }}
+          data-tip={t("上传附件")}
+          onClick={addAttachments}
         >
           <Plus size={16} strokeWidth={2} />
         </button>
@@ -407,7 +496,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
           rows={1}
           value={text}
           placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
-          onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setPlusOpen(false); setDismissed(false); autoGrow(e.target); }}
+          onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); autoGrow(e.target); }}
           onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
           onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
           onCompositionEnd={(e) => { ime.onCompositionEnd(); setComposing(false); autoGrow(e.currentTarget); }}
@@ -434,7 +523,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
               }
             }
             if (e.key === "Escape") {
-              if (menu) { e.preventDefault(); setPlusOpen(false); setDismissed(true); }
+              if (menu) { e.preventDefault(); setDismissed(true); }
               return;
             }
             if (e.key === "Enter" && !e.shiftKey) {
@@ -481,6 +570,21 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
         ) : null}
       </div>
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
+      {preview && (
+        <Lightbox
+          src={`data:${preview.mediaType};base64,${preview.data}`}
+          alt={preview.name}
+          onClose={() => setPreview(null)}
+        />
+      )}
+      {dragOver && createPortal(
+        // 会话界面级拖拽提示：虚线框 + 一句提示；pointer-events 放行事件，
+        // enter/leave 计数与 drop 都由窗口级监听接管
+        <div className="drop-overlay" aria-hidden>
+          <div className="drop-frame">{tt("松开以添加附件", "Release to attach")}</div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

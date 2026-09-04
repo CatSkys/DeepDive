@@ -91,6 +91,36 @@ export function gitRun(path: string, args: string[]): Promise<{ ok: boolean; out
   });
 }
 
+export interface PickedAttachment {
+  path: string;
+  name: string;
+  isDir: boolean;
+  /** 图片且字节读取成功时为 true，并带 base64（无前缀）——走真字节上传；
+   *  其余类型只有路径，前端转 @ 引用（引擎宿主侧读盘）。 */
+  isImage?: boolean;
+  base64?: string;
+}
+
+/** 壳侧附件选择器（composer ＋）：NSOpenPanel 文件+文件夹多选，回推绝对
+ *  路径（图片另带 base64）。纯浏览器环境 resolve null；取消 resolve 空数组。 */
+export function pickAttachments(): Promise<PickedAttachment[] | null> {
+  return new Promise((resolve) => {
+    if (!window.webkit?.messageHandlers?.deepdiveHost) {
+      resolve(null);
+      return;
+    }
+    const reqId = crypto.randomUUID();
+    const off = onHostEvent((cmd, payload) => {
+      if (cmd !== "pickedAttachments") return;
+      const p = payload as { reqId?: string; items?: PickedAttachment[] };
+      if (p.reqId !== reqId) return;
+      off();
+      resolve(p.items ?? []);
+    });
+    sendToShell({ type: "pick-attachments", reqId });
+  });
+}
+
 export function installHostBridge(handlers: {
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;

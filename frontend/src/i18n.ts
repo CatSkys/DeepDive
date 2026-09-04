@@ -60,7 +60,7 @@ const EN: Record<string, string> = {
   "发送": "Send",
   "停止听写": "Stop Dictation",
   "听写": "Dictate",
-  "添加附件（输入 @）": "Add attachment (type @)",
+  "上传附件": "Attach Files",
   "附件": "Attachments",
   "命令": "Commands",
   "图片…": "Image…",
