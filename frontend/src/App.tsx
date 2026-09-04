@@ -105,15 +105,18 @@ function Shell() {
         </div>
       )}
       {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。
-          ＋只切到草稿页（hero）——真实会话在首条消息发出时才创建。 */}
-      <div className="window-top">
-        <button className="window-top-btn" data-tip={t("新会话")} onClick={() => store.openSession(null)}>
-          <IconNewChatOutline16 size={17} />
-        </button>
-        <button className="window-top-btn" data-tip={t("收起侧栏")} onClick={() => store.toggleSidebar()}>
-          <PanelLeft size={17} />
-        </button>
-      </div>
+          ＋只切到草稿页（hero）——真实会话在首条消息发出时才创建。
+          设置页不显示——返回/关闭导航由 SettingsPage 自带。 */}
+      {!settingsOpen && (
+        <div className="window-top">
+          <button className="window-top-btn" data-tip={t("新会话")} onClick={() => store.openSession(null)}>
+            <IconNewChatOutline16 size={17} />
+          </button>
+          <button className="window-top-btn" data-tip={t("收起侧栏")} onClick={() => store.toggleSidebar()}>
+            <PanelLeft size={17} />
+          </button>
+        </div>
+      )}
       {settingsOpen ? (
         <SettingsPage onClose={() => setSettingsOpen(false)} />
       ) : (
