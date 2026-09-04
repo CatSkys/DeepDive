@@ -428,7 +428,11 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   // toggling its own background (reference PromptBar)
   useLayoutEffect(() => {
     const el = rowRefs.current[active];
-    if (el) setRowBox({ top: el.offsetTop, height: el.offsetHeight });
+    if (el) {
+      setRowBox({ top: el.offsetTop, height: el.offsetHeight });
+      // 候选超限高内滚后，高亮行移出可视区时容器跟随（nearest 只滚必要距离）
+      el.scrollIntoView({ block: "nearest" });
+    }
   }, [menu, query, active, rows.length]);
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {

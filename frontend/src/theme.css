@@ -993,6 +993,11 @@ button {
   right: auto;
   bottom: calc(100% + 8px);
   z-index: 40;
+  /* 候选多（引用=文件+会话）时限高内滚：菜单自 composer 上缘向上展开，
+     上探空间 = 视口高 - composer 区，超出即滚（键盘 ↑↓ 仍在全列表内移动） */
+  max-height: min(52vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   /* 紧凑小窗（参考图 3）：定宽锚在左缘（＋ 按钮上方），不通栏 */
   width: 264px;
   max-width: calc(100% - 8px);
