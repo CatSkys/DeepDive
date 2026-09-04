@@ -165,7 +165,9 @@ final class EngineEventObserver {
             pendingApprovals.insert(approvalId)
             let toolName = frame["toolName"] as? String ?? "工具调用"
             FloatingBubbleManager.shared.noteNeedsAttention()
-            NativeAlerts.notifyApprovalNeeded(toolName: toolName, sessionId: sessionId)
+            resolveTitle(sessionId: sessionId) { title in
+                NativeAlerts.notifyApprovalNeeded(toolName: toolName, sessionTitle: title, sessionId: sessionId)
+            }
             publish()
         case "approval/resolved":
             let approvalId = frame["approvalId"] as? String ?? ""
@@ -177,7 +179,18 @@ final class EngineEventObserver {
                 let sessionId = frame["sessionId"] as? String
                 pendingQuestions.insert(frame["questionId"] as? String ?? UUID().uuidString)
                 FloatingBubbleManager.shared.noteNeedsAttention()
-                NativeAlerts.notifyQuestionNeeded(sessionId: sessionId)
+                // question/requested 载荷: questions[] 首条的 question 字段
+                // （events.schema.ts askUserQuestionItemSchema）——通知正文用真实提问。
+                let questionText = (frame["questions"] as? [[String: Any]])?
+                    .compactMap { $0["question"] as? String }
+                    .first ?? "打开 DeepDive 查看并回答"
+                if let sessionId {
+                    resolveTitle(sessionId: sessionId) { title in
+                        NativeAlerts.notifyQuestionNeeded(questionText: questionText, sessionTitle: title, sessionId: sessionId)
+                    }
+                } else {
+                    NativeAlerts.notifyQuestionNeeded(questionText: questionText, sessionTitle: "", sessionId: nil)
+                }
                 publish()
             }
         }
@@ -187,27 +200,46 @@ final class EngineEventObserver {
         let appInactive = !NSApp.isActive
         FloatingBubbleManager.shared.noteTurnFinished(sessionId: sessionId, appInactive: appInactive)
         if appInactive, !failed {
-            let summary = title(for: sessionId)
-            NativeAlerts.notifyTurnFinished(summary: summary, sessionId: sessionId)
+            resolveTitle(sessionId: sessionId) { title in
+                NativeAlerts.notifyTurnFinished(sessionTitle: title, sessionId: sessionId)
+            }
         }
     }
 
-    /// Best-effort session title for the finished-turn notification; falls
-    /// back to a short id. Cached to avoid hammering the gateway.
-    private func title(for sessionId: String) -> String {
-        if let cached = titles[sessionId] { return cached }
-        let fallback = "会话 " + sessionId.prefix(6)
-        titles[sessionId] = fallback
+    /// 通知用会话标题：先查缓存，未命中拉 session.list，最多等 1.5s。
+    /// 超时兜底取 id 尾 6 位——id 前缀是固定字面量（sessio…），取头无区分度。
+    /// 真实标题才进缓存；兜底不缓存，避免一次超时污染后续通知。
+    private func resolveTitle(sessionId: String, completion: @escaping (String) -> Void) {
+        if let cached = titles[sessionId] {
+            completion(cached)
+            return
+        }
+        var settled = false
+        let settle: (String, Bool) -> Void = { title, isReal in
+            guard !settled else { return }
+            settled = true
+            if isReal { self.titles[sessionId] = title }
+            completion(title)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            settle(Self.fallbackTitle(sessionId), false)
+        }
         Task { @MainActor in
-            guard let items = (try? await EngineGateway.shared.call("session.list"))?.at("items")?.anyValue as? [[String: Any]] else { return }
+            guard let items = (try? await EngineGateway.shared.call("session.list"))?.at("items")?.anyValue as? [[String: Any]] else {
+                return // 拉取失败/超时由兜底接管
+            }
             for item in items where (item["sessionId"] as? String) == sessionId {
                 let proj = (item["projections"] as? [String: Any])?["values"] as? [String: Any] ?? [:]
                 if let title = proj["title"] as? String, !title.isEmpty {
-                    titles[sessionId] = title
+                    settle(title, true)
                 }
             }
+            // 列表无此会话或无投影标题 → 超时兜底接管
         }
-        return fallback
+    }
+
+    private static func fallbackTitle(_ sessionId: String) -> String {
+        "会话 " + sessionId.suffix(6)
     }
 
     private func publish() {

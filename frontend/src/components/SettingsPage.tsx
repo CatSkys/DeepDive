@@ -103,7 +103,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
 function GeneralSection() {
   const { t } = useT();
   const store = useStore();
-  const [prefs, setPrefs] = useState({ notifyTurnEnd: true, notifyAttention: true, bubble: true });
+  const [prefs, setPrefs] = useState({ notifyTurnEnd: true, notifyAttention: true, menuBar: true, dockIcon: true, bubble: true });
   const [busy, setBusy] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -113,11 +113,13 @@ function GeneralSection() {
         const p = payload as Partial<typeof prefs>;
         if (p.notifyTurnEnd !== undefined) setPrefs((c) => ({ ...c, notifyTurnEnd: p.notifyTurnEnd! }));
         if (p.notifyAttention !== undefined) setPrefs((c) => ({ ...c, notifyAttention: p.notifyAttention! }));
+        if (p.menuBar !== undefined) setPrefs((c) => ({ ...c, menuBar: p.menuBar! }));
+        if (p.dockIcon !== undefined) setPrefs((c) => ({ ...c, dockIcon: p.dockIcon! }));
         if (p.bubble !== undefined) setPrefs((c) => ({ ...c, bubble: p.bubble! }));
       }
     });
   }, []);
-  const changeNotify = (key: "notifyTurnEnd" | "notifyAttention" | "bubble", value: boolean) => {
+  const changeNotify = (key: "notifyTurnEnd" | "notifyAttention" | "menuBar" | "dockIcon" | "bubble", value: boolean) => {
     setPrefs((p) => ({ ...p, [key]: value }));
     sendToShell({ type: "set-pref", key, value });
   };
@@ -195,10 +197,10 @@ function GeneralSection() {
         </div>
       </div>
       <div className={rowsCss.section}>
-        <div className={rowsCss.sectionTitle}>{t("提醒")}</div>
+        <div className={rowsCss.sectionTitle}>{t("通知")}</div>
         <div className={rowsCss.rowCard}>
           <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("回合完成提醒")}</div>
+            <div className={rowsCss.rowName}>{t("回合完成")}</div>
             <div className={rowsCss.rowCaption}>{t("静默通知，不打扰")}</div>
           </div>
           <div className={rowsCss.rowActions}>
@@ -207,11 +209,29 @@ function GeneralSection() {
         </div>
         <div className={rowsCss.rowCard}>
           <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("待审批 / 待提问提醒")}</div>
+            <div className={rowsCss.rowName}>{t("待审批 / 待提问")}</div>
             <div className={rowsCss.rowCaption}>{t("通知 + Dock 弹跳")}</div>
           </div>
           <div className={rowsCss.rowActions}>
             <Toggle on={prefs.notifyAttention} onChange={(v) => changeNotify("notifyAttention", v)} />
+          </div>
+        </div>
+        <div className={rowsCss.rowCard}>
+          <div className={rowsCss.rowIdentity}>
+            <div className={rowsCss.rowName}>{t("菜单栏图标")}</div>
+            <div className={rowsCss.rowCaption}>{t("实时反映引擎与任务状态")}</div>
+          </div>
+          <div className={rowsCss.rowActions}>
+            <Toggle on={prefs.menuBar} onChange={(v) => changeNotify("menuBar", v)} />
+          </div>
+        </div>
+        <div className={rowsCss.rowCard}>
+          <div className={rowsCss.rowIdentity}>
+            <div className={rowsCss.rowName}>{t("Dock 栏图标")}</div>
+            <div className={rowsCss.rowCaption}>{t("隐藏后不经 Dock 与 Cmd⌘-Tab 显示")}</div>
+          </div>
+          <div className={rowsCss.rowActions}>
+            <Toggle on={prefs.dockIcon} onChange={(v) => changeNotify("dockIcon", v)} />
           </div>
         </div>
         <div className={rowsCss.rowCard}>
@@ -223,7 +243,6 @@ function GeneralSection() {
             <Toggle on={prefs.bubble} onChange={(v) => changeNotify("bubble", v)} />
           </div>
         </div>
-        <p className={rowsCss.intro}>{t("菜单栏状态图标始终实时反映状态，不受以上开关影响。")}</p>
       </div>
     </>
   );

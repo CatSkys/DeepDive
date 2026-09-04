@@ -70,6 +70,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         item?.button?.toolTip = "DeepDive — \(state.shortLabel)"
     }
 
+    /// 设置-通用「菜单栏图标」：isVisible 只摘掉菜单栏里的图标，
+    /// 菜单与回调保持持有，重新打开即时恢复。
+    func setVisible(_ visible: Bool) {
+        item?.isVisible = visible
+    }
+
     /// Live activity from EngineEventObserver (§1.4): attention > running.
     func setActivity(running: Bool, attention: Bool) {
         activityRunning = running

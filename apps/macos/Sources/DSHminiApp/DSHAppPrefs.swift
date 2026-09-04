@@ -21,6 +21,8 @@ enum LegacyPrefsMigration {
 enum DSHAppPrefs {
     static let notifyTurnEndKey = "deepdive.alerts.notifyTurnEnd"
     static let notifyAttentionKey = "deepdive.alerts.notifyAttention"
+    static let menuBarKey = "deepdive.alerts.menuBar"
+    static let dockIconKey = "deepdive.alerts.dockIcon"
     static let sidebarWidthKey = "deepdive.ui.sidebarWidth"
     static let appearanceKey = "deepdive.ui.appearance" // "system" | "light" | "dark"
     static let languageKey = "deepdive.ui.language"     // "zh" | "en"
@@ -31,6 +33,8 @@ enum DSHAppPrefs {
 
     static var notifyTurnEnd: Bool { boolDefaultingTrue(notifyTurnEndKey) }
     static var notifyAttention: Bool { boolDefaultingTrue(notifyAttentionKey) }
+    static var menuBar: Bool { boolDefaultingTrue(menuBarKey) }
+    static var dockIcon: Bool { boolDefaultingTrue(dockIconKey) }
 
     /// Persisted sidebar width (px), clamped to `sidebarWidthRange`.
     static var sidebarWidth: Double {
@@ -45,6 +49,14 @@ enum DSHAppPrefs {
 
     static func setNotifyAttention(_ value: Bool) {
         UserDefaults.standard.set(value, forKey: notifyAttentionKey)
+    }
+
+    static func setMenuBar(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: menuBarKey)
+    }
+
+    static func setDockIcon(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: dockIconKey)
     }
 
     /// Appearance mode (frontend Settings → 外观). "system" clears the

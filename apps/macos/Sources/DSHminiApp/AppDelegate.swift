@@ -47,6 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.supervisor.stop()
             NSApp.terminate(nil)
         }
+        // 通知区可见性（设置-通用）：菜单栏图标可整体隐藏；Dock 图标走
+        // accessory 策略（不经 Dock/Cmd⌘-Tab，窗口与热键不受影响）。
+        statusItem.setVisible(DSHAppPrefs.menuBar)
+        NSApp.setActivationPolicy(DSHAppPrefs.dockIcon ? .regular : .accessory)
 
         recovery.onRetry = { [weak self] in
             self?.supervisor.start()
@@ -192,6 +196,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 switch key {
                 case "notifyTurnEnd": DSHAppPrefs.setNotifyTurnEnd(value)
                 case "notifyAttention": DSHAppPrefs.setNotifyAttention(value)
+                case "menuBar":
+                    DSHAppPrefs.setMenuBar(value)
+                    statusItem.setVisible(value)
+                case "dockIcon":
+                    DSHAppPrefs.setDockIcon(value)
+                    NSApp.setActivationPolicy(value ? .regular : .accessory)
                 case "bubble": FloatingBubbleManager.shared.setEnabled(value)
                 default: break
                 }
@@ -410,6 +420,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let payload: [String: Any] = [
             "notifyTurnEnd": DSHAppPrefs.notifyTurnEnd,
             "notifyAttention": DSHAppPrefs.notifyAttention,
+            "menuBar": DSHAppPrefs.menuBar,
+            "dockIcon": DSHAppPrefs.dockIcon,
             "bubble": FloatingBubbleManager.shared.enabled,
             "glass": config.themeEnabled,
             "sidebarWidth": DSHAppPrefs.sidebarWidth,

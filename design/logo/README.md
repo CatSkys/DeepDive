@@ -47,4 +47,4 @@ v1（实心黑鲸 + 玻璃深底）按用户纠偏废弃；玻璃/噪点/高斯�
 
 - ✅ **AppIcon 已落地**（2026-09-02）：`apps/macos/Assets.xcassets/AppIcon.appiconset/`，Apple 官方网格母版（1024 画布 / 824 艺术区 / 185.4 圆角 / 烘焙投影）切 10 档；`project.yml` 已挂 Assets.xcassets + `ASSETCATALOG_COMPILER_APPICON_NAME`；同时 `LSUIElement` true→false（应用进 Dock + Cmd⌘-Tab，菜单栏状态点保留）。重跑 `make dev` / `make app` 后生效。
 - 深色场景反白版：同算法换 `INK` 即可（未做）
-- <128px 简化小标：菜单栏已确认不做；Dock 以下无场景（未做）
+- <128px 简化小标：**已做（2026-09-04）**——通知横幅等 ≤32pt 场景按 judge 结论"128 起失认"改为官方鲸鱼剪影直渲：`AppIcon.appiconset` 的 16/32（含 @2x）四档 = 鲸鱼 path（同 `WhaleAsset`，vendored favicon.svg 源）+ 磨砂容器近似（浅暖灰渐变 squircle）；128px 及以上槽位维持 ASCII 定稿不动。生成：NSImage 原生 SVG 渲染，一次性脚本未入库（改档位时重写成本极低）

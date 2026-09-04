@@ -5,6 +5,7 @@
 > 视觉纪律（`UI-SPEC`）：黑白灰阶、无强调色（彩色仅 diff 内容层语义色）；状态用符号+亮度，**不用红点/彩色海景**——参考项目的红点与海景需按 spec 转 monochrome。
 > v2 变更：①通知按 `SPEC-SEMANTICS §5` 分级静默（回合完成不带 sound）②补引擎失败通知③新增 **§3.1 外壳↔前端通道**（通知点击"转入会话"/悬浮球聚焦会话/主题联动的落地前提，现状为零通道）④授权时机定为首次派发任务⑤菜单对现状的两处取舍写明。
 > v2.1 变更：①点击指令 **pending 暂存**（冷启动/页面加载中不丢转入意图，§3.1）②悬浮球显隐**不占全局热键**（§2.4，与 SETTINGS"全局热键仅 1 个"对齐，撤销 v1 `⌥⌘Y` 设想）③授权异步期间由状态图标兜底的说明。
+> v2.2 变更（2026-09-04）：①通知文案**按任务类型区分**（title=类型短语 / subtitle=会话标题 / body=该类型真实内容，去掉 "DSH" 前缀——品牌归属交给通知图标，§1.2）②新增**菜单栏图标 / Dock 栏图标显隐开关**（§1.3、§1.4），撤销"菜单栏始终显示不受开关影响"的旧约定。
 
 ---
 
@@ -17,20 +18,24 @@
 - `willPresent`：App 前台也显示 banner（可选，按产品取舍；前台时本来就被 §1.2 前台抑制覆盖，此条仅作 API 兜底）。
 
 ### 1.2 触发（事件来源见 §3）
-- 待审批：`notifyApprovalNeeded(toolName)` → `NSApp.requestUserAttention(.informationalRequest)`（dock 弹跳）+ 通知"DSH 需要你的许可 — 请求执行：<tool>"（带 sound）。
-- 待提问：`notifyQuestionNeeded()` → 同上，"DSH 有问题要问你"（带 sound）。
-- 回合完成：`notifyTurnFinished(summary)` → 通知"DSH 已完成 — <summary>"（**静默**，对齐 SEMANTICS §5）。
+文案**按任务类型区分**：`title` = 任务类型短语（加粗首行），`subtitle` = 会话标题（哪个任务），`body` = 该类型携带的真实内容。品牌不再进标题（通知左侧的 App 图标即归属）。
+- 待审批：`approval/requested` → `notifyApprovalNeeded(toolName, sessionTitle, sessionId)` → **"需要你的许可 / <会话标题> / 请求执行：<tool>"**（带 sound）+ `NSApp.requestUserAttention(.informationalRequest)`（dock 弹跳）。
+- 待提问：`question/requested` → `notifyQuestionNeeded(questionText, sessionTitle, sessionId)` → **"有问题要问你 / <会话标题> / <首条提问文本，截断 120 字>"**（带 sound；载荷契约见引擎 `askUserQuestionItemSchema`）+ dock 弹跳。
+- 回合完成：`turn/end(completed)` → `notifyTurnFinished(sessionTitle, sessionId)` → **"回合已完成 / <会话标题>"**（**静默**，对齐 SEMANTICS §5）。
 - 引擎失败：`EngineSupervisor` 进入 `.failed`（连续重启失败）→ 通知"引擎异常 — <reason 摘要>"（带 sound；对齐 SEMANTICS §5"失败/引擎异常"，状态点同时变）。
-- 前台抑制：仅当 `!NSApp.isActive` 才弹通知与弹跳；菜单栏/悬浮球状态图标始终反映实时状态，不受开关影响。
+- 前台抑制：仅当 `!NSApp.isActive` 才弹通知与弹跳；悬浮球状态始终实时反映；菜单栏图标也可经 §1.3 开关整体隐藏（隐藏后状态面只剩悬浮球/通知本身）。
 > 范围外声明：SEMANTICS §5 的「专注模式（通知时间窗）」为 P2 后续项，不在本 spec 实现；本阶段只做前台抑制。
 
 ### 1.3 开关（默认开，对齐参考 `DSHAppPrefs`）
 - `notifyTurnEndKey = "deepdive.alerts.notifyTurnEnd"`（默认 true）——回合完成横幅。
 - `notifyAttentionKey = "deepdive.alerts.notifyAttention"`（默认 true）——待审批/待提问横幅 + dock 弹跳。
-- 存储 `UserDefaults`；设置「通用」分区对应这两个开关。
+- `menuBarKey = "deepdive.alerts.menuBar"`（默认 true）——菜单栏图标整体显隐（`NSStatusItem.isVisible`，菜单/回调保持持有，重开即恢复）。
+- `dockIconKey = "deepdive.alerts.dockIcon"`（默认 true）——Dock 图标显隐（`NSApp.setActivationPolicy` regular⇄accessory；隐藏后不经 Dock/Cmd⌘-Tab，窗口、全局热键、通知点击不受影响；dock 弹跳随隐藏自然失效）。
+- 存储 `UserDefaults`；设置「通用→通知」分区对应这些开关（回合完成 / 待审批待提问 / 菜单栏图标 / Dock 栏图标 / 悬浮球）。
 
 ### 1.4 菜单栏状态条（`NSStatusItem`，沿用 `StatusItemController` 增强）
-- 图标按状态：空闲 `sparkles` / 运行 `circle.fill` / 需注意 `exclamationmark.circle.fill`（需注意态优先，直到审批/提问被应答）。
+- 图标按状态：空闲=鲸鱼（`WhaleAsset.statusIcon`，与悬浮球同一 logo）；运行=鲸鱼+环；需注意=鲸鱼+点（需注意态优先，直到审批/提问被应答）；引擎失败/启动期用系统符号。
+- 图标整体显隐由 §1.3 `menuBar` 控制；`StatusItemController.setVisible` 只动 `isVisible`。
 - 菜单：显示主窗、设置…、刷新界面、重启引擎、切换工作区、退出。**对现状菜单的两处取舍**：「黑白主题」**删除**（明/暗移入设置-外观分区，避免双入口）；「刷新界面」**保留**（调试用）。
 
 ## 2. 悬浮球（`NSPanel`，常驻置顶）
