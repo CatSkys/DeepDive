@@ -24,7 +24,7 @@
 
 | 分区 | 数据来源 | 内容要点 |
 |---|---|---|
-| **模型** | 引擎 `llm-deepseek`/`agent-default-model`/`llm-pi-ai`/`web-search-deepseek` + `credentials` | 官方/自定义分区、各管各的 key 与模型；当前使用摘要；点某模型即选用；添加/删除 provider（**能力探测 `llm.listProviders` 可用才显示**） |
+| **模型** | 引擎 `llm-deepseek`/`llm-pi-ai` + `credentials` + `llm.models`/`llm.discoverModels`/`llm.providers` | **折叠卡片式**（2026-09 定稿）：按提供方聚类的可折叠分组（单色反白 logo），模型行内联 Meta 胶囊（推理/模态/上下文窗口）；增删改走 `ModelDialog` 弹窗（提供商 + Key + 模型三段渐进表单，**模型留空 = 按 API 自动发现全部支持模型**，无目录的自定义新提供方由引擎拒绝并内联提示）；行内「测试连通」（pi 走发现探测、DeepSeek 无发现路由退化为密钥状态检查）。实现：`settings/ModelsManage.tsx` + `settings/ModelDialog.tsx`（旧 `settings/models/` 平铺编辑器已删除） |
 | **审批** | 引擎 `permission.defaultPreset` + 审批/交互 | 默认权限与当前会话权限分别管理；完整访问需确认（对齐参考项目/`D5` 原生审批） |
 | **快捷键** | DSHmini 原生 `HotKeyManager` + `UI-SPEC §2.3` | 分两类：**全局热键可修改**（现状仅 1 个：唤起面板 `⌥Space`，经 `HotKeyManager` 注册/注销重注册）；**应用内快捷键仅展示、不可改**（`⌘,`/`Esc`/`Enter`/`@`/`/`/`Tab`，清单以设置页与 `UI-SPEC §2.3` 为准、未实现的键一律不列，不提供自定义——三套机制混改无收益） |
 | **外观** | 外壳偏好 `deepdive.ui.appearance`（跟随系统/亮/暗）+ 外壳 `themeEnabled` | 三态联动：外壳刷新 `NSAppearance`/材质；**WebView 侧联动走 `SPEC-NOTIFICATIONS §3.1` 外壳→前端通道**（`themeChanged` 指令）；黑白 token 统一 |
