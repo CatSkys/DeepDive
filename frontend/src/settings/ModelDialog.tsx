@@ -123,13 +123,12 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
     setError(null);
     const pid = providerId;
     if (!pid) { setError(t("请选择提供方。")); return; }
+    // 模型 ID 可空（占位承诺：留空 = 沿用/自动并入已有模型）；唯一例外是
+    // 编辑目录条目时把 id 改空——条目没有 id 无法落盘。
+    if (editingEntry && !modelId.trim()) { setError(t("模型 ID 必填。")); return; }
     if (isNewProvider) {
       const id = newId.trim();
       if (!id || pi.providers[id]) { setError(t("提供方 ID 必填且不可与现有重复。")); return; }
-      if (!discovered && !modelId.trim()) { setError(t("模型 ID 必填。")); return; }
-    } else if ((editingEntry || (needsManual && !discovered)) && !modelId.trim()) {
-      setError(t("模型 ID 必填。"));
-      return;
     }
     setSaving(true);
     try {
@@ -149,17 +148,17 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
           : [...deepseek.models.filter((m) => m.id !== entry.id), entry];
         await updateDeepseekModels(models);
       } else if (isNewProvider) {
-        const models = discovered ?? [{ id: modelId.trim() }];
+        const models = discovered ?? (modelId.trim() ? [{ id: modelId.trim() }] : []);
         await updatePiProviders({
           ...pi.providers,
           [newId.trim()]: {
             displayName: newDisplayName.trim() || newId.trim(),
             ...(baseURL.trim() ? { baseURL: baseURL.trim() } : {}),
             ...(apiProto.trim() ? { api: apiProto.trim() } : {}),
-            models,
+            ...(models.length ? { models } : {}),
           },
         });
-      } else if (!isDeepseek && (edit?.origId || discovered || (!edit && needsManual && modelId.trim()))) {
+      } else if (!isDeepseek && (edit?.origId || discovered || (!edit && modelId.trim()))) {
         const prev = profile ?? {};
         let models = prev.models ?? [];
         if (edit?.origId) {

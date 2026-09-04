@@ -35,6 +35,10 @@
 - **定位**：Dropdown 菜单 portal 到 body、内联 `position:fixed`，但 `.ddMenu` 类自带 `top: calc(100% + 4px)`（absolute 时代遗留）。内联只设 `bottom`（向上翻转分支）时类里的 `top` 仍然生效，top/bottom 双约束把菜单压成视口底边外一条 10px 细条——表现就是"下拉没法点击"（提供方 39 项必然翻转中招；项数少走 top 分支所以语言下拉正常）。翻转分支必须显式 `top:"auto"` 并 `right:"auto"`；长清单再加 `max-height` 内滚（settings/controls.tsx）。在真实 DOM 里量 rect + 读内联 style（bridge URL + 浏览器驱动）一次就能钉死，别靠截图猜。
 - **事件**：React portal 的点击沿 **React 树**冒泡，不沿 DOM 树——菜单在 DOM 上挂 body，选中项的点击仍会路过组件树上的 modal overlay；overlay 用 `onClick` + `.modal` 上 DOM 级 `stopPropagation` 拦不住（选提供方第一下整个弹窗就被关掉）。modal"点空白关闭"必须用 `onMouseDown` 且判 `e.target === e.currentTarget`。
 
+### 1.8 弹层模糊被全局 `*` 禁用核弹 + 压缩器 -webkit 合并静默杀掉
+- 旧方案：`* { backdrop-filter:none !important }` 全局禁用 + theme.css 白名单类（!important）恢复。两个死法：① CSS module 里的弹层类（如设置 `.ddMenu`）无法进 theme 白名单，自带 blur 不带 `!important` 就被 `*` 压掉；② 压缩器（lightningcss）把同规则内"标准 + `-webkit-`"属性对合并成**只剩 `-webkit-`**，Chromium 系内核不认 `-webkit-backdrop-filter` → 模糊静默失效，且 `getComputedStyle().backdropFilter` 读标准属性会误报 none/正常，测量时两个都要读。
+- 处置（2026-09-04）：**全局核弹已删**——弹层统一自带标准 `backdrop-filter: blur(40px) saturate(160%)`（macOS 26 WebKit 支持无前缀），材质统一 `var(--panel-strong)`（.92 毛玻璃，比 .78 实、比 .97 有玻璃感）；**勿恢复全局禁用**，新增弹层自带 blur 即可。`.flow *` 的禁用保留（消息流合成隔离用途，弹层均不挂在 flow 内）。
+
 ---
 
 ## 2. 引擎事件载荷（反复踩）
