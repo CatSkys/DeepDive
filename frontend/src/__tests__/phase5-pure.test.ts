@@ -1,6 +1,6 @@
 // 阶段 5 纯函数钉子：schedule/change 折叠（会话提醒目录）。
 import { describe, expect, it } from "vitest";
-import { foldSchedule } from "../components/SessionView";
+import { foldSchedule } from "../session/renderModel";
 import type { ScheduleChangeData } from "../types";
 
 const at = (id: string, scheduledAt = "2026-09-04T09:00:00Z") => ({ id, kind: "at" as const, prompt: `提醒 ${id}`, scheduledAt });

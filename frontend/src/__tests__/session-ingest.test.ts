@@ -2,8 +2,8 @@
 // （satisfies 编译期校验契约）。这里锁的是会话流的全部不变量，SessionView
 // 后续拆分（R-010）以这组测试为安全网。
 import { describe, expect, it } from "vitest";
-import { finalizeTurns, ingest, makeIngestCtx } from "../components/SessionView";
-import type { RenderItem } from "../components/SessionView";
+import { finalizeTurns, ingest, makeIngestCtx } from "../session/renderModel";
+import type { RenderItem } from "../session/renderModel";
 import type { SessionEvent } from "../types";
 
 const EV = {

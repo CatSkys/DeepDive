@@ -1,4 +1,4 @@
-import type { RenderItem } from "./components/SessionView";
+import type { RenderItem } from "./session/renderModel";
 
 // 轮折叠（3.3 面的补齐项）：把渲染项流按轮分组，供长会话把早前轮折叠成
 // 一条弱化摘要。纯函数，vitest 钉住边界语义。

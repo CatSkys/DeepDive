@@ -1,6 +1,6 @@
 // 会话流外围纯函数：TodoList 摘要与 tool/result 提取（R-001 指定覆盖面）。
 import { describe, expect, it } from "vitest";
-import { extractToolResult, parseTodos } from "../components/SessionView";
+import { extractToolResult, parseTodos } from "../session/renderModel";
 import type { ToolResultData } from "../types";
 
 describe("parseTodos", () => {

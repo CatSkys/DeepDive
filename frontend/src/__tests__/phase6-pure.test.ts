@@ -1,8 +1,8 @@
 // 补齐项纯函数钉子：轮分组（turnGroups）与 workflow/compaction 的 ingest 折叠。
 import { describe, expect, it } from "vitest";
 import { groupTurns, foldDecision } from "../turnGroups";
-import { ingest, makeIngestCtx } from "../components/SessionView";
-import type { RenderItem } from "../components/SessionView";
+import { ingest, makeIngestCtx } from "../session/renderModel";
+import type { RenderItem } from "../session/renderModel";
 import type { SessionEvent } from "../types";
 
 const mk = (patch: Partial<RenderItem> & Pick<RenderItem, "key" | "kind">): RenderItem => ({ ...patch });
