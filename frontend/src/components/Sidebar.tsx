@@ -7,6 +7,7 @@ import { sendToShell } from "../host";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
+import { pickNewWorkspace } from "./workspacePicker";
 import type { SessionSummary, WorkspaceView } from "../types";
 import { sessionTitle } from "../session/sessionTitle";
 
@@ -318,19 +319,16 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             ))}
           </div>
         )}
-        {/* ＋新建空间：壳端目录选择器（与官方 DSH 一致）；纯浏览器环境
-            退化为手输绝对路径。 */}
+        {/* ＋新建空间：共享入口 workspacePicker（壳端目录选择器，纯浏览器
+            退化为手输绝对路径；Hero 项目菜单同源）。 */}
         <button
           className="ws-add"
           data-tip={t("新建项目空间")}
-          onClick={() => {
-            if (window.webkit?.messageHandlers?.deepdiveHost) {
-              sendToShell({ type: "pick-workspace" });
-            } else {
-              const path = prompt(t("输入要添加为工作空间的文件夹绝对路径："));
-              if (path && path.trim()) void store.createWorkspace(path.trim());
-            }
-          }}
+          onClick={() => pickNewWorkspace(
+            !!window.webkit?.messageHandlers?.deepdiveHost,
+            t("输入要添加为工作空间的文件夹绝对路径："),
+            (p) => void store.createWorkspace(p),
+          )}
         >
           <IconProjectAddOutline16 size={15} />
         </button>

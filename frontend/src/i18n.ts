@@ -23,6 +23,9 @@ const EN: Record<string, string> = {
   "工作空间操作": "Workspace Actions",
   "调整侧栏宽度": "Resize sidebar",
   "搜索": "Search",
+  "搜索项目": "Search projects",
+  "新建项目": "New project",
+  "没有匹配的项目": "No matching projects",
   "无结果": "No results",
   "暂无会话": "No sessions yet",
   // sidebar rows / ctx menu

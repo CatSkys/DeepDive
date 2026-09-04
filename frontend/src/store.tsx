@@ -61,8 +61,11 @@ interface Store {
   /** 各会话的后台任务快照（session/jobs 帧，5.3）。 */
   jobsBySession: Map<string, import("./types").JobView[]>;
   openSession: (id: string | null) => void;
-  /** 切换工作空间：持久化 + 主区跟随（目标空间最近会话；空空间 → 欢迎页）。 */
-  switchWorkspace: (id: string) => void;
+  /** 切换工作空间：持久化 + 主区跟随——目标空间最近的一个会话（sessions 已按
+   *  updatedAt 降序，blank 也算：渲染即欢迎页头）；空空间 → 欢迎页（id=null）。
+   *  opts.keepDraft：切完留在草稿页（hero 项目菜单用——继续写新会话，不跳进
+   *  目标空间的历史会话）。 */
+  switchWorkspace: (id: string, opts?: { keepDraft?: boolean }) => void;
   /** 新建（注册）工作空间：目录选择器回传的绝对路径 → workspace.create，
    *  成功后刷新列表并切入该空间。失败弹原生 alert（与右键菜单一致）。 */
   createWorkspace: (path: string) => Promise<string | null>;
@@ -422,9 +425,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // 切换工作空间：持久化 + 主区跟随——目标空间最近的一个会话（sessions 已按
   // updatedAt 降序，blank 也算：渲染即欢迎页头）；空空间 → hero（id=null）。
-  const switchWorkspace = useCallback((id: string) => {
+  // keepDraft：切完留在草稿页（hero 项目菜单用——继续写新会话，不跳进目标
+  // 空间的历史会话）。
+  const switchWorkspace = useCallback((id: string, opts?: { keepDraft?: boolean }) => {
     if (id === activeWsRef.current) return;
     persistActiveWs(id);
+    if (opts?.keepDraft) {
+      setActiveSessionId(null);
+      return;
+    }
     const list = workspacesRef.current;
     const target = sessionsRef.current.find(
       (s) => (wsOfRef.current.get(s.sessionId) ?? list[0]?.workspaceId) === id,

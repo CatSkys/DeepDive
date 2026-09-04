@@ -192,7 +192,7 @@ button {
    行密度统一 行高 30 / 行字 13px / 节标签 11px。改材质只改 whitelist
    与各面板的 bg/shadow 行，勿再各写一套。 */
 * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-.model-menu, .composer-menu, .ctx-menu {
+.model-menu, .composer-menu, .ctx-menu, .ws-menu {
   backdrop-filter: blur(40px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(40px) saturate(160%) !important;
 }
@@ -733,6 +733,104 @@ button {
   font-size: 13px;
 }
 .model-menu-search input::placeholder { color: var(--ink-3); }
+
+/* hero 项目名：可点击切换项目（点状虚线，参考 Claude 项目选择器同款）。
+   按钮继承 .hero-title 字号字色，只有虚线与 hover 提色。 */
+.hero-ws-wrap { position: relative; display: inline-block; }
+.hero-ws {
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--ink-3);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+  transition: text-decoration-color var(--dur-fast) ease;
+}
+.hero-ws:hover { text-decoration-color: var(--ink-2); }
+
+/* Hero 项目切换菜单：材质走浮层配方（同 model-menu），锚定在项目名下方
+   居中——定宽 280 用 left: calc 偏移而非 translateX，避免与 menu-in 动画
+   的 transform（fill-mode 会覆盖静态 transform）打架。 */
+.ws-menu {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: calc(50% - 140px);
+  width: 280px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--dsh-radius-floating);
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 16px 40px rgba(0,0,0,.45),
+    0 4px 12px rgba(0,0,0,.25);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  overflow: hidden;
+  z-index: 60;
+  animation: menu-in var(--dur-med) var(--ease-out) both;
+  transform-origin: top center;
+}
+.ws-menu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(165deg,
+    rgba(255,255,255,.18), rgba(255,255,255,.04) 30%,
+    rgba(255,255,255,.02) 62%, rgba(0,0,0,.22) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.ws-menu-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding: 0 12px;
+  height: 36px;
+  flex: none;
+  color: var(--ink-3);
+}
+.ws-menu-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.ws-menu-search input::placeholder { color: var(--ink-3); }
+.ws-menu-body { overflow-y: auto; padding: 6px; }
+.ws-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--dsh-radius-control);
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  cursor: default;
+}
+.ws-menu-row:hover { background: var(--fill); }
+.ws-menu-row svg { color: var(--ink-2); flex-shrink: 0; }
+.ws-menu-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-menu-row svg.check { color: var(--ink); }
+.ws-menu-sep { height: 1px; background: var(--line); margin: 0 8px; flex: none; }
+.ws-menu-foot { padding: 6px; flex: none; }
+.ws-menu-empty { padding: 16px; color: var(--ink-3); font-size: 13px; text-align: center; }
+
 .hero-top .right { color: var(--ink-2); }
 
 .hero-composer {
@@ -2075,13 +2173,14 @@ button {
 
 /* 通用悬浮过渡补齐（hover 背景都应有短过渡）。 */
 .tool-row-main, .task-row, .q-option, .effort-row, .model-menu-row,
-.model-menu-back, .model-menu-pill, .produced-file, .todo-item, .ctx-item {
+.model-menu-back, .model-menu-pill, .produced-file, .todo-item, .ctx-item,
+.ws-menu-row {
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .msg-block, .tool-row, .turn-tail, .msg.assistant, .approval-card,
-  .model-menu, .model-menu-view, .tool-collapse, .tool-collapse > .tool-body > *,
+  .model-menu, .model-menu-view, .ws-menu, .tool-collapse, .tool-collapse > .tool-body > *,
   .hero-title, .hero-composer, .model.trigger > svg,
   .ws-view, .ws-cell, .main, .sidebar {
     animation: none !important;
@@ -2474,7 +2573,8 @@ button {
 .turn-usage-wrap > [role="button"] { cursor: pointer; }
 
 /* Markdown 补齐 */
-.md a { color: var(--ink-bright); text-decoration: underline; text-underline-offset: 2px; opacity: .85; }
+/* 链接下划线统一点状虚线（用户定稿：实线下划线不好看） */
+.md a { color: var(--ink-bright); text-decoration: underline dotted; text-decoration-color: var(--ink-3); text-underline-offset: 3px; opacity: .85; }
 .md a:hover { opacity: 1; }
 .md del { opacity: .55; }
 .md-img { max-width: min(100%, 360px); max-height: 240px; border-radius: var(--dsh-radius-card); border: 1px solid var(--line); cursor: zoom-in; display: block; margin: 4px 0; }
