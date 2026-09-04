@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUp, Square, Plus, Mic, Image as ImageIcon, Sparkles,
+  ArrowUp, Square, Plus, Mic, Image as ImageIcon,
   ClipboardList, File as FileIcon, Folder, Route, ShieldCheck, Shrink, TerminalSquare, type LucideIcon,
 } from "lucide-react";
 import { api } from "../api";
@@ -257,12 +257,6 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     };
   });
 
-  // 同顶栏 ＋：只切到草稿页，不在命令菜单里真建会话
-  const newSessionRow: MenuRow = {
-    id: "new", icon: Sparkles, label: t("新会话"), section: t("命令"), run: () => store.openSession(null),
-  };
-  const allSlashRows: MenuRow[] = [...slashRows, newSessionRow];
-
   const atEntries = useAtCandidates(atTok && !atTok.quoted ? atTok.query : "", wsPath);
   const atRows: MenuRow[] = atEntries.map((e) => ({
     id: e.path,
@@ -286,7 +280,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
         ? "slash"
         : null;
   const query = menu === "slash" ? slashTok?.query ?? "" : "";
-  const allRows = menu === "attach" ? attachRows : menu === "at" ? atRows : allSlashRows;
+  const allRows = menu === "attach" ? attachRows : menu === "at" ? atRows : slashRows;
   const rows = query ? allRows.filter((r) => r.label.toLowerCase().includes(query)) : allRows;
 
   useEffect(() => setActive(0), [menu, query]);
