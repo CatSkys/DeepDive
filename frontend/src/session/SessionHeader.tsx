@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
 import { WorkspacePill } from "../components/Sidebar";
+import { PresetPill } from "../components/AgentMode";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
 import { useT } from "../i18n";
@@ -48,6 +49,7 @@ export function SessionHeader({ title, face }: { title: string; face: ModelFace 
     <div className="left">
       <div className="title-row">
         <div className="title">{title}</div>
+        <PresetPill />
         <WorkspacePill />
       </div>
       <button className="model trigger" data-open={face.showModels ? "true" : "false"} onClick={() => face.setShowModels(true)}>

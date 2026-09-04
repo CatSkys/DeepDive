@@ -51,6 +51,11 @@ interface Store {
    *  无工作空间面时为空表，此时全部会话视为"当前空间"。 */
   wsOfSession: Map<string, string>;
   sessions: SessionSummary[];
+  /** 引擎 Agent 会话预设（agentPreset.list 一次性拉取；失败为空 = 隐藏入口）。 */
+  presets: Array<{ id: string; name: string; isDefault?: boolean }>;
+  /** hero 页选中的会话模式；createSession 未显式传参时作为 agentPreset。 */
+  heroPreset: string | undefined;
+  setHeroPreset: (id: string) => void;
   engineUp: boolean;
   /** 曾成功连上引擎。启动期引擎未起不算断线——横幅只在「掉过线」时出现。 */
   everConnected: boolean;
@@ -112,6 +117,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [workspaces, setWorkspaces] = useState<WorkspaceView[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [presets, setPresets] = useState<Array<{ id: string; name: string; isDefault?: boolean }>>([]);
+  const [heroPreset, setHeroPreset] = useState<string | undefined>(undefined);
   const [engineUp, setEngineUp] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -125,6 +132,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [narrowViewport, setNarrowViewport] = useState(
     () => window.matchMedia("(max-width: 760px)").matches,
   );
+  // Agent 会话预设目录（一次性；失败 = 引擎无预设面，选择器/胶囊显式不渲染）
+  useEffect(() => {
+    api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);
+  }, []);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 760px)");
     const onChange = () => {
@@ -464,6 +475,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [draftModel, setDraftModel] = useState<{ provider: string; model: string; reasoningEffort?: string } | null>(null);
   const draftModelRef = useRef(draftModel);
   draftModelRef.current = draftModel;
+  const heroPresetRef = useRef(heroPreset);
+  heroPresetRef.current = heroPreset;
 
   const createSession = async (presetId?: string) => {
     const wsId = activeWsRef.current ?? workspacesRef.current[0]?.workspaceId;
@@ -472,7 +485,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // the old conversation. App renders its hero while active is null.
     setActiveSessionId(null);
     try {
-      const res = await api.createSession({ workspaceId: wsId, agentPreset: presetId });
+      const res = await api.createSession({ workspaceId: wsId, agentPreset: presetId ?? heroPresetRef.current });
       const dm = draftModelRef.current;
       if (dm) {
         setDraftModel(null);
@@ -510,6 +523,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       activeWorkspaceId,
       wsOfSession,
       sessions,
+      presets,
+      heroPreset,
+      setHeroPreset,
       engineUp,
       everConnected,
       activeSessionId,

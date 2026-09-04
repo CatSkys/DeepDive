@@ -11,6 +11,7 @@ import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
 import { SessionHeader } from "./session/SessionHeader";
 import { HeroBrand } from "./components/HeroBrand";
+import { AgentModePicker } from "./components/AgentMode";
 import { SettingsPage } from "./components/SettingsPage";
 import type { ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
@@ -164,8 +165,11 @@ function Shell() {
               }} />
             </div>
             <HeroBrand />
-            <div className="hero-composer">
-              <Composer sessionId={null} />
+            <div className="hero-attach">
+              <AgentModePicker />
+              <div className="hero-composer">
+                <Composer sessionId={null} />
+              </div>
             </div>
           </div>
         )}

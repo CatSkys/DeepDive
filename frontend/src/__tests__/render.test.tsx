@@ -26,6 +26,7 @@ vi.mock("../api", () => ({
     sessions: vi.fn(async () => ({
       items: [{ sessionId: "s-archive", updatedAt: 1726000000000, running: false, blank: false }],
     })),
+    agentPresets: vi.fn(async () => ({ presets: [] })),
     openMux: vi.fn(() => () => undefined),
     createSession: vi.fn(async () => ({ sessionId: "s-new" })),
     workspaceCreate: vi.fn(async () => ({ workspace: { workspaceId: "w1" }, created: true })),
