@@ -507,7 +507,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
                   })}
                 </div>
               ))}
-              {rows.length === 0 && <div className="menu-empty">{tt(`没有匹配「${query}」`, `No matches for “${query}”`)}</div>}
+              {rows.length === 0 && <div className="menu-empty">{tt("没有匹配「{q}」", "No matches for “{q}”", { q: query })}</div>}
             </div>
           );
         })()}

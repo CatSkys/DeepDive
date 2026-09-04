@@ -12,6 +12,9 @@ export type Lang = "zh" | "en";
 const EN: Record<string, string> = {
   // shell / window
   "新会话": "New Chat",
+  "失败": "Failed",
+  "返回工作区": "Back to workspace",
+  "已复制": "Copied",
   "收起侧栏": "Collapse Sidebar",
   "更换模型": "Change Model",
   "模型与推理": "Model & Reasoning",

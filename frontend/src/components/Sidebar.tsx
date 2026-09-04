@@ -279,7 +279,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
                 <Ellipsis size={14} />
               </button>
               {/* 同顶栏 ＋：只切到草稿页，首条消息发出才真正建会话 */}
-              <button className="ws-act" data-tip={t("新建会话")} onClick={() => store.openSession(null)}>
+              <button className="ws-act" data-tip={t("新会话")} onClick={() => store.openSession(null)}>
                 <Plus size={14} />
               </button>
             </span>

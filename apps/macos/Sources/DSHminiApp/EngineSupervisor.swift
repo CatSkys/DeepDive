@@ -61,8 +61,8 @@ final class EngineSupervisor {
         let creds = home.appendingPathComponent(".credentials.yaml")
         let ok = FileManager.default.fileExists(atPath: creds.path)
         if !ok {
-            log.append("[engine] MISSING credentials at \(creds.path) — 无法调用 LLM（每轮将空回复）。请将 ~/.dsh/.credentials.yaml 复制到 DSHmini 的 harness home。")
-            state = .failed(reason: "缺少 LLM 凭据：\(creds.path)\n\n请将 `~/.dsh/.credentials.yaml` 复制到 DSHmini 的 `\(home.path)`。")
+            log.append("[engine] MISSING credentials at \(creds.path) — 无法调用 LLM（每轮将空回复）。请将 ~/.dsh/.credentials.yaml 复制到 DeepDive 的 harness home。")
+            state = .failed(reason: "缺少 LLM 凭据：\(creds.path)\n\n请将 `~/.dsh/.credentials.yaml` 复制到 DeepDive 的 `\(home.path)`。")
             return false
         }
         return true
@@ -232,7 +232,7 @@ final class EngineSupervisor {
     static func ensureEnginePatchFile() -> URL {
         let url = AppPaths.supportDir.appendingPathComponent("engine-patch.yml")
         let body = """
-        # Written by DSHmini at every engine launch — app-owned overlay layer.
+        # Written by DeepDive at every engine launch — app-owned overlay layer.
         # Do not edit: your changes are overwritten on the next launch.
         - id: session-query-sqlite
           config:
@@ -252,7 +252,7 @@ final class EngineSupervisor {
     private func launchFailureCopy(_ entry: Entry, error: Error) -> String {
         switch entry {
         case .bundled:
-            return "引擎程序不完整或无法执行（bundled runtime）。\n\n请重新安装 DSHmini。\n\n技术信息：\(error.localizedDescription)"
+            return "引擎程序不完整或无法执行（bundled runtime）。\n\n请重新安装 DeepDive。\n\n技术信息：\(error.localizedDescription)"
         case .single(let url):
             let isOverride = url.path != "/opt/homebrew/bin/dsh"
                 && url.path != "/usr/local/bin/dsh"
@@ -310,7 +310,7 @@ final class EngineSupervisor {
             let extra: String
             switch lastEntry {
             case .bundled:
-                extra = "\n\nbundled 引擎连续崩溃，可能是程序不完整——请尝试重新安装 DSHmini。"
+                extra = "\n\nbundled 引擎连续崩溃，可能是程序不完整——请尝试重新安装 DeepDive。"
             default:
                 extra = ""
             }
