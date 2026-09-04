@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Loader2, Pencil, Plug, Plus, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { t, useT } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
@@ -30,8 +30,8 @@ interface ProviderGroup {
 }
 
 const MODALITY_LABEL: Record<string, string> = { text: "文本", image: "视觉", audio: "音频", video: "视频" };
-/** 上下文窗口万级缩写：1000000 → 100万，127000 → 12.7万 */
-const fmtContext = (n: number) => (n >= 10000 ? `${Math.round(n / 1000) / 10}万` : String(n));
+/** 上下文窗口紧凑表示：1000000 → 1M，131072 → 131K */
+const fmtContext = (n: number) => (n >= 1e6 ? `${Math.round((n / 1e6) * 10) / 10}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n));
 
 export function ModelsManage() {
   const { t } = useT();
@@ -43,6 +43,7 @@ export function ModelsManage() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [dialog, setDialog] = useState<{ edit: EditTarget | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [testInfo, setTests] = useState<Record<string, { state: "testing" | "ok" | "fail"; msg: string }>>({});
 
   const load = useCallback(async () => {
     try {
@@ -102,6 +103,31 @@ export function ModelsManage() {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
+  /** 连通测试：pi 提供方走发现接口（列出模型 = 连通且 Key 有效）；
+      DeepSeek 无发现路由，退化为密钥配置状态检查。 */
+  const test = async (row: { provider: string; id: string }) => {
+    const key = `${row.provider}|${row.id}`;
+    setTests((s0) => ({ ...s0, [key]: { state: "testing", msg: t("测试中…") } }));
+    try {
+      if (row.provider === "deepseek-official") {
+        const ref = keyRefOf(row.provider, deepseek.apiKeyEnv);
+        const cr = await api.credentialsDescribe({ refs: [ref] });
+        const ok = !!cr.credentials?.[ref]?.configured;
+        setTests((s0) => ({ ...s0, [key]: { state: ok ? "ok" : "fail", msg: ok ? t("密钥已配置") : t("未配置密钥") } }));
+      } else {
+        const r = await api.discoverModels({ settingsNs: "llm-pi-ai", provider: row.provider });
+        setTests((s0) => ({ ...s0, [key]: { state: "ok", msg: t("连通 · {n} 个模型").replace("{n}", String((r.models ?? []).length)) } }));
+      }
+    } catch (err) {
+      setTests((s0) => ({ ...s0, [key]: { state: "fail", msg: String((err as Error).message).slice(0, 140) } }));
+    }
+    setTimeout(() => setTests((s0) => {
+      const next = { ...s0 };
+      delete next[key];
+      return next;
+    }), 6000);
+  };
+
   const remove = async (row: { provider: string; label: string; id: string; inDir: boolean }) => {
     setNotice(null);
     try {
@@ -137,7 +163,7 @@ export function ModelsManage() {
           <Plus size={13} /> {t("添加模型")}
         </button>
       </div>
-      <div className={cssRows.sectionTitle}>{t("已保存模型")}</div>
+      <div className={`${cssRows.sectionTitle} ${cssRows.savedTitle}`}>{t("已保存模型")}</div>
       {groups === null && <div className={cssRows.muted}>{t("载入中…")}</div>}
       {groups !== null && groups.length === 0 && (
         <div className={cssRows.muted}>{t("暂无已保存模型——点上方「添加模型」配置提供方密钥。")}</div>
@@ -166,10 +192,24 @@ export function ModelsManage() {
                     {(m.modalities ?? []).map((mod) => (
                       <span key={mod} className={cssRows.metaTag}>{t(MODALITY_LABEL[mod] ?? mod)}</span>
                     ))}
+                    {m.contextWindow ? <span className={cssRows.metaTag}>{fmtContext(m.contextWindow)}</span> : null}
                   </div>
                 </div>
-                {m.contextWindow ? <span className={cssRows.modelContext}>{fmtContext(m.contextWindow)}</span> : null}
                 <div className={cssRows.rowActions}>
+                  <button
+                    className={cssRows.iconBtn}
+                    data-tip={testInfo[`${g.provider}|${m.id}`]?.msg ?? t("测试连通")}
+                    aria-label={t("测试连通")}
+                    onClick={() => void test({ provider: g.provider, id: m.id })}
+                  >
+                    {(() => {
+                      const st = testInfo[`${g.provider}|${m.id}`]?.state;
+                      if (st === "testing") return <Loader2 size={14} className={cssRows.spin} />;
+                      if (st === "ok") return <Check size={14} className={cssRows.testOk} />;
+                      if (st === "fail") return <X size={14} className={cssRows.testFail} />;
+                      return <Plug size={14} />;
+                    })()}
+                  </button>
                   <button
                     className={cssRows.iconBtn}
                     aria-label={t("编辑")}
