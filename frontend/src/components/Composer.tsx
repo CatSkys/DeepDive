@@ -181,11 +181,11 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       if (!create) { setBusy(false); return; }
       try {
         await api.prompt({ sessionId: create, mode, content });
-      } catch { setBusy(false); return; }
+      } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
     } else {
       try {
         await api.prompt({ sessionId, mode, content });
-      } catch { setBusy(false); return; }
+      } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
     }
     setText("");
     setAttachments([]);

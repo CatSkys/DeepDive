@@ -99,7 +99,7 @@ export function ModelsManage() {
         for (const [ref, c] of Object.entries(cr.credentials ?? {})) configured[ref] = !!c?.configured;
         setCredentials(configured);
       } catch { /* 引擎不可达：占位文案退化为「输入」 */ }
-    } catch { setGroups([]); }
+    } catch { setGroups([]); /* provider 目录拉取失败：空列表占位（连通性测试另测） */ }
   }, []);
   useEffect(() => { void load(); }, [load]);
 

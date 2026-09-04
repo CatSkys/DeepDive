@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 // 全局悬浮注释（替代原生 title）：任意元素加
@@ -25,11 +25,11 @@ export function TooltipHost() {
   const boxRef = useRef<HTMLDivElement>(null);
   const current = useRef<HTMLElement | null>(null);
 
-  const hide = () => {
+  const hide = useCallback(() => {
     current.current = null;
     setTip(null);
     setPlaced(null);
-  };
+  }, []);
 
   useEffect(() => {
     const over = (e: Event) => {
@@ -51,13 +51,6 @@ export function TooltipHost() {
     };
     const down = () => hide();
     const onScroll = () => hide();
-    // 兜底巡检：目标已脱离文档、或指针/焦点已不在其上（重渲染吞掉
-    // mouseout 的场景）→ 收起。轮询只在注释可见期间运行。
-    const watch = setInterval(() => {
-      const el = current.current;
-      if (el && el.isConnected && el.matches(":hover, :focus")) return;
-      hide();
-    }, 400);
     document.addEventListener("mouseover", over);
     document.addEventListener("mouseout", out);
     document.addEventListener("focusin", over);
@@ -71,9 +64,21 @@ export function TooltipHost() {
       document.removeEventListener("focusout", out);
       document.removeEventListener("mousedown", down);
       window.removeEventListener("scroll", onScroll, true);
-      clearInterval(watch);
     };
-  }, []);
+  }, [hide]);
+
+  // 兜底巡检：目标已脱离文档、或指针/焦点已不在其上（重渲染吞掉
+  // mouseout 的场景）→ 收起。轮询只在注释可见期间运行/卸载（AUD-040：
+  // 曾挂在 mount effect 常开，无 tip 也每 400ms 校验一次）。
+  useEffect(() => {
+    if (!tip) return;
+    const watch = setInterval(() => {
+      const el = current.current;
+      if (el && el.isConnected && el.matches(":hover, :focus")) return;
+      hide();
+    }, 400);
+    return () => clearInterval(watch);
+  }, [tip, hide]);
 
   // 渲染后按实测尺寸落位：先按偏好边对齐，空间不足翻转到对侧，再夹进视口
   useLayoutEffect(() => {

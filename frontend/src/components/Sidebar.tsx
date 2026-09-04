@@ -163,8 +163,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     const out: Array<{ label: string; items: SessionSummary[] }> = [];
     if (pinnedList.length > 0) out.push({ label: t("置顶"), items: pinnedList });
     return [...out, ...[...byBucket.entries()].map(([label, items]) => ({ label, items }))];
+    // wsOf 是每渲染函数包装（仅读 wsOfSession，已入表）——入表即每渲染重算，显式排除
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, store.sessions, store.workspaces, store.activeWorkspaceId, store.wsOfSession, store.pinned]);
+  }, [query, store.sessions, store.workspaces, store.activeWorkspaceId, store.wsOfSession, store.pinned, lang, hasWs, t]);
 
   // 搜索视图：全空间结果，按来源项目分组（§2.5）；标题命中 + 全文命中
   // 去重合并（标题命中优先，内容命中带 snippet 行）；点击经 openSession
@@ -187,8 +188,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     return store.workspaces
       .filter((w) => byWs.has(w.workspaceId))
       .map((w) => ({ label: w.title, items: byWs.get(w.workspaceId)! }));
+    // wsOf 是每渲染函数包装（仅读 wsOfSession，已入表）——入表即每渲染重算，显式排除
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, store.sessions, store.workspaces, store.wsOfSession, contentHits]);
+  }, [query, store.sessions, store.workspaces, store.wsOfSession, contentHits, lang, hasWs]);
 
   // 判定"是否在搜索"必须用 trim 后的值：搜索框残留一个空格时原始 query
   // 为真值、而 trim 后的空串会命中全部会话 —— 曾把跨空间搜索视图退化成

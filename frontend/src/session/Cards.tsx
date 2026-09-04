@@ -109,7 +109,7 @@ export function QuestionCard({ rpcId, sessionId, questions }: {
   };
   const cancel = async () => {
     setSubmitting(true);
-    try { await api.cancelQuestion(rpcId); } catch { setSubmitting(false); }
+    try { await api.cancelQuestion(rpcId); } catch { setSubmitting(false); /* 应答提交失败：卡片保持可再点重试（帧清除仅由 resolved 驱动） */ }
   };
 
   return (

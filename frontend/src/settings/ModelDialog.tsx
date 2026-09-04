@@ -163,10 +163,12 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
       }
       // ③ 目录落点分流（自动发现结果优先于手填 id）
       if (isDeepseek && (editingEntry || (!edit && modelChoice === NEW_MODEL))) {
+        const ctxWin = Number(modelContext);
         const entry: ModelProfile = {
           id: modelId.trim(),
           ...(modelName.trim() ? { name: modelName.trim() } : {}),
-          ...(modelContext.trim() ? { contextWindow: Number(modelContext) } : {}),
+          // 非数字输入会得 NaN，JSON.stringify 成 null 写进引擎设置且 dirty 恒异常
+          ...(modelContext.trim() && Number.isFinite(ctxWin) ? { contextWindow: ctxWin } : {}),
         };
         const models = edit?.origId
           ? deepseek.models.map((m) => (m.id === edit.origId ? entry : m))
