@@ -137,11 +137,11 @@ function Shell() {
           tooltip 键帽随快捷键页的改键实时同步。 */}
       {!settingsOpen && (
         <div className="window-top">
-          <button className="window-top-btn" data-tip={t("新会话")} data-tip-keys={comboFor("new-session", store.keybinds)} onClick={() => store.openSession(null)}>
-            <IconNewChatOutline16 size={17} />
-          </button>
           <button className="window-top-btn" data-tip={t("收起侧栏")} data-tip-keys={comboFor("toggle-sidebar", store.keybinds)} onClick={() => store.toggleSidebar()}>
             <PanelLeft size={17} />
+          </button>
+          <button className="window-top-btn" data-tip={t("新会话")} data-tip-keys={comboFor("new-session", store.keybinds)} onClick={() => store.openSession(null)}>
+            <IconNewChatOutline16 size={17} />
           </button>
         </div>
       )}

@@ -537,6 +537,10 @@ button {
   /* 与 .session-header 同款 padding-top：空态标题也落在 26px 中心线 */
   padding: 8px 16px 0 24px;
   width: 100%;
+  /* 收起态的 176px 让位 padding 必须算进盒内：hero 是 align-items:center
+     的 flex，content-box 下 100%+padding 会双向溢出被居中，左缘压到
+     window-top 按钮（2026-09-04） */
+  box-sizing: border-box;
 }
 .hero-top .left { flex: 1; position: relative; }
 .hero-top .title { font-size: 14px; font-weight: 600; line-height: 20px; color: var(--ink); }
