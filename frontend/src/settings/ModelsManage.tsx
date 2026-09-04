@@ -1,44 +1,53 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../api";
-import { useT } from "../i18n";
+import { t, useT } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import {
   ModelDialog, keyRefOf, updateDeepseekModels, updatePiProviders,
-  type DeepseekNs, type EditTarget, type PiNs, type PiProviderProfile, type ProviderInfo,
+  type DeepseekNs, type EditTarget, type ModelProfile, type PiNs, type PiProviderProfile, type ProviderInfo,
 } from "./ModelDialog";
 import cssRows from "./SettingsRows.module.css";
 
-// 模型设置（参考 WorkBuddy 版式重构）：不再平铺全部提供方——只列「已保存
-// 模型」（即会话头部选择器的数据源 llm.models），增删改走 ModelDialog 弹窗。
-// 删除语义按落点分流：目录内条目（deepseek / 已落盘自定义）删条目；引擎
-// 声明目录行删提供方密钥（其模型随密钥整体从选择器移除）。
+// 模型设置（折叠卡片式）：按提供方聚类的可折叠分组，模型行展示 Meta
+// （模态类型 / 推理 / 上下文窗口），增删改走 ModelDialog 弹窗。
+// 数据源：llm.models（选择器分组 = 已保存模型，含 reasoning）+ settings
+// 目录富化（contextWindow / inputModalities）+ llm.providers（显示名/active）。
+// 删除语义按落点分流：目录条目删条目；引擎声明目录行清提供方密钥。
 
-interface SavedRow {
-  provider: string;
-  providerLabel: string;
-  model: string;
+interface GroupModel {
+  id: string;
   label: string;
-  active: boolean;
-  kind: "deepseek" | "pi";
-  /** 该模型是否落在可编辑目录里（引擎声明目录行不在任何 settings 落点）。 */
+  reasoning: boolean;
+  contextWindow?: number;
+  modalities?: string[];
   inDir: boolean;
 }
+interface ProviderGroup {
+  provider: string;
+  name: string;
+  models: GroupModel[];
+}
+
+const MODALITY_LABEL: Record<string, string> = { text: "文本", image: "视觉", audio: "音频", video: "视频" };
+/** 上下文窗口万级缩写：1000000 → 100万，127000 → 12.7万 */
+const fmtContext = (n: number) => (n >= 10000 ? `${Math.round(n / 1000) / 10}万` : String(n));
 
 export function ModelsManage() {
   const { t } = useT();
-  const [rows, setRows] = useState<SavedRow[] | null>(null);
+  const [groups, setGroups] = useState<ProviderGroup[] | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [deepseek, setDeepseek] = useState<DeepseekNs>({ revision: undefined, apiKeyEnv: "DEEPSEEK_API_KEY", models: [] });
   const [pi, setPi] = useState<PiNs>({ revision: undefined, providers: {} });
   const [credentials, setCredentials] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [dialog, setDialog] = useState<{ edit: EditTarget | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [opts, provs, d] = await Promise.all([
-        api.modelOptions(),
+      const [llm, provs, d] = await Promise.all([
+        api.llmModels().catch(() => ({ groups: [] as Array<{ id: string; name: string; models: Array<{ id: string; name?: string; reasoning?: { efforts?: unknown[] } }> }> })),
         api.llmProviders().catch(() => ({ providers: [] as ProviderInfo[] })),
         api.settingsDescribe(),
       ]);
@@ -46,29 +55,42 @@ export function ModelsManage() {
       setProviders(list);
       const deepNs = (d.namespaces ?? []).find((n) => n.ns === "llm-deepseek");
       const piNs = (d.namespaces ?? []).find((n) => n.ns === "llm-pi-ai");
-      const deepVal = (deepNs?.value ?? {}) as { apiKeyEnv?: string; models?: { id: string; name?: string; contextWindow?: number }[] };
+      const deepVal = (deepNs?.value ?? {}) as { apiKeyEnv?: string; models?: Array<{ id: string; name?: string; contextWindow?: number; inputModalities?: string[] }> };
       const piVal = (piNs?.value ?? {}) as { providers?: Record<string, PiProviderProfile> };
       setDeepseek({ revision: deepNs?.revision, apiKeyEnv: deepVal.apiKeyEnv ?? "DEEPSEEK_API_KEY", models: deepVal.models ?? [] });
       setPi({ revision: piNs?.revision, providers: piVal.providers ?? {} });
+      // Meta 富化表：provider|modelId → 上下文/模态（来自 settings 目录）
+      const enrich = new Map<string, { contextWindow?: number; modalities?: string[] }>();
+      for (const m of deepVal.models ?? []) {
+        enrich.set(`deepseek-official|${m.id}`, { contextWindow: m.contextWindow, modalities: m.inputModalities });
+      }
+      for (const [pid, p] of Object.entries(piVal.providers ?? {})) {
+        for (const m of p.models ?? []) enrich.set(`${pid}|${m.id}`, { contextWindow: m.contextWindow });
+      }
       const providerMap = new Map(list.map((p) => [p.provider, p]));
-      const seenProvider = new Set<string>();
-      setRows(opts.options.map((o) => {
-        const p = providerMap.get(o.provider);
-        const kind = p?.settingsNs === "llm-deepseek" ? "deepseek" : "pi";
-        const inDir = kind === "deepseek" || !!(piVal.providers ?? {})[o.provider]?.models?.some((m) => m.id === o.model);
-        const first = !seenProvider.has(o.provider);
-        seenProvider.add(o.provider);
-        return {
-          provider: o.provider,
-          providerLabel: p?.displayName ?? o.providerLabel,
-          model: o.model,
-          label: o.label,
-          active: !!p?.active && first,
-          kind,
-          inDir,
-        };
-      }));
-      // 全部提供方的密钥配置状态（弹窗占位文案 + 编辑入口判定）
+      const built = (llm.groups ?? [])
+        .filter((g) => (g.models ?? []).length > 0)
+        .map((g) => {
+          const p = providerMap.get(g.id);
+          const models = (g.models ?? []).map((m) => {
+            const en = enrich.get(`${g.id}|${m.id}`) ?? {};
+            return {
+              id: m.id,
+              label: m.name || m.id,
+              reasoning: !!m.reasoning?.efforts?.length,
+              contextWindow: en.contextWindow,
+              modalities: en.modalities,
+              inDir: g.id === "deepseek-official" || !!(piVal.providers ?? {})[g.id]?.models?.some((x) => x.id === m.id),
+            };
+          });
+          return {
+            provider: g.id,
+            name: p?.displayName || g.name || g.id,
+            models,
+          };
+        });
+      setGroups(built);
+      // 全部提供方的密钥配置状态（弹窗占位文案）
       const refs = list.map((p) => keyRefOf(p.provider, deepVal.apiKeyEnv ?? "DEEPSEEK_API_KEY"));
       try {
         const cr = await api.credentialsDescribe({ refs: [...new Set(refs)] });
@@ -76,26 +98,26 @@ export function ModelsManage() {
         for (const [ref, c] of Object.entries(cr.credentials ?? {})) configured[ref] = !!c?.configured;
         setCredentials(configured);
       } catch { /* 引擎不可达：占位文案退化为「输入」 */ }
-    } catch { setRows([]); }
+    } catch { setGroups([]); }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  const remove = async (row: SavedRow) => {
+  const remove = async (row: { provider: string; label: string; id: string; inDir: boolean }) => {
     setNotice(null);
     try {
       if (row.inDir) {
         if (!window.confirm(t("删除模型「{m}」？").replace("{m}", row.label))) return;
-        if (row.kind === "deepseek") {
-          await updateDeepseekModels(deepseek.models.filter((m) => m.id !== row.model));
+        if (row.provider === "deepseek-official") {
+          await updateDeepseekModels(deepseek.models.filter((m) => m.id !== row.id));
         } else {
           const prof = pi.providers[row.provider] ?? {};
           await updatePiProviders({
             ...pi.providers,
-            [row.provider]: { ...prof, models: (prof.models ?? []).filter((m) => m.id !== row.model) },
+            [row.provider]: { ...prof, models: (prof.models ?? []).filter((m) => m.id !== row.id) },
           });
         }
       } else {
-        if (!window.confirm(t("将清除「{p}」的 API 密钥，其全部模型将从选择器移除。").replace("{p}", row.providerLabel))) return;
+        if (!window.confirm(t("将清除「{p}」的 API 密钥，其全部模型将从选择器移除。").replace("{p}", row.label))) return;
         await api.credentialsUnset({ ref: keyRefOf(row.provider, deepseek.apiKeyEnv) });
       }
       await load();
@@ -116,35 +138,54 @@ export function ModelsManage() {
         </button>
       </div>
       <div className={cssRows.sectionTitle}>{t("已保存模型")}</div>
-      {rows === null && <div className={cssRows.muted}>{t("载入中…")}</div>}
-      {rows !== null && rows.length === 0 && (
+      {groups === null && <div className={cssRows.muted}>{t("载入中…")}</div>}
+      {groups !== null && groups.length === 0 && (
         <div className={cssRows.muted}>{t("暂无已保存模型——点上方「添加模型」配置提供方密钥。")}</div>
       )}
-      {rows !== null && rows.map((r) => (
-        <div key={`${r.provider}-${r.model}`} className={cssRows.rowCard}>
-          <div className={cssRows.modelRowIcon}><ProviderIcon provider={r.provider} size={16} /></div>
-          <div className={cssRows.rowIdentity}>
-            <div className={cssRows.rowName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {r.label}
-              {r.active && (
-                <span className={cssRows.badge}>
-                  <span className={`${cssRows.badgeDot} ${cssRows.on}`} />
-                  <span className={`${cssRows.badgeText} ${cssRows.on}`}>{t("当前使用")}</span>
-                </span>
-              )}
-            </div>
-            <div className={cssRows.rowCaption}>{r.providerLabel}</div>
-          </div>
-          <div className={cssRows.rowActions}>
-            <button className={cssRows.iconBtn} onClick={() => setDialog({ edit: { provider: r.provider, kind: r.kind, origId: r.inDir ? r.model : undefined } })} aria-label={t("编辑")}>
-              <Pencil size={14} />
+      {groups !== null && groups.map((g) => {
+        const isCollapsed = !!collapsed[g.provider];
+        return (
+          <div key={g.provider} className={cssRows.modelGroup}>
+            <button
+              type="button"
+              className={cssRows.modelGroupHead}
+              aria-expanded={!isCollapsed}
+              onClick={() => setCollapsed((c) => ({ ...c, [g.provider]: !c[g.provider] }))}
+            >
+              <ProviderIcon provider={g.provider} size={17} />
+              <span className={cssRows.modelGroupName}>{g.name}</span>
+              <span className={cssRows.modelGroupCount}>{g.models.length}</span>
+              <ChevronDown size={14} className={`${cssRows.modelGroupChevron}${isCollapsed ? ` ${cssRows.closed}` : ""}`} />
             </button>
-            <button className={cssRows.iconBtn} data-danger="true" onClick={() => void remove(r)} aria-label={t("删除")}>
-              <Trash2 size={14} />
-            </button>
+            {!isCollapsed && g.models.map((m) => (
+              <div key={m.id} className={cssRows.modelRow}>
+                <div className={cssRows.modelRowMain}>
+                  <div className={cssRows.rowName} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    {m.label}
+                    {m.reasoning && <span className={cssRows.metaTag}>{t("推理")}</span>}
+                    {(m.modalities ?? []).map((mod) => (
+                      <span key={mod} className={cssRows.metaTag}>{t(MODALITY_LABEL[mod] ?? mod)}</span>
+                    ))}
+                  </div>
+                </div>
+                {m.contextWindow ? <span className={cssRows.modelContext}>{fmtContext(m.contextWindow)}</span> : null}
+                <div className={cssRows.rowActions}>
+                  <button
+                    className={cssRows.iconBtn}
+                    aria-label={t("编辑")}
+                    onClick={() => setDialog({ edit: { provider: g.provider, kind: g.provider === "deepseek-official" ? "deepseek" : "pi", origId: m.inDir ? m.id : undefined } })}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button className={cssRows.iconBtn} data-danger="true" aria-label={t("删除")} onClick={() => void remove({ provider: g.provider, label: m.label, id: m.id, inDir: m.inDir })}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      ))}
+        );
+      })}
       {notice && <div className={cssRows.modelError}>{notice}</div>}
       {dialog && (
         <ModelDialog

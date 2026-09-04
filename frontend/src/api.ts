@@ -144,7 +144,7 @@ export const api = {
     }>("session.models", payload),
   selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
     unary("session.selectModel", payload),
-  llmModels: () => unary<{ groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }> }>("llm.models", {}),
+  llmModels: () => unary<{ groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string; reasoning?: { efforts?: unknown[] } }> }> }>("llm.models", {}),
   /** Unified model options for selectors: the engine catalog first; rc.2-era
    *  llm/models as fallback. session.modelCatalog does not exist on the
    *  pinned engine (404 → fallback is the designed path, not an error). */

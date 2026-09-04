@@ -2348,15 +2348,26 @@ button {
 }
 .settings-close:hover { background: var(--fill); color: var(--ink); }
 
-/* ── 提供方品牌图标底座：白底圆角，任何品牌原色在亮/暗主题下都可读 ── */
-.provider-chip {
+/* ── 提供方品牌图标：单色反白（内联 svg 自带 fill=currentColor）── */
+.provider-logo {
+  display: inline-flex;
+  flex: none;
+}
+.provider-logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.provider-monogram {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
   border-radius: 5px;
-  background: #FFFFFF;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+  border: 1px solid var(--line-strong);
+  color: var(--ink-2);
+  font-weight: 700;
+  line-height: 1;
 }
 
 /* ── Hover 滚动文本（HoverScrollText）：侧栏标题/模型名溢出时的

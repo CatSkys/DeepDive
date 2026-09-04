@@ -11,6 +11,7 @@
     "gen": "node packages/design/gen-tokens.mjs"
   },
   "dependencies": {
+    "@lobehub/icons-static-svg": "^1.94.0",
     "highlight.js": "^11.12.0",
     "katex": "^0.18.5",
     "lucide-react": "^0.454.0",
