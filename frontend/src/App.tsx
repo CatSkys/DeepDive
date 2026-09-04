@@ -84,10 +84,14 @@ function Shell() {
   const pickModel = async (m: ModelOption, reasoningEffort?: string) => {
     setShowModels(false);
     setModelName(m.label);
-    const sid = store.activeSessionId ?? (await store.createSession());
-    if (!sid) return;
+    // 草稿页（hero）选模型：会话还没真正创建，暂存草稿，首条消息创建会话时
+    // 由 store.createSession 随新会话 selectModel 带走——这里不建会话。
+    if (!store.activeSessionId) {
+      store.setDraftModel({ provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });
+      return;
+    }
     try {
-      await api.selectModel({ sessionId: sid, provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });
+      await api.selectModel({ sessionId: store.activeSessionId, provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });
     } catch { /* engine may be booting */ }
   };
   return (
@@ -100,9 +104,10 @@ function Shell() {
           {t("与引擎的连接已断开，正在重试…")}
         </div>
       )}
-      {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。 */}
+      {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。
+          ＋只切到草稿页（hero）——真实会话在首条消息发出时才创建。 */}
       <div className="window-top">
-        <button className="window-top-btn" data-tip={t("新会话")} onClick={() => void store.createSession()}>
+        <button className="window-top-btn" data-tip={t("新会话")} onClick={() => store.openSession(null)}>
           <IconNewChatOutline16 size={17} />
         </button>
         <button className="window-top-btn" data-tip={t("收起侧栏")} onClick={() => store.toggleSidebar()}>

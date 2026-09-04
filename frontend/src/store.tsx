@@ -67,6 +67,10 @@ interface Store {
    *  成功后刷新列表并切入该空间。失败弹原生 alert（与右键菜单一致）。 */
   createWorkspace: (path: string) => Promise<string | null>;
   createSession: (presetId?: string) => Promise<string | null>;
+  /** 草稿模型：新会话页（hero）上选的模型。此时会话尚未真正创建，先暂存；
+   *  首条消息触发 createSession 时随新会话 selectModel 一次性带走并清空。 */
+  draftModel: { provider: string; model: string; reasoningEffort?: string } | null;
+  setDraftModel: (m: { provider: string; model: string; reasoningEffort?: string } | null) => void;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   /** 侧栏宽（px，200–320，token sidebarMin/Max）。初始值经壳 prefs 推送
@@ -314,29 +318,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       wsOfRef.current = wsMap;
       const widOf = (sid: string) =>
         wsItems.length === 0 ? undefined : (wsMap.get(sid) ?? wsItems[0].workspaceId);
-      // Deep link: ?sid=… opens a specific session on boot (verification aid).
+      // 深链：?sid=… 打开指定会话（Playwright 验证 / 通知落地备用路径）。
+      // 只消费一次——导航成功即从地址栏剥掉参数，否则用户此后每次回到草稿页
+      // （active=null）都会被 3s 轮询按残留参数拉回这个旧会话。
       const sid = new URLSearchParams(location.search).get("sid");
       if (sid && sorted.some((x) => x.sessionId === sid)) {
         const wid = widOf(sid);
         if (wid && wid !== activeWsRef.current) persistActiveWs(wid);
+        if (!activeIdRef.current) {
+          history.replaceState(null, "", location.pathname);
+          setActiveSessionId(sid);
+        }
       }
-      // Boot policy: always land on a fresh composer — reuse an existing
-      // blank session, otherwise create one. Never auto-open a history
-      // session: the old "most recent non-blank" fallback resurrected a
-      // forgotten session on every relaunch (user report).
-      setActiveSessionId((cur) => {
-        if (cur) return cur;
-        if (sid && sorted.some((x) => x.sessionId === sid)) return sid;
-        // 空会话复用限定在当前空间内——别的空间的 blank 不是"我的新会话"。
-        const blank = sorted.find((x) => x.blank && widOf(x.sessionId) === activeWsRef.current);
-        if (blank) return blank.sessionId;
-        void (async () => {
-          const res = await api.createSession({ workspaceId: activeWsRef.current ?? wsItems[0]?.workspaceId });
-          setActiveSessionId(res.sessionId);
-          await forceRefreshSessionsRef.current();
-        })();
-        return null;
-      });
+      // Boot policy：落在草稿页（hero，active=null）。真实会话只在首条消息
+      // 发出时经 createSession 创建（新会话语义：点「新建会话」只是切页，
+      // 不发消息不产生会话——旧策略"复用/自动建 blank 会话"每次冷启动都会
+      // 在侧栏堆一条空"新会话"）。也绝不自动打开历史会话（旧"最近非空"
+      // 回退会在每次重启复活被遗忘的会话，用户报告）。
     } catch {
       setEngineUp(false);
     }
@@ -434,21 +432,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setActiveSessionId(target?.sessionId ?? null);
   }, []);
 
+  // 草稿模型（见 Store 接口注释）；ref 镜像供 createSession 闭包读取。
+  const [draftModel, setDraftModel] = useState<{ provider: string; model: string; reasoningEffort?: string } | null>(null);
+  const draftModelRef = useRef(draftModel);
+  draftModelRef.current = draftModel;
+
   const createSession = async (presetId?: string) => {
     const wsId = activeWsRef.current ?? workspacesRef.current[0]?.workspaceId;
     // Optimistic switch: leave the current session immediately so the
     // create round-trip never lingers on (and looks like a flash-back of)
-    // the old conversation. App renders its hero while active is null; the
-    // 3s poll's boot policy may also land on any blank session meanwhile —
-    // both render the same empty composer, so nothing visibly flickers.
+    // the old conversation. App renders its hero while active is null.
     setActiveSessionId(null);
     try {
       const res = await api.createSession({ workspaceId: wsId, agentPreset: presetId });
+      const dm = draftModelRef.current;
+      if (dm) {
+        setDraftModel(null);
+        try {
+          await api.selectModel({ sessionId: res.sessionId, ...dm });
+        } catch { /* engine may be busy */ }
+      }
       await forceRefreshSessions();
       setActiveSessionId(res.sessionId);
       return res.sessionId;
     } catch {
-      // 创建失败：留在 hero，轮询 boot policy 会自动兜底选/建会话。
+      // 创建失败：留在草稿页，草稿模型保留，重新发送即再试。
       return null;
     }
   };
@@ -486,6 +494,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       switchWorkspace,
       createWorkspace,
       createSession,
+      draftModel,
+      setDraftModel,
       sidebarCollapsed,
       sidebarWidth,
       setSidebarWidth,
@@ -509,7 +519,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // 进 deps 会让 value 每次渲染重建——ref 镜像约定下显式排除，P2-6 snapshot
     // store 决策时一并处理；其余稳定标识（useCallback/useState）如实入表。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, activeWorkspaceId, wsOfSession, sessions, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

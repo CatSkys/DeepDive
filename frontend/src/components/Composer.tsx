@@ -155,7 +155,13 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   }, [attachments, text]);
 
   // ---------- 草稿持久化（按会话；空稿清除）----------
-  const draftKey = sessionId ? `deepdive.draft.${sessionId}` : null;
+  // 草稿页（sessionId=null）按工作空间存：新会话页上打的字切走再回来不丢
+  // （旧模型每个"新建会话"都是真会话、草稿天然有家；草稿化后 hero 是唯一落点）。
+  const draftKey = sessionId
+    ? `deepdive.draft.${sessionId}`
+    : store.activeWorkspaceId
+      ? `deepdive.draft.hero.${store.activeWorkspaceId}`
+      : null;
   useEffect(() => {
     if (draftKey) setText(localStorage.getItem(draftKey) ?? "");
   }, [draftKey]);
@@ -256,7 +262,8 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   }));
 
   const agentRows: MenuRow[] = [
-    { id: "new", icon: Sparkles, label: t("新会话"), section: t("命令"), run: () => void store.createSession() },
+    // 同顶栏 ＋：只切到草稿页，不在命令菜单里真建会话
+    { id: "new", icon: Sparkles, label: t("新会话"), section: t("命令"), run: () => store.openSession(null) },
     ...presets.map((p) => ({
       id: `preset:${p.id}`, icon: presetIcon(p.id), label: p.name, section: "Agents",
       run: () => void store.createSession(p.id),

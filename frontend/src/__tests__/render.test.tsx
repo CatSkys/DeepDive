@@ -4,7 +4,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Markdown } from "../components/Markdown";
-import { StoreProvider } from "../store";
+import { StoreProvider, useStore } from "../store";
 
 // jsdom 不实现 matchMedia（store 初始化窄视口要用），补标准 stub
 beforeAll(() => {
@@ -76,5 +76,24 @@ describe("ArchivedSection（AUD-012 回归钉）", () => {
     // 稳定后不再有新增拉取（旧 [t] 每渲染新闭包 → 无限 fetch 循环）
     await new Promise((r) => setTimeout(r, 50));
     expect(vi.mocked(api.workspaces).mock.calls.length).toBe(callsAfterFirstPaint);
+  });
+});
+
+describe("Store boot 策略（草稿页语义回归钉）", () => {
+  it("冷启动落草稿页：不自动建会话、不自动打开历史会话", async () => {
+    const { api } = await import("../api");
+    function Probe() {
+      const store = useStore();
+      return <div>active:{String(store.activeSessionId)}</div>;
+    }
+    render(
+      <StoreProvider>
+        <Probe />
+      </StoreProvider>,
+    );
+    // 越过首个 refresh tick（含其异步后续），3s 轮询也不会补建会话
+    await new Promise((r) => setTimeout(r, 60));
+    expect(vi.mocked(api.createSession).mock.calls.length).toBe(0);
+    expect(screen.getByText("active:null")).toBeTruthy();
   });
 });
