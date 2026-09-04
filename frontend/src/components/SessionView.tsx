@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ChevronDown } from "lucide-react";
-import { ModelMenu } from "./ModelMenu";
-import { WorkspacePill } from "./Sidebar";
+import { ArrowDown } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { t, tt, useT } from "../i18n";
@@ -14,6 +12,7 @@ import { GoalBar } from "./GoalBar";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, foldDecision, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
+import { SessionHeader } from "../session/SessionHeader";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
@@ -25,8 +24,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const { lang } = useT(); // 订阅语言切换：文案与标题回退随 lang 重渲染
   const store = useStore();
   const { approvals, questions, queues, sessions } = store;
-  const { showModels, setShowModels, modelName, models, currentModel, effortLevels, effort, effortLabel, pickModel, applyModelEffort } =
-    useSessionModels(sessionId);
+  const modelFace = useSessionModels(sessionId);
   // 轮折叠开关（长会话默认折叠早前轮；点击折叠条或关闭开关展开）
   const [turnsFolded, setTurnsFolded] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -82,28 +80,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     return (
       <>
         <div className="session-header">
-          <div className="left">
-            <div className="title-row">
-              <div className="title">{title}</div>
-              <WorkspacePill />
-            </div>
-            <button className="model trigger" data-open={showModels ? "true" : "false"} onClick={() => setShowModels(true)}>
-              {modelName || "Auto"}
-              {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
-              <ChevronDown size={12} className="trigger-chev" />
-            </button>
-            {showModels && (
-              <ModelMenu
-                options={models}
-                current={modelName}
-                currentModel={currentModel}
-                effortValue={effort}
-                onPick={(m) => void pickModel(m)}
-                onApplyEffort={(m, id) => void applyModelEffort(m, id)}
-                onClose={() => setShowModels(false)}
-              />
-            )}
-          </div>
+          <SessionHeader title={title} face={modelFace} />
         </div>
         <div className="hero">
           <HeroBrand />
@@ -119,28 +96,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   return (
     <div className="session">
       <div className="session-header">
-        <div className="left">
-          <div className="title-row">
-            <div className="title">{title}</div>
-            <WorkspacePill />
-          </div>
-          <button className="model trigger" data-open={showModels ? "true" : "false"} onClick={() => setShowModels(true)}>
-            {modelName || "Auto"}
-            {effortLevels.length > 0 && <span className="effort-tag">{effortLabel(effort)}</span>}
-            <ChevronDown size={12} className="trigger-chev" />
-          </button>
-          {showModels && (
-            <ModelMenu
-              options={models}
-              current={modelName}
-              currentModel={currentModel}
-              effortValue={effort}
-              onPick={(m) => void pickModel(m)}
-              onApplyEffort={(m, id) => void applyModelEffort(m, id)}
-              onClose={() => setShowModels(false)}
-            />
-          )}
-        </div>
+        <SessionHeader title={title} face={modelFace} />
         {plan?.active && !plan?.pending && (
           <span className="plan-wrap">
             <button

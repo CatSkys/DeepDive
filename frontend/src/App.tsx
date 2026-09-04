@@ -4,13 +4,14 @@ import { api } from "./api";
 import { installHostBridge } from "./host";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
-import { Sidebar, WorkspacePill } from "./components/Sidebar";
+import { Sidebar } from "./components/Sidebar";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
+import { SessionHeader } from "./session/SessionHeader";
 import { HeroBrand } from "./components/HeroBrand";
 import { SettingsPage } from "./components/SettingsPage";
-import { ModelMenu, type ModelOption } from "./components/ModelMenu";
+import type { ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
 import "./theme.css";
 
@@ -121,25 +122,11 @@ function Shell() {
         ) : (
           <div className="hero">
             <div className="hero-top">
-              <div className="left">
-                <div className="title-row">
-                  <div className="title">{t("新会话")}</div>
-                  <WorkspacePill />
-                </div>
-                <button className="model" onClick={() => setShowModels((v) => !v)}>
-                  {modelName}
-                </button>
-                {showModels && (
-                  <ModelMenu
-                    options={models}
-                    current={modelName}
-                    effortValue={undefined}
-                    onPick={(m) => void pickModel(m)}
-                    onApplyEffort={(m, effort) => void pickModel(m, effort)}
-                    onClose={() => setShowModels(false)}
-                  />
-                )}
-              </div>
+              <SessionHeader title={t("新会话")} face={{
+                showModels, setShowModels, modelName, models,
+                currentModel: undefined, effortLevels: [], effort: undefined, effortLabel: () => "",
+                pickModel, applyModelEffort: pickModel,
+              }} />
             </div>
             <HeroBrand />
             <div className="hero-composer">
