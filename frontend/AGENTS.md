@@ -24,7 +24,7 @@ npx tsc --noEmit --noUnusedLocals --noUnusedParameters   # 死代码门槛，应
 ## 契约面
 
 - **RPC 全部走 `api.ts`**：dot-form endpoint + client-request 信封 + 扁平参数。新增方法先查引擎 `UNARY_ROUTES`（PITFALLS §4.6）；版本敏感面配 `probeMethod` 探测。
-- **事件**：`types.ts` 可辨识联合；`SessionView` 的 `ingest`/`finalizeTurns` 保持 O(1) 索引与"chunk 被 assistant/message 取代即丢弃"语义（PITFALLS §3.1-3.5）。
+- **事件**：`types.ts` 可辨识联合；`session/renderModel.ts` 的 `ingest`/`finalizeTurns` 保持 O(1) 索引与"chunk 被 assistant/message 取代即丢弃"语义（PITFALLS §3.1-3.5）。
 - **壳桥**：`host.ts` 是唯一通道（指令集见文件头）；新增前端→壳消息要在 `AppDelegate.handleHostMessage` 加 case，双向同步。
 - **标题栏**：`titlebar.ts` rect 表与壳端 52px 条带是双端契约；改 `.window-top`/`.session-header` 顶层布局后必须实测"按钮可点 + 空白可拖"（PITFALLS §4.3）。
 - **文案**：用户可见文本一律 `t()`/`tt()`（`i18n.ts` 词典，中英成对）；JSX 不写裸中文。

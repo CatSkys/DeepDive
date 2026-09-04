@@ -51,7 +51,7 @@
 | 模块 | 职责 |
 |---|---|
 | `App.tsx` / `main.tsx` | Shell 骨架：侧栏 + 主区路由（欢迎 hero / SessionView / 设置浮层） |
-| `components/SessionView.tsx` | 会话流渲染核心：事件日志 → RenderItem 摄取（O(1) callIndex 索引、独立 turn-tail、增量 ingest）、审批/提问/排队卡、工具行家族 |
+| `components/SessionView.tsx` + `session/` | 会话流：SessionView 为编排（~300 行），摄取与呈现拆在 `session/`——renderModel（RenderItem/ingest/finalizeTurns，O(1) 索引）、useSessionEvents/useSessionModels、Item/MessageRow/ToolRow/ToolIcon/Cards/QueueDock 组件群、eventText/format 纯函数 |
 | `components/Composer.tsx` / `ModelMenu.tsx`（思考强度滑杆） / `Sidebar.tsx`（多工作区+会话列表） / `SettingsPage.tsx` + `settings/` | 输入框（@附件 //命令/听写）、模型与推理档位、侧栏、设置浮层 |
 | `components/Markdown.tsx` / `ThinkingState.tsx` / `LoadingState.tsx` / `Icons.tsx` / `ProviderIcon.tsx` / `HoverScrollText.tsx` / `HeroBrand.tsx` | 呈现组件 |
 | `store.tsx` / `api.ts` / `types.ts` / `host.ts` / `titlebar.ts` / `i18n.ts` | React Context 手写 store（轮询签名去抖）、same-origin RPC 客户端、事件可辨识联合、壳桥挂载、标题栏 rect 推送、中英词典 |

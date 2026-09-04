@@ -71,7 +71,7 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 ## 代码约定
 
 - **写新代码前先搜项目内同类实现**；同一功能禁止出现第二份拷贝。统一入口：RPC 只走 `api.ts`、壳桥只走 `host.ts`、共享状态经 `store.tsx`、样式用语义变量——同类通道禁止另开第二份。
-- **新文件 ≤300 行、函数 ≤50 行**，超了先拆再继续；存量大文件（`SessionView.tsx`、`theme.css` 等）不强制重构，但新逻辑放新文件，不再向上堆。
+- **新文件 ≤300 行、函数 ≤50 行**，超了先拆再继续；存量大文件（`theme.css`、`session/renderModel.ts` 等）不强制重构，但新逻辑放新文件，不再向上堆。
 - TypeScript 严格：无可辨识联合不用 `as any` 溢出；`sessionId`/`callId`/`toolCallId` 是裸 string，同名概念勿混用。
 - 事件摄取热路径 O(1)（Map 索引），禁止整窗扫描（PITFALLS §3.3）。
 - UI 文案一律经 `t()`/`tt()` 词典（`frontend/src/i18n.ts`），JSX 不写裸中文；同一概念全项目同一词。
