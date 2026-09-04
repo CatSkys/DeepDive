@@ -136,7 +136,32 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
       if (key.trim()) {
         await api.credentialsSet({ ref: keyRef, value: key.trim() });
       }
-      // ② 目录（按提供方落点分流）
+      // ② pi 提供方模型名称留空 = 用刚填的 Key 按 API 自动发现全部支持模型
+      //    并整体并入（占位承诺的语义）；发现失败才要求手动填写。
+      let effectiveDiscovered = discovered;
+      if (!isDeepseek && !edit?.origId && !effectiveDiscovered && !modelId.trim()) {
+        setDiscovering(true);
+        try {
+          const r = await api.discoverModels({
+            settingsNs: "llm-pi-ai",
+            ...(isNewProvider ? { baseURL, api: apiProto } : { provider: pid }),
+            ...(key.trim() ? { apiKey: key.trim() } : {}),
+          });
+          effectiveDiscovered = (r.models ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow }));
+          setDiscovered(effectiveDiscovered);
+        } catch (err) {
+          setError(t("自动发现模型失败：{m}").replace("{m}", (err as Error).message));
+          setSaving(false);
+          return;
+        }
+        setDiscovering(false);
+        if (!effectiveDiscovered.length) {
+          setError(t("该提供方未发现任何模型，请手动填写模型 ID。"));
+          setSaving(false);
+          return;
+        }
+      }
+      // ③ 目录落点分流（自动发现结果优先于手填 id）
       if (isDeepseek && (editingEntry || (!edit && modelChoice === NEW_MODEL))) {
         const entry: ModelProfile = {
           id: modelId.trim(),
@@ -148,7 +173,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
           : [...deepseek.models.filter((m) => m.id !== entry.id), entry];
         await updateDeepseekModels(models);
       } else if (isNewProvider) {
-        const models = discovered ?? (modelId.trim() ? [{ id: modelId.trim() }] : []);
+        const models = effectiveDiscovered ?? (modelId.trim() ? [{ id: modelId.trim() }] : []);
         await updatePiProviders({
           ...pi.providers,
           [newId.trim()]: {
@@ -158,14 +183,14 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
             ...(models.length ? { models } : {}),
           },
         });
-      } else if (!isDeepseek && (edit?.origId || discovered || (!edit && modelId.trim()))) {
+      } else if (!isDeepseek && (edit?.origId || effectiveDiscovered || (!edit && modelId.trim()))) {
         const prev = profile ?? {};
         let models = prev.models ?? [];
         if (edit?.origId) {
           const entry: ModelProfile = { id: modelId.trim(), ...(modelName.trim() ? { name: modelName.trim() } : {}) };
           models = models.map((m) => (m.id === edit.origId ? entry : m));
-        } else if (discovered) {
-          models = discovered;
+        } else if (effectiveDiscovered) {
+          models = effectiveDiscovered;
         } else {
           models = [...models.filter((m) => m.id !== modelId.trim()), { id: modelId.trim() }];
         }
@@ -272,7 +297,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
             <div>
               <span className={cssRows.fieldLabel}>{t("模型名称")}</span>
               <div className={cssRows.fieldRow}>
-                <input className={cssRows.textField} style={{ flex: 1 }} placeholder={t("模型名为空则自动添加已有模型")} value={modelId} onChange={(e) => setModelId(e.target.value)} />
+                <input className={cssRows.textField} style={{ flex: 1 }} placeholder={t("模型名为空则自动添加该提供方全部模型")} value={modelId} onChange={(e) => setModelId(e.target.value)} />
                 {(isNewProvider || profile) && (
                   <button className={cssRows.secondaryButton} disabled={discovering} onClick={() => void discover()}>
                     {discovering ? t("载入中…") : t("发现模型")}
