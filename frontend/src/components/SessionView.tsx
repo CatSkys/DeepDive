@@ -14,6 +14,7 @@ import { GoalBar } from "./GoalBar";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, foldDecision, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
+import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
 import { useSessionEvents } from "../session/useSessionEvents";
@@ -21,7 +22,7 @@ import { useSessionModels } from "../session/useSessionModels";
 
 
 export function SessionView({ sessionId }: { sessionId: string }) {
-  useT(); // 订阅语言切换：本组件文案走全局 t()/tt()，语言变更时需重渲染
+  const { lang } = useT(); // 订阅语言切换：文案与标题回退随 lang 重渲染
   const store = useStore();
   const { approvals, questions, queues, sessions } = store;
   const { showModels, setShowModels, modelName, models, currentModel, effortLevels, effort, effortLabel, pickModel, applyModelEffort } =
@@ -34,9 +35,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
   const summary = sessions.find((s) => s.sessionId === sessionId);
-  const title = summary
-    ? (summary.projections?.values?.title as string) || (summary.blank ? t("新会话") : t("会话"))
-    : t("会话");
+  const title = summary ? sessionTitle(summary, lang) : t("会话");
 
 
 

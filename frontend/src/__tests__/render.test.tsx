@@ -67,9 +67,9 @@ describe("ArchivedSection（AUD-012 回归钉）", () => {
         <ArchivedSection />
       </StoreProvider>,
     );
-    // 列表行渲染出来（拉取成功）
+    // 列表行渲染出来（拉取成功）；标题走 sessionTitle（zh=任务/en=Task，语言无关匹配）
     await waitFor(() => {
-      expect(screen.getByText("Task s-arch")).toBeTruthy();
+      expect(screen.getByText(/^(任务|Task) s-arch$/)).toBeTruthy();
     });
     const callsAfterFirstPaint = vi.mocked(api.workspaces).mock.calls.length;
     expect(callsAfterFirstPaint).toBeGreaterThanOrEqual(1);

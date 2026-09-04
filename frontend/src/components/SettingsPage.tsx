@@ -14,6 +14,7 @@ import { api, probeMethod } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
 import { ProviderIcon } from "./ProviderIcon";
+import { sessionTitle } from "../session/sessionTitle";
 import { useT } from "../i18n";
 
 // 设置页 —— 与主界面同一套设计体系：主界面语义变量 + 统一弹出配方 +
@@ -564,7 +565,7 @@ export function ArchivedSection() {
             .sort((a, b) => b.updatedAt - a.updatedAt)
             .map((s) => ({
               sessionId: s.sessionId,
-              title: (s.projections?.values as { title?: string } | undefined)?.title ?? (s.blank ? t("New Chat") : `Task ${s.sessionId.slice(0, 6)}`),
+              title: sessionTitle(s, lang),
               updatedAt: s.updatedAt,
             })),
         );

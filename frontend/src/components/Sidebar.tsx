@@ -8,6 +8,7 @@ import { useStore } from "../store";
 import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import type { SessionSummary, WorkspaceView } from "../types";
+import { sessionTitle } from "../session/sessionTitle";
 
 interface CtxMenu { sessionId: string; title: string; cwd?: string; x: number; y: number }
 
@@ -160,7 +161,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     if (!query) return [];
     const q = query.trim().toLowerCase();
     const visible = store.sessions.filter((s) => s.origin !== "subagent");
-    const hits = visible.filter((s) => titleOf(s, lang).toLowerCase().includes(q));
+    const hits = visible.filter((s) => sessionTitle(s, lang).toLowerCase().includes(q));
     const hitIds = new Set(hits.map((s) => s.sessionId));
     const contentOnly = visible.filter((s) => !hitIds.has(s.sessionId) && contentHits.has(s.sessionId));
     const merged = [...hits, ...contentOnly];
@@ -189,7 +190,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       onClick={() => store.openSession(s.sessionId)}
       onContextMenu={(e) => {
         e.preventDefault();
-        setCtx({ sessionId: s.sessionId, title: titleOf(s, lang), cwd: s.cwd, x: e.clientX, y: e.clientY });
+        setCtx({ sessionId: s.sessionId, title: sessionTitle(s, lang), cwd: s.cwd, x: e.clientX, y: e.clientY });
       }}
     >
       <span className="row-slot" aria-hidden="true">
@@ -200,7 +201,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         )}
       </span>
       <span className="row-main">
-        <HoverScrollText className="title">{titleOf(s, lang)}</HoverScrollText>
+        <HoverScrollText className="title">{sessionTitle(s, lang)}</HoverScrollText>
         {snippet && <span className="row-snippet">{snippet}</span>}
       </span>
       {store.pinned.has(s.sessionId) && <Pin size={11} className="row-pin" aria-hidden="true" />}
@@ -209,7 +210,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setCtx({ sessionId: s.sessionId, title: titleOf(s, lang), cwd: s.cwd, x: e.clientX, y: e.clientY });
+          setCtx({ sessionId: s.sessionId, title: sessionTitle(s, lang), cwd: s.cwd, x: e.clientX, y: e.clientY });
         }}
       >
         <span className="row-time">{fmtTime(s.updatedAt, lang)}</span>
@@ -420,9 +421,3 @@ function SidebarResizer() {
   );
 }
 
-export function titleOf(s: SessionSummary, lang: "zh" | "en" = "zh"): string {
-  if (s.blank) return "New Chat";
-  const title = (s.projections?.values ?? {}).title;
-  if (typeof title === "string" && title.trim()) return title;
-  return `${lang === "zh" ? "任务" : "Task"} ${s.sessionId.slice(0, 6)}`;
-}
