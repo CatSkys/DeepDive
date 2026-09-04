@@ -282,10 +282,10 @@
 
 ## 5. 实现衔接
 
-- `frontend/packages/design/tokens.json`（唯一事实源）→ `gen-tokens.mjs` → `tokens.css` + `Tokens.swift`。
+- `frontend/packages/design/tokens.json`（唯一事实源）→ `gen-tokens.mjs` → `tokens.css`。
 - 组件库按 §2；每组件 dev 预览页（P1）；P2 视觉回归快照。
 - 前缀 `UiXxx`；包 `@dshmini/design`；无裸 class 手写。
-- 原生侧仅系统控件 + Tokens.swift + NSVisualEffectView。
+- 原生侧仅系统控件 + NSVisualEffectView。
 
 ## 6. 拒绝清单
 

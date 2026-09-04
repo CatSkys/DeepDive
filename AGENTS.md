@@ -22,7 +22,7 @@ DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit �
 ```
 apps/macos/                Swift 壳（XcodeGen；局部规则见 apps/macos/AGENTS.md）
 frontend/                  自建 SPA（React+TS+Vite；局部规则见 frontend/AGENTS.md）
-frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css / Tokens.swift
+frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css
 design/logo/               品牌 logo 种子工程（BRANDING.md）
 scripts/                   构建/打包/引擎嵌入脚本 + 运行时版本引脚
 docs/                      架构/规范/踩坑/协作约定
@@ -35,7 +35,7 @@ deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引�
 make dev        # Debug 构建并打开（scripts/dev.sh）
 make app        # Release 构建 + 嵌入 web/engine 并打开（scripts/build-release.sh）
 make package    # Release + adhoc 深签 + DMG（dist/）
-make tokens     # tokens.json → tokens.css + Tokens.swift（改 token 后必跑）
+make tokens     # tokens.json → tokens.css（改 token 后必跑）
 make test       # 前端 vitest + 壳 XCTest 全量（scripts/test.sh）
 make clean      # 清 .build 与 dist
 

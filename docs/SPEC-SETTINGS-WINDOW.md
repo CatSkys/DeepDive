@@ -16,7 +16,7 @@
 - **独立原生窗口**（不是 modal/侧栏）：新增 `SettingsWindowController`（AppKit），或 SwiftUI `SettingsView` 承载于原生窗口。尺寸 480×600；左导航 160 + 右内容。
 - 内容渲染：两种可选，按"是否复用 @dshmini/design React 组件"取舍：
   - **A. WKWebView 渲染设置入口 SPA**（复用 React 设计系统；黑白 token 直接复用）。
-  - **B. 原生 AppKit/SwiftUI 控件 + `Tokens.swift`**（对齐 `UI-SPEC §5`“原生侧仅系统控件 + Tokens.swift + NSVisualEffectView”）。
+  - **B. 原生 AppKit/SwiftUI 控件**（对齐 `UI-SPEC §5`“原生侧仅系统控件 + NSVisualEffectView”）。
   - 推荐：**原生窗口 + 原生控件（B）** 为主，符合 spec；引擎动态数据（模型/凭据/命名空间）经设置 RPC 读取。若某分区复杂度高（模型目录、provider 增删）再考虑 WKWebView 局部渲染。
 - 窗口外观：`NSVisualEffectView`（material `.sidebar`/`.hudWindow`，`.behindWindow`）透明玻璃；黑白。
 

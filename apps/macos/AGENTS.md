@@ -5,7 +5,6 @@ Swift + AppKit 原生壳（XcodeGen）。根规则见 [../../AGENTS.md](../../AG
 ## 工程生成
 
 - `DSHmini.xcodeproj/` 与 `Info.plist` 是 XcodeGen 生成物（已 ignore）：改 `project.yml` 后跑 `xcodegen generate`，勿手改生成物。
-- Swift 侧 token 常量来自 `Tokens.swift`（生成物）：改 `frontend/packages/design/tokens.json` 后 `make tokens`。
 
 ## 勿动的"看起来像死代码"（PITFALLS §4.7、§1.5）
 

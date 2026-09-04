@@ -58,8 +58,8 @@ private final class TitlebarAwareWebView: WKWebView {
 ///
 /// DO NOT remove it and DO NOT set isVisible = false — a hidden or missing
 /// toolbar silently reverts the window to the small-radius class, and the
-/// frontend radius scale is anchored at 26 (tokens.json radius.window /
-/// Tokens.Metric.radiusWindow; theme.css concentric ladder).
+/// frontend radius scale is anchored at 26 (tokens.json radius.window;
+/// theme.css concentric ladder).
 private final class EmptyToolbarDelegate: NSObject, NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [] }
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [] }

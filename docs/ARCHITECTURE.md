@@ -44,7 +44,7 @@
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
 | `StatusItemController.swift` / `RecoveryWindowController.swift` | 菜单栏状态点与菜单、引擎失败恢复屏（诊断复制/凭据冷启动） |
-| `Tokens.swift` / `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | token 生成物（勿手改）、html/body 透明注入（勿加样式）、偏好、数据目录 |
+| `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | html/body 透明注入（勿加样式）、偏好、数据目录、设置面动态 JSON 树 |
 
 ## 4. 自建 SPA（frontend/src/）
 
@@ -67,7 +67,7 @@
 
 ## 6. 设计 token 管线
 
-`frontend/packages/design/tokens.json`（唯一事实源）→ `gen-tokens.mjs` → `generated/tokens.css`（CSS 变量）+ `apps/macos/.../Tokens.swift`（NSColor）。`make tokens` / `npm run gen` 再生成；**任何一端手写数值即违规**（`UI-SPEC`）。
+`frontend/packages/design/tokens.json`（唯一事实源）→ `gen-tokens.mjs` → `generated/tokens.css`（CSS 变量）。`make tokens` / `npm run gen` 再生成；**手写数值即违规**（`UI-SPEC`）。
 
 ## 7. 仓库布局
 
