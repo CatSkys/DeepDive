@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUp, Square, Plus, Mic, Image as ImageIcon, Clipboard, Sparkles,
-  Code, NotebookPen, Cpu, File as FileIcon, Folder, TerminalSquare, type LucideIcon,
+  ArrowUp, Square, Plus, Mic, Image as ImageIcon, Sparkles,
+  ClipboardList, File as FileIcon, Folder, Route, ShieldCheck, Shrink, TerminalSquare, type LucideIcon,
 } from "lucide-react";
 import { api } from "../api";
 import { onHostEvent, sendToShell } from "../host";
@@ -11,6 +11,7 @@ import { useT, t as globalT } from "../i18n";
 import { activeAtToken, formatMention } from "../atGrammar";
 import { useAtCandidates } from "../useAtCandidates";
 import { useCompositionGuard } from "../useCompositionGuard";
+import { SLASH_COMMANDS } from "../commands";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { PromptContentPart } from "../types";
 
@@ -26,19 +27,10 @@ interface MenuRow {
   label: string;
   /** 次要说明（命令描述/参数提示/路径），随行展示。 */
   detail?: string;
+  /** 当前引擎不可用（命令通道未开放）：禁用态呈现，点击明示原因。 */
+  disabled?: boolean;
   section: string;
   run: () => void;
-}
-
-/// base64 in 32k chunks — spreading a whole multi-MB clipboard screenshot
-/// into String.fromCharCode overflows the call stack.
-function base64Of(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(bin);
 }
 
 /** 旧式 parseToken 已由官方 activeAtToken grammar 取代（引号路径/空白触发）；
@@ -73,7 +65,6 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   const [composing, setComposing] = useState(false);
   const [active, setActive] = useState(0);
   const [rowBox, setRowBox] = useState<{ top: number; height: number } | null>(null);
-  const [presets, setPresets] = useState<Array<{ id: string; name: string }>>([]);
   const [busy, setBusy] = useState(false);
   // 繁忙时 Enter 行为（settings ui-conversation ns，设置页同款；默认排队）
   const [busyEnter, setBusyEnter] = useState<"queue" | "steer">("queue");
@@ -97,7 +88,6 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
 
   useEffect(() => {
-    api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);
     api.settingsDescribe().then((d) => {
       const ns = (d.namespaces ?? []).find((n) => n.ns === "ui-conversation");
       const v = (ns?.value as { busyEnter?: string } | null)?.busyEnter;
@@ -210,49 +200,68 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
 
   // ---------- menu rows ----------
 
-  const readClipboardImage = async () => {
-    try {
-      const items = await navigator.clipboard.read();
-      for (const item of items) {
-        const type = item.types.find((t) => t.startsWith("image/"));
-        if (!type) continue;
-        const blob = await item.getType(type);
-        const buf = await blob.arrayBuffer();
-        setAttachments((prev) => [...prev, { data: base64Of(buf), mediaType: type, name: "剪贴板" }]);
-        break;
-      }
-    } catch { /* permission denied; ignore */ }
-  };
-
+  // 附件（＋ 菜单）：rc.2 prompt 面只收图片附件（PromptContentPart =
+  // text|image，imageLimits 准入）；剪贴板图片走 textarea ⌘V 粘贴（macOS 惯例），
+  // 不再设菜单项。
   const attachRows: MenuRow[] = [
     { id: "image", icon: ImageIcon, label: t("图片…"), section: t("附件"), run: () => fileRef.current?.click() },
-    { id: "clip-image", icon: Clipboard, label: t("剪贴板图片…"), section: t("附件"), run: () => void readClipboardImage() },
   ];
 
   // token 派生：@ 用官方 grammar（光标位置），/ 保持行尾判定。
   const atTok = dismissed || composing ? undefined : activeAtToken(text, cursor);
   const slashTok = dismissed || composing ? null : parseSlashToken(text);
 
-  // 命令行（2.1）：rc.2 浏览器面不做斜杠命令派发（DSH-WIRE §4）——菜单只收
-  // 客户端可派发的 /goal（goal.create RPC）；其余命令升 alpha.2 后恢复。
-  const slashRows: MenuRow[] = [{
-    id: "cmd:goal",
-    icon: TerminalSquare,
-    label: "/goal",
-    detail: `${tt("设定/查看长任务的 Goal", "Set or view the goal for a long-running task")} ${tt("（输入目标后回车）", "(enter an objective then Enter)")}`,
-    section: t("命令"),
-    run: () => {
-      if (!slashTok) return;
-      const typed = text.slice(slashTok.start).trim();
-      const objective = typed.replace(/^\/goal\b/i, "").trim();
-      if (sessionId && objective) {
-        void api.goalCreate({ sessionId, objective }).catch(() => void 0);
-        setText("");
-      } else {
-        setText(text.slice(0, slashTok.start) + "/goal ");
-      }
-    },
-  }];
+  // 命令菜单对齐 DSH 原生五命令（docs/DSH-WIRE.md §4，引擎无 commands.list，
+  // 目录静态内置）。rc.2 浏览器面只有 /goal 可客户端派发（goal.create RPC）；
+  // 其余命令执行走宿主 commands/execute 通道，rc.2 不可达（DSH-WIRE §6 三门
+  // 实证）——行以禁用态呈现、点击明示原因，通道开放后在各自的 run 换真派发。
+  const CMD_ICONS: Record<string, LucideIcon> = {
+    compact: Shrink,
+    plan: Route,
+    permission: ShieldCheck,
+    feedback: ClipboardList,
+  };
+  const slashRows: MenuRow[] = SLASH_COMMANDS.map((cmd) => {
+    if (cmd.name === "goal") {
+      return {
+        id: "cmd:goal",
+        icon: TerminalSquare,
+        label: "/goal",
+        detail: `${tt("设定/查看长任务的 Goal", "Set or view the goal for a long-running task")} ${tt("（输入目标后回车）", "(enter an objective then Enter)")}`,
+        section: t("命令"),
+        run: () => {
+          if (!slashTok) return;
+          const typed = text.slice(slashTok.start).trim();
+          const objective = typed.replace(/^\/goal\b/i, "").trim();
+          if (sessionId && objective) {
+            void api.goalCreate({ sessionId, objective }).catch(() => void 0);
+            setText("");
+          } else {
+            setText(text.slice(0, slashTok.start) + "/goal ");
+          }
+        },
+      };
+    }
+    return {
+      id: `cmd:${cmd.name}`,
+      icon: CMD_ICONS[cmd.name] ?? TerminalSquare,
+      label: `/${cmd.name}`,
+      detail: [tt(cmd.zh, cmd.en), cmd.hint].filter(Boolean).join(" "),
+      section: t("命令"),
+      disabled: true,
+      run: () =>
+        alert(tt(
+          `当前引擎版本不支持 /${cmd.name}，引擎升级开放命令通道后可用`,
+          `/${cmd.name} is not available on this engine build yet`,
+        )),
+    };
+  });
+
+  // 同顶栏 ＋：只切到草稿页，不在命令菜单里真建会话
+  const newSessionRow: MenuRow = {
+    id: "new", icon: Sparkles, label: t("新会话"), section: t("命令"), run: () => store.openSession(null),
+  };
+  const allSlashRows: MenuRow[] = [...slashRows, newSessionRow];
 
   const atEntries = useAtCandidates(atTok && !atTok.quoted ? atTok.query : "", wsPath);
   const atRows: MenuRow[] = atEntries.map((e) => ({
@@ -269,15 +278,6 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     },
   }));
 
-  const agentRows: MenuRow[] = [
-    // 同顶栏 ＋：只切到草稿页，不在命令菜单里真建会话
-    { id: "new", icon: Sparkles, label: t("新会话"), section: t("命令"), run: () => store.openSession(null) },
-    ...presets.map((p) => ({
-      id: `preset:${p.id}`, icon: presetIcon(p.id), label: p.name, section: "Agents",
-      run: () => void store.createSession(p.id),
-    })),
-  ];
-
   const menu: "attach" | "at" | "slash" | null = plusOpen
     ? "attach"
     : atTok
@@ -286,7 +286,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
         ? "slash"
         : null;
   const query = menu === "slash" ? slashTok?.query ?? "" : "";
-  const allRows = menu === "attach" ? attachRows : menu === "at" ? atRows : [...slashRows, ...agentRows];
+  const allRows = menu === "attach" ? attachRows : menu === "at" ? atRows : allSlashRows;
   const rows = query ? allRows.filter((r) => r.label.toLowerCase().includes(query)) : allRows;
 
   useEffect(() => setActive(0), [menu, query]);
@@ -384,6 +384,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
                         onMouseEnter={() => setActive(i)}
                         onClick={() => pick(r)}
                         className="menu-row"
+                        data-disabled={r.disabled ? "true" : undefined}
                         title={r.detail}
                       >
                         <r.icon size={15} />
@@ -416,6 +417,13 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
           onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
           onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
           onCompositionEnd={(e) => { ime.onCompositionEnd(); setComposing(false); autoGrow(e.currentTarget); }}
+          onPaste={(e) => {
+            // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
+            const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+            if (files.length === 0) return;
+            e.preventDefault();
+            for (const f of files) addImageFile(f);
+          }}
           onKeyDown={(e) => {
             if (ime.swallow(e)) return;
             if (menu && rows.length > 0) {
@@ -481,14 +489,4 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
     </div>
   );
-}
-
-function presetIcon(id: string): LucideIcon {
-  switch (id) {
-    case "code": return Code;
-    case "standard": return Sparkles;
-    case "minimal": return Cpu;
-    case "cordis": return NotebookPen;
-    default: return Sparkles;
-  }
 }

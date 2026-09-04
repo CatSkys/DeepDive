@@ -64,8 +64,6 @@ const EN: Record<string, string> = {
   "附件": "Attachments",
   "命令": "Commands",
   "图片…": "Image…",
-  "剪贴板图片…": "Clipboard Image…",
-  "剪贴板": "Clipboard",
   "听写失败": "Dictation failed",
   "没有匹配「{q}」": "No matches for “{q}”",
   // session view

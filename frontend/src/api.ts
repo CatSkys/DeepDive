@@ -127,8 +127,6 @@ export const api = {
     }),
   /** Cancel a pending ask_user_question request (outcome: cancelled → ASK_CANCELLED). */
   cancelQuestion: (rpcId: string) => respondCancel(rpcId),
-  agentPresets: () =>
-    unary<{ presets: Array<{ id: string; name: string; description?: string; trust?: string; isDefault?: boolean }> }>("agentPreset.list", {}),
   sessionModels: (payload: { sessionId: string }) =>
     unary<{
       current: { provider: string; model: string; reasoningEffort?: string };

@@ -1028,6 +1028,9 @@ button {
 }
 .menu-row svg { color: var(--ink-2); flex-shrink: 0; }
 .menu-row .label { flex-shrink: 0; font-weight: 500; }
+/* 当前引擎不可用的命令行（符号+亮度表达禁用，点击 alert 明示） */
+.menu-row[data-disabled="true"] { color: var(--ink-3); }
+.menu-row[data-disabled="true"] svg { color: var(--ink-3); }
 .menu-empty {
   height: 30px;
   display: flex;
