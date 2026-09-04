@@ -11,7 +11,7 @@ import type { SessionSummary, WorkspaceView } from "../types";
 
 interface CtxMenu { sessionId: string; title: string; cwd?: string; x: number; y: number }
 
-function fmtTime(updatedAt: number, lang: "zh" | "en"): string {
+export function fmtTime(updatedAt: number, lang: "zh" | "en"): string {
   const diff = Date.now() - updatedAt;
   const m = Math.floor(diff / 60000);
   if (m < 1) return lang === "zh" ? "刚刚" : "now";
@@ -23,7 +23,7 @@ function fmtTime(updatedAt: number, lang: "zh" | "en"): string {
   return `${Math.floor(d / 7)}${lang === "zh" ? " 周" : "w"}`;
 }
 
-function bucketLabel(updatedAt: number, lang: "zh" | "en"): string {
+export function bucketLabel(updatedAt: number, lang: "zh" | "en"): string {
   const now = Date.now();
   const day = 24 * 3600 * 1000;
   const diff = now - updatedAt;
