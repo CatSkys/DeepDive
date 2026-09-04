@@ -241,7 +241,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   return (
     <aside className="sidebar">
-      <div className="search-row" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)}>
+      <div className="search-row" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} data-tip-pos="bottom">
         <Search size={14} />
         <input
           ref={searchRef}
