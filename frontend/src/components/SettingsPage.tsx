@@ -541,7 +541,7 @@ function HotkeysSection() {
 
 /* ───────────────────────── 已归档的聊天 ───────────────────────── */
 
-function ArchivedSection() {
+export function ArchivedSection() {
   const { t, lang } = useT();
   const [rows, setRows] = useState<Array<{ sessionId: string; title: string; updatedAt: number }> | null>(null);
   const [unarchiveSupported, setUnarchiveSupported] = useState(false);
