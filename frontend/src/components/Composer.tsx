@@ -455,9 +455,8 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       {attachments.length > 0 && (
         <div className="composer-chips">
           {attachments.map((a, i) => (
-            <span key={i} className="chip att-chip" onClick={() => setPreview(a)}>
-              <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt="" />
-              {a.name}
+            <span key={i} className="chip att-chip" onClick={() => setPreview(a)} title={a.name}>
+              <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} />
               <button onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
             </span>
           ))}

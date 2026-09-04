@@ -968,12 +968,12 @@ button {
 }
 .chip button { color: var(--ink-2); padding: 0 2px; }
 .chip button:hover { color: var(--ink-bright); }
-/* 图片附件 chip：缩略图 + 点击 Lightbox 预览（× 移除，stopPropagation） */
-.att-chip { padding-left: 4px; }
+/* 图片附件 chip：大缩略图即预览（无文字，悬停 title 显名），点击 Lightbox；× 移除 */
+.att-chip { height: 28px; padding: 0 8px 0 2px; gap: 2px; }
 .att-chip-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   object-fit: cover;
   flex: none;
 }
