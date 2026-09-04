@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  ArrowUp, Square, Plus, Mic,
+  ArrowUp, Square, Plus, Mic, MessageSquare,
   ClipboardList, File as FileIcon, Folder, Route, ShieldCheck, Shrink, TerminalSquare, type LucideIcon,
 } from "lucide-react";
 import { api } from "../api";
@@ -13,6 +13,7 @@ import { activeAtToken, formatMention } from "../atGrammar";
 import { useAtCandidates } from "../useAtCandidates";
 import { useCompositionGuard } from "../useCompositionGuard";
 import { SLASH_COMMANDS } from "../commands";
+import { sessionMentionCandidates } from "../session/sessionMention";
 import { Lightbox } from "./Lightbox";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { PromptContentPart } from "../types";
@@ -87,7 +88,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   /** textarea 光标位（@ grammar 的 cursorCol）；onSelect 跟随 caret 更新。 */
   const [cursor, setCursorState] = useState(0);
   const store = useStore();
-  const { t, tt } = useT();
+  const { t, tt, lang } = useT();
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
   // @ 引用候选：工作空间根目录（无空间面时退化为不提供候选）
   const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
@@ -388,13 +389,37 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     },
   }));
 
+  // 会话引用（官方 @ 源的第二支：文件 + 会话合源）。插入规范 mention，
+  // 宿主 pre-step 据此注入被引用会话的只读快照；quoted（目录续层）不出
+  // 会话候选——与官方一致。
+  const sessionDateFmt = useMemo(
+    () => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
+      month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+    }),
+    [lang],
+  );
+  const sessionRows: MenuRow[] = (atTok && !atTok.quoted
+    ? sessionMentionCandidates(store.sessions, sessionId, atTok.query, lang)
+    : []
+  ).map((c) => ({
+    id: `ref-session:${c.sessionId}`,
+    icon: MessageSquare,
+    label: c.label,
+    detail: sessionDateFmt.format(c.updatedAt ?? 0),
+    section: tt("会话", "Sessions"),
+    run: () => {
+      if (!atTok) return;
+      setText(text.slice(0, cursor - atTok.prefix.length) + c.mention);
+    },
+  }));
+
   const menu: "at" | "slash" | null = atTok
     ? "at"
     : slashTok
       ? "slash"
       : null;
   const query = menu === "slash" ? slashTok?.query ?? "" : "";
-  const allRows = menu === "at" ? atRows : slashRows;
+  const allRows = menu === "at" ? [...atRows, ...sessionRows] : slashRows;
   const rows = query ? allRows.filter((r) => r.label.toLowerCase().includes(query)) : allRows;
 
   useEffect(() => setActive(0), [menu, query]);
