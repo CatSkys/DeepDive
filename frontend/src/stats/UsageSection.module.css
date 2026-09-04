@@ -1,0 +1,158 @@
+/* 使用统计页样式 —— 铬（卡片/文字/控件）全部主界面语义变量；数据编码色
+   （系列色/热力档）走 tokens.json chart 组生成的 --dsh-chart-*，不手写色值。 */
+
+/* ── 卡片基形 ── */
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-card);
+  background: var(--fill-soft);
+  padding: 14px 18px 16px;
+  margin-bottom: 14px;
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cardTitle { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+/* ── 摘要五列（列间细分隔线）── */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 16px 0;
+}
+.summaryCell { min-width: 0; text-align: center; padding: 2px 10px; }
+.summaryCell + .summaryCell { border-left: 1px solid var(--line); }
+.summaryValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.summaryLabel { font-size: 11.5px; color: var(--ink-3); margin-top: 6px; white-space: nowrap; }
+
+/* ── 分段控件（每日/每周/累计 · 近7日/近30日）：激活项 ink 实底 ── */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+}
+.segItem {
+  height: 24px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.segItem:hover { color: var(--ink); }
+.segItem.active { background: var(--ink); color: var(--panel-bg); font-weight: 600; }
+
+/* ── 时间范围行（独立行：标签左，分段右）── */
+.rangeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 2px 10px;
+}
+.rangeLabel { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+/* ── 热力图 ── */
+.heatBody { display: flex; align-items: stretch; gap: 12px; }
+.heatGridWrap { flex: 1; min-width: 0; }
+.heatSolo {
+  /* 单行周格与七行日格等高，切模式卡片不跳高（7×12 + 6×3 缝） */
+  height: 102px;
+  display: flex;
+  align-items: center;
+}
+.heatCells { display: grid; gap: 3px; grid-auto-flow: column; }
+.heatCells.solo { width: 100%; }
+.heatCell {
+  border-radius: 3px;
+  background: var(--fill);
+  min-width: 0;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.heatCell:hover { transform: scale(1.35); }
+.heatCell.l1 { background: var(--dsh-chart-heat1); }
+.heatCell.l2 { background: var(--dsh-chart-heat2); }
+.heatCell.l3 { background: var(--dsh-chart-heat3); }
+.heatCell.l4 { background: var(--dsh-chart-heat4); }
+.heatCell.l5 { background: var(--dsh-chart-heat5); }
+.heatMonths { display: grid; gap: 3px; margin-top: 6px; height: 16px; }
+.heatMonth { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: visible; }
+.heatLegend { display: flex; flex-direction: column; gap: 3px; justify-content: flex-end; }
+.heatLegendCell { width: 11px; height: 11px; border-radius: 3px; background: var(--fill); }
+.heatLegendCell.l1 { background: var(--dsh-chart-heat1); }
+.heatLegendCell.l2 { background: var(--dsh-chart-heat2); }
+.heatLegendCell.l3 { background: var(--dsh-chart-heat3); }
+.heatLegendCell.l4 { background: var(--dsh-chart-heat4); }
+.heatLegendCell.l5 { background: var(--dsh-chart-heat5); }
+
+/* ── 趋势图 ── */
+.trendLegend { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+.trendLegendItem { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.trendPlot { position: relative; }
+.trendSvg { display: block; }
+
+/* ── 模型用量（圆环 + 右侧图例）── */
+.donutBody { display: flex; align-items: center; gap: 40px; padding: 6px 8px 2px; }
+.donutPlot { position: relative; flex: none; }
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.donutCenterValue { font-size: 17px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.donutCenterUnit { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.donutLegend { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.legendRow { display: flex; align-items: flex-start; gap: 8px; padding: 9px 2px; }
+.legendRow + .legendRow { border-top: 1px solid var(--line); }
+.legendRow .dot { margin-top: 4px; }
+.legendMain { flex: 1; min-width: 0; }
+.legendName { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legendTokens { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+.legendPct { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* ── 图表悬浮提示：实底菜单色 + 控件圆角，fixed 定位不随卡片裁剪 ── */
+.tip {
+  position: fixed;
+  z-index: 1300;
+  pointer-events: none;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--menu-solid);
+  box-shadow: 0 12px 32px rgba(0,0,0,.4);
+  font-size: 12px;
+  color: var(--ink);
+}
+.tipTitle { font-weight: 600; white-space: nowrap; }
+.tipRow { display: flex; align-items: center; gap: 7px; margin-top: 6px; white-space: nowrap; }
+.tipRow .dot { width: 7px; height: 7px; }
+.tipMuted { color: var(--ink-2); font-weight: 400; }
+
+/* ── 空态 / 页脚刷新 ── */
+.chartEmpty {
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.sectionFoot { display: flex; justify-content: flex-end; margin-top: 4px; }
