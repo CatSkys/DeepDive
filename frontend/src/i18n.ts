@@ -241,8 +241,6 @@ const EN: Record<string, string> = {
   "全局": "Global",
   "按下新组合…": "Press new combination…",
   "与「{n}」冲突": "Conflicts with \"{n}\"",
-  "点击键位录入新组合（Esc 取消）；开关停用后不再触发。": "Click a key combo to record a new one (Esc cancels); toggling off disables the trigger.",
-  "提示：输入框内的 @ 引用、/ 命令、Tab 补全与 Enter 发送为输入语法，固定不可改。": "Note: @ mention, / command, Tab completion and Enter send inside the composer are input grammar and stay fixed.",
   "思考强度切换": "Cycle reasoning effort",
   "测试中…": "Testing…",
   "连通 · {n} 个模型": "Connected · {n} models",

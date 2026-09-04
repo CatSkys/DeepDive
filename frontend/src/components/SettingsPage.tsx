@@ -345,8 +345,6 @@ function HotkeysSection() {
 
   return (
     <div className={rowsCss.section}>
-      <div className={rowsCss.sectionTitle}>{t("快捷键")}</div>
-      <div className={rowsCss.sectionIntro}>{t("点击键位录入新组合（Esc 取消）；开关停用后不再触发。")}</div>
       <div className={rowsCss.hotkeyCard}>
         <div className={rowsCss.hotkeyRow}>
           <div className={rowsCss.rowIdentity}>
@@ -354,15 +352,15 @@ function HotkeysSection() {
               {t("唤起面板")}
               <span className={rowsCss.metaTag}>{t("全局")}</span>
             </div>
-            <div className={rowsCss.rowCaption}>{recording ? t("按下新的组合键…") : tt("当前：{k}", "Current: {k}", { k: hotkey })}</div>
           </div>
           <div className={rowsCss.rowActions}>
             <button
-              className={rowsCss.secondaryButton}
-              style={recording ? { opacity: 0.6 } : undefined}
+              type="button"
+              className={`${rowsCss.comboChip}${recording ? ` ${rowsCss.recording}` : ""}`}
               onClick={() => { if (!recording) { setRecording(true); sendToShell({ type: "rebind-hotkey" }); } }}
+              aria-label={t("修改快捷键")}
             >
-              {recording ? t("录制中…") : t("修改")}
+              {recording ? t("录制中…") : hotkey}
             </button>
           </div>
         </div>
@@ -390,9 +388,6 @@ function HotkeysSection() {
           );
         })}
         {conflict && <div className={rowsCss.modelError} style={{ padding: "0 14px 10px" }}>{conflict}</div>}
-      </div>
-      <div className={rowsCss.sectionIntro} style={{ marginTop: 10 }}>
-        {t("提示：输入框内的 @ 引用、/ 命令、Tab 补全与 Enter 发送为输入语法，固定不可改。")}
       </div>
     </div>
   );
