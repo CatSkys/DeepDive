@@ -364,10 +364,6 @@ const EN: Record<string, string> = {
 // useT() so a language switch re-renders them and re-runs those helpers.
 let currentLang: Lang = "zh";
 
-export function setI18nLang(lang: Lang): void {
-  currentLang = lang;
-}
-
 /** zh 源串 → en；未收录回退源串（清扫可增量落地）。 */
 export function translate(s: string, lang: Lang = currentLang): string {
   if (lang !== "en") return s;

@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { onHostEvent, sendToShell } from "./host";
-import { setI18nLang } from "./i18n";
 import type { ApprovalRequestFrame, MuxFrame, QuestionItem, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
 
 // Minimal store: engine lists + the live mux stream. Per-session event log is
@@ -162,7 +161,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.dataset.theme = schemeDark ? "dark" : "light";
   }, [schemeDark]);
-  useEffect(() => { setI18nLang(lang); }, [lang]);
   // 任务行本地状态:置顶/未读(localStorage 持久化,官方语义)；值损坏回退空集
   // （与 deepdive.workspace 键的 corrupt 防护同策略）
   const readIdSet = (key: string): Set<string> => {
