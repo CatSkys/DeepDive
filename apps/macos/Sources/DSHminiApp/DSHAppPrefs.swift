@@ -26,6 +26,8 @@ enum DSHAppPrefs {
     static let sidebarWidthKey = "deepdive.ui.sidebarWidth"
     static let appearanceKey = "deepdive.ui.appearance" // "system" | "light" | "dark"
     static let languageKey = "deepdive.ui.language"     // "zh" | "en"
+    /// 应用内快捷键覆盖（前端 keybinds.ts 的 JSON 串；壳只存不解析）
+    static let keybindsKey = "deepdive.keybinds"
 
     /// Sidebar drag-resize bounds — keep in sync with tokens.json
     /// size.sidebarMin / size.sidebarMax (the frontend clamps too).
@@ -69,6 +71,15 @@ enum DSHAppPrefs {
 
     static func setAppearance(_ value: String) {
         UserDefaults.standard.set(value, forKey: appearanceKey)
+    }
+
+    /// 应用内快捷键覆盖（JSON 串，结构由前端 keybinds.ts 定义与解析）。
+    static var keybinds: String {
+        UserDefaults.standard.string(forKey: keybindsKey) ?? ""
+    }
+
+    static func setKeybinds(_ value: String) {
+        UserDefaults.standard.set(value, forKey: keybindsKey)
     }
 
     static var language: String {

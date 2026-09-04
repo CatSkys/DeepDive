@@ -5,6 +5,7 @@ import { InlineLoader } from "./LoadingState";
 import { api } from "../api";
 import { sendToShell } from "../host";
 import { useStore } from "../store";
+import { comboFor } from "../keybinds";
 import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import { pickNewWorkspace } from "./workspacePicker";
@@ -57,6 +58,16 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const store = useStore();
   const [query, setQuery] = useState("");
   const [ctx, setCtx] = useState<CtxMenu | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  // 搜索快捷键（快捷键页可改）：聚焦搜索框；侧栏收起时先展开
+  useEffect(() => {
+    const onFocus = () => {
+      if (store.sidebarCollapsed) store.toggleSidebar();
+      requestAnimationFrame(() => searchRef.current?.focus());
+    };
+    window.addEventListener("dd:focus-search", onFocus);
+    return () => window.removeEventListener("dd:focus-search", onFocus);
+  }, [store]);
   // 全文搜索（4.1）：引擎 session.search（标题∪正文）。内容命中随防抖
   // 异步到达；禁用部署（无 --patch 放行）下请求失败 → 静默降级 title-only。
   const [contentHits, setContentHits] = useState<Map<string, string>>(new Map());
@@ -230,9 +241,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   return (
     <aside className="sidebar">
-      <div className="search-row">
+      <div className="search-row" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)}>
         <Search size={14} />
         <input
+          ref={searchRef}
           placeholder={t("搜索")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}

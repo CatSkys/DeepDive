@@ -6,6 +6,7 @@ import {
 import { api } from "../api";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
+import { comboFor } from "../keybinds";
 import { useT, t as globalT } from "../i18n";
 import { activeAtToken, formatMention } from "../atGrammar";
 import { useAtCandidates } from "../useAtCandidates";
@@ -144,6 +145,13 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       sendToShell({ type: "dictation-start" });
     }
   };
+
+  // 听写快捷键（快捷键页可改）：热键经全局事件转到本组件，状态机单一。
+  useEffect(() => {
+    const onToggle = () => toggleDictation();
+    window.addEventListener("dd:dictation-toggle", onToggle);
+    return () => window.removeEventListener("dd:dictation-toggle", onToggle);
+  });
 
   // ---------- prompt assembly ----------
 
@@ -455,6 +463,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
             type="button"
             className={`composer-mic${listening ? " live" : ""}`}
             data-tip={listening ? t("停止听写") : t("听写")}
+            data-tip-keys={comboFor("dictation", store.keybinds)}
             onClick={toggleDictation}
           >
             {listening ? (

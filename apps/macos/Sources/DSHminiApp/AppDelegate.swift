@@ -185,6 +185,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     windowController.applyAppearanceMode()
                 } else if key == "language" {
                     DSHAppPrefs.setLanguage(mode)
+                } else if key == "keybinds" {
+                    // 前端键位覆盖（JSON 串，结构由前端定义）：只存不解析。
+                    DSHAppPrefs.setKeybinds(mode)
                 }
                 break
             }
@@ -256,6 +259,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DictationController.shared.start()
         case "dictation-stop":
             DictationController.shared.stop()
+        case "dictation-toggle":
+            // 快捷键触发的听写开关：控制器自持 running 状态
+            DictationController.shared.running ? DictationController.shared.stop() : DictationController.shared.start()
         default:
             EngineLog.shared.append("[bridge] unhandled host message: \(type)")
         }
@@ -427,6 +433,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "sidebarWidth": DSHAppPrefs.sidebarWidth,
             "appearance": DSHAppPrefs.appearance,
             "language": DSHAppPrefs.language,
+            "keybinds": DSHAppPrefs.keybinds,
             "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
         ]

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { onHostEvent, sendToShell } from "./host";
+import { parseKeybinds, type KeybindOverrides } from "./keybinds";
 import type { ApprovalRequestFrame, MuxFrame, QuestionItem, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
 
 // Minimal store: engine lists + the live mux stream. Per-session event log is
@@ -89,6 +90,9 @@ interface Store {
   /** 外观模式（跟随系统/亮/暗），壳偏好持久化；壳负责实际生效并推送 schemeDark。 */
   appearance: "system" | "light" | "dark";
   setAppearance: (m: "system" | "light" | "dark") => void;
+  /** 应用内快捷键覆盖（id → {combo?, off?}），壳偏好持久化 JSON 串。 */
+  keybinds: KeybindOverrides;
+  setKeybinds: (next: KeybindOverrides) => void;
   pinned: Set<string>;
   unread: Set<string>;
   togglePin: (id: string) => void;
@@ -145,19 +149,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const [schemeDark, setSchemeDark] = useState(true);
   const [appearance, setAppearanceState] = useState<"system" | "light" | "dark">("dark");
+  const [keybinds, setKeybindsState] = useState<KeybindOverrides>({});
   const setAppearance = useCallback((m: "system" | "light" | "dark") => {
     setAppearanceState(m);
     sendToShell({ type: "set-pref", key: "appearance", value: m });
   }, []);
-  // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗；
+  const setKeybinds = useCallback((next: KeybindOverrides) => {
+    setKeybindsState(next);
+    sendToShell({ type: "set-pref", key: "keybinds", value: JSON.stringify(next) });
+  }, []);
+  // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗、键位覆盖；
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
       if (p.appearance === "system" || p.appearance === "light" || p.appearance === "dark") setAppearanceState(p.appearance);
+      if (typeof p.keybinds === "string") setKeybindsState(parseKeybinds(p.keybinds));
     }
     if (cmd === "themeChanged") {
       const dark = (payload as { dark?: boolean } | undefined)?.dark;
@@ -500,6 +510,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       jobsBySession,
       refresh,
       openSession,
+    keybinds,
+    setKeybinds,
       switchWorkspace,
       createWorkspace,
       createSession,

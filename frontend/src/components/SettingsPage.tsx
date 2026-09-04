@@ -10,6 +10,7 @@ import { Dropdown, Toggle } from "../settings/controls";
 import { ModelsManage } from "../settings/ModelsManage";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { api, probeMethod } from "../api";
+import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "../keybinds";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
 import { sessionTitle } from "../session/sessionTitle";
@@ -305,27 +306,54 @@ function ApprovalSection() {
 
 function HotkeysSection() {
   const { t, tt } = useT();
+  const store = useStore();
+  const { keybinds, setKeybinds } = store;
   const [hotkey, setHotkey] = useState("⌥Space");
   const [recording, setRecording] = useState(false);
+  const [recordingId, setRecordingId] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<string | null>(null);
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "hotkeyChanged" && payload) {
       setHotkey((payload as { spec?: string }).spec ?? hotkey);
       setRecording(false);
     }
   }), [hotkey]);
-  // 只列真实存在的快捷键（AUD-005）：⌘, 是壳主菜单项；Esc/Enter/@///Tab
-  // 在 Composer 与编辑态实现。⌘K/⌘T/⌘W/⌘1..9/⌘V 附件粘贴均未实现，禁止列出。
-  const inApp: Array<[string, string]> = [
-    ["⌘,", t("设置")], ["Esc", t("收起菜单 / 取消")], ["Enter", t("发送")], ["@", t("引用")], ["/", t("命令")], ["Tab", t("补全")],
-  ];
+
+  // 录制期捕获任意按键：Esc 取消；与他启用项冲突则拒绝并提示
+  useEffect(() => {
+    if (!recordingId) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") { setRecordingId(null); setConflict(null); return; }
+      const combo = comboOf(e);
+      if (!combo) return;
+      const clash = KEYBIND_DEFS.find(
+        (d) => d.id !== recordingId && !isOff(d.id, keybinds) && comboFor(d.id, keybinds) === combo,
+      );
+      if (clash) { setConflict(t("与「{n}」冲突").replace("{n}", t(clash.zh))); return; }
+      setConflict(null);
+      setKeybinds({ ...keybinds, [recordingId]: { combo } });
+      setRecordingId(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [recordingId, keybinds, setKeybinds, t]);
+
+  const toggleBind = (id: string) =>
+    setKeybinds({ ...keybinds, [id]: { combo: comboFor(id, keybinds), off: !isOff(id, keybinds) } });
+
   return (
-    <>
-      <div className={rowsCss.section}>
-        <div className={rowsCss.sectionTitle}>{t("全局热键")}</div>
-        <div className={rowsCss.sectionIntro}>{t("任意应用下生效。")}</div>
-        <div className={rowsCss.rowCard}>
+    <div className={rowsCss.section}>
+      <div className={rowsCss.sectionTitle}>{t("快捷键")}</div>
+      <div className={rowsCss.sectionIntro}>{t("点击键位录入新组合（Esc 取消）；开关停用后不再触发。")}</div>
+      <div className={rowsCss.hotkeyCard}>
+        <div className={rowsCss.hotkeyRow}>
           <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("唤起面板")}</div>
+            <div className={rowsCss.rowName}>
+              {t("唤起面板")}
+              <span className={rowsCss.metaTag}>{t("全局")}</span>
+            </div>
             <div className={rowsCss.rowCaption}>{recording ? t("按下新的组合键…") : tt("当前：{k}", "Current: {k}", { k: hotkey })}</div>
           </div>
           <div className={rowsCss.rowActions}>
@@ -338,22 +366,35 @@ function HotkeysSection() {
             </button>
           </div>
         </div>
-      </div>
-      <div className={rowsCss.section}>
-        <div className={rowsCss.sectionTitle}>{t("应用内快捷键")}</div>
-        <div className={rowsCss.sectionIntro}>{t("固定映射，不可自定义。")}</div>
-        {inApp.map(([key, desc]) => (
-          <div key={key} className={rowsCss.rowCard}>
-            <div className={rowsCss.rowIdentity}>
-              <div className={rowsCss.rowName}>{desc}</div>
+        {KEYBIND_DEFS.map((def) => {
+          const combo = comboFor(def.id, keybinds);
+          const off = isOff(def.id, keybinds);
+          const isRec = recordingId === def.id;
+          return (
+            <div key={def.id} className={rowsCss.hotkeyRow}>
+              <div className={rowsCss.rowIdentity}>
+                <div className={rowsCss.rowName} style={off ? { color: "var(--ink-3)" } : undefined}>{t(def.zh)}</div>
+              </div>
+              <div className={rowsCss.rowActions}>
+                <button
+                  type="button"
+                  className={`${rowsCss.comboChip}${isRec ? ` ${rowsCss.recording}` : ""}${off ? ` ${rowsCss.off}` : ""}`}
+                  onClick={() => { setConflict(null); setRecordingId(def.id); }}
+                  aria-label={t("修改快捷键")}
+                >
+                  {isRec ? t("按下新组合…") : combo}
+                </button>
+                <Toggle on={!off} onChange={(v) => toggleBind(def.id)} />
+              </div>
             </div>
-            <div className={rowsCss.rowActions}>
-              <span className={rowsCss.mono}>{key}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
+        {conflict && <div className={rowsCss.modelError} style={{ padding: "0 14px 10px" }}>{conflict}</div>}
       </div>
-    </>
+      <div className={rowsCss.sectionIntro} style={{ marginTop: 10 }}>
+        {t("提示：输入框内的 @ 引用、/ 命令、Tab 补全与 Enter 发送为输入语法，固定不可改。")}
+      </div>
+    </div>
   );
 }
 

@@ -4,6 +4,7 @@ import { api } from "./api";
 import { installHostBridge } from "./host";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
+import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
 import { Sidebar } from "./components/Sidebar";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
@@ -94,6 +95,31 @@ function Shell() {
       await api.selectModel({ sessionId: store.activeSessionId, provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });
     } catch { /* engine may be booting */ }
   };
+  // 应用内快捷键：window 捕获段匹配键位注册表（快捷键页可改/可停用）。
+  // 输入框聚焦时仅听写可触发，避免打字误触。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const combo = comboOf(e);
+      if (!combo) return;
+      const target = e.target as HTMLElement | null;
+      const typing = !!target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+      for (const def of KEYBIND_DEFS) {
+        if (isOff(def.id, store.keybinds)) continue;
+        if (combo !== comboFor(def.id, store.keybinds)) continue;
+        if (typing && def.id !== "dictation") return;
+        e.preventDefault();
+        if (def.id === "new-session") store.openSession(null);
+        else if (def.id === "search") window.dispatchEvent(new CustomEvent("dd:focus-search"));
+        else if (def.id === "toggle-sidebar") store.toggleSidebar();
+        else if (def.id === "dictation") window.dispatchEvent(new CustomEvent("dd:dictation-toggle"));
+        else if (def.id === "cycle-effort") window.dispatchEvent(new CustomEvent("dd:cycle-effort"));
+        else if (def.id === "open-settings") setSettingsOpen(true);
+        return;
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [store.keybinds]);
   return (
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
       <TooltipHost />
@@ -106,13 +132,14 @@ function Shell() {
       )}
       {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。
           ＋只切到草稿页（hero）——真实会话在首条消息发出时才创建。
-          设置页不显示——返回/关闭导航由 SettingsPage 自带。 */}
+          设置页不显示——返回/关闭导航由 SettingsPage 自带。
+          tooltip 键帽随快捷键页的改键实时同步。 */}
       {!settingsOpen && (
         <div className="window-top">
-          <button className="window-top-btn" data-tip={t("新会话")} onClick={() => store.openSession(null)}>
+          <button className="window-top-btn" data-tip={t("新会话")} data-tip-keys={comboFor("new-session", store.keybinds)} onClick={() => store.openSession(null)}>
             <IconNewChatOutline16 size={17} />
           </button>
-          <button className="window-top-btn" data-tip={t("收起侧栏")} onClick={() => store.toggleSidebar()}>
+          <button className="window-top-btn" data-tip={t("收起侧栏")} data-tip-keys={comboFor("toggle-sidebar", store.keybinds)} onClick={() => store.toggleSidebar()}>
             <PanelLeft size={17} />
           </button>
         </div>
