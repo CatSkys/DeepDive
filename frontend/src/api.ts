@@ -170,6 +170,9 @@ export const api = {
     unary("session.rename", { sessionId: payload.sessionId, title: payload.title }),
   workspaceArchiveSession: (payload: { sessionId: string }) =>
     unary("workspace.archiveSession", { sessionId: payload.sessionId }),
+  // 能力探测闸（probeMethod）：引脚引擎无此路由，false 时归档页隐藏入口
+  workspaceUnarchiveSession: (payload: { sessionId: string }) =>
+    unary("workspace.unarchiveSession", { sessionId: payload.sessionId }),
   /** 注册一个已存在的目录为工作空间（官方 DSH「添加项目」同款路由）。
    *  已注册过则幂等返回 created:false。 */
   workspaceCreate: (payload: { path: string }) =>

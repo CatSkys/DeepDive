@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Archive, ChevronLeft, Cpu, Folder, Keyboard, Moon,
-  Monitor, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
+  Monitor, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
   SquarePen, Sun, X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -14,6 +14,7 @@ import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "../keybinds";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
 import { sessionTitle } from "../session/sessionTitle";
+import { buildArchivedGroups, filterArchivedGroups, UNGROUPED, type ArchivedGroup } from "../settings/archivedGroups";
 import { useT } from "../i18n";
 
 // 设置页 —— 与主界面同一套设计体系：主界面语义变量 + 统一弹出配方 +
@@ -397,54 +398,114 @@ function HotkeysSection() {
 /* ───────────────────────── 已归档的聊天 ───────────────────────── */
 
 export function ArchivedSection() {
-  const { t, lang } = useT();
-  const [rows, setRows] = useState<Array<{ sessionId: string; title: string; updatedAt: number }> | null>(null);
-  const [unarchiveSupported, setUnarchiveSupported] = useState(false);
+  const { t, tt, lang } = useT();
+  const store = useStore();
+  const [groups, setGroups] = useState<ArchivedGroup[] | null>(null);
+  // 引擎能力闸：引脚引擎无 workspace.unarchiveSession 路由（probeMethod
+  // false），操作钮整排隐藏；引擎哪天带上该路由即自动亮出，不崩不灰。
+  const [unarchiveOk, setUnarchiveOk] = useState(false);
+  const [query, setQuery] = useState("");
+  const [project, setProject] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [ws, ss, unarchive] = await Promise.all([
-          api.workspaces(),
-          api.sessions(),
-          probeMethod("workspace.unarchiveSession"),
-        ]);
-        if (cancelled) return;
-        setUnarchiveSupported(!!unarchive);
-        const archived = new Set(ws.archivedSessionIds ?? []);
-        setRows(
-          (ss.items ?? [])
-            .filter((s) => archived.has(s.sessionId))
-            .sort((a, b) => b.updatedAt - a.updatedAt)
-            .map((s) => ({
-              sessionId: s.sessionId,
-              title: sessionTitle(s, lang),
-              updatedAt: s.updatedAt,
-            })),
-        );
-      } catch { if (!cancelled) setRows([]); }
-    })();
-    return () => { cancelled = true; };
+  const load = useCallback(async () => {
+    const [ws, ss, unarchive] = await Promise.all([
+      api.workspaces(),
+      api.sessions(),
+      probeMethod("workspace.unarchiveSession"),
+    ]);
+    setUnarchiveOk(!!unarchive);
+    setGroups(
+      buildArchivedGroups(
+        ws.items ?? [],
+        ss.items ?? [],
+        ws.archivedSessionIds ?? [],
+        (s) => sessionTitle(s, lang),
+        t("无项目"),
+      ),
+    );
     // t 经 useT 按 lang 缓存为稳定引用（i18n.ts tFuncCache），入表不会触发每渲染重跑
   }, [t, lang]);
 
+  useEffect(() => {
+    void load().catch(() => setGroups([]));
+  }, [load]);
+
+  const unarchive = async (sessionId: string) => {
+    try {
+      await api.workspaceUnarchiveSession({ sessionId });
+      await store.refresh();
+      await load();
+    } catch (err) {
+      alert(tt("取消归档失败：{m}", "Unarchive failed: {m}", { m: (err as Error).message }));
+    }
+  };
+
+  const dateFmt = useMemo(
+    () => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
+      year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+    }),
+    [lang],
+  );
+
+  const visible = useMemo(
+    () => filterArchivedGroups(groups ?? [], query, project),
+    [groups, query, project],
+  );
+
+  const projectOptions = [
+    { v: "", label: t("所有项目"), icon: Folder },
+    ...(groups ?? []).map((g) => ({ v: g.workspaceId ?? UNGROUPED, label: g.title, icon: Folder })),
+  ];
+
   return (
     <div className={rowsCss.section}>
-      <div className={rowsCss.sectionIntro}>
-        {unarchiveSupported
-          ? t("已归档的会话。可在此恢复到工作空间。")
-          : t("已归档的会话（当前引擎版本不支持取消归档，仅可查看）。")}
-      </div>
-      {rows === null && <div className={rowsCss.muted}>{t("载入中…")}</div>}
-      {rows !== null && rows.length === 0 && <div className={rowsCss.muted}>{t("暂无归档会话")}</div>}
-      {rows !== null && rows.map((r) => (
-        <div key={r.sessionId} className={rowsCss.rowCard}>
-          <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{r.title}</div>
-            <div className={rowsCss.rowCaption}>{new Date(r.updatedAt).toLocaleString()}</div>
-          </div>
+      <div className={rowsCss.archToolbar}>
+        <div className={rowsCss.archSearch}>
+          <Search size={14} className={rowsCss.archSearchIcon} />
+          <input
+            className={rowsCss.archSearchInput}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("搜索已归档聊天")}
+            aria-label={t("搜索已归档聊天")}
+          />
         </div>
+        <Dropdown options={projectOptions} value={project} onChange={setProject} />
+      </div>
+      {groups === null && <div className={rowsCss.muted}>{t("载入中…")}</div>}
+      {groups !== null && groups.length === 0 && <div className={rowsCss.muted}>{t("暂无归档会话")}</div>}
+      {groups !== null && groups.length > 0 && visible.length === 0 && (
+        <div className={rowsCss.muted}>{t("无匹配会话")}</div>
+      )}
+      {visible.map((g) => (
+        <section key={g.workspaceId ?? UNGROUPED}>
+          <div className={rowsCss.archGroupHead}>
+            <Folder size={15} className={rowsCss.archGroupIcon} />
+            <span className={rowsCss.archGroupName}>{g.title}</span>
+            <span className={rowsCss.archGroupCount}>
+              {tt("{n} 个聊天", "{n} chats", { n: g.rows.length })}
+            </span>
+          </div>
+          <div className={rowsCss.archCard}>
+            {g.rows.map((r) => (
+              <div key={r.sessionId} className={rowsCss.archRow}>
+                <div className={rowsCss.archRowMain}>
+                  <div className={rowsCss.archRowTitle}>{r.title}</div>
+                  <div className={rowsCss.archRowTime}>{dateFmt.format(r.updatedAt)}</div>
+                </div>
+                {unarchiveOk && (
+                  <button
+                    type="button"
+                    className={rowsCss.archUnarchive}
+                    onClick={() => void unarchive(r.sessionId)}
+                  >
+                    {t("取消归档")}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );

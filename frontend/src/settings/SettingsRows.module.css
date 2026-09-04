@@ -368,3 +368,90 @@
 .comboChip:hover { background: var(--fill-heavy); }
 .comboChip.recording { border-color: var(--ink); color: var(--ink-2); background: transparent; }
 .comboChip.off { color: var(--ink-3); border-color: var(--line); background: transparent; text-decoration: line-through; }
+
+/* ── 归档页：搜索 + 项目筛选 + 项目分组卡片（无描边，纯底色分范围） ── */
+.archToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 8px;
+}
+.archSearch { position: relative; flex: 1; min-width: 0; }
+.archSearchIcon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+.archSearchInput {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 12px 0 31px;
+  border: none;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  color: var(--ink);
+  font-size: 12.5px;
+  outline: none;
+  transition: background-color var(--dur-fast) ease;
+}
+.archSearchInput::placeholder { color: var(--ink-3); }
+.archSearchInput:focus { background: var(--fill-strong); }
+/* 项目筛选触发钮与搜索框同款无描边底（须排在 .ddTrigger 系规则之后） */
+.archToolbar .ddTrigger { border: none; height: 32px; background: var(--fill); }
+.archToolbar .ddTrigger:hover { background: var(--fill-strong); }
+.archGroupHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 2px 10px;
+}
+.archGroupIcon { color: var(--ink-2); flex: none; }
+.archGroupName { font-size: 13px; font-weight: 600; color: var(--ink); }
+.archGroupCount { margin-left: auto; font-size: 11.5px; color: var(--ink-3); }
+.archCard {
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  overflow: hidden;
+}
+.archRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+}
+/* 行间分隔线：两边留空、与文本内容对齐（不用全宽横线） */
+.archRow + .archRow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 14px;
+  height: 1px;
+  background: var(--line);
+}
+.archRowMain { flex: 1; min-width: 0; }
+.archRowTitle {
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.archRowTime { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+.archUnarchive {
+  flex: none;
+  height: 26px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill-strong);
+  color: var(--ink);
+  font-size: 12px;
+  transition: background-color var(--dur-fast) ease;
+}
+.archUnarchive:hover { background: var(--fill-heavy); }
