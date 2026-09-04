@@ -23,12 +23,17 @@ final class DictationController: NSObject {
     private var engine: AVAudioEngine?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    /// 授权是异步的：连点两次 start 会穿破 `running` 检查，beginRecording
+    /// 跑两遍并漏拆第一套 AVAudioEngine tap（AUD-030）——starting 位封住窗口。
+    private var starting = false
 
     func start() {
-        guard !running else { return }
+        guard !running, !starting else { return }
+        starting = true
         SFSpeechRecognizer.requestAuthorization { [weak self] _ in
             self?.requestMicAccess { [weak self] granted in
                 DispatchQueue.main.async {
+                    self?.starting = false
                     granted ? self?.beginRecording()
                             : self?.fail("麦克风未授权（系统设置 → 隐私与安全性）")
                 }

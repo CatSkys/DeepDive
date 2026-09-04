@@ -5,14 +5,14 @@ import Carbon.HIToolbox
 /// settings page: while visible it captures the next local key combo (the
 /// settings page lives in the WebView, whose key events a local monitor
 /// would never see), then hands the spec string back. Esc cancels.
-final class HotkeyRecorderWindow {
+final class HotkeyRecorderWindow: NSObject, NSWindowDelegate {
     private let window: NSWindow
     private let label: NSTextField
     private var monitor: Any?
     /// Receives the new "option+space" style spec, or nil on cancel.
     var onResult: ((String?) -> Void)?
 
-    init() {
+    override init() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 90),
             styleMask: [.titled, .closable],
@@ -22,9 +22,7 @@ final class HotkeyRecorderWindow {
         window.title = "录制全局热键"
         window.isReleasedWhenClosed = false
         window.center()
-        self.window = window
-
-        label = NSTextField(labelWithString: "按下新的组合键（Esc 取消）")
+        let label = NSTextField(labelWithString: "按下新的组合键（Esc 取消）")
         label.font = .systemFont(ofSize: 13)
         label.translatesAutoresizingMaskIntoConstraints = false
         window.contentView?.addSubview(label)
@@ -32,11 +30,23 @@ final class HotkeyRecorderWindow {
             label.centerXAnchor.constraint(equalTo: window.contentView!.centerXAnchor),
             label.centerYAnchor.constraint(equalTo: window.contentView!.centerYAnchor),
         ])
+        self.window = window
+        self.label = label
+        super.init()
+        window.delegate = self
     }
 
     func showRecorder() {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        armMonitor()
+    }
+
+    /// (Re)install the local key monitor. Idempotent — any previous monitor is
+    /// removed first, so re-arming after an unusable combo and the window's
+    /// red close button can never stack leaked monitors (AUD-032).
+    private func armMonitor() {
+        if let m = monitor { NSEvent.removeMonitor(m) }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, event.window === self.window else { return event }
             if let m = self.monitor { NSEvent.removeMonitor(m) }
@@ -50,7 +60,7 @@ final class HotkeyRecorderWindow {
             guard let spec = Self.hotkeySpec(keyCode: event.keyCode, flags: flags) else {
                 self.label.stringValue = "该组合键不可用，请重试（Esc 取消）"
                 // Keep recording: re-arm a fresh monitor.
-                self.rearm()
+                self.armMonitor()
                 return nil
             }
             self.onResult?(spec)
@@ -59,26 +69,10 @@ final class HotkeyRecorderWindow {
         }
     }
 
-    private func rearm() {
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, event.window === self.window else { return event }
-            if let m = self.monitor { NSEvent.removeMonitor(m) }
-            self.monitor = nil
-            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            if event.keyCode == UInt16(kVK_Escape) {
-                self.onResult?(nil)
-                self.window.orderOut(nil)
-                return nil
-            }
-            guard let spec = Self.hotkeySpec(keyCode: event.keyCode, flags: flags) else {
-                self.label.stringValue = "该组合键不可用，请重试（Esc 取消）"
-                self.rearm()
-                return nil
-            }
-            self.onResult?(spec)
-            self.window.orderOut(nil)
-            return nil
-        }
+    /// Red close button: take the monitor down with the window.
+    func windowWillClose(_ notification: Notification) {
+        if let m = monitor { NSEvent.removeMonitor(m) }
+        monitor = nil
     }
 
     /// NSEvent → "option+space" style spec. Key names come from

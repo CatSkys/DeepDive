@@ -266,17 +266,24 @@ final class EngineSupervisor {
 
     private func consume(_ data: Data) {
         stdoutBuffer.append(data)
-        guard let text = String(data: stdoutBuffer, encoding: .utf8) else {
-            stdoutBuffer.removeAll()
-            return
+        for line in Self.drainLines(&stdoutBuffer) { handleLine(line) }
+    }
+
+    /// Byte-level line drain (pure, unit-tested): complete lines split on the
+    /// `\n` byte, each decoded on its own. A torn multi-byte UTF-8 sequence can
+    /// only sit at the buffer tail (the engine writes line-buffered), so the
+    /// tail simply waits for more bytes — decoding the WHOLE buffer used to
+    /// fail on that tail and drop every buffered line, readiness line included
+    /// (AUD-018). A complete-but-undecodable line is dropped alone; one bad
+    /// line must not kill the stream.
+    static func drainLines(_ buffer: inout Data) -> [String] {
+        var lines: [String] = []
+        while let nl = buffer.firstIndex(of: 0x0A) {
+            let lineData = Data(buffer[buffer.startIndex..<nl])
+            buffer.removeSubrange(buffer.startIndex...nl)
+            if let line = String(data: lineData, encoding: .utf8) { lines.append(line) }
         }
-        var parts = text.split(separator: "\n").map(String.init)
-        if !text.hasSuffix("\n"), let last = parts.popLast() {
-            stdoutBuffer = Data(last.utf8)
-        } else {
-            stdoutBuffer.removeAll()
-        }
-        for line in parts { handleLine(line) }
+        return lines
     }
 
     private func handleLine(_ line: String) {
