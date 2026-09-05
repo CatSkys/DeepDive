@@ -45,9 +45,9 @@
   /* 大弹层（居中 dialog）：毛玻璃但比 --panel-bg 更实——.78 压不住弹层正后的文字 */
   --panel-strong: rgba(24,24,27,.92);
   /* 明显毛玻璃档（composer @// 菜单）：backdrop-root 修复后模糊真正生效，
-     底色降到 .45 档让模糊透出来、背景内容清晰可辨；要求弹层背后是消息流
-     等有意义的内容。blur 强度在 .composer-menu 单独降为 24px（40px 会把
-     背景糊成无法辨认的浓雾，反而显得「没有模糊」） */
+     底色 .45 让下方内容透出来；要求弹层背后是消息流等有意义的内容。
+     blur 强度在 .composer-menu 单独降为 14px（40px 会把背景糊成无法
+     辨认的浓雾，反而显得「没有模糊」） */
   --panel-glass: rgba(24,24,27,.45);
   --composer-bg: rgba(64,66,72,.32);
   --btn-float-bg: rgba(0,0,0,.55);
@@ -83,8 +83,8 @@
     --panel-bg: rgba(250,250,251,.86);
     --menu-solid: rgba(250,250,251,.97);
     --panel-strong: rgba(250,250,251,.94);
-    /* 明显毛玻璃档（同 dark 注释）：浅色白底 .52，背后内容透出且保持雾感 */
-    --panel-glass: rgba(250,250,251,.52);
+    /* 明显毛玻璃档（同 dark 注释）：浅色白底 .45，下方内容透出且保持雾感 */
+    --panel-glass: rgba(250,250,251,.45);
     --composer-bg: rgba(0,0,0,.05);
     --btn-float-bg: rgba(255,255,255,.85);
     --mark-inset: rgba(255,255,255,.95);
@@ -1017,10 +1017,10 @@ button {
   border-radius: var(--dsh-radius-card);
   background: var(--panel-glass);
   border: 1px solid var(--line);
-  /* blur 从统一配方 40px 降档：菜单要「看得出背后有东西」的毛玻璃，
+  /* blur 从统一配方 40px 降为 14px：菜单要「看得出背后有东西」的毛玻璃，
      40px 会糊成浓雾（与 --panel-glass 低底色配套，见 :root 注释）。
      投影也远轻于统一配方：重投影会把这个透明面板的边界重新描黑 */
-  backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.08),
     0 12px 28px rgba(0,0,0,.20),
