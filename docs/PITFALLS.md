@@ -42,6 +42,19 @@
 ### 1.8 弹层模糊被全局 `*` 禁用核弹 + 压缩器 -webkit 合并静默杀掉
 - 旧方案：`* { backdrop-filter:none !important }` 全局禁用 + theme.css 白名单类（!important）恢复。两个死法：① CSS module 里的弹层类（如设置 `.ddMenu`）无法进 theme 白名单，自带 blur 不带 `!important` 就被 `*` 压掉；② 压缩器（lightningcss）把同规则内"标准 + `-webkit-`"属性对合并成**只剩 `-webkit-`**，Chromium 系内核不认 `-webkit-backdrop-filter` → 模糊静默失效，且 `getComputedStyle().backdropFilter` 读标准属性会误报 none/正常，测量时两个都要读。
 - 处置（2026-09-04）：**全局核弹已删**——弹层统一自带标准 `backdrop-filter: blur(40px) saturate(160%)`（macOS 26 WebKit 支持无前缀），材质统一 `var(--panel-strong)`（.92 毛玻璃，比 .78 实、比 .97 有玻璃感）；**勿恢复全局禁用**，新增弹层自带 blur 即可。`.flow *` 的禁用保留（消息流合成隔离用途，弹层均不挂在 flow 内）。
+- 补充（2026-09-05，配方组实测）：合并删哪个**取决于顺序**——标准属性在前、`-webkit-` 在后 → 标准被删只剩 `-webkit-`（配方组七浮层 Chromium 预览因此长期无模糊）；`-webkit-` 在前、标准在后 → 双双保留（lightbox 因顺序相反逃过）。**双前缀固定 `-webkit-` 在前**，改完 grep dist 确认两条都在。
+
+### 1.10 transform 动画 `fill: both` 让弹层祖先成为常驻堆叠上下文 + backdrop root
+- 事故（两起同型）：会话入场动画上在 `.left`（ModelMenu 祖先）→ 菜单 z50 被困其内、被 `.flow`（isolation、DOM 靠后）整体盖住，磨砂只能采到 `.left` 自身绘制（=空）——合成「菜单纯透明」；`hero-title` 的 row-in 同理把 ProjectMenu(z60) 困住、被 composer 区「标准模式」胶囊盖住。
+- 处置：**弹层的祖先不做 transform 动画**（挪到无弹层的子行，如 `.title-row`）；必须用时 `fill: backwards`（结束即摘除，不残留上下文），禁用 `both`。判定口诀：弹层 getBoundingClientRect 中心 `elementFromPoint` 不属于菜单子树 = 被困。
+
+### 1.11 同名选择器在文件后段重复定义，会覆盖前面的修改
+- 事故：`.hero-title` 在 theme.css 前段改了 `fill: backwards`，L2273 还有第二处同名规则用 `both`，级联后者胜出——修复「无效」，页面 computed 一直是 both。
+- 处置：改任何样式前 `grep -n '<selector>' theme.css` 看**全部出现处**（3000 行单文件已有多处历史重复块）；CSSOM 侧 `document.styleSheets` 遍历同名选择器能直接暴露两套规则打架。
+
+### 1.12 content-visibility 估高让 scrollHeight 漂移：编程滚动落点必须二次校准
+- 现象：`.msg-block` 用 `content-visibility: auto`（离屏跳过排版），跳到底部后估高被真实高度替换、scrollHeight 变化，一次性 `scrollTop = scrollHeight` 的落点偏短，末条消息仍被悬浮输入框盖住。
+- 处置：编程滚动（回到底部等）落点后**当前帧 + 下一帧各校准一次** `scrollTop = scrollHeight`；动画中改用 rAF 缓动时，终点 settle 同样双校准。
 
 ---
 
@@ -166,6 +179,10 @@
 - 事故：test.sh 先修了（输出落盘 + `|| { tail; exit 1; }`），dev.sh 漏网——`xcodebuild … | tail -5` 的管线退出码是 tail 的 0，构建失败被洗白后 embed-web 把新 web 嵌进旧 .app、`open` 成功、脚本退出码 0，坏构建静默交付。
 - 处置：任何"长输出只看尾巴"的场景统一落盘法：`cmd > log 2>&1 || { tail -30 log; exit 1; }`；同类坑会复发在每一个新写的构建脚本上，评审时见 `| tail` 就要查 pipefail。
 
+### 5.5 并行会话同仓库工作：打包竞态会打断 DSH 运行时缓存
+- 事故（2026-09-05）：两个会话同时在仓库里构建/打包，`dist/.dsh-runtime-cache/<ver>` 被打断后 lib 级兄弟依赖丢失——嵌入自检通过（只验 bin.js 存在）但启动 `ERR_MODULE_NOT_FOUND: @deepseek-ai/dsh-app-boot`，引擎 3 连崩后 app 空转；同窗口还出现过另一版本号新缓存，证明确有并行写入。
+- 处置：先 `rm -rf dist/.dsh-runtime-cache/<版本> && bash scripts/prepare-dsh-runtime.sh` 重建再打包；**多会话并行时打包/构建类命令前确认对方没在跑**。已知盲区：`validate_runtime` 只查 3 个嵌套 @deepseek-ai 依赖、不查 lib/node_modules 兄弟包，坏缓存能过校验（待补校验）。
+
 ---
 
 ## 6. 调试技巧
@@ -187,6 +204,10 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 ### 6.3 后台 subagent 在此环境会静默失败
 - 观察：`subagent`/`subagent_fork` 后台多次启动后 `failed before it finished. No closing message.`
 - 处置：需要委派时用**前台等待**（`run_in_background:false`），或改为本人直接读官方源码对比。
+
+### 6.4 hdiutil attach 报「资源暂时不可用」= 僵尸磁盘注册，重试无用
+- 现象：DMG 挂载失败后反复 attach 全部同样报错，`/Volumes/<名>` 也不存在；失败的 attach 会在 diskimagesd 留下**无挂载点的注册**（`hdiutil info` 能看到对应 /dev/diskX 和 diskimages-helper 进程），把同名镜像的所有后续挂载全部挡死。
+- 处置：`hdiutil info` 找到该镜像的 dev 节点 → `hdiutil detach diskX -force` 逐个清掉（helper 进程随之退出）再挂；别对着 EAGAIN 反复重试。
 
 ---
 
@@ -211,6 +232,10 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 ### 8.5 指标先写夹具再写公式：分子分母要一眼可对
 - 事故：tokensPerSecond 写成了 `解码秒数`（公式里没有 tokens 分子），渲染成 "12.5 tok/s" 实为 12.5 秒——现有测试只钉了 runMs/ttftMs，恰好漏过。
 - 处置：新增派生指标时夹具必须带全输入（含 usage）并断言**带量纲的结果**；官方口径以 vendored `ui-conversation/turn-metrics` 为准（outputTokens ÷ 解码墙钟秒）。
+
+### 8.6 依赖渲染节奏的 DOM 接线在 WS 断连期静默死亡：必须自愈，不能只靠 React 生命周期
+- 事故：回到底部按钮「失效」——贴底布局的 padding-bottom 靠 ref 回调 + ResizeObserver 维护，引擎/WS 断连期间 React 长期不重渲染，ref 不重触发、RO 落在失去接线的状态上，padding 静默丢失，滚到底时末条消息被悬浮输入框盖住 ~40px（观感即「没回到最底」）。桥接页实证：悬浮区 44↔122px 变化而 pad 恒为污染值。
+- 处置：这类「保测量值同步」的接线（贴底 padding、悬浮位置等）加 **1s 看门狗兜底**（syncBottomPad 每秒跑、检测观察目标变更即重挂 RO），任何断线/换节点一秒内自愈；不要赌「React 会及时重渲染」。
 
 ---
 
