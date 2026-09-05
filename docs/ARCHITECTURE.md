@@ -63,6 +63,7 @@
 - **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Contents/MacOS/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`。
 - **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（当前 **0.1.1-rc.2**，曾切 0.1.2-alpha.2 后因 UNARY 面不可用回退）+ `scripts/node-version.txt`（构建机校验 fail-loud）。
 - **构建链**：`prepare-dsh-runtime.sh`（闭包准备，`DSH_SOURCE` 可复用同版本源）→ `embed-engine.sh`（拷入 .app + 自检）→ `build-release.sh` / `package-macos.sh`（Developer ID 深签 DMG，可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
+- **模型目录新鲜度**：引擎引脚自带的 pi-ai 目录（0.82.1）发布即冻结，模型菜单随之过时；嵌入时 `patch-engine-model-data.sh` 把 `scripts/engine-model-data/`（上游 0.84.4 生成数据层，纯数据、无代码改动）覆盖进 bundle 内 pi-ai dist。运行时 pi-ai ≥ 0.84.0 自动跳过——升引脚后删除该目录（详见其 README）。
 - **版本韧性**：稳定面直接用；版本敏感面（provider 管理等）`probeMethod` 能力探测，缺则降级/隐藏。
 - 启动参数 `--profile web --no-open --port 0`；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。
 
