@@ -1,11 +1,10 @@
 /* 使用统计页样式 —— 铬（卡片/文字/控件）全部主界面语义变量；数据编码色
    （系列色/热力档）走 tokens.json chart 组生成的 --dsh-chart-*，不手写色值。 */
 
-/* ── 卡片基形 ── */
+/* ── 卡片基形：无边框纯底色（设计规范：卡片靠底色分层，不描边）── */
 .card {
-  border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
-  background: var(--fill-soft);
+  background: var(--fill);
   padding: 14px 18px 16px;
   margin-bottom: 14px;
 }
@@ -68,21 +67,21 @@
 /* ── 热力图 ── */
 .heatBody { display: flex; align-items: stretch; gap: 12px; }
 .heatGridWrap { flex: 1; min-width: 0; }
-.heatSolo {
-  /* 单行周格与七行日格等高，切模式卡片不跳高（7×12 + 6×3 缝） */
-  height: 102px;
-  display: flex;
-  align-items: center;
-}
 .heatCells { display: grid; gap: 3px; grid-auto-flow: column; }
-.heatCells.solo { width: 100%; }
 .heatCell {
   border-radius: 3px;
-  background: var(--fill);
+  background: var(--fill-strong);
   min-width: 0;
   transition: transform var(--dur-fast) var(--ease-out);
 }
 .heatCell:hover { transform: scale(1.35); }
+.heatCellMerged {
+  /* 每周悬浮的整列大格：跨七行无缝圆角，细描边标出合并边界 */
+  grid-row: 1 / span 7;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  z-index: 1;
+}
 .heatCell.l1 { background: var(--dsh-chart-heat1); }
 .heatCell.l2 { background: var(--dsh-chart-heat2); }
 .heatCell.l3 { background: var(--dsh-chart-heat3); }
