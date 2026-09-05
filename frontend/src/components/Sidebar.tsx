@@ -152,6 +152,26 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     prevWs.current = store.activeWorkspaceId;
   }
 
+  // 触控板双指横滑切空间：横向分量占优时累计 deltaX，过阈值切上一个/下一个
+  // （左滑=下一个，与轮播方向一致），到头不回绕；冷却防一次长滑连切。
+  // 纵向滚动（|Y|≥|X|）不劫持，会话列表照常滚。无需 preventDefault——
+  // 侧栏本无横向溢出，浏览器对纯横向 wheel 无默认行为。
+  const swipeAcc = useRef({ acc: 0, coolUntil: 0 });
+  const onSidebarWheel = (e: React.WheelEvent) => {
+    if (store.workspaces.length < 2) return;
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+    const now = performance.now();
+    const st = swipeAcc.current;
+    if (now < st.coolUntil) return;
+    st.acc += e.deltaX;
+    if (Math.abs(st.acc) < 60) return;
+    const idx = store.workspaces.findIndex((w) => w.workspaceId === store.activeWorkspaceId);
+    const target = store.workspaces[idx + (st.acc > 0 ? 1 : -1)];
+    st.acc = 0;
+    st.coolUntil = now + 700;
+    if (target) store.switchWorkspace(target.workspaceId);
+  };
+
   // 当前空间视图：时间分组。blank 会话不滤——新建的会话要以 "New Chat"
   // 出现在侧栏顶部（§2.2）。置顶会话独立成组浮在分组之前。subagent 派生
   // 会话不进会话栏（引擎自动创建的工作单元，入口在状态胶囊/父会话）。
@@ -248,7 +268,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   );
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" onWheel={onSidebarWheel}>
       <div className="search-row" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} data-tip-pos="bottom">
         <Search size={14} />
         <input
