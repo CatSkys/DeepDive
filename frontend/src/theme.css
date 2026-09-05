@@ -195,29 +195,33 @@ button {
 .window-top-btn:hover { background: var(--fill); color: var(--ink); }
 
 /* ── 弹出面板统一配方 ─────────────────────────────────────────────
-   所有浮层（模型菜单 / @ 附件 / / 命令 / 右键菜单 / 设置下拉 / 胶囊面板 /
-   大 dialog）共用同一材质与密度：bg var(--panel-strong)（.92 毛玻璃底）+
-   blur(40px) saturate(160%) + 1px 描边 + 统一投影；圆角走阶梯（大浮层
-   floating 20、紧凑弹层 card 14）。blur 由各弹层规则【自带】——曾经的全局
-   `* { backdrop-filter:none !important }` + 白名单方案有两个致命伤：
-   ① 与压缩器的 -webkit- 属性合并相互作用后不同引擎静默失效；
-   ② 新弹层忘进白名单就无模糊（2026-09 提供商下拉事故）。全局禁用勿恢复；
-   .flow * 的禁用保留（消息流合成隔离用途，弹层均不挂在 flow 内）。
-   第三条（2026-09 弹出卡片事故）：自带 blur 只模糊「自己身后」——弹层
-   不得嵌在别的 backdrop-filter 面内，祖先成 backdrop root 后取不到面外
-   内容，形同没有模糊；composer 菜单因此挂在 .composer-anchor 下
-   （.composer 的兄弟而非子元素）。
-   第四条：投影统一走 --shadow-pop（轻投影：贴身锐影 + 中距柔影）。
-   重投影会把低透明面板的边界重新描黑（2026-09 阴影过重反馈），
-   新弹层直接引用变量，勿再手写。 */
+   所有浮层（模型菜单 / @ 附件 / / 命令 / 右键菜单 / 容量弹层 / 胶囊面板 /
+   悬浮提示 / 未来浮层）共用同一材质——把选择器加进下方材质组即得：
+   bg var(--panel-glass)（.55 玻璃底）+ blur(12px) saturate(180%) +
+   --shadow-pop 轻投影，勿另写材质。
+   历史约束（事故沉淀，勿违反）：
+   ① 全局 `* { backdrop-filter:none !important }` + 白名单方案两宗罪：
+      与压缩器的 -webkit- 属性合并相互作用后不同引擎静默失效；新弹层忘进
+      白名单就无模糊（2026-09 提供商下拉事故）。全局禁用勿恢复；
+      .flow * 的禁用保留（消息流合成隔离用途，弹层均不挂在 flow 内）。
+   ② blur 只模糊「自己身后」：弹层不得嵌在别的 backdrop-filter 面内
+      （祖先成 backdrop root 后取不到面外内容，形同没有模糊）——composer
+      菜单因此挂在 .composer-anchor 下（.composer 的兄弟而非子元素）。
+   ③ blur 必须挂在面板自身：WKWebView 不渲染 backdrop-filter 子层
+      （frost 子层方案两轮实机失败，2026-09 完全不透事故）。
+   ④ 投影统一 --shadow-pop：重投影会把低透明面板边界重新描黑
+      （2026-09 阴影过重反馈）。effort-cell 是填充格不是浮层，不入组。 */
 :root {
   --shadow-pop:
     inset 0 1px 0 rgba(255,255,255,.08),
     0 12px 28px rgba(0,0,0,.20),
     0 2px 6px rgba(0,0,0,.10);
 }
-.model-menu, .composer-menu, .ctx-menu, .ws-menu, .effort-cell, .ctx-pop, .capsule-panel, .tip {
-  backdrop-filter: blur(40px) saturate(160%);
+.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip {
+  background: var(--panel-glass);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: var(--shadow-pop);
 }
 
 /* ---------- layout ---------- */
@@ -630,11 +634,8 @@ button {
   display: flex;
   flex-direction: column;
   border-radius: var(--dsh-radius-floating);
-  background: var(--panel-strong);
   border: 1px solid var(--line);
   /* 统一投影（弹出面板配方）：贴身锐影 + 中距柔影，不再各写一套 */
-  box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(40px) saturate(160%);
   overflow: hidden;
   z-index: 50;
 }
@@ -791,10 +792,7 @@ button {
   display: flex;
   flex-direction: column;
   border-radius: var(--dsh-radius-floating);
-  background: var(--panel-strong);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(40px) saturate(160%);
   overflow: hidden;
   z-index: 60;
   animation: menu-in var(--dur-med) var(--ease-out) both;
@@ -1018,14 +1016,8 @@ button {
      候选多时由 .menu-list 内滚（上探空间受限，超出即滚，键盘 ↑↓ 仍走全列表） */
   padding: 8px;
   border-radius: var(--dsh-radius-card);
-  background: var(--panel-glass);
   border: 1px solid var(--line);
-  /* blur 必须挂在面板自身：WKWebView 里 backdrop-filter 子层不渲染
-     （frost 子层方案两轮实机失败；面板自身挂载有实机截图背书）。
-     投影统一走 --shadow-pop：重投影会把这个透明面板的边界重新描黑 */
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: var(--shadow-pop);
+  /* 材质（玻璃底/模糊/投影）来自配方组；面板自身不得再挂 backdrop-filter */
   animation: pop-in 160ms cubic-bezier(0.23,1,0.32,1) both;
   transform-origin: bottom;
 }
@@ -2140,8 +2132,6 @@ button {
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
-  background: var(--panel-strong);
-  box-shadow: var(--shadow-pop);
   animation: menu-in var(--dur-fast) var(--ease-out) both;
   transform-origin: top left;
 }
@@ -2625,8 +2615,6 @@ button {
   padding: 8px 10px;
   border-radius: var(--dsh-radius-card);
   border: 1px solid var(--line-strong);
-  background: var(--panel-strong);
-  box-shadow: var(--shadow-pop);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -2861,8 +2849,6 @@ button {
   padding: 4px 0;
   border-radius: var(--dsh-radius-card);
   border: 1px solid var(--line-strong);
-  background: var(--panel-strong);
-  box-shadow: var(--shadow-pop);
 }
 .capsule-head {
   position: relative;
@@ -3006,8 +2992,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
   padding: 5px 10px;
   border-radius: var(--dsh-radius-control);
   border: 1px solid var(--line-strong);
-  background: var(--panel-strong);
-  box-shadow: var(--shadow-pop);
   color: var(--ink);
   font-size: 12px;
   line-height: 18px;
