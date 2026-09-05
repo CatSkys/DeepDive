@@ -36,6 +36,24 @@ else
   codesign --force --deep -s - "$APP" || { echo "FAIL: codesign $APP"; exit 1; }
 fi
 
+# 公证（可选）：DSHMINI_NOTARY_PROFILE = notarytool 钥匙串 profile 名
+# （一次性配置：xcrun notarytool store-credentials <名字> --apple-id … --team-id 49LSZKN27V）。
+# 未设置 → 显式跳过（无凭据环境照常出包）；设置后任何一步失败必须停——
+# 静默交付未公证包与 AUD-013 同型。只公证 .app（zip 提交）并装钉：票据随
+# app 走，离线首启也过 Gatekeeper；DMG 由已装钉的 app 组装，不再重复提交。
+if [ -n "${DSHMINI_NOTARY_PROFILE:-}" ]; then
+  test "$IDENTITY" != "-s -" || { echo "FAIL: notarization needs a Developer ID identity, got ad-hoc"; exit 1; }
+  rm -f .build/notary-upload.zip
+  ditto -c -k --keepParent "$APP" .build/notary-upload.zip
+  xcrun notarytool submit .build/notary-upload.zip --keychain-profile "$DSHMINI_NOTARY_PROFILE" --wait \
+    || { echo "FAIL: notarytool submit（详情：xcrun notarytool log <id> --keychain-profile $DSHMINI_NOTARY_PROFILE）"; exit 1; }
+  xcrun stapler staple "$APP" || { echo "FAIL: stapler staple $APP"; exit 1; }
+  xcrun stapler validate "$APP" || { echo "FAIL: stapler validate $APP"; exit 1; }
+  echo "OK: notarized + stapled"
+else
+  echo "SKIP: notarization（设置 DSHMINI_NOTARY_PROFILE 后启用）"
+fi
+
 mkdir -p dist
 DMG="dist/DeepDive-${VERSION}-dev.dmg"
 rm -f "$DMG"

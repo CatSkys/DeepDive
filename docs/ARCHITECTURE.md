@@ -62,7 +62,7 @@
 
 - **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Contents/MacOS/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`。
 - **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（当前 **0.1.1-rc.2**，曾切 0.1.2-alpha.2 后因 UNARY 面不可用回退）+ `scripts/node-version.txt`（构建机校验 fail-loud）。
-- **构建链**：`prepare-dsh-runtime.sh`（闭包准备，`DSH_SOURCE` 可复用同版本源）→ `embed-engine.sh`（拷入 .app + 自检）→ `build-release.sh` / `package-macos.sh`（深签 DMG）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
+- **构建链**：`prepare-dsh-runtime.sh`（闭包准备，`DSH_SOURCE` 可复用同版本源）→ `embed-engine.sh`（拷入 .app + 自检）→ `build-release.sh` / `package-macos.sh`（Developer ID 深签 DMG，可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
 - **版本韧性**：稳定面直接用；版本敏感面（provider 管理等）`probeMethod` 能力探测，缺则降级/隐藏。
 - 启动参数 `--profile web --no-open --port 0`；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。
 
@@ -85,7 +85,7 @@ deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引�
 
 - **未做**：Raycast 式 Launcher NSPanel（现为主窗 ⌥Space 显隐）、Windows 外壳、Keychain 凭证插件（凭据走引擎 `credentials.*` + 设置页）、Sparkle 自动更新、dsh 插件形态定制（主题/听写等全部实现在壳与 SPA 内，未走 Cordis 插件行）。
 - **改道**：设置从"独立原生窗口"改为 **WebView 内浮层**（`SPEC-SETTINGS-WINDOW v3`）；审批用 WebView 内卡片而非原生弹窗；模型菜单/工作区侧栏为自建呈现，不挂官方 Slots。
-- **已知限制**：工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。
+- **已知限制**：工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。路线待办（自动更新/插件市场/手机远程/自动化页面）见 `docs/TODO.md`。
 
 ## 9. 沿革
 

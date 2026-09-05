@@ -12,7 +12,7 @@ DeepSeek Harness 桌面客户端：原生玻璃窗口（Swift + AppKit + WKWebVi
 ```sh
 make dev          # 构建 Debug 并打开应用
 make app          # Release 构建并打开
-make package      # 生成 dev 签名 DMG（dist/）
+make package      # 生成 Developer ID 签名 DMG（dist/）；设 DSHMINI_NOTARY_PROFILE（notarytool 钥匙串 profile 名）可公证并装钉
 ```
 
 启动后：菜单栏出现引擎状态点；`⌥Space` 显示/隐藏窗口；菜单栏「设置启动工作区…」选择沙箱根目录（重启引擎生效）；设置内「外观」（跟随系统/亮/暗）即时生效。
@@ -38,4 +38,8 @@ docs/                      架构(as-built)/UI 规范/语义蓝图/三个 P2 SPE
 
 ## 已知限制（见 docs/ARCHITECTURE.md §8 与 docs/REVIEW-P2.md）
 
-工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。
+工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。路线待办（自动更新/插件市场/手机远程/自动化页面）见 `docs/TODO.md`。
+
+## 许可证
+
+MIT（见 [LICENSE](LICENSE)）。捆绑的 DeepSeek Harness 运行时与其 vendored 源码遵循其自身许可证（`deepseek-harness/LICENSE`、`deepseek-harness/THIRD_PARTY_NOTICES.md`）；本项目与 DeepSeek 无隶属关系。

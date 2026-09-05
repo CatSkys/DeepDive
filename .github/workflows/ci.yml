@@ -1,0 +1,39 @@
+# DeepDive CI — 与 AGENTS.md「完成的定义」同一套门禁：
+# 前端 build（含 tsc）+ 严格项零错 + vitest + lint；壳侧 XCTest。
+# 打包/公证不在 CI（签名凭据不进 CI，见 scripts/package-macos.sh）。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      # 完成的定义里的严格项（build 只含 tsc -b，不含 noUnused 系开关）
+      - run: npx tsc --noEmit --noUnusedLocals --noUnusedParameters
+      - run: npm run test
+      - run: npm run lint
+
+  shell:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Generate Xcode project
+        run: cd apps/macos && xcodegen generate
+      - name: XCTest
+        run: cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -configuration Debug -derivedDataPath ../../.build/debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
