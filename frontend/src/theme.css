@@ -48,7 +48,7 @@
      底色 .45 让下方内容透出来；要求弹层背后是消息流等有意义的内容。
      blur 强度在 .composer-menu 单独降为 14px（40px 会把背景糊成无法
      辨认的浓雾，反而显得「没有模糊」） */
-  --panel-glass: rgba(24,24,27,.45);
+  --panel-glass: rgba(24,24,27,.55);
   --composer-bg: rgba(64,66,72,.32);
   --btn-float-bg: rgba(0,0,0,.55);
   --mark-inset: rgba(20,20,22,.9);
@@ -84,7 +84,7 @@
     --menu-solid: rgba(250,250,251,.97);
     --panel-strong: rgba(250,250,251,.94);
     /* 明显毛玻璃档（同 dark 注释）：浅色白底 .45，下方内容透出且保持雾感 */
-    --panel-glass: rgba(250,250,251,.45);
+    --panel-glass: rgba(250,250,251,.55);
     --composer-bg: rgba(0,0,0,.05);
     --btn-float-bg: rgba(255,255,255,.85);
     --mark-inset: rgba(255,255,255,.95);
