@@ -2711,6 +2711,25 @@ button {
   box-shadow: 0 24px 64px rgba(0,0,0,.4);
   animation: lightbox-zoom 160ms cubic-bezier(.2,0,0,1);
 }
+/* 关闭钮：叠在遮罩右上角，配色不随主题（与 .att-chip-x 同语言） */
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .5);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.lightbox-close:hover { background: rgba(0, 0, 0, .7); }
 @keyframes lightbox-in { from { opacity: 0; } }
 @keyframes lightbox-zoom { from { transform: scale(.96); } }
 
