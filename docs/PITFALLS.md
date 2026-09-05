@@ -183,6 +183,11 @@
 - 事故（2026-09-05）：两个会话同时在仓库里构建/打包，`dist/.dsh-runtime-cache/<ver>` 被打断后 lib 级兄弟依赖丢失——嵌入自检通过（只验 bin.js 存在）但启动 `ERR_MODULE_NOT_FOUND: @deepseek-ai/dsh-app-boot`，引擎 3 连崩后 app 空转；同窗口还出现过另一版本号新缓存，证明确有并行写入。
 - 处置：先 `rm -rf dist/.dsh-runtime-cache/<版本> && bash scripts/prepare-dsh-runtime.sh` 重建再打包；**多会话并行时打包/构建类命令前确认对方没在跑**。已知盲区：`validate_runtime` 只查 3 个嵌套 @deepseek-ai 依赖、不查 lib/node_modules 兄弟包，坏缓存能过校验（待补校验）。
 
+### 5.6 全新机器首启黑屏：桥接把静态页也挡在引擎 503 后面，凭据拒启又焊死了闭环
+- 事故（2026-09-06，分享给新用户后报告）：主窗纯黑，恢复窗「打开设置」点了还是黑。两个叠加根因：① `BridgeServer.route` 的 `guard let engineBase else 503` 排在 `serveStatic` 之前——引擎没起来时连 `index.html` 都 503，WKWebView 拿到空 body 的 503 也算导航完成（日志有 `didFinish`、无任何 JS 报错），页面就是空的、透出底层 tint；② `EngineSupervisor` 缺 `.credentials.yaml` 直接 `.failed` 不 spawn，而设置页配 Key 走的 `credentials.set` 是**引擎 RPC**——恢复窗引导的「打开设置配 Key」在设计上就不可能走通。开发机永远有凭据，这条路从未被端到端跑过。
+- 处置：静态资源一律不看引擎状态（只有 `/api` 保留 503）；缺凭据照常启动引擎（引擎侧对文件缺失容忍且 watch 热发布，见 vendored `packages/credentials/credentials-local`），首启由 SPA 的 `FirstRunGate` 接管（`credentials.describe` 正向确证无任何已配置密钥才出门，读失败绝不冒充"未配置"）。
+- 复现/验收手法：`DSHMINI_SUPPORT_DIR=/tmp/fresh <app>/Contents/MacOS/DeepDive` 用空目录模拟全新机器（隔离锁/harness/日志，不动真实实例）；引擎 ready 后打开 bridge URL 走完配 Key → 检查 `/tmp/fresh/harness/.credentials.yaml` 落盘 → 门放行。**显示器休眠/合盖时 `screencapture -l` 截 WKWebView 只有原生 tint 层（纯黑）**——那是采集假象不是页面黑，以 `host-ready`/`[titlebar] control rects` 日志与浏览器同源渲染为准，显示器亮后再补像素图。
+
 ---
 
 ## 6. 调试技巧

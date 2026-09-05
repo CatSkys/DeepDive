@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ChevronDown, Loader2, Pencil, Plug, Plus, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { tt, useT } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import {
   ModelDialog, keyRefOf, updateDeepseekModels, updatePiProviders,
-  type DeepseekNs, type EditTarget, type PiNs, type PiProviderProfile, type ProviderInfo,
+  type EditTarget,
 } from "./ModelDialog";
+import { useModelCatalog } from "./useModelCatalog";
 import cssRows from "./SettingsRows.module.css";
 
 // 模型设置（折叠卡片式）：按提供方聚类的可折叠分组，模型行展示 Meta
 // （模态类型 / 推理 / 上下文窗口），增删改走 ModelDialog 弹窗。
-// 数据源：llm.models（选择器分组 = 已保存模型，含 reasoning）+ settings
-// 目录富化（contextWindow / inputModalities）+ llm.providers（显示名/active）。
-// 删除语义按落点分流：目录条目删条目；引擎声明目录行清提供方密钥。
+// 数据源：目录与密钥态走 useModelCatalog（与首启引导共用），本组件只用
+// llm.models 把它派生成「已保存模型」分组；删除语义按落点分流：目录条目
+// 删条目；引擎声明目录行清提供方密钥。
 
 interface GroupModel {
   id: string;
@@ -35,79 +36,55 @@ const fmtContext = (n: number) => (n >= 1e6 ? `${Math.round((n / 1e6) * 10) / 10
 
 export function ModelsManage() {
   const { t } = useT();
+  const cat = useModelCatalog();
+  const { reload } = cat;
   const [groups, setGroups] = useState<ProviderGroup[] | null>(null);
-  // 拉取失败 ≠ 空配置：失败时置消息、走失败文案，不冒充空态
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [providers, setProviders] = useState<ProviderInfo[]>([]);
-  const [deepseek, setDeepseek] = useState<DeepseekNs>({ apiKeyEnv: "DEEPSEEK_API_KEY", models: [] });
-  const [pi, setPi] = useState<PiNs>({ providers: {} });
-  const [credentials, setCredentials] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [dialog, setDialog] = useState<{ edit: EditTarget | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [testInfo, setTests] = useState<Record<string, { state: "testing" | "ok" | "fail"; msg: string }>>({});
 
-  const load = useCallback(async () => {
-    setLoadError(null);
-    try {
-      const [llm, provs, d] = await Promise.all([
-        api.llmModels().catch(() => ({ groups: [] as Array<{ id: string; name: string; models: Array<{ id: string; name?: string; reasoning?: { efforts?: unknown[] } }> }> })),
-        api.llmProviders().catch(() => ({ providers: [] as ProviderInfo[] })),
-        api.settingsDescribe(),
-      ]);
-      const list = (provs.providers ?? []) as ProviderInfo[];
-      setProviders(list);
-      const deepNs = (d.namespaces ?? []).find((n) => n.ns === "llm-deepseek");
-      const piNs = (d.namespaces ?? []).find((n) => n.ns === "llm-pi-ai");
-      const deepVal = (deepNs?.value ?? {}) as { apiKeyEnv?: string; models?: Array<{ id: string; name?: string; contextWindow?: number; inputModalities?: string[] }> };
-      const piVal = (piNs?.value ?? {}) as { providers?: Record<string, PiProviderProfile> };
-      setDeepseek({ apiKeyEnv: deepVal.apiKeyEnv ?? "DEEPSEEK_API_KEY", models: deepVal.models ?? [] });
-      setPi({ providers: piVal.providers ?? {} });
-      // Meta 富化表：provider|modelId → 上下文/模态（来自 settings 目录）
+  useEffect(() => { void reload(); }, [reload]);
+
+  // 已保存模型分组 = llm.models（引擎实况）＋目录富化（contextWindow/模态）；
+  // 目录态（providers/deepseek/pi）每次 reload 换新引用，随之重建。
+  useEffect(() => {
+    if (!cat.ready) return;
+    if (cat.loadError) { setGroups([]); return; }
+    void (async () => {
+      const llm = await api.llmModels().catch(() => ({ groups: [] as Array<{ id: string; name: string; models: Array<{ id: string; name?: string; reasoning?: { efforts?: unknown[] } }> }> }));
+      const piVal = cat.pi.providers;
+      const providerMap = new Map(cat.providers.map((p) => [p.provider, p]));
       const enrich = new Map<string, { contextWindow?: number; modalities?: string[] }>();
-      for (const m of deepVal.models ?? []) {
+      for (const m of cat.deepseek.models) {
         enrich.set(`deepseek-official|${m.id}`, { contextWindow: m.contextWindow, modalities: m.inputModalities });
       }
-      for (const [pid, p] of Object.entries(piVal.providers ?? {})) {
+      for (const [pid, p] of Object.entries(piVal)) {
         for (const m of p.models ?? []) enrich.set(`${pid}|${m.id}`, { contextWindow: m.contextWindow });
       }
-      const providerMap = new Map(list.map((p) => [p.provider, p]));
       const built = (llm.groups ?? [])
         .filter((g) => (g.models ?? []).length > 0)
         .map((g) => {
           const p = providerMap.get(g.id);
-          const models = (g.models ?? []).map((m) => {
-            const en = enrich.get(`${g.id}|${m.id}`) ?? {};
-            return {
-              id: m.id,
-              label: m.name || m.id,
-              reasoning: !!m.reasoning?.efforts?.length,
-              contextWindow: en.contextWindow,
-              modalities: en.modalities,
-              inDir: g.id === "deepseek-official" || !!(piVal.providers ?? {})[g.id]?.models?.some((x) => x.id === m.id),
-            };
-          });
           return {
             provider: g.id,
             name: p?.displayName || g.name || g.id,
-            models,
+            models: (g.models ?? []).map((m) => {
+              const en = enrich.get(`${g.id}|${m.id}`) ?? {};
+              return {
+                id: m.id,
+                label: m.name || m.id,
+                reasoning: !!m.reasoning?.efforts?.length,
+                contextWindow: en.contextWindow,
+                modalities: en.modalities,
+                inDir: g.id === "deepseek-official" || !!piVal[g.id]?.models?.some((x) => x.id === m.id),
+              };
+            }),
           };
         });
       setGroups(built);
-      // 全部提供方的密钥配置状态（弹窗占位文案）
-      const refs = list.map((p) => keyRefOf(p.provider, deepVal.apiKeyEnv ?? "DEEPSEEK_API_KEY"));
-      try {
-        const cr = await api.credentialsDescribe({ refs: [...new Set(refs)] });
-        const configured: Record<string, boolean> = {};
-        for (const [ref, c] of Object.entries(cr.credentials ?? {})) configured[ref] = !!c?.configured;
-        setCredentials(configured);
-      } catch { /* 引擎不可达：占位文案退化为「输入」 */ }
-    } catch (err) {
-      setGroups([]);
-      setLoadError(tt("读取失败：{m}", "Read failed: {m}", { m: (err as Error).message }));
-    }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
+    })();
+  }, [cat.ready, cat.loadError, cat.providers, cat.deepseek, cat.pi]);
 
   /** 连通测试：pi 提供方走发现接口（列出模型 = 连通且 Key 有效）；
       DeepSeek 无发现路由，退化为密钥配置状态检查。 */
@@ -116,7 +93,7 @@ export function ModelsManage() {
     setTests((s0) => ({ ...s0, [key]: { state: "testing", msg: t("测试中…") } }));
     try {
       if (row.provider === "deepseek-official") {
-        const ref = keyRefOf(row.provider, deepseek.apiKeyEnv);
+        const ref = keyRefOf(row.provider, cat.deepseek.apiKeyEnv);
         const cr = await api.credentialsDescribe({ refs: [ref] });
         const ok = !!cr.credentials?.[ref]?.configured;
         setTests((s0) => ({ ...s0, [key]: { state: ok ? "ok" : "fail", msg: ok ? t("密钥已配置") : t("未配置密钥") } }));
@@ -140,19 +117,19 @@ export function ModelsManage() {
       if (row.inDir) {
         if (!window.confirm(tt("删除模型「{m}」？", "Delete model \"{m}\"?", { m: row.label }))) return;
         if (row.provider === "deepseek-official") {
-          await updateDeepseekModels(deepseek.models.filter((m) => m.id !== row.id));
+          await updateDeepseekModels(cat.deepseek.models.filter((m) => m.id !== row.id));
         } else {
-          const prof = pi.providers[row.provider] ?? {};
+          const prof = cat.pi.providers[row.provider] ?? {};
           await updatePiProviders({
-            ...pi.providers,
+            ...cat.pi.providers,
             [row.provider]: { ...prof, models: (prof.models ?? []).filter((m) => m.id !== row.id) },
           });
         }
       } else {
         if (!window.confirm(tt("将清除「{p}」的 API 密钥，其全部模型将从选择器移除。", "This clears the API key of \"{p}\"; all its models will leave the picker.", { p: row.label }))) return;
-        await api.credentialsUnset({ ref: keyRefOf(row.provider, deepseek.apiKeyEnv) });
+        await api.credentialsUnset({ ref: keyRefOf(row.provider, cat.deepseek.apiKeyEnv) });
       }
-      await load();
+      await reload();
     } catch (err) {
       setNotice(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
     }
@@ -171,8 +148,8 @@ export function ModelsManage() {
       </div>
       <div className={`${cssRows.sectionTitle} ${cssRows.savedTitle}`}>{t("已保存模型")}</div>
       {groups === null && <div className={cssRows.muted}>{t("载入中…")}</div>}
-      {loadError && <div className={cssRows.modelError}>{loadError}</div>}
-      {groups !== null && groups.length === 0 && !loadError && (
+      {cat.loadError && <div className={cssRows.modelError}>{cat.loadError}</div>}
+      {groups !== null && groups.length === 0 && !cat.loadError && (
         <div className={cssRows.muted}>{t("暂无已保存模型——点上方「添加模型」配置提供方密钥。")}</div>
       )}
       {groups !== null && groups.map((g) => {
@@ -236,12 +213,12 @@ export function ModelsManage() {
       {notice && <div className={cssRows.modelError}>{notice}</div>}
       {dialog && (
         <ModelDialog
-          providers={providers}
-          deepseek={deepseek}
-          pi={pi}
+          providers={cat.providers}
+          deepseek={cat.deepseek}
+          pi={cat.pi}
           edit={dialog.edit}
-          credentials={credentials}
-          onDone={() => { setDialog(null); void load(); }}
+          credentials={cat.credentials}
+          onDone={() => { setDialog(null); void reload(); }}
           onCancel={() => setDialog(null)}
         />
       )}

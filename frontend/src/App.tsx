@@ -14,6 +14,7 @@ import { SessionHeader } from "./session/SessionHeader";
 import { HeroBrand } from "./components/HeroBrand";
 import { AgentModePicker } from "./components/AgentMode";
 import { SettingsPage } from "./components/SettingsPage";
+import { FirstRunGate } from "./settings/FirstRunGate";
 import type { ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
 import { SelectionActions } from "./components/SelectionActions";
@@ -190,7 +191,9 @@ function Shell() {
 export default function App() {
   return (
     <StoreProvider>
-      <Shell />
+      <FirstRunGate>
+        <Shell />
+      </FirstRunGate>
     </StoreProvider>
   );
 }

@@ -65,10 +65,11 @@
 - 一切 `settings.update/mutate/replace` 都带 `expectedRevision`（读自 `settings.describe` 的 `revision`）。
 - 返回 `settings/conflict` 时：UI 给两选一恢复——"放弃修改，载入最新" / "保留修改，基于最新版本重试"（对齐参考项目 `SettingsEditorView`）。不做静默覆盖。
 
-### 4.4 凭据冷启动闭环（P2 设置窗口就绪后接通）
-- 现状 fail-loud：DSH_HOME 缺 `.credentials.yaml` 即 `failed`，文案让用户**手动复制** `~/.dsh/.credentials.yaml`。
-- 设置窗口提供 `credentials.set`（`SPEC-SETTINGS-WINDOW §3.3`）后，恢复界面改为引导"打开设置 → 模型 → 配置 API Key"；配置成功且引擎处于 `failed` 时**自动重启引擎**（`EngineSupervisor.start()`），完成闭环，不再要求手动复制文件。
-- 迁移期兼容：`~/.dsh/.credentials.yaml` 存在而 DSH_HOME 缺失时，恢复界面可提供"一键导入"（复制），降低老用户迁移成本。
+### 4.4 凭据冷启动闭环（首启引导）
+- 引擎**不因缺凭据而拒启**：DSH_HOME 缺 `.credentials.yaml` 时 `EngineSupervisor` 只记一行日志、照常 spawn。依据是引擎自身的契约——`credentials-local` 对文件缺失容忍（ENOENT 视为空），且 watch 文件热发布；而配 Key 的 `credentials.set` 是引擎 RPC，引擎不在跑就没有任何合法途径写出第一把 Key（PITFALLS §5.6）。
+- 桥接静态资源与引擎状态无关：SPA 在引擎启动期/失败期都能加载，只有 `/api` 在引擎未就绪时 503。
+- 首启由 SPA 的 `FirstRunGate`（`frontend/src/settings/FirstRunGate.tsx`）接管：引擎连上后经 `credentials.describe` 对全部提供方 keyRef 确证「没有任何已配置密钥」→ 整窗替换为 guided 模式的 `ModelDialog`（不可关闭，卡顶品牌欢迎头，保存钮「保存并开始」）；保存后重新 describe，配出密钥即放行主界面，未配出（如留空 Key）则换新表单并给提示行。读取失败 ≠ 未配置（`useModelCatalog.configuredKnown`），引擎瞬断绝不把老用户锁进引导页。目录与密钥态数据源与设置页「模型」共用 `useModelCatalog`。
+- 恢复窗（`RecoveryWindowController`）只服务真实引擎故障（入口缺失/连续崩溃）；其「打开设置」「从 ~/.dsh 导入」按钮按凭据文件是否存在显隐，导入路径保留为老用户迁移的旁路。
 
 ## 5. 引擎升级与更新
 
@@ -87,7 +88,7 @@
 | `scripts/node-version.txt` | 新增（node 二进制引脚，§3.1） |
 | `scripts/build-release.sh` / `package-macos.sh` / `dev.sh` | 追加 embed-engine；`package-macos.sh` 签名改 `codesign --force --deep`（现有浅签不覆盖嵌入的 `MacOS/node`，参考项目 embed 后即深签） |
 | `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` | 入口解析优先 bundled + spawn 形状（node+bin.js）+ 失败文案区分（§3.4） |
-| `apps/macos/Sources/DSHminiApp/AppDelegate.swift` | 校验 bundled 存在；凭据提示改引导设置窗口（§4.4） |
+| `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` / `BridgeServer.swift` | 缺凭据只记日志、照常 spawn；静态资源不受引擎状态门控（§4.4） |
 | `apps/macos/Sources/DSHminiApp/RecoveryWindowController.swift` | 恢复界面加"配置 API Key"入口 + 一键导入（§4.4） |
 
 > 依赖：DSHmini 需在构建机有 Node/npm（仅构建时）。运行时自包含，不依赖全局 npm/PATH。

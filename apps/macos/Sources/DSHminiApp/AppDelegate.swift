@@ -665,8 +665,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 EngineGateway.shared.update(base: url)
                 EngineEventObserver.shared.update(base: url)
             }
-            // The SPA may have loaded while the engine was still booting
-            // (bridge answers 503); reload now that the upstream is live.
+            // The SPA loads unconditionally (static serving never 503s); this
+            // reload re-boots it against the now-live upstream so boot-time
+            // RPCs that hit the 503 window get real answers.
             if let bridgeURL = BridgeServer.shared.url {
                 windowController.load(url: bridgeURL)
             }

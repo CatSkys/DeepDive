@@ -405,4 +405,8 @@ export const EN: Record<string, string> = {
   "{s} tokens · {n} 轮消息": "{s} tokens · {n} messages",
   "{s} tokens · 累计 {c}": "{s} tokens · {c} in total",
   "{d} · {s} tokens": "{d} · {s} tokens",
+  "欢迎使用 DeepDive": "Welcome to DeepDive",
+  "先添加一个模型——选择提供方并填入 API Key，保存后立即生效，即可开始对话。": "Add a model first — pick a provider and paste its API key. It takes effect immediately after saving, and you're ready to chat.",
+  "尚未检测到已保存的 API Key——请填写密钥后保存。": "No saved API key detected yet — enter a key and save.",
+  "保存并开始": "Save & start",
 };

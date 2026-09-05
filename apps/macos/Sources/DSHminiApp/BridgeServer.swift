@@ -68,6 +68,15 @@ final class BridgeServer {
             return .response(.init(status: 204))
         }
 
+        // SPA + assets must load regardless of engine state: the credentials
+        // cold start (engine never boots until a key is configured) is exactly
+        // when the first-run setup UI is needed; gating static on engineBase
+        // bricked every fresh install into a black window (PITFALLS §5.6).
+        // Only the engine-backed routes (/api) keep the 503.
+        if !request.path.hasPrefix("/api/") {
+            return .response(serveStatic(request))
+        }
+
         guard let engineBase else {
             return .response(.init(status: 503))
         }
@@ -80,10 +89,7 @@ final class BridgeServer {
         }
 
         // API hop — unary relay.
-        if request.path.hasPrefix("/api/") {
-            return .response(relayUnary(request, engineBase: engineBase))
-        }
-        return .response(serveStatic(request))
+        return .response(relayUnary(request, engineBase: engineBase))
     }
 
     // MARK: - WebSocket blind relay (upgrade + bidirectional pump)
