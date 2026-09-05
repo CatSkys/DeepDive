@@ -74,6 +74,12 @@ export function ComposerMenu({ menu, query, rows, active, setActive, onPick }: {
     : tt("输入内容以搜索命令", "Type to filter commands");
   return (
     <div className="composer-menu" onMouseLeave={() => setRowBox(null)}>
+      {/* 毛玻璃三明治：base=均匀模糊（用户定档 8px）；plus=渐变蒙版把追加
+          模糊压在面板下半段（自下而上渐进）；noise=细颗粒去「塑料平」。
+          三层都只采样面板外的页面背景——面板自身因此不得挂 backdrop-filter。 */}
+      <span className="menu-frost menu-frost-base" aria-hidden />
+      <span className="menu-frost menu-frost-plus" aria-hidden />
+      <span className="menu-noise" aria-hidden />
       <div className="menu-list">
         <span
           aria-hidden
