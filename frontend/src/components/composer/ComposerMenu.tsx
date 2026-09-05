@@ -1,8 +1,9 @@
 // 菜单浮层视图：@ 引用与 / 命令候选的分组渲染 + 单条 glide 高亮（高亮
-// 随激活行滑动，而非逐行换底色）。行数据与 active 索引由编排方持有
-// （键盘导航在 textarea）；本组件只做行测量与呈现。
+// 随激活行滑动，而非逐行换底色），底部常驻 ⓘ 搜索提示行。行数据与
+// active 索引由编排方持有（键盘导航在 textarea）；本组件只做行测量与呈现。
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { Info } from "lucide-react";
 import { useT } from "../../i18n";
 import type { MenuRow } from "./useComposerMenu";
 
@@ -68,29 +69,38 @@ export function ComposerMenu({ menu, query, rows, active, setActive, onPick }: {
   }, [menu, query, active, rows.length]);
 
   const sections = groupSections(rows);
+  const hint = menu === "at"
+    ? tt("输入内容以搜索文件或会话", "Type to filter files and sessions")
+    : tt("输入内容以搜索命令", "Type to filter commands");
   return (
     <div className="composer-menu" onMouseLeave={() => setRowBox(null)}>
-      <span
-        aria-hidden
-        className="menu-glide"
-        style={{ top: rowBox?.top ?? 0, height: rowBox?.height ?? 0, opacity: rowBox && rows.length > 0 ? 1 : 0 }}
-      />
-      {sections.map((sec) => (
-        <div key={sec.name} className="menu-section">
-          <div className="menu-section-name">{sec.name}</div>
-          {sec.rows.map((r) => (
-            <MenuRowButton
-              key={r.id}
-              row={r}
-              flatIndex={rows.indexOf(r)}
-              rowRefs={rowRefs}
-              setActive={setActive}
-              onPick={onPick}
-            />
-          ))}
-        </div>
-      ))}
-      {rows.length === 0 && <div className="menu-empty">{tt("没有匹配「{q}」", "No matches for “{q}”", { q: query })}</div>}
+      <div className="menu-list">
+        <span
+          aria-hidden
+          className="menu-glide"
+          style={{ top: rowBox?.top ?? 0, height: rowBox?.height ?? 0, opacity: rowBox && rows.length > 0 ? 1 : 0 }}
+        />
+        {sections.map((sec) => (
+          <div key={sec.name} className="menu-section">
+            <div className="menu-section-name">{sec.name}</div>
+            {sec.rows.map((r) => (
+              <MenuRowButton
+                key={r.id}
+                row={r}
+                flatIndex={rows.indexOf(r)}
+                rowRefs={rowRefs}
+                setActive={setActive}
+                onPick={onPick}
+              />
+            ))}
+          </div>
+        ))}
+        {rows.length === 0 && <div className="menu-empty">{tt("没有匹配「{q}」", "No matches for “{q}”", { q: query })}</div>}
+      </div>
+      <div className="menu-hint">
+        <Info size={13} />
+        <span>{hint}</span>
+      </div>
     </div>
   );
 }

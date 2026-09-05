@@ -992,18 +992,12 @@ button {
 .composer-menu {
   position: absolute;
   left: 0;
-  right: auto;
-  bottom: calc(100% + 8px);
+  right: 0;
+  bottom: calc(100% + 10px);
   z-index: 40;
-  /* 候选多（引用=文件+会话）时限高内滚：菜单自 composer 上缘向上展开，
-     上探空间 = 视口高 - composer 区，超出即滚（键盘 ↑↓ 仍在全列表内移动） */
-  max-height: min(52vh, 560px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* 紧凑小窗（参考图 3）：定宽锚在左缘（＋ 按钮上方），不通栏 */
-  width: 264px;
-  max-width: calc(100% - 8px);
-  padding: 4px;
+  /* 全宽卡片（与 composer 同宽，参考 ZCode @// 弹层）：面板定壳不滚，
+     候选多时由 .menu-list 内滚（上探空间受限，超出即滚，键盘 ↑↓ 仍走全列表） */
+  padding: 8px;
   border-radius: var(--dsh-radius-card);
   background: var(--panel-strong);
   border: 1px solid var(--line);
@@ -1014,12 +1008,18 @@ button {
     0 4px 12px rgba(0,0,0,.25);
   backdrop-filter: blur(40px) saturate(160%);
   animation: pop-in 160ms cubic-bezier(0.23,1,0.32,1) both;
-  transform-origin: bottom left;
+  transform-origin: bottom;
+}
+.menu-list {
+  position: relative; /* glide 条的定位基准 */
+  max-height: min(52vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .menu-glide {
   position: absolute;
-  left: 4px;
-  right: 4px;
+  left: 0;
+  right: 0;
   border-radius: var(--dsh-radius-control);
   background: var(--fill);
   pointer-events: none;
@@ -1030,8 +1030,8 @@ button {
 }
 .menu-section + .menu-section { margin-top: 4px; }
 .menu-section-name {
-  padding: 6px 9px 3px;
-  font-size: 11px;
+  padding: 8px 10px 4px;
+  font-size: 12px;
   color: var(--ink-3);
   text-align: left;
 }
@@ -1042,26 +1042,44 @@ button {
   align-items: center;
   gap: 10px;
   width: 100%;
-  height: 30px;
-  padding: 0 9px;
+  height: 36px;
+  padding: 0 10px;
   border-radius: var(--dsh-radius-control);
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
 }
 .menu-row svg { color: var(--ink-2); flex-shrink: 0; }
-.menu-row .label { flex-shrink: 0; font-weight: 500; }
+.menu-row .label { flex-shrink: 0; font-weight: 600; }
+.menu-row .menu-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--ink-3);
+}
 /* 当前引擎不可用的命令行（符号+亮度表达禁用，点击 alert 明示） */
 .menu-row[data-disabled="true"] { color: var(--ink-3); }
 .menu-row[data-disabled="true"] svg { color: var(--ink-3); }
 .menu-empty {
-  height: 30px;
+  height: 36px;
   display: flex;
   align-items: center;
-  padding: 0 9px;
-  font-size: 12px;
+  padding: 0 10px;
+  font-size: 13px;
   color: var(--ink-3);
 }
+.menu-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 2px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.menu-hint svg { flex-shrink: 0; }
 
 /* ---------- markdown (agent replies, no bubble) ---------- */
 .md { font-size: 14px; line-height: 21px; color: var(--ink); user-select: text; background: transparent !important; }
@@ -2527,18 +2545,6 @@ button {
   color: var(--ink-2);
   white-space: pre-wrap;
   user-select: text;
-}
-
-/* 菜单行次文本（命令描述/参数提示/路径） */
-.menu-row .menu-detail {
-  margin-left: auto;
-  padding-left: 12px;
-  font-size: 11px;
-  color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 55%;
 }
 
 /* 拖放附件：会话界面级虚线框提示（窗口级 dragenter/drop，Composer 渲染） */
