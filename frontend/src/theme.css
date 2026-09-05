@@ -219,8 +219,11 @@ button {
 }
 .model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down {
   background: var(--panel-glass);
-  backdrop-filter: blur(12px) saturate(180%);
+  /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
+     别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
+     Chromium 侧就没了模糊 */
   -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
   box-shadow: var(--shadow-pop);
 }
 
@@ -1222,11 +1225,17 @@ button {
 .flow-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
 /* 会话入场（用户定稿）：历史加载完成内容首次出现时整体轻浮上；key 在
    SessionView（会话:已加载），只在进入会话那一刻重挂重播，流式不重播。
-   子消息块各自的 fade-up 照常叠加，容器动势给「会话出现了」一个整体感。 */
-.flow-inner { animation: session-enter 380ms cubic-bezier(0.23,1,0.32,1) both; }
+   子消息块各自的 fade-up 照常叠加，容器动势给「会话出现了」一个整体感。
+   fill 必须 backwards 而非 both：transform 动画 fill 后仍保持堆叠上下文，
+   会把 .left 里的 ModelMenu(z50) 困在其内、被 .flow（isolation，DOM 靠后）
+   整体盖住——菜单被消息流穿透遮挡（实测事故，勿改回）。 */
+.flow-inner { animation: session-enter 380ms cubic-bezier(0.23,1,0.32,1) backwards; }
 @keyframes session-enter { from { opacity: 0; transform: translateY(12px); } }
-/* 切会话时标题行随内容一起入场（SessionView 以 sessionId 为 key 重挂） */
-.session-header .left { animation: header-in var(--dur-med) var(--ease-out) both; }
+/* 切会话时标题行随内容一起入场（SessionView 以 sessionId 为 key 重挂）。
+   动画只上 .title-row、不上 .left：ModelMenu 挂在 .left 内，transform 动画
+   的祖先在 WebKit 会成为 backdrop root（fill both 时更是常驻）——磨砂被采
+   空 = 菜单变纯透明（实测事故），标题行内无弹层所以安全。 */
+.session-header .title-row { animation: header-in var(--dur-med) var(--ease-out) backwards; }
 @keyframes header-in { from { opacity: 0; transform: translateY(-4px); } }
 
 .flow, .flow-inner, .md, .md *, .agent-message, .agent-message * { background: transparent !important; }
@@ -1739,7 +1748,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .thinking-active, .thinking-done, .thinking-row { animation: none !important; }
   .thinking-collapse, .thinking-line, .thinking-chevron, .thinking-head { transition: none !important; }
-  .flow-inner, .session-header .left { animation: none !important; }
+  .flow-inner, .session-header .title-row { animation: none !important; }
 }
 
 /* ---- meta actions（DSH MessageIconActions）
