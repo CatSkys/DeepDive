@@ -15,11 +15,12 @@
   - 用户消息：`clock="start"`（时钟在前）+ copy，**传 `onBranch` 才有分支**；用户消息不传 → 无分支。
   - assistant turn 尾部：`clock="end"`（时钟在后）+ copy + branch(可选) + usage(用时/首token/tok/s)。
 - `packages/client/ui-conversation/src/client/chat/MessageItem.tsx`
-  - `UserMessageNodeView`：用户消息 actions（copy+clock start，无 branch）；`data-actions-reveal` 由 `isLatestUserRow` 决定 `always|hover`。
+  - `UserMessageNodeView`：用户消息 actions（copy+clock start，无 branch）；消息容器挂 `data-time-hover-root`。
 - `packages/client/ui-conversation/src/client/chat/TurnTailNodeView.tsx`
-  - turn 尾部 actions（copy+branch+clock end+usage），`data-actions-reveal={isLatestTurn ? 'always' : 'hover'}`。
+  - turn 尾部 actions（copy+branch+clock end+usage），tail 根节点挂 `data-time-hover-root`。
 - `packages/client/ui-conversation/src/client/chat/MessageIconActions.module.css`
-  - 官方 reveal 语义：`[data-actions-reveal='hover'] .actions {opacity:0}`，hover/focus-within 显示；latest='always' 常驻。
+  - 官方 reveal 语义：图标常驻，`[data-time-hover-root]` 容器内 hover/focus-within 只显现时间/统计标签。
+  - 本仓移植（用户定稿，有意偏离官方）：自建 `data-actions-reveal` 挂在轮容器 `.turn-group`（SessionView 分组层），按钮+Meta 全部 hover/focus-within 才显现，无 always 常驻（theme.css「meta actions」节）。
 - `packages/client/ui-conversation/src/client/chat/MessageItem.module.css`
   - 用户 row 右对齐：`.userRow{display:flex;flex-direction:column;align-items:flex-end;gap:6px}`（气泡+actions 同列右对齐）。
 - `packages/client/ui-conversation/src/client/chat/ReasoningRow.module.css`

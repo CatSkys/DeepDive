@@ -1709,9 +1709,9 @@ button {
 }
 
 /* ---- meta actions（DSH MessageIconActions）
-   DSH recency gate via data-actions-reveal: the latest user row and latest
-   turn tail (= 'always') keep their actions row visible; earlier rows reveal
-   on hover / focus-within (opacity keeps layout stable). ---- */
+   行为统一（用户定稿，偏离官方的图标常驻）：按钮 + Meta 全部 hover 才显现，
+   作用域为轮容器 .turn-group 的 data-actions-reveal；opacity 切换保持布局
+   稳定，无 hover 设备（触屏）恒显。 ---- */
 .msg-block {
   position: relative;
   /* 长会话性能：离屏消息跳过排版与绘制（Content Visibility）。
@@ -1791,7 +1791,8 @@ button {
 
 /* ---- turn tail（DSH turn-tail 节点：产物行 + 复制/分支/时钟/统计） ----
    独立于最后一条 assistant 文本，工具-only/中断轮次也保留 meta。
-   data-actions-reveal 复用上方规则：最新 turn 尾部 always 常驻，其余 hover。 */
+   data-actions-reveal 挂在轮容器 .turn-group 上：hover/focus-within 轮内
+   任意位置显现 meta 行（用户定稿：不再有 always 常驻，全部 hover 显现）。 */
 .turn-tail {
   position: relative;
   display: flex;
@@ -1840,6 +1841,10 @@ button {
    flow-inner 直接子元素设计的，锚定包装层必须复刻同样的 flex 上下文，
    否则用户气泡退化为普通块级铺满整行。 */
 .chat-anchor-row { position: relative; display: flex; flex-direction: column; }
+/* 轮容器：包住一轮的 user/assistant/turn-tail，作为 data-actions-reveal 的
+   hover 作用域——悬停轮内正文即显现本轮 meta 行；gap 复刻 flow-inner 的
+   10px 行奏（包层会吃掉外层 gap）。 */
+.turn-group { display: flex; flex-direction: column; gap: 10px; }
 .meta-clock {
   display: inline-flex;
   align-items: center;

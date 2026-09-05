@@ -80,16 +80,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 每条 delta 与其他会话的 store 更新都会触发重渲染，渲染体内重建 Map +
   // 全量扫是纯浪费；折叠开关只影响 foldFrom，不参与本 memo。
   const layout = useMemo(() => {
-    let lastUserIdx = -1;
-    let lastTailIdx = -1;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].kind === "user") lastUserIdx = i;
-      if (items[i].kind === "turn-tail") lastTailIdx = i;
-    }
     const keyIdx = new Map(items.map((it, i) => [it.key, i] as const));
     const groups = groupTurns(items);
     const fold = foldDecision(groups.length);
-    return { lastUserIdx, lastTailIdx, keyIdx, groups, fold };
+    return { keyIdx, groups, fold };
   }, [items]);
 
   if (isBlank) {
@@ -159,11 +153,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           )}
           {(() => {
-            // DSH data-actions-reveal gate: the latest user row and the latest
-            // turn tail hold 'always' (kept visible); earlier rows reveal on
-            // hover / focus-within.
+            // DSH data-actions-reveal 的移植变体（用户定稿偏离官方）：官方是
+            // 图标常驻、时间标签 hover；这里统一为按钮+Meta 全部 hover 才显现，
+            // 作用域挂在轮容器 .turn-group 上——悬停轮内正文/工具/气泡即显现
+            // 本轮的 user chrome 与 turn-tail meta。
             // 轮折叠：长会话默认折叠早前轮（除最近 2 轮），折叠条点击展开。
-            const { lastUserIdx, lastTailIdx, keyIdx, groups, fold } = layout;
+            const { keyIdx, groups, fold } = layout;
             // turnsFolded=false 时 foldFrom=0（全部渲染）；=groups.length 会把整流折空
             const foldFrom = fold && turnsFolded ? fold.foldFrom : 0;
             const nodes: React.ReactNode[] = [];
@@ -189,28 +184,30 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 foldedCount = 0;
                 foldBarEmitted = true;
               }
-              for (const item of g.items) {
-                const idx = keyIdx.get(item.key) ?? -1;
-                nodes.push(
-                  <div
-                    key={item.key}
-                    className="chat-anchor-row"
-                    ref={idx === 0 && !foldBarEmitted ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
-                  >
-                    <Item
-                      item={item}
-                      latestUser={idx === lastUserIdx}
-                      latestTurn={idx === lastTailIdx}
-                      turnRunning={running}
-                      onBranch={branchFrom}
-                      sessionId={sessionId}
-                      onContinue={() => {
-                        void api.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
-                      }}
-                    />
-                  </div>,
-                );
-              }
+              nodes.push(
+                <div key={`turn-${g.turn ?? "head"}-${gi}`} className="turn-group" data-actions-reveal="hover">
+                  {g.items.map((item) => {
+                    const idx = keyIdx.get(item.key) ?? -1;
+                    return (
+                      <div
+                        key={item.key}
+                        className="chat-anchor-row"
+                        ref={idx === 0 && !foldBarEmitted ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
+                      >
+                        <Item
+                          item={item}
+                          turnRunning={running}
+                          onBranch={branchFrom}
+                          sessionId={sessionId}
+                          onContinue={() => {
+                            void api.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>,
+              );
             });
             return nodes;
           })()}

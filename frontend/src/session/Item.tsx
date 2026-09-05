@@ -9,10 +9,8 @@ import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
-export function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onContinue, sessionId }: {
+export function Item({ item, turnRunning, onBranch, onContinue, sessionId }: {
   item: RenderItem;
-  latestUser: boolean;
-  latestTurn: boolean;
   turnRunning: boolean;
   onBranch?: (forkSeq: number) => void;
   onContinue?: () => void;
@@ -20,7 +18,7 @@ export function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onCo
 }) {
   if (item.kind === "user") {
     return (
-      <div className="msg-block user" data-actions-reveal={latestUser ? "always" : "hover"}>
+      <div className="msg-block user">
         <UserBubble text={textOf(item.event)} />
         <UserAttachments sessionId={sessionId} event={item.event} />
         {/* DSH user chrome: copy + clock only, NO branch, clock="start" */}
@@ -62,7 +60,7 @@ export function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onCo
     const errMsg = reasonKind === "error" ? (reason as { error?: { message?: string; code?: string } }).error?.message : undefined;
     const errCode = reasonKind === "error" ? (reason as { error?: { code?: string } }).error?.code : undefined;
     return (
-      <div className="turn-tail" data-actions-reveal={latestTurn ? "always" : "hover"}>
+      <div className="turn-tail">
         {reasonKind === "max-tokens" && (
           <div className="turn-issue">
             <span>{t("本轮达到 max tokens 上限，输出被截断")}</span>
