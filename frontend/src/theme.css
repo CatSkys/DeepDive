@@ -1020,7 +1020,7 @@ button {
   /* blur 从统一配方 40px 降为 14px：菜单要「看得出背后有东西」的毛玻璃，
      40px 会糊成浓雾（与 --panel-glass 低底色配套，见 :root 注释）。
      投影也远轻于统一配方：重投影会把这个透明面板的边界重新描黑 */
-  backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(8px) saturate(180%);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.08),
     0 12px 28px rgba(0,0,0,.20),
