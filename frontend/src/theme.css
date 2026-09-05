@@ -118,7 +118,11 @@ input, textarea, [contenteditable="true"] { cursor: text !important; font-family
 /* Selection painting inside the message area renders as full-block rounded
    slabs in WebKit — it accounts for the "cards" seen in screenshots. Keep
    text selectable, silence the highlight. */
-.flow ::selection, .md ::selection, .agent-message ::selection { background: transparent; }
+.flow ::selection, .md ::selection, .agent-message ::selection { background: var(--fill-heavy); }
+/* 消息流放开文字选择（用户需求：段落式选中复制）；交互控件保持不可选，
+   拖拽划过按钮/状态行不会拖出蓝字。 */
+.flow { user-select: text; }
+.flow button, .meta-actions, .tool-collapse-head, .state-dot { user-select: none; }
 
 button {
   border: none;
@@ -554,7 +558,10 @@ button {
   margin: auto 0;
 }
 .hero-title {
-  animation: row-in var(--dur-slow) var(--ease-out) 80ms both;
+  /* fill=backwards：延迟期用 from 态隐藏、结束后彻底摘除动画。fill both 会
+     让 transform 动画常驻堆叠上下文，把 hero-ws-wrap 里 z60 的 ProjectMenu
+     困在标题行内、被后方的 composer 区（标准模式胶囊）盖住（实测事故）。 */
+  animation: row-in var(--dur-slow) var(--ease-out) 80ms backwards;
   font-size: 24px;
   font-weight: 400;
   letter-spacing: .01em;
@@ -1213,6 +1220,37 @@ button {
 }
 .jump-down:hover { background: var(--fill-heavy); }
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+/* 文字选择动作浮条（SelectionActions）：选中上方 [添加到当前任务][复制]，
+   右键菜单复用同条只带[复制]。配方玻璃底；portal 到 body，fixed 定位。 */
+.sel-actions {
+  position: fixed;
+  z-index: 210;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-glass);
+  /* 前缀顺序勿倒（见配方组注释）：-webkit- 在前 */
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: var(--shadow-pop);
+  animation: pop-in 140ms cubic-bezier(0.23,1,0.32,1) both;
+  transform: translateX(-50%);
+  user-select: none;
+}
+.sel-actions button {
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.sel-actions button:hover { background: var(--fill); color: var(--ink); }
 
 .flow {
   flex: 1;
@@ -2266,9 +2304,12 @@ button {
 .model.trigger .trigger-chev { transition: transform var(--dur-med) var(--ease-out); }
 .model.trigger[data-open="true"] .trigger-chev { transform: rotate(180deg); }
 
-/* Hero 首屏：标题 → 输入框两档交错浮现。 */
-.hero-title { animation: row-in var(--dur-slow) var(--ease-out) both; }
-.hero-composer { animation: row-in var(--dur-slow) var(--ease-out) 120ms both; }
+/* Hero 首屏：标题 → 输入框两档交错浮现。
+   fill=backwards：hero-title 内嵌 hero-ws-wrap（ProjectMenu z60 挂载点），
+   both 的常驻 transform 会困住下拉被后方 composer 区盖住（同 .left 事故）；
+   hero-composer 内无弹层可留 both，但统一 backwards 免得再踩。 */
+.hero-title { animation: row-in var(--dur-slow) var(--ease-out) backwards; }
+.hero-composer { animation: row-in var(--dur-slow) var(--ease-out) 120ms backwards; }
 
 /* 通用悬浮过渡补齐（hover 背景都应有短过渡）。 */
 .tool-row-main, .task-row, .q-option, .model-menu-row,

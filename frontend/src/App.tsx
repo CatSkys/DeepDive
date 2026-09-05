@@ -16,6 +16,7 @@ import { AgentModePicker } from "./components/AgentMode";
 import { SettingsPage } from "./components/SettingsPage";
 import type { ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
+import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
 
 function Shell() {
@@ -178,6 +179,8 @@ function Shell() {
           </div>
         )}
       </main>
+        {/* 全局单例：消息流选中文字的浮条与右键复制菜单（portal 自挂 body） */}
+        <SelectionActions />
         </>
       )}
     </div>

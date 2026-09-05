@@ -9,6 +9,9 @@ export const DD_EVENTS = {
   dictationToggle: "dd:dictation-toggle",
   /** 循环思考强度档位（⌘⇧E）。收发：App → SessionHeader。 */
   cycleEffort: "dd:cycle-effort",
+  /** 把选中文字追加进输入框。收发：SelectionActions → Composer，
+   *  CustomEvent detail 携带 { text }。 */
+  composerAppend: "dd:composer-append",
 } as const;
 
 /** 派发一个应用内事件（window 冒泡阶段监听）。 */

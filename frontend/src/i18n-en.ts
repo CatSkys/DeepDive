@@ -74,6 +74,7 @@ export const EN: Record<string, string> = {
   "输入": "Input",
   "输出": "Output",
   "复制": "Copy",
+  "添加到当前任务": "Add to Current Task",
   "复制成功": "Copied",
   "分支": "Branch",
   "退出码 非 0": "exit ≠ 0",

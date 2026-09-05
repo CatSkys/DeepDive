@@ -11,6 +11,7 @@ import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { PromptContentPart } from "../types";
 import { useComposerDraft } from "./composer/useComposerDraft";
 import { useComposerAttachments, type Attachment } from "./composer/useComposerAttachments";
+import { DD_EVENTS } from "../events";
 import { useComposerDictation } from "./composer/useComposerDictation";
 import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
 import { ComposerMenu } from "./composer/ComposerMenu";
@@ -65,6 +66,24 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   });
   const { listening, partial, toggleDictation } = useComposerDictation({ setText, refocus: refocusDraft });
   const { menu, query, rows } = useComposerMenu({ text, cursor, dismissed, composing, sessionId, setText });
+  // 选中文字「添加到当前任务」（SelectionActions 派发）：追加到现有草稿尾部
+  // （带空行分隔），光标落末尾并重新长高。
+  useEffect(() => {
+    const onAppend = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (!text) return;
+      setText((prev) => (prev ? `${prev}\n${text}` : text));
+      requestAnimationFrame(() => {
+        const ta = taRef.current;
+        if (!ta) return;
+        autoGrow(ta);
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      });
+    };
+    window.addEventListener(DD_EVENTS.composerAppend, onAppend);
+    return () => window.removeEventListener(DD_EVENTS.composerAppend, onAppend);
+  }, [setText]);
 
   useEffect(() => {
     api.settingsDescribe().then((d) => {
