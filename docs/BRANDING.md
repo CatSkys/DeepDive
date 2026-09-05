@@ -1,6 +1,6 @@
 # DeepDive（深潜）品牌定稿（2026-09-02）
 
-> 状态：**品牌名已定（DeepDive · 深潜）**；logo 定稿（ASCII 鲸鱼，种子 20260902）。
+> 状态：**品牌名已定（DeepDive · 深潜）**；logo 定稿（黑底反白鲸鱼，2026-09-05）。
 > 工程改名已于 2026-09-02 执行（见 §5 清单，全部落地；内部代号 scheme/源码目录按 §5 保留 DSHmini 减少 diff）。仓库：CatSkys/DSH-deck。
 
 ## 1. 品牌名
@@ -15,29 +15,27 @@
 命名语义：Deep(Seek) + Dive——与官方"深度求索"、鲸鱼 logo、以及 UI 继承的官方 *Deep diving…* 状态文案同构。
 （备选：DeepDeck / DeepCore / DeepSeek Dock，见下轮如需再评估。）
 
-## 2. Logo 定稿：ASCII 鲸鱼
+## 2. Logo 定稿：黑底反白鲸鱼
 
-- 资产位置：`design/logo/`（生成器 `index.html` 自包含，种子 `20260902`，确定性算法，可复现导出）
-- 形态：**ASCII 字符构成官方 DeepSeek 鲸鱼**（`+ * x` 剪影骨架 / `.` `'` 镂空点晕 / `#` 眼位签名），黑墨 `#0b0b0c`、透明底，7 档尺寸 1024→32
-- 图标容器：浅磨砂玻璃 squircle（`deepdive-icon-frosted-1024-squircle.png`），已切 AppIcon 落地
+- 资产位置：`design/logo/`（生成器 `index.html` 自包含，纯矢量确定性渲染，可复现导出；配方与产物清单见该目录 README）
+- 形态：**官方 DeepSeek 鲸鱼实心剪影，白 `#FFFFFF` 于黑 `#0b0b0c` 底**；鲸鱼最长边占画布 72%，光学中心 y 48.5%
+- 图标容器：22.37% 圆角黑 squircle；AppIcon 按 Apple 官方网格切档（≥128 档烘焙投影，16/32 档全幅直渲），已落地
 - 出处：鲸鱼 path 派生自官方 `favicon.svg`（50×50 viewBox）——**派生自官方图形，非原创**（分发注意见 §4）
 
-## 3. 资产清单与落地状态（2026-09-03 复核）
+## 3. 资产清单与落地状态（2026-09-05 复核）
 
 | 资产/场景 | 状态 |
 | --- | --- |
-| 主 PNG（透明底黑墨，1024…32） | ✅ `design/logo/exports/`（文件名前缀随工程改名统一，种子固定产物可复现） |
-| AppIcon | ✅ `apps/macos/Assets.xcassets/AppIcon.appiconset/`（Apple 网格母版 1024/824/185.4 圆角，10 档）；`project.yml` 已挂 + `LSUIElement` false（进 Dock + ⌘⇥） |
-| 菜单栏状态点 | ✅ 不占用简化小标（沿用圆点） |
-| 欢迎页 hero logo | ❌ **已决策移除**（38eb6e3）：hero 仅保留「做点什么？」标题；前端 `src/assets` 的鲸鱼 PNG 与托板样式一并删除。logo 只出现在 AppIcon/分发物料 |
-| 深色场景反白版 | ⬜ 未做（hero 已不用 logo，需求随场景再评估） |
-| <128px 简化小标 | ⬜ 未做（Dock 以下无场景；如未来有需按 judge 建议 2 出简化版） |
+| 主 PNG（黑底反白方版，1024…32） | ✅ `design/logo/exports/`（`deepdive-logo-white-on-black-*`） |
+| AppIcon | ✅ `apps/macos/Assets.xcassets/AppIcon.appiconset/` 全部 10 档黑底反白（Apple 网格母版 1024/824/185.4 圆角 + 烘焙投影切 6 档；16/32 槽位全幅 squircle 直渲）；`project.yml` 已挂 + `LSUIElement` false（进 Dock + ⌘⇥） |
+| 菜单栏状态点 | ✅ 不占用简化小标（沿用鲸鱼模板图 + 圆点） |
+| 欢迎页 hero logo | ❌ **已决策移除**（38eb6e3）：hero 仅保留「做点什么？」标题；logo 只出现在 AppIcon/分发物料 |
+| <128px 简化小标 | ✅ 随本次统一解决：实心剪影 16px 仍可辨，AppIcon 全档同设计 |
 
 ## 4. 使用与分发纪律
 
-- 视觉纪律沿用 UI-SPEC：**黑白单色**；墨字资产用于浅底，深底必须先出反白版
-- 黑墨主资产 128px 起失认，小尺寸用 AppIcon/圆点，不硬缩主资产
-- **商标/许可**：logo 与命名均派生/关联 DeepSeek 官方（ASCII 鲸鱼派生自官方 path）。个人项目随意；**正式对外分发（Sparkle/商店）前单独评估**——官方 logo 占位属商标使用问题，与 THIRD_PARTY_NOTICES（版权声明）分属两事
+- 视觉纪律沿用 UI-SPEC：**黑白单色**；logo 自带黑底，置于浅色场景时用 squircle 容器形态，不再单独出浅底墨字版
+- **商标/许可**：logo 与命名均派生/关联 DeepSeek 官方（鲸鱼剪影派生自官方 path）。个人项目随意；**正式对外分发（Sparkle/商店）前单独评估**——官方 logo 占位属商标使用问题，与 THIRD_PARTY_NOTICES（版权声明）分属两事
 
 ## 5. 工程改名收口清单（✅ 已执行，2026-09-02）
 
