@@ -27,13 +27,43 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const modelFace = useSessionModels(sessionId);
   // 轮折叠开关（长会话默认折叠早前轮；点击折叠条或关闭开关展开）
   const [turnsFolded, setTurnsFolded] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [follow, setFollow] = useState(true);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
   const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("会话");
+
+  // 底部悬浮区（用户定稿「消息区下延贴底」）：composer 悬浮于消息流之上，
+  // flow 的 padding-bottom 按悬浮区实测高度动态设置（附件/排队坞/多行输入
+  // 都会改变它），滚到底时最后一条消息恰好停在悬浮区上方 16px；贴底状态
+  // 下悬浮区长高自动重新贴底。
+  // 用回调 ref 而非 effect+deps：flow/悬浮区节点会被 React 换新（切会话/
+  // 空态切换），effect 依赖不变就不重跑，观察器会落在死节点上——回调 ref
+  // 在节点每次挂载时触发，保证观察器永远接在活节点上。
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const flowRef = useRef<HTMLDivElement | null>(null);
+  const padObserver = useRef<ResizeObserver | null>(null);
+  const syncBottomPad = () => {
+    const flow = flowRef.current;
+    const bottom = bottomRef.current;
+    if (!flow || !bottom) return;
+    const wasAtBottom = flow.scrollTop + flow.clientHeight >= flow.scrollHeight - 48;
+    flow.style.paddingBottom = `${bottom.offsetHeight + 16}px`;
+    if (wasAtBottom) flow.scrollTop = flow.scrollHeight;
+  };
+  const attachPadSync = () => {
+    padObserver.current?.disconnect();
+    padObserver.current = null;
+    const flow = flowRef.current;
+    const bottom = bottomRef.current;
+    if (!flow || !bottom) return;
+    syncBottomPad();
+    const ro = new ResizeObserver(syncBottomPad);
+    ro.observe(bottom);
+    padObserver.current = ro;
+  };
 
 
 
@@ -131,10 +161,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <StatusCapsule sessionId={sessionId} scheduleRecords={scheduleRecords} />
         )}
       </div>
-      <div className="flow" ref={scrollRef} onScroll={(e) => {
-        const el = e.currentTarget;
-        setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
-      }}>
+      <div
+        className="flow"
+        ref={(el) => { scrollRef.current = el; flowRef.current = el; attachPadSync(); }}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
+        }}
+      >
         <div className="flow-inner">
           {loadError && items.length === 0 && (
             <div className="load-error" role="alert">
@@ -237,12 +271,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <ArrowDown size={16} />
         </button>
       )}
-      {queuedItems.length > 0 && (
-        <div className="queue-dock-wrap">
-          <QueueDock sessionId={sessionId} items={queuedItems} />
-        </div>
-      )}
-      <div className="session-bottom">
+      <div
+        className="session-bottom"
+        ref={(el) => { bottomRef.current = el; attachPadSync(); }}
+      >
+        {queuedItems.length > 0 && (
+          <div className="queue-dock-wrap">
+            <QueueDock sessionId={sessionId} items={queuedItems} />
+          </div>
+        )}
         <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
         {summary?.origin === "subagent" ? (
           <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
