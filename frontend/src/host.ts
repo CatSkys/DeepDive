@@ -111,6 +111,21 @@ export function gitRun(path: string, args: string[]): Promise<{ ok: boolean; out
   );
 }
 
+/** 壳侧读项目根目录约定图标文件（icon.png / logo.* 等，见 WorkspaceIcon）
+ *  为 dataURL；无图标/纯浏览器 resolve null（前端回落项目首字母）。
+ *  壳每次都读盘——调用方按路径缓存，勿在渲染路径反复请求。 */
+export function readWorkspaceIcon(path: string): Promise<string | null> {
+  return bridgeRequest(
+    "workspaceIcon",
+    null,
+    (p) => {
+      const r = p as { dataUrl?: string };
+      return typeof r.dataUrl === "string" && r.dataUrl.startsWith("data:") ? r.dataUrl : null;
+    },
+    (reqId) => sendToShell({ type: "read-workspace-icon", reqId, path }),
+  );
+}
+
 export interface PickedAttachment {
   path: string;
   name: string;

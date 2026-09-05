@@ -465,8 +465,11 @@ button {
   color: var(--ink-2);
   background: var(--fill);
   border: 1px solid var(--line);
+  overflow: hidden;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
+/* 项目图标缩略图（icon.png/logo.* 读盘），无图标回落首字母 */
+.ws-cell-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
 .ws-cell:hover { background: var(--fill); color: var(--ink); }
 .ws-cell.active {
   background: var(--fill-strong);

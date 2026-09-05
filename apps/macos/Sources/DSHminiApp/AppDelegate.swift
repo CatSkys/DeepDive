@@ -274,6 +274,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pickAttachments(reqId: body["reqId"] as? String ?? "")
         case "list-dir":
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
+        case "read-workspace-icon":
+            readWorkspaceIcon(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "run-git":
             runGit(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "git-run":
@@ -345,6 +347,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return a.name < b.name
         }
         reply(rows.prefix(200).map { ["name": $0.name, "path": $0.path, "isDir": $0.isDir] })
+    }
+
+    /// 侧栏空间格图标：读项目根目录约定图标文件（WorkspaceIcon.probe），
+    /// base64 dataURL 回推；无图标/路径非目录回空串——前端回落项目首字母。
+    private func readWorkspaceIcon(reqId: String, path: String) {
+        func reply(_ dataUrl: String) {
+            windowController.pushHostCommand("workspaceIcon", payload: AppDelegate.jsonPayload(["reqId": reqId, "dataUrl": dataUrl]))
+        }
+        let dir = URL(fileURLWithPath: path)
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue,
+              let hit = WorkspaceIcon.probe(in: dir) else {
+            reply("")
+            return
+        }
+        reply("data:\(hit.mime);base64,\(hit.data.base64EncodedString())")
     }
 
     /// 状态胶囊的未提交改动摘要（run-git → gitStatus 回推）。引擎无 git 能力，

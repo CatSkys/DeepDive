@@ -3,7 +3,7 @@ import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings, Sq
 import { IconProjectAddOutline16 } from "./Icons";
 import { InlineLoader } from "./LoadingState";
 import { api } from "../api";
-import { sendToShell } from "../host";
+import { sendToShell, readWorkspaceIcon } from "../host";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
 import { useT } from "../i18n";
@@ -52,6 +52,46 @@ export function WorkspacePill() {
       <Folder size={12} />
       <span className="ws-pill-name">{ws.title}</span>
     </span>
+  );
+}
+
+// 空间格图标缓存（用户需求：优先项目内 icon/logo，无则首字母）：壳每次都
+// 读盘，按路径模块级缓存；工作空间集合在会话内基本不变，不做失效机制。
+const wsIconCache = new Map<string, string | null>();
+
+function useWorkspaceIcon(path: string | undefined): string | null {
+  const [dataUrl, setDataUrl] = useState<string | null>(() => (path ? wsIconCache.get(path) ?? null : null));
+  useEffect(() => {
+    if (!path) return;
+    const cached = wsIconCache.get(path);
+    if (cached !== undefined) {
+      setDataUrl(cached);
+      return;
+    }
+    let alive = true;
+    void readWorkspaceIcon(path).then((url) => {
+      wsIconCache.set(path, url);
+      if (alive) setDataUrl(url);
+    });
+    return () => { alive = false; };
+  }, [path]);
+  return dataUrl;
+}
+
+/// 底部空间格：项目根目录有约定图标文件（icon.png / logo.* 等，壳侧读盘）
+/// 显示缩略图，否则回落项目首字母。
+function WorkspaceCell({ ws, active, onSwitch }: { ws: WorkspaceView; active: boolean; onSwitch: () => void }) {
+  const icon = useWorkspaceIcon(ws.path);
+  return (
+    <button
+      className={`ws-cell${active ? " active" : ""}`}
+      data-tip={ws.title}
+      onClick={onSwitch}
+    >
+      {icon
+        ? <img className="ws-cell-icon" src={icon} alt={ws.title} />
+        : (ws.title.trim()[0] ?? "?").toUpperCase()}
+    </button>
   );
 }
 
@@ -348,14 +388,12 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         {hasWs && (
           <div className="ws-switcher">
             {store.workspaces.map((w) => (
-              <button
+              <WorkspaceCell
                 key={w.workspaceId}
-                className={`ws-cell${w.workspaceId === store.activeWorkspaceId ? " active" : ""}`}
-                data-tip={w.title}
-                onClick={() => store.switchWorkspace(w.workspaceId)}
-              >
-                {(w.title.trim()[0] ?? "?").toUpperCase()}
-              </button>
+                ws={w}
+                active={w.workspaceId === store.activeWorkspaceId}
+                onSwitch={() => store.switchWorkspace(w.workspaceId)}
+              />
             ))}
           </div>
         )}
