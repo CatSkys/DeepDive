@@ -133,96 +133,98 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
           ))}
         </div>
       )}
-      <div className={`composer${wide ? " wide" : ""}${showCtx ? " has-ctx" : ""}`}>
+      <div className="composer-anchor">
         {menu && (
           <ComposerMenu menu={menu} query={query} rows={rows} active={active} setActive={setActive} onPick={pick} />
         )}
-        <button
-          type="button"
-          className="composer-icon"
-          data-tip={t("上传附件")}
-          onClick={addAttachments}
-        >
-          <Plus size={16} strokeWidth={2} />
-        </button>
-        <textarea
-          ref={taRef}
-          rows={1}
-          value={text}
-          placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
-          onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); autoGrow(e.target); }}
-          onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
-          onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
-          onCompositionEnd={(e) => { ime.onCompositionEnd(); setComposing(false); autoGrow(e.currentTarget); }}
-          onPaste={(e) => {
-            // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
-            const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
-            if (files.length === 0) return;
-            e.preventDefault();
-            for (const f of files) addImageFile(f);
-          }}
-          onKeyDown={(e) => {
-            if (ime.swallow(e)) return;
-            if (menu && rows.length > 0) {
-              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                e.preventDefault();
-                setActive((current) => (current + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
-                return;
-              }
-              if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
-                e.preventDefault();
-                const r = rows[active];
-                if (r) pick(r);
-                return;
-              }
-            }
-            if (e.key === "Escape") {
-              if (menu) { e.preventDefault(); setDismissed(true); }
-              return;
-            }
-            if (e.key === "Enter" && !e.shiftKey) {
+        <div className={`composer${wide ? " wide" : ""}${showCtx ? " has-ctx" : ""}`}>
+          <button
+            type="button"
+            className="composer-icon"
+            data-tip={t("上传附件")}
+            onClick={addAttachments}
+          >
+            <Plus size={16} strokeWidth={2} />
+          </button>
+          <textarea
+            ref={taRef}
+            rows={1}
+            value={text}
+            placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
+            onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); autoGrow(e.target); }}
+            onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
+            onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
+            onCompositionEnd={(e) => { ime.onCompositionEnd(); setComposing(false); autoGrow(e.currentTarget); }}
+            onPaste={(e) => {
+              // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
+              const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+              if (files.length === 0) return;
               e.preventDefault();
-              // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
-              const other = busyEnter === "queue" ? "steer" : "queue";
-              void submit(e.metaKey || e.ctrlKey ? other : undefined);
-            }
-          }}
-        />
-        {/* 容量圈在右钮（发送/停止/听写）左侧，hover 出容量面板 */}
-        {showCtx && <ContextRing ctx={ctx} />}
-        {/* 右侧单槽位：空=听写 → 有内容=发送 → 运行中=停止（参考图 1-4） */}
-        {running ? (
-          <button
-            type="button"
-            className="composer-send stop"
-            data-tip={t("停止")}
-            onClick={() => sessionId && void api.cancel({ sessionId }).catch(() => void 0) /* 停止请求失败：吞掉不弹错，运行态随事件流收敛 */}
-          >
-            <Square size={13} fill="currentColor" />
-          </button>
-        ) : canSend ? (
-          <button type="button" className="composer-send" data-tip={t("发送")} data-tip-keys="Enter" onClick={() => void submit()}>
-            <ArrowUp size={15} strokeWidth={2.4} />
-          </button>
-        ) : hasShell ? (
-          <button
-            type="button"
-            className={`composer-mic${listening ? " live" : ""}`}
-            data-tip={listening ? t("停止听写") : t("听写")}
-            data-tip-keys={comboFor("dictation", store.keybinds)}
-            onClick={toggleDictation}
-          >
-            {listening ? (
-              <span className="eq">
-                {[0, 1, 2].map((i) => (
-                  <span key={i} style={{ animationDelay: `${i * 150}ms` }} />
-                ))}
-              </span>
-            ) : (
-              <Mic size={15} strokeWidth={2} />
-            )}
-          </button>
-        ) : null}
+              for (const f of files) addImageFile(f);
+            }}
+            onKeyDown={(e) => {
+              if (ime.swallow(e)) return;
+              if (menu && rows.length > 0) {
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActive((current) => (current + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
+                  return;
+                }
+                if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+                  e.preventDefault();
+                  const r = rows[active];
+                  if (r) pick(r);
+                  return;
+                }
+              }
+              if (e.key === "Escape") {
+                if (menu) { e.preventDefault(); setDismissed(true); }
+                return;
+              }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
+                const other = busyEnter === "queue" ? "steer" : "queue";
+                void submit(e.metaKey || e.ctrlKey ? other : undefined);
+              }
+            }}
+          />
+          {/* 容量圈在右钮（发送/停止/听写）左侧，hover 出容量面板 */}
+          {showCtx && <ContextRing ctx={ctx} />}
+          {/* 右侧单槽位：空=听写 → 有内容=发送 → 运行中=停止（参考图 1-4） */}
+          {running ? (
+            <button
+              type="button"
+              className="composer-send stop"
+              data-tip={t("停止")}
+              onClick={() => sessionId && void api.cancel({ sessionId }).catch(() => void 0) /* 停止请求失败：吞掉不弹错，运行态随事件流收敛 */}
+            >
+              <Square size={13} fill="currentColor" />
+            </button>
+          ) : canSend ? (
+            <button type="button" className="composer-send" data-tip={t("发送")} data-tip-keys="Enter" onClick={() => void submit()}>
+              <ArrowUp size={15} strokeWidth={2.4} />
+            </button>
+          ) : hasShell ? (
+            <button
+              type="button"
+              className={`composer-mic${listening ? " live" : ""}`}
+              data-tip={listening ? t("停止听写") : t("听写")}
+              data-tip-keys={comboFor("dictation", store.keybinds)}
+              onClick={toggleDictation}
+            >
+              {listening ? (
+                <span className="eq">
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} style={{ animationDelay: `${i * 150}ms` }} />
+                  ))}
+                </span>
+              ) : (
+                <Mic size={15} strokeWidth={2} />
+              )}
+            </button>
+          ) : null}
+        </div>
       </div>
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
       {preview && (

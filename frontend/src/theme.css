@@ -195,7 +195,11 @@ button {
    `* { backdrop-filter:none !important }` + 白名单方案有两个致命伤：
    ① 与压缩器的 -webkit- 属性合并相互作用后不同引擎静默失效；
    ② 新弹层忘进白名单就无模糊（2026-09 提供商下拉事故）。全局禁用勿恢复；
-   .flow * 的禁用保留（消息流合成隔离用途，弹层均不挂在 flow 内）。 */
+   .flow * 的禁用保留（消息流合成隔离用途，弹层均不挂在 flow 内）。
+   第三条（2026-09 弹出卡片事故）：自带 blur 只模糊「自己身后」——弹层
+   不得嵌在别的 backdrop-filter 面内，祖先成 backdrop root 后取不到面外
+   内容，形同没有模糊；composer 菜单因此挂在 .composer-anchor 下
+   （.composer 的兄弟而非子元素）。 */
 .model-menu, .composer-menu, .ctx-menu, .ws-menu, .effort-cell, .ctx-pop, .capsule-panel, .tip {
   backdrop-filter: blur(40px) saturate(160%);
 }
@@ -855,6 +859,11 @@ button {
    inside. Grid 4 列保证单行时 ＋/麦克风/发送与文本垂直居中；多行（.wide）
    时文本独占首行、控件换到底部行（参考 wide 模式），圆角转 24px。 */
 .composer-wrap { position: relative; flex: 1; min-width: 0; }
+/* position:relative：composer-menu 的包含块。菜单必须是 .composer 的兄弟
+   而非子元素——composer 自带 backdrop-filter，是 backdrop root，嵌在里面的
+   弹层模糊只能取到 pill 内部绘制内容，背后的页面文字不会被模糊（2026-09
+   弹出卡片无模糊事故）。anchor 高度 = composer 高度，菜单 bottom:100% 恰贴其上。 */
+.composer-anchor { position: relative; }
 .composer {
   position: relative;
   display: grid;
