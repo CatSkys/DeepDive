@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import {
-  Check, ChevronDown, CloudUpload, Diff, GitBranch,
+  Check, ChevronDown, CloudUpload, FileDiff, GitBranch,
   GitCommitHorizontal,
 } from "lucide-react";
 import { gitRun } from "../host";
@@ -84,7 +84,7 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
   return (
     <div className="capsule-sec">
       <div className="capsule-row">
-        <Diff size={14} />
+        <FileDiff size={14} />
         <span className="capsule-row-text">{t("变更")}</span>
         <span className="capsule-row-meta"><b className="capsule-add">+{git.additions}</b> <b className="capsule-del">−{git.deletions}</b></span>
       </div>

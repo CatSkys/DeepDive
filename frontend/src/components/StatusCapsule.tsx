@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlarmClock, ArrowRight, Bot, ChevronDown, ChevronUp, Circle,
-  CircleCheck, Flag, GitBranch, ListTodo, RefreshCw, Square,
+  CircleCheck, FileDiff, Flag, ListTodo, RefreshCw, Square,
 } from "lucide-react";
 import { api } from "../api";
 import { gitStatus } from "../host";
@@ -152,7 +152,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
             <span className="capsule-pill-meta">{cat.done}/{cat.total}</span>
           </>}
           {cat.kind === "git" && <>
-            <GitBranch size={13} />
+            <FileDiff size={13} />
             <span className="capsule-pill-meta"><b className="capsule-add">+{cat.additions}</b> <b className="capsule-del">−{cat.deletions}</b></span>
           </>}
           {cat.kind === "schedule" && <>
