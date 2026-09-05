@@ -1,5 +1,5 @@
 #!/bin/bash
-# DeepDive — Release build + ad-hoc signed .app + DMG.
+# DeepDive — Release build + Developer ID signed .app + DMG（无证书环境回退 adhoc）.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,7 +25,16 @@ bash scripts/embed-engine.sh "$APP"
 # 签名失败必须停：曾 `|| true` 吞错，bundle 被 embed 改坏时仍照常出 DMG（AUD-013）。
 # embed-engine 已在其自检前 re-seal 一次；此处再签是 DMG 分发前的最终 seal，
 # 二者顺序勿倒（embed → 最终 seal → DMG）。
-codesign --force --deep -s - "$APP" || { echo "FAIL: codesign $APP"; exit 1; }
+# 用本机 Developer ID 固定身份而非 adhoc：macOS 按（签名, bundle id）记 TCC
+# 授权，adhoc 每次重打包签名都变 → 授权反复重置、启动弹「访问文稿」框模态
+# 挡住初始化（PITFALLS §4.8）。固定身份后授权跨构建持久。无证书的环境回退 adhoc。
+IDENTITY="${DSHMINI_CODESIGN_IDENTITY:-Developer ID Application: HANGBIN JIN (49LSZKN27V)}"
+if security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
+  codesign --force --deep -s "$IDENTITY" "$APP" || { echo "FAIL: codesign $APP"; exit 1; }
+else
+  echo "WARN: '$IDENTITY' not in keychain, falling back to ad-hoc signing"
+  codesign --force --deep -s - "$APP" || { echo "FAIL: codesign $APP"; exit 1; }
+fi
 
 mkdir -p dist
 DMG="dist/DeepDive-${VERSION}-dev.dmg"
