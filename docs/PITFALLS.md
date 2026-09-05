@@ -65,6 +65,10 @@
 - 事故：全被渲染成右对齐大气泡，旧会话回放时满屏巨型卡片。
 - 处置：`user/message` 只对 `source.kind === 'user'`（真正用户输入）渲染气泡；注入消息（plugin/skill-catalog/agent-instructions/goal…）**不渲染**（2026-09-04 用户拍板：注入折叠行也已整体移除，事件直接丢弃； Pitfall 本体=它们绝不能渲染成右对齐大气泡）。
 
+### 2.5 引擎帧字段以 vendored schema 为准，不按字段名猜
+- 事故：壳侧 EngineEventObserver 读 `frame["questionId"]`——引擎 `question/requested` 载荷根本没有这个键（`deepseek-harness/packages/host/apiproxy/src/api/events.schema.ts:51` 只有 `{sessionId, questions[]}`），nil 落到 `?? UUID().uuidString` 兜底，每次插入都是随机新 id；`question/resolved`（键为 `questionRpcId`）又未处理——pending 只进不出，一次提问后"需注意"状态卡死到引擎重启。
+- 处置：**挂起身份 = server-request 信封的 rpcId**（与前端 store 同一语义）；帧解析前先查 vendored schema（`packages/*/src/api/*.schema.ts`），契约字段直取、缺即 return，不做 UUID/空串兜底掩盖漂移（铁律 9/10）。表驱动 XCTest 钉住配对语义（EngineEventObserverTests）。
+
 ---
 
 ## 3. 消息流（多 step / 乱序 / 重复）
@@ -125,14 +129,29 @@
 - `make package` 每次重签 bundle，macOS 按（code signature, bundle id）记 TCC 授权，签名一变「文稿访问」等授权全部重置：启动即弹"DeepDive 想访问文稿"系统框，**模态挡住应用初始化**（表现为 AX 查不到窗口/菜单栏、状态项缺失，像启动失败）。
 - 处置：预期行为，点"允许"即可，不是回归；自动化验证前先确认没有授权框挡着。
 
+### 4.9 监督状态机的动作必须幂等：退避定时器 × 手动 start 并发 = 双 spawn
+- 事故：引擎退出后排了 restartWorkItem 退避重启；退避窗内用户点"重启引擎"直达 `start()`——`start()` 有 `process == nil` 守卫但不取消挂起的定时器，而 `spawn()` 无守卫、`self.process = process` 无条件覆盖——定时器稍后再 spawn 一次，首个引擎成孤儿进程，两引擎共用 DSH_HOME 交错写会话（恰是单实例锁要防的事）。
+- 处置：状态机的每个入口（start/stop/定时器回调）都要幂等：start 先 cancel 挂起项；spawn 前置 `guard process == nil`。同类纪律适用于一切"手动操作 × 自动重试"并存的状态机。
+
+### 4.10 手写 socket 泵的 fd 属主：双 close 在 fd 复用窗口误伤无关连接
+- 事故：WS 盲中继两条 detached 线程退出时各自 `close(upstream); close(client)`——先退的一侧把两个 fd 都关了，内核可能已把其中之一复用给新连接/引擎管道，第二次 close 关的是别人的 socket；且 close 不保证唤醒对端阻塞中的 recv（要 shutdown 才会）。
+- 处置：**每个 fd 只有一个属主线程**，退出时 close 自己一侧、对另一侧只 `shutdown(SHUT_RDWR)` 唤醒对端退出。
+
+### 4.11 主线程同步 Process + 不排空 stderr = 死锁面
+- 事故：run-git 聚合在主线程同步跑 3 条 git（readDataToEndOfFile + waitUntilExit），且 stderr Pipe 从不读取——子进程 stderr 写满 64KB 管道缓冲后阻塞写，进程不退出，主线程 `readDataToEndOfFile` 永等 → 整 app 冻结。
+- 处置：磁盘/子进程 IO 一律后台队列（gitRun 样板）；两侧管道**都要排空且不能顺序读**——顺序读有互锁面（先读的一侧等 EOF，子进程可能正阻塞在另一侧的满缓冲上），stderr 用独立线程排空。
+
+### 4.12 NSNumber.intValue 是 Int32 语义，大整数静默截断
+- JSON 反序列化的整数经 `NSNumber.intValue` 进 `case int(Int)`：intValue 按 Int32 截断，毫秒时间戳等 Int64 值高位丢失且无任何报错。
+- 处置：统一走 `Int(n.int64Value)`（JSONValue.swift）。
+
 ---
 
 ## 5. 版本角标 / 交付自检
 
-### 5.1 角标必须是构建时烘焙的真实 git SHA
-- 曾发生角标显示非本仓库的假 SHA（"58ecf97 之谜"），用户据此判断"不是你要的版本"。根因：角标硬编码。
-- 处置：`vite.config.ts` 用 `define` 烘焙 `git rev-parse --short HEAD`，Sidebar 渲染 `v-{__DSH_BUILD_SHA__}`。角标永远等于真实构建 SHA。
-- 交付前用 `grep -o "v-<sha>" dist/assets/index-*.js` 核对。
+### 5.1 版本号的唯一呈现是包名与 Info.plist（buildSha define 是死码，已删）
+- 曾有"角标显示假 SHA"事故（58ecf97 之谜），当时的处置是在 vite.config define 烘焙 `__DSH_BUILD_SHA__`；后续 UI 改版角标被移除，define 变成零消费死码、其注释还在宣称存在 sidebar badge——2026-09 体检（AUD-033）删除。
+- 现状态：版本以 `scripts/package-macos.sh` 从生成的 Info.plist 读取并进 DMG 文件名（xcodegen 先行、读取 fail-loud）；**不要再往 vite.config 加无人消费的 define**，加了也查不到消费者（grep src 为准）。
 
 ### 5.2 验收对象必须是 .build/release 最新包——Debug 实例会混入
 - `xcodebuild test` 会产出 `.build/debug` 的 Debug app；它可能被 launchd/误点启动，**内嵌前端是旧的**，在它上面调试/验收会看到与最新代码不符的行为（2026-09-04 事故：快捷键轮在 Debug 残留实例上测，行为对不上源码）。
@@ -141,6 +160,11 @@
 ### 5.3 交付前必截图自检（WORKING-AGREEMENTS）
 - 改完样式/渲染 → 构建 → 打包 → 启动 → 用 Playwright（channel chrome headless 打开 bridge URL）截图，核对：消息流居中、无卡片、tool 行/产物/turn-tail/meta 位置、用户消息右对齐等。
 - 只改用户指出的项；不质疑用户、不拿"旧实例"当借口。
+- 截图通道不可用时（Read 返回 CDN 回执而非像素）：如实说明"像素级目检未完成"，改用 DOM/computed-style 断言覆盖改动面（类存在性、token 变量解析值、原生 title= 归零等），绝不假装看过图。
+
+### 5.4 `xcodebuild | tail` 吞退出码：管线截尾必须落盘再截
+- 事故：test.sh 先修了（输出落盘 + `|| { tail; exit 1; }`），dev.sh 漏网——`xcodebuild … | tail -5` 的管线退出码是 tail 的 0，构建失败被洗白后 embed-web 把新 web 嵌进旧 .app、`open` 成功、脚本退出码 0，坏构建静默交付。
+- 处置：任何"长输出只看尾巴"的场景统一落盘法：`cmd > log 2>&1 || { tail -30 log; exit 1; }`；同类坑会复发在每一个新写的构建脚本上，评审时见 `| tail` 就要查 pipefail。
 
 ---
 
@@ -163,6 +187,30 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 ### 6.3 后台 subagent 在此环境会静默失败
 - 观察：`subagent`/`subagent_fork` 后台多次启动后 `failed before it finished. No closing message.`
 - 处置：需要委派时用**前台等待**（`run_in_background:false`），或改为本人直接读官方源码对比。
+
+---
+
+## 8. React 状态与表单（2026-09-05 全量体检批次沉淀）
+
+### 8.1 手写 Context value 的 useMemo deps 是新增 state 的盲区
+- 事故：store.tsx 的 value memo deps 数组漏了后加的 `keybinds/hotkeyOn`——运行中在设置页改快捷键后 memo 不重建，消费者（按键 effect）拿旧值**改键不生效**；启动期被 prefs 批量下发掩盖（lang/appearance 同时变会顺带重建 value），只在会话中改键复现。
+- 处置：往 store 加 state 时**必须同步把它（和稳定 setter）写进 deps 数组**，那条 eslint-disable 挡不住漏项——改完用"运行中改这个值"手测一次，别只依赖启动路径。
+
+### 8.2 编辑弹窗必须回填原值：空字段 ≠ 保持不变
+- 事故：ModelDialog 编辑目录条目时 modelName/modelContext 初始化为空串，保存按「空值省略字段」整条替换——只改一项就把原有 name/contextWindow 静默丢掉。
+- 处置：打开编辑时从数据源回填全部字段（`knownModels.find(origId)`）；「留空=省略」语义只允许用于**新增**路径。同型坑：编辑改 id 要先滤掉与新 id 撞车的其他条目，否则造出重复行。
+
+### 8.3 setState updater 必须是纯函数：副作用靠 ref 镜像 + 快照
+- 事故：mux 增量摄取把 `log.push/ingest/finalizeTurns` 写进 `setItems(prev => …)`——StrictMode dev 双调用 updater，副作用跑两遍，当时靠 seq 守卫碰巧兜住。
+- 处置：副作用全部在 handler 内完成（itemsRef 同步镜像取最新列表），setState 只收快照 `setItems(itemsRef.current.slice())`。任何"现在没炸"的 updater 副作用都是定时炸弹。
+
+### 8.4 in-flight 状态在失败路径也要复位
+- 事故：自动发现模型的 catch 分支 `setError; setSaving(false); return;` 漏了 `setDiscovering(false)`——失败后"发现模型"按钮永久禁用，恰好锁死了重试入口。
+- 处置：每个 setLoading/setBusy 配对检查**所有** return/catch 路径；评审口诀："搜 setState(true) 的下一处 setState(false) 在不在同一个 try 的 finally 语义里"。
+
+### 8.5 指标先写夹具再写公式：分子分母要一眼可对
+- 事故：tokensPerSecond 写成了 `解码秒数`（公式里没有 tokens 分子），渲染成 "12.5 tok/s" 实为 12.5 秒——现有测试只钉了 runMs/ttftMs，恰好漏过。
+- 处置：新增派生指标时夹具必须带全输入（含 usage）并断言**带量纲的结果**；官方口径以 vendored `ui-conversation/turn-metrics` 为准（outputTokens ÷ 解码墙钟秒）。
 
 ---
 

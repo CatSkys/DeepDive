@@ -1,4 +1,9 @@
-# 全量深度体检报告 — 2026-09（第 3 版·已完成）
+# 全量深度体检报告 — 2026-09（第 3 版·已完成·已修复）
+
+> **修复状态（2026-09-05）**：本版台账已全部处置完毕，分四批落地——
+> ①`2ecf6cf` 前端止血（三 P1 + 同文件 P2）②`9fae1fb` 壳侧止血（observer/supervisor/bridge/runGit/超时）③`a1572f4` 边界与复杂度 + 清理（Composer 拆分/prefs 拆分/围栏 hook/死代码/脚本/命名）④文档批（PITFALLS §2.5/§4.9-4.12/§5/§8 沉淀 + 本报告状态回写）。
+> 验证：vitest 112（+5 format）全绿、eslint 零错、tsc 严格零错、build 通过、xcodebuild 20 例全绿（+4 observer）；交付链 package→pkill→open 走完，引擎就绪/mux 观察器/host-ready 日志确认，DOM/computed-style 断言覆盖改动面（信号 token 解析、title= 归零 data-tip=24、拆分后 Composer 渲染）。**像素级截图目检在本环境不可用（图片读取通道返回 CDN 回执），已按 PITFALLS §5.3 如实记录并以 DOM 深检替代。**
+> 查证结论文本见 §6.2 表内标注；坑已沉淀 docs/PITFALLS.md §2.5/§4.9-4.12/§5.4/§8。
 
 > 评价标准唯一：**AI 下次冷启动接手时，能否快速、正确、低成本地理解和修改**。
 > 审查方式：模块 1（前端核心层）由主审逐行详读；模块 2–6 由五个独立上下文的只读审查代理逐行读完，**全部 P1/P2 发现经主审回读原文逐条实证**（tok/s 计算、ModelDialog 回填、question 帧 schema 对照 vendored 引擎源、双 spawn、WS 双 close、runGit 主线程、dev.sh 吞错、pointercancel 缺失、AUD-050 迁移现状等均已亲验）；机器检查全跑；跨模块扫描（EN 词典缺键归零、死类、死导出、循环依赖）脚本核验。
@@ -236,9 +241,12 @@ stats 数据流（代理已对引擎 paginate 源核验）：session.list → �
 ### 6.1 v2 台账（AUD-001~060）对账结论
 
 **已修/失效（实证）**：AUD-005（三组重复已收敛 sessionTitle/SessionHeader/modelOptions）、AUD-011（两循环断）、AUD-012、AUD-013（R-003）、AUD-014（EN 缺键归零，本轮脚本复核）、AUD-016（用户可见品牌归零）、AUD-018、AUD-021、AUD-022（session/ 拆分全 ≤469）、AUD-024（守卫在 ModelDialog:170-171）、AUD-028、AUD-030、AUD-032、AUD-040、AUD-044（文件已删）、AUD-053 半修（make test 已有；bashism 残留→AUD-111）、AUD-060（key 已由 renderModel 稳定生成；新增他处不稳 key→AUD-096）。
+**仍在→本轮已清**：下表"仍在"各项中，AUD-006/015/017/023/025/026/029/031/033/034/035/036/037/038/039/041/042/043/046/047/048/049/050/051/052/054/056 已全部在 a1572f4/9fae1fb 修复（含 031 死类清零+LoadingState 连带死类、047 收敛 formatElapsed、049 壳桥 10s 超时）；AUD-059/104 维持观察/接受。
 **仍在（位置随代码演进迁移）**：AUD-006（6→4 份，→AUD-098）、AUD-015（+stderr 死锁新面）、AUD-017（R-006 修 4 处后又长出新实例：Composer×5、useSessionEvents×2、MessageRow:50、UsageSection 等）、AUD-023（Composer 反涨至 618）、AUD-025、AUD-026、AUD-029、AUD-031（死类 10→4）、AUD-033、AUD-034、AUD-035、AUD-036、AUD-037a/b、AUD-038、AUD-039、AUD-041（ModelMenu 侧）、AUD-042、AUD-043、AUD-046、AUD-047（×4 扩大）、AUD-048（部分）、AUD-049、AUD-050（迁移至 useSessionEvents.ts:106）、AUD-051、AUD-052、AUD-054、AUD-056、AUD-059。
 
 ### 6.2 本版新台账（AUD-061 起）
+
+> **处置结论（2026-09-05 修复批）**：AUD-061~068、070~078、080~097、099~114 **全部已修**（批次见文件头四条提交）；AUD-073 查证**不成立**（引擎 plan 投影键常驻纯折叠，已注释定论）；AUD-079 已后台化；AUD-083 已备案（EngineSupervisor 尾注）；AUD-087 维持现状（"Auto"/"Plan ×" 为品牌英文，两语言同形，与词典既有 "Default": "Default" 同类）；AUD-104 维持观察（stats 全量重拉无缓存，会话量大或用户反馈慢再做增量）；AUD-059 维持接受（chunk 813kB 本地壳加载可感前不做分割）。AUD-069→按 schema 重写并补 4 例表驱动测试；AUD-072 连带 Makefile 侧 `sh scripts/*` 经实测在 POSIX 模式下兼容，未强改。
 
 | 编号 | 级别 | 位置 | 问题 | 建议修复方式 |
 |---|---|---|---|---|

@@ -12,3 +12,6 @@ frontend/packages/design/generated/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# ZCode 会话产物
+.zcode/
