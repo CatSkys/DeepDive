@@ -37,32 +37,60 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // 底部悬浮区（用户定稿「消息区下延贴底」）：composer 悬浮于消息流之上，
   // flow 的 padding-bottom 按悬浮区实测高度动态设置（附件/排队坞/多行输入
-  // 都会改变它），滚到底时最后一条消息恰好停在悬浮区上方 16px；贴底状态
-  // 下悬浮区长高自动重新贴底。
-  // 用回调 ref 而非 effect+deps：flow/悬浮区节点会被 React 换新（切会话/
-  // 空态切换），effect 依赖不变就不重跑，观察器会落在死节点上——回调 ref
-  // 在节点每次挂载时触发，保证观察器永远接在活节点上。
+  // 都会改变它），滚到底时最后一条消息恰好停在悬浮区上方 16px。
+  // 接线必须自愈：WS 断连/引擎重启期间 React 可长期不重渲染，ref 不重触发，
+  // ResizeObserver 也可能落在死节点上（实测 padding 静默丢失）——RO 之外加
+  // 1s 看门狗，节点换新或断观察都会在一秒内重新接上。
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const flowRef = useRef<HTMLDivElement | null>(null);
   const padObserver = useRef<ResizeObserver | null>(null);
+  const observedBottom = useRef<Element | null>(null);
+  const scrollAnim = useRef<number | null>(null);
   const syncBottomPad = () => {
     const flow = flowRef.current;
     const bottom = bottomRef.current;
     if (!flow || !bottom) return;
+    if (observedBottom.current !== bottom) {
+      padObserver.current?.disconnect();
+      const ro = new ResizeObserver(syncBottomPad);
+      ro.observe(bottom);
+      padObserver.current = ro;
+      observedBottom.current = bottom;
+    }
     const wasAtBottom = flow.scrollTop + flow.clientHeight >= flow.scrollHeight - 48;
     flow.style.paddingBottom = `${bottom.offsetHeight + 16}px`;
     if (wasAtBottom) flow.scrollTop = flow.scrollHeight;
   };
-  const attachPadSync = () => {
-    padObserver.current?.disconnect();
-    padObserver.current = null;
+  useEffect(() => {
+    const t = setInterval(syncBottomPad, 1000);
+    return () => {
+      clearInterval(t);
+      padObserver.current?.disconnect();
+      if (scrollAnim.current !== null) cancelAnimationFrame(scrollAnim.current);
+    };
+  }, []);
+
+  // 回到底部：rAF 缓动（ease-out-cubic）。WKWebView 原生 smooth 的时长与
+  // 松紧不可控；且 content-visibility 的估高在跳达后被真实高度替换、
+  // scrollHeight 会漂移——落点后下一帧再校准一次。
+  const scrollFlowToBottom = (smooth: boolean) => {
     const flow = flowRef.current;
-    const bottom = bottomRef.current;
-    if (!flow || !bottom) return;
-    syncBottomPad();
-    const ro = new ResizeObserver(syncBottomPad);
-    ro.observe(bottom);
-    padObserver.current = ro;
+    if (!flow) return;
+    if (scrollAnim.current !== null) { cancelAnimationFrame(scrollAnim.current); scrollAnim.current = null; }
+    const settle = () => { flow.scrollTop = flow.scrollHeight; };
+    const from = flow.scrollTop;
+    const distance = flow.scrollHeight - flow.clientHeight - from;
+    if (!smooth || distance < 2) { settle(); return; }
+    const duration = Math.min(480, 220 + distance * 0.08);
+    const t0 = performance.now();
+    const step = (now: number) => {
+      if (flowRef.current !== flow) return; // 中途切会话：动画作废
+      const p = Math.min(1, (now - t0) / duration);
+      flow.scrollTop = from + distance * (1 - Math.pow(1 - p, 3));
+      if (p < 1) scrollAnim.current = requestAnimationFrame(step);
+      else { settle(); requestAnimationFrame(settle); scrollAnim.current = null; }
+    };
+    scrollAnim.current = requestAnimationFrame(step);
   };
 
 
@@ -163,7 +191,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       </div>
       <div
         className="flow"
-        ref={(el) => { scrollRef.current = el; flowRef.current = el; attachPadSync(); }}
+        ref={(el) => { scrollRef.current = el; flowRef.current = el; syncBottomPad(); }}
         onScroll={(e) => {
           const el = e.currentTarget;
           setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
@@ -263,17 +291,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         <button
           className="jump-down"
           data-tip={t("回到最新")}
-          onClick={() => {
-            scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-            setFollow(true);
-          }}
+          onClick={() => scrollFlowToBottom(true)}
         >
           <ArrowDown size={16} />
         </button>
       )}
       <div
         className="session-bottom"
-        ref={(el) => { bottomRef.current = el; attachPadSync(); }}
+        ref={(el) => { bottomRef.current = el; syncBottomPad(); }}
       >
         {queuedItems.length > 0 && (
           <div className="queue-dock-wrap">
