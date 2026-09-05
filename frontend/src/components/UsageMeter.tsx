@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { t, tt } from "../i18n";
 import type { TokenUsage } from "../types";
 
@@ -35,11 +36,19 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
   const [open, setOpen] = useState(false);
   // 离圈到弹层之间有缝，延时关闭让指针安全走过；再次进入即取消
   const closeTimer = useRef<number | undefined>(undefined);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  // 弹层 portal 到 body + fixed 定位：ring 在 composer 模糊面内，弹层若作为
+  // 其子元素会被 backdrop root 锁死采样（配方注释②）；ring 在固定 footer，
+  // 弹层存续期坐标不漂移，hover 时取一次视口坐标即可
+  const [popPos, setPopPos] = useState<{ right: number; bottom: number } | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
   const hover = (v: boolean) => {
     window.clearTimeout(closeTimer.current);
-    if (v) setOpen(true);
-    else closeTimer.current = window.setTimeout(() => setOpen(false), 120);
+    if (v) {
+      const r = wrapRef.current?.getBoundingClientRect();
+      if (r) setPopPos({ right: window.innerWidth - r.right - 6, bottom: window.innerHeight - r.top + 8 });
+      setOpen(true);
+    } else closeTimer.current = window.setTimeout(() => setOpen(false), 120);
   };
   if (!hasContextData(ctx)) return null;
   const { projected, window: win } = ctx;
@@ -59,7 +68,7 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
   // 圆周 2πr（r=8）；stroke-dasharray 走"点亮弧长 空白弧长"二元
   const arc = 2 * Math.PI * 8;
   return (
-    <div className="ctx-ring-wrap" onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}>
+    <div className="ctx-ring-wrap" ref={wrapRef} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}>
       <div className="ctx-ring" data-hot={hot ? "true" : "false"} aria-label={`${t("上下文容量")} ${Math.round(pct * 100)}%`}>
         <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
           <circle cx="11" cy="11" r="8" fill="none" stroke="var(--line-strong)" strokeWidth="2.5" />
@@ -73,8 +82,8 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
           />
         </svg>
       </div>
-      {open && (
-        <div className="ctx-pop ctx-cap">
+      {open && popPos && createPortal(
+        <div className="ctx-pop ctx-cap" style={{ position: "fixed", top: "auto", right: popPos.right, bottom: popPos.bottom }}>
           <div className="ctx-cap-head">
             <span className="ctx-cap-title">{t("上下文容量")}</span>
             <span className="ctx-cap-total">{tt("{a} / {b}（{p}）", "{a} / {b} ({p})", { a: fmtTokens(projected), b: fmtTokens(win), p: fmtPct(pct) })}</span>
@@ -93,7 +102,8 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
               <div className="ctx-cap-row"><span>{t("平均缓存命中率")}</span><b>{fmtPct(hit)}</b></div>
             </>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

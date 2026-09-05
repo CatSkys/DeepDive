@@ -2620,10 +2620,9 @@ button {
 .ctx-pop-row { display: flex; justify-content: space-between; gap: 16px; font-size: 12px; color: var(--ink-2); }
 .ctx-pop-row b { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
 /* 容量面板（ContextRing hover 弹出；挂在输入框上，向上开） */
+/* 定位由 ContextRing 内联 fixed 计算（portal 到 body，逃出 composer 模糊面），
+   此处只管宽度与密度 */
 .ctx-cap {
-  top: auto;
-  bottom: calc(100% + 8px);
-  right: -6px;
   width: 264px;
   min-width: 0;
   padding: 12px 14px;
