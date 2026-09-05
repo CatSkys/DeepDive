@@ -127,8 +127,7 @@ export const api = {
     }),
   /** Cancel a pending ask_user_question request (outcome: cancelled → ASK_CANCELLED). */
   cancelQuestion: (rpcId: string) => respondCancel(rpcId),
-  agentPresets: () =>
-    unary<{ presets: Array<{ id: string; name: string; description?: string; trust?: string; isDefault?: boolean }> }>("agentPreset.list", {}),
+  agentPresets: () => unary<{ presets: AgentPreset[] }>("agentPreset.list", {}),
   sessionModels: (payload: { sessionId: string }) =>
     unary<{
       current: { provider: string; model: string; reasoningEffort?: string };
@@ -219,6 +218,17 @@ export interface SettingsDescribe {
   writable?: boolean;
   hasDocument?: boolean;
   namespaces: SettingsNamespaceEntry[];
+}
+
+/** agentPreset.list 行。trust 只来自引擎目录归属（system=随引擎分发的内建
+ *  预设 / user=用户自建），schema 见 vendored agent-presets。name 是引擎侧
+ *  原样文本（内建预设为中文），展示层需自行本地化内建项（AgentMode）。 */
+export interface AgentPreset {
+  id: string;
+  name: string;
+  description?: string;
+  trust?: "system" | "user";
+  isDefault?: boolean;
 }
 
 /** Capability probe (SPEC-SETTINGS §4.2): empty-payload call; 404 or a

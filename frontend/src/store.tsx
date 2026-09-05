@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
+import type { AgentPreset } from "./api";
 import { usePrefs } from "./prefs";
 import type { KeybindOverrides } from "./keybinds";
 import type { ApprovalRequestFrame, MuxFrame, QuestionItem, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
@@ -52,7 +53,7 @@ interface Store {
   wsOfSession: Map<string, string>;
   sessions: SessionSummary[];
   /** 引擎 Agent 会话预设（agentPreset.list 一次性拉取；失败为空 = 隐藏入口）。 */
-  presets: Array<{ id: string; name: string; isDefault?: boolean }>;
+  presets: AgentPreset[];
   /** hero 页选中的会话模式；createSession 未显式传参时作为 agentPreset。 */
   heroPreset: string | undefined;
   setHeroPreset: (id: string) => void;
@@ -118,7 +119,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [workspaces, setWorkspaces] = useState<WorkspaceView[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [presets, setPresets] = useState<Array<{ id: string; name: string; isDefault?: boolean }>>([]);
+  const [presets, setPresets] = useState<AgentPreset[]>([]);
   const [heroPreset, setHeroPreset] = useState<string | undefined>(undefined);
   const [engineUp, setEngineUp] = useState(false);
   const [everConnected, setEverConnected] = useState(false);

@@ -336,7 +336,7 @@ function HotkeysSection() {
       const clash = KEYBIND_DEFS.find(
         (d) => d.id !== recordingId && !isOff(d.id, keybinds) && comboFor(d.id, keybinds) === combo,
       );
-      if (clash) { setConflict(tt("与「{n}」冲突", "Conflicts with \"{n}\"", { n: t(clash.zh) })); return; }
+      if (clash) { setConflict(tt("与「{n}」冲突", "Conflicts with \"{n}\"", { n: tt(clash.zh, clash.en) })); return; }
       setConflict(null);
       setKeybinds({ ...keybinds, [recordingId]: { combo } });
       setRecordingId(null);
@@ -377,7 +377,7 @@ function HotkeysSection() {
           return (
             <div key={def.id} className={rowsCss.hotkeyRow}>
               <div className={rowsCss.rowIdentity}>
-                <div className={rowsCss.rowName} style={off ? { color: "var(--ink-3)" } : undefined}>{t(def.zh)}</div>
+                <div className={rowsCss.rowName} style={off ? { color: "var(--ink-3)" } : undefined}>{tt(def.zh, def.en)}</div>
               </div>
               <div className={rowsCss.rowActions}>
                 <button

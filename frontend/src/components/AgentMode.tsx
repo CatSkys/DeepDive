@@ -4,7 +4,23 @@
 // 时两个入口都显式不渲染。
 import { useStore } from "../store";
 import { tt } from "../i18n";
+import type { AgentPreset } from "../api";
 import { Dropdown } from "../components/controls";
+
+// 引擎内建预设的 name 是引擎侧原样中文，展示文案随 UI 语言走词典；
+// 只翻 trust==='system' 且 id 命中的四项，用户自建预设保留引擎文本
+// （与官方 UI presetDisplayText 同一判定，词表同 vendored locales.ts）。
+const BUILTIN_PRESET_NAMES: Record<string, { zh: string; en: string }> = {
+  standard: { zh: "标准模式", en: "Standard mode" },
+  code: { zh: "PTC 模式", en: "PTC mode" },
+  minimal: { zh: "极简模式", en: "Minimal mode" },
+  cordis: { zh: "创造模式", en: "Creator mode" },
+};
+
+function presetName(preset: AgentPreset): string {
+  const builtin = preset.trust === "system" ? BUILTIN_PRESET_NAMES[preset.id] : undefined;
+  return builtin ? tt(builtin.zh, builtin.en) : preset.name;
+}
 
 export function AgentModePicker() {
   const { presets, heroPreset, setHeroPreset } = useStore();
@@ -14,7 +30,7 @@ export function AgentModePicker() {
     <div className="mode-picker">
       <Dropdown
         variant="bare"
-        options={presets.map((p) => ({ v: p.id, label: p.name }))}
+        options={presets.map((p) => ({ v: p.id, label: presetName(p) }))}
         value={active}
         onChange={setHeroPreset}
       />
@@ -31,7 +47,7 @@ export function PresetPill() {
   if (!preset) return null;
   return (
     <span className="ws-pill preset-pill" data-tip={tt("会话模式", "Session mode")}>
-      <span className="ws-pill-name">{preset.name}</span>
+      <span className="ws-pill-name">{presetName(preset)}</span>
     </span>
   );
 }
