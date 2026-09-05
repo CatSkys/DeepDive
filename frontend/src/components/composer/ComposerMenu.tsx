@@ -74,11 +74,10 @@ export function ComposerMenu({ menu, query, rows, active, setActive, onPick }: {
     : tt("输入内容以搜索命令", "Type to filter commands");
   return (
     <div className="composer-menu" onMouseLeave={() => setRowBox(null)}>
-      {/* 毛玻璃三明治：base=均匀模糊（用户定档 8px）；plus=渐变蒙版把追加
-          模糊压在面板下半段（自下而上渐进）；noise=细颗粒去「塑料平」。
-          三层都只采样面板外的页面背景——面板自身因此不得挂 backdrop-filter。 */}
-      <span className="menu-frost menu-frost-base" aria-hidden />
-      <span className="menu-frost menu-frost-plus" aria-hidden />
+      {/* 毛玻璃：单枚 frost 子层（blur+渐变蒙版=自下而上渐进）。面板自身与
+          其他祖先都不得挂 backdrop-filter/常驻 transform，否则 WebKit 里子层
+          采样静默失效、只剩底色（「完全不透」事故）。噪点 4% 去塑料平感。 */}
+      <span className="menu-frost" aria-hidden />
       <span className="menu-noise" aria-hidden />
       <div className="menu-list">
         <span

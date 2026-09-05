@@ -1028,20 +1028,18 @@ button {
   animation: pop-in 160ms cubic-bezier(0.23,1,0.32,1) both;
   transform-origin: bottom;
 }
-/* 渐进模糊两子层：base 全尺寸均匀（8px 定档）；plus 用渐变蒙版把追加的
-   16px 压在下半段（to top 渐隐=底缘最糊、向上趋清），蒙版 alpha 本身渐变，
-   两层叠加自然平滑。噪点 4%（用户定 2%-5% 档）抵消低透明大面的「塑料平」 */
+/* 渐进模糊 frost：单子层承担全部模糊——blur(14px) 全面板生效，再用渐变
+   蒙版把强度压成「底缘最糊、向上渐清」（蒙版 alpha 缩放采样强度）。
+   面板/祖先带常驻 transform 或 backdrop-filter 时 WebKit 子层采样会
+   静默失效，只剩底色（「完全不透」事故），动画只允许动 opacity */
 .menu-frost {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-}
-.menu-frost-base { backdrop-filter: blur(8px) saturate(180%); }
-.menu-frost-plus {
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.55) 45%, transparent 92%);
-  mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.55) 45%, transparent 92%);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.5) 55%, rgba(0,0,0,.28) 100%);
+  mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.5) 55%, rgba(0,0,0,.28) 100%);
 }
 .menu-noise {
   position: absolute;
@@ -1049,7 +1047,9 @@ button {
   border-radius: inherit;
   pointer-events: none;
   opacity: .04;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  /* SVG data-URI 全量百分号编码：WebKit 对未编码的尖括号/空格会静默拒绝，
+     噪点层整个消失 */
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.85'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='140'%20height='140'%20filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .menu-list {
   position: relative; /* glide 条的定位基准 */
