@@ -47,7 +47,7 @@ export function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, 
       await navigator.clipboard.writeText(copiedText);
       setCopied(true);
       setTimeout(() => setCopied(false), 1000);
-    } catch { /* ignore */ }
+    } catch { /* 剪贴板不可用（权限/焦点缺失）：跳过已复制反馈 */ }
   };
   const hasStats = runMs !== undefined || ttftMs !== undefined || tokensPerSecond !== undefined;
   const clock = time ? formatClock(time) : undefined;
@@ -80,7 +80,7 @@ export function MessageMeta({ time, runMs, ttftMs, tokensPerSecond, copiedText, 
   return (
     <div className="meta-actions">
       {clockSide === "start" ? clockEl : null}
-      <button className="meta-action" title={copied ? t("复制成功") : t("复制")} aria-label={copied ? t("复制成功") : t("复制")} onClick={() => void copy()}>
+      <button className="meta-action" data-tip={copied ? t("复制成功") : t("复制")} aria-label={copied ? t("复制成功") : t("复制")} onClick={() => void copy()}>
         {copied ? <IconCheckOutline16 size={16} /> : <IconCopyOutline16 size={16} />}
       </button>
       {branch && (

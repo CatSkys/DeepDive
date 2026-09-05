@@ -70,27 +70,19 @@ validate_runtime() {
       return 1
     }
     actual="$(runtime_version "$source/node_modules/@deepseek-ai/$dependency")"
-    if [[ "$actual" == "$EXPECTED_VERSION" ]]; then continue; fi
-    # npm resolves the packages' own caret ranges across the same prerelease
-    # line (pin 0.1.2-alpha.2 pulls dsh-session 0.1.2-alpha.3), so exact
-    # equality cannot hold for published artifacts. Allow drift WITHIN the
-    # same prerelease segment with a loud warning; DSH_STRICT_NESTED=1
-    # restores the hard refusal for release-style pins.
-    if [[ "${DSH_STRICT_NESTED:-0}" == "1" ]]; then
+    # 嵌套依赖须与 pin 完全一致；同 prerelease 线放行漂移的先例与升级对照清单见 docs/PITFALLS.md §7.1。
+    [[ "$actual" == "$EXPECTED_VERSION" ]] || {
       echo "@deepseek-ai/$dependency must be $EXPECTED_VERSION, found ${actual:-unknown}: $source" >&2
       return 1
-    fi
-    case "$EXPECTED_VERSION/$actual" in
-      0.1.2-alpha.*/0.1.2-alpha.*)
-        echo "warn: nested @deepseek-ai/$dependency drifted to $actual (pin $EXPECTED_VERSION) — allowed on the same prerelease line" >&2
-        ;;
-      *)
-        echo "@deepseek-ai/$dependency must be $EXPECTED_VERSION, found ${actual:-unknown}: $source" >&2
-        return 1
-        ;;
-    esac
+    }
   done
 }
+
+# embed-engine.sh 的外部 RUNTIME_SOURCE 复用同一校验：只校验不安装，可用退出 0。
+if [[ "${1:-}" == "--validate" ]]; then
+  validate_runtime "${2:?usage: prepare-dsh-runtime.sh --validate <runtime-dir>}"
+  exit 0
+fi
 
 if [[ "${DSH_RUNTIME_VERIFY_LATEST:-0}" == "1" ]]; then
   [[ -n "$NPM" && -x "$NPM" ]] || {
@@ -128,7 +120,16 @@ fi
 }
 
 mkdir -p "$CACHE_ROOT"
-while ! mkdir "$LOCK" 2>/dev/null; do sleep 1; done
+# 陈锁自检：持有者崩溃后 $LOCK 目录会永久残留，令后来者无限自旋；mtime 超过
+# 30 分钟（正常 npm install 远短于此）视为陈锁，删掉重夺并告警。
+while ! mkdir "$LOCK" 2>/dev/null; do
+  if [[ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]]; then
+    echo "warn: stale prepare lock (>30min old): $LOCK — removing and re-acquiring" >&2
+    rm -rf "$LOCK"
+    continue
+  fi
+  sleep 1
+done
 cleanup() {
   [[ -z "$STAGE" ]] || rm -rf "$STAGE"
   rmdir "$LOCK" 2>/dev/null || true

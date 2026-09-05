@@ -4,7 +4,7 @@
 // hero 态用自有目录/选模型逻辑（pickModel 带建会话兜底，合同不同）。
 // 思考强度切换快捷键（快捷键页可改）：监听 dd:cycle-effort，按当前档位
 // 循环到下一档并经 applyModelEffort 提交；强度标签 tooltip 带键帽同步。
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
 import { WorkspacePill } from "../components/Sidebar";
@@ -12,6 +12,7 @@ import { PresetPill } from "../components/AgentMode";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
 import { useT } from "../i18n";
+import { DD_EVENTS } from "../events";
 
 export interface ModelFace {
   showModels: boolean;
@@ -29,21 +30,26 @@ export interface ModelFace {
 export function SessionHeader({ title, face }: { title: string; face: ModelFace }) {
   const { keybinds } = useStore();
   const { t } = useT();
+  // face（useSessionModels 每渲染返回新对象）镜像到 ref：监听只挂一次，
+  // 触发时读现值——避免流式期渲染反复重挂（AUD-115）。
+  const faceRef = useRef(face);
+  faceRef.current = face;
 
   useEffect(() => {
     const onCycle = () => {
-      const levels = face.effortLevels;
-      const cur = face.models.find(
-        (m) => m.provider === face.currentModel?.provider && m.model === face.currentModel?.model,
+      const f = faceRef.current;
+      const levels = f.effortLevels;
+      const cur = f.models.find(
+        (m) => m.provider === f.currentModel?.provider && m.model === f.currentModel?.model,
       );
       if (!cur || levels.length === 0) return;
-      const idx = levels.findIndex((l) => l.id === face.effort);
+      const idx = levels.findIndex((l) => l.id === f.effort);
       const next = levels[(idx + 1 + levels.length) % levels.length];
-      void face.applyModelEffort(cur, next.id);
+      void f.applyModelEffort(cur, next.id);
     };
-    window.addEventListener("dd:cycle-effort", onCycle);
-    return () => window.removeEventListener("dd:cycle-effort", onCycle);
-  }, [face]);
+    window.addEventListener(DD_EVENTS.cycleEffort, onCycle);
+    return () => window.removeEventListener(DD_EVENTS.cycleEffort, onCycle);
+  }, []);
 
   return (
     <div className="left">

@@ -1,7 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 # DeepDive — Release build + ad-hoc signed .app + DMG.
-set -o pipefail
-set -e
+set -euo pipefail
 cd "$(dirname "$0")/.."
 
 (cd apps/macos && xcodegen generate)
@@ -19,11 +18,13 @@ xcodebuild -project apps/macos/DSHmini.xcodeproj -scheme DSHmini \
 APP=.build/release/Build/Products/Release/DeepDive.app
 test -d "$APP" || { echo "build failed"; exit 1; }
 
-sh scripts/embed-web.sh "$APP"
+bash scripts/embed-web.sh "$APP"
 # Engine embed must precede signing: the embedded MacOS/node executable needs
 # to be inside the bundle before codesign (deep) covers it.
-sh scripts/embed-engine.sh "$APP"
-# 签名失败必须停：曾 `|| true` 吞错，bundle 被 embed 改坏时仍照常出 DMG（AUD-013）
+bash scripts/embed-engine.sh "$APP"
+# 签名失败必须停：曾 `|| true` 吞错，bundle 被 embed 改坏时仍照常出 DMG（AUD-013）。
+# embed-engine 已在其自检前 re-seal 一次；此处再签是 DMG 分发前的最终 seal，
+# 二者顺序勿倒（embed → 最终 seal → DMG）。
 codesign --force --deep -s - "$APP" || { echo "FAIL: codesign $APP"; exit 1; }
 
 mkdir -p dist

@@ -8,7 +8,8 @@ import { gitStatus } from "../host";
 import { useStore } from "../store";
 import { t, tt } from "../i18n";
 import { CapsuleGitSection } from "./CapsuleGitSection";
-import { capsuleCategory, todoStats, type CapsuleTodo } from "./capsuleModel";
+import { capsuleCategory, goalPhasePair, todoStats, type CapsuleTodo } from "./capsuleModel";
+import { formatElapsed } from "../session/format";
 import type { GitStatus, GoalProjection, ScheduleRecord, SubagentListEntry } from "../types";
 
 // 会话状态胶囊：头部右上角的聚合信息框，收编原 JobsMenu/ScheduleMenu/
@@ -18,13 +19,6 @@ import type { GitStatus, GoalProjection, ScheduleRecord, SubagentListEntry } fro
 
 type ChildEntry = Extract<SubagentListEntry, { kind: "child" }>;
 
-const GOAL_PHASE: Record<string, [string, string]> = {
-  active: ["进行中", "Active"],
-  paused: ["已暂停", "Paused"],
-  blocked: ["受阻", "Blocked"],
-  complete: ["已完成", "Complete"],
-};
-
 const JOB_STATUS: Record<string, [string, string]> = {
   running: ["运行中", "running"],
   stopping: ["停止中", "stopping"],
@@ -32,15 +26,6 @@ const JOB_STATUS: Record<string, [string, string]> = {
   killed: ["已终止", "killed"],
   failed: ["失败", "failed"],
 };
-
-function elapsed(startedAt: number, finishedAt: number | undefined, now: number): string {
-  const ms = (finishedAt ?? now) - startedAt;
-  const s = Math.max(0, Math.floor(ms / 1000));
-  if (s < 60) return tt("{s}秒", "{s}s", { s });
-  const m = Math.floor(s / 60);
-  if (m < 60) return tt("{m}分{s}秒", "{m}m{s}s", { m, s: s % 60 });
-  return tt("{h}小时", "{h}h", { h: Math.floor(m / 60) });
-}
 
 function fmtScheduleWhen(r: ScheduleRecord): string {
   if (r.kind === "every") return tt("每 {n} 分钟", "every {n} min", { n: Math.round((r.everySeconds ?? 300) / 60) });
@@ -191,7 +176,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
               <div className="capsule-row">
                 <span className={`state-dot ${goal.phase === "active" ? "running" : goal.phase === "complete" ? "ok" : "warning"}`} aria-hidden="true" />
                 <span className="capsule-row-text">{goal.objective}</span>
-                <span className="capsule-row-meta">{tt(...(GOAL_PHASE[goal.phase] ?? GOAL_PHASE.active!))}</span>
+                <span className="capsule-row-meta">{tt(...goalPhasePair(goal.phase))}</span>
               </div>
             </div>
           )}
@@ -274,7 +259,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                     {j.kind} · {tt(...(JOB_STATUS[j.status] ?? JOB_STATUS.running!))}
                     {j.detail ? ` · ${j.detail}` : ""}
                   </span>
-                  <span className="capsule-row-meta">{elapsed(j.startedAt, j.finishedAt, now)}</span>
+                  <span className="capsule-row-meta">{formatElapsed((j.finishedAt ?? now) - j.startedAt)}</span>
                 </div>
               ))}
             </div>

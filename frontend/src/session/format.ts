@@ -70,6 +70,16 @@ export function formatLatencySeconds(ms: number): string {
   return s >= 10 ? String(Math.round(s)) : (Math.round(s * 10) / 10).toString().replace(/\.0$/, "");
 }
 
+/** 经过时长（StatusCapsule/LoadingState 的 elapsed 收敛目的地，AUD-047）：
+ *  <60s → "{n}s"；<60m → "{n}m"；否则 "{h}h {m}m"（均向下取整）。 */
+export function formatElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
 export function formatTokensPerSecond(tps: number): string {
   return tps >= 100 ? String(Math.round(tps)) : tps >= 10 ? (Math.round(tps * 10) / 10).toString().replace(/\.0$/, "") : (Math.round(tps * 100) / 100).toString().replace(/\.0$/, "");
 }

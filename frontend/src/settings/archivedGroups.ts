@@ -3,7 +3,7 @@
 // 不碰 React、不发请求——ArchivedSection 只消费结果（可单测）。
 import type { SessionSummary, WorkspaceView } from "../types";
 
-export interface ArchivedRow {
+interface ArchivedRow {
   sessionId: string;
   title: string;
   updatedAt: number;

@@ -1,5 +1,6 @@
 // 排队消息卡（官方 QueueDock 式，R-007 从 SessionView 搬出）：挂在会话框上方，
-// 行内 立即/编辑/删除；数据来自 store.queues，操作走 session.updateQueue。
+// 行内 立即/编辑/删除；数据来自 store.queues（session/queue 帧），操作走
+// session.updateQueue，引擎应用后广播新快照，卡片随之刷新。
 
 import { useState } from "react";
 import { ArrowUp, GripVertical, Pencil, Trash2, X } from "lucide-react";
@@ -9,9 +10,6 @@ import { useCompositionGuard } from "../useCompositionGuard";
 import { IconCheckOutline16 } from "../components/Icons";
 import type { SessionQueuedItem } from "../types";
 import { queueText } from "./format";
-/** 排队消息卡（官方 QueueDock 式）：挂在会话框上方，行内 立即/编辑/删除。
- *  数据来自 store.queues（session/queue 帧），操作走 session.updateQueue，
- *  引擎应用后广播新快照，卡片随之刷新。 */
 export function QueueDock({ sessionId, items }: { sessionId: string; items: SessionQueuedItem[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -64,14 +62,14 @@ export function QueueDock({ sessionId, items }: { sessionId: string; items: Sess
               <>
                 <span className="queue-text" data-tip={text}>{text}</span>
                 <div className="queue-actions">
-                  <button className="queue-now" title={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
+                  <button className="queue-now" data-tip={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
                     <ArrowUp size={13} />
                     {t("立即")}
                   </button>
-                  <button className="queue-btn" title={t("编辑排队消息")} onClick={() => { setEditingId(item.id); setDraft(text); }}>
+                  <button className="queue-btn" data-tip={t("编辑排队消息")} onClick={() => { setEditingId(item.id); setDraft(text); }}>
                     <Pencil size={13} />
                   </button>
-                  <button className="queue-btn" title={t("删除排队消息")} onClick={() => void mutate(item.id, { kind: "remove" })}>
+                  <button className="queue-btn" data-tip={t("删除排队消息")} onClick={() => void mutate(item.id, { kind: "remove" })}>
                     <Trash2 size={13} />
                   </button>
                 </div>

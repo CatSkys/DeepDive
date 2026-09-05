@@ -11,6 +11,7 @@ import { HoverScrollText } from "./HoverScrollText";
 import { pickNewWorkspace } from "./workspacePicker";
 import type { SessionSummary, WorkspaceView } from "../types";
 import { sessionTitle } from "../session/sessionTitle";
+import { DD_EVENTS } from "../events";
 
 interface CtxMenu { sessionId: string; title: string; cwd?: string; x: number; y: number }
 
@@ -59,15 +60,20 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [query, setQuery] = useState("");
   const [ctx, setCtx] = useState<CtxMenu | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  // 搜索快捷键（快捷键页可改）：聚焦搜索框；侧栏收起时先展开
+  // 搜索快捷键（快捷键页可改）：聚焦搜索框；侧栏收起时先展开。
+  // store 对象每次更新都换新引用（toggleSidebar 也在 useMemo 里内联重建），
+  // 依赖它会让 window 监听随每次 store 变化重挂——改走 ref 取最新值，只挂一次。
+  const storeRef = useRef(store);
+  storeRef.current = store;
   useEffect(() => {
     const onFocus = () => {
-      if (store.sidebarCollapsed) store.toggleSidebar();
+      const s = storeRef.current;
+      if (s.sidebarCollapsed) s.toggleSidebar();
       requestAnimationFrame(() => searchRef.current?.focus());
     };
-    window.addEventListener("dd:focus-search", onFocus);
-    return () => window.removeEventListener("dd:focus-search", onFocus);
-  }, [store]);
+    window.addEventListener(DD_EVENTS.focusSearch, onFocus);
+    return () => window.removeEventListener(DD_EVENTS.focusSearch, onFocus);
+  }, []);
   // 全文搜索（4.1）：引擎 session.search（标题∪正文）。内容命中随防抖
   // 异步到达；禁用部署（无 --patch 放行）下请求失败 → 静默降级 title-only。
   const [contentHits, setContentHits] = useState<Map<string, string>>(new Map());

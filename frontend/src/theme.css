@@ -49,9 +49,10 @@
   --mark-inset: rgba(20,20,22,.9);
   --chrome-gradient: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.09) 40%, rgba(255,255,255,.10));
   --card-gradient: linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.46) 35%, rgba(0,0,0,.42));
-  /* 动效时长/缓动档：fast/med 对齐 tokens.json motion（control 120ms / panelShow 200ms），
-     slow 为长动效档；缓动为 tokens.json motion 统一曲线。缺定义时引用处整条
-     invalid-at-computed-value-time 静默失效（AUD-002）。 */
+  /* 动效时长/缓动档（120/200/400ms 与 cubic-bezier(.2,0,0,1) 为本仓动效约定；
+     tokens.json 的 motion 组已删——它从未被生成器输出过（AUD-054 死数据），
+     时长数值以此为家。缺定义时引用处整条 invalid-at-computed-value-time
+     静默失效（AUD-002）。 */
   --dur-fast: 120ms;
   --dur-med: 200ms;
   --dur-slow: 300ms;
@@ -1925,7 +1926,6 @@ button {
   white-space: nowrap;
   flex: none;
 }
-.loading-state.stack { flex-direction: column; align-items: flex-start; }
 .loading-state-row { display: flex; align-items: center; gap: 10px; }
 
 .loader-grid {
@@ -1961,21 +1961,6 @@ button {
 }
 
 /* Surfer 变体：loader 下方的 context 视频卡片 */
-.loading-card {
-  margin-top: 8px;
-  width: 224px;
-  overflow: hidden;
-  border-radius: var(--dsh-radius-control);
-  box-shadow: 0 8px 24px rgba(0,0,0,.35);
-  animation: pop-in 200ms cubic-bezier(0.16,1,0.3,1) both;
-  transform-origin: top left;
-}
-.loading-video {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  width: 100%;
-  background: var(--fill);
-}
 .loading-video-el { height: 100%; width: 100%; object-fit: cover; }
 .loading-video-fallback {
   display: flex;
@@ -2077,20 +2062,6 @@ button {
 }
 .task-row:hover .row-archive { display: inline-flex; }
 .task-row .row-archive:hover { background: var(--fill-strong); }
-.task-row .row-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  height: 20px;
-  padding: 0 6px;
-  border: none;
-  border-radius: var(--dsh-radius-keycap);
-  background: var(--fill);
-  color: var(--ink-soft);
-  font-size: 11px;
-  cursor: pointer;
-}
-.task-row .row-btn:hover { background: var(--fill-strong); }
 /* 行首槽位：每条任务行预留一个 14px 图标位（与 pinned 行图标对齐），
    状态标志放这里：运行中 → Drive 像素网格 loader（复用 LoadingState
    的动画）；静止且未读 → 未读点 */
@@ -2219,8 +2190,8 @@ button {
 .hero-composer { animation: row-in var(--dur-slow) var(--ease-out) 120ms both; }
 
 /* 通用悬浮过渡补齐（hover 背景都应有短过渡）。 */
-.tool-row-main, .task-row, .q-option, .effort-row, .model-menu-row,
-.model-menu-back, .model-menu-pill, .produced-file, .todo-item, .ctx-item,
+.tool-row-main, .task-row, .q-option, .model-menu-row,
+.model-menu-back, .produced-file, .todo-item, .ctx-item,
 .ws-menu-row {
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
@@ -2954,18 +2925,6 @@ button {
   font-size: 13px;
 }
 .capsule-input:focus { outline: none; border-color: var(--ink-3); }
-.capsule-commit-btn {
-  flex: none;
-  padding: 0 10px;
-  height: 28px;
-  border-radius: var(--dsh-radius-keycap);
-  border: 1px solid var(--line);
-  background: var(--fill);
-  color: var(--ink);
-  font-size: 12px;
-}
-.capsule-commit-btn:hover:not(:disabled) { background: var(--fill-strong); }
-.capsule-commit-btn:disabled { opacity: .5; }
 .capsule-row-meta { margin-left: auto; font-size: 12px; color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
 .capsule-row-main {
   display: flex;
@@ -3045,7 +3004,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   .tip { animation: none; }
 }
 
-.capsule-row-btn, .capsule-branch, .capsule-commit-btn, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
+.capsule-row-btn, .capsule-branch, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
   transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .capsule-input { transition: border-color var(--dur-fast) ease; }

@@ -4,7 +4,7 @@ import { Eye, EyeOff, X } from "lucide-react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
-import { Dropdown } from "./controls";
+import { Dropdown } from "../components/controls";
 import cssRows from "./SettingsRows.module.css";
 
 // 添加/编辑模型弹窗（参考 WorkBuddy 模型设置版式）：提供商 + API Key + 模型
@@ -22,8 +22,8 @@ export interface PiProviderProfile {
 }
 export interface ProviderInfo { provider: string; displayName: string; settingsNs: string; active: boolean }
 
-export interface DeepseekNs { revision: unknown; apiKeyEnv: string; models: ModelProfile[] }
-export interface PiNs { revision: unknown; providers: Record<string, PiProviderProfile> }
+export interface DeepseekNs { apiKeyEnv: string; models: ModelProfile[] }
+export interface PiNs { providers: Record<string, PiProviderProfile> }
 
 export interface EditTarget {
   provider: string;

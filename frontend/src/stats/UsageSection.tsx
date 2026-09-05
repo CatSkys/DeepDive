@@ -120,6 +120,8 @@ export function UsageSection() {
       </div>
       <UsageTrend rangeDays={rangeDays} models={models} lang={lang} />
       <UsageDonut rangeDays={rangeDays} models={models} lang={lang} />
+      {/* 刷新失败但旧数据仍在：非阻断提示，避免用户误以为刷新成功 */}
+      {phase === "error" && <div className={rowsCss.modelError}>{tt("读取失败：{m}", "Read failed: {m}", { m: errMsg })}</div>}
       <div className={css.sectionFoot}>
         <button className={rowsCss.secondaryButton} onClick={() => void load()}>
           <RefreshCw size={13} className={busy ? rowsCss.spin : undefined} />

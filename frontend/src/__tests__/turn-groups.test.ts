@@ -1,4 +1,4 @@
-// 补齐项纯函数钉子：轮分组（turnGroups）与 workflow/compaction 的 ingest 折叠。
+// 轮分组（turnGroups）与 workflow/compaction 的 ingest 折叠纯函数钉子。
 import { describe, expect, it } from "vitest";
 import { groupTurns, foldDecision } from "../turnGroups";
 import { ingest, makeIngestCtx } from "../session/renderModel";

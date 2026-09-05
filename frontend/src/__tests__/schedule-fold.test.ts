@@ -1,4 +1,4 @@
-// 阶段 5 纯函数钉子：schedule/change 折叠（会话提醒目录）。
+// schedule/change 折叠（foldSchedule，会话提醒目录）纯函数钉子。
 import { describe, expect, it } from "vitest";
 import { foldSchedule } from "../session/renderModel";
 import type { ScheduleChangeData } from "../types";

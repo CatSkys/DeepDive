@@ -1,4 +1,4 @@
-// 阶段 2 纯函数钉子：@ 引用 grammar（官方语义）与静态命令目录。
+// 输入纯函数钉子：@ 引用 grammar（atGrammar，官方语义）与静态命令目录（commands）。
 import { describe, expect, it } from "vitest";
 import { activeAtToken, formatMention } from "../atGrammar";
 import { SLASH_COMMANDS } from "../commands";

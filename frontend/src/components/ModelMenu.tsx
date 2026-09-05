@@ -164,11 +164,15 @@ function EffortSlider({
   useEffect(() => {
     const el = fillRef.current;
     if (!el) return;
-    // ASCII 马赛克：格子 ≈6px 见方，完全铺满填充区（余量由 1fr 拉伸吸收）
+    // ASCII 马赛克：格子 ≈6px 见方，完全铺满填充区（余量由 1fr 拉伸吸收）。
+    // 动画规模封顶：每个 span 一个独立 animationDelay，60×16=960 个动画节点
+    // 开销过大——列数封顶 16、总格数压到 ≤120（行数按剩余名额再夹一次）。
     const update = () => {
       const w = el.clientWidth, h = el.clientHeight;
       if (w < 20 || h < 12) return;
-      setDims({ cols: Math.max(10, Math.min(60, Math.round(w / 6))), rows: Math.max(4, Math.min(16, Math.round(h / 6))) });
+      const cols = Math.max(10, Math.min(16, Math.round(w / 6)));
+      const rows = Math.max(4, Math.min(16, Math.floor(120 / cols), Math.round(h / 6)));
+      setDims({ cols, rows });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -189,18 +193,25 @@ function EffortSlider({
 
   const onPointerDown = (e: React.PointerEvent) => {
     setDragging(true);
-    const startId = idAt(e.clientX);
-    onChange(startId);
-    const onMove = (ev: PointerEvent) => onChange(idAt(ev.clientX));
-    const onUp = (ev: PointerEvent) => {
+    let currentId = idAt(e.clientX);
+    onChange(currentId);
+    const onMove = (ev: PointerEvent) => {
+      currentId = idAt(ev.clientX);
+      onChange(currentId);
+    };
+    const finish = (commitId: string) => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
       setDragging(false);
-      const finalId = idAt(ev.clientX);
-      if (finalId !== value) onCommit(finalId);   // 松手即应用
+      if (commitId !== value) onCommit(commitId);   // 松手即应用
     };
+    const onUp = (ev: PointerEvent) => finish(idAt(ev.clientX));
+    // pointercancel 坐标不可靠：视为在最后位置松手，提交当前值（同 up 语义）
+    const onCancel = () => finish(currentId);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
   };
 
   return (

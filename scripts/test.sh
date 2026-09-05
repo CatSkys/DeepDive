@@ -1,11 +1,12 @@
-#!/bin/sh
+#!/bin/bash
 # DeepDive — full test suite: frontend vitest + shell XCTest (make test).
-set -e
+set -euo pipefail
 cd "$(dirname "$0")/.."
 
 (cd frontend && npm run test)
 
 (cd apps/macos && xcodegen generate)
+mkdir -p .build
 # 输出落盘再截尾：exit code 不经管道丢失（xcodebuild 输出很长）
 xcodebuild test -project apps/macos/DSHmini.xcodeproj -scheme DSHmini \
   -configuration Debug -derivedDataPath .build/debug \

@@ -4,7 +4,7 @@
 // 时两个入口都显式不渲染。
 import { useStore } from "../store";
 import { tt } from "../i18n";
-import { Dropdown } from "../settings/controls";
+import { Dropdown } from "../components/controls";
 
 export function AgentModePicker() {
   const { presets, heroPreset, setHeroPreset } = useStore();

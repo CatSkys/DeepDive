@@ -5,7 +5,7 @@ import { useStore } from "../store";
 import { t, tt, useT } from "../i18n";
 import { Composer } from "./Composer";
 import { HeroBrand } from "./HeroBrand";
-import LoadingState from "./LoadingState";
+import { LoadingState } from "./LoadingState";
 import { planReviewOf } from "../planReview";
 import { PlanReviewCard } from "./PlanReviewCard";
 import { GoalBar } from "./GoalBar";

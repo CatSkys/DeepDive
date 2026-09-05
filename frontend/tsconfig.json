@@ -18,6 +18,9 @@
     "allowImportingTsExtensions": true
   },
   "include": [
-    "src"
+    "src",
+    // eslint.config.js 不入 include：它是无类型的普通 JS，由 ESLint 自行解析；
+    // 拉进 tsc 需要 allowJs+checkJs，超出本工程的类型检查范围。
+    "vite.config.ts"
   ]
 }

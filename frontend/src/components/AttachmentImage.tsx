@@ -15,7 +15,18 @@ interface Att {
   height?: number;
 }
 
+const BYTES_CACHE_MAX = 24;
 const bytesCache = new Map<string, string>(); // attachmentId → data URL
+
+// base64 data URL 常驻内存，长会话无上限会膨胀：Map 迭代序=插入序，超限逐出最旧
+function cacheBytes(id: string, url: string): void {
+  bytesCache.set(id, url);
+  while (bytesCache.size > BYTES_CACHE_MAX) {
+    const oldest = bytesCache.keys().next().value;
+    if (oldest === undefined) break;
+    bytesCache.delete(oldest);
+  }
+}
 
 function attachmentsOf(event: unknown): Att[] {
   const content = (event as { data?: { content?: ContentBlock[] } } | undefined)?.data?.content;
@@ -26,27 +37,27 @@ function attachmentsOf(event: unknown): Att[] {
 }
 
 export function UserAttachments({ sessionId, event }: { sessionId: string; event: unknown }) {
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; name?: string } | null>(null);
   const atts = attachmentsOf(event);
   if (atts.length === 0) return null;
   return (
     <div className="user-attachments">
       {atts.map((a) => (
-        <Thumb key={a.attachmentId} sessionId={sessionId} att={a} onOpen={setLightbox} />
+        <Thumb key={a.attachmentId} sessionId={sessionId} att={a} onOpen={(src, name) => setLightbox({ src, name })} />
       ))}
-      {lightbox && <Lightbox src={lightbox} alt={atts[0]?.name} onClose={() => setLightbox(null)} />}
+      {lightbox && <Lightbox src={lightbox.src} alt={lightbox.name} onClose={() => setLightbox(null)} />}
     </div>
   );
 }
 
-function Thumb({ sessionId, att, onOpen }: { sessionId: string; att: Att; onOpen: (src: string) => void }) {
+function Thumb({ sessionId, att, onOpen }: { sessionId: string; att: Att; onOpen: (src: string, name?: string) => void }) {
   const [src, setSrc] = useState<string | null>(() => bytesCache.get(att.attachmentId) ?? null);
   useEffect(() => {
     if (src) return;
     let alive = true;
     void api.attachment({ sessionId, attachmentId: att.attachmentId }).then((r) => {
       const url = `data:${r.attachment.mediaType};base64,${r.data}`;
-      bytesCache.set(att.attachmentId, url);
+      cacheBytes(att.attachmentId, url);
       if (alive) setSrc(url);
     }).catch(() => void 0); // 引擎不可达：留占位
     return () => { alive = false; };
@@ -55,7 +66,7 @@ function Thumb({ sessionId, att, onOpen }: { sessionId: string; att: Att; onOpen
     <button
       type="button"
       className="user-attachment-thumb"
-      onClick={() => src && onOpen(src)}
+      onClick={() => src && onOpen(src, att.name)}
       data-tip={att.name ?? att.attachmentId.slice(0, 16)}
     >
       {src ? <img src={src} alt={att.name ?? ""} /> : <span className="user-attachment-loading" aria-hidden="true" />}

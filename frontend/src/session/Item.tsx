@@ -3,7 +3,7 @@
 // 不管摄取与分组（renderModel/turnGroups 的下游）。
 
 import { t } from "../i18n";
-import ThinkingState from "../components/ThinkingState";
+import { ThinkingState } from "../components/ThinkingState";
 import { UserAttachments } from "../components/AttachmentImage";
 import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
@@ -57,7 +57,8 @@ export function Item({ item, latestUser, latestTurn, turnRunning, onBranch, onCo
     const meta = item.meta;
     const copiedText = item.event ? textOf(item.event) : "";
     const reason = item.endReason;
-    const reasonKind = typeof reason === "object" && reason !== null ? (reason as { kind?: string }).kind : undefined;
+    // TurnEndReason 各成员均有 kind，直取即可（reason 本身可缺省）
+    const reasonKind = reason?.kind;
     const errMsg = reasonKind === "error" ? (reason as { error?: { message?: string; code?: string } }).error?.message : undefined;
     const errCode = reasonKind === "error" ? (reason as { error?: { code?: string } }).error?.code : undefined;
     return (

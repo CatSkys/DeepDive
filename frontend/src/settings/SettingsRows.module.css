@@ -121,7 +121,6 @@
 .rowName { font-size: 13px; color: var(--ink); }
 .rowCaption { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
 .rowActions { display: flex; align-items: center; gap: 8px; flex: none; }
-.intro { font-size: 11.5px; color: var(--ink-3); line-height: 1.6; margin: 10px 0 0; }
 
 /* ── 按钮 ── */
 .primaryButton, .secondaryButton {

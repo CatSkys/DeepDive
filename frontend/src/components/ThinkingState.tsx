@@ -13,7 +13,7 @@ import { useT } from "../i18n";
  * the next run.
  * ───────────────────────────────────────────────────────── */
 
-export default function ThinkingState({
+export function ThinkingState({
   reasoning,
   running = false,
 }: {

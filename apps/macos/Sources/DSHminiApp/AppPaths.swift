@@ -49,7 +49,6 @@ struct AppConfig: Codable {
     /// appearance). Off = stock official UI following the system.
     var themeEnabled: Bool = true
     var launchWorkspace: String?
-    var openAtLogin: Bool = false
 
     static func load() -> AppConfig {
         guard let data = try? Data(contentsOf: AppPaths.configURL),

@@ -13,9 +13,9 @@ final class FloatingBubbleManager: ObservableObject {
     /// Persisted toggle; default on (§2.2). Settings「通知」分区 + status-bar
     /// surface flip this through setEnabled(_:).
     var enabled: Bool {
-        UserDefaults.standard.object(forKey: "dsh.bubble.enabled") == nil
+        UserDefaults.standard.object(forKey: "deepdive.bubble.enabled") == nil
             ? true
-            : UserDefaults.standard.bool(forKey: "dsh.bubble.enabled")
+            : UserDefaults.standard.bool(forKey: "deepdive.bubble.enabled")
     }
 
     /// The session the next bubble click should focus (last attention or last
@@ -25,6 +25,7 @@ final class FloatingBubbleManager: ObservableObject {
     private var panel: FloatingBubblePanel?
 
     private init() {
+        Self.migrateLegacyBubbleKeys()
         // §2.2: app becoming active clears the unseen-completion marker.
         NotificationCenter.default.addObserver(
             self, selector: #selector(appBecameActive),
@@ -33,7 +34,7 @@ final class FloatingBubbleManager: ObservableObject {
     }
 
     func setEnabled(_ on: Bool) {
-        UserDefaults.standard.set(on, forKey: "dsh.bubble.enabled")
+        UserDefaults.standard.set(on, forKey: "deepdive.bubble.enabled")
         if on { show() } else { hide() }
     }
 
@@ -64,6 +65,28 @@ final class FloatingBubbleManager: ObservableObject {
 
     @objc private func appBecameActive() {
         unseenCompletion = false
+    }
+
+    // MARK: - prefs key migration (AUD-029)
+
+    /// 键名 dsh.bubble.* → deepdive.bubble.* 的一次性迁移。旧键写在新偏好
+    /// 域里（改名后引入的特性），LegacyPrefsMigration 的跨域一次性开关已
+    /// 消费过，管不到这批——用独立开关搬值：新键未写则搬，旧键一律删除。
+    private static func migrateLegacyBubbleKeys() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: "deepdive.bubbleMigratedFromDsh") else { return }
+        for (oldKey, newKey) in [
+            ("dsh.bubble.enabled", "deepdive.bubble.enabled"),
+            ("dsh.bubble.frame", "deepdive.bubble.frame"),
+        ] {
+            if let value = defaults.object(forKey: oldKey) {
+                if defaults.object(forKey: newKey) == nil {
+                    defaults.set(value, forKey: newKey)
+                }
+                defaults.removeObject(forKey: oldKey)
+            }
+        }
+        defaults.set(true, forKey: "deepdive.bubbleMigratedFromDsh")
     }
 
     // MARK: - interaction (§2.3)
@@ -126,7 +149,7 @@ final class FloatingBubblePanel: NSPanel {
     }
 
     func showBubble() {
-        let saved = UserDefaults.standard.string(forKey: "dsh.bubble.frame")
+        let saved = UserDefaults.standard.string(forKey: "deepdive.bubble.frame")
         if let saved, !isVisible {
             setFrameOrigin(saved.pointValue ?? defaultOrigin())
         } else if !isVisible {
@@ -147,7 +170,7 @@ final class FloatingBubblePanel: NSPanel {
 
     override func setFrameOrigin(_ point: NSPoint) {
         super.setFrameOrigin(point)
-        UserDefaults.standard.set("\(point.x),\(point.y)", forKey: "dsh.bubble.frame")
+        UserDefaults.standard.set("\(point.x),\(point.y)", forKey: "deepdive.bubble.frame")
     }
 }
 

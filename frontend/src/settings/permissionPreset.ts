@@ -14,7 +14,6 @@ export interface PermissionPresetOption {
 export interface PermissionSettingsView {
   current: string;
   options: PermissionPresetOption[];
-  revision: unknown;
 }
 
 interface SchemaRefs {
@@ -32,7 +31,6 @@ interface SchemaRefs {
 export function permissionPresetView(entry: {
   schema?: unknown;
   value?: unknown;
-  revision?: unknown;
 } | undefined): PermissionSettingsView | null {
   if (!entry) return null;
   const current = (entry.value as { defaultPreset?: unknown } | null)?.defaultPreset;
@@ -50,5 +48,5 @@ export function permissionPresetView(entry: {
     return [{ value: node.value, label: typeof desc === "string" && desc ? desc : node.value }];
   });
   if (!options.some((o) => o.value === current)) return null;
-  return { current, options, revision: entry.revision };
+  return { current, options };
 }

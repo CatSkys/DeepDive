@@ -31,8 +31,9 @@ enum DSHAppPrefs {
     /// 全局热键（唤起面板）启用开关；关 = 系统级注销。
     static let hotkeyOnKey = "deepdive.hotkey.on"
 
-    /// Sidebar drag-resize bounds — keep in sync with tokens.json
-    /// size.sidebarMin / size.sidebarMax (the frontend clamps too).
+    /// 侧栏拖拽边界。唯一事实源是 tokens.json 的 size.sidebar.min/max；
+    /// 前端消费侧（frontend/src/store.tsx）为同值手工双写——改动必须三处
+    /// 同步：tokens.json、此处、store.tsx（AUD-055）。
     static let sidebarWidthRange: ClosedRange<Double> = 200...320
 
     static var notifyTurnEnd: Bool { boolDefaultingTrue(notifyTurnEndKey) }

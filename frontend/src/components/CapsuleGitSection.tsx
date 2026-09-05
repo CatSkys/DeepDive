@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Check, ChevronDown, CloudUpload, Diff, GitBranch,
   GitCommitHorizontal,
@@ -40,13 +40,17 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
     return ok;
   };
 
+  // 分支列表请求序号门（同 Sidebar 全文搜索 searchReqRef）：快速开关时旧响应不得覆盖新状态
+  const branchesReqRef = useRef(0);
   const toggleBranches = async () => {
     setMenuOpen(false);
     const next = !branchOpen;
     setBranchOpen(next);
     if (!next) return;
     setBranches(null);
+    const seq = ++branchesReqRef.current;
     const r = wsPath ? await gitRun(wsPath, ["for-each-ref", "refs/heads", "--format=%(refname:short)"]) : null;
+    if (branchesReqRef.current !== seq) return;
     setBranches(r?.ok ? r.output.split("\n").map((s) => s.trim()).filter(Boolean) : []);
   };
 

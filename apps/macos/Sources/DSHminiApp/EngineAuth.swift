@@ -31,21 +31,30 @@ final class EngineAuth {
         lock.lock()
         cookieHeader = nil
         lock.unlock()
-        // The exchange needs cookie capture: ephemeral configs drop cookies, so
-        // point the config at the shared store explicitly.
+        // Cookie 捕获需要 cookie storage，ephemeral 默认丢 cookie；必须挂
+        // 自建私有罐而非 .shared——引擎会话凭据不落进进程共享罐（默认
+        // session 会全局读写 .shared，等于把凭据暴露给无关请求）（AUD-038）。
+        let storage = HTTPCookieStorage()
         let config = URLSessionConfiguration.ephemeral
         config.httpCookieAcceptPolicy = .always
-        config.httpCookieStorage = .shared
+        config.httpCookieStorage = storage
         let session = URLSession(configuration: config)
-        _ = try? await session.data(from: base)
+        do {
+            _ = try await session.data(from: base)
+        } catch {
+            session.finishTasksAndInvalidate()
+            // 交换失败（引擎不可达/网络错误）≠ 旧引擎无 cookie，分开落日志
+            EngineLog.shared.append("[auth] engine cookie exchange FAILED: \(error.localizedDescription)")
+            return
+        }
         session.finishTasksAndInvalidate()
-        let cookies = HTTPCookieStorage.shared.cookies(for: base) ?? []
+        let cookies = storage.cookies(for: base) ?? []
         let header = cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
         lock.lock()
         cookieHeader = header.isEmpty ? nil : header
         let ok = cookieHeader != nil
         lock.unlock()
-        EngineLog.shared.append("[auth] engine cookie exchange \(ok ? "ok" : "no cookie (older engine?)")")
+        EngineLog.shared.append("[auth] engine cookie exchange \(ok ? "ok" : "yielded no cookie (older engine without browser auth)")")
     }
 
     var currentCookieHeader: String? {

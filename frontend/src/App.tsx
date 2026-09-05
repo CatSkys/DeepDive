@@ -5,6 +5,7 @@ import { installHostBridge } from "./host";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
+import { DD_EVENTS, dispatchAppEvent } from "./events";
 import { Sidebar } from "./components/Sidebar";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
@@ -112,10 +113,10 @@ function Shell() {
         if (typing && def.id !== "dictation") return;
         e.preventDefault();
         if (def.id === "new-session") store.openSession(null);
-        else if (def.id === "search") window.dispatchEvent(new CustomEvent("dd:focus-search"));
+        else if (def.id === "search") dispatchAppEvent(DD_EVENTS.focusSearch);
         else if (def.id === "toggle-sidebar") store.toggleSidebar();
-        else if (def.id === "dictation") window.dispatchEvent(new CustomEvent("dd:dictation-toggle"));
-        else if (def.id === "cycle-effort") window.dispatchEvent(new CustomEvent("dd:cycle-effort"));
+        else if (def.id === "dictation") dispatchAppEvent(DD_EVENTS.dictationToggle);
+        else if (def.id === "cycle-effort") dispatchAppEvent(DD_EVENTS.cycleEffort);
         else if (def.id === "open-settings") setSettingsOpen(true);
         return;
       }

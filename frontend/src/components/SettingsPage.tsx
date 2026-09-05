@@ -6,10 +6,11 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
-import { Dropdown, Toggle } from "../settings/controls";
+import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
 import { UsageSection } from "../stats/UsageSection";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
+import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { api, probeMethod } from "../api";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "../keybinds";
 import { onHostEvent, sendToShell } from "../host";
@@ -92,7 +93,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
 /* ───────────────────────── 通用 ───────────────────────── */
 
 function GeneralSection() {
-  const { t } = useT();
+  const { t, tt } = useT();
   const store = useStore();
   const [prefs, setPrefs] = useState({ notifyTurnEnd: true, notifyAttention: true, menuBar: true, dockIcon: true, bubble: true });
   const [busy, setBusy] = useState<string | undefined>(undefined);
@@ -115,25 +116,25 @@ function GeneralSection() {
     sendToShell({ type: "set-pref", key, value });
   };
 
+  const { describe: describeUiNs, update: updateUiNs } = useSettingNamespace("ui-conversation");
+
   useEffect(() => {
     void (async () => {
       try {
-        const d = await api.settingsDescribe();
-        const ns = (d.namespaces ?? []).find((n) => n.ns === "ui-conversation");
-        const v = (ns?.value as { busyEnter?: string } | null)?.busyEnter;
+        const v = ((await describeUiNs())?.value as { busyEnter?: string } | null)?.busyEnter;
         if (v) setBusy(v);
       } catch { /* engine booting */ }
     })();
-  }, []);
+  }, [describeUiNs]);
   const saveBusy = async (v: string) => {
     setBusy(v);
     try {
-      const d = await api.settingsDescribe();
-      const ns = (d.namespaces ?? []).find((n) => n.ns === "ui-conversation");
-      if (!ns) return;
-      const base = (ns.value ?? {}) as Record<string, unknown>;
-      await api.settingsUpdate({ ns: "ui-conversation", patch: { ...base, busyEnter: v }, expectedRevision: ns.revision });
-    } catch (err) { alert(t("保存失败：{m}").replace("{m}", (err as Error).message)); }
+      await updateUiNs({ busyEnter: v });
+    } catch (err) {
+      alert(err instanceof SettingsConflictError
+        ? t("版本已前进——请取消后重新打开(将载入最新)")
+        : tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
+    }
   };
 
   const modes = [
@@ -251,27 +252,27 @@ const PRESET_META: Record<string, { label: string; desc: string; icon: LucideIco
 };
 
 function ApprovalSection() {
-  const { t } = useT();
+  const { t, tt } = useT();
   // undefined=载入中，null=引擎未提供 permission 命名空间
   const [view, setView] = useState<PermissionSettingsView | null | undefined>(undefined);
+  const { describe: describePermNs, update: updatePermNs } = useSettingNamespace("permission");
 
   const load = useCallback(async () => {
     try {
-      const d = await api.settingsDescribe();
-      setView(permissionPresetView((d.namespaces ?? []).find((n) => n.ns === "permission")));
+      setView(permissionPresetView(await describePermNs()));
     } catch { /* engine booting: stay loading */ }
-  }, []);
+  }, [describePermNs]);
   useEffect(() => { void load(); }, [load]);
 
   const setDefault = async (v: string) => {
     setView((cur) => (cur ? { ...cur, current: v } : cur));
     try {
-      const d = await api.settingsDescribe();
-      const ns = (d.namespaces ?? []).find((n) => n.ns === "permission");
-      if (!ns) return;
-      const base = (ns.value ?? {}) as Record<string, unknown>;
-      await api.settingsUpdate({ ns: "permission", patch: { ...base, defaultPreset: v }, expectedRevision: ns.revision });
-    } catch (err) { alert(t("保存失败：{m}").replace("{m}", (err as Error).message)); }
+      await updatePermNs({ defaultPreset: v });
+    } catch (err) {
+      alert(err instanceof SettingsConflictError
+        ? t("版本已前进——请取消后重新打开(将载入最新)")
+        : tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
+    }
     await load();
   };
 
@@ -309,7 +310,7 @@ function ApprovalSection() {
 /* ───────────────────────── 快捷键 ───────────────────────── */
 
 function HotkeysSection() {
-  const { t } = useT();
+  const { t, tt } = useT();
   const store = useStore();
   const { keybinds, setKeybinds } = store;
   const [hotkey, setHotkey] = useState("⌥Space");
@@ -335,14 +336,14 @@ function HotkeysSection() {
       const clash = KEYBIND_DEFS.find(
         (d) => d.id !== recordingId && !isOff(d.id, keybinds) && comboFor(d.id, keybinds) === combo,
       );
-      if (clash) { setConflict(t("与「{n}」冲突").replace("{n}", t(clash.zh))); return; }
+      if (clash) { setConflict(tt("与「{n}」冲突", "Conflicts with \"{n}\"", { n: t(clash.zh) })); return; }
       setConflict(null);
       setKeybinds({ ...keybinds, [recordingId]: { combo } });
       setRecordingId(null);
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [recordingId, keybinds, setKeybinds, t]);
+  }, [recordingId, keybinds, setKeybinds, t, tt]);
 
   const toggleBind = (id: string) =>
     setKeybinds({ ...keybinds, [id]: { combo: comboFor(id, keybinds), off: !isOff(id, keybinds) } });

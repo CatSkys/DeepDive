@@ -7,7 +7,7 @@ import type {
 } from "../types";
 import { narrowDiffs } from "../diffModel";
 import { messageText, userText } from "./eventText";
-import { truncate } from "./format";
+import { truncate, formatLatencySeconds } from "./format";
 
 export interface WorkflowMember {
   seq: number;
@@ -197,12 +197,12 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       break;
     }
     case "turn/end": {
-      const d = ev.data as { turn: number; reason: unknown };
+      const d = ev.data as { turn: number; reason: import("../types").TurnEndReason };
       const t = ctx.timing.get(d.turn) ?? {};
       t.end = ev.time;
       t.endSeq = ev.seq;
       ctx.timing.set(d.turn, t);
-      ctx.turnReason.set(d.turn, d.reason as import("../types").TurnEndReason);
+      ctx.turnReason.set(d.turn, d.reason);
       break;
     }
     case "assistant/chunk": {
@@ -402,7 +402,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
 
 /** 重试行文本：延迟与次数 + 失败摘要（failure.code 优先，过长截断）。 */
 function retryText(d: import("../types").LlmRetryData): string {
-  const delay = d.delayMs !== undefined ? `${Math.round(d.delayMs / 1000)}s` : "";
+  const delay = d.delayMs !== undefined ? `${formatLatencySeconds(d.delayMs)}s` : "";
   const attempt = d.maxRetries !== undefined ? `${d.retry}/${d.maxRetries}` : String(d.retry ?? "");
   const why = d.failure?.code ?? d.failure?.message ?? "";
   return [why, delay, attempt].filter(Boolean).join(" · ");

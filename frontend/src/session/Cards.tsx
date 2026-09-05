@@ -9,13 +9,15 @@ import { useCompositionGuard } from "../useCompositionGuard";
 import { IconQuestionOutline14 } from "../components/Icons";
 export function ApprovalCard({ approvalId, rpcId, sessionId, toolName, reason }: { approvalId: string; rpcId?: string; sessionId: string; toolName: string; reason?: string }) {
   const [done, setDone] = useState(false);
+  const [pending, setPending] = useState(false);
   const answer = async (outcome: "allowed-once" | "rejected") => {
     if (!rpcId) return;
+    setPending(true);
     try {
       await api.answerApproval({ rpcId, sessionId, approvalId, outcome });
       setDone(true);
     } catch {
-      // ignore; card stays until approval/resolved
+      setPending(false); // 应答提交失败：按钮恢复可点重试（卡片清除仅由 approval/resolved 帧驱动）
     }
   };
   return (
@@ -26,10 +28,10 @@ export function ApprovalCard({ approvalId, rpcId, sessionId, toolName, reason }:
       </div>
       <div className="cmd">{reason || toolName}</div>
       <div className="actions">
-        <button className="btn-plain" disabled={done || !rpcId} onClick={() => void answer("rejected")}>
+        <button className="btn-plain" disabled={done || pending || !rpcId} onClick={() => void answer("rejected")}>
           <X size={13} style={{ verticalAlign: -2 }} /> {t("拒绝")}
         </button>
-        <button className="btn-primary" disabled={done || !rpcId} onClick={() => void answer("allowed-once")}>
+        <button className="btn-primary" disabled={done || pending || !rpcId} onClick={() => void answer("allowed-once")}>
           {t("允许一次")}
         </button>
       </div>
@@ -180,12 +182,4 @@ export function QuestionCard({ rpcId, sessionId, questions }: {
     </div>
   );
 }
-
-// ---------- derivations ----------
-//
-// Payload accessors are typed against SessionEvent's discriminated union, so
-// `switch (event.type)` narrows `event.data` — no `as any`. Unknown event
-// types fall through the default branch below.
-
-
 

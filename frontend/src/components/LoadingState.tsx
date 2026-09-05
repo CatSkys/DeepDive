@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatElapsed } from "../session/format";
 
 /* ─────────────────────────────────────────────────────────
  * LOADING STATE — pixel-grid loader for long-running work
@@ -9,7 +10,6 @@ import { useEffect, useState } from "react";
  *            two fronts are always in flight
  *   Dots   — same wavefront, circular cells
  *   Orbit  — a comet lapping the grid perimeter
- *   Surfer — the Drive loader paired with a meme video below
  *
  * Paired with a shimmering label and a live elapsed timer
  * in mono tabular figures. Reduced motion freezes the grid
@@ -27,7 +27,7 @@ const orbit = Array.from({ length: 9 }, (_, i) => {
   return k === -1 ? null : k * 110;
 });
 
-const PATTERNS: Record<string, { delays: (number | null)[]; dur: number; round: boolean }> = {
+const PATTERNS = {
   Drive: { delays: chevron, dur: 650, round: false },
   Dots: { delays: chevron, dur: 650, round: true },
   Orbit: { delays: orbit, dur: 950, round: false },
@@ -64,86 +64,42 @@ export function InlineLoader() {
 }
 
 /**
- * Elapsed timer in tenths of a second. `since` (epoch ms) anchors the clock
+ * Elapsed timer. `since` (epoch ms) anchors the clock
  * to the turn's real start (turn/start event time); without it the clock
  * counts from mount — the reload-mid-turn case, where no start time exists.
  */
 function useElapsed(since?: number) {
   const [mountedAt] = useState(() => Date.now());
-  const [ds, setDs] = useState(0);
+  const [ms, setMs] = useState(0);
   useEffect(() => {
     const anchor = since ?? mountedAt;
-    const tick = () => setDs(Math.max(0, Math.round((Date.now() - anchor) / 100)));
+    const tick = () => setMs(Math.max(0, Date.now() - anchor));
     tick();
-    const t = setInterval(tick, 100);
+    // formatElapsed 只精确到整秒：1s 节拍足够（旧 100ms 节拍服务十分位显示）
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [since, mountedAt]);
-  const total = ds / 10;
-  if (total < 60) return `${total.toFixed(1)}s`;
-  return `${Math.floor(total / 60)}m ${(total % 60).toFixed(1)}s`;
+  return formatElapsed(ms);
 }
 
-export default function LoadingState({
+export function LoadingState({
   label,
   variant = "Drive",
   /** anchor the elapsed timer to a real start time (epoch ms) */
   since,
-  /** the meme feed for the Surfer variant; drop the file in dist/ to light it up */
-  videoSrc = "/subway-surfers.mp4",
 }: {
   label?: string;
-  variant?: string;
+  variant?: keyof typeof PATTERNS;
   since?: number;
-  videoSrc?: string;
 }) {
   const elapsed = useElapsed(since);
-  const surfer = variant === "Surfer";
-  const resolvedLabel = label ?? (surfer ? "Subway surfing" : "Churning");
-  const [videoOk, setVideoOk] = useState(true);
-  const { delays, dur, round } = PATTERNS[variant] ?? PATTERNS.Drive;
-
-  const labelEl = <span className="loading-label">{resolvedLabel}</span>;
-  const elapsedEl = <span className="loading-elapsed">{elapsed}</span>;
-
-  if (surfer) {
-    return (
-      <div role="status" className="loading-state stack">
-        <div className="loading-state-row">
-          <LoaderGrid {...PATTERNS.Drive} />
-          {labelEl}
-          {elapsedEl}
-        </div>
-
-        {/* the context card follows the status text it is illustrating */}
-        <div className="loading-card">
-          <div className="loading-video">
-            {videoOk ? (
-              <video
-                src={videoSrc}
-                autoPlay
-                muted
-                loop
-                playsInline
-                onError={() => setVideoOk(false)}
-                className="loading-video-el"
-              />
-            ) : (
-              <div className="loading-video-fallback">
-                <LoaderGrid {...PATTERNS.Drive} />
-                <span className="loading-video-note">Video unavailable</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const { delays, dur, round } = PATTERNS[variant];
 
   return (
     <div role="status" className="loading-state">
       <LoaderGrid delays={delays} dur={dur} round={round} />
-      {labelEl}
-      {elapsedEl}
+      <span className="loading-label">{label ?? "Churning"}</span>
+      <span className="loading-elapsed">{elapsed}</span>
     </div>
   );
 }

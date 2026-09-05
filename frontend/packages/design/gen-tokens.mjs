@@ -40,18 +40,10 @@ function walk(obj, prefix = []) {
       cssLight.push(`  ${cssId(path)}: ${value.light};`);
       cssDark.push(`  ${cssId(path)}: ${value.dark};`);
     } else if (value && typeof value === "object" && !("px" in value) && !("ms" in value)) {
-      if (value.light || value.dark) {
-        // shadow/motion pareses
-        if (isColorPair(value)) continue;
-      }
       walk(value, path);
     } else if (value && typeof value === "object") {
-      // scalar leaf (number / px / ms / string) — emit raw
-      const raw =
-        value && typeof value === "object"
-          ? value.px ?? value.ms ?? value.width ?? value.linecap ?? value.linejoin ?? value.family ?? value.easing ?? value.scaleFrom ?? value.translateY ?? value.duration
-          : value;
-      cssStatic.push(emitStatic(cssId(path), raw));
+      // scalar leaf (px / ms object) — emit raw
+      cssStatic.push(emitStatic(cssId(path), value.px ?? value.ms));
     } else {
       cssStatic.push(emitStatic(cssId(path), value));
     }

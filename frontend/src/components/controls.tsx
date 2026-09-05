@@ -6,9 +6,9 @@ import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 
-/** Shared controls for the built-in settings sections: monochrome toggle,
- *  labelled row, labelled group card, custom dropdown (portaled so the
- *  options scroller cannot clip it). Styles: SettingsRows.module.css. */
+/** Global shared controls (settings sections + hero preset picker): monochrome
+ *  toggle and custom dropdown (portaled so the options scroller cannot clip
+ *  it). Styles: settings/SettingsRows.module.css. */
 
 export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -127,30 +127,6 @@ export function Dropdown({ options, value, onChange, variant }: { options: Dropd
         <ChevronDown size={14} className={rowsCss.ddChevron} />
       </button>
       {menu}
-    </div>
-  );
-}
-
-export function Row({ title, caption, children }: { title: string; caption?: string; children?: React.ReactNode }) {
-  return (
-    <div className={rowsCss.rowCard}>
-      <div className={rowsCss.rowHead}>
-        <div className={rowsCss.rowIdentity}>
-          <div className={rowsCss.rowName}>{title}</div>
-          {caption && <div className={rowsCss.rowCaption}>{caption}</div>}
-        </div>
-        <div className={rowsCss.rowActions}>{children}</div>
-      </div>
-    </div>
-  );
-}
-
-export function Section({ title, intro, children }: { title: string; intro?: string; children: React.ReactNode }) {
-  return (
-    <div className={rowsCss.section}>
-      <div className={rowsCss.title}>{title}</div>
-      {intro && <div className={rowsCss.intro}>{intro}</div>}
-      <div className={rowsCss.rows}>{children}</div>
     </div>
   );
 }

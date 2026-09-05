@@ -111,23 +111,22 @@ export function inline(text: string, keyBase: string, onImage: (src: string, alt
   let m: RegExpExecArray | null;
   let k = 0;
   while ((m = re.exec(text)) !== null) {
-    const mm = m as RegExpExecArray;
-    if (mm.index > last) out.push(text.slice(last, mm.index));
+    if (m.index > last) out.push(text.slice(last, m.index));
     const key = `${keyBase}-${k++}`;
-    if (mm[2] !== undefined) out.push(<strong key={key}>{mm[2]}</strong>);
-    else if (mm[3] !== undefined) out.push(<code key={key}>{mm[3]}</code>);
-    else if (mm[4] !== undefined) out.push(<em key={key}>{mm[4]}</em>);
-    else if (mm[5] !== undefined) out.push(<del key={key}>{mm[5]}</del>);
-    else if (mm[6] !== undefined) {
-      const tex = mm[6];
+    if (m[2] !== undefined) out.push(<strong key={key}>{m[2]}</strong>);
+    else if (m[3] !== undefined) out.push(<code key={key}>{m[3]}</code>);
+    else if (m[4] !== undefined) out.push(<em key={key}>{m[4]}</em>);
+    else if (m[5] !== undefined) out.push(<del key={key}>{m[5]}</del>);
+    else if (m[6] !== undefined) {
+      const tex = m[6];
       out.push(
         <span key={key} className="md-math" dangerouslySetInnerHTML={{ __html: renderMath(tex, false) }} />,
       );
     }
-    else if (mm[7] !== undefined) {
+    else if (m[7] !== undefined) {
       // 图片：g7=alt、g8=src（AUD-021 修复——曾 src/alt 互换且 alt 取数学组）
-      const src = mm[8]!;
-      const alt = mm[7];
+      const src = m[8]!;
+      const alt = m[7];
       out.push(
         <img
           key={key}
@@ -138,11 +137,11 @@ export function inline(text: string, keyBase: string, onImage: (src: string, alt
           onClick={() => onImage(src, alt)}
         />,
       );
-    } else if (mm[9] !== undefined) {
+    } else if (m[9] !== undefined) {
       // 链接：g9=label、g10=url（AUD-021 修复——曾条件写 mm[8] 对链接匹配
       // 恒假，匹配到的 [label](url) 整段被跳过，链接文本静默丢失）
-      const label = mm[9];
-      const url = mm[10]!;
+      const label = m[9];
+      const url = m[10]!;
       out.push(
         <a
           key={key}
@@ -161,6 +160,8 @@ export function inline(text: string, keyBase: string, onImage: (src: string, alt
 }
 
 function openExternal(url: string): void {
+  // 只放行安全 scheme：javascript:/data: 等一旦经壳 open-url 或新窗口打开即是执行面
+  if (!/^(https?|file|mailto):/i.test(url)) return;
   if (window.webkit?.messageHandlers?.deepdiveHost) sendToShell({ type: "open-url", url });
   else window.open(url, "_blank");
 }

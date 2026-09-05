@@ -11,6 +11,19 @@ export interface CapsuleTodo {
   status: "pending" | "in_progress" | "completed";
 }
 
+const GOAL_PHASE: Record<string, [string, string]> = {
+  active: ["进行中", "Active"],
+  paused: ["已暂停", "Paused"],
+  blocked: ["受阻", "Blocked"],
+  complete: ["已完成", "Complete"],
+};
+
+/** 目标阶段文案对（[zh, en]），消费方 tt(...pair)：StatusCapsule 摘要与
+ *  GoalBar 共用这一份；未知阶段按"进行中"显示。 */
+export function goalPhasePair(phase: string): [string, string] {
+  return GOAL_PHASE[phase] ?? GOAL_PHASE.active;
+}
+
 export function todoStats(todos: CapsuleTodo[] | null | undefined): {
   done: number;
   total: number;

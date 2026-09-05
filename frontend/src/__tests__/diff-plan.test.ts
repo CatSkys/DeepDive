@@ -1,4 +1,4 @@
-// 阶段 1 纯函数钉子：diff 摊平/收窄（diffModel）与 plan-review 收窄（planReview）。
+// diff 纯函数钉子：diff 摊平/收窄（diffModel）与 plan-review 收窄（planReview）。
 import { describe, expect, it } from "vitest";
 import { buildDiffRows, diffCopyText, narrowDiffs } from "../diffModel";
 import { planReviewOf } from "../planReview";

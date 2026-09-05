@@ -4,7 +4,7 @@ import AppKit
 /// LSUIElement=false). Shows the engine state glyph plus live activity
 /// (SPEC-NOTIFICATIONS §1.4): attention state wins, then running, then
 /// idle. Business data stays out of the shell.
-final class StatusItemController: NSObject, NSMenuDelegate {
+final class StatusItemController: NSObject {
     static var shared: StatusItemController?
 
     var onShowWindow: (() -> Void)?

@@ -232,7 +232,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DSHAppPrefs.setSidebarWidth(raw.doubleValue)
             }
         case "set-theme":
-            let enabled = body["enabled"] as? Bool ?? true
+            // 与 set-pref 同因：JS true/false 与数字都桥接成 NSNumber，数字能被
+            // as? Bool 误转成功——按 CFBoolean 类型判别取值（AUD-081）；
+            // 非布尔/缺省回落 true（保持旧默认）。
+            let enabled: Bool
+            if let raw = body["enabled"] as? NSNumber, CFGetTypeID(raw) == CFBooleanGetTypeID() {
+                enabled = raw.boolValue
+            } else {
+                enabled = true
+            }
             config.themeEnabled = enabled
             config.save()
             windowController.setTheme(enabled)
@@ -464,7 +472,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 附件选择器（composer ＋）：文件与文件夹都可多选；绝对路径回推给前端
     /// 走 @ 引用（引擎宿主侧读盘），图片附带 base64 走真字节上传。取消回推
-    /// 空数组——前端据此收尾，不悬挂 reqId。
+    /// 空数组——前端据此收尾，不悬挂 reqId。NSOpenPanel 留在主线程；整图
+    /// 磁盘读与 base64 编码移后台队列（读大图会卡主线程 UI，AUD-079，对齐
+    /// 同文件 gitRun 的后台样板），主线程只回推 payload。
     private func pickAttachments(reqId: String) {
         guard let window = windowController.window else { return }
         let panel = NSOpenPanel()
@@ -475,9 +485,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.prompt = "添加"
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self else { return }
-            var items: [[String: Any]] = []
-            if response == .OK {
-                for url in panel.urls {
+            let urls = response == .OK ? panel.urls : []
+            DispatchQueue.global(qos: .userInitiated).async {
+                var items: [[String: Any]] = []
+                for url in urls {
                     var item: [String: Any] = [
                         "path": url.path,
                         "name": url.lastPathComponent,
@@ -492,11 +503,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                     items.append(item)
                 }
+                let payload = Self.jsonPayload(["reqId": reqId, "items": items])
+                DispatchQueue.main.async {
+                    self.windowController.pushHostCommand("pickedAttachments", payload: payload)
+                }
             }
-            self.windowController.pushHostCommand(
-                "pickedAttachments",
-                payload: Self.jsonPayload(["reqId": reqId, "items": items]),
-            )
         }
     }
 

@@ -260,7 +260,8 @@ final class EngineSupervisor {
         return url
     }
 
-    /// Failure copy follows the entry source (SPEC-ENGINE-RUNTIME §3.4):    /// a broken bundle means "reinstall the app"; a missing system dsh keeps
+    /// Failure copy follows the entry source (SPEC-ENGINE-RUNTIME §3.4):
+    /// a broken bundle means "reinstall the app"; a missing system dsh keeps
     /// the historic "install dsh" hint.
     private func launchFailureCopy(_ entry: Entry, error: Error) -> String {
         switch entry {
@@ -351,3 +352,5 @@ final class EngineSupervisor {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 }
+
+// 本文件已过 300 行红线，新引擎侧逻辑另开文件（AUD-083）

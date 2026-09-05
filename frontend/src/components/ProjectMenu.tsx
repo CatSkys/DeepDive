@@ -42,7 +42,7 @@ export function ProjectMenu({ onClose }: { onClose: () => void }) {
             <button
               key={w.workspaceId}
               className="ws-menu-row"
-              title={w.path}
+              data-tip={w.path}
               onClick={() => {
                 store.switchWorkspace(w.workspaceId, { keepDraft: true });
                 onClose();

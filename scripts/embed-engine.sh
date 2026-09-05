@@ -32,10 +32,14 @@ ACTUAL_NODE_VERSION="$("$NODE" -p 'process.versions.node')"
 }
 
 # The vendored reference source must match the runtime pin before we embed it.
-sh "$ROOT/scripts/check-dsh-source.sh"
+bash "$ROOT/scripts/check-dsh-source.sh"
 
 if [[ -z "$RUNTIME_SOURCE" ]]; then
-  RUNTIME_SOURCE="$(sh "$ROOT/scripts/prepare-dsh-runtime.sh")"
+  RUNTIME_SOURCE="$(bash "$ROOT/scripts/prepare-dsh-runtime.sh")"
+else
+  # 外部传入的 runtime 也过仓内同一校验（版本 + lib/bin.js + 嵌套依赖），
+  # 不再只查 bin.js 存在（AUD-107）。
+  bash "$ROOT/scripts/prepare-dsh-runtime.sh" --validate "$RUNTIME_SOURCE"
 fi
 [[ -f "$RUNTIME_SOURCE/lib/bin.js" ]] || { echo "runtime missing lib/bin.js: $RUNTIME_SOURCE" >&2; exit 1; }
 
@@ -77,11 +81,14 @@ ditto "$RUNTIME_SOURCE" "$STAGE/Resources/Runtime/dsh"
 # the same .app path + broken seal makes macOS 26 SIGKILL (137, silent —
 # no dyld/AMFI message) every exec of the newly embedded binaries. Hit in
 # the wild: engine "exited; restart" x3 right after a rebuild in place.
+# package-macos.sh 在 DMG 分发前还会做最终 deep seal（build-release.sh 路径则
+# 只有本处 seal）；二者顺序勿倒——embed → 本处 re-seal → 自检 → 最终 seal。
 codesign --force --deep --sign - "$APP" >/dev/null
 
 # Licenses: prefer files shipped inside the runtime closure; fall back to the
 # official source for the Node license only.
-[[ -f "$RUNTIME_SOURCE/LICENSE" ]] && cp -f "$RUNTIME_SOURCE/LICENSE" "$STAGE/Resources/Licenses/dsh-LICENSE" || true
+cp -f "$RUNTIME_SOURCE/LICENSE" "$STAGE/Resources/Licenses/dsh-LICENSE" 2>/dev/null || \
+  echo "warn: could not embed dsh LICENSE from $RUNTIME_SOURCE" >&2
 for n in "$RUNTIME_SOURCE"/THIRD_PARTY_NOTICES*; do
   if [[ -f "$n" ]]; then
     cp -f "$n" "$STAGE/Resources/Licenses/dsh-THIRD_PARTY_NOTICES.${n##*.}"

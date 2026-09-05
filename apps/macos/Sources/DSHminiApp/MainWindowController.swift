@@ -13,7 +13,7 @@ private final class TitlebarDragView: NSView {
 /// WKWebView that turns blank space in the top strip into a window drag while
 /// keeping real controls clickable. The frontend (frontend/src/titlebar.ts)
 /// pushes a rect table of every interactive element intersecting the strip —
-/// CSS viewport coords, y-down — through the "dshmini" message handler
+/// CSS viewport coords, y-down — through the "deepdive" message handler
 /// whenever layout changes (resize, sidebar slide, menus). Rects are matched
 /// against the live bounds height at hit time, so no cached height can go
 /// stale. Until the first table arrives the view behaves like a plain
@@ -144,6 +144,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
         // Rect-table channel from frontend/src/titlebar.ts; register before
         // any page load so the first push is never dropped.
+        // AUD-023（M5-23 备案）：add(_:name:) 对 self 强持有，控制器与窗口/
+        // 应用同生命周期不释放——已知悉，勿"清理"。
         webView.configuration.userContentController.add(self, name: "deepdive")
         // Host-command channel (§3.1): frontend posts open-settings/host-ready.
         webView.configuration.userContentController.add(self, name: "deepdiveHost")
@@ -283,7 +285,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     // MARK: - shell → frontend bridge (SPEC-NOTIFICATIONS §3.1)
 
-    /// Pushes one instruction to `window.__dshminiHost.dispatch(cmd, payload)`.
+    /// Pushes one instruction to `window.__deepDiveHost.dispatch(cmd, payload)`.
     /// If the host hook is not mounted (cold start / reload in progress) the
     /// command is staged as pending (single, last-wins) and flushed after the
     /// next page load — a click intent is never silently dropped (§3.1 v2.1).
@@ -340,8 +342,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         }
     }
 
+    /// 面板可见意图（AUD-080）：hide 动画的完成回调凭它识别"动画窗内又发生
+    /// 了 show"——完成回调无脑 orderOut 会把刚唤起的窗口盖掉。
+    private var panelVisibleIntent = false
+
     func showPanel() {
         guard let window else { return }
+        panelVisibleIntent = true
         showWindow(nil)
         window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
@@ -356,10 +363,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     func hidePanel() {
         guard let window, window.isVisible else { return }
+        panelVisibleIntent = false
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.10
             window.animator().alphaValue = 0
         }, completionHandler: {
+            // 动画期间若又 show（意图已翻回可见），放弃收尾，交给后到的动画
+            guard self.panelVisibleIntent == false else { return }
             window.orderOut(nil)
             window.alphaValue = 1
         })

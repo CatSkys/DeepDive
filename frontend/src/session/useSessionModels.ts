@@ -68,15 +68,20 @@ export function useSessionModels(sessionId: string) {
   const pickModel = async (m: ModelOption) => {
     // 菜单关闭由 ModelMenu 决定：无档位模型选完即关；带档位的进滑杆页，
     // 档位滑杆松手即通过 applyModelEffort 一次提交模型+档位后关闭。
+    const prevLabel = modelName;
     setModelName(m.label);
     try {
       await api.selectModel({ sessionId, provider: m.provider, model: m.model });
-    } catch { /* engine may be busy */ }
+    } catch {
+      // 提交失败：引擎侧选择未变，乐观更新回滚为前值（AUD-086）
+      setModelName(prevLabel);
+    }
   };
 
   const effortLabel = (id: string | undefined) => effortDisplayName(id, effortLevels);
 
   const applyModelEffort = async (m: ModelOption, id: string | undefined) => {
+    const prev = { label: modelName, current: currentModel, effort };
     setModelName(m.label);
     setCurrentModel({ provider: m.provider, model: m.model });
     setEffort(id);
@@ -87,7 +92,12 @@ export function useSessionModels(sessionId: string) {
         model: m.model,
         ...(id === undefined ? {} : { reasoningEffort: id }),
       });
-    } catch { /* engine may be busy */ }
+    } catch {
+      // 提交失败：引擎侧选择未变，三个乐观更新一并回滚为前值（AUD-086）
+      setModelName(prev.label);
+      setCurrentModel(prev.current);
+      setEffort(prev.effort);
+    }
   };
 
   return {

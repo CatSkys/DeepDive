@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Flag, Pause, Play, Pencil, Trash2, Check, X } from "lucide-react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
+import { goalPhasePair } from "./capsuleModel";
 import { useCompositionGuard } from "../useCompositionGuard";
 import type { GoalProjection } from "../types";
 
@@ -15,12 +16,6 @@ export interface GoalActions {
   onResume: () => Promise<void>;
   onClear: () => Promise<void>;
 }
-
-const PHASE_LABEL: Record<string, [string, string]> = {
-  active: ["进行中", "Active"],
-  paused: ["已暂停", "Paused"],
-  blocked: ["受阻", "Blocked"],
-};
 
 export function GoalBar({ projection, onChange, sessionId }: {
   projection: GoalProjection | null | undefined;
@@ -97,10 +92,9 @@ export function GoalBar({ projection, onChange, sessionId }: {
     );
   }
 
-  const phasePair = PHASE_LABEL[goal!.phase] ?? PHASE_LABEL.active!;
   const phaseLabel = goal!.phase === "blocked"
-    ? (goal!.blockedReason?.message ?? tt(...PHASE_LABEL.blocked!))
-    : tt(...phasePair);
+    ? (goal!.blockedReason?.message ?? tt(...goalPhasePair("blocked")))
+    : tt(...goalPhasePair(goal!.phase));
   return (
     <div className="goal-bar" data-goal-bar="" data-phase={goal!.phase} data-tip={goal!.phase === "blocked" ? goal!.blockedReason?.message : undefined}>
       <span className="goal-glyph"><Flag size={13} /></span>

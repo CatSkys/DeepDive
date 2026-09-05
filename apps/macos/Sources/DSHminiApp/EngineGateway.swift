@@ -10,6 +10,7 @@ final class EngineGateway {
 
     enum GatewayError: LocalizedError {
         case noEngine
+        case badURL
         case transport(Int)
         case methodUnavailable
         case rpc(code: String, message: String)
@@ -17,6 +18,7 @@ final class EngineGateway {
         var errorDescription: String? {
             switch self {
             case .noEngine: return "引擎未启动"
+            case .badURL: return "引擎网关地址无效"
             case .transport(let status): return "引擎传输错误 HTTP \(status)"
             case .methodUnavailable: return "该方法在当前引擎版本不可用"
             case .rpc(let code, let message): return "\(code): \(message)"
@@ -63,7 +65,8 @@ final class EngineGateway {
         // Keep the boot token (see BridgeServer.relayUnary — alpha.2+ auth).
         let query = base.query.map { "?\($0)" } ?? ""
         guard let url = URL(string: "api/" + method + query, relativeTo: base) else {
-            throw GatewayError.noEngine
+            // URL 构造失败是壳侧问题，不能冒充"引擎未启动"（AUD-036）
+            throw GatewayError.badURL
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -106,7 +109,9 @@ final class EngineGateway {
     /// True when the method exists on this engine. Unknown methods are probed
     /// once with an empty payload: a 404 / gateway-unavailable answer means
     /// "absent"; ANY other answer (success or an argument error) means the
-    /// method exists. Never throws into the UI.
+    /// method exists. Only definitive answers are cached — noEngine / badURL
+    /// say nothing about the method (the engine may just not be up this boot),
+    /// so they return false WITHOUT caching (AUD-036). Never throws into the UI.
     func probe(_ method: String) async -> Bool {
         lock.lock()
         if let known = capabilities[method] {
@@ -114,20 +119,24 @@ final class EngineGateway {
             return known
         }
         lock.unlock()
-        let available: Bool
+        var available = false
+        var cacheable = true
         do {
             _ = try await call(method, payload: [:])
             available = true
         } catch GatewayError.methodUnavailable {
             available = false
-        } catch GatewayError.noEngine {
+        } catch GatewayError.noEngine, GatewayError.badURL {
             available = false
+            cacheable = false
         } catch {
             available = true // method exists; the empty payload just was invalid
         }
-        lock.lock()
-        capabilities[method] = available
-        lock.unlock()
+        if cacheable {
+            lock.lock()
+            capabilities[method] = available
+            lock.unlock()
+        }
         return available
     }
 
