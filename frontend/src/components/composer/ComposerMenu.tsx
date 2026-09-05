@@ -74,10 +74,9 @@ export function ComposerMenu({ menu, query, rows, active, setActive, onPick }: {
     : tt("输入内容以搜索命令", "Type to filter commands");
   return (
     <div className="composer-menu" onMouseLeave={() => setRowBox(null)}>
-      {/* 毛玻璃：单枚 frost 子层（blur+渐变蒙版=自下而上渐进）。面板自身与
-          其他祖先都不得挂 backdrop-filter/常驻 transform，否则 WebKit 里子层
-          采样静默失效、只剩底色（「完全不透」事故）。噪点 4% 去塑料平感。 */}
-      <span className="menu-frost" aria-hidden />
+      {/* 噪点 4% 去塑料平感。模糊必须挂在 .composer-menu 自身——WKWebView
+          里 backdrop-filter 子层不渲染（frost 子层方案两轮实机均失败，
+          面板自身挂载有实机截图背书），勿改回子层方案 */}
       <span className="menu-noise" aria-hidden />
       <div className="menu-list">
         <span

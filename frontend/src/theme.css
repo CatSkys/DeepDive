@@ -206,7 +206,16 @@ button {
    第三条（2026-09 弹出卡片事故）：自带 blur 只模糊「自己身后」——弹层
    不得嵌在别的 backdrop-filter 面内，祖先成 backdrop root 后取不到面外
    内容，形同没有模糊；composer 菜单因此挂在 .composer-anchor 下
-   （.composer 的兄弟而非子元素）。 */
+   （.composer 的兄弟而非子元素）。
+   第四条：投影统一走 --shadow-pop（轻投影：贴身锐影 + 中距柔影）。
+   重投影会把低透明面板的边界重新描黑（2026-09 阴影过重反馈），
+   新弹层直接引用变量，勿再手写。 */
+:root {
+  --shadow-pop:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 12px 28px rgba(0,0,0,.20),
+    0 2px 6px rgba(0,0,0,.10);
+}
 .model-menu, .composer-menu, .ctx-menu, .ws-menu, .effort-cell, .ctx-pop, .capsule-panel, .tip {
   backdrop-filter: blur(40px) saturate(160%);
 }
@@ -624,10 +633,7 @@ button {
   background: var(--panel-strong);
   border: 1px solid var(--line);
   /* 统一投影（弹出面板配方）：贴身锐影 + 中距柔影，不再各写一套 */
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.08),
-    0 16px 40px rgba(0,0,0,.45),
-    0 4px 12px rgba(0,0,0,.25);
+  box-shadow: var(--shadow-pop);
   backdrop-filter: blur(40px) saturate(160%);
   overflow: hidden;
   z-index: 50;
@@ -787,10 +793,7 @@ button {
   border-radius: var(--dsh-radius-floating);
   background: var(--panel-strong);
   border: 1px solid var(--line);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.08),
-    0 16px 40px rgba(0,0,0,.45),
-    0 4px 12px rgba(0,0,0,.25);
+  box-shadow: var(--shadow-pop);
   backdrop-filter: blur(40px) saturate(160%);
   overflow: hidden;
   z-index: 60;
@@ -1017,29 +1020,14 @@ button {
   border-radius: var(--dsh-radius-card);
   background: var(--panel-glass);
   border: 1px solid var(--line);
-  /* 自身不挂 backdrop-filter：面板是 frost 子层的 backdrop root，挂了会把
-     子层采样锁死在面板内（「弹出面板统一配方」注释第三条的同族约束）。
-     均匀模糊（8px，用户定档）与渐进模糊分别由 .menu-frost-base / -plus 承担。
-     投影也远轻于统一配方：重投影会把这个透明面板的边界重新描黑 */
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.08),
-    0 12px 28px rgba(0,0,0,.20),
-    0 2px 6px rgba(0,0,0,.10);
+  /* blur 必须挂在面板自身：WKWebView 里 backdrop-filter 子层不渲染
+     （frost 子层方案两轮实机失败；面板自身挂载有实机截图背书）。
+     投影统一走 --shadow-pop：重投影会把这个透明面板的边界重新描黑 */
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: var(--shadow-pop);
   animation: pop-in 160ms cubic-bezier(0.23,1,0.32,1) both;
   transform-origin: bottom;
-}
-/* 渐进模糊 frost：单子层承担全部模糊——blur(14px) 全面板生效，再用渐变
-   蒙版把强度压成「底缘最糊、向上渐清」（蒙版 alpha 缩放采样强度）。
-   面板/祖先带常驻 transform 或 backdrop-filter 时 WebKit 子层采样会
-   静默失效，只剩底色（「完全不透」事故），动画只允许动 opacity */
-.menu-frost {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.5) 55%, rgba(0,0,0,.28) 100%);
-  mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.5) 55%, rgba(0,0,0,.28) 100%);
 }
 .menu-noise {
   position: absolute;
@@ -2153,10 +2141,7 @@ button {
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
   background: var(--panel-strong);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.08),
-    0 16px 40px rgba(0,0,0,.45),
-    0 4px 12px rgba(0,0,0,.25);
+  box-shadow: var(--shadow-pop);
   animation: menu-in var(--dur-fast) var(--ease-out) both;
   transform-origin: top left;
 }
@@ -2641,7 +2626,7 @@ button {
   border-radius: var(--dsh-radius-card);
   border: 1px solid var(--line-strong);
   background: var(--panel-strong);
-  box-shadow: 0 12px 36px rgba(0,0,0,.35);
+  box-shadow: var(--shadow-pop);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -2877,7 +2862,7 @@ button {
   border-radius: var(--dsh-radius-card);
   border: 1px solid var(--line-strong);
   background: var(--panel-strong);
-  box-shadow: 0 12px 36px rgba(0,0,0,.35);
+  box-shadow: var(--shadow-pop);
 }
 .capsule-head {
   position: relative;
@@ -3022,7 +3007,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   border-radius: var(--dsh-radius-control);
   border: 1px solid var(--line-strong);
   background: var(--panel-strong);
-  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  box-shadow: var(--shadow-pop);
   color: var(--ink);
   font-size: 12px;
   line-height: 18px;
