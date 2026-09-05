@@ -341,7 +341,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           onClick={() => pickNewWorkspace(
             !!window.webkit?.messageHandlers?.deepdiveHost,
             t("输入要添加为工作空间的文件夹绝对路径："),
-            (p) => void store.createWorkspace(p),
+            
+              (p) => void store.createWorkspace(p).then((r) => {
+                if (r.error) alert(tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }));
+              }),
           )}
         >
           <IconProjectAddOutline16 size={15} />

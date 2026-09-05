@@ -9,7 +9,7 @@ import { pickNewWorkspace } from "./workspacePicker";
 // 工作」——本客户端每个会话必属一个工作空间，引擎无此语义。
 export function ProjectMenu({ onClose }: { onClose: () => void }) {
   const store = useStore();
-  const { t } = useT();
+  const { t, tt } = useT();
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
@@ -64,7 +64,10 @@ export function ProjectMenu({ onClose }: { onClose: () => void }) {
             pickNewWorkspace(
               !!window.webkit?.messageHandlers?.deepdiveHost,
               t("输入要添加为工作空间的文件夹绝对路径："),
-              (p) => void store.createWorkspace(p),
+              
+              (p) => void store.createWorkspace(p).then((r) => {
+                if (r.error) alert(tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }));
+              }),
             );
             onClose();
           }}

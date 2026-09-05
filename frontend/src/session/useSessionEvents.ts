@@ -13,6 +13,15 @@ export function useSessionEvents(
 ) {
   const store = useStore();
   const [items, setItems] = useState<RenderItem[]>([]);
+  // items 的同步镜像：mux 增量摄取直接在最新列表上做（副作用不进 setState
+  // updater——StrictMode dev 下 updater 双调用，AUD-084 之前靠 seq 守卫兜住，
+  // 现在结构上杜绝：handler 内完成 log.push/ingest/finalize，再一次性快照）。
+  const itemsRef = useRef<RenderItem[]>([]);
+  itemsRef.current = items;
+  // 首屏 history 拉取失败不再静默（AUD-050）：非 blank 会话渲染成空白流会让
+  // 用户以为会话被清空；retry 经 retryKey 重跑整个挂载 effect。
+  const [loadError, setLoadError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   // Live turn state from mux events; `summary.running` (store poll) covers
   // reload mid-turn, where no turn/start will ever arrive again.
   const [liveRunning, setLiveRunning] = useState(false);
@@ -28,7 +37,7 @@ export function useSessionEvents(
       const s = (r.items ?? []).find((x) => x.sessionId === sessionId);
       const v = s?.projections?.values?.goal as import("../types").GoalProjection | null | undefined;
       setGoalProj(v ?? null);
-    }).catch(() => void 0);
+    }).catch(() => void 0); // goal 投影轮询兜底：单次失败等实时推送或下一拍
   };
   // 5.3 Schedule：schedule/change 折叠出的会话提醒目录（只读）
   const [scheduleRecords, setScheduleRecords] = useState<import("../types").ScheduleRecord[]>([]);
@@ -59,8 +68,10 @@ export function useSessionEvents(
     let alive = true;
     let seqFloor = -1;
     eventLog.current = [];
+    itemsRef.current = [];
     ctx.current = makeIngestCtx();
     setItems([]);
+    setLoadError(false);
     setLiveRunning(false);
     setHasMore(false);
     setEarliestSeq(undefined);
@@ -88,7 +99,9 @@ export function useSessionEvents(
       .then(({ events, hasMore: more }) => {
         if (!alive) return;
         eventLog.current = events;
-        setItems(rebuild(eventLog.current));
+        const next = rebuild(eventLog.current);
+        itemsRef.current = next;
+        setItems(next);
         setHasMore(more);
         // 历史窗口内的 schedule/change 一并折叠（增量变化由 mux 帧驱动）
         let recs: import("../types").ScheduleRecord[] = [];
@@ -103,7 +116,10 @@ export function useSessionEvents(
         const last = events[events.length - 1];
         if (last) seqFloor = last.event.seq + 1;
       })
-      .catch(() => void 0);
+      .catch(() => {
+        // 首屏（含 subagent 兜底）两跳都失败：显式失败态而非静默空白（AUD-050）
+        if (alive) setLoadError(true);
+      });
 
     const off = store.subscribeMux((frame) => {
       if (frame.type === "session/projection") {
@@ -121,18 +137,17 @@ export function useSessionEvents(
       }
       const seq = ev.seq ?? -1;
       if (seq >= 0 && seq < seqFloor) return;
-      setItems((prev) => {
-        const log = eventLog.current;
-        if (seq >= 0 && log.length && seq <= log[log.length - 1]!.event.seq) return prev;
-        log.push({ event: ev });
-        // 增量摄取：流式期间每条增量只 ingest 新事件（append-only，seq
-        // 递增已由上方守卫），不再对整份 event log 做全量重建 —— 长会话
-        // 流式卡顿的主要来源。turn/end 时重插 turn-tail；历史页加载/
-        // 载入更早仍走全量 rebuild（前插需要重排序）。
-        ingest(prev, { event: ev }, ctx.current);
-        if (ev.type === "turn/end") finalizeTurns(prev, ctx.current);
-        return prev.slice();
-      });
+      const log = eventLog.current;
+      if (seq >= 0 && log.length && seq <= log[log.length - 1]!.event.seq) return;
+      // 增量摄取：流式期间每条增量只 ingest 新事件（append-only，seq 严格递增
+      // 已由上方双守卫保证），不再对整份 event log 做全量重建 —— 长会话流式
+      // 卡顿的主要来源。turn/end 时重插 turn-tail；历史页加载/载入更早仍走
+      // 全量 rebuild（前插需要重排序）。副作用（log/ingest/finalize）全部在
+      // handler 内完成，setState 只收快照（AUD-084：updater 必须纯函数）。
+      log.push({ event: ev });
+      ingest(itemsRef.current, { event: ev }, ctx.current);
+      if (ev.type === "turn/end") finalizeTurns(itemsRef.current, ctx.current);
+      setItems(itemsRef.current.slice());
       if (ev.type === "turn/start") {
         setLiveRunning(true);
         setRunningSince(ev.time);
@@ -144,7 +159,11 @@ export function useSessionEvents(
     });
 
     // plan projection: DSH PlanChip visibility (active, or pending when folded)
-    // + goal 投影兜底（正常路径走 session/projection 实时推送）
+    // + goal 投影兜底（正常路径走 session/projection 实时推送）。
+    // plan 键只在有值时 setPlan 是安全的：引擎侧 plan 投影是常驻纯折叠
+    // （vendored plan-mode/src/index.ts——init 恒有值、view 派生 {active,
+    // pending}、键不从 projections.values 移除），无值只可能出现在「引擎
+    // 无 plan 面」的首次读，那时芯片本就从未显示过（AUD-073 查证结论）。
     const tickPlan = () => {
       api.sessions().then((r) => {
         const s = (r.items ?? []).find((x) => x.sessionId === sessionId);
@@ -154,7 +173,7 @@ export function useSessionEvents(
         }
         const goalVal = s?.projections?.values?.goal as import("../types").GoalProjection | null | undefined;
         setGoalProj(goalVal ?? null);
-      }).catch(() => void 0);
+      }).catch(() => void 0); // 3s 轮询兜底：单次失败等下一拍
     };
     tickPlan();
     const planIv = setInterval(tickPlan, 3000);
@@ -165,7 +184,7 @@ export function useSessionEvents(
       off?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [sessionId, retryKey]);
 
   const loadOlder = async () => {
     if (loadingOlder) return;
@@ -186,7 +205,9 @@ export function useSessionEvents(
         }
       }
       setScheduleRecords(recs);
-      setItems(rebuild(eventLog.current));
+      const next = rebuild(eventLog.current);
+      itemsRef.current = next;
+      setItems(next);
       // After render, restore the anchor row to its captured offset.
       requestAnimationFrame(() => {
         const sc = refs.scrollRef.current;
@@ -209,5 +230,6 @@ export function useSessionEvents(
   return {
     items, liveRunning, runningSince, plan, goalProj, refreshGoal,
     scheduleRecords, hasMore, loadingOlder, loadOlder,
+    loadError, retry: () => setRetryKey((k) => k + 1),
   };
 }

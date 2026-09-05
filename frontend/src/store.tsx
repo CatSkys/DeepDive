@@ -73,8 +73,9 @@ interface Store {
    *  目标空间的历史会话）。 */
   switchWorkspace: (id: string, opts?: { keepDraft?: boolean }) => void;
   /** 新建（注册）工作空间：目录选择器回传的绝对路径 → workspace.create，
-   *  成功后刷新列表并切入该空间。失败弹原生 alert（与右键菜单一致）。 */
-  createWorkspace: (path: string) => Promise<string | null>;
+   *  成功后刷新列表并切入该空间。失败经 error 带出，弹窗归调用方（词典键
+   *  「添加工作空间失败：{m}」），store 自身不碰 UI 文案。 */
+  createWorkspace: (path: string) => Promise<{ workspaceId: string | null; error?: string }>;
   createSession: (presetId?: string) => Promise<string | null>;
   /** 草稿模型：新会话页（hero）上选的模型。此时会话尚未真正创建，先暂存；
    *  首条消息触发 createSession 时随新会话 selectModel 一次性带走并清空。 */
@@ -396,7 +397,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // 非当前会话的新动态 → 未读（当前会话正在看，不打点）。
           const sid = (frame as { sessionId?: string }).sessionId;
           if (sid && sid !== activeIdRef.current) markUnread(sid);
-          void applyFrame(frame);
+          throttledRefreshSessions();
         } else if (frame.type === "approval/requested") {
           // rpcId（信封上）必须随帧保存：/api/respond 严格按它查 pending 表。
           const a = frame as ApprovalRequestFrame;
@@ -437,11 +438,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return close;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const applyFrame = async (frame: MuxFrame) => {
-    void frame;
-    throttledRefreshSessions();
-  };
 
   // 跨空间打开（搜索结果/深链/通知推达）：会话属于哪个空间就同步切过去，
   // 侧栏列表、顶栏胶囊、新会话落点三者才能保持一致。
@@ -504,16 +500,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // 注册（新建）工作空间：workspace.create 对已有目录幂等（created:false
   // 表示本就注册过）。刷新归属表后切入新空间——空空间落欢迎页。
-  const createWorkspace = useCallback(async (path: string) => {
+  // 失败经 error 字段带出（store 不做 UI 呈现，也不 import i18n——那会重建
+  // i18n→store 的环）；弹窗由调用方（App/Sidebar/ProjectMenu）用词典负责。
+  const createWorkspace = useCallback(async (path: string): Promise<{ workspaceId: string | null; error?: string }> => {
     try {
       const res = await api.workspaceCreate({ path });
       await forceRefreshSessionsRef.current();
       const wsId = res.workspace?.workspaceId;
       if (wsId) switchWorkspace(wsId);
-      return wsId ?? null;
+      return { workspaceId: wsId ?? null };
     } catch (err) {
-      alert(`添加工作空间失败：${(err as Error).message}`);
-      return null;
+      return { workspaceId: null, error: (err as Error).message };
     }
   }, [switchWorkspace]);
 
@@ -566,8 +563,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // AUD-027 约定：refresh/createSession 是渲染期函数（全部可变量经 ref 读取），
     // 进 deps 会让 value 每次渲染重建——ref 镜像约定下显式排除，P2-6 snapshot
     // store 决策时一并处理；其余稳定标识（useCallback/useState）如实入表。
+    // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
+    // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

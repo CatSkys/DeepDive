@@ -423,7 +423,13 @@ export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
   for (const [turn, t] of closed) {
     const runMs = Math.max(0, (t.end ?? 0) - (t.start ?? 0));
     const ttftMs = t.firstToken !== undefined ? Math.max(0, t.firstToken - (t.start ?? 0)) : null;
-    const tokensPerSecond = ttftMs !== null && runMs > ttftMs ? Math.round(((runMs - ttftMs) / 1000) * 100) / 100 : null;
+    // 官方口径（ui-conversation turn-metrics）：吞吐 = 输出 tokens ÷ 解码耗时
+    // （runMs − ttftMs）。缺 usage 时置 null 不显示，绝不把秒数当速率（AUD-066）。
+    const decodeSec = ttftMs !== null && runMs > ttftMs ? (runMs - ttftMs) / 1000 : null;
+    const outputTokens = ctx.turnUsage.get(turn)?.outputTokens;
+    const tokensPerSecond = decodeSec !== null && outputTokens !== undefined && outputTokens > 0
+      ? Math.round((outputTokens / decodeSec) * 10) / 10
+      : null;
     const txt = ctx.turnText.get(turn) ?? "";
     tails.set(turn, {
       key: `tail:${turn}`,

@@ -19,7 +19,7 @@ import "./theme.css";
 
 function Shell() {
   const store = useStore();
-  const { t } = useT();
+  const { t, tt } = useT();
   const active = store.activeSessionId;
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -61,7 +61,9 @@ function Shell() {
         document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
       },
       workspacePicked: (path) => {
-        void store.createWorkspace(path);
+        void store.createWorkspace(path).then((r) => {
+          if (r.error) alert(tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }));
+        });
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

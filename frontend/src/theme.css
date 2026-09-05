@@ -684,7 +684,7 @@ button {
   left: 0; top: 0; bottom: 0;
   width: calc(var(--p) * 100%);
   border-radius: 999px;
-  /* 减淡墨色（用户定）：亮 #3A3A40，暗为柔和白 */
+  /* 减淡墨色（用户定）：亮用 --dsh-signal-effortFill，暗为柔和白 */
   background: rgba(255,255,255,.88);
   overflow: hidden;
 }
@@ -709,7 +709,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .effort-cell { animation: none; }
 }
-:root[data-theme="light"] .effort-fill { background: #3A3A40; }
+:root[data-theme="light"] .effort-fill { background: var(--dsh-signal-effortFill); }
 .effort-tick {
   position: absolute;
   top: 50%;
@@ -1776,6 +1776,27 @@ button {
 }
 .load-older:hover { color: var(--ink-soft); }
 .load-older:disabled { color: var(--ink-faint); cursor: default; }
+
+/* 首屏 history 拉取失败（AUD-050）：非 blank 会话的显式失败态 + 重试 */
+.load-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 0;
+  color: var(--dsh-signal-danger);
+  font-size: 13px;
+}
+.load-error button {
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 2px 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
 /* Flex column: msg-block 的右对齐收窄规则（align-self/margin-left:auto）是按
    flow-inner 直接子元素设计的，锚定包装层必须复刻同样的 flex 上下文，
    否则用户气泡退化为普通块级铺满整行。 */
@@ -2125,7 +2146,7 @@ button {
 .ctx-item.disabled { color: var(--ink-3); cursor: default; }
 .ctx-item.disabled:hover { background: transparent; }
 /* 破坏性动作（删除工作区）：官方菜单同款红色 */
-.ctx-item.danger { color: #e5484d; }
+.ctx-item.danger { color: var(--dsh-signal-danger); }
 .ctx-item.danger svg { color: currentColor; }
 .ctx-sep { height: 1px; margin: 5px 8px; background: var(--fill); }
 
@@ -2503,7 +2524,7 @@ button {
   font-size: 12.5px;
   white-space: nowrap;
 }
-.engine-banner-dot { width: 7px; height: 7px; border-radius: 50%; background: #FF9F0A; animation: pulse 1.2s ease-in-out infinite; }
+.engine-banner-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dsh-signal-warn); animation: pulse 1.2s ease-in-out infinite; }
 
 /* 侧栏置顶钉 */
 .row-pin { color: var(--ink-3); flex: none; }
@@ -2590,7 +2611,7 @@ button {
   cursor: default;
 }
 .ctx-ring:hover { background: var(--fill); color: var(--ink); }
-.ctx-ring[data-hot="true"] { color: #FF9F0A; }
+.ctx-ring[data-hot="true"] { color: var(--dsh-signal-warn); }
 .ctx-pop {
   position: absolute;
   top: calc(100% + 6px);
@@ -2624,7 +2645,7 @@ button {
 /* 低高度进度条用半高圆角（PITFALLS §1.1 禁 999px） */
 .ctx-cap-bar { height: 5px; border-radius: 2.5px; background: var(--fill-strong); overflow: hidden; }
 .ctx-cap-bar > span { display: block; height: 100%; border-radius: 2.5px; background: var(--ink); transition: width 200ms ease; }
-.ctx-cap-bar > span[data-hot="true"] { background: #FF9F0A; }
+.ctx-cap-bar > span[data-hot="true"] { background: var(--dsh-signal-warn); }
 .ctx-cap-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
 .ctx-cap-row b { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
 .ctx-cap-dot { width: 7px; height: 7px; border-radius: 3.5px; background: var(--ink-2); flex-shrink: 0; }
@@ -2773,9 +2794,9 @@ button {
   color: var(--ink-2);
 }
 .goal-glyph { color: var(--ink-3); display: inline-flex; }
-.goal-bar[data-phase="active"] .goal-glyph { color: #7FDBCA; }
+.goal-bar[data-phase="active"] .goal-glyph { color: var(--dsh-signal-live); }
 .goal-bar[data-phase="paused"] .goal-glyph { color: #FFCB6B; }
-.goal-bar[data-phase="blocked"] .goal-glyph { color: #FF9F0A; }
+.goal-bar[data-phase="blocked"] .goal-glyph { color: var(--dsh-signal-warn); }
 .goal-phase { font-weight: 600; color: var(--ink-soft); flex: none; }
 .goal-objective { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
 .goal-input {
@@ -2798,7 +2819,7 @@ button {
 }
 .goal-act:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
 .goal-act:disabled { opacity: .4; }
-.goal-error { font-size: 11px; color: #FF9F0A; flex: none; }
+.goal-error { font-size: 11px; color: var(--dsh-signal-warn); flex: none; }
 
 /* 会话状态胶囊：横条 pill（两端全圆）按运行状态显示一类，展开为摘要卡片 */
 .capsule-wrap { position: relative; }
@@ -2817,7 +2838,7 @@ button {
   animation: fadein var(--dur-fast) ease both;
 }
 .capsule-trigger:hover, .capsule-trigger[data-open="true"] { background: var(--fill); color: var(--ink); }
-.capsule-live { width: 6px; height: 6px; border-radius: 50%; background: #7FDBCA; animation: pulse 1.2s ease-in-out infinite; flex: none; }
+.capsule-live { width: 6px; height: 6px; border-radius: 50%; background: var(--dsh-signal-live); animation: pulse 1.2s ease-in-out infinite; flex: none; }
 .capsule-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capsule-pill-meta { color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
 .capsule-add { color: rgba(120,220,140,.95); font-weight: 600; }
@@ -2959,9 +2980,9 @@ button {
 }
 .capsule-row-main:hover { background: var(--fill); }
 .capsule-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); flex: none; }
-.capsule-dot.live { background: #7FDBCA; animation: pulse 1.2s ease-in-out infinite; }
+.capsule-dot.live { background: var(--dsh-signal-live); animation: pulse 1.2s ease-in-out infinite; }
 .capsule-stop { color: var(--ink-3); padding: 3px; border-radius: 4px; flex: none; align-self: center; }
-.capsule-stop:hover:not(:disabled) { color: #FF9F0A; background: var(--fill); }
+.capsule-stop:hover:not(:disabled) { color: var(--dsh-signal-warn); background: var(--fill); }
 .capsule-sec-toggle {
   display: inline-flex;
   align-items: center;

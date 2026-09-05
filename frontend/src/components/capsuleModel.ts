@@ -24,14 +24,6 @@ export function todoStats(todos: CapsuleTodo[] | null | undefined): {
   };
 }
 
-/** 壳层 gitStatus 载荷收窄：非仓库或字段缺失 → null（胶囊视为无 git 数据）。 */
-export function narrowGitStatus(p: unknown): GitStatus | null {
-  const v = p as Partial<GitStatus> | null;
-  if (!v || v.repo !== true) return null;
-  if (typeof v.files !== "number" || typeof v.additions !== "number" || typeof v.deletions !== "number") return null;
-  return { repo: true, branch: v.branch, files: v.files, additions: v.additions, deletions: v.deletions };
-}
-
 /** 最近提醒：取折叠序首条（schedule/change 折叠序即会话内最新目录）。 */
 export function nextScheduleRecord(records: ScheduleRecord[]): ScheduleRecord | null {
   return records[0] ?? null;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -30,7 +30,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
-  const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder } =
+  const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("会话");
@@ -57,7 +57,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         void store.refresh();
         store.openSession(r.sessionId);
       })
-      .catch(() => void 0);
+      .catch(() => void 0); // fork 失败留在当前会话：无部分状态可回滚
   };
 
   const isBlank = summary ? !!summary.blank : items.length === 0;
@@ -75,6 +75,22 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     usage: projVals.tokenUsage,
     breakdown: projVals.contextBreakdown,
   };
+
+  // key 索引/末位行扫描/轮分组只在 items 变化时算一次（AUD-092）：流式期间
+  // 每条 delta 与其他会话的 store 更新都会触发重渲染，渲染体内重建 Map +
+  // 全量扫是纯浪费；折叠开关只影响 foldFrom，不参与本 memo。
+  const layout = useMemo(() => {
+    let lastUserIdx = -1;
+    let lastTailIdx = -1;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === "user") lastUserIdx = i;
+      if (items[i].kind === "turn-tail") lastTailIdx = i;
+    }
+    const keyIdx = new Map(items.map((it, i) => [it.key, i] as const));
+    const groups = groupTurns(items);
+    const fold = foldDecision(groups.length);
+    return { lastUserIdx, lastTailIdx, keyIdx, groups, fold };
+  }, [items]);
 
   if (isBlank) {
     return (
@@ -109,7 +125,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                   sessionId,
                   mode: "queue",
                   content: [{ type: "text", text: "/plan off" }],
-                }).catch(() => void 0);
+                }).catch(() => void 0); // 引擎忙时退出指令丢失：芯片由投影轮询纠偏
               }}
             >
               Plan ×
@@ -126,6 +142,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
       }}>
         <div className="flow-inner">
+          {loadError && items.length === 0 && (
+            <div className="load-error" role="alert">
+              {t("历史加载失败")}
+              <button type="button" onClick={retry}>{t("重试")}</button>
+            </div>
+          )}
           {hasMore && (
             <button
               type="button"
@@ -141,15 +163,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             // turn tail hold 'always' (kept visible); earlier rows reveal on
             // hover / focus-within.
             // 轮折叠：长会话默认折叠早前轮（除最近 2 轮），折叠条点击展开。
-            let lastUserIdx = -1;
-            let lastTailIdx = -1;
-            for (let i = 0; i < items.length; i++) {
-              if (items[i].kind === "user") lastUserIdx = i;
-              if (items[i].kind === "turn-tail") lastTailIdx = i;
-            }
-            const keyIdx = new Map(items.map((it, i) => [it.key, i] as const));
-            const groups = groupTurns(items);
-            const fold = foldDecision(groups.length);
+            const { lastUserIdx, lastTailIdx, keyIdx, groups, fold } = layout;
             // turnsFolded=false 时 foldFrom=0（全部渲染）；=groups.length 会把整流折空
             const foldFrom = fold && turnsFolded ? fold.foldFrom : 0;
             const nodes: React.ReactNode[] = [];
@@ -191,7 +205,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       onBranch={branchFrom}
                       sessionId={sessionId}
                       onContinue={() => {
-                        void api.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0);
+                        void api.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
                       }}
                     />
                   </div>,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { capsuleCategory, narrowGitStatus, nextScheduleRecord, todoStats } from "../components/capsuleModel";
+import { capsuleCategory, nextScheduleRecord, todoStats } from "../components/capsuleModel";
+import { narrowGitStatus } from "../host";
 import type { ScheduleRecord } from "../types";
 
 const schedule: ScheduleRecord = { id: "s1", kind: "after", prompt: "喝水", afterSeconds: 1800 };

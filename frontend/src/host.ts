@@ -31,64 +31,84 @@ export function sendToShell(message: Record<string, unknown>): void {
   window.webkit?.messageHandlers?.deepdiveHost?.postMessage(message);
 }
 
-/** 壳侧目录列举（@ 引用候选源；引擎 browse 通道在桌面部署不可用，
- *  docs/DSH-WIRE.md §1）。纯浏览器环境 resolve 空数组。 */
-export function listDir(path: string): Promise<Array<{ name: string; path: string; isDir: boolean }>> {
+/** 壳桥 req/resp 统一包装（AUD-049/090）：注册一次性监听 + 发送 + 超时降级
+ *  ——壳不回包（桥挂/消息丢失）也按 fallback resolve，绝不永久 pending。
+ *  match 收到本 reqId 的载荷时返回要 resolve 的值；纯浏览器环境直接降级。 */
+function bridgeRequest<T>(
+  cmdName: string,
+  fallback: T,
+  match: (payload: unknown) => T,
+  send: (reqId: string) => void,
+  timeoutMs = 10_000,
+): Promise<T> {
   return new Promise((resolve) => {
     if (!window.webkit?.messageHandlers?.deepdiveHost) {
-      resolve([]);
+      resolve(fallback);
       return;
     }
     const reqId = crypto.randomUUID();
-    const off = onHostEvent((cmd, payload) => {
-      if (cmd !== "dirListing") return;
-      const p = payload as { reqId?: string; entries?: Array<{ name: string; path: string; isDir: boolean }>; error?: string };
-      if (p.reqId !== reqId) return;
+    let off: () => void = () => {};
+    const timer = window.setTimeout(() => {
       off();
-      resolve(p.error ? [] : p.entries ?? []);
+      resolve(fallback);
+    }, timeoutMs);
+    off = onHostEvent((cmd, payload) => {
+      if (cmd !== cmdName) return;
+      if ((payload as { reqId?: string } | undefined)?.reqId !== reqId) return;
+      window.clearTimeout(timer);
+      off();
+      resolve(match(payload));
     });
-    sendToShell({ type: "list-dir", reqId, path });
+    send(reqId);
   });
 }
 
+/** 壳侧目录列举（@ 引用候选源；引擎 browse 通道在桌面部署不可用，
+ *  docs/DSH-WIRE.md §1）。纯浏览器环境 resolve 空数组。 */
+export function listDir(path: string): Promise<Array<{ name: string; path: string; isDir: boolean }>> {
+  return bridgeRequest(
+    "dirListing",
+    [],
+    (p) => {
+      const r = p as { entries?: Array<{ name: string; path: string; isDir: boolean }>; error?: string };
+      return r.error ? [] : r.entries ?? [];
+    },
+    (reqId) => sendToShell({ type: "list-dir", reqId, path }),
+  );
+}
+
 /** 壳侧工作区未提交改动摘要（run-git → gitStatus 回推）。引擎无 git 能力，
- *  这条链路只在桌面壳内可用；纯浏览器/非 git 仓库 resolve null。 */
+ *  这条链路只在桌面壳内可用；纯浏览器/非 git 仓库 resolve null。
+ *  载荷在边界处收窄（铁律 5）：repo 必为真、files/additions/deletions 必为
+ *  数值，缺一即 null——壳侧字段漂移不允许以 undefined 进入 UI 运算。 */
+export function narrowGitStatus(p: unknown): import("./types").GitStatus | null {
+  const v = p as Partial<import("./types").GitStatus> | null;
+  if (!v || v.repo !== true) return null;
+  if (typeof v.files !== "number" || typeof v.additions !== "number" || typeof v.deletions !== "number") return null;
+  return { repo: true, branch: v.branch, files: v.files, additions: v.additions, deletions: v.deletions };
+}
+
 export function gitStatus(path: string): Promise<import("./types").GitStatus | null> {
-  return new Promise((resolve) => {
-    if (!window.webkit?.messageHandlers?.deepdiveHost) {
-      resolve(null);
-      return;
-    }
-    const reqId = crypto.randomUUID();
-    const off = onHostEvent((cmd, payload) => {
-      if (cmd !== "gitStatus") return;
-      const p = payload as { reqId?: string } & Partial<import("./types").GitStatus>;
-      if (p.reqId !== reqId) return;
-      off();
-      resolve(p.repo === true ? (p as import("./types").GitStatus) : null);
-    });
-    sendToShell({ type: "run-git", reqId, path });
-  });
+  return bridgeRequest(
+    "gitStatus",
+    null,
+    (p) => narrowGitStatus(p),
+    (reqId) => sendToShell({ type: "run-git", reqId, path }),
+  );
 }
 
 /** 壳侧执行一条 git 子命令（git-run → gitRunResult 回推；参数数组直传
  *  Process，不经 shell）。切分支/提交/推送等胶囊动作共用此通道。 */
 export function gitRun(path: string, args: string[]): Promise<{ ok: boolean; output: string } | null> {
-  return new Promise((resolve) => {
-    if (!window.webkit?.messageHandlers?.deepdiveHost) {
-      resolve(null);
-      return;
-    }
-    const reqId = crypto.randomUUID();
-    const off = onHostEvent((cmd, payload) => {
-      if (cmd !== "gitRunResult") return;
-      const p = payload as { reqId?: string; ok?: boolean; output?: string };
-      if (p.reqId !== reqId) return;
-      off();
-      resolve({ ok: !!p.ok, output: p.output ?? "" });
-    });
-    sendToShell({ type: "git-run", reqId, path, args });
-  });
+  return bridgeRequest(
+    "gitRunResult",
+    null,
+    (p) => {
+      const r = p as { ok?: boolean; output?: string };
+      return { ok: !!r.ok, output: r.output ?? "" };
+    },
+    (reqId) => sendToShell({ type: "git-run", reqId, path, args }),
+  );
 }
 
 export interface PickedAttachment {
@@ -102,23 +122,15 @@ export interface PickedAttachment {
 }
 
 /** 壳侧附件选择器（composer ＋）：NSOpenPanel 文件+文件夹多选，回推绝对
- *  路径（图片另带 base64）。纯浏览器环境 resolve null；取消 resolve 空数组。 */
+ *  路径（图片另带 base64）。纯浏览器环境 resolve null；取消/超时 resolve
+ *  空数组（超时视同取消，别让按钮停在等待态）。 */
 export function pickAttachments(): Promise<PickedAttachment[] | null> {
-  return new Promise((resolve) => {
-    if (!window.webkit?.messageHandlers?.deepdiveHost) {
-      resolve(null);
-      return;
-    }
-    const reqId = crypto.randomUUID();
-    const off = onHostEvent((cmd, payload) => {
-      if (cmd !== "pickedAttachments") return;
-      const p = payload as { reqId?: string; items?: PickedAttachment[] };
-      if (p.reqId !== reqId) return;
-      off();
-      resolve(p.items ?? []);
-    });
-    sendToShell({ type: "pick-attachments", reqId });
-  });
+  return bridgeRequest(
+    "pickedAttachments",
+    null,
+    (p) => (p as { items?: PickedAttachment[] }).items ?? [],
+    (reqId) => sendToShell({ type: "pick-attachments", reqId }),
+  );
 }
 
 export function installHostBridge(handlers: {

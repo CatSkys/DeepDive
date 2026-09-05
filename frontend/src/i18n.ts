@@ -21,6 +21,7 @@ const EN: Record<string, string> = {
   "设置 ⌘,": "Settings ⌘,",
   "新建项目空间": "New project workspace",
   "输入要添加为工作空间的文件夹绝对路径：": "Enter the absolute folder path to add as a workspace:",
+  "添加工作空间失败：{m}": "Add workspace failed: {m}",
   "展开会话": "Expand Sessions",
   "收起会话": "Collapse Sessions",
   "工作空间操作": "Workspace Actions",
@@ -72,6 +73,8 @@ const EN: Record<string, string> = {
   // session view
   "会话": "Session",
   "加载中…": "Loading…",
+  "历史加载失败": "Failed to load history",
+  "重试": "Retry",
   "载入更早": "Load earlier",
   "回到最新": "Back to latest",
   "退出计划模式": "Exit Plan Mode",

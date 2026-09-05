@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Eye, EyeOff, X } from "lucide-react";
 import { api } from "../api";
-import { t } from "../i18n";
+import { t, tt } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { Dropdown } from "./controls";
 import cssRows from "./SettingsRows.module.css";
@@ -73,13 +73,18 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
   const profile = providerId && providerId !== NEW_PROVIDER ? pi.providers[providerId] : undefined;
   const knownModels: ModelProfile[] =
     providerId === "deepseek-official" ? deepseek.models : (profile?.models ?? []);
+  // 编辑目录条目必须回填原字段（AUD-067）： modelName/modelContext 留空的话，
+  // 保存按"空值省略字段"整条替换，原有 name/contextWindow 会被静默丢掉。
+  const orig = edit?.origId !== undefined ? knownModels.find((m) => m.id === edit.origId) : undefined;
 
   const [key, setKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [modelChoice, setModelChoice] = useState<string>(edit?.origId ?? "");
   const [modelId, setModelId] = useState(edit?.origId ?? "");
-  const [modelName, setModelName] = useState("");
-  const [modelContext, setModelContext] = useState("");
+  const [modelName, setModelName] = useState(orig?.name ?? "");
+  const [modelContext, setModelContext] = useState(
+    orig?.contextWindow !== undefined ? String(orig.contextWindow) : "",
+  );
   const [newId, setNewId] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
   const [baseURL, setBaseURL] = useState("");
@@ -102,7 +107,9 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
   const showEntryFields = editingEntry || (!edit && isDeepseek && modelChoice === NEW_MODEL);
   const withContext = isDeepseek;
   const keyRef = keyRefOf(providerId || edit?.provider || "", deepseek.apiKeyEnv);
-  const keyIsConfigured = !!credentials[keyRef] || !!edit;
+  // 已配置与否只认 credentials 实况（AUD-101）：编辑态加 `|| !!edit` 会让
+  // 未配 key 的提供方也显示"已配置——留空保持不变"，误导用户以为有旧值。
+  const keyIsConfigured = !!credentials[keyRef];
 
   const discover = async () => {
     setDiscovering(true);
@@ -114,7 +121,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
       });
       setDiscovered((r.models ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow })));
     } catch (err) {
-      setError(t("发现模型失败：{m}").replace("{m}", (err as Error).message));
+      setError(tt("发现模型失败：{m}", "Model discovery failed: {m}", { m: (err as Error).message }));
     }
     setDiscovering(false);
   };
@@ -150,7 +157,10 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
           effectiveDiscovered = (r.models ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow }));
           setDiscovered(effectiveDiscovered);
         } catch (err) {
-          setError(t("自动发现模型失败：{m}").replace("{m}", (err as Error).message));
+          setError(tt("自动发现模型失败：{m}", "Auto-discovery failed: {m}", { m: (err as Error).message }));
+          // 失败也必须复位 discovering（AUD-068）：否则"发现模型"按钮永久禁用，
+          // 恰好锁死了失败后的重试入口。
+          setDiscovering(false);
           setSaving(false);
           return;
         }
@@ -161,7 +171,8 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
           return;
         }
       }
-      // ③ 目录落点分流（自动发现结果优先于手填 id）
+      // ③ 目录落点分流（自动发现结果优先于手填 id）。编辑替换一律先滤掉
+      // 与新 id 撞车的其他条目（AUD-102）：把 id 改成既有条目会造出重复目录行。
       if (isDeepseek && (editingEntry || (!edit && modelChoice === NEW_MODEL))) {
         const ctxWin = Number(modelContext);
         const entry: ModelProfile = {
@@ -171,7 +182,9 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
           ...(modelContext.trim() && Number.isFinite(ctxWin) ? { contextWindow: ctxWin } : {}),
         };
         const models = edit?.origId
-          ? deepseek.models.map((m) => (m.id === edit.origId ? entry : m))
+          ? deepseek.models
+              .filter((m) => m.id !== entry.id || m.id === edit.origId)
+              .map((m) => (m.id === edit.origId ? entry : m))
           : [...deepseek.models.filter((m) => m.id !== entry.id), entry];
         await updateDeepseekModels(models);
       } else if (isNewProvider) {
@@ -189,8 +202,15 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
         const prev = profile ?? {};
         let models = prev.models ?? [];
         if (edit?.origId) {
-          const entry: ModelProfile = { id: modelId.trim(), ...(modelName.trim() ? { name: modelName.trim() } : {}) };
-          models = models.map((m) => (m.id === edit.origId ? entry : m));
+          // pi 编辑界面无 context 字段：原条目的 contextWindow 原样保留（AUD-067）。
+          const entry: ModelProfile = {
+            id: modelId.trim(),
+            ...(modelName.trim() ? { name: modelName.trim() } : {}),
+            ...(orig?.contextWindow !== undefined ? { contextWindow: orig.contextWindow } : {}),
+          };
+          models = models
+            .filter((m) => m.id !== entry.id || m.id === edit.origId)
+            .map((m) => (m.id === edit.origId ? entry : m));
         } else if (effectiveDiscovered) {
           models = effectiveDiscovered;
         } else {
@@ -200,7 +220,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
       }
       onDone();
     } catch (err) {
-      setError(t("保存失败：{m}").replace("{m}", (err as Error).message));
+      setError(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
     }
     setSaving(false);
   };
