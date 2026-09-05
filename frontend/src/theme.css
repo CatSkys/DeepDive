@@ -1220,6 +1220,14 @@ button {
   padding: 8px clamp(14px, 3vw, 28px) 12px;
 }
 .flow-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+/* 会话入场（用户定稿）：历史加载完成内容首次出现时整体轻浮上；key 在
+   SessionView（会话:已加载），只在进入会话那一刻重挂重播，流式不重播。
+   子消息块各自的 fade-up 照常叠加，容器动势给「会话出现了」一个整体感。 */
+.flow-inner { animation: session-enter 380ms cubic-bezier(0.23,1,0.32,1) both; }
+@keyframes session-enter { from { opacity: 0; transform: translateY(12px); } }
+/* 切会话时标题行随内容一起入场（SessionView 以 sessionId 为 key 重挂） */
+.session-header .left { animation: header-in var(--dur-med) var(--ease-out) both; }
+@keyframes header-in { from { opacity: 0; transform: translateY(-4px); } }
 
 .flow, .flow-inner, .md, .md *, .agent-message, .agent-message * { background: transparent !important; }
 /* Composition isolation: any compositor-level halo is confined to the flow. */
@@ -1731,6 +1739,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .thinking-active, .thinking-done, .thinking-row { animation: none !important; }
   .thinking-collapse, .thinking-line, .thinking-chevron, .thinking-head { transition: none !important; }
+  .flow-inner, .session-header .left { animation: none !important; }
 }
 
 /* ---- meta actions（DSH MessageIconActions）

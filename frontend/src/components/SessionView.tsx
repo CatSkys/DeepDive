@@ -164,7 +164,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   return (
     <div className="session">
       <div className="session-header">
-        <SessionHeader title={title} face={modelFace} />
+        {/* key=会话：切会话时标题行整体重挂播 header-in 入场（标题更新/流式
+            改名不换 key，不重播） */}
+        <SessionHeader key={sessionId} title={title} face={modelFace} />
         {plan?.active && !plan?.pending && (
           <span className="plan-wrap">
             <button
@@ -197,7 +199,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
         }}
       >
-        <div className="flow-inner">
+        {/* key=会话:已加载——历史到达那一刻（off→on）重挂播 session-enter
+            入场；流式增量不换 key 不重播；未加载完保持 off 不播（空容器） */}
+        <div className="flow-inner" key={`${sessionId}:${items.length > 0 ? "on" : "off"}`}>
           {loadError && items.length === 0 && (
             <div className="load-error" role="alert">
               {t("历史加载失败")}
