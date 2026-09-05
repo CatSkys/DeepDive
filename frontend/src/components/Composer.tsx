@@ -126,9 +126,9 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       {attachments.length > 0 && (
         <div className="composer-chips">
           {attachments.map((a, i) => (
-            <span key={a.id} className="chip att-chip" onClick={() => setPreview(a)} data-tip={a.name}>
+            <span key={a.id} className="att-chip" onClick={() => setPreview(a)} data-tip={a.name}>
               <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} />
-              <button onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
+              <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
             </span>
           ))}
         </div>

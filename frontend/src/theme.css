@@ -980,29 +980,42 @@ button {
   margin-bottom: 8px;
   flex-wrap: wrap;
 }
-.chip {
+/* 图片附件：大缩略图即预览（92×68 对齐已发送侧 .user-attachment-thumb 规格，
+   无文字，悬停 data-tip 显名），点击 Lightbox；× 叠图右上角移除 */
+.att-chip {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  cursor: zoom-in;
+}
+.att-chip-thumb {
+  display: block;
+  width: 92px;
+  height: 68px;
+  border-radius: var(--dsh-radius-keycap);
+  object-fit: cover;
+  border: 1px solid var(--line-strong);
+  background: var(--fill-soft);
+}
+.att-chip-x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  /* 叠在任意亮度的图片上，配色不随主题：白字 + 半透明黑底（lightbox 遮罩同语言） */
+  background: rgba(0, 0, 0, .5);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 10px;
-  border-radius: var(--dsh-radius-keycap);
-  background: var(--fill);
-  border: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--ink-soft);
+  justify-content: center;
+  cursor: pointer;
 }
-.chip button { color: var(--ink-2); padding: 0 2px; }
-.chip button:hover { color: var(--ink-bright); }
-/* 图片附件 chip：大缩略图即预览（无文字，悬停 title 显名），点击 Lightbox；× 移除 */
-.att-chip { height: 28px; padding: 0 8px 0 2px; gap: 2px; }
-.att-chip-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  object-fit: cover;
-  flex: none;
-}
+.att-chip-x:hover { background: rgba(0, 0, 0, .7); }
 
 /* ---------- composer menu（@ 附件 / / 命令，参考图 3：小节标题 +
    图标行，单条高亮滑动，紧凑尺寸，无底部提示行） ---------- */
