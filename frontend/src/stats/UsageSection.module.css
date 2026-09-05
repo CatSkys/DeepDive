@@ -90,13 +90,6 @@
 .heatCell.l5 { background: var(--dsh-chart-heat5); }
 .heatMonths { display: grid; gap: 3px; margin-top: 6px; height: 16px; }
 .heatMonth { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: visible; }
-.heatLegend { display: flex; flex-direction: column; gap: 3px; justify-content: flex-end; }
-.heatLegendCell { width: 11px; height: 11px; border-radius: 3px; background: var(--fill); }
-.heatLegendCell.l1 { background: var(--dsh-chart-heat1); }
-.heatLegendCell.l2 { background: var(--dsh-chart-heat2); }
-.heatLegendCell.l3 { background: var(--dsh-chart-heat3); }
-.heatLegendCell.l4 { background: var(--dsh-chart-heat4); }
-.heatLegendCell.l5 { background: var(--dsh-chart-heat5); }
 
 /* ── 趋势图 ── */
 .trendLegend { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }

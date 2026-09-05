@@ -160,11 +160,6 @@ export function UsageHeatmap({ days }: { days: UsageDay[] }) {
             ))}
           </div>
         </div>
-        <div className={css.heatLegend}>
-          {[5, 4, 3, 2, 1].map((l) => (
-            <div key={l} className={`${css.heatLegendCell} ${css[`l${l}`]}`} />
-          ))}
-        </div>
       </div>
       <ChartTip tip={tip} />
     </div>
