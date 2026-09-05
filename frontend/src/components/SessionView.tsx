@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -46,7 +46,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const padObserver = useRef<ResizeObserver | null>(null);
   const observedBottom = useRef<Element | null>(null);
   const scrollAnim = useRef<number | null>(null);
-  const syncBottomPad = () => {
+  // follow 的渲染期镜像：syncBottomPad 需要同步读「用户是否处于贴底跟随」，
+  // onScroll 里的 setFollow 是异步的，直接读 state 拿到的是旧值。
+  const followRef = useRef(true);
+  followRef.current = follow;
+  // padding 无变化时绝不碰滚动位置——贴底强拉只允许发生在「悬浮区确实
+  // 长高/变矮且用户处于跟随态」时；无条件的 wasAtBottom 强拉会和用户上滑
+  // 对抗（底部鬼畜事故：内联 ref 每渲染重挂 → 本函数被渲染节奏反复调用 →
+  // 48px 内上滑被不停拽回底部）。
+  const syncBottomPad = useCallback(() => {
     const flow = flowRef.current;
     const bottom = bottomRef.current;
     if (!flow || !bottom) return;
@@ -57,10 +65,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       padObserver.current = ro;
       observedBottom.current = bottom;
     }
-    const wasAtBottom = flow.scrollTop + flow.clientHeight >= flow.scrollHeight - 48;
-    flow.style.paddingBottom = `${bottom.offsetHeight + 16}px`;
-    if (wasAtBottom) flow.scrollTop = flow.scrollHeight;
-  };
+    const next = `${bottom.offsetHeight + 16}px`;
+    if (flow.style.paddingBottom === next) return;
+    flow.style.paddingBottom = next;
+    if (followRef.current) flow.scrollTop = flow.scrollHeight;
+  }, []);
   useEffect(() => {
     const t = setInterval(syncBottomPad, 1000);
     return () => {
@@ -68,7 +77,19 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       padObserver.current?.disconnect();
       if (scrollAnim.current !== null) cancelAnimationFrame(scrollAnim.current);
     };
-  }, []);
+  }, [syncBottomPad]);
+
+  // ref 回调必须稳定（useCallback）：内联箭头每次渲染换新身份，React 每渲染
+  // 都 detach/reattach → syncBottomPad 被渲染节奏反复调用（鬼畜事故帮凶）。
+  const attachFlow = useCallback((el: HTMLDivElement | null) => {
+    scrollRef.current = el;
+    flowRef.current = el;
+    syncBottomPad();
+  }, [syncBottomPad]);
+  const attachBottom = useCallback((el: HTMLDivElement | null) => {
+    bottomRef.current = el;
+    syncBottomPad();
+  }, [syncBottomPad]);
 
   // 回到底部：rAF 缓动（ease-out-cubic）。WKWebView 原生 smooth 的时长与
   // 松紧不可控；且 content-visibility 的估高在跳达后被真实高度替换、
@@ -87,8 +108,28 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       if (flowRef.current !== flow) return; // 中途切会话：动画作废
       const p = Math.min(1, (now - t0) / duration);
       flow.scrollTop = from + distance * (1 - Math.pow(1 - p, 3));
-      if (p < 1) scrollAnim.current = requestAnimationFrame(step);
-      else { settle(); requestAnimationFrame(settle); scrollAnim.current = null; }
+      if (p < 1) {
+        scrollAnim.current = requestAnimationFrame(step);
+        return;
+      }
+      // 落点后持续校准：content-visibility 估高在跳达后被真实高度替换，
+      // scrollHeight 会连漂几帧，双帧校准不够（实测停在离底 322px 处）。
+      // 连续两帧位置无变化才收手（≤12 帧封顶）；期间用户上滑（follow
+      // 翻 false）立即中止，绝不和人抢滚动。
+      let stable = 0;
+      let frames = 0;
+      let lastSt = -1;
+      const stabilize = () => {
+        if (flowRef.current !== flow || !followRef.current) { scrollAnim.current = null; return; }
+        flow.scrollTop = flow.scrollHeight;
+        const st = flow.scrollTop;
+        stable = Math.abs(st - lastSt) < 1 ? stable + 1 : 0;
+        lastSt = st;
+        frames += 1;
+        if (stable < 2 && frames < 12) scrollAnim.current = requestAnimationFrame(stabilize);
+        else scrollAnim.current = null;
+      };
+      scrollAnim.current = requestAnimationFrame(stabilize);
     };
     scrollAnim.current = requestAnimationFrame(step);
   };
@@ -193,7 +234,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       </div>
       <div
         className="flow"
-        ref={(el) => { scrollRef.current = el; flowRef.current = el; syncBottomPad(); }}
+        ref={attachFlow}
         onScroll={(e) => {
           const el = e.currentTarget;
           setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
@@ -302,7 +343,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       )}
       <div
         className="session-bottom"
-        ref={(el) => { bottomRef.current = el; syncBottomPad(); }}
+        ref={attachBottom}
       >
         {queuedItems.length > 0 && (
           <div className="queue-dock-wrap">
