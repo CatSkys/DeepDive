@@ -39,5 +39,12 @@ fi
 mkdir -p dist
 DMG="dist/DeepDive-${VERSION}-dev.dmg"
 rm -f "$DMG"
-hdiutil create -quiet -volname "DeepDive" -srcfolder "$APP" -ov -format UDZO "$DMG"
+# DMG 内容 = 应用 + Applications 拖拽链接 + 使用说明（scripts/dmg-guide.txt），
+# 说明文案引用的菜单项/热键/路径须与 README 和壳侧实现保持一致。
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+ditto "$APP" "$STAGE/DeepDive.app"
+ln -s /Applications "$STAGE/Applications"
+cp scripts/dmg-guide.txt "$STAGE/使用说明.txt"
+hdiutil create -quiet -volname "DeepDive" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 echo "OK: $DMG"

@@ -1,0 +1,25 @@
+DeepDive（深潜）— DeepSeek Harness 的 macOS 桌面客户端
+══════════════════════════════════════════════════════
+
+一、安装
+   把「DeepDive」拖进旁边的「Applications」（应用程序）文件夹，
+   拷贝完成后即可在「应用程序」或启动台里找到它。
+
+二、首次启动
+   若系统提示「无法验证开发者」：在「应用程序」里右键 DeepDive
+   → 「打开」→ 再点「打开」，只需一次；
+   也可以到 系统设置 → 隐私与安全性 → 点「仍要打开」。
+
+三、基本使用
+   · 启动后菜单栏会出现 DeepDive 图标，状态点表示引擎运行中；
+   · 全局热键 ⌥Space：显示 / 隐藏主窗口（可在「设置…」里修改）；
+   · 菜单栏图标 → 「设置启动工作区…」：选择工作目录（沙箱根），
+     重启引擎后生效；
+   · 菜单栏图标 → 「设置…」：外观（跟随系统 / 亮 / 暗）、快捷键开关等。
+
+四、数据与日志（排障用）
+   引擎数据：~/Library/Application Support/DeepDive/harness
+   运行日志：~/Library/Application Support/DeepDive/engine.log
+   配置文件：~/Library/Application Support/DeepDive/config.json
+
+系统要求：macOS 14 及以上。
