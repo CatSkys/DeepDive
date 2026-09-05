@@ -31,7 +31,6 @@ final class EngineEventObserver {
     private init() {}
 
     func update(base: URL?) {
-        base?.port.map { _ in }
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
         self.base = base
@@ -160,8 +159,10 @@ final class EngineEventObserver {
                 break
             }
         case "approval/requested":
-            guard let sessionId = frame["sessionId"] as? String else { return }
-            let approvalId = frame["approvalId"] as? String ?? UUID().uuidString
+            // schema (events.schema.ts): approvalId 必有（铁律 9——契约字段
+            // 直取，不做 UUID 兜底掩盖漂移）。
+            guard let sessionId = frame["sessionId"] as? String,
+                  let approvalId = frame["approvalId"] as? String else { return }
             pendingApprovals.insert(approvalId)
             let toolName = frame["toolName"] as? String ?? "工具调用"
             FloatingBubbleManager.shared.noteNeedsAttention()
@@ -170,29 +171,46 @@ final class EngineEventObserver {
             }
             publish()
         case "approval/resolved":
-            let approvalId = frame["approvalId"] as? String ?? ""
+            guard let approvalId = frame["approvalId"] as? String else { return }
             pendingApprovals.remove(approvalId)
             publish()
-        default:
-            // Question surfaces are engine-version dependent; match by name.
-            if type.lowercased().contains("question"), type.lowercased().contains("request") {
-                let sessionId = frame["sessionId"] as? String
-                pendingQuestions.insert(frame["questionId"] as? String ?? UUID().uuidString)
-                FloatingBubbleManager.shared.noteNeedsAttention()
-                // question/requested 载荷: questions[] 首条的 question 字段
-                // （events.schema.ts askUserQuestionItemSchema）——通知正文用真实提问。
-                let questionText = (frame["questions"] as? [[String: Any]])?
-                    .compactMap { $0["question"] as? String }
-                    .first ?? "打开 DeepDive 查看并回答"
-                if let sessionId {
-                    resolveTitle(sessionId: sessionId) { title in
-                        NativeAlerts.notifyQuestionNeeded(questionText: questionText, sessionTitle: title, sessionId: sessionId)
-                    }
-                } else {
-                    NativeAlerts.notifyQuestionNeeded(questionText: questionText, sessionTitle: "", sessionId: nil)
-                }
-                publish()
+        case "question/requested":
+            // schema（events.schema.ts:51）：载荷只有 {sessionId, questions[]}，
+            // 没有 questionId——挂起身份 = 信封 rpcId（与前端 store 同一语义），
+            // resolved 帧按 questionRpcId 配对移除。
+            guard let sessionId = frame["sessionId"] as? String,
+                  let rpcId = Self.questionId(raw: raw, frame: frame, type: type) else { return }
+            pendingQuestions.insert(rpcId)
+            FloatingBubbleManager.shared.noteNeedsAttention()
+            // questions[] 首条的 question 字段（askUserQuestionItemSchema）
+            // ——通知正文用真实提问。
+            let questionText = (frame["questions"] as? [[String: Any]])?
+                .compactMap { $0["question"] as? String }
+                .first ?? "打开 DeepDive 查看并回答"
+            resolveTitle(sessionId: sessionId) { title in
+                NativeAlerts.notifyQuestionNeeded(questionText: questionText, sessionTitle: title, sessionId: sessionId)
             }
+            publish()
+        case "question/resolved":
+            // schema（events.schema.ts:52）：{sessionId, questionRpcId, outcome}。
+            // 缺了这条配对移除，一次提问后「需注意」状态会卡死到引擎重启。
+            guard let rid = Self.questionId(raw: raw, frame: frame, type: type) else { return }
+            pendingQuestions.remove(rid)
+            publish()
+        default:
+            break
+        }
+    }
+
+    /// question 帧的挂起身份（纯函数，XCTest 表驱动钉住 schema 配对语义）：
+    /// requested 取**信封** rpcId（载荷没有 questionId——曾按猜读该字段，
+    /// 每次插入都是随机 UUID，resolved 永远配不上对）；resolved 取
+    /// questionRpcId。其余类型无 question 身份。
+    static func questionId(raw: [String: Any], frame: [String: Any], type: String) -> String? {
+        switch type {
+        case "question/requested": return raw["rpcId"] as? String
+        case "question/resolved": return frame["questionRpcId"] as? String
+        default: return nil
         }
     }
 

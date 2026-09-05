@@ -24,7 +24,8 @@ enum JSONValue: Equatable {
             } else if CFNumberIsFloatType(n) {
                 self = .double(n.doubleValue)
             } else {
-                self = .int(n.intValue)
+                // 经 int64Value：intValue 是 Int32 语义，毫秒时间戳等大整数会静默截断
+                self = .int(Int(n.int64Value))
             }
         case let s as String: self = .string(s)
         case let a as [Any]: self = .array(a.map(JSONValue.init))

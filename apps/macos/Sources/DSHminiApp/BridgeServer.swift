@@ -59,15 +59,17 @@ final class BridgeServer {
             return .response(.init(status: 403))
         }
 
-        guard let engineBase else {
-            return .response(.init(status: 503))
-        }
-
-        // Frontend diagnostics channel.
+        // Frontend diagnostics channel. Must precede the engineBase guard
+        // (AUD-037a)：引擎挂掉期间恰是前端最需要上报错误的时候，503 前置
+        // 会把诊断全吞掉。
         if request.method == "POST", request.path == "/__deepdive_error" {
             let body = String(data: request.body, encoding: .utf8) ?? ""
             EngineLog.shared.append("[web] " + body)
             return .response(.init(status: 204))
+        }
+
+        guard let engineBase else {
+            return .response(.init(status: 503))
         }
 
         // WebSocket upgrade (engine's events.mux/host): blind relay.
@@ -146,6 +148,10 @@ final class BridgeServer {
         }
 
         // Bidirectional blind pump — one buffer per thread (no sharing).
+        // fd 属主（AUD-071）：两条泵线程退出都会先 shutdown 再 close **自己那一
+        // 侧**的 fd——绝不 close 对侧。此前两边都 close 同一对 fd，先退的一侧
+        // 关掉的 fd 可能已被内核复用给新连接/引擎管道，第二次 close 就是误伤；
+        // 且 close 不保证唤醒对端阻塞中的 recv，shutdown 才会。
         Thread.detachNewThread {
             var buf = [UInt8](repeating: 0, count: 8192)
             while true {
@@ -155,8 +161,8 @@ final class BridgeServer {
                     send(client, ptr.baseAddress, n, 0)
                 }
             }
+            shutdown(client, Int32(SHUT_RDWR))
             close(upstream)
-            close(client)
         }
         Thread.detachNewThread {
             var buf = [UInt8](repeating: 0, count: 8192)
@@ -167,7 +173,7 @@ final class BridgeServer {
                     send(upstream, ptr.baseAddress, n, 0)
                 }
             }
-            close(upstream)
+            shutdown(upstream, Int32(SHUT_RDWR))
             close(client)
         }
     }
@@ -203,7 +209,11 @@ final class BridgeServer {
             let mime = http.value(forHTTPHeaderField: "Content-Type") ?? "application/json"
             result.headers["content-type"] = mime
         }.resume()
-        semaphore.wait()
+        // AUD-037b：引擎挂起时 dataTask 可能永不出回调，无限 wait 会把这条
+        // 桥线程永久钉死——超时按 502 网关错误返回。
+        if semaphore.wait(timeout: .now() + 30) == .timedOut {
+            return .init(status: 502)
+        }
         return result
     }
 
@@ -211,7 +221,14 @@ final class BridgeServer {
     // MARK: - static
 
     private func serveStatic(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Response {
-        let root = (webRoot ?? FileManager.default.homeDirectoryForCurrentUser).standardizedFileURL
+        // AUD-075：webRoot 缺失是 bundle 配置坏了，唯一安全的处置是整体 503；
+        // 兜底到 home 目录等于把整个 ~ 托管给本机回环请求，方向危险且
+        // 违反「不做掩盖问题的兜底」。
+        guard let webRoot else {
+            EngineLog.shared.append("[static] webRoot not configured — refusing to serve anything")
+            return .init(status: 503)
+        }
+        let root = webRoot.standardizedFileURL
         guard let resolved = Self.staticFileURL(for: request.path, root: root),
               let data = try? Data(contentsOf: resolved.url) else {
             EngineLog.shared.append("[static] MISS \(request.path.removingPercentEncoding ?? request.path) (root=\(root.path))")

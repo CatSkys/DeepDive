@@ -81,7 +81,14 @@ final class MiniHTTPServer {
     // MARK: - per-connection
 
     private func handle(_ client: Int32) {
-        guard let request = readRequest(client) else { return }
+        // AUD-037b：慢连接/半开连接每条都会挂死一个 detached 线程——accept
+        // 后立刻设接收超时，recv 超时返回 -1，readRequest 按 EOF 处理断开。
+        var tv = timeval(tv_sec: 15, tv_usec: 0)
+        setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        guard let request = readRequest(client) else {
+            close(client)
+            return
+        }
         switch callback(request) {
         case .response(let response):
             writeResponse(client, response)
@@ -125,6 +132,9 @@ final class MiniHTTPServer {
         let bodyOffset = headerEnd + 4
         var body = buffer.count > bodyOffset ? buffer.subdata(in: bodyOffset..<buffer.count) : Data()
         if let contentLength = headers["content-length"].flatMap({ Int($0) }), contentLength > body.count {
+            // AUD-037b：body 按声明长度收取，加上限防内存放大（回环上正常
+            // 最大的请求是设置面的 JSON 与附件 base64；超过按坏请求断开）。
+            guard contentLength <= Self.maxBodyBytes else { return nil }
             while body.count < contentLength {
                 let n = recv(client, &scratch, scratch.count, 0)
                 guard n > 0 else { return nil }
@@ -133,6 +143,9 @@ final class MiniHTTPServer {
         }
         return Request(method: method, path: path, headers: headers, body: body)
     }
+
+    /// 单请求 body 上限（32MB）：覆盖附件 base64 上传，拒绝内存放大。
+    private static let maxBodyBytes = 32 * 1024 * 1024
 
     private func writeResponse(_ client: Int32, _ response: Response) {
         var head = "HTTP/1.1 \(response.status) \(statusText(response.status))\r\n"

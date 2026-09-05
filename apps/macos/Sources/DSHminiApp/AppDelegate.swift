@@ -342,44 +342,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 状态胶囊的未提交改动摘要（run-git → gitStatus 回推）。引擎无 git 能力，
     /// 由壳在工作区路径跑只读 git 命令聚合；非 git 仓库/命令不可用回 repo=false，
     /// 前端按无 git 数据处理。status 计未提交文件（含未跟踪），numstat 计行数。
+    /// AUD-015：与 gitRun 同款后台队列（此前在主线程同步跑 3 条 git，
+    /// readDataToEndOfFile+waitUntilExit 会卡 UI；且 stderr Pipe 从不排空——
+    /// 子进程 stderr 写满 64KB 管道缓冲后阻塞，主线程永久死锁）。stderr 与
+    /// stdout 先并发读完再 wait，杜绝管道死锁。
     private func runGit(reqId: String, path: String) {
         func reply(_ fields: [String: Any]) {
             var all = fields
             all["reqId"] = reqId
             windowController.pushHostCommand("gitStatus", payload: AppDelegate.jsonPayload(all))
         }
-        func git(_ args: [String]) -> String? {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-            process.arguments = args
-            process.currentDirectoryURL = URL(fileURLWithPath: path)
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = Pipe()
-            do { try process.run() } catch { return nil }
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            return String(data: data, encoding: .utf8)
-        }
-        guard FileManager.default.fileExists(atPath: path),
-              let branch = git(["rev-parse", "--abbrev-ref", "HEAD"])?.trimmingCharacters(in: .whitespacesAndNewlines) else {
-            reply(["repo": false])
-            return
-        }
-        let files = git(["status", "--porcelain"])?
-            .split(separator: "\n", omittingEmptySubsequences: true).count ?? 0
-        var additions = 0
-        var deletions = 0
-        for line in git(["diff", "HEAD", "--numstat"])?.split(separator: "\n") ?? [] {
-            // 二进制文件两列是 "-"，Int 转换失败即跳过
-            let cols = line.split(separator: "\t")
-            if cols.count >= 3, let a = Int(cols[0]), let d = Int(cols[1]) {
-                additions += a
-                deletions += d
+        DispatchQueue.global(qos: .userInitiated).async {
+            func git(_ args: [String]) -> String? {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+                process.arguments = args
+                process.currentDirectoryURL = URL(fileURLWithPath: path)
+                let outPipe = Pipe()
+                let errPipe = Pipe()
+                process.standardOutput = outPipe
+                process.standardError = errPipe
+                do { try process.run() } catch { return nil }
+                // stderr 用独立线程排空、主线程读 stdout：顺序读会有互锁面
+                //（子进程写满一侧缓冲时阻塞，另一侧 EOF 永不到来）。
+                Thread.detachNewThread { _ = errPipe.fileHandleForReading.readDataToEndOfFile() }
+                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                guard process.terminationStatus == 0 else { return nil }
+                return String(data: outData, encoding: .utf8)
+            }
+            guard FileManager.default.fileExists(atPath: path),
+                  let branch = git(["rev-parse", "--abbrev-ref", "HEAD"])?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                DispatchQueue.main.async { reply(["repo": false]) }
+                return
+            }
+            let files = git(["status", "--porcelain"])?
+                .split(separator: "\n", omittingEmptySubsequences: true).count ?? 0
+            var additions = 0
+            var deletions = 0
+            for line in git(["diff", "HEAD", "--numstat"])?.split(separator: "\n") ?? [] {
+                // 二进制文件两列是 "-"，Int 转换失败即跳过
+                let cols = line.split(separator: "\t")
+                if cols.count >= 3, let a = Int(cols[0]), let d = Int(cols[1]) {
+                    additions += a
+                    deletions += d
+                }
+            }
+            DispatchQueue.main.async {
+                reply(["repo": true, "branch": branch, "files": files, "additions": additions, "deletions": deletions])
             }
         }
-        reply(["repo": true, "branch": branch, "files": files, "additions": additions, "deletions": deletions])
     }
 
     /// 状态胶囊的 git 动作（git-run → gitRunResult 回推）：切分支/提交/推送。
@@ -409,13 +421,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async { reply(false, "spawn failed") }
                 return
             }
+            // stderr 独立线程排空（顺序读有互锁面：一侧缓冲写满时另一侧 EOF 永不到）
+            var errText = ""
+            let errLock = NSLock()
+            Thread.detachNewThread {
+                let d = errPipe.fileHandleForReading.readDataToEndOfFile()
+                errLock.lock()
+                errText = String(data: d, encoding: .utf8) ?? ""
+                errLock.unlock()
+            }
             let out = outPipe.fileHandleForReading.readDataToEndOfFile()
-            let err = errPipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
             var output = String(data: out, encoding: .utf8) ?? ""
-            if let errText = String(data: err, encoding: .utf8), !errText.isEmpty {
-                output += "\n\(errText)"
-            }
+            errLock.lock()
+            if !errText.isEmpty { output += "\n\(errText)" }
+            errLock.unlock()
             let ok = process.terminationStatus == 0
             DispatchQueue.main.async { reply(ok, output) }
         }

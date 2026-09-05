@@ -36,6 +36,10 @@ final class EngineSupervisor {
     private var process: Process?
     private var stopping = false
     private var attempts = 0
+    /// 最近一次就绪时刻（AUD-074：存活满 readyGrace 的运行才清零退避计数）。
+    private var readyAt: Date?
+    /// 秒崩判定窗：就绪后存活不足此秒数即退出的重启计入连续失败。
+    private static let readyGraceSeconds: TimeInterval = 300
     private var restartWorkItem: DispatchWorkItem?
     private var stdoutBuffer = Data()
     private let home: URL
@@ -49,6 +53,12 @@ final class EngineSupervisor {
 
     func start() {
         stopping = false
+        // AUD-070：手动启动/重启必须先取消挂起的退避重启项——退避窗内本函数
+        // spawn 一次、定时器稍后再 spawn 一次，会得到双引擎孤儿进程共用
+        // DSH_HOME（会话写入交错，恰是单实例锁要防的事）。运行中调用则是
+        // no-op（process 守卫）。
+        restartWorkItem?.cancel()
+        restartWorkItem = nil
         guard process == nil else { return }
         guard ensureCredentials() else { return }
         spawn()
@@ -141,6 +151,9 @@ final class EngineSupervisor {
     // MARK: - spawn
 
     private func spawn() {
+        // 幂等守卫（AUD-070）：restartWorkItem 的闭包直达此处，不经 start()
+        // 的 process 检查——已有活进程时再 spawn 只会覆盖引用留下孤儿。
+        guard process == nil else { return }
         guard let entry = resolveEntry() else {
             log.append("[engine] no engine entry found (no env override, no bundled runtime, no system dsh)")
             state = .failed(reason: "未找到 dsh。\n\n请安装 dsh：\nnpm i -g @deepseek-ai/dsh")
@@ -287,14 +300,20 @@ final class EngineSupervisor {
     }
 
     private func handleLine(_ line: String) {
-        log.append("[dsh] " + line)
+        // AUD-077：就绪行原样携带 boot token（query），落日志前剥掉——
+        // engine.log 是常驻磁盘文件，凭据不进日志。
+        let sanitized = line.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? line
+        log.append("[dsh] " + sanitized)
         let prefix = "dsh web: "
         if line.hasPrefix(prefix) {
             let raw = line.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces)
             if let url = URL(string: raw) {
-                attempts = 0
+                // AUD-074：就绪不再立即清零 attempts——「就绪后秒崩」循环会
+                // 因此永远以 1s 间隔重启、无升级 failed 的路径。改为记录就绪
+                // 时刻，退出时存活满 readyGrace 才算真恢复（见 handleExit）。
+                readyAt = Date()
                 state = .ready(url)
-                log.append("[engine] ready: \(raw)")
+                log.append("[engine] ready: \(sanitized.dropFirst(prefix.count))")
             }
         }
     }
@@ -304,6 +323,9 @@ final class EngineSupervisor {
         process = nil
         if stopping { return }
 
+        // 存活满 readyGrace 的运行才把退避计数清零；秒崩循环会累积到 3 次升级 failed。
+        let uptime = readyAt.map { Date().timeIntervalSince($0) } ?? 0
+        if uptime >= Self.readyGraceSeconds { attempts = 0 }
         attempts += 1
         if attempts >= 3 {
             log.append("[engine] failed after \(attempts) consecutive attempts")
