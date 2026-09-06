@@ -136,43 +136,8 @@ button {
 
 /* ---------- liquid glass (Apple Tahoe-style, WebKit-safe layers) ---------- */
 
-.glass {
-  position: relative;
-  border: 1px solid transparent;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,.085), rgba(255,255,255,.02) 45%, rgba(255,255,255,.05));
-  backdrop-filter: blur(32px) saturate(170%);
-  box-shadow:
-    inset 0 1px 1px rgba(255,255,255,.16),
-    inset 0 -1px 1px rgba(0,0,0,.28),
-    inset 0 0 0 .5px rgba(255,255,255,.05),
-    0 24px 60px rgba(0,0,0,.45),
-    0 4px 16px rgba(0,0,0,.25);
-}
 /* refraction edge: bright top-left -> dark bottom-right */
-.glass::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(165deg,
-    rgba(255,255,255,.30), rgba(255,255,255,.07) 30%,
-    rgba(255,255,255,.02) 62%, rgba(0,0,0,.22) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
 /* specular arc over the top edge */
-.glass::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(140% 70% at 50% -20%, rgba(255,255,255,.10), transparent 55%);
-  pointer-events: none;
-}
 
 /* window-top actions：红绿灯旁横排，展开/收起都常驻顶部（收起时侧栏没了，
    由会话头 padding-left 让位，见下方 .app.collapsed 规则）。 */
@@ -638,7 +603,6 @@ button {
   line-height: 1;
 }
 
-/* change-model sheet (reference: big-radius glass) */
 .model-menu {
   position: absolute;
   /* 45 = .left 顶(17) + 标题行 20 + 间距 3 + 触发器高 ~20 + 余量：
@@ -2157,19 +2121,6 @@ button {
 .plan-chip:hover { color: var(--ink-bright); background: var(--fill-heavy); }
 
 
-/* SEMANTICS §5: a task waiting for you (approval/question) lights its row. */
-.task-row.waiting .title { color: var(--ink-bright); }
-.task-row.waiting::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ink-bright);
-  margin-left: auto;
-  animation: waiting-pulse 1.4s ease-in-out infinite;
-}
-@keyframes waiting-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
-
 /* ---- 任务行:悬停操作区(归档/时间/置顶)+ 右键菜单 ---- */
 .task-row { position: relative; }
 .task-row .row-actions {
@@ -2244,8 +2195,6 @@ button {
   white-space: nowrap;
 }
 .ctx-item:hover { background: var(--fill); }
-.ctx-item.disabled { color: var(--ink-3); cursor: default; }
-.ctx-item.disabled:hover { background: transparent; }
 /* 破坏性动作（删除工作区）：官方菜单同款红色 */
 .ctx-item.danger { color: var(--dsh-signal-danger); }
 .ctx-item.danger svg { color: currentColor; }

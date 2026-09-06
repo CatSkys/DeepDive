@@ -142,7 +142,7 @@
 .dangerButton { background: transparent; color: #e5484d; border: none; font-size: 12.5px; padding: 0 6px; height: 28px; }
 .dangerButton:hover { opacity: .8; }
 
-.textField, .selectField {
+.textField {
   box-sizing: border-box;
   height: 30px;
   padding: 0 10px;
@@ -153,8 +153,7 @@
   font-size: 12.5px;
   outline: none;
 }
-.textField:focus, .selectField:focus { border-color: var(--line-strong); }
-.setInline { display: flex; align-items: center; gap: 8px; }
+.textField:focus { border-color: var(--line-strong); }
 
 /* ── 外观三选卡片 ── */
 .appearanceCards {
@@ -189,16 +188,6 @@
 .presetBadge.current { background: var(--ink); color: var(--panel-bg); border-color: var(--ink); font-weight: 600; }
 
 /* ── 插件 / 归档行 ── */
-.listRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 34px;
-  padding: 4px 10px;
-  border-radius: var(--dsh-radius-control);
-}
-.listRow:nth-child(odd) { background: var(--fill-soft); }
-.listName { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .badge {
   display: inline-flex;
   align-items: center;

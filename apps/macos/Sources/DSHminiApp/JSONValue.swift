@@ -51,15 +51,6 @@ enum JSONValue: Equatable {
         }
     }
 
-    var data: Data {
-        (try? JSONSerialization.data(withJSONObject: anyValue, options: [.fragmentsAllowed, .prettyPrinted])) ?? Data("null".utf8)
-    }
-
-    var string: String? {
-        if case .string(let s) = self { return s }
-        return nil
-    }
-
     var isNull: Bool {
         if case .null = self { return true }
         return false
