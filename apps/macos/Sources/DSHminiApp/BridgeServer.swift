@@ -72,8 +72,9 @@ final class BridgeServer {
         // cold start (engine never boots until a key is configured) is exactly
         // when the first-run setup UI is needed; gating static on engineBase
         // bricked every fresh install into a black window (PITFALLS §5.6).
-        // Only the engine-backed routes (/api) keep the 503.
-        if !request.path.hasPrefix("/api/") {
+        // Engine-backed routes (/api/* unary 与 /api-import/* 导入面板) 之外
+        // 全部走静态。
+        if !request.path.hasPrefix("/api") {
             return .response(serveStatic(request))
         }
 

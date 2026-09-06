@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Eye, EyeOff, X } from "lucide-react";
 import { api } from "../api";
@@ -57,23 +57,19 @@ export async function updatePiProviders(providers: Record<string, PiProviderProf
   await api.settingsUpdate({ ns: "llm-pi-ai", patch: { ...(ns.value ?? {}), providers }, expectedRevision: ns.revision });
 }
 
-export function ModelDialog({ providers, deepseek, pi, edit, credentials, guided, header, onDone, onCancel }: {
+export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone, onCancel }: {
   providers: ProviderInfo[];
   deepseek: DeepseekNs;
   pi: PiNs;
   edit: EditTarget | null;
   /** 各提供方 keyRef → 密钥已配置（弹窗占位文案用）。 */
   credentials: Record<string, boolean>;
-  /** 首启引导模式（FirstRunGate）：不可关闭——无 X/取消/Esc/点外关，保存钮
-   *  文案改「保存并开始」；表单与保存链路与普通模式完全同一份。 */
-  guided?: boolean;
-  /** 卡顶欢迎头（guided 时的品牌与说明文案，FirstRunGate 传入）。 */
-  header?: ReactNode;
   onDone: () => void;
   onCancel: () => void;
 }) {
   const info = edit ? providers.find((p) => p.provider === edit.provider) : undefined;
-  const [providerId, setProviderId] = useState(edit?.provider ?? "");
+  // 添加模式默认 DeepSeek 官方（引擎目录必有；编辑模式仍按编辑对象回填）。
+  const [providerId, setProviderId] = useState(edit?.provider ?? "deepseek-official");
   const isNewProvider = !edit && providerId === NEW_PROVIDER;
   const profile = providerId && providerId !== NEW_PROVIDER ? pi.providers[providerId] : undefined;
   const knownModels: ModelProfile[] =
@@ -100,11 +96,10 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, guided
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (guided) return; // 引导模式不可 Esc 关闭（门未放行前没有"取消"语义）
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel, guided]);
+  }, [onCancel]);
 
   const isDeepseek = providerId === "deepseek-official";
   const needsManual = isNewProvider || knownModels.length === 0 || modelChoice === MANUAL;
@@ -249,23 +244,19 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, guided
     // 关闭只认"按下 overlay 自身"（target===currentTarget）：Dropdown 的菜单
     // portal 在 DOM 上挂 body，但其点击沿 React 树冒泡会路过这里——若用
     // onClick+stopPropagation 拦截，选提供方的第一下就会把整个弹窗关掉。
-    // guided 模式不提供点外关闭（门未放行前弹窗必须常驻）。
     <div
       className={cssRows.modalOverlay}
-      onMouseDown={guided ? undefined : (e) => { if (e.target === e.currentTarget) onCancel(); }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
       role="dialog"
       aria-label={edit ? t("编辑模型") : t("添加模型")}
     >
       <div className={cssRows.modal} onClick={(e) => e.stopPropagation()}>
-        {header}
         <div className={cssRows.modalHead}>
           <span className={cssRows.modalTitle}>{edit ? t("编辑模型") : t("添加模型")}</span>
           <span className={cssRows.modalBadge}>{t("写入引擎配置，保存即生效")}</span>
-          {!guided && (
-            <button className={cssRows.iconBtn} style={{ marginLeft: "auto" }} onClick={onCancel} aria-label={t("关闭")}>
-              <X size={15} />
-            </button>
-          )}
+          <button className={cssRows.iconBtn} style={{ marginLeft: "auto" }} onClick={onCancel} aria-label={t("关闭")}>
+            <X size={15} />
+          </button>
         </div>
         <div className={cssRows.modalBody}>
           <div>
@@ -357,9 +348,9 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, guided
           {error && <div className={cssRows.modelError}>{error}</div>}
         </div>
         <div className={cssRows.modalFoot}>
-          {!guided && <button className={cssRows.secondaryButton} onClick={onCancel}>{t("取消")}</button>}
+          <button className={cssRows.secondaryButton} onClick={onCancel}>{t("取消")}</button>
           <button className={cssRows.primaryButton} disabled={saving} onClick={() => void save()}>
-            {saving ? t("载入中…") : guided ? t("保存并开始") : t("保存")}
+            {saving ? t("载入中…") : t("保存")}
           </button>
         </div>
       </div>

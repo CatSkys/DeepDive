@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Archive, ChartColumn, ChevronLeft, Cpu, Folder, Keyboard, Moon,
+  Archive, ChartColumn, ChevronLeft, Cpu, Download, Folder, Keyboard, Moon,
   Monitor, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
   SquarePen, Sun, X,
 } from "lucide-react";
@@ -8,6 +8,7 @@ import type { LucideIcon } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
+import { ImportSection } from "../settings/ImportSection";
 import { UsageSection } from "../stats/UsageSection";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
@@ -27,9 +28,9 @@ import { useT } from "../i18n";
 // 分类：通用（外观/语言/Enter 行为/通知）、模型（提供方+密钥）、
 // 审批（默认权限预设）、Agent 预设、插件、快捷键、已归档的聊天、数据。
 
-export function SettingsPage({ onClose }: { onClose: () => void }) {
+export function SettingsPage({ initialSection, onClose }: { initialSection?: string; onClose: () => void }) {
   const { t } = useT();
-  const [activeId, setActiveId] = useState("general");
+  const [activeId, setActiveId] = useState(initialSection ?? "general");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -40,6 +41,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const nav = [
     { id: "general", label: t("通用"), icon: SettingsIcon },
     { id: "models", label: t("模型"), icon: Cpu },
+    { id: "import", label: t("导入"), icon: Download },
     { id: "approval", label: t("审批"), icon: ShieldCheck },
     { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
     { id: "archived", label: t("已归档的聊天"), icon: Archive },
@@ -79,6 +81,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </div>
           {activeId === "general" && <GeneralSection />}
           {activeId === "models" && <ModelsManage />}
+          {activeId === "import" && <ImportSection />}
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
           {activeId === "archived" && <ArchivedSection />}

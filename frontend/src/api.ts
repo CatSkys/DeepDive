@@ -62,7 +62,88 @@ async function respondCancel(rpcId: string): Promise<void> {
   if (!res.ok) throw new Error(`respond HTTP ${res.status}`);
 }
 
+// ── 导入面板（dsh-chat-import 插件的 /api-import/* 面板路由；普通 JSON，
+// 非 RPC 信封。插件由壳随包安装进 harness home web profile，见壳侧
+// ChatImportPlugin；桥接对 /api-import/ 与 /api/ 同等中继）──
+
+export interface ImportableSession {
+  format: string;
+  sessionId: string;
+  title: string | null;
+  project: string | null;
+  createdAt: number | null;
+  lastActiveAt: number | null;
+  messageCount: number | null;
+  sourcePath: string;
+  importStatus: string;
+}
+
+async function importPanelPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({ ok: false, error: `HTTP ${res.status}` })) as Record<string, unknown>;
+  if (!json.ok) throw new Error(String(json.error ?? `HTTP ${res.status}`));
+  return json as T;
+}
+
+export interface ImportSyncStatus {
+  ok: true;
+  config: { inbound: { enabled: boolean }; outbound: { enabled: boolean }; watch: { enabled: boolean }; intervalMs: number };
+  status: Record<string, unknown>;
+}
+
+export interface ImportRunResult {
+  sourcePath: string;
+  format: string;
+  total: number;
+  imported: number;
+  alreadyImported: number;
+  appended: number;
+  skipped: number;
+  failed: number;
+  /** 整条 sourcePath 导入失败时插件返回 status:"failed" + error（无数值字段）。 */
+  error?: string;
+}
+
 export const api = {
+  /** 列出其他 Agent 可导入的会话（插件被动发现，带 mtime 书签缓存）。 */
+  importSessions: (payload: { source?: string; query?: string; offset?: number; limit?: number } = {}) =>
+    importPanelPost<{ ok: true; sessions: ImportableSession[]; total: number; offset: number; limit: number }>(
+      "/api-import/sessions", payload),
+  /** 同步开关/状态（面板路由；watch=已导入源 mtime 门控续写，inbound=外部→DSH 自动带回）。 */
+  importSyncStatus: () =>
+    fetch("/api-import/sync").then((r) => r.json() as Promise<Record<string, unknown>>).then((json) => {
+      if (!json.ok) throw new Error(String(json.error ?? `HTTP ${json.status ?? ""}`));
+      return json as unknown as ImportSyncStatus;
+    }),
+  importSyncSet: (on: boolean) =>
+    importPanelPost<{ ok: true }>("/api-import/sync", {
+      inbound: { enabled: on },
+      watch: { enabled: on },
+    }),
+  /** 按来源整批导入（sourcePath 聚合；插件幂等，已导入的记账跳过）。 */
+  importRun: (payload: { items: Array<{ source: string; sourcePath: string }> }) =>
+    importPanelPost<{ ok: true; results: Array<Partial<ImportRunResult> & { status?: string }> }>(
+      "/api-import/import", payload,
+    ).then((d) => ({
+      ...d,
+      // 失败条目（status:"failed"）没有数值字段，归一化成 0 + error，调用方汇总不出 NaN。
+      results: d.results.map((r) => ({
+        sourcePath: r.sourcePath ?? "",
+        format: r.format ?? "",
+        total: r.total ?? 0,
+        imported: r.imported ?? 0,
+        alreadyImported: r.alreadyImported ?? 0,
+        appended: r.appended ?? 0,
+        skipped: r.skipped ?? 0,
+        failed: r.failed ?? (r.status === "failed" ? 1 : 0),
+        error: r.error,
+      })),
+    })),
+
   workspaces: () => unary<{ items: WorkspaceView[]; archivedSessionIds: string[] }>("workspace.list"),
   sessions: () => unary<{ items: SessionSummary[] }>("session.list"),
   createSession: (payload: { workspaceId?: string; cwd?: string; sessionId?: string; agentPreset?: string }) =>

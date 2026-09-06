@@ -94,6 +94,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             EngineLog.shared.append("[shell] hotkey disabled by pref")
         }
 
+        // Chat-import 插件须在引擎启动前装进 harness home 的 web profile：
+        // 引擎按 profile bundles 加载后才挂上 /api-import/* 导入路由。
+        if let runtime = Bundle.main.resourceURL {
+            ChatImportPlugin.ensureInstalled(
+                in: AppPaths.harnessHome,
+                bundledDir: runtime.appendingPathComponent("Runtime/chat-import", isDirectory: true)
+            )
+        }
         supervisor.start()
 
         // Load the bridge (SPA shows "引擎启动中" until the engine is up).
@@ -364,6 +372,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         reply("data:\(hit.mime);base64,\(hit.data.base64EncodedString())")
     }
+
 
     /// 状态胶囊的未提交改动摘要（run-git → gitStatus 回推）。引擎无 git 能力，
     /// 由壳在工作区路径跑只读 git 命令聚合；非 git 仓库/命令不可用回 repo=false，

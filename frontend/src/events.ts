@@ -12,9 +12,19 @@ export const DD_EVENTS = {
   /** 把选中文字追加进输入框。收发：SelectionActions → Composer，
    *  CustomEvent detail 携带 { text }。 */
   composerAppend: "dd:composer-append",
+  /** 打开设置页（可带分节）。收发：FirstRunGate「开始使用」→ App/Shell，
+   *  CustomEvent detail 携带 { section?: string }。 */
+  openSettings: "dd:open-settings",
 } as const;
 
-/** 派发一个应用内事件（window 冒泡阶段监听）。 */
-export function dispatchAppEvent(name: string): void {
-  window.dispatchEvent(new CustomEvent(name));
+/** 派发一个应用内事件（window 冒泡阶段监听；detail 可选随事件携带）。 */
+export function dispatchAppEvent(name: string, detail?: unknown): void {
+  window.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
+/** 订阅一个应用内事件；返回退订函数。 */
+export function onAppEvent(name: string, cb: (detail: unknown) => void): () => void {
+  const listener = (e: Event) => cb((e as CustomEvent).detail);
+  window.addEventListener(name, listener);
+  return () => window.removeEventListener(name, listener);
 }

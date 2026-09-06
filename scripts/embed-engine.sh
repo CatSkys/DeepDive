@@ -75,6 +75,15 @@ fi
 rm -rf "$STAGE/Resources/Runtime/dsh"
 ditto "$RUNTIME_SOURCE" "$STAGE/Resources/Runtime/dsh"
 
+# Chat-import plugin（导入其他 Agent 会话，社区包 MIT）：独立引脚
+# scripts/dsh-chat-import-version.txt，prepare 脚本给出含 fzstd 的暂存目录。
+# 运行时由 ChatImportPlugin 装进 harness home 的 web profile（引擎启动前）。
+CHAT_IMPORT_SOURCE="$(bash "$ROOT/scripts/prepare-chat-import.sh")"
+rm -rf "$STAGE/Resources/Runtime/chat-import"
+mkdir -p "$STAGE/Resources/Runtime/chat-import"
+cp -R "$CHAT_IMPORT_SOURCE/dsh-chat-import" "$STAGE/Resources/Runtime/chat-import/dsh-chat-import"
+cp -R "$CHAT_IMPORT_SOURCE/fzstd" "$STAGE/Resources/Runtime/chat-import/fzstd"
+
 # Model-menu freshness: the pinned engine's pi-ai catalog is frozen at its
 # release date. Overlay the newer generated data layer (pure data, no code —
 # scripts/engine-model-data/README.md); no-ops once the pin's pi-ai is newer
@@ -87,8 +96,9 @@ bash "$ROOT/scripts/patch-engine-model-data.sh" "$STAGE/Resources/Runtime/dsh"
 # the same .app path + broken seal makes macOS 26 SIGKILL (137, silent —
 # no dyld/AMFI message) every exec of the newly embedded binaries. Hit in
 # the wild: engine "exited; restart" x3 right after a rebuild in place.
-# package-macos.sh 在 DMG 分发前还会做最终 deep seal（build-release.sh 路径则
-# 只有本处 seal）；二者顺序勿倒——embed → 本处 re-seal → 自检 → 最终 seal。
+# package-macos.sh 在 DMG 分发前还会用 Developer ID 做最终 seal（逐个签 +
+# hardened runtime，公证要求；build-release.sh 路径则只有本处 adhoc seal）；
+# 二者顺序勿倒——embed → 本处 re-seal → 自检 → 最终 seal。
 codesign --force --deep --sign - "$APP" >/dev/null
 
 # Licenses: prefer files shipped inside the runtime closure; fall back to the

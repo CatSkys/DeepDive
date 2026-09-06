@@ -133,20 +133,18 @@ final class RecoveryWindowController: NSWindowController {
     }
 
     @objc private func importCredentials(_ sender: Any?) {
-        let src = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".dsh/.credentials.yaml")
-        let dst = AppPaths.harnessHome.appendingPathComponent(".credentials.yaml")
-        do {
-            try FileManager.default.createDirectory(at: AppPaths.harnessHome, withIntermediateDirectories: true)
-            if !FileManager.default.fileExists(atPath: dst.path) {
-                try FileManager.default.copyItem(at: src, to: dst)
-            }
-            EngineLog.shared.append("[recovery] credentials imported from ~/.dsh/.credentials.yaml")
+        switch LegacyCredentials.perform() {
+        case .imported:
             hide()
             onRetry?()
-        } catch {
-            EngineLog.shared.append("[recovery] import failed: \(error.localizedDescription)")
-            reasonLabel.stringValue = "导入失败：\(error.localizedDescription)"
+        case .already:
+            hide()
+            onRetry?()
+        case .missing:
+            reasonLabel.stringValue = "未找到 \(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".dsh/.credentials.yaml").path)"
+            refreshContextualActions()
+        case .failed(let message):
+            reasonLabel.stringValue = "导入失败：\(message)"
             refreshContextualActions()
         }
     }

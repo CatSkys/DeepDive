@@ -5,7 +5,7 @@ import { installHostBridge } from "./host";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
-import { DD_EVENTS, dispatchAppEvent } from "./events";
+import { DD_EVENTS, dispatchAppEvent, onAppEvent } from "./events";
 import { Sidebar } from "./components/Sidebar";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
@@ -20,14 +20,18 @@ import { TooltipHost } from "./components/Tooltip";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
 
-function Shell() {
+function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
+  settingsOpen: boolean;
+  settingsSection: string;
+  openSettings: (section?: string) => void;
+  closeSettings: () => void;
+}) {
   const store = useStore();
   const { t, tt } = useT();
   const active = store.activeSessionId;
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [showModels, setShowModels] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Deferred native navigation: a navigateToSession push (notification /
   // bubble) can arrive before the session list has loaded — hold it until the
@@ -54,12 +58,12 @@ function Shell() {
   useEffect(() => {
     installHostBridge({
       navigateToSession: (sessionId) => {
-        setSettingsOpen(false);
+        closeSettings();
         const listed = store.sessions.some((s) => s.sessionId === sessionId);
         if (listed) store.openSession(sessionId);
         else setDeferredNav(sessionId);
       },
-      navigateToSettings: () => setSettingsOpen(true),
+      navigateToSettings: () => openSettings(),
       themeChanged: (dark) => {
         document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
       },
@@ -119,7 +123,7 @@ function Shell() {
         else if (def.id === "toggle-sidebar") store.toggleSidebar();
         else if (def.id === "dictation") dispatchAppEvent(DD_EVENTS.dictationToggle);
         else if (def.id === "cycle-effort") dispatchAppEvent(DD_EVENTS.cycleEffort);
-        else if (def.id === "open-settings") setSettingsOpen(true);
+        else if (def.id === "open-settings") openSettings();
         return;
       }
     };
@@ -153,10 +157,10 @@ function Shell() {
         </div>
       )}
       {settingsOpen ? (
-        <SettingsPage onClose={() => setSettingsOpen(false)} />
+        <SettingsPage key={settingsSection} initialSection={settingsSection} onClose={closeSettings} />
       ) : (
         <>
-      <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
+      <Sidebar onOpenSettings={() => openSettings()} />
       {/* SessionView key：会话切换必须全新挂载——无 key 时 React 复用实例，
           旧会话的 items/eventLog 残留会在新会话 summary 就位前闪现旧内容。 */}
       <main className="main">
@@ -189,10 +193,27 @@ function Shell() {
 }
 
 export default function App() {
+  // 设置页开合与分节放在 App（始终挂载）：FirstRunGate 派发 dd:open-settings
+  // 时门还压着 Shell——监听必须住在门外，跳转才不会丢。
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState("general");
+  const openSettings = useCallback((section?: string) => {
+    if (section) setSettingsSection(section);
+    setSettingsOpen(true);
+  }, []);
+  useEffect(() => onAppEvent(DD_EVENTS.openSettings, (detail) => {
+    const section = (detail as { section?: string } | undefined)?.section;
+    openSettings(typeof section === "string" ? section : undefined);
+  }), [openSettings]);
   return (
     <StoreProvider>
       <FirstRunGate>
-        <Shell />
+        <Shell
+          settingsOpen={settingsOpen}
+          settingsSection={settingsSection}
+          openSettings={openSettings}
+          closeSettings={() => setSettingsOpen(false)}
+        />
       </FirstRunGate>
     </StoreProvider>
   );
