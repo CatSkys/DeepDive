@@ -3,6 +3,7 @@ import { useT } from "../i18n";
 import { Check, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { ProviderIcon } from "./ProviderIcon";
 import { HoverScrollText } from "./HoverScrollText";
+import { PixelGrid } from "./LoadingState";
 
 export interface ModelOption {
   provider: string;
@@ -159,30 +160,10 @@ function EffortSlider({
   const fillFrac = n <= 1 ? 1 : frac(idx);
   const showDots = n >= 3 && n <= 6;
   const [dragging, setDragging] = useState(false);
-  const fillRef = useRef<HTMLDivElement>(null);
-  const [dims, setDims] = useState<{ cols: number; rows: number } | null>(null);
-  useEffect(() => {
-    const el = fillRef.current;
-    if (!el) return;
-    // ASCII 马赛克：格子 ≈6px 见方，完全铺满填充区（余量由 1fr 拉伸吸收）。
-    // 动画规模封顶：每个 span 一个独立 animationDelay，60×16=960 个动画节点
-    // 开销过大——列数封顶 16、总格数压到 ≤120（行数按剩余名额再夹一次）。
-    const update = () => {
-      const w = el.clientWidth, h = el.clientHeight;
-      if (w < 20 || h < 12) return;
-      const cols = Math.max(10, Math.min(16, Math.round(w / 6)));
-      const rows = Math.max(4, Math.min(16, Math.floor(120 / cols), Math.round(h / 6)));
-      setDims({ cols, rows });
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  // 能量涌动（像素网格风）：填充区铺满十排像素方块，列相位波 + 行相位
-  // 微差形成波浪推进；强度越高 → 涌动越快。最低档静止（无方块）。
+  // 能量涌动：思考动画同款像素波前（LoadingState Drive 网格复用），随档位
+  // 加速但整体比思考动画（650ms）慢一档——低档 1.6s、满档 1.0s。
   const energy = n <= 1 ? 0 : idx / (n - 1);
-  const dur = `${(1.8 - 1.3 * energy).toFixed(2)}s`;
+  const dur = Math.round(1600 - 600 * energy);
 
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
@@ -227,24 +208,8 @@ function EffortSlider({
         style={{ ["--p" as string]: frac(idx) } as React.CSSProperties}
       >
         <div className="effort-track" />
-        <div className="effort-fill" ref={fillRef} style={{ width: `${fillFrac * 100}%` }}>
-          {dims !== null && energy > 0.01 && (
-            <div
-              className="effort-cells"
-              style={{
-                gridTemplateColumns: `repeat(${dims.cols}, 1fr)`,
-                gridTemplateRows: `repeat(${dims.rows}, 1fr)`,
-                ["--dur" as string]: dur,
-              } as React.CSSProperties}
-            >
-              {Array.from({ length: dims.cols * dims.rows }, (_, i) => {
-                const col = i % dims.cols;
-                const row = Math.floor(i / dims.cols);
-                const delay = ((col / dims.cols) * 0.7 + (row / dims.rows) * 0.3) * parseFloat(dur);
-                return <span key={i} className="effort-cell" style={{ animationDelay: `${delay.toFixed(2)}s` }} />;
-              })}
-            </div>
-          )}
+        <div className="effort-fill" style={{ width: `${fillFrac * 100}%` }}>
+          {energy > 0.01 && <PixelGrid dur={dur} />}
         </div>
         {showDots &&
           stops.map((s, i) =>
