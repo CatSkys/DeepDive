@@ -128,3 +128,46 @@
   width: 100%;
   height: 100%;
 }
+
+/* 光带漂移：transform-box 让 rotate/translate 以元素自身为基准（SVG 默认
+   以画布原点，会甩出画面）。滤镜 g 外再包一层动画 g，transform 不重算滤镜。 */
+.metal g[class] {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+}
+.driftSheen { animation: lm-sheen 16s ease-in-out infinite alternate; }
+.driftBand1 { animation: lm-band1 20s ease-in-out infinite alternate; }
+.driftBand2 { animation: lm-band2 24s ease-in-out infinite alternate; }
+.driftStreak { animation: lm-streak 18s ease-in-out infinite alternate; }
+.driftRidge1 { animation: lm-ridge1 26s ease-in-out infinite alternate; }
+.driftRidge2 { animation: lm-ridge2 22s ease-in-out infinite alternate; }
+
+@keyframes lm-sheen {
+  from { transform: rotate(0deg) translate(0, 0); }
+  to { transform: rotate(5deg) translate(-16px, 12px); }
+}
+@keyframes lm-band1 {
+  from { transform: translate(0, 0); }
+  to { transform: translate(-26px, 18px); }
+}
+@keyframes lm-band2 {
+  from { transform: translate(0, 0); }
+  to { transform: translate(22px, -16px); }
+}
+@keyframes lm-streak {
+  from { transform: translate(0, 0); opacity: 1; }
+  to { transform: translate(-30px, 10px); opacity: 0.6; }
+}
+@keyframes lm-ridge1 {
+  from { transform: translate(0, 0); }
+  to { transform: translate(-40px, -12px); }
+}
+@keyframes lm-ridge2 {
+  from { transform: translate(0, 0); }
+  to { transform: translate(36px, 14px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metal g[class] { animation: none; }
+}
