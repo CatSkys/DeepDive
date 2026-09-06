@@ -10,6 +10,7 @@ import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import { pickNewWorkspace } from "./workspacePicker";
 import { WsSwitcher } from "./WsSwitcher";
+import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import type { SessionSummary, WorkspaceView } from "../types";
 import { sessionTitle } from "../session/sessionTitle";
 import { DD_EVENTS } from "../events";
@@ -81,6 +82,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   // 项目行：会话列表折叠（点行切换）与 ⋯ 菜单（重命名/删除工作区）。
   const [wsCollapsed, setWsCollapsed] = useState(false);
   const [wsCtx, setWsCtx] = useState<{ x: number; y: number } | null>(null);
+  // 会话列表溢出渐隐（超限标准 UI）；元素随空间切换被 keyed 重造，
+  // callback ref 换新即自动重挂监听
+  const sessionsFade = useEdgeFade();
 
   useEffect(() => {
     const close = () => { setCtx(null); setWsCtx(null); };
@@ -323,7 +327,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
            元素，折叠时必须保留占位，否则底部设置行会滑上来顶到项目行 */
         style={{ visibility: !query && wsCollapsed ? "hidden" : undefined }}
       >
-        <div className="sessions">
+        <div className="sessions fade-y" ref={sessionsFade.ref} {...fadeAttrs(sessionsFade.fade)}>
           {view.map(({ label, items }) => (
             <div key={label}>
               {label && <div className="section-label">{label}</div>}

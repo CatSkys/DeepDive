@@ -29,7 +29,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [turnsFolded, setTurnsFolded] = useState(true);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [follow, setFollow] = useState(true);
-  // 已下滚（离开顶端）：顶部渐隐边缘的开关；与 follow 一起在 onScroll 里维护
+  // 渐隐边缘信号（超限标准 UI，样式走 .flow 上的 .fade-y）：不用
+  // useEdgeFade——底部要跟 follow（jump-down 同源、32px 容差、ref 镜像
+  // 供 syncBottomPad 同步读）保持一个事实源，拆两套监听会算出两个贴底。
   const [scrolled, setScrolled] = useState(false);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
   const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
@@ -235,10 +237,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         )}
       </div>
       <div
-        className="flow"
+        className="flow fade-y"
         ref={attachFlow}
-        data-fade-top={scrolled ? "" : undefined}
-        data-fade-bottom={!follow ? "" : undefined}
+        data-fade-start={scrolled ? "" : undefined}
+        data-fade-end={!follow ? "" : undefined}
         onScroll={(e) => {
           const el = e.currentTarget;
           setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);

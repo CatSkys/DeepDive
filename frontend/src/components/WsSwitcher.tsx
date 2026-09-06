@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { readWorkspaceIcon } from "../host";
 import { useStore } from "../store";
+import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import type { WorkspaceView } from "../types";
 
 // 底部空间切换条：一格一空间，当前高亮。只管条内滚动体验——溢出时隐藏
@@ -49,9 +50,8 @@ function WorkspaceCell({ ws, active, onSwitch }: { ws: WorkspaceView; active: bo
 
 export function WsSwitcher() {
   const store = useStore();
-  const stripRef = useRef<HTMLDivElement>(null);
-  // 两端是否还有够不着的内容（渐隐提示的开关）。1px 容差抗亚像素抖动。
-  const [fade, setFade] = useState({ start: false, end: false });
+  const fade = useEdgeFade();
+  const [strip, setStrip] = useState<HTMLDivElement | null>(null);
 
   // 滚轮就地消费：条子有横向溢出时，纵横滚轮都只滚条子本身。
   // preventDefault 挡浏览器默认的滚动链接（否则纵滚轮会链去上方会话
@@ -59,8 +59,8 @@ export function WsSwitcher() {
   // 横滑切空间（正在滚的就是空间条本身，两个行为叠加互相打架）。
   // React onWheel 是 passive 监听，preventDefault 无效，必须原生挂。
   useEffect(() => {
-    const el = stripRef.current;
-    if (!el) return;
+    if (!strip) return;
+    const el = strip;
     const onWheel = (e: WheelEvent) => {
       if (el.scrollWidth - el.clientWidth <= 0) return; // 无溢出：维持默认
       e.preventDefault();
@@ -69,32 +69,19 @@ export function WsSwitcher() {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [strip]);
 
-  // 渐隐测量：scroll（用户滚动）+ ResizeObserver（侧栏拖宽/收展）+
-  // 空间数量变化（dep 重跑）三路触发；值不变时回传原引用避免多余渲染。
-  useLayoutEffect(() => {
-    const el = stripRef.current;
-    if (!el) return;
-    const measure = () => {
-      const max = el.scrollWidth - el.clientWidth;
-      const start = el.scrollLeft > 1;
-      const end = max - el.scrollLeft > 1;
-      setFade((p) => (p.start === start && p.end === end ? p : { start, end }));
-    };
-    measure();
-    el.addEventListener("scroll", measure, { passive: true });
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => { el.removeEventListener("scroll", measure); ro.disconnect(); };
-  }, [store.workspaces.length]);
+  // wheel 效果与渐隐测量各持一个引用，ref 回调里聚合到同一元素
+  const setRefs = (el: HTMLDivElement | null) => {
+    setStrip(el);
+    fade.ref(el);
+  };
 
   return (
     <div
-      className="ws-switcher"
-      ref={stripRef}
-      data-fade-start={fade.start ? "" : undefined}
-      data-fade-end={fade.end ? "" : undefined}
+      className="ws-switcher fade-x"
+      ref={setRefs}
+      {...fadeAttrs(fade.fade)}
     >
       {/* 内包一层 auto margin 居中：justify-content: center 在溢出时会把
           首端格子挤出可滚范围（flex 数据丢失），auto margin 溢出时归零 */}

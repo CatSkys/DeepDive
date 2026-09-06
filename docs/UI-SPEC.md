@@ -187,6 +187,7 @@
 | **MarkdownContainer** | — | 正文 13/18；代码块 `terminal.bg` 圆角 10+复制；引用 2px 左条 |
 | **EmptyState** | — | 32px 图标 + **一句** |
 | **FloatingCard** | — | 圆角 20 + `surface.raised` + `border.gloss` + `shadow.floating` + scrim（浮层唯一样式） |
+| **FadeEdge** | `fade-x / fade-y` | **超限标准 UI（2026-09 定稿）**：滚动容器有内容被藏住、未滚到该边缘时，那一侧 24px mask 渐隐提示「后面还有」，滚到边自动消失，替代生硬裁切线与裸滚动条。实现：`useEdgeFade`（信号）+ theme.css 末尾 `.fade-x/.fade-y`（样式）；现役：会话流、边栏会话列表、底部空间切换条 |
 
 ### 2.2 消息规范（两类，严格独立——用户定稿，2026-09）
 

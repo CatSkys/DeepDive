@@ -442,9 +442,8 @@ button {
 
 /* 底行中间的空间切换器：一排小格子，一格一空间（项目首字母），当前高亮。
    在设置钮与＋钮之间居中。格子多到放不下时横向滚动：滚动条隐藏（用户需求：
-   裸滚动条难看），未滚到边的一侧用 mask 渐隐提示后面还有空间格（同
-   .hs-box.hs-scrolling 的 mask 手法；数据属性由 WsSwitcher 测量驱动）。
-   滚轮在此条上就地消费（组件原生监听），不外链上方会话列表。 */
+   裸滚动条难看），溢出渐隐走 .fade-x 标准件；滚轮在此条上就地消费
+   （组件原生监听），不外链上方会话列表。 */
 .ws-switcher {
   flex: 1;
   min-width: 0;
@@ -455,18 +454,6 @@ button {
   scrollbar-width: none; /* Firefox：隐藏滚动条 */
 }
 .ws-switcher::-webkit-scrollbar { display: none; } /* WKWebView/Chromium：隐藏滚动条 */
-.ws-switcher[data-fade-end] {
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
-  mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
-}
-.ws-switcher[data-fade-start] {
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20px);
-  mask-image: linear-gradient(90deg, transparent, #000 20px);
-}
-.ws-switcher[data-fade-start][data-fade-end] {
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20px, #000 calc(100% - 20px), transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 20px, #000 calc(100% - 20px), transparent);
-}
 .ws-switcher-cells { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
 .ws-cell {
   flex: none;
@@ -1280,22 +1267,6 @@ button {
   padding: 8px clamp(14px, 3vw, 28px) 12px;
 }
 .flow-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
-/* 会话流上下渐隐边缘（用户需求，同 WsSwitcher 的 mask 手法）：内容滑进
-   悬浮 header/composer 之下、未滚到对应边缘时，把生硬裁切线换成渐隐。
-   data 属性由 SessionView 的 onScroll 维护：顶部=已下滚，底部=非贴底
-   （与 jump-down 同信号）；滚到边的一侧无遮罩，短内容两侧都不遮。 */
-.flow[data-fade-top] {
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 28px);
-  mask-image: linear-gradient(180deg, transparent, #000 28px);
-}
-.flow[data-fade-bottom] {
-  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
-  mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
-}
-.flow[data-fade-top][data-fade-bottom] {
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
-  mask-image: linear-gradient(180deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
-}
 /* 会话入场（用户定稿）：历史加载完成内容首次出现时整体轻浮上；key 在
    SessionView（会话:已加载），只在进入会话那一刻重挂重播，流式不重播。
    子消息块各自的 fade-up 照常叠加，容器动势给「会话出现了」一个整体感。
@@ -3259,3 +3230,34 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .md .md-math .katex { font-size: 1.02em; }
 .md-math-block { margin: 6px 0; overflow-x: auto; }
 .md-math-block .katex-display { margin: 0; }
+
+/* ── 溢出渐隐边缘（超限标准 UI 显示，用户定稿）──────────────────────────
+   滚动容器有内容被藏住、且未滚到该边缘时，那一侧渐隐提示「后面还有」；
+   滚到边自动消失，替代生硬裁切线。信号侧 = useEdgeFade（useEdgeFade.ts，
+   写 data-fade-start/end），样式侧 = 本节：滚动容器加 .fade-x（横）或
+   .fade-y（纵）。现役：会话流(.flow)、边栏会话列表(.sessions)、底部空间
+   切换条(.ws-switcher)。置于文件末尾以在同权重下覆盖宿主类。 ── */
+.fade-x[data-fade-start] {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px);
+  mask-image: linear-gradient(90deg, transparent, #000 24px);
+}
+.fade-x[data-fade-end] {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+}
+.fade-x[data-fade-start][data-fade-end] {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+.fade-y[data-fade-start] {
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 24px);
+  mask-image: linear-gradient(180deg, transparent, #000 24px);
+}
+.fade-y[data-fade-end] {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent);
+}
+.fade-y[data-fade-start][data-fade-end] {
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
