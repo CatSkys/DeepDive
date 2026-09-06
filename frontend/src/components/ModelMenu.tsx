@@ -3,7 +3,6 @@ import { useT } from "../i18n";
 import { Check, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { ProviderIcon } from "./ProviderIcon";
 import { HoverScrollText } from "./HoverScrollText";
-import { PixelGrid } from "./LoadingState";
 
 export interface ModelOption {
   provider: string;
@@ -160,10 +159,29 @@ function EffortSlider({
   const fillFrac = n <= 1 ? 1 : frac(idx);
   const showDots = n >= 3 && n <= 6;
   const [dragging, setDragging] = useState(false);
-  // 能量涌动：思考动画同款像素波前（LoadingState Drive 网格复用），随档位
-  // 加速但整体比思考动画（650ms）慢一档——低档 1.6s、满档 1.0s。
+  // 像素涌动：思考动画同款 pixel-on 闪烁，铺满整个填充条（用户定稿：整个
+  // 填充滑动条都是像素动画）。格距 ≈6px，总格数封顶 120 控动画节点数；
+  // delay 按 col+row 对角交错成波前推进；随档位加速但整体比思考动画
+  // （650ms）慢一档——低档 1.6s、满档 1.0s。最低档静止。
   const energy = n <= 1 ? 0 : idx / (n - 1);
   const dur = Math.round(1600 - 600 * energy);
+  const fillRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState<{ cols: number; rows: number } | null>(null);
+  useEffect(() => {
+    const el = fillRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      if (w < 20 || h < 12) { setDims(null); return; }
+      const cols = Math.max(8, Math.min(24, Math.round(w / 7)));
+      const rows = Math.max(3, Math.min(120 / cols, Math.round(h / 7)));
+      setDims({ cols, rows });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
@@ -208,8 +226,30 @@ function EffortSlider({
         style={{ ["--p" as string]: frac(idx) } as React.CSSProperties}
       >
         <div className="effort-track" />
-        <div className="effort-fill" style={{ width: `${fillFrac * 100}%` }}>
-          {energy > 0.01 && <PixelGrid dur={dur} />}
+        <div className="effort-fill" ref={fillRef} style={{ width: `${fillFrac * 100}%` }}>
+          {dims !== null && energy > 0.01 && (
+            <div
+              className="effort-cells"
+              style={{
+                gridTemplateColumns: `repeat(${dims.cols}, 1fr)`,
+                gridTemplateRows: `repeat(${dims.rows}, 1fr)`,
+              }}
+            >
+              {Array.from({ length: dims.cols * dims.rows }, (_, i) => {
+                const col = i % dims.cols;
+                const row = Math.floor(i / dims.cols);
+                // 对角波前：col+row 越大越晚亮起，扫描线从左上推向右下
+                const delay = Math.round(((col + row) / (dims.cols + dims.rows)) * dur * 0.8);
+                return (
+                  <span
+                    key={i}
+                    className="effort-cell"
+                    style={{ animation: `pixel-on ${dur}ms ease-in-out ${delay}ms infinite` }}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
         {showDots &&
           stops.map((s, i) =>

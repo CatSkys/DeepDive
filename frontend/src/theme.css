@@ -696,7 +696,7 @@ button {
 .model-menu-row .chev { color: var(--ink-3); flex-shrink: 0; }
 
 /* ── 思考强度页：厚胶囊填充滑杆（无拖柄/无下方档位名） ──
-   填充区内是思考动画同款像素波前（LoadingState PixelGrid 复用）；
+   填充区铺满思考动画同款像素闪烁（pixel-on，组件按尺寸铺格）；
    停靠点只标未覆盖档位。 */
 .effort-wrap { padding: 10px 12px 2px; }
 .effort-slider {
@@ -722,12 +722,23 @@ button {
   /* 减淡墨色（用户定）：亮用 --dsh-signal-effortFill，暗为柔和白 */
   background: rgba(255,255,255,.88);
   overflow: hidden;
-  /* 填充区放思考动画同款像素波前（LoadingState PixelGrid）：居中、
-     格色跟原马赛克的 --panel-strong（深底浅条浮深格），随档位放慢加速 */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  --ls-ink: var(--panel-strong);
+}
+/* 像素涌动铺满整个填充条（用户定稿）：思考动画同款 pixel-on 闪烁，格距
+   ≈7px 由组件按宽度算列数，delay 对角交错成波前推进。 */
+.effort-cells {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 2px;
+  pointer-events: none;
+}
+.effort-cell {
+  border-radius: 1.5px;
+  background: var(--panel-strong);
+  opacity: .1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .effort-cell { animation: none !important; }
 }
 :root[data-theme="light"] .effort-fill { background: var(--dsh-signal-effortFill); }
 .effort-tick {

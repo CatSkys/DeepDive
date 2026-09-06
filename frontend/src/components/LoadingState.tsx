@@ -63,13 +63,6 @@ export function InlineLoader() {
   return <LoaderGrid {...PATTERNS.Drive} />;
 }
 
-/** Drive 网格的可调速复用点：思考强度滑杆填充区等需要同款像素波前、
- *  但节奏更缓的场景（dur 覆盖 Drive 的标准 650ms 周期）。格子配色随
- *  容器的 --ls-ink 变量走。 */
-export function PixelGrid({ dur }: { dur?: number }) {
-  return <LoaderGrid {...PATTERNS.Drive} dur={dur ?? PATTERNS.Drive.dur} />;
-}
-
 /**
  * Elapsed timer. `since` (epoch ms) anchors the clock
  * to the turn's real start (turn/start event time); without it the clock
