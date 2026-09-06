@@ -169,11 +169,15 @@ export interface IngestCtx {
   turnText: Map<number, string>;
   /** turn → tail anchor time (the closing assistant message, if any). */
   turnTime: Map<number, number>;
+  /** 最近一次 turn/start 的 turn 号：user/message 事件不带 turn（wire 契约），
+   *  靠它给 user item 标注归属——否则一步失败、零 assistant 输出的轮没有
+   *  tail 锚点，轮终错误（如 MISSING_CREDENTIAL）永远渲染不出来。 */
+  currentTurn?: number;
 }
 
 /** Fresh ingest context — history replay, live mux passes and tests share one shape. */
 export function makeIngestCtx(): IngestCtx {
-  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map() };
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map(), currentTurn: undefined };
 }
 
 export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string; view?: HistoryEntryView }, ctx: IngestCtx) {
@@ -188,11 +192,12 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       const txt = userText(d);
       // 注入上下文（source.kind=plugin/skill-catalog/goal…，无正文）不渲染：
       // 系统提示词/插件/技能目录/goal 注入对用户是噪音（2026-09-04 用户拍板隐藏）
-      if (txt) out.push({ ...base, kind: "user" });
+      if (txt) out.push({ ...base, kind: "user", turn: ctx.currentTurn });
       break;
     }
     case "turn/start": {
       const d = ev.data as { turn: number };
+      ctx.currentTurn = d.turn;
       ctx.timing.set(d.turn, { start: ev.time, end: undefined, firstToken: undefined });
       break;
     }

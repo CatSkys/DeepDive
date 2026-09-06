@@ -50,6 +50,22 @@ const EV = {
   // 空 turn：无任何 item → 不发 tail（PITFALLS §3.4）
   turn3Start: { type: "turn/start", seq: 14, time: 1_800, data: { turn: 3 } },
   turn3End: { type: "turn/end", seq: 15, time: 1_810, data: { turn: 3, reason: "interrupted" } },
+  // 一步失败轮（MISSING_CREDENTIAL 实测 wire 形状）：LLM 调用没发出，turn 里
+  // 除 user 外没有任何带 turn 的 item —— turn-tail 必须仍有锚点，否则轮终
+  // 错误（无凭据/无效 key/网络错误）在 UI 上完全静默（2026-09-06 新用户实测）。
+  turn4Start: { type: "turn/start", seq: 16, time: 1_900, data: { turn: 4 } },
+  user4: {
+    type: "user/message", seq: 17, time: 1_905,
+    data: { role: "user", id: "u4", content: [{ type: "text", text: "你好" }], source: { kind: "user" } },
+  },
+  chunkFinishError: {
+    type: "assistant/chunk", seq: 18, time: 1_910,
+    data: { turn: 4, step: 1, chunk: { type: "finish", reason: { kind: "error", failure: { message: "llm-deepseek: no API key", code: "MISSING_CREDENTIAL" } } } },
+  },
+  turn4End: {
+    type: "turn/end", seq: 19, time: 1_915,
+    data: { turn: 4, reason: { kind: "error", error: { message: "llm-deepseek: no API key", code: "MISSING_CREDENTIAL" } } },
+  },
 } satisfies Record<string, SessionEvent>;
 
 /** 与 SessionView 实时通路一致：逐条 ingest，turn/end 时收尾。 */
@@ -66,11 +82,11 @@ function replay(events: SessionEvent[]): RenderItem[] {
 describe("ingest 黄金回放", () => {
   const out = replay(Object.values(EV));
 
-  it("渲染序 = 用户气泡 → turn1 文本+工具+tail → turn2 文本+tail（注入上下文不渲染，2026-09-04 用户拍板隐藏）", () => {
+  it("渲染序 = 用户气泡 → turn1 文本+工具+tail → turn2 文本+tail → turn4 user+错误tail（注入上下文不渲染，2026-09-04 用户拍板隐藏）", () => {
     expect(out.map((x) => x.kind)).toEqual([
-      "user", "assistant", "tool-call", "turn-tail", "assistant", "turn-tail",
+      "user", "assistant", "tool-call", "turn-tail", "assistant", "turn-tail", "user", "turn-tail",
     ]);
-    expect(out.filter((x) => x.kind === "user")).toHaveLength(1);
+    expect(out.filter((x) => x.kind === "user")).toHaveLength(2);
   });
 
   it("流式 chunk 被 assistant/message 取代后不残留（PITFALLS §3.1/§3.2）", () => {
@@ -108,8 +124,13 @@ describe("ingest 黄金回放", () => {
     expect(tail2?.event?.type).toBe("assistant/message");
   });
 
-  it("空 turn 不发 tail", () => {
-    expect(out.filter((x) => x.kind === "turn-tail")).toHaveLength(2);
+  it("空 turn 不发 tail；一步失败轮（零 assistant 输出）经 user 锚点仍发 tail", () => {
+    const tails = out.filter((x) => x.kind === "turn-tail");
+    expect(tails).toHaveLength(3);
+    expect(tails.map((x) => x.turn)).toEqual([1, 2, 4]);
+    const failTail = tails[2];
+    expect(failTail?.endReason?.kind).toBe("error");
+    expect((failTail?.endReason as { error?: { code?: string } }).error?.code).toBe("MISSING_CREDENTIAL");
   });
 
   it("key 全局唯一（seq:type）", () => {

@@ -106,6 +106,10 @@
 - 直接对组件内 `RenderItem[]` 增量 push 时，history 与 mux 双路径有 seqFloor 竞态（history 返回前 mux 帧先进 store）。
 - 处置：**eventLog 缓存全量事件（按 seq 升序）+ 每次 rebuild 从全量 ingest**。日志天然升序、乱序/重复由"严格递增守卫"规避。mux 帧 seq ≤ log 末尾则丢弃。
 
+### 3.6 `user/message` 事件不带 turn——零 assistant 输出的轮没有 tail 锚点，轮终错误整轮静默
+- 事故（2026-09-06 新用户实测）：无凭据发消息，引擎 `turn/end` 带完整 `MISSING_CREDENTIAL` 错误，但 UI 零提示。根因：turn-tail 只插在「该 turn 最后一个**带 `turn` 字段的 item**」之后，而 wire 上 `user/message` 不含 turn，renderModel 的 user item 因此一直没标——一步失败（缺 key/401/网络错）的轮没有任何 assistant item，tail 无处可插，「本轮失败」永不渲染。§5.6 同型：错误通了，渲染前提没被端到端验证过。
+- 处置：ingest 上下文记 `currentTurn`（`turn/start` 时更新），user item 标注归属；空 turn（无任何 item）仍不发 tail（§3.4 口径不变）。回归钉在 `session-ingest.test.ts` 一步失败轮夹具。
+
 ---
 
 ## 4. Engine / 壳端
