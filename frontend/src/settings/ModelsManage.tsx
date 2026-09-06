@@ -4,7 +4,7 @@ import { api } from "../api";
 import { tt, useT } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import {
-  ModelDialog, keyRefOf, updateDeepseekModels, updatePiProviders,
+  ModelDialog, keyRefOf, removePiProvider, updateDeepseekModels, updatePiProviders,
   type EditTarget,
 } from "./ModelDialog";
 import { useModelCatalog } from "./useModelCatalog";
@@ -29,6 +29,8 @@ interface ProviderGroup {
   provider: string;
   name: string;
   models: GroupModel[];
+  /** 引擎声明目录（deepseek-official 等）＝内置不可组级删除。 */
+  declared: boolean;
 }
 
 const MODALITY_LABEL: Record<string, string> = { text: "文本", image: "视觉", audio: "音频", video: "视频" };
@@ -70,6 +72,9 @@ export function ModelsManage() {
           return {
             provider: g.id,
             name: p?.displayName || g.name || g.id,
+            // declared=true = 用户手写落盘的自定义提供方（引擎目录内置的
+            // deepseek-official 与 pi 预置 catalog 均无此标记），才可组级删除。
+            declared: p?.declared === true,
             models: (g.models ?? []).map((m) => {
               const en = enrich.get(`${g.id}|${m.id}`) ?? {};
               return {
@@ -136,6 +141,26 @@ export function ModelsManage() {
     }
   };
 
+  /** 删除整个提供方（仅用户自定义 = 非引擎声明目录的组）：unset 目录条目 +
+   *  清密钥。密钥先清——失败即停在可重试状态；目录删除成功后密钥残留反而
+   *  成不可见孤儿。密钥未配置时的报错吞掉（目标态就是无密钥）。 */
+  const removeProvider = async (g: ProviderGroup) => {
+    setNotice(null);
+    if (!(await confirmDialog({
+      message: tt("删除提供方「{p}」？\n其 API 密钥与全部模型将从引擎移除。", "Delete provider \"{p}\"?\nIts API key and all models will be removed from the engine.", { p: g.name }),
+      danger: true,
+    }))) return;
+    try {
+      await api.credentialsUnset({ ref: keyRefOf(g.provider, cat.deepseek.apiKeyEnv) });
+    } catch { /* 密钥本就未配置：unset 报「未找到」，目标态一致，不阻塞目录删除 */ }
+    try {
+      await removePiProvider(g.provider);
+      await reload();
+    } catch (err) {
+      setNotice(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
+    }
+  };
+
   return (
     <div className={cssRows.section}>
       <div className={cssRows.mgmtCard}>
@@ -155,19 +180,35 @@ export function ModelsManage() {
       )}
       {groups !== null && groups.map((g) => {
         const isCollapsed = !!collapsed[g.provider];
+        // 只有手写落盘的自定义提供方（declared）给组级删除入口；引擎内置
+        // 目录（deepseek-official、pi 预置 catalog）不可删。
         return (
           <div key={g.provider} className={cssRows.modelGroup}>
-            <button
-              type="button"
-              className={cssRows.modelGroupHead}
-              aria-expanded={!isCollapsed}
-              onClick={() => setCollapsed((c) => ({ ...c, [g.provider]: !c[g.provider] }))}
-            >
-              <ProviderIcon provider={g.provider} size={17} />
-              <span className={cssRows.modelGroupName}>{g.name}</span>
-              <span className={cssRows.modelGroupCount}>{g.models.length}</span>
-              <ChevronDown size={14} className={`${cssRows.modelGroupChevron}${isCollapsed ? ` ${cssRows.closed}` : ""}`} />
-            </button>
+            <div className={cssRows.modelGroupHeadRow}>
+              <button
+                type="button"
+                className={cssRows.modelGroupHead}
+                aria-expanded={!isCollapsed}
+                onClick={() => setCollapsed((c) => ({ ...c, [g.provider]: !c[g.provider] }))}
+              >
+                <ProviderIcon provider={g.provider} size={17} />
+                <span className={cssRows.modelGroupName}>{g.name}</span>
+                <span className={cssRows.modelGroupCount}>{g.models.length}</span>
+                <ChevronDown size={14} className={`${cssRows.modelGroupChevron}${isCollapsed ? ` ${cssRows.closed}` : ""}`} />
+              </button>
+              {g.declared && (
+                <button
+                  type="button"
+                  className={cssRows.iconBtn}
+                  data-danger="true"
+                  data-tip={t("删除提供方")}
+                  aria-label={t("删除提供方")}
+                  onClick={() => void removeProvider(g)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
             {!isCollapsed && g.models.map((m) => (
               <div key={m.id} className={cssRows.modelRow}>
                 <div className={cssRows.modelRowMain}>

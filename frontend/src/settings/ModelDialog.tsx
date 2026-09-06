@@ -20,7 +20,7 @@ export interface PiProviderProfile {
   baseURL?: string;
   models?: ModelProfile[];
 }
-export interface ProviderInfo { provider: string; displayName: string; settingsNs: string; active: boolean }
+export interface ProviderInfo { provider: string; displayName: string; settingsNs: string; active: boolean; /** 引擎声明目录（内置 route）＝不可组级删除。 */ declared?: boolean }
 
 export interface DeepseekNs { apiKeyEnv: string; models: ModelProfile[] }
 export interface PiNs { providers: Record<string, PiProviderProfile> }
@@ -55,6 +55,16 @@ export async function updatePiProviders(providers: Record<string, PiProviderProf
   const ns = (d.namespaces ?? []).find((n) => n.ns === "llm-pi-ai");
   if (!ns) throw new Error(t("本引擎未提供自定义提供方。"));
   await api.settingsUpdate({ ns: "llm-pi-ai", patch: { ...(ns.value ?? {}), providers }, expectedRevision: ns.revision });
+}
+
+/** 删除整个自定义提供方（settings.mutate unset + revision 围栏）：
+ *  settings.update 是合并语义，patch 里缺键删不掉对象条目，只有路径级
+ *  unset 能真正移除 provider key。密钥由调用方按需 credentials.unset。 */
+export async function removePiProvider(providerId: string) {
+  const d = await api.settingsDescribe();
+  const ns = (d.namespaces ?? []).find((n) => n.ns === "llm-pi-ai");
+  if (!ns) throw new Error(t("本引擎未提供自定义提供方。"));
+  await api.settingsMutate({ ns: "llm-pi-ai", ops: [{ op: "unset", path: ["providers", providerId] }], expectedRevision: ns.revision });
 }
 
 export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone, onCancel }: {

@@ -268,7 +268,7 @@ export const api = {
   }>("session.modelCatalog", {}),
   settingsDescribe: () => unary<SettingsDescribe>("settings.describe", {}),
   settingsUpdate: (payload: { ns: string; patch: unknown; expectedRevision: unknown }) => unary("settings.update", payload),
-  settingsMutate: (payload: { ns: string; ops: Array<{ op: string; path: string; value?: unknown }>; expectedRevision: unknown }) =>
+  settingsMutate: (payload: { ns: string; ops: Array<{ op: "set" | "unset"; path: string[]; value?: unknown }>; expectedRevision: unknown }) =>
     unary("settings.mutate", payload),
   credentialsDescribe: (payload: { refs: string[] }) =>
     unary<{ credentials: Record<string, { configured: boolean; source?: string; writable?: boolean }> }>("credentials.describe", payload),

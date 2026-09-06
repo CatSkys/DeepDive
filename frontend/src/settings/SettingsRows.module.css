@@ -294,6 +294,10 @@
   margin-bottom: 10px;
   overflow: hidden;
 }
+/* 组头行：折叠按钮占满，右侧可挂组级操作（删除提供方） */
+.modelGroupHeadRow { display: flex; align-items: stretch; }
+.modelGroupHeadRow .modelGroupHead { flex: 1; width: auto; }
+.modelGroupHeadRow > button:not(.modelGroupHead) { align-self: center; margin-right: 8px; }
 .modelGroupHead {
   display: flex;
   align-items: center;

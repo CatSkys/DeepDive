@@ -349,6 +349,8 @@ export const EN: Record<string, string> = {
   "删除会话？该操作不可撤销：{t}": "Delete session? This cannot be undone: {t}",
   "载入中…": "Loading…",
   "取消": "Cancel",
+  "删除提供方": "Delete provider",
+  "删除提供方「{p}」？\n其 API 密钥与全部模型将从引擎移除。": "Delete provider \"{p}\"?\nIts API key and all models will be removed from the engine.",
   "确定": "OK",
   "好": "OK",
   "保存（diff → ops）": "Save (diff → ops)",
