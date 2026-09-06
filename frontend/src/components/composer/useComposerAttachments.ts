@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { pickAttachments, type PickedAttachment } from "../../host";
 import { formatMention } from "../../atGrammar";
+import { alertDialog } from "../DialogHost";
 import { tt } from "../../i18n";
 
 export interface Attachment {
@@ -78,7 +79,7 @@ function ingestDropped(
     if (urlless > 0) {
       // 文案在事件发生时读模块级 tt（最新 currentLang）：挂载闭包里的 useT
       // tt 是 lang 绑定闭包，挂载后切语言提示会滞留旧语言（AUD-089）。
-      alert(tt("浏览器环境无法引用本地文件，请在桌面端使用", "Local file references need the desktop app"));
+      void alertDialog({ message: tt("浏览器环境无法引用本地文件，请在桌面端使用", "Local file references need the desktop app") });
     }
   });
 }

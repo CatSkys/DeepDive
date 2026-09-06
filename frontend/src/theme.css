@@ -3250,3 +3250,65 @@ input:focus, textarea:focus, select:focus { outline: none; }
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
   mask-image: linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
 }
+
+/* ---- 应用弹窗（DialogHost，替换 window.confirm/alert 系统原生弹窗）----
+   玻璃配方与设置弹窗同款：--panel-strong + blur 40 + 14px 圆角。层级
+   1500：高于一切页面内浮层（设置 overlay 210），低于右键菜单 2000。 */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pop-in var(--dur-fast) var(--ease-out);
+}
+.dialog-card {
+  width: 400px;
+  max-width: 92vw;
+  padding: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  animation: pop-in var(--dur-fast) var(--ease-out);
+}
+.dialog-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.dialog-msg { font-size: 13px; color: var(--ink-2); line-height: 1.55; white-space: pre-line; }
+.dialog-title + .dialog-msg { margin-top: 8px; }
+.dialog-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 34px;
+  margin-top: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--fill);
+  color: var(--ink);
+  font-size: 13px;
+}
+.dialog-input:focus { outline: none; border-color: var(--line-strong); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.dialog-btn {
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--fill);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease;
+}
+.dialog-btn:hover { background: var(--fill-strong); }
+.dialog-btn.primary { border: none; background: var(--ink); color: var(--panel-bg); font-weight: 600; }
+.dialog-btn.primary:hover { opacity: 0.85; background: var(--ink); }
+.dialog-btn.primary.danger { background: var(--dsh-signal-danger); color: #fff; }
+@media (prefers-reduced-motion: reduce) {
+  .dialog-overlay, .dialog-card { animation: none; }
+}

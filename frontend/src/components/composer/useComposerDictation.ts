@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { onHostEvent, sendToShell } from "../../host";
 import { t as globalT } from "../../i18n";
 import { DD_EVENTS } from "../../events";
+import { alertDialog } from "../DialogHost";
 
 export function useComposerDictation({
   setText,
@@ -33,7 +34,7 @@ export function useComposerDictation({
     } else if (cmd === "dictation-error") {
       setListening(false);
       setPartial("");
-      alert(text || globalT("听写失败"));
+      void alertDialog({ message: text || globalT("听写失败") });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 订阅只挂一次：setText 为 setState 稳定引用，refocus 仅触达稳定 taRef（拖拽订阅同款）
   }), []);

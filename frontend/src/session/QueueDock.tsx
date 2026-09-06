@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ArrowUp, GripVertical, Pencil, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
+import { alertDialog } from "../components/DialogHost";
 import { useCompositionGuard } from "../useCompositionGuard";
 import { IconCheckOutline16 } from "../components/Icons";
 import type { SessionQueuedItem } from "../types";
@@ -18,7 +19,7 @@ export function QueueDock({ sessionId, items }: { sessionId: string; items: Sess
     try {
       await api.updateQueue({ sessionId, itemId, action });
     } catch (err) {
-      alert(tt("排队消息操作失败：{m}", "Queue update failed: {m}", { m: (err as Error).message }));
+      void alertDialog({ message: tt("排队消息操作失败：{m}", "Queue update failed: {m}", { m: (err as Error).message }) });
     }
   };
   const saveEdit = (itemId: string) => {

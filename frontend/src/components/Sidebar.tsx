@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings, SquarePen, Trash2 } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { InlineLoader } from "./LoadingState";
+import { alertDialog, promptDialog, confirmDialog } from "./DialogHost";
 import { api } from "../api";
 import { sendToShell } from "../host";
 import { useStore } from "../store";
@@ -116,24 +117,25 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   // 项目行 ⋯ 菜单动作（官方 ProjectRowItem 的 rename/delete 同款）。
   const renameWorkspace = (ws: WorkspaceView) => {
     setWsCtx(null);
-    const title = prompt(t("重命名"), ws.title);
-    if (!title || !title.trim()) return;
     void (async () => {
+      const title = await promptDialog({ title: t("重命名"), initialValue: ws.title });
+      if (!title || !title.trim()) return;
       try { await api.workspaceRename({ workspaceId: ws.workspaceId, title: title.trim() }); await store.refresh(); }
-      catch (err) { alert(tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`)); }
+      catch (err) { void alertDialog({ message: tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`) }); }
     })();
   };
   const deleteWorkspace = (ws: WorkspaceView) => {
     setWsCtx(null);
-    if (!confirm(tt(`删除工作空间「${ws.title}」？\n（只解除项目归属，磁盘上的文件夹不会被删除）`, `Delete workspace “${ws.title}”?\n(Only detaches the project; files on disk and sessions are kept)`))) return;
     void (async () => {
+      const ok = await confirmDialog({ message: tt(`删除工作空间「${ws.title}」？\n（只解除项目归属，磁盘上的文件夹不会被删除）`, `Delete workspace “${ws.title}”?\n(Only detaches the project; files on disk and sessions are kept)`), danger: true });
+      if (!ok) return;
       try {
         await api.workspaceDelete({ workspaceId: ws.workspaceId });
         const rest = store.workspaces.filter((w) => w.workspaceId !== ws.workspaceId);
         // 删除的是当前空间 → 落到第一个剩余空间；全删光则回单列表模式。
         if (store.activeWorkspaceId === ws.workspaceId && rest[0]) store.switchWorkspace(rest[0].workspaceId);
         await store.refresh();
-      } catch (err) { alert(tt(`删除失败：${(err as Error).message}`, `Delete failed: ${(err as Error).message}`)); }
+      } catch (err) { void alertDialog({ message: tt(`删除失败：${(err as Error).message}`, `Delete failed: ${(err as Error).message}`) }); }
     })();
   };
 
@@ -361,7 +363,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             t("输入要添加为工作空间的文件夹绝对路径："),
             
               (p) => void store.createWorkspace(p).then((r) => {
-                if (r.error) alert(tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }));
+                if (r.error) void alertDialog({ message: tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }) });
               }),
           )}
         >
@@ -381,16 +383,15 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       {ctx && (
         <div className="ctx-menu" style={{ top: ctx.y, left: Math.min(ctx.x, window.innerWidth - 220) }} onClick={(e) => e.stopPropagation()}>
           <div className="ctx-item" onClick={() => {
-            const title = prompt(t("重命名任务"), ctx.title);
-            if (title && title.trim()) {
-              void (async () => {
-                try { await api.sessionRename({ sessionId: ctx.sessionId, title: title.trim() }); await store.refresh(); } catch (err) { alert(tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`)); }
-              })();
-            }
             setCtx(null);
+            void promptDialog({ title: t("重命名任务"), initialValue: ctx.title }).then(async (title) => {
+              if (title && title.trim()) {
+                try { await api.sessionRename({ sessionId: ctx.sessionId, title: title.trim() }); await store.refresh(); } catch (err) { void alertDialog({ message: tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`) }); }
+              }
+            });
           }}>{t("重命名任务")}</div>
           <div className="ctx-item" onClick={async () => {
-            try { await api.workspaceArchiveSession({ sessionId: ctx.sessionId }); await store.refresh(); } catch (err) { alert(`归档失败：${(err as Error).message}`); }
+            try { await api.workspaceArchiveSession({ sessionId: ctx.sessionId }); await store.refresh(); } catch (err) { void alertDialog({ message: `归档失败：${(err as Error).message}` }); }
             setCtx(null);
           }}>{t("归档任务")}</div>
           <div className="ctx-item" onClick={() => { store.markUnread(ctx.sessionId); setCtx(null); }}>{t("标记为未读")}</div>

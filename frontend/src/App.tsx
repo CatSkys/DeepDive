@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PanelLeft } from "lucide-react";
 import { api } from "./api";
+import { alertDialog } from "./components/DialogHost";
 import { installHostBridge } from "./host";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
@@ -17,6 +18,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { FirstRunGate } from "./settings/FirstRunGate";
 import type { ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
+import { DialogHost } from "./components/DialogHost";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
 
@@ -69,7 +71,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
       },
       workspacePicked: (path) => {
         void store.createWorkspace(path).then((r) => {
-          if (r.error) alert(tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }));
+          if (r.error) void alertDialog({ message: tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }) });
         });
       },
     });
@@ -139,6 +141,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
   return (
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
       <TooltipHost />
+      <DialogHost />
       {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失 */}
       {store.everConnected && !store.engineUp && (
         <div className="engine-banner" role="status">

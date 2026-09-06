@@ -3,6 +3,7 @@
 // 只管"当前该展示哪些行"；菜单渲染在 ComposerMenu，键盘导航在编排方。
 
 import { useMemo } from "react";
+import { alertDialog } from "../DialogHost";
 import {
   ClipboardList, File as FileIcon, Folder, MessageSquare, Route, ShieldCheck, Shrink, TerminalSquare,
   type LucideIcon,
@@ -90,10 +91,12 @@ function buildSlashRows(args: {
       section: t("命令"),
       disabled: true,
       run: () =>
-        alert(tt(
-          `当前引擎版本不支持 /${cmd.name}，引擎升级开放命令通道后可用`,
-          `/${cmd.name} is not available on this engine build yet`,
-        )),
+        void alertDialog({
+          message: tt(
+            `当前引擎版本不支持 /${cmd.name}，引擎升级开放命令通道后可用`,
+            `/${cmd.name} is not available on this engine build yet`,
+          ),
+        }),
     };
   });
 }

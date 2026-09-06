@@ -8,6 +8,7 @@ import {
   type EditTarget,
 } from "./ModelDialog";
 import { useModelCatalog } from "./useModelCatalog";
+import { confirmDialog } from "../components/DialogHost";
 import cssRows from "./SettingsRows.module.css";
 
 // 模型设置（折叠卡片式）：按提供方聚类的可折叠分组，模型行展示 Meta
@@ -115,7 +116,7 @@ export function ModelsManage() {
     setNotice(null);
     try {
       if (row.inDir) {
-        if (!window.confirm(tt("删除模型「{m}」？", "Delete model \"{m}\"?", { m: row.label }))) return;
+        if (!(await confirmDialog({ message: tt("删除模型「{m}」？", "Delete model \"{m}\"?", { m: row.label }), danger: true }))) return;
         if (row.provider === "deepseek-official") {
           await updateDeepseekModels(cat.deepseek.models.filter((m) => m.id !== row.id));
         } else {
@@ -126,7 +127,7 @@ export function ModelsManage() {
           });
         }
       } else {
-        if (!window.confirm(tt("将清除「{p}」的 API 密钥，其全部模型将从选择器移除。", "This clears the API key of \"{p}\"; all its models will leave the picker.", { p: row.label }))) return;
+        if (!(await confirmDialog({ message: tt("将清除「{p}」的 API 密钥，其全部模型将从选择器移除。", "This clears the API key of \"{p}\"; all its models will leave the picker.", { p: row.label }), danger: true }))) return;
         await api.credentialsUnset({ ref: keyRefOf(row.provider, cat.deepseek.apiKeyEnv) });
       }
       await reload();

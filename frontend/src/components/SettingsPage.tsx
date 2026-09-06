@@ -19,6 +19,7 @@ import { useStore } from "../store";
 import { sessionTitle } from "../session/sessionTitle";
 import { buildArchivedGroups, filterArchivedGroups, UNGROUPED, type ArchivedGroup } from "../settings/archivedGroups";
 import { useT } from "../i18n";
+import { alertDialog } from "./DialogHost";
 
 // 设置页 —— 与主界面同一套设计体系：主界面语义变量 + 统一弹出配方 +
 // 复用 Dropdown/Toggle 组件；不再使用官方 dsh settings 面板的独立
@@ -134,9 +135,9 @@ function GeneralSection() {
     try {
       await updateUiNs({ busyEnter: v });
     } catch (err) {
-      alert(err instanceof SettingsConflictError
-        ? t("版本已前进——请取消后重新打开(将载入最新)")
-        : tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
+      void alertDialog(err instanceof SettingsConflictError
+        ? { message: t("版本已前进——请取消后重新打开(将载入最新)") }
+        : { message: tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }) });
     }
   };
 
@@ -272,9 +273,9 @@ function ApprovalSection() {
     try {
       await updatePermNs({ defaultPreset: v });
     } catch (err) {
-      alert(err instanceof SettingsConflictError
-        ? t("版本已前进——请取消后重新打开(将载入最新)")
-        : tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
+      void alertDialog(err instanceof SettingsConflictError
+        ? { message: t("版本已前进——请取消后重新打开(将载入最新)") }
+        : { message: tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }) });
     }
     await load();
   };
@@ -443,7 +444,7 @@ export function ArchivedSection() {
       await store.refresh();
       await load();
     } catch (err) {
-      alert(tt("取消归档失败：{m}", "Unarchive failed: {m}", { m: (err as Error).message }));
+      void alertDialog({ message: tt("取消归档失败：{m}", "Unarchive failed: {m}", { m: (err as Error).message }) });
     }
   };
 

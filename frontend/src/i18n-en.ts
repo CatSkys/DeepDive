@@ -349,6 +349,8 @@ export const EN: Record<string, string> = {
   "删除会话？该操作不可撤销：{t}": "Delete session? This cannot be undone: {t}",
   "载入中…": "Loading…",
   "取消": "Cancel",
+  "确定": "OK",
+  "好": "OK",
   "保存（diff → ops）": "Save (diff → ops)",
   "JSON 解析失败": "JSON parse failed",
   "版本已前进——请取消后重新打开(将载入最新)": "Revision moved on — cancel and reopen to load the latest",
