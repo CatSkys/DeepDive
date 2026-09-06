@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Eye, EyeOff, X } from "lucide-react";
+import { SettingsConflictError, writeNamespaceOnce } from "./useSettingNamespace";
 import { api } from "../api";
 import { t, tt } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
@@ -43,28 +44,25 @@ export function keyRefOf(provider: string, deepseekApiKeyEnv: string): string {
 
 /** DeepSeek 模型目录整体落盘（settings.update + revision 围栏）。 */
 export async function updateDeepseekModels(models: ModelProfile[]) {
-  const d = await api.settingsDescribe();
-  const ns = (d.namespaces ?? []).find((n) => n.ns === "llm-deepseek");
-  if (!ns) throw new Error(t("本引擎未提供模型目录。"));
-  await api.settingsUpdate({ ns: "llm-deepseek", patch: { ...(ns.value ?? {}), models }, expectedRevision: ns.revision });
+  await writeNamespaceOnce("llm-deepseek", t("本引擎未提供模型目录。"), async (ns) => {
+    await api.settingsUpdate({ ns: "llm-deepseek", patch: { ...(ns.value ?? {}), models }, expectedRevision: ns.revision });
+  });
 }
 
 /** llm-pi-ai.providers 对象图整体落盘（settings.update + revision 围栏）。 */
 export async function updatePiProviders(providers: Record<string, PiProviderProfile>) {
-  const d = await api.settingsDescribe();
-  const ns = (d.namespaces ?? []).find((n) => n.ns === "llm-pi-ai");
-  if (!ns) throw new Error(t("本引擎未提供自定义提供方。"));
-  await api.settingsUpdate({ ns: "llm-pi-ai", patch: { ...(ns.value ?? {}), providers }, expectedRevision: ns.revision });
+  await writeNamespaceOnce("llm-pi-ai", t("本引擎未提供自定义提供方。"), async (ns) => {
+    await api.settingsUpdate({ ns: "llm-pi-ai", patch: { ...(ns.value ?? {}), providers }, expectedRevision: ns.revision });
+  });
 }
 
 /** 删除整个自定义提供方（settings.mutate unset + revision 围栏）：
  *  settings.update 是合并语义，patch 里缺键删不掉对象条目，只有路径级
  *  unset 能真正移除 provider key。密钥由调用方按需 credentials.unset。 */
 export async function removePiProvider(providerId: string) {
-  const d = await api.settingsDescribe();
-  const ns = (d.namespaces ?? []).find((n) => n.ns === "llm-pi-ai");
-  if (!ns) throw new Error(t("本引擎未提供自定义提供方。"));
-  await api.settingsMutate({ ns: "llm-pi-ai", ops: [{ op: "unset", path: ["providers", providerId] }], expectedRevision: ns.revision });
+  await writeNamespaceOnce("llm-pi-ai", t("本引擎未提供自定义提供方。"), async (ns) => {
+    await api.settingsMutate({ ns: "llm-pi-ai", ops: [{ op: "unset", path: ["providers", providerId] }], expectedRevision: ns.revision });
+  });
 }
 
 export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone, onCancel }: {
@@ -231,7 +229,9 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
       }
       onDone();
     } catch (err) {
-      setError(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
+      setError(tt("保存失败：{m}", "Save failed: {m}", {
+        m: err instanceof SettingsConflictError ? t("设置已在其他位置被修改。") : (err as Error).message,
+      }));
     }
     setSaving(false);
   };

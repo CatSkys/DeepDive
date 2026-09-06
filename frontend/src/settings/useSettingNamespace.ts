@@ -20,6 +20,25 @@ export class SettingsConflictError extends Error {
 const isConflict = (err: unknown): boolean =>
   err instanceof Error && err.message.startsWith("settings-conflict");
 
+/** 非组件场景的一次性围栏写（对话框保存/目录删除等）：describe→find→
+ *  以快照 revision 提交，与 hook 同源——冲突抛 SettingsConflictError，
+ *  命名空间缺失抛 Error(missingMsg)。 */
+export async function writeNamespaceOnce(
+  ns: string,
+  missingMsg: string,
+  submit: (entry: SettingsNamespaceEntry) => Promise<void>,
+): Promise<void> {
+  const d = await api.settingsDescribe();
+  const entry = (d.namespaces ?? []).find((n) => n.ns === ns);
+  if (!entry) throw new Error(missingMsg);
+  try {
+    await submit(entry);
+  } catch (err) {
+    if (isConflict(err)) throw new SettingsConflictError((err as Error).message);
+    throw err;
+  }
+}
+
 export function useSettingNamespace(ns: string) {
   // 最近一次 describe 快照，update 依据它带 expectedRevision。写成功后置空
   // （引擎 revision 已前进，复用旧快照必致假冲突），下次 update 重取。

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, ChevronDown, Loader2, Pencil, Plug, Plus, Trash2, X } from "lucide-react";
+import { SettingsConflictError } from "./useSettingNamespace";
 import { api } from "../api";
 import { tt, useT } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
@@ -137,7 +138,9 @@ export function ModelsManage() {
       }
       await reload();
     } catch (err) {
-      setNotice(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
+      setNotice(tt("保存失败：{m}", "Save failed: {m}", {
+        m: err instanceof SettingsConflictError ? t("设置已在其他位置被修改。") : (err as Error).message,
+      }));
     }
   };
 
@@ -157,7 +160,9 @@ export function ModelsManage() {
       await removePiProvider(g.provider);
       await reload();
     } catch (err) {
-      setNotice(tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }));
+      setNotice(tt("保存失败：{m}", "Save failed: {m}", {
+        m: err instanceof SettingsConflictError ? t("设置已在其他位置被修改。") : (err as Error).message,
+      }));
     }
   };
 
