@@ -21,7 +21,7 @@ export function ImportDialog({ sourceName, format, sessions, onDone, onClose }: 
   onClose: () => void;
 }) {
   const { t, tt } = useT();
-  const fresh = useMemo(() => sessions.filter((s) => s.importStatus !== "imported"), []);
+  const fresh = useMemo(() => sessions.filter((s) => s.importStatus !== "imported"), [sessions]);
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set((fresh.length > 0 ? fresh : sessions).map((s) => s.sessionId)),
   );
