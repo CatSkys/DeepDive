@@ -182,17 +182,21 @@ function EffortSlider({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const delays = useMemo(() => {
-    if (!dims) return [];
-    return Array.from({ length: dims.cols * dims.rows }, (_, i) => {
-      if (isMax) {
-        const col = i % dims.cols, row = Math.floor(i / dims.cols);
-        return Math.round(((col + row) / (dims.cols + dims.rows)) * dur * 0.8);
+  // 最高档：全格对角波浪扫描。其余档位：稀疏随机闪烁（用户定稿）——仅约
+  // 1/5 格子参与且不渲染其余，每格各自的随机起点 + 随机长短周期（2.2–3.8s，
+  // 真随机经 useMemo 固化，重渲染不跳变），零星明灭而非整片节拍齐闪。
+  const sparkles = useMemo(() => {
+    if (!dims || isMax) return null;
+    const out: Array<{ col: number; row: number; delay: number; dur: number }> = [];
+    for (let row = 0; row < dims.rows; row++) {
+      for (let col = 0; col < dims.cols; col++) {
+        if (Math.random() < 0.18) {
+          out.push({ col, row, delay: Math.round(Math.random() * 3600), dur: Math.round(2200 + Math.random() * 1600) });
+        }
       }
-      // Knuth 乘法散列：确定性伪随机相位，散点闪烁
-      return Math.round((((i + 1) * 2654435761) % 4096) / 4096 * dur);
-    });
-  }, [dims, isMax, dur]);
+    }
+    return out;
+  }, [dims, isMax]);
 
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
@@ -238,7 +242,7 @@ function EffortSlider({
       >
         <div className="effort-track" />
         <div className="effort-fill" ref={fillRef} style={{ width: `${fillFrac * 100}%` }}>
-          {dims !== null && (
+          {dims !== null && isMax && (
             <div
               className="effort-cells"
               style={{
@@ -246,11 +250,38 @@ function EffortSlider({
                 gridTemplateRows: `repeat(${dims.rows}, 6px)`,
               }}
             >
-              {delays.map((delay, i) => (
+              {Array.from({ length: dims.cols * dims.rows }, (_, i) => {
+                const col = i % dims.cols;
+                const row = Math.floor(i / dims.cols);
+                // 对角波前：col+row 越大越晚亮起，扫描线从左上推向右下
+                const delay = Math.round(((col + row) / (dims.cols + dims.rows)) * dur * 0.8);
+                return (
+                  <span
+                    key={i}
+                    className="effort-cell"
+                    style={{ animation: `pixel-on ${dur}ms ease-in-out ${delay}ms infinite` }}
+                  />
+                );
+              })}
+            </div>
+          )}
+          {dims !== null && !isMax && sparkles && (
+            <div
+              className="effort-cells"
+              style={{
+                gridTemplateColumns: `repeat(${dims.cols}, 6px)`,
+                gridTemplateRows: `repeat(${dims.rows}, 6px)`,
+              }}
+            >
+              {sparkles.map(({ col, row, delay, dur: d }) => (
                 <span
-                  key={i}
+                  key={`${col}:${row}`}
                   className="effort-cell"
-                  style={{ animation: `pixel-on ${dur}ms ease-in-out ${delay}ms infinite` }}
+                  style={{
+                    gridColumn: col + 1,
+                    gridRow: row + 1,
+                    animation: `pixel-on ${d}ms ease-in-out ${delay}ms infinite`,
+                  }}
                 />
               ))}
             </div>
