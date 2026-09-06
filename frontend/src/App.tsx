@@ -79,22 +79,26 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
   // Model catalog: reloaded every time the picker opens — the catalog changes
   // when keys/providers are configured in settings, and a boot-time-only load
   // would stay empty forever after an early failure (user report).
+  // 显示名跟「草稿选择」走：引擎 default 只是初始值，草稿页每次开菜单都
+  // 重拉目录，若无视草稿会把已选模型重置回默认，表现为"无法切换"。
   const loadModels = useCallback(async () => {
     const { options, default: def } = await api.modelOptions();
     setModels(options);
-    if (def) {
-      const hit = options.find((m) => m.provider === def.provider && m.model === def.model);
-      setModelName(hit?.label ?? `${def.provider} / ${def.model}`);
+    const want = store.draftModel ?? def;
+    if (want) {
+      const hit = options.find((m) => m.provider === want.provider && m.model === want.model);
+      if (hit) setModelName(hit.label);
     } else if (options[0]) setModelName(options[0].label);
-  }, []);
+  }, [store.draftModel]);
   useEffect(() => { void loadModels(); }, [loadModels]);
   useEffect(() => {
     if (showModels) void loadModels();
   }, [showModels, loadModels]);
 
   const pickModel = async (m: ModelOption, reasoningEffort?: string) => {
-    setShowModels(false);
     setModelName(m.label);
+    // 菜单关闭由 ModelMenu 决定（与 useSessionModels 同一口径）：无档位模型
+    // 选完即关；带档位的留在滑杆页，松手经 applyModelEffort 一次提交。
     // 草稿页（hero）选模型：会话还没真正创建，暂存草稿，首条消息创建会话时
     // 由 store.createSession 随新会话 selectModel 带走——这里不建会话。
     if (!store.activeSessionId) {
