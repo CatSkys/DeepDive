@@ -723,20 +723,25 @@ button {
   background: rgba(255,255,255,.88);
   overflow: hidden;
 }
-/* 像素涌动铺满整个填充条（用户定稿）：思考动画同款 pixel-on 闪烁，格距
-   ≈7px 由组件按宽度算列数，delay 对角交错成波前推进。 */
+/* 像素涌动铺满整个填充条（用户定稿）：思考动画同款 pixel-on 闪烁，格子
+   固定 6px 节距 8px 不拉伸；颜色取面板底反差色——暗色下即黑（用户：暗色
+   以黑为主），波谷 opacity 压到几乎不可见、波峰纯黑浮出。 */
 .effort-cells {
   position: absolute;
   inset: 0;
   display: grid;
   gap: 2px;
+  justify-content: center;
+  align-content: center;
   pointer-events: none;
 }
 .effort-cell {
   border-radius: 1.5px;
-  background: var(--panel-strong);
-  opacity: .1;
+  /* 不透明纯色：--panel-bg 系带透明度，叠浅填充会显灰出不来黑色波峰 */
+  background: #0a0a0c;
+  opacity: .08;
 }
+:root[data-theme="light"] .effort-cell { background: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .effort-cell { animation: none !important; }
 }

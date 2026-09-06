@@ -159,12 +159,14 @@ function EffortSlider({
   const fillFrac = n <= 1 ? 1 : frac(idx);
   const showDots = n >= 3 && n <= 6;
   const [dragging, setDragging] = useState(false);
-  // 像素涌动：思考动画同款 pixel-on 闪烁，铺满整个填充条（用户定稿：整个
-  // 填充滑动条都是像素动画）。格距 ≈6px，总格数封顶 120 控动画节点数；
-  // delay 按 col+row 对角交错成波前推进；随档位加速但整体比思考动画
-  // （650ms）慢一档——低档 1.6s、满档 1.0s。最低档静止。
+  // 像素涌动铺满整个填充条（用户定稿）：思考动画同款 pixel-on 闪烁，格子
+  // 固定 6px 节距 8px 不随档位拉伸（1fr 拉伸会让不同档位的格子大小不一）。
+  // 动画分档（用户定）：仅最高档为对角波浪扫描，其余档位像素点随机闪烁；
+  // 随机用整列乘散列（确定性，重渲染不跳变）。速度随档位加速且整体比思考
+  // 动画（650ms）慢——低档 1.6s、最高档 1.0s。
   const energy = n <= 1 ? 0 : idx / (n - 1);
   const dur = Math.round(1600 - 600 * energy);
+  const isMax = n > 1 && idx === n - 1;
   const fillRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState<{ cols: number; rows: number } | null>(null);
   useEffect(() => {
@@ -172,16 +174,25 @@ function EffortSlider({
     if (!el) return;
     const update = () => {
       const w = el.clientWidth, h = el.clientHeight;
-      if (w < 20 || h < 12) { setDims(null); return; }
-      const cols = Math.max(8, Math.min(24, Math.round(w / 7)));
-      const rows = Math.max(3, Math.min(120 / cols, Math.round(h / 7)));
-      setDims({ cols, rows });
+      if (w < 24 || h < 16) { setDims(null); return; }
+      setDims({ cols: Math.max(8, Math.min(40, Math.floor(w / 8))), rows: Math.max(2, Math.min(5, Math.floor(h / 8))) });
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  const delays = useMemo(() => {
+    if (!dims) return [];
+    return Array.from({ length: dims.cols * dims.rows }, (_, i) => {
+      if (isMax) {
+        const col = i % dims.cols, row = Math.floor(i / dims.cols);
+        return Math.round(((col + row) / (dims.cols + dims.rows)) * dur * 0.8);
+      }
+      // Knuth 乘法散列：确定性伪随机相位，散点闪烁
+      return Math.round((((i + 1) * 2654435761) % 4096) / 4096 * dur);
+    });
+  }, [dims, isMax, dur]);
 
   const idAt = (clientX: number) => {
     const r = ref.current?.getBoundingClientRect();
@@ -227,27 +238,21 @@ function EffortSlider({
       >
         <div className="effort-track" />
         <div className="effort-fill" ref={fillRef} style={{ width: `${fillFrac * 100}%` }}>
-          {dims !== null && energy > 0.01 && (
+          {dims !== null && (
             <div
               className="effort-cells"
               style={{
-                gridTemplateColumns: `repeat(${dims.cols}, 1fr)`,
-                gridTemplateRows: `repeat(${dims.rows}, 1fr)`,
+                gridTemplateColumns: `repeat(${dims.cols}, 6px)`,
+                gridTemplateRows: `repeat(${dims.rows}, 6px)`,
               }}
             >
-              {Array.from({ length: dims.cols * dims.rows }, (_, i) => {
-                const col = i % dims.cols;
-                const row = Math.floor(i / dims.cols);
-                // 对角波前：col+row 越大越晚亮起，扫描线从左上推向右下
-                const delay = Math.round(((col + row) / (dims.cols + dims.rows)) * dur * 0.8);
-                return (
-                  <span
-                    key={i}
-                    className="effort-cell"
-                    style={{ animation: `pixel-on ${dur}ms ease-in-out ${delay}ms infinite` }}
-                  />
-                );
-              })}
+              {delays.map((delay, i) => (
+                <span
+                  key={i}
+                  className="effort-cell"
+                  style={{ animation: `pixel-on ${dur}ms ease-in-out ${delay}ms infinite` }}
+                />
+              ))}
             </div>
           )}
         </div>
