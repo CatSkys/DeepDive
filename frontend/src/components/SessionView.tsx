@@ -29,6 +29,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const [turnsFolded, setTurnsFolded] = useState(true);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [follow, setFollow] = useState(true);
+  // 已下滚（离开顶端）：顶部渐隐边缘的开关；与 follow 一起在 onScroll 里维护
+  const [scrolled, setScrolled] = useState(false);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
   const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
@@ -235,9 +237,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       <div
         className="flow"
         ref={attachFlow}
+        data-fade-top={scrolled ? "" : undefined}
+        data-fade-bottom={!follow ? "" : undefined}
         onScroll={(e) => {
           const el = e.currentTarget;
           setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
+          setScrolled(el.scrollTop > 2);
         }}
       >
         {/* key=会话:已加载——历史到达那一刻（off→on）重挂播 session-enter
