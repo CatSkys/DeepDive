@@ -16,7 +16,7 @@ import { HeroBrand } from "./components/HeroBrand";
 import { AgentModePicker } from "./components/AgentMode";
 import { SettingsPage } from "./components/SettingsPage";
 import { FirstRunGate } from "./settings/FirstRunGate";
-import type { ModelOption } from "./components/ModelMenu";
+import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
 import { SelectionActions } from "./components/SelectionActions";
@@ -97,6 +97,10 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
     if (showModels) void loadModels();
   }, [showModels, loadModels]);
 
+  // 草稿选择与其目录元数据（思考强度档位）——hero 头部显示与菜单共用
+  const draft = store.draftModel;
+  const draftOption = draft ? models.find((m) => m.provider === draft.provider && m.model === draft.model) : undefined;
+
   const pickModel = async (m: ModelOption, reasoningEffort?: string) => {
     setModelName(m.label);
     // 菜单关闭由 ModelMenu 决定（与 useSessionModels 同一口径）：无档位模型
@@ -176,9 +180,14 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
         ) : (
           <div className="hero">
             <div className="hero-top">
+              {/* 草稿选择（draftModel）派生头部模型与思考档位显示——档位元
+                  数据来自 models 里的 efforts（modelOptions 透传）。 */}
               <SessionHeader title={t("新会话")} face={{
                 showModels, setShowModels, modelName, models,
-                currentModel: undefined, effortLevels: [], effort: undefined, effortLabel: () => "",
+                currentModel: draft ? { provider: draft.provider, model: draft.model } : undefined,
+                effortLevels: draftOption?.efforts ?? [],
+                effort: draft?.reasoningEffort,
+                effortLabel: (id) => effortDisplayName(id, draftOption?.efforts ?? []),
                 pickModel, applyModelEffort: pickModel,
               }} />
             </div>

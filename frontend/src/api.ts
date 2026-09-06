@@ -224,16 +224,22 @@ export const api = {
     }>("session.models", payload),
   selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
     unary("session.selectModel", payload),
-  llmModels: () => unary<{ groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string; reasoning?: { efforts?: unknown[] } }> }> }>("llm.models", {}),
+  llmModels: () => unary<{ groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string; reasoning?: { efforts?: Array<{ id: string; name: string }>; defaultEffort?: string } }> }> }>("llm.models", {}),
   /** Unified model options for selectors: the engine catalog first; rc.2-era
    *  llm/models as fallback. session.modelCatalog does not exist on the
    *  pinned engine (404 → fallback is the designed path, not an error). */
   modelOptions: async () => {
-    const flatten = (groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string }> }>) => {
-      const options: Array<{ provider: string; model: string; label: string; providerLabel: string }> = [];
+    // reasoning 元数据必须透传：模型菜单靠它决定「选完即关」还是「进档位
+    // 滑杆页」（草稿页此前丢了它，思考强度入口整组消失）。
+    const flatten = (groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string; reasoning?: { efforts?: Array<{ id: string; name: string }>; defaultEffort?: string } }>}>) => {
+      const options: Array<{ provider: string; model: string; label: string; providerLabel: string; efforts?: Array<{ id: string; name: string }>; defaultEffort?: string }> = [];
       for (const g of groups ?? []) {
         for (const m of g.models ?? []) {
-          options.push({ provider: g.id, model: m.id, label: m.name ?? m.id, providerLabel: g.name ?? g.id });
+          const efforts = m.reasoning?.efforts?.length ? m.reasoning.efforts : undefined;
+          options.push({
+            provider: g.id, model: m.id, label: m.name ?? m.id, providerLabel: g.name ?? g.id,
+            ...(efforts ? { efforts, ...(m.reasoning?.defaultEffort ? { defaultEffort: m.reasoning.defaultEffort } : {}) } : {}),
+          });
         }
       }
       return options;
