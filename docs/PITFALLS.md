@@ -188,6 +188,15 @@
 - 处置：静态资源一律不看引擎状态（只有 `/api` 保留 503）；缺凭据照常启动引擎（引擎侧对文件缺失容忍且 watch 热发布，见 vendored `packages/credentials/credentials-local`），首启由 SPA 的 `FirstRunGate` 接管（`credentials.describe` 正向确证无任何已配置密钥才出门，读失败绝不冒充"未配置"）。
 - 复现/验收手法：`DSHMINI_SUPPORT_DIR=/tmp/fresh <app>/Contents/MacOS/DeepDive` 用空目录模拟全新机器（隔离锁/harness/日志，不动真实实例）；引擎 ready 后打开 bridge URL 走完配 Key → 检查 `/tmp/fresh/harness/.credentials.yaml` 落盘 → 门放行。**显示器休眠/合盖时 `screencapture -l` 截 WKWebView 只有原生 tint 层（纯黑）**——那是采集假象不是页面黑，以 `host-ready`/`[titlebar] control rects` 日志与浏览器同源渲染为准，显示器亮后再补像素图。
 
+### 5.7 公证的签名要求：`--deep` 漏签 Resources 下散文件；hardened runtime 还需 JIT entitlements，否则公证过了引擎也崩
+- 事故（2026-09-06 首跑公证）：notarytool 判 Invalid，两类错——①主程序/内嵌 node 无 hardened runtime（只有 `codesign --deep`，没带 `--options runtime --timestamp`）；②`Resources/Runtime/dsh/node_modules` 的 rg/pty.node/spawn-helper/sharp「未签名」：**`--deep` 只覆盖 Frameworks/PlugIns 等标准嵌套位置，散文件一律不碰**。
+- 处置：`package-macos.sh` 最终 seal = find 全部嵌套 Mach-O **逐个签**（Developer ID + `--options runtime --timestamp`）→ 整体 seal bundle；node 单独挂 `scripts/node-entitlements.plist`——`allow-jit` 供 V8 MAP_JIT、`allow-unsigned-executable-memory` 供 koffi/libffi trampoline，**hardened runtime 默认禁可执行内存，缺一则公证通过后引擎运行即崩**。启用：`DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package`（凭据 `DSHMINI_NOTARY` 已存钥匙串）。
+- 附（同轮踩）：Makefile 用 `sh` 调脚本（POSIX 模式 bash），脚本里进程替换 `< <()` 直接语法错——构建脚本写 POSIX 安全写法（`find -print0` 管道 + case）。
+
+### 5.8 嵌入的运行时 node 绝不能取机器本地安装：绝对路径 dylib 在用户机器必死、库校验下连开发机都死
+- 事故（2026-09-06 公证冒烟测试）：嵌入的 node 是构建机 Homebrew 的动态链接版，拖 14+ 个 `/opt/homebrew` 绝对路径 dylib。hardened runtime 自带**库校验**（只许同 Team ID/Apple 签名的库），开发机上 dyld 直接拒载（SIGABRT，引擎入口都到不了）；干净用户机器上文件根本不存在——**引擎在分发包里本来必死**，此前从未暴露，因为「缺凭据不 spawn」的 fail-loud 挡在前面，引擎 spawn 路径从未被真机端到端跑过（与 §5.6 同型：开发机成立的前提没被验证过）。
+- 处置：`embed-engine.sh` 运行时二进制默认走 `scripts/prepare-node-runtime.sh`——按 `scripts/node-version.txt` 引脚拉 nodejs.org 官方发行版（自包含、仅系统框架），SHASUMS256 校验 + `dist/.node-runtime-cache` 缓存 + 并行锁；嵌入后 otool **自包含门**（只许 `@rpath/@loader_path/@executable_path`、`/usr/lib`、`/System`）挡住任何来源混入。教训：**构建机的 node/npm 只是工具链**（prepare-dsh-runtime 用的），与随包分发的运行时二进制是两回事；**公证通过 ≠ 能跑**——spctl/staple 过了还必须用签名后的二进制实跑引擎入口 + 原生模块加载（`bin.js --version` + require koffi/pty/sharp）。
+
 ---
 
 ## 6. 调试技巧
