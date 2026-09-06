@@ -30,7 +30,27 @@ bash scripts/embed-engine.sh "$APP"
 # 挡住初始化（PITFALLS §4.8）。固定身份后授权跨构建持久。无证书的环境回退 adhoc。
 IDENTITY="${DSHMINI_CODESIGN_IDENTITY:-Developer ID Application: HANGBIN JIN (49LSZKN27V)}"
 if security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
-  codesign --force --deep -s "$IDENTITY" "$APP" || { echo "FAIL: codesign $APP"; exit 1; }
+  # 公证要求包内每个 Mach-O 都有 Developer ID 签名 + hardened runtime + secure
+  # timestamp。--deep 只覆盖 Frameworks/PlugIns 等标准嵌套位置，Resources/Runtime
+  # 下 node_modules 的 rg/pty.node/sharp 等一律漏签（2026-09-06 notarytool log
+  # 实锤），故先逐个签散文件、最后整体 seal bundle。node 带 JIT entitlements：
+  # hardened runtime 默认禁可执行内存，V8/koffi 没有它运行即崩（见 plist 注释）。
+  find "$APP" -type f -exec sh -c 'file -b "$1" | grep -q Mach-O' _ {} \; -print0 |
+  while IFS= read -r -d '' bin; do
+    case "$bin" in
+      */MacOS/node)
+        codesign --force -s "$IDENTITY" --options runtime --timestamp \
+          --entitlements scripts/node-entitlements.plist "$bin" \
+          || { echo "FAIL: codesign $bin"; exit 1; }
+        ;;
+      *)
+        codesign --force -s "$IDENTITY" --options runtime --timestamp "$bin" \
+          || { echo "FAIL: codesign $bin"; exit 1; }
+        ;;
+    esac
+  done
+  codesign --force -s "$IDENTITY" --options runtime --timestamp "$APP" \
+    || { echo "FAIL: codesign $APP"; exit 1; }
 else
   echo "WARN: '$IDENTITY' not in keychain, falling back to ad-hoc signing"
   codesign --force --deep -s - "$APP" || { echo "FAIL: codesign $APP"; exit 1; }

@@ -20,7 +20,10 @@ RUNTIME_SOURCE="${2:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NODE_VERSION_FILE="$ROOT/scripts/node-version.txt"
 EXPECTED_NODE_VERSION="$(tr -d '[:space:]' < "$NODE_VERSION_FILE")"
-NODE="${NODE_SOURCE:-$(command -v node || true)}"
+# 运行时二进制默认取官方 nodejs.org 发行版（自包含、可在用户机器独立运行），
+# 不取构建机 PATH 上的 node——Homebrew/nvm 的 node 拖绝对路径 dylib 依赖，
+# 干净机器上引擎必死，hardened runtime 库校验下连开发机都死（2026-09-06）。
+NODE="${NODE_SOURCE:-$(bash "$ROOT/scripts/prepare-node-runtime.sh")}"
 
 [[ -d "$APP" ]] || { echo "app bundle not found: $APP" >&2; exit 1; }
 [[ -n "$NODE" && -x "$NODE" ]] || { echo "node is required to embed the engine" >&2; exit 1; }
@@ -54,19 +57,31 @@ case " $NODE_ARCHS " in
   *) echo "node lacks build arch $ARCH: $NODE ($NODE_ARCHS)" >&2; exit 1 ;;
 esac
 
+# Self-containment gate: the shipped engine binary must only depend on
+# rpath-family and system libraries. Machine-local absolute deps (homebrew
+# etc.) are dead on user machines and rejected by hardened-runtime library
+# validation even on the build machine.
+while IFS= read -r dep; do
+  case "$dep" in
+    @rpath/*|@loader_path/*|@executable_path/*|/usr/lib/*|/System/*) ;;
+    *) echo "embedded node is not self-contained: $NODE depends on $dep" >&2; exit 1 ;;
+  esac
+done < <(otool -L "$NODE" | tail -n +2 | awk '{print $1}')
+
 cp "$NODE" "$STAGE/MacOS/node"
 chmod 755 "$STAGE/MacOS/node"
 
 # GitHub-hosted node can be dynamically linked against a sibling
 # lib/libnode.*.dylib; the app bundle cannot rely on that host path. Static
 # distributions have no matches, so this stays a no-op (same as reference).
+# Always clear Contents/lib first: a previous embed's libnode must not linger.
 NODE_LIB_DIR="$(cd "$(dirname "$NODE")/../lib" 2>/dev/null && pwd || true)"
+rm -rf "$STAGE/lib"
 if [[ -n "$NODE_LIB_DIR" ]]; then
   shopt -s nullglob
   node_libraries=("$NODE_LIB_DIR"/libnode*.dylib)
   shopt -u nullglob
   if (( ${#node_libraries[@]} > 0 )); then
-    rm -rf "$STAGE/lib"
     mkdir -p "$STAGE/lib"
     cp -f "${node_libraries[@]}" "$STAGE/lib/"
   fi

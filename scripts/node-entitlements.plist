@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 内嵌 node 的 hardened runtime entitlements（package-macos.sh 最终 seal 时使用）。
+     两条都是公证后 node 能继续跑的硬要求，勿删：
+     - allow-jit：hardened runtime 默认禁止 MAP_JIT，V8 JIT 没有它直接崩；
+     - allow-unsigned-executable-memory：koffi/libffi 的 FFI trampoline 走
+       PROT_EXEC 匿名映射而非 MAP_JIT，没有它 ffi closure 初始化即失败。 -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+</dict>
+</plist>
