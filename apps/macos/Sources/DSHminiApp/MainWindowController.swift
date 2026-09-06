@@ -72,10 +72,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     private let tintView = NSView()
     private var themeEnabled: Bool
 
-    /// Frontend asks the shell to act (SPEC-NOTIFICATIONS §3.1 前端→外壳):
+    /// Frontend asks the shell to act (SPEC-NOTIFICATIONS §3.1 前端→外壳)，
+    /// 与 AppDelegate.handleHostMessage 的 case 一一对应（加 case 必须同步此清单）：
     /// host-ready / restart-engine / rebind-hotkey / set-pref / set-theme /
     /// get-prefs / reveal-home / reveal-path / copy-log-path / open-host-doc /
-    /// pick-workspace / dictation-start / dictation-stop. Routed to AppDelegate.
+    /// pick-workspace / pick-attachments / list-dir / read-workspace-icon /
+    /// run-git / git-run / open-url / dictation-start / dictation-stop.
     var onHostMessage: (([String: Any]) -> Void)?
     /// Shell→frontend pending instruction: at most one, last-wins; flushed
     /// when the page finishes loading or the frontend reports `host-ready`.
