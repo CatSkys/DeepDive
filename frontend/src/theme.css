@@ -880,6 +880,10 @@ button {
   align-items: center;
   gap: 4px;
   width: 100%;
+  /* 项目无全局 border-box reset（PITFALLS 无此条），逐条声明：漏了会连
+     padding+border 一起溢出容器（width:100% + content-box = 右侧多出 18px，
+     输入框看起来不居中——2026-09-06 用户实测） */
+  box-sizing: border-box;
   padding: 7px 8px;
   border-radius: 999px;
   background: var(--composer-bg);
