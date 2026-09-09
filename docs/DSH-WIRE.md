@@ -1,160 +1,175 @@
-# DSH Wire 契约与载荷形状（rc.2 实测）
+# DSH Wire 契约与载荷形状（0.1.2-rc.1 实测）
 
 > 本文拥有「引擎 wire 面的载荷形状与通道可用性」这一事实。全部条目来自
-> 对引脚引擎（版本见 `scripts/dsh-runtime-version.txt`）的**实机 POST 实测**
-> 或引擎源码实读，非猜测；升级引脚时须复核并整篇更新。RPC 信封与传输层见
-> `frontend/src/api.ts` 头注；路由权威清单是内嵌 runtime 的
-> `dsh-host-apiproxy/lib/index.js` `UNARY_ROUTES`（含每个 payload 的 zod schema）。
+> 对引脚引擎（版本见 `scripts/dsh-runtime-version.txt`）的**实机 POST/WS 实测**
+> 或 vendored 源码实读，非猜测；升级引脚时须复核并整篇更新。路由与参数的
+> 权威清单在**内嵌 runtime 各包的 `lib/typert.remote-client.js`**（`id:
+> '<pkg>#<ns>/<method>'`、`scope.wire`、`parameters[].wire` 逐项给出 wire
+> 参数名；rc.2 时代的 `dsh-host-apiproxy`/`UNARY_ROUTES` 已随包消亡）。
 
-## 1. 通道可用性（2026-09-03 实测）
+## 0. 传输层（0.1.2 定版）
 
-| 方法 | 结果 | 结论 |
-|---|---|---|
-| `fileReferences.list` | 404 `not found` | Remote domain RPC，rc.2 无 `/api/remote.mux` 承载（PITFALLS §7.1）；@ 候选**不走引擎发现** |
-| `messageFeedback.list` | 404 | 同上；**消息反馈（点赞）无通道，UI 不做**，待升 alpha.2+ |
-| `pluginInventory.list` | 404 | 插件清单无浏览器面；设置页插件分区维持降级文案 |
-| `host.listDirectory` | 403 `directory-picker-unavailable` | web-app bundle 挂 `directory-picker-auto`，darwin+回环+ attended 事实解析为 native（browse 能力关闭）；patch 层**不能换模块**（`applyEntryPatches` 对 `name` 不匹配直接 skip），auto 亦无 config 覆盖点 → 该 RPC 在桌面部署不可用 |
-| `session.search` | 默认禁用；`--patch` 后可用 | web-app bundle patch 显式 `session-query-sqlite { path: ':memory:', openAt: never }`；经 `dsh --profile web --patch <overlay>` 覆盖 `openAt: first-search` 实测放行（中文可搜，snippet 正常） |
-| `session.fork` / `session.attachment` / `goal.*` / `subagent.*` / `skill.list` / `host.openPath` | 白名单内 | 可用 |
+- **鉴权**：boot token 在就绪行 URL（`dsh web: http://…/?token=…`，日志落盘
+  前由壳剥除）；`GET /?token=…` → `303 + Set-Cookie`（authority 绑定签名
+  cookie，30 天）。此后**每个** `/api` HTTP 与 WS 升级都只认 cookie（`/api`
+  路径上的 token 不具鉴力）。壳侧交换见 `EngineAuth`（Foundation 跟随 303
+  会丢 Set-Cookie——实测坑，须禁重定向截获），前端经桥接自动携带。
+- **HTTP unary**：`POST /api/<ns>/<method>`（斜杠形），`Content-Type:
+  application/json`（否则 415），信封 `{type:"client-request", rpcId, method,
+  payload}`，**`method` 必须与端点字符串逐字一致**，响应 `{type:
+  "server-response", rpcId, result:{ok:true,value}|{ok:false,error:{code,
+  message,details}}}`。
+- **payload 参数形状**（`payload.args` 内，来自生成客户端权威清单）：
+  - 单层 `request` 包裹：`session/create|fork|prompt|updateQueue|cancel|
+    rename|search|attachment|selectModel|page|follow|modelCatalog|…` 与
+    `workspace/create|rename|delete|archiveSession`
+  - 保留参数 `request: {}`：`session/list`（签名 `list(_request, signal)`）
+  - 扁平具名：`goals/*`（`{agentId, ref?, request?}`）、`subagents/list
+    {parentSessionId}`、`subagents/interruptByParent {childSessionId,
+    parentSessionId, mode:'continuable'}`、`settings/update|mutate {ns,…}`、
+    `credentials/*`
+  - `llm/discoverModels {settingsNs, request:{provider?|baseURL?, api?, apiKey?}}`
+    → **直数组** `[{id, name?, contextWindow?, maxTokens?}]`
+- **WS 多路流**：单条 `/api/remote.mux`（cookie 鉴权；**`events.mux` 已删除**）。
+  上行 `{type:'open', streamId, endpoint, payload:{args}}` / `{type:'cancel',
+  streamId}`（**必须文本帧**，二进制帧被断连）；下行 `{type:'item', streamId,
+  value?}` / `{type:'error', streamId, error}` / `{type:'end', streamId}`。
+  前端实现 `frontend/src/mux.ts`（断线 2s 重连，重连后服务端每代重发基线/快照）。
+- **流端点**：`$events`（args 恒 `{}`）、`session/follow`、`session/control`、
+  `workspace/follow`。
 
-## 2. 关键 unary 契约（schema 摘录）
+## 1. 通道可用性（2026-09-09 实测）
 
-- `session.fork { sessionId, atSeq? }` → `{ sessionId }`（子会话 id）
-- `session.search { query(1..500) }` → `{ items: [{sessionId, snippet≤240}], hasMore }`（≤20 条）
-- `session.attachment { sessionId, attachmentId }` → `{ attachment, data }`（图片字节）
-- `host.openPath { path }` → 在 Finder 打开/揭示路径（壳侧已接 `reveal-path` 语义）
-- `goal.*`：`{ sessionId, ref?, objective?, maxGoalRounds? }`（阶段 5 面向）
-
-## 3. 事件载荷形状（实测/引擎源码）
-
-### 3.1 `turn/end` — `reason` 是对象，不是字符串
-
-```json
-{ "type": "turn/end", "data": { "turn": 1, "reason": { "kind": "completed" } } }
-```
-
-实测四种 `reason.kind`：`completed` / `interrupted` /
-`{kind:"aborted", reason:{kind:"user"}}` /
-`{kind:"error", error:{message, code:"MISSING_CREDENTIAL"}}`。
-agent-loop 源码另有 `max-tokens`（finish.kind 映射）。
-
-### 3.2 usage
-
-`assistant/chunk` 的 `chunk.type:"usage"` 与 `assistant/message` 的 `data.usage`：
-`{ inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens?, reasoningTokens }`。
-
-### 3.3 投影值（`session.list[].projections.values`，实测键集）
-
-| 键 | 形状 |
+| 方法/面 | 结论 |
 |---|---|
-| `tokenUsage` | `{uncachedInputTokens, outputTokens, cacheReadTokens, cacheWriteTokens}` |
-| `contextPressure` | `{pressureTokens, projectedTokens, contextWindow}` |
-| `contextBreakdown` | `{systemTokens, toolsTokens, messageTokens}` |
-| `sessionStats` | `{turns, steps, llmMs, toolMs, ttftMs, ttftSteps, decodeMs, decodeTokens}` |
-| `permissions` | `{options:[{value,name}], currentValue}` |
-| `plan` | `{active, pending}` |
-| `goal` / `subagent` / `todos` | 未用时为 `null` |
-| `imageLimits` | `{maxImageBytes, maxImagesPerMessage, mediaTypes:[…png/jpeg/webp/gif]}` |
-| `sessionListMetadata` | `{blank, lastPromptAt}` |
+| `messageFeedback/list\|put\|delete` | **可用**（args 为 `request` 包裹；UI 移植列 Phase 2） |
+| `commands/list\|execute` | **可用**（`{agentId}` / `{agentId, line, images}`——斜杠命令原行直发，客户端静态目录可原生化，Phase 2） |
+| `pluginInventory/list` | **可用**（返回 entries：include/插件清单） |
+| `fileReferences/list` | 可用（args 校验在） |
+| `session/search` | **原生常开**——session-query-sqlite 已进 base bundle，`--patch` overlay 的 session-query 条目已删 |
+| `session/models`、`llm/models` | **已删除**——模型目录唯一面 `session/modelCatalog`（含 reasoning 档位元数据 + default + failures） |
+| `session/history` | **已删除**——冷读走 `session/follow` 开窗快照 + `session/page` 向前翻页 |
+| `workspace/list`、`workspace/unarchiveSession` | **已删除**——列表走 `workspace/follow` 流；归档单向（仅 `workspace/archiveSession`），unarchive UI 已随之删除 |
+| `subagent.*` | 改名 `subagents/list|prompt|interruptByParent`；`subagent.history` 消亡，子会话冷读走 follow 的 subagent 地址 `{kind:'subagent', parentSessionId, childSessionId, mode}` |
+| `goal.*` | 改名 `goals/*`（`create/edit/pause/resume/complete/clear`，作用域首参 `agentId`） |
+| `agentPreset.list` | 改名 `agentPresets/list` → `{presets: AgentPresetRow[], authorable}`（name 变可选，新增 `broken?`） |
+| `settings.openDocument` | 改名 `settings/openSettingsDocument`（+`openAgentPresetDirectory`/`canOpenAgentPresetDirectory`） |
+| `llm.providers` | 改名 `llm/listProviders`（`[{id,name}]` 直数组）；配置归属面 `llm/listConfigurableProviders`（`[{provider,displayName,settingsNs,settingsPath}]`） |
+| `/api/respond` | **已删除**——审批/提问应答走 `$events/result`（见 §2） |
+| `dsh-schedule` 插件 | 仍不在 web profile bundles；壳 overlay 注入保留（engine-patch.yml 仅剩此条目） |
 
-### 3.4 `tool/result` 的 diff 槽位
+## 2. $events 转发事件流（交互与通知的唯一下行）
 
-`data.meta.diffs: FileDiff[]`，`FileDiff = { path, oldText: string|null, newText }`
-（`oldText:null` = 新建/覆盖无前文；来源 `core/tools/src/presentation.ts`）。
-编辑类工具的 call 侧 arguments 也推导同形 diffs（结果先于结果事件时）。
+开流 `$events`（`{args:{}}`）后，item value 为四态帧（stream-protocol.ts）：
 
-### 3.5 命令生命周期事件
+- `{type:'ready', clientId, host:{home}}` —— 世代身份；**应答 waterfall 必带**
+- `{type:'emit', event, args[]}` —— 通知类（白名单见 api-remotes
+  `API_REMOTE_FORWARDED_EVENTS`）：`api-session/activity|added|error|removed|
+  status`、`agent-preset/selected`、`commands/change`、`credentials/
+  reference-updated`、`llm/adapters-updated`、`settings/document-updated` 等；
+  **没有 `session/event`**——直播转录走 per-session 的 `session/follow`
+- `{type:'waterfall', event, eventId, agentId, request}` —— 交互请求：
+  `approval/request`（request=`{toolName, callId?, reason?}`；应答值 =
+  `'allowed-once'|'rejected'` 字面量）与 `user-questions/request`（request=
+  `{questions:[{id,question,header?,detail?,options,multiSelect?}]}`；应答值 =
+  `{answers:[{id, selected, custom?}]}`）
+- `{type:'cancel', eventId}` —— 引擎侧撤销挂起交互
 
-```
-command/run  { commandId, name, args?, source:{kind:'user'} }
-command/done { commandId, kind:'success'|'error', text?, sourceEventSeq? }
-```
+应答走 HTTP `$events/result`：`{args:{clientId, eventId, outcome}}`，outcome =
+`{kind:'next'}`（不决策）/ `{kind:'result', value}` / `{kind:'rejected',
+error:{name,message,code?}}`。引擎在**所有**客户端世代都回 next 时才落
+next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决策者。多客户端
+并行（壳观察者 + SPA + 开发浏览器）实测互不阻塞。
 
-### 3.6 压缩事件（`compaction/*`，log-only）
+## 3. session/follow 与 session/page（冷热读）
 
-`compaction/start {compactionId, turn|null}` →
-`compaction/summary {compactionId, summary:ContentBlock[], shadowedRange, shadowedSeqs, shadowedTokenCount, provider, model, usage?}` →
-`compaction/end {compactionId, error?}`。表面替换由紧随的 `user/message`
-（shadow 定价）承担——渲染压缩卡应以 `compaction/summary` 为准。
+- `session/follow {request:{address, maxMessages?}}` 流：首帧
+  `{type:'snapshot', header, cursor, records, hasMore, projections}`，此后
+  `{type:'event', event}` 逐条追加（gap-free）。断线重连重发快照（消费方全量替换）。
+- `session/page {request:{address, throughSeq, beforeSeq?, maxMessages?}}` →
+  `{records, hasMore}`；**`throughSeq` 必须取自对应 follow 开窗帧的 cursor**
+  （超出实际 cursor 报 `gateway/bad-request "past cursor"`，不可猜）。
+- `address`：`{kind:'session', sessionId}` | `{kind:'subagent', parentSessionId,
+  childSessionId, mode}`（子会话冷读不再需要 subagent.history）。
+- `records` 两态：`{type:'event', event}`（事件原样）或 **打包 chunk 行**
+  `{type:'chunks', event:{type:'chunkrow/text-chunks'|'chunkrow/reasoning-chunks'|
+  'chunkrow/tool-call-chunks', seq, time, data}}`——连续 assistant/chunk 增量
+  的无损压缩（锚点在 `event.seq/time` = 首成员 seq0/time0），解码器移植在
+  `frontend/src/chunkRows.ts`，展开后事件词表不变。
+- 事件词表（durable）与 rc.2 兼容：`turn/start|end`、`step/*`、`user/message`、
+  `assistant/chunk|message`、`tool/call|result`、`command/run|done`、
+  `compaction/*`、`llm/retry*`、`tool-workflow/*`、`schedule/change`；新增
+  log-only 事件（`permission/preset`、`sandbox/mode`、`approval/policy`、
+  `request/header|context`、`session/title`、`agent/inbox/spliced`、
+  `session/end-seed` 等）经前端 catch-all 忽略。`tool/result` 的 `meta.diffs`
+  槽位仍在（FileDiff 同形）；**history 条目不再携带 view 卡**——call 侧
+  pending diff 由前端 `deriveCallDiffs` 从 write/edit/str_replace_editor 参数
+  推导（官方 presentCall 同款：`write{file_path,content}`、
+  `edit{file_path,old_string,new_string}`、`str_replace_editor{command,path,
+  file_text|old_str,new_str}`）。
 
-### 3.7 `llm/retry`（重试链）
+## 4. session/control 与 workspace/follow（实时面）
 
-`{retryId, turn, step, provider, mode:'normal'|'always', policyKey, retry, maxRetries?, delayMs, failure:{message, code, status?, providerRetryAfterMs?}}`；
-`llm/retry-started {retryId, turn, step, retry}` 收尾一次等待。
+- `session/control`（args `{}`）host 全量流：首帧 `{type:'baseline', value:
+  {queues, jobs, projections}}`（三张 Record<sessionId,…> 表），此后
+  `{type:'queue', sessionId, items}` / `{type:'jobs', sessionId, jobs}` /
+  `{type:'projection', sessionId, key, value, seq}`。rc.2 的
+  `session/queue|jobs|projection` mux 广播帧全部由本流承载。
+- `workspace/follow`（args `{}`）：首帧 `{type:'baseline', value:{items,
+  archivedSessionIds}}`，此后 `upsert {workspace}` / `remove {workspaceId}` /
+  `order {workspaceIds}` / `archived {archivedSessionIds}`（归档唯一事实源）。
+- 投影键集（follow 快照实测 15 键）：`title, goal, tokenUsage,
+  contextPressure, contextBreakdown, sessionStats, turnOutline, agentPreset,
+  subagentTiming, subagent, schedule, permissions, modelSelection,
+  sessionListMetadata, imageLimits`（另有 `plan`/`todos`）。**title 投影冷启动
+  渐进填充**：引擎对小 artifact 内联冷观察（`coldBlankProbeMaxBytes` 预算），
+  大会话标题在打开观察后出现——官方同款行为，非缺陷。`modelSelection` =
+  `{next, lastUsed}`（会话实时选择 = `next ?? lastUsed`，session/models 的
+  替代读法）。
 
-### 3.8 会话预设/上下文事件
+## 5. 会话操作契约（要点）
 
-- `permission/preset {preset}`；`sandbox/mode {mode}`；`approval/policy {policy}`
-- `request/context {provider, model, contextWindow}`（占用环分母来源）
-- `agent/inbox/spliced {target, start, inserted[]}`（steer 插队落点）
-- `session/title {title, messageSeqs, source}`
+- `session/prompt {requestId, sessionId, mode:'queue'|'steer', content:
+  PromptContentPart[], clientTimeZone?}` —— **`requestId` 必填**（客户端
+  mint，落盘在被接受的用户消息上；排队消息的 `rpcId` 即它）
+- `session/fork {sessionId, atSeq?}` → `{sessionId}`；`session/search {query}`
+  → `{items:[{sessionId,snippet}], hasMore}`；`session/attachment` 同 rc.2
+- `goals/create {agentId, request:{objective, maxGoalRounds?}}` → `{ref:{id,
+  revision}}`；`goals/edit {agentId, ref, request:{objective?,
+  maxGoalRounds?}}`；`goals/pause|resume|complete|clear {agentId, ref}`——
+  CAS 围栏语义不变（过期 revision 报 STALE）
+- 排队操作 `session/updateQueue`、取消 `session/cancel`、重命名
+  `session/rename {sessionId, title}` 形状不变（仅包 request）
 
-## 4. 命令目录（引擎内注册，静态内置依据）
+## 6. 命令目录（引擎注册，前端静态内置）
 
-| 命令 | 描述（引擎原文） | 输入 |
-|---|---|---|
-| `compact` | Compact older conversation history | — |
-| `goal` | set or view the goal for a long-running task | `[<objective>|clear|edit <objective>|pause|resume]` |
-| `permission` | Switch the permission preset (sandbox mode + approval policy) | `<preset>` |
-| `plan` | Enter or leave plan mode | `[off|message]` |
-| `feedback` | record feedback about this session | `<text>` |
+| 命令 | 输入 |
+|---|---|
+| `compact` | — |
+| `goal` | `[<objective>\|clear\|edit <objective>\|pause\|resume]` |
+| `permission` | `<preset>` |
+| `plan` | `[off\|message]` |
+| `feedback` | `<text>` |
 
-`/export`（Download this Session log as a ZIP archive）在引擎侧存在但按范围
-拍板**不入本轮目录**。无 `commands.list` RPC——目录静态内置，升引擎时对照
-上表来源复核（`command-compact` / `command-goal` / `permission-presets` /
-`plan-mode` / `command-feedback` 各自的注册处）。
+`commands/list`/`commands/execute` RPC 已在（§1）——目录原生化（替代前端
+静态表 + `/goal` 客户端派发改走 `commands/execute`）列 Phase 2。`/export`
+仍按范围拍板不入目录。
 
-## 5. @ 引用 grammar（官方 `dsh-file-reference/grammar`，浏览器安全可移植）
+## 7. @ 引用与 plan-review
 
-- 触发：行首或空白后的 `@`；`@"` 开启带引号路径（可含空格）
-- 补全候选缺失时的降级：@ 菜单候选由**壳侧 FileManager 列目录**提供
-  （`list-dir` host 指令），引擎在 prompt 侧自行解析 `@path` 文本
-  （`dsh-file-reference-local` 注入 `FILE_REFERENCE_PROMPT`），插入纯文本即生效
-- 格式化：目录补尾 `/`；含空格路径用 `@"…"`；目录保持引号开启以便续层
+- @ 菜单候选仍由壳侧 FileManager `list-dir` 提供；引擎 `sessionReferenceResolver/
+  candidates` RPC 已在（Phase 2 候选原生化）。
+- plan-review 收窄规则（单题 + `intent.kind==='plan-review'` + detail + 非
+  multiSelect + options≤2 + approve 选项在）与应答语义不变；0.1.2 上
+  `commands/execute` 可达，plan-mode 激活路径已通（rc.2 三门全关的记录作废）。
 
-## 6. plan-review 收窄规则（官方 `PlanReviewPanel` + `planReviewOf`）
+## 8. Settings/Provider 面
 
-单题 + `intent.kind==='plan-review'` + `detail`（计划正文 markdown）+
-非 multiSelect + options ≤2 + 存在 label===`intent.approve` 的选项，才由
-计划审查卡接管。批准/拒绝 = 应答 `selected:[对应 option.label]`；
-继续讨论 = cancel（ASK_CANCELLED）。不满足则回退通用提问流。
-
-**rc.2 可达性（2026-09-03 三门实证，卡片在当前引擎下不可触发）**：
-intent+detail 只由 plan-mode 插件的 `EXIT_PLAN_MODE` 流程注入（`packages/plan/plan-mode/src/index.ts`），
-而到达它需过三道门，rc.2 浏览器面全关：① plan mode 只能由 `/plan` 命令激活
-（`session.append('plan/mode')` 仅命令处理器调用），命令执行走 `commands/execute`
-mux RPC——HTTP `UNARY_ROUTES` 无此方法、本构建无 `/api/remote.mux` Gateway 上行；
-② `session.prompt` 不派发斜杠命令——严格单文本块 `/plan` 实测 `accepted:true`
-无 command 槽位、事件尾为普通 assistant turn；③ 模型面 `ask_user_question` 工具
-入参被剥到 id/question/header/options/multiSelect（`packages/interaction/tool-ask-user`），
-模型结构上无法自造 intent+detail。前端 `planReview.ts`+`PlanReviewCard` 为正确移植、
-vitest 钉住，问题真到达即接管，勿因不可达删码。
-
-## 7. 阶段 5 面：长任务与并行工作（2026-09-03 实测/实读）
-
-### 7.1 Goal（投影 + CAS RPC）
-
-- `goal` 投影整值：`{ goal: { id, revision, objective, phase: active|paused|blocked|complete, blockedReason?, maxGoalRounds }, roundsStarted, createdAt, updatedAt } | null`；实时经 `session/projection` mux 帧（key=goal），`session.list` 兜底
-- `goal.create {sessionId, objective, maxGoalRounds?}`；`goal.edit {sessionId, ref, objective?, maxGoalRounds?}`；`goal.pause/resume/clear {sessionId, ref}`，`ref = {id, revision}` 为 **CAS 修订围栏**——过期 revision 报 `GOAL_STALE_REVISION`，UI 必须取投影当前值
-- phase 迁移校验：complete 不可 resume（`GOAL_INVALID_TRANSITION`）；创建即驱动 goal round（roundsStarted 递增）
-
-### 7.2 Subagent（谱系 + 冷读）
-
-- `subagent.list {parentSessionId}` → `{ entries, parentAvailable }`；entry = `child { id, activity: running|inactive, hasChildren, mode: one-shot|continuable, label? }` | `diagnostic { id, reason }`（子代理身份由 `subagent` 投影 fold 而来；运行中的创建窗口候选被省略）
-- `subagent.history { parentSessionId, childSessionId, mode, beforeSeq?, maxMessages? }` → `{ events, hasMore, projections? }`——**未激活子会话的冷读通道**（`session.history` 对其 404）
-- `subagent.interrupt { parentSessionId, childSessionId, mode: 'continuable' }` → `{accepted}`；目录寻址的子会话无人类 composer（官方 SubagentReadOnlyComposer：one-shot / parent-unavailable 两因）
-
-### 7.3 Jobs（mux 帧广播）与 Schedule（事件折叠）
-
-- `session/jobs { sessionId, jobs: JobView[] }` mux 帧（同 session/queue 族，全量快照）；`JobView = { id, kind, label, status: running|stopping|completed|killed|failed, detail?, startedAt, finishedAt? }`；rc.2 无任务 kill 的浏览器面 → 目录只读
-- Schedule 无任何 RPC/帧；durable 状态在 `schedule/change` 事件（`{version:1, operation: create|delete|dispatch|advance, schedule?|id, scheduledAt?}`）；记录 = `{id, kind: after|at|every, prompt, afterSeconds?|scheduledAt?|everySeconds?}`（after 携带 `afterSeconds`+`scheduledAt`，at 携带 `scheduledAt`，every 携带 `everySeconds`）；会话本地投递（session-local），无外部通知通道。web profile 默认不装 schedule 插件，壳经 engine-patch overlay 注入 `@deepseek-ai/dsh-schedule`（`EngineSupervisor`），旧会话不补装、新会话生效
-
-### 7.4 Workflow（父会话事件流嵌套卡）
-
-`tool-workflow/run-start {runId, name}` → `agent-start {runId, seq, label, phase?, childId}` → `agent-end {runId, seq, outcome: completed|failed|cancelled}` → `run-end {runId, stopReason: completed|cancelled|error}`；全部为普通 session 事件，无独立 RPC。
-
-### 7.5 Provider/模型目录与插件配置（settings 面）
-
-- `llm.providers` → `{provider, displayName, settingsNs, settingsPath, active, declared?}`；`llm.discoverModels {settingsNs, provider?, baseURL?, api?, apiKey?}` → `{models: [{id, name?, contextWindow?, maxTokens?}]}`（apiKey 只上送不存储）。`api` 仅 `openai-completions`/`openai-responses` 可发现（引擎 discovery 只读这两种 OpenAI 兼容清单；其余报 `model-discovery-failed` "no model listing this build can read"，实测 2026-09-03 mock 端点 `GET {baseURL}/models` 即通）
-- 模型/路由配置写 `settings.update`（revision 围栏）：`llm-deepseek.models = [{id, name, contextWindow, inputModalities, …}]`；`llm-pi-ai.providers = {<route>: {apiKeyEnv?, displayName?, api?, baseURL?, models?}}`
-- 插件配置命名空间（实测）：`shell {timeoutMs, maxTimeoutMs, maxOutputBytes, maxSpillBytes, graceMs}`、`agent-loop {maxParallelToolCalls}`、`web-search-deepseek {apiKeyEnv, model, apiVersion, maxTokens, maxUses}` + secret `apiKey`（credentials 写入）
+- `settings/update|mutate` 形状不变（revision 围栏、`settings/conflict` 错误码
+  在）；`settings/describe` 命名空间实测口径见 PITFALLS §7.3（升引脚后以
+  `--dump-config` 复核）。
+- `llm/listConfigurableProviders` 给配置归属（provider/displayName/settingsNs/
+  settingsPath）；「用户手写落盘」以 llm-pi-ai 存在该 provider profile 为准
+  （组级删除入口判定，前端 `useModelCatalog`）。
+- `llm/discoverModels` 返回直数组；`api` 仍只读 OpenAI 兼容清单。
+- 插件配置命名空间（shell/agent-loop/web-search-deepseek）沿用 §7.3/§7.4 记录。

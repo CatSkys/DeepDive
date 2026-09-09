@@ -1,7 +1,7 @@
 # DSHmini 语义层产品规格（v0.4 · P2+ 蓝图）
 
 > 文档位置：架构 `docs/ARCHITECTURE.md` → 语义 `docs/SPEC-SEMANTICS.md`。
-> **状态（2026-09-03）**：本文是**部分已落地的产品蓝图**。已实现：多工作区侧栏（置顶/最近）、会话流+工具行折叠+异常高亮、审批卡/提问卡/排队消息（WebView 内卡片，非原生弹窗）、模型菜单+思考强度、通知分级（`SPEC-NOTIFICATIONS`）、引擎监督/恢复/凭据冷启动、自动标题+重命名、turn-tail 分支 fork（`session.fork`）、子会话只读视图、**会话状态胶囊**（头部聚合 Todos/子代理/未提交 Git 改动/后台任务/会话提醒，原任务目录/会话提醒/子代理谱系三 chip 已收编，Git 摘要经壳层 `run-git` 桥命令）、Goal/Workflow 卡、全文搜索、@文件引用、拖放图片、KaTeX、上下文用量环。**未实现**（仍为蓝图）：Launcher 面板（⌥Space 唤主窗替代）、Memory 卡、⌘K 动作浮层、任务 detach、专注模式、Windows；轨迹视图/消息反馈/Jobs kill/导出为用户拍板不做（引擎 rc.2 无承载或明确不做）。
+> **状态（2026-09-03）**：本文是**部分已落地的产品蓝图**。已实现：多工作区侧栏（置顶/最近）、会话流+工具行折叠+异常高亮、审批卡/提问卡/排队消息（WebView 内卡片，非原生弹窗）、模型菜单+思考强度、通知分级（`SPEC-NOTIFICATIONS`）、引擎监督/恢复/凭据冷启动、自动标题+重命名、turn-tail 分支 fork（`session.fork`）、子会话只读视图、**会话状态胶囊**（头部聚合 Todos/子代理/未提交 Git 改动/后台任务/会话提醒，原任务目录/会话提醒/子代理谱系三 chip 已收编，Git 摘要经壳层 `run-git` 桥命令）、Goal/Workflow 卡、全文搜索、@文件引用、拖放图片、KaTeX、上下文用量环。**未实现**（仍为蓝图）：Launcher 面板（⌥Space 唤主窗替代）、Memory 卡、⌘K 动作浮层、任务 detach、专注模式、Windows；轨迹视图/Jobs kill/导出为用户拍板不做。消息反馈原因（rc.2 无承载）已随 0.1.2-rc.1 解除，移植列 `TODO §0` Phase 2。
 > 核心原则：**以 DSH 为主**——语义本体（对象、状态、边界）全部来自 DSH 引擎；参考图/Codex 仅为 UX 参照。客户端只做呈现与编排，不做第二套状态。
 
 ---
@@ -18,7 +18,7 @@
 ## 2. 对象模型 + 参考图语义映射
 
 > 定位：**DSH 引擎定义语义**（每行"引擎来源"是事实）；参考图/Codex 的对应词汇仅为一致的 UX 参照。
-> 实测依据：本机 `dsh --profile web --dump-config`（0.1.1-rc.2）+ 已装包 `dsh-agent-presets` / `dsh-persona` / `dsh-skill` / `dsh-client-ui-agent-preset`。
+> 实测依据：本机 `dsh --profile web --dump-config` + 已装包 `dsh-agent-presets` / `dsh-persona` / `dsh-skill` / `dsh-client-ui-agent-preset`。
 
 | 参考图（Ask Anything 截图） | DSHmini 对象 | 引擎来源 |
 |---|---|---|

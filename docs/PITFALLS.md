@@ -264,9 +264,15 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **浏览器鉴权强制**：`dsh web:` 打印的根 URL `?token=` 只用于 `GET /` 换**签名 cookie**（303+Set-Cookie，绑定 Host authority）；之后所有 `/api` 只认 cookie，token 放在 `/api` 路径上**无效**。无 cookie 的 unary `/api/<method>` 在 rc.2 直通、在 alpha.2 回 401 "unauthorized"；再往上 alpha.2 的 unary RPC 干脆不存在（全部 404 "not found"，官方 web 客户端走 remote.mux 流）。
 - **处置**：壳侧 `EngineAuth` 每次引擎就绪先做 token→cookie 交换，`BridgeServer` 两跳（unary+WS upgrade）、`EngineGateway`、`EngineEventObserver` 统一注入 Cookie；观察器 mux 路径按候选表自适应（events.mux → remote.mux）。**引脚保持 rc.2**（SPA 的 unary 协议面成立），升 alpha.2 前必须先把前端 RPC 层移植到 mux 流协议。
 
-- **✅ 已解决（2026-08-31 协议移植完成，引脚切 0.1.2-alpha.2）**：unary HTTP 仍在但形状变了——endpoint 斜杠形 `/api/settings/describe`（点形 404）；信封不变（client-request）；**payload 必须包成 `{args:{…具名参数}}`**。`remote.mux` 只承载流方法与 `$events` 事件流（unary 开流被拒 `gateway/signature-invalid`）。前端传输层 `settings/models/mux.ts` + `api.ts` 探测自动切；BridgeServer WS 盲转发扩展 `/api/remote.mux`；观察者在 remote.mux 上开 `$events`。嵌套依赖漂移（pin alpha.2 拉 dsh-session alpha.3）在同 prerelease 段内警告放行（`DSH_STRICT_NESTED=1` 恢复拒绝）。**embed 必须在实例停止后执行**——覆盖运行中的 node/引擎文件会被 SIGKILL（自检/启动全 137）。
-- 判定代码：`dsh-client-connection/lib/index.js` 的 `BrowserAuth`（`requestRejection` 403/401 分级、`authorizeIndex` 换 cookie）、`dsh-api-gateway/lib/index.js:11` `REMOTE_STREAM_MUX_PATH = "/api/remote.mux"`。
-- **↩️ 后续回退（c590653，现行状态）**：引脚**回退 0.1.1-rc.2**——alpha.2 的 UNARY 面实测不可用。`api.ts` 回到点形 endpoint + 扁平参数 + `events.mux` 下行，同时保留 beforeSeq/atSeq 映射与能力探测，两版兼容；上面的 alpha.2 记录留作下次升级的对照清单。引脚现值永远以 `scripts/dsh-runtime-version.txt` 为准。
+- **✅ 已解决（2026-09-09 引脚升 0.1.2-rc.1，全量落地）**：unary HTTP 斜杠形 + `{args:{…}}` 包裹 + 信封 `method` 必须与端点逐字一致；`remote.mux` 多路流（`$events`/`session/follow`/`session/control`/`workspace/follow`，上行 open/cancel、下行 item/error/end）；审批/提问改 waterfall + `$events/result` 应答；改名批（`goals/*`、`subagents/*`、`agentPresets/list`、`llm/listProviders|listConfigurableProviders`、`settings/openSettingsDocument`）。现行契约全文见 `docs/DSH-WIRE.md`。历史轨迹（2026-08-31 alpha.2 移植 → c590653 回退 rc.2 → 本次二次升级）留档：alpha.2 时代 unary 面确不可用，回退是当时的正确决策；0.1.2-rc.1 的 unary 面完整（权威参数清单 = 生成客户端各包 `lib/typert.remote-client.js` 的 `parameters[].wire`——`dsh-host-apiproxy`/`UNARY_ROUTES` 已随包消亡，勿再按旧文寻址）。**embed 必须在实例停止后执行**——覆盖运行中的 node/引擎文件会被 SIGKILL（自检/启动全 137；本轮再次复证：打包竞态下引擎以 `ERR_MODULE_NOT_FOUND` 循环崩溃）。
+
+### 7.1.1 0.1.2 升级实测新增坑（2026-09-09，全在本轮撞上并修复）
+- **macOS Foundation 跟随 303 会丢 Set-Cookie**：`GET /?token=` → 303+Set-Cookie，URLSession 自动重定向后 cookie storage 为空（curl 同请求正常）——token→cookie 交换必须禁跟随重定向、直接截获 303 响应头（`EngineAuth`）。
+- **remote.mux 只收文本帧**：URLSessionWebSocketTask 发二进制帧（`.data`）被引擎直接断连；开流帧必须 `.string`（`EngineEventObserver`）。
+- **wire 参数不是一律扁平**：`session/*`、`workspace/*` 多为单层 `request` 包裹；`session/list` 需保留参数 `_request:{}`；`goals/*` 却是扁平 `{agentId, ref?, request?}`——**逐一对照生成客户端的 `parameters[].wire`，勿按直觉统一**。
+- **chunk 打包行有两层包裹**：wire 记录是 `{type:'chunks', event:{type:'chunkrow/…', seq, time, data}}`，锚点字段在 `event` 上（非裸 ChunkRow 的 `seq0/time0`）；`frontend/src/chunkRows.ts` + `api.ts expandRecords` 负责归一展开。
+- **`session/page` 的 `throughSeq` 不可猜**：必须取自 follow 开窗帧 `cursor`，超出实际值报 `gateway/bad-request "past cursor"`。
+- **title 投影冷启动渐进填充**：引擎只对小 artifact 内联冷观察（`coldBlankProbeMaxBytes`），大会话标题打开观察前缺席——侧栏回退标题属官方同款行为，勿当缺陷修。
 
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
 - main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`，无任何输出——测试新构建时极易误判"app 秒退"。

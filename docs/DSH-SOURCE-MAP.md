@@ -11,19 +11,19 @@
   - 移植时：函数体原样复制到 `frontend/src/components/Icons.tsx`，仅替换 IconProps 来源。
 
 ## 消息操作用户/尾部（消息下方的 meta 行）
-- `packages/client/ui-conversation/src/client/chat/MessageIconActions.tsx`
+- `packages/client/ui-chat/src/client/chat/MessageIconActions.tsx`
   - 用户消息：`clock="start"`（时钟在前）+ copy，**传 `onBranch` 才有分支**；用户消息不传 → 无分支。
   - assistant turn 尾部：`clock="end"`（时钟在后）+ copy + branch(可选) + usage(用时/首token/tok/s)。
-- `packages/client/ui-conversation/src/client/chat/MessageItem.tsx`
+- `packages/client/ui-chat/src/client/chat/MessageItem.tsx`
   - `UserMessageNodeView`：用户消息 actions（copy+clock start，无 branch）；消息容器挂 `data-time-hover-root`。
-- `packages/client/ui-conversation/src/client/chat/TurnTailNodeView.tsx`
+- `packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx`
   - turn 尾部 actions（copy+branch+clock end+usage），tail 根节点挂 `data-time-hover-root`。
-- `packages/client/ui-conversation/src/client/chat/MessageIconActions.module.css`
+- `packages/client/ui-chat/src/client/chat/MessageIconActions.module.css`
   - 官方 reveal 语义：图标常驻，`[data-time-hover-root]` 容器内 hover/focus-within 只显现时间/统计标签。
   - 本仓移植（用户定稿，有意偏离官方）：自建 `data-actions-reveal` 挂在轮容器 `.turn-group`（SessionView 分组层），按钮+Meta 全部 hover/focus-within 才显现，无 always 常驻（theme.css「meta actions」节）。
-- `packages/client/ui-conversation/src/client/chat/MessageItem.module.css`
+- `packages/client/ui-chat/src/client/chat/MessageItem.module.css`
   - 用户 row 右对齐：`.userRow{display:flex;flex-direction:column;align-items:flex-end;gap:6px}`（气泡+actions 同列右对齐）。
-- `packages/client/ui-conversation/src/client/chat/ReasoningRow.module.css`
+- `packages/client/ui-chat/src/client/chat/ReasoningRow.module.css`
   - Think 行样式；`data-state='running'` 时扫光动画 `dsh-reasoning-row-sweep`。
 
 ## 工具行（bash / todo / read / search / edit 等）
@@ -44,3 +44,8 @@
 ## Plan 模式
 - `packages/client/ui-plan/src/client/PlanModeControl.tsx`
   - `PlanChip`：读取 `plan` projection（`active`/`pending`），激活时显示 `Plan` chip。
+
+## 0.1.2-rc.1 新增参考（Phase 2 移植锚点）
+- 消息反馈：`packages/client/ui-message-feedback/src/client/`（👍/👎 卡 + put/list/delete 流）+ `packages/feedback/message-feedback/src/types.ts`（wire 形状）。
+- 命令面：`packages/client/ui-commands/src/client/service.ts`（commands/list 驱动目录 + execute 整行派发与 command/executed 通知）。
+- Turn 大纲轨：`packages/client/ui-chat/src/client/chat/`（turn rail + load-and-jump）；投影键 `turnOutline`。

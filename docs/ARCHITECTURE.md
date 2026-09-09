@@ -28,10 +28,10 @@
 
 | 边 | 通道 | 要点 |
 |---|---|---|
-| SPA → 引擎 | same-origin `POST /api/<dot-method>`（client-request 信封、扁平参数）+ `ws /api/events.mux` 事件下行 | 经壳内 BridgeServer 反代；wire 契约实测审计见 `PITFALLS §4.6` |
+| SPA → 引擎 | same-origin `POST /api/<ns>/<method>`（client-request 信封、`{args}` 具名包裹）+ 单条 `ws /api/remote.mux` 多路流（`$events`/`session/follow`/`session/control`/`workspace/follow`） | 经壳内 BridgeServer 反代（token+cookie 注入）；wire 契约实测见 `DSH-WIRE.md` |
 | 壳 → 引擎 | stdio（`dsh web:` URL 行、日志尾巴）+ 进程信号 | 只关心 UP/BOOT_FAILED/EXITED 与端口 |
 | 壳 ↔ SPA | `WKScriptMessageHandler`（`deepdive` 标题栏 rect 表 / `deepdiveHost` 前端指令）；壳→前端 `evaluateJavaScript` 调 `window.__deepDiveHost.dispatch`（pending 单条暂存） | 指令集与降级纪律见 `SPEC-NOTIFICATIONS-FLOATING-BALL §3.1`；标题栏拖拽契约见 `PITFALLS §4.3` |
-| 壳 → 引擎事件 | `EngineEventObserver` 自读 mux 流派生 running/完成/待审批状态 | 通知/悬浮球/菜单栏徽标原生实时，不依赖前端 |
+| 壳 → 引擎事件 | `EngineEventObserver` 自读 `$events` 流派生 running/完成/待审批状态（waterfall 恒回 `next`，不决策） | 通知/悬浮球/菜单栏徽标原生实时，不依赖前端 |
 
 ## 3. 原生外壳（apps/macos/Sources/DSHminiApp/）
 
