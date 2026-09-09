@@ -59,7 +59,6 @@ export function useFeedback(sessionId: string) {
       commit("error", itemsRef.current);
       return { ok: false, code: "load" };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   /** 冷 → 惰性种入（首次 hover/focus 触发）；已就绪则空转。 */

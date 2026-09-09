@@ -4,7 +4,8 @@
 // `{type:'item', streamId, value?}` / `{type:'error'|'end', streamId}`。
 // 本模块持有进程级单例：$events 转发事件流 + 任意业务流（session/follow、
 // session/control、workspace/follow）共用一条连接；断线 2s 重连，重连后所有
-// 注册流自动重开（服务端每代重发基线/快照，消费方按全量替换处理）。
+// 注册流自动重开（服务端每代重发基线/快照，消费方按全量替换处理）；
+// 另有开流应答看门狗兜住 WKWebView 睡眠后 onclose 缺位的假死连接。
 // 不管业务语义（帧解释归 api.ts 的类型与 store/useSessionEvents 的消费）。
 
 export interface RemoteEventReadyFrame {
@@ -41,6 +42,10 @@ type EventsHandlers = {
 const MUX_PATH = "/api/remote.mux";
 const EVENTS_ENDPOINT = "$events";
 
+// 开流应答看门狗超时：任何开流帧发出（或待发）后，整条连接在此窗口内
+// 连一个下行帧（ready/快照/基线都算）都没收到，即判定 socket 假死。
+const OPEN_ACK_TIMEOUT_MS = 5000;
+
 class MuxClient {
   private ws: WebSocket | null = null;
   private retryTimer: number | null = null;
@@ -48,6 +53,8 @@ class MuxClient {
   private eventsHandlers = new Set<EventsHandlers>();
   /** $events 世代 clientId：应答 waterfall 的必填字段。 */
   private eventClientId: string | undefined;
+  /** 开流应答看门狗：见 armOpenAck。 */
+  private openAckTimer: number | null = null;
 
   /** 注册一条逻辑流：连接建立（或重建）时自动 open；close() 撤销注册。
    *  onItem 收到该流的每个 item value（含首帧快照/基线）。 */
@@ -125,6 +132,7 @@ class MuxClient {
     };
     this.ws.onclose = () => {
       this.eventClientId = undefined;
+      this.disarmOpenAck();
       this.retryTimer = setTimeout(() => this.connect(), 2000) as unknown as number;
     };
     this.ws.onerror = () => {
@@ -141,7 +149,52 @@ class MuxClient {
   private sendOpen(streamId: string) {
     const entry = this.streams.get(streamId);
     if (!entry) return;
+    // 看门狗在「想开流」时布防而非只在帧发出后：socket 卡在 CONNECTING、
+    // send 被静默丢弃同样没有应答，一并覆盖。
+    this.armOpenAck();
     this.send({ type: "open", streamId, endpoint: entry.endpoint, payload: { args: entry.args } });
+  }
+
+  // ── 假死自愈（WKWebView 系统睡眠后 WS 可能既不 onclose 也不 onerror，
+  //    JS 侧毫无断连迹象而帧已停——重连只挂在 onclose 上就永不触发。
+  //    每条流开流后必收首帧（$events ready / follow 快照 / control·workspace
+  //    基线），故「开流后 OPEN_ACK_TIMEOUT_MS 内整条连接零下行帧」唯一解释
+  //    是假死；静默空闲的健康连接不会开流，永不误伤。 ──
+
+  private armOpenAck() {
+    if (this.openAckTimer !== null) return;
+    this.openAckTimer = setTimeout(() => {
+      this.openAckTimer = null;
+      this.recycleSocket();
+    }, OPEN_ACK_TIMEOUT_MS) as unknown as number;
+  }
+
+  private disarmOpenAck() {
+    if (this.openAckTimer === null) return;
+    clearTimeout(this.openAckTimer);
+    this.openAckTimer = null;
+  }
+
+  /** 弃掉当前 socket 并立即重建：不等待（可能永不来的）close 事件。 */
+  private recycleSocket() {
+    this.disarmOpenAck();
+    const old = this.ws;
+    this.ws = null;
+    this.eventClientId = undefined;
+    if (old !== null) {
+      // 先摘处理器再 close：假死 socket 的 close 可能延迟到再下一轮，迟到的
+      // onclose/onopen 打到已退役的实例上会双驱重连。
+      old.onopen = null;
+      old.onmessage = null;
+      old.onclose = null;
+      old.onerror = null;
+      old.close();
+    }
+    if (this.retryTimer !== null) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    this.connect();
   }
 
   private openEventsStream() {
@@ -159,6 +212,8 @@ class MuxClient {
   private dispatch(frame: Record<string, unknown>) {
     const streamId = frame.streamId;
     if (typeof streamId !== "string") return;
+    // 任何下行帧都证明连接活着——看门狗就此解除（下次开流重新布防）。
+    this.disarmOpenAck();
     if (frame.type === "item") {
       this.streams.get(streamId)?.onItem(frame.value);
     } else if (frame.type === "end" || frame.type === "error") {

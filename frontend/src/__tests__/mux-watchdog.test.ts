@@ -1,0 +1,103 @@
+// mux 假死自愈（开流应答看门狗）：WKWebView 系统睡眠后 WS 可能不触发
+// onclose/onerror 而帧已停——sendOpen 后 OPEN_ACK_TIMEOUT_MS 内零下行帧
+// 即弃旧 socket 立即重建，注册流全部重开。假定时器驱动时间线。
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mux } from "../mux";
+
+/** 每次构造记录实例并可选驱动 onopen 的假 WebSocket；僵尸模式 close 后不回调 onclose。 */
+let sockets: FakeSocket[];
+let driveOpen: boolean;
+class FakeSocket {
+  static OPEN = 1;
+  static CONNECTING = 0;
+  static CLOSED = 3;
+  readyState = FakeSocket.CONNECTING;
+  onopen: (() => void) | null = null;
+  onmessage: ((e: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  sent: string[] = [];
+  /** 僵尸标记：close() 被调后假装断连事件永远不会来（WKWebView 假死语义）。 */
+  zombified = false;
+  send(d: unknown) { this.sent.push(String(d)); }
+  close() { this.zombified = true; } // 不触发 onclose —— 看门狗存在的意义
+  constructor() { sockets.push(this); if (driveOpen) queueMicrotask(() => { this.readyState = FakeSocket.OPEN; this.onopen?.(); }); }
+}
+
+const opensOf = (s: FakeSocket) => (s.sent.map((d) => JSON.parse(d) as { type: string; endpoint?: string; streamId?: string })
+  .filter((f) => f.type === "open"));
+
+beforeEach(() => {
+  // mux 是模块级单例：清空内部态（流注册/定时器/socket），测试各自从零开始。
+  const m = mux as unknown as {
+    ws: FakeSocket | null; streams: Map<string, unknown>; eventsHandlers: Set<unknown>;
+    eventClientId: string | undefined; openAckTimer: number | null; retryTimer: number | null;
+  };
+  if (m.openAckTimer !== null) clearTimeout(m.openAckTimer);
+  if (m.retryTimer !== null) clearTimeout(m.retryTimer);
+  m.openAckTimer = null; m.retryTimer = null; m.ws = null;
+  m.streams.clear(); m.eventsHandlers.clear(); m.eventClientId = undefined;
+  sockets = []; driveOpen = true;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe("mux 开流应答看门狗", () => {
+  it("假死（开流后零下行帧）→ 弃旧 socket 立即重建，注册流全部重开", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+
+    const items: unknown[] = [];
+    mux.openStream("session/follow", { request: { address: { kind: "session", sessionId: "s1" } } }, (v) => items.push(v));
+    await Promise.resolve(); // 构造器 queueMicrotask 驱动 onopen（开流帧在 open 后才发出）
+    expect(sockets).toHaveLength(1);
+    const zombie = sockets[0];
+    // 健康路径收帧解除看门狗后，把 socket 变僵尸：此后帧永不到达。
+    zombie.onmessage?.({ data: JSON.stringify({ type: "item", streamId: opensOf(zombie)[0]!.streamId!, value: "snap" }) });
+    expect(items).toEqual(["snap"]);
+
+    // 再开一条流 → 布防；推进超时窗口，零下行帧 → 回收重建。
+    mux.openStream("session/control", { request: {} }, () => {});
+    vi.advanceTimersByTime(5001);
+    await Promise.resolve(); // 等 socket2 的 onopen 微任务跑完（重开帧在此发出）
+    expect(sockets).toHaveLength(2);
+    expect(zombie.zombified).toBe(true);
+    expect(zombie.onclose).toBeNull(); // 处理器已摘，迟到的假死事件不得再驱动状态
+
+    // 重建后 onopen 全量重开：两条流的开流帧都在新 socket 上。
+    const endpoints = opensOf(sockets[1]).map((f) => f.endpoint);
+    expect(endpoints).toContain("session/follow");
+    expect(endpoints).toContain("session/control");
+  });
+
+  it("卡在 CONNECTING 的假死同样被回收（sendOpen 被静默丢弃的路径）", () => {
+    vi.useFakeTimers();
+    driveOpen = false; // 永不 open：CONNECTING 假死
+    vi.stubGlobal("WebSocket", FakeSocket);
+
+    mux.openStream("workspace/follow", { request: {} }, () => {});
+    const stuck = sockets[0];
+    expect(stuck.sent).toHaveLength(0); // 未 OPEN，帧没发出
+
+    vi.advanceTimersByTime(5001);
+    expect(sockets).toHaveLength(2); // 弃掉重建
+    expect(stuck.zombified).toBe(true);
+  });
+
+  it("健康连接的静默空闲不触发回收（无开流动作即无布防）", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+
+    mux.openStream("workspace/follow", { request: {} }, () => {});
+    await Promise.resolve(); // 等 onopen 发出开流帧
+    const sock = sockets[0];
+    sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: opensOf(sock)[0]!.streamId!, value: {} }) });
+
+    // 长时间空闲推进（远超窗口）：无新开流 → 无布防 → 不重建。
+    vi.advanceTimersByTime(60000);
+    expect(sockets).toHaveLength(1);
+  });
+});

@@ -273,6 +273,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **chunk 打包行有两层包裹**：wire 记录是 `{type:'chunks', event:{type:'chunkrow/…', seq, time, data}}`，锚点字段在 `event` 上（非裸 ChunkRow 的 `seq0/time0`）；`frontend/src/chunkRows.ts` + `api.ts expandRecords` 负责归一展开。
 - **`session/page` 的 `throughSeq` 不可猜**：必须取自 follow 开窗帧 `cursor`，超出实际值报 `gateway/bad-request "past cursor"`。
 - **title 投影冷启动渐进填充**：引擎只对小 artifact 内联冷观察（`coldBlankProbeMaxBytes`），大会话标题打开观察前缺席——侧栏回退标题属官方同款行为，勿当缺陷修。
+- **WKWebView 睡眠后 WS 假死（onclose 缺位）**：系统睡眠唤醒后 webview 里的 WebSocket 可能既不 `onclose` 也不 `onerror` 而帧已停（HTTP fetch 每次新连接，一切如常）——只把重连挂在 close 事件上就永不自愈，表现为会话转录永远「历史加载失败」而侧栏正常（2026-09-10 实机）。`mux.ts` 开流应答看门狗：任何开流后 5s 整条连接零下行帧即弃 socket 立即重建（每条流开流必收首帧——ready/快照/基线；静默空闲不开流、永不误杀）。后续做长驻推送类连接同坑同理：**不能只信 close 事件**。
 
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
 - main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`，无任何输出——测试新构建时极易误判"app 秒退"。
