@@ -10,7 +10,7 @@ import type { PlanReview } from "../planReview";
 // （ASK_CANCELLED）。卡片由 question/resolved 帧清除；发送失败回解除
 // 忙锁并显示原因（官方 settle 语义）。
 
-export function PlanReviewCard({ rpcId, sessionId, review }: { rpcId: string; sessionId: string; review: PlanReview }) {
+export function PlanReviewCard({ eventId, review }: { eventId: string; review: PlanReview }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const settle = (send: () => Promise<unknown>) => {
@@ -22,8 +22,8 @@ export function PlanReviewCard({ rpcId, sessionId, review }: { rpcId: string; se
     });
   };
   const decide = (label: string) =>
-    settle(() => api.answerQuestion({ rpcId, sessionId, answers: [{ id: review.id, selected: [label] }] }));
-  const discuss = () => settle(() => api.cancelQuestion(rpcId));
+    settle(() => api.answerQuestion(eventId, [{ id: review.id, selected: [label] }]));
+  const discuss = () => settle(() => api.cancelQuestion(eventId));
 
   return (
     <div className="plan-review-card">

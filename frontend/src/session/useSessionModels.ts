@@ -16,51 +16,32 @@ export function useSessionModels(sessionId: string) {
   const [effort, setEffort] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // alpha.2: session/models and llm/models are gone from the browser face —
-    // the unified catalog loader (session/modelCatalog with rc.2 fallback)
-    // provides both the options and the engine default selection.
+    // 0.1.2：session/modelCatalog 是唯一目录面（含默认选择与各模型 reasoning
+    // 档位元数据）；会话的实时选择读 modelSelection 投影（next ?? lastUsed）。
     void (async () => {
       let options: ModelOption[] = [];
       try {
         const r = await api.modelOptions();
         options = r.options;
         setModels(options);
-        // llm/models 兜底路径没有 default 字段——不能在这里提前 return，
-        // 否则下面的 session.models（实时选择 + 思考强度元数据）永远不跑。
         if (r.default) {
           const hit = options.find((m) => m.provider === r.default!.provider && m.model === r.default!.model);
           setModelName(hit?.label ?? `${r.default!.provider} / ${r.default!.model}`);
         }
       } catch { /* engine booting */ }
-      // The live per-session selection (when it differs from the default).
-      // session.models 一次带回当前选择（含 reasoningEffort）与分组目录
-      // （含各模型的 reasoning 档位元数据），无需第二次调用。
       try {
-        const r = await api.sessionModels({ sessionId });
-        const cur = r.current;
+        const list = await api.sessions();
+        const proj = list.items.find((s) => s.sessionId === sessionId)
+          ?.projections?.values?.modelSelection as { next?: { provider: string; model: string; reasoningEffort?: string } | null; lastUsed?: { provider: string; model: string; reasoningEffort?: string } | null } | undefined;
+        const cur = proj?.next ?? proj?.lastUsed ?? undefined;
         if (cur?.model) {
           const hit = options.find((m) => m.provider === cur.provider && m.model === cur.model);
           setModelName(hit?.label ?? cur.model);
         }
         if (cur?.provider && cur?.model) setCurrentModel({ provider: cur.provider, model: cur.model });
         setEffort(cur?.reasoningEffort ?? undefined);
-        const group = (r.groups ?? []).find((g) => g.id === cur?.provider);
-        const model = group?.models?.find((m) => m.id === cur?.model);
-        setEffortLevels(model?.reasoning?.efforts ?? []);
-        // 分组目录里每个模型自带 reasoning 档位元数据 —— 并进选项，
-        // 模型菜单据此决定"点了直接选"还是"进档位滑杆页"。
-        const effortByModel = new Map<string, { efforts: Array<{ id: string; name: string }>; defaultEffort?: string }>();
-        for (const g of r.groups ?? []) {
-          for (const m of g.models ?? []) {
-            if (m.reasoning?.efforts?.length) {
-              effortByModel.set(`${g.id}/${m.id}`, { efforts: m.reasoning.efforts, defaultEffort: m.reasoning.defaultEffort });
-            }
-          }
-        }
-        setModels(options.map((o) => {
-          const meta = effortByModel.get(`${o.provider}/${o.model}`);
-          return meta ? { ...o, efforts: meta.efforts, defaultEffort: meta.defaultEffort } : o;
-        }));
+        const hit = options.find((m) => m.provider === cur?.provider && m.model === cur?.model);
+        setEffortLevels(hit?.efforts ?? []);
       } catch { /* optional enrichment */ }
     })();
   }, [sessionId]);

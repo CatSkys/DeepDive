@@ -45,11 +45,9 @@ export function useModelCatalog(): ModelCatalog {
     setLoadError(null);
     try {
       const [provs, d] = await Promise.all([
-        api.llmProviders().catch(() => ({ providers: [] as ProviderInfo[] })),
+        api.llmProviders().catch(() => [] as ProviderInfo[]),
         api.settingsDescribe(),
       ]);
-      const list = (provs.providers ?? []) as ProviderInfo[];
-      setProviders(list);
       const deepNs = (d.namespaces ?? []).find((n) => n.ns === "llm-deepseek");
       const piNs = (d.namespaces ?? []).find((n) => n.ns === "llm-pi-ai");
       const deepVal = (deepNs?.value ?? {}) as {
@@ -58,6 +56,14 @@ export function useModelCatalog(): ModelCatalog {
       };
       const piVal = (piNs?.value ?? {}) as { providers?: Record<string, PiProviderProfile> };
       const apiKeyEnv = deepVal.apiKeyEnv ?? "DEEPSEEK_API_KEY";
+      // llm/listConfigurableProviders 只给可配置面；「用户手写落盘」以
+      // llm-pi-ai 里存在该提供方 profile 为准（组级删除入口的判定语义）。
+      const list: ProviderInfo[] = provs.map((p) => ({
+        ...p,
+        active: true,
+        declared: (piVal.providers ?? {})[p.provider] !== undefined,
+      }));
+      setProviders(list);
       setDeepseek({ apiKeyEnv, models: deepVal.models ?? [] });
       setPi({ providers: piVal.providers ?? {} });
       setReady(true);

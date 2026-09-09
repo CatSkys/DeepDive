@@ -37,9 +37,9 @@ function fmtScheduleWhen(r: ScheduleRecord): string {
 }
 
 export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: string; scheduleRecords: ScheduleRecord[] }) {
-  const { sessions, jobsBySession, openSession, wsOfSession, workspaces, activeWorkspaceId, subscribeMux } = useStore();
+  const { sessions, jobsBySession, openSession, wsOfSession, workspaces, activeWorkspaceId, subscribeControl } = useStore();
   const [open, setOpen] = useState(false);
-  // mux 实时帧优先（undefined=尚无帧，用 store 投影基线），照 SessionView goal 模式
+  // control 流实时帧优先（undefined=尚无帧，用 store 投影基线），照 SessionView goal 模式
   const [liveTodos, setLiveTodos] = useState<CapsuleTodo[] | null | undefined>(undefined);
   const [children, setChildren] = useState<ChildEntry[]>([]);
   const [diag, setDiag] = useState(false);
@@ -56,14 +56,13 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   const todos = liveTodos ?? storeTodos;
   const goal = (sessions.find((s) => s.sessionId === sessionId)?.projections?.values?.goal as GoalProjection | null | undefined)?.goal;
 
-  // todo 投影实时帧（session/projection key=todos 整表推送）快过 3s 轮询
-  useEffect(() => subscribeMux((frame) => {
-    if (frame.type !== "session/projection") return;
-    const p = frame as import("../types").ProjectionFrame;
-    if (p.sessionId === sessionId && p.key === "todos") {
-      setLiveTodos((p.value ?? null) as CapsuleTodo[] | null);
+  // todo 投影实时帧（control 流 projection key=todos 整表推送）快于 3s 轮询
+  useEffect(() => subscribeControl((frame) => {
+    if (frame.type !== "projection") return;
+    if (frame.sessionId === sessionId && frame.key === "todos") {
+      setLiveTodos((frame.value ?? null) as CapsuleTodo[] | null);
     }
-  }), [sessionId, subscribeMux]);
+  }), [sessionId, subscribeControl]);
 
   // 子智能体目录：subagent.list 是拉取式 RPC，挂载 + 展开时刷，运行中低频轮询
   const loadChildren = useCallback(() => {
@@ -118,7 +117,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   const interrupt = async (childId: string) => {
     setBusy(true);
     try {
-      await api.subagentInterrupt({ parentSessionId: sessionId, childSessionId: childId, mode: "continuable" });
+      await api.subagentInterrupt({ parentSessionId: sessionId, childSessionId: childId });
       loadChildren();
     } catch { /* 引擎忙或不可中断：行上状态点反映实况 */ }
     setBusy(false);

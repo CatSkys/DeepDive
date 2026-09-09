@@ -251,18 +251,46 @@ export function formatMonthLabel(key: string, lang: Lang): string {
 const HISTORY_PAGE = 500;
 const FETCH_POOL = 6;
 
-async function collectSessionEvents(sessionId: string): Promise<SessionEvent[]> {
-  const out: SessionEvent[] = [];
-  let atSeq: number | undefined;
-  for (;;) {
-    const page = await api.history({ sessionId, atSeq, maxMessages: HISTORY_PAGE });
-    out.push(...page.events.map((e) => e.event));
-    if (!page.hasMore || page.events.length === 0) break;
-    atSeq = page.events[0]!.event.seq;
-  }
-  // 翻页自尾向头，页间倒序；配对折叠依赖时序，统一按 seq 归位
-  out.sort((a, b) => a.seq - b.seq);
-  return out;
+function collectSessionEvents(sessionId: string): Promise<SessionEvent[]> {
+  return new Promise<SessionEvent[]>((resolve, reject) => {
+    const out: SessionEvent[] = [];
+    let throughSeq: number | undefined;
+    let earliest: number | undefined;
+    // 0.1.2：冷读走 session/follow 开窗快照（带 cursor），向前翻页走
+    // session/page（throughSeq 必须取自开窗帧）；读完即关流。
+    const close = api.followSession(
+      { kind: "session", sessionId },
+      {
+        onSnapshot: (s) => {
+          throughSeq = s.cursor;
+          out.push(...s.entries.map((e) => e.event));
+          earliest = s.entries[0]?.event.seq;
+          if (!s.hasMore) { close(); resolve(out); }
+        },
+        onEvent: () => { /* 统计只读历史：直播增量忽略 */ },
+      },
+      HISTORY_PAGE,
+    );
+    const pullOlder = async () => {
+      if (throughSeq === undefined || earliest === undefined) return;
+      for (;;) {
+        const page = await api.page({ address: { kind: "session", sessionId }, throughSeq, beforeSeq: earliest, maxMessages: HISTORY_PAGE });
+        out.push(...page.entries.map((e) => e.event));
+        if (!page.hasMore || page.entries.length === 0) break;
+        earliest = page.entries[0]!.event.seq;
+      }
+      close();
+      resolve(out);
+    };
+    // 开窗后驱动翻页；快照即全量时 onSnapshot 已 resolve，这里的 pull 是空转
+    void pullOlder().catch(reject);
+    // 兜底：引擎长时间不开窗（重启/断连），调用方按失败处理
+    window.setTimeout(() => reject(new Error("session/follow snapshot timeout")), 8000);
+  }).then((events) => {
+    // 翻页自尾向头，页间倒序；配对折叠依赖时序，统一按 seq 归位
+    events.sort((a, b) => a.seq - b.seq);
+    return events;
+  });
 }
 
 /** 拉全部顶级会话（子会话 usage 折进父会话会重复计——origin=subagent 不取；

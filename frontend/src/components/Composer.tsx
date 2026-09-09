@@ -116,11 +116,11 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       const create = await store.createSession();
       if (!create) { setBusy(false); return; }
       try {
-        await api.prompt({ sessionId: create, mode, content });
+        await api.prompt({ requestId: crypto.randomUUID(), sessionId: create, mode, content });
       } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
     } else {
       try {
-        await api.prompt({ sessionId, mode, content });
+        await api.prompt({ requestId: crypto.randomUUID(), sessionId, mode, content });
       } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
     }
     setText("");

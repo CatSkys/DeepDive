@@ -221,6 +221,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               aria-label={t("退出计划模式")}
               onClick={() => {
                 api.prompt({
+                  requestId: crypto.randomUUID(),
                   sessionId,
                   mode: "queue",
                   content: [{ type: "text", text: "/plan off" }],
@@ -314,7 +315,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           onBranch={branchFrom}
                           sessionId={sessionId}
                           onContinue={() => {
-                            void api.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
+                            void api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
                           }}
                         />
                       </div>
@@ -326,15 +327,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             return nodes;
           })()}
           {pending.map((a) => (
-            <ApprovalCard key={a.approvalId} approvalId={a.approvalId} rpcId={a.rpcId} sessionId={sessionId} toolName={a.toolName} reason={a.reason} />
+            <ApprovalCard key={a.eventId} eventId={a.eventId} toolName={a.toolName} reason={a.reason} />
           ))}
           {sessionQuestions.map((q) => {
             // plan-review 提意 → 决策卡接管；其余保持通用提问流（官方分流规则）
             const review = planReviewOf(q.questions);
             if (review) {
-              return <PlanReviewCard key={q.rpcId} rpcId={q.rpcId} sessionId={sessionId} review={review} />;
+              return <PlanReviewCard key={q.eventId} eventId={q.eventId} review={review} />;
             }
-            return <QuestionCard key={q.rpcId} rpcId={q.rpcId} sessionId={sessionId} questions={q.questions} />;
+            return <QuestionCard key={q.eventId} eventId={q.eventId} questions={q.questions} />;
           })}
           {running && <LoadingState label="Deep diving..." since={runningSince} />}
         </div>

@@ -21,7 +21,7 @@ export interface PiProviderProfile {
   baseURL?: string;
   models?: ModelProfile[];
 }
-export interface ProviderInfo { provider: string; displayName: string; settingsNs: string; active: boolean; /** 引擎声明目录（内置 route）＝不可组级删除。 */ declared?: boolean }
+export interface ProviderInfo { provider: string; displayName: string; settingsNs: string; settingsPath?: string[]; active: boolean; /** 用户在 llm-pi-ai 落盘过 profile 的自定义提供方＝可组级删除。 */ declared?: boolean }
 
 export interface DeepseekNs { apiKeyEnv: string; models: ModelProfile[] }
 export interface PiNs { providers: Record<string, PiProviderProfile> }
@@ -128,7 +128,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
         settingsNs: "llm-pi-ai",
         ...(isNewProvider ? { baseURL, api: apiProto } : { provider: providerId }),
       });
-      setDiscovered((r.models ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow })));
+      setDiscovered((r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow })));
     } catch (err) {
       setError(tt("发现模型失败：{m}", "Model discovery failed: {m}", { m: (err as Error).message }));
     }
@@ -163,7 +163,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
             ...(isNewProvider ? { baseURL, api: apiProto } : { provider: pid }),
             ...(key.trim() ? { apiKey: key.trim() } : {}),
           });
-          effectiveDiscovered = (r.models ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow }));
+          effectiveDiscovered = (r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow }));
           setDiscovered(effectiveDiscovered);
         } catch (err) {
           setError(tt("自动发现模型失败：{m}", "Auto-discovery failed: {m}", { m: (err as Error).message }));

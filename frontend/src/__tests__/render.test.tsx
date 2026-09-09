@@ -19,15 +19,20 @@ beforeAll(() => {
 });
 
 // ArchivedSection 走真实 StoreProvider（store boot 的 api 调用一并 mock：
-// store 消费 workspaces/sessions/openMux/createSession/workspaceCreate）
+// store 消费 sessions/agentPresets/openWorkspaces/openControl/onEvents/
+// createSession/workspaceCreate——流式面以一次性基线帧驱动）
 vi.mock("../api", () => ({
   api: {
-    workspaces: vi.fn(async () => ({ items: [], archivedSessionIds: ["s-archive"] })),
     sessions: vi.fn(async () => ({
       items: [{ sessionId: "s-archive", updatedAt: 1726000000000, running: false, blank: false }],
     })),
     agentPresets: vi.fn(async () => ({ presets: [] })),
-    openMux: vi.fn(() => () => undefined),
+    openWorkspaces: vi.fn((onFrame: (f: unknown) => void) => {
+      onFrame({ type: "baseline", value: { items: [], archivedSessionIds: ["s-archive"] } });
+      return () => undefined;
+    }),
+    openControl: vi.fn(() => () => undefined),
+    onEvents: vi.fn(() => () => undefined),
     createSession: vi.fn(async () => ({ sessionId: "s-new" })),
     workspaceCreate: vi.fn(async () => ({ workspace: { workspaceId: "w1" }, created: true })),
   },
@@ -72,11 +77,11 @@ describe("ArchivedSection（AUD-012 回归钉）", () => {
     await waitFor(() => {
       expect(screen.getByText(/^(任务|Task) s-arch$/)).toBeTruthy();
     });
-    const callsAfterFirstPaint = vi.mocked(api.workspaces).mock.calls.length;
+    const callsAfterFirstPaint = vi.mocked(api.sessions).mock.calls.length;
     expect(callsAfterFirstPaint).toBeGreaterThanOrEqual(1);
     // 稳定后不再有新增拉取（旧 [t] 每渲染新闭包 → 无限 fetch 循环）
     await new Promise((r) => setTimeout(r, 50));
-    expect(vi.mocked(api.workspaces).mock.calls.length).toBe(callsAfterFirstPaint);
+    expect(vi.mocked(api.sessions).mock.calls.length).toBe(callsAfterFirstPaint);
   });
 });
 

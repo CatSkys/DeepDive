@@ -19,7 +19,7 @@ const BUILTIN_PRESET_NAMES: Record<string, { zh: string; en: string }> = {
 
 function presetName(preset: AgentPreset): string {
   const builtin = preset.trust === "system" ? BUILTIN_PRESET_NAMES[preset.id] : undefined;
-  return builtin ? tt(builtin.zh, builtin.en) : preset.name;
+  return builtin ? tt(builtin.zh, builtin.en) : preset.name ?? preset.id;
 }
 
 export function AgentModePicker() {

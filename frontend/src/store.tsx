@@ -1,17 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./api";
+import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import type { AgentPreset } from "./api";
 import { usePrefs } from "./prefs";
 import type { KeybindOverrides } from "./keybinds";
-import type { ApprovalRequestFrame, MuxFrame, QuestionItem, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
+import type { ApprovalPending, QuestionItem, QuestionPending, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
 
-// Minimal store: engine lists + the live mux stream. Per-session event log is
-// owned by SessionView; the global store keeps list/stream state and relays
-// mux frames to subscribers.
+// Minimal store: engine lists + the live event stream (0.1.2: $events 转发流 +
+// session/control + workspace/follow，全部复用 mux.ts 的单条 remote.mux 连接)。
+// Per-session event log is owned by SessionView（自开 session/follow 流）；
+// the global store keeps list/stream state and relays control frames to
+// subscribers.
 
-type MuxHandler = (frame: MuxFrame) => void;
+type ControlHandler = (frame: ControlFrame) => void;
 
-/** sessionId → workspaceId 归属表。workspace.list.sessionIds 为准；不在任何
+/** sessionId → workspaceId 归属表。workspace follow 的 sessionIds 为准；不在任何
  *  空间的会话（引擎未回填的老会话）按 cwd 与空间路径的最长前缀匹配归位；
  *  仍无主 → 第一个空间。无工作空间面时返回空表（全部视为"当前空间"）。 */
 function buildWsMap(workspaces: WorkspaceView[], sessions: SessionSummary[]): Map<string, string> {
@@ -35,24 +37,18 @@ function buildWsMap(workspaces: WorkspaceView[], sessions: SessionSummary[]): Ma
   return m;
 }
 
-/** One pending ask_user_question request; rpcId comes from the server-request
- *  envelope and must be echoed back verbatim in the answer. */
-export interface PendingQuestion {
-  rpcId: string;
-  sessionId: string;
-  questions: QuestionItem[];
-}
-
 interface Store {
   workspaces: WorkspaceView[];
+  /** 归档会话全集（workspace follow 的 archivedSessionIds；归档唯一事实源）。 */
+  archived: Set<string>;
   /** 当前工作空间（侧栏内容 = 新会话落点）；null = 未解析（引擎无 workspace
    *  面或首拉未回）。持久化 key：dsh.workspace（§2.1 记住最后使用的空间）。 */
   activeWorkspaceId: string | null;
-  /** sessionId → workspaceId 归属表（workspace.list.sessionIds 摊平）。
+  /** sessionId → workspaceId 归属表（workspace follow 的 sessionIds 摊平）。
    *  无工作空间面时为空表，此时全部会话视为"当前空间"。 */
   wsOfSession: Map<string, string>;
   sessions: SessionSummary[];
-  /** 引擎 Agent 会话预设（agentPreset.list 一次性拉取；失败为空 = 隐藏入口）。 */
+  /** 引擎 Agent 会话预设（agentPresets/list 一次性拉取；失败为空 = 隐藏入口）。 */
   presets: AgentPreset[];
   /** hero 页选中的会话模式；createSession 未显式传参时作为 agentPreset。 */
   heroPreset: string | undefined;
@@ -61,11 +57,11 @@ interface Store {
   /** 曾成功连上引擎。启动期引擎未起不算断线——横幅只在「掉过线」时出现。 */
   everConnected: boolean;
   activeSessionId: string | null;
-  approvals: Map<string, ApprovalRequestFrame & { sessionId: string; rpcId?: string }>;
-  questions: Map<string, PendingQuestion>;
-  /** 各会话的排队消息（session/queue 帧，全量 items）。 */
+  approvals: Map<string, ApprovalPending>;
+  questions: Map<string, QuestionPending>;
+  /** 各会话的排队消息（session/control 帧，全量 items）。 */
   queues: Map<string, SessionQueuedItem[]>;
-  /** 各会话的后台任务快照（session/jobs 帧，5.3）。 */
+  /** 各会话的后台任务快照（session/control 帧，5.3）。 */
   jobsBySession: Map<string, import("./types").JobView[]>;
   openSession: (id: string | null) => void;
   /** 切换工作空间：持久化 + 主区跟随——目标空间最近的一个会话（sessions 已按
@@ -73,7 +69,7 @@ interface Store {
    *  opts.keepDraft：切完留在草稿页（hero 项目菜单用——继续写新会话，不跳进
    *  目标空间的历史会话）。 */
   switchWorkspace: (id: string, opts?: { keepDraft?: boolean }) => void;
-  /** 新建（注册）工作空间：目录选择器回传的绝对路径 → workspace.create，
+  /** 新建（注册）工作空间：目录选择器回传的绝对路径 → workspace/create，
    *  成功后刷新列表并切入该空间。失败经 error 带出，弹窗归调用方（词典键
    *  「添加工作空间失败：{m}」），store 自身不碰 UI 文案。 */
   createWorkspace: (path: string) => Promise<{ workspaceId: string | null; error?: string }>;
@@ -85,8 +81,8 @@ interface Store {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   /** 侧栏宽（px，200–320，token sidebarMin/Max）。初始值经壳 prefs 推送
-   * （NSUserDefaults 持久化，跨重启保留——localStorage 会因端口轮换丢），
-   * 拖拽中由 Sidebar 直接写 CSS 变量，落点才回写这里。 */
+   *  （NSUserDefaults 持久化，跨重启保留——localStorage 会因端口轮换丢），
+   *  拖拽中由 Sidebar 直接写 CSS 变量，落点才回写这里。 */
   sidebarWidth: number;
   setSidebarWidth: (w: number) => void;
   /** 界面语言（壳偏好持久化；默认中文）。 */
@@ -109,7 +105,9 @@ interface Store {
   markUnread: (id: string) => void;
   clearUnread: (id: string) => void;
   refresh: () => Promise<void>;
-  subscribeMux: (handler: MuxHandler) => () => void;
+  /** 订阅 session/control 帧（投影实时整值——goal/plan 等；队列/任务已由
+   *  store 自身消费，订阅方收到的是同一帧流）。 */
+  subscribeControl: (handler: ControlHandler) => () => void;
 }
 
 const Ctx = createContext<Store>(null as unknown as Store);
@@ -117,6 +115,7 @@ export const useStore = () => useContext(Ctx);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [workspaces, setWorkspaces] = useState<WorkspaceView[]>([]);
+  const [archived, setArchived] = useState<Set<string>>(new Set());
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [presets, setPresets] = useState<AgentPreset[]>([]);
@@ -124,11 +123,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [engineUp, setEngineUp] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [approvals, setApprovals] = useState<Map<string, ApprovalRequestFrame & { sessionId: string; rpcId?: string }>>(new Map());
-  const [questions, setQuestions] = useState<Map<string, PendingQuestion>>(new Map());
+  const [approvals, setApprovals] = useState<Map<string, ApprovalPending>>(new Map());
+  const [questions, setQuestions] = useState<Map<string, QuestionPending>>(new Map());
   const [queues, setQueues] = useState<Map<string, SessionQueuedItem[]>>(new Map());
   const [jobsBySession, setJobsBySession] = useState<Map<string, import("./types").JobView[]>>(new Map());
-  const [muxHandlers] = useState<Set<MuxHandler>>(new Set());
+  const [controlHandlers] = useState<Set<ControlHandler>>(new Set());
   // 响应式侧栏：窄窗口自动收起，手动开合在同断点内优先；跨越断点时重置。
   const [sidebarOverride, setSidebarOverride] = useState<boolean | null>(null);
   const [narrowViewport, setNarrowViewport] = useState(
@@ -196,7 +195,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // ── 工作空间状态 ──
   // ref 镜像：refresh 的轮询闭包只捕获首帧，同步读写必须走 ref（同 activeIdRef
-  // 手法）；归属表摊平自 workspace.list.sessionIds。
+  // 手法）；归属表摊平自 workspace follow 的 sessionIds。
   const workspacesRef = useRef(workspaces);
   workspacesRef.current = workspaces;
   const sessionsRef = useRef(sessions);
@@ -212,12 +211,55 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setActiveWorkspaceId(id);
   };
 
-  // workspace.list 的 archivedSessionIds 是归档的唯一事实源。缓存最近一次
-  // 成功结果：forceRefresh（点 + / 流式事件节流刷新）和 workspace 请求失败
-  // 的降级路径都必须继续过滤归档——否则已归档会话（含用户报告的"不知名
-  // 会话"）会在这些路径里整批涌回列表，直到下一次成功的全量刷新才消失，
-  // 表现为侧栏/会话池的归档会话周期性闪现。
+  // workspace follow 的 archivedSessionIds 是归档的唯一事实源（基线+增量全量
+  // 集）；缓存供会话列表过滤——流断档期间也继续过滤，已归档会话才不会在
+  // 轮询路径整批涌回列表（2026-09 用户报告的周期性闪现即此因）。
   const archivedRef = useRef<Set<string>>(new Set());
+  const syncArchived = (ids: string[]) => {
+    const next = new Set(ids);
+    archivedRef.current = next;
+    setArchived(next);
+  };
+  // 工作空间解析（持久化的"最后使用空间"已不存在则回退第一个空间）只在
+  // 尚未解析时执行一次，流增量不覆盖用户的即时切换。
+  const resolveActiveWs = (items: WorkspaceView[]) => {
+    if (activeWsRef.current || items.length === 0) return;
+    let stored: string | null = null;
+    try { stored = JSON.parse(localStorage.getItem("deepdive.workspace") ?? "null"); } catch { /* corrupt */ }
+    const resolved = (items.find((w) => w.workspaceId === stored) ?? items[0])?.workspaceId ?? null;
+    if (resolved) {
+      activeWsRef.current = resolved;
+      setActiveWorkspaceId(resolved);
+    }
+  };
+  useEffect(() => {
+    return api.openWorkspaces((frame: WorkspaceFollowFrame) => {
+      if (frame.type === "baseline") {
+        workspacesRef.current = frame.value.items;
+        setWorkspaces(frame.value.items);
+        syncArchived(frame.value.archivedSessionIds ?? []);
+        resolveActiveWs(frame.value.items);
+        return;
+      }
+      const items = workspacesRef.current;
+      if (frame.type === "upsert") {
+        const next = items.filter((w) => w.workspaceId !== frame.workspace.workspaceId).concat(frame.workspace);
+        workspacesRef.current = next;
+        setWorkspaces(next);
+      } else if (frame.type === "remove") {
+        const next = items.filter((w) => w.workspaceId !== frame.workspaceId);
+        workspacesRef.current = next;
+        setWorkspaces(next);
+      } else if (frame.type === "order") {
+        const byId = new Map(items.map((w) => [w.workspaceId, w]));
+        const next = frame.workspaceIds.map((id) => byId.get(id)).filter((w): w is WorkspaceView => w !== undefined);
+        workspacesRef.current = next;
+        setWorkspaces(next);
+      } else if (frame.type === "archived") {
+        syncArchived(frame.archivedSessionIds ?? []);
+      }
+    });
+  }, []);
 
   const forceRefreshSessions = async () => {
     try {
@@ -229,21 +271,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .sort((a, b) => b.updatedAt - a.updatedAt),
       );
     } catch { /* engine restarting; ignore */ }
-    // 同步刷归属表：新会话的 workspace 归属由引擎写回，不刷的话刚建的会话
-    // 要等 3s 轮询才归入正确的空间（切空间后列表才见它）。
-    try {
-      const ws = await api.workspaces();
-      workspacesRef.current = ws.items ?? [];
-      setWorkspaces(workspacesRef.current);
-    } catch { /* keep previous mapping */ }
   };
   const forceRefreshSessionsRef = useRef(forceRefreshSessions);
   forceRefreshSessionsRef.current = forceRefreshSessions;
 
-  // session/event arrives once per streaming frame (every text delta); a full
-  // session.list per frame hammers the engine and re-renders the whole tree.
-  // Leading edge fires immediately (turn/start must flip the Stop button fast),
-  // then coalesces to at most one refresh per 500ms while events keep flowing.
+  // $events 的会话活动通知每条都到；一次全量 session/list 刷新会敲引擎并整树
+  // 重渲染。前沿立即触发（turn 起止要快翻 Stop 按钮），随后在事件持续期间
+  // 合并为至多每 500ms 一次。
   const refreshGate = useRef<{ last: number; timer: ReturnType<typeof setTimeout> | null }>({ last: 0, timer: null });
   const throttledRefreshSessions = () => {
     const gate = refreshGate.current;
@@ -259,28 +293,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // 轮询签名：数据没变就不 setState，避免每 3s 一次的全树重渲染
   // （长会话 + 侧栏百余行的场景下这是周期性卡顿的来源）。
   const sessionsSigRef = useRef("");
-  const wsSigRef = useRef("");
 
   const refresh = async () => {
-    // workspace.list 面是活的（点号形式，PITFALLS 4.6），且它的
-    // archivedSessionIds 是归档的唯一事实源——session.list 不区分已归档，
-    // 由客户端过滤。workspace 失败独立降级（用缓存归档集），绝不拖垮会话列表。
-    let archived = archivedRef.current;
-    let wsItems: WorkspaceView[] = workspacesRef.current;
-    try {
-      const ws = await api.workspaces();
-      wsItems = ws.items ?? [];
-      const wsSig = wsItems.map((w) => `${w.workspaceId}:${w.title}:${(w.sessionIds ?? []).length}`).join("|");
-      if (wsSig !== wsSigRef.current) {
-        wsSigRef.current = wsSig;
-        workspacesRef.current = wsItems;
-        setWorkspaces(wsItems);
-      }
-      archived = new Set(ws.archivedSessionIds ?? []);
-      archivedRef.current = archived;
-    } catch { /* workspace face absent on this engine; keep cached archive set */ }
+    // session/list 轮询负责列表元数据与投影（workspace 面由 follow 流驱动，
+    // 不在轮询里重复拉）；归档过滤用流缓存的 archived 集。
     try {
       const ss = await api.sessions();
+      const archived = archivedRef.current;
       const sorted = ss.items
         .filter((s) => !archived.has(s.sessionId))
         .sort((a, b) => b.updatedAt - a.updatedAt);
@@ -293,29 +312,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       setEngineUp(true);
       setEverConnected(true);
-      // 工作空间解析：持久化的"最后使用空间"已不存在则回退第一个空间；
-      // 只在尚未解析时执行一次，之后轮询不覆盖用户的即时切换。
-      if (!activeWsRef.current && wsItems.length > 0) {
-        let stored: string | null = null;
-        try { stored = JSON.parse(localStorage.getItem("deepdive.workspace") ?? "null"); } catch { /* corrupt */ }
-        const resolved = (wsItems.find((w) => w.workspaceId === stored) ?? wsItems[0])?.workspaceId ?? null;
-        if (resolved) {
-          activeWsRef.current = resolved;
-          setActiveWorkspaceId(resolved);
-        }
-      }
+      resolveActiveWs(workspacesRef.current);
       // 会话→空间归属：用本 tick 的数据现算（wsOfSession 的 memo 镜像要等
       // 重渲染才更新，boot 策略等不得），并同步回 ref 供即时读取。
-      const wsMap = buildWsMap(wsItems, sorted);
+      const wsMap = buildWsMap(workspacesRef.current, sorted);
       wsOfRef.current = wsMap;
-      const widOf = (sid: string) =>
-        wsItems.length === 0 ? undefined : (wsMap.get(sid) ?? wsItems[0].workspaceId);
       // 深链：?sid=… 打开指定会话（Playwright 验证 / 通知落地备用路径）。
       // 只消费一次——导航成功即从地址栏剥掉参数，否则用户此后每次回到草稿页
       // （active=null）都会被 3s 轮询按残留参数拉回这个旧会话。
       const sid = new URLSearchParams(location.search).get("sid");
       if (sid && sorted.some((x) => x.sessionId === sid)) {
-        const wid = widOf(sid);
+        const wid = wsMap.get(sid) ?? workspacesRef.current[0]?.workspaceId;
         if (wid && wid !== activeWsRef.current) persistActiveWs(wid);
         if (!activeIdRef.current) {
           history.replaceState(null, "", location.pathname);
@@ -348,52 +355,70 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // $events 转发流（0.1.2）：emit 通知 + 审批/提问 waterfall + 取消。
   useEffect(() => {
-    const close = api.openMux(
-      (frame: MuxFrame, rpcId?: string) => {
-        if (frame.type === "session/event") {
+    return api.onEvents({
+      onEmit: (event, args) => {
+        if (event === "api-session/activity" || event === "api-session/status"
+          || event === "api-session/added" || event === "api-session/removed" || event === "api-session/error") {
           // 非当前会话的新动态 → 未读（当前会话正在看，不打点）。
-          const sid = (frame as { sessionId?: string }).sessionId;
-          if (sid && sid !== activeIdRef.current) markUnread(sid);
+          const sid = typeof args[0] === "string" ? args[0] : undefined;
+          if (sid && sid !== activeIdRef.current && event !== "api-session/status") markUnread(sid);
           throttledRefreshSessions();
-        } else if (frame.type === "approval/requested") {
-          // rpcId（信封上）必须随帧保存：/api/respond 严格按它查 pending 表。
-          const a = frame as ApprovalRequestFrame;
-          setApprovals((prev) => new Map(prev).set(a.approvalId, { ...a, rpcId }));
-        } else if (frame.type === "approval/resolved") {
-          setApprovals((prev) => {
-            const next = new Map(prev);
-            next.delete((frame as { approvalId: string }).approvalId);
-            return next;
-          });
-        } else if (frame.type === "session/queue") {
-          // 排队消息全量快照（engine 每次变化广播）。
-          const q = frame as { sessionId: string; items?: SessionQueuedItem[] };
-          setQueues((prev) => new Map(prev).set(q.sessionId, q.items ?? []));
-        } else if (frame.type === "session/jobs") {
-          // 后台任务全量快照（5.3；registry 每次变化广播）。
-          const j = frame as { sessionId: string; jobs?: import("./types").JobView[] };
-          setJobsBySession((prev) => new Map(prev).set(j.sessionId, j.jobs ?? []));
-        } else if (frame.type === "question/requested") {
-          if (rpcId) {
-            const q = frame as { sessionId: string; questions: QuestionItem[] };
-            setQuestions((prev) => new Map(prev).set(rpcId, { rpcId, sessionId: q.sessionId, questions: q.questions }));
-          }
-        } else if (frame.type === "question/resolved") {
-          const rid = (frame as { questionRpcId?: string }).questionRpcId;
-          if (rid) {
-            setQuestions((prev) => {
-              const next = new Map(prev);
-              next.delete(rid);
-              return next;
-            });
-          }
         }
-        for (const h of muxHandlers) h(frame);
       },
-      () => void 0
-    );
-    return close;
+      onWaterfall: (frame) => {
+        if (frame.event === "approval/request") {
+          const request = frame.request as { toolName?: string; callId?: string; reason?: string };
+          setApprovals((prev) => new Map(prev).set(frame.eventId, {
+            eventId: frame.eventId,
+            sessionId: frame.agentId,
+            toolName: request.toolName ?? "工具调用",
+            ...(request.callId === undefined ? {} : { callId: request.callId }),
+            ...(request.reason === undefined ? {} : { reason: request.reason }),
+          }));
+        } else if (frame.event === "user-questions/request") {
+          const request = frame.request as { questions?: QuestionItem[] };
+          setQuestions((prev) => new Map(prev).set(frame.eventId, {
+            eventId: frame.eventId,
+            sessionId: frame.agentId,
+            questions: request.questions ?? [],
+          }));
+        }
+      },
+      onCancel: (eventId) => {
+        // 引擎侧撤销挂起交互：按 eventId 配对移除（审批/提问共用）。
+        setApprovals((prev) => {
+          if (!prev.has(eventId)) return prev;
+          const next = new Map(prev);
+          next.delete(eventId);
+          return next;
+        });
+        setQuestions((prev) => {
+          if (!prev.has(eventId)) return prev;
+          const next = new Map(prev);
+          next.delete(eventId);
+          return next;
+        });
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // session/control 流（0.1.2）：全 host 队列/后台任务/投影的实时面（基线
+  // + 逐会话增量，每代先全量后增量）。
+  useEffect(() => {
+    return api.openControl((frame: ControlFrame) => {
+      if (frame.type === "baseline") {
+        setQueues(new Map(Object.entries(frame.value.queues ?? {})));
+        setJobsBySession(new Map(Object.entries(frame.value.jobs ?? {})));
+      } else if (frame.type === "queue") {
+        setQueues((prev) => new Map(prev).set(frame.sessionId, frame.items ?? []));
+      } else if (frame.type === "jobs") {
+        setJobsBySession((prev) => new Map(prev).set(frame.sessionId, frame.jobs ?? []));
+      }
+      for (const h of controlHandlers) h(frame);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -409,8 +434,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // 切换工作空间：持久化 + 主区跟随——目标空间最近的一个会话（sessions 已按
   // updatedAt 降序，blank 也算：渲染即欢迎页头）；空空间 → hero（id=null）。
-  // keepDraft：切完留在草稿页（hero 项目菜单用——继续写新会话，不跳进目标
-  // 空间的历史会话）。
+  // keepDraft：切完留在草稿页（hero 项目菜单用——继续写新会话，不跳进
+  // 目标空间的历史会话）。
   const switchWorkspace = useCallback((id: string, opts?: { keepDraft?: boolean }) => {
     if (id === activeWsRef.current) return;
     persistActiveWs(id);
@@ -456,8 +481,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // 注册（新建）工作空间：workspace.create 对已有目录幂等（created:false
-  // 表示本就注册过）。刷新归属表后切入新空间——空空间落欢迎页。
+  // 注册（新建）工作空间：workspace/create 对已有目录幂等（created:false
+  // 表示本就注册过）。follow 流会推送 upsert 增量，这里只负责切入新空间。
   // 失败经 error 字段带出（store 不做 UI 呈现，也不 import i18n——那会重建
   // i18n→store 的环）；弹窗由调用方（App/Sidebar/ProjectMenu）用词典负责。
   const createWorkspace = useCallback(async (path: string): Promise<{ workspaceId: string | null; error?: string }> => {
@@ -475,6 +500,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<Store>(
     () => ({
       workspaces,
+      archived,
       activeWorkspaceId,
       wsOfSession,
       sessions,
@@ -513,9 +539,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       togglePin,
       markUnread,
       clearUnread,
-      subscribeMux: (h) => {
-        muxHandlers.add(h);
-        return () => muxHandlers.delete(h);
+      subscribeControl: (h) => {
+        controlHandlers.add(h);
+        return () => controlHandlers.delete(h);
       },
     }),
     // AUD-027 约定：refresh/createSession 是渲染期函数（全部可变量经 ref 读取），
@@ -524,7 +550,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, muxHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

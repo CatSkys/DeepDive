@@ -2,7 +2,7 @@
 // 上下文、轮终收尾与 schedule/todo 等纯折叠。从 SessionView.tsx 整体搬迁（R-007）；
 // ingest 单函数（228 行）为存量原样保留。不含 React，vitest 直接钉行为。
 import type {
-  AssistantMessageData, HistoryEntryView, StreamChunk, ToolCallData, ToolResultData,
+  AssistantMessageData, FileDiff, StreamChunk, ToolCallData, ToolResultData,
   SessionEvent, UserMessageData,
 } from "../types";
 import { narrowDiffs } from "../diffModel";
@@ -115,6 +115,46 @@ function toolArgsString(argumentsField: unknown): string {
   try { return JSON.stringify(argumentsField, null, 2); } catch { return String(argumentsField); }
 }
 
+/// 变更类工具的 call 侧 pending diff：从调用参数推导（官方 presentCall 同款；
+/// 0.1.2 起 wire 不再携带预计算 view）。参数名对照 vendored 源码——
+/// tool-fs write{file_path,content} / edit{file_path,old_string,new_string}、
+/// str_replace_editor{command,path,file_text|old_str,new_str}。
+export function deriveCallDiffs(toolName: string, args: string): FileDiff[] | null {
+  let parsed: Record<string, unknown> | undefined;
+  try {
+    const p = JSON.parse(args);
+    if (p && typeof p === "object" && !Array.isArray(p)) parsed = p as Record<string, unknown>;
+  } catch { return null; /* 非 JSON 参数不推导 */ }
+  if (!parsed) return null;
+  const str = (k: string) => (typeof parsed![k] === "string" ? parsed![k] as string : undefined);
+  if (toolName === "write" || toolName === "file_write") {
+    const path = str("file_path") ?? str("path");
+    const text = str("content") ?? str("file_text");
+    return path && text !== undefined ? [{ path, oldText: null, newText: text }] : null;
+  }
+  if (toolName === "edit") {
+    const path = str("file_path") ?? str("path");
+    const oldText = str("old_string");
+    const newText = str("new_string");
+    return path && oldText !== undefined && newText !== undefined ? [{ path, oldText, newText }] : null;
+  }
+  if (toolName === "str_replace_editor") {
+    const path = str("path") ?? str("file_path");
+    if (!path) return null;
+    const command = str("command");
+    if (command === "create") {
+      const text = str("file_text");
+      return text !== undefined ? [{ path, oldText: null, newText: text }] : null;
+    }
+    if (command === "str_replace") {
+      const oldText = str("old_str");
+      const newText = str("new_str");
+      return oldText !== undefined && newText !== undefined ? [{ path, oldText, newText }] : null;
+    }
+  }
+  return null;
+}
+
 /// Pull the output text + failure + path from a tool/result payload (typed).
 export function extractToolResult(data: ToolResultData): { callId?: string; output: string; failed: boolean; path?: string } {
   const msg = data.message;
@@ -180,7 +220,7 @@ export function makeIngestCtx(): IngestCtx {
   return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map(), currentTurn: undefined };
 }
 
-export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string; view?: HistoryEntryView }, ctx: IngestCtx) {
+export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
   const ev = entry.event;
   const base = { key: `${ev.seq}:${ev.type}`, event: ev, time: ev.time };
   // `ev.data` is a union of every event payload (the trailing catch-all is
@@ -279,10 +319,9 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         });
         if (callId) ctx.callIndex.set(callId, idx);
       }
-      // call 侧 diff 视图：引擎从 arguments 预推导的 pending 态变更
-      const pendingDiffs = entry.view?.for === "call" && entry.view.view.card === "diff"
-        ? narrowDiffs(entry.view.view.diffs)
-        : null;
+      // call 侧 diff：从调用参数推导（0.1.2 引擎不再预计算下发，官方
+      // presentCall 同款——write/edit/str_replace_editor 三族的具名参数）。
+      const pendingDiffs = deriveCallDiffs(d.name ?? "tool", args);
       if (pendingDiffs && prev !== undefined) out[prev].diffs = pendingDiffs;
       const p = derivePath(d.name ?? "tool", args);
       if (callId && p) ctx.callPaths.set(callId, p);
@@ -294,9 +333,8 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       const callId = extracted.callId ?? "";
       ctx.outputs.set(callId, { output: extracted.output, failed: extracted.failed });
       const prevIdx = ctx.callIndex.get(callId);
-      // result 侧 diff 权威：事件 meta.diffs 优先，缺则用 history 视图槽位
-      const appliedDiffs = narrowDiffs(d.meta?.diffs)
-        ?? (entry.view?.for === "result" && entry.view.view.card === "diff" ? narrowDiffs(entry.view.view.diffs) : null);
+      // result 侧 diff 权威：事件 meta.diffs（tool-fs FsDiffMeta）
+      const appliedDiffs = narrowDiffs(d.meta?.diffs);
       if (prevIdx !== undefined) {
         const item = out[prevIdx];
         if (item) {

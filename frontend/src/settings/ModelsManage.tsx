@@ -56,7 +56,7 @@ export function ModelsManage() {
     if (!cat.ready) return;
     if (cat.loadError) { setGroups([]); return; }
     void (async () => {
-      const llm = await api.llmModels().catch(() => ({ groups: [] as Array<{ id: string; name: string; models: Array<{ id: string; name?: string; reasoning?: { efforts?: unknown[] } }> }> }));
+      const llm = await api.sessionModelCatalog().catch(() => ({ groups: [] as Array<{ id: string; name: string; models: Array<{ id: string; name?: string; reasoning?: { efforts?: unknown[] } }> }> }));
       const piVal = cat.pi.providers;
       const providerMap = new Map(cat.providers.map((p) => [p.provider, p]));
       const enrich = new Map<string, { contextWindow?: number; modalities?: string[] }>();
@@ -106,7 +106,7 @@ export function ModelsManage() {
         setTests((s0) => ({ ...s0, [key]: { state: ok ? "ok" : "fail", msg: ok ? t("密钥已配置") : t("未配置密钥") } }));
       } else {
         const r = await api.discoverModels({ settingsNs: "llm-pi-ai", provider: row.provider });
-        setTests((s0) => ({ ...s0, [key]: { state: "ok", msg: tt("连通 · {n} 个模型", "Connected · {n} models", { n: (r.models ?? []).length }) } }));
+        setTests((s0) => ({ ...s0, [key]: { state: "ok", msg: tt("连通 · {n} 个模型", "Connected · {n} models", { n: r.length }) } }));
       }
     } catch (err) {
       setTests((s0) => ({ ...s0, [key]: { state: "fail", msg: String((err as Error).message).slice(0, 140) } }));

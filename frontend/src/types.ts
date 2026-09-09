@@ -1,12 +1,17 @@
 /// <reference types="vite/client" />
 
-// ---------- wire contracts (rc.2 /api gateway, from dsh-client-connection) ----------
+// ---------- wire contracts (0.1.2 /api gateway，vendored packages/client/connection) ----------
 
 export interface RpcResult<T = unknown> {
   ok: boolean;
   value?: T;
   error?: { code?: string; message?: string };
 }
+
+/** 会话持久地址（session/follow、session/page 共用）：普通会话或 subagent 子址。 */
+export type SessionAddress =
+  | { kind: "session"; sessionId: string }
+  | { kind: "subagent"; parentSessionId: string; childSessionId: string; mode: "one-shot" | "continuable" };
 
 export interface SessionSummary {
   sessionId: string;
@@ -144,20 +149,23 @@ export type SessionEvent =
   | { type: "schedule/change"; seq: number; time: number; data: ScheduleChangeData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: string; seq: number; time: number; data: unknown; sourceEventSeqs?: number[]; surfaceOp?: unknown; ignorable?: boolean };
 
-/** mux 下行帧的投影推送（goal 等键的实时整值）。 */
-export interface ProjectionFrame {
-  type: "session/projection";
+/** mux 下行已随 0.1.2 改流化（api.ts ControlFrame/WorkspaceFollowFrame）；
+ *  审批/提问以 $events waterfall 帧到达，身份 = eventId（应答也用它）。 */
+
+/** 挂起审批（waterfall `approval/request`；request = {toolName, callId?, reason?}）。 */
+export interface ApprovalPending {
+  eventId: string;
   sessionId: string;
-  key: string;
-  value: unknown;
-  seq: number;
+  toolName: string;
+  callId?: string;
+  reason?: string;
 }
 
-/** mux 下行帧的后台任务快照（每次变化全量 jobs）。 */
-export interface JobsFrame {
-  type: "session/jobs";
+/** 挂起提问（waterfall `user-questions/request`；questions 首条带提问文本）。 */
+export interface QuestionPending {
+  eventId: string;
   sessionId: string;
-  jobs: JobView[];
+  questions: QuestionItem[];
 }
 
 /** 斜杠命令生命周期（docs/DSH-WIRE.md §3.5）；run/done 以 commandId 配对。 */
@@ -299,25 +307,9 @@ export interface TokenUsage {
   reasoningTokens?: number;
 }
 
-export interface ApprovalRequestFrame {
-  type: "approval/requested";
-  sessionId: string;
-  approvalId: string;
-  toolName: string;
-  callId?: string;
-  reason?: string;
-}
-
-export interface ApprovalResolvedFrame {
-  type: "approval/resolved";
-  sessionId: string;
-  approvalId: string;
-  outcome: "allowed-once" | "rejected" | "cancelled" | "unavailable";
-}
-
-/* ── 用户提问（ask_user_question）线路契约，对照 apiproxy 引擎源码 ──
-   question/requested 以 server-request 信封推送（rpcId 在信封上，应答时
-   必须原样回传）；value 走 /api/respond：{sessionId, answer:{answers}}。 */
+/* ── 用户提问（ask_user_question）线路契约 ──
+   0.1.2：以 $events waterfall（`user-questions/request`）推送，应答按 eventId
+   经 $events/result 回 {answers:[{id, selected, custom?}]}。 */
 
 export interface QuestionOption {
   label: string;
@@ -340,22 +332,9 @@ export interface QuestionAnswerItem {
   custom?: string;
 }
 
-export interface QuestionRequestedFrame {
-  type: "question/requested";
-  sessionId: string;
-  questions: QuestionItem[];
-}
-
-export interface QuestionResolvedFrame {
-  type: "question/resolved";
-  sessionId: string;
-  questionRpcId: string;
-  outcome: "answered" | "cancelled";
-}
-
-/* ── 排队消息（pending inbox）线路契约，对照引擎源码 ──
-   session/queue 帧由 events.mux 广播（每变化一次全量 items）；操作走
-   session.updateQueue unary：{sessionId, itemId, action}，action = edit
+/* ── 排队消息（pending inbox）线路契约 ──
+   0.1.2：队列快照走 session/control 流（每变化一次全量 items）；操作走
+   session/updateQueue unary：{sessionId, itemId, action}，action = edit
    （仅文本）/ remove / steer（=立即插队）。 */
 
 export interface SessionQueuedItem {
@@ -369,33 +348,14 @@ export interface SessionQueuedItem {
   };
 }
 
-export type MuxFrame =
-  | { type: "session/event"; sessionId: string; event: SessionEvent }
-  | { type: "session/subscribed"; sessionId: string; lastSeq: number }
-  | { type: "session/queue"; sessionId: string; items: SessionQueuedItem[] }
-  | ProjectionFrame
-  | JobsFrame
-  | ApprovalRequestFrame
-  | ApprovalResolvedFrame
-  | QuestionRequestedFrame
-  | QuestionResolvedFrame
-  | { type: string; [k: string]: unknown };
-
 /* ── session.prompt 的 content 分块（引擎 wire：文本在前、图像附件在后）── */
 
 export type PromptContentPart =
   | { type: "text"; text: string }
   | { type: "image"; mediaType: string; data: string; name?: string };
 
+/** 会话日志条目（0.1.2：wire 只有事件本身；工具呈现卡由客户端从调用参数
+ *  推导，不再有引擎预计算的 view 槽位）。 */
 export interface HistoryEntry {
   event: SessionEvent;
-  view?: HistoryEntryView;
-}
-
-/** 引擎在 history 条目上预计算的工具呈现卡（docs/DSH-WIRE.md §3.4）：
- *  `card:'diff'` 携带引擎从 arguments/结果推导的 FileDiff，call 侧即
- *  pending 态 diff，result 侧为已应用的权威 diff。 */
-export interface HistoryEntryView {
-  for: "call" | "result";
-  view: { card: string; diffs?: FileDiff[]; [k: string]: unknown };
 }

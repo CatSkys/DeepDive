@@ -12,7 +12,7 @@ import { ImportSection } from "../settings/ImportSection";
 import { UsageSection } from "../stats/UsageSection";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
-import { api, probeMethod } from "../api";
+import { api } from "../api";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "../keybinds";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
@@ -407,46 +407,30 @@ function HotkeysSection() {
 
 export function ArchivedSection() {
   const { t, tt, lang } = useT();
-  const store = useStore();
+  const { workspaces, archived } = useStore();
   const [groups, setGroups] = useState<ArchivedGroup[] | null>(null);
-  // 引擎能力闸：引脚引擎无 workspace.unarchiveSession 路由（probeMethod
-  // false），操作钮整排隐藏；引擎哪天带上该路由即自动亮出，不崩不灰。
-  const [unarchiveOk, setUnarchiveOk] = useState(false);
   const [query, setQuery] = useState("");
   const [project, setProject] = useState("");
 
+  // 归档全集与工作空间均来自 store 的 workspace follow 流；会话标题要一次
+  // session/list 投影，这里按需拉取（低频设置页，不值得进 store）。
   const load = useCallback(async () => {
-    const [ws, ss, unarchive] = await Promise.all([
-      api.workspaces(),
-      api.sessions(),
-      probeMethod("workspace.unarchiveSession"),
-    ]);
-    setUnarchiveOk(!!unarchive);
+    const ss = await api.sessions();
     setGroups(
       buildArchivedGroups(
-        ws.items ?? [],
+        workspaces,
         ss.items ?? [],
-        ws.archivedSessionIds ?? [],
+        [...archived],
         (s) => sessionTitle(s, lang),
         t("无项目"),
       ),
     );
     // t 经 useT 按 lang 缓存为稳定引用（i18n.ts tFuncCache），入表不会触发每渲染重跑
-  }, [t, lang]);
+  }, [t, lang, workspaces, archived]);
 
   useEffect(() => {
     void load().catch(() => setGroups([]));
   }, [load]);
-
-  const unarchive = async (sessionId: string) => {
-    try {
-      await api.workspaceUnarchiveSession({ sessionId });
-      await store.refresh();
-      await load();
-    } catch (err) {
-      void alertDialog({ message: tt("取消归档失败：{m}", "Unarchive failed: {m}", { m: (err as Error).message }) });
-    }
-  };
 
   const dateFmt = useMemo(
     () => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
@@ -501,15 +485,7 @@ export function ArchivedSection() {
                   <div className={rowsCss.archRowTitle}>{r.title}</div>
                   <div className={rowsCss.archRowTime}>{dateFmt.format(r.updatedAt)}</div>
                 </div>
-                {unarchiveOk && (
-                  <button
-                    type="button"
-                    className={rowsCss.archUnarchive}
-                    onClick={() => void unarchive(r.sessionId)}
-                  >
-                    {t("取消归档")}
-                  </button>
-                )}
+
               </div>
             ))}
           </div>
