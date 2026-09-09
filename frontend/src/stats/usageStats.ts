@@ -1,5 +1,5 @@
 // 使用统计数据层：引擎没有 usage RPC（UNARY_ROUTES 已核对，PITFALLS §4.6），
-// 用量从 session.list × session.history 的持久事件前端折叠而来。
+// 用量从 session/list × session/follow+page 的持久事件前端折叠而来。
 // 口径（与参考稿对齐的本地定义）：
 //   tokens = inputTokens + outputTokens（cacheRead/reasoning 引换单列，不计入）；
 //   轮次   = user/message（source.kind==="user"）条数；

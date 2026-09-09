@@ -15,7 +15,7 @@ import cssRows from "./SettingsRows.module.css";
 // 模型设置（折叠卡片式）：按提供方聚类的可折叠分组，模型行展示 Meta
 // （模态类型 / 推理 / 上下文窗口），增删改走 ModelDialog 弹窗。
 // 数据源：目录与密钥态走 useModelCatalog（与首启引导共用），本组件只用
-// llm.models 把它派生成「已保存模型」分组；删除语义按落点分流：目录条目
+// session/modelCatalog 把它派生成「已保存模型」分组；删除语义按落点分流：目录条目
 // 删条目；引擎声明目录行清提供方密钥。
 
 interface GroupModel {
@@ -50,7 +50,7 @@ export function ModelsManage() {
 
   useEffect(() => { void reload(); }, [reload]);
 
-  // 已保存模型分组 = llm.models（引擎实况）＋目录富化（contextWindow/模态）；
+  // 已保存模型分组 = session/modelCatalog（引擎实况）＋目录富化（contextWindow/模态）；
   // 目录态（providers/deepseek/pi）每次 reload 换新引用，随之重建。
   useEffect(() => {
     if (!cat.ready) return;

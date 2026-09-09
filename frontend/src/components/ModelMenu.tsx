@@ -9,7 +9,7 @@ export interface ModelOption {
   model: string;
   label: string;
   providerLabel: string;
-  /** 该模型的思考强度档位（session.models 元数据）；空 = 模型不支持调档 */
+  /** 该模型的思考强度档位（modelCatalog reasoning 元数据）；空 = 模型不支持调档 */
   efforts?: Array<{ id: string; name: string }>;
   defaultEffort?: string;
 }

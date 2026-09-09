@@ -31,7 +31,7 @@ export interface MenuRow {
 /** 旧式 parseToken 已由官方 activeAtToken grammar 取代（引号路径/空白触发）；
  *  斜杠触发保持整词行首/空白后判定，CJK 查询可过滤中文标签。
  *  /goal 特例：行首 "/goal [目标]" 整体保持斜杠上下文——菜单在输入目标时
- *  不消失，回车即客户端派发（goal.create）。 */
+ *  不消失，回车即客户端派发（goals/create）。 */
 function parseSlashToken(text: string): { query: string; start: number } | null {
   const match = /(^|\s)\/([\w\u4e00-\u9fff-]*)$/.exec(text);
   if (match) return { query: match[2].toLowerCase(), start: match.index + match[1].length };
@@ -41,7 +41,7 @@ function parseSlashToken(text: string): { query: string; start: number } | null 
 }
 
 // 命令菜单对齐 DSH 原生五命令（docs/DSH-WIRE.md §4，引擎无 commands.list，
-// 目录静态内置）。rc.2 浏览器面只有 /goal 可客户端派发（goal.create RPC）；
+// 目录静态内置）。0.1.2 浏览器面只有 /goal 可客户端派发（goals/create RPC）；
 // 其余命令执行走宿主 commands/execute 通道，rc.2 不可达（DSH-WIRE §6 三门
 // 实证）——行以禁用态呈现、点击明示原因，通道开放后在各自的 run 换真派发。
 const CMD_ICONS: Record<string, LucideIcon> = {

@@ -1,7 +1,7 @@
 // 静态斜杠命令目录：引擎无 commands.list RPC，目录按 docs/DSH-WIRE.md §4
 // 的引擎注册处静态内置（command-compact / command-goal / permission-presets /
 // plan-mode / command-feedback）；升引擎时对照该表复核。
-// 命令菜单直接渲染本目录：/goal 有客户端派发面（goal.create RPC）；其余命令
+// 命令菜单直接渲染本目录：/goal 有客户端派发面（goals/create RPC）；其余命令
 // 的执行走宿主 commands/execute 通道——rc.2 浏览器面不可达（DSH-WIRE §6 三门
 // 实证：不在 UNARY_ROUTES、session.prompt 直通模型），菜单里以禁用态呈现、
 // 点击明示，通道开放后在各自 run 换真派发。/export 在引擎侧存在但按范围

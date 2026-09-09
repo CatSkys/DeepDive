@@ -1,5 +1,5 @@
 // 模型目录数据源（设置页 ModelsManage 与首启引导 FirstRunGate 共用，唯一拷贝）：
-// llm.providers 目录 + settings 的 llm-deepseek / llm-pi-ai 两命名空间 +
+// llm/listConfigurableProviders 目录 + settings 的 llm-deepseek / llm-pi-ai 两命名空间 +
 // 各提供方密钥配置态（credentials.describe 实况）。
 // 语义红线：「是否已配置」只认读取成功的结果——引擎瞬断/读失败时
 // configuredKnown=false，调用方不得把"读不出配置"冒充成"未配置"
