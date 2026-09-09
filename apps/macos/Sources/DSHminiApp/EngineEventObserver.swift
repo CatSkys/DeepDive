@@ -2,10 +2,16 @@ import AppKit
 import Foundation
 
 /// Native-side engine event subscription (SPEC-NOTIFICATIONS §3, option A):
-/// the shell opens its own `ws://engine/api/events.mux` and derives
-/// running / turn-finished / attention states without depending on the
-/// frontend. Everything notifications, the bubble and the menu bar badge show
-/// flows from here.
+/// the shell opens its own `ws://engine/api/remote.mux`, opens the `$events`
+/// forwarded-event stream on it, and derives running / turn-finished /
+/// attention states without depending on the frontend. Everything
+/// notifications, the bubble and the menu bar badge show flows from here.
+///
+/// 0.1.2 wire (PITFALLS §4.6): approvals and questions arrive as waterfall
+/// frames (`approval/request`, `user-questions/request`). This observer is
+/// notification-only — it answers every waterfall with `next` so the SPA
+/// stays the sole decision maker (the gateway resolves an event only when
+/// ALL connected clients answered `next`).
 final class EngineEventObserver {
     static let shared = EngineEventObserver()
 
@@ -22,11 +28,18 @@ final class EngineEventObserver {
     private var base: URL?
     private var reconnectDelay = 1.0
     private var titles: [String: String] = [:]
-    /// Mux path drifted across engine versions (rc.2 = events.mux; alpha.2 =
-    /// remote.mux, see PITFALLS). Probe candidates in order; the first one
-    /// that survives upgrade+auth wins and is remembered for this boot.
+    /// SessionId → 最近一次 agent 错误消息（api-session/error），running 转
+    /// false 时消费一次用于「失败完成」通知，转 true 时清空。
+    private var lastErrors: [String: String] = [:]
+    /// $events 世代身份（ready 帧给出，应答 waterfall 的必填字段）。
+    private var eventClientId: String?
+    private var eventsStreamId = ""
+    /// Mux path drifted across engine versions (0.1.2-rc.1+ = remote.mux;
+    /// rc.2 = events.mux, kept for DSHMINI_DSH_ENTRY cross-version dev).
+    /// Probe candidates in order; the first one that survives upgrade+auth
+    /// wins and is remembered for this boot.
     private var muxPathIndex = 0
-    private static let muxPaths = ["/api/events.mux", "/api/remote.mux"]
+    private static let muxPaths = ["/api/remote.mux", "/api/events.mux"]
 
     private init() {}
 
@@ -38,6 +51,8 @@ final class EngineEventObserver {
         pendingApprovals.removeAll()
         pendingQuestions.removeAll()
         titles.removeAll()
+        lastErrors.removeAll()
+        eventClientId = nil
         reconnectDelay = 1.0
         muxPathIndex = 0
         publish()
@@ -64,11 +79,12 @@ final class EngineEventObserver {
         let task = session.webSocketTask(with: request)
         self.task = task
         task.resume()
-        // alpha.2 carries forwarded events on the $events internal stream —
-        // open it right after the socket is up (remote.mux candidate only).
+        // Forwarded events ride the $events internal stream on remote.mux —
+        // open it with the standard empty-args payload right after connect.
         if path == "/api/remote.mux" {
-            let open: [String: Any] = ["type": "open", "streamId": UUID().uuidString,
-                                       "endpoint": "", "payload": ["args": [:]]]
+            eventsStreamId = "events-\(UUID().uuidString)"
+            let open: [String: Any] = ["type": "open", "streamId": eventsStreamId,
+                                       "endpoint": "$events", "payload": ["args": [:]]]
             if let data = try? JSONSerialization.data(withJSONObject: open) {
                 task.send(.data(data)) { _ in }
             }
@@ -123,94 +139,146 @@ final class EngineEventObserver {
     // MARK: - frame consumption
 
     private func consume(_ text: String) {
-        guard let raw = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any] else { return }
-        // Engine mux wraps logical frames in a server-request envelope
-        // (`{type, payload}`); unwrap like the frontend does.
-        let frame = (raw["payload"] as? [String: Any]) ?? raw
-        guard let type = frame["type"] as? String else { return }
+        guard let raw = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
+              let type = raw["type"] as? String else { return }
+        // remote.mux 只承载逻辑流帧（open 由本端发；error/end 见下）。
         switch type {
-        case "session/event":
-            guard let sessionId = frame["sessionId"] as? String,
-                  let event = frame["event"] as? [String: Any],
-                  let eventType = event["type"] as? String else { return }
-            switch eventType {
-            case "turn/start":
-                // First task dispatch is the notification-authorization moment
-                // (SPEC-NOTIFICATIONS §1.1 v2: never at app boot).
-                NativeAlerts.requestAuthorizationIfNeeded()
-                runningSessions.insert(sessionId)
-                FloatingBubbleManager.shared.noteRunningStarted(sessionId: sessionId)
-                publish()
-            case "turn/end":
-                runningSessions.remove(sessionId)
-                // alpha.2 moved reason into an object ({kind:"completed"});
-                // rc.2 used a plain string — accept both shapes.
-                let reason: String
-                if let raw = (event["data"] as? [String: Any])?["reason"] {
-                    if let s = raw as? String { reason = s }
-                    else if let d = raw as? [String: Any] { reason = d["kind"] as? String ?? "completed" }
-                    else { reason = "completed" }
-                } else { reason = "completed" }
-                if reason == "completed" || reason == "cancelled" {
-                    noteTurnFinished(sessionId: sessionId, failed: reason == "cancelled")
-                }
-                publish()
-            default:
-                break
+        case "item":
+            guard (raw["streamId"] as? String) == eventsStreamId,
+                  let value = raw["value"] as? [String: Any] else { return }
+            consumeEventValue(value)
+        case "error", "end":
+            // $events 流异常终止：整条 WS 重连（重开新世代）。
+            if (raw["streamId"] as? String) == eventsStreamId {
+                task?.cancel(with: .goingAway, reason: nil)
+                retry()
             }
-        case "approval/requested":
-            // schema (events.schema.ts): approvalId 必有（铁律 9——契约字段
-            // 直取，不做 UUID 兜底掩盖漂移）。
-            guard let sessionId = frame["sessionId"] as? String,
-                  let approvalId = frame["approvalId"] as? String else { return }
-            pendingApprovals.insert(approvalId)
-            let toolName = frame["toolName"] as? String ?? "工具调用"
+        default:
+            break
+        }
+    }
+
+    private func consumeEventValue(_ value: [String: Any]) {
+        guard let kind = value["type"] as? String else { return }
+        switch kind {
+        case "ready":
+            eventClientId = value["clientId"] as? String
+        case "emit":
+            guard let event = value["event"] as? String,
+                  let args = value["args"] as? [Any] else { return }
+            consumeEmit(event: event, args: args)
+        case "waterfall":
+            consumeWaterfall(value)
+        case "cancel":
+            // 引擎侧取消挂起交互：按 eventId 移除，两端集合共用同一身份。
+            if let eventId = value["eventId"] as? String {
+                pendingApprovals.remove(eventId)
+                pendingQuestions.remove(eventId)
+                publish()
+            }
+        default:
+            break
+        }
+    }
+
+    private func consumeEmit(event: String, args: [Any]) {
+        switch event {
+        case "api-session/status":
+            // args = [sessionId, running]（SessionControllerTypes 事件声明）。
+            guard let pair = Self.statusArgs(args) else { return }
+            applyStatus(sessionId: pair.sessionId, running: pair.running)
+        case "api-session/error":
+            // args = [sessionId, message]：记录供 running=false 时判定失败完成。
+            if let sessionId = args.first as? String, let message = args.dropFirst().first as? String {
+                lastErrors[sessionId] = message
+            }
+        case "api-session/removed":
+            if let sessionId = args.first as? String {
+                runningSessions.remove(sessionId)
+                publish()
+            }
+        default:
+            break
+        }
+    }
+
+    /// api-session/status 的 args 解析（纯函数，XCTest 表驱动钉住形状）：
+    /// [sessionId, running] 二元组，缺一或类型不符返回 nil（不猜）。
+    static func statusArgs(_ args: [Any]) -> (sessionId: String, running: Bool)? {
+        guard let sessionId = args.first as? String,
+              let running = args.dropFirst().first as? Bool else { return nil }
+        return (sessionId, running)
+    }
+
+    /// waterfall 帧的身份三元组（纯函数，XCTest 钉住）：event + eventId +
+    /// agentId（会话身份）。挂起集合与 cancel 帧统一用 eventId 配对。
+    static func waterfallIdentity(_ value: [String: Any]) -> (event: String, eventId: String, sessionId: String)? {
+        guard let event = value["event"] as? String,
+              let eventId = value["eventId"] as? String,
+              let sessionId = value["agentId"] as? String else { return nil }
+        return (event, eventId, sessionId)
+    }
+
+    private func applyStatus(sessionId: String, running: Bool) {
+        if running {
+            // First task dispatch is the notification-authorization moment
+            // (SPEC-NOTIFICATIONS §1.1 v2: never at app boot).
+            NativeAlerts.requestAuthorizationIfNeeded()
+            runningSessions.insert(sessionId)
+            lastErrors[sessionId] = nil
+            FloatingBubbleManager.shared.noteRunningStarted(sessionId: sessionId)
+        } else {
+            let wasRunning = runningSessions.remove(sessionId) != nil
+            if wasRunning {
+                let failedReason = lastErrors.removeValue(forKey: sessionId)
+                noteTurnFinished(sessionId: sessionId, failed: failedReason != nil)
+            }
+        }
+        publish()
+    }
+
+    private func consumeWaterfall(_ value: [String: Any]) {
+        guard let identity = Self.waterfallIdentity(value) else { return }
+        let (event, eventId, sessionId) = identity
+        switch event {
+        case "approval/request":
+            // request = {toolName, callId?, reason?}（user-approval 契约）。
+            let request = value["request"] as? [String: Any] ?? [:]
+            let toolName = request["toolName"] as? String ?? "工具调用"
+            pendingApprovals.insert(eventId)
             FloatingBubbleManager.shared.noteNeedsAttention()
+            answerNext(eventId: eventId)
             resolveTitle(sessionId: sessionId) { title in
                 NativeAlerts.notifyApprovalNeeded(toolName: toolName, sessionTitle: title, sessionId: sessionId)
             }
             publish()
-        case "approval/resolved":
-            guard let approvalId = frame["approvalId"] as? String else { return }
-            pendingApprovals.remove(approvalId)
-            publish()
-        case "question/requested":
-            // schema（events.schema.ts:51）：载荷只有 {sessionId, questions[]}，
-            // 没有 questionId——挂起身份 = 信封 rpcId（与前端 store 同一语义），
-            // resolved 帧按 questionRpcId 配对移除。
-            guard let sessionId = frame["sessionId"] as? String,
-                  let rpcId = Self.questionId(raw: raw, frame: frame, type: type) else { return }
-            pendingQuestions.insert(rpcId)
-            FloatingBubbleManager.shared.noteNeedsAttention()
-            // questions[] 首条的 question 字段（askUserQuestionItemSchema）
-            // ——通知正文用真实提问。
-            let questionText = (frame["questions"] as? [[String: Any]])?
+        case "user-questions/request":
+            // request = {questions:[{id, question, …}]}（AskUserQuestionRequestEvent）。
+            let request = value["request"] as? [String: Any] ?? [:]
+            let questionText = (request["questions"] as? [[String: Any]])?
                 .compactMap { $0["question"] as? String }
                 .first ?? "打开 DeepDive 查看并回答"
+            pendingQuestions.insert(eventId)
+            FloatingBubbleManager.shared.noteNeedsAttention()
+            answerNext(eventId: eventId)
             resolveTitle(sessionId: sessionId) { title in
                 NativeAlerts.notifyQuestionNeeded(questionText: questionText, sessionTitle: title, sessionId: sessionId)
             }
-            publish()
-        case "question/resolved":
-            // schema（events.schema.ts:52）：{sessionId, questionRpcId, outcome}。
-            // 缺了这条配对移除，一次提问后「需注意」状态会卡死到引擎重启。
-            guard let rid = Self.questionId(raw: raw, frame: frame, type: type) else { return }
-            pendingQuestions.remove(rid)
             publish()
         default:
             break
         }
     }
 
-    /// question 帧的挂起身份（纯函数，XCTest 表驱动钉住 schema 配对语义）：
-    /// requested 取**信封** rpcId（载荷没有 questionId——曾按猜读该字段，
-    /// 每次插入都是随机 UUID，resolved 永远配不上对）；resolved 取
-    /// questionRpcId。其余类型无 question 身份。
-    static func questionId(raw: [String: Any], frame: [String: Any], type: String) -> String? {
-        switch type {
-        case "question/requested": return raw["rpcId"] as? String
-        case "question/resolved": return frame["questionRpcId"] as? String
-        default: return nil
+    /// 通知-only 客户端永不决策：一律回 `next`（引擎仅在**所有**客户端都回
+    /// next 时才落 next，SPA 的 result/rejected 照常生效）。
+    private func answerNext(eventId: String) {
+        guard let clientId = eventClientId else { return }
+        Task { @MainActor in
+            _ = try? await EngineGateway.shared.call(
+                "$events/result",
+                payload: ["clientId": clientId, "eventId": eventId, "outcome": ["kind": "next"]]
+            )
         }
     }
 
@@ -224,7 +292,7 @@ final class EngineEventObserver {
         }
     }
 
-    /// 通知用会话标题：先查缓存，未命中拉 session.list，最多等 1.5s。
+    /// 通知用会话标题：先查缓存，未命中拉 session/list，最多等 1.5s。
     /// 超时兜底取 id 尾 6 位——id 前缀是固定字面量（sessio…），取头无区分度。
     /// 真实标题才进缓存；兜底不缓存，避免一次超时污染后续通知。
     private func resolveTitle(sessionId: String, completion: @escaping (String) -> Void) {
@@ -243,7 +311,7 @@ final class EngineEventObserver {
             settle(Self.fallbackTitle(sessionId), false)
         }
         Task { @MainActor in
-            guard let items = (try? await EngineGateway.shared.call("session.list"))?.at("items")?.anyValue as? [[String: Any]] else {
+            guard let items = (try? await EngineGateway.shared.call("session/list"))?.at("items")?.anyValue as? [[String: Any]] else {
                 return // 拉取失败/超时由兜底接管
             }
             for item in items where (item["sessionId"] as? String) == sessionId {

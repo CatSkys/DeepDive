@@ -228,11 +228,12 @@ final class EngineSupervisor {
     }
 
     /// The overlay patch file handed to `dsh --profile web --patch <path>`
-    /// (docs/DSH-WIRE.md §1). The web-app bundle pins the in-memory session
-    /// query index to `openAt: never`, so full-text search never works unless
-    /// a later layer overrides it; the app owns that layer here. Content is
+    /// (docs/DSH-WIRE.md §1). The engine's base bundle ships session-query
+    /// with full-text search ready since 0.1.2-rc.1, so the overlay's one
+    /// job is inserting the schedule tool plugin (present in the runtime
+    /// closure but not composed into the web profile's bundles). Content is
     /// app-defined — rewritten on every launch so upgrades always win; a
-    /// write failure degrades to content search being unavailable (the
+    /// write failure degrades to the schedule tool being unavailable (the
     /// engine still boots: overlay errors fail-loud, so only a missing file
     /// is tolerable — it must exist, else the arg points nowhere).
     static func ensureEnginePatchFile() -> URL {
@@ -240,10 +241,6 @@ final class EngineSupervisor {
         let body = """
         # Written by DeepDive at every engine launch — app-owned overlay layer.
         # Do not edit: your changes are overwritten on the next launch.
-        - id: session-query-sqlite
-          config:
-            path: ":memory:"
-            openAt: first-search
         - insert:
             - id: schedule
               name: '@deepseek-ai/dsh-schedule'
@@ -300,7 +297,9 @@ final class EngineSupervisor {
         log.append("[dsh] " + sanitized)
         let prefix = "dsh web: "
         if line.hasPrefix(prefix) {
-            let raw = line.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces)
+            // 引擎可能在 URL 后追加 " (LAN: …)" 备选地址；就绪 URL 只取首个
+            // 空白前的 token，整行交给 URL(string:) 会因空格解析失败丢就绪。
+            let raw = line.dropFirst(prefix.count).split(separator: " ", maxSplits: 1).first.map(String.init) ?? ""
             if let url = URL(string: raw) {
                 // AUD-074：就绪不再立即清零 attempts——「就绪后秒崩」循环会
                 // 因此永远以 1s 间隔重启、无升级 failed 的路径。改为记录就绪

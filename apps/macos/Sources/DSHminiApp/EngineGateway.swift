@@ -75,11 +75,13 @@ final class EngineGateway {
         if let cookie = EngineAuth.shared.currentCookieHeader {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
+        // 0.1.2 wire（PITFALLS §4.6）：端点为 `<命名空间>/<方法>` 斜杠形，
+        // 具名参数必须包成 {args:{…}}，信封 method 必须与端点字符串一致。
         let envelope: [String: Any] = [
             "type": "client-request",
             "rpcId": UUID().uuidString,
             "method": method,
-            "payload": payload,
+            "payload": ["args": payload],
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: envelope)
         let (data, response) = try await session.data(for: request)
@@ -142,7 +144,7 @@ final class EngineGateway {
 
     /// Version-sensitive (§4.1 note): endpoint name drifted across versions.
     func openSettingsDocument() async -> Bool {
-        for method in ["settings.openDocument", "settings.openSettingsDocument"] {
+        for method in ["settings/openSettingsDocument", "settings.openDocument"] {
             if await probe(method) {
                 _ = try? await call(method, payload: [:])
                 return true
