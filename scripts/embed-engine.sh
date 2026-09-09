@@ -99,12 +99,6 @@ mkdir -p "$STAGE/Resources/Runtime/chat-import"
 cp -R "$CHAT_IMPORT_SOURCE/dsh-chat-import" "$STAGE/Resources/Runtime/chat-import/dsh-chat-import"
 cp -R "$CHAT_IMPORT_SOURCE/fzstd" "$STAGE/Resources/Runtime/chat-import/fzstd"
 
-# Model-menu freshness: the pinned engine's pi-ai catalog is frozen at its
-# release date. Overlay the newer generated data layer (pure data, no code —
-# scripts/engine-model-data/README.md); no-ops once the pin's pi-ai is newer
-# than the snapshot.
-bash "$ROOT/scripts/patch-engine-model-data.sh" "$STAGE/Resources/Runtime/dsh"
-
 # Re-seal the bundle AFTER all file mutations, BEFORE the self-check.
 # xcodebuild leaves an (adhoc) seal over Contents; embed-web + this script
 # then add/replace files under it. A stale LaunchServices registration of
