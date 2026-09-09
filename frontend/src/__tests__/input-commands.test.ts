@@ -1,7 +1,9 @@
-// 输入纯函数钉子：@ 引用 grammar（atGrammar，官方语义）与静态命令目录（commands）。
+// 输入纯函数钉子：@ 引用 grammar（atGrammar，官方语义）与整行斜杠命令裁决
+//（commandLine，官方 ui-commands matchEnter 的最小移植）。
 import { describe, expect, it } from "vitest";
 import { activeAtToken, formatMention } from "../atGrammar";
-import { SLASH_COMMANDS } from "../commands";
+import { adjudicateSlashLine } from "../commandLine";
+import type { CommandDescriptor } from "../types";
 
 describe("activeAtToken", () => {
   it("行首与空白后触发", () => {
@@ -36,8 +38,25 @@ describe("formatMention", () => {
   });
 });
 
-describe("SLASH_COMMANDS 目录", () => {
-  it("与 docs/DSH-WIRE.md §4 五条命令一致且小写唯一", () => {
-    expect(SLASH_COMMANDS.map((c) => c.name)).toEqual(["compact", "plan", "permission", "goal", "feedback"]);
+describe("adjudicateSlashLine", () => {
+  const catalog: CommandDescriptor[] = [
+    { name: "compact", description: "" },
+    { name: "goal", description: "", input: { hint: "<objective>" } },
+  ];
+
+  it("已知命令整行命中（含参数与前后空白）", () => {
+    expect(adjudicateSlashLine("/compact", catalog)).toEqual({ kind: "command", command: catalog[0], line: "/compact" });
+    expect(adjudicateSlashLine("  /goal 修好登录页  ", catalog)).toEqual({ kind: "command", command: catalog[1], line: "/goal 修好登录页" });
+  });
+
+  it("未知名字 → unknown（拒绝提交，不喂模型）", () => {
+    expect(adjudicateSlashLine("/nope args", catalog)).toEqual({ kind: "unknown", name: "nope" });
+  });
+
+  it("非整行命令 → null 回落 prompt：斜杠在文中、路径形、非斜杠开头", () => {
+    expect(adjudicateSlashLine("看 /compact 这个", catalog)).toBeNull();
+    expect(adjudicateSlashLine("/foo.ts", catalog)).toBeNull(); // 名字不合法（路径）
+    expect(adjudicateSlashLine("普通消息", catalog)).toBeNull();
+    expect(adjudicateSlashLine("", catalog)).toBeNull();
   });
 });

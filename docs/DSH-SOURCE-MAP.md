@@ -45,7 +45,8 @@
 - `packages/client/ui-plan/src/client/PlanModeControl.tsx`
   - `PlanChip`：读取 `plan` projection（`active`/`pending`），激活时显示 `Plan` chip。
 
-## 0.1.2-rc.1 新增参考（Phase 2 移植锚点）
-- 消息反馈：`packages/client/ui-message-feedback/src/client/`（👍/👎 卡 + put/list/delete 流）+ `packages/feedback/message-feedback/src/types.ts`（wire 形状）。
-- 命令面：`packages/client/ui-commands/src/client/service.ts`（commands/list 驱动目录 + execute 整行派发与 command/executed 通知）。
-- Turn 大纲轨：`packages/client/ui-chat/src/client/chat/`（turn rail + load-and-jump）；投影键 `turnOutline`。
+## 0.1.2-rc.1 新增参考（Phase 2 移植锚点，2026-09-10 已全量落地）
+- 消息反馈：`packages/client/ui-message-feedback/src/client/`（👍/👎 卡 + put/list/delete 流）+ `packages/feedback/message-feedback/src/types.ts`（wire 形状）→ SPA `session/feedback.ts`。
+- 命令面：`packages/client/ui-commands/src/client/service.ts`（commands/list 驱动目录 + execute 整行派发；带参命令 claim、无参直发、未知命令拒收保草稿）→ SPA `composer/useSlashCommands.ts` + `commandLine.ts`。
+- Turn 大纲轨：`packages/client/ui-chat/src/client/chat/TurnNavigator.tsx`（10px 节距刻度轨 + hover 预览卡 + 活动刻度自动居中）与 `turn-rail-items.ts`/`ChatView.tsx`（loaded/unloaded 合流 + loadThrough 深跳）→ SPA `session/TurnNavigator.tsx` + `useSessionEvents.loadThrough`。
+- @ 候选：`packages/client/ui-reference/src/client/index.ts`（sessionReferenceResolver/candidates 消费）+ `packages/api/session-controller/src/file-references.ts`（fileReferences/list，本地实现 `file-reference-local`：cwd 亲和整库索引）→ SPA `useMentionCandidates.ts`。

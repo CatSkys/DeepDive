@@ -2,17 +2,11 @@
 
 > 产品路线的唯一事实源：一项一节，只写「要做什么 + 已查明的路径」；完成即删节（沿革归 git）。分发与生态是当前评分短板（2026-09-05 review），以下按优先级排序。
 
-## 0. 0.1.2-rc.1 引擎新特性移植（Phase 2，2026-09-09 升级解锁）
+## 0. 0.1.2-rc.1 引擎新特性移植（Phase 2，2026-09-10 全量落地）
 
-引擎已升 0.1.2-rc.1（见 `DSH-WIRE.md`），按价值排序（消息反馈已落地）：
-
-1. **命令原生化**：`commands/list {agentId}` + `commands/execute {agentId, line,
-   images}`（整行斜杠命令直发）——替代 `commands.ts` 静态目录与 `/goal` 客户端
-   派发；`session/prompt` 的 `command` 槽位语义随命令引擎走。
-2. **Turn 大纲轨**：`turnOutline` 投影已在（follow 快照 15 键之一）+ `session/
-   page` 深分页——对照官方 `ui-chat` turn rail 移植会话内导航。
-3. **@ 候选原生化**：`sessionReferenceResolver/candidates` 替代壳侧 list-dir
-   候选（需评估与 FileManager 路径体验差异再动）。
+Phase 2 四项已全部落地（消息反馈 / 命令原生化 / Turn 大纲轨 / @ 候选
+原生化——通道与语义见 `DSH-WIRE.md` §1/§6/§7，官方对照锚点见
+`DSH-SOURCE-MAP.md`）。
 
 另：`pluginInventory/list` 已可达，插件市场（§1）的发现面可改走引擎清单。
 

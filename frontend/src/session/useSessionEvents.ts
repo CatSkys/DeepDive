@@ -30,7 +30,13 @@ export function useSessionEvents(
   const [plan, setPlan] = useState<{ active: boolean; pending: boolean } | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [earliestSeq, setEarliestSeq] = useState<number | undefined>(undefined);
+  // 已加载窗口最早事件 seq（分页游标）：state 无渲染读者，ref 即事实源，
+  // loadOlder/loadThrough 循环里同步读现值。
+  const earliestSeqRef = useRef<number | undefined>(undefined);
+  // 深跳互斥：一次跳转进行中忽略新的跳转/载入更早点击。
+  const pagingRef = useRef(false);
+  /** turnOutline 投影（开窗快照种子 + control projection 帧实时整值）。 */
+  const [outline, setOutline] = useState<import("../types").TurnOutlineEntry[]>([]);
   // 5.1 Goal：goal 投影整值（control projection 实时推，3s 轮询兜底）
   const [goalProj, setGoalProj] = useState<import("../types").GoalProjection | null | undefined>(undefined);
   const refreshGoal = () => {
@@ -89,7 +95,8 @@ export function useSessionEvents(
     setLoadError(false);
     setLiveRunning(false);
     setHasMore(false);
-    setEarliestSeq(undefined);
+    earliestSeqRef.current = undefined;
+    setOutline([]);
 
     // 0.1.2 engine surface (PITFALLS §4.6)：冷读+直播统一走 session/follow 流
     // ——开窗帧给 {cursor, records, hasMore}，此后同流追加事件；向前翻页走
@@ -123,10 +130,12 @@ export function useSessionEvents(
           throughSeqRef.current = s.cursor;
           setScheduleRecords(foldScheduleAll(eventLog.current));
           const first = s.entries[0];
-          setEarliestSeq(first ? first.event.seq : undefined);
+          earliestSeqRef.current = first ? first.event.seq : undefined;
+          const outlineVal = s.projections.values?.turnOutline as import("../types").TurnOutlineEntry[] | undefined;
+          setOutline(Array.isArray(outlineVal) ? outlineVal : []);
           const last = s.entries[s.entries.length - 1];
           seqFloor = last ? last.event.seq + 1 : 0;
-          const goalVal = s.projections?.goal as import("../types").GoalProjection | null | undefined;
+          const goalVal = s.projections.values?.goal as import("../types").GoalProjection | undefined;
           setGoalProj(goalVal ?? null);
           setLoadError(false);
         },
@@ -194,58 +203,100 @@ export function useSessionEvents(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, retryKey]);
 
-  // control 流投影（goal 实时整值；plan 同键路）。
+  // control 流投影（goal/turnOutline 实时整值；plan 同键路）。
   useEffect(() => {
     return store.subscribeControl((frame) => {
       if (frame.type !== "projection" || frame.sessionId !== sessionId) return;
       if (frame.key === "goal") {
         setGoalProj((frame.value ?? null) as import("../types").GoalProjection | null);
+      } else if (frame.key === "turnOutline") {
+        setOutline(Array.isArray(frame.value) ? frame.value as import("../types").TurnOutlineEntry[] : []);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  const loadOlder = async () => {
-    if (loadingOlder) return;
-    const beforeSeq = earliestSeq;
+  /** 向前翻一页并把新页并入日志（载入更早/大纲跳转共用）；返回新页首 seq。 */
+  const pageOnce = async (maxMessages: number): Promise<{ firstSeq?: number; hasMore: boolean }> => {
+    const beforeSeq = earliestSeqRef.current;
     const throughSeq = throughSeqRef.current;
-    if (beforeSeq === undefined || throughSeq === undefined) return;
+    if (beforeSeq === undefined || throughSeq === undefined) return { hasMore: false };
+    // Capture the scrollport position of the current first row so we can
+    // keep it visually pinned after older rows are prepended.
+    const el = refs.olderAnchorRef.current;
+    const anchorTop = el ? el.getBoundingClientRect().top - refs.scrollRef.current!.getBoundingClientRect().top : 0;
+    const { entries: older, hasMore: more } = await api.page({
+      address: addressRef.current, throughSeq, beforeSeq, maxMessages,
+    });
+    eventLog.current = [...older, ...eventLog.current];
+    setScheduleRecords(foldScheduleAll(eventLog.current));
+    const next = rebuild(eventLog.current);
+    itemsRef.current = next;
+    setItems(next);
+    // After render, restore the anchor row to its captured offset.
+    requestAnimationFrame(() => {
+      const sc = refs.scrollRef.current;
+      const a = refs.olderAnchorRef.current;
+      if (sc && a) {
+        const delta = a.getBoundingClientRect().top - sc.getBoundingClientRect().top - anchorTop;
+        sc.scrollTop += delta;
+      }
+    });
+    setHasMore(more);
+    const first = older[0] as { event?: { seq?: number } } | undefined;
+    const firstSeq = first?.event?.seq;
+    if (firstSeq !== undefined) earliestSeqRef.current = firstSeq;
+    return { firstSeq, hasMore: more };
+  };
+
+  const loadOlder = async () => {
+    if (pagingRef.current) return;
+    pagingRef.current = true;
     setLoadingOlder(true);
     try {
-      // Capture the scrollport position of the current first row so we can
-      // keep it visually pinned after older rows are prepended.
-      const el = refs.olderAnchorRef.current;
-      const anchorTop = el ? el.getBoundingClientRect().top - refs.scrollRef.current!.getBoundingClientRect().top : 0;
-      const { entries: older, hasMore: more } = await api.page({
-        address: addressRef.current, throughSeq, beforeSeq, maxMessages: 120,
-      });
-      eventLog.current = [...older, ...eventLog.current];
-      setScheduleRecords(foldScheduleAll(eventLog.current));
-      const next = rebuild(eventLog.current);
-      itemsRef.current = next;
-      setItems(next);
-      // After render, restore the anchor row to its captured offset.
-      requestAnimationFrame(() => {
-        const sc = refs.scrollRef.current;
-        const a = refs.olderAnchorRef.current;
-        if (sc && a) {
-          const delta = a.getBoundingClientRect().top - sc.getBoundingClientRect().top - anchorTop;
-          sc.scrollTop += delta;
-        }
-      });
-      setHasMore(more);
-      const first = older[0] as { event?: { seq?: number } } | undefined;
-      if (first?.event?.seq !== undefined) setEarliestSeq(first.event.seq);
+      await pageOnce(120);
     } catch {
       // engine may be busy; keep current state
     } finally {
+      pagingRef.current = false;
+      setLoadingOlder(false);
+    }
+  };
+
+  /** 大纲跳转（官方 loadThrough 语义）：200/页循环向前翻，直到窗口覆盖到
+   *  目标 turn/start 的 seq；无进展（!hasMore 或 firstSeq 不再前移）即止。 */
+  const loadThrough = async (seq: number) => {
+    if (pagingRef.current) return;
+    pagingRef.current = true;
+    setLoadingOlder(true);
+    try {
+      await driveLoadThrough(seq, () => earliestSeqRef.current, pageOnce);
+    } catch {
+      // engine may be busy; 已翻到的页保留，跳转按当前窗口尽力落点
+    } finally {
+      pagingRef.current = false;
       setLoadingOlder(false);
     }
   };
 
   return {
     items, liveRunning, runningSince, plan, goalProj, refreshGoal,
-    scheduleRecords, hasMore, loadingOlder, loadOlder,
+    scheduleRecords, hasMore, loadingOlder, loadOlder, outline, loadThrough,
     loadError, retry: () => setRetryKey((k) => k + 1),
   };
+}
+
+/** 深跳翻页驱动（纯函数钉测面）：翻到窗口覆盖 seq 为止；!hasMore、单页无
+ *  前移或 60 页上限任一触发即止——防引擎回包异常时死循环。 */
+export async function driveLoadThrough(
+  seq: number,
+  getEarliest: () => number | undefined,
+  page: (maxMessages: number) => Promise<{ firstSeq?: number; hasMore: boolean }>,
+): Promise<void> {
+  let guard = 0;
+  while ((getEarliest() ?? 0) > seq && guard++ < 60) {
+    const prev = getEarliest();
+    const r = await page(200);
+    if (!r.hasMore || r.firstSeq === undefined || r.firstSeq >= (prev ?? 0)) break;
+  }
 }

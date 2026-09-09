@@ -13,6 +13,8 @@ import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, foldDecision, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
 import { useFeedback } from "../session/feedback";
+import { TurnNavigator } from "../session/TurnNavigator";
+import type { TurnOutlineEntry } from "../types";
 import { SessionHeader } from "../session/SessionHeader";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
@@ -35,12 +37,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 供 syncBottomPad 同步读）保持一个事实源，拆两套监听会算出两个贴底。
   const [scrolled, setScrolled] = useState(false);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
-  const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
+  const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, outline, loadThrough, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
     // 消息反馈（TODO §0-1）：会话级控制器，轮尾 👍/👎 共享一次 list 读
     const feedback = useFeedback(sessionId);
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("会话");
+  // Turn 大纲轨（TODO §0-2）：活动轮（滚动派生）与深分页忙碌轮。
+  const [activeTurn, setActiveTurn] = useState<number | undefined>(undefined);
+  const [busyTurn, setBusyTurn] = useState<number | undefined>(undefined);
 
   // 底部悬浮区（用户定稿「消息区下延贴底」）：composer 悬浮于消息流之上，
   // flow 的 padding-bottom 按悬浮区实测高度动态设置（附件/排队坞/多行输入
@@ -189,8 +194,65 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     const keyIdx = new Map(items.map((it, i) => [it.key, i] as const));
     const groups = groupTurns(items);
     const fold = foldDecision(groups.length);
-    return { keyIdx, groups, fold };
+    // 大纲轨的 loaded 判定集：轮号在内存窗口中即 loaded（折叠只是渲染开关）。
+    const loadedTurns = new Set(groups.map((g) => g.turn).filter((n): n is number => n !== null));
+    return { keyIdx, groups, fold, loadedTurns };
   }, [items]);
+
+  // 视口所在轮（rAF 合并）：mid 线上方最后一组即活动轮，驱动大纲轨高亮。
+  const activeRafRef = useRef<number | null>(null);
+  const trackActive = useCallback(() => {
+    if (activeRafRef.current !== null) return;
+    activeRafRef.current = requestAnimationFrame(() => {
+      activeRafRef.current = null;
+      const flow = flowRef.current;
+      if (!flow) return;
+      const mid = flow.getBoundingClientRect().top + flow.clientHeight * 0.4;
+      let cur: number | undefined;
+      for (const el of flow.querySelectorAll<HTMLElement>(".turn-group[data-turn]")) {
+        if (el.getBoundingClientRect().top <= mid) cur = Number(el.dataset.turn);
+        else break;
+      }
+      setActiveTurn(cur);
+    });
+  }, []);
+  useEffect(() => {
+    trackActive();
+    return () => {
+      if (activeRafRef.current !== null) cancelAnimationFrame(activeRafRef.current);
+      activeRafRef.current = null;
+    };
+  }, [items, trackActive]);
+
+  // 大纲跳转落点：等目标轮组进 DOM 后对齐到流顶（翻页渲染是异步的，帧重试）。
+  const scrollToTurn = (turn: number) => {
+    let frames = 0;
+    const step = () => {
+      const flow = flowRef.current;
+      if (!flow) return;
+      const group = flow.querySelector<HTMLElement>(`.turn-group[data-turn="${turn}"]`);
+      if (group) {
+        flow.scrollTop += group.getBoundingClientRect().top - flow.getBoundingClientRect().top - 8;
+        return;
+      }
+      if (frames++ < 12) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  const pickTurn = async (e: TurnOutlineEntry) => {
+    setTurnsFolded(false);
+    // 未在内存窗口：先深分页覆盖到该轮 turn/start 的 seq（官方 loadThrough）。
+    if (!layout.loadedTurns.has(e.turn)) {
+      setBusyTurn(e.turn);
+      try {
+        await loadThrough(e.seq);
+      } finally {
+        setBusyTurn(undefined);
+      }
+    }
+    scrollToTurn(e.turn);
+  };
 
   if (isBlank) {
     return (
@@ -223,12 +285,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               data-tip={t("退出计划模式")}
               aria-label={t("退出计划模式")}
               onClick={() => {
-                api.prompt({
-                  requestId: crypto.randomUUID(),
-                  sessionId,
-                  mode: "queue",
-                  content: [{ type: "text", text: "/plan off" }],
-                }).catch(() => void 0); // 引擎忙时退出指令丢失：芯片由投影轮询纠偏
+                api.commandExecute({ agentId: sessionId, line: "/plan off" })
+                  .catch(() => void 0); // 引擎忙时退出指令丢失：芯片由投影轮询纠偏
               }}
             >
               Plan ×
@@ -240,6 +298,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <StatusCapsule sessionId={sessionId} scheduleRecords={scheduleRecords} />
         )}
       </div>
+      <div className="flow-row">
       <div
         className="flow fade-y"
         ref={attachFlow}
@@ -249,6 +308,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           const el = e.currentTarget;
           setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
           setScrolled(el.scrollTop > 2);
+          trackActive();
         }}
       >
         {/* key=会话:已加载——历史到达那一刻（off→on）重挂播 session-enter
@@ -303,7 +363,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 foldBarEmitted = true;
               }
               nodes.push(
-                <div key={`turn-${g.turn ?? "head"}-${gi}`} className="turn-group" data-actions-reveal="hover">
+                <div key={`turn-${g.turn ?? "head"}-${gi}`} className="turn-group" data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
                   {g.items.map((item) => {
                     const idx = keyIdx.get(item.key) ?? -1;
                     return (
@@ -343,6 +403,16 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           })}
           {running && <LoadingState label="Deep diving..." since={runningSince} />}
         </div>
+      </div>
+        {outline.length >= 2 && (
+          <TurnNavigator
+            entries={outline}
+            activeTurn={activeTurn}
+            busyTurn={busyTurn}
+            loadedTurns={layout.loadedTurns}
+            onPick={(e) => void pickTurn(e)}
+          />
+        )}
       </div>
       {!follow && (
         <button

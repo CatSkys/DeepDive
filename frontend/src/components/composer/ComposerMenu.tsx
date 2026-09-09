@@ -34,7 +34,6 @@ function MenuRowButton({ row, flatIndex, rowRefs, setActive, onPick }: {
       onMouseEnter={() => setActive(flatIndex)}
       onClick={() => onPick(row)}
       className="menu-row"
-      data-disabled={row.disabled ? "true" : undefined}
       data-tip={row.detail}
     >
       <row.icon size={15} />

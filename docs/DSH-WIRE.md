@@ -43,9 +43,10 @@
 | 方法/面 | 结论 |
 |---|---|
 | `messageFeedback/list\|put\|delete` | **已落地**（args 为 `request` 包裹；put/delete 带 `ifVersion` CAS，version 为不透明字符串 token，version-conflict 回 `current` 权威 item；UI=轮尾 👍/👎+备注，见 `frontend/src/session/feedback.ts`） |
-| `commands/list\|execute` | **可用**（`{agentId}` / `{agentId, line, images}`——斜杠命令原行直发，客户端静态目录可原生化，Phase 2） |
+| `commands/list\|execute` | **已落地**（`{agentId}` / `{agentId, line, images}`——动态目录+Enter 整行直发，见 §6；转录节点=command/run+done 会话事件） |
 | `pluginInventory/list` | **可用**（返回 entries：include/插件清单） |
-| `fileReferences/list` | 可用（args 校验在） |
+| `fileReferences/list` | **已落地**（`{agentId, query}` → `[{path,kind}]`，cwd 亲和整库索引；@ 菜单文件候选原生源，见 §7） |
+| `sessionReferenceResolver/candidates` | **已落地**（`{agentId, query}` → 候选自带规范 mention；@ 会话引用候选原生源，见 §7） |
 | `session/search` | **原生常开**——session-query-sqlite 已进 base bundle，`--patch` overlay 的 session-query 条目已删 |
 | `session/models`、`llm/models` | **已删除**——模型目录唯一面 `session/modelCatalog`（含 reasoning 档位元数据 + default + failures） |
 | `session/history` | **已删除**——冷读走 `session/follow` 开窗快照 + `session/page` 向前翻页 |
@@ -125,7 +126,9 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
   渐进填充**：引擎对小 artifact 内联冷观察（`coldBlankProbeMaxBytes` 预算），
   大会话标题在打开观察后出现——官方同款行为，非缺陷。`modelSelection` =
   `{next, lastUsed}`（会话实时选择 = `next ?? lastUsed`，session/models 的
-  替代读法）。
+  替代读法）。`turnOutline` = `[{turn, seq, prompt≤50, response≤120}]`（seq
+  是该轮 turn/start 的事件 seq，深分页跳转目标）——SPA 大纲轨消费
+  （`TurnNavigator`，快照种子 + control projection 帧实时整值）。
 
 ## 5. 会话操作契约（要点）
 
@@ -141,27 +144,31 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
 - 排队操作 `session/updateQueue`、取消 `session/cancel`、重命名
   `session/rename {sessionId, title}` 形状不变（仅包 request）
 
-## 6. 命令目录（引擎注册，前端静态内置）
+## 6. 命令面（0.1.2 已原生化）
 
-| 命令 | 输入 |
-|---|---|
-| `compact` | — |
-| `goal` | `[<objective>\|clear\|edit <objective>\|pause\|resume]` |
-| `permission` | `<preset>` |
-| `plan` | `[off\|message]` |
-| `feedback` | `<text>` |
+- `commands/list {agentId}` → `[{name, description, input?:{hint, images?}}]`
+  （name 排序；插件注册面随引擎走，实测含 attach-workspaces/doctor/import/
+  resume-* 等）——前端目录动态拉取（`useSlashCommands`），`commands/change`
+  广播失效重拉。
+- `commands/execute {agentId, line, images}` → `{commandId, result:{kind:
+  'success'|'error', …}}`；`undefined` = 未知命令（引擎不落事件）。执行自驱
+  效果、不经 `session/prompt`（**prompt 无命令槽**）；转录节点来自
+  `command/run`+`command/done` 会话事件（按 commandId 配对）。
+- Composer Enter 裁决（`commandLine.ts`）：整行 `/name [args…]` 命中已知命令
+  即直发；未知名字拒绝并保留草稿；带 `input` 的命令菜单点击为 claim（插
+  `/name ` 续输）。`/export` 按范围拍板仍不入菜单。
 
-`commands/list`/`commands/execute` RPC 已在（§1）——目录原生化（替代前端
-静态表 + `/goal` 客户端派发改走 `commands/execute`）列 Phase 2。`/export`
-仍按范围拍板不入目录。
+## 7. @ 引用（0.1.2 已原生化）与 plan-review
 
-## 7. @ 引用与 plan-review
-
-- @ 菜单候选仍由壳侧 FileManager `list-dir` 提供；引擎 `sessionReferenceResolver/
-  candidates` RPC 已在（Phase 2 候选原生化）。
+- @ 候选两会话内走引擎：文件 `fileReferences/list {agentId, query}` →
+  `[{path, kind}]`（cwd 亲和整库递归索引；含 `/` 的查询退化为目录列举，路径
+  相对 agent cwd）；会话 `sessionReferenceResolver/candidates {agentId,
+  query}` → `[{sessionId, label, cwd, sameWorkspace, createdAt, mention}]`
+  （cwd 亲和排序、自带规范 mention）。草稿页（无 agent 作用域）回落壳侧
+  list-dir 与本地会话表（`useMentionCandidates` 的兜底面）。
 - plan-review 收窄规则（单题 + `intent.kind==='plan-review'` + detail + 非
-  multiSelect + options≤2 + approve 选项在）与应答语义不变；0.1.2 上
-  `commands/execute` 可达，plan-mode 激活路径已通（rc.2 三门全关的记录作废）。
+  multiSelect + options≤2 + approve 选项在）与应答语义不变；plan 退出芯片
+  走 `commands/execute "/plan off"`。
 
 ## 8. Settings/Provider 面
 

@@ -105,7 +105,8 @@ export interface FollowSnapshot {
   cursor: number;
   entries: HistoryEntry[];
   hasMore: boolean;
-  projections: Record<string, unknown>;
+  /** wire 形状 {asOfSeq, values}：投影真值都在 values 下（goal/turnOutline/…）。 */
+  projections: { asOfSeq?: number; values?: Record<string, unknown> };
 }
 
 /** workspace/follow 帧（基线 + 增量，全量语义见 workspace-controller types）。 */
@@ -245,6 +246,27 @@ export const api = {
   cancelQuestion: (eventId: string) =>
     mux.answerEvent(eventId, { kind: "rejected", error: { name: "Error", message: "cancelled by user", code: "cancelled" } }),
   agentPresets: () => unary<{ presets: AgentPreset[]; authorable?: boolean }>("agentPresets/list", {}),
+  /** @ 文件候选（0.1.2 fileReferences/list，扁平 {agentId, query}）：cwd 亲和
+   *  整库递归索引排序；含 / 的查询退化为该目录列举。路径相对 agent cwd。 */
+  fileCandidates: (agentId: string, query: string) =>
+    unary<Array<{ path: string; kind: "file" | "directory" }>>("fileReferences/list", { agentId, query }),
+  /** @ 会话引用候选（0.1.2 sessionReferenceResolver/candidates）：cwd 亲和
+   *  排序、自带引擎规范 mention（排除自身）。 */
+  sessionCandidates: (agentId: string, query: string) =>
+    unary<Array<{ sessionId: string; label: string; cwd?: string; sameWorkspace?: boolean; createdAt?: number; mention: string }>>(
+      "sessionReferenceResolver/candidates", { agentId, query }),
+  /** 引擎命令目录（0.1.2 commands/list，扁平 {agentId}；插件注册面随引擎走）。 */
+  commandsList: (agentId: string) =>
+    unary<import("./types").CommandDescriptor[]>("commands/list", { agentId }),
+  /** 执行一条整行斜杠命令（0.1.2 commands/execute）：自驱效果，不经
+   *  session/prompt；回包 undefined = 未知命令（引擎未落事件）。images 是
+   *  引擎 EncodedImageAttachment 形状（mediaType/data/name，无 type 槽）。 */
+  commandExecute: (payload: { agentId: string; line: string; images?: Array<{ mediaType: string; data: string; name?: string }> }) =>
+    unary<import("./types").CommandExecution | undefined>("commands/execute", {
+      agentId: payload.agentId,
+      line: payload.line,
+      images: payload.images ?? [],
+    }),
   /** 消息反馈（0.1.2 解锁，TODO §0）：put/delete 返回业务级嵌套 ok/error，
    *  version-conflict 的 error.current 携带权威 item（就地和解，勿整表重拉）。 */
   feedbackList: (sessionId: string) =>

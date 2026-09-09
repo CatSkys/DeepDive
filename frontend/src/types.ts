@@ -225,6 +225,37 @@ export interface GoalProjection {
   updatedAt: number;
 }
 
+/**
+ * turnOutline 投影条目（引擎 session-turn-outline：wire 值为裸数组，按 turn
+ * 严格递增）。`seq` 是该轮 turn/start 的事件 seq——向前翻页覆盖到它即得整轮；
+ * prompt/response 是引擎侧预算过的预览（50/120 字符）。
+ */
+export interface TurnOutlineEntry {
+  turn: number;
+  seq: number;
+  prompt: string;
+  response: string;
+}
+
+/** commands/list 条目（引擎 interaction/commands CommandDescriptor，name 排序）。 */
+export interface CommandDescriptor {
+  /** 无斜杠小写命令名（引擎 parseCommand 同名）。 */
+  name: string;
+  description: string;
+  /** 存在即表示命令吃自由输入：hint 是占位提示；images=true 才接受图片。 */
+  input?: { hint: string; images?: boolean };
+}
+
+/**
+ * commands/execute 回包（undefined = 未知/畸形命令，引擎不落任何事件）。
+ * 转录节点来自 command/run + command/done 会话事件（按 commandId 配对），
+ * 回包只用于提交侧的成败裁决。
+ */
+export interface CommandExecution {
+  commandId: string;
+  result: { kind: "success"; text?: string; sourceEventSeq?: number } | { kind: "error"; text: string };
+}
+
 /** session/jobs 帧的单条后台任务视图。 */
 export interface JobView {
   id: string;

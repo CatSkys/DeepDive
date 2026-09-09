@@ -12,9 +12,8 @@ import { api } from "../../api";
 import { useStore } from "../../store";
 import { useT, type TFunc } from "../../i18n";
 import { activeAtToken, formatMention, type ActiveAtToken } from "../../atGrammar";
-import { useAtCandidates, type AtEntry } from "../../useAtCandidates";
-import { SLASH_COMMANDS } from "../../commands";
-import { sessionMentionCandidates, type SessionMentionCandidate } from "../../session/sessionMention";
+import { useFileCandidates, useSessionCandidates, type AtEntry, type SessionCandidate } from "../../useMentionCandidates";
+import type { CommandDescriptor } from "../../types";
 
 export interface MenuRow {
   id: string;
@@ -22,28 +21,23 @@ export interface MenuRow {
   label: string;
   /** 次要说明（命令描述/参数提示/路径），随行展示。 */
   detail?: string;
-  /** 当前引擎不可用（命令通道未开放）：禁用态呈现，点击明示原因。 */
-  disabled?: boolean;
   section: string;
   run: () => void;
 }
 
 /** 旧式 parseToken 已由官方 activeAtToken grammar 取代（引号路径/空白触发）；
  *  斜杠触发保持整词行首/空白后判定，CJK 查询可过滤中文标签。
- *  /goal 特例：行首 "/goal [目标]" 整体保持斜杠上下文——菜单在输入目标时
- *  不消失，回车即客户端派发（goals/create）。 */
+ *  带参命令 claim 后（"/goal 输入目标…"）token 不再落在行尾，菜单自然收起。 */
 function parseSlashToken(text: string): { query: string; start: number } | null {
   const match = /(^|\s)\/([\w\u4e00-\u9fff-]*)$/.exec(text);
   if (match) return { query: match[2].toLowerCase(), start: match.index + match[1].length };
-  const trimmed = text.replace(/^\s+/, "");
-  if (/^\/goal(\s[\s\S]*)?$/.test(trimmed)) return { query: "goal", start: text.length - trimmed.length };
   return null;
 }
 
-// 命令菜单对齐 DSH 原生五命令（docs/DSH-WIRE.md §4，引擎无 commands.list，
-// 目录静态内置）。0.1.2 浏览器面只有 /goal 可客户端派发（goals/create RPC）；
-// 其余命令执行走宿主 commands/execute 通道，rc.2 不可达（DSH-WIRE §6 三门
-// 实证）——行以禁用态呈现、点击明示原因，通道开放后在各自的 run 换真派发。
+// 命令行语义对齐官方 ui-commands 的裁决表（0.1.2 commands 面）：
+// - 带 input（hint）的命令 → claim：插入 "/name " 由用户补参，Enter 整行
+//   经 commands/execute 直发（编排方 submit 裁决）；
+// - 无 input 的命令 → 菜单点击即直发（官方 runDetached），成败明示。
 const CMD_ICONS: Record<string, LucideIcon> = {
   compact: Shrink,
   plan: Route,
@@ -60,43 +54,47 @@ function buildSlashRows(args: {
   slashTok: { query: string; start: number } | null;
   sessionId: string | null;
   setText: SetText;
+  commands: CommandDescriptor[];
 }): MenuRow[] {
-  const { t, tt, text, slashTok, sessionId, setText } = args;
-  return SLASH_COMMANDS.map((cmd) => {
-    if (cmd.name === "goal") {
+  const { t, tt, text, slashTok, sessionId, setText, commands } = args;
+  return commands.map((cmd) => {
+    const icon = CMD_ICONS[cmd.name] ?? TerminalSquare;
+    const detail = [cmd.description, cmd.input?.hint].filter(Boolean).join(" ");
+    if (cmd.input) {
       return {
-        id: "cmd:goal",
-        icon: TerminalSquare,
-        label: "/goal",
-        detail: `${tt("设定/查看长任务的 Goal", "Set or view the goal for a long-running task")} ${tt("（输入目标后回车）", "(enter an objective then Enter)")}`,
+        id: `cmd:${cmd.name}`,
+        icon,
+        label: `/${cmd.name}`,
+        detail,
         section: t("命令"),
         run: () => {
           if (!slashTok) return;
-          const typed = text.slice(slashTok.start).trim();
-          const objective = typed.replace(/^\/goal\b/i, "").trim();
-          if (sessionId && objective) {
-            void api.goalCreate({ sessionId, objective }).catch(() => void 0); // goal 派发失败：吞掉不弹错，Goal 条未更新即是反馈
-            setText("");
-          } else {
-            setText(text.slice(0, slashTok.start) + "/goal ");
-          }
+          setText(text.slice(0, slashTok.start) + `/${cmd.name} `);
         },
       };
     }
     return {
       id: `cmd:${cmd.name}`,
-      icon: CMD_ICONS[cmd.name] ?? TerminalSquare,
+      icon,
       label: `/${cmd.name}`,
-      detail: [tt(cmd.zh, cmd.en), cmd.hint].filter(Boolean).join(" "),
+      detail,
       section: t("命令"),
-      disabled: true,
-      run: () =>
-        void alertDialog({
-          message: tt(
-            `当前引擎版本不支持 /${cmd.name}，引擎升级开放命令通道后可用`,
-            `/${cmd.name} is not available on this engine build yet`,
-          ),
-        }),
+      run: () => {
+        if (!slashTok || !sessionId) return;
+        void api.commandExecute({ agentId: sessionId, line: `/${cmd.name}` })
+          .then((res) => {
+            if (res === undefined) {
+              void alertDialog({ message: tt(`未知命令：/${cmd.name}`, `Unknown command: /${cmd.name}`) });
+              return;
+            }
+            if (res.result.kind === "error") {
+              void alertDialog({ message: res.result.text });
+              return;
+            }
+            setText(text.slice(0, slashTok.start));
+          })
+          .catch(() => void alertDialog({ message: tt("命令发送失败", "Failed to send command") }));
+      },
     };
   });
 }
@@ -127,10 +125,10 @@ function buildAtRows(args: {
 
 // 会话引用（官方 @ 源的第二支：文件 + 会话合源）。插入规范 mention，
 // 宿主 pre-step 据此注入被引用会话的只读快照；quoted（目录续层）不出
-// 会话候选——与官方一致。
+// 会话候选（0.1.2 原生化：会话内走引擎 cwd 亲和排序，mention 为引擎规范形）。
 function buildSessionRows(args: {
   tt: TFunc["tt"];
-  candidates: SessionMentionCandidate[];
+  candidates: SessionCandidate[];
   atTok: ActiveAtToken | undefined;
   cursor: number;
   text: string;
@@ -142,7 +140,7 @@ function buildSessionRows(args: {
     id: `ref-session:${c.sessionId}`,
     icon: MessageSquare,
     label: c.label,
-    detail: sessionDateFmt.format(c.updatedAt ?? 0),
+    detail: sessionDateFmt.format(c.at ?? 0),
     section: tt("会话", "Sessions"),
     run: () => {
       if (!atTok) return;
@@ -158,20 +156,23 @@ export function useComposerMenu(args: {
   composing: boolean;
   sessionId: string | null;
   setText: SetText;
+  commands: CommandDescriptor[];
 }): { menu: "at" | "slash" | null; query: string; rows: MenuRow[] } {
-  const { text, cursor, dismissed, composing, sessionId, setText } = args;
+  const { text, cursor, dismissed, composing, sessionId, setText, commands } = args;
   const store = useStore();
   const { t, tt, lang } = useT();
-  // @ 引用候选：工作空间根目录（无空间面时退化为不提供候选）
+  // @ 文件候选：会话内引擎索引；草稿页用工作空间根（无空间面时无候选）。
   const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
 
   // token 派生：@ 用官方 grammar（光标位置），/ 保持行尾判定。
   const atTok = dismissed || composing ? undefined : activeAtToken(text, cursor);
   const slashTok = dismissed || composing ? null : parseSlashToken(text);
 
-  const atEntries = useAtCandidates(atTok && !atTok.quoted ? atTok.query : "", wsPath);
+  const atQuery = atTok && !atTok.quoted ? atTok.query : "";
+  const atEntries = useFileCandidates({ query: atQuery, sessionId, wsPath });
+  const sessionCands = useSessionCandidates({ sessionId, query: atQuery, sessions: store.sessions, lang });
 
-  const slashRows = buildSlashRows({ t, tt, text, slashTok, sessionId, setText });
+  const slashRows = buildSlashRows({ t, tt, text, slashTok, sessionId, setText, commands });
   const atRows = buildAtRows({ t, atEntries, atTok, cursor, text, setText });
   const sessionDateFmt = useMemo(
     () => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
@@ -181,9 +182,7 @@ export function useComposerMenu(args: {
   );
   const sessionRows = buildSessionRows({
     tt,
-    candidates: atTok && !atTok.quoted
-      ? sessionMentionCandidates(store.sessions, sessionId, atTok.query, lang)
-      : [],
+    candidates: atQuery ? sessionCands : [],
     atTok, cursor, text, setText, sessionDateFmt,
   });
 

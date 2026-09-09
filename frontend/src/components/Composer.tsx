@@ -7,6 +7,7 @@ import { comboFor } from "../keybinds";
 import { useT } from "../i18n";
 import { useCompositionGuard } from "../useCompositionGuard";
 import { Lightbox } from "./Lightbox";
+import { alertDialog } from "./DialogHost";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { PromptContentPart } from "../types";
 import { useComposerDraft } from "./composer/useComposerDraft";
@@ -14,6 +15,8 @@ import { useComposerAttachments, type Attachment } from "./composer/useComposerA
 import { DD_EVENTS } from "../events";
 import { useComposerDictation } from "./composer/useComposerDictation";
 import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
+import { useSlashCommands } from "./composer/useSlashCommands";
+import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
 
 /* ─────────────────────────────────────────────────────────
@@ -65,7 +68,9 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     taRef.current?.focus();
   });
   const { listening, partial, toggleDictation } = useComposerDictation({ setText, refocus: refocusDraft });
-  const { menu, query, rows } = useComposerMenu({ text, cursor, dismissed, composing, sessionId, setText });
+  // 引擎命令目录（0.1.2 commands/list）：菜单与 Enter 裁决共用一份。
+  const commands = useSlashCommands(sessionId);
+  const { menu, query, rows } = useComposerMenu({ text, cursor, dismissed, composing, sessionId, setText, commands });
   // 选中文字「添加到当前任务」（SelectionActions 派发）：追加到现有草稿尾部
   // （带空行分隔），光标落末尾并重新长高。
   useEffect(() => {
@@ -106,6 +111,49 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
 
   const submit = async (modeOverride?: "queue" | "steer") => {
     if (content.length === 0 || busy) return;
+    // 整行斜杠命令裁决（官方 matchEnter）：已知命令 → commands/execute 直发
+    //（自驱效果，不经 session/prompt——prompt 无命令槽，斜杠文本只会喂给模型）。
+    const decision = adjudicateSlashLine(text, commands);
+    if (decision !== null) {
+      if (decision.kind === "unknown") {
+        void alertDialog({ message: tt(`未知命令：/${decision.name}`, `Unknown command: /${decision.name}`) });
+        return; // 草稿保留供修正（官方语义：不静默发给模型）
+      }
+      if (attachments.length > 0 && !decision.command.input?.images) {
+        void alertDialog({ message: tt("该命令不支持图片附件", "This command does not accept image attachments") });
+        return;
+      }
+      setBusy(true);
+      let sid = sessionId;
+      if (sid === null) {
+        const create = await store.createSession();
+        if (!create) { setBusy(false); return; }
+        sid = create;
+      }
+      try {
+        const res = await api.commandExecute({
+          agentId: sid,
+          line: decision.line,
+          images: attachments.map((a) => ({ mediaType: a.mediaType, data: a.data, name: a.name })),
+        });
+        if (res === undefined) {
+          void alertDialog({ message: tt(`未知命令：/${decision.command.name}`, `Unknown command: /${decision.command.name}`) });
+          setBusy(false); return;
+        }
+        if (res.result.kind === "error") {
+          void alertDialog({ message: res.result.text });
+          setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
+        }
+      } catch {
+        setBusy(false); return; // 发送失败：输入保留（与 prompt 路径同策略）
+      }
+      setText("");
+      setAttachments([]);
+      if (draftKey) localStorage.removeItem(draftKey);
+      setBusy(false);
+      onSent?.();
+      return;
+    }
     setBusy(true);
     // 空闲会话两键等价（引擎直接开轮）；运行中按设置分流，修饰键取另一行为
     //（设置页文案："仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为"）。
