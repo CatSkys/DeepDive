@@ -12,6 +12,7 @@ import { GoalBar } from "./GoalBar";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, foldDecision, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
+import { useFeedback } from "../session/feedback";
 import { SessionHeader } from "../session/SessionHeader";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
@@ -36,6 +37,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const olderAnchorRef = useRef<HTMLElement | null>(null);
   const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
+    // 消息反馈（TODO §0-1）：会话级控制器，轮尾 👍/👎 共享一次 list 读
+    const feedback = useFeedback(sessionId);
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("会话");
 
@@ -314,6 +317,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           turnRunning={running}
                           onBranch={branchFrom}
                           sessionId={sessionId}
+                          feedbackCtrl={feedback}
                           onContinue={() => {
                             void api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
                           }}

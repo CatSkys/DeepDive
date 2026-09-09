@@ -4,17 +4,14 @@
 
 ## 0. 0.1.2-rc.1 引擎新特性移植（Phase 2，2026-09-09 升级解锁）
 
-引擎已升 0.1.2-rc.1（见 `DSH-WIRE.md`），四个新面实测可达、按价值排序：
+引擎已升 0.1.2-rc.1（见 `DSH-WIRE.md`），按价值排序（消息反馈已落地）：
 
-1. **消息反馈 UI**：`messageFeedback/list|put|delete`（`request` 包裹；put 为
-   `{sessionId, messageId, rating:'positive'|'negative', note?, ifVersion}` CAS）——
-   消息操作行 👍/👎 + 已反馈态，对照官方 `packages/client/ui-message-feedback`。
-2. **命令原生化**：`commands/list {agentId}` + `commands/execute {agentId, line,
+1. **命令原生化**：`commands/list {agentId}` + `commands/execute {agentId, line,
    images}`（整行斜杠命令直发）——替代 `commands.ts` 静态目录与 `/goal` 客户端
    派发；`session/prompt` 的 `command` 槽位语义随命令引擎走。
-3. **Turn 大纲轨**：`turnOutline` 投影已在（follow 快照 15 键之一）+ `session/
+2. **Turn 大纲轨**：`turnOutline` 投影已在（follow 快照 15 键之一）+ `session/
    page` 深分页——对照官方 `ui-chat` turn rail 移植会话内导航。
-4. **@ 候选原生化**：`sessionReferenceResolver/candidates` 替代壳侧 list-dir
+3. **@ 候选原生化**：`sessionReferenceResolver/candidates` 替代壳侧 list-dir
    候选（需评估与 FileManager 路径体验差异再动）。
 
 另：`pluginInventory/list` 已可达，插件市场（§1）的发现面可改走引擎清单。

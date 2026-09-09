@@ -42,7 +42,7 @@
 
 | 方法/面 | 结论 |
 |---|---|
-| `messageFeedback/list\|put\|delete` | **可用**（args 为 `request` 包裹；UI 移植列 Phase 2） |
+| `messageFeedback/list\|put\|delete` | **已落地**（args 为 `request` 包裹；put/delete 带 `ifVersion` CAS，version 为不透明字符串 token，version-conflict 回 `current` 权威 item；UI=轮尾 👍/👎+备注，见 `frontend/src/session/feedback.ts`） |
 | `commands/list\|execute` | **可用**（`{agentId}` / `{agentId, line, images}`——斜杠命令原行直发，客户端静态目录可原生化，Phase 2） |
 | `pluginInventory/list` | **可用**（返回 entries：include/插件清单） |
 | `fileReferences/list` | 可用（args 校验在） |

@@ -187,7 +187,7 @@ button {
     0 12px 28px rgba(0,0,0,.20),
     0 2px 6px rgba(0,0,0,.10);
 }
-.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down {
+.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .feedback-note-panel {
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
      别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
@@ -3278,3 +3278,45 @@ input:focus, textarea:focus, select:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   .dialog-overlay, .dialog-card { animation: none; }
 }
+
+/* ---- 消息反馈（turn-tail 👍/👎 + 备注弹层，官方 ui-message-feedback 移植） ---- */
+.feedback-action[data-active] { color: var(--ink); }
+.feedback-note-trigger {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.feedback-note-trigger:hover { background: var(--fill); color: var(--ink-2); }
+.feedback-failure { font-size: 11px; color: var(--ink-3); }
+.feedback-note-panel {
+  position: fixed;
+  z-index: 90;
+  width: 280px;
+  padding: 10px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.feedback-note-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 64px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--fill);
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+  outline: none;
+}
+.feedback-note-actions { display: flex; gap: 8px; justify-content: flex-end; }

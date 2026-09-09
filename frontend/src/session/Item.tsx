@@ -9,12 +9,14 @@ import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
-export function Item({ item, turnRunning, onBranch, onContinue, sessionId }: {
+export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedbackCtrl }: {
   item: RenderItem;
   turnRunning: boolean;
   onBranch?: (forkSeq: number) => void;
   onContinue?: () => void;
   sessionId: string;
+  /** 会话级消息反馈控制器（turn-tail 的 👍/👎 用）。 */
+  feedbackCtrl?: ReturnType<typeof import("./feedback").useFeedback>;
 }) {
   if (item.kind === "user") {
     return (
@@ -86,6 +88,7 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId }: {
           copiedText={copiedText}
           branch
           usage={item.usage}
+          feedback={feedbackCtrl && item.messageId ? { messageId: item.messageId, ctrl: feedbackCtrl } : undefined}
           onBranch={item.forkSeq !== undefined ? () => onBranch?.(item.forkSeq!) : undefined}
         />
       </div>

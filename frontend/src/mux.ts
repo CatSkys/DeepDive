@@ -112,7 +112,8 @@ class MuxClient {
     this.ws = new WebSocket(`ws://${host}${MUX_PATH}`);
     this.ws.onopen = () => {
       // 重连后所有注册流重开（服务端重发基线/快照，消费方全量替换）。
-      this.openEventsStream();
+      // $$events 已在 streams 表内、循环覆盖——勿再单独发：同一 streamId
+      // 双开会被网关按协议违规整条断连（close 1008），重连即死循环。
       for (const [streamId] of this.streams) this.sendOpen(streamId);
     };
     this.ws.onmessage = (e) => {
@@ -144,14 +145,14 @@ class MuxClient {
   }
 
   private openEventsStream() {
-    // $events 以固定 streamId 开流：onEvents 首次挂载/重连时幂等重开。
-    if (!this.streams.has("$$events")) {
-      this.streams.set("$$events", {
-        endpoint: EVENTS_ENDPOINT,
-        args: {},
-        onItem: (value) => this.consumeEventValue(value),
-      });
-    }
+    // $events 以固定 streamId 常驻注册：仅在首次注册时发开流帧（重连后的
+    // 重开由 onopen 的全量循环负责，重复即双开）。
+    if (this.streams.has("$$events")) return;
+    this.streams.set("$$events", {
+      endpoint: EVENTS_ENDPOINT,
+      args: {},
+      onItem: (value) => this.consumeEventValue(value),
+    });
     this.sendOpen("$$events");
   }
 

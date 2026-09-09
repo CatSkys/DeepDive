@@ -50,6 +50,8 @@ export interface RenderItem {
   endReason?: import("../types").TurnEndReason;
   // 本轮累计 token 用量（assistant usage，轮尾弹层）
   usage?: import("../types").TokenUsage;
+  // 轮尾对应的 assistant 持久消息 id（消息反馈 messageFeedback 的寻址键）
+  messageId?: string;
 }
 
 export interface TurnMeta {
@@ -209,6 +211,8 @@ export interface IngestCtx {
   turnText: Map<number, string>;
   /** turn → tail anchor time (the closing assistant message, if any). */
   turnTime: Map<number, number>;
+  /** turn → 本轮最后一条 assistant 持久消息 id（消息反馈寻址键）。 */
+  turnMessageId: Map<number, string>;
   /** 最近一次 turn/start 的 turn 号：user/message 事件不带 turn（wire 契约），
    *  靠它给 user item 标注归属——否则一步失败、零 assistant 输出的轮没有
    *  tail 锚点，轮终错误（如 MISSING_CREDENTIAL）永远渲染不出来。 */
@@ -217,7 +221,7 @@ export interface IngestCtx {
 
 /** Fresh ingest context — history replay, live mux passes and tests share one shape. */
 export function makeIngestCtx(): IngestCtx {
-  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map(), currentTurn: undefined };
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map(), turnMessageId: new Map(), currentTurn: undefined };
 }
 
 export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
@@ -275,6 +279,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
     case "assistant/message": {
       const d = ev.data as AssistantMessageData;
       const turn = d.turn;
+      if (typeof d.message?.id === "string" && d.message.id) ctx.turnMessageId.set(turn, d.message.id);
       const text = messageText(d.message?.content);
       // Replace the live-streamed chunk/reasoning items for this step with
       // the final blocks. Discard them — re-appending interleaves stale
@@ -487,6 +492,7 @@ export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
       produced: ctx.produced.get(turn) ?? [],
       endReason: ctx.turnReason.get(turn),
       usage: ctx.turnUsage.get(turn),
+      messageId: ctx.turnMessageId.get(turn),
     });
   }
   // Insert each turn's tail right after the LAST item belonging to that turn,
