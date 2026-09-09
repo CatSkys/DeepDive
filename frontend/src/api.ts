@@ -81,12 +81,20 @@ export interface ImportRunResult {
 /** follow/page 返回的 history 记录（wire 形状）：原始事件或打包 chunk 行。 */
 type HistoryRecord = { type: "event"; event: SessionEvent } | { type: "chunks"; [k: string]: unknown };
 
-/** 记录序列 → 事件条目：chunk 行就地展开（词表不变，摄取层无感）。 */
+/** 记录序列 → 事件条目：chunk 行就地展开（词表不变，摄取层无感）。
+ *  wire 打包行形如 {type:'chunks', event:{type:'chunkrow/text-chunks', seq,
+ *  time, data}}——锚点字段落在 event 上（seq/time 即首成员 seq0/time0），
+ *  解码器吃裸 ChunkRow，这里先归一。 */
 function expandRecords(records: HistoryRecord[]): HistoryEntry[] {
   const out: HistoryEntry[] = [];
   for (const r of records) {
-    if (r.type === "event") out.push({ event: r.event });
-    else out.push(...expandChunkRow(r).map((event) => ({ event })));
+    if (r.type === "event") {
+      out.push({ event: r.event as import("./types").SessionEvent });
+    } else if (r.type === "chunks" && r.event && typeof r.event === "object") {
+      const row = r.event as { type: string; seq: number; time: number; data: unknown };
+      const bare = { type: row.type.replace(/^chunkrow\//, ""), seq0: row.seq, time0: row.time, data: row.data };
+      out.push(...expandChunkRow(bare).map((event) => ({ event })));
+    }
   }
   return out;
 }
@@ -151,19 +159,22 @@ export const api = {
       })),
     })),
 
-  sessions: () => unary<{ items: SessionSummary[] }>("session/list"),
+  // list 的源码签名为 list(_request: SessionListRequest, signal)——保留参数
+  // _request 在 wire 上必须显式出现（空对象）。
+  sessions: () => unary<{ items: SessionSummary[] }>("session/list", { _request: {} }),
   createSession: (payload: { workspaceId?: string; cwd?: string; sessionId?: string; agentPreset?: string }) =>
-    unary<{ sessionId: string; agentPreset?: string }>("session/create", payload),
-  /** 深历史向前翻页：throughSeq 必须取自对应 follow 开窗帧的 cursor。 */
+    unary<{ sessionId: string; agentPreset?: string }>("session/create", { request: payload }),
+  /** 深历史向前翻页：throughSeq 必须取自对应 follow 开窗帧的 cursor。
+   *  wire 形状（生成客户端实测）：单层 request 包裹。 */
   page: (payload: { address: SessionAddress; throughSeq: number; beforeSeq?: number; maxMessages?: number }) =>
-    unary<{ records: HistoryRecord[]; hasMore: boolean }>("session/page", payload as unknown as Record<string, unknown>)
+    unary<{ records: HistoryRecord[]; hasMore: boolean }>("session/page", { request: payload })
       .then((p) => ({ entries: expandRecords(p.records), hasMore: p.hasMore })),
   /** 打开一条会话日志直播流：开窗快照 + 之后追加的事件（断线重连重发快照）。 */
   followSession: (
     address: SessionAddress,
     handlers: { onSnapshot: (s: FollowSnapshot) => void; onEvent: (ev: SessionEvent) => void },
     maxMessages = 120,
-  ) => mux.openStream("session/follow", { address, maxMessages } as unknown as Record<string, unknown>, (value) => {
+  ) => mux.openStream("session/follow", { request: { address, maxMessages } }, (value) => {
     if (typeof value !== "object" || value === null) return;
     const frame = value as { type: string; [k: string]: unknown };
     if (frame.type === "snapshot") {
@@ -179,24 +190,24 @@ export const api = {
     }
   }),
   prompt: (payload: { requestId: string; sessionId: string; mode: "queue" | "steer"; content: PromptContentPart[] }) =>
-    unary<{ accepted: true }>("session/prompt", payload as unknown as Record<string, unknown>),
+    unary<{ accepted: true }>("session/prompt", { request: payload }),
   /** 修改一条仍挂起的排队消息（引擎源码契约：edit 仅接受文本 content）。 */
   updateQueue: (payload: {
     sessionId: string;
     itemId: string;
     action: { kind: "edit"; content: Array<{ type: "text"; text: string }> } | { kind: "remove" } | { kind: "steer" };
-  }) => unary<{ accepted: true }>("session/updateQueue", payload as unknown as Record<string, unknown>),
-  cancel: (payload: { sessionId: string }) => unary("session/cancel", payload),
+  }) => unary<{ accepted: true }>("session/updateQueue", { request: payload }),
+  cancel: (payload: { sessionId: string }) => unary("session/cancel", { request: payload }),
   /** 从轮收尾 seq 分叉出子会话（官方 forkAt 同款），返回子会话 id。 */
   fork: (payload: { sessionId: string; atSeq: number }) =>
-    unary<{ sessionId: string }>("session/fork", payload),
+    unary<{ sessionId: string }>("session/fork", { request: payload }),
   /** 全文搜索（标题∪正文，≤20 条 snippet≤240）；session-query 自 0.1.2 起
    *  随 base bundle 常开，不再依赖 --patch overlay。 */
   search: (payload: { query: string }) =>
-    unary<{ items: Array<{ sessionId: string; snippet: string }>; hasMore: boolean }>("session/search", payload),
+    unary<{ items: Array<{ sessionId: string; snippet: string }>; hasMore: boolean }>("session/search", { request: payload }),
   /** 取一条图片附件的字节（base64，渲染用户消息图片用）。 */
   attachment: (payload: { sessionId: string; attachmentId: string }) =>
-    unary<{ attachment: { attachmentId: string; mediaType: string; name?: string }; data: string }>("session/attachment", payload),
+    unary<{ attachment: { attachmentId: string; mediaType: string; name?: string }; data: string }>("session/attachment", { request: payload }),
   /** Goal 长任务（5.1）：全部走 CAS 修订围栏；作用域首参 agentId=会话 id。 */
   goalCreate: (payload: { sessionId: string; objective: string; maxGoalRounds?: number }) =>
     unary<{ ref: { id: string; revision: number } }>("goals/create", {
@@ -235,7 +246,7 @@ export const api = {
     mux.answerEvent(eventId, { kind: "rejected", error: { name: "Error", message: "cancelled by user", code: "cancelled" } }),
   agentPresets: () => unary<{ presets: AgentPreset[]; authorable?: boolean }>("agentPresets/list", {}),
   selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
-    unary("session/selectModel", payload),
+    unary("session/selectModel", { request: payload }),
   sessionModelCatalog: () => unary<{
     default: { provider: string; model: string };
     routableProviders?: string[];
@@ -264,17 +275,17 @@ export const api = {
     return { options: flatten(cat.groups ?? []), default: cat.default };
   },
   sessionRename: (payload: { sessionId: string; title: string }) =>
-    unary("session/rename", { sessionId: payload.sessionId, title: payload.title }),
+    unary("session/rename", { request: { sessionId: payload.sessionId, title: payload.title } }),
   workspaceArchiveSession: (payload: { sessionId: string }) =>
-    unary("workspace/archiveSession", { sessionId: payload.sessionId }),
+    unary("workspace/archiveSession", { request: { sessionId: payload.sessionId } }),
   /** 注册一个已存在的目录为工作空间（官方 DSH「添加项目」同款路由）。
    *  已注册过则幂等返回 created:false。 */
   workspaceCreate: (payload: { path: string }) =>
-    unary<{ workspace: WorkspaceView; created: boolean }>("workspace/create", payload),
+    unary<{ workspace: WorkspaceView; created: boolean }>("workspace/create", { request: payload }),
   workspaceRename: (payload: { workspaceId: string; title: string }) =>
-    unary<{ workspace: WorkspaceView }>("workspace/rename", payload),
+    unary<{ workspace: WorkspaceView }>("workspace/rename", { request: payload }),
   workspaceDelete: (payload: { workspaceId: string }) =>
-    unary<{ deleted: true }>("workspace/delete", payload),
+    unary<{ deleted: true }>("workspace/delete", { request: payload }),
   /** 工作区实时面（workspace.list 已随 0.1.2 改为 follow 流；基线+增量）。 */
   openWorkspaces: (onFrame: (frame: WorkspaceFollowFrame) => void) =>
     mux.openStream("workspace/follow", {}, (value) => {
@@ -303,7 +314,13 @@ export const api = {
   llmProviders: () => unary<Array<{ provider: string; displayName: string; settingsNs: string; settingsPath: string[] }>>("llm/listConfigurableProviders", {}),
   /** 探测端点可用模型（5.5 自定义提供方）：apiKey 只上送不存储。 */
   discoverModels: (payload: { settingsNs: string; provider?: string; baseURL?: string; api?: string; apiKey?: string }) =>
-    unary<Array<{ id: string; name?: string; contextWindow?: number; maxTokens?: number }>>("llm/discoverModels", payload as unknown as Record<string, unknown>),
+    unary<Array<{ id: string; name?: string; contextWindow?: number; maxTokens?: number }>>("llm/discoverModels", {
+      settingsNs: payload.settingsNs,
+      request: { ...(payload.provider === undefined ? {} : { provider: payload.provider }),
+        ...(payload.baseURL === undefined ? {} : { baseURL: payload.baseURL }),
+        ...(payload.api === undefined ? {} : { api: payload.api }),
+        ...(payload.apiKey === undefined ? {} : { apiKey: payload.apiKey }) },
+    }),
 };
 
 export interface SettingsNamespaceEntry {

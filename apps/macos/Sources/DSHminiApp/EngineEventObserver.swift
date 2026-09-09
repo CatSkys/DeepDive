@@ -81,12 +81,14 @@ final class EngineEventObserver {
         task.resume()
         // Forwarded events ride the $events internal stream on remote.mux —
         // open it with the standard empty-args payload right after connect.
+        // 帧必须是文本（引擎 mux 只解析 text message，二进制帧会被直接断连）。
         if path == "/api/remote.mux" {
             eventsStreamId = "events-\(UUID().uuidString)"
             let open: [String: Any] = ["type": "open", "streamId": eventsStreamId,
                                        "endpoint": "$events", "payload": ["args": [:]]]
-            if let data = try? JSONSerialization.data(withJSONObject: open) {
-                task.send(.data(data)) { _ in }
+            if let data = try? JSONSerialization.data(withJSONObject: open),
+               let text = String(data: data, encoding: .utf8) {
+                task.send(.string(text)) { _ in }
             }
         }
         receive()

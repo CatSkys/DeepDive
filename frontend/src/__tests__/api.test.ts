@@ -38,7 +38,7 @@ describe("unary 信封", () => {
     expect(url).toBe("/api/session/list");
     expect(envelope.type).toBe("client-request");
     expect(envelope.method).toBe("session/list"); // 必须与端点字符串一致
-    expect(envelope.payload).toEqual({ args: {} });
+    expect(envelope.payload).toEqual({ args: { _request: {} } }); // list 的保留参数 _request 必须显式出现
     expect(typeof envelope.rpcId).toBe("string");
     expect(envelope.rpcId.length).toBeGreaterThan(0);
   });
@@ -49,7 +49,7 @@ describe("unary 信封", () => {
     const { url, envelope } = lastCall();
     expect(url).toBe("/api/session/page");
     expect((envelope.payload as { args: unknown }).args).toEqual({
-      address: { kind: "session", sessionId: "s1" }, throughSeq: 100, beforeSeq: 42, maxMessages: 120,
+      request: { address: { kind: "session", sessionId: "s1" }, throughSeq: 100, beforeSeq: 42, maxMessages: 120 },
     });
   });
 
@@ -63,13 +63,13 @@ describe("unary 信封", () => {
   it("fork 携带 atSeq；search 扁平 query（4.1，引擎禁用部署上 reject 由调用方降级）", async () => {
     vi.stubGlobal("fetch", vi.fn(respond({ sessionId: "child" })));
     await api.fork({ sessionId: "s", atSeq: 42 });
-    expect((lastCall().envelope.payload as { args: unknown }).args).toEqual({ sessionId: "s", atSeq: 42 });
+    expect((lastCall().envelope.payload as { args: unknown }).args).toEqual({ request: { sessionId: "s", atSeq: 42 } });
     vi.stubGlobal("fetch", vi.fn(failWith(200, "SESSION_QUERY_SEARCH_DISABLED", "session search is disabled")));
     await expect(api.search({ query: "abc" })).rejects.toThrow("SESSION_QUERY_SEARCH_DISABLED");
     vi.stubGlobal("fetch", vi.fn(respond({ items: [{ sessionId: "s", snippet: "…" }], hasMore: false })));
     await api.search({ query: "abc" });
     expect(lastCall().url).toBe("/api/session/search");
-    expect((lastCall().envelope.payload as { args: unknown }).args).toEqual({ query: "abc" });
+    expect((lastCall().envelope.payload as { args: unknown }).args).toEqual({ request: { query: "abc" } });
   });
 });
 
