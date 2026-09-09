@@ -84,7 +84,10 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
   // 显示名跟「草稿选择」走：引擎 default 只是初始值，草稿页每次开菜单都
   // 重拉目录，若无视草稿会把已选模型重置回默认，表现为"无法切换"。
   const loadModels = useCallback(async () => {
-    const { options, default: def } = await api.modelOptions();
+    // 启动期引擎常未就绪（bridge 503）：目录留空降级，picker 打开时重拉
+    //（上方注释的既有策略）；不捕获会成为 unhandledrejection 污染诊断通道。
+    const { options, default: def } = await api.modelOptions()
+      .catch(() => ({ options: [] as ModelOption[], default: undefined }));
     setModels(options);
     const want = store.draftModel ?? def;
     if (want) {

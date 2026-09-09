@@ -9,9 +9,12 @@
     <div id="root"></div>
     <script>
       window.addEventListener("error", (e) => {
+        // 被跨源遮蔽的 Script error 拿不到 message/源——把 e.error 的 stack
+        // 一并上报，冷启动诊断才有的放矢。
+        const stack = e.error && e.error.stack ? "\n" + String(e.error.stack).slice(0, 1200) : "";
         fetch("/__deepdive_error", {
           method: "POST",
-          body: String(e.message || "") + "\n" + String(e.filename || "") + ":" + String(e.lineno || ""),
+          body: String(e.message || "") + "\n" + String(e.filename || "") + ":" + String(e.lineno || "") + ":" + String(e.colno || "") + stack,
         }).catch(() => {});
       });
       window.addEventListener("unhandledrejection", (e) => {

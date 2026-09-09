@@ -274,15 +274,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     }
 
     private func applyTheme() {
-        let controller = webView.configuration.userContentController
-        controller.removeAllUserScripts()
-        if themeEnabled {
-            controller.addUserScript(WKUserScript(
-                source: WebViewTheme.css,
-                injectionTime: .atDocumentEnd,
-                forMainFrameOnly: true
-            ))
-        }
+        // 透明底由前端 theme.css（html/body/#root background:transparent
+        // !important）持有；曾有 WKUserScript 注入，但 CSS 文本当 JavaScript
+        // 执行必为 SyntaxError（每页一条被遮蔽的 Script error 诊断），删除。
+        webView.configuration.userContentController.removeAllUserScripts()
     }
 
     // MARK: - shell → frontend bridge (SPEC-NOTIFICATIONS §3.1)
