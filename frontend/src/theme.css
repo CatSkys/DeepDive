@@ -3631,24 +3631,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .feedback-note-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-/* ---- 会话统计两摘要（速度/用量，官方 StatsPills 单屏移植） ---- */
-.stats-pills-row { display: flex; justify-content: flex-end; margin-bottom: 4px; }
-.stats-pills { position: relative; display: inline-flex; gap: 6px; }
-.stats-pill {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px;
-  border: 1px solid var(--line); border-radius: 999px;
-  background: var(--fill-soft); color: var(--ink-3);
-  font-size: 11px; cursor: pointer;
-}
-.stats-pill:hover { color: var(--ink-2); background: var(--fill); }
-.stats-pop {
-  position: absolute; right: 0; bottom: calc(100% + 6px);
-  min-width: 180px; z-index: 30;
-  padding: 8px 10px; border-radius: 10px;
-  display: flex; flex-direction: column; gap: 3px;
-  font-size: 11px; color: var(--ink-2);
-}
 
 /* 预览 Dock 增强（§1）：拖宽把手 / 全屏 / 分栏双 pane */
 .preview-resizer {

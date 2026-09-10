@@ -12,6 +12,8 @@ export interface ContextData {
   window?: number;
   usage?: { uncachedInputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
   breakdown?: { systemTokens?: number; toolsTokens?: number; messageTokens?: number };
+  /** 0.1.5 sessionStats 投影：会话级轮次/耗时/速度（弹层「轮次与速度」段）。 */
+  stats?: { turns?: number; steps?: number; llmMs?: number; toolMs?: number; ttftMs?: number; ttftSteps?: number; decodeMs?: number; decodeTokens?: number };
 }
 
 function fmtTokens(n: number | undefined): string {
@@ -23,6 +25,11 @@ function fmtTokens(n: number | undefined): string {
 
 function fmtPct(x: number): string {
   return `${(x * 100).toFixed(1)}%`;
+}
+
+function fmtMs(ms: number | undefined): string {
+  if (ms === undefined) return "–";
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
 }
 
 /** 渲染门槛：projected/contextWindow 缺任一则无容量可画（Composer 据此不占网格位）。 */
@@ -65,6 +72,10 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
   // 平均缓存命中率 = 缓存读取 / 全部输入侧（未缓存+读+写；tokenUsage 四桶互斥）
   const inputSide = (ctx.usage?.uncachedInputTokens ?? 0) + (ctx.usage?.cacheReadTokens ?? 0) + (ctx.usage?.cacheWriteTokens ?? 0);
   const hit = inputSide > 0 ? (ctx.usage?.cacheReadTokens ?? 0) / inputSide : undefined;
+  // 解码速度 = 解码 tokens / 解码耗时（sessionStats；缺任一则不显示）
+  const speed = ctx.stats?.decodeMs && ctx.stats.decodeMs > 0 && ctx.stats.decodeTokens
+    ? Math.round(ctx.stats.decodeTokens / (ctx.stats.decodeMs / 1000))
+    : undefined;
   // 圆周 2πr（r=8）；stroke-dasharray 走"点亮弧长 空白弧长"二元
   const arc = 2 * Math.PI * 8;
   return (
@@ -100,6 +111,14 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
             <>
               <div className="ctx-cap-div" />
               <div className="ctx-cap-row"><span>{t("平均缓存命中率")}</span><b>{fmtPct(hit)}</b></div>
+            </>
+          )}
+          {ctx.stats?.turns !== undefined && (
+            <>
+              <div className="ctx-cap-div" />
+              <div className="ctx-cap-row"><span>{t("轮次")}</span><b>{ctx.stats.turns}</b></div>
+              {speed !== undefined && <div className="ctx-cap-row"><span>{t("解码速度")}</span><b>{speed} tok/s</b></div>}
+              {ctx.stats.ttftSteps ? <div className="ctx-cap-row"><span>{t("平均首 token")}</span><b>{fmtMs(Math.round(ctx.stats.ttftMs! / ctx.stats.ttftSteps))}</b></div> : null}
             </>
           )}
         </div>,

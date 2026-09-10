@@ -15,7 +15,6 @@ import { Item } from "../session/Item";
 import { useFeedback } from "../session/feedback";
 import { TurnNavigator } from "../session/TurnNavigator";
 import { FilePreviewDock, usePreviewDock } from "./preview/FilePreviewDock";
-import { StatsPills } from "../session/StatsPills";
 import { computeTurnProcess } from "../session/turnProcess";
 import { TurnProcessBar } from "../session/TurnProcessBar";
 import type { TurnOutlineEntry } from "../types";
@@ -209,6 +208,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     projected: projVals.contextPressure?.projectedTokens,
     window: projVals.contextPressure?.contextWindow,
     usage: projVals.tokenUsage,
+    stats: projVals.sessionStats,
     breakdown: projVals.contextBreakdown,
   };
 
@@ -472,11 +472,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         className="session-bottom"
         ref={attachBottom}
       >
-        {(projVals.sessionStats || projVals.tokenUsage) && (
-          <div className="stats-pills-row">
-            <StatsPills stats={projVals.sessionStats} usage={projVals.tokenUsage} />
-          </div>
-        )}
         {queuedItems.length > 0 && (
           <div className="queue-dock-wrap">
             <QueueDock sessionId={sessionId} items={queuedItems} sendingRpcIds={sendingRpcIds} />
