@@ -15,8 +15,8 @@ import type { TurnOutlineEntry } from "../types";
 
 /** 预览卡垂直夹取的半高估算（约 head+3 行 body 的一半），避免顶/底裁切。 */
 const TIP_HALF_PX = 48;
-/** 指示器椭圆环高（.turn-rail-cursor，须与 CSS 同源）。 */
-const CURSOR_H = 9;
+/** 指示器胶囊高（.turn-rail-cursor，须与 CSS 同源）。 */
+const CURSOR_H = 4;
 
 export function TurnNavigator({ entries, activeTurn, busyTurn, loadedTurns, onPick }: {
   entries: TurnOutlineEntry[];
