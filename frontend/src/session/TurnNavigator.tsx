@@ -1,8 +1,8 @@
 // Turn 大纲轨（官方 ui-chat TurnNavigator 的移植，用户定稿放消息流左缘）：
-// 刻度 = 竖向胶囊（暗灰），亮白略宽的胶囊指示器常驻停在当前轮，hover 到
-// 哪就弹滑到哪（spring 曲线），hover/focus 出预览卡，点击经回调跳转（已
-// 加载轮直接滚动、未加载轮由编排方深分页）。不管数据来源（outline 投影
-// 经 props 注入）与落点计算（SessionView 持滚动容器）。
+// 刻度 = 圆点；亮白竖向胶囊指示器常驻停在当前轮，hover 到哪就弹滑到哪
+// （spring 曲线），hover/focus 出预览卡，点击经回调跳转（已加载轮直接
+// 滚动、未加载轮由编排方深分页）。不管数据来源（outline 投影经 props
+// 注入）与落点计算（SessionView 持滚动容器）。
 // 预览卡必须挂在滚动容器之外——官方 .preview 是 .scroller 的兄弟；挂在
 // list 内会被 overflow-y:auto 裁切（实测 hover 无卡）。
 // 动效契约：tip 首次 hover 后常驻挂载（关合只翻 data-open，出场淡出由
