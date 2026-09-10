@@ -299,6 +299,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         )}
       </div>
       <div className="flow-row">
+        {outline.length >= 2 && (
+          <TurnNavigator
+            entries={outline}
+            activeTurn={activeTurn}
+            busyTurn={busyTurn}
+            loadedTurns={layout.loadedTurns}
+            onPick={(e) => void pickTurn(e)}
+          />
+        )}
       <div
         className="flow fade-y"
         ref={attachFlow}
@@ -404,15 +413,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           {running && <LoadingState label="Deep diving..." since={runningSince} />}
         </div>
       </div>
-        {outline.length >= 2 && (
-          <TurnNavigator
-            entries={outline}
-            activeTurn={activeTurn}
-            busyTurn={busyTurn}
-            loadedTurns={layout.loadedTurns}
-            onPick={(e) => void pickTurn(e)}
-          />
-        )}
       </div>
       {!follow && (
         <button

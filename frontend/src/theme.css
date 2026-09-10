@@ -1249,8 +1249,8 @@ button {
 .session-header .title-row { animation: header-in var(--dur-med) var(--ease-out) backwards; }
 @keyframes header-in { from { opacity: 0; transform: translateY(-4px); } }
 
-/* ---- Turn 大纲轨（官方 ui-chat TurnNavigator 移植，SessionView 右缘列） ----
-   .flow-row 包消息流与轨道：轨道占位 18px、不与内容重叠（免 z-index/遮罩
+/* ---- Turn 大纲轨（官方 ui-chat TurnNavigator 移植，用户定稿放消息流左缘） ----
+   .flow-row 包轨道与消息流：轨道占位 18px、不与内容重叠（免 z-index/遮罩
    博弈）；刻度 10px 间距（官方同款节距），溢出在轨内滚动 + 上下渐隐。
    .turn-rail-tip 已并入上方弹层统一配方（轨道在 .flow 外，backdrop 可用）。 */
 .flow-row { flex: 1; min-height: 0; display: flex; }
@@ -1301,7 +1301,7 @@ button {
 @keyframes turn-rail-busy { 50% { opacity: .25; } }
 .turn-rail-tip {
   position: absolute;
-  right: 16px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
   width: 230px;

@@ -1,4 +1,4 @@
-// Turn 大纲轨（官方 ui-chat TurnNavigator 的移植）：右侧固定间距刻度轨，
+// Turn 大纲轨（官方 ui-chat TurnNavigator 的移植，用户定稿放消息流左缘）：
 // 每轮一枚标记；hover 出预览卡（prompt/response），点击经回调跳转（已加载
 // 轮直接滚动、未加载轮由编排方深分页）。不管数据来源（outline 投影经
 // props 注入）与落点计算（SessionView 持滚动容器）。
