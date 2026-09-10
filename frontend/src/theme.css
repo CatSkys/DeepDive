@@ -3649,3 +3649,38 @@ input:focus, textarea:focus, select:focus { outline: none; }
   display: flex; flex-direction: column; gap: 3px;
   font-size: 11px; color: var(--ink-2);
 }
+
+/* 预览 Dock 增强（§1）：拖宽把手 / 全屏 / 分栏双 pane */
+.preview-resizer {
+  position: absolute;
+  left: -3px; top: 0; bottom: 0; width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+}
+.preview-dock { position: relative; }
+.preview-dock.fullscreen {
+  position: absolute;
+  inset: 0;
+  width: auto !important;
+  margin-left: 0;
+  z-index: 40;
+  border-left: none;
+}
+.preview-dock-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 8px 0;
+}
+.preview-dock-spacer { flex: 1; }
+.preview-panes {
+  flex: 1; min-height: 0;
+  display: flex;
+  gap: 1px;
+}
+.preview-pane {
+  flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.preview-pane + .preview-pane { border-left: 1px solid var(--line); }
+.preview-pane[data-split] { background: var(--fill-soft); }
