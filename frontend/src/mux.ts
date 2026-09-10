@@ -5,7 +5,8 @@
 // 本模块持有进程级单例：$events 转发事件流 + 任意业务流（session/follow、
 // session/control、workspace/follow）共用一条连接；断线 2s 重连，重连后所有
 // 注册流自动重开（服务端每代重发基线/快照，消费方按全量替换处理）；
-// 另有开流应答看门狗兜住 WKWebView 睡眠后 onclose 缺位的假死连接。
+// 另有开流应答看门狗兜住 WKWebView 睡眠后 onclose 缺位的假死连接，快照后
+// 假死由壳层系统唤醒钩子调 recycle() 兜底（PITFALLS §4.7）。
 // 不管业务语义（帧解释归 api.ts 的类型与 store/useSessionEvents 的消费）。
 
 export interface RemoteEventReadyFrame {
@@ -165,7 +166,7 @@ class MuxClient {
     if (this.openAckTimer !== null) return;
     this.openAckTimer = setTimeout(() => {
       this.openAckTimer = null;
-      this.recycleSocket();
+      this.recycle();
     }, OPEN_ACK_TIMEOUT_MS) as unknown as number;
   }
 
@@ -175,8 +176,11 @@ class MuxClient {
     this.openAckTimer = null;
   }
 
-  /** 弃掉当前 socket 并立即重建：不等待（可能永不来的）close 事件。 */
-  private recycleSocket() {
+  /** 弃掉当前 socket 并立即重建：不等待（可能永不来的）close 事件。
+   *  开流应答看门狗超时与壳层系统唤醒钩子（PITFALLS §4.7：快照已收、
+   *  流已建立后的假死无任何 JS 侧迹象）共用此入口；重连后注册流全部
+   *  重开、服务端重发快照，健康连接误杀代价为零。 */
+  recycle() {
     this.disarmOpenAck();
     const old = this.ws;
     this.ws = null;

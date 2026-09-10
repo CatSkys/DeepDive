@@ -3,6 +3,7 @@ import { PanelLeft } from "lucide-react";
 import { api } from "./api";
 import { alertDialog } from "./components/DialogHost";
 import { installHostBridge } from "./host";
+import { mux } from "./mux";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
@@ -74,6 +75,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
           if (r.error) void alertDialog({ message: tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }) });
         });
       },
+      // 系统唤醒：WS 可能已假死（PITFALLS §4.7），弃掉重建让直播流自愈。
+      systemWake: () => mux.recycle(),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

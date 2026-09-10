@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = AppPaths.supportDir
         AppDelegate.shared = self
         installTerminationHandler()
+        installWakeObserver()
         installMainMenu()
         adjustOcclusionDetection()
         config = AppConfig.load()
@@ -649,6 +650,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         source.resume()
         terminationSource = source
+    }
+
+    /// WKWebView 假死自愈（PITFALLS §4.7）：系统睡眠唤醒后 webview 里的
+    /// WebSocket 可能既不 onclose 也不 onerror 而帧已停——直播事件从此
+    /// 不再抵达，重启应用才恢复。didWake 时通知前端弃掉 mux socket 重建；
+    /// 重连后引擎每条流重发快照、消费方按全量替换处理，健康连接误杀
+    /// 代价为零，故无条件触发。
+    private func installWakeObserver() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake(_:)),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func systemDidWake(_ note: Notification) {
+        windowController.pushHostCommand("systemWake", payload: "{}")
     }
 
     func applicationWillTerminate(_ notification: Notification) {

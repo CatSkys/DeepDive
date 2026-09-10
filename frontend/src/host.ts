@@ -154,6 +154,9 @@ export function installHostBridge(handlers: {
   themeChanged: (dark: boolean) => void;
   /** 壳端目录选择器（＋新建空间）选定后的回推；取消时不推送。 */
   workspacePicked: (path: string) => void;
+  /** 系统唤醒通知（PITFALLS §4.7）：WKWebView 里的 WS 可能已假死，
+   *  前端据此弃掉 mux socket 重建，直播流自愈。 */
+  systemWake: () => void;
 }): void {
   if (window.__deepDiveHost) return; // idempotent mount (StrictMode/reloads)
   window.__deepDiveHost = {
@@ -176,6 +179,10 @@ export function installHostBridge(handlers: {
         case "workspacePicked": {
           const path = (payload as { path?: string } | undefined)?.path;
           if (typeof path === "string" && path) handlers.workspacePicked(path);
+          break;
+        }
+        case "systemWake": {
+          handlers.systemWake();
           break;
         }
         default:

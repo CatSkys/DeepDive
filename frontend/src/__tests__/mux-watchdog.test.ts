@@ -100,4 +100,32 @@ describe("mux 开流应答看门狗", () => {
     vi.advanceTimersByTime(60000);
     expect(sockets).toHaveLength(1);
   });
+
+  it("快照后假死由 recycle() 兜底（壳层系统唤醒钩子入口）：弃旧重建、注册流全部重开", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+
+    // 两条流都开好并收到首帧——看门狗解除，连接处于「静默空闲」形态。
+    const items: unknown[] = [];
+    mux.openStream("session/follow", { request: { address: { kind: "session", sessionId: "s1" } } }, (v) => items.push(v));
+    mux.openStream("session/control", { request: {} }, () => {});
+    await Promise.resolve();
+    const sock = sockets[0];
+    const followId = opensOf(sock).find((f) => f.endpoint === "session/follow")!.streamId!;
+    const controlId = opensOf(sock).find((f) => f.endpoint === "session/control")!.streamId!;
+    sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: followId, value: "snap" }) });
+    sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: controlId, value: {} }) });
+    vi.advanceTimersByTime(60000); // 空闲极久也不重建（上一例语义）
+    expect(sockets).toHaveLength(1);
+
+    // 系统唤醒：壳层推 systemWake → recycle()——假死的 socket 无任何 JS 侧
+    // 迹象，靠这个显式入口恢复。
+    mux.recycle();
+    expect(sockets).toHaveLength(2);
+    expect(sock.zombified).toBe(true);
+    await Promise.resolve(); // 等 socket2 的 onopen 微任务（重开帧在此发出）
+    const reopened = opensOf(sockets[1]).map((f) => f.endpoint);
+    expect(reopened).toContain("session/follow");
+    expect(reopened).toContain("session/control");
+  });
 });
