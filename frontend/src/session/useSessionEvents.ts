@@ -115,6 +115,8 @@ export function useSessionEvents(
     };
 
     let closeFollow: (() => void) | undefined;
+    // 当前直播 attempt 的轮/步定位（chunk 帧不带 turn/step，随 start 帧登记）。
+    let liveAttempt: { turn: number; step: number } | undefined;
     void resolveAddress().then((address) => {
       if (!alive) return;
       addressRef.current = address;
@@ -138,6 +140,20 @@ export function useSessionEvents(
           const goalVal = s.projections.values?.goal as import("../types").GoalProjection | undefined;
           setGoalProj(goalVal ?? null);
           setLoadError(false);
+          // 断线重连落在流式中段：快照基线里是活跃 attempt 已累计的 chunks，
+          // 就地种成直播项续播（后续增量经 onStream 追加）。
+          const live = s.assistantStream?.activeAttempt;
+          if (live && live.stream.length > 0) {
+            for (const rec of live.stream) {
+              const ev = {
+                type: "assistant/chunk",
+                time: rec.time,
+                data: { turn: live.turn, step: live.step, chunk: rec.chunk },
+              } as unknown as SessionEvent;
+              ingest(itemsRef.current, { event: ev }, ctx.current);
+            }
+            setItems(itemsRef.current.slice());
+          }
         },
         onEvent: (ev: SessionEvent) => {
           if (!alive) return;
@@ -165,6 +181,47 @@ export function useSessionEvents(
             setRunningSince(undefined);
           }
           if (seq >= 0) seqFloor = seq + 1;
+        },
+        // 0.1.5 直播流帧：进程级增量（不入持久日志），合成 assistant/chunk
+        // 伪事件走同一条 ingest 管道——settlement（assistant/message /
+        // assistant/attempt）落日志时自然替换直播项，与旧 chunk 行同语义。
+        onStream: (frame) => {
+          if (!alive) return;
+          if (frame.type === "start") {
+            liveAttempt = { turn: frame.turn, step: frame.step };
+            // 新 attempt（重试）：剪掉本轮旧直播项再起，避免两次尝试文本相接。
+            const items = itemsRef.current;
+            for (let i = items.length - 1; i >= 0; i--) {
+              const it = items[i];
+              if (it.turn === frame.turn && (it.kind === "chunk" || it.kind === "reasoning")) items.splice(i, 1);
+              else if (it.turn !== undefined && it.turn < frame.turn) break;
+            }
+            setItems(items.slice());
+            return;
+          }
+          if (frame.type === "chunk") {
+            if (!liveAttempt) return; // 协议序外（start 必先到）
+            const ev = {
+              type: "assistant/chunk",
+              time: frame.time,
+              data: { turn: liveAttempt.turn, step: liveAttempt.step, chunk: frame.chunk },
+            } as unknown as SessionEvent; // 无 seq：进程级伪事件，seq 守卫按 -1 放行
+            ingest(itemsRef.current, { event: ev }, ctx.current);
+            setItems(itemsRef.current.slice());
+            return;
+          }
+          if (frame.type === "end") {
+            liveAttempt = undefined;
+            if (frame.outcome.kind === "abandoned") {
+              // 未落 settlement 的尝试（中止/替换）：直播项就地撤下。
+              const items = itemsRef.current;
+              for (let i = items.length - 1; i >= 0; i--) {
+                const it = items[i];
+                if (it.kind === "chunk" || it.kind === "reasoning") items.splice(i, 1);
+              }
+              setItems(items.slice());
+            }
+          }
         },
       }, 120);
       // 开窗迟迟未到（引擎重启/断连循环）：短延时后显式失败态（AUD-050）。

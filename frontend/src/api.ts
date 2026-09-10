@@ -1,4 +1,3 @@
-import { expandChunkRow } from "./chunkRows";
 import { mux, type RemoteEventWaterfallFrame } from "./mux";
 import type { HistoryEntry, PromptContentPart, QuestionAnswerItem, RpcResult, SessionAddress, SessionEvent, SessionSummary, WorkspaceView } from "./types";
 
@@ -78,23 +77,16 @@ export interface ImportRunResult {
   error?: string;
 }
 
-/** follow/page 返回的 history 记录（wire 形状）：原始事件或打包 chunk 行。 */
-type HistoryRecord = { type: "event"; event: SessionEvent } | { type: "chunks"; [k: string]: unknown };
+/** follow/page 返回的 history 记录（wire 形状）：0.1.5/V3 只剩事件条目。 */
+type HistoryRecord = { type: "event"; event: SessionEvent } | { type: string; [k: string]: unknown };
 
-/** 记录序列 → 事件条目：chunk 行就地展开（词表不变，摄取层无感）。
- *  wire 打包行形如 {type:'chunks', event:{type:'chunkrow/text-chunks', seq,
- *  time, data}}——锚点字段落在 event 上（seq/time 即首成员 seq0/time0），
- *  解码器吃裸 ChunkRow，这里先归一。 */
+/** wire 记录 → HistoryEntry：0.1.5/V3 记录全事件化（chunk 打包行随 V2→V3
+ *  迁移在引擎侧聚合成 settlement，客户端不再见到 'chunks' 记录），这里只
+ *  做形状归一。 */
 function expandRecords(records: HistoryRecord[]): HistoryEntry[] {
   const out: HistoryEntry[] = [];
   for (const r of records) {
-    if (r.type === "event") {
-      out.push({ event: r.event as import("./types").SessionEvent });
-    } else if (r.type === "chunks" && r.event && typeof r.event === "object") {
-      const row = r.event as { type: string; seq: number; time: number; data: unknown };
-      const bare = { type: row.type.replace(/^chunkrow\//, ""), seq0: row.seq, time0: row.time, data: row.data };
-      out.push(...expandChunkRow(bare).map((event) => ({ event })));
-    }
+    if (r.type === "event") out.push({ event: r.event as import("./types").SessionEvent });
   }
   return out;
 }
@@ -107,6 +99,8 @@ export interface FollowSnapshot {
   hasMore: boolean;
   /** wire 形状 {asOfSeq, values}：投影真值都在 values 下（goal/turnOutline/…）。 */
   projections: { asOfSeq?: number; values?: Record<string, unknown> };
+  /** 0.1.5 直播流重连基线（开流时活跃 attempt 的已累计 chunks）。 */
+  assistantStream?: import("./types").AssistantStreamBaseline;
 }
 
 /** workspace/follow 帧（基线 + 增量，全量语义见 workspace-controller types）。 */
@@ -170,12 +164,17 @@ export const api = {
   page: (payload: { address: SessionAddress; throughSeq: number; beforeSeq?: number; maxMessages?: number }) =>
     unary<{ records: HistoryRecord[]; hasMore: boolean }>("session/page", { request: payload })
       .then((p) => ({ entries: expandRecords(p.records), hasMore: p.hasMore })),
-  /** 打开一条会话日志直播流：开窗快照 + 之后追加的事件（断线重连重发快照）。 */
+  /** 打开一条会话日志直播流：开窗快照 + 此后追加事件 + 0.1.5 直播流帧
+   *  （assistantStream:true 是引擎开关；重连重发快照与流基线）。 */
   followSession: (
     address: SessionAddress,
-    handlers: { onSnapshot: (s: FollowSnapshot) => void; onEvent: (ev: SessionEvent) => void },
+    handlers: {
+      onSnapshot: (s: FollowSnapshot) => void;
+      onEvent: (ev: SessionEvent) => void;
+      onStream?: (frame: import("./types").AssistantStreamFrame) => void;
+    },
     maxMessages = 120,
-  ) => mux.openStream("session/follow", { request: { address, maxMessages } }, (value) => {
+  ) => mux.openStream("session/follow", { request: { address, maxMessages, assistantStream: true } }, (value) => {
     if (typeof value !== "object" || value === null) return;
     const frame = value as { type: string; [k: string]: unknown };
     if (frame.type === "snapshot") {
@@ -184,10 +183,17 @@ export const api = {
         cursor: frame.cursor as number,
         entries: expandRecords(frame.records as HistoryRecord[]),
         hasMore: frame.hasMore as boolean,
-        projections: frame.projections as Record<string, unknown>,
+        projections: frame.projections as FollowSnapshot["projections"],
+        assistantStream: frame.assistantStream as FollowSnapshot["assistantStream"],
       });
+    } else if (frame.type === "assistant-stream") {
+      handlers.onStream?.(frame.frame as import("./types").AssistantStreamFrame);
     } else if (frame.type === "event") {
-      handlers.onEvent((frame.event as { event: SessionEvent }).event);
+      // SessionFollowFrame 的 live 分支就是 SessionEventEntry 本体
+      // （engine packages/api/session-controller/src/types.ts）：
+      // {type:'event', event: SessionEvent}。多剥一层会得到 undefined，
+      // onEvent 抛错被 mux 吞掉 → 直播正文永空白而快照正常。
+      handlers.onEvent(frame.event as SessionEvent);
     }
   }),
   prompt: (payload: { requestId: string; sessionId: string; mode: "queue" | "steer"; content: PromptContentPart[] }) =>

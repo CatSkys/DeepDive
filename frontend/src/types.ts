@@ -69,14 +69,36 @@ export interface AssistantMessageData {
   usage?: TokenUsage;
 }
 
-export type StreamChunk =
-  | { type: "text-delta"; index: number; text: string }
+export type StreamChunk =  | { type: "text-delta"; index: number; text: string }
   | { type: "reasoning-delta"; index: number; text: string }
   | { type: "block-start"; index: number; blockType: string }
   | { type: "block-end"; index: number; block: { type: string; text?: string } }
   | { type: "usage"; usage: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; reasoningTokens?: number } }
   | { type: "finish"; reason: { kind: string } }
   | { type: string; [k: string]: unknown };
+
+/* ── 0.1.5 直播流（assistant-stream 帧，session-controller types）──
+   V3 日志只落 settlement（assistant/message / assistant/attempt），流式
+   增量改走 follow 流的进程级帧（开流须带 assistantStream:true）；重连由
+   快照 assistantStream 基线（已累计的 {time,chunk} 数组）续播。 */
+export type AssistantStreamFrame =
+  | { type: "start"; attemptId: string; revision: number; startedAfterSeq?: number; turn: number; step: number }
+  | { type: "chunk"; attemptId: string; revision: number; index: number; time: number; chunk: StreamChunk }
+  | { type: "end"; attemptId: string; revision: number; index: number; outcome:
+      | { kind: "committed"; eventType: "assistant/message" | "assistant/attempt"; seq: number }
+      | { kind: "abandoned" } };
+
+export interface AssistantStreamBaseline {
+  revision: number;
+  activeAttempt?: {
+    attemptId: string;
+    startedAfterSeq?: number;
+    turn: number;
+    step: number;
+    nextIndex: number;
+    stream: Array<{ time: number; chunk: StreamChunk }>;
+  };
+}
 
 export interface ToolCallData {
   turn: number;
