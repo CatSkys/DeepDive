@@ -323,6 +323,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
           setScrolled(el.scrollTop > 2);
           trackActive();
+          // 滚到顶自动向前翻页（替代手点「载入更早」）：靠近顶部即拉一页；
+          // loadOlder 内部有 paging 互斥 + 锚点保位，连续触发安全。
+          if (el.scrollTop < 48 && hasMore && !loadingOlder) void loadOlder();
         }}
       >
         {/* key=会话:已加载——历史到达那一刻（off→on）重挂播 session-enter
@@ -334,15 +337,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <button type="button" onClick={retry}>{t("重试")}</button>
             </div>
           )}
-          {hasMore && (
-            <button
-              type="button"
-              className="load-older"
-              disabled={loadingOlder}
-              onClick={() => void loadOlder()}
-            >
-              {loadingOlder ? t("加载中…") : t("载入更早")}
-            </button>
+          {loadingOlder && (
+            <div className="load-older" aria-live="polite">{t("加载中…")}</div>
           )}
           {(() => {
             // DSH data-actions-reveal 的移植变体（用户定稿偏离官方）：官方是

@@ -2003,22 +2003,15 @@ button {
   gap: 6px;
 }
 
-/* 分页：载入更早 + 首行锚点容器 */
+/* 分页：滚到顶自动向前翻页时的加载指示（手点按钮已移除） */
 .load-older {
   display: block;
   width: 100%;
   padding: 2px 0;
-  border: none;
-  background: transparent;
   color: var(--ink-3);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   text-align: center;
-  transition: color 120ms ease;
 }
-.load-older:hover { color: var(--ink-soft); }
-.load-older:disabled { color: var(--ink-faint); cursor: default; }
 
 /* 首屏 history 拉取失败（AUD-050）：非 blank 会话的显式失败态 + 重试 */
 .load-error {
