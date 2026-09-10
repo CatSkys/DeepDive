@@ -19,6 +19,10 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
+      # 随包引擎版本引脚：直接拷入 bundle（不复制版本值，避免第二份事实源）。
+      # 版本门要用它在「未嵌入引擎」的构建里也能读出 pin（SPEC-ENGINE-RUNTIME §3.4）。
+      - path: ../../scripts/dsh-runtime-version.txt
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.deepdive.app

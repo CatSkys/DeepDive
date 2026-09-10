@@ -97,11 +97,37 @@ describe("mux 开流应答看门狗", () => {
     mux.openStream("workspace/follow", { request: {} }, () => {});
     await Promise.resolve(); // 等 onopen 发出开流帧
     const sock = sockets[0];
+    // 首帧到达：解除开流应答看门狗，连接进入「健康但静默」形态（本用例的前提）。
     sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: opensOf(sock)[0]!.streamId!, value: {} }) });
+    expect(mux.stalled).toBe(false);
+
+    vi.advanceTimersByTime(30000); // 静默远超窗口：期望看门狗（store）据此判哑火
+    expect(mux.stalled).toBe(true);
+    sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: opensOf(sock)[0]!.streamId!, value: {} }) });
+    expect(mux.stalled).toBe(false); // 下行帧到达即复位
 
     // 长时间空闲推进（远超窗口）：无新开流 → 无布防 → 不重建。
     vi.advanceTimersByTime(60000);
     expect(sockets).toHaveLength(1);
+  });
+
+  it("重连后静默计时复位：哑火连接不被每个轮询 tick 连环重建", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+
+    mux.openStream("session/follow", { request: {} }, () => {});
+    await Promise.resolve(); // 等 onopen 发出开流帧
+    const sock = sockets[0];
+    sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: opensOf(sock)[0]!.streamId!, value: "snap" }) });
+    vi.advanceTimersByTime(60000); // 连接哑火：静默累积
+    expect(mux.stalled).toBe(true);
+    expect(sockets).toHaveLength(1); // 无开流动作，开流应答看门狗不参与
+
+    mux.recycle(); // store 看门狗的一次重建
+    expect(sockets).toHaveLength(2);
+    expect(mux.stalled).toBe(false); // 静默从重建时刻起算（不复用旧时间戳）
+    vi.advanceTimersByTime(8001);
+    expect(mux.stalled).toBe(true); // 新连接再来一个窗口无帧才再判哑火
   });
 
   it("快照后假死由 recycle() 兜底（壳层系统唤醒钩子入口）：弃旧重建、注册流全部重开", async () => {

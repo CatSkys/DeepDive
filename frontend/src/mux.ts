@@ -49,6 +49,12 @@ const EVENTS_ENDPOINT = "$events";
 // 连一个下行帧（ready/快照/基线都算）都没收到，即判定 socket 假死。
 const OPEN_ACK_TIMEOUT_MS = 5000;
 
+// 直播期望看门狗窗口（消费方读 mux.stalled）：会话在跑却整条连接静默超窗，
+// 即判定连接或桥中继哑火（PITFALLS §4.10 变种）。窗口内必有多路流可出帧
+// （follow 快照/基线、$events ready），静默才是异常；长工具等真静默会误杀，
+// 代价仅「各流重发快照」的一次全量替换，故宁可不漏（口径：窗口 + 3s 轮询）。
+const STALL_TIMEOUT_MS = 8000;
+
 // 流级 error/end 的重开退避：1s 起步、倍增、8s 封顶；该流一旦重新收到
 // item 帧即复位。封顶后稳定为 8s 一试——永久性坏流（如已归档会话）在
 // 消费方 close() 前低频空转，可恢复流（引擎侧偶发跳号终止）秒级自愈。
@@ -67,6 +73,15 @@ class MuxClient {
   /** 流级 error/end 的重开调度（streamId → 定时器）与连续失败退避。 */
   private reopenTimers = new Map<string, number>();
   private reopenBackoff = new Map<string, number>();
+  /** 最近一条下行帧时刻（期望看门狗的输入）：任何下行帧都会刷新；连接重建
+   *  时复位为重建时刻，冷却从重建起算——否则哑火连接会被每个轮询 tick 反复
+   *  判定为「已静默很久」而连环重建。 */
+  private frameAt = Date.now();
+
+  /** 整条连接是否已静默超过 STALL_TIMEOUT_MS（消费方：期望看门狗 → recycle）。 */
+  get stalled(): boolean {
+    return Date.now() - this.frameAt > STALL_TIMEOUT_MS;
+  }
 
   /** 注册一条逻辑流：连接建立（或重建）时自动 open；close() 撤销注册。
    *  onItem 收到该流的每个 item value（含首帧快照/基线）。 */
@@ -135,6 +150,8 @@ class MuxClient {
     // 测试环境（node）无 location：host 用占位值，WS 为注入桩。
     const host = typeof location !== "undefined" ? location.host : "test.invalid";
     this.ws = new WebSocket(`ws://${host}${MUX_PATH}`);
+    // 新一代连接的静默从此刻起算（与 reopenBackoff 复位同理）。
+    this.frameAt = Date.now();
     this.ws.onopen = () => {
       // 重连后所有注册流重开（服务端重发基线/快照，消费方全量替换）。
       // $$events 已在 streams 表内、循环覆盖——勿再单独发：同一 streamId
@@ -233,8 +250,10 @@ class MuxClient {
   private dispatch(frame: Record<string, unknown>) {
     const streamId = frame.streamId;
     if (typeof streamId !== "string") return;
-    // 任何下行帧都证明连接活着——看门狗就此解除（下次开流重新布防）。
+    // 任何下行帧都证明连接活着——看门狗就此解除（下次开流重新布防），
+    // 并刷新静默计时（期望看门狗据此判断连接是否已哑）。
     this.disarmOpenAck();
+    this.frameAt = Date.now();
     if (frame.type === "item") {
       this.reopenTimers.delete(streamId); // 已恢复出帧：撤销未决的重开
       this.reopenBackoff.delete(streamId);

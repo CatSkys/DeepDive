@@ -116,47 +116,80 @@ final class EngineSupervisor {
     /// Priority (SPEC-ENGINE-RUNTIME §3.4): explicit `DSHMINI_DSH_ENTRY` is
     /// the strongest override (must beat bundled, or cross-version A/B testing
     /// in §5 could not force a system dsh) → bundled node+bin.js → usual
-    /// system locations → `PATH`. `nil` only when everything is absent.
-    private func resolveEntry() -> Entry? {
+    /// system locations → `PATH`.
+    ///
+    /// 版本门（0.1.5 会话格式 V3 单行道）：
+    /// - bundled 完整 → 只用 bundled，绝不回落系统；
+    /// - bundled 残缺 → 拒启（重装），禁止静默换系统 dsh（`spawn` 拦下）；
+    /// - 无 bundled 时的系统/PATH 入口 → 版本必须与 `EngineVersion.pinnedVersion`
+    ///   逐字一致，否则拒启；
+    /// - `DSHMINI_DSH_ENTRY` 允许异版本（开发对照），但对生产 home 高危，仅告警。
+    /// `failure` = 找到了入口但被版本门拒启（Failure 须为 Error：String 不是，
+    /// 包一层）。
+    private struct EntryRejection: Error { let message: String }
+
+    private func resolveEntry() -> Result<Entry, EntryRejection> {
         let env = ProcessInfo.processInfo.environment["DSHMINI_DSH_ENTRY"]
         if let env, FileManager.default.isExecutableFile(atPath: env) {
-            return .single(URL(fileURLWithPath: env))
+            let url = URL(fileURLWithPath: env)
+            let pin = EngineVersion.pinnedVersion
+            let found = EngineVersion.probeExecutableVersion(url)
+            if let pin, let found, found != pin {
+                log.append("[engine] DSHMINI_DSH_ENTRY version \(found) != pinned \(pin) (dev override; isolate with DSHMINI_SUPPORT_DIR)")
+            }
+            return .success(.single(url))
         }
-        if let bundled = bundledEntry() {
-            return bundled
+        if case .complete(let bundled) = bundledRuntimeState() {
+            return .success(bundled)
         }
         // Launchd-launched GUI apps inherit a minimal PATH; always probe the
         // usual Homebrew locations before falling back to `env dsh`.
+        var external: URL?
         let candidates = [
             "/opt/homebrew/bin/dsh",
             "/usr/local/bin/dsh",
             "/usr/bin/dsh",
         ]
         for c in candidates where FileManager.default.isExecutableFile(atPath: c) {
-            return .single(URL(fileURLWithPath: c))
+            external = URL(fileURLWithPath: c)
+            break
         }
-        if let pathDsh = whichDsh() {
-            return .single(pathDsh)
+        if external == nil { external = whichDsh() }
+        guard let external else {
+            return .failure(EntryRejection(message: "未找到 dsh。\n\n请重新安装 DeepDive（随包引擎），或安装 dsh：\nnpm i -g @deepseek-ai/dsh"))
         }
-        return nil
+        let pin = EngineVersion.pinnedVersion
+        let found = EngineVersion.probeExecutableVersion(external)
+        if let gate = EngineVersion.gateNonBundled(pin: pin, found: found, path: external.path) {
+            log.append("[engine] external entry rejected: \(external.path) version=\(found ?? "unknown") pin=\(pin ?? "unknown")")
+            return .failure(EntryRejection(message: gate))
+        }
+        return .success(.single(external))
     }
 
-    /// Bundled layout: `Contents/MacOS/node` + `Contents/Resources/Runtime/dsh
-    /// /lib/bin.js`. A partial bundle (one side present, the other missing) is
-    /// corruption and must surface as "reinstall", not as "install dsh".
-    private func bundledEntry() -> Entry? {
-        guard let resources = Bundle.main.resourceURL else { return nil }
-        let node = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/node")
+    /// bundled 运行时三态：完整 / 残缺（已嵌入但缺一半）/ 未嵌入。
+    private enum BundledRuntime {
+        case complete(Entry)
+        case damaged(nodeOK: Bool, scriptOK: Bool)
+        case absent
+    }
+
+    /// Bundled layout: `Contents/Resources/Runtime/node` + `Contents/Resources/
+    /// Runtime/dsh/lib/bin.js`. node 绝不能放进 `Contents/MacOS/`——该目录下的
+    /// 可执行文件会被 Launch Services 当成同 bundle 的第二个 app，引擎一拉起
+    /// Dock 就闪出独立的 node 图标/窗口（2026-09-10 用户实测）。
+    /// 残缺（任一半在）与未嵌入（两半全不在）必须区分：残缺要按「重装」拒启，
+    /// 未嵌入才允许走外部入口。
+    private func bundledRuntimeState() -> BundledRuntime {
+        guard let resources = Bundle.main.resourceURL else { return .absent }
+        let node = resources.appendingPathComponent("Runtime/node")
         let script = resources.appendingPathComponent("Runtime/dsh/lib/bin.js")
         let nodeOK = FileManager.default.isExecutableFile(atPath: node.path)
         let scriptOK = FileManager.default.fileExists(atPath: script.path)
-        if nodeOK && scriptOK { return .bundled(node: node, script: script) }
-        // Marker of an embedded-but-damaged bundle: either half present.
+        if nodeOK && scriptOK { return .complete(.bundled(node: node, script: script)) }
         let runtimeDir = resources.appendingPathComponent("Runtime/dsh")
-        if FileManager.default.fileExists(atPath: runtimeDir.path) || nodeOK {
-            log.append("[engine] bundled runtime incomplete (node=\(nodeOK) bin.js=\(scriptOK))")
-        }
-        return nil
+        guard nodeOK || FileManager.default.fileExists(atPath: runtimeDir.path) else { return .absent }
+        return .damaged(nodeOK: nodeOK, scriptOK: scriptOK)
     }
 
     private func whichDsh() -> URL? {
@@ -178,9 +211,18 @@ final class EngineSupervisor {
         // 幂等守卫（AUD-070）：restartWorkItem 的闭包直达此处，不经 start()
         // 的 process 检查——已有活进程时再 spawn 只会覆盖引用留下孤儿。
         guard process == nil else { return }
-        guard let entry = resolveEntry() else {
-            log.append("[engine] no engine entry found (no env override, no bundled runtime, no system dsh)")
-            state = .failed(reason: "未找到 dsh。\n\n请安装 dsh：\nnpm i -g @deepseek-ai/dsh")
+        if case .damaged(let nodeOK, let scriptOK) = bundledRuntimeState() {
+            log.append("[engine] refusing fallback: bundled runtime damaged (node=\(nodeOK) bin.js=\(scriptOK))")
+            state = .failed(reason: EngineVersion.incompleteBundleCopy(nodeOK: nodeOK, scriptOK: scriptOK))
+            return
+        }
+        let entry: Entry
+        switch resolveEntry() {
+        case .success(let value):
+            entry = value
+        case .failure(let rejection):
+            log.append("[engine] entry rejected: \(rejection.message.replacingOccurrences(of: "\n", with: " | "))")
+            state = .failed(reason: rejection.message)
             return
         }
         lastEntry = entry

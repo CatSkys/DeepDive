@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import type { AgentPreset } from "./api";
+import { mux } from "./mux";
 import { usePrefs } from "./prefs";
 import type { KeybindOverrides } from "./keybinds";
 import type { ApprovalPending, QuestionItem, QuestionPending, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
@@ -309,6 +310,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (sig !== sessionsSigRef.current) {
         sessionsSigRef.current = sig;
         setSessions(sorted);
+      }
+      // 直播期望看门狗（PITFALLS §4.10 变种）：任一会话在跑（引擎确实在产出
+      // 事件）而整条 mux 连接静默超窗——连接或桥中继已哑（实测：中继被误杀后
+      // WS 表面健康、快照后一帧不再到达）。无条件弃旧重建：重连各流重发快照，
+      // 健康连接误杀代价仅为一次全量替换；静默计时在重连时复位（mux.connect），
+      // 哑火连接不会被每个 tick 连环重建。长工具静默会误触发，但重建无副作用。
+      if (sorted.some((s) => s.running) && mux.stalled) {
+        mux.recycle();
       }
       setEngineUp(true);
       setEverConnected(true);

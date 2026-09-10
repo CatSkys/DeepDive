@@ -3,8 +3,9 @@
 # built .app. Counterpart of embed-web.sh; run AFTER xcodebuild.
 #
 # Bundle layout (SPEC-ENGINE-RUNTIME §3.3/§3.4):
-#   Contents/MacOS/node                      — pinned Node executable
-#   Contents/lib/libnode*.dylib              — only when node is dynamic
+#   Contents/Resources/Runtime/node           — pinned Node executable
+#     （勿放 Contents/MacOS/：LS 会当成第二个 app，Dock 闪 node 窗口）
+#   Contents/Resources/Runtime/lib/libnode*.dylib — only when node is dynamic
 #   Contents/Resources/Runtime/dsh/          — DSH runtime closure (whole dir)
 #     └─ lib/bin.js                          — engine entry (spawn: node bin.js)
 #   Contents/Resources/Licenses/Node.js-LICENSE
@@ -47,7 +48,7 @@ fi
 [[ -f "$RUNTIME_SOURCE/lib/bin.js" ]] || { echo "runtime missing lib/bin.js: $RUNTIME_SOURCE" >&2; exit 1; }
 
 STAGE="$APP/Contents"
-mkdir -p "$STAGE/MacOS" "$STAGE/Resources/Runtime" "$STAGE/Resources/Licenses"
+mkdir -p "$STAGE/Resources/Runtime" "$STAGE/Resources/Licenses"
 
 # Architecture gate: the node binary must carry the build arch.
 ARCH="$(uname -m)"
@@ -68,22 +69,24 @@ while IFS= read -r dep; do
   esac
 done < <(otool -L "$NODE" | tail -n +2 | awk '{print $1}')
 
-cp "$NODE" "$STAGE/MacOS/node"
-chmod 755 "$STAGE/MacOS/node"
+rm -f "$STAGE/MacOS/node"
+cp "$NODE" "$STAGE/Resources/Runtime/node"
+chmod 755 "$STAGE/Resources/Runtime/node"
 
 # GitHub-hosted node can be dynamically linked against a sibling
 # lib/libnode.*.dylib; the app bundle cannot rely on that host path. Static
 # distributions have no matches, so this stays a no-op (same as reference).
-# Always clear Contents/lib first: a previous embed's libnode must not linger.
+# 兄弟目录必须与 node 同处 `Resources/Runtime/`——动态 node 的
+# `@executable_path/../lib` 才解析得到；旧布局遗留在 Contents/lib 的一并清掉。
 NODE_LIB_DIR="$(cd "$(dirname "$NODE")/../lib" 2>/dev/null && pwd || true)"
-rm -rf "$STAGE/lib"
+rm -rf "$STAGE/Resources/Runtime/lib" "$STAGE/lib"
 if [[ -n "$NODE_LIB_DIR" ]]; then
   shopt -s nullglob
   node_libraries=("$NODE_LIB_DIR"/libnode*.dylib)
   shopt -u nullglob
   if (( ${#node_libraries[@]} > 0 )); then
-    mkdir -p "$STAGE/lib"
-    cp -f "${node_libraries[@]}" "$STAGE/lib/"
+    mkdir -p "$STAGE/Resources/Runtime/lib"
+    cp -f "${node_libraries[@]}" "$STAGE/Resources/Runtime/lib/"
   fi
 fi
 
@@ -133,6 +136,6 @@ fi
 
 # Post-embed self-check: proves the exact node+bin.js spawn shape the app
 # uses at runtime (SPEC-ENGINE-RUNTIME §3.4) before the bundle is signed.
-"$STAGE/MacOS/node" "$STAGE/Resources/Runtime/dsh/lib/bin.js" --version
+"$STAGE/Resources/Runtime/node" "$STAGE/Resources/Runtime/dsh/lib/bin.js" --version
 
 echo "OK: engine embedded in $APP (node $EXPECTED_NODE_VERSION + $RUNTIME_SOURCE)"

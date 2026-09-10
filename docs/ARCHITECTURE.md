@@ -40,7 +40,7 @@
 | `AppDelegate.swift` | 生命周期、host 指令路由、设置/外观/通知接线 |
 | `MainWindowController.swift` | 玻璃主窗 + 透明 WKWebView + 显隐防闪烁 + 标题栏拖拽 rect 表 + 空 NSToolbar（Tahoe 大圆角档，勿删，`PITFALLS §4.7`） |
 | `BridgeServer.swift` + `MiniHTTPServer.swift` | 同源托管：SPA 静态文件 + `/api` 反代 + WS 盲中继（Origin 全等校验） |
-| `EngineSupervisor.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、网关调用、token→cookie 交换、事件观察、日志 |
+| `EngineSupervisor.swift` / `EngineVersion.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、入口版本门（随包引脚 vs 外部 dsh）、网关调用、token→cookie 交换、事件观察、日志 |
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
 | `StatusItemController.swift` / `RecoveryWindowController.swift` | 菜单栏状态点与菜单、引擎失败恢复屏（诊断复制/凭据冷启动） |
@@ -60,10 +60,10 @@
 
 ## 5. 引擎运行时（SPEC-ENGINE-RUNTIME）
 
-- **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Contents/MacOS/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`。
-- **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（当前 **0.1.2-rc.1**，曾短暂切 0.1.2-alpha.2 后回退，2026-09 二次升级落地）+ `scripts/node-version.txt`（构建机校验 fail-loud）。
-- **构建链**：`prepare-dsh-runtime.sh`（闭包准备，`DSH_SOURCE` 可复用同版本源）→ `embed-engine.sh`（拷入 .app + 自检）→ `build-release.sh` / `package-macos.sh`（Developer ID 深签 DMG，可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
-- **模型目录新鲜度**：引脚 0.1.2-rc.1 自带 pi-ai 0.84.4，模型目录随引脚走；旧的 `engine-model-data` 数据层覆盖（rc.2 时代 pi-ai 0.82.1 的补丁）已随升引脚删除。
+- **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Resources/Runtime/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`；bundled 残缺或外部入口版本与随包引脚不符一律拒启（版本门，`SPEC-ENGINE-RUNTIME §3.4`）。
+- **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（XcodeGen 把原文件拷进 bundle 作 `Resources/dsh-runtime-version.txt`，版本门据此判外部入口）+ `scripts/node-version.txt`（构建机校验 fail-loud）。
+- **构建链**：`prepare-dsh-runtime.sh`（闭包准备 + 原生/FFI 冒烟，`DSH_SOURCE` 可复用同版本源）→ `embed-engine.sh`（拷入 .app + 自检）→ `build-release.sh` / `package-macos.sh`（Developer ID 深签 DMG，可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
+- **模型目录新鲜度**：模型目录随引脚走（引擎自带 pi-ai，`prepare-dsh-runtime.sh` 校验其版本与引脚一致）；旧的 `engine-model-data` 数据层覆盖已删。
 - **版本韧性**：稳定面直接用；版本敏感面（provider 管理等）`probeMethod` 能力探测，缺则降级/隐藏。
 - 启动参数 `--profile web --no-open --port 0`；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。
 

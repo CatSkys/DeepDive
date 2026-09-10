@@ -20,7 +20,9 @@ bash scripts/embed-web.sh "$APP"
 if [[ "${DSHMINI_DEV_ENGINE:-0}" == "1" ]]; then
   bash scripts/embed-engine.sh "$APP"
 else
-  echo "skip embed-engine (DSHMINI_DEV_ENGINE=1 to include; DSHMINI_DSH_ENTRY still works for dev)"
+  echo "skip embed-engine (DSHMINI_DEV_ENGINE=1 to include)"
+  echo "  无随包引擎时入口走系统 dsh，版本门要求它与 scripts/dsh-runtime-version.txt 逐字一致；"
+  echo "  对照其他版本请设 DSHMINI_DSH_ENTRY（异版本仅告警），并配 DSHMINI_SUPPORT_DIR 隔离。"
 fi
 echo "OK: $APP"
 open "$APP"

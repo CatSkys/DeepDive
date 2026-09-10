@@ -138,3 +138,57 @@ describe("probeMethod 能力探测", () => {
     await expect(probeMethod("settings.mutate")).resolves.toBe(true);
   });
 });
+
+describe("session/follow 帧解包（SessionEventEntry）", () => {
+  // 引擎 SessionFollowFrame = snapshot | SessionEventEntry；
+  // SessionEventEntry = {type:'event', event: SessionEvent}（types.ts:382）。
+  // 曾把 live 帧多剥一层（frame.event.event）→ onEvent(undefined) 被 mux
+  // 吞掉，快照正常、直播正文永空白（2026-09-10 实机钉死）。
+  it("live 帧 onEvent 收到 SessionEvent 本体，snapshot 走 onSnapshot", () => {
+    const sockets: Array<{
+      readyState: number;
+      onmessage: ((e: { data: string }) => void) | null;
+      sent: string[];
+    }> = [];
+    vi.stubGlobal("WebSocket", class {
+      readyState = 1; onopen: (() => void) | null = null; onmessage: ((e: { data: string }) => void) | null = null;
+      onclose: (() => void) | null = null; onerror: (() => void) | null = null;
+      sent: string[] = [];
+      constructor() { sockets.push(this); queueMicrotask(() => this.onopen?.()); }
+      send(d: unknown) { this.sent.push(String(d)); }
+      close() { /* keep open for feed */ }
+      static OPEN = 1; static CLOSED = 3;
+    });
+    const snaps: unknown[] = [];
+    const evs: Array<{ type: string; seq: number }> = [];
+    // 强制单例换到本用例的 socket 桩（旧 ws 可能仍 OPEN，openStream 会直接复用）。
+    mux.recycle();
+    api.followSession(
+      { kind: "session", sessionId: "s-follow" },
+      {
+        onSnapshot: (s) => snaps.push(s.cursor),
+        onEvent: (ev) => evs.push({ type: ev.type, seq: ev.seq ?? -1 }),
+      },
+    );
+    const ws = sockets[sockets.length - 1]!;
+    const open = ws.sent.map((s) => JSON.parse(s) as { type: string; endpoint?: string; streamId?: string })
+      .find((f) => f.type === "open" && f.endpoint === "session/follow");
+    expect(open?.streamId).toBeTruthy();
+    const streamId = open!.streamId!;
+    const feed = (value: unknown) => {
+      ws.onmessage?.({ data: JSON.stringify({ type: "item", streamId, value }) });
+    };
+    feed({
+      type: "snapshot", header: { id: "s-follow" }, cursor: 5, hasMore: false,
+      records: [{ type: "event", event: { type: "turn/start", seq: 4, time: 1, data: { turn: 1 } } }],
+      projections: { asOfSeq: 5, values: {} },
+    });
+    feed({ type: "event", event: { type: "user/message", seq: 7, time: 2, data: { content: [{ type: "text", text: "hi" }], source: { kind: "user" }, role: "user", id: "u" } } });
+    feed({ type: "event", event: { type: "turn/end", seq: 8, time: 3, data: { turn: 1, reason: { kind: "completed" } } } });
+    expect(snaps).toEqual([5]);
+    expect(evs).toEqual([
+      { type: "user/message", seq: 7 },
+      { type: "turn/end", seq: 8 },
+    ]);
+  });
+});

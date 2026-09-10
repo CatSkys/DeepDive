@@ -19,7 +19,7 @@ APP=.build/release/Build/Products/Release/DeepDive.app
 test -d "$APP" || { echo "build failed"; exit 1; }
 
 bash scripts/embed-web.sh "$APP"
-# Engine embed must precede signing: the embedded MacOS/node executable needs
+# Engine embed must precede signing: the embedded Runtime/node executable needs
 # to be inside the bundle before codesign (deep) covers it.
 bash scripts/embed-engine.sh "$APP"
 # 签名失败必须停：曾 `|| true` 吞错，bundle 被 embed 改坏时仍照常出 DMG（AUD-013）。
@@ -38,7 +38,7 @@ if security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
   find "$APP" -type f -exec sh -c 'file -b "$1" | grep -q Mach-O' _ {} \; -print0 |
   while IFS= read -r -d '' bin; do
     case "$bin" in
-      */MacOS/node)
+      */Resources/Runtime/node)
         codesign --force -s "$IDENTITY" --options runtime --timestamp \
           --entitlements scripts/node-entitlements.plist "$bin" \
           || { echo "FAIL: codesign $bin"; exit 1; }

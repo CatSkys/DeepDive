@@ -158,7 +158,7 @@
 ### 4.10 手写 socket 泵的 fd 属主：双 close 在 fd 复用窗口误伤无关连接
 - 事故：WS 盲中继两条 detached 线程退出时各自 `close(upstream); close(client)`——先退的一侧把两个 fd 都关了，内核可能已把其中之一复用给新连接/引擎管道，第二次 close 关的是别人的 socket；且 close 不保证唤醒对端阻塞中的 recv（要 shutdown 才会）。
 - 处置：**每个 fd 只有一个属主线程**，退出时 close 自己一侧、对另一侧只 `shutdown(SHUT_RDWR)` 唤醒对端退出。
-  - **变种（AUD-071 修复仍不够，2026-09-10 实机二连事故）**：「close 自己 + shutdown 对侧」在对侧线程已先 close 该 fd 时同样误伤——fd 号被内核复用给新 accept 的连接后，迟到的 shutdown 关掉的是别人。表现：受害连接表面完全健康（无 close/error 帧），快照后**一帧不再到达**，直播转录冻结而 HTTP 轮询照常（用户连日报「发的消息看不到」）；帧级日志（预启动 WebSocket 包装器）+ 并行探针对照钉死断点在桥中继。终修：**双泵线程合并为单线程 `poll()` 双 fd 循环**——任一侧 EOF 都在同一线程内依次 shutdown/close 两个 fd，跨线程 fd 信号全灭，整类竞态不存在。另配期望看门狗兜底：`store` 3s 轮询发现任一会话 running 而 mux 连接 >8s 零下行帧（`mux.lastFrameAt`）即 `recycle()` 重建——任何未知形态的连接哑火都 ≤11s 自愈（重建代价仅各流重发快照）。
+  - **变种（AUD-071 修复仍不够，2026-09-10 实机二连事故）**：「close 自己 + shutdown 对侧」在对侧线程已先 close 该 fd 时同样误伤——fd 号被内核复用给新 accept 的连接后，迟到的 shutdown 关掉的是别人。表现：受害连接表面完全健康（无 close/error 帧），快照后**一帧不再到达**，直播转录冻结而 HTTP 轮询照常（用户连日报「发的消息看不到」）；帧级日志（预启动 WebSocket 包装器）+ 并行探针对照钉死断点在桥中继。终修：**双泵线程合并为单线程 `poll()` 双 fd 循环**——任一侧 EOF 都在同一线程内依次 shutdown/close 两个 fd，跨线程 fd 信号全灭，整类竞态不存在。另配期望看门狗兜底：`store` 3s 轮询发现任一会话 running 而整条 mux 连接静默超窗（`mux.stalled`，窗口常量在 `mux.ts`）即 `recycle()` 重建——任何未知形态的连接哑火都 ≤「窗口 + 3s」自愈（重建代价仅各流重发快照）；静默计时在重连时复位，哑火连接不会被每个轮询 tick 连环重建。
 
 ### 4.11 主线程同步 Process + 不排空 stderr = 死锁面
 - 事故：run-git 聚合在主线程同步跑 3 条 git（readDataToEndOfFile + waitUntilExit），且 stderr Pipe 从不读取——子进程 stderr 写满 64KB 管道缓冲后阻塞写，进程不退出，主线程 `readDataToEndOfFile` 永等 → 整 app 冻结。
@@ -175,7 +175,8 @@
 
 ### 4.14 bundled node 绝不能放进 `Contents/MacOS/`
 - 事故（2026-09-10 用户实测）：引擎 node 放在 `Contents/MacOS/node`，Launch Services 把同 bundle `MacOS/` 下的额外可执行文件当成第二个 app——引擎一拉起（含重启）Dock 就闪出独立的 node 图标/窗口，用户连报「不停弹 node 窗口」。
-- 处置：node 落在 `Contents/Resources/Runtime/node`（与 dsh 闭包同级）；`EngineSupervisor.bundledEntry()` / `embed-engine.sh` / `package-macos.sh` 签名 case 同步。`Contents/MacOS/` 只保留 app 主可执行文件。
+- 处置：node 落在 `Contents/Resources/Runtime/node`（与 dsh 闭包同级）；`EngineSupervisor.bundledRuntimeState()` / `embed-engine.sh` / `package-macos.sh` 签名 case 同步。`Contents/MacOS/` 只保留 app 主可执行文件。
+- 旧布局残留：嵌过旧布局（`MacOS/node`）的 .app 在新自查下呈「残缺」（`Resources/Runtime/node` 缺、`Runtime/dsh` 在）而被判「引擎程序不完整」拒启——处置是重新打包（或删掉旧 .app 重构建），别去追引擎为什么不再启动。
 
 ---
 
