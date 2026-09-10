@@ -38,6 +38,25 @@ function parseSlashToken(text: string): { query: string; start: number } | null 
 // - 带 input（hint）的命令 → claim：插入 "/name " 由用户补参，Enter 整行
 //   经 commands/execute 直发（编排方 submit 裁决）；
 // - 无 input 的命令 → 菜单点击即直发（官方 runDetached），成败明示。
+/** 内建命令中文描述（引擎 description 为英文原文；插件命令不在此列）。 */
+const CMD_DESC_ZH: Record<string, string> = {
+  compact: "压缩更早的会话历史",
+  plan: "进入或退出计划模式",
+  permission: "切换权限预设（沙箱模式 + 审批策略）",
+  goal: "设定或查看长任务的 Goal",
+  feedback: "记录本会话的反馈",
+  export: "下载本会话日志（ZIP）",
+  doctor: "只读健康检查（导入注册表/会话/技能）",
+  "attach-workspaces": "把已导入会话重新挂到匹配的工作区",
+  "import-reset": "清空导入扫描缓存",
+  "mcp-status": "查看 MCP 配置扫描结果",
+  import: "从外部聊天记录导入历史会话",
+  "import-all": "批导入选定来源的全部历史会话",
+  "resume-claude": "从 Claude Code 历史会话生成交接摘要",
+  "resume-codex": "从 Codex 历史会话生成交接摘要",
+  "settings-suggest": "解析 Claude/Codex 配置给出迁移建议",
+};
+
 const CMD_ICONS: Record<string, LucideIcon> = {
   compact: Shrink,
   plan: Route,
@@ -59,7 +78,10 @@ function buildSlashRows(args: {
   const { t, tt, text, slashTok, sessionId, setText, commands } = args;
   return commands.map((cmd) => {
     const icon = CMD_ICONS[cmd.name] ?? TerminalSquare;
-    const detail = [cmd.description, cmd.input?.hint].filter(Boolean).join(" ");
+    // 命令描述：内建命令给中文（引擎返回英文原文，0.1.5 的中文化在官方 UI 层）；
+    // 插件命令保留引擎原文。
+    const zhDesc = CMD_DESC_ZH[cmd.name];
+    const detail = [zhDesc ?? cmd.description, cmd.input?.hint].filter(Boolean).join(" ");
     if (cmd.input) {
       return {
         id: `cmd:${cmd.name}`,

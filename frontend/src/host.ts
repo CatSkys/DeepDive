@@ -31,6 +31,43 @@ export function sendToShell(message: Record<string, unknown>): void {
   window.webkit?.messageHandlers?.deepdiveHost?.postMessage(message);
 }
 
+/** 用默认应用打开一个本地路径（0.1.5 产物三动作之一；壳 NSWorkspace.open）。 */
+export function openPath(path: string): void {
+  sendToShell({ type: "open-path", path });
+}
+
+/** 在 Finder 中定位一个本地路径（壳 activateFileViewerSelecting）。 */
+export function revealPath(path: string): void {
+  sendToShell({ type: "reveal-path", path });
+}
+
+/* ── 插件市场（§7）：壳侧安装仓的桥面。清单推送（"plugins" 命令）经
+   onHostEvent 订阅；安装为异步火后不管（完成时推新清单）。 ── */
+
+export interface InstalledPlugin {
+  id: string;
+  repo: string;
+  packageName: string;
+  dir: string;
+}
+
+export function pluginsList(): Promise<InstalledPlugin[]> {
+  return bridgeRequest(
+    "plugin-list",
+    [],
+    (p) => (p as { plugins?: InstalledPlugin[] }).plugins ?? [],
+    (reqId) => sendToShell({ type: "plugin-list", reqId }),
+  );
+}
+
+export function pluginInstall(repo: string): void {
+  sendToShell({ type: "plugin-install", repo });
+}
+
+export function pluginRemove(id: string): void {
+  sendToShell({ type: "plugin-remove", id });
+}
+
 /** 壳桥 req/resp 统一包装（AUD-049/090）：注册一次性监听 + 发送 + 超时降级
  *  ——壳不回包（桥挂/消息丢失）也按 fallback resolve，绝不永久 pending。
  *  match 收到本 reqId 的载荷时返回要 resolve 的值；纯浏览器环境直接降级。 */

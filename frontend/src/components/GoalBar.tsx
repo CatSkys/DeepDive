@@ -112,6 +112,12 @@ export function GoalBar({ projection, onChange, sessionId }: {
             <Play size={13} />
           </button>
         )}
+        {/* 0.1.5 语义：blocked（模型自行阻塞）与用户暂停同样需要用户手动恢复 */}
+        {goal!.phase === "blocked" && (
+          <button className="goal-act" data-tip={t("恢复目标")} disabled={pending} onClick={() => void run(() => api.goalResume({ sessionId, ref: cas() }))}>
+            <Play size={13} />
+          </button>
+        )}
         <button
           className="goal-act"
           data-tip={t("编辑目标")}

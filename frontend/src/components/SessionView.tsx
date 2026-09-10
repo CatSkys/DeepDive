@@ -14,6 +14,8 @@ import { groupTurns, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
 import { useFeedback } from "../session/feedback";
 import { TurnNavigator } from "../session/TurnNavigator";
+import { FilePreviewDock, usePreviewDock } from "./preview/FilePreviewDock";
+import { StatsPills } from "../session/StatsPills";
 import { computeTurnProcess } from "../session/turnProcess";
 import { TurnProcessBar } from "../session/TurnProcessBar";
 import type { TurnOutlineEntry } from "../types";
@@ -49,6 +51,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // Turn 大纲轨（TODO §0-2）：活动轮（滚动派生）与深分页忙碌轮。
   const [activeTurn, setActiveTurn] = useState<number | undefined>(undefined);
   const [busyTurn, setBusyTurn] = useState<number | undefined>(undefined);
+  // 文件预览 Dock（产物/文件 chip 打开）
+  const previewDock = usePreviewDock();
+  // 产物/预览路径解析：模型常写 cwd 相对路径，/api/file 与壳动作都要绝对路径
+  const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
+  const absPreviewPath = useCallback((p: string) => (p.startsWith("/") || !wsPath ? p : `${wsPath}/${p}`), [wsPath]);
 
   // 底部悬浮区（用户定稿「消息区下延贴底」）：composer 悬浮于消息流之上，
   // flow 的 padding-bottom 按悬浮区实测高度动态设置（附件/排队坞/多行输入
@@ -162,7 +169,19 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
   const sessionQuestions = [...questions.values()].filter((q) => q.sessionId === sessionId);
   // 排队消息（placement=queued 才可操作；steering/context 正在处理）
-  const queuedItems = (queues.get(sessionId) ?? []).filter((i) => i.placement === "queued");
+  // 排队 + 插话中（0.1.5：steering 也呈现）；本端刚发出未观察到的走「发送中」。
+  const sessionQueue = queues.get(sessionId) ?? [];
+  const queuedItems = sessionQueue.filter((i) => i.placement === "queued" || i.placement === "steering");
+  const [sendingRpcIds, setSendingRpcIds] = useState<ReadonlySet<string>>(new Set());
+  const registerSending = (rpcId: string) => {
+    setSendingRpcIds((prev) => new Set(prev).add(rpcId));
+    // 快照观察到该消息（rpcId 出现）或 10s 兜底后自动退场
+    const stop = () => setSendingRpcIds((prev) => { const n = new Set(prev); n.delete(rpcId); return n; });
+    const iv = setInterval(() => {
+      if (!(queues.get(sessionId) ?? []).some((i) => i.rpcId === rpcId)) { clearInterval(iv); stop(); }
+    }, 500);
+    setTimeout(() => { clearInterval(iv); stop(); }, 10000);
+  };
 
   // branch（官方 forkAt）：从轮收尾 seq 分叉子会话并切入；失败保持原会话不动。
   const branchFrom = (atSeq: number) => {
@@ -183,6 +202,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     tokenUsage?: { uncachedInputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
     contextPressure?: { projectedTokens?: number; contextWindow?: number };
     contextBreakdown?: { systemTokens?: number; toolsTokens?: number; messageTokens?: number };
+    sessionStats?: { turns?: number; steps?: number; llmMs?: number; toolMs?: number; ttftMs?: number; ttftSteps?: number; decodeMs?: number; decodeTokens?: number };
   };
   // 容量圈数据挂在输入框上（发送/听写钮左侧，hover 出面板）
   const ctxData = {
@@ -268,7 +288,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <HeroBrand />
           <div className="hero-composer">
             <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
-            <Composer sessionId={sessionId} ctx={ctxData} />
+            <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
           </div>
         </div>
       </>
@@ -310,6 +330,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             busyTurn={busyTurn}
             loadedTurns={layout.loadedTurns}
             onPick={(e) => void pickTurn(e)}
+          />
+        )}
+        {previewDock.tabs.length > 0 && (
+          <FilePreviewDock
+            tabs={previewDock.tabs}
+            activePath={previewDock.activePath}
+            setActivePath={previewDock.setActivePath}
+            onCloseTab={previewDock.close}
           />
         )}
       <div
@@ -399,6 +427,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           onBranch={branchFrom}
                           sessionId={sessionId}
                           feedbackCtrl={feedback}
+                          onPreviewFile={(p) => previewDock.open(absPreviewPath(p))}
+                          wsPath={wsPath}
                           hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
                           onContinue={() => {
                             void api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
@@ -440,9 +470,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         className="session-bottom"
         ref={attachBottom}
       >
+        {(projVals.sessionStats || projVals.tokenUsage) && (
+          <div className="stats-pills-row">
+            <StatsPills stats={projVals.sessionStats} usage={projVals.tokenUsage} />
+          </div>
+        )}
         {queuedItems.length > 0 && (
           <div className="queue-dock-wrap">
-            <QueueDock sessionId={sessionId} items={queuedItems} />
+            <QueueDock sessionId={sessionId} items={queuedItems} sendingRpcIds={sendingRpcIds} />
           </div>
         )}
         <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
@@ -450,9 +485,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
         ) : summary?.origin === "subagent" ? (
           // continuable 子会话（0.1.5）：subagents/prompt 经父会话投递
-          <Composer sessionId={sessionId} ctx={ctxData} variant={{ kind: "subagent", parentSessionId: summary.parentSessionId! }} />
+          <Composer sessionId={sessionId} ctx={ctxData} variant={{ kind: "subagent", parentSessionId: summary.parentSessionId! }} registerSending={registerSending} />
         ) : (
-          <Composer sessionId={sessionId} ctx={ctxData} />
+          <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
         )}
       </div>
     </div>

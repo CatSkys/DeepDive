@@ -346,6 +346,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           className="settings-entry"
           data-tip={t("设置")}
           data-tip-keys="⌘,"
+          aria-label={t("设置")}
           onClick={() => {
             onOpenSettings();
           }}

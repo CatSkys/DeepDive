@@ -1033,6 +1033,89 @@ button {
 }
 .att-chip.file .att-chip-x { position: absolute; top: 5px; right: 4px; }
 
+/* ---- 右侧文件预览 Dock（0.1.5 产物/文件预览；单屏极简）----
+   与左栏同族材质：无自绘底色（吃 .app 渐变）、左缘细线分隔。标签条可横滚。 */
+.preview-dock {
+  flex: none;
+  width: min(400px, 38vw);
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--fill-soft);
+  min-height: 0;
+}
+.preview-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 8px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.preview-tabs::-webkit-scrollbar { display: none; }
+.preview-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 150px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  cursor: pointer;
+}
+.preview-tab:hover { color: var(--ink-2); background: var(--fill); }
+.preview-tab[data-active] { color: var(--ink); background: var(--fill); }
+.preview-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-tab-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; flex: none;
+  border-radius: 4px;
+  color: var(--ink-3);
+}
+.preview-tab-x:hover { background: var(--fill-heavy); color: var(--ink); }
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  min-height: 30px;
+}
+.preview-path {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; color: var(--ink-3);
+  direction: rtl; text-align: left; /* 长路径保尾段可见 */
+}
+.preview-act {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border: none; border-radius: 6px;
+  background: transparent; color: var(--ink-3);
+  cursor: pointer;
+}
+.preview-act:hover { background: var(--fill); color: var(--ink); }
+.preview-loading { padding: 16px; color: var(--ink-3); font-size: 12px; }
+.preview-fallback { padding: 16px; color: var(--ink-3); font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.preview-fallback-detail { color: var(--ink-3); opacity: .7; word-break: break-all; }
+.preview-md { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; font-size: 13px; }
+.preview-md .md-img { max-width: 100%; }
+.preview-code {
+  flex: 1; min-height: 0; overflow: auto;
+  margin: 0; padding: 12px 14px;
+  font-family: var(--dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px; line-height: 1.55;
+  color: var(--ink-2);
+  white-space: pre-wrap; word-break: break-word;
+}
+.preview-media { flex: 1; min-height: 0; object-fit: contain; background: transparent; }
+.preview-frame { flex: 1; min-height: 0; border: none; background: #fff; }
+.preview-frame[src*=".html"], .preview-frame[sandbox] { background: #fff; }
+
 /* 用户消息里的文件 chip（0.1.5 历史 file 块）与工具结果图片行 */
 .user-file-chip {
   display: inline-flex; align-items: center; gap: 5px;
@@ -3547,3 +3630,22 @@ input:focus, textarea:focus, select:focus { outline: none; }
   outline: none;
 }
 .feedback-note-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ---- 会话统计两摘要（速度/用量，官方 StatsPills 单屏移植） ---- */
+.stats-pills-row { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.stats-pills { position: relative; display: inline-flex; gap: 6px; }
+.stats-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--fill-soft); color: var(--ink-3);
+  font-size: 11px; cursor: pointer;
+}
+.stats-pill:hover { color: var(--ink-2); background: var(--fill); }
+.stats-pop {
+  position: absolute; right: 0; bottom: calc(100% + 6px);
+  min-width: 180px; z-index: 30;
+  padding: 8px 10px; border-radius: 10px;
+  display: flex; flex-direction: column; gap: 3px;
+  font-size: 11px; color: var(--ink-2);
+}

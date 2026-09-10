@@ -9,7 +9,10 @@ import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
-export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedbackCtrl, hideThinking }: {
+export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedbackCtrl, hideThinking, onPreviewFile, wsPath }: {
+  onPreviewFile?: (path: string) => void;
+  /** 工作区根（相对产物路径 → 绝对解析用）。 */
+  wsPath?: string;
   item: RenderItem;
   turnRunning: boolean;
   onBranch?: (forkSeq: number) => void;
@@ -80,7 +83,7 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedb
             </span>
           </div>
         )}
-        <ProducedFiles paths={item.produced ?? []} />
+        <ProducedFiles paths={item.produced ?? []} onPreview={onPreviewFile} wsPath={wsPath} />
         <MessageMeta
           time={time}
           clockSide="end"

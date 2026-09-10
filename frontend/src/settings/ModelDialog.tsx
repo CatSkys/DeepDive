@@ -13,7 +13,23 @@ import cssRows from "./SettingsRows.module.css";
 // 目录写 llm-deepseek.models，预置/自定义提供方写 llm-pi-ai.providers，模型
 // 发现走 llm.discoverModels。全部提供方只在此弹窗出现，不再平铺在页面上。
 
-export interface ModelProfile { id: string; name?: string; contextWindow?: number; inputModalities?: string[] }
+/** BaseURL 规范化与校验（§2）：去空白、补 https:// 缺省协议、去尾斜杠；
+ *  返回 null 表示无法成为合法 http(s) 地址。 */
+export function normalizeBaseURL(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const u = new URL(withProto);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    if (!u.hostname) return null;
+    return u.origin + (u.pathname === "/" ? "" : u.pathname.replace(/\/+$/, ""));
+  } catch {
+    return null;
+  }
+}
+
+export interface ModelProfile { id: string; name?: string; contextWindow?: number; maxTokens?: number; inputModalities?: string[] }
 export interface PiProviderProfile {
   apiKeyEnv?: string;
   displayName?: string;
@@ -123,12 +139,21 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
   const discover = async () => {
     setDiscovering(true);
     setError(null);
+    if (isNewProvider && baseURL.trim()) {
+      const normalized = normalizeBaseURL(baseURL);
+      if (normalized === null) {
+        setError(tt("baseURL 无效：需要 http(s) 地址，如 https://api.example.com/v1", "Invalid baseURL: expected an http(s) URL like https://api.example.com/v1"));
+        setDiscovering(false);
+        return;
+      }
+      setBaseURL(normalized);
+    }
     try {
       const r = await api.discoverModels({
         settingsNs: "llm-pi-ai",
         ...(isNewProvider ? { baseURL, api: apiProto } : { provider: providerId }),
       });
-      setDiscovered((r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow })));
+      setDiscovered((r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, maxTokens: m.maxTokens })));
     } catch (err) {
       setError(tt("发现模型失败：{m}", "Model discovery failed: {m}", { m: (err as Error).message }));
     }
@@ -139,6 +164,12 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
     setError(null);
     const pid = providerId;
     if (!pid) { setError(t("请选择提供方。")); return; }
+    // §2：baseURL 只在填写时校验/规范化（0.1.5 引擎侧同样校验，这里给内联前置反馈）
+    const normalizedBaseURL = baseURL.trim() ? normalizeBaseURL(baseURL) : "";
+    if (baseURL.trim() && normalizedBaseURL === null) {
+      setError(tt("baseURL 无效：需要 http(s) 地址，如 https://api.example.com/v1", "Invalid baseURL: expected an http(s) URL like https://api.example.com/v1"));
+      return;
+    }
     // 模型 ID 可空（占位承诺：留空 = 沿用/自动并入已有模型）；唯一例外是
     // 编辑目录条目时把 id 改空——条目没有 id 无法落盘。
     if (editingEntry && !modelId.trim()) { setError(t("模型 ID 必填。")); return; }
@@ -163,7 +194,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
             ...(isNewProvider ? { baseURL, api: apiProto } : { provider: pid }),
             ...(key.trim() ? { apiKey: key.trim() } : {}),
           });
-          effectiveDiscovered = (r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow }));
+          effectiveDiscovered = (r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, maxTokens: m.maxTokens }));
           setDiscovered(effectiveDiscovered);
         } catch (err) {
           setError(tt("自动发现模型失败：{m}", "Auto-discovery failed: {m}", { m: (err as Error).message }));
@@ -202,7 +233,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
           ...pi.providers,
           [newId.trim()]: {
             displayName: newDisplayName.trim() || newId.trim(),
-            ...(baseURL.trim() ? { baseURL: baseURL.trim() } : {}),
+            ...(normalizedBaseURL ? { baseURL: normalizedBaseURL } : {}),
             ...(apiProto.trim() ? { api: apiProto.trim() } : {}),
             ...(models.length ? { models } : {}),
           },
@@ -299,7 +330,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
               </div>
               <div>
                 <span className={cssRows.fieldLabel}>baseURL</span>
-                <input className={cssRows.textField} placeholder="https://…" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} />
+                <input className={cssRows.textField} placeholder="https://…" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} onBlur={() => { if (baseURL.trim()) { const n = normalizeBaseURL(baseURL); if (n) setBaseURL(n); } }} />
               </div>
               <div>
                 <span className={cssRows.fieldLabel}>{t("协议（openai-completions / openai-responses）")}</span>

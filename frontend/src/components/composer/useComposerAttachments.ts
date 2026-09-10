@@ -18,8 +18,8 @@ export interface ImageAttachment {
   name: string;
 }
 
-/** 通用文件 chip（0.1.5）：摄入即上传（草稿页无会话则 pending 到发送时），
- *  回执就绪才能随 prompt 发送。 */
+/** 通用文件 chip（0.1.5 流式路由）：摄入即上传（草稿页无会话则 pending 到
+ *  发送时），带进度百分比与取消；回执就绪才能随 prompt 发送。 */
 export interface FileAttachment {
   id: string;
   kind: "file";
@@ -28,8 +28,10 @@ export interface FileAttachment {
   /** pending=等会话（草稿页）；uploading/ready/error=已起上传。 */
   status: "pending" | "uploading" | "ready" | "error";
   receiptId?: string;
-  /** error 态的重试载荷（base64）。 */
-  data?: string;
+  /** uploading：0-100。 */
+  progress?: number;
+  /** error/cancelled 态保留 File 供重试。 */
+  file?: File;
   error?: string;
 }
 
@@ -104,7 +106,7 @@ function ingestDropped(
 /** 壳选择器结果：图片→字节 chip，文件→上传 chip，文件夹→@ 引用。 */
 function ingestPicked(
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>,
-  addFile: (name: string, bytes: string) => void,
+  addFile: (file: File) => void,
   setText: React.Dispatch<React.SetStateAction<string>>,
   items: PickedAttachment[],
 ): void {
@@ -114,7 +116,11 @@ function ingestPicked(
     if (it.isImage && it.base64 && mime) {
       setAttachments((prev) => [...prev, { id: crypto.randomUUID(), kind: "image", data: it.base64!, mediaType: mime, name: it.name }]);
     } else if (!it.isDir && it.base64) {
-      addFile(it.name, it.base64);
+      // 壳回传的是 base64：转 File 供流式上传（字节一致）
+      const bin = atob(it.base64!);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      addFile(new File([bytes], it.name));
     } else {
       const m = mentionOf(it.path, it.isDir);
       if (m) mentions.push(m);
@@ -131,6 +137,8 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
 }) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  /** 进行中上传的中止器（chip × 触发）。 */
+  const cancels = useRef(new Map<string, () => void>());
 
   const addImageFile = (file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -145,49 +153,82 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
   };
 
   // 通用文件：读字节成 chip 并立即上传（无会话则 pending）。
-  const addFileFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataURL = String(reader.result);
-      const comma = dataURL.indexOf(",");
-      addFile(file.name, dataURL.slice(comma + 1));
-    };
-    reader.readAsDataURL(file);
+  const addFileFile = (file: File) => addFile(file);
+
+  const startUpload = (id: string, sid: string, file: File) => {
+    const ctl = new AbortController();
+    cancels.current.set(id, () => ctl.abort());
+    void api.uploadFileStreaming({
+      sessionId: sid, file, name: file.name, signal: ctl.signal,
+      onProgress: (loaded, total) => setAttachments((prev) => prev.map((a): Attachment =>
+        a.id === id && a.kind === "file" ? { ...a, progress: total > 0 ? Math.round((loaded / total) * 100) : 0 } : a)),
+    }).then(
+      (r) => {
+        cancels.current.delete(id);
+        setAttachments((prev) => prev.map((a): Attachment =>
+          a.id === id && a.kind === "file"
+            ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, file: undefined, error: undefined }
+            : a));
+      },
+      (err: unknown) => {
+        cancels.current.delete(id);
+        const aborted = err instanceof DOMException && err.name === "AbortError";
+        setAttachments((prev) => prev.map((a): Attachment =>
+          a.id === id && a.kind === "file"
+            ? aborted
+              ? { ...a, status: "error", error: tt("已取消", "Cancelled") }
+              : { ...a, status: "error", error: tt("上传失败", "Upload failed") }
+            : a));
+      },
+    );
   };
 
-  const addFile = (name: string, data: string) => {
+  const addFile = (file: File) => {
     const id = crypto.randomUUID();
     if (sessionId) {
-      setAttachments((prev) => [...prev, { id, kind: "file", name, status: "uploading", data }]);
-      void api.uploadFile({ sessionId, data, name }).then(
-        (r) => setAttachments((prev) => prev.map((a): Attachment =>
-          a.id === id && a.kind === "file"
-            ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, data: undefined, error: undefined }
-            : a)),
-        () => setAttachments((prev) => prev.map((a): Attachment =>
-          a.id === id && a.kind === "file" ? { ...a, status: "error", error: tt("上传失败", "Upload failed") } : a)),
-      );
+      setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "uploading", file, progress: 0 }]);
+      startUpload(id, sessionId, file);
     } else {
-      setAttachments((prev) => [...prev, { id, kind: "file", name, status: "pending", data }]);
+      setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "pending", file }]);
     }
+  };
+
+  /** 取消一次进行中的上传（chip 上的 ×；已取消/失败可重试）。 */
+  const cancelUpload = (id: string) => {
+    cancels.current.get(id)?.();
   };
 
   /** 失败重试 / 草稿页 pending 在会话就绪后补传（编排方发送前调用）。 */
   const uploadNow = async (sid: string): Promise<boolean> => {
     const pendingFiles = attachments.filter((a): a is FileAttachment => a.kind === "file" && a.status !== "ready");
     for (const f of pendingFiles) {
-      setAttachments((prev) => prev.map((a): Attachment => a.id === f.id && a.kind === "file" ? { ...a, status: "uploading" } : a));
-      try {
-        const r = await api.uploadFile({ sessionId: sid, data: f.data!, name: f.name });
-        setAttachments((prev) => prev.map((a): Attachment =>
-          a.id === f.id && a.kind === "file"
-            ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, data: undefined }
-            : a));
-      } catch {
-        setAttachments((prev) => prev.map((a): Attachment =>
-          a.id === f.id && a.kind === "file" ? { ...a, status: "error", error: tt("上传失败", "Upload failed") } : a));
-        return false;
-      }
+      if (!f.file) return false;
+      setAttachments((prev) => prev.map((a): Attachment => a.id === f.id && a.kind === "file" ? { ...a, status: "uploading", progress: 0 } : a));
+      const ok = await new Promise<boolean>((resolve) => {
+        const ctl = new AbortController();
+        cancels.current.set(f.id, () => ctl.abort());
+        void api.uploadFileStreaming({
+          sessionId: sid, file: f.file!, name: f.name, signal: ctl.signal,
+          onProgress: (loaded, total) => setAttachments((prev) => prev.map((a): Attachment =>
+            a.id === f.id && a.kind === "file" ? { ...a, progress: total > 0 ? Math.round((loaded / total) * 100) : 0 } : a)),
+        }).then(
+          (r) => {
+            cancels.current.delete(f.id);
+            setAttachments((prev) => prev.map((a): Attachment =>
+              a.id === f.id && a.kind === "file"
+                ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, file: undefined }
+                : a));
+            resolve(true);
+          },
+          () => {
+            cancels.current.delete(f.id);
+            setAttachments((prev) => prev.map((a): Attachment =>
+              a.id === f.id && a.kind === "file" ? { ...a, status: "error", error: tt("上传失败", "Upload failed") } : a));
+            resolve(false);
+          },
+        );
+      });
+      if (!ok) return false;
     }
     return true;
   };
@@ -212,7 +253,7 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     e.target.value = "";
   };
 
-  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, dragOver, fileRef, onFile };
+  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, cancelUpload, dragOver, fileRef, onFile };
 }
 
 /** 拖拽：窗口级监听——会话界面任意处拖入文件都出虚线框提示；图片收字节

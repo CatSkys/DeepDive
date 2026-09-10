@@ -168,6 +168,11 @@ export interface ResultImage {
   height?: number;
 }
 
+/** 产物白名单（mutation-only，上游 ui-deliverables turn-deliverables 同款）。 */
+export const MUTATION_TOOLS: ReadonlySet<string> = new Set([
+  "write", "edit", "str_replace_editor", "multiedit", "apply_patch",
+]);
+
 /// Pull the output text + failure + path + result images from a tool/result
 /// payload (typed). 0.1.5 read_image 的内容块 = 文本信封 + {type:'image',
 /// attachment:{attachmentId,…}}——图片经 attachment RPC 取字节直出工具卡。
@@ -367,8 +372,12 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
           if (extracted.images.length > 0) item.resultImages = extracted.images;
         }
       }
-      // produced files: successful mutation calls carrying a derived path
+      // produced files: mutation-only 白名单（上游 turn-deliverables mutationPath
+      // 同款：write/edit/str_replace_editor，另收我们渲染的 multiedit/apply_patch；
+      // read/file_read 等只读工具的成功结果不算产物）。
       if (!extracted.failed) {
+        const callTool = prevIdx !== undefined ? out[prevIdx]?.toolName : undefined;
+        if (callTool !== undefined && !MUTATION_TOOLS.has(callTool)) break;
         const filePath = ctx.callPaths.get(callId) ?? extracted.path ?? derivePath(prevIdx !== undefined ? out[prevIdx]?.toolName ?? "" : "", extractArgsOf(out, prevIdx));
         if (filePath) {
           const turn = d.turn ?? (prevIdx !== undefined ? out[prevIdx]?.turn : undefined) ?? -1;

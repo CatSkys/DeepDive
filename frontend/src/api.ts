@@ -281,14 +281,33 @@ export const api = {
       line: payload.line,
       submittedAttachments: payload.attachments ?? [],
     }),
-  /** 通用文件上传（0.1.5 fileUploads/upload RPC 面）：base64 字节暂存引擎
-   *  侧，回执 receiptId 进 prompt 的 {type:'file'} 部件；回执随消息
-   *  requestId 生命周期（入队/历史或移除即退役）。大文件走引擎的
-   *  /api/session/uploadFileBinary 流式面（经桥转 RPC 简化，进度不定态）。 */
-  uploadFile: (payload: { sessionId: string; data: string; name?: string }) =>
-    unary<{ receiptId: string; file: { attachmentId: string; name: string; bytes: number } }>("fileUploads/upload", {
-      agentId: payload.sessionId,
-      request: { data: payload.data, ...(payload.name === undefined ? {} : { name: payload.name }) },
+  /** 通用文件上传（0.1.5 流式路由）：POST /api/session/uploadFileBinary
+   *  （octet-stream 直传字节，引擎逐块落盘、无字节上限；经桥自动带鉴权）。
+   *  onProgress 报已上传字节；abort() 取消。回执 receiptId 进 prompt 的
+   *  {type:'file'} 部件，随 requestId 生命周期退役。 */
+  uploadFileStreaming: (payload: {
+    sessionId: string;
+    file: Blob;
+    name?: string;
+    onProgress?: (loaded: number, total: number) => void;
+    signal?: AbortSignal;
+  }) =>
+    new Promise<{ receiptId: string; file: { attachmentId: string; name: string; bytes: number } }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const params = new URLSearchParams({ sessionId: payload.sessionId });
+      if (payload.name) params.set("name", payload.name);
+      xhr.open("POST", `/api/session/uploadFileBinary?${params.toString()}`);
+      xhr.setRequestHeader("content-type", "application/octet-stream");
+      xhr.responseType = "json";
+      xhr.upload.onprogress = (e) => payload.onProgress?.(e.loaded, e.total);
+      xhr.onload = () => {
+        const body = xhr.response as { result?: { ok: boolean; value?: { receiptId: string; file: { attachmentId: string; name: string; bytes: number } }; error?: { code: string; message: string } } };
+        if (xhr.status === 200 && body?.result?.ok && body.result.value) resolve(body.result.value);
+        else reject(new Error(body?.result?.error ? `${body.result.error.code}: ${body.result.error.message}` : `HTTP ${xhr.status}`));
+      };
+      xhr.onerror = () => reject(new Error("upload network error"));
+      payload.signal?.addEventListener("abort", () => { xhr.abort(); reject(new DOMException("upload aborted", "AbortError")); });
+      xhr.send(payload.file);
     }),
   /** 可继续子会话发消息（0.1.5 subagents/prompt）：content 只收文本/图片
    *  （子会话无文件通道）；delivery=queue|steer。 */

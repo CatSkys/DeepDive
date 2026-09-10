@@ -39,12 +39,14 @@ function autoGrow(el: HTMLTextAreaElement) {
   el.style.height = Math.min(el.scrollHeight, 160) + "px";
 }
 
-export function Composer({ sessionId, onSent, ctx, variant }: {
+export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   sessionId: string | null;
   onSent?: () => void;
   ctx?: ContextData;
   /** 子会话（continuable）形态：发送路由 subagents/prompt（父会话身份）。 */
   variant?: { kind: "subagent"; parentSessionId: string };
+  /** 排队发送后登记 rpcId（QueueDock 显示「发送中」直到快照观察到）。 */
+  registerSending?: (rpcId: string) => void;
 }) {
   const [dismissed, setDismissed] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -66,7 +68,7 @@ export function Composer({ sessionId, onSent, ctx, variant }: {
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
   const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
-  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, dragOver, fileRef, onFile } =
+  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, cancelUpload, dragOver, fileRef, onFile } =
     useComposerAttachments({ setText, hasShell, sessionId });
   // 听写 final 落稿后回焦并按新内容重新长高（原 dictation 订阅内的 rAF）
   const refocusDraft = () => requestAnimationFrame(() => {
@@ -196,17 +198,19 @@ export function Composer({ sessionId, onSent, ctx, variant }: {
       setBusy(false); return;
     }
     try {
+      const rpcId = crypto.randomUUID();
       if (subagent) {
         await api.subagentPrompt({
-          requestId: crypto.randomUUID(),
+          requestId: rpcId,
           parentSessionId: subagent.parentSessionId,
           childSessionId: sid,
           delivery: running ? mode : "queue",
           content,
         });
       } else {
-        await api.prompt({ requestId: crypto.randomUUID(), sessionId: sid, mode, content });
+        await api.prompt({ requestId: rpcId, sessionId: sid, mode, content });
       }
+      if (running || mode === "queue") registerSending?.(rpcId);
     } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
     setText("");
     setAttachments([]);
@@ -237,10 +241,13 @@ export function Composer({ sessionId, onSent, ctx, variant }: {
               </span>
             ) : (
               <span key={a.id} className="att-chip file" data-status={a.status} data-tip={a.error ?? a.name}>
-                {a.status === "uploading" || a.status === "pending" ? <span className="att-file-spin" aria-hidden="true" /> : <FileText size={14} />}
+                {a.status === "uploading" || a.status === "pending"
+                  ? <span className="att-file-progress" data-tip={a.progress !== undefined ? `${a.progress}%` : undefined}>{a.progress ?? undefined}%{a.progress === undefined && <span className="att-file-spin" aria-hidden="true" />}</span>
+                  : <FileText size={14} />}
                 <span className="att-file-name">{a.name}</span>
-                {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId).then(() => undefined); }}>{t("重试")}</button>}
-                <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
+                {a.status === "uploading" && <button className="att-file-retry" aria-label={t("取消上传")} onClick={(e) => { e.stopPropagation(); cancelUpload(a.id); }}>{t("取消")}</button>}
+                {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId); }}>{t("重试")}</button>}
+                <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); if (a.status === "uploading") cancelUpload(a.id); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
               </span>
             )
           ))}

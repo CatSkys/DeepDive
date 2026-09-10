@@ -4,6 +4,8 @@
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { t, tt } from "../i18n";
+import { openPath, revealPath } from "../host";
+import { ExternalLink, FolderSearch } from "lucide-react";
 import { useStore } from "../store";
 import { DiffBlock } from "../components/DiffBlock";
 import { AttachmentThumb } from "../components/AttachmentImage";
@@ -261,7 +263,8 @@ function TerminalBlock({ command, output, failed }: { command: string; output: s
 
 
 /// Produced files lane — DSH ProducedFiles port (label + file chips).
-export function ProducedFiles({ paths }: { paths: string[] }) {
+export function ProducedFiles({ paths, onPreview, wsPath }: { paths: string[]; onPreview?: (path: string) => void; wsPath?: string }) {
+  const abs = (p: string) => (p.startsWith("/") || !wsPath ? p : `${wsPath}/${p}`);
   if (paths.length === 0) return null;
   const shown = paths.slice(0, 6);
   const hidden = paths.length - shown.length;
@@ -270,9 +273,19 @@ export function ProducedFiles({ paths }: { paths: string[] }) {
       <span className="produced-label">{t("产物")}</span>
       <div className="produced-row">
         {shown.map((p) => (
-          <button type="button" key={p} className="produced-file" data-tip={p}>
-            {basename(p)}
-          </button>
+          <span key={p} className="produced-file-group">
+            {/* 预览（点 chip）+ 默认应用打开 / Finder 定位（hover 小钮，0.1.5 产物三动作） */}
+            <button type="button" className="produced-file" data-tip={p}
+              onClick={() => (onPreview ? onPreview(abs(p)) : openPath(abs(p)))}>
+              {basename(p)}
+            </button>
+            <span className="produced-file-acts">
+              <button type="button" className="produced-act" data-tip={t("默认应用打开")} aria-label={t("默认应用打开")}
+                onClick={() => openPath(p)}><ExternalLink size={11} /></button>
+              <button type="button" className="produced-act" data-tip={t("在 Finder 中显示")} aria-label={t("在 Finder 中显示")}
+                onClick={() => revealPath(abs(p))}><FolderSearch size={11} /></button>
+            </span>
+          </span>
         ))}
         {hidden > 0 && <span className="produced-more">{tt("+ {n} 个文件", "+{n} files", { n: hidden })}</span>}
       </div>
