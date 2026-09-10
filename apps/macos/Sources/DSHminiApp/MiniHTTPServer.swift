@@ -12,6 +12,12 @@ final class MiniHTTPServer {
         let query: String
         let headers: [String: String]
         let body: Data
+        /// 原始请求头块（含请求行，CRLF 结尾）。流式直通转发时原样重放。
+        let rawHead: Data
+        /// Content-Length 声明值（无头时 nil）。
+        var contentLength: Int? {
+            headers["content-length"].flatMap { Int($0) }
+        }
     }
 
     struct Response {
@@ -25,10 +31,17 @@ final class MiniHTTPServer {
         /// WebSocket-style upgrade: the raw client socket is handed to
         /// `upgradeHandler`; the connection stays open.
         case upgrade(Response)
+        /// 大 body 盲直通：raw client socket + 已缓冲的请求头/首段 body 交给
+        /// relayHandler；转发器边收边泵到引擎，不整段缓冲（§2 大文件上传）。
+        case relay
     }
+
+    /// 超过此体积的 uploadFileBinary 交由 relayHandler 盲直通（其余全量缓冲）。
+    static let streamRelayThreshold = 1 * 1024 * 1024
 
     /// Set once at start; responsible for the handshake relay + byte pump.
     var upgradeHandler: ((Int32, Request) -> Void)?
+    var relayHandler: ((Int32, Request, Data) -> Void)?
 
     private var listenFD: Int32 = -1
     private let socketQueue = DispatchQueue(label: "deepdive.bridge.accept")
@@ -88,10 +101,29 @@ final class MiniHTTPServer {
         // 后立刻设接收超时，recv 超时返回 -1，readRequest 按 EOF 处理断开。
         var tv = timeval(tv_sec: 15, tv_usec: 0)
         setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
-        guard let request = readRequest(client) else {
+        // 统一头优先读取；大 body（uploadFileBinary）交盲直通泵（不整段缓冲）。
+        guard let (headRequest, partial) = readRequestHead(client) else {
             close(client)
             return
         }
+        let wantsRelay = headRequest.path == "/api/session/uploadFileBinary"
+            && (headRequest.contentLength ?? 0) > Self.streamRelayThreshold
+        if wantsRelay {
+            relayHandler?(client, headRequest, partial)
+            // relayHandler 接管 socket（收满 body + 泵回响应 + close）
+            return
+        }
+        // 常规路径：补读剩余 body 到声明长度
+        var body = partial
+        let declared = headRequest.contentLength ?? body.count
+        var scratch = [UInt8](repeating: 0, count: 8192)
+        while body.count < declared {
+            let n = recv(client, &scratch, scratch.count, 0)
+            guard n > 0 else { break }
+            body.append(contentsOf: scratch[0..<n])
+        }
+        let request = Request(method: headRequest.method, path: headRequest.path, query: headRequest.query,
+                              headers: headRequest.headers, body: body, rawHead: headRequest.rawHead)
         switch callback(request) {
         case .response(let response):
             writeResponse(client, response)
@@ -101,10 +133,14 @@ final class MiniHTTPServer {
             // pump); it closes both ends when the stream ends.
             upgradeHandler?(client, request)
             return
+        case .relay:
+            close(client)
         }
     }
 
-    private func readRequest(_ client: Int32) -> Request? {
+    /// 头优先读取：收齐请求头块即返回（首段 body 一并带回，剩余 body 由
+    /// relayHandler 从 client 继续收）。头解析失败返回 nil。
+    private func readRequestHead(_ client: Int32) -> (Request, Data)? {
         var buffer = Data()
         var scratch = [UInt8](repeating: 0, count: 8192)
         var headerEnd = -1
@@ -113,9 +149,12 @@ final class MiniHTTPServer {
             guard n > 0 else { return nil }
             buffer.append(contentsOf: scratch[0..<n])
             headerEnd = buffer.range(of: Data("\r\n\r\n".utf8))?.lowerBound ?? -1
-            if buffer.count > 64 * 1024 { return nil }
+            if buffer.count > 256 * 1024 { return nil }
         }
-        guard let headerText = String(data: buffer.subdata(in: 0..<headerEnd), encoding: .utf8) else { return nil }
+        let bodyStart = headerEnd + 4
+        let head = buffer.subdata(in: 0..<headerEnd)
+        let partial = buffer.count > bodyStart ? buffer.subdata(in: bodyStart..<buffer.count) : Data()
+        guard let headerText = String(data: head, encoding: .utf8) else { return nil }
         let lines = headerText.components(separatedBy: "\r\n")
         guard let requestLine = lines.first else { return nil }
         let parts = requestLine.split(separator: " ")
@@ -128,7 +167,6 @@ final class MiniHTTPServer {
             path = String(target[..<q])
             query = String(target[target.index(after: q)...])
         }
-
         var headers: [String: String] = [:]
         for line in lines.dropFirst() {
             guard let colon = line.firstIndex(of: ":") else { continue }
@@ -136,20 +174,9 @@ final class MiniHTTPServer {
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             headers[key] = value
         }
-
-        let bodyOffset = headerEnd + 4
-        var body = buffer.count > bodyOffset ? buffer.subdata(in: bodyOffset..<buffer.count) : Data()
-        if let contentLength = headers["content-length"].flatMap({ Int($0) }), contentLength > body.count {
-            // AUD-037b：body 按声明长度收取，加上限防内存放大（回环上正常
-            // 最大的请求是设置面的 JSON 与附件 base64；超过按坏请求断开）。
-            guard contentLength <= Self.maxBodyBytes else { return nil }
-            while body.count < contentLength {
-                let n = recv(client, &scratch, scratch.count, 0)
-                guard n > 0 else { return nil }
-                body.append(contentsOf: scratch[0..<n])
-            }
-        }
-        return Request(method: method, path: path, query: query, headers: headers, body: body)
+        let request = Request(method: method, path: path, query: query, headers: headers,
+                              body: partial, rawHead: head)
+        return (request, partial)
     }
 
     /// 单请求 body 上限（32MB）：覆盖附件 base64 上传，拒绝内存放大。

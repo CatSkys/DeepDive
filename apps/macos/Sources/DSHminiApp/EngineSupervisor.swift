@@ -329,6 +329,20 @@ final class EngineSupervisor {
             // 插件市场用户插件的绝对路径 insert 追加在基础层之后
             body += "\n" + userInserts.joined(separator: "\n")
         }
+        // persona（§6）：system-prompt 插件 {personaPrefix, personaSuffix} 的
+        // id 级配置覆盖——值经 JSON 序列化成 YAML 流标量，天然转义防注入。
+        let personaURL = AppPaths.supportDir.appendingPathComponent("persona.json")
+        if let data = try? Data(contentsOf: personaURL),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+           obj["prefix"]?.isEmpty == false || obj["suffix"]?.isEmpty == false {
+            func yamlString(_ v: String) -> String {
+                String(data: (try? JSONSerialization.data(withJSONObject: [v])) ?? Data("\"\"".utf8), encoding: .utf8)!
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+            }
+            let prefix = obj["prefix"] ?? ""
+            let suffix = obj["suffix"] ?? ""
+            body += "\n- id: system-prompt\n  config:\n    personaPrefix: \(yamlString(prefix))\n    personaSuffix: \(yamlString(suffix))"
+        }
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? body.write(to: url, atomically: true, encoding: .utf8)
         return url

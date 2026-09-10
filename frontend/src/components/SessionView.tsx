@@ -338,6 +338,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             activePath={previewDock.activePath}
             setActivePath={previewDock.setActivePath}
             onCloseTab={previewDock.close}
+            dock={previewDock}
+            onCloseTabTop={previewDock.close}
           />
         )}
       <div

@@ -301,6 +301,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
                 NSWorkspace.shared.open(url)
             }
+        case "persona-get":
+            pushPersona()
+        case "persona-set":
+            let prefix = body["prefix"] as? String ?? ""
+            let suffix = body["suffix"] as? String ?? ""
+            let payloadJSON: [String: Any] = ["prefix": prefix, "suffix": suffix]
+            if let data = try? JSONSerialization.data(withJSONObject: payloadJSON) {
+                let url = AppPaths.harnessHome.appendingPathComponent("persona.json")
+                try? data.write(to: url, options: .atomic)
+            }
+            pushPersona()
         case "plugin-list":
             pushPlugins()
         case "plugin-install":
@@ -521,6 +532,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 空数组——前端据此收尾，不悬挂 reqId。NSOpenPanel 留在主线程；整图
     /// 磁盘读与 base64 编码移后台队列（读大图会卡主线程 UI，AUD-079，对齐
     /// 同文件 gitRun 的后台样板），主线程只回推 payload。
+    /// persona 推送（§6 设置入口）：DSH_HOME/persona.json 的 {prefix, suffix}。
+    private func pushPersona() {
+        let url = AppPaths.harnessHome.appendingPathComponent("persona.json")
+        var prefix = ""
+        var suffix = ""
+        if let data = try? Data(contentsOf: url),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+            prefix = obj["prefix"] ?? ""
+            suffix = obj["suffix"] ?? ""
+        }
+        windowController.pushHostCommand("persona", payload: Self.jsonPayload(["prefix": prefix, "suffix": suffix]))
+    }
+
     /// 插件清单推送（§7 市场面）：list/install/remove 之后的统一回包。
     private func pushPlugins() {
         let entries = PluginStore.load(home: AppPaths.harnessHome)
@@ -573,8 +597,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 与引擎 imageLimits 准入的媒体类型对齐（png/jpeg/webp/gif）。
     private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "webp", "gif"]
-    /// 选择器单文件字节上限（非图片走 base64 上传的体面上限）。
-    private static let maxPickFileBytes = 8 * 1024 * 1024
+    /// 选择器单文件字节上限（对齐桥直通与引擎无上限的流式路由）。
+    private static let maxPickFileBytes = 128 * 1024 * 1024
 
     /// Preference + path snapshot for the settings page (推送于 host-ready
     /// 与 get-prefs;键值与 frontend/src/components/SettingsPage.tsx 约定)。

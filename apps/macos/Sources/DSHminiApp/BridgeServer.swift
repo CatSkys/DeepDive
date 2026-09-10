@@ -35,6 +35,9 @@ final class BridgeServer {
         server.upgradeHandler = { [weak self] fd, request in
             self?.wsRelay(fd, request)
         }
+        server.relayHandler = { [weak self] fd, request, partial in
+            self?.relayStreaming(fd, request, partial)
+        }
         guard server.start() else { return false }
         self.server = server
         EngineLog.shared.append("[bridge] listening on 127.0.0.1:\(server.port)")
@@ -87,6 +90,12 @@ final class BridgeServer {
         if request.headers["upgrade"]?.lowercased() == "websocket",
            request.path.hasPrefix("/api/events") || request.path.hasPrefix("/api/remote.mux") {
             return .upgrade(.init(status: 101))
+        }
+
+        // 大文件上传（§2）：超过 1MB 的 uploadFileBinary 不整段缓冲，交盲直通
+        if request.path == "/api/session/uploadFileBinary",
+           (request.contentLength ?? 0) > Self.streamRelayThreshold {
+            return .relay
         }
 
         // API hop — unary relay.
@@ -189,6 +198,109 @@ final class BridgeServer {
             close(upstream)
             close(client)
         }
+    }
+
+    /// 超过此体积的 uploadFileBinary 走盲直通（其余 unary 仍整段缓冲）。
+    private static let streamRelayThreshold = 1 * 1024 * 1024
+
+    // MARK: - 大 body 盲直通（§2 大文件上传）
+
+    /// uploadFileBinary 直通：把 client 的请求（头块 + 已缓冲首段 + 剩余字节）
+    /// 原样泵给引擎（带鉴权 cookie 与 Connection: close），再把引擎响应泵回
+    /// client。全程固定大小缓冲，无内存放大。
+    private func relayStreaming(_ client: Int32, _ request: MiniHTTPServer.Request, _ partial: Data) {
+        func sendAll(_ fd: Int32, _ data: Data) -> Bool {
+            var sent = 0
+            return data.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) -> Bool in
+                while sent < data.count {
+                    let n = send(fd, ptr.baseAddress!.advanced(by: sent), data.count - sent, 0)
+                    if n <= 0 { return false }
+                    sent += n
+                }
+                return true
+            }
+        }
+        func writeRaw(_ fd: Int32, status: Int, body: Data) {
+            let text = "HTTP/1.1 \(status) \(status == 200 ? "OK" : "Error")\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+            _ = sendAll(fd, Data(text.utf8)) && sendAll(fd, body)
+        }
+        func writeError(_ fd: Int32, _ status: Int) {
+            writeRaw(fd, status: status, body: Data())
+        }
+        guard let engineBase,
+              let host = engineBase.host, let port = engineBase.port,
+              let declared = request.contentLength, declared >= 0 else {
+            writeError(client, 502)
+            close(client)
+            return
+        }
+        // 连接引擎
+        let upstream = socket(AF_INET, SOCK_STREAM, 0)
+        guard upstream >= 0 else { writeError(client, 502); close(client); return }
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = in_port_t(port).bigEndian
+        addr.sin_addr.s_addr = inet_addr(host)
+        let rc = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sp in
+                connect(upstream, sp, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard rc == 0 else { close(upstream); writeError(client, 502); close(client); return }
+
+        // 组转发头：原样 method/target + 引擎 token 查询 + Connection: close
+        var query = engineBase.query ?? ""
+        if !request.query.isEmpty { query += query.isEmpty ? request.query : "&" + request.query }
+        let cookie = EngineAuth.shared.currentCookieHeader
+        var head = "\(request.method) \(request.path)\(query.isEmpty ? "" : "?\(query)") HTTP/1.1\r\n"
+        head += "Host: \(host):\(port)\r\n"
+        head += "Content-Type: application/octet-stream\r\n"
+        head += "Content-Length: \(declared)\r\n"
+        head += "Connection: close\r\n"
+        if let cookie { head += "Cookie: \(cookie)\r\n" }
+        head += "\r\n"
+
+        guard sendAll(upstream, Data(head.utf8)) && (partial.isEmpty || sendAll(upstream, partial)) else {
+            close(upstream); writeError(client, 502); close(client); return
+        }
+
+        // 泵剩余 body：client → upstream，直到凑满 declared
+        var received = partial.count
+        var scratch = [UInt8](repeating: 0, count: 256 * 1024)
+        while received < declared {
+            let n = recv(client, &scratch, scratch.count, 0)
+            if n <= 0 { break }
+            var sent = 0
+            while sent < n {
+                let m = scratch.withUnsafeBytes { ptr -> Int in
+                    send(upstream, ptr.baseAddress!.advanced(by: sent), n - sent, 0)
+                }
+                if m <= 0 { break }
+                sent += m
+            }
+            if sent < n { break }
+            received += n
+        }
+        // body 收满即半关写端，促使引擎尽快回响应
+        shutdown(upstream, Int32(SHUT_WR))
+
+        // 引擎响应 → client（Connection: close，泵到引擎 EOF）
+        var respScratch = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            let n = recv(upstream, &respScratch, respScratch.count, 0)
+            if n <= 0 { break }
+            var sent = 0
+            while sent < n {
+                let m = respScratch.withUnsafeBytes { ptr -> Int in
+                    send(client, ptr.baseAddress!.advanced(by: sent), n - sent, 0)
+                }
+                if m <= 0 { break }
+                sent += m
+            }
+            if sent < n { break }
+        }
+        close(upstream)
+        close(client)
     }
 
     // MARK: - unary relay

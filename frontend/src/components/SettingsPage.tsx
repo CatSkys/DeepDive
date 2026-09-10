@@ -10,6 +10,7 @@ import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
 import { ImportSection } from "../settings/ImportSection";
 import { PluginsSection } from "../settings/PluginsSection";
+import { PersonaSection } from "../settings/PersonaSection";
 import { UsageSection } from "../stats/UsageSection";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
@@ -45,6 +46,7 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
     { id: "models", label: t("模型"), icon: Cpu },
     { id: "import", label: t("导入"), icon: Download },
     { id: "plugins", label: t("插件"), icon: Download },
+    { id: "persona", label: t("自定义指令"), icon: SquarePen },
     { id: "approval", label: t("审批"), icon: ShieldCheck },
     { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
     { id: "archived", label: t("已归档的聊天"), icon: Archive },
@@ -86,6 +88,7 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
           {activeId === "models" && <ModelsManage />}
           {activeId === "import" && <ImportSection />}
           {activeId === "plugins" && <PluginsSection />}
+          {activeId === "persona" && <PersonaSection />}
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
           {activeId === "archived" && <ArchivedSection />}
