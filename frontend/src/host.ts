@@ -130,8 +130,9 @@ export interface PickedAttachment {
   path: string;
   name: string;
   isDir: boolean;
-  /** 图片且字节读取成功时为 true，并带 base64（无前缀）——走真字节上传；
-   *  其余类型只有路径，前端转 @ 引用（引擎宿主侧读盘）。 */
+  /** 图片：isImage=true 且带 base64（真字节上传）。0.1.5 起非图片文件
+   *  ≤8MB 也附 base64（fileUploads/upload 真上传）；超限/读取失败与文件
+   *  夹一样只有路径，前端转 @ 引用（引擎宿主侧读盘）。 */
   isImage?: boolean;
   base64?: string;
 }

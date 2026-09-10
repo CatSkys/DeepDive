@@ -154,33 +154,39 @@ final class BridgeServer {
             send(client, ptr.baseAddress, ptr.count, 0)
         }
 
-        // Bidirectional blind pump — one buffer per thread (no sharing).
-        // fd 属主（AUD-071）：两条泵线程退出都会先 shutdown 再 close **自己那一
-        // 侧**的 fd——绝不 close 对侧。此前两边都 close 同一对 fd，先退的一侧
-        // 关掉的 fd 可能已被内核复用给新连接/引擎管道，第二次 close 就是误伤；
-        // 且 close 不保证唤醒对端阻塞中的 recv，shutdown 才会。
+        // Bidirectional blind pump — single thread polling both fds.
+        // fd 属主（AUD-071 再修，2026-09-10 实机事故）：此前两条 detached 泵线程
+        // 各自「close 自己 + shutdown 对侧」，但对侧线程可能已先行 close 该 fd——
+        // 内核将 fd 号复用给新 accept 的连接后，迟到的 shutdown 关掉的是别人的
+        // socket，受害连接表面健康、快照后一帧不再到达（帧级日志钉死）。
+        // 单线程 poll 双 fd 是盲中继的最简形态：任一侧 EOF/错误都在同一线程内
+        // 依次 shutdown+close 两个 fd，不存在跨线程 fd 信号，整类竞态消失。
         Thread.detachNewThread {
             var buf = [UInt8](repeating: 0, count: 8192)
-            while true {
-                let n = recv(upstream, &buf, buf.count, 0)
-                if n <= 0 { break }
-                _ = buf.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) -> Int in
-                    send(client, ptr.baseAddress, n, 0)
+            var fds: [pollfd] = [
+                pollfd(fd: upstream, events: Int16(POLLIN), revents: 0),
+                pollfd(fd: client, events: Int16(POLLIN), revents: 0),
+            ]
+            pump: while true {
+                if poll(&fds, 2, -1) <= 0 { break }
+                for i in 0..<2 {
+                    if fds[i].revents == 0 { continue }
+                    let n = recv(fds[i].fd, &buf, buf.count, 0)
+                    if n <= 0 { break pump }
+                    var sent = 0
+                    while sent < n {
+                        let m = buf.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) -> Int in
+                            send(fds[1 - i].fd, ptr.baseAddress!.advanced(by: sent), n - sent, 0)
+                        }
+                        if m <= 0 { break pump }
+                        sent += m
+                    }
+                    fds[i].revents = 0
                 }
             }
             shutdown(client, Int32(SHUT_RDWR))
-            close(upstream)
-        }
-        Thread.detachNewThread {
-            var buf = [UInt8](repeating: 0, count: 8192)
-            while true {
-                let n = recv(client, &buf, buf.count, 0)
-                if n <= 0 { break }
-                _ = buf.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) -> Int in
-                    send(upstream, ptr.baseAddress, n, 0)
-                }
-            }
             shutdown(upstream, Int32(SHUT_RDWR))
+            close(upstream)
             close(client)
         }
     }
@@ -190,9 +196,14 @@ final class BridgeServer {
     private func relayUnary(_ request: MiniHTTPServer.Request, engineBase: URL) -> MiniHTTPServer.Response {
         // Re-attach the engine's boot token: relative resolution against the
         // ready URL drops its query, and the engine (0.1.2-alpha.2+) rejects
-        // tokenless gateway calls with "unauthorized".
-        let query = engineBase.query.map { "?\($0)" } ?? ""
-        guard let engineURL = URL(string: request.path + query, relativeTo: engineBase) else {
+        // tokenless gateway calls with "unauthorized". Client query params
+        // (0.1.5 /api/file?path=… 等) merge after the token.
+        var query = engineBase.query ?? ""
+        if !request.query.isEmpty {
+            query += query.isEmpty ? request.query : "&" + request.query
+        }
+        let querySuffix = query.isEmpty ? "" : "?\(query)"
+        guard let engineURL = URL(string: request.path + querySuffix, relativeTo: engineBase) else {
             return .init(status: 400)
         }
         var urlRequest = URLRequest(url: engineURL)

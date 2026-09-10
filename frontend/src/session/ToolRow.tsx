@@ -6,6 +6,7 @@ import { ChevronDown } from "lucide-react";
 import { t, tt } from "../i18n";
 import { useStore } from "../store";
 import { DiffBlock } from "../components/DiffBlock";
+import { AttachmentThumb } from "../components/AttachmentImage";
 import { IconCheckOutline16, IconChecklistOutline14, IconCopyOutline16 } from "../components/Icons";
 import { askSummary, basename, commandOf, prettyArgs, summarizeArgs } from "./format";
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
@@ -29,12 +30,15 @@ const TOOL_TITLE_ZH: Record<string, string> = {
 
 /// One-line tool row — DSH ToolRow port: icon + name · summary + chevron,
 /// expandable to reveal terminal output or raw arguments.
-export function ToolRow({ toolName, args, output, failed, diffs }: {
+export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId }: {
   toolName: string;
   args: string;
   output?: string;
   failed?: boolean;
   diffs?: import("../types").FileDiff[];
+  /** read_image 等结果图片（attachment 引用，直出缩略图）。 */
+  resultImages?: import("./renderModel").ResultImage[];
+  sessionId: string;
 }) {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
@@ -70,6 +74,14 @@ export function ToolRow({ toolName, args, output, failed, diffs }: {
           </span>
         )}
       </button>
+      {/* read_image 直出（0.1.5）：结果图片在折叠态即展示，点击 Lightbox 放大 */}
+      {!!resultImages && resultImages.length > 0 && (
+        <div className="tool-result-images">
+          {resultImages.map((img) => (
+            <AttachmentThumb key={img.attachmentId} sessionId={sessionId} att={img} />
+          ))}
+        </div>
+      )}
       {expandable && (
         <div className="tool-collapse" data-open={open ? "true" : "false"}>
           <div className="tool-body">

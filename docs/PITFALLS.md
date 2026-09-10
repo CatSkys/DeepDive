@@ -82,6 +82,11 @@
 - 事故：壳侧 EngineEventObserver 读 `frame["questionId"]`——引擎 `question/requested` 载荷根本没有这个键（`deepseek-harness/packages/host/apiproxy/src/api/events.schema.ts:51` 只有 `{sessionId, questions[]}`），nil 落到 `?? UUID().uuidString` 兜底，每次插入都是随机新 id；`question/resolved`（键为 `questionRpcId`）又未处理——pending 只进不出，一次提问后"需注意"状态卡死到引擎重启。
 - 处置：**挂起身份 = server-request 信封的 rpcId**（与前端 store 同一语义）；帧解析前先查 vendored schema（`packages/*/src/api/*.schema.ts`），契约字段直取、缺即 return，不做 UUID/空串兜底掩盖漂移（铁律 9/10）。表驱动 XCTest 钉住配对语义（EngineEventObserverTests）。
 
+### 2.6 session/follow live 帧就是 SessionEventEntry 本体，勿多剥一层
+- 引擎 `SessionFollowFrame = snapshot | SessionEventEntry`，而 `SessionEventEntry = {type:'event', event: SessionEvent}`（`deepseek-harness/packages/api/session-controller/src/types.ts:382`）。mux item 的 `value` 即该帧。
+- 事故（2026-09-10 实机）：`api.followSession` 写成 `onEvent(frame.event.event)`——live 帧多剥一层得到 `undefined`，`onEvent` 访问 `ev.type` 抛错被 mux `onmessage` 的 try/catch 吞掉。快照路径（`type==='snapshot'`）完全正常，所以冷读/刷新有内容、直播正文永远空白；WS 表面健康、引擎在推、独立探针全收到，极像桥中继假死。
+- 处置：`onEvent(frame.event as SessionEvent)`。契约钉测在 `api.test.ts`「session/follow 帧解包」。官方 client 测试同款形状：`frame.type === 'event' && frame.event.type === ...`。
+
 ---
 
 ## 3. 消息流（多 step / 乱序 / 重复）
@@ -153,6 +158,7 @@
 ### 4.10 手写 socket 泵的 fd 属主：双 close 在 fd 复用窗口误伤无关连接
 - 事故：WS 盲中继两条 detached 线程退出时各自 `close(upstream); close(client)`——先退的一侧把两个 fd 都关了，内核可能已把其中之一复用给新连接/引擎管道，第二次 close 关的是别人的 socket；且 close 不保证唤醒对端阻塞中的 recv（要 shutdown 才会）。
 - 处置：**每个 fd 只有一个属主线程**，退出时 close 自己一侧、对另一侧只 `shutdown(SHUT_RDWR)` 唤醒对端退出。
+  - **变种（AUD-071 修复仍不够，2026-09-10 实机二连事故）**：「close 自己 + shutdown 对侧」在对侧线程已先 close 该 fd 时同样误伤——fd 号被内核复用给新 accept 的连接后，迟到的 shutdown 关掉的是别人。表现：受害连接表面完全健康（无 close/error 帧），快照后**一帧不再到达**，直播转录冻结而 HTTP 轮询照常（用户连日报「发的消息看不到」）；帧级日志（预启动 WebSocket 包装器）+ 并行探针对照钉死断点在桥中继。终修：**双泵线程合并为单线程 `poll()` 双 fd 循环**——任一侧 EOF 都在同一线程内依次 shutdown/close 两个 fd，跨线程 fd 信号全灭，整类竞态不存在。另配期望看门狗兜底：`store` 3s 轮询发现任一会话 running 而 mux 连接 >8s 零下行帧（`mux.lastFrameAt`）即 `recycle()` 重建——任何未知形态的连接哑火都 ≤11s 自愈（重建代价仅各流重发快照）。
 
 ### 4.11 主线程同步 Process + 不排空 stderr = 死锁面
 - 事故：run-git 聚合在主线程同步跑 3 条 git（readDataToEndOfFile + waitUntilExit），且 stderr Pipe 从不读取——子进程 stderr 写满 64KB 管道缓冲后阻塞写，进程不退出，主线程 `readDataToEndOfFile` 永等 → 整 app 冻结。
@@ -166,6 +172,10 @@
 - 事故（2026-09-10 用户报告）：接连弹「媒体资料库/Apple Music」「照片图库」「其他App的数据」授权框，且开窗后延迟数秒陆续冒出。根因链：`launchWorkspace` 未配置时引擎以 home 启动（cwd=沙箱根）；home 作用域会话里输入 `@` 触发引擎**整库递归文件索引**（vendored `context/file-reference-local/search.ts` scanWorkspace，BFS），索引走到 ~/Music、照片图库、~/Library/Application Support 其他 App 容器、桌面/文稿，逐保护区触发 TCC——延迟即遍历到达时间差。叠加 §4.8（adhoc 重签→授权重置），每个新包都全套重来。
 - 处置：`EngineSupervisor.resolveLaunchWorkspace` 三级解析——显式 `launchWorkspace` 配置 → harness 存储 `storages/workspace.json` 首个注册空间（`global.workspaceIds[0]`，与侧栏同序）→ 新用户兜底 `~/Documents/DeepDive`（不存在则建）。侧栏空间仍是项目单位，多项目经空间注册/切换，不受影响。
 - 排查实录（勿重复走弯路）：引擎 AI 工具调用与子代理命令全部只在项目目录内（逐条核对 tool/call 事件），`@` 索引才是家目录扫描源；lsof 抓不到瞬态访问，tccd 统一日志私有不可读，结论靠引擎源码 + workspace 注册表 + 事件日志三角钉死。
+
+### 4.14 bundled node 绝不能放进 `Contents/MacOS/`
+- 事故（2026-09-10 用户实测）：引擎 node 放在 `Contents/MacOS/node`，Launch Services 把同 bundle `MacOS/` 下的额外可执行文件当成第二个 app——引擎一拉起（含重启）Dock 就闪出独立的 node 图标/窗口，用户连报「不停弹 node 窗口」。
+- 处置：node 落在 `Contents/Resources/Runtime/node`（与 dsh 闭包同级）；`EngineSupervisor.bundledEntry()` / `embed-engine.sh` / `package-macos.sh` 签名 case 同步。`Contents/MacOS/` 只保留 app 主可执行文件。
 
 ---
 
@@ -281,6 +291,12 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **WKWebView 睡眠后 WS 假死（onclose 缺位）**：系统睡眠唤醒后 webview 里的 WebSocket 可能既不 `onclose` 也不 `onerror` 而帧已停（HTTP fetch 每次新连接，一切如常）——只把重连挂在 close 事件上就永不自愈，表现为会话转录永远「历史加载失败」而侧栏正常（2026-09-10 实机）。`mux.ts` 开流应答看门狗：任何开流后 5s 整条连接零下行帧即弃 socket 立即重建（每条流开流必收首帧——ready/快照/基线；静默空闲不开流、永不误杀）。后续做长驻推送类连接同坑同理：**不能只信 close 事件**。
   - **变种：快照已收、流已建立后再假死**——看门狗只护「开流等首帧」窗口，流已建立后的静默死亡没有任何 JS 侧迹象，直播事件永不抵达而 HTTP 轮询照常（状态胶囊照转、转录不动，用户报告「看不到过程和发的消息，重启才恢复」，2026-09-10 实机）。处置：壳层 `NSWorkspace.didWakeNotification` → `pushHostCommand("systemWake")` → 前端 `mux.recycle()` 无条件弃旧重建（重连每流重发快照、消费方全量替换，误杀代价为零）。
   - **变种：引擎侧流级终止（跳号 throw）**——引擎 `session/end-seed` 标记事件**占 seq 但不发布到 session/event 通知流**（`core/session/src/index.ts` firstLiveSeq 注释），follow 生成器要求通知流严格连续、跳号即抛 `gateway/internal`（`session-controller/src/history.ts` follow 循环）；`session/created` 的种子回放与后续事件通知存在竞态，长会话轮边界**间歇性**炸流（error 帧）。旧 mux 收 error/end 只注销注册、永不重开 → 该会话直播永久黑（切走再切回重挂才复活，2026-09-10 实机同日两案）。处置：`mux.dispatch` 对 error/end 按退避（1s 起步倍增至 8s 封顶，出帧复位）重开同 streamId——重开后引擎重发快照、消费方全量替换，间隙由构造补齐；这是官方客户端「可重连代际流」语义的单流简化版（`gateway/src/client/journal-stream.ts`）。**引擎侧竞态属 vendored 引脚仓，不在本仓修**。
+
+### 7.1.2 0.1.5-rc.1 升级实测新增坑（2026-09-10，全在本轮撞上并处理）
+- **会话格式 V3 是单行道**：旧日志引擎侧自动迁移（保留原文件、seq 重编号、chunk 行聚合成 settlement），**迁移后不支持降级读取**——升引脚前先整备 harness 目录（`.build/harness-backup-*`），回退 = 换回旧引擎 + 还原备份，光换引擎救不回已迁移的日志。
+- **`commands/execute` 附件键改名 `images`→`submittedAttachments`**：0.1.5 参数名变了，旧键直接 `gateway/arguments-invalid missing "submittedAttachments"`——升引脚后凡带附件的调用全要改（空数组也必填）。
+- **V3 直播流换通道**：流式增量不再以日志事件下发（chunk 行整体消亡），改走 follow 流的 `assistant-stream` 帧且**必须开流带 `assistantStream:true`**；快照 `assistantStream.activeAttempt.stream` 是重连基线。旧「chunk 事件→直播渲染」路径在 0.1.5 上表现为回复只在轮末一次性出现——不是 UI bug，是通道换了。
+- **`/api/file?path=…` 需要桥转查询串**：壳桥 MiniHTTPServer 原本把请求行 query 剥掉，GET /api/file 经桥丢参 404——`Request.query` 保留并在 relayUnary 与引擎 token 合并（`&`拼接）。
 
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
 - main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`，无任何输出——测试新构建时极易误判"app 秒退"。

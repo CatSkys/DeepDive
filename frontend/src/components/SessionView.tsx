@@ -176,6 +176,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const isBlank = summary ? !!summary.blank : items.length === 0;
   const running = liveRunning || !!summary?.running;
+  // 子会话身份投影（0.1.5）：continuable 可继续对话，one-shot 只读。
+  const subagentMode = (summary?.projections?.values as { subagent?: { mode?: string } } | undefined)?.subagent?.mode;
   // 用量/占用投影（3.1）：空值时 Composer 内的容量圈不渲染
   const projVals = (summary?.projections?.values ?? {}) as {
     tokenUsage?: { uncachedInputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
@@ -444,8 +446,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           </div>
         )}
         <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
-        {summary?.origin === "subagent" ? (
+        {summary?.origin === "subagent" && (subagentMode !== "continuable" || !summary.parentSessionId) ? (
           <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
+        ) : summary?.origin === "subagent" ? (
+          // continuable 子会话（0.1.5）：subagents/prompt 经父会话投递
+          <Composer sessionId={sessionId} ctx={ctxData} variant={{ kind: "subagent", parentSessionId: summary.parentSessionId! }} />
         ) : (
           <Composer sessionId={sessionId} ctx={ctxData} />
         )}

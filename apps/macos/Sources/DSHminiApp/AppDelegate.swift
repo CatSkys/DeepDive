@@ -522,12 +522,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         "name": url.lastPathComponent,
                         "isDir": (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false,
                     ]
-                    // 图片附 base64（引擎 prompt 面 imageLimits 只收这几类），
-                    // 其余类型只回路径；读取失败同样降级为纯路径引用。
-                    if Self.imageExtensions.contains(url.pathExtension.lowercased()),
-                       let data = try? Data(contentsOf: url) {
-                        item["isImage"] = true
-                        item["base64"] = data.base64EncodedString()
+                    // 0.1.5：图片附 base64（imageLimits 准入类型）；其余
+                    // 文件 ≤8MB 也附 base64（fileUploads/upload 真上传），
+                    // 超限/读取失败降级为纯路径（前端转 @ 引用）。
+                    let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                    if !isDir, let data = try? Data(contentsOf: url) {
+                        if Self.imageExtensions.contains(url.pathExtension.lowercased()) {
+                            item["isImage"] = true
+                            item["base64"] = data.base64EncodedString()
+                        } else if data.count <= Self.maxPickFileBytes {
+                            item["base64"] = data.base64EncodedString()
+                        }
                     }
                     items.append(item)
                 }
@@ -541,6 +546,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 与引擎 imageLimits 准入的媒体类型对齐（png/jpeg/webp/gif）。
     private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "webp", "gif"]
+    /// 选择器单文件字节上限（非图片走 base64 上传的体面上限）。
+    private static let maxPickFileBytes = 8 * 1024 * 1024
 
     /// Preference + path snapshot for the settings page (推送于 host-ready
     /// 与 get-prefs;键值与 frontend/src/components/SettingsPage.tsx 约定)。

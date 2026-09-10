@@ -110,6 +110,8 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedb
         output={item.output}
         failed={item.failed}
         diffs={item.diffs}
+        resultImages={item.resultImages}
+        sessionId={sessionId}
       />
     );
   }

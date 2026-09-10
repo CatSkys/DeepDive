@@ -1,4 +1,4 @@
-# DSH Wire 契约与载荷形状（0.1.2-rc.1 实测）
+# DSH Wire 契约与载荷形状（0.1.5-rc.1 实测）
 
 > 本文拥有「引擎 wire 面的载荷形状与通道可用性」这一事实。全部条目来自
 > 对引脚引擎（版本见 `scripts/dsh-runtime-version.txt`）的**实机 POST/WS 实测**
@@ -7,7 +7,7 @@
 > '<pkg>#<ns>/<method>'`、`scope.wire`、`parameters[].wire` 逐项给出 wire
 > 参数名；rc.2 时代的 `dsh-host-apiproxy`/`UNARY_ROUTES` 已随包消亡）。
 
-## 0. 传输层（0.1.2 定版）
+## 0. 传输层（0.1.2 定版，0.1.5 复验仍成立）
 
 - **鉴权**：boot token 在就绪行 URL（`dsh web: http://…/?token=…`，日志落盘
   前由壳剥除）；`GET /?token=…` → `303 + Set-Cookie`（authority 绑定签名
@@ -38,7 +38,7 @@
 - **流端点**：`$events`（args 恒 `{}`）、`session/follow`、`session/control`、
   `workspace/follow`。
 
-## 1. 通道可用性（2026-09-09 实测）
+## 1. 通道可用性（2026-09-10 复验）
 
 | 方法/面 | 结论 |
 |---|---|
@@ -82,32 +82,39 @@ error:{name,message,code?}}`。引擎在**所有**客户端世代都回 next 时
 next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决策者。多客户端
 并行（壳观察者 + SPA + 开发浏览器）实测互不阻塞。
 
-## 3. session/follow 与 session/page（冷热读）
+## 3. session/follow 与 session/page（冷热读，0.1.5/V3 口径）
 
-- `session/follow {request:{address, maxMessages?}}` 流：首帧
-  `{type:'snapshot', header, cursor, records, hasMore, projections}`，此后
-  `{type:'event', event}` 逐条追加（gap-free）。断线重连重发快照（消费方全量替换）。
+- `session/follow {request:{address, maxMessages?, assistantStream?:true}}` 流：
+  首帧 `{type:'snapshot', header, cursor, records, hasMore, projections,
+  assistantStream?}`，此后 `{type:'event', event}` 逐条追加（gap-free）+
+  **`{type:'assistant-stream', frame}` 直播流帧**（须带 `assistantStream:true`
+  开关）。断线重连重发快照（消费方全量替换，`assistantStream.activeAttempt
+  .stream` 是断点续播基线）。
+- `assistant-stream` 帧（进程级，不入持久日志）：`start {attemptId,revision,
+  startedAfterSeq,turn,step}` / `chunk {attemptId,revision,index,time,chunk}` /
+  `end {attemptId,revision,index,outcome:{kind:'committed',eventType,seq}|
+  {kind:'abandoned'}}`。chunk 的 `chunk` 即 StreamChunk；turn/step 只在 start
+  帧上（消费方自记）。SPA 合成 `assistant/chunk` 伪事件走既有 ingest，settle
+  事件（assistant/message / assistant/attempt）落日志时自然替换直播项。
 - `session/page {request:{address, throughSeq, beforeSeq?, maxMessages?}}` →
   `{records, hasMore}`；**`throughSeq` 必须取自对应 follow 开窗帧的 cursor**
   （超出实际 cursor 报 `gateway/bad-request "past cursor"`，不可猜）。
 - `address`：`{kind:'session', sessionId}` | `{kind:'subagent', parentSessionId,
   childSessionId, mode}`（子会话冷读不再需要 subagent.history）。
-- `records` 两态：`{type:'event', event}`（事件原样）或 **打包 chunk 行**
-  `{type:'chunks', event:{type:'chunkrow/text-chunks'|'chunkrow/reasoning-chunks'|
-  'chunkrow/tool-call-chunks', seq, time, data}}`——连续 assistant/chunk 增量
-  的无损压缩（锚点在 `event.seq/time` = 首成员 seq0/time0），解码器移植在
-  `frontend/src/chunkRows.ts`，展开后事件词表不变。
-- 事件词表（durable）与 rc.2 兼容：`turn/start|end`、`step/*`、`user/message`、
-  `assistant/chunk|message`、`tool/call|result`、`command/run|done`、
-  `compaction/*`、`llm/retry*`、`tool-workflow/*`、`schedule/change`；新增
-  log-only 事件（`permission/preset`、`sandbox/mode`、`approval/policy`、
-  `request/header|context`、`session/title`、`agent/inbox/spliced`、
-  `session/end-seed` 等）经前端 catch-all 忽略。`tool/result` 的 `meta.diffs`
-  槽位仍在（FileDiff 同形）；**history 条目不再携带 view 卡**——call 侧
-  pending diff 由前端 `deriveCallDiffs` 从 write/edit/str_replace_editor 参数
-  推导（官方 presentCall 同款：`write{file_path,content}`、
-  `edit{file_path,old_string,new_string}`、`str_replace_editor{command,path,
-  file_text|old_str,new_str}`）。
+- **V3 记录全事件化**：`records` 只剩 `{type:'event', event}`（V2 的打包
+  chunk 行在引擎侧迁移聚合成 settlement，客户端不再见到；`chunkRows.ts`
+  解码器已随 0.1.5 升级退役删除）。旧会话迁移后 seq 重编号但全 log 自洽，
+  大会话体积显著缩小（实测 1100+ seq → 29 条记录）。
+- 事件词表（durable）：`turn/start|end`、`step/start|end`、`user/message`、
+  `assistant/message|attempt`、`tool/call|result`、`command/run|done`、
+  `compaction/*`、`llm/retry*`、`schedule/change`；log-only 事件
+  （`permission/preset`、`sandbox/mode`、`approval/policy`、`request/header|
+  context`、`system/message`、`session/title*`、`agent/inbox/spliced`、
+  `session/end-seed` 等）经前端 catch-all 忽略。`tool/result` 内容块可含
+  `{type:'image', attachment:{attachmentId,…}}`（read_image 直出，SPA
+  `resultImages` 渲染）。`tool/result` 的 `meta.diffs` 槽位仍在（FileDiff
+  同形）；call 侧 pending diff 由前端 `deriveCallDiffs` 推导（官方
+  presentCall 同款）。
 
 ## 4. session/control 与 workspace/follow（实时面）
 
@@ -119,16 +126,20 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
 - `workspace/follow`（args `{}`）：首帧 `{type:'baseline', value:{items,
   archivedSessionIds}}`，此后 `upsert {workspace}` / `remove {workspaceId}` /
   `order {workspaceIds}` / `archived {archivedSessionIds}`（归档唯一事实源）。
-- 投影键集（follow 快照实测 15 键）：`title, goal, tokenUsage,
+- 投影键集（follow 快照实测，0.1.5 增至 17 键）：`title, goal, tokenUsage,
   contextPressure, contextBreakdown, sessionStats, turnOutline, agentPreset,
-  subagentTiming, subagent, schedule, permissions, modelSelection,
-  sessionListMetadata, imageLimits`（另有 `plan`/`todos`）。**title 投影冷启动
-  渐进填充**：引擎对小 artifact 内联冷观察（`coldBlankProbeMaxBytes` 预算），
-  大会话标题在打开观察后出现——官方同款行为，非缺陷。`modelSelection` =
-  `{next, lastUsed}`（会话实时选择 = `next ?? lastUsed`，session/models 的
-  替代读法）。`turnOutline` = `[{turn, seq, prompt≤50, response≤120}]`（seq
-  是该轮 turn/start 的事件 seq，深分页跳转目标）——SPA 大纲轨消费
-  （`TurnNavigator`，快照种子 + control projection 帧实时整值）。
+  subagentCatalog, subagentTiming, subagent, schedule, permissions,
+  modelSelection, sessionListMetadata, imageLimits`（另有 `plan`/`todos`/
+  `inbox`）。**title 投影冷启动渐进填充**：引擎对小 artifact 内联冷观察
+  （`coldBlankProbeMaxBytes` 预算），大会话标题在打开观察后出现——官方同款
+  行为，非缺陷。`modelSelection` = `{next, lastUsed}`（会话实时选择 =
+  `next ?? lastUsed`，session/models 的替代读法）。`turnOutline` = `[{turn,
+  seq, prompt≤50, response≤120}]`（seq 是该轮 turn/start 的事件 seq，深分页
+  跳转目标）——SPA 大纲轨消费（`TurnNavigator`，快照种子 + control
+  projection 帧实时整值）。`inbox` = `{next-turn:[], next-step:[]}`（排队
+  消息全量投影，control queue 帧即由它派生）。`subagent`（子会话身上）=
+  `{mode:'continuable'|'one-shot', label?, seq}`——continuable 判据，SPA
+  以此解锁子会话 Composer；`subagentCatalog`（父会话身上）= 子会话目录。
 
 ## 5. 会话操作契约（要点）
 
@@ -142,18 +153,38 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
   maxGoalRounds?}}`；`goals/pause|resume|complete|clear {agentId, ref}`——
   CAS 围栏语义不变（过期 revision 报 STALE）
 - 排队操作 `session/updateQueue`、取消 `session/cancel`、重命名
-  `session/rename {sessionId, title}` 形状不变（仅包 request）
+  `session/rename {sessionId, title}` 形状不变（仅包 request）。0.1.5 起
+  `updateQueue` 可直接传**子会话 id**（须 continuable 且自家日志描述符），
+  edit 仍仅文本；子会话发消息走 `subagents/prompt {request:{requestId,
+  parentSessionId, childSessionId, mode:'continuable', delivery:'queue'|'steer',
+  content}}`（content 只收文本/图片，无文件部件）；停止用
+  `subagents/interruptByParent {childSessionId, parentSessionId, mode:
+  'continuable'}`。
+- **通用文件上传（0.1.5）**：`fileUploads/upload {agentId, request:{data:
+  base64, name?}}` → `{receiptId, file:{attachmentId, name, bytes}}`（attachmentId
+  = 字节 sha256）；`session/prompt` 的 content 第三种部件 `{type:'file',
+  receiptId}`（回执随 requestId 生命周期：入队/历史/移除即退役）。引擎另有
+  `/api/session/uploadFileBinary?sessionId&name` 流式面（octet-stream，经桥
+  转 RPC 面简化、进度不定态）。用户消息历史块 = `{type:'file',
+  attachment:{attachmentId,name,bytes}}`。子会话无文件通道。
+- **本地媒体（0.1.5）**：`GET /api/file?path=<绝对路径>`（同源经桥，字节上限
+  = imageLimits）——Markdown 里单斜杠开头的图片目的地重写到此面（工作区外
+  截图直显）；read_image 的 tool/result 内容块带 `{type:'image', attachment}`
+  引用，字节经 `session/attachment` 取。
 
-## 6. 命令面（0.1.2 已原生化）
+## 6. 命令面（已原生化；0.1.5 附件键改名）
 
 - `commands/list {agentId}` → `[{name, description, input?:{hint, images?}}]`
   （name 排序；插件注册面随引擎走，实测含 attach-workspaces/doctor/import/
   resume-* 等）——前端目录动态拉取（`useSlashCommands`），`commands/change`
-  广播失效重拉。
-- `commands/execute {agentId, line, images}` → `{commandId, result:{kind:
-  'success'|'error', …}}`；`undefined` = 未知命令（引擎不落事件）。执行自驱
-  效果、不经 `session/prompt`（**prompt 无命令槽**）；转录节点来自
-  `command/run`+`command/done` 会话事件（按 commandId 配对）。
+  广播失效重拉。描述是引擎注册的英文原文（官方 UI 也不翻译，0.1.5 的
+  中文化在其 UI 层）。
+- `commands/execute {agentId, line, submittedAttachments}`（**0.1.5 从 images
+  改名 submittedAttachments**，实测 args-invalid 钉死）→ `{commandId,
+  result:{kind:'success'|'error', …}}`；`undefined` = 未知命令（引擎不落
+  事件）。附件元素 `{type:'image',mediaType,data,name?} | {type:'file',
+  receiptId}`。执行自驱效果、不经 `session/prompt`（**prompt 无命令槽**）；
+  转录节点来自 `command/run`+`command/done` 会话事件（按 commandId 配对）。
 - Composer Enter 裁决（`commandLine.ts`）：整行 `/name [args…]` 命中已知命令
   即直发；未知名字拒绝并保留草稿；带 `input` 的命令菜单点击为 claim（插
   `/name ` 续输）。`/export` 按范围拍板仍不入菜单。

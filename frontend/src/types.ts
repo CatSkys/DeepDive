@@ -405,7 +405,9 @@ export interface SessionQueuedItem {
 
 export type PromptContentPart =
   | { type: "text"; text: string }
-  | { type: "image"; mediaType: string; data: string; name?: string };
+  | { type: "image"; mediaType: string; data: string; name?: string }
+  /** 0.1.5 通用文件部件：引用 uploadFile 回执（随 requestId 生命周期退役）。 */
+  | { type: "file"; receiptId: string };
 
 /** 会话日志条目（0.1.2：wire 只有事件本身；工具呈现卡由客户端从调用参数
  *  推导，不再有引擎预计算的 view 槽位）。 */

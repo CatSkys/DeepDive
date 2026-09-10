@@ -264,14 +264,43 @@ export const api = {
   /** 引擎命令目录（0.1.2 commands/list，扁平 {agentId}；插件注册面随引擎走）。 */
   commandsList: (agentId: string) =>
     unary<import("./types").CommandDescriptor[]>("commands/list", { agentId }),
-  /** 执行一条整行斜杠命令（0.1.2 commands/execute）：自驱效果，不经
-   *  session/prompt；回包 undefined = 未知命令（引擎未落事件）。images 是
-   *  引擎 EncodedImageAttachment 形状（mediaType/data/name，无 type 槽）。 */
-  commandExecute: (payload: { agentId: string; line: string; images?: Array<{ mediaType: string; data: string; name?: string }> }) =>
+  /** 执行一条整行斜杠命令（0.1.5）：自驱效果，不经 session/prompt；回包
+   *  undefined = 未知命令（引擎未落事件）。submittedAttachments 是引擎
+   *  0.1.5 的 wire 键（0.1.2 叫 images，升引脚实测改名）：图片直传字节、
+   *  通用文件走 receiptId。 */
+  commandExecute: (payload: {
+    agentId: string;
+    line: string;
+    attachments?: Array<
+      | { type: "image"; mediaType: string; data: string; name?: string }
+      | { type: "file"; receiptId: string }
+    >;
+  }) =>
     unary<import("./types").CommandExecution | undefined>("commands/execute", {
       agentId: payload.agentId,
       line: payload.line,
-      images: payload.images ?? [],
+      submittedAttachments: payload.attachments ?? [],
+    }),
+  /** 通用文件上传（0.1.5 fileUploads/upload RPC 面）：base64 字节暂存引擎
+   *  侧，回执 receiptId 进 prompt 的 {type:'file'} 部件；回执随消息
+   *  requestId 生命周期（入队/历史或移除即退役）。大文件走引擎的
+   *  /api/session/uploadFileBinary 流式面（经桥转 RPC 简化，进度不定态）。 */
+  uploadFile: (payload: { sessionId: string; data: string; name?: string }) =>
+    unary<{ receiptId: string; file: { attachmentId: string; name: string; bytes: number } }>("fileUploads/upload", {
+      agentId: payload.sessionId,
+      request: { data: payload.data, ...(payload.name === undefined ? {} : { name: payload.name }) },
+    }),
+  /** 可继续子会话发消息（0.1.5 subagents/prompt）：content 只收文本/图片
+   *  （子会话无文件通道）；delivery=queue|steer。 */
+  subagentPrompt: (payload: {
+    requestId: string; parentSessionId: string; childSessionId: string;
+    delivery: "queue" | "steer"; content: PromptContentPart[];
+  }) =>
+    unary<{ messageId: string }>("subagents/prompt", {
+      request: {
+        requestId: payload.requestId, parentSessionId: payload.parentSessionId, childSessionId: payload.childSessionId,
+        mode: "continuable", delivery: payload.delivery, content: payload.content,
+      },
     }),
   /** 消息反馈（0.1.2 解锁，TODO §0）：put/delete 返回业务级嵌套 ok/error，
    *  version-conflict 的 error.current 携带权威 item（就地和解，勿整表重拉）。 */

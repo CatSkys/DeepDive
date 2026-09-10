@@ -71,10 +71,10 @@ describe("inline 图片/链接（AUD-021 语义）", () => {
     const out = inline("![截图](/img/a.png)", "k", (src, alt) => seen.push({ src, alt }));
     const img = out[0] as { type: string; props: { src: string; alt: string; onClick: () => void } };
     expect(img.type).toBe("img");
-    expect(img.props.src).toBe("/img/a.png");
+    expect(img.props.src).toBe("/api/file?path=%2Fimg%2Fa.png"); // 0.1.5：单斜杠开头本地路径重写 /api/file
     expect(img.props.alt).toBe("截图");
     img.props.onClick();
-    expect(seen).toEqual([{ src: "/img/a.png", alt: "截图" }]);
+    expect(seen).toEqual([{ src: "/api/file?path=%2Fimg%2Fa.png", alt: "截图" }]);
   });
 
   it("链接：前后文本与 label 全保留，href 正确（不再整段吞掉）", () => {

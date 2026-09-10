@@ -50,7 +50,7 @@ describe("Markdown 组件渲染", () => {
     expect(a?.getAttribute("href")).toBe("https://example.com/x");
     expect(a?.textContent).toBe("文档"); // label 不再被整段吞掉
     const img = container.querySelector("img");
-    expect(img?.getAttribute("src")).toBe("/img/a.png");
+    expect(img?.getAttribute("src")).toBe("/api/file?path=%2Fimg%2Fa.png"); // 0.1.5：单斜杠开头本地路径重写 /api/file
     expect(img?.getAttribute("alt")).toBe("截图");
   });
 

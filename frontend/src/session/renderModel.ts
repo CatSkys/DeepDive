@@ -40,6 +40,8 @@ export interface RenderItem {
   retryId?: string;
   // 编辑类工具的文件变更（call 侧=pending 态；result 侧=已应用，权威）
   diffs?: import("../types").FileDiff[];
+  // 工具结果图片（read_image：attachment 引用，字节经 session/attachment 取）
+  resultImages?: ResultImage[];
   // attached turn-level stats for the closing assistant message meta row
   meta?: TurnMeta;
   // turn-local produced file paths (attached during finalizeTurns)
@@ -157,11 +159,23 @@ export function deriveCallDiffs(toolName: string, args: string): FileDiff[] | nu
   return null;
 }
 
-/// Pull the output text + failure + path from a tool/result payload (typed).
-export function extractToolResult(data: ToolResultData): { callId?: string; output: string; failed: boolean; path?: string } {
+/** tool/result 里图片附件引用（字节经 session/attachment 取）。 */
+export interface ResultImage {
+  attachmentId: string;
+  mediaType: string;
+  name?: string;
+  width?: number;
+  height?: number;
+}
+
+/// Pull the output text + failure + path + result images from a tool/result
+/// payload (typed). 0.1.5 read_image 的内容块 = 文本信封 + {type:'image',
+/// attachment:{attachmentId,…}}——图片经 attachment RPC 取字节直出工具卡。
+export function extractToolResult(data: ToolResultData): { callId?: string; output: string; failed: boolean; path?: string; images: ResultImage[] } {
   const msg = data.message;
   let output = "";
   const parts: string[] = [];
+  const images: ResultImage[] = [];
   const walk = (c: unknown) => {
     if (!c) return;
     if (typeof c === "string") { parts.push(c); return; }
@@ -169,6 +183,9 @@ export function extractToolResult(data: ToolResultData): { callId?: string; outp
     if (typeof c === "object") {
       const o = c as Record<string, unknown>;
       if (typeof o.text === "string") parts.push(o.text);
+      if (o.type === "image" && o.attachment && typeof o.attachment === "object") {
+        images.push(o.attachment as ResultImage);
+      }
       if (o.content !== undefined) walk(o.content);
     }
   };
@@ -181,7 +198,7 @@ export function extractToolResult(data: ToolResultData): { callId?: string; outp
   const failed = data.isError === true || msg?.isError === true || data.ok === false;
   const callId = data.toolCallId ?? data.callId ?? msg?.source?.callId;
   const path = typeof data.path === "string" ? data.path : undefined;
-  return { callId, output, failed, path };
+  return { callId, output, failed, path, images };
 }
 
 /**
@@ -346,6 +363,8 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
           item.output = extracted.output;
           item.failed = extracted.failed;
           if (appliedDiffs) item.diffs = appliedDiffs;
+          // read_image 等结果图片：内容块里的 attachment 引用直出工具卡。
+          if (extracted.images.length > 0) item.resultImages = extracted.images;
         }
       }
       // produced files: successful mutation calls carrying a derived path

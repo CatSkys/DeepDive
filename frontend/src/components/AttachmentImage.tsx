@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { FileText } from "lucide-react";
 import { api } from "../api";
 import { Lightbox } from "./Lightbox";
 import type { ContentBlock } from "../types";
 
-// 用户消息图片（3.2 收尾）：attachment 引用块的缩略图渲染，点击 Lightbox
-// 放大。字节经 session.attachment 拉取，attachmentId 全局缓存（历史回放
-// 与实时帧可能重复出现同一附件）。
+// 用户消息附件（3.2 收尾 + 0.1.5 通用文件）：attachment 引用块的渲染——
+// 图片出缩略图（点击 Lightbox 放大），通用文件出 chip（图标+名字+大小）。
+// 字节经 session.attachment 拉取，attachmentId 全局缓存（历史回放与实时帧
+// 可能重复出现同一附件）。
 
 interface Att {
   attachmentId: string;
@@ -13,6 +15,7 @@ interface Att {
   name?: string;
   width?: number;
   height?: number;
+  bytes?: number;
 }
 
 const BYTES_CACHE_MAX = 24;
@@ -28,25 +31,64 @@ function cacheBytes(id: string, url: string): void {
   }
 }
 
-function attachmentsOf(event: unknown): Att[] {
+function sizeText(bytes?: number): string {
+  if (bytes === undefined) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function blocksOf(event: unknown): ContentBlock[] {
   const content = (event as { data?: { content?: ContentBlock[] } } | undefined)?.data?.content;
-  if (!Array.isArray(content)) return [];
-  return content
+  return Array.isArray(content) ? content : [];
+}
+
+function attachmentsOf(event: unknown): Att[] {
+  return blocksOf(event)
     .filter((b) => b.type === "image" && !!(b as { attachment?: Att }).attachment)
     .map((b) => (b as { attachment: Att }).attachment);
+}
+
+/** 0.1.5 通用文件块：{type:'file', attachment:{attachmentId,name,bytes}}。 */
+function fileRefsOf(event: unknown): Array<{ attachmentId: string; name: string; bytes?: number }> {
+  return blocksOf(event)
+    .filter((b) => b.type === "file" && !!(b as { attachment?: { attachmentId: string; name?: string; bytes?: number } }).attachment)
+    .map((b) => {
+      const a = (b as { attachment: { attachmentId: string; name?: string; bytes?: number } }).attachment;
+      return { attachmentId: a.attachmentId, name: a.name ?? a.attachmentId.slice(0, 16), bytes: a.bytes };
+    });
 }
 
 export function UserAttachments({ sessionId, event }: { sessionId: string; event: unknown }) {
   const [lightbox, setLightbox] = useState<{ src: string; name?: string } | null>(null);
   const atts = attachmentsOf(event);
-  if (atts.length === 0) return null;
+  const files = fileRefsOf(event);
+  if (atts.length === 0 && files.length === 0) return null;
   return (
     <div className="user-attachments">
       {atts.map((a) => (
         <Thumb key={a.attachmentId} sessionId={sessionId} att={a} onOpen={(src, name) => setLightbox({ src, name })} />
       ))}
+      {files.map((f) => (
+        <span key={f.attachmentId} className="user-file-chip" data-tip={f.name}>
+          <FileText size={14} />
+          <span className="user-file-name">{f.name}</span>
+          {f.bytes !== undefined && <span className="user-file-size">{sizeText(f.bytes)}</span>}
+        </span>
+      ))}
       {lightbox && <Lightbox src={lightbox.src} alt={lightbox.name} onClose={() => setLightbox(null)} />}
     </div>
+  );
+}
+
+/** 自带 Lightbox 的附件缩略图（用户消息图片与工具结果图片共用）。 */
+export function AttachmentThumb({ sessionId, att }: { sessionId: string; att: Att }) {
+  const [lightbox, setLightbox] = useState<{ src: string; name?: string } | null>(null);
+  return (
+    <>
+      <Thumb sessionId={sessionId} att={att} onOpen={(src, name) => setLightbox({ src, name })} />
+      {lightbox && <Lightbox src={lightbox.src} alt={lightbox.name} onClose={() => setLightbox(null)} />}
+    </>
   );
 }
 

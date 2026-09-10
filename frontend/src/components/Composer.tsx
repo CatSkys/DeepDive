@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, Square, Plus, Mic } from "lucide-react";
+import { ArrowUp, Square, Plus, Mic, FileText } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
@@ -11,7 +11,7 @@ import { alertDialog } from "./DialogHost";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { PromptContentPart } from "../types";
 import { useComposerDraft } from "./composer/useComposerDraft";
-import { useComposerAttachments, type Attachment } from "./composer/useComposerAttachments";
+import { useComposerAttachments, type ImageAttachment } from "./composer/useComposerAttachments";
 import { DD_EVENTS } from "../events";
 import { useComposerDictation } from "./composer/useComposerDictation";
 import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
@@ -39,7 +39,13 @@ function autoGrow(el: HTMLTextAreaElement) {
   el.style.height = Math.min(el.scrollHeight, 160) + "px";
 }
 
-export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null; onSent?: () => void; ctx?: ContextData }) {
+export function Composer({ sessionId, onSent, ctx, variant }: {
+  sessionId: string | null;
+  onSent?: () => void;
+  ctx?: ContextData;
+  /** 子会话（continuable）形态：发送路由 subagents/prompt（父会话身份）。 */
+  variant?: { kind: "subagent"; parentSessionId: string };
+}) {
   const [dismissed, setDismissed] = useState(false);
   const [composing, setComposing] = useState(false);
   const [active, setActive] = useState(0);
@@ -47,8 +53,8 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   // 繁忙时 Enter 行为（settings ui-conversation ns，设置页同款；默认排队）
   const [busyEnter, setBusyEnter] = useState<"queue" | "steer">("queue");
   const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.deepdiveHost);
-  // 附件 chip 点击预览（Lightbox）
-  const [preview, setPreview] = useState<Attachment | null>(null);
+  // 附件 chip 点击预览（Lightbox；仅图片 chip）
+  const [preview, setPreview] = useState<ImageAttachment | null>(null);
   // 中文输入法确认词的回车余波守卫（useCompositionGuard.ts 顶部注释）
   const ime = useCompositionGuard();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -60,8 +66,8 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
   const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
-  const { attachments, setAttachments, addAttachments, addImageFile, dragOver, fileRef, onFile } =
-    useComposerAttachments({ setText, hasShell });
+  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, dragOver, fileRef, onFile } =
+    useComposerAttachments({ setText, hasShell, sessionId });
   // 听写 final 落稿后回焦并按新内容重新长高（原 dictation 订阅内的 rAF）
   const refocusDraft = () => requestAnimationFrame(() => {
     if (taRef.current) autoGrow(taRef.current);
@@ -102,15 +108,25 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
 
   const content = useMemo(() => {
     const parts: PromptContentPart[] = [];
-    for (const a of attachments) parts.push({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name });
+    for (const a of attachments) {
+      if (a.kind === "image") parts.push({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name });
+      else if (a.status === "ready" && a.receiptId) parts.push({ type: "file", receiptId: a.receiptId });
+    }
     if (text.trim()) parts.push({ type: "text", text: text.trim() });
     return parts;
   }, [attachments, text]);
+
+  /** 文件 chip 全部就绪才可发送（官方 sendSession 同款门槛）。 */
+  const filesReady = attachments.every((a) => a.kind !== "file" || a.status === "ready");
 
   // ---------- 发送 / 排队 / 插话 ----------
 
   const submit = async (modeOverride?: "queue" | "steer") => {
     if (content.length === 0 || busy) return;
+    if (!filesReady) {
+      void alertDialog({ message: tt("文件还在上传中，稍候再发送", "Files are still uploading; try again shortly") });
+      return;
+    }
     // 整行斜杠命令裁决（官方 matchEnter）：已知命令 → commands/execute 直发
     //（自驱效果，不经 session/prompt——prompt 无命令槽，斜杠文本只会喂给模型）。
     const decision = adjudicateSlashLine(text, commands);
@@ -119,8 +135,13 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
         void alertDialog({ message: tt(`未知命令：/${decision.name}`, `Unknown command: /${decision.name}`) });
         return; // 草稿保留供修正（官方语义：不静默发给模型）
       }
+      const imageAttachments = attachments.filter((a): a is ImageAttachment => a.kind === "image");
       if (attachments.length > 0 && !decision.command.input?.images) {
         void alertDialog({ message: tt("该命令不支持图片附件", "This command does not accept image attachments") });
+        return;
+      }
+      if (attachments.some((a) => a.kind === "file")) {
+        void alertDialog({ message: tt("命令不支持文件附件，请随普通消息发送", "Commands do not accept file attachments; send them with a normal message") });
         return;
       }
       setBusy(true);
@@ -134,7 +155,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
         const res = await api.commandExecute({
           agentId: sid,
           line: decision.line,
-          images: attachments.map((a) => ({ mediaType: a.mediaType, data: a.data, name: a.name })),
+          attachments: imageAttachments.map((a) => ({ type: "image" as const, mediaType: a.mediaType, data: a.data, name: a.name })),
         });
         if (res === undefined) {
           void alertDialog({ message: tt(`未知命令：/${decision.command.name}`, `Unknown command: /${decision.command.name}`) });
@@ -160,17 +181,33 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     const mode = running
       ? (modeOverride ?? busyEnter)
       : "queue";
-    if (sessionId === null) {
+    let sid = sessionId;
+    if (sid === null) {
       const create = await store.createSession();
       if (!create) { setBusy(false); return; }
-      try {
-        await api.prompt({ requestId: crypto.randomUUID(), sessionId: create, mode, content });
-      } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
-    } else {
-      try {
-        await api.prompt({ requestId: crypto.randomUUID(), sessionId, mode, content });
-      } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
+      sid = create;
+      // 草稿页的文件 chip 是 pending（无会话可传）：建好会话立即补传。
+      if (!(await uploadNow(sid))) { setBusy(false); return; }
     }
+    // 子会话（continuable）走 subagents/prompt：content 只收文本/图片。
+    const subagent = variant?.kind === "subagent" ? variant : undefined;
+    if (subagent && attachments.some((a) => a.kind === "file")) {
+      void alertDialog({ message: tt("子会话不支持文件附件", "File attachments are not supported in subagent sessions") });
+      setBusy(false); return;
+    }
+    try {
+      if (subagent) {
+        await api.subagentPrompt({
+          requestId: crypto.randomUUID(),
+          parentSessionId: subagent.parentSessionId,
+          childSessionId: sid,
+          delivery: running ? mode : "queue",
+          content,
+        });
+      } else {
+        await api.prompt({ requestId: crypto.randomUUID(), sessionId: sid, mode, content });
+      }
+    } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
     setText("");
     setAttachments([]);
     if (draftKey) localStorage.removeItem(draftKey);
@@ -185,7 +222,7 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
     taRef.current?.focus();
   };
 
-  const canSend = content.length > 0 && !busy;
+  const canSend = content.length > 0 && !busy && filesReady;
   const wide = text.includes("\n");
   const showCtx = hasContextData(ctx);
   return (
@@ -193,10 +230,19 @@ export function Composer({ sessionId, onSent, ctx }: { sessionId: string | null;
       {attachments.length > 0 && (
         <div className="composer-chips">
           {attachments.map((a, i) => (
-            <span key={a.id} className="att-chip" onClick={() => setPreview(a)} data-tip={a.name}>
-              <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} />
-              <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
-            </span>
+            a.kind === "image" ? (
+              <span key={a.id} className="att-chip" onClick={() => setPreview(a)} data-tip={a.name}>
+                <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} />
+                <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
+              </span>
+            ) : (
+              <span key={a.id} className="att-chip file" data-status={a.status} data-tip={a.error ?? a.name}>
+                {a.status === "uploading" || a.status === "pending" ? <span className="att-file-spin" aria-hidden="true" /> : <FileText size={14} />}
+                <span className="att-file-name">{a.name}</span>
+                {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId).then(() => undefined); }}>{t("重试")}</button>}
+                <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
+              </span>
+            )
           ))}
         </div>
       )}

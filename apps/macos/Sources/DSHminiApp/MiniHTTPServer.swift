@@ -7,6 +7,9 @@ final class MiniHTTPServer {
     struct Request {
         let method: String
         let path: String
+        /// "?" 后的原始查询串（无 "?" 为空串）。/api 转发时并进引擎 URL
+        /// （0.1.5 的 /api/file?path=… 与 uploadFileBinary?sessionId=… 依赖）。
+        let query: String
         let headers: [String: String]
         let body: Data
     }
@@ -118,8 +121,13 @@ final class MiniHTTPServer {
         let parts = requestLine.split(separator: " ")
         guard parts.count >= 2 else { return nil }
         let method = String(parts[0])
-        var path = String(parts[1])
-        if let q = path.firstIndex(of: "?") { path = String(path[..<q]) }
+        let target = String(parts[1])
+        var path = target
+        var query = ""
+        if let q = target.firstIndex(of: "?") {
+            path = String(target[..<q])
+            query = String(target[target.index(after: q)...])
+        }
 
         var headers: [String: String] = [:]
         for line in lines.dropFirst() {
@@ -141,7 +149,7 @@ final class MiniHTTPServer {
                 body.append(contentsOf: scratch[0..<n])
             }
         }
-        return Request(method: method, path: path, headers: headers, body: body)
+        return Request(method: method, path: path, query: query, headers: headers, body: body)
     }
 
     /// 单请求 body 上限（32MB）：覆盖附件 base64 上传，拒绝内存放大。

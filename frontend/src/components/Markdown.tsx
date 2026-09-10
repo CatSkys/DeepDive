@@ -127,14 +127,19 @@ export function inline(text: string, keyBase: string, onImage: (src: string, alt
       // 图片：g7=alt、g8=src（AUD-021 修复——曾 src/alt 互换且 alt 取数学组）
       const src = m[8]!;
       const alt = m[7];
+      // 0.1.5 本地绝对路径图（工作区外截图等）：单斜杠开头重写到引擎
+      // /api/file 面（同源经桥，路径在查询串）；http(s)/相对路径原样。
+      const imgSrc = src.startsWith("/") && !src.startsWith("//") && !src.startsWith("/api/")
+        ? `/api/file?path=${encodeURIComponent(src)}`
+        : src;
       out.push(
         <img
           key={key}
           className="md-img"
-          src={src}
+          src={imgSrc}
           alt={alt}
           loading="lazy"
-          onClick={() => onImage(src, alt)}
+          onClick={() => onImage(imgSrc, alt)}
         />,
       );
     } else if (m[9] !== undefined) {
