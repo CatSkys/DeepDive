@@ -275,6 +275,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **title 投影冷启动渐进填充**：引擎只对小 artifact 内联冷观察（`coldBlankProbeMaxBytes`），大会话标题打开观察前缺席——侧栏回退标题属官方同款行为，勿当缺陷修。
 - **WKWebView 睡眠后 WS 假死（onclose 缺位）**：系统睡眠唤醒后 webview 里的 WebSocket 可能既不 `onclose` 也不 `onerror` 而帧已停（HTTP fetch 每次新连接，一切如常）——只把重连挂在 close 事件上就永不自愈，表现为会话转录永远「历史加载失败」而侧栏正常（2026-09-10 实机）。`mux.ts` 开流应答看门狗：任何开流后 5s 整条连接零下行帧即弃 socket 立即重建（每条流开流必收首帧——ready/快照/基线；静默空闲不开流、永不误杀）。后续做长驻推送类连接同坑同理：**不能只信 close 事件**。
   - **变种：快照已收、流已建立后再假死**——看门狗只护「开流等首帧」窗口，流已建立后的静默死亡没有任何 JS 侧迹象，直播事件永不抵达而 HTTP 轮询照常（状态胶囊照转、转录不动，用户报告「看不到过程和发的消息，重启才恢复」，2026-09-10 实机）。处置：壳层 `NSWorkspace.didWakeNotification` → `pushHostCommand("systemWake")` → 前端 `mux.recycle()` 无条件弃旧重建（重连每流重发快照、消费方全量替换，误杀代价为零）。
+  - **变种：引擎侧流级终止（跳号 throw）**——引擎 `session/end-seed` 标记事件**占 seq 但不发布到 session/event 通知流**（`core/session/src/index.ts` firstLiveSeq 注释），follow 生成器要求通知流严格连续、跳号即抛 `gateway/internal`（`session-controller/src/history.ts` follow 循环）；`session/created` 的种子回放与后续事件通知存在竞态，长会话轮边界**间歇性**炸流（error 帧）。旧 mux 收 error/end 只注销注册、永不重开 → 该会话直播永久黑（切走再切回重挂才复活，2026-09-10 实机同日两案）。处置：`mux.dispatch` 对 error/end 按退避（1s 起步倍增至 8s 封顶，出帧复位）重开同 streamId——重开后引擎重发快照、消费方全量替换，间隙由构造补齐；这是官方客户端「可重连代际流」语义的单流简化版（`gateway/src/client/journal-stream.ts`）。**引擎侧竞态属 vendored 引脚仓，不在本仓修**。
 
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
 - main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`，无任何输出——测试新构建时极易误判"app 秒退"。

@@ -4,10 +4,12 @@
 // `{type:'item', streamId, value?}` / `{type:'error'|'end', streamId}`。
 // 本模块持有进程级单例：$events 转发事件流 + 任意业务流（session/follow、
 // session/control、workspace/follow）共用一条连接；断线 2s 重连，重连后所有
-// 注册流自动重开（服务端每代重发基线/快照，消费方按全量替换处理）；
-// 另有开流应答看门狗兜住 WKWebView 睡眠后 onclose 缺位的假死连接，快照后
-// 假死由壳层系统唤醒钩子调 recycle() 兜底（PITFALLS §4.7）。
-// 不管业务语义（帧解释归 api.ts 的类型与 store/useSessionEvents 的消费）。
+// 注册流自动重开（服务端每代重发基线/快照，消费方按全量替换处理）；流级
+// error/end 同样按退避重开（引擎 follow 生成器可因未发布事件占 seq 跳号而
+// 终止，重开后快照全量替换补齐间隙，PITFALLS §4.7）；另有开流应答看门狗
+// 兜住 WKWebView 睡眠后 onclose 缺位的假死连接，快照后假死由壳层系统唤醒
+// 钩子调 recycle() 兜底。不管业务语义（帧解释归 api.ts 的类型与
+// store/useSessionEvents 的消费）。
 
 export interface RemoteEventReadyFrame {
   type: "ready";
@@ -47,6 +49,12 @@ const EVENTS_ENDPOINT = "$events";
 // 连一个下行帧（ready/快照/基线都算）都没收到，即判定 socket 假死。
 const OPEN_ACK_TIMEOUT_MS = 5000;
 
+// 流级 error/end 的重开退避：1s 起步、倍增、8s 封顶；该流一旦重新收到
+// item 帧即复位。封顶后稳定为 8s 一试——永久性坏流（如已归档会话）在
+// 消费方 close() 前低频空转，可恢复流（引擎侧偶发跳号终止）秒级自愈。
+const REOPEN_BASE_MS = 1000;
+const REOPEN_MAX_MS = 8000;
+
 class MuxClient {
   private ws: WebSocket | null = null;
   private retryTimer: number | null = null;
@@ -56,6 +64,9 @@ class MuxClient {
   private eventClientId: string | undefined;
   /** 开流应答看门狗：见 armOpenAck。 */
   private openAckTimer: number | null = null;
+  /** 流级 error/end 的重开调度（streamId → 定时器）与连续失败退避。 */
+  private reopenTimers = new Map<string, number>();
+  private reopenBackoff = new Map<string, number>();
 
   /** 注册一条逻辑流：连接建立（或重建）时自动 open；close() 撤销注册。
    *  onItem 收到该流的每个 item value（含首帧快照/基线）。 */
@@ -66,6 +77,7 @@ class MuxClient {
     this.sendOpen(streamId);
     return () => {
       this.streams.delete(streamId);
+      this.clearReopen(streamId);
       this.send({ type: "cancel", streamId });
     };
   }
@@ -115,6 +127,11 @@ class MuxClient {
       clearTimeout(this.retryTimer);
       this.retryTimer = null;
     }
+    // 新一代连接由 onopen 全量重开接管：旧的流级重开定时器全部作废，
+    // 退避一并复位（新一代给每条流重新来过的机会）。
+    for (const timer of this.reopenTimers.values()) clearTimeout(timer);
+    this.reopenTimers.clear();
+    this.reopenBackoff.clear();
     // 测试环境（node）无 location：host 用占位值，WS 为注入桩。
     const host = typeof location !== "undefined" ? location.host : "test.invalid";
     this.ws = new WebSocket(`ws://${host}${MUX_PATH}`);
@@ -219,11 +236,37 @@ class MuxClient {
     // 任何下行帧都证明连接活着——看门狗就此解除（下次开流重新布防）。
     this.disarmOpenAck();
     if (frame.type === "item") {
+      this.reopenTimers.delete(streamId); // 已恢复出帧：撤销未决的重开
+      this.reopenBackoff.delete(streamId);
       this.streams.get(streamId)?.onItem(frame.value);
     } else if (frame.type === "end" || frame.type === "error") {
-      // 流正常/异常终止：注销注册（control/workspace 等长驻流依赖重连重开）。
-      if (streamId !== "$$events") this.streams.delete(streamId);
+      // 服务端终止了这条流（引擎 follow 生成器在通知流跳 seq 时即抛错终止，
+      // PITFALLS §4.7）。注册保留、按退避重开同 streamId：重开后服务端重发
+      // 快照/基线，消费方全量替换，间隙由构造补齐——官方客户端的代际重连
+      // 语义，此处按单流简化。$$events 同道处理：它在注册表内、id 固定，
+      // end/error 后服务端流已闭，重开同 id 与断线重连的 onopen 全量重开
+      // 是同一操作，无双开风险。
+      this.scheduleReopen(streamId);
     }
+  }
+
+  /** 流级终止后的退避重开：连续失败倍增至封顶；连接重建时由 onopen 的
+   *  全量重开接管，未决定时器在 connect() 里一并清掉。 */
+  private scheduleReopen(streamId: string) {
+    if (!this.streams.has(streamId) || this.reopenTimers.has(streamId)) return;
+    const delay = Math.min(this.reopenBackoff.get(streamId) ?? REOPEN_BASE_MS, REOPEN_MAX_MS);
+    this.reopenBackoff.set(streamId, delay * 2);
+    this.reopenTimers.set(streamId, setTimeout(() => {
+      this.reopenTimers.delete(streamId);
+      if (this.streams.has(streamId)) this.sendOpen(streamId);
+    }, delay) as unknown as number);
+  }
+
+  private clearReopen(streamId: string) {
+    const timer = this.reopenTimers.get(streamId);
+    if (timer !== undefined) clearTimeout(timer);
+    this.reopenTimers.delete(streamId);
+    this.reopenBackoff.delete(streamId);
   }
 
   private consumeEventValue(value: unknown) {

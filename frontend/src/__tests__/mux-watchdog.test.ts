@@ -32,10 +32,13 @@ beforeEach(() => {
   const m = mux as unknown as {
     ws: FakeSocket | null; streams: Map<string, unknown>; eventsHandlers: Set<unknown>;
     eventClientId: string | undefined; openAckTimer: number | null; retryTimer: number | null;
+    reopenTimers: Map<string, number>; reopenBackoff: Map<string, number>;
   };
   if (m.openAckTimer !== null) clearTimeout(m.openAckTimer);
   if (m.retryTimer !== null) clearTimeout(m.retryTimer);
   m.openAckTimer = null; m.retryTimer = null; m.ws = null;
+  for (const t of m.reopenTimers.values()) clearTimeout(t);
+  m.reopenTimers.clear(); m.reopenBackoff.clear();
   m.streams.clear(); m.eventsHandlers.clear(); m.eventClientId = undefined;
   sockets = []; driveOpen = true;
 });
@@ -127,5 +130,67 @@ describe("mux 开流应答看门狗", () => {
     const reopened = opensOf(sockets[1]).map((f) => f.endpoint);
     expect(reopened).toContain("session/follow");
     expect(reopened).toContain("session/control");
+  });
+
+  it("流 error 后按退避重开同 streamId（引擎跳号终止流的自愈）", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+
+    const close = mux.openStream("session/follow", { request: {} }, () => {});
+    await Promise.resolve(); // 等 onopen 发出首开流帧
+    const sock = sockets[0];
+    const sid = opensOf(sock)[0]!.streamId!;
+    sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: sid, value: "snap" }) });
+
+    // 引擎侧终止（如 follow 生成器跳号抛错）：1s 后同 id 重开。
+    sock.onmessage?.({ data: JSON.stringify({ type: "error", streamId: sid }) });
+    vi.advanceTimersByTime(999);
+    expect(opensOf(sock).filter((f) => f.streamId === sid)).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(opensOf(sock).filter((f) => f.streamId === sid)).toHaveLength(2);
+    close();
+  });
+
+  it("连续 error 退避倍增；重新出帧后复位", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+
+    mux.openStream("session/follow", { request: {} }, () => {});
+    await Promise.resolve();
+    const sock = sockets[0];
+    const sid = opensOf(sock)[0]!.streamId!;
+    const opensOfId = () => opensOf(sock).filter((f) => f.streamId === sid);
+
+    sock.onmessage?.({ data: JSON.stringify({ type: "error", streamId: sid }) });
+    vi.advanceTimersByTime(1000); // 第 1 次重开（1s）
+    expect(opensOfId()).toHaveLength(2);
+
+    sock.onmessage?.({ data: JSON.stringify({ type: "error", streamId: sid }) });
+    vi.advanceTimersByTime(1000); // 退避翻倍：2s 未到，不重开
+    expect(opensOfId()).toHaveLength(2);
+    vi.advanceTimersByTime(1000);
+    expect(opensOfId()).toHaveLength(3);
+
+    // 恢复出帧（快照重新到达）后再次失败：退避已复位为 1s。
+    sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: sid, value: "snap" }) });
+    sock.onmessage?.({ data: JSON.stringify({ type: "error", streamId: sid }) });
+    vi.advanceTimersByTime(1000);
+    expect(opensOfId()).toHaveLength(4);
+  });
+
+  it("close() 撤销未决重开：不再发开流帧", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+
+    const close = mux.openStream("session/follow", { request: {} }, () => {});
+    await Promise.resolve();
+    const sock = sockets[0];
+    const sid = opensOf(sock)[0]!.streamId!;
+    sock.onmessage?.({ data: JSON.stringify({ type: "item", streamId: sid, value: "snap" }) });
+    sock.onmessage?.({ data: JSON.stringify({ type: "end", streamId: sid }) });
+
+    close(); // 消费方卸载（如切走会话）：重开作废
+    vi.advanceTimersByTime(60000);
+    expect(opensOf(sock).filter((f) => f.streamId === sid)).toHaveLength(1);
   });
 });
