@@ -188,6 +188,7 @@
 ### 5.2 验收对象必须是 .build/release 最新包——Debug 实例会混入
 - `xcodebuild test` 会产出 `.build/debug` 的 Debug app；它可能被 launchd/误点启动，**内嵌前端是旧的**，在它上面调试/验收会看到与最新代码不符的行为（2026-09-04 事故：快捷键轮在 Debug 残留实例上测，行为对不上源码）。
 - 处置：验收前 `pgrep -f DeepDive.app` 核对路径含 `.build/release`；发现 Debug 实例直接杀掉换最新 Release 包。
+- **macOS 26 路径级 SIGKILL（137）缓存**：同一 `.app` 路径上重嵌二进制后，内核可能对该路径缓存击杀决定——重签（`codesign --force --deep`）不解除，`node --version`/自检每次 137，而同一字节集拷到新路径正常运行（2026-09-10 实机，embed 自检 Killed:9）。处置三步：`lsregister -u <app路径>` 注销 LS 注册 → `rm -rf` 旧 app → 从可运行的副本 `cp -R` 回原路径；恢复后打包自检立即转绿。并发两条会话同时 `make package` 会互相撕封签放大此坑——打包前 `pgrep -fl "xcodebuild|embed-engine"` 确认无并行构建。
 
 ### 5.3 交付前必截图自检（WORKING-AGREEMENTS）
 - 改完样式/渲染 → 构建 → 打包 → 启动 → 用 Playwright（channel chrome headless 打开 bridge URL）截图，核对：消息流居中、无卡片、tool 行/产物/turn-tail/meta 位置、用户消息右对齐等。
