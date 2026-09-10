@@ -300,6 +300,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **V3 直播流换通道**：流式增量不再以日志事件下发（chunk 行整体消亡），改走 follow 流的 `assistant-stream` 帧且**必须开流带 `assistantStream:true`**；快照 `assistantStream.activeAttempt.stream` 是重连基线。旧「chunk 事件→直播渲染」路径在 0.1.5 上表现为回复只在轮末一次性出现——不是 UI bug，是通道换了。
 - **`/api/file?path=…` 需要桥转查询串**：壳桥 MiniHTTPServer 原本把请求行 query 剥掉，GET /api/file 经桥丢参 404——`Request.query` 保留并在 relayUnary 与引擎 token 合并（`&`拼接）。
 - **TCC「文稿」授权随 adhoc 重签失效，子进程表现为 getcwd 挂死**：每次重打包换签名身份，TCC 重新要授权；弹窗被忽略/误点拒绝后，**app 自己 spawn 的子进程**（引擎）对 cwd（工作区在 ~/Documents 下）的首个 `open` 无限挂起——引擎永远打不出 `dsh web:`，表面是「引擎起不来」（2026-09-10 实机；`sample` 主线程钉在 `__getcwd → open$NOCANCEL`，shell 手动起同一二进制秒起——父进程归属不同）。处置：`tccutil reset SystemPolicyDocumentsFolder com.deepdive.app` → 重启 app → System Events 点掉弹窗「允许」（或系统设置→隐私→文件与文件夹→DeepDive 手动开）。**验收引擎起不来时先查 TCC，别先怀疑代码**。
+  - **变种：授权后仍挂死（时间变异性）**——`tccutil reset` + 点「允许」后新 spawn 的子进程（乃至 zsh 直接起的）仍可能 100% CPU 钉在 `__getcwd → open$NOCANCEL`（对 cwd 的 open 悬挂；同一命令早先秒起、稍后必挂）。此时是 macOS 26 目录句柄/门控态已损坏，重启机器（或注销重登）清除。**诊断锚点：`sample <pid>` 主线程钉在 `__getcwd → open` 即为此症，勿再排查代码**。
 
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
 - main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`，无任何输出——测试新构建时极易误判"app 秒退"。
