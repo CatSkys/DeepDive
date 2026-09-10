@@ -276,6 +276,12 @@ export const EN: Record<string, string> = {
   "（已配置）": " (configured)",
   // turn folding
   "已折叠早前 {n} 轮 · 点击展开": "Folded {n} earlier turns · click to expand",
+  // turn process fold (official message.turnProcess.*)
+  "{n} 次工具调用": "{n} tool calls",
+  "{n} 条中间消息": "{n} intermediate messages",
+  "{n} 个 subagent": "{n} subagents",
+  "展开过程": "Show process",
+  "收起过程": "Hide process",
   "设定/查看长任务的 Goal": "Set or view the goal for a long-running task",
   "（输入目标后回车）": "(type an objective then Enter)",
   // model menu

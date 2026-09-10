@@ -3304,6 +3304,43 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .turn-fold:hover { background: var(--fill-soft); color: var(--ink-2); }
 
+/* 轮内过程折叠披露条（官方 TurnProcessNodeView）：整行可点，标签+chevron
+   左对齐，底边线把过程窗与最终回答分开。 */
+.turn-process-slot { display: contents; }
+.turn-process-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 8px;
+  padding: 0 0 8px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  text-align: left;
+}
+.turn-process-row:hover { color: var(--ink-2); }
+.turn-process-label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.turn-process-chevron {
+  flex: none;
+  margin-left: 6px;
+  color: var(--ink-3);
+  transform: rotate(-90deg);
+  transition: transform 100ms ease;
+}
+.turn-process-row[data-open] .turn-process-chevron { transform: rotate(0deg); }
+.turn-process-row[data-open] { margin-bottom: 4px; }
+
 .user-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; justify-content: flex-end; }
 .user-attachment-thumb {
   width: 92px;

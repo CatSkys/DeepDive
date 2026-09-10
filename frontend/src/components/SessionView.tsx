@@ -14,6 +14,8 @@ import { groupTurns, foldDecision, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
 import { useFeedback } from "../session/feedback";
 import { TurnNavigator } from "../session/TurnNavigator";
+import { computeTurnProcess } from "../session/turnProcess";
+import { TurnProcessBar } from "../session/TurnProcessBar";
 import type { TurnOutlineEntry } from "../types";
 import { SessionHeader } from "../session/SessionHeader";
 import { sessionTitle } from "../session/sessionTitle";
@@ -30,6 +32,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const modelFace = useSessionModels(sessionId);
   // 轮折叠开关（长会话默认折叠早前轮；点击折叠条或关闭开关展开）
   const [turnsFolded, setTurnsFolded] = useState(true);
+  // 轮内过程折叠（官方 turn-process）：默认收起；Set 记用户手动展开的轮号。
+  // 切会话时 SessionView 以 sessionId 重挂，Set 随之清空。
+  const [processOpen, setProcessOpen] = useState<ReadonlySet<number>>(new Set());
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [follow, setFollow] = useState(true);
   // 渐隐边缘信号（超限标准 UI，样式走 .flow 上的 .fade-y）：不用
@@ -371,22 +376,59 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 foldedCount = 0;
                 foldBarEmitted = true;
               }
+              // 轮内过程折叠：已闭合轮把最终回答之前的工具/中间消息收成披露条；
+              // 默认收起，点击展开。正在跑的轮（无 turn-tail）不折。
+              const proc = g.turn !== null ? computeTurnProcess(g.items) : null;
+              const procOpen = proc !== null && g.turn !== null && processOpen.has(g.turn);
+              const toggleProc = g.turn !== null
+                ? (open: boolean) => {
+                    const turnNo = g.turn as number;
+                    setProcessOpen((prev) => {
+                      const next = new Set(prev);
+                      if (open) next.add(turnNo);
+                      else next.delete(turnNo);
+                      return next;
+                    });
+                  }
+                : null;
+              const barAt = proc ? (proc.processIndices[0] ?? proc.answerIndex) : -1;
+              let procBarEmitted = false;
               nodes.push(
                 <div key={`turn-${g.turn ?? "head"}-${gi}`} className="turn-group" data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
-                  {g.items.map((item) => {
+                  {g.items.map((item, ii) => {
+                    const isProcessMember = proc !== null
+                      && ii < proc.answerIndex
+                      && proc.processIndices.includes(ii);
+                    const hideItem = isProcessMember && !procOpen;
+                    // 披露条挂在过程窗起点（首个过程项；无外部过程时挂最终回答前），
+                    // 该起点项被收起时仍要吐出条子，否则折叠态无处点开。
+                    const barHere = proc !== null && toggleProc !== null
+                      && !procBarEmitted && ii === barAt;
+                    if (barHere) procBarEmitted = true;
+                    const bar = barHere && proc && toggleProc ? (
+                      <TurnProcessBar
+                        info={proc}
+                        open={procOpen}
+                        onToggle={() => toggleProc(!procOpen)}
+                      />
+                    ) : null;
+                    if (hideItem) return bar ? <span key={item.key} className="turn-process-slot">{bar}</span> : null;
                     const idx = keyIdx.get(item.key) ?? -1;
+                    const isAnswer = proc !== null && ii === proc.answerIndex;
                     return (
                       <div
                         key={item.key}
                         className="chat-anchor-row"
                         ref={idx === 0 && !foldBarEmitted ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
                       >
+                        {bar}
                         <Item
                           item={item}
                           turnRunning={running}
                           onBranch={branchFrom}
                           sessionId={sessionId}
                           feedbackCtrl={feedback}
+                          hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
                           onContinue={() => {
                             void api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
                           }}

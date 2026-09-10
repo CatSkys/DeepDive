@@ -9,7 +9,7 @@ import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
-export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedbackCtrl }: {
+export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedbackCtrl, hideThinking }: {
   item: RenderItem;
   turnRunning: boolean;
   onBranch?: (forkSeq: number) => void;
@@ -17,6 +17,8 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedb
   sessionId: string;
   /** 会话级消息反馈控制器（turn-tail 的 👍/👎 用）。 */
   feedbackCtrl?: ReturnType<typeof import("./feedback").useFeedback>;
+  /** 过程折叠收起时：最终回答的内嵌思考一并隐藏（官方 inlineReasoning 口径）。 */
+  hideThinking?: boolean;
 }) {
   if (item.kind === "user") {
     return (
@@ -38,7 +40,7 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedb
     const blocks = blocksOf(item.event);
     return (
       <div className="msg-block assistant">
-        {blocks.think && <ThinkingState reasoning={blocks.think} running={false} />}
+        {blocks.think && !hideThinking && <ThinkingState reasoning={blocks.think} running={false} />}
         <AgentMessage text={t} />
       </div>
     );
