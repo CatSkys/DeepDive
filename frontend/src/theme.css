@@ -3307,19 +3307,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .subagent-parent-link:hover { background: var(--fill); color: var(--ink); }
 
-/* ── 补齐：轮折叠条 / 用户消息图片缩略图 / 行内与块级公式 ── */
-.turn-fold {
-  display: block;
-  width: 100%;
-  margin: 4px 0;
-  padding: 5px 0;
-  text-align: center;
-  font-size: 11.5px;
-  color: var(--ink-3);
-  border: 1px dashed var(--line);
-  border-radius: var(--dsh-radius-keycap);
-}
-.turn-fold:hover { background: var(--fill-soft); color: var(--ink-2); }
+/* ── 补齐：用户消息图片缩略图 / 行内与块级公式 ── */
 
 /* 轮内过程折叠披露条（官方 TurnProcessNodeView）：流内披露行，不是浮层——
    不进弹出配方（.flow * 禁 blur）。对比度按语义变量抬一档，避免主卡玻璃底

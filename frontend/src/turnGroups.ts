@@ -1,7 +1,7 @@
 import type { RenderItem } from "./session/renderModel";
 
-// 轮折叠（3.3 面的补齐项）：把渲染项流按轮分组，供长会话把早前轮折叠成
-// 一条弱化摘要。纯函数，vitest 钉住边界语义。
+// 轮分组：把渲染项流按 turn 分组，供轮内过程折叠、大纲轨定位与轮容器
+// 渲染。纯函数，vitest 钉住边界语义。
 
 export interface TurnGroup {
   /** 轮号；日志开头先于首个 turn/start 的项归 null 组（罕见）。 */
@@ -37,8 +37,8 @@ export function groupTurns(items: readonly RenderItem[]): TurnGroup[] {
     if (turn !== null) flushPreInto(turn);
     const last = groups[groups.length - 1];
     // 无 turn 的非 user 项（漏标/历史夹具）并入上一组，绝不为它另开 null 组：
-    // 碎片 null 组会抬高 groupCount，foldDecision 会把真轮整段误折（大纲有轮、
-    // 正文没有的事故）。摄取侧已给 command/retry/compaction/workflow 标 turn。
+    // 碎片 null 组会打断轮序列，大纲轨与轮分组语义随之错位（「大纲有轮、
+    // 正文没有」事故）。摄取侧已给 command/retry/compaction/workflow 标 turn。
     if (turn === null && last) {
       last.items.push(item);
       continue;
@@ -48,10 +48,4 @@ export function groupTurns(items: readonly RenderItem[]): TurnGroup[] {
   }
   if (preTurn.length > 0) groups.push({ turn: null, items: preTurn });
   return groups;
-}
-
-/** 折叠决策：轮数达到阈值时，除最近 keepRecent 轮外全部折叠。 */
-export function foldDecision(groupCount: number, threshold = 5, keepRecent = 2): { foldFrom: number } | null {
-  if (groupCount < threshold) return null;
-  return { foldFrom: Math.max(0, groupCount - keepRecent) };
 }

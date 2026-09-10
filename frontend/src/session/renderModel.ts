@@ -365,8 +365,8 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
     case "command/run": {
       const d = ev.data as import("../types").CommandRunData;
       const idx = out.length;
-      // turn 必标：缺 turn 的项会被 groupTurns 拆成独立 null 组，把真轮数
-      // 抬高后 foldDecision 把前面轮全部折掉（大纲有轮、正文没有的事故）。
+      // turn 必标：缺 turn 的项会被 groupTurns 拆成独立 null 组，打断轮序列
+      // 并令大纲轨与正文错位（「大纲有轮、正文没有」事故）。
       out.push({
         ...base,
         kind: "command",

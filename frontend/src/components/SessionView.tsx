@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
-import { t, tt, useT } from "../i18n";
+import { t, useT } from "../i18n";
 import { Composer } from "./Composer";
 import { HeroBrand } from "./HeroBrand";
 import { LoadingState } from "./LoadingState";
@@ -10,7 +10,7 @@ import { planReviewOf } from "../planReview";
 import { PlanReviewCard } from "./PlanReviewCard";
 import { GoalBar } from "./GoalBar";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
-import { groupTurns, foldDecision, type TurnGroup } from "../turnGroups";
+import { groupTurns, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
 import { useFeedback } from "../session/feedback";
 import { TurnNavigator } from "../session/TurnNavigator";
@@ -30,8 +30,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const store = useStore();
   const { approvals, questions, queues, sessions } = store;
   const modelFace = useSessionModels(sessionId);
-  // 轮折叠（长会话默认折叠早前轮；滚到顶自动展开或点击折叠条/大纲跳转展开）
-  const [turnsFolded, setTurnsFolded] = useState(true);
   // 轮内过程折叠（官方 turn-process）：默认收起；Set 记用户手动展开的轮号。
   // 切会话时 SessionView 以 sessionId 重挂，Set 随之清空。
   const [processOpen, setProcessOpen] = useState<ReadonlySet<number>>(new Set());
@@ -194,19 +192,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   // key 索引/末位行扫描/轮分组只在 items 变化时算一次（AUD-092）：流式期间
   // 每条 delta 与其他会话的 store 更新都会触发重渲染，渲染体内重建 Map +
-  // 全量扫是纯浪费；折叠开关只影响 foldFrom，不参与本 memo。
+  // 全量扫是纯浪费。渲染全量进行（离屏排版由 .msg-block 的
+  // content-visibility 跳过，长会话内存窗口本身有分页上限）。
   const layout = useMemo(() => {
     const keyIdx = new Map(items.map((it, i) => [it.key, i] as const));
     const groups = groupTurns(items);
-    const fold = foldDecision(groups.length);
-    // 大纲轨的 loaded 判定集：轮号在内存窗口中即 loaded（折叠只是渲染开关）。
+    // 大纲轨的 loaded 判定集：轮号在内存窗口中即 loaded。
     const loadedTurns = new Set(groups.map((g) => g.turn).filter((n): n is number => n !== null));
-    return { keyIdx, groups, fold, loadedTurns };
+    return { keyIdx, groups, loadedTurns };
   }, [items]);
-
-  // 当前生效的折叠起点（0 = 全展开）：滚到顶的向上回溯链依据——先展开内存
-  // 中已折叠的轮，展开后再到顶才向前翻历史页。
-  const foldFrom = layout.fold && turnsFolded ? layout.fold.foldFrom : 0;
 
   // 视口所在轮（rAF 合并）：mid 线上方最后一组即活动轮，驱动大纲轨高亮。
   const activeRafRef = useRef<number | null>(null);
@@ -250,7 +244,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   };
 
   const pickTurn = async (e: TurnOutlineEntry) => {
-    setTurnsFolded(false);
     // 未在内存窗口：先深分页覆盖到该轮 turn/start 的 seq（官方 loadThrough）。
     if (!layout.loadedTurns.has(e.turn)) {
       setBusyTurn(e.turn);
@@ -327,13 +320,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
           setScrolled(el.scrollTop > 2);
           trackActive();
-          // 滚到顶的向上回溯（与滚到顶自动翻页同一语义）：先自动展开已折叠的
-          // 早前轮（展开与点击折叠条同效）；已全展开才向前翻历史页——折叠
-          // 未展开时翻页只会把新页折进看不见的区域。
-          if (el.scrollTop < 48) {
-            if (foldFrom > 0) setTurnsFolded(false);
-            else if (hasMore && !loadingOlder) void loadOlder();
-          }
+          // 滚到顶自动向前翻页（替代手点「载入更早」）：靠近顶部即拉一页；
+          // loadOlder 内部有 paging 互斥 + 锚点保位，连续触发安全。
+          if (el.scrollTop < 48 && hasMore && !loadingOlder) void loadOlder();
         }}
       >
         {/* key=会话:已加载——历史到达那一刻（off→on）重挂播 session-enter
@@ -353,32 +342,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             // 图标常驻、时间标签 hover；这里统一为按钮+Meta 全部 hover 才显现，
             // 作用域挂在轮容器 .turn-group 上——悬停轮内正文/工具/气泡即显现
             // 本轮的 user chrome 与 turn-tail meta。
-            // 轮折叠：长会话首屏只挂最近 2 轮（foldFrom 见组件层，滚到顶
-            // 自动展开），折叠条是占位指示，点击亦可展开。
             const { keyIdx, groups } = layout;
             const nodes: React.ReactNode[] = [];
-            let foldedCount = 0;
-            let foldBarEmitted = false;
             groups.forEach((g: TurnGroup, gi: number) => {
-              if (gi < foldFrom) {
-                foldedCount += 1; // 按轮计，不是 item 数——文案是「早前 N 轮」
-                return;
-              }
-              if (foldedCount > 0) {
-                nodes.push(
-                  <button
-                    key="turn-fold-bar"
-                    type="button"
-                    className="turn-fold"
-                    ref={(el: HTMLButtonElement | null) => { olderAnchorRef.current = el; }}
-                    onClick={() => setTurnsFolded(false)}
-                  >
-                    {tt("已折叠早前 {n} 轮 · 上滑或点击展开", "Folded {n} earlier turns · scroll up or click to expand", { n: foldedCount })}
-                  </button>,
-                );
-                foldedCount = 0;
-                foldBarEmitted = true;
-              }
               // 轮内过程折叠：已闭合轮把最终回答之前的工具/中间消息收成披露条；
               // 默认收起，点击展开。正在跑的轮（无 turn-tail）不折。
               const proc = g.turn !== null ? computeTurnProcess(g.items) : null;
@@ -422,7 +388,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                       <div
                         key={item.key}
                         className="chat-anchor-row"
-                        ref={idx === 0 && !foldBarEmitted ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
+                        ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
                       >
                         {bar}
                         <Item

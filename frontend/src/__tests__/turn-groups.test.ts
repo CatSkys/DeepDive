@@ -1,6 +1,6 @@
 // 轮分组（turnGroups）与 workflow/compaction 的 ingest 折叠纯函数钉子。
 import { describe, expect, it } from "vitest";
-import { groupTurns, foldDecision } from "../turnGroups";
+import { groupTurns } from "../turnGroups";
 import { ingest, makeIngestCtx } from "../session/renderModel";
 import type { RenderItem } from "../session/renderModel";
 import type { SessionEvent } from "../types";
@@ -41,7 +41,7 @@ describe("groupTurns", () => {
     expect(g[0].items.map((x) => x.key)).toEqual(["pre", "a1"]);
   });
 
-  it("无 turn 的非 user 项并入上一组，不另开 null 组（防 fold 误折真轮）", () => {
+  it("无 turn 的非 user 项并入上一组，不另开 null 组（防轮序列碎片化）", () => {
     const items = [
       mk({ key: "a1", kind: "assistant", turn: 1 }),
       mk({ key: "cmd", kind: "command" }), // 漏标 turn
@@ -51,13 +51,6 @@ describe("groupTurns", () => {
     const g = groupTurns(items);
     expect(g.map((x) => x.turn)).toEqual([1, 2]);
     expect(g[0].items.map((x) => x.key)).toEqual(["a1", "cmd", "t1"]);
-    expect(foldDecision(g.length)).toBeNull();
-  });
-
-  it("foldDecision：<阈值不折叠；≥阈值保留最近 keepRecent 轮", () => {
-    expect(foldDecision(4)).toBeNull();
-    expect(foldDecision(5)).toEqual({ foldFrom: 3 });
-    expect(foldDecision(8, 5, 3)).toEqual({ foldFrom: 5 });
   });
 });
 
