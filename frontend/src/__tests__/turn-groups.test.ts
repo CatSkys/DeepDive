@@ -41,10 +41,47 @@ describe("groupTurns", () => {
     expect(g[0].items.map((x) => x.key)).toEqual(["pre", "a1"]);
   });
 
+  it("无 turn 的非 user 项并入上一组，不另开 null 组（防 fold 误折真轮）", () => {
+    const items = [
+      mk({ key: "a1", kind: "assistant", turn: 1 }),
+      mk({ key: "cmd", kind: "command" }), // 漏标 turn
+      mk({ key: "t1", kind: "turn-tail", turn: 1 }),
+      mk({ key: "a2", kind: "assistant", turn: 2 }),
+    ];
+    const g = groupTurns(items);
+    expect(g.map((x) => x.turn)).toEqual([1, 2]);
+    expect(g[0].items.map((x) => x.key)).toEqual(["a1", "cmd", "t1"]);
+    expect(foldDecision(g.length)).toBeNull();
+  });
+
   it("foldDecision：<阈值不折叠；≥阈值保留最近 keepRecent 轮", () => {
     expect(foldDecision(4)).toBeNull();
     expect(foldDecision(5)).toEqual({ foldFrom: 3 });
     expect(foldDecision(8, 5, 3)).toEqual({ foldFrom: 5 });
+  });
+});
+
+describe("command/retry ingest 标注 turn", () => {
+  it("轮内 command/retry/compaction/workflow 都带上 currentTurn，groupTurns 不碎片化", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    const events: SessionEvent[] = [
+      { type: "turn/start", seq: 1, time: 1, data: { turn: 3 } },
+      { type: "user/message", seq: 2, time: 2, data: { turn: 3, message: { role: "user", content: [{ type: "text", text: "hi" }], source: { kind: "user" } } } as never },
+      { type: "command/run", seq: 3, time: 3, data: { commandId: "c1", name: "plan", args: "" } },
+      { type: "llm/retry", seq: 4, time: 4, data: { retryId: "r1", retry: 1, delayMs: 100 } },
+      { type: "compaction/summary", seq: 5, time: 5, data: { compactionId: "cp1", summary: [] } },
+      { type: "tool-workflow/run-start", seq: 6, time: 6, data: { runId: "w1", name: "wf" } },
+      { type: "assistant/message", seq: 7, time: 7, data: { turn: 3, step: 1, message: { role: "assistant", content: [{ type: "text", text: "ok" }] } } as never },
+      { type: "turn/end", seq: 8, time: 8, data: { turn: 3, reason: { kind: "stop" } } },
+    ];
+    for (const ev of events) ingest(out, { event: ev }, ctx);
+    for (const it of out) {
+      expect(it.turn, `${it.kind} missing turn`).toBe(3);
+    }
+    const g = groupTurns(out);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.turn).toBe(3);
   });
 });
 

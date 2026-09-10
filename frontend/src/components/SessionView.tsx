@@ -358,7 +358,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             let foldBarEmitted = false;
             groups.forEach((g: TurnGroup, gi: number) => {
               if (gi < foldFrom) {
-                foldedCount += g.items.length;
+                foldedCount += 1; // 按轮计，不是 item 数——文案是「早前 N 轮」
                 return;
               }
               if (foldedCount > 0) {

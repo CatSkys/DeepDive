@@ -365,6 +365,8 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
     case "command/run": {
       const d = ev.data as import("../types").CommandRunData;
       const idx = out.length;
+      // turn 必标：缺 turn 的项会被 groupTurns 拆成独立 null 组，把真轮数
+      // 抬高后 foldDecision 把前面轮全部折掉（大纲有轮、正文没有的事故）。
       out.push({
         ...base,
         kind: "command",
@@ -372,6 +374,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         toolName: d.name,
         args: d.args ?? "",
         commandStatus: "running",
+        turn: ctx.currentTurn,
       });
       if (d.commandId) ctx.commandIndex.set(d.commandId, idx);
       break;
@@ -393,6 +396,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         compactionId: d.compactionId,
         output: (d.summary ?? []).filter((b) => typeof b.text === "string").map((b) => b.text).join("\n\n"),
         args: d.shadowedTokenCount !== undefined ? String(d.shadowedTokenCount) : "",
+        turn: ctx.currentTurn,
       });
       break;
     }
@@ -404,7 +408,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         out[prev].output = retryText(d);
       } else {
         const idx = out.length;
-        out.push({ ...base, kind: "retry", retryId: d.retryId, output: retryText(d) });
+        out.push({ ...base, kind: "retry", retryId: d.retryId, output: retryText(d), turn: ctx.currentTurn });
         if (d.retryId) ctx.retryIndex.set(d.retryId, idx);
       }
       break;
@@ -423,6 +427,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
           kind: "workflow",
           toolCallId: d.runId,
           args: ev.type === "tool-workflow/run-start" ? (ev.data as import("../types").WorkflowRunStartData).name : "",
+          turn: ctx.currentTurn,
         });
         ctx.workflowIndex.set(d.runId, idx);
       }

@@ -1449,14 +1449,24 @@ button {
 .approval-card .cmd { font-family: var(--dsh-font-mono-family); font-size: 12px; color: var(--dsh-text-secondary); user-select: text; white-space: pre-wrap; }
 .approval-card .actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-/* ---- 排队消息卡（QueueDock）：会话框上方的弹出卡（官方样式对齐） ----
-   数据源：events.mux 的 session/queue 帧；操作走 session.updateQueue。 */
-.queue-dock-wrap { margin: 0 0 8px; }
+/* ---- 排队消息卡（QueueDock）：贴在输入卡上方的 dock（官方 QueueDock 对齐） ----
+   数据源：session/control 的 queue 帧；操作走 session.updatequeue。
+   官方 .panel 是 composer 栈的一部分：上圆角、下方角、实底，与输入卡
+   读成一张面。此前做成独立半透明浮卡，正文从底下透出叠字（用户截图）。 */
+.queue-dock-wrap {
+  /* 横向内缩与 composer 胶囊对齐；下沿再贴 3px 进输入卡，读成一体 */
+  margin: 0 auto 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 6px;
+}
 .queue-dock {
   border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-card);
-  background: linear-gradient(135deg, var(--fill), var(--fill-soft));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.25);
+  border-bottom: none;
+  border-radius: var(--dsh-radius-card) var(--dsh-radius-card) 0 0;
+  /* 实底：悬浮区下面就是消息流，半透明会透字 */
+  background: var(--menu-solid);
+  box-shadow: 0 -6px 18px rgba(0,0,0,.18);
   padding: 4px 8px;
   animation: pop-in 200ms cubic-bezier(0.16,1,0.3,1) both;
 }
@@ -3304,8 +3314,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .turn-fold:hover { background: var(--fill-soft); color: var(--ink-2); }
 
-/* 轮内过程折叠披露条（官方 TurnProcessNodeView）：整行可点，标签+chevron
-   左对齐，底边线把过程窗与最终回答分开。 */
+/* 轮内过程折叠披露条（官方 TurnProcessNodeView）：流内披露行，不是浮层——
+   不进弹出配方（.flow * 禁 blur）。对比度按语义变量抬一档，避免主卡玻璃底
+   上 ink-3 糊成看不见。 */
 .turn-process-slot { display: contents; }
 .turn-process-row {
   box-sizing: border-box;
@@ -3314,15 +3325,15 @@ input:focus, textarea:focus, select:focus { outline: none; }
   width: 100%;
   min-width: 0;
   margin: 0 0 8px;
-  padding: 0 0 8px;
+  padding: 4px 0;
   border: none;
   border-bottom: 1px solid var(--line);
   background: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
   cursor: pointer;
   text-align: left;
 }
-.turn-process-row:hover { color: var(--ink-2); }
+.turn-process-row:hover { color: var(--ink); }
 .turn-process-label {
   min-width: 0;
   overflow: hidden;
@@ -3338,6 +3349,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   transform: rotate(-90deg);
   transition: transform 100ms ease;
 }
+.turn-process-row:hover .turn-process-chevron { color: var(--ink-2); }
 .turn-process-row[data-open] .turn-process-chevron { transform: rotate(0deg); }
 .turn-process-row[data-open] { margin-bottom: 4px; }
 

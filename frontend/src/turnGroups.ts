@@ -36,6 +36,13 @@ export function groupTurns(items: readonly RenderItem[]): TurnGroup[] {
     const turn = item.turn ?? null;
     if (turn !== null) flushPreInto(turn);
     const last = groups[groups.length - 1];
+    // 无 turn 的非 user 项（漏标/历史夹具）并入上一组，绝不为它另开 null 组：
+    // 碎片 null 组会抬高 groupCount，foldDecision 会把真轮整段误折（大纲有轮、
+    // 正文没有的事故）。摄取侧已给 command/retry/compaction/workflow 标 turn。
+    if (turn === null && last) {
+      last.items.push(item);
+      continue;
+    }
     if (last && last.turn === turn) last.items.push(item);
     else groups.push({ turn, items: [item] });
   }
