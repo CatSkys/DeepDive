@@ -43,12 +43,43 @@ final class EngineSupervisor {
     private var restartWorkItem: DispatchWorkItem?
     private var stdoutBuffer = Data()
     private let home: URL
-    private let workspace: URL?
+    private let workspace: URL
     private let log = EngineLog.shared
+
+    /// 引擎 cwd（=sandbox-policy.workspaceRoot 默认）解析顺序：显式配置 →
+    /// harness 存储里已注册的首个空间 → 新用户兜底 ~/Documents/DeepDive。
+    /// 绝不落到用户主目录：home 做工作区会让引擎的 @ 文件索引递归扫全盘
+    /// 家目录，逐保护区触发 TCC 授权弹窗（音乐/照片/其他App数据，
+    /// PITFALLS §4.13），且沙箱根过大。
+    static func resolveLaunchWorkspace(explicit: URL?, home: URL) -> URL {
+        if let explicit { return explicit }
+        if let first = firstRegisteredWorkspace(home: home) { return first }
+        let fallback = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("DeepDive", isDirectory: true)
+            ?? home.appendingPathComponent("workspace", isDirectory: true)
+        try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+        return fallback
+    }
+
+    /// harness 存储 workspace.json 的首个注册空间（global.workspaceIds[0] →
+    /// tables.workspaces[id].path，UI 同序）；文件缺失/损坏/无注册/路径无效
+    /// 一律回 nil。
+    static func firstRegisteredWorkspace(home: URL) -> URL? {
+        let url = home.appendingPathComponent("storages/workspace.json")
+        guard let data = try? Data(contentsOf: url),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let firstId = ((root["global"] as? [String: Any])?["workspaceIds"] as? [String])?.first,
+              let row = ((root["tables"] as? [String: Any])?["workspaces"] as? [String: Any])?[firstId] as? [String: Any],
+              let path = row["path"] as? String, !path.isEmpty else { return nil }
+        let dir = URL(fileURLWithPath: path, isDirectory: true)
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else { return nil }
+        return dir
+    }
 
     init(home: URL, workspace: URL?) {
         self.home = home
-        self.workspace = workspace
+        self.workspace = Self.resolveLaunchWorkspace(explicit: workspace, home: home)
     }
 
     func start() {
@@ -176,7 +207,8 @@ final class EngineSupervisor {
 
         // Engine cwd = workspace root: sandbox-policy.workspaceRoot defaults to
         // process.cwd(), so workspace choice is the safety boundary (SPEC §4.2).
-        let cwd = workspace?.path ?? FileManager.default.homeDirectoryForCurrentUser.path
+        // 解析顺序见 resolveLaunchWorkspace——init 时已定，不再回落 home。
+        let cwd = workspace.path
 
         let process = Process()
         let patchArg = Self.ensureEnginePatchFile()

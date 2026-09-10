@@ -28,4 +28,68 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertEqual(EngineSupervisor.drainLines(&buf), ["a\r", "", "b"])
         XCTAssertTrue(buf.isEmpty)
     }
+
+    // MARK: - 引擎启动工作区解析（PITFALLS §4.13：cwd 绝不落到用户主目录）
+
+    private func makeHarnessHome(with workspacesJSON: String?) throws -> URL {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ws-tests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("storages"), withIntermediateDirectories: true)
+        if let workspacesJSON {
+            try workspacesJSON.data(using: .utf8)?
+                .write(to: home.appendingPathComponent("storages/workspace.json"))
+        }
+        return home
+    }
+
+    private func wsJSON(ids: [String], rows: [String: [String: Any]]) -> String {
+        let data = try! JSONSerialization.data(withJSONObject: [
+            "global": ["workspaceIds": ids],
+            "tables": ["workspaces": rows],
+        ])
+        return String(data: data, encoding: .utf8)!
+    }
+
+    func testFirstRegisteredWorkspaceFollowsIdOrderAndIgnoresInvalid() throws {
+        let a = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("ws-a-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: a, withIntermediateDirectories: true)
+        let home = try makeHarnessHome(with: wsJSON(
+            ids: ["idA", "idB"],
+            rows: [
+                "idA": ["path": a.path],
+                "idB": ["path": "/nonexistent/ws-b"],
+            ],
+        ))
+        // workspaceIds[0] 定序；其行存在且路径有效才可用，无效时整体回 nil
+        // （不跳到 idB——顺序语义与侧栏一致）。
+        XCTAssertEqual(EngineSupervisor.firstRegisteredWorkspace(home: home)?.path, a.path)
+        let badFirst = try makeHarnessHome(with: wsJSON(
+            ids: ["idA", "idB"],
+            rows: ["idA": ["path": "/nonexistent/ws-a"], "idB": ["path": a.path]],
+        ))
+        XCTAssertNil(EngineSupervisor.firstRegisteredWorkspace(home: badFirst))
+    }
+
+    func testFirstRegisteredWorkspaceToleratesMissingGarbageAndEmpty() throws {
+        XCTAssertNil(EngineSupervisor.firstRegisteredWorkspace(home: try makeHarnessHome(with: nil)))
+        XCTAssertNil(EngineSupervisor.firstRegisteredWorkspace(home: try makeHarnessHome(with: "not json")))
+        XCTAssertNil(EngineSupervisor.firstRegisteredWorkspace(home: try makeHarnessHome(with: wsJSON(ids: [], rows: [:]))))
+    }
+
+    func testResolveLaunchWorkspacePrefersExplicitThenRegistered() throws {
+        let explicit = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let registered = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("ws-r-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: registered, withIntermediateDirectories: true)
+        let home = try makeHarnessHome(with: wsJSON(ids: ["r"], rows: ["r": ["path": registered.path]]))
+        XCTAssertEqual(
+            EngineSupervisor.resolveLaunchWorkspace(explicit: explicit, home: home),
+            explicit,
+        )
+        XCTAssertEqual(
+            EngineSupervisor.resolveLaunchWorkspace(explicit: nil, home: home),
+            registered,
+        )
+    }
 }

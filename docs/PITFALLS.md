@@ -162,6 +162,11 @@
 - JSON 反序列化的整数经 `NSNumber.intValue` 进 `case int(Int)`：intValue 按 Int32 截断，毫秒时间戳等 Int64 值高位丢失且无任何报错。
 - 处置：统一走 `Int(n.int64Value)`（JSONValue.swift）。
 
+### 4.13 引擎 cwd 绝不落到用户主目录：home 工作区 = TCC 弹窗风暴
+- 事故（2026-09-10 用户报告）：接连弹「媒体资料库/Apple Music」「照片图库」「其他App的数据」授权框，且开窗后延迟数秒陆续冒出。根因链：`launchWorkspace` 未配置时引擎以 home 启动（cwd=沙箱根）；home 作用域会话里输入 `@` 触发引擎**整库递归文件索引**（vendored `context/file-reference-local/search.ts` scanWorkspace，BFS），索引走到 ~/Music、照片图库、~/Library/Application Support 其他 App 容器、桌面/文稿，逐保护区触发 TCC——延迟即遍历到达时间差。叠加 §4.8（adhoc 重签→授权重置），每个新包都全套重来。
+- 处置：`EngineSupervisor.resolveLaunchWorkspace` 三级解析——显式 `launchWorkspace` 配置 → harness 存储 `storages/workspace.json` 首个注册空间（`global.workspaceIds[0]`，与侧栏同序）→ 新用户兜底 `~/Documents/DeepDive`（不存在则建）。侧栏空间仍是项目单位，多项目经空间注册/切换，不受影响。
+- 排查实录（勿重复走弯路）：引擎 AI 工具调用与子代理命令全部只在项目目录内（逐条核对 tool/call 事件），`@` 索引才是家目录扫描源；lsof 抓不到瞬态访问，tccd 统一日志私有不可读，结论靠引擎源码 + workspace 注册表 + 事件日志三角钉死。
+
 ---
 
 ## 5. 版本角标 / 交付自检
