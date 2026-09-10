@@ -1288,7 +1288,7 @@ button {
 .turn-rail-mark {
   position: relative;
   flex: none;
-  height: 10px;           /* 官方节距：每轮 10px */
+  height: 16px;           /* 节距：给 12px 指示器留出均匀呼吸（勿回 10px 挤压） */
   width: 100%;
   padding: 0;
   border: none;
@@ -1298,7 +1298,7 @@ button {
   align-items: center;
   justify-content: center;
 }
-/* 命中区扩容：10px 节距 hover 太苛刻，±2px 不可见外扩（无布局位移） */
+/* 命中区扩容：±2px 不可见外扩（无布局位移） */
 .turn-rail-mark::after { content: ""; position: absolute; inset: -2px 0; }
 /* 刻度 = 圆点（所有轮同款暗灰小圆点）；当前/悬停轮由亮白竖向胶囊指示
    器接管（盖在圆点上），未加载轮更弱。 */
@@ -1330,7 +1330,7 @@ button {
   margin: 0 0 0 -3px;
   border-radius: 3px;
   background: var(--ink);
-  box-shadow: 0 0 6px rgba(255, 255, 255, .22);
+  box-shadow: 0 0 5px rgba(255, 255, 255, .18);
   pointer-events: none;
   opacity: 0;
   transform: scaleY(.6);
