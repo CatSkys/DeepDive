@@ -2,9 +2,9 @@
 
 > 产品路线的唯一事实源：一项一节，只写「要做什么 + 已查明的路径」；完成即删节（沿革归 git）。2026-09-11 重排：0.1.5-rc.1 对齐批（产物三动作/预览 Dock+分栏全屏/上传流式+进度取消/子代理交互/命令原生化/插件市场 v1/统计两摘要/persona 入口）已全部落地并删除；剩余项均带明确前置（§1 热加载实测、§2 鉴权设计稿、§3 公证凭据+依赖批准、§4 用户澄清范围）。
 
-## 1. 自定义指令（Persona）设置入口 —— 实现待收口
+## 1. 自定义指令（Persona）设置入口 —— 已实现，收口一项
 
-设置「自定义指令」节已落（前缀/后缀双文本域，读写 `DSH_HOME/persona.json`，壳启动经 engine-patch 的 `id: system-prompt` 配置覆盖挂载 `{personaPrefix, personaSuffix}`，值 JSON 序列化防 YAML 注入）。**剩余收口**：引擎热加载验证（0.1.5 动态改系统提示词不破 KV Cache，需模型声明支持——对 DeepSeek-V4 系实测生效情况）；如热加载不通则明确「重启生效」文案（前端已带提示）。
+设置「自定义指令」节已落（前缀/后缀双文本域，读写 `DSH_HOME/persona.json`，壳启动经 engine-patch 的 `id: system-prompt` 配置覆盖挂载 `{personaPrefix, personaSuffix}`，值 JSON 序列化防 YAML 注入）。**已实测**：`--dump-config` 确认引擎解析后配置含 persona 文本（挂载链路通）。**剩余一项**：行为级 E2E（提问验证模型遵循 persona）因机器 FS 门控挂死态（PITFALLS §5.2 TCC 变种，重启机器清除）暂缓——重启后发一条消息即可验证。
 
 ## 2. 手机远程
 
