@@ -1252,11 +1252,16 @@ button {
 /* ---- Turn 大纲轨（官方 ui-chat TurnNavigator 移植，用户定稿放消息流左缘） ----
    .flow-row 包轨道与消息流：轨道占位 18px、不与内容重叠（免 z-index/遮罩
    博弈）；刻度 10px 间距（官方同款节距），溢出在轨内滚动 + 上下渐隐。
-   .turn-rail-tip 已并入上方弹层统一配方（轨道在 .flow 外，backdrop 可用）。 */
+   .turn-rail-tip 已并入上方弹层统一配方（轨道在 .flow 外，backdrop 可用）。
+   tip 必须挂在滚动 list 之外（官方 .preview 是 .scroller 兄弟）——挂在
+   list 内会被 overflow-y:auto 裁掉，hover 看不见卡。 */
 .flow-row { flex: 1; min-height: 0; display: flex; }
 .turn-rail {
+  position: relative;
   flex: none;
   width: 18px;
+  /* 距主卡左缘留白：不贴 .main 边框，与 .flow 横向 padding 同一呼吸感 */
+  margin-left: 12px;
   display: flex;
   align-items: center;
   padding: 20px 0;
@@ -1301,21 +1306,18 @@ button {
 @keyframes turn-rail-busy { 50% { opacity: .25; } }
 .turn-rail-tip {
   position: absolute;
-  left: 16px;
-  top: 50%;
+  left: calc(100% + 8px);
   transform: translateY(-50%);
   width: 230px;
   border-radius: 10px;
   padding: 8px 10px;
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 3px;
   text-align: left;
   pointer-events: none;
   z-index: 30;
 }
-.turn-rail-mark:hover .turn-rail-tip,
-.turn-rail-mark:focus-visible .turn-rail-tip { display: flex; }
 .turn-rail-tip-head {
   font-size: 12px;
   line-height: 17px;
