@@ -1,8 +1,8 @@
 // Turn 大纲轨（官方 ui-chat TurnNavigator 的移植，用户定稿放消息流左缘）：
-// 刻度保留自家圆点样式；交互取官方「指示器跟随」——椭圆环常驻停在当前
-// 轮，hover 到哪就弹滑到哪（spring 曲线），hover/focus 出预览卡，点击经
-// 回调跳转（已加载轮直接滚动、未加载轮由编排方深分页）。不管数据来源
-// （outline 投影经 props 注入）与落点计算（SessionView 持滚动容器）。
+// 刻度 = 竖向胶囊（暗灰），亮白略宽的胶囊指示器常驻停在当前轮，hover 到
+// 哪就弹滑到哪（spring 曲线），hover/focus 出预览卡，点击经回调跳转（已
+// 加载轮直接滚动、未加载轮由编排方深分页）。不管数据来源（outline 投影
+// 经 props 注入）与落点计算（SessionView 持滚动容器）。
 // 预览卡必须挂在滚动容器之外——官方 .preview 是 .scroller 的兄弟；挂在
 // list 内会被 overflow-y:auto 裁切（实测 hover 无卡）。
 // 动效契约：tip 首次 hover 后常驻挂载（关合只翻 data-open，出场淡出由
@@ -15,8 +15,8 @@ import type { TurnOutlineEntry } from "../types";
 
 /** 预览卡垂直夹取的半高估算（约 head+3 行 body 的一半），避免顶/底裁切。 */
 const TIP_HALF_PX = 48;
-/** 指示器胶囊高（.turn-rail-cursor，须与 CSS 同源）。 */
-const CURSOR_H = 4;
+/** 指示器竖向胶囊高（.turn-rail-cursor，须与 CSS 同源；比刻度高 2px 盖住它）。 */
+const CURSOR_H = 12;
 
 export function TurnNavigator({ entries, activeTurn, busyTurn, loadedTurns, onPick }: {
   entries: TurnOutlineEntry[];

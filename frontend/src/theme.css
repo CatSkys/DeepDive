@@ -1300,36 +1300,39 @@ button {
 }
 /* 命中区扩容：10px 节距 hover 太苛刻，±2px 不可见外扩（无布局位移） */
 .turn-rail-mark::after { content: ""; position: absolute; inset: -2px 0; }
+/* 刻度 = 竖向胶囊：常规轮暗灰，当前/悬停轮由指示器接管（亮白略宽）。 */
 .turn-rail-mark::before {
   content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
+  width: 4px;
+  height: 10px;
+  border-radius: 2px;
   background: var(--ink-3);
-  /* 轻回弹曲线：hover/激活的变化带一点越界再回落，比直线 ease 柔 */
-  transition: transform 200ms cubic-bezier(0.34, 1.3, 0.64, 1), background-color var(--dur-fast) ease;
+  opacity: .8;
+  transition:
+    transform 200ms cubic-bezier(0.34, 1.3, 0.64, 1),
+    background-color var(--dur-fast) ease,
+    opacity var(--dur-fast) ease;
 }
-.turn-rail-mark:hover::before { background: var(--ink-2); transform: scale(1.3); }
-.turn-rail-mark[data-unloaded]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
-.turn-rail-mark[data-unloaded]:hover::before { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
-.turn-rail-mark[data-active]::before { background: var(--ink); transform: scale(1.2); }
-.turn-rail-mark[data-unloaded][data-active]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.turn-rail-mark:hover::before { background: var(--ink-2); opacity: 1; transform: scaleX(1.25); }
+.turn-rail-mark[data-unloaded]::before { opacity: .38; }
+.turn-rail-mark[data-unloaded]:hover::before { opacity: .7; }
+.turn-rail-mark[data-active]::before { background: var(--ink-2); opacity: 1; }
 .turn-rail-mark[aria-busy="true"]::before { animation: turn-rail-busy 1.1s ease-in-out infinite; }
 @keyframes turn-rail-busy { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-/* 胶囊指示器（最初定稿样式）：hover 到哪弹滑到哪，无 hover 时停在活动
-   轮。top 用带回弹的 spring 曲线——跨刻度是滑动越界再回落，不是跳变。 */
+/* 亮白竖向胶囊指示器：盖在当前/悬停刻度上（hover 到哪弹滑到哪，无 hover
+   停在活动轮）。top 用带回弹的 spring 曲线——跨刻度是滑动越界再回落。 */
 .turn-rail-cursor {
   position: absolute;
   left: 50%;
-  width: 16px;
-  height: 4px;
-  margin: -2px 0 0 -8px;
-  border-radius: 2px;
+  width: 6px;
+  height: 12px;
+  margin: 0 0 0 -3px;
+  border-radius: 3px;
   background: var(--ink);
-  box-shadow: 0 0 6px rgba(255, 255, 255, .18);
+  box-shadow: 0 0 6px rgba(255, 255, 255, .22);
   pointer-events: none;
   opacity: 0;
-  transform: scaleY(.5);
+  transform: scaleY(.6);
   transition:
     top 320ms cubic-bezier(0.34, 1.45, 0.64, 1),
     opacity 180ms var(--ease-out),
@@ -1340,7 +1343,7 @@ button {
   transform: scaleY(1);
   animation: turn-cursor-in 220ms cubic-bezier(0.34, 1.45, 0.64, 1);
 }
-@keyframes turn-cursor-in { from { opacity: 0; transform: scaleY(.5); } }
+@keyframes turn-cursor-in { from { opacity: 0; transform: scaleY(.6); } }
 .turn-rail-tip {
   position: absolute;
   left: calc(100% + 8px);
