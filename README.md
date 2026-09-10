@@ -38,7 +38,7 @@ docs/                      架构(as-built)/UI 规范/语义蓝图/三个 P2 SPE
 
 ## 已知限制（见 docs/ARCHITECTURE.md §8 与 docs/REVIEW-P2.md）
 
-工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。路线待办（自动更新/插件市场/手机远程/自动化页面）见 `docs/TODO.md`。
+工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。路线待办见 `docs/TODO.md`。
 
 ## 许可证
 
