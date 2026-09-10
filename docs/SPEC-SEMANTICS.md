@@ -198,7 +198,7 @@
 | 权限预设 | `read-only`(ask) / `workspace-write`(ask, 默认) / `danger-full-access`(never) | `dsh-permission-presets` config |
 | 沙箱工作区根 | `process.cwd()` —— **客户端启动引擎时 cwd 必须等于当前工作区** | `sandbox-policy.workspaceRoot` |
 | 默认模型 | `deepseek-official / deepseek-v4-flash` | `agent-default-model` config |
-| 遥测 | 默认 `DISABLED`（`DSH_TELEMETRY_MODE`）——客户端保持默认关闭 | `session-telemetry-otel` config |
+| 遥测 | `DISABLED`——壳启动引擎时显式注入 `DSH_TELEMETRY_MODE=DISABLED`（引擎 base 默认 FEEDBACK_ONLY，被壳覆盖，2026-09-10 拍板收口） | `session-telemetry-otel` config |
 | 标题 | 引擎自动（LLM，≤64 tokens 输出） | `session-title-llm` config |
 
 ## 10. 文档关系
