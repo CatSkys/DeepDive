@@ -1,9 +1,13 @@
 // Turn 大纲轨（官方 ui-chat TurnNavigator 的移植，用户定稿放消息流左缘）：
-// 每轮一枚标记；hover/focus 出预览卡（prompt/response），点击经回调跳转（已
-// 加载轮直接滚动、未加载轮由编排方深分页）。不管数据来源（outline 投影经
-// props 注入）与落点计算（SessionView 持滚动容器）。
+// 刻度保留自家圆点样式；交互取官方「指示器跟随」——椭圆环常驻停在当前
+// 轮，hover 到哪就弹滑到哪（spring 曲线），hover/focus 出预览卡，点击经
+// 回调跳转（已加载轮直接滚动、未加载轮由编排方深分页）。不管数据来源
+// （outline 投影经 props 注入）与落点计算（SessionView 持滚动容器）。
 // 预览卡必须挂在滚动容器之外——官方 .preview 是 .scroller 的兄弟；挂在
 // list 内会被 overflow-y:auto 裁切（实测 hover 无卡）。
+// 动效契约：tip 首次 hover 后常驻挂载（关合只翻 data-open，出场淡出由
+// CSS transition 接管）；tip.top 与指示器 top 均走 transition，跨刻度是
+// 弹滑不是跳变。
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t, tt } from "../i18n";
@@ -11,6 +15,8 @@ import type { TurnOutlineEntry } from "../types";
 
 /** 预览卡垂直夹取的半高估算（约 head+3 行 body 的一半），避免顶/底裁切。 */
 const TIP_HALF_PX = 48;
+/** 指示器椭圆环高（.turn-rail-cursor，须与 CSS 同源）。 */
+const CURSOR_H = 9;
 
 export function TurnNavigator({ entries, activeTurn, busyTurn, loadedTurns, onPick }: {
   entries: TurnOutlineEntry[];
@@ -25,9 +31,24 @@ export function TurnNavigator({ entries, activeTurn, busyTurn, loadedTurns, onPi
   const navRef = useRef<HTMLElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [previewTurn, setPreviewTurn] = useState<number | undefined>(undefined);
-  const [previewTop, setPreviewTop] = useState(0);
+  const [tipTop, setTipTop] = useState(0);
+  /** 指示器：hover 优先，否则停在活动轮；undefined=不显示（尚无可停的轮）。 */
+  const [cursor, setCursor] = useState<{ turn: number; top: number } | undefined>(undefined);
+  // 关合间的最后内容：出场淡出期间卡片不能变空白。
+  const lastPreviewRef = useRef<TurnOutlineEntry | undefined>(undefined);
 
-  // 活动刻度自动滚入视野；指针在轨内时不抢滚动（与官方一致）。
+  const cursorTurn = previewTurn ?? activeTurn;
+
+  // 指示器对齐到目标刻度（offsetTop 以 list 为定位父级，随轨内滚动自然跟随）。
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || cursorTurn === undefined) return;
+    const mark = list.querySelector<HTMLElement>(`[data-turn="${cursorTurn}"]`);
+    if (!mark) return;
+    setCursor({ turn: cursorTurn, top: mark.offsetTop + (mark.offsetHeight - CURSOR_H) / 2 });
+  }, [cursorTurn, entries]);
+
+  // 活动刻度平滑滚入视野；指针在轨内时不抢滚动（与官方一致）。
   useEffect(() => {
     const list = listRef.current;
     if (!list || activeTurn === undefined) return;
@@ -35,7 +56,11 @@ export function TurnNavigator({ entries, activeTurn, busyTurn, loadedTurns, onPi
     const mark = list.querySelector<HTMLElement>(`[data-turn="${activeTurn}"]`);
     if (!mark) return;
     const target = mark.offsetTop - list.clientHeight / 2 + mark.offsetHeight / 2;
-    if (Math.abs(target - list.scrollTop) > 4) list.scrollTop = target;
+    if (Math.abs(target - list.scrollTop) > 4) {
+      // 环境边界：jsdom 无 Element.scrollTo，WKWebView/浏览器均有
+      if (typeof list.scrollTo === "function") list.scrollTo({ top: target, behavior: "smooth" });
+      else list.scrollTop = target;
+    }
   }, [activeTurn]);
 
   const placePreview = useCallback((turn: number) => {
@@ -45,7 +70,7 @@ export function TurnNavigator({ entries, activeTurn, busyTurn, loadedTurns, onPi
     const mark = list.querySelector<HTMLElement>(`[data-turn="${turn}"]`);
     if (!mark) return;
     const top = mark.getBoundingClientRect().top + mark.offsetHeight / 2 - nav.getBoundingClientRect().top;
-    setPreviewTop(Math.max(TIP_HALF_PX, Math.min(nav.clientHeight - TIP_HALF_PX, top)));
+    setTipTop(Math.max(TIP_HALF_PX, Math.min(nav.clientHeight - TIP_HALF_PX, top)));
   }, []);
 
   // 轨内滚动时预览卡跟手（mark 在 list 内，tip 在外，需按滚动重算）。
@@ -61,6 +86,15 @@ export function TurnNavigator({ entries, activeTurn, busyTurn, loadedTurns, onPi
   const preview = previewTurn === undefined
     ? undefined
     : entries.find((e) => e.turn === previewTurn);
+  useEffect(() => {
+    if (preview) lastPreviewRef.current = preview;
+  }, [preview]);
+  const shown = preview ?? lastPreviewRef.current;
+
+  const open = (turn: number) => {
+    setPreviewTurn(turn);
+    placePreview(turn);
+  };
 
   return (
     <nav
@@ -88,26 +122,28 @@ export function TurnNavigator({ entries, activeTurn, busyTurn, loadedTurns, onPi
                   : tt("载入并跳转到第 {n} 轮", "Load and jump to turn {n}", { n: e.turn }))
                 + (e.prompt ? `：${e.prompt}` : "")
               }
-              onMouseEnter={() => {
-                setPreviewTurn(e.turn);
-                placePreview(e.turn);
-              }}
-              onFocus={() => {
-                setPreviewTurn(e.turn);
-                placePreview(e.turn);
-              }}
+              onMouseEnter={() => open(e.turn)}
+              onFocus={() => open(e.turn)}
               onBlur={() => setPreviewTurn(undefined)}
               onClick={() => onPick(e)}
             />
           );
         })}
+        {cursor && (
+          <span
+            className="turn-rail-cursor"
+            data-show={cursor.turn === cursorTurn || undefined}
+            style={{ top: cursor.top }}
+            aria-hidden="true"
+          />
+        )}
       </div>
-      {preview && (
-        <div className="turn-rail-tip" style={{ top: previewTop }} aria-hidden="true">
+      {shown && (
+        <div className="turn-rail-tip" data-open={preview ? "" : undefined} style={{ top: tipTop }} aria-hidden="true">
           <span className="turn-rail-tip-head">
-            {preview.prompt || tt("第 {n} 轮", "Turn {n}", { n: preview.turn })}
+            {shown.prompt || tt("第 {n} 轮", "Turn {n}", { n: shown.turn })}
           </span>
-          {preview.response && <span className="turn-rail-tip-body">{preview.response}</span>}
+          {shown.response && <span className="turn-rail-tip-body">{shown.response}</span>}
         </div>
       )}
     </nav>

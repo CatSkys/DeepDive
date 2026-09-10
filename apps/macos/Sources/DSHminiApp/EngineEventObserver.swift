@@ -34,12 +34,6 @@ final class EngineEventObserver {
     /// $events 世代身份（ready 帧给出，应答 waterfall 的必填字段）。
     private var eventClientId: String?
     private var eventsStreamId = ""
-    /// Mux path drifted across engine versions (0.1.2-rc.1+ = remote.mux;
-    /// rc.2 = events.mux, kept for DSHMINI_DSH_ENTRY cross-version dev).
-    /// Probe candidates in order; the first one that survives upgrade+auth
-    /// wins and is remembered for this boot.
-    private var muxPathIndex = 0
-    private static let muxPaths = ["/api/remote.mux", "/api/events.mux"]
 
     private init() {}
 
@@ -54,7 +48,6 @@ final class EngineEventObserver {
         lastErrors.removeAll()
         eventClientId = nil
         reconnectDelay = 1.0
-        muxPathIndex = 0
         publish()
         if base != nil {
             connect()
@@ -68,8 +61,7 @@ final class EngineEventObserver {
         // The engine enforces its boot cookie post-upgrade (alpha.2+); without
         // it the mux connects then is closed immediately.
         let tokenQuery = base.query.map { "?\($0)" } ?? ""
-        let path = Self.muxPaths[min(muxPathIndex, Self.muxPaths.count - 1)]
-        guard let url = URL(string: "ws://\(host):\(port)\(path)\(tokenQuery)") else { return }
+        guard let url = URL(string: "ws://\(host):\(port)/api/remote.mux\(tokenQuery)") else { return }
         var request = URLRequest(url: url)
         if let cookie = EngineAuth.shared.currentCookieHeader {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")
@@ -82,30 +74,18 @@ final class EngineEventObserver {
         // Forwarded events ride the $events internal stream on remote.mux —
         // open it with the standard empty-args payload right after connect.
         // 帧必须是文本（引擎 mux 只解析 text message，二进制帧会被直接断连）。
-        if path == "/api/remote.mux" {
-            eventsStreamId = "events-\(UUID().uuidString)"
-            let open: [String: Any] = ["type": "open", "streamId": eventsStreamId,
-                                       "endpoint": "$events", "payload": ["args": [:]]]
-            if let data = try? JSONSerialization.data(withJSONObject: open),
-               let text = String(data: data, encoding: .utf8) {
-                task.send(.string(text)) { _ in }
-            }
+        eventsStreamId = "events-\(UUID().uuidString)"
+        let open: [String: Any] = ["type": "open", "streamId": eventsStreamId,
+                                   "endpoint": "$events", "payload": ["args": [:]]]
+        if let data = try? JSONSerialization.data(withJSONObject: open),
+           let text = String(data: data, encoding: .utf8) {
+            task.send(.string(text)) { _ in }
         }
         receive()
         EngineLog.shared.append("[observer] mux connected \(url.absoluteString)")
     }
 
-    /// A path that cannot serve us closes within moments of connect; advance
-    /// to the next candidate before the ordinary reconnect backoff.
-    private func advanceMuxCandidate() {
-        if muxPathIndex < Self.muxPaths.count - 1 {
-            muxPathIndex += 1
-            EngineLog.shared.append("[observer] mux path unavailable, falling back to \(Self.muxPaths[muxPathIndex])")
-        }
-    }
-
     private func receive() {
-        let connectStart = Date()
         task?.receive { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -117,11 +97,10 @@ final class EngineEventObserver {
                     }
                     self.receive()
                 case .failure(let error):
-                    // A failed first receive means the path/auth was rejected —
-                    // try the next mux candidate before backing off.
-                    if Date().timeIntervalSince(connectStart) < 2 {
-                        self.advanceMuxCandidate()
-                    }
+                    // 瞬时断开（引擎重启/睡眠/启动期抖动）只按普通断连退避重连——
+                    // 路径由引擎引脚唯一决定（0.1.2 = remote.mux），不做「快速
+                    // 失败即换路径」的猜测式回退（曾把瞬时断连误判成路径不可用，
+                    // 永久落到已消亡的 events.mux 上 30s 循环掉线）。
                     EngineLog.shared.append("[observer] mux dropped: \(error.localizedDescription); reconnect in \(Int(self.reconnectDelay))s")
                     self.retry()
                 }
