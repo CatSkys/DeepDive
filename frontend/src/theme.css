@@ -1097,8 +1097,8 @@ button {
   animation: preview-in var(--dur-med) var(--ease-out);
 }
 
-/* 悬浮控制簇（关闭 / 全屏）：little 态挂窗外右缘，全屏态浮在面右上角。
-   配色不随主题——叠在任意内容上，与 .lightbox-close 同语言 */
+/* 悬浮控制簇（关闭 / 全屏 / 默认应用打开 / Finder 定位）：little 态挂窗外
+   右缘，全屏态浮在面右上角。配色不随主题——叠在任意内容上，与 .lightbox-close 同语言 */
 .preview-controls {
   position: absolute;
   top: 16px;
@@ -1123,18 +1123,11 @@ button {
 }
 .preview-control:hover { background: rgba(0, 0, 0, .78); }
 
-/* 头部：标签条（可横滚，吃满剩余宽）+ 分栏钮 */
-.preview-head {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 8px 0;
-}
+/* 头部：标签条（可横滚）——路径不常显，标签 title 与右键/ Finder 定位可及 */
 .preview-tabs {
-  flex: 1;
-  min-width: 0;
   display: flex;
   gap: 2px;
+  padding: 8px 8px 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1171,36 +1164,6 @@ button {
   border-radius: 0 0 calc(var(--dsh-radius-floating) - 1px) calc(var(--dsh-radius-floating) - 1px);
 }
 .preview-surface .preview-clip { border-radius: 0; }
-.preview-pane {
-  flex: 1; min-width: 0; min-height: 0;
-  display: flex; flex-direction: column;
-}
-.preview-pane + .preview-pane { border-left: 1px solid var(--line); }
-.preview-pane[data-split] { background: var(--fill-soft); }
-.preview-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--line);
-  min-height: 30px;
-}
-.preview-path {
-  flex: 1; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 11px; color: var(--ink-3);
-  direction: rtl; text-align: left; /* 长路径保尾段可见 */
-}
-.preview-act {
-  flex: none;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 22px; height: 22px;
-  border: none; border-radius: 6px;
-  background: transparent; color: var(--ink-3);
-}
-.preview-act:hover { background: var(--fill); color: var(--ink); }
-.preview-act:disabled { opacity: .35; }
-.preview-act:disabled:hover { background: transparent; color: var(--ink-3); }
 .preview-loading { padding: 16px; color: var(--ink-3); font-size: 12px; }
 .preview-fallback { padding: 16px; color: var(--ink-3); font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
 .preview-fallback-detail { color: var(--ink-3); opacity: .7; word-break: break-all; }

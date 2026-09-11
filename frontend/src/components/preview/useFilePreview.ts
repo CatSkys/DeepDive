@@ -1,5 +1,5 @@
-// 文件预览的状态：多标签 + 活动标签 + 分栏 pane + 全屏。全屏 = 预览取代
-// 会话界面（SessionView 据此让消息流/输入框让位并给头部加返回钮）。
+// 文件预览的状态：多标签 + 活动标签 + 全屏。全屏 = 预览取代会话界面
+// （SessionView 据此让消息流/输入框让位并给头部加返回钮）。
 // 只管状态，不碰渲染——呈现归 FilePreviewWindow，谁打开文件由调用方决定。
 
 import { useCallback, useState } from "react";
@@ -12,8 +12,6 @@ export interface PreviewTab {
 interface PreviewState {
   tabs: PreviewTab[];
   activePath: string | null;
-  /** 分栏 pane 的路径（null = 未分栏）；与主 pane 同标签集。 */
-  splitPath: string | null;
   fullscreen: boolean;
 }
 
@@ -22,12 +20,11 @@ export interface FilePreview extends PreviewState {
   close: (path: string) => void;
   closeAll: () => void;
   setActive: (path: string) => void;
-  toggleSplit: () => void;
   setFullscreen: (v: boolean) => void;
 }
 
 /** 空态即「预览已关闭」；关掉最后一个标签回到它（全屏态一并复位，不留空壳）。 */
-const CLOSED: PreviewState = { tabs: [], activePath: null, splitPath: null, fullscreen: false };
+const CLOSED: PreviewState = { tabs: [], activePath: null, fullscreen: false };
 
 export function useFilePreview(): FilePreview {
   const [state, setState] = useState<PreviewState>(CLOSED);
@@ -49,7 +46,6 @@ export function useFilePreview(): FilePreview {
       return {
         tabs,
         activePath: prev.activePath === path ? tabs[tabs.length - 1].path : prev.activePath,
-        splitPath: prev.splitPath === path ? null : prev.splitPath,
         fullscreen: prev.fullscreen,
       };
     });
@@ -57,10 +53,7 @@ export function useFilePreview(): FilePreview {
 
   const closeAll = useCallback(() => setState(CLOSED), []);
   const setActive = useCallback((path: string) => setState((prev) => ({ ...prev, activePath: path })), []);
-  const toggleSplit = useCallback(() => {
-    setState((prev) => ({ ...prev, splitPath: prev.splitPath === null ? prev.activePath : null }));
-  }, []);
   const setFullscreen = useCallback((v: boolean) => setState((prev) => ({ ...prev, fullscreen: v })), []);
 
-  return { ...state, open, close, closeAll, setActive, toggleSplit, setFullscreen };
+  return { ...state, open, close, closeAll, setActive, setFullscreen };
 }

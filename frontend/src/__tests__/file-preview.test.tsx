@@ -1,6 +1,5 @@
 // 文件预览窗口的渲染网眼（R-001 同款渲染层测试）：little 浮窗的蒙版/控制簇、
-// 全屏面的装配、分栏双 pane 的接线与回调。分栏在真实数据上难凑（要一个会话
-// 出两个产物文件），这里用假 state 钉住结构。@vitest-environment jsdom
+// 全屏面的装配、标签切换与关闭的接线。@vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { FilePreviewOverlay, FilePreviewSurface } from "../components/preview/FilePreviewWindow";
@@ -17,26 +16,28 @@ function fake(over: Partial<FilePreview> = {}): FilePreview {
   return {
     tabs: [{ path: "/w/a.txt", name: "a.txt" }],
     activePath: "/w/a.txt",
-    splitPath: null,
     fullscreen: false,
     open: vi.fn(),
     close: vi.fn(),
     closeAll: vi.fn(),
     setActive: vi.fn(),
-    toggleSplit: vi.fn(),
     setFullscreen: vi.fn(),
     ...over,
   };
 }
 
+const controlLabels = () =>
+  [...document.querySelectorAll(".preview-control")].map((b) => b.getAttribute("aria-label"));
+
 describe("little 浮窗", () => {
-  it("挂蒙版 + 浮窗，控制簇是关闭/全屏两颗，标签条给出文件名", () => {
+  it("挂蒙版 + 浮窗，控制簇四颗（关闭/全屏/默认应用打开/Finder），标签条给出文件名", () => {
     render(<FilePreviewOverlay preview={fake()} />);
     expect(document.querySelector(".preview-veil")).not.toBeNull();
     expect(document.querySelector(".preview-window")).not.toBeNull();
     expect(screen.getByRole("tab").textContent).toContain("a.txt");
-    const controls = [...document.querySelectorAll(".preview-control")];
-    expect(controls.map((b) => b.getAttribute("aria-label"))).toEqual(["关闭预览", "全屏预览"]);
+    expect(controlLabels()).toEqual(["关闭预览", "全屏预览", "默认应用打开", "在 Finder 中显示"]);
+    // 窗内不再有路径行 / 分栏钮
+    expect(document.querySelector(".preview-path, .preview-toolbar, .preview-pane")).toBeNull();
   });
 
   it("关闭钮与蒙版空白处都关掉预览；浮窗内的按下不误关", () => {
@@ -60,6 +61,17 @@ describe("little 浮窗", () => {
     expect(p.close).toHaveBeenCalledWith("/w/a.txt");
     expect(p.closeAll).not.toHaveBeenCalled();
   });
+
+  it("多标签时切活动标签走 setActive", () => {
+    const p = fake({
+      tabs: [{ path: "/w/a.txt", name: "a.txt" }, { path: "/w/b.txt", name: "b.txt" }],
+      activePath: "/w/a.txt",
+    });
+    render(<FilePreviewOverlay preview={p} />);
+    expect(document.querySelectorAll(".preview-tab")).toHaveLength(2);
+    screen.getAllByRole("tab")[1].click();
+    expect(p.setActive).toHaveBeenCalledWith("/w/b.txt");
+  });
 });
 
 describe("全屏面", () => {
@@ -68,40 +80,8 @@ describe("全屏面", () => {
     render(<FilePreviewSurface preview={p} />);
     expect(document.querySelector(".preview-surface")).not.toBeNull();
     expect(document.querySelector(".preview-veil")).toBeNull();
-    const controls = [...document.querySelectorAll(".preview-control")];
-    expect(controls.map((b) => b.getAttribute("aria-label"))).toEqual(["关闭预览", "退出全屏"]);
-    (controls[1] as HTMLElement).click();
+    expect(controlLabels()).toEqual(["关闭预览", "退出全屏", "默认应用打开", "在 Finder 中显示"]);
+    (document.querySelectorAll(".preview-control")[1] as HTMLElement).click();
     expect(p.setFullscreen).toHaveBeenCalledWith(false);
-  });
-});
-
-describe("分栏", () => {
-  const two = () => fake({
-    tabs: [{ path: "/w/a.txt", name: "a.txt" }, { path: "/w/b.txt", name: "b.txt" }],
-    activePath: "/w/b.txt",
-    splitPath: "/w/b.txt",
-  });
-
-  it("分栏时两个 pane，分栏侧带 data-split", () => {
-    render(<FilePreviewSurface preview={two()} />);
-    const panes = [...document.querySelectorAll(".preview-pane")];
-    expect(panes).toHaveLength(2);
-    expect(panes.filter((x) => x.hasAttribute("data-split"))).toHaveLength(1);
-    // 主 pane 收「其余标签」，分栏侧是 b.txt
-    const paths = [...document.querySelectorAll(".preview-path")].map((n) => n.textContent);
-    expect(paths).toEqual(["/w/a.txt", "/w/b.txt"]);
-  });
-
-  it("单标签时 pane 一个、分栏钮禁用", () => {
-    render(<FilePreviewSurface preview={fake()} />);
-    expect(document.querySelectorAll(".preview-pane")).toHaveLength(1);
-    expect((screen.getByRole("button", { name: "分栏（同屏双预览）" }) as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it("分栏钮回调 toggleSplit", () => {
-    const p = fake({ tabs: [{ path: "/w/a.txt", name: "a.txt" }, { path: "/w/b.txt", name: "b.txt" }] });
-    render(<FilePreviewSurface preview={p} />);
-    screen.getByRole("button", { name: "分栏（同屏双预览）" }).click();
-    expect(p.toggleSplit).toHaveBeenCalled();
   });
 });
