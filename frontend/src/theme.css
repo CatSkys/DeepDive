@@ -467,6 +467,22 @@ button {
   min-width: 0;
 }
 .title-row .title { flex: 0 1 auto; min-width: 0; }
+/* 全屏预览时的返回钮（会话标题左侧）：退出全屏，预览收回 little 窗 */
+.session-back {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  /* -4px：与头部 24px 左内边距做视觉对齐（同 .model 的 -6px 手法） */
+  margin-left: -4px;
+  border: none;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-2);
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.session-back:hover { background: var(--fill); color: var(--ink); }
 .ws-pill {
   display: none;
   flex: none;
@@ -1033,22 +1049,92 @@ button {
 }
 .att-chip.file .att-chip-x { position: absolute; top: 5px; right: 4px; }
 
-/* ---- 右侧文件预览 Dock（0.1.5 产物/文件预览；单屏极简）----
-   与左栏同族材质：无自绘底色（吃 .app 渐变）、左缘细线分隔。标签条可横滚。 */
-.preview-dock {
-  flex: none;
-  width: min(400px, 38vw);
-  min-width: 280px;
+/* ---- 文件预览窗口（0.1.5 产物/文件预览）：little 浮窗 + 全屏两态 ----
+   little 态 = 整窗蒙版（模糊 + 变暗）上的居中浮窗，控制钮挂在窗外右侧；
+   全屏态取代会话界面（SessionView 内联挂载），两态共用同一套内容样式。 */
+.preview-veil {
+  position: fixed;
+  inset: 0;
+  /* 高于页面内浮层（拖放 150、全屏预览面 40），低于 tooltip 1300 / 弹窗 1500 */
+  z-index: 160;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dsh-overlay-scrim);
+  /* 前缀顺序勿倒（PITFALLS §1.8）：-webkit- 在前 */
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  animation: preview-in var(--dur-med) var(--ease-out);
+}
+@keyframes preview-in { from { opacity: 0; } }
+.preview-window {
+  position: relative;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--line);
-  background: var(--fill-soft);
-  min-height: 0;
+  width: min(880px, 68vw);
+  height: min(680px, 74vh);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--dsh-radius-floating);
+  background: var(--panel-strong);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: 0 30px 70px rgba(0,0,0,.45);
+  /* fill=backwards：动画结束即摘除 transform，不留常驻堆叠上下文（PITFALLS §1.10） */
+  animation: preview-window-in var(--dur-med) var(--ease-out) backwards;
+}
+@keyframes preview-window-in { from { opacity: 0; transform: scale(.98); } }
+
+/* 全屏态：盖住会话体（消息流/输入框只停绘制、不卸载，滚动位置照旧） */
+.preview-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-strong);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  animation: preview-in var(--dur-med) var(--ease-out);
+}
+
+/* 悬浮控制簇（关闭 / 全屏）：little 态挂窗外右缘，全屏态浮在面右上角。
+   配色不随主题——叠在任意内容上，与 .lightbox-close 同语言 */
+.preview-controls {
+  position: absolute;
+  top: 16px;
+  left: calc(100% + 12px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.preview-surface .preview-controls { left: auto; right: 16px; }
+.preview-control {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--dur-fast) ease;
+}
+.preview-control:hover { background: rgba(0, 0, 0, .78); }
+
+/* 头部：标签条（可横滚，吃满剩余宽）+ 分栏钮 */
+.preview-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 0;
 }
 .preview-tabs {
+  flex: 1;
+  min-width: 0;
   display: flex;
   gap: 2px;
-  padding: 8px 8px 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1064,7 +1150,6 @@ button {
   background: transparent;
   color: var(--ink-3);
   font-size: 12px;
-  cursor: pointer;
 }
 .preview-tab:hover { color: var(--ink-2); background: var(--fill); }
 .preview-tab[data-active] { color: var(--ink); background: var(--fill); }
@@ -1076,6 +1161,22 @@ button {
   color: var(--ink-3);
 }
 .preview-tab-x:hover { background: var(--fill-heavy); color: var(--ink); }
+
+/* 内容裁剪：圆角窗里 iframe/图片贴角不越界；全屏态的角交给 .main 裁 */
+.preview-clip {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  border-radius: 0 0 calc(var(--dsh-radius-floating) - 1px) calc(var(--dsh-radius-floating) - 1px);
+}
+.preview-surface .preview-clip { border-radius: 0; }
+.preview-pane {
+  flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.preview-pane + .preview-pane { border-left: 1px solid var(--line); }
+.preview-pane[data-split] { background: var(--fill-soft); }
 .preview-toolbar {
   display: flex;
   align-items: center;
@@ -1096,9 +1197,10 @@ button {
   width: 22px; height: 22px;
   border: none; border-radius: 6px;
   background: transparent; color: var(--ink-3);
-  cursor: pointer;
 }
 .preview-act:hover { background: var(--fill); color: var(--ink); }
+.preview-act:disabled { opacity: .35; }
+.preview-act:disabled:hover { background: transparent; color: var(--ink-3); }
 .preview-loading { padding: 16px; color: var(--ink-3); font-size: 12px; }
 .preview-fallback { padding: 16px; color: var(--ink-3); font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
 .preview-fallback-detail { color: var(--ink-3); opacity: .7; word-break: break-all; }
@@ -1253,6 +1355,20 @@ button {
 /* ---------- session view ---------- */
 
 .session { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+/* 会话体：消息流 + 悬浮输入区（+ 全屏预览面）。整块做全屏预览的定位父级，
+   .session-bottom / .jump-down 的绝对定位以它为界——下缘与会话底一致。 */
+.session-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* 全屏预览取代会话界面：底下两颗只停绘制不卸载（滚动位置与事件状态都在
+   它们身上，display:none 会把 scrollTop 打回 0），全屏面盖在其上。 */
+.session-body[data-fullscreen] > .flow-row,
+.session-body[data-fullscreen] > .session-bottom,
+.session-body[data-fullscreen] > .jump-down { visibility: hidden; }
 /* 头部顶到卡片上沿：标题行与红绿灯/顶部钮同一视线（官方对齐方式） */
 .session-header {
   display: flex;
@@ -3631,38 +3747,3 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .feedback-note-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-
-/* 预览 Dock 增强（§1）：拖宽把手 / 全屏 / 分栏双 pane */
-.preview-resizer {
-  position: absolute;
-  left: -3px; top: 0; bottom: 0; width: 6px;
-  cursor: col-resize;
-  z-index: 5;
-}
-.preview-dock { position: relative; }
-.preview-dock.fullscreen {
-  position: absolute;
-  inset: 0;
-  width: auto !important;
-  margin-left: 0;
-  z-index: 40;
-  border-left: none;
-}
-.preview-dock-head {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 8px 8px 0;
-}
-.preview-dock-spacer { flex: 1; }
-.preview-panes {
-  flex: 1; min-height: 0;
-  display: flex;
-  gap: 1px;
-}
-.preview-pane {
-  flex: 1; min-width: 0; min-height: 0;
-  display: flex; flex-direction: column;
-}
-.preview-pane + .preview-pane { border-left: 1px solid var(--line); }
-.preview-pane[data-split] { background: var(--fill-soft); }

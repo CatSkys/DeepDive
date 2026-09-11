@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, ChevronLeft } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { t, useT } from "../i18n";
@@ -14,7 +14,8 @@ import { groupTurns, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
 import { useFeedback } from "../session/feedback";
 import { TurnNavigator } from "../session/TurnNavigator";
-import { FilePreviewDock, usePreviewDock } from "./preview/FilePreviewDock";
+import { FilePreviewOverlay, FilePreviewSurface } from "./preview/FilePreviewWindow";
+import { useFilePreview } from "./preview/useFilePreview";
 import { computeTurnProcess } from "../session/turnProcess";
 import { TurnProcessBar } from "../session/TurnProcessBar";
 import type { TurnOutlineEntry } from "../types";
@@ -50,8 +51,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // Turn 大纲轨（TODO §0-2）：活动轮（滚动派生）与深分页忙碌轮。
   const [activeTurn, setActiveTurn] = useState<number | undefined>(undefined);
   const [busyTurn, setBusyTurn] = useState<number | undefined>(undefined);
-  // 文件预览 Dock（产物/文件 chip 打开）
-  const previewDock = usePreviewDock();
+  // 文件预览窗口（产物/文件 chip 打开）：little 浮窗与全屏两态
+  const preview = useFilePreview();
+  const previewFull = preview.tabs.length > 0 && preview.fullscreen;
   // 产物/预览路径解析：模型常写 cwd 相对路径，/api/file 与壳动作都要绝对路径
   const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
   const absPreviewPath = useCallback((p: string) => (p.startsWith("/") || !wsPath ? p : `${wsPath}/${p}`), [wsPath]);
@@ -299,8 +301,23 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     <div className="session">
       <div className="session-header">
         {/* key=会话：切会话时标题行整体重挂播 header-in 入场（标题更新/流式
-            改名不换 key，不重播） */}
-        <SessionHeader key={sessionId} title={title} face={modelFace} />
+            改名不换 key，不重播）。全屏预览时标题左侧让出返回钮。 */}
+        <SessionHeader
+          key={sessionId}
+          title={title}
+          face={modelFace}
+          leading={previewFull ? (
+            <button
+              type="button"
+              className="session-back"
+              data-tip={t("返回")}
+              aria-label={t("返回")}
+              onClick={() => preview.setFullscreen(false)}
+            >
+              <ChevronLeft size={15} />
+            </button>
+          ) : undefined}
+        />
         {plan?.active && !plan?.pending && (
           <span className="plan-wrap">
             <button
@@ -322,171 +339,167 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <StatusCapsule sessionId={sessionId} scheduleRecords={scheduleRecords} />
         )}
       </div>
-      <div className="flow-row">
-        {outline.length >= 2 && (
-          <TurnNavigator
-            entries={outline}
-            activeTurn={activeTurn}
-            busyTurn={busyTurn}
-            loadedTurns={layout.loadedTurns}
-            onPick={(e) => void pickTurn(e)}
-          />
+      {/* 会话体：消息流 + 悬浮输入区 + （全屏预览时）盖在其上的预览面。
+          全屏不让底下两颗卸载——滚动位置与事件状态都在它们身上，停绘制即可。 */}
+      <div className="session-body" data-fullscreen={previewFull || undefined}>
+        <div className="flow-row">
+          {outline.length >= 2 && (
+            <TurnNavigator
+              entries={outline}
+              activeTurn={activeTurn}
+              busyTurn={busyTurn}
+              loadedTurns={layout.loadedTurns}
+              onPick={(e) => void pickTurn(e)}
+            />
+          )}
+        <div
+          className="flow fade-y"
+          ref={attachFlow}
+          data-fade-start={scrolled ? "" : undefined}
+          data-fade-end={!follow ? "" : undefined}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
+            setScrolled(el.scrollTop > 2);
+            trackActive();
+            // 滚到顶自动向前翻页（替代手点「载入更早」）：靠近顶部即拉一页；
+            // loadOlder 内部有 paging 互斥 + 锚点保位，连续触发安全。
+            if (el.scrollTop < 48 && hasMore && !loadingOlder) void loadOlder();
+          }}
+        >
+          {/* key=会话:已加载——历史到达那一刻（off→on）重挂播 session-enter
+              入场；流式增量不换 key 不重播；未加载完保持 off 不播（空容器） */}
+          <div className="flow-inner" key={`${sessionId}:${items.length > 0 ? "on" : "off"}`}>
+            {loadError && items.length === 0 && (
+              <div className="load-error" role="alert">
+                {t("历史加载失败")}
+                <button type="button" onClick={retry}>{t("重试")}</button>
+              </div>
+            )}
+            {loadingOlder && (
+              <div className="load-older" aria-live="polite">{t("加载中…")}</div>
+            )}
+            {(() => {
+              // DSH data-actions-reveal 的移植变体（用户定稿偏离官方）：官方是
+              // 图标常驻、时间标签 hover；这里统一为按钮+Meta 全部 hover 才显现，
+              // 作用域挂在轮容器 .turn-group 上——悬停轮内正文/工具/气泡即显现
+              // 本轮的 user chrome 与 turn-tail meta。
+              const { keyIdx, groups } = layout;
+              const nodes: React.ReactNode[] = [];
+              groups.forEach((g: TurnGroup, gi: number) => {
+                // 轮内过程折叠：已闭合轮把最终回答之前的工具/中间消息收成披露条；
+                // 默认收起，点击展开。正在跑的轮（无 turn-tail）不折。
+                const proc = g.turn !== null ? computeTurnProcess(g.items) : null;
+                const procOpen = proc !== null && g.turn !== null && processOpen.has(g.turn);
+                const toggleProc = g.turn !== null
+                  ? (open: boolean) => {
+                      const turnNo = g.turn as number;
+                      setProcessOpen((prev) => {
+                        const next = new Set(prev);
+                        if (open) next.add(turnNo);
+                        else next.delete(turnNo);
+                        return next;
+                      });
+                    }
+                  : null;
+                const barAt = proc ? (proc.processIndices[0] ?? proc.answerIndex) : -1;
+                let procBarEmitted = false;
+                nodes.push(
+                  <div key={`turn-${g.turn ?? "head"}-${gi}`} className="turn-group" data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
+                    {g.items.map((item, ii) => {
+                      const isProcessMember = proc !== null
+                        && ii < proc.answerIndex
+                        && proc.processIndices.includes(ii);
+                      const hideItem = isProcessMember && !procOpen;
+                      // 披露条挂在过程窗起点（首个过程项；无外部过程时挂最终回答前），
+                      // 该起点项被收起时仍要吐出条子，否则折叠态无处点开。
+                      const barHere = proc !== null && toggleProc !== null
+                        && !procBarEmitted && ii === barAt;
+                      if (barHere) procBarEmitted = true;
+                      const bar = barHere && proc && toggleProc ? (
+                        <TurnProcessBar
+                          info={proc}
+                          open={procOpen}
+                          onToggle={() => toggleProc(!procOpen)}
+                        />
+                      ) : null;
+                      if (hideItem) return bar ? <span key={item.key} className="turn-process-slot">{bar}</span> : null;
+                      const idx = keyIdx.get(item.key) ?? -1;
+                      const isAnswer = proc !== null && ii === proc.answerIndex;
+                      return (
+                        <div
+                          key={item.key}
+                          className="chat-anchor-row"
+                          ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
+                        >
+                          {bar}
+                          <Item
+                            item={item}
+                            turnRunning={running}
+                            onBranch={branchFrom}
+                            sessionId={sessionId}
+                            feedbackCtrl={feedback}
+                            onPreviewFile={(p) => preview.open(absPreviewPath(p))}
+                            wsPath={wsPath}
+                            hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
+                            onContinue={() => {
+                              void api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>,
+                );
+              });
+              return nodes;
+            })()}
+            {pending.map((a) => (
+              <ApprovalCard key={a.eventId} eventId={a.eventId} toolName={a.toolName} reason={a.reason} />
+            ))}
+            {sessionQuestions.map((q) => {
+              // plan-review 提意 → 决策卡接管；其余保持通用提问流（官方分流规则）
+              const review = planReviewOf(q.questions);
+              if (review) {
+                return <PlanReviewCard key={q.eventId} eventId={q.eventId} review={review} />;
+              }
+              return <QuestionCard key={q.eventId} eventId={q.eventId} questions={q.questions} />;
+            })}
+            {running && <LoadingState label="Deep diving..." since={runningSince} />}
+          </div>
+        </div>
+        </div>
+        {!follow && (
+          <button
+            className="jump-down"
+            data-tip={t("回到最新")}
+            onClick={() => scrollFlowToBottom(true)}
+          >
+            <ArrowDown size={16} />
+          </button>
         )}
-        {previewDock.tabs.length > 0 && (
-          <FilePreviewDock
-            tabs={previewDock.tabs}
-            activePath={previewDock.activePath}
-            setActivePath={previewDock.setActivePath}
-            onCloseTab={previewDock.close}
-            dock={previewDock}
-            onCloseTabTop={previewDock.close}
-          />
-        )}
-      <div
-        className="flow fade-y"
-        ref={attachFlow}
-        data-fade-start={scrolled ? "" : undefined}
-        data-fade-end={!follow ? "" : undefined}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
-          setScrolled(el.scrollTop > 2);
-          trackActive();
-          // 滚到顶自动向前翻页（替代手点「载入更早」）：靠近顶部即拉一页；
-          // loadOlder 内部有 paging 互斥 + 锚点保位，连续触发安全。
-          if (el.scrollTop < 48 && hasMore && !loadingOlder) void loadOlder();
-        }}
-      >
-        {/* key=会话:已加载——历史到达那一刻（off→on）重挂播 session-enter
-            入场；流式增量不换 key 不重播；未加载完保持 off 不播（空容器） */}
-        <div className="flow-inner" key={`${sessionId}:${items.length > 0 ? "on" : "off"}`}>
-          {loadError && items.length === 0 && (
-            <div className="load-error" role="alert">
-              {t("历史加载失败")}
-              <button type="button" onClick={retry}>{t("重试")}</button>
+        <div
+          className="session-bottom"
+          ref={attachBottom}
+        >
+          {queuedItems.length > 0 && (
+            <div className="queue-dock-wrap">
+              <QueueDock sessionId={sessionId} items={queuedItems} sendingRpcIds={sendingRpcIds} />
             </div>
           )}
-          {loadingOlder && (
-            <div className="load-older" aria-live="polite">{t("加载中…")}</div>
+          <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
+          {summary?.origin === "subagent" && (subagentMode !== "continuable" || !summary.parentSessionId) ? (
+            <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
+          ) : summary?.origin === "subagent" ? (
+            // continuable 子会话（0.1.5）：subagents/prompt 经父会话投递
+            <Composer sessionId={sessionId} ctx={ctxData} variant={{ kind: "subagent", parentSessionId: summary.parentSessionId! }} registerSending={registerSending} />
+          ) : (
+            <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
           )}
-          {(() => {
-            // DSH data-actions-reveal 的移植变体（用户定稿偏离官方）：官方是
-            // 图标常驻、时间标签 hover；这里统一为按钮+Meta 全部 hover 才显现，
-            // 作用域挂在轮容器 .turn-group 上——悬停轮内正文/工具/气泡即显现
-            // 本轮的 user chrome 与 turn-tail meta。
-            const { keyIdx, groups } = layout;
-            const nodes: React.ReactNode[] = [];
-            groups.forEach((g: TurnGroup, gi: number) => {
-              // 轮内过程折叠：已闭合轮把最终回答之前的工具/中间消息收成披露条；
-              // 默认收起，点击展开。正在跑的轮（无 turn-tail）不折。
-              const proc = g.turn !== null ? computeTurnProcess(g.items) : null;
-              const procOpen = proc !== null && g.turn !== null && processOpen.has(g.turn);
-              const toggleProc = g.turn !== null
-                ? (open: boolean) => {
-                    const turnNo = g.turn as number;
-                    setProcessOpen((prev) => {
-                      const next = new Set(prev);
-                      if (open) next.add(turnNo);
-                      else next.delete(turnNo);
-                      return next;
-                    });
-                  }
-                : null;
-              const barAt = proc ? (proc.processIndices[0] ?? proc.answerIndex) : -1;
-              let procBarEmitted = false;
-              nodes.push(
-                <div key={`turn-${g.turn ?? "head"}-${gi}`} className="turn-group" data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
-                  {g.items.map((item, ii) => {
-                    const isProcessMember = proc !== null
-                      && ii < proc.answerIndex
-                      && proc.processIndices.includes(ii);
-                    const hideItem = isProcessMember && !procOpen;
-                    // 披露条挂在过程窗起点（首个过程项；无外部过程时挂最终回答前），
-                    // 该起点项被收起时仍要吐出条子，否则折叠态无处点开。
-                    const barHere = proc !== null && toggleProc !== null
-                      && !procBarEmitted && ii === barAt;
-                    if (barHere) procBarEmitted = true;
-                    const bar = barHere && proc && toggleProc ? (
-                      <TurnProcessBar
-                        info={proc}
-                        open={procOpen}
-                        onToggle={() => toggleProc(!procOpen)}
-                      />
-                    ) : null;
-                    if (hideItem) return bar ? <span key={item.key} className="turn-process-slot">{bar}</span> : null;
-                    const idx = keyIdx.get(item.key) ?? -1;
-                    const isAnswer = proc !== null && ii === proc.answerIndex;
-                    return (
-                      <div
-                        key={item.key}
-                        className="chat-anchor-row"
-                        ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
-                      >
-                        {bar}
-                        <Item
-                          item={item}
-                          turnRunning={running}
-                          onBranch={branchFrom}
-                          sessionId={sessionId}
-                          feedbackCtrl={feedback}
-                          onPreviewFile={(p) => previewDock.open(absPreviewPath(p))}
-                          wsPath={wsPath}
-                          hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
-                          onContinue={() => {
-                            void api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
-                          }}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>,
-              );
-            });
-            return nodes;
-          })()}
-          {pending.map((a) => (
-            <ApprovalCard key={a.eventId} eventId={a.eventId} toolName={a.toolName} reason={a.reason} />
-          ))}
-          {sessionQuestions.map((q) => {
-            // plan-review 提意 → 决策卡接管；其余保持通用提问流（官方分流规则）
-            const review = planReviewOf(q.questions);
-            if (review) {
-              return <PlanReviewCard key={q.eventId} eventId={q.eventId} review={review} />;
-            }
-            return <QuestionCard key={q.eventId} eventId={q.eventId} questions={q.questions} />;
-          })}
-          {running && <LoadingState label="Deep diving..." since={runningSince} />}
         </div>
+      {previewFull && <FilePreviewSurface preview={preview} />}
       </div>
-      </div>
-      {!follow && (
-        <button
-          className="jump-down"
-          data-tip={t("回到最新")}
-          onClick={() => scrollFlowToBottom(true)}
-        >
-          <ArrowDown size={16} />
-        </button>
-      )}
-      <div
-        className="session-bottom"
-        ref={attachBottom}
-      >
-        {queuedItems.length > 0 && (
-          <div className="queue-dock-wrap">
-            <QueueDock sessionId={sessionId} items={queuedItems} sendingRpcIds={sendingRpcIds} />
-          </div>
-        )}
-        <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
-        {summary?.origin === "subagent" && (subagentMode !== "continuable" || !summary.parentSessionId) ? (
-          <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
-        ) : summary?.origin === "subagent" ? (
-          // continuable 子会话（0.1.5）：subagents/prompt 经父会话投递
-          <Composer sessionId={sessionId} ctx={ctxData} variant={{ kind: "subagent", parentSessionId: summary.parentSessionId! }} registerSending={registerSending} />
-        ) : (
-          <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
-        )}
-      </div>
+      {preview.tabs.length > 0 && !previewFull && <FilePreviewOverlay preview={preview} />}
     </div>
   );
 }

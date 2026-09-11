@@ -2,8 +2,10 @@
 // WorkspacePill）+ 模型触发器（含思考强度标签）+ ModelMenu。模型面数据由
 // 调用方经 face 传入——SessionView 用 useSessionModels 的返回值，App 的
 // hero 态用自有目录/选模型逻辑（pickModel 带建会话兜底，合同不同）。
+// leading 是标题左侧的槽位（全屏预览时放返回钮），由调用方给。
 // 思考强度切换快捷键（快捷键页可改）：监听 dd:cycle-effort，按当前档位
 // 循环到下一档并经 applyModelEffort 提交；强度标签 tooltip 带键帽同步。
+import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
@@ -27,7 +29,7 @@ export interface ModelFace {
   applyModelEffort: (m: ModelOption, id: string | undefined) => void | Promise<void>;
 }
 
-export function SessionHeader({ title, face }: { title: string; face: ModelFace }) {
+export function SessionHeader({ title, face, leading }: { title: string; face: ModelFace; leading?: ReactNode }) {
   const { keybinds } = useStore();
   const { t } = useT();
   // face（useSessionModels 每渲染返回新对象）镜像到 ref：监听只挂一次，
@@ -54,6 +56,7 @@ export function SessionHeader({ title, face }: { title: string; face: ModelFace 
   return (
     <div className="left">
       <div className="title-row">
+        {leading}
         <div className="title">{title}</div>
         <PresetPill />
         <WorkspacePill />

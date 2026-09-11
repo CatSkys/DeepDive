@@ -395,8 +395,11 @@ export const api = {
   settingsUpdate: (payload: { ns: string; patch: unknown; expectedRevision: unknown }) => unary("settings/update", payload as unknown as Record<string, unknown>),
   settingsMutate: (payload: { ns: string; ops: Array<{ op: "set" | "unset"; path: string[]; value?: unknown }>; expectedRevision: unknown }) =>
     unary("settings/mutate", payload as unknown as Record<string, unknown>),
+  /** 密钥实况。返回体是 ref → CredentialInfo 的裸 map（0.1.5 契约：生成客户端
+   *  `dsh-api-settings-controller` 声明 `describe: refs => Record<string, CredentialInfo>`，
+   *  0.1.2 的 `{credentials:{…}}` 包裹已不存在）。 */
   credentialsDescribe: (payload: { refs: string[] }) =>
-    unary<{ credentials: Record<string, { configured: boolean; source?: string; writable?: boolean }> }>("credentials/describe", payload),
+    unary<Record<string, { configured: boolean; source?: string; writable?: boolean }>>("credentials/describe", payload),
   credentialsSet: (payload: { ref: string; value: string }) => unary("credentials/set", payload),
   credentialsUnset: (payload: { ref: string }) => unary("credentials/unset", payload),
   /** 可配置提供方目录（display 元数据在 llm/listProviders，配置归属在此）。 */

@@ -75,7 +75,7 @@ export function useModelCatalog(): ModelCatalog {
         try {
           const cr = await api.credentialsDescribe({ refs });
           const configured: Record<string, boolean> = {};
-          for (const [ref, c] of Object.entries(cr.credentials ?? {})) {
+          for (const [ref, c] of Object.entries(cr ?? {})) {
             configured[ref] = !!c?.configured;
             if (configured[ref]) any = true;
           }

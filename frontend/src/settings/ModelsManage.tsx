@@ -102,7 +102,7 @@ export function ModelsManage() {
       if (row.provider === "deepseek-official") {
         const ref = keyRefOf(row.provider, cat.deepseek.apiKeyEnv);
         const cr = await api.credentialsDescribe({ refs: [ref] });
-        const ok = !!cr.credentials?.[ref]?.configured;
+        const ok = !!cr?.[ref]?.configured;
         setTests((s0) => ({ ...s0, [key]: { state: ok ? "ok" : "fail", msg: ok ? t("密钥已配置") : t("未配置密钥") } }));
       } else {
         const r = await api.discoverModels({ settingsNs: "llm-pi-ai", provider: row.provider });
