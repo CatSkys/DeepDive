@@ -4,8 +4,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { t, tt } from "../i18n";
-import { openPath, revealPath } from "../host";
-import { ExternalLink, FolderSearch } from "lucide-react";
+import { openPath } from "../host";
 import { useStore } from "../store";
 import { DiffBlock } from "../components/DiffBlock";
 import { AttachmentThumb } from "../components/AttachmentImage";
@@ -273,19 +272,13 @@ export function ProducedFiles({ paths, onPreview, wsPath }: { paths: string[]; o
       <span className="produced-label">{t("产物")}</span>
       <div className="produced-row">
         {shown.map((p) => (
-          <span key={p} className="produced-file-group">
-            {/* 预览（点 chip）+ 默认应用打开 / Finder 定位（hover 小钮，0.1.5 产物三动作） */}
-            <button type="button" className="produced-file" data-tip={p}
-              onClick={() => (onPreview ? onPreview(abs(p)) : openPath(abs(p)))}>
-              {basename(p)}
-            </button>
-            <span className="produced-file-acts">
-              <button type="button" className="produced-act" data-tip={t("默认应用打开")} aria-label={t("默认应用打开")}
-                onClick={() => openPath(p)}><ExternalLink size={11} /></button>
-              <button type="button" className="produced-act" data-tip={t("在 Finder 中显示")} aria-label={t("在 Finder 中显示")}
-                onClick={() => revealPath(abs(p))}><FolderSearch size={11} /></button>
-            </span>
-          </span>
+          // 点 chip = 应用内预览；默认应用打开 / Finder 定位在右键菜单里
+          // （data-file-ctx 是消息流右键菜单认的锚，见 SelectionActions）
+          <button key={p} type="button" className="produced-file" data-tip={p}
+            data-file-ctx={abs(p)}
+            onClick={() => (onPreview ? onPreview(abs(p)) : openPath(abs(p)))}>
+            {basename(p)}
+          </button>
         ))}
         {hidden > 0 && <span className="produced-more">{tt("+ {n} 个文件", "+{n} files", { n: hidden })}</span>}
       </div>

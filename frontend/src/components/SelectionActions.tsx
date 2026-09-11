@@ -1,16 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { t } from "../i18n";
+import { openPath, revealPath } from "../host";
 import { DD_EVENTS } from "../events";
 
-// 文字选择动作（用户定稿，参考 Raycast 选中弹窗）：消息流内选中文字 →
-// 选区上方浮出 [添加到当前任务][复制]；右键（非输入框）→ 仅[复制]的自定义
-// 菜单，并全程压掉 WKWebView 原生菜单（刷新/查找不需要）。输入框/文本域
-// 不拦截：原生编辑菜单（粘贴/纠错）保留。
+// 消息流右键菜单与选中浮条（用户定稿，参考 Raycast 选中弹窗）：选中文字 →
+// 选区上方浮出 [添加到当前任务][复制]；右键（非输入框）→ 光标处的自定义菜单，
+// 并全程压掉 WKWebView 原生菜单（刷新/查找不需要）——落在产物文件 chip
+// （data-file-ctx=绝对路径，ToolRow 的 ProducedFiles 挂）上给 [默认应用打开]
+// [在 Finder 中显示]，其余情况有选区就给 [复制]。输入框/文本域不拦截：
+// 原生编辑菜单（粘贴/纠错）保留。
 // portal 到 body + fixed 定位：flow 内层叠上下文密集（isolation/动画），
 // 贴身定位会被吞（.model-menu 同款教训）。
 
 interface FloatState { x: number; y: number; text: string }
+interface FileState { x: number; y: number; path: string }
 
 /** 非折叠且落在消息流内的选区文字；无则 null。 */
 function selectionInFlow(): string | null {
@@ -27,10 +31,15 @@ function selectionInFlow(): string | null {
 export function SelectionActions() {
   const [popup, setPopup] = useState<FloatState | null>(null);
   const [menu, setMenu] = useState<FloatState | null>(null);
+  const [file, setFile] = useState<FileState | null>(null);
+
+  // 收起全部浮层。必须是组件级：渲染体里的按钮回调也只能用它——
+  // 早先它只存在于 effect 内，那些 close() 其实调到全局 window.close()
+  // （浮条点「复制」后不收起）。
+  const close = useCallback(() => { setPopup(null); setMenu(null); setFile(null); }, []);
 
   useEffect(() => {
     const BAR = 40; // 浮条估高 + 间距：定位在其选区上方
-    const close = () => { setPopup(null); setMenu(null); };
     const insideSelf = (e: MouseEvent) =>
       (e.target as Element | null)?.closest?.(".sel-actions") != null;
 
@@ -60,6 +69,9 @@ export function SelectionActions() {
       if (target?.closest?.("input, textarea, [contenteditable]")) return;
       e.preventDefault();
       close();
+      // 产物文件 chip：文件动作优先（光标就在 chip 上，选区语义让位）
+      const chip = target?.closest?.("[data-file-ctx]")?.getAttribute("data-file-ctx");
+      if (chip) { setFile({ x: e.clientX, y: e.clientY, path: chip }); return; }
       const text = selectionInFlow();
       if (text) setMenu({ x: e.clientX, y: e.clientY, text });
     };
@@ -78,7 +90,7 @@ export function SelectionActions() {
       window.removeEventListener("scroll", onScroll, true);
       document.removeEventListener("contextmenu", onContext);
     };
-  }, []);
+  }, [close]);
 
   const copy = async (text: string) => {
     try { await navigator.clipboard.writeText(text); } catch { /* 剪贴板不可用（权限/焦点缺失）：跳过反馈 */ }
@@ -91,8 +103,8 @@ export function SelectionActions() {
     close();
   };
 
-  // 两个浮层共用一套浮条样式，按钮集不同；右键菜单只带[复制]
-  const bar = (s: FloatState, buttons: React.ReactNode) =>
+  // 三个浮层共用一套浮条样式，按钮集不同；右键菜单按锚点分文件动作 / 复制
+  const bar = (s: { x: number; y: number }, buttons: React.ReactNode) =>
     createPortal(
       <div className="sel-actions" style={{ left: s.x, top: s.y }}>
         {buttons}
@@ -105,6 +117,14 @@ export function SelectionActions() {
       <>
         <button onClick={() => appendToComposer(popup.text)}>{t("添加到当前任务")}</button>
         <button onClick={() => void copy(popup.text)}>{t("复制")}</button>
+      </>
+    ));
+  }
+  if (file) {
+    return bar(file, (
+      <>
+        <button onClick={() => { openPath(file.path); close(); }}>{t("默认应用打开")}</button>
+        <button onClick={() => { revealPath(file.path); close(); }}>{t("在 Finder 中显示")}</button>
       </>
     ));
   }
