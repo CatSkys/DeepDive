@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { useT } from "../i18n";
+import { useStore } from "../store";
 import {
   collectUsageStats, formatDays, formatDuration, formatTokensShort,
   lastNDayKeys, modelOrderOf, type UsageDay, type UsageStats,
@@ -29,6 +30,13 @@ const EMPTY_DAY = (day: string): UsageDay => ({ day, tokens: 0, turns: 0, byMode
 
 export function UsageSection() {
   const { t, tt, lang } = useT();
+  const store = useStore();
+  // 口径＝全部本地历史（含已归档）：用引擎原始列表，只滤掉子会话/空会话与
+  // **本地已删除**的（后者引擎仍列着但日志已删，流既不开也不报错会悬挂）。
+  const chats = useMemo(
+    () => store.allSessions.filter((s) => s.origin !== "subagent" && !s.blank && !store.removed.has(s.sessionId)),
+    [store.allSessions, store.removed],
+  );
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [errMsg, setErrMsg] = useState("");
@@ -40,7 +48,12 @@ export function UsageSection() {
     const run = ++runRef.current;
     setBusy(true);
     try {
-      const s = await collectUsageStats();
+      // 渐进：缓存命中部分先渲染（通常瞬时），剩余会话按批补齐——页面不再空等
+      const s = await collectUsageStats(chats, (p) => {
+        if (runRef.current !== run) return;
+        setStats(p.stats);
+        setPhase("ready");
+      });
       if (runRef.current !== run) return;
       setStats(s);
       setPhase("ready");
@@ -51,7 +64,7 @@ export function UsageSection() {
     } finally {
       if (runRef.current === run) setBusy(false);
     }
-  }, []);
+  }, [chats]);
   useEffect(() => { void load(); }, [load]);
 
   const models: LegendModel[] = useMemo(

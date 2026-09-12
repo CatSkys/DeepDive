@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays, dayKeyOf, foldSessionEvents, formatDays, formatDuration, formatTokensShort,
-  lastNDayKeys, makeUsageFold, modelOrderOf, statsFromFold,
+  lastNDayKeys, makeUsageFold, mergeSessionUsage, modelOrderOf, statsFromFold,
 } from "../stats/usageStats";
 import { arcPath, smoothPath } from "../stats/chartMath";
 import type { SessionEvent } from "../types";
@@ -179,5 +179,19 @@ describe("chartMath", () => {
     expect(arcPath(0, 0, 10, 0, Math.PI)).toContain("A 10 10 0 1 1");
     expect(arcPath(0, 0, 10, 0, Math.PI * 2).match(/A 10 10/g)).toHaveLength(2);
     expect(arcPath(0, 0, 10, 0, 0)).toBe("");
+  });
+});
+
+// 每会话折叠结果的合并（缓存复用路径）：日聚合相加、byModel 相加、最长聊天取最大。
+describe("mergeSessionUsage", () => {
+  it("日/模型量相加，最长聊天取较大者", () => {
+    const fold = makeUsageFold();
+    mergeSessionUsage(fold, [{ day: "2026-09-01", tokens: 10, turns: 1, byModel: { a: 10 } }], 500);
+    mergeSessionUsage(fold, [{ day: "2026-09-01", tokens: 5, turns: 2, byModel: { a: 3, b: 2 } }], 300);
+    const day = fold.days.get("2026-09-01")!;
+    expect(day.tokens).toBe(15);
+    expect(day.turns).toBe(3);
+    expect(day.byModel).toEqual({ a: 13, b: 2 });
+    expect(fold.longestChatMs).toBe(500);
   });
 });

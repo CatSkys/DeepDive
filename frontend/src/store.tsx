@@ -109,6 +109,9 @@ interface Store {
   /** 归档保留时长档。 */
   archiveRetention: ArchiveRetention;
   setArchiveRetention: (v: ArchiveRetention) => void;
+  /** 引擎原始会话列表（**含已归档**）：仅使用统计这类"全量历史"视图用，
+   *  常规列表请用 `sessions`（已按归档与本地删除过滤）。 */
+  allSessions: SessionSummary[];
   /** 本地取消归档 / 本地删除的会话（视图即时生效；引擎状态在下次启动空窗期收敛）。 */
   unarchived: Set<string>;
   removed: Set<string>;
@@ -601,6 +604,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       archived: visibleArchived(archived, unarchived, removedLocal),
       activeWorkspaceId,
       wsOfSession,
+      allSessions: sessions,
       sessions: visibleSessions(
         sessions.filter((s) => !visibleArchived(archived, unarchived, removedLocal).has(s.sessionId)),
         removedLocal,
@@ -660,7 +664,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, unarchived, removedLocal, unarchiveSession, removeSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -185,6 +185,11 @@
 - 现设计（用户定稿）：**UI 即时生效 + 延迟落账**——① 前端持本地覆盖集（`deepdive.unarchived` / `deepdive.removed`，`sessionOverrides.ts` 纯函数过滤，导出层统一口径，轮询**存原始列表**）；② 删除时壳立刻删日志目录（毫秒级、不需引擎配合）；③ 覆盖集同步给壳登记在 UserDefaults，**下次启动的空窗期**（`applicationDidFinishLaunching` 里、`supervisor.start()` 之前）一次落账，成功后清登记（失败留到下轮重试）；④ 覆盖项在引擎不再报告它已归档 / 不再列出时自动收敛，避免无限增长。
 - 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache.json` 的 `tables.sessions[<id>]`；会话日志 = `sessions/<转义 cwd>/<sessionId>/`（**目录名就是 sessionId**，别复刻引擎的 cwd 转义规则——扫一层同名目录即可）。写盘一律临时文件 + `replaceItemAt`，结构不符拒绝写入并报错。
 
+### 4.16 逐会话读历史很贵：统计类页面必须"记录在前、打开直接展示"
+- 实测（2026-09-12，用户报"使用统计加载非常慢"）：引擎没有 history RPC，读一条会话的历史要 `session/follow` 开窗 + `session/page` 回翻，**且必须逐会话开流**——本机 159 个会话、并发 24 也要 ~17s（加大并发无用：引擎侧读取基本串行）。另有悬挂面：本地已删除但引擎仍列出的会话，follow 流既不开也不报错，promise 永不 settle → 整轮收集永不完成（页面靠渐进上报看着不慢，但缓存写不进去、刷新钮一直转）。
+- 处置（用户定稿的数据模型）：**用量按会话记录在本地**（`deepdive.usageFold`，localStorage，键 sessionId、值含 updatedAt 做失效判定），与归档/删除解耦（归档或删掉聊天不抹账，只要那段时间用过就算）；页面第一帧折缓存直接出数（复访实测 506ms 出全量），引擎侧只在后台补 `updatedAt` 变过的会话、合并写回（不 prune，历史不丢）。配套：每会话读加超时（超时按失败、不写缓存），调用方传"已排除本地已删除"的会话清单。
+- 通用教训：**同一份事实要在多个入口出现（统计/列表/搜索）时，别在入口处现读全量历史**；能增量记录的就在使用路径上记，打开即展示。
+
 ### 4.14 bundled node 绝不能放进 `Contents/MacOS/`
 - 事故（2026-09-10 用户实测）：引擎 node 放在 `Contents/MacOS/node`，Launch Services 把同 bundle `MacOS/` 下的额外可执行文件当成第二个 app——引擎一拉起（含重启）Dock 就闪出独立的 node 图标/窗口，用户连报「不停弹 node 窗口」。
 - 处置：node 落在 `Contents/Resources/Runtime/node`（与 dsh 闭包同级）；`EngineSupervisor.bundledRuntimeState()` / `embed-engine.sh` / `package-macos.sh` 签名 case 同步。`Contents/MacOS/` 只保留 app 主可执行文件。

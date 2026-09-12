@@ -7,10 +7,25 @@
 //   聊天时长 = 单会话 Σ(step/start→assistant/message) + Σ(tool/call→tool/result)
 //   的墙钟合计，跨会话取最大；compaction/summary 的 usage 也是真实调用，一并计入。
 // 折叠为纯函数（__tests__ 钉形状）；collectUsageStats 是唯一带 IO 的入口。
+//
+// 数据模型（用户定稿，2026-09-12）：**用量按会话记录在本地，与归档/删除无关**——
+// 只要那段时间用过就算数，归档或删掉聊天不抹账。因此：
+//   · localStorage 的每会话折叠（deepdive.usageFold）是**事实源**：页面第一帧就把
+//     整份缓存折出来直接展示（含已归档、已删除会话的历史），不等任何 IO；
+//   · 引擎侧读历史只能走 session/follow 开窗 + session/page 回翻（没有 history
+//     RPC），且要逐会话开流（159 会话十几秒）→ 所以只在**后台补差**：只读 updatedAt
+//     变化过、且本地没删的会话，结果合并写回缓存（不 prune，历史不丢）；
+//   · onProgress 渐进上报：先出缓存里的账，后台补完再刷一版。
+// 另两处必须先修的病（本轮实测）：
+//   · **悬挂**：某些会话（如本地已删除但引擎仍列出的）follow 流既不开也不报错，
+//     promise 永不 settle → 整轮收集永不完成（页面因 ③ 看着不慢，但缓存写不进去、
+//     刷新一直转）。处置：每会话加超时，超时按失败算且不写缓存；
+//   · **会话清单由调用方给**：直接用 api.sessions() 会把本地已删除/已归档的会话
+//     一起算进来（前者悬挂、后者不该计入），改由页面传 store 里已过滤的列表。
 
 import { api } from "../api";
 import type {
-  AssistantMessageData, CompactionSummaryData, SessionEvent, ToolCallData, ToolResultData, UserMessageData,
+  AssistantMessageData, CompactionSummaryData, SessionEvent, SessionSummary, ToolCallData, ToolResultData, UserMessageData,
 } from "../types";
 import type { Lang } from "../i18n";
 
@@ -249,7 +264,53 @@ export function formatMonthLabel(key: string, lang: Lang): string {
 /* ── 取数（唯一 IO 入口）── */
 
 const HISTORY_PAGE = 500;
-const FETCH_POOL = 6;
+const FETCH_POOL = 24;
+
+/* ── 每会话折叠缓存：键为 sessionId，值带 updatedAt 做失效判定 ── */
+const CACHE_KEY = "deepdive.usageFold";
+const CACHE_VERSION = 1;
+
+interface SessionUsage {
+  updatedAt: number;
+  days: UsageDay[];
+  longestChatMs: number;
+}
+
+function readCache(): Record<string, SessionUsage> {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as { v?: number; sessions?: Record<string, SessionUsage> };
+    return parsed.v === CACHE_VERSION && parsed.sessions ? parsed.sessions : {};
+  } catch { /* 缓存损坏/无 localStorage → 当作没缓存，重算即可 */ }
+  return {};
+}
+
+function writeCache(sessions: Record<string, SessionUsage>): void {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ v: CACHE_VERSION, sessions }));
+  } catch { /* 配额满/受限环境：不写缓存，下次照样能算出来 */ }
+}
+
+/** 把单会话的折叠结果并入全局（日聚合相加、最长聊天取最大）。 */
+export function mergeSessionUsage(fold: UsageFold, days: UsageDay[], longestChatMs: number): void {
+  for (const d of days) {
+    let target = fold.days.get(d.day);
+    if (!target) {
+      target = { day: d.day, tokens: 0, turns: 0, byModel: {} };
+      fold.days.set(d.day, target);
+    }
+    target.tokens += d.tokens;
+    target.turns += d.turns;
+    for (const [model, tokens] of Object.entries(d.byModel)) {
+      target.byModel[model] = (target.byModel[model] ?? 0) + tokens;
+    }
+  }
+  fold.longestChatMs = Math.max(fold.longestChatMs, longestChatMs);
+}
+
+/** 单会话读取的超时（毫秒）：流不开不报错的悬挂会话不能拖住整页（见头注释）。 */
+const SESSION_TIMEOUT_MS = 8000;
 
 function collectSessionEvents(sessionId: string): Promise<SessionEvent[]> {
   return new Promise<SessionEvent[]>((resolve, reject) => {
@@ -295,15 +356,58 @@ function collectSessionEvents(sessionId: string): Promise<SessionEvent[]> {
 
 /** 拉全部顶级会话（子会话 usage 折进父会话会重复计——origin=subagent 不取；
  *  blank 会话无事件，跳过省一次往返）。 */
-export async function collectUsageStats(): Promise<UsageStats> {
+/** 给单会话读取加超时：超时/失败都算 null（不写缓存，下轮重试）。 */
+function withTimeout(promise: Promise<SessionEvent[]>, ms: number): Promise<SessionEvent[] | null> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(null), ms);
+    promise.then(
+      (events) => { window.clearTimeout(timer); resolve(events); },
+      () => { window.clearTimeout(timer); resolve(null); },
+    );
+  });
+}
+
+export interface UsageProgress {
+  stats: UsageStats;
+  /** 本轮已补的会话数 / 需要补的会话数（缓存里已有的不计入 total）。 */
+  done: number;
+  total: number;
+}
+
+/**
+ * @param chats 需要**补差**的会话（调用方给：引擎列表里排除子会话/空会话/本地已删除；
+ *   已归档会话的历史已在缓存里，不必再读）。
+ * @param onProgress 进度回调：第一次回调发生在任何 IO 之前（纯缓存折叠，可直接渲染）。
+ */
+export async function collectUsageStats(chats: readonly SessionSummary[], onProgress?: (p: UsageProgress) => void): Promise<UsageStats> {
+  const cached = readCache();
   const fold = makeUsageFold();
-  const { items } = await api.sessions();
-  const chats = items.filter((s) => s.origin !== "subagent" && !s.blank);
-  for (let i = 0; i < chats.length; i += FETCH_POOL) {
-    const batch = chats.slice(i, i + FETCH_POOL);
-    // 单会话拉取失败（如取数中途被删）只损失该会话，不拖垮整页
-    const pages = await Promise.all(batch.map((s) => collectSessionEvents(s.sessionId).catch(() => [] as SessionEvent[])));
-    for (const events of pages) foldSessionEvents(fold, events);
+  // ① 缓存里已有的全部先入账（含已归档/已删除会话的历史——它们不再出现在会话列表里，
+  //    但用过的量照算）
+  for (const entry of Object.values(cached)) mergeSessionUsage(fold, entry.days, entry.longestChatMs);
+  // ② 只对"变过的"会话做后台补差
+  const pending = chats.filter((s) => cached[s.sessionId]?.updatedAt !== s.updatedAt);
+  let done = 0;
+  onProgress?.({ stats: statsFromFold(fold, Date.now()), done, total: pending.length });
+  const fresh: Record<string, SessionUsage> = {};
+  for (let i = 0; i < pending.length; i += FETCH_POOL) {
+    const batch = pending.slice(i, i + FETCH_POOL);
+    // 单会话拉取失败/超时只损失该会话，不拖垮整页——且**不写缓存**，
+    // 否则这次的空结果会被当成权威数据钉住
+    const pages = await Promise.all(batch.map((s) => withTimeout(collectSessionEvents(s.sessionId), SESSION_TIMEOUT_MS)));
+    batch.forEach((s, k) => {
+      const events = pages[k];
+      if (events === null) return;
+      const local = makeUsageFold();
+      foldSessionEvents(local, events);
+      const days = [...local.days.values()];
+      fresh[s.sessionId] = { updatedAt: s.updatedAt, days, longestChatMs: local.longestChatMs };
+      mergeSessionUsage(fold, days, local.longestChatMs);
+    });
+    done += batch.length;
+    onProgress?.({ stats: statsFromFold(fold, Date.now()), done, total: pending.length });
   }
+  // ③ 合并写回：只覆盖/新增本轮算过的会话，其余（归档/已删除/未变）原样保留
+  writeCache({ ...cached, ...fresh });
   return statsFromFold(fold, Date.now());
 }
