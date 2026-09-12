@@ -138,7 +138,7 @@
 | 异常 / 失败 | `circle-x` | 警告 / 等待你 | `triangle-alert` |
 | 完成 | `circle-check` | 模型/提供方 | `cpu` |
 | 工作区 | `folder` | 引擎 / 状态 | `activity` |
-| 自动化 | `workflow` | 定时任务 / 计划 | `clock` |
+| 自动化 | `calendar-clock` | 定时任务 / 计划 | `clock` |
 | 返回 | `chevron-left` | 关闭 | `x` |
 | 折行 | `wrap-text` | 预览方式 | `chevron-down` |
 

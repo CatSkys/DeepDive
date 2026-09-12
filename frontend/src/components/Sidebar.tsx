@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings, SquarePen, Trash2, Workflow } from "lucide-react";
+import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings, SquarePen, Trash2, CalendarClock } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { InlineLoader } from "./LoadingState";
 import { alertDialog, promptDialog, confirmDialog } from "./DialogHost";
@@ -315,7 +315,7 @@ export function Sidebar({ onOpenSettings, onOpenAutomation, automationActive, on
         aria-current={automationActive || undefined}
         onClick={onOpenAutomation}
       >
-        <Workflow size={15} /> {t("自动化")}
+        <CalendarClock size={15} /> {t("自动化")}
       </button>
       {activeWs && (
         <div className="ws-view" key={`head-${activeWs.workspaceId}`} data-dir={slideDir.current}>
