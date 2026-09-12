@@ -3033,7 +3033,22 @@ button {
 .engine-banner-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dsh-signal-warn); animation: pulse 1.2s ease-in-out infinite; }
 
 /* 侧栏置顶钉 */
-.row-pin { color: var(--ink-3); flex: none; }
+/* 行首置顶钮（14px 槽位里）：未置顶 hover 才现，已置顶常驻 */
+.task-row .row-pin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.task-row:hover .row-pin-btn { opacity: 1; }
+.task-row .row-pin-btn[data-pinned] { opacity: 1; color: var(--ink-2); }
+.task-row .row-pin-btn:hover { color: var(--ink); }
 
 /* ── 阶段 2：命令卡 / 菜单行次文本 / 拖放高亮 ── */
 

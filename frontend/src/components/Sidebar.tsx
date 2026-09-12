@@ -240,18 +240,31 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         setCtx({ sessionId: s.sessionId, title: sessionTitle(s, lang), cwd: s.cwd, x: e.clientX, y: e.clientY });
       }}
     >
-      <span className="row-slot" aria-hidden="true">
+      {/* 行首槽位：运行/未读状态优先；都没有时给「置顶」钮（hover 显现，
+          已置顶常驻）——置顶的会话不受自动归档限制（设置·通用） */}
+      <span className="row-slot">
         {s.running ? (
           <InlineLoader />
+        ) : store.unread.has(s.sessionId) ? (
+          <span className="unread-dot" />
         ) : (
-          store.unread.has(s.sessionId) && <span className="unread-dot" />
+          <button
+            type="button"
+            className="row-pin-btn"
+            data-pinned={store.pinned.has(s.sessionId) || undefined}
+            data-tip={store.pinned.has(s.sessionId) ? t("取消置顶") : t("置顶")}
+            aria-label={store.pinned.has(s.sessionId) ? t("取消置顶") : t("置顶")}
+            aria-pressed={store.pinned.has(s.sessionId)}
+            onClick={(e) => { e.stopPropagation(); store.togglePin(s.sessionId); }}
+          >
+            <Pin size={12} />
+          </button>
         )}
       </span>
       <span className="row-main">
         <HoverScrollText className="title">{sessionTitle(s, lang)}</HoverScrollText>
         {snippet && <span className="row-snippet">{snippet}</span>}
       </span>
-      {store.pinned.has(s.sessionId) && <Pin size={11} className="row-pin" aria-hidden="true" />}
       <span className="row-actions"
         onClick={(e) => e.stopPropagation()}
         onContextMenu={(e) => {

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
+import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
 import { usePrefs } from "./prefs";
@@ -100,6 +101,12 @@ interface Store {
   /** 全局热键（唤起面板）启用开关，壳偏好持久化；关 = 系统级注销。 */
   hotkeyOn: boolean;
   setHotkeyOn: (v: boolean) => void;
+  /** 自动归档开关（客户端偏好，localStorage；默认关——归档单向不可撤销）。 */
+  autoArchive: boolean;
+  setAutoArchive: (v: boolean) => void;
+  /** 归档保留时长档。 */
+  archiveRetention: ArchiveRetention;
+  setArchiveRetention: (v: ArchiveRetention) => void;
   pinned: Set<string>;
   unread: Set<string>;
   togglePin: (id: string) => void;
@@ -165,6 +172,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch { /* corrupt localStorage value → 空集 */ }
     return new Set();
   };
+  /** 单值偏好读取：无 localStorage（受限环境）或值非法一律回退默认。 */
+  const readPref = <T,>(key: string, fallback: T, parse: (raw: string) => T | null): T => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw === null ? fallback : (parse(raw) ?? fallback);
+    } catch { /* 无 localStorage（测试/受限环境）→ 默认 */ }
+    return fallback;
+  };
+  const [autoArchive, setAutoArchiveState] = useState(() =>
+    readPref("deepdive.autoArchive", false, (raw) => raw === "1"));
+  const [archiveRetention, setArchiveRetentionState] = useState<ArchiveRetention>(() =>
+    readPref("deepdive.archiveRetention", DEFAULT_RETENTION, (raw) =>
+      (RETENTIONS.some((r) => r.id === raw) ? (raw as ArchiveRetention) : null)));
+  const setAutoArchive = useCallback((v: boolean) => {
+    localStorage.setItem("deepdive.autoArchive", v ? "1" : "0");
+    setAutoArchiveState(v);
+  }, []);
+  const setArchiveRetention = useCallback((v: ArchiveRetention) => {
+    localStorage.setItem("deepdive.archiveRetention", v);
+    setArchiveRetentionState(v);
+  }, []);
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
   const [unread, setUnread] = useState<Set<string>>(() => readIdSet("deepdive.unread"));
   const persist = (key: string, set: Set<string>) => localStorage.setItem(key, JSON.stringify([...set]));
@@ -543,6 +571,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       appearance,
       setAppearance,
       toggleSidebar: () => setSidebarOverride(!(sidebarOverride ?? narrowViewport)),
+      autoArchive,
+      setAutoArchive,
+      archiveRetention,
+      setArchiveRetention,
       pinned,
       unread,
       togglePin,
@@ -559,7 +591,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

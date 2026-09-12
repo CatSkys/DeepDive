@@ -17,6 +17,7 @@ import { HeroBrand } from "./components/HeroBrand";
 import { AgentModePicker } from "./components/AgentMode";
 import { SettingsPage } from "./components/SettingsPage";
 import { FirstRunGate } from "./settings/FirstRunGate";
+import { useAutoArchive } from "./useAutoArchive";
 import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
@@ -31,6 +32,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
 }) {
   const store = useStore();
   const { t, tt } = useT();
+  useAutoArchive();
   const active = store.activeSessionId;
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);

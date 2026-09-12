@@ -14,6 +14,7 @@ import { PersonaSection } from "../settings/PersonaSection";
 import { UsageSection } from "../stats/UsageSection";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
+import { RETENTIONS, retentionLabel, type ArchiveRetention } from "../autoArchive";
 import { api } from "../api";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "../keybinds";
 import { onHostEvent, sendToShell } from "../host";
@@ -181,6 +182,28 @@ function GeneralSection() {
               options={[{ v: "zh", label: t("中文（简体）") }, { v: "en", label: t("English") }]}
               value={store.lang}
               onChange={(v) => store.setLang(v as "zh" | "en")}
+            />
+          </div>
+        </div>
+        <div className={rowsCss.rowCard}>
+          <div className={rowsCss.rowIdentity}>
+            <div className={rowsCss.rowName}>{t("自动归档旧任务")}</div>
+            <div className={rowsCss.rowCaption}>{t("定时扫描最近打开过的工作区，将已完成、无未读、未置顶且超过保留期的任务自动归档。")}</div>
+          </div>
+          <div className={rowsCss.rowActions}>
+            <Toggle on={store.autoArchive} onChange={store.setAutoArchive} />
+          </div>
+        </div>
+        <div className={rowsCss.rowCard}>
+          <div className={rowsCss.rowIdentity}>
+            <div className={rowsCss.rowName}>{t("归档保留时长")}</div>
+            <div className={rowsCss.rowCaption}>{t("任务最后更新时间早于该时长后，才会进入自动归档候选。")}</div>
+          </div>
+          <div className={rowsCss.rowActions}>
+            <Dropdown
+              options={RETENTIONS.map((r) => ({ v: r.id, label: t(retentionLabel(r.id)) }))}
+              value={store.archiveRetention}
+              onChange={(v) => store.setArchiveRetention(v as ArchiveRetention)}
             />
           </div>
         </div>
