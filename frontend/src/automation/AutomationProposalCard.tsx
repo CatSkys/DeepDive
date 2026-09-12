@@ -13,9 +13,16 @@ export function AutomationProposalCard({ proposal }: { proposal: AutomationPropo
   const sched = describeSchedule(proposal.schedule);
   return (
     <div className="auto-proposal">
+      {/* 创建入口放卡头右上（用户定稿）：卡头一行读出"这是什么 + 我能做什么" */}
       <div className="head">
         <CalendarClock size={14} />
         {t("定时任务建议")}
+        <button
+          className="auto-proposal-go"
+          onClick={() => dispatchAppEvent(DD_EVENTS.automationDraft, proposal)}
+        >
+          {t("创建定时任务")}
+        </button>
       </div>
       <div className="auto-proposal-main">
         <div className="auto-proposal-title">{proposal.title}</div>
@@ -25,14 +32,6 @@ export function AutomationProposalCard({ proposal }: { proposal: AutomationPropo
           {proposal.workspace !== null ? ` · ${proposal.workspace}` : ""}
         </div>
         <div className="auto-proposal-desc">{proposal.instruction}</div>
-      </div>
-      <div className="actions">
-        <button
-          className="btn-primary"
-          onClick={() => dispatchAppEvent(DD_EVENTS.automationDraft, proposal)}
-        >
-          {t("创建定时任务")}
-        </button>
       </div>
     </div>
   );
