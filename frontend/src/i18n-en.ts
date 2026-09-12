@@ -524,4 +524,10 @@ export const EN: Record<string, string> = {
   "文档同步检查": "Docs sync check",
   "对照最近 7 天的代码、配置、接口与文档变更，识别已改变公开行为但文档尚未同步的高危差异。": "Compare the last 7 days of code, config, API, and doc changes to find behavior that changed without a matching docs update.",
   "对照最近 7 天的代码、配置、接口与文档变更，找出已改变公开行为但文档尚未同步的高危差异，附文件路径与原文位置。只读分析。": "Compare the last 7 days of code, config, API, and doc changes and list the gaps where public behavior changed but the docs did not, with file paths. Read-only.",
+
+  // 会话里创建自动化（automation 协议）
+  "定时任务建议": "Scheduled task proposal",
+  "每次新建会话": "New chat every run",
+  "复用同一会话": "Reuse one chat",
+  "（未匹配到工作空间）": " (workspace not matched)",
 };

@@ -4,6 +4,8 @@ import { Lightbox } from "./Lightbox";
 import { CodeLines } from "./CodeLines";
 import { sendToShell } from "../host";
 import { t } from "../i18n";
+import { AutomationProposalCard } from "../automation/AutomationProposalCard";
+import { parseProposal, PROPOSAL_LANG } from "../automation/protocol";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
@@ -263,7 +265,12 @@ export const Markdown = memo(function Markdown({ text, onOpenFile }: {
           case "ol": return (
             <ol key={key}>{b.lines.map((l, j) => <li key={j}>{open(l, `${key}-${j}`)}</li>)}</ol>
           );
-          case "code": return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
+          case "code": {
+            // automation 围栏块 = 模型提出的定时任务建议；解析不了就当普通代码块
+            const proposal = b.lang === PROPOSAL_LANG ? parseProposal(b.lines.join("\n")) : null;
+            if (proposal !== null) return <AutomationProposalCard key={key} proposal={proposal} />;
+            return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
+          }
           case "math": return <div key={key} className="md-math-block" dangerouslySetInnerHTML={{ __html: renderMath(b.lines[0] ?? "", true) }} />;
           case "table": {
             const header = (b.lines[0] ?? "").split("||").map((c) => c.trim());

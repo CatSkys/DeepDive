@@ -1,7 +1,7 @@
 // 自动化计划纯函数：下次触发时刻（本地日历，跨月/DST 用日历加法）、
 // 形状校验与运行历史裁剪。全是纯函数，不碰引擎与 localStorage。
 import { describe, expect, it } from "vitest";
-import { describeSchedule, isSchedule, nextRunAt, utcOffsetLabel, weekdayLabel, type Schedule, type TaskRun } from "../automation/model";
+import { describeSchedule, isSchedule, nextRunAt, reuseSessionId, utcOffsetLabel, weekdayLabel, type AutomationTask, type Schedule, type TaskRun } from "../automation/model";
 import { RUNS_PER_TASK, trimRuns } from "../automation/storage";
 
 /** 本地时间构造（测试不依赖机器时区）。 */
@@ -64,6 +64,18 @@ describe("isSchedule", () => {
     expect(isSchedule({ kind: "daily", hour: 9 })).toBe(false);
     expect(isSchedule({ kind: "cron", expr: "* * * * *" })).toBe(false);
     expect(isSchedule(null)).toBe(false);
+  });
+});
+
+describe("reuseSessionId", () => {
+  const task = (target: "new" | "session", sessionId: string | null) =>
+    ({ target, sessionId }) as AutomationTask;
+  it("只有固定会话模式且那个会话还在引擎列表里才复用", () => {
+    const known = new Set(["s1"]);
+    expect(reuseSessionId(task("session", "s1"), known)).toBe("s1");
+    expect(reuseSessionId(task("session", "gone"), known)).toBeNull(); // 被删了 → 下次运行重建
+    expect(reuseSessionId(task("session", null), known)).toBeNull();   // 还没跑过
+    expect(reuseSessionId(task("new", "s1"), known)).toBeNull();       // 新会话模式永不复用
   });
 });
 

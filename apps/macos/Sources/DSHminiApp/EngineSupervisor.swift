@@ -306,15 +306,23 @@ final class EngineSupervisor {
 
     /// The overlay patch file handed to `dsh --profile web --patch <path>`
     /// (docs/DSH-WIRE.md §1). The engine's base bundle ships session-query
-    /// with full-text search ready since 0.1.2-rc.1, so the overlay's one
-    /// job is inserting the schedule tool plugin (present in the runtime
-    /// closure but not composed into the web profile's bundles). Content is
-    /// app-defined — rewritten on every launch so upgrades always win; a
-    /// write failure degrades to the schedule tool being unavailable (the
-    /// engine still boots: overlay errors fail-loud, so only a missing file
-    /// is tolerable — it must exist, else the arg points nowhere).
+    /// with full-text search ready since 0.1.2-rc.1, so the overlay's jobs are
+    /// inserting the schedule tool plugin (present in the runtime closure but
+    /// not composed into the web profile's bundles) and installing the
+    /// deployment system prompt that teaches the conversation-side automation
+    /// protocol. Content is app-defined — rewritten on every launch so upgrades
+    /// always win; a write failure degrades to those two capabilities being
+    /// unavailable (the engine still boots: overlay errors fail-loud, so only a
+    /// missing file is tolerable — it must exist, else the arg points nowhere).
     static func ensureEnginePatchFile() -> URL {
         let url = AppPaths.supportDir.appendingPathComponent("engine-patch.yml")
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? enginePatchBody().write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    /// Overlay 正文（纯函数，单测钉子）：写坏了引擎会在 boot 时 fail-loud 起不来。
+    static func enginePatchBody() -> String {
         var body = """
         # Written by DeepDive at every engine launch — app-owned overlay layer.
         # Do not edit: your changes are overwritten on the next launch.
@@ -322,9 +330,39 @@ final class EngineSupervisor {
             - id: schedule
               name: '@deepseek-ai/dsh-schedule'
         """
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? body.write(to: url, atomically: true, encoding: .utf8)
-        return url
+        body += "\n- id: system-prompt\n  config:\n    personaPrefix: \(Self.yamlString(Self.automationProtocolPrompt))"
+        return body
+    }
+
+    /// Deployment system prompt: how a conversation proposes a scheduled task.
+    /// The shape is the contract in `frontend/src/automation/protocol.ts` (the
+    /// SPA renders the fenced block as a card and the user confirms it in the
+    /// form) — change one side, change the other.
+    private static let automationProtocolPrompt = """
+    DeepDive automation protocol. When the user asks for a scheduled or recurring task \
+    (e.g. "every weekday at 9", "run this daily"), reply with a fenced code block whose \
+    info string is `automation` and whose body is a single JSON object:
+    {"title":"<short name>","instruction":"<what the agent should do on each run>",\
+    "schedule":<schedule>,"workspace":"<workspace name, optional>",\
+    "permission":"<preset key, optional>"}
+    <schedule> is exactly one of:
+    {"kind":"hourly","minute":0}
+    {"kind":"daily","hour":9,"minute":0}
+    {"kind":"weekdays","hour":9,"minute":0}
+    {"kind":"weekly","weekday":1,"hour":9,"minute":0}
+    {"kind":"monthly","day":1,"hour":9,"minute":0}
+    {"kind":"custom","everyDays":3,"hour":9,"minute":0}
+    weekday is 0=Sunday … 6=Saturday; times are local. One block per task, no other text \
+    inside the fence. The user creates the task in the app after reviewing it: do not claim \
+    it already runs. For one-off reminders inside this conversation, keep using the \
+    schedule tools instead of this block.
+    """
+
+    /// YAML 流标量：JSON 序列化单个字符串再掐掉数组方括号——引号/换行天然转义。 */
+    private static func yamlString(_ value: String) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: [value]),
+              let text = String(data: data, encoding: .utf8) else { return "\"\"" }
+        return String(text.dropFirst().dropLast())
     }
 
     /// Failure copy follows the entry source (SPEC-ENGINE-RUNTIME §3.4):

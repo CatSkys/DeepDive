@@ -57,7 +57,8 @@
 | `settings.openDocument` | 改名 `settings/openSettingsDocument`（+`openAgentPresetDirectory`/`canOpenAgentPresetDirectory`） |
 | `llm.providers` | 改名 `llm/listProviders`（`[{id,name}]` 直数组）；配置归属面 `llm/listConfigurableProviders`（`[{provider,displayName,settingsNs,settingsPath}]`） |
 | `/api/respond` | **已删除**——审批/提问应答走 `$events/result`（见 §2） |
-| `dsh-schedule` 插件 | 仍不在 web profile bundles；壳 overlay 注入保留（engine-patch.yml 仅剩此条目） |
+| `dsh-schedule` 插件 | 仍不在 web profile bundles；壳 overlay 注入保留（engine-patch.yml 的 insert 条目） |
+| `dsh-system-prompt` 部署前缀 | 壳 overlay 的 `id: system-prompt` 配置覆盖（`personaPrefix`）——写入会话侧自动化协议说明，见 `SPEC-AUTOMATION.md §3` |
 
 ## 2. $events 转发事件流（交互与通知的唯一下行）
 

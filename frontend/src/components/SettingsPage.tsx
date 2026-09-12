@@ -13,6 +13,7 @@ import { ModelsManage } from "../settings/ModelsManage";
 import { ImportSection } from "../settings/ImportSection";
 import { UsageSection } from "../stats/UsageSection";
 import { AutomationSection } from "../automation/AutomationSection";
+import type { AutomationProposal } from "../automation/protocol";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { RETENTIONS, retentionLabel, type ArchiveRetention } from "../autoArchive";
@@ -34,7 +35,13 @@ import { sessionDeleteDirs } from "../host";
 // 分类：通用（外观/语言/Enter 行为/通知）、模型（提供方+密钥）、
 // 审批（默认权限预设）、快捷键、已归档的聊天、数据、使用统计、自动化。
 
-export function SettingsPage({ initialSection, onClose }: { initialSection?: string; onClose: () => void }) {
+export function SettingsPage({ initialSection, onClose, automationDraft, onAutomationDraftUsed }: {
+  initialSection?: string;
+  onClose: () => void;
+  /** 会话里提出的定时任务建议（App 经消息流事件收到后透传进来）。 */
+  automationDraft?: AutomationProposal | null;
+  onAutomationDraftUsed?: () => void;
+}) {
   const { t } = useT();
   const store = useStore();
   const [activeId, setActiveId] = useState(initialSection ?? "general");
@@ -105,7 +112,11 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
           {activeId === "models" && <ModelsManage />}
           {/* 自动化：历史里点「打开会话」要离开设置页去看那次转录 */}
           {activeId === "automation" && (
-            <AutomationSection onOpenSession={(sessionId) => { onClose(); store.openSession(sessionId); }} />
+            <AutomationSection
+              onOpenSession={(sessionId) => { onClose(); store.openSession(sessionId); }}
+              initialDraft={automationDraft}
+              onDraftUsed={onAutomationDraftUsed}
+            />
           )}
           {activeId === "import" && <ImportSection />}
           {activeId === "approval" && <ApprovalSection />}

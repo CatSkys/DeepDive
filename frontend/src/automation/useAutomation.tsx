@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useStore } from "../store";
 import { setKeepAwake } from "../host";
 import { tt } from "../i18n";
-import { nextRunAt, type AutomationTask, type TaskDraft, type TaskRun } from "./model";
+import { nextRunAt, reuseSessionId, type AutomationTask, type TaskDraft, type TaskRun } from "./model";
 import { startRun } from "./runner";
 import { loadKeepAwake, loadRuns, loadTasks, saveKeepAwake, saveRuns, saveTasks, trimRuns } from "./storage";
 
@@ -77,13 +77,19 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     setTasks((prev) => prev.map((t) => (t.id === task.id
       ? { ...t, nextRunAt: nextRunAt(t.schedule, now), lastRunAt: now, runCount: t.runCount + 1 }
       : t)));
-    const outcome = await startRun(task);
+    // 复用目标要确认那个会话还在（引擎列表里没有 = 被删了）——不在就新建一个。
+    const known = new Set(storeRef.current.allSessions.map((s) => s.sessionId));
+    const outcome = await startRun(task, reuseSessionId(task, known));
     setRuns((prev) => prev.map((r) => {
       if (r.id !== run.id) return r;
       return "error" in outcome
         ? { ...r, status: "error", error: outcome.error }
         : { ...r, sessionId: outcome.sessionId };
     }));
+    // 固定会话的任务：把这次开出来的会话记回任务（复用时不用记，没变）
+    if (!("error" in outcome) && task.target === "session" && !outcome.reused) {
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, sessionId: outcome.sessionId } : t)));
+    }
     inFlightRef.current.delete(task.id);
     setRunning(new Set(inFlightRef.current));
     void storeRef.current.refresh();

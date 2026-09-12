@@ -49,6 +49,9 @@ function parseTask(v: unknown): AutomationTask | null {
     workspaceId: str(t.workspaceId),
     permission: str(t.permission),
     model: parseModel(t.model),
+    // 老记录没有这两个字段：默认「每次新建会话」、无绑定会话
+    target: t.target === "session" ? "session" : "new",
+    sessionId: str(t.sessionId),
     status: t.status,
     nextRunAt: num(t.nextRunAt),
     lastRunAt: num(t.lastRunAt),

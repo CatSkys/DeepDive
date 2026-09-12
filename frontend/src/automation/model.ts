@@ -24,6 +24,9 @@ export const SCHEDULE_KINDS: readonly ScheduleKind[] = ["hourly", "daily", "week
 /** 任务状态：启用中的任务到点会跑，暂停的只能手动「立即运行」。 */
 export type TaskStatus = "enabled" | "paused";
 
+/** 运行目标：new = 每次都新开一个会话；session = 复用同一个会话（首次运行自动创建）。 */
+export type RunTarget = "new" | "session";
+
 export interface TaskModel {
   provider: string;
   model: string;
@@ -42,6 +45,9 @@ export interface AutomationTask {
   permission: string | null;
   /** 运行用的模型；null = 跟随引擎默认。 */
   model: TaskModel | null;
+  target: RunTarget;
+  /** target=session 时复用的会话（首次运行后落定）；被删了下次运行就重建一个。 */
+  sessionId: string | null;
   status: TaskStatus;
   /** 下次触发时刻（毫秒）；null = 未排期（未启用过或计划刚被清空）。 */
   nextRunAt: number | null;
@@ -62,6 +68,12 @@ export interface TaskRun {
 
 /** 新建任务的草稿：除 id/计数/排期外的全部字段。 */
 export type TaskDraft = Omit<AutomationTask, "id" | "nextRunAt" | "lastRunAt" | "runCount" | "createdAt">;
+
+/** 复用目标：只有 target=session 且记住的会话仍在引擎列表里才复用它。 */
+export function reuseSessionId(task: AutomationTask, known: ReadonlySet<string>): string | null {
+  if (task.target !== "session" || task.sessionId === null) return null;
+  return known.has(task.sessionId) ? task.sessionId : null;
+}
 
 const pad = (n: number) => String(n).padStart(2, "0");
 

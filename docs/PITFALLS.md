@@ -215,6 +215,7 @@
 - **改包内容会破封签 —— 破签的包里嵌套 node 一启动就被内核杀（Code Signature Invalid）**：手动把新 dist 嵌进已签好的 Release 包（`sh scripts/embed-web.sh <app>`）后 `pkill`+`open`，引擎 3 连崩（日志 `failed after 3 consecutive attempts` + 「引擎异常」告警），`~/Library/Logs/DiagnosticReports/node-*.ips` 写着 `SIGKILL (Code Signature Invalid)` / `Taskgated Invalid Signature`（2026-09-12 实机两次）。**判据三步**（今天按这个顺序才定对因）：① 崩报告 signal 是 `Code Signature Invalid`；② `codesign --verify --verbose=2 <app>` —— 报 `Contents/Resources/web/**` 的 `file added/modified/missing` 说明**封签被签后写入破坏**，报 `valid on disk` 则不是这条、走上一条的路径击杀缓存；③ 把同一份 `.app` `cp -R` 到新路径跑 `Runtime/node --version` —— 能跑 = 路径级问题（上一条），照样 137 = 内容/签名问题（本条）。
   - 本条实测现场：手动 embed 后重启，引擎 3 连崩且 `make app` 的自检也 `Killed: 9`（137），但 `codesign --verify` 已是 valid（说明此时是上一楼的路径击杀，不是封签）。处置按上一条三步（`lsregister -u` → `rm -rf` → 从可运行副本 `cp -R` 回原路径）当场转绿：`node --version` 出 `v26.7.0`、引擎 ready。
   - 结论：**别把「embed-web + pkill + open」当日常快路径**——它会毒化该路径；走自带自检+重签的 `make app`，或照上一条三步把路径换干净。
+  - 补充（同日复现）：**原地重建也会触发**——一次普通 `make app`（当日第二次）同样在 embed 自检处 137，`codesign --verify` 是 valid，处置仍是上一条三步（`lsregister -u` → `rm -rf` → 从 `/tmp` 的新副本 `cp -R` 回原路径），换回来即 `node --version` 正常、引擎 ready。所以这条不是"手动 embed 才会有"，而是**同一路径上反复重建**的概率事件——交付前见到 137 就按三步走，别去查代码。
   - 诊断锚点：引擎 3 连崩 / 自检 137 + `node --version` 在新路径可跑 → 路径击杀；`codesign --verify` 报 web 资源增删 → 封签。
 
 ### 5.3 交付前必截图自检（WORKING-AGREEMENTS）

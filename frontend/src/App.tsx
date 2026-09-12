@@ -10,6 +10,7 @@ import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
 import { DD_EVENTS, dispatchAppEvent, onAppEvent } from "./events";
 import { Sidebar } from "./components/Sidebar";
 import { AutomationProvider } from "./automation/useAutomation";
+import type { AutomationProposal } from "./automation/protocol";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
@@ -25,11 +26,13 @@ import { DialogHost } from "./components/DialogHost";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
 
-function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
+function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, automationDraft, onAutomationDraftUsed }: {
   settingsOpen: boolean;
   settingsSection: string;
   openSettings: (section?: string) => void;
   closeSettings: () => void;
+  automationDraft: AutomationProposal | null;
+  onAutomationDraftUsed: () => void;
 }) {
   const store = useStore();
   const { t, tt } = useT();
@@ -177,7 +180,13 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
         </div>
       )}
       {settingsOpen ? (
-        <SettingsPage key={settingsSection} initialSection={settingsSection} onClose={closeSettings} />
+        <SettingsPage
+          key={settingsSection}
+          initialSection={settingsSection}
+          onClose={closeSettings}
+          automationDraft={automationDraft}
+          onAutomationDraftUsed={onAutomationDraftUsed}
+        />
       ) : (
         <>
       <Sidebar onOpenSettings={() => openSettings()} />
@@ -222,6 +231,8 @@ export default function App() {
   // 时门还压着 Shell——监听必须住在门外，跳转才不会丢。
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState("general");
+  /** 消息流里「定时任务建议」带来的预填（消费一次即清）。 */
+  const [automationDraft, setAutomationDraft] = useState<AutomationProposal | null>(null);
   const openSettings = useCallback((section?: string) => {
     if (section) setSettingsSection(section);
     setSettingsOpen(true);
@@ -229,6 +240,12 @@ export default function App() {
   useEffect(() => onAppEvent(DD_EVENTS.openSettings, (detail) => {
     const section = (detail as { section?: string } | undefined)?.section;
     openSettings(typeof section === "string" ? section : undefined);
+  }), [openSettings]);
+  // 会话里点了「创建定时任务」：带建议开设置→自动化（表单预填，落库仍由用户点）
+  useEffect(() => onAppEvent(DD_EVENTS.automationDraft, (detail) => {
+    if (typeof detail !== "object" || detail === null) return;
+    setAutomationDraft(detail as AutomationProposal);
+    openSettings("automation");
   }), [openSettings]);
   return (
     <StoreProvider>
@@ -238,7 +255,9 @@ export default function App() {
             settingsOpen={settingsOpen}
             settingsSection={settingsSection}
             openSettings={openSettings}
-            closeSettings={() => setSettingsOpen(false)}
+            closeSettings={() => { setSettingsOpen(false); setAutomationDraft(null); }}
+            automationDraft={automationDraft}
+            onAutomationDraftUsed={() => setAutomationDraft(null)}
           />
         </FirstRunGate>
       </AutomationProvider>

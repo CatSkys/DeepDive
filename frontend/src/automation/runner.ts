@@ -1,15 +1,17 @@
-// 到点执行一个任务：新开一个会话，按任务配置选模型与权限，再发一条指令。
-// 引擎在本引脚没有定时任务面（SPEC-AUTOMATION §1），所以由客户端调度器驱动。
-// 失败不抛：以 { error } 交调用方记进运行历史——无人值守时错误必须留痕。
+// 到点执行一个任务：拿到一个会话（复用传入的，或新开一个），按任务配置选模型与
+// 权限，再发一条指令。引擎在本引脚没有定时任务面（SPEC-AUTOMATION §1），所以由
+// 客户端调度器驱动。失败不抛：以 { error } 交调用方记进运行历史——无人值守时
+// 错误必须留痕。
 
 import { api } from "../api";
 import type { AutomationTask } from "./model";
 
-export type RunOutcome = { sessionId: string } | { error: string };
+/** reused = 这次是复用既有会话（调用方据此决定要不要把新会话记回任务）。 */
+export type RunOutcome = { sessionId: string; reused: boolean } | { error: string };
 
-export async function startRun(task: AutomationTask): Promise<RunOutcome> {
+export async function startRun(task: AutomationTask, reuse: string | null): Promise<RunOutcome> {
   try {
-    const { sessionId } = await api.createSession(task.workspaceId === null ? {} : { workspaceId: task.workspaceId });
+    const sessionId = reuse ?? (await api.createSession(task.workspaceId === null ? {} : { workspaceId: task.workspaceId })).sessionId;
     if (task.model !== null) await api.selectModel({ sessionId, ...task.model });
     if (task.permission !== null) {
       // 权限只能经 /permission 命令写（api.selectModel 那类 RPC 没有这一面）；
@@ -23,7 +25,7 @@ export async function startRun(task: AutomationTask): Promise<RunOutcome> {
       mode: "queue",
       content: [{ type: "text", text: task.instruction }],
     });
-    return { sessionId };
+    return { sessionId, reused: reuse !== null };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }

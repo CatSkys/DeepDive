@@ -4,15 +4,16 @@
 // ⋯ 菜单里的继续/暂停与删除是立即生效的动作用语。
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, CirclePause, CirclePlay, Ellipsis, Folder, Gauge, Hand, Play, Trash2 } from "lucide-react";
+import { ChevronRight, CirclePause, CirclePlay, Ellipsis, Folder, Gauge, Hand, MessagesSquare, Play, Trash2 } from "lucide-react";
 import { Dropdown, type DropdownOption } from "../components/controls";
 import { confirmDialog } from "../components/DialogHost";
 import { t, useT } from "../i18n";
 import { Seg } from "../stats/Seg";
 import { useStore } from "../store";
-import type { AutomationTask, Schedule, TaskDraft, TaskStatus } from "./model";
+import type { AutomationTask, RunTarget, Schedule, TaskDraft, TaskStatus } from "./model";
 import { RunHistory } from "./RunHistory";
 import { ScheduleRow } from "./ScheduleRow";
+import type { AutomationProposal } from "./protocol";
 import type { TaskTemplate } from "./templates";
 import { useAutomation } from "./useAutomation";
 import { useRunOptions } from "./useRunOptions";
@@ -26,15 +27,39 @@ interface Draft {
   /** 引擎 permission 预设键；"" = 跟随会话默认。 */
   permission: string;
   model: AutomationTask["model"];
+  target: RunTarget;
+  sessionId: string | null;
   status: TaskStatus;
 }
 
-/** 初始草稿：编辑取任务现值，新建取模板（或空白）＋当前工作空间。 */
-function initialDraft(task: AutomationTask | null, template: TaskTemplate | null, workspaceId: string | null): Draft {
+/** 初始草稿：编辑取任务现值；新建按 建议（会话里提出的）→ 模板 → 空白 取值，
+ *  工作空间取匹配结果或当前空间。 */
+function initialDraft(opts: {
+  task: AutomationTask | null;
+  template: TaskTemplate | null;
+  proposal: AutomationProposal | null;
+  workspaceId: string | null;
+  proposalWorkspaceId: string | null;
+}): Draft {
+  const { task, template, proposal, workspaceId, proposalWorkspaceId } = opts;
   if (task !== null) {
     return {
       title: task.title, instruction: task.instruction, schedule: task.schedule,
-      workspaceId: task.workspaceId, permission: task.permission ?? "", model: task.model, status: task.status,
+      workspaceId: task.workspaceId, permission: task.permission ?? "", model: task.model,
+      target: task.target, sessionId: task.sessionId, status: task.status,
+    };
+  }
+  if (proposal !== null) {
+    return {
+      title: proposal.title,
+      instruction: proposal.instruction,
+      schedule: proposal.schedule,
+      workspaceId: proposalWorkspaceId ?? workspaceId,
+      permission: proposal.permission ?? "",
+      model: null,
+      target: "new",
+      sessionId: null,
+      status: "enabled",
     };
   }
   return {
@@ -44,13 +69,17 @@ function initialDraft(task: AutomationTask | null, template: TaskTemplate | null
     workspaceId,
     permission: "",
     model: null,
+    target: "new",
+    sessionId: null,
     status: "enabled",
   };
 }
 
-export function TaskEditorPage({ taskId, template, onBack, onOpenSession }: {
+export function TaskEditorPage({ taskId, template, proposal, onBack, onOpenSession }: {
   taskId: string | null;
   template: TaskTemplate | null;
+  /** 会话里提出的建议（有则优先于模板/空白预填）。 */
+  proposal: AutomationProposal | null;
   onBack: () => void;
   onOpenSession: (sessionId: string) => void;
 }) {
@@ -60,7 +89,15 @@ export function TaskEditorPage({ taskId, template, onBack, onOpenSession }: {
   const options = useRunOptions();
   const task = taskId === null ? null : auto.tasks.find((x) => x.id === taskId) ?? null;
   const [tab, setTab] = useState<"settings" | "history">("settings");
-  const [draft, setDraft] = useState<Draft>(() => initialDraft(task, template, store.activeWorkspaceId ?? store.workspaces[0]?.workspaceId ?? null));
+  const [draft, setDraft] = useState<Draft>(() => initialDraft({
+    task,
+    template,
+    proposal,
+    workspaceId: store.activeWorkspaceId ?? store.workspaces[0]?.workspaceId ?? null,
+    proposalWorkspaceId: proposal?.workspace === null || proposal === null
+      ? null
+      : store.workspaces.find((w) => w.title === proposal.workspace)?.workspaceId ?? null,
+  }));
   const [menuAt, setMenuAt] = useState<{ top: number; left: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -87,6 +124,8 @@ export function TaskEditorPage({ taskId, template, onBack, onOpenSession }: {
     workspaceId: draft.workspaceId,
     permission: draft.permission === "" ? null : draft.permission,
     model: draft.model,
+    target: draft.target,
+    sessionId: draft.sessionId,
     status: draft.status,
   };
   const canSave = draft.schedule !== null && fields.instruction !== "";
@@ -237,6 +276,15 @@ export function TaskEditorPage({ taskId, template, onBack, onOpenSession }: {
                     onChange={(v) => setDraft({ ...draft, permission: v })}
                   />
                 )}
+                <Dropdown
+                  variant="bare"
+                  options={[
+                    { v: "new", label: t("每次新建会话"), icon: MessagesSquare },
+                    { v: "session", label: t("复用同一会话"), icon: MessagesSquare },
+                  ]}
+                  value={draft.target}
+                  onChange={(v) => setDraft({ ...draft, target: v as RunTarget })}
+                />
                 <span className={css.spacer} />
                 <Dropdown
                   variant="bare"

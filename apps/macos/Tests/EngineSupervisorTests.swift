@@ -50,6 +50,20 @@ final class EngineSupervisorTests: XCTestCase {
         return String(data: data, encoding: .utf8)!
     }
 
+    /// 引擎 overlay patch 的形状：写坏了引擎 boot 时 fail-loud 起不来，所以两段
+    /// 都得在——schedule 工具 insert + 会话侧自动化协议的 system-prompt 前缀；
+    /// 提示词里的引号/换行经 JSON 转义成 YAML 流标量后必须仍是**单行**。
+    func testEnginePatchCarriesScheduleInsertAndAutomationPrompt() throws {
+        let body = EngineSupervisor.enginePatchBody()
+        XCTAssertTrue(body.contains("- id: schedule"))
+        XCTAssertTrue(body.contains("@deepseek-ai/dsh-schedule"))
+        let prefixLine = try XCTUnwrap(body.split(separator: "\n").first { $0.contains("personaPrefix:") })
+        XCTAssertTrue(prefixLine.contains("automation"), "协议说明缺失")
+        XCTAssertTrue(prefixLine.hasPrefix("    personaPrefix: \""))
+        XCTAssertTrue(prefixLine.hasSuffix("\""), "值没有被引号包住——YAML 流标量会破")
+        XCTAssertFalse(prefixLine.contains("\t"))
+    }
+
     func testFirstRegisteredWorkspaceFollowsIdOrderAndIgnoresInvalid() throws {
         let a = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
             .appendingPathComponent("ws-a-\(UUID().uuidString)", isDirectory: true)
