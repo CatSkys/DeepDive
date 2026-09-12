@@ -52,13 +52,13 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
   const nav = [
     { id: "general", label: t("通用"), icon: SettingsIcon },
     { id: "models", label: t("模型"), icon: Cpu },
+    { id: "automation", label: t("自动化"), icon: CalendarClock },
     { id: "import", label: t("导入"), icon: Download },
     { id: "approval", label: t("审批"), icon: ShieldCheck },
     { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
     { id: "archived", label: t("已归档的聊天"), icon: Archive },
     { id: "data", label: t("数据"), icon: Folder },
     { id: "usage", label: t("使用统计"), icon: ChartColumn },
-    { id: "automation", label: t("自动化"), icon: CalendarClock },
   ];
   const active = nav.find((n) => n.id === activeId) ?? nav[0];
 
@@ -103,16 +103,16 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
           </div>
           {activeId === "general" && <GeneralSection />}
           {activeId === "models" && <ModelsManage />}
+          {/* 自动化：历史里点「打开会话」要离开设置页去看那次转录 */}
+          {activeId === "automation" && (
+            <AutomationSection onOpenSession={(sessionId) => { onClose(); store.openSession(sessionId); }} />
+          )}
           {activeId === "import" && <ImportSection />}
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
           {activeId === "archived" && <ArchivedSection onBulk={setBulk} />}
           {activeId === "data" && <DataSection />}
           {activeId === "usage" && <UsageSection />}
-          {/* 自动化：历史里点「打开会话」要离开设置页去看那次转录 */}
-          {activeId === "automation" && (
-            <AutomationSection onOpenSession={(sessionId) => { onClose(); store.openSession(sessionId); }} />
-          )}
         </div>
       </main>
     </>
