@@ -266,6 +266,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let openPath = body["path"] as? String ?? ""
             guard FileManager.default.fileExists(atPath: openPath) else { break }
             NSWorkspace.shared.open(URL(fileURLWithPath: openPath))
+        case "open-with-list":
+            // 全屏预览页「打开方式」候选：能打开该文件的 App + 图标 dataURL
+            openWithList(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
+        case "open-path-with":
+            // 指定 App 打开（只认已存在的文件与 .app，别让前端拼出任意路径）
+            let target = body["path"] as? String ?? ""
+            let app = body["app"] as? String ?? ""
+            guard FileManager.default.fileExists(atPath: target),
+                  FileManager.default.fileExists(atPath: app) else { break }
+            NSWorkspace.shared.open(
+                [URL(fileURLWithPath: target)],
+                withApplicationAt: URL(fileURLWithPath: app),
+                configuration: NSWorkspace.OpenConfiguration(),
+            )
         case "copy-log-path":
             let pb = NSPasteboard.general
             pb.clearContents()
@@ -385,6 +399,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return a.name < b.name
         }
         reply(rows.prefix(200).map { ["name": $0.name, "path": $0.path, "isDir": $0.isDir] })
+    }
+
+    /// 全屏预览页「打开方式」候选：OpenWithCatalog 出事实（App 列表 + 图标
+    /// dataURL + 默认 App），这里只负责按桥约定回推。文件不存在/无候选回空表
+    /// （前端按「无候选」隐藏选择器，不冒充）。
+    private func openWithList(reqId: String, path: String) {
+        guard let listing = OpenWithCatalog.listing(forPath: path) else {
+            windowController.pushHostCommand(
+                "openWith",
+                payload: AppDelegate.jsonPayload(["reqId": reqId, "defaultId": "", "apps": []]),
+            )
+            return
+        }
+        windowController.pushHostCommand(
+            "openWith",
+            payload: AppDelegate.jsonPayload(OpenWithCatalog.payload(listing, reqId: reqId)),
+        )
     }
 
     /// 侧栏空间格图标：读项目根目录约定图标文件（WorkspaceIcon.probe），

@@ -291,6 +291,7 @@ export const EN: Record<string, string> = {
   "已归档的聊天": "Archived Chats",
   "关闭": "Close",
   "返回": "Back",
+  "打开方式": "Open With",
   "亮色下侧栏偏灰、会话卡偏白。": "In light mode the sidebar is gray and the session card white.",
   "清除": "Clear",
   "搜索插件": "Search plugins",

@@ -41,6 +41,41 @@ export function revealPath(path: string): void {
   sendToShell({ type: "reveal-path", path });
 }
 
+/* ── 打开方式（全屏预览页右上选择器）：壳侧 OpenWithCatalog 列「能打开该
+   文件的 App」+ 默认项 + 图标 dataURL；选一个就请壳用该 App 打开。 ── */
+
+export interface OpenWithApp {
+  /** .app 绝对路径（选它就把它交回壳）。 */
+  id: string;
+  name: string;
+  /** `data:image/png;base64,…` */
+  icon: string;
+}
+
+export interface OpenWithListing {
+  apps: OpenWithApp[];
+  /** 默认 App 的 id；壳给不出时是空串。 */
+  defaultId: string;
+}
+
+/** 列候选 App；无壳桥 / 壳不回包 / 无候选都给空表（调用方据此隐藏入口）。 */
+export function openWithList(path: string): Promise<OpenWithListing> {
+  return bridgeRequest(
+    "openWith",
+    { apps: [], defaultId: "" },
+    (p) => {
+      const payload = p as { apps?: OpenWithApp[]; defaultId?: string } | undefined;
+      return { apps: payload?.apps ?? [], defaultId: payload?.defaultId ?? "" };
+    },
+    (reqId) => sendToShell({ type: "open-with-list", reqId, path }),
+  );
+}
+
+/** 用指定 App 打开（壳只认已存在的文件与 .app）。 */
+export function openWith(path: string, app: string): void {
+  sendToShell({ type: "open-path-with", path, app });
+}
+
 /* ── 插件市场（§7）：壳侧安装仓的桥面。清单推送（"plugins" 命令）经
    onHostEvent 订阅；安装为异步火后不管（完成时推新清单）。 ── */
 

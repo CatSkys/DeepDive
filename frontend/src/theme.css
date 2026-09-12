@@ -1093,19 +1093,20 @@ button {
 @keyframes preview-window-in { from { opacity: 0; transform: scale(.98); } }
 
 /* 全屏态：盖住会话体（消息流/输入框只停绘制、不卸载，滚动位置照旧）。
-   材质沿用 --panel-strong——它是"取代会话界面"的页面级面板，不是浮层菜单，
-   故不入配方组（同审批/提问/排队三卡的理由）。 */
+   不再铺自己的面：全屏就是"用会话面板打开的另一个页面"，材质沿用会话卡片
+   （--card-gradient 已是它的底），另铺实心/玻璃都会与背后的卡面叠出第二层。 */
 .preview-surface {
   position: absolute;
   inset: 0;
   z-index: 40;
   display: flex;
   flex-direction: column;
-  background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  backdrop-filter: blur(40px) saturate(160%);
   animation: preview-in var(--dur-med) var(--ease-out);
 }
+
+/* 全屏页页头：与 .session-header 同几何（红线对齐），但不带模型/胶囊 */
+.preview-page-head { align-items: center; }
+.open-with { flex: none; }
 
 /* 悬浮控制簇（关闭 / 全屏 / 默认应用打开 / Finder 定位）：little 态挂窗外
    右缘，全屏态浮在面右上角。配色不随主题——叠在任意内容上，与 .lightbox-close 同语言 */

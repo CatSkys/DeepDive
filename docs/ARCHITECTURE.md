@@ -45,6 +45,7 @@
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
 | `StatusItemController.swift` / `RecoveryWindowController.swift` | 菜单栏状态点与菜单、引擎失败恢复屏（诊断复制/凭据冷启动） |
 | `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | html/body 透明注入（勿加样式）、偏好、数据目录、设置面动态 JSON 树 |
+| `OpenWithCatalog.swift` / `PluginStore.swift` / `WorkspaceIcon.swift` | 壳侧事实目录（预览页「打开方式」候选/图标、插件安装仓、空间图标探测），只出数据不做决策 |
 
 ## 4. 自建 SPA（frontend/src/）
 
@@ -55,6 +56,7 @@
 | `components/Composer.tsx`（编排）+ `components/composer/`（draft/dictation/attachments/menu hooks + 菜单子组件） / `ModelMenu.tsx`（思考强度滑杆） / `Sidebar.tsx`（多工作区+会话列表） / `WsSwitcher.tsx`（底行空间切换条：溢出渐隐+滚轮就地消费） / `SettingsPage.tsx` + `settings/`（含 `useSettingNamespace` 围栏 hook；`useModelCatalog` 模型目录+密钥态数据源，设置页「模型」与 `FirstRunGate` 首启欢迎页共用；`ImportSection`/`ImportDialog` 设置「导入」分区（dsh-chat-import 插件面板路由），见 `SPEC-ENGINE-RUNTIME §4.4`） | 输入框（@附件 //命令/听写）、模型与推理档位、侧栏、设置浮层、首启欢迎页（开始使用→设置配模型 / ~/.dsh 导入） |
 | `stats/` | 设置→使用统计：会话历史用量折叠（usageStats）+ 热力图/趋势图/圆环卡；引擎无 usage RPC，全部前端聚合 |
 | `components/Markdown.tsx` / `ThinkingState.tsx` / `LoadingState.tsx` / `Icons.tsx` / `ProviderIcon.tsx` / `HoverScrollText.tsx` / `HeroBrand.tsx` | 呈现组件 |
+| `components/preview/` | 产物/文件预览：`useFilePreview`（标签+全屏状态）、`FilePreviewWindow`（little 浮窗 + 全屏页头 + 内容装配）、`PreviewBody`（按扩展名分流渲染）、`OpenWithMenu`（右上「打开方式」）、`previewKind`（扩展名判定纯函数） |
 | `store.tsx`（列表/审批/排队等业务状态） + `prefs.ts`（壳偏好 hook） / `api.ts` / `types.ts` / `host.ts`（壳桥请求统一超时包装） / `titlebar.ts` / `i18n.ts` + `i18n-en.ts`（词典数据） / `events.ts`（应用内事件名） / `useEdgeFade.ts`（溢出渐隐边缘信号，UI-SPEC「FadeEdge」标准） | React Context 手写 store（轮询签名去抖）、same-origin RPC 客户端、事件可辨识联合、壳桥挂载、标题栏 rect 推送、中英词典 |
 | `theme.css` | 全部样式（唯一事实源，含亮/暗语义变量）；tokens 变量来自 `packages/design/generated/tokens.css` |
 

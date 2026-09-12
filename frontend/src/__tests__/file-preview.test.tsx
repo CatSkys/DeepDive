@@ -1,8 +1,8 @@
 // 文件预览窗口的渲染网眼（R-001 同款渲染层测试）：little 浮窗的蒙版/控制簇、
 // 全屏面的装配、标签切换与关闭的接线。@vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { FilePreviewOverlay, FilePreviewSurface } from "../components/preview/FilePreviewWindow";
+import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "../components/preview/FilePreviewWindow";
 import type { FilePreview } from "../components/preview/useFilePreview";
 
 beforeAll(() => {
@@ -74,14 +74,20 @@ describe("little 浮窗", () => {
   });
 });
 
-describe("全屏面", () => {
-  it("不挂蒙版，控制簇第二颗变「退出全屏」并回调 setFullscreen(false)", () => {
-    const p = fake({ fullscreen: true });
-    render(<FilePreviewSurface preview={p} />);
+describe("全屏页", () => {
+  it("页头=返回钮 + 文件名作标题；面内不再挂四颗悬浮钮、也不挂蒙版", () => {
+    const p = fake({ fullscreen: true, tabs: [{ path: "/w/report.md", name: "report.md" }] });
+    render(
+      <>
+        <PreviewPageHeader preview={p} />
+        <FilePreviewSurface preview={p} />
+      </>,
+    );
+    expect(document.querySelector(".preview-page-head .title")?.textContent).toBe("report.md");
+    fireEvent.click(screen.getByRole("button", { name: "返回" }));
+    expect(p.setFullscreen).toHaveBeenCalledWith(false);
     expect(document.querySelector(".preview-surface")).not.toBeNull();
     expect(document.querySelector(".preview-veil")).toBeNull();
-    expect(controlLabels()).toEqual(["关闭预览", "退出全屏", "默认应用打开", "在 Finder 中显示"]);
-    (document.querySelectorAll(".preview-control")[1] as HTMLElement).click();
-    expect(p.setFullscreen).toHaveBeenCalledWith(false);
+    expect(document.querySelectorAll(".preview-control")).toHaveLength(0);
   });
 });

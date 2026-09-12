@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ChevronLeft } from "lucide-react";
+import { ArrowDown } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { t, useT } from "../i18n";
@@ -14,7 +14,7 @@ import { groupTurns, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
 import { useFeedback } from "../session/feedback";
 import { TurnNavigator } from "../session/TurnNavigator";
-import { FilePreviewOverlay, FilePreviewSurface } from "./preview/FilePreviewWindow";
+import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "./preview/FilePreviewWindow";
 import { useFilePreview } from "./preview/useFilePreview";
 import { computeTurnProcess } from "../session/turnProcess";
 import { TurnProcessBar } from "../session/TurnProcessBar";
@@ -299,25 +299,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="session">
+      {/* 全屏预览 = 打开成的新页面：页头换成「返回 + 文件名 + 打开方式」，
+          会话自己的标题/模型/胶囊整体让位（不再是"会话界面顶着文件"）。 */}
+      {previewFull ? <PreviewPageHeader preview={preview} /> : (
       <div className="session-header">
         {/* key=会话：切会话时标题行整体重挂播 header-in 入场（标题更新/流式
-            改名不换 key，不重播）。全屏预览时标题左侧让出返回钮。 */}
-        <SessionHeader
-          key={sessionId}
-          title={title}
-          face={modelFace}
-          leading={previewFull ? (
-            <button
-              type="button"
-              className="session-back"
-              data-tip={t("返回")}
-              aria-label={t("返回")}
-              onClick={() => preview.setFullscreen(false)}
-            >
-              <ChevronLeft size={15} />
-            </button>
-          ) : undefined}
-        />
+            改名不换 key，不重播）。 */}
+        <SessionHeader key={sessionId} title={title} face={modelFace} />
         {plan?.active && !plan?.pending && (
           <span className="plan-wrap">
             <button
@@ -339,6 +327,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <StatusCapsule sessionId={sessionId} scheduleRecords={scheduleRecords} />
         )}
       </div>
+      )}
       {/* 会话体：消息流 + 悬浮输入区 + （全屏预览时）盖在其上的预览面。
           全屏不让底下两颗卸载——滚动位置与事件状态都在它们身上，停绘制即可。 */}
       <div className="session-body" data-fullscreen={previewFull || undefined}>

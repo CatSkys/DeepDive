@@ -1,17 +1,19 @@
-// 文件预览窗口（产物/文件 chip 打开）：little 浮窗与全屏两态。
+// 文件预览窗口（产物/文件 chip 打开）：little 浮窗与全屏页两态。
 // little 态经 Portal 挂 body——整窗蒙版 + 模糊压住，浮窗居中，窗外右缘挂
 // 悬浮控制簇（关闭 / 全屏 / 默认应用打开 / Finder 定位），一律作用于当前
-// 活动标签；全屏态由 SessionView 内联挂载，取代会话界面（消息流与输入框
-// 让位、头部留会话标题并加返回钮）。
-// 窗内只有标签条 + 内容：不常显路径（标签 title 与「在 Finder 中显示」可及）。
+// 活动标签。
+// 全屏态是"打开成的新页面"：由 SessionView 内联挂载，页面自带页头
+// （返回钮 + 取文件名作标题 + 右上的「打开方式」选择器），材质沿用会话面板
+// （不另铺实心/玻璃面），消息流与输入框让位。
 // 本模块只管呈现：标签/全屏状态在 useFilePreview。
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, FolderSearch, Maximize2, Minimize2, X } from "lucide-react";
+import { ChevronLeft, ExternalLink, FolderSearch, Maximize2, Minimize2, X } from "lucide-react";
 import { t } from "../../i18n";
 import { openPath, revealPath } from "../../host";
 import { PreviewBody } from "./PreviewBody";
+import { OpenWithMenu } from "./OpenWithMenu";
 import type { FilePreview, PreviewTab } from "./useFilePreview";
 
 /** 当前活动标签（标签集非空时）。 */
@@ -119,13 +121,40 @@ function PreviewContent({ preview }: { preview: FilePreview }) {
   );
 }
 
-/** 全屏态：取代会话界面（SessionView 内联挂载在会话体上）。 */
+/** 全屏态：取代会话界面（SessionView 内联挂载在会话体上）。
+ *  页头（返回 + 文件名 + 打开方式）由 PreviewPageHeader 出，这里只有内容。 */
 export function FilePreviewSurface({ preview }: { preview: FilePreview }) {
   useEscapeBack(preview);
   return (
-    <div className="preview-surface" role="dialog" aria-label={t("文件预览")}>
+    <div className="preview-surface">
       <PreviewContent preview={preview} />
-      <PreviewControls preview={preview} />
+    </div>
+  );
+}
+
+/** 全屏页的页头：返回钮 + 文件名（打开物的标题，不是会话标题）+ 右上
+ *  「打开方式」。与 .session-header 同一套几何（红线/标题行对齐），
+ *  但不带模型选择与状态胶囊——全屏后这就是另一个页面。 */
+export function PreviewPageHeader({ preview }: { preview: FilePreview }) {
+  const active = activeTab(preview);
+  if (!active) return null;
+  return (
+    <div className="session-header preview-page-head">
+      <div className="left">
+        <div className="title-row">
+          <button
+            type="button"
+            className="session-back"
+            data-tip={t("返回")}
+            aria-label={t("返回")}
+            onClick={() => preview.setFullscreen(false)}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <div className="title">{active.name}</div>
+        </div>
+      </div>
+      <OpenWithMenu path={active.path} />
     </div>
   );
 }
