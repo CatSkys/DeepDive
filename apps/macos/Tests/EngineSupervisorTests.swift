@@ -54,22 +54,30 @@ final class EngineSupervisorTests: XCTestCase {
     /// frontmatter 是硬契约——缺 name/description、或用了 legacy 键（
     /// modelInvocable / userInvocable / disableModelInvocation）会**抛错**，
     /// 引擎只记一条 warn 然后静默忽略整个 skill，模型就再也看不到它。
-    func testAutomationSkillShapeAndLocation() {
-        let md = EngineSupervisor.automationSkillMarkdown
-        XCTAssertTrue(md.hasPrefix("---\n"), "缺 frontmatter")
-        XCTAssertTrue(md.contains("\nname: \(EngineSupervisor.automationSkillName)\n"))
-        XCTAssertTrue(md.contains("\ndescription: "))
-        for legacy in ["modelInvocable", "userInvocable", "disableModelInvocation"] {
-            XCTAssertFalse(md.contains(legacy), "frontmatter 用了 legacy 键 \(legacy)：引擎会整份忽略")
+    func testSkillsShapeAndLocation() {
+        // 两个技能同一套纪律：frontmatter 必带 name/description、不能用 legacy 键，
+        // 正文里得有各自的围栏 info string 与落点指路。
+        let skills: [(name: String, md: String, fence: String, url: URL)] = [
+            (EngineSupervisor.automationSkillName, EngineSupervisor.automationSkillMarkdown, "```automation", EngineSupervisor.ensureAutomationSkill()),
+            (EngineSupervisor.evolutionSkillName, EngineSupervisor.evolutionSkillMarkdown, "```lesson", EngineSupervisor.ensureEvolutionSkill()),
+        ]
+        for skill in skills {
+            XCTAssertTrue(skill.md.hasPrefix("---\n"), "\(skill.name) 缺 frontmatter")
+            XCTAssertTrue(skill.md.contains("\nname: \(skill.name)\n"), "\(skill.name) name 不匹配")
+            XCTAssertTrue(skill.md.contains("\ndescription: "), "\(skill.name) 缺 description")
+            for legacy in ["modelInvocable", "userInvocable", "disableModelInvocation"] {
+                XCTAssertFalse(skill.md.contains(legacy), "\(skill.name) 用了 legacy 键 \(legacy)：引擎会整份忽略")
+            }
+            XCTAssertTrue(skill.md.contains(skill.fence), "\(skill.name) 缺围栏 info string")
+            XCTAssertTrue(skill.url.path.hasSuffix("skills/\(skill.name)/SKILL.md"), skill.url.path)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: skill.url.path))
         }
-        // 六种计划形状与围栏 info string 都得在正文里（与 protocol.ts 同一份契约）
-        XCTAssertTrue(md.contains("```automation"))
+        // 自动化技能仍要带全六种计划形状（与 automation/protocol.ts 同一份契约）
         for kind in ["hourly", "daily", "weekdays", "weekly", "monthly", "custom"] {
-            XCTAssertTrue(md.contains("\"kind\":\"\(kind)\"") || md.contains("\"kind\":\"\(kind)\""), "缺计划形状 \(kind)")
+            XCTAssertTrue(EngineSupervisor.automationSkillMarkdown.contains("\"kind\":\"\(kind)\""), "缺计划形状 \(kind)")
         }
-        let url = EngineSupervisor.ensureAutomationSkill()
-        XCTAssertTrue(url.path.hasSuffix("skills/\(EngineSupervisor.automationSkillName)/SKILL.md"), url.path)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        // 自进化技能的细则不在技能里，指路仓库政策文件（一事一家）
+        XCTAssertTrue(EngineSupervisor.evolutionSkillMarkdown.contains("docs/EVOLUTION-POLICY.md"))
     }
 
     /// 引擎 overlay patch 的形状：写坏了引擎 boot 时 fail-loud 起不来，所以两段

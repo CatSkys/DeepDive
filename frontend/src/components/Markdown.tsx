@@ -6,6 +6,7 @@ import { sendToShell } from "../host";
 import { t } from "../i18n";
 import { AutomationProposalCard } from "../automation/AutomationProposalCard";
 import { parseProposal, PROPOSAL_LANG } from "../automation/protocol";
+import { LESSON_LANG, parseLesson } from "../evolution/protocol";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
@@ -269,6 +270,9 @@ export const Markdown = memo(function Markdown({ text, onOpenFile }: {
             // automation 围栏块 = 模型提出的定时任务建议；解析不了就当普通代码块
             const proposal = b.lang === PROPOSAL_LANG ? parseProposal(b.lines.join("\n")) : null;
             if (proposal !== null) return <AutomationProposalCard key={key} proposal={proposal} />;
+            // lesson 块 = 自进化提案：采集端已收进设置里的队列，会话里**零 UI**（SPEC §8）；
+            // 只有形状不合法时才退回普通代码块，让"模型没按格式写"看得见
+            if (b.lang === LESSON_LANG && parseLesson(b.lines.join("\n")) !== null) return null;
             return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
           }
           case "math": return <div key={key} className="md-math-block" dangerouslySetInnerHTML={{ __html: renderMath(b.lines[0] ?? "", true) }} />;

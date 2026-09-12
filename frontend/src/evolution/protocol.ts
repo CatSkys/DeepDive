@@ -1,0 +1,127 @@
+// 自进化协议的解析层：模型在回复里输出 info string 为 `lesson` 的围栏代码块，内容是
+// 一段 JSON 提案。标准与红线在 `docs/EVOLUTION-POLICY.md`（仓库内、可演进），
+// 触发判据与输出格式在引擎技能 `deepdive-evolution`（随应用发）。
+//
+// 这里是**形状边界**：不合形状一律 null——采集端丢弃、显示端退回普通代码块，
+// 绝不猜字段。origin（会话/轮/事件序号）由采集端盖戳，不采信模型自报的定位信息。
+
+export const LESSON_LANG = "lesson";
+
+export type LessonHome = "agents" | "pitfalls" | "spec" | "skill" | "policy";
+export type LessonCategory = "incident" | "workflow" | "fact" | "rule";
+export type LessonStatus = "pending" | "applied" | "dismissed" | "expired";
+
+const HOMES: readonly LessonHome[] = ["agents", "pitfalls", "spec", "skill", "policy"];
+const CATEGORIES: readonly LessonCategory[] = ["incident", "workflow", "fact", "rule"];
+
+export interface LessonEvidence {
+  /** 逐字摘录（≤500 字）；助手内容只能作上下文，不能单独当证据。 */
+  excerpt: string;
+  /** 可选出处提示（日志 / 提交号 / 文件:行）。 */
+  note?: string;
+}
+
+/** 效果主张：可被日志证伪的预测；null = 风格类（可沉淀，不进效果统计）。 */
+export interface LessonPredict {
+  metric: "repeat-incident" | "steps";
+  /** 可 grep 的签名；提出前应自证能在日志里命中。 */
+  signature: string;
+  windowDays: number;
+}
+
+export interface LessonProposal {
+  id: string;
+  category: LessonCategory;
+  home: LessonHome;
+  /** 落点的标题锚（插到该节末尾）；找不到锚点整条拒绝，不猜位置。 */
+  anchor: string;
+  content: string;
+  inference: "explicit" | "implicit";
+  evidence: LessonEvidence[];
+  predict: LessonPredict | null;
+  status: LessonStatus;
+  createdAt: number;
+  updatedAt: number;
+  /** 采集出处（应用盖戳）：会话 / 轮 / 事件序号。 */
+  origin: { sessionId: string; turn: number; eventSeq: number };
+  /** 采纳后交办的那条会话（落库由它完成，见 SPEC §3.4）。 */
+  appliedSessionId?: string;
+}
+
+const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
+
+function parseEvidence(v: unknown): LessonEvidence[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const out: LessonEvidence[] = [];
+  for (const raw of v) {
+    if (typeof raw !== "object" || raw === null) return null;
+    const o = raw as Record<string, unknown>;
+    const excerpt = str(o.excerpt);
+    if (excerpt === null || excerpt.length > 500) return null;
+    const note = str(o.note);
+    out.push({ excerpt, ...(note === null ? {} : { note }) });
+  }
+  return out;
+}
+
+function parsePredict(v: unknown): LessonPredict | null | undefined {
+  if (v === null || v === undefined) return null; // 风格类
+  if (typeof v !== "object") return undefined;
+  const o = v as Record<string, unknown>;
+  if (o.metric !== "repeat-incident" && o.metric !== "steps") return undefined;
+  const signature = str(o.signature);
+  const windowDays = o.windowDays;
+  if (signature === null) return undefined;
+  if (typeof windowDays !== "number" || !Number.isFinite(windowDays) || windowDays < 1 || windowDays > 365) return undefined;
+  return { metric: o.metric, signature, windowDays };
+}
+
+/** 解析一份提案；形状不合回 null。origin 缺省（显示端）时用占位，不参与去重。 */
+export function parseLesson(
+  text: string,
+  origin: LessonProposal["origin"] = { sessionId: "", turn: -1, eventSeq: -1 },
+): LessonProposal | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text) as unknown;
+  } catch {
+    return null; // 不是 JSON：按普通代码块处理
+  }
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+
+  const category = o.category as LessonCategory;
+  const home = o.home as LessonHome;
+  const anchor = str(o.anchor);
+  const content = str(o.content);
+  if (!CATEGORIES.includes(category) || !HOMES.includes(home)) return null;
+  if (anchor === null || content === null || content.length > 2000) return null;
+  const evidence = parseEvidence(o.evidence);
+  if (evidence === null) return null;
+  const predict = parsePredict(o.predict);
+  if (predict === undefined) return null;
+
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    category,
+    home,
+    anchor,
+    content,
+    inference: o.inference === "explicit" ? "explicit" : "implicit",
+    evidence,
+    predict,
+    status: "pending",
+    createdAt: now,
+    updatedAt: now,
+    origin,
+  };
+}
+
+/** 从一段助手文本里抠出所有 lesson 块（采集端用；显示端只看单块）。 */
+export function lessonBlocks(text: string): string[] {
+  const out: string[] = [];
+  const re = /```\s*lesson\s*\n([\s\S]*?)```/g;
+  for (let m = re.exec(text); m !== null; m = re.exec(text)) out.push(m[1] ?? "");
+  return out;
+}

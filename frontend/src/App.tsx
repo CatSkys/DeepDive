@@ -10,6 +10,7 @@ import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
 import { DD_EVENTS, dispatchAppEvent, onAppEvent } from "./events";
 import { Sidebar } from "./components/Sidebar";
 import { AutomationProvider } from "./automation/useAutomation";
+import { EvolutionProvider } from "./evolution/useEvolution";
 import type { AutomationProposal } from "./automation/protocol";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
@@ -250,6 +251,7 @@ export default function App() {
   return (
     <StoreProvider>
       <AutomationProvider>
+        <EvolutionProvider>
         <FirstRunGate>
           <Shell
             settingsOpen={settingsOpen}
@@ -260,6 +262,7 @@ export default function App() {
             onAutomationDraftUsed={() => setAutomationDraft(null)}
           />
         </FirstRunGate>
+        </EvolutionProvider>
       </AutomationProvider>
     </StoreProvider>
   );

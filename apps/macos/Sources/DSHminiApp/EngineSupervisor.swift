@@ -258,6 +258,7 @@ final class EngineSupervisor {
         let process = Process()
         let patchArg = Self.ensureEnginePatchFile()
         Self.ensureAutomationSkill()
+        Self.ensureEvolutionSkill()
         switch entry {
         case .bundled(let node, let script):
             process.executableURL = node
@@ -342,6 +343,10 @@ final class EngineSupervisor {
     DeepDive automation: when the user asks for a scheduled or recurring task, or to change one, \
     load the `deepdive-automation` skill and follow its protocol exactly. One-off reminders \
     inside this conversation keep using the schedule tools.
+    DeepDive self-evolution: when the user says "remember this" / "don't make me re-explain", or \
+    you just worked something out the hard way, load the `deepdive-evolution` skill and propose a \
+    lesson. Proposals only — never change rules or docs yourself; the user accepts them in \
+    Settings → Self-evolution.
     """
 
     /// The skill that carries the conversation-side automation protocol. Written on
@@ -409,14 +414,71 @@ final class EngineSupervisor {
     /// 铺 skill 到引擎的用户技能根（每次都重写：升级以应用内为准）。
     @discardableResult
     static func ensureAutomationSkill() -> URL {
+        writeSkill(name: automationSkillName, markdown: automationSkillMarkdown)
+    }
+
+    @discardableResult
+    static func ensureEvolutionSkill() -> URL {
+        writeSkill(name: evolutionSkillName, markdown: evolutionSkillMarkdown)
+    }
+
+    private static func writeSkill(name: String, markdown: String) -> URL {
         let dir = AppPaths.harnessHome
             .appendingPathComponent("skills", isDirectory: true)
-            .appendingPathComponent(automationSkillName, isDirectory: true)
+            .appendingPathComponent(name, isDirectory: true)
         let url = dir.appendingPathComponent("SKILL.md")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? automationSkillMarkdown.write(to: url, atomically: true, encoding: .utf8)
+        try? markdown.write(to: url, atomically: true, encoding: .utf8)
         return url
     }
+
+    /// 自进化技能：什么时候提、怎么输出（协议与触发）。标准与红线不在这里——它们在
+    /// 仓库的 `docs/EVOLUTION-POLICY.md`（可演进），技能只指路。
+    static let evolutionSkillName = "deepdive-evolution"
+
+    static let evolutionSkillMarkdown = #"""
+    ---
+    name: deepdive-evolution
+    description: Propose a durable lesson (incident / workflow / fact / rule) for this repository so future sessions start already knowing it. Use right after non-trivial debugging, after working out a multi-step operational workflow, when you rediscover project facts you did not know up front, when the same pitfall bites a second time, or when the user says "remember this" / "don't make me re-explain". Proposals only — nothing changes until the user accepts it in Settings → Self-evolution.
+    ---
+
+    # Proposing a durable lesson
+
+    Read `docs/EVOLUTION-POLICY.md` first: it owns the allowed homes, the categories, the evidence
+    bar and how effect claims must look. You only *propose*. The user reviews every proposal in
+    Settings → Self-evolution, and only then does an agent turn write it into the target file.
+    Never edit `AGENTS.md` / `docs/PITFALLS.md` / `docs/SPEC-*.md` / skills "because it seemed
+    worth recording" — that is exactly what the proposal queue is for.
+
+    ## Output
+
+    One fenced code block per lesson, info string `lesson`, body = exactly one JSON object:
+
+    ````text
+    ```lesson
+    {"category":"incident","home":"pitfalls","anchor":"### 4.17 桥端口一变","content":"<the full Markdown you would insert>","evidence":[{"excerpt":"<verbatim quote>","note":"<log / commit / file:line>"}],"predict":{"metric":"repeat-incident","signature":"<greppable string>","windowDays":14}}
+    ```
+    ````
+
+    - `category`: `incident` | `workflow` | `fact` | `rule`; `home`: what the policy allows.
+    - `anchor`: the heading you are appending to. If you cannot name an existing heading, do not propose.
+    - `content`: the finished text, in that home's own format (the user pastes nothing — it lands as written).
+    - `evidence`: at least one **verbatim** excerpt. Assistant summaries, one-off task details and
+      "the user never mentioned it again" are not evidence.
+    - `predict`: how the lesson will be falsified. The signature must be something you have already
+      grepped once in the session logs; if you cannot measure it, send `"predict":null` — the lesson
+      is then style-only and stays out of the effect statistics.
+
+    ## Signals
+
+    - A task only worked after several attempts or a correction — record the path **and the dead ends**.
+    - You discovered project facts you did not know up front (where credentials live, how to verify live, a hidden prerequisite).
+    - The same pitfall bit you twice.
+    - The user said "remember this", "save this", "don't make me re-explain".
+
+    Propose silently (no announcement in prose), and never claim a lesson was recorded — the queue in
+    Settings is the only place it exists until the user accepts it.
+    """#
 
     /// YAML 流标量：JSON 序列化单个字符串再掐掉数组方括号——引号/换行天然转义。 */
     private static func yamlString(_ value: String) -> String {
