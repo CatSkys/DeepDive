@@ -33,6 +33,15 @@ Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`D
 
 `docs/SPEC-AUTOMATION.md`（已实现态）＝ 定时任务管理页：到点新开会话发指令，任务存在本机、由客户端调度（引擎无定时任务 RPC）。**开放项**：一次性计划 / 批量队列（形态见 SPEC §2，未做）；「应用关闭也照跑」需常驻代理，另立项。
 
+## 5. Windows 客户端
+
+壳换平台，SPA 与引擎不动：新增 C#/.NET + WPF + WebView2 原生壳，桥在 Windows 侧重写一份。
+**方案与施工图见 `docs/PLAN-WINDOWS.md`（唯一事实源，含壳能力对照、引擎监督三差异、分期）。**
+前置：**壳技术栈需用户批准**（铁律 7）+ §11 的视觉决策与第一期范围。
+已查明的关键路径：引擎 win32-x64 由上游 CI 与专用实现背书（`deepseek-harness/.github/workflows/ci.yml`、
+`packages/sandbox/sandbox-windows-acl`、`session-persistence-jsonl/src/win32.ts`）；
+运行时闭包必须在 Windows 构建机准备（macOS 上的 `npm install` 只取 darwin 预编译产物）。
+
 ## 期间不做
 
 - **Agent Teams**（上游 experimental：单会话内 Lead + 命名队友 + 持久消息 + 共享任务板，四包 `experimental/agent-team*`）：用户拍板暂不用。接的话 = 挂 experimental profile + 花名册/任务板面板；地基已备——队友即 continuable 子会话，子代理续聊已落地。
