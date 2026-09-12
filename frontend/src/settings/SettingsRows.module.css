@@ -187,7 +187,7 @@
 }
 .presetBadge.current { background: var(--ink); color: var(--panel-bg); border-color: var(--ink); font-weight: 600; }
 
-/* ── 插件 / 归档行 ── */
+/* ── 归档行 ── */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -612,15 +612,3 @@
 }
 .pickMeta { flex: none; font-size: 11px; color: var(--ink-3); }
 
-/* 插件节（§7）：行容器与文本小按钮（安装/卸载/搜索/重启） */
-.fieldGroup { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-.textBtn {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 10px;
-  border: 1px solid var(--line); border-radius: var(--dsh-radius-keycap);
-  background: var(--fill-soft); color: var(--ink-2);
-  font-size: 12px; cursor: pointer;
-  transition: background-color var(--dur-fast, 120ms) ease, color var(--dur-fast, 120ms) ease;
-}
-.textBtn:hover { background: var(--fill); color: var(--ink); }
-.textBtn:disabled { opacity: .5; cursor: default; }

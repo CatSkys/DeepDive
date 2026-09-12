@@ -309,7 +309,6 @@ export const EN: Record<string, string> = {
   "PDF 第 {n} 页": "PDF page {n}",
   "亮色下侧栏偏灰、会话卡偏白。": "In light mode the sidebar is gray and the session card white.",
   "清除": "Clear",
-  "搜索插件": "Search plugins",
   "暂无归档会话": "No archived sessions",
   "搜索已归档聊天": "Search archived chats",
   "所有项目": "All projects",
@@ -407,7 +406,6 @@ export const EN: Record<string, string> = {
   "本引擎装载的扩展模块。": "Extension modules loaded by this engine.",
   "已启用": "Enabled",
   "已停用": "Disabled",
-  "本引擎未提供插件清单。": "This engine exposes no plugin inventory.",
   // settings — appearance(旧引擎行)
   "界面设置": "Interface",
   "引擎界面明暗": "Engine UI theme",

@@ -315,9 +315,6 @@ final class EngineSupervisor {
     /// is tolerable — it must exist, else the arg points nowhere).
     static func ensureEnginePatchFile() -> URL {
         let url = AppPaths.supportDir.appendingPathComponent("engine-patch.yml")
-        // 用户插件（插件市场装到 DSH_HOME/plugins/<id>）以绝对路径 insert：
-        // 引擎把绝对/相对名转 file URL 装载，无 npm 生命周期（红线：不执行插件脚本）。
-        let userInserts = PluginStore.patchInsertLines(home: AppPaths.supportDir)
         var body = """
         # Written by DeepDive at every engine launch — app-owned overlay layer.
         # Do not edit: your changes are overwritten on the next launch.
@@ -325,10 +322,6 @@ final class EngineSupervisor {
             - id: schedule
               name: '@deepseek-ai/dsh-schedule'
         """
-        if !userInserts.isEmpty {
-            // 插件市场用户插件的绝对路径 insert 追加在基础层之后
-            body += "\n" + userInserts.joined(separator: "\n")
-        }
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? body.write(to: url, atomically: true, encoding: .utf8)
         return url

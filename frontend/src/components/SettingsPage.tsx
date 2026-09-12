@@ -11,7 +11,6 @@ import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
 import { ImportSection } from "../settings/ImportSection";
-import { PluginsSection } from "../settings/PluginsSection";
 import { UsageSection } from "../stats/UsageSection";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
@@ -32,7 +31,7 @@ import { sessionDeleteDirs } from "../host";
 // section 独立降级。
 //
 // 分类：通用（外观/语言/Enter 行为/通知）、模型（提供方+密钥）、
-// 审批（默认权限预设）、Agent 预设、插件、快捷键、已归档的聊天、数据。
+// 审批（默认权限预设）、Agent 预设、快捷键、已归档的聊天、数据。
 
 export function SettingsPage({ initialSection, onClose }: { initialSection?: string; onClose: () => void }) {
   const { t } = useT();
@@ -52,7 +51,6 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
     { id: "general", label: t("通用"), icon: SettingsIcon },
     { id: "models", label: t("模型"), icon: Cpu },
     { id: "import", label: t("导入"), icon: Download },
-    { id: "plugins", label: t("插件"), icon: Download },
     { id: "approval", label: t("审批"), icon: ShieldCheck },
     { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
     { id: "archived", label: t("已归档的聊天"), icon: Archive },
@@ -103,7 +101,6 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
           {activeId === "general" && <GeneralSection />}
           {activeId === "models" && <ModelsManage />}
           {activeId === "import" && <ImportSection />}
-          {activeId === "plugins" && <PluginsSection />}
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
           {activeId === "archived" && <ArchivedSection onBulk={setBulk} />}

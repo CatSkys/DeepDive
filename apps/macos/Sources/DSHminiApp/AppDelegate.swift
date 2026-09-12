@@ -338,19 +338,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
                 NSWorkspace.shared.open(url)
             }
-        case "plugin-list":
-            pushPlugins()
-        case "plugin-install":
-            PluginStore.install(home: AppPaths.harnessHome, repo: body["repo"] as? String ?? "") { [weak self] result in
-                guard let self else { return }
-                if case .failure(let message) = result {
-                    EngineLog.shared.append("[plugins] install failed: \(message)")
-                }
-                DispatchQueue.main.async { self.pushPlugins() }
-            }
-        case "plugin-remove":
-            PluginStore.remove(home: AppPaths.harnessHome, id: body["id"] as? String ?? "")
-            pushPlugins()
         case "dictation-start":
             DictationController.shared.start()
         case "dictation-stop":
@@ -575,15 +562,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 空数组——前端据此收尾，不悬挂 reqId。NSOpenPanel 留在主线程；整图
     /// 磁盘读与 base64 编码移后台队列（读大图会卡主线程 UI，AUD-079，对齐
     /// 同文件 gitRun 的后台样板），主线程只回推 payload。
-    /// 插件清单推送（§7 市场面）：list/install/remove 之后的统一回包。
-    private func pushPlugins() {
-        let entries = PluginStore.load(home: AppPaths.harnessHome)
-        let items: [[String: Any]] = entries.map { e in
-            ["id": e.id, "repo": e.repo, "packageName": e.packageName, "dir": e.dir]
-        }
-        windowController.pushHostCommand("plugins", payload: Self.jsonPayload(["plugins": items]))
-    }
-
     private func pickAttachments(reqId: String) {
         guard let window = windowController.window else { return }
         let panel = NSOpenPanel()

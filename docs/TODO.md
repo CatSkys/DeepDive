@@ -27,7 +27,7 @@ iOS/Android 远程连接引擎：发起任务、查看进度、收通知。设�
 
 ## 3. 自动更新
 
-Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`DSHMINI_NOTARY_PROFILE`）就绪后接入；发布仍本地打包（CI 无签名凭据）。**前置二：新增 Sparkle 依赖需用户批准**（铁律 7）。插件市场的版本锁定/插件更新机制并入本节一起设计。
+Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`DSHMINI_NOTARY_PROFILE`）就绪后接入；发布仍本地打包（CI 无签名凭据）。**前置二：新增 Sparkle 依赖需用户批准**（铁律 7）。
 
 ## 4. 自动化页面（SPEC 草稿待确认）
 
