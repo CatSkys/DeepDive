@@ -173,6 +173,11 @@
 - 处置：`EngineSupervisor.resolveLaunchWorkspace` 三级解析——显式 `launchWorkspace` 配置 → harness 存储 `storages/workspace.json` 首个注册空间（`global.workspaceIds[0]`，与侧栏同序）→ 新用户兜底 `~/Documents/DeepDive`（不存在则建）。侧栏空间仍是项目单位，多项目经空间注册/切换，不受影响。
 - 排查实录（勿重复走弯路）：引擎 AI 工具调用与子代理命令全部只在项目目录内（逐条核对 tool/call 事件），`@` 索引才是家目录扫描源；lsof 抓不到瞬态访问，tccd 统一日志私有不可读，结论靠引擎源码 + workspace 注册表 + 事件日志三角钉死。
 
+### 4.15 引擎状态文件只能在停机窗口改：运行期改会被内存状态覆写
+- 背景（2026-09-12）：引脚的 0.1.5-rc.1 wire 面只有 `workspace/archiveSession`（单向），**没有取消归档、也没有删除会话**（官方 `ui-workspace/README.md` 亦明写 "No Session deletion or unarchive control"；`workspace/delete` 删的是**工作区注册**、明确不删会话）。归档页的「取消归档 / 删除」因此由壳在**停引擎 → 改文件 → 起引擎**的窗口内完成（`SessionAdmin.swift`）。
+- 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（结构带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache.json` 的 `tables.sessions[<id>]`；会话日志 = `sessions/<转义 cwd>/<sessionId>/`（**目录名就是 sessionId**，别去复刻引擎的 cwd 转义规则——扫一层同名目录即可）。
+- 纪律：① 引擎运行期在内存持有这些状态，**下次 setState 会整份覆写文件**，所以改文件前必须停机（本仓用 `supervisor.stop()` + 0.4s 落定等待再改，SIGTERM 后可能还有一次收尾写盘）；② 写盘走临时文件 + `replaceItemAt` 原子替换；③ JSON 结构不符预期**拒绝写入并报错**，不做“尽量修一修”；④ 删会话是把整个 `<sessionId>/` 目录删掉（含 `session.v3.jsonl.zstd`）。
+
 ### 4.14 bundled node 绝不能放进 `Contents/MacOS/`
 - 事故（2026-09-10 用户实测）：引擎 node 放在 `Contents/MacOS/node`，Launch Services 把同 bundle `MacOS/` 下的额外可执行文件当成第二个 app——引擎一拉起（含重启）Dock 就闪出独立的 node 图标/窗口，用户连报「不停弹 node 窗口」。
 - 处置：node 落在 `Contents/Resources/Runtime/node`（与 dsh 闭包同级）；`EngineSupervisor.bundledRuntimeState()` / `embed-engine.sh` / `package-macos.sh` 签名 case 同步。`Contents/MacOS/` 只保留 app 主可执行文件。

@@ -376,6 +376,60 @@
 .comboChip.off { color: var(--ink-3); border-color: var(--line); background: transparent; text-decoration: line-through; }
 
 /* ── 归档页：搜索 + 项目筛选 + 项目分组卡片（无描边，纯底色分范围） ── */
+/* 右上一枚「全部删除」+ 处理中提示（布局照参考图：动作在标题一级的右侧） */
+.archBulk {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 26px;
+  margin-bottom: 8px;
+}
+.archBusy { font-size: 12px; color: var(--ink-3); }
+.archDanger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--dsh-radius-control);
+  background: var(--dsh-signal-danger);
+  color: #fff;
+  font-size: 12px;
+}
+.archDanger:hover { opacity: .88; }
+.archDanger:disabled { opacity: .4; }
+
+/* 行内动作（照参考图）：幽灵垃圾桶 + 「取消归档」实心药丸 */
+.archRowActions { display: flex; align-items: center; gap: 8px; flex: none; }
+.archIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--dsh-radius-keycap);
+  background: transparent;
+  color: var(--ink-3);
+}
+.archIconBtn:hover { background: var(--fill); color: var(--ink); }
+.archIconBtn:disabled, .archRestore:disabled { opacity: .4; }
+.archRestore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  color: var(--ink);
+  font-size: 12px;
+}
+.archRestore:hover { background: var(--fill-strong); }
+
 .archToolbar {
   display: flex;
   align-items: center;

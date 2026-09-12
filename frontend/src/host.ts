@@ -76,6 +76,39 @@ export function openWith(path: string, app: string): void {
   sendToShell({ type: "open-path-with", path, app });
 }
 
+/* ── 会话维护（取消归档 / 删除）：引擎 wire 面没有这两个方法（官方亦然），
+   由壳在停机窗口里改 DSH_HOME 状态文件实现（SessionAdmin.swift）；一次调用
+   一批 id，壳回包 {removed, error}。 ── */
+
+export interface SessionAdminResult {
+  removed: string[];
+  error?: string;
+}
+
+function sessionAdmin(cmd: "session-unarchive" | "session-delete", sessionIds: string[]): Promise<SessionAdminResult> {
+  return bridgeRequest(
+    "sessionAdmin",
+    { removed: [] },
+    (p) => {
+      const payload = p as { removed?: string[]; error?: string } | undefined;
+      return { removed: payload?.removed ?? [], ...(payload?.error ? { error: payload.error } : {}) };
+    },
+    (reqId) => sendToShell({ type: cmd, reqId, sessionIds }),
+    // 壳要停引擎、改文件、再起引擎：给足窗口，别按默认 10s 超时把忙碌态提前收掉
+    120_000,
+  );
+}
+
+/** 取消归档（会话日志保留，只从归档集摘掉）。 */
+export function sessionUnarchive(sessionIds: string[]): Promise<SessionAdminResult> {
+  return sessionAdmin("session-unarchive", sessionIds);
+}
+
+/** 删除会话（摘归档项 + 清投影缓存 + 删日志目录）。 */
+export function sessionDelete(sessionIds: string[]): Promise<SessionAdminResult> {
+  return sessionAdmin("session-delete", sessionIds);
+}
+
 /* ── 插件市场（§7）：壳侧安装仓的桥面。清单推送（"plugins" 命令）经
    onHostEvent 订阅；安装为异步火后不管（完成时推新清单）。 ── */
 

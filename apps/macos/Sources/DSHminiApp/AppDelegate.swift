@@ -280,6 +280,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 withApplicationAt: URL(fileURLWithPath: app),
                 configuration: NSWorkspace.OpenConfiguration(),
             )
+        case "session-unarchive":
+            // 取消归档：引擎运行期内存持有归档集、且 setState 会整份覆写文件，
+            // 所以走「停引擎 → 改文件 → 起引擎」（见 SessionAdmin 头注释）
+            runSessionAdmin(reqId: body["reqId"] as? String ?? "",
+                            ids: body["sessionIds"] as? [String] ?? [],
+                            remove: false)
+        case "session-delete":
+            runSessionAdmin(reqId: body["reqId"] as? String ?? "",
+                            ids: body["sessionIds"] as? [String] ?? [],
+                            remove: true)
         case "copy-log-path":
             let pb = NSPasteboard.general
             pb.clearContents()
@@ -399,6 +409,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return a.name < b.name
         }
         reply(rows.prefix(200).map { ["name": $0.name, "path": $0.path, "isDir": $0.isDir] })
+    }
+
+    /// 会话维护（取消归档 / 删除）的停机窗口：停引擎 → 改 DSH_HOME 状态 → 起引擎
+    /// → 回包（removed + error）。不等待引擎重新就绪即回包——前端据此收起忙碌态，
+    /// 会话列表由既有轮询在新引擎就绪后自然收敛。
+    private func runSessionAdmin(reqId: String, ids: [String], remove: Bool) {
+        let reply: (SessionAdmin.Result) -> Void = { result in
+            var fields: [String: Any] = ["reqId": reqId, "removed": result.removed]
+            if let error = result.error { fields["error"] = error }
+            self.windowController.pushHostCommand(
+                "sessionAdmin", payload: AppDelegate.jsonPayload(fields),
+            )
+        }
+        guard !ids.isEmpty else {
+            reply(SessionAdmin.Result(removed: [], error: nil))
+            return
+        }
+        let home = AppPaths.harnessHome
+        supervisor.stop()
+        // SIGTERM 之后引擎可能还有一次收尾写盘：给它落定时间，否则刚写的状态会被覆盖
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            guard let self else { return }
+            let result = remove
+                ? SessionAdmin.delete(sessionIds: ids, home: home)
+                : SessionAdmin.unarchive(sessionIds: ids, home: home)
+            self.supervisor.start()
+            EngineLog.shared.append("[session-admin] \(remove ? "delete" : "unarchive") \(ids.count) → removed \(result.removed.count)\(result.error.map { " error: \($0)" } ?? "")")
+            reply(result)
+        }
     }
 
     /// 全屏预览页「打开方式」候选：OpenWithCatalog 出事实（App 列表 + 图标
