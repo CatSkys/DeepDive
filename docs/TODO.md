@@ -37,7 +37,8 @@ Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`D
 
 壳换平台，SPA 与引擎不动：新增 C#/.NET + WPF + WebView2 原生壳，桥在 Windows 侧重写一份。
 **方案与施工图见 `docs/PLAN-WINDOWS.md`（唯一事实源，含壳能力对照、引擎监督三差异、分期）。**
-前置：**壳技术栈需用户批准**（铁律 7）+ §11 的视觉决策与第一期范围。
+**暂缓：先把 macOS 端做完善，之后再推动；期间不进施工队列。**
+前置：**壳技术栈需用户批准**（铁律 7）+ 方案 §11 的视觉决策与第一期范围。
 已查明的关键路径：引擎 win32-x64 由上游 CI 与专用实现背书（`deepseek-harness/.github/workflows/ci.yml`、
 `packages/sandbox/sandbox-windows-acl`、`session-persistence-jsonl/src/win32.ts`）；
 运行时闭包必须在 Windows 构建机准备（macOS 上的 `npm install` 只取 darwin 预编译产物）。

@@ -1,7 +1,8 @@
 # DeepDive Windows 客户端 — 方案
 
-> **状态（2026-09-12）：方案待用户定稿，未动代码。** 本文是 Windows 端的决策与施工图，
-> 唯一事实源。macOS 端 as-built 归 `ARCHITECTURE.md`，路线排期归 `TODO.md`。
+> **状态（2026-09-12）：暂缓，不排期——先把 macOS 端做完善，之后再推动 Windows。** 未动代码；
+> 开工前需先过 §11 的三项定稿。本文是 Windows 端的决策与施工图，唯一事实源；
+> macOS 端 as-built 归 `ARCHITECTURE.md`，路线归 `TODO.md`。
 > 依据：Raycast 2.0 技术复盘（`raycast.com/blog/a-technical-deep-dive-into-the-new-raycast`）
 > + 本仓现状 + 引擎（vendored `deepseek-harness/`，引脚见 `scripts/dsh-runtime-version.txt`）实查。
 
@@ -165,11 +166,14 @@ P2 的桥抽象必须在 P1 之前或同期完成，否则 P1 的能力在 WebVi
 - **原生细节长尾**：IME、无障碍、拖放、输入法候选框定位在 WebView 里都要显式处理
   （文章同款警告）。请在排期里留出这笔预算，不要按"壳写完就完事"估。
 
-## 11. 待用户定稿
+## 11. 开工前置（暂缓期间不改）
+
+推动 Windows 前需先定稿这三项：
 
 1. **壳技术栈批准**（铁律 7：引入新技术栈须先问）。推荐 C#/.NET 8 + WPF + WebView2，
    对齐文章与上游官方桌面端的 Windows host 选型。
-2. **视觉决策**：`cursor: pointer`（22 处）与 hover 高亮等桌面惯例，跟不跟。
+2. **视觉决策**：`cursor: pointer`（22 处）与 hover 高亮等桌面惯例，跟不跟；
    macOS 端是否同步改，还是只 Windows 分叉。
 3. **第一期范围**：P0 冒烟后是否直接补齐到 mac 端功能对齐，还是先只交主窗 + 桥 + 引擎。
-4. **是否现在排期**，还是本轮只落决策、不进 `TODO.md` 的施工队列。
+
+排期：**暂缓，排在 macOS 端完善之后。**

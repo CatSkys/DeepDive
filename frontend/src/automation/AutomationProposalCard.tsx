@@ -17,13 +17,15 @@ export function AutomationProposalCard({ proposal }: { proposal: AutomationPropo
         <CalendarClock size={14} />
         {t("定时任务建议")}
       </div>
-      <div className="auto-proposal-title">{proposal.title}</div>
-      <div className="auto-proposal-meta">
-        {sched.prefix}
-        {sched.time ? `, ${sched.time}` : ""}
-        {proposal.workspace !== null ? ` · ${proposal.workspace}` : ""}
+      <div className="auto-proposal-main">
+        <div className="auto-proposal-title">{proposal.title}</div>
+        <div className="auto-proposal-meta">
+          {sched.prefix}
+          {sched.time ? `, ${sched.time}` : ""}
+          {proposal.workspace !== null ? ` · ${proposal.workspace}` : ""}
+        </div>
+        <div className="auto-proposal-desc">{proposal.instruction}</div>
       </div>
-      <div className="auto-proposal-desc">{proposal.instruction}</div>
       <div className="actions">
         <button
           className="btn-primary"
