@@ -1,6 +1,6 @@
 // 每日 Token 趋势图卡：时间范围（近 7/30 日）内按模型分线的平滑曲线。
 // 悬浮显示当日总量与分模型明细；曲线/网格为 SVG，宽度随容器实测。
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useT, type Lang } from "../i18n";
 import { formatDayShort, formatTokensShort, type UsageDay } from "./usageStats";
 import { smoothPath } from "./chartMath";
@@ -26,18 +26,26 @@ export function UsageTrend({ rangeDays, models, lang, range, onRange }: {
   onRange: (v: 7 | 30) => void;
 }) {
   const { t, tt } = useT();
-  const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [tip, setTip] = useState<ChartTipState | null>(null);
   const [hover, setHover] = useState<number | null>(null);
 
-  useEffect(() => {
-    const el = wrapRef.current;
+  // 宽度测量用 **callback ref**，不能用"挂载期 effect 读 ref"：统计页现在是
+  // 缓存优先 + 渐进渲染，首帧往往还没数据（走空态分支、plot 不挂载），
+  // 那种写法会漏挂观察器 → 数据到了 SVG 也因 width=0 不渲染（趋势图空白）。
+  // 元素出现/换新即重挂，并先给一帧实测兜底（RO 首帧可能滞后）。
+  const roRef = useRef<ResizeObserver | null>(null);
+  const attachPlot = useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    roRef.current = null;
     if (!el) return;
+    setWidth(el.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => setWidth(entries[0]!.contentRect.width));
     ro.observe(el);
-    return () => ro.disconnect();
+    roRef.current = ro;
   }, []);
+  useEffect(() => () => roRef.current?.disconnect(), []);
 
   // 范围切换后旧 hover 落在别的日期上；指针不动不会触发 mouseleave，显式清掉
   useEffect(() => {
@@ -118,7 +126,7 @@ export function UsageTrend({ rangeDays, models, lang, range, onRange }: {
           </span>
         ))}
       </div>
-      <div className={css.trendPlot} ref={wrapRef}>
+      <div className={css.trendPlot} ref={attachPlot}>
         {width > 0 && (
           <svg className={css.trendSvg} width={width} height={H} onMouseLeave={() => { setTip(null); setHover(null); }}>
             {Array.from({ length: GRID_LINES }, (_, k) => {
