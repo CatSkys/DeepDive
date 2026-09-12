@@ -20,10 +20,14 @@ export function UserBubble({ text }: { text: string }) {
 
 
 /// Agent reply: pure text — NO bubble, NO element background (design rule).
-export function AgentMessage({ text }: { text: string }) {
+export function AgentMessage({ text, onOpenFile }: {
+  text: string;
+  /** 正文里本地文件链接（`src/app.ts:42`）的落点：交预览打开并落到该行。 */
+  onOpenFile?: (path: string, line?: number) => void;
+}) {
   return (
     <div className="agent-message">
-      <Markdown text={text} />
+      <Markdown text={text} onOpenFile={onOpenFile} />
     </div>
   );
 }

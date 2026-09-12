@@ -1,13 +1,20 @@
 // 文件预览窗口的渲染网眼（R-001 同款渲染层测试）：little 浮窗的蒙版/控制簇、
 // 全屏面的装配、标签切换与关闭的接线。@vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "../components/preview/FilePreviewWindow";
 import type { FilePreview } from "../components/preview/useFilePreview";
 
 beforeAll(() => {
-  // 预览体一律拉 /api/file：jsdom 里没有桥，给个固定失败响应走「无法预览」分支
-  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 503, text: async () => "" })));
+  // 预览体一律拉 /api/file：jsdom 里没有桥，给固定文本内容（代码/纯文本渲染器
+  // 要按行渲染，才能断言行号与高亮）
+  // jsdom 不实现 scrollIntoView（跳行落点要用），补空实现
+  Element.prototype.scrollIntoView = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async () => ({
+    ok: true,
+    status: 200,
+    text: async () => "const a = 1\nconst b = 2",
+  })));
 });
 
 afterEach(cleanup);
@@ -22,6 +29,8 @@ function fake(over: Partial<FilePreview> = {}): FilePreview {
     closeAll: vi.fn(),
     setActive: vi.fn(),
     setFullscreen: vi.fn(),
+    setRenderer: vi.fn(),
+    toggleWrap: vi.fn(),
     ...over,
   };
 }
@@ -71,6 +80,60 @@ describe("little 浮窗", () => {
     expect(document.querySelectorAll(".preview-tab")).toHaveLength(2);
     screen.getAllByRole("tab")[1].click();
     expect(p.setActive).toHaveBeenCalledWith("/w/b.txt");
+  });
+});
+
+describe("渲染器与换行", () => {
+  it("代码文件默认走代码渲染器：行号 + 语言标签 + hljs 高亮", async () => {
+    const p = fake({ tabs: [{ path: "/w/a.ts", name: "a.ts" }], activePath: "/w/a.ts" });
+    render(<FilePreviewSurface preview={p} />);
+    await waitFor(() => expect(document.querySelector(".cb.preview-code")).not.toBeNull());
+    expect(document.querySelectorAll(".cbRow")).toHaveLength(2);
+    expect(document.querySelector(".cbLang")?.textContent).toBe("typescript");
+    expect(document.querySelector(".hljs .hljs-keyword")).not.toBeNull();
+  });
+
+  it("显式选纯文本时走无卡片行号面，且换行态落在 data-wrap 上", async () => {
+    const p = fake({
+      tabs: [{ path: "/w/a.ts", name: "a.ts", renderer: "text", wrap: true }],
+      activePath: "/w/a.ts",
+    });
+    render(<FilePreviewSurface preview={p} />);
+    await waitFor(() => expect(document.querySelector(".preview-text")).not.toBeNull());
+    expect(document.querySelector(".preview-text")?.hasAttribute("data-wrap")).toBe(true);
+    expect(document.querySelectorAll(".preview-text .cbRow")).toHaveLength(2);
+  });
+
+  it("跳行目标行带 data-target（Markdown 链接 :行号 → 预览落点）", async () => {
+    const p = fake({
+      tabs: [{ path: "/w/a.ts", name: "a.ts", renderer: "text", line: 2 }],
+      activePath: "/w/a.ts",
+    });
+    render(<FilePreviewSurface preview={p} />);
+    await waitFor(() => expect(document.querySelector(".cbRow[data-target]")).not.toBeNull());
+    expect(document.querySelectorAll(".cbRow[data-target]")).toHaveLength(1);
+  });
+
+  it("换行开关只对 code/text 出现，点击回调 toggleWrap", () => {
+    const p = fake({ tabs: [{ path: "/w/a.md", name: "a.md", renderer: "markdown" }], activePath: "/w/a.md" });
+    const { unmount } = render(<FilePreviewSurface preview={p} />);
+    expect(screen.queryByRole("button", { name: "折行" })).toBeNull();
+    unmount();
+    const q = fake({ tabs: [{ path: "/w/a.md", name: "a.md", renderer: "text" }], activePath: "/w/a.md" });
+    render(<FilePreviewSurface preview={q} />);
+    fireEvent.click(screen.getByRole("button", { name: "折行" }));
+    expect(q.toggleWrap).toHaveBeenCalled();
+  });
+
+  it("渲染器下拉列出候选、当前项打勾，选择回调 setRenderer", () => {
+    const p = fake({ tabs: [{ path: "/w/a.md", name: "a.md" }], activePath: "/w/a.md" });
+    render(<FilePreviewSurface preview={p} />);
+    fireEvent.click(screen.getByRole("button", { name: "预览方式" }));
+    const rows = [...document.querySelectorAll(".preview-view-item")];
+    expect(rows.map((r) => r.textContent)).toEqual(["Markdown", "代码", "纯文本"]);
+    expect(document.querySelectorAll(".preview-view-item .open-with-check")).toHaveLength(1);
+    fireEvent.click(rows[1]!);
+    expect(p.setRenderer).toHaveBeenCalledWith("code");
   });
 });
 

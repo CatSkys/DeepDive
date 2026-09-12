@@ -1,6 +1,7 @@
 import { memo, useState, type ReactNode } from "react";
 import { IconCodeOutline16 } from "./Icons";
 import { Lightbox } from "./Lightbox";
+import { CodeLines } from "./CodeLines";
 import { sendToShell } from "../host";
 import { t } from "../i18n";
 import katex from "katex";
@@ -104,7 +105,7 @@ export function parseBlocks(text: string): Block[] {
 
 /** 行内语法：粗体/斜体/删除线/行内代码/行内数学/链接/图片。链接经壳
  *  open-url 打开（WebKit 内网页面跳转会离开 SPA）；图片点击进 Lightbox。 */
-export function inline(text: string, keyBase: string, onImage: (src: string, alt: string) => void): ReactNode[] {
+export function inline(text: string, keyBase: string, onImage: (src: string, alt: string) => void, onOpenFile?: (path: string, line?: number) => void): ReactNode[] {
   const out: ReactNode[] = [];
   const re = /(\*\*([^*]+)\*\*|`([^`]+)`|\*([^*\n]+)\*|~~([^~\n]+)~~|\$([^$\n]+?)\$|!\[([^\]]*)\]\(([^)\s]+)\)|\[([^\]]+)\]\(([^)\s]+)\))/g;
   let last = 0;
@@ -147,13 +148,17 @@ export function inline(text: string, keyBase: string, onImage: (src: string, alt
       // 恒假，匹配到的 [label](url) 整段被跳过，链接文本静默丢失）
       const label = m[9];
       const url = m[10]!;
+      // 本地文件链接（agent 常写 `src/app.ts:42`）：交预览打开并落到该行；
+      // 没有落点回调时退回外链行为（相对路径经壳 open-url 本就不认）
+      const local = onOpenFile ? localFileTarget(url) : null;
       out.push(
         <a
           key={key}
           href={url}
           onClick={(e) => {
             e.preventDefault();
-            openExternal(url);
+            if (local) onOpenFile!(local.path, local.line);
+            else openExternal(url);
           }}
         >{label}</a>,
       );
@@ -162,6 +167,18 @@ export function inline(text: string, keyBase: string, onImage: (src: string, alt
   }
   if (last < text.length) out.push(text.slice(last));
   return out;
+}
+
+/** 本地文件链接 → 预览目标（相对/绝对路径，可选 `:行号`）。
+ *  只认"看着像文件路径"的：带 `/`，或后缀像扩展名；外链/锚点/纯词不认。 */
+export function localFileTarget(url: string): { path: string; line?: number } | null {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("//") || url.startsWith("#")) return null;
+  const m = /^(.+?)(?::(\d+))?$/.exec(url);
+  if (!m) return null;
+  const path = m[1]!;
+  if (!path.includes("/") && !/\.[a-z0-9]{1,8}$/i.test(path)) return null;
+  const line = m[2] === undefined ? undefined : Number(m[2]);
+  return line !== undefined && line > 0 ? { path, line } : { path };
 }
 
 function openExternal(url: string): void {
@@ -178,26 +195,13 @@ function taskOf(line: string): { done: boolean; text: string } | null {
   return { done: m[1] !== " ", text: m[2] };
 }
 
-// highlight.js：common 语言集同步高亮（流式增量友好）。逐行高亮——多行
-// 语法（块注释/多行字符串）的续行不着色，但任何输入下都结构安全。
-import hljs from "highlight.js/lib/common";
-
 /** KaTeX 同步渲染；throwOnError:false 时坏 TeX 输出红色原文而非抛错。 */
 function renderMath(tex: string, displayMode: boolean): string {
   return katex.renderToString(tex, { displayMode, throwOnError: false, strict: false });
 }
 
-function highlightLine(line: string, lang: string): string | null {
-  if (!lang || !hljs.getLanguage(lang)) return null;
-  try {
-    return hljs.highlight(line, { language: lang, ignoreIllegals: true }).value;
-  } catch {
-    return null; // illegible input: fall back to plain text
-  }
-}
-
 /** 代码预览卡：头栏（语言 + 复制）+ 行号 gutter 代码体（官方代码块样式）。 */
-function CodeBlock({ lines, lang, keyBase }: { lines: string[]; lang: string; keyBase: string }) {
+function CodeBlock({ lines, lang }: { lines: string[]; lang: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -216,19 +220,7 @@ function CodeBlock({ lines, lang, keyBase }: { lines: string[]; lang: string; ke
         <button className="cbCopy" onClick={() => void copy()}>{copied ? t("已复制") : t("复制")}</button>
       </div>
       <div className="cbBody">
-        <div className="cbLines">
-          {lines.map((l, j) => {
-            const html = highlightLine(l, lang);
-            return (
-              <div className="cbRow" key={`${keyBase}-r${j}`}>
-                <span className="cbLn">{j + 1}</span>
-                {html !== null
-                  ? <span className="cbCode hljs" dangerouslySetInnerHTML={{ __html: html }} />
-                  : <span className="cbCode">{l === "" ? " " : l}</span>}
-              </div>
-            );
-          })}
-        </div>
+        <CodeLines lines={lines} lang={lang} />
       </div>
     </div>
   );
@@ -236,19 +228,24 @@ function CodeBlock({ lines, lang, keyBase }: { lines: string[]; lang: string; ke
 
 /** memo：流式期间每条增量都会重渲整个消息列表 —— 未变化的文本
  *  （历史消息占绝大多数）直接跳过 parseBlocks + 全量 reconcile。 */
-export const Markdown = memo(function Markdown({ text }: { text: string }) {
+export const Markdown = memo(function Markdown({ text, onOpenFile }: {
+  text: string;
+  /** 本地文件链接的落点（预览窗口打开/跳行）；不传则链接按外链处理。 */
+  onOpenFile?: (path: string, line?: number) => void;
+}) {
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const blocks = parseBlocks(text);
   const onImage = (src: string, alt: string) => setLightbox({ src, alt });
+  const open = (line: string, key: string) => inline(line, key, onImage, onOpenFile);
   return (
     <div className="md">
       {blocks.map((b, i) => {
         const key = `b${i}`;
         switch (b.kind) {
-          case "h1": return <h1 key={key}>{inline(b.lines[0], key, onImage)}</h1>;
-          case "h2": return <h2 key={key}>{inline(b.lines[0], key, onImage)}</h2>;
-          case "h3": return <h3 key={key}>{inline(b.lines[0], key, onImage)}</h3>;
-          case "quote": return <blockquote key={key}>{b.lines.map((l, j) => <p key={j}>{inline(l, `${key}-${j}`, onImage)}</p>)}</blockquote>;
+          case "h1": return <h1 key={key}>{open(b.lines[0], key)}</h1>;
+          case "h2": return <h2 key={key}>{open(b.lines[0], key)}</h2>;
+          case "h3": return <h3 key={key}>{open(b.lines[0], key)}</h3>;
+          case "quote": return <blockquote key={key}>{b.lines.map((l, j) => <p key={j}>{open(l, `${key}-${j}`)}</p>)}</blockquote>;
           case "ul": return (
             <ul key={key}>{b.lines.map((l, j) => {
               const task = taskOf(l);
@@ -256,31 +253,31 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
                 return (
                   <li key={j} className={`md-task${task.done ? " done" : ""}`}>
                     <span className="md-task-mark" aria-hidden="true">{task.done ? "✓" : ""}</span>
-                    <span>{inline(task.text, `${key}-${j}`, onImage)}</span>
+                    <span>{open(task.text, `${key}-${j}`)}</span>
                   </li>
                 );
               }
-              return <li key={j}>{inline(l, `${key}-${j}`, onImage)}</li>;
+              return <li key={j}>{open(l, `${key}-${j}`)}</li>;
             })}</ul>
           );
           case "ol": return (
-            <ol key={key}>{b.lines.map((l, j) => <li key={j}>{inline(l, `${key}-${j}`, onImage)}</li>)}</ol>
+            <ol key={key}>{b.lines.map((l, j) => <li key={j}>{open(l, `${key}-${j}`)}</li>)}</ol>
           );
-          case "code": return <CodeBlock key={key} keyBase={key} lines={b.lines} lang={b.lang ?? ""} />;
+          case "code": return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
           case "math": return <div key={key} className="md-math-block" dangerouslySetInnerHTML={{ __html: renderMath(b.lines[0] ?? "", true) }} />;
           case "table": {
             const header = (b.lines[0] ?? "").split("||").map((c) => c.trim());
             const rows = b.lines.slice(1).map((r) => r.split("|").map((c) => c.trim()).filter((c) => c !== ""));
             return (
               <table key={key}>
-                <thead><tr>{header.map((c, j) => <th key={j}>{inline(c, `${key}-th${j}`, onImage)}</th>)}</tr></thead>
+                <thead><tr>{header.map((c, j) => <th key={j}>{open(c, `${key}-th${j}`)}</th>)}</tr></thead>
                 <tbody>{rows.map((r, j) => (
-                  <tr key={j}>{r.map((c, x) => <td key={x}>{inline(c, `${key}-${j}-${x}`, onImage)}</td>)}</tr>
+                  <tr key={j}>{r.map((c, x) => <td key={x}>{open(c, `${key}-${j}-${x}`)}</td>)}</tr>
                 ))}</tbody>
               </table>
             );
           }
-          default: return <p key={key}>{b.lines.map((l, j) => <span key={j} className={j > 0 ? "md-wrappable" : ""}>{j > 0 ? "\n" : ""}{inline(l, `${key}-${j}`, onImage)}</span>)}</p>;
+          default: return <p key={key}>{b.lines.map((l, j) => <span key={j} className={j > 0 ? "md-wrappable" : ""}>{j > 0 ? "\n" : ""}{open(l, `${key}-${j}`)}</span>)}</p>;
         }
       })}
       {lightbox && <Lightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />}

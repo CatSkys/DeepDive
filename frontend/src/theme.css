@@ -1157,6 +1157,25 @@ button {
 }
 .preview-control:hover { background: rgba(0, 0, 0, .78); }
 
+/* 视图控制簇（标签行右端 / 全屏页头右侧）：渲染器下拉 + 折行开关 */
+.preview-view { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.preview-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+  font-size: 11px;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.preview-view-btn:hover { background: var(--fill); color: var(--ink); }
+.preview-view-btn[data-on] { color: var(--ink); background: var(--fill); }
+.preview-view-menu { min-width: 120px; }
+.preview-view-item { width: 100%; text-align: left; }
+.preview-view-name { flex: 1; min-width: 0; }
+
 /* 头部：标签条（可横滚）——路径不常显，标签 title 与右键/ Finder 定位可及 */
 .preview-tabs {
   display: flex;
@@ -1198,19 +1217,42 @@ button {
   border-radius: 0 0 calc(var(--dsh-radius-floating) - 1px) calc(var(--dsh-radius-floating) - 1px);
 }
 .preview-surface .preview-clip { border-radius: 0; }
+
+/* 预览「代码」渲染器：与消息流代码卡同一套 .cb 铬件（同一视觉语言），
+   但在预览里铺满面板——去掉卡片外边距，纵向滚动交给预览面板。 */
+.preview-code {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  overflow: auto;
+}
+.preview-code .cbBody { overflow: visible; }
+/* 预览「纯文本」渲染器：同一套行号栅格，但不套卡片底（贴面板读）。 */
+.preview-text {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 0;
+  font-family: var(--dsh-font-mono-family);
+  font-size: 12.5px;
+  line-height: 20px;
+  color: var(--ink-2);
+}
+/* 换行开关（code/text 声明的 wrap）：开 = 长行折行且不横向撑开；
+   关 = 保持 pre + 横向滚动 */
+[data-wrap] .cbCode { white-space: pre-wrap; word-break: break-word; }
+.preview-code[data-wrap] .cbLines,
+.preview-text[data-wrap] .cbLines { width: auto; min-width: 0; }
+/* 跳行落点：目标行整行加亮（对齐官方 TextBody 的 lineTarget） */
+.cbRow[data-target] { background: var(--fill-strong); }
+.cbRow[data-target] .cbLn { color: var(--ink); }
 .preview-loading { padding: 16px; color: var(--ink-3); font-size: 12px; }
 .preview-fallback { padding: 16px; color: var(--ink-3); font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
 .preview-fallback-detail { color: var(--ink-3); opacity: .7; word-break: break-all; }
 .preview-md { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; font-size: 13px; }
 .preview-md .md-img { max-width: 100%; }
-.preview-code {
-  flex: 1; min-height: 0; overflow: auto;
-  margin: 0; padding: 12px 14px;
-  font-family: var(--dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px; line-height: 1.55;
-  color: var(--ink-2);
-  white-space: pre-wrap; word-break: break-word;
-}
 .preview-media { flex: 1; min-height: 0; object-fit: contain; background: transparent; }
 .preview-frame { flex: 1; min-height: 0; border: none; background: #fff; }
 .preview-frame[src*=".html"], .preview-frame[sandbox] { background: #fff; }
@@ -2690,7 +2732,7 @@ button {
   --cb-copy-hover-fg: #1a1a1a;
   --cb-copy-hover-bg: rgba(0,0,0,.05);
 }
-.md .cb {
+.cb {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -2702,16 +2744,16 @@ button {
   box-shadow: 0 1px 2px rgba(0,0,0,.25);
   overflow: hidden;
 }
-.md .cbHead {
+.cbHead {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 8px 8px 14px;
   border-bottom: 0.5px solid var(--cb-ring);
 }
-.md .cbFile { display: inline-flex; align-items: center; gap: 7px; min-width: 0; flex: 1; }
-.md .cbIcon { display: block; width: 15px; height: 15px; color: var(--cb-muted); flex: none; }
-.md .cbLang {
+.cbFile { display: inline-flex; align-items: center; gap: 7px; min-width: 0; flex: 1; }
+.cbIcon { display: block; width: 15px; height: 15px; color: var(--cb-muted); flex: none; }
+.cbLang {
   font-family: var(--dsh-font-mono-family);
   font-size: 12px;
   line-height: 1;
@@ -2720,7 +2762,7 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.md .cbCopy {
+.cbCopy {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
@@ -2732,8 +2774,8 @@ button {
   border-radius: var(--dsh-radius-keycap);
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.md .cbCopy:hover { color: var(--cb-copy-hover-fg) !important; background: var(--cb-copy-hover-bg) !important; }
-.md .cbBody {
+.cbCopy:hover { color: var(--cb-copy-hover-fg) !important; background: var(--cb-copy-hover-bg) !important; }
+.cbBody {
   margin: 0;
   padding: 8px 0;
   overflow-x: auto;
@@ -2743,10 +2785,10 @@ button {
   font-size: 12.5px;
   line-height: 20px;
 }
-.md .cbBody::-webkit-scrollbar { display: none; }
-.md .cbLines { position: relative; width: max-content; min-width: 100%; }
-.md .cbRow { display: grid; grid-template-columns: 40px 1fr; }
-.md .cbLn {
+.cbBody::-webkit-scrollbar { display: none; }
+.cbLines { position: relative; width: max-content; min-width: 100%; }
+.cbRow { display: grid; grid-template-columns: 40px 1fr; }
+.cbLn {
   user-select: none;
   text-align: right;
   padding: 0 8px 0 0;
@@ -2755,7 +2797,7 @@ button {
   font-size: 11px;
   border-right: 0.5px solid var(--cb-ring);
 }
-.md .cbCode { white-space: pre; padding: 0 12px 0 10px; color: var(--cb-fg); }
+.cbCode { white-space: pre; padding: 0 12px 0 10px; color: var(--cb-fg); }
 
 /* ── 终端块恒为深色内容面：两种外观下都保持白字深底（macOS 惯例），
    不随 ink 变量翻转。代码块(.cb)有自己的 [data-theme] 双份变量。 ── */

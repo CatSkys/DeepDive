@@ -428,7 +428,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             onBranch={branchFrom}
                             sessionId={sessionId}
                             feedbackCtrl={feedback}
-                            onPreviewFile={(p) => preview.open(absPreviewPath(p))}
+                            onPreviewFile={(p, line) => preview.open(absPreviewPath(p), line)}
                             wsPath={wsPath}
                             hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
                             onContinue={() => {

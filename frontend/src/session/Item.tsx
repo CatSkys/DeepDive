@@ -10,7 +10,7 @@ import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
 export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedbackCtrl, hideThinking, onPreviewFile, wsPath }: {
-  onPreviewFile?: (path: string) => void;
+  onPreviewFile?: (path: string, line?: number) => void;
   /** 工作区根（相对产物路径 → 绝对解析用）。 */
   wsPath?: string;
   item: RenderItem;
@@ -44,7 +44,7 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedb
     return (
       <div className="msg-block assistant">
         {blocks.think && !hideThinking && <ThinkingState reasoning={blocks.think} running={false} />}
-        <AgentMessage text={t} />
+        <AgentMessage text={t} onOpenFile={onPreviewFile} />
       </div>
     );
   }

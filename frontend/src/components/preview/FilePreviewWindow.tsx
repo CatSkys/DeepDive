@@ -7,14 +7,15 @@
 // （不另铺实心/玻璃面），消息流与输入框让位。
 // 本模块只管呈现：标签/全屏状态在 useFilePreview。
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ExternalLink, FolderSearch, Maximize2, Minimize2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ExternalLink, FolderSearch, Maximize2, Minimize2, WrapText, X } from "lucide-react";
 import { t } from "../../i18n";
 import { openPath, revealPath } from "../../host";
 import { PreviewBody } from "./PreviewBody";
 import { OpenWithMenu } from "./OpenWithMenu";
-import type { FilePreview, PreviewTab } from "./useFilePreview";
+import { renderersOf, supportsWrap, titleOf, type PreviewRenderer } from "./previewModel";
+import { rendererOf, wrapOf, type FilePreview, type PreviewTab } from "./useFilePreview";
 
 /** 当前活动标签（标签集非空时）。 */
 function activeTab(preview: FilePreview): PreviewTab | undefined {
@@ -84,6 +85,92 @@ function PreviewControls({ preview }: { preview: FilePreview }) {
   );
 }
 
+/** 视图控制簇（标签行右端 / 全屏页头右侧）：渲染器下拉 + 换行开关。
+ *  渲染器候选来自 previewModel（多命中可切，纯文本恒兜底）；换行只在当前
+ *  渲染器声明 wrap 时出现（官方同款：code / text）。 */
+function ViewControls({ preview, active }: { preview: FilePreview; active: PreviewTab }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const current = rendererOf(active);
+  const candidates = renderersOf(active.path);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const pick = (renderer: PreviewRenderer) => {
+    setOpen(false);
+    preview.setRenderer(renderer);
+  };
+
+  return (
+    <span className="preview-view">
+      <button
+        ref={triggerRef}
+        type="button"
+        className="preview-view-btn"
+        aria-label={t("预览方式")}
+        aria-expanded={open}
+        onClick={() => {
+          if (!open) {
+            const r = triggerRef.current?.getBoundingClientRect();
+            if (r) setPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+          }
+          setOpen((o) => !o);
+        }}
+      >
+        {titleOf(current)}
+        <ChevronDown size={12} />
+      </button>
+      {supportsWrap(current) && (
+        <button
+          type="button"
+          className="preview-view-btn"
+          data-on={wrapOf(active) ? "" : undefined}
+          data-tip={t("折行")}
+          aria-label={t("折行")}
+          aria-pressed={wrapOf(active)}
+          onClick={() => preview.toggleWrap()}
+        >
+          <WrapText size={14} />
+        </button>
+      )}
+      {open && pos && createPortal(
+        <div ref={menuRef} className="ctx-menu preview-view-menu" role="listbox" aria-label={t("预览方式")}
+          style={{ position: "fixed", top: pos.top, right: pos.right }}>
+          {candidates.map((r) => (
+            <button
+              key={r}
+              type="button"
+              role="option"
+              aria-selected={r === current}
+              className="ctx-item preview-view-item"
+              onClick={() => pick(r)}
+            >
+              <span className="preview-view-name">{titleOf(r)}</span>
+              {r === current && <Check size={14} className="open-with-check" />}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </span>
+  );
+}
+
 /** 窗口内容（两态共用）：标签条 + 活动标签的预览体。 */
 function PreviewContent({ preview }: { preview: FilePreview }) {
   const { tabs, activePath, setActive, close } = preview;
@@ -113,9 +200,19 @@ function PreviewContent({ preview }: { preview: FilePreview }) {
             </span>
           </button>
         ))}
+        {active && <ViewControls preview={preview} active={active} />}
       </div>
       <div className="preview-clip">
-        {active && <PreviewBody key={active.path} path={active.path} />}
+        {active && (
+          <PreviewBody
+            key={active.path}
+            path={active.path}
+            renderer={rendererOf(active)}
+            wrap={wrapOf(active)}
+            line={active.line}
+            onOpenFile={preview.open}
+          />
+        )}
       </div>
     </>
   );
@@ -154,6 +251,7 @@ export function PreviewPageHeader({ preview }: { preview: FilePreview }) {
           <div className="title">{active.name}</div>
         </div>
       </div>
+      <ViewControls preview={preview} active={active} />
       <OpenWithMenu path={active.path} />
     </div>
   );
