@@ -19,11 +19,9 @@ export function TaskListPage({ onCreate, onEdit, onOpenSession }: {
   const auto = useAutomation();
   return (
     <>
+      {/* 分区名由设置页头承担，这里只留说明行 + 创建入口（同一行左右两端） */}
       <div className={css.head}>
-        <div>
-          <div className={css.h1}>{t("自动化")}</div>
-          <div className={css.sub}>{t("按计划运行任务，或在需要时随时执行。")}</div>
-        </div>
+        <div className={css.sub}>{t("按计划运行任务，或在需要时随时执行。")}</div>
         <button className={`${css.btn} ${css.btnPrimary}`} onClick={() => onCreate(null)}>
           <Plus size={14} /> {t("创建定时任务")}
         </button>

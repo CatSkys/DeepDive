@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive, ChartColumn, ChevronLeft, Cpu, Download, Folder, Keyboard, Moon,
+  Archive, CalendarClock, ChartColumn, ChevronLeft, Cpu, Download, Folder, Keyboard, Moon,
   Monitor, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
   SquarePen, Sun,
   Trash2,
@@ -12,6 +12,7 @@ import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
 import { ImportSection } from "../settings/ImportSection";
 import { UsageSection } from "../stats/UsageSection";
+import { AutomationSection } from "../automation/AutomationSection";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { RETENTIONS, retentionLabel, type ArchiveRetention } from "../autoArchive";
@@ -31,10 +32,11 @@ import { sessionDeleteDirs } from "../host";
 // section 独立降级。
 //
 // 分类：通用（外观/语言/Enter 行为/通知）、模型（提供方+密钥）、
-// 审批（默认权限预设）、Agent 预设、快捷键、已归档的聊天、数据。
+// 审批（默认权限预设）、快捷键、已归档的聊天、数据、使用统计、自动化。
 
 export function SettingsPage({ initialSection, onClose }: { initialSection?: string; onClose: () => void }) {
   const { t } = useT();
+  const store = useStore();
   const [activeId, setActiveId] = useState(initialSection ?? "general");
   /** 当前分区注入页头右侧的批量动作（切分区即清空）：只收数据与回调，按钮由页头渲染。 */
   const [bulk, setBulk] = useState<{ count: number; onDelete: () => void } | null>(null);
@@ -56,6 +58,7 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
     { id: "archived", label: t("已归档的聊天"), icon: Archive },
     { id: "data", label: t("数据"), icon: Folder },
     { id: "usage", label: t("使用统计"), icon: ChartColumn },
+    { id: "automation", label: t("自动化"), icon: CalendarClock },
   ];
   const active = nav.find((n) => n.id === activeId) ?? nav[0];
 
@@ -106,6 +109,10 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
           {activeId === "archived" && <ArchivedSection onBulk={setBulk} />}
           {activeId === "data" && <DataSection />}
           {activeId === "usage" && <UsageSection />}
+          {/* 自动化：历史里点「打开会话」要离开设置页去看那次转录 */}
+          {activeId === "automation" && (
+            <AutomationSection onOpenSession={(sessionId) => { onClose(); store.openSession(sessionId); }} />
+          )}
         </div>
       </main>
     </>

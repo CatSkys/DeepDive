@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings, SquarePen, Trash2, CalendarClock } from "lucide-react";
+import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings, SquarePen, Trash2 } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { InlineLoader } from "./LoadingState";
 import { alertDialog, promptDialog, confirmDialog } from "./DialogHost";
@@ -58,14 +58,7 @@ export function WorkspacePill() {
   );
 }
 
-export function Sidebar({ onOpenSettings, onOpenAutomation, automationActive, onOpenSession }: {
-  onOpenSettings: () => void;
-  /** 打开自动化页面（主区视图切换，侧栏保持）。 */
-  onOpenAutomation: () => void;
-  automationActive: boolean;
-  /** 打开会话（null = 新会话草稿页）：切回聊天视图由 App 负责。 */
-  onOpenSession: (sessionId: string | null) => void;
-}) {
+export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const store = useStore();
   const [query, setQuery] = useState("");
   const [ctx, setCtx] = useState<CtxMenu | null>(null);
@@ -241,7 +234,7 @@ export function Sidebar({ onOpenSettings, onOpenAutomation, automationActive, on
     <button
       key={s.sessionId}
       className={`task-row${s.sessionId === store.activeSessionId ? " selected" : ""}${s.running ? " running" : ""}${store.unread.has(s.sessionId) ? " unread" : ""}`}
-      onClick={() => onOpenSession(s.sessionId)}
+      onClick={() => store.openSession(s.sessionId)}
       onContextMenu={(e) => {
         e.preventDefault();
         setCtx({ sessionId: s.sessionId, title: sessionTitle(s, lang), cwd: s.cwd, x: e.clientX, y: e.clientY });
@@ -309,14 +302,6 @@ export function Sidebar({ onOpenSettings, onOpenAutomation, automationActive, on
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
-      {/* 自动化入口：搜索行与项目行之间（主区视图，不进会话列表） */}
-      <button
-        className={`snav-item${automationActive ? " active" : ""}`}
-        aria-current={automationActive || undefined}
-        onClick={onOpenAutomation}
-      >
-        <CalendarClock size={15} /> {t("自动化")}
-      </button>
       {activeWs && (
         <div className="ws-view" key={`head-${activeWs.workspaceId}`} data-dir={slideDir.current}>
           {/* 官方 ProjectRowItem 同款交互：点行折叠/展开会话；hover 显出
@@ -346,7 +331,7 @@ export function Sidebar({ onOpenSettings, onOpenAutomation, automationActive, on
                 <Ellipsis size={14} />
               </button>
               {/* 同顶栏 ＋：只切到草稿页，首条消息发出才真正建会话 */}
-              <button className="ws-act" data-tip={t("新会话")} onClick={() => onOpenSession(null)}>
+              <button className="ws-act" data-tip={t("新会话")} onClick={() => store.openSession(null)}>
                 <Plus size={14} />
               </button>
             </span>

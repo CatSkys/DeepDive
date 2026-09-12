@@ -9,7 +9,6 @@ import { useT } from "./i18n";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
 import { DD_EVENTS, dispatchAppEvent, onAppEvent } from "./events";
 import { Sidebar } from "./components/Sidebar";
-import { AutomationPage } from "./automation/AutomationPage";
 import { AutomationProvider } from "./automation/useAutomation";
 import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
@@ -36,9 +35,6 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
   const { t, tt } = useT();
   useAutoArchive();
   const active = store.activeSessionId;
-  // 主区视图：会话（含草稿页）/ 自动化页。与 settingsOpen 一样住在 App 层，
-  // 不进 store——它是导航态不是数据态；切走再回来时会话面板重新挂载。
-  const [view, setView] = useState<"chat" | "automation">("chat");
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [showModels, setShowModels] = useState(false);
@@ -69,7 +65,6 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
     installHostBridge({
       navigateToSession: (sessionId) => {
         closeSettings();
-        setView("chat");
         const listed = store.sessions.some((s) => s.sessionId === sessionId);
         if (listed) store.openSession(sessionId);
         else setDeferredNav(sessionId);
@@ -142,7 +137,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
         if (combo !== comboFor(def.id, store.keybinds)) continue;
         if (typing && def.id !== "dictation") return;
         e.preventDefault();
-        if (def.id === "new-session") { setView("chat"); store.openSession(null); }
+        if (def.id === "new-session") store.openSession(null);
         else if (def.id === "search") dispatchAppEvent(DD_EVENTS.focusSearch);
         else if (def.id === "toggle-sidebar") store.toggleSidebar();
         else if (def.id === "dictation") dispatchAppEvent(DD_EVENTS.dictationToggle);
@@ -176,7 +171,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
           <button className="window-top-btn" data-tip={t("收起侧栏")} data-tip-keys={comboFor("toggle-sidebar", store.keybinds)} onClick={() => store.toggleSidebar()}>
             <PanelLeft size={17} />
           </button>
-          <button className="window-top-btn" data-tip={t("新会话")} data-tip-keys={comboFor("new-session", store.keybinds)} onClick={() => { setView("chat"); store.openSession(null); }}>
+          <button className="window-top-btn" data-tip={t("新会话")} data-tip-keys={comboFor("new-session", store.keybinds)} onClick={() => store.openSession(null)}>
             <IconNewChatOutline16 size={17} />
           </button>
         </div>
@@ -185,44 +180,35 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings }: {
         <SettingsPage key={settingsSection} initialSection={settingsSection} onClose={closeSettings} />
       ) : (
         <>
-      <Sidebar
-        onOpenSettings={() => openSettings()}
-        onOpenAutomation={() => { closeSettings(); setView("automation"); }}
-        automationActive={view === "automation"}
-        onOpenSession={(sessionId) => { setView("chat"); store.openSession(sessionId); }}
-      />
+      <Sidebar onOpenSettings={() => openSettings()} />
       {/* SessionView key：会话切换必须全新挂载——无 key 时 React 复用实例，
           旧会话的 items/eventLog 残留会在新会话 summary 就位前闪现旧内容。 */}
-      {view === "automation" ? (
-        <AutomationPage onOpenSession={(sessionId) => { setView("chat"); store.openSession(sessionId); }} />
-      ) : (
-        <main className="main">
-          {active ? (
-            <SessionView key={active} sessionId={active} />
-          ) : (
-            <div className="hero">
-              <div className="hero-top">
-                {/* 草稿选择（draftModel）派生头部模型与思考档位显示——档位元
-                    数据来自 models 里的 efforts（modelOptions 透传）。 */}
-                <SessionHeader title={t("新会话")} face={{
-                  showModels, setShowModels, modelName, models,
-                  currentModel: draft ? { provider: draft.provider, model: draft.model } : undefined,
-                  effortLevels: draftOption?.efforts ?? [],
-                  effort: draft?.reasoningEffort,
-                  effortLabel: (id) => effortDisplayName(id, draftOption?.efforts ?? []),
-                  pickModel, applyModelEffort: pickModel,
-                }} />
-              </div>
-              <HeroBrand>
-                <AgentModePicker />
-              </HeroBrand>
-              <div className="hero-composer">
-                <Composer sessionId={null} />
-              </div>
+      <main className="main">
+        {active ? (
+          <SessionView key={active} sessionId={active} />
+        ) : (
+          <div className="hero">
+            <div className="hero-top">
+              {/* 草稿选择（draftModel）派生头部模型与思考档位显示——档位元
+                  数据来自 models 里的 efforts（modelOptions 透传）。 */}
+              <SessionHeader title={t("新会话")} face={{
+                showModels, setShowModels, modelName, models,
+                currentModel: draft ? { provider: draft.provider, model: draft.model } : undefined,
+                effortLevels: draftOption?.efforts ?? [],
+                effort: draft?.reasoningEffort,
+                effortLabel: (id) => effortDisplayName(id, draftOption?.efforts ?? []),
+                pickModel, applyModelEffort: pickModel,
+              }} />
             </div>
-          )}
-        </main>
-      )}
+            <HeroBrand>
+              <AgentModePicker />
+            </HeroBrand>
+            <div className="hero-composer">
+              <Composer sessionId={null} />
+            </div>
+          </div>
+        )}
+      </main>
         {/* 全局单例：消息流选中文字的浮条与右键复制菜单（portal 自挂 body） */}
         <SelectionActions />
         </>
