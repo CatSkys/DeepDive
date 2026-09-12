@@ -34,15 +34,7 @@ export interface DropdownOption {
   danger?: boolean;
 }
 
-export function Dropdown({ options, value, onChange, variant, iconOnly, ariaLabel }: {
-  options: DropdownOption[];
-  value: string;
-  onChange: (v: string) => void;
-  variant?: "bare";
-  /** 触发钮只显示图标（如「打开方式」的 App 图标胶囊），不显示当前项文字。 */
-  iconOnly?: boolean;
-  ariaLabel?: string;
-}) {
+export function Dropdown({ options, value, onChange, variant }: { options: DropdownOption[]; value: string; onChange: (v: string) => void; variant?: "bare" }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -128,10 +120,10 @@ export function Dropdown({ options, value, onChange, variant, iconOnly, ariaLabe
   );
   return (
     <div className={`${rowsCss.dd}${variant === "bare" ? ` ${rowsCss.ddBare}` : ""}`} ref={rootRef}>
-      <button ref={triggerRef} type="button" className={rowsCss.ddTrigger} data-danger={current?.danger ? "true" : undefined} aria-label={ariaLabel} onClick={toggle}>
+      <button ref={triggerRef} type="button" className={rowsCss.ddTrigger} data-danger={current?.danger ? "true" : undefined} onClick={toggle}>
         {current?.icon && <current.icon size={14} className={rowsCss.ddTriggerIcon} />}
         {current?.iconNode && <span className={rowsCss.ddTriggerIcon}>{current.iconNode}</span>}
-        {!iconOnly && <span>{current?.label ?? value}</span>}
+        <span>{current?.label ?? value}</span>
         <ChevronDown size={14} className={rowsCss.ddChevron} />
       </button>
       {menu}
