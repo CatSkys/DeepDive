@@ -54,7 +54,8 @@ final class MiniHTTPServer {
         self.callback = callback
     }
 
-    func start() -> Bool {
+    /// port = 0 由内核分配；给定端口则固定监听它（被占时调用方可退回 0）。
+    func start(port: UInt16 = 0) -> Bool {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         guard fd >= 0 else { return false }
         listenFD = fd
@@ -62,7 +63,7 @@ final class MiniHTTPServer {
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = 0
+        addr.sin_port = port.bigEndian
         addr.sin_addr.s_addr = inet_addr("127.0.0.1")
         let bindResult = withUnsafePointer(to: &addr) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in

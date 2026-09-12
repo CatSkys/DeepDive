@@ -108,6 +108,12 @@ export function sessionDeleteDirs(payload: { sessionIds: string[]; unarchived: s
   );
 }
 
+/** 保持唤醒（自动化页的开关）：on = 按住空闲休眠断言，让到点的任务不至于
+ *  因为 Mac 睡过去而错过。壳侧 KeepAwake 幂等；纯浏览器静默。 */
+export function setKeepAwake(on: boolean): void {
+  sendToShell({ type: "keep-awake", on });
+}
+
 /** 壳桥 req/resp 统一包装（AUD-049/090）：注册一次性监听 + 发送 + 超时降级
  *  ——壳不回包（桥挂/消息丢失）也按 fallback resolve，绝不永久 pending。
  *  match 收到本 reqId 的载荷时返回要 resolve 的值；纯浏览器环境直接降级。 */

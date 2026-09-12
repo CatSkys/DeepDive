@@ -29,9 +29,9 @@ iOS/Android 远程连接引擎：发起任务、查看进度、收通知。设�
 
 Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`DSHMINI_NOTARY_PROFILE`）就绪后接入；发布仍本地打包（CI 无签名凭据）。**前置二：新增 Sparkle 依赖需用户批准**（铁律 7）。
 
-## 4. 自动化页面（SPEC 草稿待确认）
+## 4. 自动化页面（已实现）
 
-SPEC 草稿已落 `docs/SPEC-AUTOMATION.md`，推荐默认范围 = **定时任务管理页**（复用已挂载 dsh-schedule 与现有 scheduleRecords 呈现，成本最低）；一次性计划与批量队列缓排。动工前需用户确认该默认。
+`docs/SPEC-AUTOMATION.md`（已实现态）＝ 定时任务管理页：到点新开会话发指令，任务存在本机、由客户端调度（引擎无定时任务 RPC）。**开放项**：一次性计划 / 批量队列（形态见 SPEC §2，未做）；「应用关闭也照跑」需常驻代理，另立项。
 
 ## 期间不做
 

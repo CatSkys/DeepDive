@@ -38,8 +38,18 @@ final class BridgeServer {
         server.relayHandler = { [weak self] fd, request, partial in
             self?.relayStreaming(fd, request, partial)
         }
-        guard server.start() else { return false }
+        // 端口即网页 origin：固定端口是 SPA 的 localStorage（会话覆盖集、用量
+        // 缓存、自动化任务）能跨启动保留的前提——端口一变 WebKit 就换一套存储。
+        // 记住的端口被占（别的进程/上个实例没退干净）时退回内核分配。
+        let preferred = UInt16(clamping: DSHAppPrefs.bridgePort)
+        var started = server.start(port: preferred)
+        if !started, preferred != 0 {
+            EngineLog.shared.append("[bridge] port \(preferred) unavailable; falling back to an ephemeral port")
+            started = server.start()
+        }
+        guard started else { return false }
         self.server = server
+        DSHAppPrefs.setBridgePort(server.port)
         EngineLog.shared.append("[bridge] listening on 127.0.0.1:\(server.port)")
         return true
     }

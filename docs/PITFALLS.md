@@ -190,6 +190,11 @@
 - 处置（用户定稿的数据模型）：**用量按会话记录在本地**（`deepdive.usageFold`，localStorage，键 sessionId、值含 updatedAt 做失效判定），与归档/删除解耦（归档或删掉聊天不抹账，只要那段时间用过就算）；页面第一帧折缓存直接出数（复访实测 506ms 出全量），引擎侧只在后台补 `updatedAt` 变过的会话、合并写回（不 prune，历史不丢）。配套：每会话读加超时（超时按失败、不写缓存），调用方传"已排除本地已删除"的会话清单。
 - 通用教训：**同一份事实要在多个入口出现（统计/列表/搜索）时，别在入口处现读全量历史**；能增量记录的就在使用路径上记，打开即展示。
 
+### 4.17 桥端口一变，网页 origin 就换一套 localStorage——SPA 的本地状态会"每次启动清零"
+- 现场（2026-09-12，做自动化页时发现）：桥监听端口原为内核随机分配（每次启动都不同，实测 56697/57555/61604/62408/64274…），而 SPA 的 origin 就是 `http://127.0.0.1:<port>/` —— **origin 一换，WebKit 的 localStorage 就是另一套**（`~/Library/WebKit/com.deepdive.app/WebsiteData/Default/<origin 哈希>/…`，实测同一台机积了 113 个 origin 目录）。后果是所有走 localStorage 的状态跨启动全丢：`deepdive.pinned` / `deepdive.unread` / `deepdive.workspace` / `deepdive.unarchived`·`removed` 覆盖集 / `deepdive.usageFold`（统计页的"打开即出"缓存每次重启都要重折一遍——正是用户报"统计加载慢"的隐藏放大器）/ 自动化任务。**症状是静默的**：单次会话内一切正常，只有跨重启才丢。
+- 处置：**把端口固定下来**（`MiniHTTPServer.start(port:)` + `DSHAppPrefs.bridgePort`，被占/非法时退回内核分配并记下新端口）。实测：重启后端口不变（64274 → 64274），localStorage 里 `keepAwake=1` 与已建任务都还在。
+- 通用教训：**任何"存在浏览器存储里的本机状态"都隐含依赖 origin 稳定**；端口/主机/协议任一漂移都会把存储清零，且不会报错。改动监听方式（端口、host、http↔https）前先想清楚它是不是某个持久层的键。
+
 ### 4.14 bundled node 绝不能放进 `Contents/MacOS/`
 - 事故（2026-09-10 用户实测）：引擎 node 放在 `Contents/MacOS/node`，Launch Services 把同 bundle `MacOS/` 下的额外可执行文件当成第二个 app——引擎一拉起（含重启）Dock 就闪出独立的 node 图标/窗口，用户连报「不停弹 node 窗口」。
 - 处置：node 落在 `Contents/Resources/Runtime/node`（与 dsh 闭包同级）；`EngineSupervisor.bundledRuntimeState()` / `embed-engine.sh` / `package-macos.sh` 签名 case 同步。`Contents/MacOS/` 只保留 app 主可执行文件。
@@ -207,6 +212,10 @@
 - `xcodebuild test` 会产出 `.build/debug` 的 Debug app；它可能被 launchd/误点启动，**内嵌前端是旧的**，在它上面调试/验收会看到与最新代码不符的行为（2026-09-04 事故：快捷键轮在 Debug 残留实例上测，行为对不上源码）。
 - 处置：验收前 `pgrep -f DeepDive.app` 核对路径含 `.build/release`；发现 Debug 实例直接杀掉换最新 Release 包。
 - **macOS 26 路径级 SIGKILL（137）缓存**：同一 `.app` 路径上重嵌二进制后，内核可能对该路径缓存击杀决定——重签（`codesign --force --deep`）不解除，`node --version`/自检每次 137，而同一字节集拷到新路径正常运行（2026-09-10 实机，embed 自检 Killed:9）。处置三步：`lsregister -u <app路径>` 注销 LS 注册 → `rm -rf` 旧 app → 从可运行的副本 `cp -R` 回原路径；恢复后打包自检立即转绿。并发两条会话同时 `make package` 会互相撕封签放大此坑——打包前 `pgrep -fl "xcodebuild|embed-engine"` 确认无并行构建。
+- **改包内容会破封签 —— 破签的包里嵌套 node 一启动就被内核杀（Code Signature Invalid）**：手动把新 dist 嵌进已签好的 Release 包（`sh scripts/embed-web.sh <app>`）后 `pkill`+`open`，引擎 3 连崩（日志 `failed after 3 consecutive attempts` + 「引擎异常」告警），`~/Library/Logs/DiagnosticReports/node-*.ips` 写着 `SIGKILL (Code Signature Invalid)` / `Taskgated Invalid Signature`（2026-09-12 实机两次）。**判据三步**（今天按这个顺序才定对因）：① 崩报告 signal 是 `Code Signature Invalid`；② `codesign --verify --verbose=2 <app>` —— 报 `Contents/Resources/web/**` 的 `file added/modified/missing` 说明**封签被签后写入破坏**，报 `valid on disk` 则不是这条、走上一条的路径击杀缓存；③ 把同一份 `.app` `cp -R` 到新路径跑 `Runtime/node --version` —— 能跑 = 路径级问题（上一条），照样 137 = 内容/签名问题（本条）。
+  - 本条实测现场：手动 embed 后重启，引擎 3 连崩且 `make app` 的自检也 `Killed: 9`（137），但 `codesign --verify` 已是 valid（说明此时是上一楼的路径击杀，不是封签）。处置按上一条三步（`lsregister -u` → `rm -rf` → 从可运行副本 `cp -R` 回原路径）当场转绿：`node --version` 出 `v26.7.0`、引擎 ready。
+  - 结论：**别把「embed-web + pkill + open」当日常快路径**——它会毒化该路径；走自带自检+重签的 `make app`，或照上一条三步把路径换干净。
+  - 诊断锚点：引擎 3 连崩 / 自检 137 + `node --version` 在新路径可跑 → 路径击杀；`codesign --verify` 报 web 资源增删 → 封签。
 
 ### 5.3 交付前必截图自检（WORKING-AGREEMENTS）
 - 改完样式/渲染 → 构建 → 打包 → 启动 → 用 Playwright（channel chrome headless 打开 bridge URL）截图，核对：消息流居中、无卡片、tool 行/产物/turn-tail/meta 位置、用户消息右对齐等。

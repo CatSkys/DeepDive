@@ -30,6 +30,9 @@ enum DSHAppPrefs {
     static let keybindsKey = "deepdive.keybinds"
     /// 全局热键（唤起面板）启用开关；关 = 系统级注销。
     static let hotkeyOnKey = "deepdive.hotkey.on"
+    /// 桥监听端口：固定下来前端 origin 才稳（localStorage 按 origin 分家）。
+    /// 0 = 还没定过（首次启动由内核分配，随后记下）。
+    static let bridgePortKey = "deepdive.bridge.port"
 
     /// 侧栏拖拽边界。唯一事实源是 tokens.json 的 size.sidebar.min/max；
     /// 前端消费侧（frontend/src/store.tsx）为同值手工双写——改动必须三处
@@ -100,6 +103,14 @@ enum DSHAppPrefs {
 
     static func setLanguage(_ value: String) {
         UserDefaults.standard.set(value == "en" ? "en" : "zh", forKey: languageKey)
+    }
+
+    static var bridgePort: Int {
+        UserDefaults.standard.integer(forKey: bridgePortKey)
+    }
+
+    static func setBridgePort(_ value: Int) {
+        UserDefaults.standard.set(value, forKey: bridgePortKey)
     }
 
     static func setSidebarWidth(_ value: Double) {

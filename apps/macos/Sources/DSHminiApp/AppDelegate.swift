@@ -271,6 +271,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let openPath = body["path"] as? String ?? ""
             guard FileManager.default.fileExists(atPath: openPath) else { break }
             NSWorkspace.shared.open(URL(fileURLWithPath: openPath))
+        case "keep-awake":
+            // 自动化页的「运行会话时保持电脑唤醒」：前端按 开关 ∧ 有会话在跑 推
+            KeepAwake.set((body["on"] as? NSNumber)?.boolValue ?? false)
         case "open-with-list":
             // 全屏预览页「打开方式」候选：能打开该文件的 App + 图标 dataURL
             openWithList(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
