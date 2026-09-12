@@ -5,6 +5,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Info } from "lucide-react";
 import { useT } from "../../i18n";
+import { fadeAttrs, useEdgeFade } from "../../useEdgeFade";
 import type { MenuRow } from "./useComposerMenu";
 
 /** 行按 section 字段分组（相邻同组合并，保持原顺序）。 */
@@ -52,6 +53,8 @@ export function ComposerMenu({ menu, query, rows, active, setActive, onPick }: {
   onPick: (row: MenuRow) => void;
 }) {
   const { tt } = useT();
+  // 候选超限高时上下两端按 FadeEdge 标准渐隐（有内容被藏住才出现）
+  const fade = useEdgeFade();
   /** 激活行盒（glide 条定位）；鼠标移出菜单即隐藏。 */
   const [rowBox, setRowBox] = useState<{ top: number; height: number } | null>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -77,7 +80,7 @@ export function ComposerMenu({ menu, query, rows, active, setActive, onPick }: {
           里 backdrop-filter 子层不渲染（frost 子层方案两轮实机均失败，
           面板自身挂载有实机截图背书），勿改回子层方案 */}
       <span className="menu-noise" aria-hidden />
-      <div className="menu-list">
+      <div className="menu-list fade-y" ref={fade.ref} {...fadeAttrs(fade.fade)}>
         <span
           aria-hidden
           className="menu-glide"
