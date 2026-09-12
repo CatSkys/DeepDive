@@ -12,7 +12,6 @@ import { GoalBar } from "./GoalBar";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
-import { useFeedback } from "../session/feedback";
 import { TurnNavigator } from "../session/TurnNavigator";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "./preview/FilePreviewWindow";
 import { useFilePreview } from "./preview/useFilePreview";
@@ -45,8 +44,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const olderAnchorRef = useRef<HTMLElement | null>(null);
   const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, outline, loadThrough, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
-    // 消息反馈（TODO §0-1）：会话级控制器，轮尾 👍/👎 共享一次 list 读
-    const feedback = useFeedback(sessionId);
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("会话");
   // Turn 大纲轨（TODO §0-2）：活动轮（滚动派生）与深分页忙碌轮。
@@ -433,8 +430,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             turnRunning={running}
                             onBranch={branchFrom}
                             sessionId={sessionId}
-                            feedbackCtrl={feedback}
-                            onPreviewFile={(p, line) => preview.open(absPreviewPath(p), line)}
+                              onPreviewFile={(p, line) => preview.open(absPreviewPath(p), line)}
                             wsPath={wsPath}
                             hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
                             onContinue={() => {

@@ -56,15 +56,7 @@ export function formatClock(ms: number): string {
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
-
-export function formatRunDuration(ms: number): string {
-  const total = Math.max(0, Math.round(ms / 1000));
-  if (total < 60) return tt(`${total}秒`, `${total}s`);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return tt(`${m}分${s}秒`, `${m}m${s}s`);
-}
-
+/** 秒级延时（重试行「7.9s」用）：≥10s 取整，否则保留一位小数、去掉 .0 */
 export function formatLatencySeconds(ms: number): string {
   const s = ms / 1000;
   return s >= 10 ? String(Math.round(s)) : (Math.round(s * 10) / 10).toString().replace(/\.0$/, "");
@@ -79,11 +71,6 @@ export function formatElapsed(ms: number): string {
   if (m < 60) return `${m}m`;
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
-
-export function formatTokensPerSecond(tps: number): string {
-  return tps >= 100 ? String(Math.round(tps)) : tps >= 10 ? (Math.round(tps * 10) / 10).toString().replace(/\.0$/, "") : (Math.round(tps * 100) / 100).toString().replace(/\.0$/, "");
-}
-
 export function truncate(s: string, n = 400): string {
   if (s.length <= n) return s;
   return s.slice(0, n) + "…";

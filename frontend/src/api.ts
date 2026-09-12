@@ -321,19 +321,6 @@ export const api = {
         mode: "continuable", delivery: payload.delivery, content: payload.content,
       },
     }),
-  /** 消息反馈（0.1.2 解锁，TODO §0）：put/delete 返回业务级嵌套 ok/error，
-   *  version-conflict 的 error.current 携带权威 item（就地和解，勿整表重拉）。 */
-  feedbackList: (sessionId: string) =>
-    unary<{ items: Array<{ messageId: string; rating: "positive" | "negative"; note?: string; version: string }> }>(
-      "messageFeedback/list", { request: { sessionId } }),
-  feedbackPut: (args: { sessionId: string; messageId: string; rating: "positive" | "negative"; note?: string; ifVersion: string | null }) =>
-    unary<{ ok: true; value: { messageId: string; rating: "positive" | "negative"; note?: string; version: string } }
-      | { ok: false; error: { code: string; current: { messageId: string; rating: "positive" | "negative"; note?: string; version: string } | null } }>(
-      "messageFeedback/put", { request: args }),
-  feedbackDelete: (args: { sessionId: string; messageId: string; ifVersion: string }) =>
-    unary<{ ok: true; value: null }
-      | { ok: false; error: { code: string; current: { messageId: string; rating: "positive" | "negative"; note?: string; version: string } | null } }>(
-      "messageFeedback/delete", { request: args }),
   selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
     unary("session/selectModel", { request: payload }),
   sessionModelCatalog: () => unary<{

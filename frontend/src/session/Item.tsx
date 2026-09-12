@@ -9,7 +9,7 @@ import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
-export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedbackCtrl, hideThinking, onPreviewFile, wsPath }: {
+export function Item({ item, turnRunning, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, wsPath }: {
   onPreviewFile?: (path: string, line?: number) => void;
   /** 工作区根（相对产物路径 → 绝对解析用）。 */
   wsPath?: string;
@@ -18,8 +18,6 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedb
   onBranch?: (forkSeq: number) => void;
   onContinue?: () => void;
   sessionId: string;
-  /** 会话级消息反馈控制器（turn-tail 的 👍/👎 用）。 */
-  feedbackCtrl?: ReturnType<typeof import("./feedback").useFeedback>;
   /** 过程折叠收起时：最终回答的内嵌思考一并隐藏（官方 inlineReasoning 口径）。 */
   hideThinking?: boolean;
 }) {
@@ -56,10 +54,9 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedb
     return <ThinkingState reasoning={text} running={turnRunning} />;
   }
   if (item.kind === "turn-tail") {
-    // DSH turn-tail chrome: produced files + copy / branch / clock("end") +
-    // usage stats, in its own node so tool-only / interrupted turns keep them.
+    // DSH turn-tail chrome: produced files + copy / branch / clock("end"),
+    // in its own node so tool-only / interrupted turns keep them.
     const time = item.time;
-    const meta = item.meta;
     const copiedText = item.event ? textOf(item.event) : "";
     const reason = item.endReason;
     // TurnEndReason 各成员均有 kind，直取即可（reason 本身可缺省）
@@ -87,13 +84,8 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, feedb
         <MessageMeta
           time={time}
           clockSide="end"
-          runMs={meta?.runMs}
-          ttftMs={meta?.ttftMs ?? undefined}
-          tokensPerSecond={meta?.tokensPerSecond ?? undefined}
           copiedText={copiedText}
           branch
-          usage={item.usage}
-          feedback={feedbackCtrl && item.messageId ? { messageId: item.messageId, ctrl: feedbackCtrl } : undefined}
           onBranch={item.forkSeq !== undefined ? () => onBranch?.(item.forkSeq!) : undefined}
         />
       </div>

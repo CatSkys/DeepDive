@@ -42,24 +42,12 @@ export interface RenderItem {
   diffs?: import("../types").FileDiff[];
   // 工具结果图片（read_image：attachment 引用，字节经 session/attachment 取）
   resultImages?: ResultImage[];
-  // attached turn-level stats for the closing assistant message meta row
-  meta?: TurnMeta;
   // turn-local produced file paths (attached during finalizeTurns)
   produced?: string[];
   // turn/end 的 seq：branch（session.fork atSeq）的收尾锚点
   forkSeq?: number;
   // 轮终原因（3.5 轮失败增强：error 消息/max-tokens 继续按钮）
   endReason?: import("../types").TurnEndReason;
-  // 本轮累计 token 用量（assistant usage，轮尾弹层）
-  usage?: import("../types").TokenUsage;
-  // 轮尾对应的 assistant 持久消息 id（消息反馈 messageFeedback 的寻址键）
-  messageId?: string;
-}
-
-export interface TurnMeta {
-  runMs: number;
-  ttftMs: number | null;
-  tokensPerSecond: number | null;
 }
 
 /** schedule/change 折叠（5.3，官方 schedule 域 fold）：create→登记、
@@ -228,13 +216,11 @@ export interface IngestCtx {
   workflowIndex: Map<string, number>;
   /** turn → 轮终原因 / 累计用量（轮尾渲染）. */
   turnReason: Map<number, import("../types").TurnEndReason>;
-  turnUsage: Map<number, import("../types").TokenUsage>;
   /** turn → the latest accumulated assistant text (copy-able tail payload). */
   turnText: Map<number, string>;
   /** turn → tail anchor time (the closing assistant message, if any). */
   turnTime: Map<number, number>;
   /** turn → 本轮最后一条 assistant 持久消息 id（消息反馈寻址键）。 */
-  turnMessageId: Map<number, string>;
   /** 最近一次 turn/start 的 turn 号：user/message 事件不带 turn（wire 契约），
    *  靠它给 user item 标注归属——否则一步失败、零 assistant 输出的轮没有
    *  tail 锚点，轮终错误（如 MISSING_CREDENTIAL）永远渲染不出来。 */
@@ -243,7 +229,7 @@ export interface IngestCtx {
 
 /** Fresh ingest context — history replay, live mux passes and tests share one shape. */
 export function makeIngestCtx(): IngestCtx {
-  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnUsage: new Map(), turnText: new Map(), turnTime: new Map(), turnMessageId: new Map(), currentTurn: undefined };
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnText: new Map(), turnTime: new Map(), currentTurn: undefined };
 }
 
 export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
@@ -301,7 +287,6 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
     case "assistant/message": {
       const d = ev.data as AssistantMessageData;
       const turn = d.turn;
-      if (typeof d.message?.id === "string" && d.message.id) ctx.turnMessageId.set(turn, d.message.id);
       const text = messageText(d.message?.content);
       // Replace the live-streamed chunk/reasoning items for this step with
       // the final blocks. Discard them — re-appending interleaves stale
@@ -314,15 +299,6 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       if (text) ctx.turnText.set(turn, text);
       if (d.usage) {
         // 多步轮按官方口径跨 step 求和（turn-metrics 的 fold 规则）
-        const acc = ctx.turnUsage.get(turn) ?? {};
-        const add = (a?: number, b?: number) => (a ?? 0) + (b ?? 0);
-        ctx.turnUsage.set(turn, {
-          inputTokens: add(d.usage.inputTokens, acc.inputTokens),
-          outputTokens: add(d.usage.outputTokens, acc.outputTokens),
-          cacheReadTokens: add(d.usage.cacheReadTokens, acc.cacheReadTokens),
-          cacheWriteTokens: add(d.usage.cacheWriteTokens, acc.cacheWriteTokens),
-          reasoningTokens: add(d.usage.reasoningTokens, acc.reasoningTokens),
-        });
       }
       ctx.turnTime.set(turn, ev.time);
       break;
@@ -502,15 +478,6 @@ export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
   // Build the tail payload per closed turn once.
   const tails = new Map<number, RenderItem>();
   for (const [turn, t] of closed) {
-    const runMs = Math.max(0, (t.end ?? 0) - (t.start ?? 0));
-    const ttftMs = t.firstToken !== undefined ? Math.max(0, t.firstToken - (t.start ?? 0)) : null;
-    // 官方口径（ui-conversation turn-metrics）：吞吐 = 输出 tokens ÷ 解码耗时
-    // （runMs − ttftMs）。缺 usage 时置 null 不显示，绝不把秒数当速率（AUD-066）。
-    const decodeSec = ttftMs !== null && runMs > ttftMs ? (runMs - ttftMs) / 1000 : null;
-    const outputTokens = ctx.turnUsage.get(turn)?.outputTokens;
-    const tokensPerSecond = decodeSec !== null && outputTokens !== undefined && outputTokens > 0
-      ? Math.round((outputTokens / decodeSec) * 10) / 10
-      : null;
     const txt = ctx.turnText.get(turn) ?? "";
     tails.set(turn, {
       key: `tail:${turn}`,
@@ -521,11 +488,8 @@ export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
       event: txt
         ? ({ type: "assistant/message", seq: -1, time: ctx.turnTime.get(turn) ?? 0, data: { turn, step: 1, message: { role: "assistant", content: [{ type: "text", text: txt }], source: { kind: "model", provider: "", model: "" }, id: `tail:${turn}` } } } as SessionEvent)
         : undefined,
-      meta: { runMs, ttftMs, tokensPerSecond },
       produced: ctx.produced.get(turn) ?? [],
       endReason: ctx.turnReason.get(turn),
-      usage: ctx.turnUsage.get(turn),
-      messageId: ctx.turnMessageId.get(turn),
     });
   }
   // Insert each turn's tail right after the LAST item belonging to that turn,

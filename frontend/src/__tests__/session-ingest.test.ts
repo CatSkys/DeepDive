@@ -105,20 +105,11 @@ describe("ingest 黄金回放", () => {
     expect(out.filter((x) => x.kind === "tool-call")).toHaveLength(1);
   });
 
-  it("turn-tail 携带时长/首 token/产物，锚定在该 turn 最后一项之后", () => {
+  it("turn-tail 携带产物与可复制文本，锚定在该 turn 最后一项之后", () => {
     const [tail1, tail2] = out.filter((x) => x.kind === "turn-tail");
     expect(tail1?.turn).toBe(1);
-    expect(tail1?.meta?.runMs).toBe(350); // 1400 − 1050
-    expect(tail1?.meta?.ttftMs).toBe(50); // 1100 − 1050
-    // 吞吐 = outputTokens ÷ 解码秒（AUD-066 回归钉）：90 tokens / 0.3s = 300，
-    // 绝不是把解码秒数当速率（旧 bug 会显示 0.3→"0.3 tok/s"）
-    expect(tail1?.meta?.tokensPerSecond).toBe(300);
     expect(tail1?.produced).toEqual(["/tmp/a.md"]);
     expect(tail2?.turn).toBe(2);
-    expect(tail2?.meta?.runMs).toBe(200); // 1700 − 1500
-    expect(tail2?.meta?.ttftMs).toBeNull(); // turn 2 无流式 chunk
-    // 无 usage 的 turn 不显示速率（null），而非编造数值
-    expect(tail2?.meta?.tokensPerSecond).toBeNull();
     expect(tail2?.produced).toEqual([]);
     // tail 的 event 是可复制文本载荷（turnText）
     expect(tail2?.event?.type).toBe("assistant/message");
