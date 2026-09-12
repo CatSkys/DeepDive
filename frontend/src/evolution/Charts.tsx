@@ -76,6 +76,10 @@ export function ActivityBars({ days }: { days: readonly ActivityDay[] }) {
           const h = (total / max) * (H - 8);
           return (
             <g key={d.key}>
+              {/* 没有活动的日子也留一根矮桩：不然没数据时这一条就是"一片空白" */}
+              {total === 0 && (
+                <rect x={i * barW + barW * 0.15} y={H - 1.5} width={barW * 0.7} height={1.5} rx={0.5} fill="var(--line-strong)" />
+              )}
               {d.created > 0 && (
                 <rect x={i * barW + barW * 0.15} y={H - h} width={barW * 0.7} height={h} rx={0.6}
                   fill={d.runs > 0 ? "var(--ink-2)" : "var(--ink)"} />
@@ -90,6 +94,9 @@ export function ActivityBars({ days }: { days: readonly ActivityDay[] }) {
         <line x1="0" y1={H - 0.5} x2="100" y2={H - 0.5} stroke="var(--line)" strokeWidth="0.5" />
       </svg>
       <div className={css.barsFoot}>
+        {days.every((d) => d.created + d.runs === 0) && (
+          <span className={css.legendLabel}>{t("近 30 天暂无活动")}</span>
+        )}
         <span className={css.legendDot} style={{ background: "var(--ink)" }} />
         <span className={css.legendLabel}>{t("新增提案")}</span>
         <span className={css.legendDot} style={{ background: "var(--ink-faint)" }} />

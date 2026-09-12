@@ -589,4 +589,5 @@ export const EN: Record<string, string> = {
   "开启「自进化」后将发生：应用读取会话日志并从中提炼可复用的经验；按计划运行复盘与到期校验，消耗模型额度；提案经采纳后，由 Agent 写入仓库的知识文件（AGENTS.md / PITFALLS / SPEC / 技能正文 / 政策文件）并提交。该能力不修改产品代码，可随时关闭。": "Enabling self-evolution means: the app reads session logs to extract reusable lessons, runs reviews and due-date checks on a schedule (spending model quota), and after you accept a proposal an Agent writes it into the repository's knowledge files (AGENTS.md / PITFALLS / SPEC / skill bodies / the policy file) and commits. It never modifies product code, and can be turned off at any time.",
   "尚未运行复盘。": "No review has run yet.",
   "提案不会自动生效；判定标准见仓库 docs/EVOLUTION-POLICY.md。": "Proposals never take effect on their own; the criteria live in the repository's docs/EVOLUTION-POLICY.md.",
+  "近 30 天暂无活动": "No activity in the last 30 days",
 };
