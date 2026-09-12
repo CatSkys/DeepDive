@@ -5,6 +5,7 @@ import { useT, type Lang } from "../i18n";
 import { formatDayShort, formatTokensShort, type UsageDay } from "./usageStats";
 import { smoothPath } from "./chartMath";
 import { ChartTip, type ChartTipState } from "./ChartTip";
+import { Seg } from "./Seg";
 import css from "./UsageSection.module.css";
 
 export interface LegendModel {
@@ -16,7 +17,14 @@ const H = 240;
 const PAD = { top: 14, right: 12, bottom: 28, left: 12 };
 const GRID_LINES = 4;
 
-export function UsageTrend({ rangeDays, models, lang }: { rangeDays: UsageDay[]; models: LegendModel[]; lang: Lang }) {
+export function UsageTrend({ rangeDays, models, lang, range, onRange }: {
+  rangeDays: UsageDay[];
+  models: LegendModel[];
+  lang: Lang;
+  /** 时间范围（近 7 / 30 日）：控件就放在卡头（原独立"时间范围"行已删）。 */
+  range: 7 | 30;
+  onRange: (v: 7 | 30) => void;
+}) {
   const { t, tt } = useT();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -58,7 +66,10 @@ export function UsageTrend({ rangeDays, models, lang }: { rangeDays: UsageDay[];
   if (!hasData) {
     return (
       <div className={css.card}>
-        <div className={css.cardTitle}>{t("每日 Token 趋势图")}</div>
+        <div className={css.cardHead}>
+          <div className={css.cardTitle}>{t("每日 Token 趋势图")}</div>
+          <Seg value={range} options={[{ v: 7 as const, label: "近 7 日" }, { v: 30 as const, label: "近 30 日" }]} onChange={onRange} />
+        </div>
         <div className={css.chartEmpty}>{t("暂无数据")}</div>
       </div>
     );
@@ -95,7 +106,10 @@ export function UsageTrend({ rangeDays, models, lang }: { rangeDays: UsageDay[];
 
   return (
     <div className={css.card}>
-      <div className={css.cardTitle} style={{ marginBottom: 8 }}>{t("每日 Token 趋势图")}</div>
+      <div className={css.cardHead}>
+        <div className={css.cardTitle}>{t("每日 Token 趋势图")}</div>
+        <Seg value={range} options={[{ v: 7 as const, label: "近 7 日" }, { v: 30 as const, label: "近 30 日" }]} onChange={onRange} />
+      </div>
       <div className={css.trendLegend}>
         {models.map((m) => (
           <span key={m.name} className={css.trendLegendItem}>

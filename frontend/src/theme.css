@@ -734,7 +734,6 @@ button {
 .effort-tick {
   position: absolute;
   top: 50%;
-  left: calc(var(--f) * 100%);
   width: 5px; height: 5px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -1040,7 +1039,7 @@ button {
   font-size: 12px;
 }
 .att-chip.file[data-status="pending"], .att-chip.file[data-status="uploading"] { opacity: .72; }
-.att-chip.file[data-status="error"] { border-color: var(--danger, #e5484d); color: var(--ink); }
+.att-chip.file[data-status="error"] { border-color: var(--dsh-signal-danger); color: var(--ink); }
 .att-file-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .att-file-spin {
   width: 10px; height: 10px; flex: none;
@@ -2333,7 +2332,7 @@ button {
   font-size: 13px;
 }
 .load-error button {
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: transparent;
   color: inherit;

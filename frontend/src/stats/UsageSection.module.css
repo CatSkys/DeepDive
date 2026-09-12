@@ -55,15 +55,6 @@
 .segItem:hover { color: var(--ink); }
 .segItem.active { background: var(--ink); color: var(--panel-bg); font-weight: 600; }
 
-/* ── 时间范围行（独立行：标签左，分段右）── */
-.rangeRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 2px 2px 10px;
-}
-.rangeLabel { font-size: 13px; font-weight: 600; color: var(--ink); }
-
 /* ── 热力图 ── */
 .heatBody { display: flex; align-items: stretch; gap: 12px; }
 .heatGridWrap { flex: 1; min-width: 0; }
@@ -120,7 +111,9 @@
 .legendTokens { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
 .legendPct { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
-/* ── 图表悬浮提示：实底菜单色 + 控件圆角，fixed 定位不随卡片裁剪 ── */
+/* ── 图表悬浮提示：磨砂实底 + 控件圆角，fixed 定位不随卡片裁剪 ──
+   自带 backdrop-filter（CSS module 类进不了 theme.css 的配方组，PITFALLS §1.8），
+   前缀顺序 -webkit- 在前。 */
 .tip {
   position: fixed;
   z-index: 1300;
@@ -128,7 +121,9 @@
   padding: 8px 12px;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
-  background: var(--menu-solid);
+  background: var(--panel-strong);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
   box-shadow: 0 12px 32px rgba(0,0,0,.4);
   font-size: 12px;
   color: var(--ink);

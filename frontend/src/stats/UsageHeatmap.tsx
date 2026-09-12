@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useT } from "../i18n";
 import { addDays, dayKeyOf, formatDayFull, formatMonthLabel, formatTokensShort, type UsageDay } from "./usageStats";
 import { ChartTip, type ChartTipState } from "./ChartTip";
+import { Seg } from "./Seg";
 import css from "./UsageSection.module.css";
 
 type HeatMode = "daily" | "weekly" | "cumulative";
@@ -125,17 +126,11 @@ export function UsageHeatmap({ days }: { days: UsageDay[] }) {
     <div className={css.card}>
       <div className={css.cardHead}>
         <div className={css.cardTitle}>{t("Token 活动")}</div>
-        <div className={css.seg}>
-          {([["daily", "每日"], ["weekly", "每周"], ["cumulative", "累计"]] as const).map(([v, label]) => (
-            <button
-              key={v}
-              className={`${css.segItem}${mode === v ? ` ${css.active}` : ""}`}
-              onClick={() => { setMode(v); clearHover(); }}
-            >
-              {t(label)}
-            </button>
-          ))}
-        </div>
+        <Seg
+          value={mode}
+          options={[["daily", "每日"], ["weekly", "每周"], ["cumulative", "累计"]].map(([v, label]) => ({ v: v as HeatMode, label }))}
+          onChange={(v) => { setMode(v); clearHover(); }}
+        />
       </div>
       <div className={css.heatBody}>
         <div className={css.heatGridWrap}>

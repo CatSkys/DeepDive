@@ -52,6 +52,12 @@
 - 事故：`.hero-title` 在 theme.css 前段改了 `fill: backwards`，L2273 还有第二处同名规则用 `both`，级联后者胜出——修复「无效」，页面 computed 一直是 both。
 - 处置：改任何样式前 `grep -n '<selector>' theme.css` 看**全部出现处**（3000 行单文件已有多处历史重复块）；CSSOM 侧 `document.styleSheets` 遍历同名选择器能直接暴露两套规则打架。
 
+### 1.13 删 CSS 变量前必须连 `*.module.css` 一起查：未定义引用会整条静默失效
+- 事故（2026-09-12 用户报告「使用统计里这类窗口都变成透明了」）：统计页图表悬浮提示 `.tip` 的 `background: var(--menu-solid)`——而该变量在更早一轮「删无消费者的 token」时已被清掉（那条只 grep 了 theme.css，没查 CSS module）。未定义变量让 `background` 整条 invalid-at-computed-value-time → 提示框全透明（同 AUD-002 那一类）。
+- 处置：**删任何 CSS 变量/颜色 token 前，用全量审计**（含 `frontend/src/**/*.module.css` 与生成的 tokens.css）：
+  `python3 - <<'EOF'` 遍历所有 css 收集 `--x:` 定义与 `var(--x)` 引用，差集即断链（本轮据此还捞出 `.load-error button` 的 `--line-2`、`.att-chip` 的 `--danger` 与 `.effort-tick` 里已被内联 style 取代的死声明）。
+- 注意：JS 运行期写入的变量（如 `--dsh-sidebar-w`）不在审计差集里算错，但**必须在引用处带兜底值**（`var(--dsh-sidebar-w, 240px)`）。
+
 ### 1.12 content-visibility 估高让 scrollHeight 漂移：编程滚动落点必须二次校准
 - 现象：`.msg-block` 用 `content-visibility: auto`（离屏跳过排版），跳到底部后估高被真实高度替换、scrollHeight 变化，一次性 `scrollTop = scrollHeight` 的落点偏短，末条消息仍被悬浮输入框盖住。
 - 处置：编程滚动（回到底部等）落点后**当前帧 + 下一帧各校准一次** `scrollTop = scrollHeight`；动画中改用 rAF 缓动时，终点 settle 同样双校准。

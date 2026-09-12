@@ -104,21 +104,7 @@ export function UsageSection() {
         </div>
       </div>
       {stats && <UsageHeatmap days={stats.days} />}
-      <div className={css.rangeRow}>
-        <div className={css.rangeLabel}>{t("时间范围")}</div>
-        <div className={css.seg}>
-          {([7, 30] as const).map((r) => (
-            <button
-              key={r}
-              className={`${css.segItem}${range === r ? ` ${css.active}` : ""}`}
-              onClick={() => setRange(r)}
-            >
-              {t(r === 7 ? "近 7 日" : "近 30 日")}
-            </button>
-          ))}
-        </div>
-      </div>
-      <UsageTrend rangeDays={rangeDays} models={models} lang={lang} />
+      <UsageTrend rangeDays={rangeDays} models={models} lang={lang} range={range} onRange={setRange} />
       <UsageDonut rangeDays={rangeDays} models={models} lang={lang} />
       {/* 刷新失败但旧数据仍在：非阻断提示，避免用户误以为刷新成功 */}
       {phase === "error" && <div className={rowsCss.modelError}>{tt("读取失败：{m}", "Read failed: {m}", { m: errMsg })}</div>}
