@@ -557,4 +557,19 @@ export const EN: Record<string, string> = {
   "流程": "Workflow",
   "事实": "Fact",
   "规则": "Rule",
+
+  // 自进化 Phase 2（复盘/校验/撤销/运行历史）
+  "跑一次复盘": "Review now",
+  "复现 {n} 次 · {v}": "{n} recurrences · {v}",
+  "有效": "effective",
+  "无效": "ineffective",
+  "校验": "Verify",
+  "撤销": "Revoke",
+  "运行历史": "Run history",
+  "复盘": "Review",
+  "落库": "Land",
+  "上次复盘：{t}": "Last review: {t}",
+  "还没跑过复盘——攒够几次回复后会自动跑，也可以点右上角手动跑一次。": "No review yet — it runs on its own once enough replies pile up, or use the button above.",
+  "累计 {n} · 待审 {p} · 已交办 {a} · 有效 {e} · 无效 {x} · 已丢弃 {d}": "{n} total · {p} pending · {a} handed off · {e} effective · {x} ineffective · {d} dismissed",
+  "暂无待审提案。在会话里说一句「记住这个……」，或让它自己复盘提出。": "Nothing pending. Say “remember this…” in a chat, or let the review pass propose something.",
 };

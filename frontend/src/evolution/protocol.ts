@@ -6,6 +6,8 @@
 // 绝不猜字段。origin（会话/轮/事件序号）由采集端盖戳，不采信模型自报的定位信息。
 
 export const LESSON_LANG = "lesson";
+/** 校验回执块的 info string（后台校验运行用它把结果写回队列）。 */
+export const VERDICT_LANG = "lesson-verify";
 
 export type LessonHome = "agents" | "pitfalls" | "spec" | "skill" | "policy";
 export type LessonCategory = "incident" | "workflow" | "fact" | "rule";
@@ -29,6 +31,13 @@ export interface LessonPredict {
   windowDays: number;
 }
 
+/** 到期校验的结论：签名在窗口内复现几次（0 = 有效）。 */
+export interface LessonVerdict {
+  recurrences: number;
+  verdict: "effective" | "ineffective";
+  at: number;
+}
+
 export interface LessonProposal {
   id: string;
   category: LessonCategory;
@@ -46,6 +55,8 @@ export interface LessonProposal {
   origin: { sessionId: string; turn: number; eventSeq: number };
   /** 采纳后交办的那条会话（落库由它完成，见 SPEC §3.4）。 */
   appliedSessionId?: string;
+  /** 到期校验的结论（有 predict 的才有；见 SPEC §3.5）。 */
+  verdict?: LessonVerdict;
 }
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
@@ -118,10 +129,37 @@ export function parseLesson(
   };
 }
 
+/** 解析一条校验回执；形状不合回 null（采集端丢弃，显示端按普通代码块渲染）。 */
+export function parseVerdict(text: string): { id: string; recurrences: number; verdict: "effective" | "ineffective" } | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  const id = str(o.id);
+  const recurrences = o.recurrences;
+  if (id === null) return null;
+  if (typeof recurrences !== "number" || !Number.isFinite(recurrences) || recurrences < 0) return null;
+  if (o.verdict !== "effective" && o.verdict !== "ineffective") return null;
+  return { id, recurrences, verdict: o.verdict };
+}
+
 /** 从一段助手文本里抠出所有 lesson 块（采集端用；显示端只看单块）。 */
 export function lessonBlocks(text: string): string[] {
+  return fencedBlocks(text, "lesson");
+}
+
+/** 从一段助手文本里抠出所有校验回执块。 */
+export function verdictBlocks(text: string): string[] {
+  return fencedBlocks(text, VERDICT_LANG);
+}
+
+function fencedBlocks(text: string, lang: string): string[] {
   const out: string[] = [];
-  const re = /```\s*lesson\s*\n([\s\S]*?)```/g;
+  const re = new RegExp("```\\s*" + lang + "\\s*\\n([\\s\\S]*?)```", "g");
   for (let m = re.exec(text); m !== null; m = re.exec(text)) out.push(m[1] ?? "");
   return out;
 }

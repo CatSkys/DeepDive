@@ -5,6 +5,19 @@ import type { LessonCategory, LessonEvidence, LessonHome, LessonPredict, LessonP
 
 const KEY_PROPOSALS = "deepdive.evolution.proposals";
 const KEY_SESSION = "deepdive.evolution.session";
+const KEY_RUNS = "deepdive.evolution.runs";
+const KEY_LAST_REVIEW = "deepdive.evolution.lastReview";
+
+/** 一次运行记录（复盘 / 校验 / 落库 / 撤销），供设置页的运行历史展示。 */
+export interface EvolutionRun {
+  id: string;
+  kind: "review" | "verify" | "apply" | "revoke";
+  at: number;
+  sessionId: string;
+  note?: string;
+}
+
+const RUN_KINDS: readonly EvolutionRun["kind"][] = ["review", "verify", "apply", "revoke"];
 
 /** 台账上限：待审上限由政策定（默认 100），这里给总保留量留一倍余量。 */
 export const KEEP_PROPOSALS = 200;
@@ -52,6 +65,7 @@ function parseProposal(v: unknown): LessonProposal | null {
   const origin = (o.origin ?? {}) as Record<string, unknown>;
   const createdAt = num(o.createdAt) ?? Date.now();
   const appliedSessionId = str(o.appliedSessionId);
+  const verdict = parseVerdict(o.verdict);
   return {
     id,
     category: o.category as LessonCategory,
@@ -70,7 +84,19 @@ function parseProposal(v: unknown): LessonProposal | null {
       eventSeq: num(origin.eventSeq) ?? -1,
     },
     ...(appliedSessionId === null ? {} : { appliedSessionId }),
+    ...(verdict === null ? {} : { verdict }),
   };
+}
+
+/** 校验结论（读盘边界：形状不合当没有）。 */
+function parseVerdict(v: unknown): LessonProposal["verdict"] | null {
+  if (typeof v !== "object" || v === null) return null;
+  const o = v as Record<string, unknown>;
+  const recurrences = num(o.recurrences);
+  const at = num(o.at);
+  if (recurrences === null || at === null) return null;
+  if (o.verdict !== "effective" && o.verdict !== "ineffective") return null;
+  return { recurrences, verdict: o.verdict, at };
 }
 
 export function loadProposals(): LessonProposal[] {
@@ -89,6 +115,46 @@ export function loadProposals(): LessonProposal[] {
 export function saveProposals(proposals: LessonProposal[]): void {
   const trimmed = [...proposals].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, KEEP_PROPOSALS);
   localStorage.setItem(KEY_PROPOSALS, JSON.stringify(trimmed));
+}
+
+function parseRun(v: unknown): EvolutionRun | null {
+  if (typeof v !== "object" || v === null) return null;
+  const o = v as Record<string, unknown>;
+  const id = str(o.id);
+  const sessionId = str(o.sessionId);
+  const at = num(o.at);
+  if (id === null || sessionId === null || at === null) return null;
+  if (!RUN_KINDS.includes(o.kind as EvolutionRun["kind"])) return null;
+  const note = str(o.note);
+  return { id, kind: o.kind as EvolutionRun["kind"], at, sessionId, ...(note === null ? {} : { note }) };
+}
+
+export function loadRuns(): EvolutionRun[] {
+  const raw = localStorage.getItem(KEY_RUNS);
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map(parseRun).filter((r): r is EvolutionRun => r !== null);
+}
+
+export function saveRuns(runs: EvolutionRun[]): void {
+  localStorage.setItem(KEY_RUNS, JSON.stringify(runs.slice(0, 50)));
+}
+
+export function loadLastReview(): number | null {
+  const raw = localStorage.getItem(KEY_LAST_REVIEW);
+  const n = raw === null ? NaN : Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function saveLastReview(at: number | null): void {
+  if (at === null) localStorage.removeItem(KEY_LAST_REVIEW);
+  else localStorage.setItem(KEY_LAST_REVIEW, String(at));
 }
 
 export function loadApplySession(): string | null {

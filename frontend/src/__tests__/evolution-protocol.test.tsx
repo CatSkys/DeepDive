@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("../store", () => ({ useStore: () => ({ lang: "zh" }) }));
 
 import { Markdown } from "../components/Markdown";
-import { applyPrompt } from "../evolution/useEvolution";
-import { lessonBlocks, parseLesson } from "../evolution/protocol";
+import { applyPrompt, reviewPrompt, verifyPrompt } from "../evolution/prompts";
+import { lessonBlocks, parseLesson, parseVerdict, verdictBlocks } from "../evolution/protocol";
 
 afterEach(cleanup);
 
@@ -62,6 +62,22 @@ describe("lessonBlocks", () => {
   });
 });
 
+describe("校验回执", () => {
+  it("解析合法回执，坏形状一律 null", () => {
+    expect(parseVerdict('{"id":"l-1","recurrences":0,"verdict":"effective"}')).toEqual({ id: "l-1", recurrences: 0, verdict: "effective" });
+    expect(parseVerdict('{"id":"l-1","recurrences":-1,"verdict":"effective"}')).toBeNull();
+    expect(parseVerdict('{"id":"l-1","recurrences":3}')).toBeNull();
+    expect(parseVerdict('{"id":"l-1","recurrences":3,"verdict":"maybe"}')).toBeNull();
+    expect(parseVerdict("不是 JSON")).toBeNull();
+  });
+
+  it("从助手文本里抠出回执块", () => {
+    const text = '结论如下\n```lesson-verify\n{"id":"l-9","recurrences":52,"verdict":"ineffective"}\n```\n完。';
+    expect(verdictBlocks(text)).toHaveLength(1);
+    expect(parseVerdict(verdictBlocks(text)[0])?.recurrences).toBe(52);
+  });
+});
+
 describe("落库交办提示（与 agent 的契约）", () => {
   it("带落点、锚点、原文、逐字证据与提案 id，并限定只改一处", () => {
     const p = parseLesson(JSON.stringify(lesson), origin)!;
@@ -73,6 +89,29 @@ describe("落库交办提示（与 agent 的契约）", () => {
     expect(text).toContain(p.id);
     expect(text).toContain("docs/EVOLUTION-POLICY.md"); // 先读政策再落
     expect(text).toContain("只改这一处");
+  });
+});
+
+describe("复盘 / 校验提示（与 agent 的契约）", () => {
+  it("复盘提示带上会话与三个摩擦信号，并限定只读", () => {
+    const text = reviewPrompt([{ sessionId: "s1", logHint: "s1", turns: 2, failed: 3, corrections: 1 }]);
+    expect(text).toContain("s1");
+    expect(text).toContain("$DSH_HOME/sessions/*/s1/session.v3.jsonl.zstd");
+    expect(text).toContain("失败工具调用 3 次");
+    expect(text).toContain("用户纠正 1 次");
+    expect(text).toContain("docs/EVOLUTION-POLICY.md");
+    expect(text).toContain("只读分析");
+    expect(text).toContain("成本上限");
+  });
+
+  it("校验提示要求数签名并回一个 lesson-verify 块", () => {
+    const p = parseLesson(JSON.stringify(lesson), origin)!;
+    const text = verifyPrompt(p);
+    expect(text).toContain(lesson.predict.signature);
+    expect(text).toContain("grep -c");
+    expect(text).toContain("```lesson-verify");
+    expect(text).toContain("成本上限");
+    expect(text).toContain(p.id);
   });
 });
 
