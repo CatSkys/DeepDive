@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, ChartColumn, ChevronLeft, Cpu, Download, Folder, Keyboard, Moon,
   Monitor, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
-  SquarePen, Sun, X,
+  SquarePen, Sun,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -38,6 +38,10 @@ import { sessionDeleteDirs } from "../host";
 export function SettingsPage({ initialSection, onClose }: { initialSection?: string; onClose: () => void }) {
   const { t } = useT();
   const [activeId, setActiveId] = useState(initialSection ?? "general");
+  /** 当前分区注入页头右侧的批量动作（切分区即清空）：只收数据与回调，按钮由页头渲染。 */
+  const [bulk, setBulk] = useState<{ count: number; onDelete: () => void } | null>(null);
+  // 不在切分区时清：React 的 effect 自底向上，父的清理会晚于子的上报、把按钮抹掉；
+  // 由分区卸载时的 cleanup（onBulk(null)）收尾。
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -84,9 +88,19 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
         <div className="settings-content">
           <div className="settings-head">
             <div className="settings-title">{active.label}</div>
-            <button className="settings-close" onClick={onClose} aria-label={t("关闭")}>
-              <X size={16} />
-            </button>
+            {/* 分区自带动作（如归档页的「全部删除」）占原关闭叉的位置；
+                返回工作区由侧栏顶部的 snav-back 承担，右上不需要叉 */}
+            {bulk !== null && (
+              <button
+                type="button"
+                className={rowsCss.archDanger}
+                disabled={bulk.count === 0}
+                onClick={() => bulk.onDelete()}
+              >
+                <Trash2 size={13} />
+                {t("全部删除")}
+              </button>
+            )}
           </div>
           {activeId === "general" && <GeneralSection />}
           {activeId === "models" && <ModelsManage />}
@@ -95,7 +109,7 @@ export function SettingsPage({ initialSection, onClose }: { initialSection?: str
           {activeId === "persona" && <PersonaSection />}
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
-          {activeId === "archived" && <ArchivedSection />}
+          {activeId === "archived" && <ArchivedSection onBulk={setBulk} />}
           {activeId === "data" && <DataSection />}
           {activeId === "usage" && <UsageSection />}
         </div>
@@ -437,7 +451,7 @@ function HotkeysSection() {
 
 /* ───────────────────────── 已归档的聊天 ───────────────────────── */
 
-export function ArchivedSection() {
+export function ArchivedSection({ onBulk }: { onBulk?: (bulk: { count: number; onDelete: () => void } | null) => void }) {
   const { t, tt, lang } = useT();
   const store = useStore();
   const { workspaces, archived } = store;
@@ -518,20 +532,18 @@ export function ArchivedSection() {
   ];
 
   const archivedCount = visible.reduce((n, g) => n + g.rows.length, 0);
+  // 「全部删除」交给页头渲染（原关闭叉的位置，用户定稿）：回调经 ref 固定身份，
+  // 只在候选计数变化时上报，避免与父渲染互相触发。
+  const deleteAllRef = useRef(deleteAll);
+  deleteAllRef.current = deleteAll;
+  const stableDeleteAll = useCallback(() => void deleteAllRef.current(), []);
+  useEffect(() => {
+    if (!onBulk) return;
+    onBulk({ count: archivedCount, onDelete: stableDeleteAll });
+    return () => onBulk(null);
+  }, [onBulk, archivedCount, stableDeleteAll]);
   return (
     <div className={rowsCss.section}>
-      {/* 布局照参考图：右上一枚「全部删除」（只作用于当前筛选出的结果） */}
-      <div className={rowsCss.archBulk}>
-        <button
-          type="button"
-          className={rowsCss.archDanger}
-          disabled={archivedCount === 0}
-          onClick={() => void deleteAll()}
-        >
-          <Trash2 size={13} />
-          {t("全部删除")}
-        </button>
-      </div>
       <div className={rowsCss.archToolbar}>
         <div className={rowsCss.archSearch}>
           <Search size={14} className={rowsCss.archSearchIcon} />

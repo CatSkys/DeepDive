@@ -2885,16 +2885,8 @@ button {
   margin-bottom: 16px;
 }
 .settings-title { font-size: 15px; font-weight: 700; color: var(--ink); }
-.settings-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px; height: 28px;
-  border-radius: var(--dsh-radius-control);
-  background: transparent;
-  color: var(--ink-2);
-}
-.settings-close:hover { background: var(--fill); color: var(--ink); }
+/* 页头右侧留给分区批量动作（原关闭叉位）：动作自带样式，这里只保证靠右 */
+.settings-head > :last-child:not(.settings-title) { margin-left: auto; flex: none; }
 
 /* ── 提供方品牌图标：单色反白（内联 svg 自带 fill=currentColor）── */
 .provider-logo {
