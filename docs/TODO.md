@@ -2,9 +2,13 @@
 
 > 产品路线的唯一事实源：一项一节，只写「要做什么 + 已查明的路径」；完成即删节（沿革归 git）。2026-09-11 重排：0.1.5-rc.1 对齐批（产物三动作/预览 Dock+分栏全屏/上传流式+进度取消/子代理交互/命令原生化/插件市场 v1/统计两摘要/persona 入口）已全部落地并删除；剩余项均带明确前置（§1 热加载实测、§2 鉴权设计稿、§3 公证凭据+依赖批准、§4 用户澄清范围）。
 
-## 1. 自定义指令（Persona）设置入口 —— 已实现，收口一项
+## 1. 自定义指令（Persona）—— 已按用户要求移除（2026-09-12）
 
-设置「自定义指令」节已落（前缀/后缀双文本域，读写 `DSH_HOME/persona.json`，壳启动经 engine-patch 的 `id: system-prompt` 配置覆盖挂载 `{personaPrefix, personaSuffix}`，值 JSON 序列化防 YAML 注入）。**已实测**：`--dump-config` 确认引擎解析后配置含 persona 文本（挂载链路通）。**剩余一项**：行为级 E2E（提问验证模型遵循 persona）因机器 FS 门控挂死态（PITFALLS §5.2 TCC 变种，重启机器清除）暂缓——重启后发一条消息即可验证。
+设置「自定义指令」节 + 壳侧桥（`persona-get/set`）+ engine-patch 的 `id: system-prompt`
+配置注入已整体删除（用户："暂时用不上，做的也不好"）。要用时按 git 历史重做入口：
+persona 文本读写 `DSH_HOME/persona.json`，壳启动时经 engine-patch 覆盖 `{personaPrefix,
+personaSuffix}`（值 JSON 序列化防 YAML 注入，`--dump-config` 可验挂载链路）。
+用户现存 `persona.json` 未删（不再注入，随时可复用）。
 
 ## 2. 手机远程
 

@@ -135,27 +135,6 @@ export function pluginRemove(id: string): void {
   sendToShell({ type: "plugin-remove", id });
 }
 
-/* ── persona（§6 自定义指令）：DSH_HOME/persona.json 经壳读写；改后重启
-   引擎生效（system-prompt 插件配置经 engine-patch 覆盖挂载）。 ── */
-
-export interface PersonaConfig {
-  prefix: string;
-  suffix: string;
-}
-
-export function personaGet(): Promise<PersonaConfig> {
-  return bridgeRequest(
-    "persona-get",
-    { prefix: "", suffix: "" },
-    (p) => (p as PersonaConfig) ?? { prefix: "", suffix: "" },
-    (reqId) => sendToShell({ type: "persona-get", reqId }),
-  );
-}
-
-export function personaSet(config: PersonaConfig): void {
-  sendToShell({ type: "persona-set", ...config });
-}
-
 /** 壳桥 req/resp 统一包装（AUD-049/090）：注册一次性监听 + 发送 + 超时降级
  *  ——壳不回包（桥挂/消息丢失）也按 fallback resolve，绝不永久 pending。
  *  match 收到本 reqId 的载荷时返回要 resolve 的值；纯浏览器环境直接降级。 */
