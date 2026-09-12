@@ -17,6 +17,7 @@ import { TurnNavigator } from "../session/TurnNavigator";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "./preview/FilePreviewWindow";
 import { useFilePreview } from "./preview/useFilePreview";
 import { computeTurnProcess } from "../session/turnProcess";
+import { FOLLOW_THRESHOLD, activeTurnFor, readingLineOffset } from "../session/activeTurn";
 import { TurnProcessBar } from "../session/TurnProcessBar";
 import type { TurnOutlineEntry } from "../types";
 import { SessionHeader } from "../session/SessionHeader";
@@ -226,23 +227,28 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     return { keyIdx, groups, loadedTurns };
   }, [items]);
 
-  // 视口所在轮（rAF 合并）：mid 线上方最后一组即活动轮，驱动大纲轨高亮。
+  // 视口所在轮（rAF 合并）：贴底取最后一轮、否则取阅读线上方最新一轮，
+  // 驱动大纲轨高亮（判定在 activeTurn.ts，语义照官方 ChatView）。
   const activeRafRef = useRef<number | null>(null);
+  const railTurns = useMemo(() => outline.map((e) => e.turn), [outline]);
   const trackActive = useCallback(() => {
     if (activeRafRef.current !== null) return;
     activeRafRef.current = requestAnimationFrame(() => {
       activeRafRef.current = null;
       const flow = flowRef.current;
       if (!flow) return;
-      const mid = flow.getBoundingClientRect().top + flow.clientHeight * 0.4;
-      let cur: number | undefined;
-      for (const el of flow.querySelectorAll<HTMLElement>(".turn-group[data-turn]")) {
-        if (el.getBoundingClientRect().top <= mid) cur = Number(el.dataset.turn);
-        else break;
+      const atBottom = flow.scrollHeight - flow.scrollTop - flow.clientHeight <= FOLLOW_THRESHOLD + 1;
+      let reading: number | null = null;
+      if (!atBottom) {
+        const line = flow.getBoundingClientRect().top + readingLineOffset(flow.clientHeight);
+        for (const el of flow.querySelectorAll<HTMLElement>(".turn-group[data-turn]")) {
+          if (el.getBoundingClientRect().top <= line) reading = Number(el.dataset.turn);
+          else break;
+        }
       }
-      setActiveTurn(cur);
+      setActiveTurn(activeTurnFor(atBottom, reading, railTurns) ?? undefined);
     });
-  }, []);
+  }, [railTurns]);
   useEffect(() => {
     trackActive();
     return () => {
