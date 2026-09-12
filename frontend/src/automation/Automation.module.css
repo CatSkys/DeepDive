@@ -74,19 +74,19 @@
 .card:hover { background: var(--fill-strong); }
 .cardHead { display: flex; align-items: flex-start; gap: 8px; }
 .cardTitle { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+/* 常显（不靠 hover 才现）：右上那枚 ⋯ 是卡片唯一的操作入口，藏起来等于没有 */
 .cardMenuBtn {
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--dsh-radius-keycap);
-  color: var(--ink-3);
-  opacity: 0;
+  background: var(--fill-strong);
+  color: var(--ink-2);
 }
-.card:hover .cardMenuBtn, .cardMenuBtn[data-open] { opacity: 1; }
-.cardMenuBtn:hover { background: var(--fill-heavy); color: var(--ink); }
+.cardMenuBtn:hover, .cardMenuBtn[data-open] { background: var(--fill-heavy); color: var(--ink); }
 .cardDesc {
   font-size: 12px;
   line-height: 1.65;
