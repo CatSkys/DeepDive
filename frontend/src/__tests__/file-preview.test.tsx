@@ -31,6 +31,7 @@ function fake(over: Partial<FilePreview> = {}): FilePreview {
     setFullscreen: vi.fn(),
     setRenderer: vi.fn(),
     toggleWrap: vi.fn(),
+    setPage: vi.fn(),
     ...over,
   };
 }

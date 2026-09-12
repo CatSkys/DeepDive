@@ -210,6 +210,8 @@ function PreviewContent({ preview }: { preview: FilePreview }) {
             renderer={rendererOf(active)}
             wrap={wrapOf(active)}
             line={active.line}
+            page={active.page}
+            onPage={preview.setPage}
             onOpenFile={preview.open}
           />
         )}

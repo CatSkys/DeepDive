@@ -14,6 +14,8 @@ export interface PreviewTab {
   wrap?: boolean;
   /** 打开时指定的目标行（跳行），关闭/切换即清。 */
   line?: number;
+  /** PDF 最后可见页（标签级记忆，重开回到那一页）。 */
+  page?: number;
 }
 
 interface PreviewState {
@@ -33,6 +35,8 @@ export interface FilePreview extends PreviewState {
   setRenderer: (renderer: PreviewRenderer) => void;
   /** 切当前标签的换行。 */
   toggleWrap: () => void;
+  /** 记当前标签的 PDF 可见页。 */
+  setPage: (page: number) => void;
 }
 
 /** 空态即「预览已关闭」；关掉最后一个标签回到它（全屏态一并复位，不留空壳）。 */
@@ -100,5 +104,9 @@ export function useFilePreview(): FilePreview {
     });
   }, [patchActive]);
 
-  return { ...state, open, close, closeAll, setActive, setFullscreen, setRenderer, toggleWrap };
+  const setPage = useCallback((page: number) => {
+    patchActive((tab) => (tab.page === page ? tab : { ...tab, page }));
+  }, [patchActive]);
+
+  return { ...state, open, close, closeAll, setActive, setFullscreen, setRenderer, toggleWrap, setPage };
 }

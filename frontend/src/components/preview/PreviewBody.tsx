@@ -8,19 +8,23 @@ import { t } from "../../i18n";
 import { CodeLines } from "../CodeLines";
 import { Markdown } from "../Markdown";
 import { fileUrlOf, languageOf, type PreviewRenderer } from "./previewModel";
+import { PdfPreview } from "./PdfPreview";
 
-export function PreviewBody({ path, renderer, wrap, line, onOpenFile }: {
+export function PreviewBody({ path, renderer, wrap, line, page, onPage, onOpenFile }: {
   path: string;
   renderer: PreviewRenderer;
   wrap: boolean;
   /** 跳行落点（1 起）；未指定不滚动。 */
   line?: number;
+  /** PDF 记忆页（1 起）。 */
+  page?: number;
+  onPage?: (page: number) => void;
   /** Markdown 内本地文件链接的落点（开新标签 / 跳到该行）。 */
   onOpenFile?: (path: string, line?: number) => void;
 }) {
   const name = path.split("/").pop() ?? "";
   if (renderer === "image") return <img className="preview-media" src={fileUrlOf(path)} alt={name} />;
-  if (renderer === "pdf") return <iframe className="preview-frame" src={fileUrlOf(path)} title={path} />;
+  if (renderer === "pdf") return <PdfPreview path={path} page={page} onPage={onPage} />;
   if (renderer === "html") return <iframe className="preview-frame" sandbox="" src={fileUrlOf(path)} title={path} />;
   if (renderer === "markdown") return <MarkdownText path={path} onOpenFile={onOpenFile} />;
   return <TextPreview path={path} lang={renderer === "code" ? languageOf(path) : ""} wrap={wrap} line={line} card={renderer === "code"} />;
