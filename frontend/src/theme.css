@@ -3256,15 +3256,17 @@ button {
 .retry-detail { font-family: var(--dsh-font-mono-family); font-size: 11px; }
 
 /* 轮失败条 */
+/* 轮末提醒条（失败 / max tokens）：有底色即卡片 → 不描边（UI-SPEC §2.4 卡片纪律），
+   两端做胶囊（radius.bubble 24 为安全值，勿用 999px，PITFALLS §1.1）。 */
 .turn-issue {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 6px;
-  padding: 6px 10px;
-  border-radius: var(--dsh-radius-keycap);
-  border: 1px solid var(--line-strong);
-  background: var(--fill-soft);
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--dsh-radius-bubble);
+  background: var(--fill);
   font-size: 12px;
   color: var(--ink-2);
   user-select: text;
