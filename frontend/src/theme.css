@@ -169,7 +169,7 @@ button {
 
 /* ── 弹出面板统一配方 ─────────────────────────────────────────────
    菜单类浮层（模型菜单 / @ 附件 / / 命令 / 右键菜单 / 容量弹层 / 胶囊面板 /
-   悬浮提示）共用同一材质。审批/提问/排队三卡不在配方内——它们是流内
+   悬浮提示 / 文件预览浮窗）共用同一材质。审批/提问/排队三卡不在配方内——它们是流内
    内容卡（fill 渐变 + 自带投影），不是浮层菜单，勿并组——把选择器加进下方材质组即得：
    bg var(--panel-glass)（.55 玻璃底）+ blur(12px) saturate(180%) +
    --shadow-pop 轻投影，勿另写材质。
@@ -191,7 +191,7 @@ button {
     0 12px 28px rgba(0,0,0,.20),
     0 2px 6px rgba(0,0,0,.10);
 }
-.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .feedback-note-panel, .turn-rail-tip {
+.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .feedback-note-panel, .turn-rail-tip, .preview-window {
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
      别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
@@ -1064,9 +1064,6 @@ button {
   inset: 0;
   /* 高于页面内浮层（拖放 150、全屏预览面 40），低于 tooltip 1300 / 弹窗 1500 */
   z-index: 160;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: var(--veil);
   /* 前缀顺序勿倒（PITFALLS §1.8）：-webkit- 在前。6px：背景要"看得出是
      界面、只是柔了一点"，糊成浓雾等于看着没模糊 */
@@ -1076,23 +1073,28 @@ button {
 }
 @keyframes preview-in { from { opacity: 0; } }
 .preview-window {
-  position: relative;
+  /* 材质来自上方配方组（--panel-glass + blur 12 + --shadow-pop），此处只管
+     尺寸/形状/定位。fixed + inset 0 + margin auto 居中：浮窗是蒙版的兄弟
+     而非子元素（蒙版自带 backdrop-filter 会成 backdrop root，子层磨砂取不到
+     面外内容，形同没磨砂）。 */
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 161;
   display: flex;
   flex-direction: column;
   width: min(880px, 68vw);
   height: min(680px, 74vh);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line);
   border-radius: var(--dsh-radius-floating);
-  background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  backdrop-filter: blur(40px) saturate(160%);
-  box-shadow: 0 30px 70px rgba(0,0,0,.45);
   /* fill=backwards：动画结束即摘除 transform，不留常驻堆叠上下文（PITFALLS §1.10） */
   animation: preview-window-in var(--dur-med) var(--ease-out) backwards;
 }
 @keyframes preview-window-in { from { opacity: 0; transform: scale(.98); } }
 
-/* 全屏态：盖住会话体（消息流/输入框只停绘制、不卸载，滚动位置照旧） */
+/* 全屏态：盖住会话体（消息流/输入框只停绘制、不卸载，滚动位置照旧）。
+   材质沿用 --panel-strong——它是"取代会话界面"的页面级面板，不是浮层菜单，
+   故不入配方组（同审批/提问/排队三卡的理由）。 */
 .preview-surface {
   position: absolute;
   inset: 0;

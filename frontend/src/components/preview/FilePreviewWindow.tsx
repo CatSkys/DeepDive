@@ -130,21 +130,25 @@ export function FilePreviewSurface({ preview }: { preview: FilePreview }) {
   );
 }
 
-/** little 态：整窗蒙版 + 模糊，浮窗居中；点蒙版空白处关闭。 */
+/** little 态：整窗蒙版 + 模糊，浮窗居中；点蒙版空白处关闭。
+ *  浮窗是蒙版的**兄弟**而非子元素：蒙版自带 backdrop-filter 会成为 backdrop
+ *  root，子层磨砂只能取到蒙版自身绘制（=形同没磨砂，同 .composer-anchor 那条
+ *  教训）；同为 body 下的兄弟，浮窗才能磨到"蒙版 + 应用内容"。 */
 export function FilePreviewOverlay({ preview }: { preview: FilePreview }) {
   useEscapeBack(preview);
   return createPortal(
-    <div
-      className="preview-veil"
-      // 点空白关闭用 mousedown + target 判定（PITFALLS §1.7：React 事件沿组件树
-      // 冒泡，弹层内的点击会路过遮罩，用 click 会误关）
-      onMouseDown={(e) => { if (e.target === e.currentTarget) preview.closeAll(); }}
-    >
+    <>
+      <div
+        className="preview-veil"
+        // 点空白关闭用 mousedown + target 判定（PITFALLS §1.7：React 事件沿组件树
+        // 冒泡，弹层内的点击会路过遮罩，用 click 会误关）
+        onMouseDown={(e) => { if (e.target === e.currentTarget) preview.closeAll(); }}
+      />
       <div className="preview-window" role="dialog" aria-label={t("文件预览")}>
         <PreviewContent preview={preview} />
         <PreviewControls preview={preview} />
       </div>
-    </div>,
+    </>,
     document.body,
   );
 }
