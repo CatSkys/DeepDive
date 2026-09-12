@@ -14,44 +14,24 @@ import {
   IconApiOutline14, IconBrowseOutline16, IconCodeOutline16, IconEditOutline16,
   IconQuestionOutline14, IconSearchOutline16, IconSkillOutline16, IconSparkle16,
 } from "../components/Icons";
+import { toolVariant } from "./toolKind";
 export function ToolIcon({ name }: { name: string }) {
-  switch (name) {
-    case "bash":
-    case "terminal-bash":
-    case "pwsh":
+  switch (toolVariant(name)) {
+    case "shell":
       return <IconApiOutline14 size={14} />;
-    case "write":
     case "edit":
-    case "str_replace_editor":
-    case "patch":
-    case "multiedit":
-    case "apply_patch":
       return <IconEditOutline16 size={14} />;
     case "read":
-    case "read_file":
-    case "file_read":
-    case "read_image":
-    case "web_fetch":
-    case "fetch":
-    case "cordis_package_inspect":
-    case "cordis_runtime_inspect":
       return <IconBrowseOutline16 size={14} />;
-    case "web_search":
-    case "grep":
-    case "glob":
     case "search":
       return <IconSearchOutline16 size={14} />;
-    case "run_code":
     case "code":
-    case "code_execute":
-    case "code_interpreter":
       return <IconCodeOutline16 size={14} />;
     case "skill":
       return <IconSkillOutline16 size={14} />;
-    case "ask_user_question":
-    case "ask_user":
+    case "question":
       return <IconQuestionOutline14 size={14} />;
-    default:
+    case "other":
       return <IconSparkle16 size={14} />;
   }
 }

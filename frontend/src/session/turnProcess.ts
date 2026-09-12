@@ -4,6 +4,8 @@
 // 正文的轮生效；工具-only / 失败空轮不折（官方 answerAnchorSeq===null 口径）。
 import type { RenderItem } from "./renderModel";
 import { blocksOf } from "./eventText";
+import { buildDiffRows } from "../diffModel";
+import { TOOL_VARIANT_LABEL, TOOL_VARIANT_ORDER, toolVariant, type ToolVariant } from "./toolKind";
 
 /** 可被过程折叠吸收的项种类（官方 TURN_PROCESS_INDEPENDENT_KINDS 的补集）。 */
 const PROCESS_KINDS: ReadonlySet<RenderItem["kind"]> = new Set([
@@ -23,6 +25,10 @@ export interface TurnProcessInfo {
   /** 组内可折叠过程项下标（严格在 answer 之前）。 */
   processIndices: readonly number[];
   toolCallCount: number;
+  /** 工具调用按语义族分组计数（读取/编辑/命令/搜索/代码/技能/提问/其他）。 */
+  byVariant: Partial<Record<ToolVariant, number>>;
+  /** 编辑类工具累计的增删行数（无 diff 时为 0）。 */
+  diff: { added: number; removed: number };
   /** 回答之前的中间 assistant 消息数。 */
   messageCount: number;
   subagentCount: number;
@@ -53,17 +59,27 @@ export function computeTurnProcess(items: readonly RenderItem[]): TurnProcessInf
   if (answerIndex < 0) return null;
 
   const processIndices: number[] = [];
+  const byVariant: Partial<Record<ToolVariant, number>> = {};
   let toolCallCount = 0;
   let messageCount = 0;
   let subagentCount = 0;
+  const diff = { added: 0, removed: 0 };
   for (let i = 0; i < answerIndex; i++) {
     const it = items[i];
     if (it.kind === "user" || it.kind === "turn-tail") continue;
     if (!PROCESS_KINDS.has(it.kind)) continue;
     processIndices.push(i);
     if (it.kind === "tool-call") {
-      if (isSubagentTool(it.toolName)) subagentCount += 1;
-      else toolCallCount += 1;
+      if (isSubagentTool(it.toolName)) { subagentCount += 1; continue; }
+      toolCallCount += 1;
+      const variant = toolVariant(it.toolName ?? "");
+      byVariant[variant] = (byVariant[variant] ?? 0) + 1;
+      // 摘要只需要合计：复用 DiffBlock 的同一份行统计，不另写一份行计数
+      if (variant === "edit" && it.diffs) {
+        const rows = buildDiffRows(it.diffs);
+        diff.added += rows.added;
+        diff.removed += rows.removed;
+      }
     } else if (it.kind === "assistant") {
       messageCount += 1;
     }
@@ -73,12 +89,14 @@ export function computeTurnProcess(items: readonly RenderItem[]): TurnProcessInf
   const inlineReasoning = !!(blocks?.think && blocks.think.trim());
 
   if (processIndices.length === 0 && !inlineReasoning) return null;
-  return { answerIndex, processIndices, toolCallCount, messageCount, subagentCount, inlineReasoning };
+  return { answerIndex, processIndices, toolCallCount, byVariant, diff, messageCount, subagentCount, inlineReasoning };
 }
 
 /**
- * 披露条文案（官方 message.turnProcess.* 口径：N 次工具调用 · N 条消息 ·
- * N 个 subagent；全空则「已思考」）。
+ * 披露条文案：工具按语义族分组（读取 3 · 编辑 2 [+12 −3] · 命令 4），再挂中间
+ * 消息与 subagent 计数；全空回「已思考」。官方文案只给一个「N 次工具调用」的
+ * 总量（见 `docs/SPEC-AUTOMATION.md` 之外的历史提交），这里按用户定稿换成分组
+ * 口径——收起后一眼能看出这一轮干了什么、改了多少行。
  * @param info - computeTurnProcess 结果。
  * @param tt - i18n 双语插值（tt(zh, en, vars)）。
  */
@@ -87,8 +105,15 @@ export function turnProcessLabel(
   tt: (zh: string, en: string, vars?: Record<string, string | number>) => string,
 ): string {
   const labels: string[] = [];
-  if (info.toolCallCount > 0) {
-    labels.push(tt("{n} 次工具调用", "{n} tool calls", { n: info.toolCallCount }));
+  for (const variant of TOOL_VARIANT_ORDER) {
+    const n = info.byVariant[variant] ?? 0;
+    if (n === 0) continue;
+    const [zh, en] = TOOL_VARIANT_LABEL[variant];
+    let segment = `${tt(zh, en)} ${n}`;
+    if (variant === "edit" && (info.diff.added > 0 || info.diff.removed > 0)) {
+      segment += ` [+${info.diff.added} −${info.diff.removed}]`;
+    }
+    labels.push(segment);
   }
   if (info.messageCount > 0) {
     labels.push(tt("{n} 条中间消息", "{n} intermediate messages", { n: info.messageCount }));

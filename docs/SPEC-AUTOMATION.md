@@ -28,7 +28,8 @@
 - **协议**（`frontend/src/automation/protocol.ts`）：回复里输出 info string 为 `automation` 的围栏代码块，内容是一个 JSON 对象——`title`、`instruction`、`schedule`（本项目的六种计划形状之一）、可选 `workspace`（工作空间**标题**）与 `permission`（预设键）。
 - **消息流**：SPA 认出这个围栏块就渲染成一张「定时任务建议」卡（标题 / 计划 / 指令摘要 + 创建按钮）；**解析不了就退回普通代码块**——模型没按格式写不冒充建议，也不报错。
 - **点创建**：派发应用内事件，App 打开设置→自动化的新建表单并预填；工作空间按标题匹配，匹配不到就用当前空间（表单一目了然，用户自己决定要不要改）。**落库仍由用户点「创建定时任务」**，不静默创建。
-- **教模型**：壳在 `engine-patch.yml` 里写一条 `system-prompt` 的部署级前缀（`EngineSupervisor.ensureEnginePatchFile`），把上面这份形状说清楚。提示词与 `protocol.ts` 是**同一份契约的两半**，改一处必须同步另一处（两边注释都写了）。
+- **教模型（skill，不是常驻提示词）**：协议正文住在引擎的 **skill** 里——壳每次启动把它写到引擎的用户技能根 `<DSH_HOME>/skills/deepdive-automation/SKILL.md`（`EngineSupervisor.ensureAutomationSkill`，默认发现路径，不需要改装配），模型在用户提到定时任务时经 `skill` 工具按需加载。`engine-patch.yml` 的 `system-prompt` 前缀只剩**一行指路**（"要建定时任务就加载 deepdive-automation skill"），不再把整份形状挂在每个会话的上下文里。三处是**同一份契约**：`protocol.ts`、skill 正文、那行指路，改一处必须同步其余（注释都写了）。
+  - skill 文件的 frontmatter 是硬契约：缺 `name`/`description`、或用了 legacy 键（`modelInvocable` / `userInvocable` / `disableModelInvocation`）会**抛错**，引擎只记一条 warn 然后**静默忽略整个 skill**——模型就再也看不到它。壳的单测钉住了这两个坑与六种计划形状。
 - **与引擎自带提醒的分工**：一次性/会话内的提醒仍走引擎的 `schedule_*` 工具（到点往**原会话**追加消息，展示在会话头部的状态胶囊里，只有模型能改）；「按计划、每次开新会话跑一轮」这类才用本协议建任务。两者不互相替代，提示词里也点明了别混用。
 
 ## 4. 与参考实现的刻意偏差

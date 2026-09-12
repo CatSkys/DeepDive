@@ -50,6 +50,28 @@ final class EngineSupervisorTests: XCTestCase {
         return String(data: data, encoding: .utf8)!
     }
 
+    /// 自动化协议住在 skill 里（system-prompt 只留一行指路）：skill 文件的
+    /// frontmatter 是硬契约——缺 name/description、或用了 legacy 键（
+    /// modelInvocable / userInvocable / disableModelInvocation）会**抛错**，
+    /// 引擎只记一条 warn 然后静默忽略整个 skill，模型就再也看不到它。
+    func testAutomationSkillShapeAndLocation() {
+        let md = EngineSupervisor.automationSkillMarkdown
+        XCTAssertTrue(md.hasPrefix("---\n"), "缺 frontmatter")
+        XCTAssertTrue(md.contains("\nname: \(EngineSupervisor.automationSkillName)\n"))
+        XCTAssertTrue(md.contains("\ndescription: "))
+        for legacy in ["modelInvocable", "userInvocable", "disableModelInvocation"] {
+            XCTAssertFalse(md.contains(legacy), "frontmatter 用了 legacy 键 \(legacy)：引擎会整份忽略")
+        }
+        // 六种计划形状与围栏 info string 都得在正文里（与 protocol.ts 同一份契约）
+        XCTAssertTrue(md.contains("```automation"))
+        for kind in ["hourly", "daily", "weekdays", "weekly", "monthly", "custom"] {
+            XCTAssertTrue(md.contains("\"kind\":\"\(kind)\"") || md.contains("\"kind\":\"\(kind)\""), "缺计划形状 \(kind)")
+        }
+        let url = EngineSupervisor.ensureAutomationSkill()
+        XCTAssertTrue(url.path.hasSuffix("skills/\(EngineSupervisor.automationSkillName)/SKILL.md"), url.path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+    }
+
     /// 引擎 overlay patch 的形状：写坏了引擎 boot 时 fail-loud 起不来，所以两段
     /// 都得在——schedule 工具 insert + 会话侧自动化协议的 system-prompt 前缀；
     /// 提示词里的引号/换行经 JSON 转义成 YAML 流标量后必须仍是**单行**。

@@ -530,4 +530,9 @@ export const EN: Record<string, string> = {
   "每次新建会话": "New chat every run",
   "复用同一会话": "Reuse one chat",
   "（未匹配到工作空间）": " (workspace not matched)",
+
+  // 轮内过程折叠摘要的工具族名
+  "读取": "read",
+  "技能": "skill",
+  "其他": "other",
 };

@@ -9,6 +9,13 @@ function user(key = "u"): RenderItem {
 function tool(key: string, name = "bash"): RenderItem {
   return { key, kind: "tool-call", toolName: name, turn: 1 };
 }
+/** 带 diff 的编辑类工具（引擎在 tool 结果 meta.diffs 里给 hunted 增删）。 */
+function edit(key: string, added: number, removed: number): RenderItem {
+  const rows = [
+    { path: "a.ts", oldText: Array.from({ length: removed }, (_, i) => `old${i}`).join("\n"), newText: Array.from({ length: added }, (_, i) => `new${i}`).join("\n") },
+  ];
+  return { key, kind: "tool-call", toolName: "edit", turn: 1, diffs: rows as RenderItem["diffs"] };
+}
 function assistant(key: string, think = false): RenderItem {
   const event = {
     type: "assistant/message" as const,
@@ -78,12 +85,31 @@ describe("computeTurnProcess", () => {
 });
 
 describe("turnProcessLabel", () => {
-  it("按官方口径拼计数；全空回「已思考」", () => {
+  it("工具按语义族分组、编辑带 diff 行数；消息/subagent 照旧；全空回「已思考」", () => {
     const tools = computeTurnProcess([user(), tool("c1"), tool("c2"), assistant("a1"), tail()])!;
-    expect(turnProcessLabel(tools, tt)).toBe("2 次工具调用");
-    const mixed = computeTurnProcess([user(), assistant("m"), tool("c1"), tool("s", "subagent_x"), assistant("a1"), tail()])!;
-    expect(turnProcessLabel(mixed, tt)).toBe("1 次工具调用 · 1 条中间消息 · 1 个 subagent");
+    expect(turnProcessLabel(tools, tt)).toBe("命令 2"); // bash ×2 → 命令族
+
+    const mixed = computeTurnProcess([
+      user(),
+      assistant("m"),
+      tool("r1", "read"),
+      tool("r2", "read"),
+      edit("e1", 12, 3),
+      tool("b1"),
+      tool("s", "subagent_x"),
+      assistant("a1"),
+      tail(),
+    ])!;
+    expect(turnProcessLabel(mixed, tt)).toBe("读取 2 · 编辑 1 [+12 −3] · 命令 1 · 1 条中间消息 · 1 个 subagent");
+    expect(mixed.byVariant).toEqual({ read: 2, edit: 1, shell: 1 });
+
     const think = computeTurnProcess([user(), assistant("a1", true), tail()])!;
     expect(turnProcessLabel(think, tt)).toBe("已思考");
+  });
+
+  it("无 diff 的编辑不挂空徽标", () => {
+    const info = computeTurnProcess([user(), tool("e1", "edit"), assistant("a1"), tail()])!;
+    expect(turnProcessLabel(info, tt)).toBe("编辑 1");
+    expect(info.diff).toEqual({ added: 0, removed: 0 });
   });
 });
