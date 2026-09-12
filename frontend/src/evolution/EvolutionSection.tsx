@@ -33,7 +33,7 @@ const HOME_LABEL: Record<LessonProposal["home"], string> = {
 const RUN_LABEL: Record<EvolutionRun["kind"], string> = {
   review: "复盘",
   verify: "校验",
-  apply: "落库",
+  apply: "写入",
   revoke: "撤销",
 };
 
@@ -71,8 +71,8 @@ export function EvolutionSection({ onOpenSession }: { onOpenSession: (sessionId:
     if (!on) { evo.setEnabled(false); return; }
     const ok = await confirmDialog({
       message: tt(
-        "开启后：本应用会读你的会话日志找可沉淀的经验，按你的模型凭据定期跑复盘与到期校验（会花 token）；你采纳提案后，由 agent 往仓库的知识文件（AGENTS.md / PITFALLS / SPEC / 技能正文 / 政策文件）写入并提交。它不改产品代码。随时可以关。",
-        "Once on: the app reads your session logs for lessons worth keeping and runs periodic reviews and due-date checks on your model credentials (this spends tokens). When you accept a proposal, an agent turn writes it into the repo's knowledge files (AGENTS.md / PITFALLS / SPEC / skill bodies / the policy file) and commits. It never touches product code. You can turn it off any time.",
+        "开启「自进化」后将发生：应用读取会话日志并从中提炼可复用的经验；按计划运行复盘与到期校验，消耗模型额度；提案经采纳后，由 Agent 写入仓库的知识文件（AGENTS.md / PITFALLS / SPEC / 技能正文 / 政策文件）并提交。该能力不修改产品代码，可随时关闭。",
+        "Enabling self-evolution means: the app reads session logs to extract reusable lessons, runs reviews and due-date checks on a schedule (spending model quota), and after you accept a proposal an Agent writes it into the repository's knowledge files (AGENTS.md / PITFALLS / SPEC / skill bodies / the policy file) and commits. It never modifies product code, and can be turned off at any time.",
       ),
       confirmLabel: t("我明白，继续"),
       cancelLabel: t("取消"),
@@ -87,7 +87,7 @@ export function EvolutionSection({ onOpenSession }: { onOpenSession: (sessionId:
           <div className={css.switchText}>
             <div className={css.switchTitle}>{t("自进化")}</div>
             <div className={css.switchCaption}>
-              {t("实验性能力：默认关。开启后应用会从会话里找可沉淀的经验、定期复盘并校验效果；提案只提议，落库要你点。它读你的会话日志、按你的模型凭据花 token，采纳后由 agent 往仓库的知识文件里写——不改产品代码。关掉即停（对新会话的指路晚一拍生效，装配在启动时读）。")}
+              {t("实验性能力，默认关闭。开启后，应用从会话中提炼可复用的经验，定期复盘并校验其效果；提案仅供审阅，采纳后由 Agent 写入仓库的知识文件并提交，不修改产品代码。该能力会读取会话日志并消耗模型额度；开关对采集与校验即时生效，对会话内的提示在应用下次启动后生效。")}
             </div>
           </div>
           <Toggle on={evo.enabled} onChange={(v) => void toggle(v)} />
@@ -99,16 +99,16 @@ export function EvolutionSection({ onOpenSession }: { onOpenSession: (sessionId:
         <ActivityBars days={days} />
         <div className={css.note}>
           {evo.lastReviewAt === null
-            ? t("还没跑过复盘——攒够几次回复后会自动跑。")
+            ? t("尚未运行复盘。")
             : tt("上次复盘：{t}", "Last review: {t}", { t: runTimeText(evo.lastReviewAt, lang) })}
           {" · "}
-          {t("提案不会自动改变行为；标准与红线见仓库的 docs/EVOLUTION-POLICY.md。")}
+          {t("提案不会自动生效；判定标准见仓库 docs/EVOLUTION-POLICY.md。")}
         </div>
       </div>
 
       <div className={css.sectionLabel}>{t("待审提案")}</div>
       {pending.length === 0 ? (
-        <div className={css.empty}>{t("暂无待审提案。在会话里说一句「记住这个……」，或让它自己复盘提出。")}</div>
+        <div className={css.empty}>{t("暂无待审提案。经验由会话中的明确要求或后台复盘产出。")}</div>
       ) : (
         pending.map((p) => (
           <Row
@@ -188,7 +188,7 @@ function Row({ proposal, busy, actionLabel, onAction, onDismiss, onRevoke, onOpe
         )}
         {proposal.status !== "pending" && verdict === undefined && (
           <span className={css.status}>
-            {proposal.status === "applied" ? t("已交办") : proposal.status === "dismissed" ? t("已丢弃") : t("已过期")}
+            {proposal.status === "applied" ? t("已采纳") : proposal.status === "dismissed" ? t("已丢弃") : t("已过期")}
           </span>
         )}
         <ChevronDown size={14} className={css.chevron} data-open={open || undefined} />
@@ -214,7 +214,7 @@ function Row({ proposal, busy, actionLabel, onAction, onDismiss, onRevoke, onOpe
           <div className={css.actions}>
             {proposal.appliedSessionId !== undefined && (
               <button className={css.link} onClick={() => onOpenSession(proposal.appliedSessionId!)}>
-                <FileDiff size={12} /> {t("打开落库会话")}
+                <FileDiff size={12} /> {t("查看写入会话")}
               </button>
             )}
             <span className={css.spacer} />

@@ -7,6 +7,7 @@
   border-radius: var(--dsh-radius-card);
   background: var(--fill);
   padding: 14px 16px;
+  margin-bottom: 14px; /* 卡片之间留白（与使用统计同一约定） */
   display: flex;
   flex-direction: column;
   gap: 8px;

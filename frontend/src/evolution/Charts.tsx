@@ -56,7 +56,7 @@ export function StatusDonut({ slices, total }: { slices: readonly Slice[]; total
             <span className={css.legendValue}>{s.value}</span>
           </div>
         ))}
-        {sum === 0 && <div className={css.legendEmpty}>{t("还没有经验")}</div>}
+        {sum === 0 && <div className={css.legendEmpty}>{t("暂无经验")}</div>}
         {total > 0 && sum < total && <div className={css.legendEmpty}>{t("（其余未分类）")}</div>}
       </div>
     </div>
@@ -93,7 +93,7 @@ export function ActivityBars({ days }: { days: readonly ActivityDay[] }) {
         <span className={css.legendDot} style={{ background: "var(--ink)" }} />
         <span className={css.legendLabel}>{t("新增提案")}</span>
         <span className={css.legendDot} style={{ background: "var(--ink-faint)" }} />
-        <span className={css.legendLabel}>{t("交办（落库/校验/复盘）")}</span>
+        <span className={css.legendLabel}>{t("提交与校验")}</span>
         <span className={css.spacer} />
         <span className={css.legendLabel}>{t("近 30 天")}</span>
       </div>
