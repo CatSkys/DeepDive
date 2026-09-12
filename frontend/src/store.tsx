@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
+import { converged, visibleArchived, visibleSessions } from "./sessionOverrides";
+import { sessionAdminSync } from "./host";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
 import { usePrefs } from "./prefs";
@@ -107,6 +109,13 @@ interface Store {
   /** 归档保留时长档。 */
   archiveRetention: ArchiveRetention;
   setArchiveRetention: (v: ArchiveRetention) => void;
+  /** 本地取消归档 / 本地删除的会话（视图即时生效；引擎状态在下次启动空窗期收敛）。 */
+  unarchived: Set<string>;
+  removed: Set<string>;
+  unarchiveSession: (id: string) => void;
+  removeSession: (id: string) => void;
+  /** 引擎侧归档落地时清掉本地"已取消归档"覆盖。 */
+  clearUnarchiveOverride: (id: string) => void;
   pinned: Set<string>;
   unread: Set<string>;
   togglePin: (id: string) => void;
@@ -116,6 +125,18 @@ interface Store {
   /** 订阅 session/control 帧（投影实时整值——goal/plan 等；队列/任务已由
    *  store 自身消费，订阅方收到的是同一帧流）。 */
   subscribeControl: (handler: ControlHandler) => () => void;
+}
+
+// 任务行本地状态:置顶/未读/覆盖集(localStorage 持久化,官方语义)；值损坏回退空集
+// （与 deepdive.workspace 键的 corrupt 防护同策略）
+function readIdSet(key: string): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(key) ?? "[]") as string[]);
+  } catch { /* corrupt localStorage value → 空集 */ }
+  return new Set();
+}
+function persistIdSet(key: string, set: Set<string>): void {
+  localStorage.setItem(key, JSON.stringify([...set]));
 }
 
 const Ctx = createContext<Store>(null as unknown as Store);
@@ -164,14 +185,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     keybinds, setKeybinds,
     hotkeyOn, setHotkeyOn,
   } = prefs;
-  // 任务行本地状态:置顶/未读(localStorage 持久化,官方语义)；值损坏回退空集
-  // （与 deepdive.workspace 键的 corrupt 防护同策略）
-  const readIdSet = (key: string): Set<string> => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(key) ?? "[]") as string[]);
-    } catch { /* corrupt localStorage value → 空集 */ }
-    return new Set();
-  };
   /** 单值偏好读取：无 localStorage（受限环境）或值非法一律回退默认。 */
   const readPref = <T,>(key: string, fallback: T, parse: (raw: string) => T | null): T => {
     try {
@@ -193,25 +206,74 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("deepdive.archiveRetention", v);
     setArchiveRetentionState(v);
   }, []);
+  const [unarchived, setUnarchived] = useState<Set<string>>(() => readIdSet("deepdive.unarchived"));
+  const [removedLocal, setRemovedLocal] = useState<Set<string>>(() => readIdSet("deepdive.removed"));
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
   const [unread, setUnread] = useState<Set<string>>(() => readIdSet("deepdive.unread"));
-  const persist = (key: string, set: Set<string>) => localStorage.setItem(key, JSON.stringify([...set]));
+
+  /** 覆盖集变动：落盘 + 同步壳（壳只在引擎未起的空窗期落到引擎状态文件）。
+   *  副作用全部在调用处完成，setState 只收快照（PITFALLS §8.3）。 */
+  const overridesRef = useRef({ unarchived, removed: removedLocal });
+  overridesRef.current = { unarchived, removed: removedLocal };
+  const applyOverrides = useCallback((nextUnarchived: Set<string>, nextRemoved: Set<string>) => {
+    setUnarchived(nextUnarchived);
+    setRemovedLocal(nextRemoved);
+    persistIdSet("deepdive.unarchived", nextUnarchived);
+    persistIdSet("deepdive.removed", nextRemoved);
+    sessionAdminSync({ unarchived: [...nextUnarchived], removed: [...nextRemoved] });
+  }, []);
+  /** 取消归档：本地即时生效（引擎状态在下次启动空窗期收敛）。 */
+  const unarchiveSession = useCallback((id: string) => {
+    const cur = overridesRef.current;
+    applyOverrides(new Set(cur.unarchived).add(id), cur.removed);
+  }, [applyOverrides]);
+  /** 删除：本地即时摘掉（日志目录由壳同步删除，见 bridge 调用方）。 */
+  const removeSession = useCallback((id: string) => {
+    const cur = overridesRef.current;
+    const nextUnarchived = new Set(cur.unarchived);
+    nextUnarchived.delete(id);
+    applyOverrides(nextUnarchived, new Set(cur.removed).add(id));
+  }, [applyOverrides]);
+  /** 引擎侧归档落地时，清掉本地的"已取消归档"覆盖（同一会话不能再被本地视图放出来）。 */
+  const clearUnarchiveOverride = useCallback((id: string) => {
+    const cur = overridesRef.current;
+    if (!cur.unarchived.has(id)) return;
+    const next = new Set(cur.unarchived);
+    next.delete(id);
+    applyOverrides(next, cur.removed);
+  }, [applyOverrides]);
+  // 覆盖项收敛：引擎（下次启动后）不再报告某会话已归档 / 不再列出某会话时，
+  // 本地覆盖就没用了——丢掉它，避免覆盖集无限增长。
+  useEffect(() => {
+    if (unarchived.size === 0 && removedLocal.size === 0) return;
+    const liveArchive = archivedRef.current;
+    const liveIds = new Set(sessions.map((s) => s.sessionId));
+    const gone = converged(liveArchive, liveIds, unarchived, removedLocal);
+    if (gone.unarchived.length === 0 && gone.removed.length === 0) return;
+    const nextU = new Set(unarchived);
+    for (const id of gone.unarchived) nextU.delete(id);
+    const nextR = new Set(removedLocal);
+    for (const id of gone.removed) nextR.delete(id);
+    applyOverrides(nextU, nextR);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [archived, sessions, unarchived, removedLocal]);
+
   const togglePin = useCallback((id: string) => setPinned((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
-    persist("deepdive.pinned", next);
+    persistIdSet("deepdive.pinned", next);
     return next;
   }), []);
   const markUnread = useCallback((id: string) => setUnread((prev) => {
     const next = new Set(prev).add(id);
-    persist("deepdive.unread", next);
+    persistIdSet("deepdive.unread", next);
     return next;
   }), []);
   const clearUnread = useCallback((id: string) => setUnread((prev) => {
     if (!prev.has(id)) return prev;
     const next = new Set(prev);
     next.delete(id);
-    persist("deepdive.unread", next);
+    persistIdSet("deepdive.unread", next);
     return next;
   }), []);
 
@@ -290,14 +352,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  /** 视图侧的归档集：摘掉本地取消归档与已删除（轮询过滤与导出共用同一口径）。 */
+  const archivedVisible = () => visibleArchived(archivedRef.current, overridesRef.current.unarchived, overridesRef.current.removed);
+
   const forceRefreshSessions = async () => {
     try {
       const ss = await api.sessions();
-      const archived = archivedRef.current;
       setSessions(
-        ss.items
-          .filter((s) => !archived.has(s.sessionId))
-          .sort((a, b) => b.updatedAt - a.updatedAt),
+        ss.items.slice().sort((a, b) => b.updatedAt - a.updatedAt),
       );
     } catch { /* engine restarting; ignore */ }
   };
@@ -328,11 +390,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // 不在轮询里重复拉）；归档过滤用流缓存的 archived 集。
     try {
       const ss = await api.sessions();
-      const archived = archivedRef.current;
-      const sorted = ss.items
-        .filter((s) => !archived.has(s.sessionId))
-        .sort((a, b) => b.updatedAt - a.updatedAt);
-      const sig = sorted
+      const sorted = ss.items.slice().sort((a, b) => b.updatedAt - a.updatedAt);
+      // 归档过滤不在写入时做：本列表是**引擎原始列表**，归档/删除的本地覆盖在
+      // 导出层过滤（否则取消归档后会话不在内存里，要等下一次轮询才回侧栏）。
+      const sig = visibleSessions(sorted.filter((s) => !archivedVisible().has(s.sessionId)), overridesRef.current.removed)
         .map((s) => `${s.sessionId}:${s.updatedAt}:${s.running ? 1 : 0}:${(s.projections?.values as { title?: string } | undefined)?.title ?? ""}`)
         .join("|");
       if (sig !== sessionsSigRef.current) {
@@ -537,10 +598,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<Store>(
     () => ({
       workspaces,
-      archived,
+      archived: visibleArchived(archived, unarchived, removedLocal),
       activeWorkspaceId,
       wsOfSession,
-      sessions,
+      sessions: visibleSessions(
+        sessions.filter((s) => !visibleArchived(archived, unarchived, removedLocal).has(s.sessionId)),
+        removedLocal,
+      ),
       presets,
       heroPreset,
       setHeroPreset,
@@ -575,6 +639,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setAutoArchive,
       archiveRetention,
       setArchiveRetention,
+      unarchived,
+      removed: removedLocal,
+      unarchiveSession,
+      removeSession,
+      clearUnarchiveOverride,
       pinned,
       unread,
       togglePin,
@@ -591,7 +660,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, unarchived, removedLocal, unarchiveSession, removeSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

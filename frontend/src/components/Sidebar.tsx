@@ -278,7 +278,11 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           className="row-archive"
           data-tip={t("归档任务")}
           onClick={async () => {
-            try { await api.workspaceArchiveSession({ sessionId: s.sessionId }); await store.refresh(); } catch { /* surfaced by poll */ }
+            try {
+              await api.workspaceArchiveSession({ sessionId: s.sessionId });
+              store.clearUnarchiveOverride(s.sessionId);
+              await store.refresh();
+            } catch { /* surfaced by poll */ }
           }}
         >
           <Archive size={13} />

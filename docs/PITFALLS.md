@@ -173,10 +173,11 @@
 - 处置：`EngineSupervisor.resolveLaunchWorkspace` 三级解析——显式 `launchWorkspace` 配置 → harness 存储 `storages/workspace.json` 首个注册空间（`global.workspaceIds[0]`，与侧栏同序）→ 新用户兜底 `~/Documents/DeepDive`（不存在则建）。侧栏空间仍是项目单位，多项目经空间注册/切换，不受影响。
 - 排查实录（勿重复走弯路）：引擎 AI 工具调用与子代理命令全部只在项目目录内（逐条核对 tool/call 事件），`@` 索引才是家目录扫描源；lsof 抓不到瞬态访问，tccd 统一日志私有不可读，结论靠引擎源码 + workspace 注册表 + 事件日志三角钉死。
 
-### 4.15 引擎状态文件只能在停机窗口改：运行期改会被内存状态覆写
-- 背景（2026-09-12）：引脚的 0.1.5-rc.1 wire 面只有 `workspace/archiveSession`（单向），**没有取消归档、也没有删除会话**（官方 `ui-workspace/README.md` 亦明写 "No Session deletion or unarchive control"；`workspace/delete` 删的是**工作区注册**、明确不删会话）。归档页的「取消归档 / 删除」因此由壳在**停引擎 → 改文件 → 起引擎**的窗口内完成（`SessionAdmin.swift`）。
-- 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（结构带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache.json` 的 `tables.sessions[<id>]`；会话日志 = `sessions/<转义 cwd>/<sessionId>/`（**目录名就是 sessionId**，别去复刻引擎的 cwd 转义规则——扫一层同名目录即可）。
-- 纪律：① 引擎运行期在内存持有这些状态，**下次 setState 会整份覆写文件**，所以改文件前必须停机（本仓用 `supervisor.stop()` + 0.4s 落定等待再改，SIGTERM 后可能还有一次收尾写盘）；② 写盘走临时文件 + `replaceItemAt` 原子替换；③ JSON 结构不符预期**拒绝写入并报错**，不做“尽量修一修”；④ 删会话是把整个 `<sessionId>/` 目录删掉（含 `session.v3.jsonl.zstd`）。
+### 4.15 引擎把归档集与会话列表缓存在内存：改状态文件只能在停机时，UI 侧走本地覆盖
+- 背景（2026-09-12）：引脚的 0.1.5-rc.1 wire 面只有 `workspace/archiveSession`（单向），**没有取消归档、也没有删除会话**（官方 `ui-workspace/README.md` 明写 "No Session deletion or unarchive control"；`workspace/delete` 删的是**工作区注册**、明确不删会话）。归档页的「取消归档 / 删除」因此由壳配合实现。
+- **实测（本轮踩到的第一版设计错在哪）**：`session/list` 来自引擎**内存缓存**——运行中删掉 `sessions/<bucket>/<id>/` 目录后，`session/list` 照样列它。所以"改完文件指望引擎自己发现"不成立；而运行期改 `storages/*.json` 又会被内存状态在下次 `setState` 时整份覆写。**结论：引擎状态文件只能在停机时（启动空窗期）写**。第一版做法是"停引擎 → 改 → 起引擎"，实测体验很差（几秒断连横幅 + 重启期的 `session/list` 502 报错弹窗），已废弃。
+- 现设计（用户定稿）：**UI 即时生效 + 延迟落账**——① 前端持本地覆盖集（`deepdive.unarchived` / `deepdive.removed`，`sessionOverrides.ts` 纯函数过滤，导出层统一口径，轮询**存原始列表**）；② 删除时壳立刻删日志目录（毫秒级、不需引擎配合）；③ 覆盖集同步给壳登记在 UserDefaults，**下次启动的空窗期**（`applicationDidFinishLaunching` 里、`supervisor.start()` 之前）一次落账，成功后清登记（失败留到下轮重试）；④ 覆盖项在引擎不再报告它已归档 / 不再列出时自动收敛，避免无限增长。
+- 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache.json` 的 `tables.sessions[<id>]`；会话日志 = `sessions/<转义 cwd>/<sessionId>/`（**目录名就是 sessionId**，别复刻引擎的 cwd 转义规则——扫一层同名目录即可）。写盘一律临时文件 + `replaceItemAt`，结构不符拒绝写入并报错。
 
 ### 4.14 bundled node 绝不能放进 `Contents/MacOS/`
 - 事故（2026-09-10 用户实测）：引擎 node 放在 `Contents/MacOS/node`，Launch Services 把同 bundle `MacOS/` 下的额外可执行文件当成第二个 app——引擎一拉起（含重启）Dock 就闪出独立的 node 图标/窗口，用户连报「不停弹 node 窗口」。

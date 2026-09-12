@@ -22,7 +22,7 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-职责边界：**壳**只做 OS 级能力、进程监督，外加**引擎状态文件的受控维护**（仅「取消归档 / 删除会话」两处——引擎 wire 面没有这两个方法，实现见 `SessionAdmin.swift`：必须在停机窗口内改 `DSH_HOME` 状态文件）；**SPA** 只做渲染与交互，把用户动作路由为引擎 RPC；**引擎**持有全部业务状态，其余业务数据不经过壳。
+职责边界：**壳**只做 OS 级能力、进程监督，外加**会话数据的受控维护**（仅「取消归档 / 删除会话」两处——引擎 wire 面没有这两个方法，实现见 `SessionAdmin.swift`：立即删日志目录 + 覆盖集登记，引擎状态文件在**下次启动的空窗期**落账，全程不重启引擎）；**SPA** 只做渲染与交互，把用户动作路由为引擎 RPC；**引擎**持有全部业务状态，其余业务数据不经过壳。
 
 ## 2. 通信矩阵（现实现）
 
@@ -43,7 +43,7 @@
 | `EngineSupervisor.swift` / `EngineVersion.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、入口版本门（随包引脚 vs 外部 dsh）、网关调用、token→cookie 交换、事件观察、日志 |
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
-| `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC → 停机窗口内改 `storages/workspace.json` 归档集、`storages/session_projcache.json` 投影缓存、删 `sessions/<bucket>/<id>/`；纯函数 + 原子写，结构不符拒绝落盘） |
+| `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC 且把会话列表缓存在内存 → ①立即删 `sessions/<bucket>/<id>/`；②覆盖集登记到 UserDefaults，下次启动空窗期落账 `storages/workspace.json` 归档集 + `storages/session_projcache.json`；纯函数 + 原子写，结构不符拒绝落盘） |
 | `StatusItemController.swift` / `RecoveryWindowController.swift` | 菜单栏状态点与菜单、引擎失败恢复屏（诊断复制/凭据冷启动） |
 | `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | html/body 透明注入（勿加样式）、偏好、数据目录、设置面动态 JSON 树 |
 | `OpenWithCatalog.swift` / `PluginStore.swift` / `WorkspaceIcon.swift` | 壳侧事实目录（预览页「打开方式」候选/图标、插件安装仓、空间图标探测），只出数据不做决策 |

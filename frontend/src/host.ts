@@ -77,36 +77,35 @@ export function openWith(path: string, app: string): void {
 }
 
 /* ── 会话维护（取消归档 / 删除）：引擎 wire 面没有这两个方法（官方亦然），
-   由壳在停机窗口里改 DSH_HOME 状态文件实现（SessionAdmin.swift）；一次调用
-   一批 id，壳回包 {removed, error}。 ── */
+   而引擎把会话列表缓存在内存（实测：运行中删日志目录，session/list 照样列它）
+   ——所以 UI 走本地覆盖集即时生效，壳只做两件事：① 立刻删掉被删会话的日志目录；
+   ② 把覆盖集登记下来，在**下次启动的空窗期**（引擎还没起）落到引擎状态文件
+   （SessionAdmin.applyPending）。全程不重启引擎。 ── */
 
 export interface SessionAdminResult {
   removed: string[];
   error?: string;
 }
 
-function sessionAdmin(cmd: "session-unarchive" | "session-delete", sessionIds: string[]): Promise<SessionAdminResult> {
+/** 登记本地覆盖集（unarchived/removed）并同步删掉 removed 的日志目录；
+ *  无壳桥时静默（纯浏览器）。壳在下次启动空窗期把引擎状态改到位。 */
+export function sessionAdminSync(payload: { unarchived: string[]; removed: string[] }): void {
+  sendToShell({ type: "session-admin-sync", ...payload });
+}
+
+/** 删掉这些会话的日志目录（连同覆盖集一起同步）。只删目录、不重启引擎，
+ *  所以是毫秒级；失败（目录被占/权限）时回包带 error。 */
+export function sessionDeleteDirs(payload: { sessionIds: string[]; unarchived: string[]; removed: string[] }): Promise<SessionAdminResult> {
   return bridgeRequest(
     "sessionAdmin",
     { removed: [] },
     (p) => {
-      const payload = p as { removed?: string[]; error?: string } | undefined;
-      return { removed: payload?.removed ?? [], ...(payload?.error ? { error: payload.error } : {}) };
+      const res = p as { removed?: string[]; error?: string } | undefined;
+      return { removed: res?.removed ?? [], ...(res?.error ? { error: res.error } : {}) };
     },
-    (reqId) => sendToShell({ type: cmd, reqId, sessionIds }),
-    // 壳要停引擎、改文件、再起引擎：给足窗口，别按默认 10s 超时把忙碌态提前收掉
-    120_000,
+    (reqId) => sendToShell({ type: "session-delete", reqId, ...payload }),
+    20_000,
   );
-}
-
-/** 取消归档（会话日志保留，只从归档集摘掉）。 */
-export function sessionUnarchive(sessionIds: string[]): Promise<SessionAdminResult> {
-  return sessionAdmin("session-unarchive", sessionIds);
-}
-
-/** 删除会话（摘归档项 + 清投影缓存 + 删日志目录）。 */
-export function sessionDelete(sessionIds: string[]): Promise<SessionAdminResult> {
-  return sessionAdmin("session-delete", sessionIds);
 }
 
 /* ── 插件市场（§7）：壳侧安装仓的桥面。清单推送（"plugins" 命令）经

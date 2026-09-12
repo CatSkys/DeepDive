@@ -25,7 +25,7 @@ import { sessionTitle } from "../session/sessionTitle";
 import { buildArchivedGroups, filterArchivedGroups, UNGROUPED, type ArchivedGroup } from "../settings/archivedGroups";
 import { useT } from "../i18n";
 import { alertDialog, confirmDialog } from "./DialogHost";
-import { sessionDelete, sessionUnarchive } from "../host";
+import { sessionDeleteDirs } from "../host";
 
 // 设置页 —— 与主界面同一套设计体系：主界面语义变量 + 统一弹出配方 +
 // 复用 Dropdown/Toggle 组件；不再使用官方 dsh settings 面板的独立
@@ -439,12 +439,11 @@ function HotkeysSection() {
 
 export function ArchivedSection() {
   const { t, tt, lang } = useT();
-  const { workspaces, archived } = useStore();
+  const store = useStore();
+  const { workspaces, archived } = store;
   const [groups, setGroups] = useState<ArchivedGroup[] | null>(null);
   const [query, setQuery] = useState("");
   const [project, setProject] = useState("");
-  /** 维护中（壳要停引擎→改状态→起引擎，几秒）：期间禁用动作，避免并发二次停机。 */
-  const [busy, setBusy] = useState(false);
 
   // 归档全集与工作空间均来自 store 的 workspace follow 流；会话标题要一次
   // session/list 投影，这里按需拉取（低频设置页，不值得进 store）。
@@ -466,32 +465,30 @@ export function ArchivedSection() {
     void load().catch(() => setGroups([]));
   }, [load]);
 
-  /** 跑一次壳侧维护：停引擎→改状态→起引擎；回包后刷新列表并报错。 */
-  const runAdmin = async (ids: string[], remove: boolean) => {
-    if (ids.length === 0 || busy) return;
-    setBusy(true);
-    try {
-      const result = remove ? await sessionDelete(ids) : await sessionUnarchive(ids);
-      await load();
-      if (result.error) {
-        void alertDialog({ message: tt("部分操作未完成：{m}", "Some operations did not complete: {m}", { m: result.error }) });
-      }
-    } catch (err) {
-      void alertDialog({ message: tt("操作失败：{m}", "Operation failed: {m}", { m: (err as Error).message }) });
-    } finally {
-      setBusy(false);
+  /** 取消归档：本地覆盖即时生效（引擎状态在下次启动空窗期收敛），无需确认。 */
+  const restore = (sessionId: string) => store.unarchiveSession(sessionId);
+
+  /** 删除：本地即时摘掉 + 请壳立刻删日志目录（毫秒级，不重启引擎）。 */
+  const remove = async (sessionIds: string[]) => {
+    if (sessionIds.length === 0) return;
+    for (const sessionId of sessionIds) store.removeSession(sessionId);
+    const unarchived = [...store.unarchived];
+    const removed = [...store.removed, ...sessionIds];
+    const result = await sessionDeleteDirs({ sessionIds, unarchived, removed });
+    if (result.error) {
+      void alertDialog({ message: tt("部分聊天记录未能删除：{m}", "Some transcripts could not be deleted: {m}", { m: result.error }) });
     }
   };
 
-  const unarchiveOne = (sessionId: string) => void runAdmin([sessionId], false);
   const deleteOne = async (sessionId: string) => {
     const ok = await confirmDialog({
       title: t("删除会话"),
       message: t("删除后该会话的聊天记录将从本机移除，无法恢复。"),
       confirmLabel: t("删除"),
     });
-    if (ok) void runAdmin([sessionId], true);
+    if (ok) void remove([sessionId]);
   };
+
   const deleteAll = async () => {
     const ids = visible.flatMap((g) => g.rows.map((r) => r.sessionId));
     if (ids.length === 0) return;
@@ -500,7 +497,7 @@ export function ArchivedSection() {
       message: tt("将删除 {n} 个已归档会话的聊天记录，无法恢复。", "Deletes {n} archived chats for good.", { n: ids.length }),
       confirmLabel: t("删除"),
     });
-    if (ok) void runAdmin(ids, true);
+    if (ok) void remove(ids);
   };
 
   const dateFmt = useMemo(
@@ -525,11 +522,10 @@ export function ArchivedSection() {
     <div className={rowsCss.section}>
       {/* 布局照参考图：右上一枚「全部删除」（只作用于当前筛选出的结果） */}
       <div className={rowsCss.archBulk}>
-        {busy && <span className={rowsCss.archBusy}>{t("处理中…")}</span>}
         <button
           type="button"
           className={rowsCss.archDanger}
-          disabled={busy || archivedCount === 0}
+          disabled={archivedCount === 0}
           onClick={() => void deleteAll()}
         >
           <Trash2 size={13} />
@@ -576,7 +572,6 @@ export function ArchivedSection() {
                     className={rowsCss.archIconBtn}
                     data-tip={t("删除")}
                     aria-label={t("删除")}
-                    disabled={busy}
                     onClick={() => void deleteOne(r.sessionId)}
                   >
                     <Trash2 size={15} />
@@ -584,8 +579,7 @@ export function ArchivedSection() {
                   <button
                     type="button"
                     className={rowsCss.archRestore}
-                    disabled={busy}
-                    onClick={() => unarchiveOne(r.sessionId)}
+                    onClick={() => restore(r.sessionId)}
                   >
                     <Undo2 size={13} />
                     {t("取消归档")}

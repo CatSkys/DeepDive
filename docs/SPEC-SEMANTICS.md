@@ -114,7 +114,7 @@
 开关默认**关**（opt-in）：本引擎 wire 面只有 `workspace/archiveSession`、没有反向方法，
 归档在 UI 里不可撤销，故不默认开扫描。判定实现 `frontend/src/autoArchive.ts`（纯函数）+ 驱动 `useAutoArchive`。
 **归档页（设置·已归档的聊天）**：按项目分组 + 计数、搜索、项目筛选；每行给「取消归档」（恢复，可逆）与「删除」（删聊天记录，不可逆，需确认），页头右上「全部删除」作用于当前筛选结果（一次调用一批 id）。
-这两个动作引擎 wire 面都没有（官方 README 亦明写 "No Session deletion or unarchive control"）——**壳在停机窗口里改引擎状态文件**实现：停引擎 → 摘归档集 / 删日志目录 → 起引擎（引擎在内存持有状态，运行期改文件会被覆写；实现与纪律见 `SessionAdmin.swift` / PITFALLS §4.15）。
+这两个动作引擎 wire 面都没有（官方 README 亦明写 "No Session deletion or unarchive control"），且引擎把归档集与会话列表缓存在内存（实测：运行中删日志目录后 `session/list` 照样列它）。所以语义是**即时生效 + 延迟落账**：UI 走本地覆盖集立刻生效（取消归档的会话当场回侧栏、删除的当场消失），壳同步删掉被删会话的日志目录，并把覆盖集登记下来，在**下次启动的空窗期**落到引擎状态文件；覆盖项在引擎不再报告时自动收敛。全程不重启引擎（实现见 `SessionAdmin.swift` / `sessionOverrides.ts`，纪律见 PITFALLS §4.15）。
 
 ## 5. 通知与注意力语义
 
