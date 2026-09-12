@@ -7,6 +7,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../api";
+import { usePrefs } from "../prefs";
 import { blocksOf } from "../session/eventText";
 import { extractToolResult } from "../session/renderModel";
 import { useStore } from "../store";
@@ -25,8 +26,9 @@ const PENDING_CAP = 100;
  *  默认按天跑，不按 3 轮就跑（偏离参考的默认批次，理由记在 SPEC §9.0）。 */
 const REVIEW_MIN_TURNS = 3;
 const REVIEW_INTERVAL_MS = 24 * 3600_000;
-/** 巡检间隔：到期的提案每次挑一条交出去校验。 */
-const VERIFY_TICK_MS = 10 * 60_000;
+/** 巡检间隔：一分钟一次——到期的提案挑一条交去校验，够条件（攒够轮数 + 日节流）
+ *  就起一轮复盘。手动按钮已按用户要求去掉，所以这条自动路径要够勤。 */
+const TICK_MS = 60_000;
 
 export interface EvolutionStats {
   total: number;
@@ -47,6 +49,9 @@ interface EvolutionApi {
   lastReviewAt: number | null;
   /** 有交办正在发出（按钮禁用，避免连点）。 */
   busy: boolean;
+  /** 自进化开关（壳持久化；关 = 本应用不采集、不复盘、不校验）。 */
+  enabled: boolean;
+  setEnabled: (on: boolean) => void;
   dismiss: (id: string) => void;
   apply: (id: string) => Promise<string | null>;
   /** 撤销一条已落库的经验（靠 git 回滚，见 EVOLUTION-POLICY §5）。 */
@@ -70,6 +75,10 @@ interface Friction { turns: number; failed: number; corrections: number; sawAssi
 
 export function EvolutionProvider({ children }: { children: ReactNode }) {
   const store = useStore();
+  const prefs = usePrefs();
+  const enabled = prefs.evolutionEnabled;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
   const storeRef = useRef(store);
   storeRef.current = store;
   const [proposals, setProposals] = useState<LessonProposal[]>(loadProposals);
@@ -168,6 +177,7 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
   // 采集：跟随"当前打开的会话"与"交办会话"（复盘/校验的输出也从那条流里收）。
   const activeId = store.activeSessionId;
   useEffect(() => {
+    if (!enabled) return; // 开关关着：什么都不采集
     const ids = [activeId, jobSessionId].filter((v, i, a): v is string => v !== null && a.indexOf(v) === i);
     if (ids.length === 0) return;
     const closes = ids.map((sessionId) => api.followSession({ kind: "session", sessionId }, {
@@ -208,11 +218,12 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
       },
     }));
     return () => { for (const close of closes) close(); };
-  }, [activeId, jobSessionId]);
+  }, [enabled, activeId, jobSessionId]);
 
   // 无感路径：复盘节流（按天 + 攒够轮数）与到期校验巡检，用户什么都不用做。
   useEffect(() => {
     const tick = () => {
+      if (!enabledRef.current) return; // 开关关着：不自动复盘、不自动校验
       const since = lastReviewRef.current === null ? Number.POSITIVE_INFINITY : Date.now() - lastReviewRef.current;
       const turns = [...frictionRef.current.values()].reduce((n, f) => n + f.turns, 0);
       if (since >= REVIEW_INTERVAL_MS && turns >= REVIEW_MIN_TURNS) void review();
@@ -222,7 +233,7 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
       ));
       if (due) void verify(due.id);
     };
-    const iv = window.setInterval(tick, VERIFY_TICK_MS);
+    const iv = window.setInterval(tick, TICK_MS);
     return () => window.clearInterval(iv);
   }, [review, verify]);
 
@@ -239,12 +250,14 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
     },
     lastReviewAt,
     busy,
+    enabled,
+    setEnabled: prefs.setEvolutionEnabled,
     dismiss: (id: string) => patch(id, { status: "dismissed" }),
     apply,
     revoke,
     review,
     verify,
-  }), [proposals, runs, lastReviewAt, busy, patch, apply, revoke, review, verify]);
+  }), [proposals, runs, lastReviewAt, busy, enabled, prefs.setEvolutionEnabled, patch, apply, revoke, review, verify]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

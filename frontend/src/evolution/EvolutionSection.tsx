@@ -3,9 +3,13 @@
 // 政策与判据不在这里——它们归 `docs/EVOLUTION-POLICY.md` 与技能 `deepdive-evolution`。
 
 import { useState } from "react";
-import { ChevronDown, FileDiff, RefreshCw, ScrollText } from "lucide-react";
+import { ChevronDown, FileDiff, ScrollText } from "lucide-react";
 import { runTimeText } from "../automation/model";
+import { Toggle } from "../components/controls";
+import { confirmDialog } from "../components/DialogHost";
 import { useT } from "../i18n";
+import { ActivityBars, StatusDonut } from "./Charts";
+import { activityDays, statusSlices } from "./chartData";
 import { useEvolution } from "./useEvolution";
 import type { LessonProposal } from "./protocol";
 import type { EvolutionRun } from "./store";
@@ -59,28 +63,46 @@ export function EvolutionSection({ onOpenSession }: { onOpenSession: (sessionId:
     if (sessionId !== null) onOpenSession(sessionId);
   };
 
+  const slices = statusSlices(evo.proposals);
+  const days = activityDays(evo.proposals, evo.runs, Date.now(), 30);
+
+  /** 开启前先说清它会动什么（可随时关；关掉即不采集、不复盘、不校验）。 */
+  const toggle = async (on: boolean) => {
+    if (!on) { evo.setEnabled(false); return; }
+    const ok = await confirmDialog({
+      message: tt(
+        "开启后：本应用会读你的会话日志找可沉淀的经验，按你的模型凭据定期跑复盘与到期校验（会花 token）；你采纳提案后，由 agent 往仓库的知识文件（AGENTS.md / PITFALLS / SPEC / 技能正文 / 政策文件）写入并提交。它不改产品代码。随时可以关。",
+        "Once on: the app reads your session logs for lessons worth keeping and runs periodic reviews and due-date checks on your model credentials (this spends tokens). When you accept a proposal, an agent turn writes it into the repo's knowledge files (AGENTS.md / PITFALLS / SPEC / skill bodies / the policy file) and commits. It never touches product code. You can turn it off any time.",
+      ),
+      confirmLabel: t("我明白，继续"),
+      cancelLabel: t("取消"),
+    });
+    if (ok) evo.setEnabled(true);
+  };
+
   return (
     <div className={css.col}>
       <div className={css.card}>
-        <div className={css.cardHead}>
-          <span className={css.cardTitle}>{t("经验台账")}</span>
-          <span className={css.meta}>
-            {tt("累计 {n} · 待审 {p} · 已交办 {a} · 有效 {e} · 无效 {x} · 已丢弃 {d}",
-              "{n} total · {p} pending · {a} handed off · {e} effective · {x} ineffective · {d} dismissed",
-              { n: evo.stats.total, p: evo.stats.pending, a: evo.stats.applied, e: evo.stats.effective, x: evo.stats.ineffective, d: evo.stats.dismissed })}
-          </span>
-          <span className={css.spacer} />
-          <button className={css.btn} disabled={evo.busy} onClick={() => void evo.review()}>
-            <RefreshCw size={12} /> {t("跑一次复盘")}
-          </button>
+        <div className={css.switchRow}>
+          <div className={css.switchText}>
+            <div className={css.switchTitle}>{t("自进化")}</div>
+            <div className={css.switchCaption}>
+              {t("实验性能力：默认关。开启后应用会从会话里找可沉淀的经验、定期复盘并校验效果；提案只提议，落库要你点。它读你的会话日志、按你的模型凭据花 token，采纳后由 agent 往仓库的知识文件里写——不改产品代码。关掉即停（对新会话的指路晚一拍生效，装配在启动时读）。")}
+            </div>
+          </div>
+          <Toggle on={evo.enabled} onChange={(v) => void toggle(v)} />
         </div>
-        <div className={css.note}>
-          {t("默认只提议：提案不会自动改变行为，落库要你在这里采纳。标准与红线见仓库的 docs/EVOLUTION-POLICY.md。")}
-        </div>
+      </div>
+
+      <div className={css.card}>
+        <StatusDonut slices={slices} total={evo.stats.total} />
+        <ActivityBars days={days} />
         <div className={css.note}>
           {evo.lastReviewAt === null
-            ? t("还没跑过复盘——攒够几次回复后会自动跑，也可以点右上角手动跑一次。")
+            ? t("还没跑过复盘——攒够几次回复后会自动跑。")
             : tt("上次复盘：{t}", "Last review: {t}", { t: runTimeText(evo.lastReviewAt, lang) })}
+          {" · "}
+          {t("提案不会自动改变行为；标准与红线见仓库的 docs/EVOLUTION-POLICY.md。")}
         </div>
       </div>
 

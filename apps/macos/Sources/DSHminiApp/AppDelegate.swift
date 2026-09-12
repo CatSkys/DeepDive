@@ -226,6 +226,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 switch key {
                 case "notifyTurnEnd": DSHAppPrefs.setNotifyTurnEnd(value)
                 case "notifyAttention": DSHAppPrefs.setNotifyAttention(value)
+                case "evolutionEnabled":
+                    DSHAppPrefs.setEvolutionEnabled(value)
                 case "hotkeyOn":
                     DSHAppPrefs.setHotkeyOn(value)
                     if value {
@@ -626,6 +628,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "language": DSHAppPrefs.language,
             "keybinds": DSHAppPrefs.keybinds,
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
+        "evolutionEnabled": DSHAppPrefs.evolutionEnabled,
             "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
         ]

@@ -30,6 +30,9 @@ enum DSHAppPrefs {
     static let keybindsKey = "deepdive.keybinds"
     /// 全局热键（唤起面板）启用开关；关 = 系统级注销。
     static let hotkeyOnKey = "deepdive.hotkey.on"
+    /// 自进化（实验能力，默认关）：开着应用才会采集/复盘/校验，装配层也才写那行
+    /// 「可以提经验」的指路（晚一拍：装配在启动时读，见 SPEC-SELF-EVOLUTION §8）。
+    static let evolutionEnabledKey = "deepdive.evolution.enabled"
     /// 桥监听端口：固定下来前端 origin 才稳（localStorage 按 origin 分家）。
     /// 0 = 还没定过（首次启动由内核分配，随后记下）。
     static let bridgePortKey = "deepdive.bridge.port"
@@ -103,6 +106,14 @@ enum DSHAppPrefs {
 
     static func setLanguage(_ value: String) {
         UserDefaults.standard.set(value == "en" ? "en" : "zh", forKey: languageKey)
+    }
+
+    static var evolutionEnabled: Bool {
+        UserDefaults.standard.bool(forKey: evolutionEnabledKey)
+    }
+
+    static func setEvolutionEnabled(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: evolutionEnabledKey)
     }
 
     static var bridgePort: Int {

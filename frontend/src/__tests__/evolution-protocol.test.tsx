@@ -7,7 +7,8 @@ vi.mock("../store", () => ({ useStore: () => ({ lang: "zh" }) }));
 
 import { Markdown } from "../components/Markdown";
 import { applyPrompt, reviewPrompt, verifyPrompt } from "../evolution/prompts";
-import { lessonBlocks, parseLesson, parseVerdict, verdictBlocks } from "../evolution/protocol";
+import { activityDays, activityMax, statusSlices } from "../evolution/chartData";
+import { lessonBlocks, parseLesson, parseVerdict, verdictBlocks, type LessonProposal } from "../evolution/protocol";
 
 afterEach(cleanup);
 
@@ -59,6 +60,39 @@ describe("lessonBlocks", () => {
   it("一段回复里可以带多块", () => {
     const text = `说明\n${fenced(JSON.stringify(lesson))}\n中间\n${fenced(JSON.stringify({ ...lesson, home: "agents" }))}`;
     expect(lessonBlocks(text)).toHaveLength(2);
+  });
+});
+
+describe("图表数据（纯函数）", () => {
+  const mk = (over: Partial<LessonProposal>): LessonProposal => ({
+    id: "x", category: "incident", home: "pitfalls", anchor: "a", content: "c",
+    inference: "implicit", evidence: [{ excerpt: "e" }], predict: null, status: "pending",
+    createdAt: 0, updatedAt: 0, origin: { sessionId: "s", turn: 0, eventSeq: 0 }, ...over,
+  });
+  it("状态构成：结论优先于状态，零值切片不出现", () => {
+    const slices = statusSlices([
+      mk({ id: "1" }),
+      mk({ id: "2", status: "applied", predict: { metric: "repeat-incident", signature: "s", windowDays: 14 } }),
+      mk({ id: "3", status: "applied", verdict: { recurrences: 0, verdict: "effective", at: 1 } }),
+      mk({ id: "4", status: "expired", verdict: { recurrences: 52, verdict: "ineffective", at: 1 } }),
+      mk({ id: "5", status: "dismissed" }),
+    ]);
+    const by = Object.fromEntries(slices.map((s) => [s.key, s.value]));
+    expect(by).toEqual({ pending: 1, applied: 1, effective: 1, ineffective: 1, dismissed: 1 });
+    expect(slices.some((s) => s.key === "expired")).toBe(false);
+  });
+
+  it("近 30 天活动：按本地日归集新增与交办，桶数固定", () => {
+    const now = new Date(2026, 8, 12, 12, 0).getTime();
+    const days = activityDays(
+      [mk({ createdAt: now }), mk({ createdAt: now - 86400000 })],
+      [{ id: "r", kind: "apply", at: now, sessionId: "s" }, { id: "r2", kind: "review", at: now, sessionId: "s" }],
+      now, 30,
+    );
+    expect(days).toHaveLength(30);
+    expect(days.at(-1)).toMatchObject({ created: 1, runs: 2 });
+    expect(days.at(-2)?.created).toBe(1);
+    expect(activityMax(days)).toBe(3);
   });
 });
 

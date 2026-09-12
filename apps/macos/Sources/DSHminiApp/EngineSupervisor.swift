@@ -319,12 +319,14 @@ final class EngineSupervisor {
     static func ensureEnginePatchFile() -> URL {
         let url = AppPaths.supportDir.appendingPathComponent("engine-patch.yml")
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? enginePatchBody().write(to: url, atomically: true, encoding: .utf8)
+        try? enginePatchBody(evolutionEnabled: DSHAppPrefs.evolutionEnabled).write(to: url, atomically: true, encoding: .utf8)
         return url
     }
 
     /// Overlay 正文（纯函数，单测钉子）：写坏了引擎会在 boot 时 fail-loud 起不来。
-    static func enginePatchBody() -> String {
+    /// `evolutionEnabled`（自进化开关）：关着就不写那行指路——新会话里模型也就
+    /// 不知道可以提经验（装配在启动时读，所以开关晚一拍生效）。
+    static func enginePatchBody(evolutionEnabled: Bool) -> String {
         var body = """
         # Written by DeepDive at every engine launch — app-owned overlay layer.
         # Do not edit: your changes are overwritten on the next launch.
@@ -332,8 +334,13 @@ final class EngineSupervisor {
             - id: schedule
               name: '@deepseek-ai/dsh-schedule'
         """
-        body += "\n- id: system-prompt\n  config:\n    personaPrefix: \(Self.yamlString(Self.automationProtocolPrompt))"
+        body += "\n- id: system-prompt\n  config:\n    personaPrefix: \(Self.yamlString(Self.systemPromptPrefix(evolutionEnabled: evolutionEnabled)))"
         return body
+    }
+
+    /// 部署级提示词 = 自动化指路（恒在）+ 自进化指路（开关决定）。
+    static func systemPromptPrefix(evolutionEnabled: Bool) -> String {
+        evolutionEnabled ? automationProtocolPrompt + "\n" + evolutionProtocolPrompt : automationProtocolPrompt
     }
 
     /// Deployment system prompt: one pointer, nothing more — the protocol itself
@@ -343,6 +350,8 @@ final class EngineSupervisor {
     DeepDive automation: when the user asks for a scheduled or recurring task, or to change one, \
     load the `deepdive-automation` skill and follow its protocol exactly. One-off reminders \
     inside this conversation keep using the schedule tools.
+    """
+    private static let evolutionProtocolPrompt = """
     DeepDive self-evolution: when the user says "remember this" / "don't make me re-explain", or \
     you just worked something out the hard way, load the `deepdive-evolution` skill and propose a \
     lesson. Proposals only — never change rules or docs yourself; the user accepts them in \

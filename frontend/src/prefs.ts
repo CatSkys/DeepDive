@@ -28,6 +28,8 @@ export function usePrefs() {
   const [appearance, setAppearanceState] = useState<"system" | "light" | "dark">("dark");
   const [keybinds, setKeybindsState] = useState<KeybindOverrides>({});
   const [hotkeyOn, setHotkeyOnState] = useState(true);
+  // 自进化（实验能力）：默认关——开关在设置→自进化 里，壳持久化（装配层启动时读它）
+  const [evolutionEnabled, setEvolutionEnabledState] = useState(false);
   const setAppearance = useCallback((m: "system" | "light" | "dark") => {
     setAppearanceState(m);
     sendToShell({ type: "set-pref", key: "appearance", value: m });
@@ -40,17 +42,22 @@ export function usePrefs() {
     setHotkeyOnState(v);
     sendToShell({ type: "set-pref", key: "hotkeyOn", value: v });
   }, []);
+  const setEvolutionEnabled = useCallback((v: boolean) => {
+    setEvolutionEnabledState(v);
+    sendToShell({ type: "set-pref", key: "evolutionEnabled", value: v });
+  }, []);
   // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗、键位覆盖；
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; evolutionEnabled?: boolean };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
       if (p.appearance === "system" || p.appearance === "light" || p.appearance === "dark") setAppearanceState(p.appearance);
       if (typeof p.keybinds === "string") setKeybindsState(parseKeybinds(p.keybinds));
       if (typeof p.hotkeyOn === "boolean") setHotkeyOnState(p.hotkeyOn);
+      if (typeof p.evolutionEnabled === "boolean") setEvolutionEnabledState(p.evolutionEnabled);
     }
     if (cmd === "themeChanged") {
       const dark = (payload as { dark?: boolean } | undefined)?.dark;
@@ -68,5 +75,6 @@ export function usePrefs() {
     appearance, setAppearance,
     keybinds, setKeybinds,
     hotkeyOn, setHotkeyOn,
+    evolutionEnabled, setEvolutionEnabled,
   };
 }

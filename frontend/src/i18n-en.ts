@@ -572,4 +572,21 @@ export const EN: Record<string, string> = {
   "还没跑过复盘——攒够几次回复后会自动跑，也可以点右上角手动跑一次。": "No review yet — it runs on its own once enough replies pile up, or use the button above.",
   "累计 {n} · 待审 {p} · 已交办 {a} · 有效 {e} · 无效 {x} · 已丢弃 {d}": "{n} total · {p} pending · {a} handed off · {e} effective · {x} ineffective · {d} dismissed",
   "暂无待审提案。在会话里说一句「记住这个……」，或让它自己复盘提出。": "Nothing pending. Say “remember this…” in a chat, or let the review pass propose something.",
+
+  // 自进化：开关与图表
+  "我明白，继续": "I understand, continue",
+  "经验构成": "Experience mix",
+  "条经验": "lessons",
+  "还没有经验": "No lessons yet",
+  "（其余未分类）": "(rest unclassified)",
+  "近 30 天活动": "Activity, last 30 days",
+  "新增提案": "proposals",
+  "交办（落库/校验/复盘）": "handoffs (land/check/review)",
+  "近 30 天": "last 30 days",
+  "待校验": "awaiting check",
+  "已退役": "retired",
+  "实验性能力：默认关。开启后应用会从会话里找可沉淀的经验、定期复盘并校验效果；提案只提议，落库要你点。它读你的会话日志、按你的模型凭据花 token，采纳后由 agent 往仓库的知识文件里写——不改产品代码。关掉即停（对新会话的指路晚一拍生效，装配在启动时读）。": "Experimental, off by default. Once on, the app looks for lessons worth keeping in your sessions, reviews periodically and checks whether they held up; proposals never act on their own — you accept them. It reads your session logs, spends tokens on your model credentials, and after you accept, an agent turn writes into the repo's knowledge files — product code is never touched. Turning it off stops all of it (the in-session pointer follows at the next start, since the assembly layer is read at launch).",
+  "开启后：本应用会读你的会话日志找可沉淀的经验，按你的模型凭据定期跑复盘与到期校验（会花 token）；你采纳提案后，由 agent 往仓库的知识文件（AGENTS.md / PITFALLS / SPEC / 技能正文 / 政策文件）写入并提交。它不改产品代码。随时可以关。": "Once on: the app reads your session logs for lessons worth keeping and runs periodic reviews and due-date checks on your model credentials (this spends tokens). When you accept a proposal, an agent turn writes it into the repo's knowledge files (AGENTS.md / PITFALLS / SPEC / skill bodies / the policy file) and commits. It never touches product code. You can turn it off any time.",
+  "还没跑过复盘——攒够几次回复后会自动跑。": "No review yet — it runs on its own once enough replies pile up.",
+  "提案不会自动改变行为；标准与红线见仓库的 docs/EVOLUTION-POLICY.md。": "Proposals never change behaviour on their own; the rules live in the repo's docs/EVOLUTION-POLICY.md.",
 };

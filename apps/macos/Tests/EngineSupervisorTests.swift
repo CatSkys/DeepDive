@@ -80,11 +80,23 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertTrue(EngineSupervisor.evolutionSkillMarkdown.contains("docs/EVOLUTION-POLICY.md"))
     }
 
+    /// 自进化开关关着时，装配里不能出现那行自进化指路（新会话里模型也就不知道
+    /// 可以提经验）；开着才追加，且自动化指路恒在。
+    func testSystemPromptPrefixFollowsEvolutionSwitch() {
+        let off = EngineSupervisor.systemPromptPrefix(evolutionEnabled: false)
+        XCTAssertTrue(off.contains("deepdive-automation"))
+        XCTAssertFalse(off.contains("deepdive-evolution"))
+        let on = EngineSupervisor.systemPromptPrefix(evolutionEnabled: true)
+        XCTAssertTrue(on.contains("deepdive-automation") && on.contains("deepdive-evolution"))
+        XCTAssertFalse(EngineSupervisor.enginePatchBody(evolutionEnabled: false).contains("deepdive-evolution"))
+        XCTAssertTrue(EngineSupervisor.enginePatchBody(evolutionEnabled: true).contains("deepdive-evolution"))
+    }
+
     /// 引擎 overlay patch 的形状：写坏了引擎 boot 时 fail-loud 起不来，所以两段
     /// 都得在——schedule 工具 insert + 会话侧自动化协议的 system-prompt 前缀；
     /// 提示词里的引号/换行经 JSON 转义成 YAML 流标量后必须仍是**单行**。
     func testEnginePatchCarriesScheduleInsertAndAutomationPrompt() throws {
-        let body = EngineSupervisor.enginePatchBody()
+        let body = EngineSupervisor.enginePatchBody(evolutionEnabled: true)
         XCTAssertTrue(body.contains("- id: schedule"))
         XCTAssertTrue(body.contains("@deepseek-ai/dsh-schedule"))
         let prefixLine = try XCTUnwrap(body.split(separator: "\n").first { $0.contains("personaPrefix:") })
