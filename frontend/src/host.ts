@@ -194,6 +194,48 @@ export function gitRun(path: string, args: string[]): Promise<{ ok: boolean; out
   );
 }
 
+/* ── 自进化机械门（零人审的信任底座）：壳用随包 node 直跑固化脚本
+ *  （lesson-gate / lesson-land / lesson-verify），模型不在环内——Ditto 的
+ *  selftest 同款（宿主验证，不采信 agent 口头"完成"）。脚本由壳每次启动
+ *  铺盘；这里只负责把 stdout 原样带回，回执解析在 evolution/protocol.ts。── */
+
+export interface LessonToolResult {
+  ok: boolean;
+  /** 完整 stdout（回执在末行）。 */
+  output: string;
+}
+
+export type LessonTool = "gate" | "land" | "verify";
+
+/** 无壳桥/壳不回包/脚本缺席时 resolve null——调用方据此跳过该步（纯浏览器降级）。 */
+export function lessonTool(tool: LessonTool, args: string[]): Promise<LessonToolResult | null> {
+  return bridgeRequest(
+    "lessonToolResult",
+    null,
+    (p) => {
+      const r = p as { ok?: boolean; output?: string };
+      if (r === undefined || r === null) return null;
+      return { ok: !!r.ok, output: r.output ?? "" };
+    },
+    (reqId) => sendToShell({ type: "lesson-tool", reqId, tool, args }),
+    60_000, // verify 要扫全部会话日志，给足时间
+  );
+}
+
+/** 壳侧引擎目录（$DSH_HOME）：home 作用域会话创建时的 cwd——沙箱 workspaceRoot
+ *  即会话 cwd，这是 skill/global 落库的机械写边界。纯浏览器 resolve null。 */
+export function evolutionEnv(): Promise<{ harnessHome: string } | null> {
+  return bridgeRequest(
+    "evolutionEnv",
+    null,
+    (p) => {
+      const r = p as { harnessHome?: string };
+      return typeof r?.harnessHome === "string" && r.harnessHome !== "" ? { harnessHome: r.harnessHome } : null;
+    },
+    (reqId) => sendToShell({ type: "evolution-env", reqId }),
+  );
+}
+
 /** 壳侧读项目根目录约定图标文件（icon.png / logo.* 等，见 WorkspaceIcon）
  *  为 dataURL；无图标/纯浏览器 resolve null（前端回落项目首字母）。
  *  壳每次都读盘——调用方按路径缓存，勿在渲染路径反复请求。 */

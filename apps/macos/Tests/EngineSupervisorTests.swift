@@ -103,6 +103,29 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertEqual(perms?.intValue, 0o755, "铺出来的校验器必须可执行")
     }
 
+    /// 机械门与落地确认脚本：随应用铺盘、可执行，证据逐字判定必须在解码后的
+    /// 事件字段值上做（日志行是 JSON 转义态），仓库家的落地确认必须有允许清单红线。
+    func testLessonGateAndLandScriptShape() {
+        let gate = EngineSupervisor.lessonGateScript(node: "/tmp/node", fzstd: "/tmp/fzstd.mjs")
+        XCTAssertTrue(gate.hasPrefix("#!/tmp/node"), "gate shebang 必须用传入的 node 绝对路径")
+        XCTAssertTrue(gate.contains("lesson-gate.mjs <sessionId> <evidenceJSON> <home> <anchorJSON> [repoPath]"), "用法说明缺失")
+        XCTAssertTrue(gate.contains(#"import { Decompress } from "/tmp/fzstd.mjs";"#), "fzstd 路径未写死")
+        XCTAssertTrue(gate.contains("new Decompress("), "必须用流式 Decompress 解多帧")
+        XCTAssertTrue(gate.contains("stringsOf"), "逐字判定必须解码 JSON 后对字段值比")
+        XCTAssertTrue(gate.contains("JSON.stringify({ verbatim, anchorFound })"), "末行回执缺字段")
+        let land = EngineSupervisor.lessonLandScript(node: "/tmp/node")
+        XCTAssertTrue(land.hasPrefix("#!/tmp/node"), "land shebang 必须用传入的 node 绝对路径")
+        XCTAssertTrue(land.contains("lesson-land.mjs <id> <home> <repoPath> <contentJSON>"), "用法说明缺失")
+        XCTAssertTrue(land.contains("--grep="), "仓库家靠 git log --grep=<id> 定位落库提交")
+        XCTAssertTrue(land.contains("files-outside-allowlist"), "触碰文件出允许清单必须有独立失败原因")
+        XCTAssertTrue(land.contains("JSON.stringify({ id, landed, commit: null, files"), "DSH_HOME 家回执缺字段")
+        let gateURL = EngineSupervisor.ensureLessonGateScript()
+        let landURL = EngineSupervisor.ensureLessonLandScript()
+        XCTAssertTrue(FileManager.default.fileExists(atPath: gateURL.path), gateURL.path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: landURL.path), landURL.path)
+        XCTAssertTrue(EngineSupervisor.lessonScriptURL("lesson-gate.mjs").path == gateURL.path, "lessonScriptURL 与铺盘位置必须一致")
+    }
+
     /// 自进化开关关着时，装配里不能出现那行自进化指路（新会话里模型也就不知道
     /// 可以提经验）；开着才追加，且自动化指路恒在。
     func testSystemPromptPrefixFollowsEvolutionSwitch() {

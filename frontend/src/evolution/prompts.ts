@@ -1,8 +1,10 @@
-// 自进化与 agent 的四份提示词（落库 / 复盘 / 校验 / 撤销）：纯函数，逐条钉在
+// 自进化与 agent 的三份提示词（落库 / 复盘 / 撤销）+ 整理环提示词：纯函数，逐条钉在
 // `docs/EVOLUTION-POLICY.md` 与技能 `deepdive-evolution` 的契约上。
+// 到期校验不在里面：校验器是壳侧本机直跑的固化脚本（Ditto selftest 同款——宿主
+// 验证，不经模型），提示词层没有"校验"这件事。
 // 政策与判据不写进代码——这里只负责把"要它干什么"说清楚。
 
-import type { LessonProposal } from "./protocol";
+import { GLOBAL_ANCHOR, homeScope, type LessonProposal } from "./protocol";
 
 /** 落点 → 目标文件（spec / skill 不唯一，交给 agent 按锚点判断，不猜具体文件）。 */
 export const HOME_TARGET: Record<LessonProposal["home"], string> = {
@@ -11,6 +13,7 @@ export const HOME_TARGET: Record<LessonProposal["home"], string> = {
   spec: "锚点所属的那份 docs/SPEC-*.md",
   skill: "锚点所属的那个引擎技能正文（<DSH_HOME>/skills/<name>/SKILL.md）",
   policy: "docs/EVOLUTION-POLICY.md",
+  global: "$DSH_HOME/AGENTS.md（全局指令，跨工作区常驻）",
 };
 
 /** 复盘批次里的一条被测会话（app 侧只给事实，判断交给 agent）。
@@ -32,21 +35,35 @@ export function applyPrompt(p: LessonProposal): string {
   const predict = p.predict === null
     ? "（风格类：不设校验）"
     : `${p.predict.metric} · 签名 ${p.predict.signature} · 窗口 ${p.predict.windowDays} 天`;
+  // global 家的锚点固定为 AHE 式追加区（文件可能尚不存在，由本轮负责创建）。
+  const anchor = p.home === "global" ? GLOBAL_ANCHOR : p.anchor;
+  const scopeLine = homeScope(p.home) === "dsh-home"
+    ? "本次只允许写 <DSH_HOME> 下的文件，不要碰任何工作区/仓库文件。"
+    : "本次只允许写当前工作区里的文件，不要碰工作区之外的任何路径。";
+  const globalPre = p.home === "global"
+    ? "目标文件可能尚不存在：不存在就先创建，文件首行为 `# Global Agent Instructions`，再追加目标节。\n"
+    : "";
   return [
-    "把下面这条经验落进仓库。先读 docs/EVOLUTION-POLICY.md 与目标文件已有的写法，按那一家的格式落。",
+    p.home === "skill" || p.home === "global"
+      ? "把下面这条经验落进引擎目录。先看目标文件已有的写法，按那一家的格式落。"
+      : "把下面这条经验落进仓库。先读 docs/EVOLUTION-POLICY.md 与目标文件已有的写法，按那一家的格式落。",
     "",
-    `- 落点：${HOME_TARGET[p.home]} 的「${p.anchor}」一节末尾`,
+    `- 落点：${HOME_TARGET[p.home]} 的「${anchor}」一节末尾`,
     `- 类别：${p.category}`,
     `- 效果主张：${predict}`,
     "",
+    globalPre,
     "正文（原样写入，不要改写措辞）：",
     p.content,
     "",
     "证据（逐字，供提交信息引用）：",
     evidence,
     "",
-    `要求：只改这一处、不顺手动别的地方；git 提交一次，提交信息写明因果并引用提案 id ${p.id}；完成后回一句：改了哪个文件、提交号是多少。`,
-  ].join("\n");
+    `要求：${scopeLine}只改这一处、不顺手动别的地方。`,
+    p.home === "skill" || p.home === "global"
+      ? "完成后直接结束，不用提交 git（该目录不是 git 仓库）。"
+      : "git 提交一次，提交信息写明因果并引用提案 id " + p.id + "。",
+  ].filter((l) => l !== "").join("\n");
 }
 
 /** 后台复盘：把"本批会话 + 已落库的坑签名"交出去。
@@ -79,38 +96,48 @@ export function reviewPrompt(targets: readonly ReviewTarget[], knownSignatures: 
   ].join("\n");
 }
 
-/** 到期校验：让 agent 去日志里数签名，并回一个校验块。窗口锚定采纳时刻（政策 §4：
- *  「落库时把窗口切两半」）——createdAt 是提议时刻，不能当落地基线。 */
-export function verifyPrompt(p: LessonProposal): string {
-  const predict = p.predict;
-  if (predict === null) return "";
-  const landedISO = new Date(p.appliedAt ?? p.createdAt).toISOString();
-  return [
-    `校验一条已落库经验的效果主张（提案 ${p.id}）。`,
-    "",
-    `- 主张：${predict.metric}｜签名：${predict.signature}｜窗口：${predict.windowDays} 天`,
-    `- 落库时间：${landedISO}`,
-    `- 落点：${HOME_TARGET[p.home]} 的「${p.anchor}」`,
-    "",
-    "做法：跑随应用铺好的校验器（它按事件时间把命中归到「落地前 / 落地后」两个等长窗口，并打印末行回执）：",
-    `  $DSH_HOME/deepdive/lesson-verify.mjs ${p.id} "${predict.signature}" ${predict.windowDays} ${landedISO} ${predict.metric}`,
-    "把末行原样贴进一个围栏块（info string 为 lesson-verify），形如：",
-    "```lesson-verify",
-    `{"id":"${p.id}","before":12,"after":0}`,
-    "```",
-    "before/after = 落地前、落地后两个窗口的次数；有效与否由应用按政策阈值判定，你不用下结论。",
-    "若脚本跑不起来（缺 node/权限），退回手工：zstd -dc 各会话日志 | grep，按同样口径给出两个窗口的数；数不准就报 0 并在正文里说明理由。",
-    "成本上限：最多 2-3 次工具调用（跑一条命令就够），不要展开调查、不要读本仓库源码；不要修改任何文件。",
-  ].join("\n");
-}
-
-/** 撤销：靠 git 回滚（落库那次提交引用了提案 id），不需要应用侧备份。 */
+/** 撤销：仓库家靠 git 回滚（落库那次提交引用了提案 id）；DSH_HOME 家不是 git
+ *  仓库，删掉那次写入的小节即可（landing.files 记了文件，正文在提案里）。 */
 export function revokePrompt(p: LessonProposal): string {
+  if (homeScope(p.home) === "dsh-home") {
+    const anchor = p.home === "global" ? GLOBAL_ANCHOR : p.anchor;
+    return [
+      `撤销一条已落库的经验（提案 ${p.id}）。`,
+      "",
+      `它在 ${HOME_TARGET[p.home]} 的「${anchor}」一节里。把这一节里由该提案引入的内容删掉（其余内容原样保留），只改这一处。该目录不是 git 仓库，不用提交。完成后直接结束。`,
+    ].join("\n");
+  }
   return [
     `撤销一条已落库的经验（提案 ${p.id}）。`,
     "",
     `它在 ${HOME_TARGET[p.home]} 的「${p.anchor}」一节里；落库那次提交的信息引用了提案 id ${p.id}，用 git log --grep=${p.id} 能找到。`,
     "",
-    "做法：把那次提交的改动撤掉（git revert <sha>，或直接删掉该节里由它引入的内容再提交一次），提交信息写明「撤销提案 <id>」与因果。只改这一处。完成后回一句：改了哪个文件、提交号是多少。",
+    "做法：把那次提交的改动撤掉（git revert <sha>，或直接删掉该节里由它引入的内容再提交一次），提交信息写明「撤销提案 <id>」与因果。只改这一处。完成后直接结束。",
+  ].join("\n");
+}
+
+/** 整理环（MiMo Dream 的等价物，按沙箱作用域拆两轮）：对既有知识做去重、
+ *  合并、失效锚点清理与压缩——直接维护性编辑，不走提案协议。 */
+export function consolidatePrompt(scope: "repo" | "dsh-home"): string {
+  if (scope === "dsh-home") {
+    return [
+      "后台整理（DeepDive 自进化·整理，只管引擎目录）。",
+      "",
+      "逐一检查 <DSH_HOME>/skills/*/SKILL.md 与 <DSH_HOME>/AGENTS.md（后者可能不存在，跳过即可）：",
+      "- 合并重复讲同一件事的小节；删掉互相矛盾的旧表述（保留新的）；压缩明显膨胀的段落；",
+      "- 修正失效的内部引用（指向不存在文件/小节的）；格式向各家已有的写法看齐。",
+      "不做内容升级——只维护信噪比。该目录不是 git 仓库，不用提交。改完直接结束；没有任何要改的就原样结束。",
+      "成本上限：最多 8-10 次工具调用；不要读工作区/仓库文件，不要改产品代码。",
+    ].join("\n");
+  }
+  return [
+    "后台整理（DeepDive 自进化·整理，只管仓库知识文件）。",
+    "",
+    "逐一检查 AGENTS.md、docs/PITFALLS.md、docs/EVOLUTION-POLICY.md 与 docs/SPEC-*.md 里由自进化追加的条目：",
+    "- 合并重复讲同一件事的条目；删掉互相矛盾的旧表述（保留新的）；压缩明显膨胀的段落；",
+    "- 修正失效引用（指向不存在文件/小节/命令的）——先验证再改，拿不准的留着不动；",
+    "- 每家文件的格式规范以它自己的维护条款为准。",
+    "不做内容升级——只维护信噪比。每改一个文件单独 git 提交一次，提交信息写明「自进化·整理」与因果。改完直接结束；没有任何要改的就原样结束。",
+    "成本上限：最多 8-10 次工具调用；不要改产品代码。",
   ].join("\n");
 }

@@ -338,6 +338,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             gitRun(reqId: body["reqId"] as? String ?? "",
                    path: body["path"] as? String ?? "",
                    args: body["args"] as? [String] ?? [])
+        case "lesson-tool":
+            lessonTool(reqId: body["reqId"] as? String ?? "",
+                       tool: body["tool"] as? String ?? "",
+                       args: body["args"] as? [String] ?? [])
+        case "evolution-env":
+            windowController.pushHostCommand(
+                "evolutionEnv",
+                payload: AppDelegate.jsonPayload(["reqId": body["reqId"] as? String ?? "", "harnessHome": AppPaths.harnessHome.path]),
+            )
         case "open-url":
             // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
@@ -497,8 +506,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 状态胶囊的 git 动作（git-run → gitRunResult 回推）：切分支/提交/推送。
     /// 参数数组直传 Process，不经 shell，无注入面；push 等网络操作在后台队列
     /// 跑，完成后回主线程回推 ok/output（尾部截断，防超长刷屏）。
-    private func gitRun(reqId: String, path: String, args: [String]) {
-        func reply(_ ok: Bool, _ output: String) {
+    private func gitRun(reqId: String, path: String, args: [String]) {        func reply(_ ok: Bool, _ output: String) {
             let trimmed = output.count > 4000 ? String(output.suffix(4000)) : output
             windowController.pushHostCommand("gitRunResult", payload: AppDelegate.jsonPayload([
                 "reqId": reqId, "ok": ok, "output": trimmed,
@@ -522,6 +530,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             // stderr 独立线程排空（顺序读有互锁面：一侧缓冲写满时另一侧 EOF 永不到）
+            var errText = ""
+            let errLock = NSLock()
+            Thread.detachNewThread {
+                let d = errPipe.fileHandleForReading.readDataToEndOfFile()
+                errLock.lock()
+                errText = String(data: d, encoding: .utf8) ?? ""
+                errLock.unlock()
+            }
+            let out = outPipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            var output = String(data: out, encoding: .utf8) ?? ""
+            errLock.lock()
+            if !errText.isEmpty { output += "\n\(errText)" }
+            errLock.unlock()
+            let ok = process.terminationStatus == 0
+            DispatchQueue.main.async { reply(ok, output) }
+        }
+    }
+
+    /// 自进化机械脚本执行（lesson-tool → lessonToolResult 回推）：随包 node 直跑
+    /// 固化脚本（gate/land/verify，启动时铺盘在 <DSH_HOME>/deepdive/），模型不在
+    /// 环内——零人审的信任底座（Ditto selftest：宿主验证，不采信 agent 口头"完成"）。
+    /// DSH_HOME 显式进脚本环境（壳进程环境里没有）；stdout 完整回传（回执在末行），
+    /// 解析在前端边界做。node/脚本缺席（dev 的 .single 入口）显式 ok=false 降级。
+    private func lessonTool(reqId: String, tool: String, args: [String]) {
+        func reply(_ ok: Bool, _ output: String) {
+            let trimmed = output.count > 8000 ? String(output.suffix(8000)) : output
+            windowController.pushHostCommand("lessonToolResult", payload: AppDelegate.jsonPayload([
+                "reqId": reqId, "ok": ok, "output": trimmed,
+            ]))
+        }
+        let script: URL? = switch tool {
+        case "gate": EngineSupervisor.lessonScriptURL("lesson-gate.mjs")
+        case "land": EngineSupervisor.lessonScriptURL("lesson-land.mjs")
+        case "verify": EngineSupervisor.lessonScriptURL("lesson-verify.mjs")
+        default: nil
+        }
+        guard let node = EngineSupervisor.bundledNodePath, let script, FileManager.default.fileExists(atPath: script.path) else {
+            reply(false, "lesson tool unavailable: \(tool)")
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: node)
+            process.arguments = [script.path] + args
+            process.environment = ProcessInfo.processInfo.environment.merging(
+                ["DSH_HOME": AppPaths.harnessHome.path],
+            ) { _, new in new }
+            let outPipe = Pipe()
+            let errPipe = Pipe()
+            process.standardOutput = outPipe
+            process.standardError = errPipe
+            do { try process.run() } catch {
+                DispatchQueue.main.async { reply(false, "spawn failed") }
+                return
+            }
+            // stderr 独立线程排空（与 gitRun 同因：顺序读有管道互锁面）
             var errText = ""
             let errLock = NSLock()
             Thread.detachNewThread {

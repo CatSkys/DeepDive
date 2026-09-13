@@ -260,6 +260,8 @@ final class EngineSupervisor {
         Self.ensureAutomationSkill()
         Self.ensureEvolutionSkill()
         Self.ensureLessonVerifyScript()
+        Self.ensureLessonGateScript()
+        Self.ensureLessonLandScript()
         switch entry {
         case .bundled(let node, let script):
             process.executableURL = node
@@ -559,6 +561,222 @@ final class EngineSupervisor {
         console.log("matched sessions: " + matched);
         console.log("before window: " + before + " | after window: " + after);
         console.log(JSON.stringify({ id, before, after }));
+        """
+    }
+
+    /// 随包 node 的绝对路径（机械脚本执行与 shebang 写死共用）。资源缺席（dev 的
+    /// .single 入口）返回 nil——机械门显式降级为"宿主无执行器"，不猜路径。
+    static var bundledNodePath: String? {
+        let url = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/Runtime/node")
+        return FileManager.default.isExecutableFile(atPath: url.path) ? url.path : nil
+    }
+
+    /// 机械脚本在盘上的位置（<DSH_HOME>/deepdive/<name>；铺盘由 ensure* 负责）。
+    static func lessonScriptURL(_ name: String) -> URL {
+        AppPaths.harnessHome
+            .appendingPathComponent("deepdive", isDirectory: true)
+            .appendingPathComponent(name)
+    }
+
+    /// 机械门脚本（证据逐字 + 锚点存在）。模型不在环内：壳用随包 node 直跑，
+    /// 回执在 stdout 末行（Ditto selftest 同款——落地前宿主先验证）。
+    @discardableResult
+    static func ensureLessonGateScript() -> URL {
+        let dir = AppPaths.harnessHome.appendingPathComponent("deepdive", isDirectory: true)
+        let url = dir.appendingPathComponent("lesson-gate.mjs")
+        let node = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/Runtime/node").path
+        let fzstd = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/Runtime/chat-import/fzstd/esm/index.mjs").path
+        let body = lessonGateScript(node: node, fzstd: fzstd)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? body.write(to: url, atomically: true, encoding: .utf8)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        return url
+    }
+
+    /// 机械门正文。证据逐字的判定对象是**解码后**的事件字段值（日志行里文本是
+    /// JSON 转义态，直接对行文本 includes 会漏）；证据取数组、任一逐字命中即过
+    /// （政策 §3「≥1 条逐字证据」）；锚点检查按家的目标文件，global 家恒过
+    /// （文件可能尚未创建，由 apply 负责建）。
+    static func lessonGateScript(node: String, fzstd: String) -> String {
+        """
+        #!\(node)
+        // DeepDive 自进化·机械门（应用每次启动重写；勿手改）。
+        // 用法: lesson-gate.mjs <sessionId> <evidenceJSON> <home> <anchorJSON> [repoPath]
+        //   evidenceJSON = 逐字摘录字符串数组；任一命中即 verbatim（政策 §3）。
+        // 末行回执: {"verbatim":bool,"anchorFound":bool}
+        import { readdir, readFile } from "node:fs/promises";
+        import { join } from "node:path";
+        import { Decompress } from "\(fzstd)";
+
+        const [sessionId, evidenceArg, home, anchorArg, repoPath] = process.argv.slice(2);
+        let excerpts = null, anchor = null;
+        try { excerpts = JSON.parse(evidenceArg ?? "null"); } catch { /* 坏参按缺失处理 */ }
+        try { anchor = JSON.parse(anchorArg ?? "null"); } catch { /* 坏参按缺失处理 */ }
+        if (!sessionId || !Array.isArray(excerpts) || excerpts.some((e) => typeof e !== "string") || typeof anchor !== "string") {
+          console.error("usage: lesson-gate.mjs <sessionId> <evidenceJSON> <home> <anchorJSON> [repoPath]");
+          process.exit(2);
+        }
+        const dshHome = process.env.DSH_HOME ?? join(process.env.HOME ?? "", ".dsh");
+
+        function* stringsOf(v) {
+          if (typeof v === "string") yield v;
+          else if (Array.isArray(v)) { for (const x of v) yield* stringsOf(x); }
+          else if (v && typeof v === "object") { for (const x of Object.values(v)) yield* stringsOf(x); }
+        }
+
+        // ① 证据逐字：扫 origin 会话日志（多帧 zstd 流式解压），任一证据被任一
+        // 事件字段值包含即命中。
+        let verbatim = false;
+        const sessionsRoot = join(dshHome, "sessions");
+        try {
+          for (const bucket of await readdir(sessionsRoot, { withFileTypes: true })) {
+            if (!bucket.isDirectory()) continue;
+            const file = join(sessionsRoot, bucket.name, sessionId, "session.v3.jsonl.zstd");
+            let raw;
+            try { raw = await readFile(file); } catch { continue; }
+            const chunks = [];
+            const inflater = new Decompress((chunk) => chunks.push(Buffer.from(chunk)));
+            inflater.push(raw);
+            const text = Buffer.concat(chunks).toString("utf8");
+            for (const line of text.split("\\n")) {
+              if (!excerpts.some((e) => line.includes(e))) continue; // 行原文粗筛，命中才解析
+              let ev;
+              try { ev = JSON.parse(line); } catch { continue; }
+              const fields = Array.from(stringsOf(ev));
+              if (excerpts.some((e) => fields.some((s) => s.includes(e)))) { verbatim = true; break; }
+            }
+            if (verbatim) break;
+          }
+        } catch (err) {
+          console.error("gate: " + (err && err.message));
+        }
+
+        // ② 锚点存在：目标文件的文本里要有锚点标题。仓库家以 repoPath 为基座，
+        // skill 家以 dshHome 为基座（repoPath 传 "-" 的场合恰好兜住）。
+        const hasTextIn = async (base, rel, needle) => {
+          try { return (await readFile(join(base, rel), "utf8")).includes(needle); } catch { return false; }
+        };
+        let anchorFound = false;
+        if (home === "global") {
+          anchorFound = true; // 文件由 apply 创建（AHE 式追加区），门恒过
+        } else if (home === "skill") {
+          const skillsDir = join(dshHome, "skills");
+          try {
+            for (const d of await readdir(skillsDir, { withFileTypes: true })) {
+              if (!d.isDirectory()) continue;
+              if (await hasTextIn(dshHome, join("skills", d.name, "SKILL.md"), anchor)) { anchorFound = true; break; }
+            }
+          } catch { /* skills 目录不存在 */ }
+        } else if (repoPath && repoPath !== "-") {
+          if (home === "spec") {
+            try {
+              for (const n of await readdir(join(repoPath, "docs"))) {
+                if (n.startsWith("SPEC-") && n.endsWith(".md") && await hasTextIn(repoPath, join("docs", n), anchor)) {
+                  anchorFound = true;
+                  break;
+                }
+              }
+            } catch { /* docs 目录不存在 */ }
+          } else {
+            const rel = home === "agents" ? "AGENTS.md" : home === "pitfalls" ? "docs/PITFALLS.md" : "docs/EVOLUTION-POLICY.md";
+            anchorFound = await hasTextIn(repoPath, rel, anchor);
+          }
+        }
+
+        console.log(JSON.stringify({ verbatim, anchorFound }));
+        """
+    }
+
+    /// 落地确认脚本（模型口头"完成"不作数）：仓库家 = 引用提案 id 的 git 提交 +
+    /// 触碰文件 ⊆ 该家允许清单 + 目标文件含正文；DSH_HOME 家（非 git）= 文件含正文。
+    @discardableResult
+    static func ensureLessonLandScript() -> URL {
+        let dir = AppPaths.harnessHome.appendingPathComponent("deepdive", isDirectory: true)
+        let url = dir.appendingPathComponent("lesson-land.mjs")
+        let node = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/Runtime/node").path
+        let body = lessonLandScript(node: node)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? body.write(to: url, atomically: true, encoding: .utf8)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        return url
+    }
+
+    static func lessonLandScript(node: String) -> String {
+        """
+        #!\(node)
+        // DeepDive 自进化·落地确认（应用每次启动重写；勿手改）。
+        // 用法: lesson-land.mjs <id> <home> <repoPath> <contentJSON>
+        // 末行回执: {"id","landed","commit","files"[,"reason"]}
+        import { readdir, readFile } from "node:fs/promises";
+        import { execFile } from "node:child_process";
+        import { join } from "node:path";
+        import { promisify } from "node:util";
+        const run = promisify(execFile);
+
+        const [id, home, repoPath, contentArg] = process.argv.slice(2);
+        let content = null;
+        try { content = JSON.parse(contentArg ?? "null"); } catch { /* 坏参按缺失处理 */ }
+        if (!id || !home || typeof content !== "string") {
+          console.error("usage: lesson-land.mjs <id> <home> <repoPath> <contentJSON>");
+          process.exit(2);
+        }
+        const dshHome = process.env.DSH_HOME ?? join(process.env.HOME ?? "", ".dsh");
+
+        if (home === "skill" || home === "global") {
+          let landed = false;
+          const files = [];
+          if (home === "global") {
+            try { landed = (await readFile(join(dshHome, "AGENTS.md"), "utf8")).includes(content); } catch { /* 文件尚未创建 */ }
+            if (landed) files.push("AGENTS.md");
+          } else {
+            const skillsDir = join(dshHome, "skills");
+            try {
+              for (const d of await readdir(skillsDir, { withFileTypes: true })) {
+                if (!d.isDirectory()) continue;
+                const text = await readFile(join(skillsDir, d.name, "SKILL.md"), "utf8");
+                if (text.includes(content)) { landed = true; files.push(join("skills", d.name, "SKILL.md")); break; }
+              }
+            } catch { /* skills 目录不存在 */ }
+          }
+          console.log(JSON.stringify({ id, landed, commit: null, files, ...(landed ? {} : { reason: "content-missing" }) }));
+          process.exit(0);
+        }
+
+        const ALLOW = {
+          agents: (f) => f === "AGENTS.md",
+          pitfalls: (f) => f === "docs/PITFALLS.md",
+          policy: (f) => f === "docs/EVOLUTION-POLICY.md",
+          spec: (f) => f.startsWith("docs/SPEC-") && f.endsWith(".md"),
+        };
+        const allow = ALLOW[home];
+        if (!allow || !repoPath || repoPath === "-") {
+          console.log(JSON.stringify({ id, landed: false, commit: null, files: [], reason: "bad-home-or-repo" }));
+          process.exit(0);
+        }
+        let sha = "";
+        try {
+          const { stdout } = await run("git", ["log", "--grep=" + id, "--format=%H", "-1"], { cwd: repoPath });
+          sha = stdout.trim();
+        } catch { /* 无提交或 git 不可用：走 no-commit */ }
+        if (sha === "") {
+          console.log(JSON.stringify({ id, landed: false, commit: null, files: [], reason: "no-commit" }));
+          process.exit(0);
+        }
+        let files = [];
+        try {
+          const { stdout } = await run("git", ["show", "--name-only", "--pretty=format:", sha], { cwd: repoPath });
+          files = stdout.split("\\n").map((f) => f.trim()).filter((f) => f !== "");
+        } catch { /* show 失败按空表处理 */ }
+        const inAllowlist = files.length > 0 && files.every(allow);
+        let contentPresent = false;
+        if (inAllowlist) {
+          try { contentPresent = (await readFile(join(repoPath, files[0]), "utf8")).includes(content); } catch { /* 文件读不到 */ }
+        }
+        const landed = inAllowlist && contentPresent;
+        console.log(JSON.stringify({ id, landed, commit: sha, files, ...(landed ? {} : { reason: inAllowlist ? "content-missing" : "files-outside-allowlist" }) }));
         """
     }
 
