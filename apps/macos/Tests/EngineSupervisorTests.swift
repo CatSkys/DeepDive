@@ -145,6 +145,16 @@ final class EngineSupervisorTests: XCTestCase {
             XCTAssertTrue(src.contains("name: \"\(tool)\""), "缺工具 \(tool)")
         }
         XCTAssertTrue(src.contains("compactNow"), "new_context 走引擎压缩通道")
+        // 引擎的 tools.register 在**注册时**就急切读 output.render（缺失即抛 TypeError），
+        // 而注册发生在 agent/created，所以少了 output 会让**每次建会话都失败**
+        //（2026-09-13 实机：session/create 报 "Cannot read properties of undefined
+        // (reading 'render')"，记忆功能从未生效）。三个工具都必须声明 output。
+        XCTAssertEqual(src.components(separatedBy: "output: { schema: TEXT_OUTPUT_SCHEMA, render: renderText }").count - 1, 3,
+                       "三个工具都必须声明 output { schema, render }")
+        XCTAssertTrue(src.contains("function renderText("), "缺 render 实现")
+        XCTAssertTrue(src.contains("oneOf"), "output.schema 形状照 dsh-schedule")
+        // presentCall 的返回也必须是引擎认得的卡片形状（dsh-schedule 的 present 同款）
+        XCTAssertEqual(src.components(separatedBy: #"card: "generic""#).count - 1, 3, "presentCall 必须带 card")
         XCTAssertTrue(src.contains("ctx.agents.roots().includes"), "只挂 root agent（dsh-schedule 同款）")
         XCTAssertTrue(src.contains("DSH_HOME"), "笔记目录按 $DSH_HOME 解析")
         let url = EngineSupervisor.ensureSessionMemoryPlugin()

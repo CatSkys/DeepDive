@@ -1024,6 +1024,26 @@ final class EngineSupervisor {
     const NOTE_MAX_CHARS = 8000;
     const memoryDir = join(process.env.DSH_HOME ?? join(process.env.HOME ?? "", ".dsh"), "deepdive", "memory");
 
+    /** 工具返回形状：成功是文本、失败是 {code,message}——引擎按 output.schema 校验返回值。 */
+    const TEXT_OUTPUT_SCHEMA = {
+      oneOf: [
+        { type: "string" },
+        {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            code: { type: "string", required: true },
+            message: { type: "string", required: true },
+          },
+        },
+      ],
+    };
+
+    /** 规范呈现：把返回值交给模型（dsh-schedule 的 renderValue 同款）。 */
+    function renderText(_args, value) {
+      return [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value) }];
+    }
+
     const notePath = (sessionId) => join(memoryDir, String(sessionId) + ".md");
     const neutralizeFences = (text) => text.replace(/<(\/?)session_memory>/gu, "[$1session_memory]");
 
@@ -1074,6 +1094,7 @@ final class EngineSupervisor {
         name: "memory_note_read",
         description: "Read the current session notes (your own working memory for this conversation).",
         parameters: {},
+        output: { schema: TEXT_OUTPUT_SCHEMA, render: renderText },
         async execute(_args, exec) {
           try {
             const note = await readNote(agent.session.id);
@@ -1082,7 +1103,7 @@ final class EngineSupervisor {
             return { code: "read_failed", message: String(error) };
           }
         },
-        presentCall: () => ({ title: "读取会话笔记", kind: "read" }),
+        presentCall: () => ({ card: "generic", title: "读取会话笔记", kind: "read" }),
       })));
       disposers.push(toolCtx.tools.register(defineTool({
         name: "memory_note_write",
@@ -1090,6 +1111,7 @@ final class EngineSupervisor {
         parameters: {
           content: { type: "string", required: true, description: "The full rewritten note in Markdown." },
         },
+        output: { schema: TEXT_OUTPUT_SCHEMA, render: renderText },
         async execute(args, exec) {
           try {
             if (exec.agent !== agent) return { code: "wrong_agent", message: "memory_note_write is session-scoped" };
@@ -1102,12 +1124,13 @@ final class EngineSupervisor {
             return { code: "write_failed", message: String(error) };
           }
         },
-        presentCall: () => ({ title: "更新会话笔记", kind: "write" }),
+        presentCall: () => ({ card: "generic", title: "更新会话笔记", kind: "write" }),
       })));
       disposers.push(toolCtx.tools.register(defineTool({
         name: "new_context",
         description: "Condense the older conversation now (compaction) and continue in the freed window. Your session notes are re-injected at the next turn, so record anything you must keep before calling this.",
         parameters: {},
+        output: { schema: TEXT_OUTPUT_SCHEMA, render: renderText },
         async execute(_args, exec) {
           try {
             if (exec.agent !== agent) return { code: "wrong_agent", message: "new_context is session-scoped" };
@@ -1117,7 +1140,7 @@ final class EngineSupervisor {
             return { code: "compact_failed", message: String(error) };
           }
         },
-        presentCall: () => ({ title: "开启新上下文", kind: "write" }),
+        presentCall: () => ({ card: "generic", title: "开启新上下文", kind: "write" }),
       })));
       return () => {
         for (const dispose of disposers) {
