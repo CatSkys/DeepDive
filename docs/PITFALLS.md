@@ -17,7 +17,7 @@
 
 ### 1.3 backdrop-filter 在 WebKit 需 `-webkit-` 前缀
 - 只用 `backdrop-filter: blur(...)` 在 WebKit 不生效（悬浮菜单模糊失效）。
-- 处置：**白名单化**——只对需要的元素加 `-webkit-backdrop-filter` + `backdrop-filter` 双前缀，其余保持无 blur（避免全局 blur 导致性能/视觉污染）。
+- 处置：只对需要的元素加双前缀（`-webkit-backdrop-filter` + `backdrop-filter`，`-webkit-` 固定在前），其余保持无 blur；压缩器合并顺序坑与现行材质口径见 §1.8。
 
 ### 1.4 CSS 选择器未闭合粘连
 - 症状：一条规则没写完（如注释把选择器截断），会把 `.flow *` 这种通配规则吞进来，导致某类元素整体被改样式。
@@ -95,7 +95,7 @@
 - 处置：`user/message` 只对 `source.kind === 'user'`（真正用户输入）渲染气泡；注入消息（plugin/skill-catalog/agent-instructions/goal…）**不渲染**（2026-09-04 用户拍板：注入折叠行也已整体移除，事件直接丢弃； Pitfall 本体=它们绝不能渲染成右对齐大气泡）。
 
 ### 2.5 引擎帧字段以 vendored schema 为准，不按字段名猜
-- 事故：壳侧 EngineEventObserver 读 `frame["questionId"]`——引擎 `question/requested` 载荷根本没有这个键（`deepseek-harness/packages/host/apiproxy/src/api/events.schema.ts:51` 只有 `{sessionId, questions[]}`），nil 落到 `?? UUID().uuidString` 兜底，每次插入都是随机新 id；`question/resolved`（键为 `questionRpcId`）又未处理——pending 只进不出，一次提问后"需注意"状态卡死到引擎重启。
+- 事故：壳侧 EngineEventObserver 读 `frame["questionId"]`——引擎 `question/requested` 载荷根本没有这个键（该载荷只有 `{sessionId, questions[]}`；vendored schema 的文件名与位置随引擎升级会变，以现查为准），nil 落到 `?? UUID().uuidString` 兜底，每次插入都是随机新 id；`question/resolved`（键为 `questionRpcId`）又未处理——pending 只进不出，一次提问后"需注意"状态卡死到引擎重启。
 - 处置：**挂起身份 = server-request 信封的 rpcId**（与前端 store 同一语义）；帧解析前先查 vendored schema（`packages/*/src/api/*.schema.ts`），契约字段直取、缺即 return，不做 UUID/空串兜底掩盖漂移（铁律 9/10）。表驱动 XCTest 钉住配对语义（EngineEventObserverTests）。
 
 ### 2.6 session/follow live 帧就是 SessionEventEntry 本体，勿多剥一层
@@ -156,7 +156,7 @@
 ### 4.6 alpha.2 引擎 wire 契约（实测 0.1.2-alpha.2 内嵌 runtime，换引擎必查）
 - **HTTP unary 面没有删**：`POST /api/<点号方法>`（`/api/session.list`）+ envelope `method` 必须与路径派生名一致（点号），payload 为**扁平参数**（`session.prompt` = `{sessionId,mode,content}`；`session.history` 的翻页锚叫 **`beforeSeq`** 不是 `atSeq`）。曾把点号转斜杠探测 → 404 → **误判 "HTTP 面已删"** → 整个前端切到 `/api/remote.mux` —— 而该引擎**根本没注册这个升级路由**（只有 `/api/events.mux`、`/api/events.host`，未注册路径直接 destroy socket）→ 所有 RPC 静默失败（表现为"发消息没反应"）。
 - **信任闸里没有 cookie/token**：`isTrustedApiRequest` 只查 Host 回环 + `sec-fetch-site` + Origin==Host。alpha.2 的 `dsh web:` 打印 URL **不带 token**（`localWebUrl` 就是裸回环地址），EngineAuth 的 cookie 交换无害但非必需。
-- 判定接口面用引擎源码：内嵌 runtime 的 `node_modules/@deepseek-ai/dsh-host-apiproxy/lib/index.js` 的 `UNARY_ROUTES` 是**全部** HTTP 方法的权威清单（含每个 payload 的 zod schema），不要靠猜。
+- 判定接口面一律查引擎源码，不要靠猜：`UNARY_ROUTES` 已随包消亡（现行契约见 `docs/DSH-WIRE.md` 与 §7.1）；权威参数清单 = 生成客户端各包 `lib/typert.remote-client.js` 的 `parameters[].wire`。
 
 ### 4.7 主窗口大圆角来自「可见的空 NSToolbar」（删掉/隐藏即退回小圆角档）
 - macOS 26 (Tahoe) 窗口圆角分两档（本机 26.5 截图实测，2x 拟合）：纯标题栏窗口 ≈16pt；**带可见 toolbar 的窗口 ≈26pt**（连续曲率，WindowServer 裁切，与 Finder/Notes 同款）。`toolbar.isVisible = false` 也会退回小档。
@@ -355,11 +355,11 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 
 ### 7.4 llm-pi-ai 配置段会被静默丢弃 + YAML `off` 键变布尔（2026-09-05 实测）
 - 症状：`settings.describe` 没有 `llm-pi-ai` 命名空间、`llm.models` 只剩 deepseek-official，**引擎日志零报错**。
-- 根因两起叠加：①引擎落盘 settings.yaml 时 `reasoningEfforts` 的 `off` 键不加引号，YAML 1.1 重读成布尔键 `false`（此后每轮启动都带着损坏键）；②配置条目在目录数据更换（嵌入时覆盖 pi-ai 数据层，`scripts/engine-model-data/`）后令路由解析失败，引擎对 llm-pi-ai 段的解析/决议失败一律**静默丢段**。
+- 根因两起叠加：①引擎落盘 settings.yaml 时 `reasoningEfforts` 的 `off` 键不加引号，YAML 1.1 重读成布尔键 `false`（此后每轮启动都带着损坏键）；②配置条目在目录数据更换（当时嵌入时覆盖了 pi-ai 数据层，该覆盖层现已删除，模型目录改为随引脚走）后令路由解析失败，引擎对 llm-pi-ai 段的解析/决议失败一律**静默丢段**。
 - 处置：隔离 home 二分（同配置 × 旧/新引擎对跑 + 逐条目字段矩阵）定位；先查 `settings.describe` 的 ns 清单判断段是否被丢。修复 = 把 `llm-pi-ai.providers.<id>` profile **置空**（空 profile 服务完整引擎目录，模型菜单随目录数据走）；勿再手写 models 快照——配置 models 非空即整体替换目录（`dsh-llm-pi-ai` catalog 的 `resolveRouteModels`），且混合协议路由下配置新增陌生 id 会令整路由解析失败。
 
 
-### 7.x（编号待并）dsh 的「导入会话」是社区插件，不是引擎内置——契约查证从 profiles/web 入手
+### 7.5 dsh 的「导入会话」是社区插件，不是引擎内置——契约查证从 profiles/web 入手
 - 事故（2026-09-06）：用户指认 dsh 有「导入会话」面板，但 vendored 源码、npm 主包 `@deepseek-ai/dsh`（含最新 0.1.2-rc.1）与官方 web 资产 grep 全部 0 命中，一度误判为"ZCode 自有功能"。真相：入口来自 **web profile 插件层**（`~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 列了社区包 `dsh-chat-import`），引擎只提供插件挂载点。
 - 查证路径：先看 `~/.dsh/profiles/web/package.json` 的 bundles/dependencies，再读插件包源码（`lib/panel.mjs` 等）拿真实路由契约——不要在引擎源里死磕。
 - 同场加映：`/api-import/import` 的结果条目在整源失败时只有 `status:"failed"+error` 没有数值字段，前端汇总要归一化否则 NaN；前端渐进扫描（逐来源 append）在「导入后立即 rescan」时与上一轮并发，来源行整组重复——世代守卫（ref 计数）是这类并发 setState 的最小修法。
