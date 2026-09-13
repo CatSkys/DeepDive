@@ -1,127 +1,80 @@
-# SELF-EVOLUTION — 自进化（经验沉淀与校验闭环）spec（草稿 v2 · 待拍板）
+# SELF-EVOLUTION — 自进化（经验沉淀与校验闭环）spec
 
-> **状态（2026-09-12）：已实现**——会话内采集 + 后台复盘（摩擦信号挑靶）→ 设置→自进化分区的待审队列 → 采纳交办落库 → 到期校验（回执块写回结论）→ 无效退役 / 手动撤销（走 git 回滚），外加运行历史与台账 Dashboard。
-> 用户已定四件事（§9.1）；其余按参考项目的最佳实践落、**不自己发挥**——每条设计在 §2/§3/§5 里都标了出处（出处清单见 §11）。
-> **落地文件**：`docs/EVOLUTION-POLICY.md`（政策，本设计的二级进化对象）、`AGENTS.md` 铁律 11（一行指路）、`frontend/src/evolution/`（protocol / store / useEvolution / EvolutionSection）、`dsh` 技能 `deepdive-evolution`（`EngineSupervisor.ensureEvolutionSkill`）。
-> 本文件是「自进化」这件事的**唯一事实源**：进化什么、谁变异、谁来选、效果怎么算、UI 长什么样。
-> 相关：协议与建议卡沿用 `docs/SPEC-AUTOMATION.md §3` 的通道；校验复用同文件的定时任务；引擎能力事实归 `docs/DSH-WIRE.md`；壳桥消息清单归 `frontend/src/host.ts` 头部。
+> **状态（2026-09-13）：v3 as-built——零人审全量重构已落地。** v1/v2 的人审门（采纳按钮）移除：人的角色收敛为「开关处一次性批准政策 + 事后审计」，单条经验的生死全部由机械门与效果校验判定。本文件是「自进化」的唯一事实源；标准与红线归 `docs/EVOLUTION-POLICY.md`（§0 自治模型）。
+> 落地面：`frontend/src/evolution/`（protocol / prompts / pipeline / store / useEvolution / EvolutionSection）、`frontend/src/memory/`（会话记忆分区）、壳 `EngineSupervisor`（固化脚本/插件/技能）与 `AppDelegate`（lesson-tool / memory 审计桥）。
 
 ## 0. 一句话
 
-把会话里挣到的**可复用工程经验**沉淀回仓库的知识家（AGENTS.md / skills / 长期记忆文档 / 提议策略），每条都带**可证伪的效果主张**：到期用独立数据（会话日志、git）校验，无效即退役并把教训回流去收紧提议策略。**默认"只提议"（Propose）——永不自动改变行为**；进化的对象是规则 / 技能 / 文档这一层，**不含产品代码**。
+把会话里挣到的**可复用工程经验**自动沉淀回仓库的知识家与引擎能力层，每条都带**可证伪的效果主张**：到期用会话日志机械校验，无效自动回滚。**零人审**——信任不靠"写之前人看过"，靠参考项目一致的组合拳：**变异面有界（允许清单）+ 写前机械门 + 写后机械验证 + 回滚完全且便宜**。
 
-## 1. 为什么是「知识层自进化」（三条约束）
+## 1. 闭环（七段，全部自动）
 
-- **没有裁判**。AHE 能把 Terminal-Bench 从 69.7% 抬到 77.0%，靠的是可复现评估集自动判死活；我们的裁判是交付链和你本人。所以闭环停在"带证据地提议 → 人点头 → 到期用独立数据校验"；没有独立数据时不宣称提升。
-- **仓库怎么被消费**。这个仓库靠提交信息、文档、截图消费，知识本来就分家住在 `AGENTS.md`、`docs/PITFALLS.md`、`docs/SPEC-*.md`、技能正文里。所以进化的动作是**往已有的家里补一条**。
-- **persona 页的教训**。空编辑框不知道该写什么；值钱的是**循环**：什么时候值得记、拿什么证据、记到哪个家、怎么证明它真省了事。
+1. **采集**：会话内 lesson 块（self-learning-skills 识别时刻）＋ 后台复盘（摩擦信号挑靶 + 24h 节流 + 7 天静默兜底——MiMo Dream/Distill 节奏）。复盘跑在一次性会话 `自进化·复盘`，输出随流采回（采集跟随运行会话直到 turn/end）。
+2. **机械门**（`lesson-gate.mjs` 宿主直跑，模型不在环内）：证据逐字 + 锚点存在；不过门即退役留档。
+3. **自动落地**：过门 FIFO、每日 ≤3 条（dsh-evolve-modes 批次默认）。落库会话按落点作用域创建——仓库家 cwd=工作区、DSH_HOME 家 cwd=`$DSH_HOME`：**沙箱 workspaceRoot 即会话 cwd**（引擎 sandbox-policy 原生），写边界由此机械生效（MiMo 代码级路径约束的引擎等价物）。
+4. **落地确认**（`lesson-land.mjs` 宿主直跑）：git 提交 + 允许清单 + 文件回读；不采信 agent 口头"完成"（Ditto selftest）。出允许清单自动撤销；内容缺失打回重落（≤2 次）后退役。
+5. **到期校验**（`lesson-verify.mjs` 宿主直跑）：签名命中按事件时间归入落地前/后两等长窗（锚定 appliedAt），应用按政策阈值判有效/无效/样本不足。校验零 token、无编造面。
+6. **无效自动撤销**（penguin「再评估不提升才保留」）：git revert / 删节 / 摘挂载块，状态退役留档。
+7. **整理环**（每 7 天，MiMo Dream）：按作用域两轮独立会话对知识文件去重、清失效锚点、压缩；直接维护性编辑 + git 提交，不走提案协议。
 
-## 2. 自进化四要素（每条标明出处）
+## 2. 数据形状（as-built）
 
-| 要素 | 本设计 | 出处 |
-|---|---|---|
-| **变异** | 一条提案 = 对某个知识家的**有界编辑**：正文由模型写，落点由协议锚定，范围限允许清单（§5）。 | penguin-harness 的 RSI 例子：`Evaluate → Diagnose → Edit → Re-evaluate`，**Edit 由 agent 自己写进自己的 `AGENTS.md`**；self-learning-skills：把黄金路径写进项目本地 skill / 规则文件。 |
-| **选择** | 双门：①**人审**（默认 `Propose`，状态机 `pending → applied / dismissed / expired`）；②**到期校验**（独立数据上的复现次数 / 步数对比），未过即退役。 | dsh-evolve-modes：自进化默认 `Propose`，"只提出候选规则，不会自动改变后续行为"；penguin：**只有再评估均分真的提升才保留改动**。 |
-| **存档** | 知识正文落仓库文件（git 提交即谱系）；提案队列、状态机、运行历史存应用侧（设置页可查）。 | dsh-evolve-modes：`settings[]` + `proposals[]` + `runs[]` + **`backups[]`** 分开存；AHE：组件 git 追踪、报告另存。 |
-| **二级进化** | **提议策略文件**（`docs/EVOLUTION-POLICY.md`，动工时创建）：什么算值得提、证据门槛、阈值、允许清单，按一级结果更新。这是唯一被"改"的 harness 层。 | AHE 的 evolve 组件本身也在迭代（提出改动同时预测影响，下一轮被自动证伪）；dsh-evolve-modes 把批次/上限等参数放在设置页可调。 |
+提案 JSON（`lesson` 围栏块）见 POLICY §1/§4 与 `evolution/protocol.ts`：`{category, home, anchor, content ≤2000, inference, evidence[{excerpt ≤500, note?}], predict{metric, signature, windowDays}|null}`；`origin {sessionId, turn, eventSeq}` 由应用盖戳（不采信模型自报定位）。应用侧状态字段：`gate {verbatim, anchorFound, at}`、`appliedAt / appliedSessionId / applyAttempts`、`lastVerifyAt / lastLandAt / revokeAt`、`landing {landed, commit?, files[], reason?, at}`、`verdict {before, after, verdict, at}`。状态机 `pending → applied → expired`（+`dismissed` 审计动作）；`pending` 是"过门待落地"的瞬态。
 
-## 3. 形态：六段闭环（逐段标出处）
+## 3. 允许清单（七家）
 
-1. **触发（会话内，两类）**。`explicit`：用户说"记住这个""下次别再让我解释"；`implicit`：任务试错数轮才走通、发现非显然的项目事实、同一坑第二次出现。**判据与措辞照 self-learning-skills 的"识别时刻"清单**（含"连死路一起记"）；`inference: explicit | implicit` 这个二分照 dsh-evolve-modes。
-2. **批量学习（后台，隔离）**。每累计完成 **N 次回复**触发一次学习运行（默认 **N=3**，可调 1..100）；学习运行**不继承上下文、不建子代理、不带工具、不读工作区 AGENTS.md**，只吃"最近 ≤100 条学习消息"（用户消息逐字 + 每轮最后一条助手消息；助手内容 >2000 字按"头 1000 + 尾 1000"截断），且只分析可能长期有效的经验。失败记进设置页、未完成批次保留重试、**不阻断正常回复**。以上照 dsh-evolve-modes 的"学习数据如何被整理 / 学习请求是隔离的"两节。
-3. **待审队列**。上限 **100 条**（可调 1..1000），到顶不再堆积。状态机 `pending | applied | dismissed | expired`；删除原因 `explicit_denial | expired | replaced`。（出处同 §3.2；字段见 §4。）
-4. **采纳落库（agent 在会话里写）**。点采纳 → 应用开一轮会话，让 agent 按提案的落点与正文写进目标文件（写法遵循该家规范），并提交一次 git（提交信息引用提案 id 与证据指针）；**写盘前留一份原文备份**（`backups[]`），所以撤销是精确回滚，不会撞上你未提交的改动。**为什么由 agent 写**：penguin 的 RSI 例子里 Edit 步骤就是 agent 自己写自己的 `AGENTS.md`，self-learning-skills 同样是技能自己落盘——这是两家既定做法，也省得应用自造一套文档格式逻辑。
-5. **到期校验**。窗口到期（默认 14 天，可调）由一条内置定时任务执行：按台账生成指令，让 agent 用 shell 挖会话日志（`zstd -dc <session>.jsonl.zstd | grep …`）报出**复现次数**或**步数前后对比**。数据只认日志与 git。
-6. **退役与回流**。判无效 → 状态置 `expired`（或 `replaced`），正文保留并附失败原因 → 同时产出一条**二级提案**改 `EVOLUTION-POLICY.md` 的对应判据。于是"无效"是策略的一次变异，不是终点。
+`agents / pitfalls / spec / skill / policy`（仓库四家+政策）、`global`（`$DSH_HOME/AGENTS.md`，AHE 式追加区，无 git 担保较弱）、`plugin`（引擎插件 + 用户层挂载，热装）。细则与依据归 POLICY §1。产品代码一律不在清单内。
 
-## 4. 数据形状（照 dsh-evolve-modes 的 schema 收敛，字段语义沿用）
+## 4. 能力层（plugin 家）
 
-```jsonc
-// 一条提案（存应用侧队列）——as-built 字段；origin 由应用盖戳（§9.0.2），不在块里
-{
-  "id": "l-7f3a",
-  "category": "incident | workflow | fact | rule",      // 对应知识家的四类：坑 / 流程 / 事实 / 规则
-  "home": "pitfalls | agents | spec | skill | policy",  // 落点（允许清单见 §5）
-  "anchor": "### 4.17 桥端口一变",                        // 标题锚；找不到整条拒绝，不猜位置
-  "content": "要写入的完整文本（≤2000 字）",
-  "inference": "explicit | implicit",
-  "evidence": [{ "excerpt": "逐字 ≤500 字", "note": "出处提示（可选）" }],
-  "predict": { "metric": "repeat-incident | steps", "signature": "可 grep 的串", "windowDays": 14 },
-  "status": "pending | applied | dismissed | expired",
-  "createdAt": 0, "updatedAt": 0
-}
-```
+- 落地物 = Cordis 函数插件 `{name, inject, apply}`（范本=盘上 dsh-schedule）+ `profiles/web/cordis.patch.yml` 挂载块（`name` 绝对路径 + `# mounted-by-deepdive <提案id>` 戳）。web profile `patchReload: "live"`——挂载经引擎 HMR 热装，不重启（引擎原生机制，Cordis 论文的动态组合）。
+- selftest：land 阶段 `node --check` 语法自检 + 挂载块带戳校验。
+- 崩溃自愈：引擎连续 3 次启动失败且用户层 patch 有 `lesson-` 挂载块 → 壳整块摘除（全文进日志）再给一次重启（EverOS fail-open 的宿主侧）。
+- 撤销 = 删插件目录 + 摘挂载块（Cordis dispose：移除即完全回滚）。
 
-硬规则（来自 dsh-evolve-modes 的证据条款）：**证据必须逐字**——助手的推断、一次性任务细节、实现结果、"没有再提到"都不能单独作为证据；`predict.signature` 必须在日志里**自证可 grep**，否则降为 `style` 类且不进统计；缺 `predict` 的条目同样按 `style` 处理。
+## 5. 会话记忆（Session 层，设置→记忆）
 
-## 5. 允许清单（按参考收敛，不自己划）
+随应用铺盘的引擎插件 `deepdive-session-memory`：每轮第一个模型步前注入 `<session_memory>` 围栏笔记（不可信历史证据，EverOS 同款，fail-open）；模型用 `memory_note_write` 整份重写（字段照 MiMo writer checkpoint 裁 8 节）、`memory_note_read` 回读、`new_context` 走 `ctx.compaction.compactNow`（引擎无自定义种子接口，笔记每轮注入天然接管恢复——适配）。单写者：每会话一份文件、Node 串行写。笔记落 `<DSH_HOME>/deepdive/memory/`，审计面（查看/忘记/全清）在设置→记忆。开关默认关；装配在启动时读，对会话晚一拍生效。
 
-进化可写的家 = **AGENTS.md（规则）+ skills（技能正文）+ 长期记忆 / 知识文档（PITFALLS、SPEC 的设计段）+ 提议策略文件**。
-依据：self-learning-skills 落到"项目本地 skill / 规则文件"；penguin 落到"自己的 `AGENTS.md`"；AHE 的七个组件是 **system prompt / tool descriptions / tool implementations / middleware / skills / sub-agents / long-term memory**（`LongTermMEMORY.md` 里带一段 `## Agent Added Memories` 供 agent 追加），**没有"产品代码"**；dsh-evolve-modes 只认 `identity | preference | work_rule` 三类。
-**代码、脚本、配置一律不在清单内**——四个参考没有任何一个把产品代码当进化对象。有异议你再说，这条我不再问。
+## 6. Recall 层（跨会话情节召回，EverOS）
 
-## 6. 效果口径（"明确有效果"按这三条算）
+挂载 EverMind 官方 dsh 插件（本地源码安装于 `~/Library/Application Support/DeepDive/vendor/everos-dsh-plugin`，profile bundles 已注册）+ EverOS 服务（`uv tool install everos==1.3.1`，**钉 release**；`defer_extraction` 需其 main 分支，不追）。提取端点 DeepSeek（`~/.everos/everos.toml` → `api.deepseek.com/v1`，api_key 由用户填写——应用不碰凭据）。壳 spawn 时探测 `~/.local/bin/everos` 注入 `EVEROS_DSH_START_COMMAND` 绝对路径。机制：每轮 pre-step 召回注入（围栏成不可信证据）、轮停边界无 LLM 捕获、闲时批量提取、fail-open；**故意不提供模型可写的记忆工具**（单一提取权威）。隐私：捕获轨迹含源码片段与命令，会流经 `~/.everos` 与所配模型提供方——敏感仓库使用前须知晓。
 
-- **指标 A · 重复事故率**：`repeat-incident` 类经验在窗口内被 grep 到的次数。有效=落地后 ≤ 基线一半（`after ≤ before / 2`）；阈值口径以 `docs/EVOLUTION-POLICY.md §4` 为唯一事实源（判定在应用侧 `judgeVerdict`）。数据源：会话日志。
-- **指标 B · 关键流程步数**：`steps` 类经验落地前后，同一流程（按签名匹配）在会话里的工具调用数均值。目标至少 **−30%**。
-- **指标 C · 循环健康度**：采纳率（目标 ≥50%）、复提率（目标趋近 0）、学习运行失败率。全部可从提案队列算出。
-- **基线可回溯**：A、B 都能先在现有日志上跑一遍得到"之前是多少"，所以第一批落地后**几天内**就有前后对比。
-- **反作弊**：校验数据只认日志 / git，不许自评；`style` 类不进统计；签名须自证可 grep；样本不足一律标 `未验证`，不折算成成功。
-- 出处：形态来自 penguin 的"**rubric 打分 + 再评估，均分提升才保留**"；把 rubric 换成"日志上的复现次数 / 步数"是**本地适配**（我们没有基准任务集，这点不装成别人的做法）；"预测 + 被下一轮证伪"来自 AHE 的 decision observability。
+## 7. UI（设置）
 
-## 7. 非目标
+- **自进化分区**：开关（默认关，知情确认写明自动落地与消耗）→ 台账 Dashboard（状态环图 + 近 30 天活动柱状）→ 处理中（管线状态：证据校验中/待落地/未过证据门）→ 台账（已定案：落地 commit、校验结论、无效已撤）→ 运行历史（模型会话可打开；本机执行标「本机执行」）。审计动作：丢弃、撤销、查看证据原文（跳 origin 会话——EverMe `read_original` 界面等价）、查看写入会话。
+- **记忆分区**：会话记忆开关 + 笔记查看/单条忘记/全部清除（Ditto 记忆页同款）。
+- 会话里零 UI：合法 lesson 块不渲染（SPEC-AUTOMATION §3 的 automation 卡是另一套交互，勿混用）。
 
-- 不改产品代码、脚本、配置。
-- 不自动合并：默认 `Propose`，任何落库都过人（照 dsh-evolve-modes）。
-- 不建平行记忆库：知识正文留在仓库的家里，应用侧只存提案与运行历史。
-- 不做隐藏的全局指令块（persona 页老路）。
-- 不宣称没有独立数据支撑的提升。
+## 8. 设计对本地约束的适配（逐条显式，不装成参考的原样）
 
-## 8. UI：设置里一个独立的「自进化」分区（用户定稿：其他地方全隐藏）
+1. 复盘/整理是独立会话（SPA 无直连模型通道），靠"一次性会话 + read-only/workspace-write + 成本上限"逼近 dsh-evolve-modes 的隔离学习；判定独立，不复用交办会话历史。
+2. 证据定位由应用盖戳；模型只给逐字摘录。
+3. 复盘节流 24h+7d（参考是每 3 回复一次廉价调用——我们的复盘是一整轮 agent）。
+4. 校验从"校验会话跑脚本"升级为**宿主直跑**（v3）：token 成本归零、无编造面；`lesson-verify` 围栏块仅作历史兼容解析。
+5. 撤销走 git，不落 `backups[]`（dsh-evolve-modes 有 backups；git 谱系可精确回滚，应用侧不留快照）。
+6. `new_context` ≈ 引擎压缩通道 + 笔记接力（无自定义种子接口）。
+7. `global` 家锚点固定 AHE 式追加区（文件可能不存在，落库时创建）。
+8. 判定在应用侧（`judgeVerdict` 阈值表），模型/脚本只报 before/after。
 
-- **开关（用户定稿，参考"实验室功能"那块）**：分区顶部一行「自进化」+ 两行说明 + 右侧开关，**默认关**（实验性能力，opt-in）。开启前弹确认框，把"它会读你的会话日志、按你的模型凭据花 token、采纳后由 agent 往仓库知识文件里写、不改产品代码、随时可关"一次说清。
-  - 开关存壳偏好（`deepdive.evolution.enabled`，`DSHAppPrefs`）。**两处生效面**：① 应用侧——关着就不采集、不自动复盘、不自动校验（立即生效）；② 装配侧——关着时 `engine-patch.yml` 的 `system-prompt` 前缀不写自进化那行指路（启动时读，所以晚一拍对新会话生效，与参考的"只对新建会话生效"同义）。
-- **台账用图形（用户定稿）**：状态构成的环图（几何照使用统计的 `chartMath.arcPath`：R58/描边 22/2° 间隙，青=有效、红=无效，其余黑白灰）+ 近 30 天活动柱状（新增提案 / 交办两种），数据来自 `evolution/chartData.ts` 的纯函数。数字都在图上，不再堆一行行文字。
-- **没有"手动跑一次复盘"按钮**（用户：太抽象）。复盘只走自动路径（攒够轮数 + 日节流，巡检 1 分钟一次）。
+## 9. 验收口径
 
-- 设置左导航新增 **自进化** 分区（与 模型 / 自动化 平级）。
-- 顶部 **Dashboard**：累计经验 N 条、待审 M 条、已采纳 / 已退役各几条、上次学习运行与上次校验的时间与结果。（dsh-evolve-modes 的设置页就是这个结构：学习失败与运行历史都落在设置页。）
-- 列表：每条一行 → 展开看落点、正文、逐字证据、预测与到期日、状态；操作为 **采纳 / 丢弃 / 撤销**（撤销走 `backups[]`）。
-- 运行历史：学习运行与校验运行的时间线（含失败与重试入口）。
-- **会话里零 UI**：提议不在消息流出卡片、不弹提示，用户只在设置页看它们。（这条是用户定稿；与 `SPEC-AUTOMATION` 的建议卡是两套交互，别混用。）
+- 说一句"记住这个" → 台账出现一条 pending（证据校验中），消息流零 UI。
+- 过门 → 自动落地 → 台账显示落地 commit；`git log --grep=<id>` 命中、触碰文件 ⊆ 允许清单。
+- 编造摘录 / 锚点不存在 → 未过证据门，直接退役（日志可查）。
+- 到期 → 本机校验出 before/after → 阈值判无效 → 自动回滚，git 无该节内容。
+- 7 天静默 → 复盘自行运行；7 天 → 整理环自行运行。
 
-## 9. 已定与待定
+## 10. 出处清单（逐个核过源码/实装）
 
-0. **Phase 1 落地时对设计的三处本地适配**（照旧标出来，不装成别人的做法）：
-   1. **后台复盘运行会是一条独立会话**（Phase 2），而不是 `dsh-evolve-modes` 那种"插件直连模型、无工具、不读工作区"的隔离调用——SPA 没有直接模型通道，只能经 `session/prompt` 走 agent 循环；届时靠"新会话第一轮 + 只读权限预设 + 指令限定只分析"逼近那份隔离性。
-   2. **证据定位由应用盖戳**：提案块里只要求 `excerpt`（+可选 `note`），`origin {sessionId, turn, eventSeq}` 由采集端写入，**不采信模型自报的定位**（模型拿不到可靠的 seq）。政策 §3 里"逐字证据"的要求不变。
-   3. **`applied` 语义 = 已交办**（附落库会话 id）；"真正落地"以 `git log --grep=<提案 id>` 为准（落库那次提交必须引用 id，撤销也用同一条线索）。
-   4. **复盘节流偏离参考的默认批次**：dsh-evolve-modes 是"每 3 次回复一次廉价学习调用"，我们的复盘是一整轮 agent（要自己挖日志），所以实现取"攒够 3 轮 **且** 距上次复盘 ≥ 24h"——无感路径不变（用户零动作），代价可控。
-   6. **复盘改为扫日志、校验改为一次性会话**：靶子＝"距上次复盘后有更新的会话"（会话内实时采集退化为"摩擦信号补充"，不再决定复盘挑谁）；复盘/校验各起一次性会话并命名（`自进化·复盘` / `自进化·校验`），因为判定要独立、不该继承交办会话的历史；自己开的会话记进 `ownSessions` 并在下一轮排除。参考 dsh-evolve-modes 的"学习请求是隔离的"，这是我们在没有直接模型通道时的最接近做法。
-   7. **判定在应用侧**：模型只报 `before`/`after` 两个窗口的数，有效/无效/样本不足由 `judgeVerdict` 按政策阈值算（政策 §4 的表）——避免"自己给自己判分"。
-   8. **校验器固化**：`<DSH_HOME>/deepdive/lesson-verify.mjs`（壳每次启动铺盘、可执行、node + 随包 fzstd，路径写死），复盘/校验只调它——把"SoL-Pi 式机制固化"用在验证环节：从"每次让模型现写 grep 管道（20+ 次工具调用、几分钟）"变成一条命令。
-   5. **撤销走 git 回滚，不落 `backups[]`**：落库是 agent 在会话里写并提交的，应用手上没有原子快照；`git log --grep=<id>` 能精确定位那次提交，`git revert`/删节再提交即可回滚。SPEC 早先设想的 `backups[]` 因此不实现（记在这里，免得后人去找）。
-
-1. **用户已定（2026-09-12）**：① 提案来源＝会话内顺手记 **＋** 后台复盘，两者都要；② 采纳后**由 agent 在会话里写**进仓库；③ 入口＝设置里**独立一个「自进化」分区**；④ 允许清单按参考收敛（§5），不让用户拍。
-2. **按参考定的默认值**（可调，不再问）：学习批次 N=3、待审上限 100、窗口 14 天、默认模式 `Propose`。出处：dsh-evolve-modes 的默认设置表。
-3. **已定（用户 2026-09-12）**：二级进化的载体＝新建 `docs/EVOLUTION-POLICY.md`（正文）+ `AGENTS.md` 一行指针（合两条家规：一事一家 + 规则只留 1-3 行并链接）。
-4. **已实现（Phase 2）**：后台复盘运行（摩擦信号 + 日节流，形态见 §9.0.1/§9.0.4）、到期校验（校验运行回 `lesson-verify` 块，采集端写回结论；无效自动退役）、撤销（git 回滚）、运行历史与 Dashboard 的有效/无效列。
-
-## 10. 验收口径（动工后按这个验）
-
-- 说一句"记住这个" → 设置页待审队列 +1，**消息流里什么都没有**（零 UI）。
-- 点采纳 → 目标文件出现该节、有一次引用提案 id 的 git 提交（谱系与撤销都靠它；早先设想的 `backups[]` 不实现，见 §9.0.5）。
-- 点丢弃 → 状态 `dismissed` 留档；同一签名再提会被策略压低优先级（复提率可观测）。
-- 到期校验跑一次 → 标记补上复现次数与结论；人为重造一次那个签名，校验必须判**无效**并产出二级提案。
-- Dashboard 上的"前后对比"能在现有日志上算出来（不依赖新数据积累）。
-
-## 11. 出处清单（本研究逐个核过星数、推送时间与源码）
-
-| 仓库 | 我们拿它的什么 |
+| 来源 | 拿它的什么 |
 |---|---|
-| [GraySilver/dsh-evolve-modes](https://github.com/GraySilver/dsh-evolve-modes) | 默认 Propose、提案状态机与删除原因、证据必逐字、学习批次与上限默认值、隔离学习运行、设置页承载 Dashboard 与运行历史、`backups[]` |
-| [Prism-Shadow/penguin-harness](https://github.com/Prism-Shadow/penguin-harness) | `Evaluate → Diagnose → Edit → Re-evaluate` 循环、"均分提升才保留"、Edit 由 agent 自己写 `AGENTS.md`、契约限定进化面 |
-| [Kulaxyz/self-learning-skills](https://github.com/Kulaxyz/self-learning-skills) | "识别时刻"判据、连死路一起记、落点是项目本地 skill / 规则文件 |
-| [china-qijizhifeng/agentic-harness-engineering](https://github.com/china-qijizhifeng/agentic-harness-engineering) | 组件化 + git 可回滚、`LongTermMEMORY.md` 的 `## Agent Added Memories` 段、decision observability（预测 + 自动证伪） |
-| [NVlabs/SoL-Pi](https://github.com/NVlabs/SoL-Pi) | 机制默认关闭、逐条 opt-in、每条都要可量的收益主张 |
-| [greyhaven-ai/autocontext](https://github.com/greyhaven-ai/autocontext) | 每轮留下 traces / 报告 / playbook：留有用教训、丢死路 |
+| [Cordis 论文（DeepSeek-AI×北大）](https://github.com/deepseek-ai/deepseek-harness) | 自进化 harness 的一等公民定位；可逆效应/反应式协效应→dsh 插件 dispose 与 inject；dsh 即其实现（app-boot/patch/HMR） |
+| [GraySilver/dsh-evolve-modes](https://github.com/GraySilver/dsh-evolve-modes) | 状态机与退役语义、证据必逐字、批次=3、待审上限、隔离学习 |
+| [Prism-Shadow/penguin-harness](https://github.com/Prism-Shadow/penguin-harness) | Evaluate→Diagnose→Edit→Re-evaluate；「不提升即撤」→无效自动回滚 |
+| [Kulaxyz/self-learning-skills](https://github.com/Kulaxyz/self-learning-skills) | 识别时刻判据、连死路一起记 |
+| [china-qijizhifeng/agentic-harness-engineering](https://github.com/china-qijizhifeng/agentic-harness-engineering) | 组件化+git 谱系、`## Agent Added Memories`（global 家锚点）、预测+证伪 |
+| [NVlabs/SoL-Pi](https://github.com/NVlabs/SoL-Pi) | 机制默认关、逐条 opt-in、搜出即固化（lesson-verify.mjs） |
+| [EverMind-AI/EverOS + plugins/dsh](https://github.com/EverMind-AI/EverOS) | Recall 层整体；围栏成不可信证据+记号中和、fail-open、单一提取权威（模型不可写记忆）、事件游标增量捕获、宿主侧 provision/selftest 姿势 |
+| Ditto（Timothy-kira/Ditto，EverMe） | 宿主打补丁+selftest 验证+失败回滚；会话笔记每轮注入+new_context 不摘要换窗；记忆页查看/忘记/全清；哈希核原文→「查看原文」 |
+| [XiaomiMiMo/MiMo-Code](https://github.com/XiaomiMiMo/MiMo-Code) | Dream/Distill 周期整理与固定节奏；Markdown=可审查性；写入代码级约束→沙箱作用域会话；single-writer；checkpoint 字段裁剪；零人审+审计的信任模型 |

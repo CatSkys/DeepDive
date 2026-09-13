@@ -33,10 +33,9 @@ Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`D
 
 `docs/SPEC-AUTOMATION.md`（已实现态）＝ 定时任务管理页：到点新开会话发指令，任务存在本机、由客户端调度（引擎无定时任务 RPC）。**开放项**：一次性计划 / 批量队列（形态见 SPEC §2，未做）；「应用关闭也照跑」需常驻代理，另立项。
 
-## 5. 自进化（经验沉淀与校验闭环）
+## 5. 自进化（零人审 v3，已全量落地）
 
-**已实现**：会话内采集 + 后台复盘（摩擦信号挑靶 + 日节流）→ 设置→自进化分区的待审队列 → 采纳交办落库 → 到期校验（回执块写回结论）→ 无效退役 / 手动撤销（git 回滚）+ 运行历史。政策文件 `docs/EVOLUTION-POLICY.md` + `AGENTS.md` 铁律 11 + 技能 `deepdive-evolution`。**开放项**：校验的粗判（复现次数/步数）目前靠 agent 挖日志，量大后可考虑本地索引。设计稿 `docs/SPEC-SELF-EVOLUTION.md`：会话内顺手记 + 后台隔离复盘（每累计 3 次回复一批），提案进设置里**独立的「自进化」分区**待审（Dashboard 显示累计/待审/已采纳/已退役 + 运行历史），采纳后**由 agent 在会话里写**进允许清单内的知识家（AGENTS.md / skills / PITFALLS / SPEC / 提议策略），写前留备份、提交带提案 id；到期用会话日志校验（重复事故率目标 0、流程步数目标 −30%），无效退役并把教训回流改提议策略。默认 `Propose`，其余设计逐条标了参考出处（SPEC §2/§3/§5/§11）。
-
+七段闭环全自动：采集（会话内 lesson + 复盘 24h/7d 兜底）→ 机械门（证据逐字+锚点，壳直跑）→ 自动落地（3 条/天，沙箱作用域会话）→ 落地确认（git--grep+允许清单+文件回读）→ 到期校验（lesson-verify 宿主直跑，appliedAt 锚定）→ 无效自动撤销 → 整理环（7 天，MiMo Dream）。允许清单七家（含 global= $DSH_HOME/AGENTS.md、plugin=引擎插件热装）。会话记忆插件（Session 层）+ EverOS Recall 层（钉 1.3.1，DeepSeek 端点，api_key 待用户填 ~/.everos/everos.toml）已挂载。设计/出处/适配清单见 `docs/SPEC-SELF-EVOLUTION.md` v3 与 `docs/EVOLUTION-POLICY.md` §0。**开放项**：细粒度摩擦信号（同命令重试/重复读文件/审批被拒）待采纳率数据积累后评估；EverOS defer_extraction 上 tag 后升级引脚。
 
 ## 6. Windows 客户端
 
