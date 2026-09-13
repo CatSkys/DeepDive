@@ -25,6 +25,7 @@ import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
+import { uuid } from "../uuid";
 
 
 export function SessionView({ sessionId }: { sessionId: string }) {
@@ -434,7 +435,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             wsPath={wsPath}
                             hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
                             onContinue={() => {
-                              void api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
+                              void api.prompt({ requestId: uuid(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
                             }}
                           />
                         </div>

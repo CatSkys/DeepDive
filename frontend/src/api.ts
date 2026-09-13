@@ -1,5 +1,6 @@
 import { mux, type RemoteEventWaterfallFrame } from "./mux";
 import type { HistoryEntry, PromptContentPart, QuestionAnswerItem, RpcResult, SessionAddress, SessionEvent, SessionSummary, WorkspaceView } from "./types";
+import { uuid } from "./uuid";
 
 // Same-origin bridge (/api → engine). Wire contract audited against the
 // pinned engine source (vendored packages/api/gateway + packages/client/
@@ -17,7 +18,7 @@ async function unary<T = unknown>(method: string, args: Record<string, unknown> 
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       type: "client-request",
-      rpcId: crypto.randomUUID(),
+      rpcId: uuid(),
       method,
       payload: { args },
     }),

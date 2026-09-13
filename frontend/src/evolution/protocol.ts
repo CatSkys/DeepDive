@@ -5,6 +5,8 @@
 // 这里是**形状边界**：不合形状一律 null——采集端丢弃、显示端退回普通代码块，
 // 绝不猜字段。origin（会话/轮/事件序号）由采集端盖戳，不采信模型自报的定位信息。
 
+import { uuid } from "../uuid";
+
 export const LESSON_LANG = "lesson";
 /** 校验回执块的 info string（后台校验运行用它把结果写回队列）。 */
 export const VERDICT_LANG = "lesson-verify";
@@ -149,7 +151,7 @@ export function parseLesson(
 
   const now = Date.now();
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     category,
     home,
     anchor,

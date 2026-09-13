@@ -6,6 +6,7 @@
 import { api } from "../api";
 import { automationRunTitle } from "../session/backgroundSession";
 import type { AutomationTask } from "./model";
+import { uuid } from "../uuid";
 
 /** reused = 这次是复用既有会话（调用方据此决定要不要把新会话记回任务）。 */
 export type RunOutcome = { sessionId: string; reused: boolean } | { error: string };
@@ -26,7 +27,7 @@ export async function startRun(task: AutomationTask, reuse: string | null): Prom
       if (res?.result.kind === "error") throw new Error(res.result.text);
     }
     await api.prompt({
-      requestId: crypto.randomUUID(),
+      requestId: uuid(),
       sessionId,
       mode: "queue",
       content: [{ type: "text", text: task.instruction }],

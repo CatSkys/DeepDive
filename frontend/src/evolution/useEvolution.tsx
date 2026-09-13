@@ -20,6 +20,7 @@ import type { SessionEvent } from "../types";
 import { applyPrompt, consolidatePrompt, reviewPrompt, revokePrompt, type ReviewTarget } from "./prompts";
 import { APPLY_RETRY_MAX, dayKey, nextAction } from "./pipeline";
 import { HOME_TASK_TITLE, REPO_TASK_TITLE } from "../session/backgroundSession";
+import { uuid } from "../uuid";
 import {
   GLOBAL_ANCHOR, homeScope, judgeVerdict, lastJsonLine, lessonBlocks, parseGateReceipt, parseLandReceipt,
   parseLesson, parseVerdictValue, type LessonProposal,
@@ -124,7 +125,7 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
   useEffect(() => { void evolutionEnv().then((env) => setHarnessHome(env?.harnessHome ?? null)); }, []);
 
   const addRun = useCallback((kind: EvolutionRun["kind"], sessionId: string, note?: string) => {
-    const run: EvolutionRun = { id: crypto.randomUUID(), kind, at: Date.now(), sessionId, ...(note === undefined ? {} : { note }) };
+    const run: EvolutionRun = { id: uuid(), kind, at: Date.now(), sessionId, ...(note === undefined ? {} : { note }) };
     setRuns((prev) => [run, ...prev].slice(0, 50));
   }, []);
 
@@ -196,7 +197,7 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
         ? await freshSession(opts.freshTitle)
         : await ensureJobSession(opts.scope ?? "repo");
       await setPermission(sessionId, "workspace-write");
-      await api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text }] });
+      await api.prompt({ requestId: uuid(), sessionId, mode: "queue", content: [{ type: "text", text }] });
       addRun(kind, sessionId, opts.note);
       void storeRef.current.refresh();
       return sessionId;

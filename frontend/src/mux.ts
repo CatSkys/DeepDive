@@ -11,6 +11,8 @@
 // 钩子调 recycle() 兜底。不管业务语义（帧解释归 api.ts 的类型与
 // store/useSessionEvents 的消费）。
 
+import { uuid } from "./uuid";
+
 export interface RemoteEventReadyFrame {
   type: "ready";
   clientId: string;
@@ -86,7 +88,7 @@ class MuxClient {
   /** 注册一条逻辑流：连接建立（或重建）时自动 open；close() 撤销注册。
    *  onItem 收到该流的每个 item value（含首帧快照/基线）。 */
   openStream(endpoint: string, args: Record<string, unknown>, onItem: (value: unknown) => void): () => void {
-    const streamId = `${endpoint}-${crypto.randomUUID()}`;
+    const streamId = `${endpoint}-${uuid()}`;
     this.streams.set(streamId, { endpoint, args, onItem });
     this.ensureConnected();
     this.sendOpen(streamId);
@@ -117,7 +119,7 @@ class MuxClient {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         type: "client-request",
-        rpcId: crypto.randomUUID(),
+        rpcId: uuid(),
         method: "$events/result",
         payload: { args: { clientId: this.eventClientId, eventId, outcome } },
       }),

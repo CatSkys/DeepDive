@@ -1,3 +1,4 @@
+import { uuid } from "./uuid";
 // Shell↔frontend bridge mount (SPEC-NOTIFICATIONS-FLOATING-BALL §3.1).
 //
 // The native shell pushes instructions via WKWebView evaluateJavaScript on
@@ -129,7 +130,7 @@ function bridgeRequest<T>(
       resolve(fallback);
       return;
     }
-    const reqId = crypto.randomUUID();
+    const reqId = uuid();
     let off: () => void = () => {};
     const timer = window.setTimeout(() => {
       off();

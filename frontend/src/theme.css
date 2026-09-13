@@ -241,6 +241,9 @@ button {
   -webkit-user-select: none;
 }
 
+/* 窄屏遮罩（手机远程）：只在 ≤760px 出现，宽屏是 no-op。 */
+.sidebar-scrim { display: none; }
+
 /* 侧栏与背景层一体（§0/§1）：无自己的圆角、描边、底色——窗口的底就是它
    的底；顶部 46px 让位给红绿灯 + 顶部钮。 */
 .sidebar {
@@ -2653,6 +2656,40 @@ button {
 @media (max-width: 860px) {
   .msg-block.user { max-width: 78%; }
   .hero { padding: 0 20px; }
+}
+/* 手机（≤760px，与 store 的侧栏自动收起同一断点）：侧栏改浮层。
+   这里是 flex 兄弟时会挤掉主卡，且它自己盖住了顶部那颗「收起侧栏」钮——
+   展开后就再没有关闭路径。挪出流程 + 遮罩可点收起，一并关掉没有意义的
+   拖拽调宽。收起仍走同一套过渡（用 transform，别沿用按 240px 写死的
+   margin-left 秘籍：浮层宽度不是 240）。 */
+@media (max-width: 760px) {
+  .sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(280px, 82vw);
+    max-width: none;
+    transition: transform 220ms cubic-bezier(.2,0,0,1), opacity 200ms ease;
+    /* 浮起来就得自己有底：宽屏时它是"窗口的底"（不透明靠 .app），浮在主卡
+       之上再没有那层底——用弹层的玻璃配方 + 右描边，与全站弹出件同观感。 */
+    background: var(--panel-strong);
+    backdrop-filter: blur(40px) saturate(160%);
+    border-right: 1px solid var(--line);
+    box-shadow: var(--shadow-pop);
+  }
+  .app.collapsed .sidebar { margin-left: 0; transform: translateX(-100%); }
+  .sidebar-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    display: block;
+    padding: 0;
+    border: none;
+    background: rgba(0, 0, 0, .42);
+  }
+  .sidebar-resizer { display: none; }
 }
 @media (max-width: 720px) {
   .msg-block.user { max-width: 88%; }

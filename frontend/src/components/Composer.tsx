@@ -18,6 +18,7 @@ import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
 import { useSlashCommands } from "./composer/useSlashCommands";
 import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
+import { uuid } from "../uuid";
 
 /* ─────────────────────────────────────────────────────────
  * COMPOSER — single glass pill: [＋] [textarea] [容量圈] [发送]
@@ -198,7 +199,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       setBusy(false); return;
     }
     try {
-      const rpcId = crypto.randomUUID();
+      const rpcId = uuid();
       if (subagent) {
         await api.subagentPrompt({
           requestId: rpcId,

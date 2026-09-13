@@ -8,6 +8,7 @@ import { pickAttachments, type PickedAttachment } from "../../host";
 import { formatMention } from "../../atGrammar";
 import { tt } from "../../i18n";
 import { api } from "../../api";
+import { uuid } from "../../uuid";
 
 export interface ImageAttachment {
   /** chip 的稳定 key，摄入时生成；不进发送载荷。 */
@@ -114,7 +115,7 @@ function ingestPicked(
   for (const it of items) {
     const mime = IMAGE_MIME[it.name.split(".").pop()?.toLowerCase() ?? ""];
     if (it.isImage && it.base64 && mime) {
-      setAttachments((prev) => [...prev, { id: crypto.randomUUID(), kind: "image", data: it.base64!, mediaType: mime, name: it.name }]);
+      setAttachments((prev) => [...prev, { id: uuid(), kind: "image", data: it.base64!, mediaType: mime, name: it.name }]);
     } else if (!it.isDir && it.base64) {
       // 壳回传的是 base64：转 File 供流式上传（字节一致）
       const bin = atob(it.base64!);
@@ -147,7 +148,7 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
       const dataURL = String(reader.result);
       const comma = dataURL.indexOf(",");
       const mediaType = dataURL.slice(5, dataURL.indexOf(";"));
-      setAttachments((prev) => [...prev, { id: crypto.randomUUID(), kind: "image", data: dataURL.slice(comma + 1), mediaType, name: file.name }]);
+      setAttachments((prev) => [...prev, { id: uuid(), kind: "image", data: dataURL.slice(comma + 1), mediaType, name: file.name }]);
     };
     reader.readAsDataURL(file);
   };
@@ -184,7 +185,7 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
   };
 
   const addFile = (file: File) => {
-    const id = crypto.randomUUID();
+    const id = uuid();
     if (sessionId) {
       setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "uploading", file, progress: 0 }]);
       startUpload(id, sessionId, file);

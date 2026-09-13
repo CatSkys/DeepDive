@@ -190,6 +190,11 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         />
       ) : (
         <>
+      {/* 窄屏（手机远程）遮罩：侧栏在那儿是浮层，展开会盖住顶部那两颗钮——
+          点遮罩收回，否则没有关闭路径。宽屏下 CSS 直接 display:none。 */}
+      {!store.sidebarCollapsed && (
+        <button className="sidebar-scrim" aria-label={t("收起侧栏")} onClick={() => store.toggleSidebar()} />
+      )}
       <Sidebar onOpenSettings={() => openSettings()} />
       {/* SessionView key：会话切换必须全新挂载——无 key 时 React 复用实例，
           旧会话的 items/eventLog 残留会在新会话 summary 就位前闪现旧内容。 */}

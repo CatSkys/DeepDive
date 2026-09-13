@@ -10,6 +10,7 @@ import { tt } from "../i18n";
 import { nextRunAt, reuseSessionId, type AutomationTask, type TaskDraft, type TaskRun } from "./model";
 import { startRun } from "./runner";
 import { loadKeepAwake, loadRuns, loadTasks, saveKeepAwake, saveRuns, saveTasks, trimRuns } from "./storage";
+import { uuid } from "../uuid";
 
 /** 调度 tick 间隔（任务按分钟排班，秒级精度没有意义）。 */
 const TICK_MS = 30_000;
@@ -72,7 +73,7 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     if (inFlightRef.current.has(task.id)) return null;
     inFlightRef.current.add(task.id);
     setRunning(new Set(inFlightRef.current));
-    const run: TaskRun = { id: crypto.randomUUID(), taskId: task.id, sessionId: null, startedAt: now, status: "running" };
+    const run: TaskRun = { id: uuid(), taskId: task.id, sessionId: null, startedAt: now, status: "running" };
     addRun(run);
     setTasks((prev) => prev.map((t) => (t.id === task.id
       ? { ...t, nextRunAt: nextRunAt(t.schedule, now), lastRunAt: now, runCount: t.runCount + 1 }
@@ -150,7 +151,7 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
       const now = Date.now();
       const task: AutomationTask = {
         ...draft,
-        id: crypto.randomUUID(),
+        id: uuid(),
         nextRunAt: draft.status === "enabled" ? nextRunAt(draft.schedule, now) : null,
         lastRunAt: null,
         runCount: 0,
