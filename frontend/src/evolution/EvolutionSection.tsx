@@ -131,8 +131,9 @@ export function EvolutionSection({ onOpenSession }: { onOpenSession: (sessionId:
               key={p.id}
               proposal={p}
               busy={busyId === p.id || evo.busy}
-              actionLabel={p.verdict === undefined ? t("校验") : undefined}
-              onAction={p.status === "applied" && p.predict !== null && p.verdict === undefined ? () => void check(p.id) : undefined}
+              actionLabel={p.verdict === undefined || p.verdict.verdict === "unverified" ? t("校验") : undefined}
+              onAction={p.status === "applied" && p.predict !== null
+                && (p.verdict === undefined || p.verdict.verdict === "unverified") ? () => void check(p.id) : undefined}
               onRevoke={p.status === "applied" ? () => void undo(p.id) : undefined}
               onOpenSession={onOpenSession}
             />
@@ -183,10 +184,13 @@ function Row({ proposal, busy, actionLabel, onAction, onDismiss, onRevoke, onOpe
         <span className={css.spacer} />
         {verdict !== undefined && (
           <span className={css.verdict} data-verdict={verdict.verdict}>
-            {tt("复现 {n} 次 · {v}", "{n} recurrences · {v}", { n: String(verdict.recurrences), v: verdict.verdict === "effective" ? t("有效") : t("无效") })}
+            {tt("{b} → {a} · {v}", "{b} → {a} · {v}", {
+              b: String(verdict.before), a: String(verdict.after),
+              v: verdict.verdict === "effective" ? t("有效") : verdict.verdict === "ineffective" ? t("无效") : t("样本不足"),
+            })}
           </span>
         )}
-        {proposal.status !== "pending" && verdict === undefined && (
+        {proposal.status !== "pending" && (verdict === undefined || verdict.verdict === "unverified") && (
           <span className={css.status}>
             {proposal.status === "applied" ? t("已采纳") : proposal.status === "dismissed" ? t("已丢弃") : t("已过期")}
           </span>

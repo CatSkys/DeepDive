@@ -590,4 +590,8 @@ export const EN: Record<string, string> = {
   "尚未运行复盘。": "No review has run yet.",
   "提案不会自动生效；判定标准见仓库 docs/EVOLUTION-POLICY.md。": "Proposals never take effect on their own; the criteria live in the repository's docs/EVOLUTION-POLICY.md.",
   "近 30 天暂无活动": "No activity in the last 30 days",
+
+  // 自进化：前后对照的校验结论
+  "{b} → {a} · {v}": "{b} → {a} · {v}",
+  "样本不足": "not enough data",
 };

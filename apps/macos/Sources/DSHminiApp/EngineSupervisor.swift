@@ -259,6 +259,7 @@ final class EngineSupervisor {
         let patchArg = Self.ensureEnginePatchFile()
         Self.ensureAutomationSkill()
         Self.ensureEvolutionSkill()
+        Self.ensureLessonVerifyScript()
         switch entry {
         case .bundled(let node, let script):
             process.executableURL = node
@@ -439,6 +440,109 @@ final class EngineSupervisor {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try? markdown.write(to: url, atomically: true, encoding: .utf8)
         return url
+    }
+
+    /// 效果校验器（随应用铺盘、可执行）：把"这个签名落地前后各命中几次"变成一条命令。
+    /// 为什么固化：参考里（SoL-Pi）机制是搜出来就固化下来，我们原来是每次让模型现写
+    /// grep 管道（贵、不稳）；而且它同时给出基线，判定才有对照（见 policy §4）。
+    @discardableResult
+    static func ensureLessonVerifyScript() -> URL {
+        let dir = AppPaths.harnessHome.appendingPathComponent("deepdive", isDirectory: true)
+        let url = dir.appendingPathComponent("lesson-verify.mjs")
+        let node = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/Runtime/node").path
+        let fzstd = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/Runtime/chat-import/fzstd/esm/index.mjs").path
+        let body = lessonVerifyScript(node: node, fzstd: fzstd)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? body.write(to: url, atomically: true, encoding: .utf8)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        return url
+    }
+
+    /// 校验器正文：路径（node 与 fzstd）在铺盘时写死——引擎是应用拉起的，会话里的
+    /// `node` 未必在 PATH 上，所以靠 shebang 指绝对路径。
+    static func lessonVerifyScript(node: String, fzstd: String) -> String {
+        """
+        #!/usr/bin/env node
+        // DeepDive 自进化·效果校验器（应用每次启动重写；勿手改）。
+        // 数一个签名在"落地前"与"落地后"两个等长窗口里各命中几次（按事件自身的 time
+        // 归窗），步数类额外给出匹配会话里的工具调用数。输出人读摘要 + 末行机器可读回执。
+        // 用法: lesson-verify.mjs <id> <signature> <windowDays> <landedISO> <metric>
+        import { readdir, readFile, stat } from "node:fs/promises";
+        import { join } from "node:path";
+        import { Decompress } from "\(fzstd)";
+
+        const [id, sig, daysArg, landedISO, metricArg] = process.argv.slice(2);
+        const metric = metricArg === "steps" ? "steps" : "repeat-incident";
+        const days = Number(daysArg) || 14;
+        const landed = Date.parse(landedISO);
+        if (!id || !sig || !Number.isFinite(landed)) {
+          console.error("usage: lesson-verify.mjs <id> <signature> <windowDays> <landedISO> <metric>");
+          process.exit(2);
+        }
+        const span = days * 86400000;
+        const beforeStart = landed - span;
+        const root = join(process.env.DSH_HOME ?? join(process.env.HOME ?? "", ".dsh"), "sessions");
+
+        let before = 0, after = 0, matched = 0;
+        const timeOf = (e) => {
+          const t = e?.time;
+          if (typeof t === "number") return t < 1e12 ? t * 1000 : t;
+          const parsed = Date.parse(String(t));
+          return Number.isFinite(parsed) ? parsed : NaN;
+        };
+
+        for (const bucket of await readdir(root, { withFileTypes: true })) {
+          if (!bucket.isDirectory()) continue;
+          const dir = join(root, bucket.name);
+          for (const session of await readdir(dir, { withFileTypes: true })) {
+            if (!session.isDirectory()) continue;
+            const file = join(dir, session.name, "session.v3.jsonl.zstd");
+            const info = await stat(file).catch(() => null);
+            if (!info || info.mtimeMs < beforeStart) continue; // 两个窗口都沾不到：跳过解压
+            let text;
+            try {
+              // 会话日志是**多帧** zstd（逐次追加）：fzstd 的一次性 decompress 只解第一帧，
+              // 必须用流式 Decompress 把所有帧拼起来。
+              const chunks = [];
+              const inflater = new Decompress((chunk) => chunks.push(Buffer.from(chunk)));
+              inflater.push(await readFile(file));
+              text = Buffer.concat(chunks).toString("utf8");
+            } catch (err) {
+              console.error("skip " + file + ": " + err.message);
+              continue;
+            }
+            let hitsBefore = 0, hitsAfter = 0, toolsBefore = 0, toolsAfter = 0, sessionMatched = false;
+            for (const line of text.split("\\n")) {
+              if (!line.trim()) continue;
+              const isTool = line.includes('"tool/call"');
+              if (!isTool && !line.includes(sig)) continue;
+              let t = NaN;
+              try { t = timeOf(JSON.parse(line)); } catch { /* 坏行跳过 */ }
+              if (!Number.isFinite(t)) t = info.mtimeMs;
+              const inAfter = t >= landed;
+              const inBefore = t >= beforeStart && t < landed;
+              if (line.includes(sig)) {
+                sessionMatched = true;
+                if (inAfter) hitsAfter += 1; else if (inBefore) hitsBefore += 1;
+              }
+              if (isTool && metric === "steps") {
+                if (inAfter) toolsAfter += 1; else if (inBefore) toolsBefore += 1;
+              }
+            }
+            if (sessionMatched) matched += 1;
+            if (metric === "steps") { before += toolsBefore; after += toolsAfter; }
+            else { before += hitsBefore; after += hitsAfter; }
+          }
+        }
+
+        console.log("signature: " + sig);
+        console.log("metric: " + metric + " | window: " + days + "d | landed: " + landedISO);
+        console.log("matched sessions: " + matched);
+        console.log("before window: " + before + " | after window: " + after);
+        console.log(JSON.stringify({ id, before, after }));
+        """
     }
 
     /// 自进化技能：什么时候提、怎么输出（协议与触发）。标准与红线不在这里——它们在

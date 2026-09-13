@@ -63,6 +63,11 @@
 - 处置：**流内动作按钮一律走「描边 + 亮字」**（`border: 1px solid var(--line-heavy)` + `color: var(--ink-bright)`），别指望实底；给流内元素写 `background` 就是死代码。要让实底在流内成立，得给那条 `!important` 开显式例外（`.flow .btn-primary { background: … !important }`）——目前没开，别偷偷绕。
 - 附带事实（同源）：流内卡片（`.question-card` / `.approval-card` / `.plan-review-card` / `.auto-proposal`）的 `linear-gradient` 底色同样被清掉，它们在应用里本来就是**只有描边**的形态——别照着"应该有个底色"去调它们的层级。**已知同类隐患**：审批卡的「允许」用的是 `.btn-primary`，落在这条规则下同样是隐形文字（本轮未改，用户没提；要改就是上面那条例外或把它换成描边钮）。
 
+### 1.15 会话日志是多帧 zstd：fzstd 的一次性 `decompress` 只解第一帧（静默给 1 行，不报错）
+- 事故（2026-09-13，做自进化校验器时）：`decompress(await readFile(session.v3.jsonl.zstd))` 对一份 432KB 的日志返回了**一行**，而 `zstd -dc | grep -c` 在同一文件上数出 14 处命中——脚本于是报"0 命中"，看着像"这个坑没再出现"（最坏的方向：假有效）。根因：会话日志是**逐次追加**写出来的，文件里是多帧 zstd；fzstd 的 `decompress(dat, buf)` 只在**给了输出缓冲**时才连解多帧（README 原话），不给就停在第一帧且**不抛错**。
+- 处置：用流式 `Decompress`（`new Decompress((chunk) => chunks.push(Buffer.from(chunk))); inflater.push(raw)`）把所有帧拼起来。给校验脚本的单测加了"必须走流式"的断言。
+- 通用教训：**压缩流的"部分解码"往往不报错**——凡是数命中/做统计的地方，先拿 `zstd -dc` 之类的全量解码做一次交叉对账（本次正是靠这个对账才发现差 14 vs 0）。
+
 ### 1.12 content-visibility 估高让 scrollHeight 漂移：编程滚动落点必须二次校准
 - 现象：`.msg-block` 用 `content-visibility: auto`（离屏跳过排版），跳到底部后估高被真实高度替换、scrollHeight 变化，一次性 `scrollTop = scrollHeight` 的落点偏短，末条消息仍被悬浮输入框盖住。
 - 处置：编程滚动（回到底部等）落点后**当前帧 + 下一帧各校准一次** `scrollTop = scrollHeight`；动画中改用 rAF 缓动时，终点 settle 同样双校准。
@@ -189,6 +194,12 @@
 - **实测（本轮踩到的第一版设计错在哪）**：`session/list` 来自引擎**内存缓存**——运行中删掉 `sessions/<bucket>/<id>/` 目录后，`session/list` 照样列它。所以"改完文件指望引擎自己发现"不成立；而运行期改 `storages/*.json` 又会被内存状态在下次 `setState` 时整份覆写。**结论：引擎状态文件只能在停机时（启动空窗期）写**。第一版做法是"停引擎 → 改 → 起引擎"，实测体验很差（几秒断连横幅 + 重启期的 `session/list` 502 报错弹窗），已废弃。
 - 现设计（用户定稿）：**UI 即时生效 + 延迟落账**——① 前端持本地覆盖集（`deepdive.unarchived` / `deepdive.removed`，`sessionOverrides.ts` 纯函数过滤，导出层统一口径，轮询**存原始列表**）；② 删除时壳立刻删日志目录（毫秒级、不需引擎配合）；③ 覆盖集同步给壳登记在 UserDefaults，**下次启动的空窗期**（`applicationDidFinishLaunching` 里、`supervisor.start()` 之前）一次落账，成功后清登记（失败留到下轮重试）；④ 覆盖项在引擎不再报告它已归档 / 不再列出时自动收敛，避免无限增长。
 - 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache.json` 的 `tables.sessions[<id>]`；会话日志 = `sessions/<转义 cwd>/<sessionId>/`（**目录名就是 sessionId**，别复刻引擎的 cwd 转义规则——扫一层同名目录即可）。写盘一律临时文件 + `replaceItemAt`，结构不符拒绝写入并报错。
+
+### 4.18 清理验收痕迹只能按显式 id：用"最近更新的会话"挑，会误删用户会话（2026-09-13 事故）
+- 事故：做完自进化校验的验收后清理测试会话，脚本按 **mtime 取最近两个**当作"我的痕迹"，结果第一个是刚建的验收会话、第二个是**用户自己的「帮我实现 Deepdive 构建」**（更新于前一天 13:14）——`rmtree` + 覆盖集登记后，会话目录、归档集、投影缓存三处同时被清，**不可恢复**（本机无 APFS 本地快照）。
+- 根因不是命令，是**选择器**：验收痕迹的正确来源是"本轮我自己创建的那些 id"（建会话时记下来），而不是"看上去最新的"。任何"推断式选择器"（最近 N 个 / 最近 N 分钟）在用户数据上都可能误伤。
+- 处置（纪律）：清理只允许**显式 id 列表**，且删前逐个打印 id、标题与创建时间让人看清；删除动作与登记覆盖集同批执行，不做"先删后想"。**删会话类操作一旦执行不可逆——宁可留着问用户，也不要推断。**
+- 附带事实：删目录 + 登记覆盖集之后，`session_projcache.json` 的条目也会被 `applyPending` 摘掉，所以"从投影缓存里恢复标题/摘要"这条路也断了。
 
 ### 4.16 逐会话读历史很贵：统计类页面必须"记录在前、打开直接展示"
 - 实测（2026-09-12，用户报"使用统计加载非常慢"）：引擎没有 history RPC，读一条会话的历史要 `session/follow` 开窗 + `session/page` 回翻，**且必须逐会话开流**——本机 159 个会话、并发 24 也要 ~17s（加大并发无用：引擎侧读取基本串行）。另有悬挂面：本地已删除但引擎仍列出的会话，follow 流既不开也不报错，promise 永不 settle → 整轮收集永不完成（页面靠渐进上报看着不慢，但缓存写不进去、刷新钮一直转）。

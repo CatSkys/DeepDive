@@ -18,7 +18,7 @@ export function statusSlices(proposals: readonly LessonProposal[]): Slice[] {
     { key: "pending", label: ["待审", "pending"], value: count((p) => p.status === "pending") },
     { key: "effective", label: ["有效", "effective"], value: count((p) => p.verdict?.verdict === "effective") },
     { key: "ineffective", label: ["无效", "ineffective"], value: count((p) => p.verdict?.verdict === "ineffective") },
-    { key: "applied", label: ["待校验", "awaiting check"], value: count((p) => p.status === "applied" && p.verdict === undefined) },
+    { key: "applied", label: ["待校验", "awaiting check"], value: count((p) => p.status === "applied" && (p.verdict === undefined || p.verdict.verdict === "unverified")) },
     { key: "dismissed", label: ["已丢弃", "dismissed"], value: count((p) => p.status === "dismissed" && p.verdict === undefined) },
     { key: "expired", label: ["已退役", "retired"], value: count((p) => p.status === "expired" && p.verdict === undefined) },
   ];

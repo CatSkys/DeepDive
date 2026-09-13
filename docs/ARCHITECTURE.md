@@ -46,6 +46,7 @@
 | `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC 且把会话列表缓存在内存 → ①立即删 `sessions/<bucket>/<id>/`；②覆盖集登记到 UserDefaults，下次启动空窗期落账 `storages/workspace.json` 归档集 + `storages/session_projcache.json`；纯函数 + 原子写，结构不符拒绝落盘） |
 | `StatusItemController.swift` / `RecoveryWindowController.swift` | 菜单栏状态点与菜单、引擎失败恢复屏（诊断复制/凭据冷启动） |
 | `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | html/body 透明注入（勿加样式）、偏好、数据目录、设置面动态 JSON 树 |
+| `EngineSupervisor.ensureLessonVerifyScript` | 自进化效果校验器：每次启动把 `lesson-verify.mjs` 铺到 `<DSH_HOME>/deepdive/` 并置可执行位（shebang 指向随包 node、写死随包 fzstd 路径）——把"数签名在落地前后各命中几次"固化成一命令，判定对照（policy §4）才有落点 |
 | `EngineSupervisor.ensure*Skill` | 启动时把两个「随应用发的技能」铺进引擎用户技能根（`<DSH_HOME>/skills/<name>/SKILL.md`）：`deepdive-automation`（会话里提议定时任务）与 `deepdive-evolution`（会话里提议沉淀经验）；`system-prompt` 前缀只剩各自一行指路 |
 | `KeepAwake.swift` | 空闲休眠断言：自动化分区「运行会话时保持电脑唤醒」按下时 `ProcessInfo.beginActivity(.idleSystemSleepDisabled)`，停跑/关开关即释放（幂等；合盖与手动休眠不拦） |
 | `OpenWithCatalog.swift` / `WorkspaceIcon.swift` | 壳侧事实目录（预览页「打开方式」候选/图标、空间图标探测），只出数据不做决策 |

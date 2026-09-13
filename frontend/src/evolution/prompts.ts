@@ -13,17 +13,18 @@ export const HOME_TARGET: Record<LessonProposal["home"], string> = {
   policy: "docs/EVOLUTION-POLICY.md",
 };
 
-/** 复盘批次里的一条被测会话（app 侧只给事实，判断交给 agent）。 */
+/** 复盘批次里的一条被测会话（app 侧只给事实，判断交给 agent）。
+ *  turns/failed/corrections 是"当时正看着"时的即时摩擦计数；没看过的会话为
+ *  null（复盘改为扫日志后不依赖它，见 SPEC §9.0.6）。 */
 export interface ReviewTarget {
   sessionId: string;
   /** 该会话日志的定位提示（agent 自己解析 $DSH_HOME，应用不持家目录）。 */
   logHint: string;
-  /** 本批观察到的完成回复数。 */
-  turns: number;
-  /** 摩擦信号：失败的工具调用数（谁最可能藏着值得沉淀的教训）。 */
-  failed: number;
-  /** 摩擦信号：用户打断/纠正的次数（助手消息之后紧跟的用户消息）。 */
-  corrections: number;
+  /** 会话最后更新时间（毫秒）：本批的选取依据，也是 agent 看新鲜度的线索。 */
+  updatedAt: number;
+  turns: number | null;
+  failed: number | null;
+  corrections: number | null;
 }
 
 export function applyPrompt(p: LessonProposal): string {
@@ -48,18 +49,31 @@ export function applyPrompt(p: LessonProposal): string {
   ].join("\n");
 }
 
-/** 后台复盘：把摩擦信号当靶子交出去（"无感"的那一半——不靠模型自己想起来说）。 */
-export function reviewPrompt(targets: readonly ReviewTarget[]): string {
+/** 后台复盘：把"本批会话 + 已落库的坑签名"交出去。
+ *  为什么要给签名清单：政策 §2 的"同一个坑第二次出现必提"要能真的检测到——
+ *  没有清单，agent 只能看本批、看不见历史（self-learning-skills 的"重复=最强信号"）。 */
+export function reviewPrompt(targets: readonly ReviewTarget[], knownSignatures: readonly string[]): string {
   const list = targets
-    .map((t) => `- 会话 ${t.sessionId}（日志 $DSH_HOME/sessions/*/${t.sessionId}/session.v3.jsonl.zstd）｜本批完成 ${t.turns} 轮｜失败工具调用 ${t.failed} 次｜用户纠正 ${t.corrections} 次`)
+    .map((t) => {
+      const friction = t.turns === null
+        ? "（本次未在会话内实时观察，摩擦信号未知）"
+        : `本批完成 ${t.turns} 轮｜失败工具调用 ${t.failed ?? 0} 次｜用户纠正 ${t.corrections ?? 0} 次`;
+      return `- 会话 ${t.sessionId}（日志 $DSH_HOME/sessions/*/${t.sessionId}/session.v3.jsonl.zstd）｜${friction}`;
+    })
     .join("\n");
+  const known = knownSignatures.length === 0
+    ? "（台账里还没有带签名的经验）"
+    : knownSignatures.map((s) => `- ${s}`).join("\n");
   return [
     "后台复盘（DeepDive 自进化）。按 docs/EVOLUTION-POLICY.md 判断这批会话里有没有值得跨会话复用的经验，有就按 deepdive-evolution 技能的协议输出 lesson 块（没有就只回一句「无」）。",
     "",
     "待分析（日志用 zstd -dc <路径> | grep 自行查证）：",
     list,
     "",
-    "重点看：失败或重试过的工具调用、用户纠正过的地方、同一个坑第二次出现（后者必提）。",
+    "已落库经验的坑签名（拿本批日志比对：命中即「同一个坑第二次出现」，按政策必提）：",
+    known,
+    "",
+    "重点看：失败或重试过的工具调用、用户纠正过的地方、同一个坑第二次出现。",
     "证据必须逐字来自日志；助手自己的总结不算证据。只读分析，不要修改任何文件。",
     "成本上限：最多 3-5 次工具调用把要点看清楚就够，别把整本日志读完，也别去读这个仓库的源码；判不出值得沉淀的东西就只回一句「无」。",
   ].join("\n");
@@ -76,13 +90,15 @@ export function verifyPrompt(p: LessonProposal): string {
     `- 落库时间：${new Date(p.createdAt).toISOString()}`,
     `- 落点：${HOME_TARGET[p.home]} 的「${p.anchor}」`,
     "",
-    "做法：到 <DSH_HOME>/sessions/*/*/session.v3.jsonl.zstd 里数这个签名在窗口内出现了几次（zstd -dc … | grep -c …），并抽查两处上下文确认不是误命中。",
-    "然后只回一个围栏块（info string 为 lesson-verify），内容形如：",
+    "做法：跑随应用铺好的校验器（它按事件时间把命中归到「落地前 / 落地后」两个等长窗口，并打印末行回执）：",
+    `  $DSH_HOME/deepdive/lesson-verify.mjs ${p.id} "${predict.signature}" ${predict.windowDays} ${new Date(p.createdAt).toISOString()} ${predict.metric}`,
+    "把末行原样贴进一个围栏块（info string 为 lesson-verify），形如：",
     "```lesson-verify",
-    `{"id":"${p.id}","recurrences":0,"verdict":"effective"}`,
+    `{"id":"${p.id}","before":12,"after":0}`,
     "```",
-    "recurrences = 窗口内真实复现次数；0 次即 effective，出现即 ineffective。如果这个签名根本 grep 不到（当初就选错了），照样报数量并在同一批里按 policy 提一条改判据的 lesson。不要修改任何文件。",
-    "成本上限：最多 2-3 次工具调用（一条 grep -c 就够），不要展开调查、不要读本仓库源码；数不准就报 0 并在正文里说明理由。",
+    "before/after = 落地前、落地后两个窗口的次数；有效与否由应用按政策阈值判定，你不用下结论。",
+    "若脚本跑不起来（缺 node/权限），退回手工：zstd -dc 各会话日志 | grep，按同样口径给出两个窗口的数；数不准就报 0 并在正文里说明理由。",
+    "成本上限：最多 2-3 次工具调用（跑一条命令就够），不要展开调查、不要读本仓库源码；不要修改任何文件。",
   ].join("\n");
 }
 

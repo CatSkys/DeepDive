@@ -7,6 +7,7 @@ const KEY_PROPOSALS = "deepdive.evolution.proposals";
 const KEY_SESSION = "deepdive.evolution.session";
 const KEY_RUNS = "deepdive.evolution.runs";
 const KEY_LAST_REVIEW = "deepdive.evolution.lastReview";
+const KEY_OWN_SESSIONS = "deepdive.evolution.ownSessions";
 
 /** 一次运行记录（复盘 / 校验 / 落库 / 撤销），供设置页的运行历史展示。 */
 export interface EvolutionRun {
@@ -92,11 +93,12 @@ function parseProposal(v: unknown): LessonProposal | null {
 function parseVerdict(v: unknown): LessonProposal["verdict"] | null {
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
-  const recurrences = num(o.recurrences);
+  const before = num(o.before);
+  const after = num(o.after);
   const at = num(o.at);
-  if (recurrences === null || at === null) return null;
-  if (o.verdict !== "effective" && o.verdict !== "ineffective") return null;
-  return { recurrences, verdict: o.verdict, at };
+  if (before === null || after === null || at === null) return null;
+  if (o.verdict !== "effective" && o.verdict !== "ineffective" && o.verdict !== "unverified") return null;
+  return { before, after, verdict: o.verdict, at };
 }
 
 export function loadProposals(): LessonProposal[] {
@@ -155,6 +157,23 @@ export function loadLastReview(): number | null {
 export function saveLastReview(at: number | null): void {
   if (at === null) localStorage.removeItem(KEY_LAST_REVIEW);
   else localStorage.setItem(KEY_LAST_REVIEW, String(at));
+}
+
+/** 自进化自己开的会话（复盘/校验/落库）：复盘挑靶子时要排除，免得分析自己。 */
+export function loadOwnSessions(): string[] {
+  const raw = localStorage.getItem(KEY_OWN_SESSIONS);
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return [];
+  }
+  return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+}
+
+export function saveOwnSessions(ids: string[]): void {
+  localStorage.setItem(KEY_OWN_SESSIONS, JSON.stringify(ids.slice(-50)));
 }
 
 export function loadApplySession(): string | null {

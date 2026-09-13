@@ -8,7 +8,7 @@ vi.mock("../store", () => ({ useStore: () => ({ lang: "zh" }) }));
 import { Markdown } from "../components/Markdown";
 import { applyPrompt, reviewPrompt, verifyPrompt } from "../evolution/prompts";
 import { activityDays, activityMax, statusSlices } from "../evolution/chartData";
-import { lessonBlocks, parseLesson, parseVerdict, verdictBlocks, type LessonProposal } from "../evolution/protocol";
+import { judgeVerdict, lessonBlocks, parseLesson, parseVerdict, verdictBlocks, type LessonProposal } from "../evolution/protocol";
 
 afterEach(cleanup);
 
@@ -73,8 +73,8 @@ describe("图表数据（纯函数）", () => {
     const slices = statusSlices([
       mk({ id: "1" }),
       mk({ id: "2", status: "applied", predict: { metric: "repeat-incident", signature: "s", windowDays: 14 } }),
-      mk({ id: "3", status: "applied", verdict: { recurrences: 0, verdict: "effective", at: 1 } }),
-      mk({ id: "4", status: "expired", verdict: { recurrences: 52, verdict: "ineffective", at: 1 } }),
+      mk({ id: "3", status: "applied", verdict: { before: 12, after: 0, verdict: "effective", at: 1 } }),
+      mk({ id: "4", status: "expired", verdict: { before: 12, after: 52, verdict: "ineffective", at: 1 } }),
       mk({ id: "5", status: "dismissed" }),
     ]);
     const by = Object.fromEntries(slices.map((s) => [s.key, s.value]));
@@ -98,17 +98,23 @@ describe("图表数据（纯函数）", () => {
 
 describe("校验回执", () => {
   it("解析合法回执，坏形状一律 null", () => {
-    expect(parseVerdict('{"id":"l-1","recurrences":0,"verdict":"effective"}')).toEqual({ id: "l-1", recurrences: 0, verdict: "effective" });
-    expect(parseVerdict('{"id":"l-1","recurrences":-1,"verdict":"effective"}')).toBeNull();
-    expect(parseVerdict('{"id":"l-1","recurrences":3}')).toBeNull();
-    expect(parseVerdict('{"id":"l-1","recurrences":3,"verdict":"maybe"}')).toBeNull();
+    expect(parseVerdict('{"id":"l-1","before":12,"after":0}')).toEqual({ id: "l-1", before: 12, after: 0 });
+    expect(parseVerdict('{"id":"l-1","before":-1,"after":0}')).toBeNull();
+    expect(parseVerdict('{"id":"l-1","before":12}')).toBeNull();
     expect(parseVerdict("不是 JSON")).toBeNull();
+    // 判定在应用侧：模型只报两个数
+    expect(judgeVerdict("repeat-incident", 12, 0)).toBe("effective");
+    expect(judgeVerdict("repeat-incident", 12, 6)).toBe("effective");
+    expect(judgeVerdict("repeat-incident", 12, 7)).toBe("ineffective");
+    expect(judgeVerdict("steps", 10, 7)).toBe("effective");
+    expect(judgeVerdict("steps", 10, 8)).toBe("ineffective");
+    expect(judgeVerdict("repeat-incident", 0, 3)).toBe("unverified");
   });
 
   it("从助手文本里抠出回执块", () => {
-    const text = '结论如下\n```lesson-verify\n{"id":"l-9","recurrences":52,"verdict":"ineffective"}\n```\n完。';
+    const text = '结论如下\n```lesson-verify\n{"id":"l-9","before":1,"after":52}\n```\n完。';
     expect(verdictBlocks(text)).toHaveLength(1);
-    expect(parseVerdict(verdictBlocks(text)[0])?.recurrences).toBe(52);
+    expect(parseVerdict(verdictBlocks(text)[0])?.after).toBe(52);
   });
 });
 
@@ -128,7 +134,7 @@ describe("落库交办提示（与 agent 的契约）", () => {
 
 describe("复盘 / 校验提示（与 agent 的契约）", () => {
   it("复盘提示带上会话与三个摩擦信号，并限定只读", () => {
-    const text = reviewPrompt([{ sessionId: "s1", logHint: "s1", turns: 2, failed: 3, corrections: 1 }]);
+    const text = reviewPrompt([{ sessionId: "s1", logHint: "s1", updatedAt: 1, turns: 2, failed: 3, corrections: 1 }], ["npm run build"]);
     expect(text).toContain("s1");
     expect(text).toContain("$DSH_HOME/sessions/*/s1/session.v3.jsonl.zstd");
     expect(text).toContain("失败工具调用 3 次");
@@ -136,13 +142,14 @@ describe("复盘 / 校验提示（与 agent 的契约）", () => {
     expect(text).toContain("docs/EVOLUTION-POLICY.md");
     expect(text).toContain("只读分析");
     expect(text).toContain("成本上限");
+    expect(text).toContain("npm run build"); // 已知坑签名喂给复盘，才能判"第二次出现"
   });
 
   it("校验提示要求数签名并回一个 lesson-verify 块", () => {
     const p = parseLesson(JSON.stringify(lesson), origin)!;
     const text = verifyPrompt(p);
     expect(text).toContain(lesson.predict.signature);
-    expect(text).toContain("grep -c");
+    expect(text).toContain("lesson-verify.mjs"); // 走固化脚本（before/after 一起给）
     expect(text).toContain("```lesson-verify");
     expect(text).toContain("成本上限");
     expect(text).toContain(p.id);

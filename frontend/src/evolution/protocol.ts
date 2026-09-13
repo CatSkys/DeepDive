@@ -31,10 +31,13 @@ export interface LessonPredict {
   windowDays: number;
 }
 
-/** 到期校验的结论：签名在窗口内复现几次（0 = 有效）。 */
+/** 到期校验的结论：落地前（基线）与落地后同一长度的两个窗口各命中几次。 */
 export interface LessonVerdict {
-  recurrences: number;
-  verdict: "effective" | "ineffective";
+  /** 落地前同长度窗口的命中数（基线）；0 = 样本不足，判不了。 */
+  before: number;
+  /** 落地后窗口的命中数（repeat-incident）/ 每次会话的平均工具调用数（steps）。 */
+  after: number;
+  verdict: "effective" | "ineffective" | "unverified";
   at: number;
 }
 
@@ -129,8 +132,9 @@ export function parseLesson(
   };
 }
 
-/** 解析一条校验回执；形状不合回 null（采集端丢弃，显示端按普通代码块渲染）。 */
-export function parseVerdict(text: string): { id: string; recurrences: number; verdict: "effective" | "ineffective" } | null {
+/** 解析一条校验回执；形状不合回 null（采集端丢弃，显示端按普通代码块渲染）。
+ *  **判定不采信模型**：它只报两个窗口的数字，有效/无效由 judgeVerdict 按政策阈值算。 */
+export function parseVerdict(text: string): { id: string; before: number; after: number } | null {
   let raw: unknown;
   try {
     raw = JSON.parse(text) as unknown;
@@ -140,11 +144,20 @@ export function parseVerdict(text: string): { id: string; recurrences: number; v
   if (typeof raw !== "object" || raw === null) return null;
   const o = raw as Record<string, unknown>;
   const id = str(o.id);
-  const recurrences = o.recurrences;
+  const before = o.before;
+  const after = o.after;
   if (id === null) return null;
-  if (typeof recurrences !== "number" || !Number.isFinite(recurrences) || recurrences < 0) return null;
-  if (o.verdict !== "effective" && o.verdict !== "ineffective") return null;
-  return { id, recurrences, verdict: o.verdict };
+  if (typeof before !== "number" || !Number.isFinite(before) || before < 0) return null;
+  if (typeof after !== "number" || !Number.isFinite(after) || after < 0) return null;
+  return { id, before, after };
+}
+
+/** 判定阈值（政策 §4）：痕迹类要砍到基线一半以下，步数类至少 −30%；基线为 0
+ *  说明这个签名本来就不出现，样本不足，不写成败。 */
+export function judgeVerdict(metric: "repeat-incident" | "steps", before: number, after: number): LessonVerdict["verdict"] {
+  if (before <= 0) return "unverified";
+  const ratio = metric === "steps" ? 0.7 : 0.5;
+  return after <= before * ratio ? "effective" : "ineffective";
 }
 
 /** 从一段助手文本里抠出所有 lesson 块（采集端用；显示端只看单块）。 */

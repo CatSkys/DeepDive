@@ -80,6 +80,25 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertTrue(EngineSupervisor.evolutionSkillMarkdown.contains("docs/EVOLUTION-POLICY.md"))
     }
 
+    /// 效果校验器：随应用铺盘、可执行、路径写死（会话里 node 未必在 PATH 上）、
+    /// 末行必须是机器可读回执（before/after 两个数），判定口径才落得下来。
+    func testLessonVerifyScriptShape() throws {
+        let body = EngineSupervisor.lessonVerifyScript(node: "/tmp/node", fzstd: "/tmp/fzstd.mjs")
+        XCTAssertTrue(body.hasPrefix("#!/usr/bin/env node"), "缺 shebang：会话里未必有 node")
+        XCTAssertTrue(body.contains(#"import { Decompress } from "/tmp/fzstd.mjs";"#), "fzstd 路径未写死")
+        // 会话日志是多帧 zstd：一次性 decompress 只解第一帧（实测只得到 1 行），必须走流式
+        XCTAssertTrue(body.contains("new Decompress("), "必须用流式 Decompress 解多帧")
+        XCTAssertTrue(body.contains("DSH_HOME"), "未按 $DSH_HOME 定位会话目录")
+        XCTAssertTrue(body.contains("lesson-verify.mjs <id> <signature> <windowDays> <landedISO> <metric>"), "用法说明缺失")
+        XCTAssertTrue(body.contains("{ id, before, after }"), "末行回执少字段")
+        // 铺出来的必须是**转义后**的 JS 源码：Swift 多行串里写 \n 会变成真换行，脚本直接语法错
+        XCTAssertTrue(body.contains("text.split(\"\\n\")"), "换行转义被吃掉了")
+        let url = EngineSupervisor.ensureLessonVerifyScript()
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), url.path)
+        let perms = try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber
+        XCTAssertEqual(perms?.intValue, 0o755, "铺出来的校验器必须可执行")
+    }
+
     /// 自进化开关关着时，装配里不能出现那行自进化指路（新会话里模型也就不知道
     /// 可以提经验）；开着才追加，且自动化指路恒在。
     func testSystemPromptPrefixFollowsEvolutionSwitch() {
