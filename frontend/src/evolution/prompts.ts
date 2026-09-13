@@ -14,6 +14,7 @@ export const HOME_TARGET: Record<LessonProposal["home"], string> = {
   skill: "锚点所属的那个引擎技能正文（<DSH_HOME>/skills/<name>/SKILL.md）",
   policy: "docs/EVOLUTION-POLICY.md",
   global: "$DSH_HOME/AGENTS.md（全局指令，跨工作区常驻）",
+  plugin: "引擎插件：$DSH_HOME/deepdive/plugins/<id>/index.js + 用户层挂载（热装）",
 };
 
 /** 复盘批次里的一条被测会话（app 侧只给事实，判断交给 agent）。
@@ -36,6 +37,7 @@ export function applyPrompt(p: LessonProposal): string {
     ? "（风格类：不设校验）"
     : `${p.predict.metric} · 签名 ${p.predict.signature} · 窗口 ${p.predict.windowDays} 天`;
   // global 家的锚点固定为 AHE 式追加区（文件可能尚不存在，由本轮负责创建）。
+  // plugin 家的锚点 = 挂载 id（gate 已机械校验形状与唯一性）。
   const anchor = p.home === "global" ? GLOBAL_ANCHOR : p.anchor;
   const scopeLine = homeScope(p.home) === "dsh-home"
     ? "本次只允许写 <DSH_HOME> 下的文件，不要碰任何工作区/仓库文件。"
@@ -43,16 +45,28 @@ export function applyPrompt(p: LessonProposal): string {
   const globalPre = p.home === "global"
     ? "目标文件可能尚不存在：不存在就先创建，文件首行为 `# Global Agent Instructions`，再追加目标节。\n"
     : "";
+  const pluginBody = p.home === "plugin"
+    ? [
+        "这是引擎插件挂载。锚点即挂载 id（" + p.anchor + "），两件事：",
+        `1. 把插件正文写入 $DSH_HOME/deepdive/plugins/${p.anchor}/index.js（Cordis 函数插件：export { name, inject, apply }；范本照 $DSH_HOME/profiles/node_modules/@deepseek-ai/dsh-schedule）。`,
+        `2. 在 $DSH_HOME/profiles/web/cordis.patch.yml 的数组**末尾**追加恰好一个数组元素（保持既有内容逐字不动）：`,
+        `- id: ${p.anchor}`,
+        `  name: "$DSH_HOME/deepdive/plugins/${p.anchor}/index.js" # mounted-by-deepdive ${p.id}`,
+        "   name 写绝对路径；不要动文件里其他任何行。",
+        "",
+      ].join("\n")
+    : "";
   return [
-    p.home === "skill" || p.home === "global"
+    p.home === "skill" || p.home === "global" || p.home === "plugin"
       ? "把下面这条经验落进引擎目录。先看目标文件已有的写法，按那一家的格式落。"
       : "把下面这条经验落进仓库。先读 docs/EVOLUTION-POLICY.md 与目标文件已有的写法，按那一家的格式落。",
     "",
-    `- 落点：${HOME_TARGET[p.home]} 的「${anchor}」一节末尾`,
+    `- 落点：${HOME_TARGET[p.home]}${p.home === "plugin" ? "" : " 的「" + anchor + "」一节末尾"}`,
     `- 类别：${p.category}`,
     `- 效果主张：${predict}`,
     "",
     globalPre,
+    pluginBody,
     "正文（原样写入，不要改写措辞）：",
     p.content,
     "",
@@ -60,7 +74,7 @@ export function applyPrompt(p: LessonProposal): string {
     evidence,
     "",
     `要求：${scopeLine}只改这一处、不顺手动别的地方。`,
-    p.home === "skill" || p.home === "global"
+    p.home === "skill" || p.home === "global" || p.home === "plugin"
       ? "完成后直接结束，不用提交 git（该目录不是 git 仓库）。"
       : "git 提交一次，提交信息写明因果并引用提案 id " + p.id + "。",
   ].filter((l) => l !== "").join("\n");
@@ -101,10 +115,18 @@ export function reviewPrompt(targets: readonly ReviewTarget[], knownSignatures: 
 export function revokePrompt(p: LessonProposal): string {
   if (homeScope(p.home) === "dsh-home") {
     const anchor = p.home === "global" ? GLOBAL_ANCHOR : p.anchor;
+    const pluginUndo = p.home === "plugin"
+      ? [
+          `另外两件事：① 删除 $DSH_HOME/deepdive/plugins/${p.anchor}/ 整个目录；`,
+          `② 从 $DSH_HOME/profiles/web/cordis.patch.yml 里删掉含 "mounted-by-deepdive ${p.id}" 的那个数组元素（从它的 "- id:" 行删到下一个 "- " 行或文件尾，其余内容逐字保留）。`,
+          "",
+        ].join("\n")
+      : "";
     return [
       `撤销一条已落库的经验（提案 ${p.id}）。`,
       "",
-      `它在 ${HOME_TARGET[p.home]} 的「${anchor}」一节里。把这一节里由该提案引入的内容删掉（其余内容原样保留），只改这一处。该目录不是 git 仓库，不用提交。完成后直接结束。`,
+      `它在 ${HOME_TARGET[p.home]}${p.home === "plugin" ? "" : " 的「" + anchor + "」一节里"}。把这一节里由该提案引入的内容删掉（其余内容原样保留），只改这一处。该目录不是 git 仓库，不用提交。`,
+      pluginUndo + "完成后直接结束。",
     ].join("\n");
   }
   return [

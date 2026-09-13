@@ -246,6 +246,13 @@ final class EngineSupervisor {
             environment["PATH"] = path
         }
         environment["DSH_HOME"] = home.path
+        // EverOS 记忆插件（若挂载）的自动启动：uv tool 的默认装法不在引擎 PATH 上，
+        // 给插件传绝对路径启动命令；二进制缺席时不注入（插件 fail-open，不挡引擎）。
+        let everos = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/bin/everos")
+        if FileManager.default.isExecutableFile(atPath: everos.path) {
+            environment["EVEROS_DSH_START_COMMAND"] = everos.path + " server start"
+        }
         // 遥测口径（SPEC-SEMANTICS：客户端默认关闭）：引擎 base 默认
         // FEEDBACK_ONLY，与产品语义冲突——壳显式注入 DISABLED 收口。
         environment["DSH_TELEMETRY_MODE"] = "DISABLED"
@@ -608,6 +615,39 @@ final class EngineSupervisor {
         return FileManager.default.isExecutableFile(atPath: url.path) ? url.path : nil
     }
 
+    /// 自愈：从用户层 patch（profiles/web/cordis.patch.yml）里摘掉本应用种下的
+    /// 插件挂载块（`- id: lesson-…` 行到块尾，带 mounted-by-deepdive 戳）。返回摘掉的
+    /// 块数。整块摘除而不是注释：YAML 数组元素里注释成员行是合法但难生成，整块拿走
+    /// 最简单且可审计（被摘内容整份写进日志）。
+    private func quarantineDeepDivePluginMounts() -> Int {
+        let url = AppPaths.harnessHome
+            .appendingPathComponent("profiles/web/cordis.patch.yml")
+        guard var text = try? String(contentsOf: url, encoding: .utf8) else { return 0 }
+        var lines = text.components(separatedBy: "\n")
+        var removed = 0
+        var i = 0
+        while i < lines.count {
+            let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("- id: lesson-") {
+                var end = i + 1
+                while end < lines.count, !lines[end].trimmingCharacters(in: .whitespaces).hasPrefix("- ") {
+                    end += 1
+                }
+                let block = lines[i..<end].joined(separator: "\n")
+                log.append("[engine] quarantining user-patch mount block:\n\(block)")
+                lines.removeSubrange(i..<end)
+                removed += 1
+            } else {
+                i += 1
+            }
+        }
+        if removed > 0 {
+            text = lines.joined(separator: "\n")
+            try? text.write(to: url, atomically: true, encoding: .utf8)
+        }
+        return removed
+    }
+
     /// 机械脚本在盘上的位置（<DSH_HOME>/deepdive/<name>；铺盘由 ensure* 负责）。
     static func lessonScriptURL(_ name: String) -> URL {
         AppPaths.harnessHome
@@ -704,6 +744,15 @@ final class EngineSupervisor {
         let anchorFound = false;
         if (home === "global") {
           anchorFound = true; // 文件由 apply 创建（AHE 式追加区），门恒过
+        } else if (home === "plugin") {
+          // plugin 家：锚点即挂载 id。机械校验形状 + patch 文件在 + 未重复挂载。
+          if (/^[a-z][a-z0-9-]{2,31}$/.test(anchor)) {
+            const patchFile = join(dshHome, "profiles", "web", "cordis.patch.yml");
+            try {
+              const yml = await readFile(patchFile, "utf8");
+              anchorFound = !yml.includes("- id: " + anchor);
+            } catch { /* patch 文件不存在：不挂 */ }
+          }
         } else if (home === "skill") {
           const skillsDir = join(dshHome, "skills");
           try {
@@ -759,14 +808,41 @@ final class EngineSupervisor {
         import { promisify } from "node:util";
         const run = promisify(execFile);
 
-        const [id, home, repoPath, contentArg] = process.argv.slice(2);
-        let content = null;
+        const [id, home, repoPath, contentArg, anchorArg] = process.argv.slice(2);
+        let content = null, slug = null;
         try { content = JSON.parse(contentArg ?? "null"); } catch { /* 坏参按缺失处理 */ }
+        try { slug = JSON.parse(anchorArg ?? "null"); } catch { /* 坏参按缺失处理 */ }
         if (!id || !home || typeof content !== "string") {
-          console.error("usage: lesson-land.mjs <id> <home> <repoPath> <contentJSON>");
+          console.error("usage: lesson-land.mjs <id> <home> <repoPath> <contentJSON> [anchorJSON]");
           process.exit(2);
         }
         const dshHome = process.env.DSH_HOME ?? join(process.env.HOME ?? "", ".dsh");
+
+        if (home === "plugin") {
+          // plugin 家（Ditto selftest：宿主验证，不采信口头"挂好了"）：
+          // 插件文件存在 + node --check 语法通过 + patch 里有带本提案戳的挂载块。
+          if (typeof slug !== "string" || !/^[a-z][a-z0-9-]{2,31}$/.test(slug)) {
+            console.log(JSON.stringify({ id, landed: false, commit: null, files: [], reason: "bad-plugin-id" }));
+            process.exit(0);
+          }
+          const pluginPath = join(dshHome, "deepdive", "plugins", slug, "index.js");
+          let syntaxOK = false, mounted = false;
+          const files = [];
+          try {
+            await readFile(pluginPath, "utf8");
+            await run(process.execPath, ["--check", pluginPath]);
+            syntaxOK = true;
+            files.push(join("deepdive", "plugins", slug, "index.js"));
+          } catch { /* 文件缺失或语法错： landed=false */ }
+          try {
+            const yml = await readFile(join(dshHome, "profiles", "web", "cordis.patch.yml"), "utf8");
+            mounted = yml.includes("- id: " + slug) && yml.includes("mounted-by-deepdive " + id);
+            if (mounted) files.push(join("profiles", "web", "cordis.patch.yml"));
+          } catch { /* patch 文件不存在 */ }
+          const landed = syntaxOK && mounted;
+          console.log(JSON.stringify({ id, landed, commit: null, files, ...(landed ? {} : { reason: syntaxOK ? "mount-missing" : "plugin-syntax" }) }));
+          process.exit(0);
+        }
 
         if (home === "skill" || home === "global") {
           let landed = false;
@@ -1130,6 +1206,19 @@ final class EngineSupervisor {
         if uptime >= Self.readyGraceSeconds { attempts = 0 }
         attempts += 1
         if attempts >= 3 {
+            // 自愈（Ditto selftest-rollback 的宿主侧）：连续启动失败且用户层 patch
+            // 里有本应用种下的插件挂载块时，摘掉它们再给最后一次机会——坏挂载
+            // 不许让引擎永远起不来（EverOS fail-open）。摘过之后仍崩则正常放弃。
+            let removed = quarantineDeepDivePluginMounts()
+            if removed > 0 {
+                log.append("[engine] quarantined \(removed) plugin mount(s) from user patch layer; retrying once")
+                attempts = 1
+                state = .restarting(attempt: attempts)
+                let heal = DispatchWorkItem { [weak self] in self?.spawn() }
+                restartWorkItem = heal
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: heal)
+                return
+            }
             log.append("[engine] failed after \(attempts) consecutive attempts")
             let extra: String
             switch lastEntry {

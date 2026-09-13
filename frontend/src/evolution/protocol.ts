@@ -9,11 +9,11 @@ export const LESSON_LANG = "lesson";
 /** 校验回执块的 info string（后台校验运行用它把结果写回队列）。 */
 export const VERDICT_LANG = "lesson-verify";
 
-export type LessonHome = "agents" | "pitfalls" | "spec" | "skill" | "policy" | "global";
+export type LessonHome = "agents" | "pitfalls" | "spec" | "skill" | "policy" | "global" | "plugin";
 export type LessonCategory = "incident" | "workflow" | "fact" | "rule";
 export type LessonStatus = "pending" | "applied" | "dismissed" | "expired";
 
-const HOMES: readonly LessonHome[] = ["agents", "pitfalls", "spec", "skill", "policy", "global"];
+const HOMES: readonly LessonHome[] = ["agents", "pitfalls", "spec", "skill", "policy", "global", "plugin"];
 const CATEGORIES: readonly LessonCategory[] = ["incident", "workflow", "fact", "rule"];
 
 /** 全局经验在 $DSH_HOME/AGENTS.md 里的固定落节（AHE 的 LongTermMEMORY 惯例：
@@ -21,11 +21,14 @@ const CATEGORIES: readonly LessonCategory[] = ["incident", "workflow", "fact", "
  *  global home 的锚点门恒过、落库时由 apply 提示词负责建文件。 */
 export const GLOBAL_ANCHOR = "## Agent Added Memories";
 
-/** home 的沙箱作用域：skill/global 落在 $DSH_HOME（会话 cwd=DSH_HOME——沙箱
- *  workspaceRoot 即会话 cwd，引擎原生就是这层机械边界），其余落仓库工作区。 */
+/** home 的沙箱作用域：skill/global/plugin 落在 $DSH_HOME（会话 cwd=DSH_HOME——
+ *  沙箱 workspaceRoot 即会话 cwd，引擎原生就是这层机械边界），其余落仓库工作区。 */
 export function homeScope(home: LessonHome): "repo" | "dsh-home" {
-  return home === "skill" || home === "global" ? "dsh-home" : "repo";
+  return home === "skill" || home === "global" || home === "plugin" ? "dsh-home" : "repo";
 }
+
+/** plugin 家的挂载 id 约束（gate 机械校验；也是插件目录名）。 */
+export const PLUGIN_ID_RE = /^[a-z][a-z0-9-]{2,31}$/;
 
 export interface LessonEvidence {
   /** 逐字摘录（≤500 字）；助手内容只能作上下文，不能单独当证据。 */

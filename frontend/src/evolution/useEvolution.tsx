@@ -303,6 +303,7 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
       patch(p.id, { lastLandAt: Date.now() });
       const res = await lessonTool("land", [
         p.id, p.home, homeScope(p.home) === "dsh-home" ? "-" : repoPath() ?? "-", JSON.stringify(p.content),
+        JSON.stringify(p.home === "global" ? GLOBAL_ANCHOR : p.anchor),
       ]);
       const receipt = res !== null && res.ok ? parseLandReceipt(res.output) : null;
       if (receipt === null) return;

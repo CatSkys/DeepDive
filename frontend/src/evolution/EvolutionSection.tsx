@@ -29,6 +29,7 @@ const HOME_LABEL: Record<LessonProposal["home"], string> = {
   skill: "技能",
   policy: "政策",
   global: "全局",
+  plugin: "插件",
 };
 
 const RUN_LABEL: Record<EvolutionRun["kind"], string> = {
