@@ -79,4 +79,4 @@
 
 ## 6. 会话记忆（设置→记忆；与自进化并列的另一半）
 
-Session 层记忆由随应用铺设的引擎插件 `deepdive-session-memory` 承载：每轮开始注入会话笔记（`<session_memory>` 围栏 = 不可信历史证据，EverOS 同款），模型用 `memory_note_write` 整份重写（字段规范在技能 `deepdive-session-memory`），`new_context` 走引擎压缩通道。fail-open：任何失败只记日志，绝不挡用户轮次。笔记落 `<DSH_HOME>/deepdive/memory/<sessionId>.md`，用户可查看/单条忘记/全部清除（Ditto 记忆页）。跨会话情节召回（Recall 层）由 EverOS 官方 dsh 插件承载（`uv tool install everos==1.3.1`，提取端点 DeepSeek；隐私边界见其 README——轨迹含源码片段，勿用于敏感仓库直到知晓后果）。
+机制与边界（Session 层笔记注入、Recall 层、落盘路径、隐私）归 `docs/SPEC-SELF-EVOLUTION.md` §5/§6；本文件只写标准与红线，不重复（一事一家）。
