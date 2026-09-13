@@ -14,6 +14,7 @@ import { WsSwitcher } from "./WsSwitcher";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import type { SessionSummary, WorkspaceView } from "../types";
 import { sessionTitle } from "../session/sessionTitle";
+import { isBadgedSession } from "../session/backgroundSession";
 import { DD_EVENTS } from "../events";
 
 interface CtxMenu { sessionId: string; title: string; cwd?: string; x: number; y: number }
@@ -262,7 +263,12 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         )}
       </span>
       <span className="row-main">
-        <HoverScrollText className="title">{sessionTitle(s, lang)}</HoverScrollText>
+        {/* 整理类后台会话（复盘/整理）留在列表但加自动标识——MiMo 的 [Auto] 徽章；
+            执行类（落库/自动化运行）已被 store 过滤，不会走到这里。 */}
+        <span className="row-title-line">
+          {isBadgedSession(s) && <span className="row-auto-badge">{t("自动")}</span>}
+          <HoverScrollText className="title">{sessionTitle(s, lang)}</HoverScrollText>
+        </span>
         {snippet && <span className="row-snippet">{snippet}</span>}
       </span>
       <span className="row-actions"

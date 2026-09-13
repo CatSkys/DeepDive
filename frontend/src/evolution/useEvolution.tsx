@@ -19,6 +19,7 @@ import { useStore } from "../store";
 import type { SessionEvent } from "../types";
 import { applyPrompt, consolidatePrompt, reviewPrompt, revokePrompt, type ReviewTarget } from "./prompts";
 import { APPLY_RETRY_MAX, dayKey, nextAction } from "./pipeline";
+import { HOME_TASK_TITLE, REPO_TASK_TITLE } from "../session/backgroundSession";
 import {
   GLOBAL_ANCHOR, homeScope, judgeVerdict, lastJsonLine, lessonBlocks, parseGateReceipt, parseLandReceipt,
   parseLesson, parseVerdictValue, type LessonProposal,
@@ -121,8 +122,6 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveLastConsolidate(lastConsolidateAt); }, [lastConsolidateAt]);
   useEffect(() => { saveAppliedToday(appliedToday); }, [appliedToday]);
   useEffect(() => { void evolutionEnv().then((env) => setHarnessHome(env?.harnessHome ?? null)); }, []);
-  // 后台会话告知 store：侧栏不出现（呈现层过滤），allSessions 照常供复盘挑靶与打开会话。
-  useEffect(() => { storeRef.current.declareBackgroundSessions(ownSessions); }, [ownSessions]);
 
   const addRun = useCallback((kind: EvolutionRun["kind"], sessionId: string, note?: string) => {
     const run: EvolutionRun = { id: crypto.randomUUID(), kind, at: Date.now(), sessionId, ...(note === undefined ? {} : { note }) };
@@ -166,6 +165,9 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
           const workspaceId = storeRef.current.activeWorkspaceId;
           return api.createSession(workspaceId === null ? {} : { workspaceId });
         })();
+    // 命名即判据（session/backgroundSession.ts）：落库会话是执行类后台会话，不进用户列表。
+    await api.sessionRename({ sessionId: created.sessionId, title: scope === "repo" ? REPO_TASK_TITLE : HOME_TASK_TITLE })
+      .catch(() => { /* 改名失败只影响列表呈现，不影响落库 */ });
     if (scope === "repo") setRepoSessionId(created.sessionId);
     else setHomeSessionId(created.sessionId);
     setOwnSessions((prev) => {

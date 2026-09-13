@@ -42,7 +42,12 @@
 
 ## 7. UI
 
-**后台会话不出现在用户会话列表**：复盘/整理/交办都是机器开的消化过程（MiMo 把它们当后台进程；Ditto 的补丁运行同样不入对话列表）。store 按自进化的 ownSessions 台账在侧栏过滤（`backgroundSessions`），`allSessions` 保留——台账「打开会话」、复盘挑靶照常可达；**会话里零 UI：合法 lesson 块不渲染**（SPEC-AUTOMATION §3 的 automation 卡是另一套交互，勿混用）。
+**后台会话的判据与两层处置**（唯一事实源 `frontend/src/session/backgroundSession.ts`）：
+
+- **判据读会话自身的属性**——投影标题 `projections.values.title`，不是应用侧另存的 id 台账。形态照 MiMo-Code 的 `session/visibility.ts` + `auto-dream.ts`（`isSystemSession` 读会话，注释里记着他们的代理判据误杀过 28 个真会话，故换直接判据）。**fail-open**：读不到标题（老会话/无投影）一律当用户会话——宁可多显示一个真会话。
+- **两层**（照 MiMo：dream/distill 带 `[Auto]` 徽章可见，checkpoint-writer 宿主永不渲染）：`badge`＝整理类（`自进化·复盘` / `自进化·整理`）留在列表、侧栏加「自动」标识；`hidden`＝执行类（`自进化·落库` 会话、自动化的每次运行），不进用户列表——各功能自己的「运行历史」仍可打开（审计路径）。
+- 判据与命名共用同一份常量：机器开的会话**建会话时即按约定命名**（`api.sessionRename`），so 判据无需额外查询。
+- **会话里零 UI：合法 lesson 块不渲染**（SPEC-AUTOMATION §3 的 automation 卡是另一套交互，勿混用）。
 
 
 - **自进化分区**：开关（默认关，知情确认写明自动落地与消耗）→ 台账 Dashboard（状态环图 + 近 30 天活动柱状）→ 处理中（管线状态：证据校验中/待落地/未过证据门）→ 台账（已定案：落地 commit、校验结论、无效已撤）→ 运行历史（模型会话可打开；本机执行标「本机执行」）。审计动作：丢弃、撤销、查看证据原文（跳 origin 会话——EverMe `read_original` 界面等价）、查看写入会话。

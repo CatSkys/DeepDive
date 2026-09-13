@@ -3343,6 +3343,17 @@ button {
 
 /* 搜索内容命中行：标题下 snippet 摘要（引擎 ≤240 字符） */
 .row-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+/* 标题行：自动标识（整理类后台会话）与标题同行，标题仍可省略号截断 */
+.row-title-line { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.row-auto-badge {
+  flex: none;
+  font-size: 9px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-3);
+}
 .row-snippet {
   font-size: 11px;
   line-height: 1.4;

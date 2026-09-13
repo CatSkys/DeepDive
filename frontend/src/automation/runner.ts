@@ -4,6 +4,7 @@
 // 错误必须留痕。
 
 import { api } from "../api";
+import { automationRunTitle } from "../session/backgroundSession";
 import type { AutomationTask } from "./model";
 
 /** reused = 这次是复用既有会话（调用方据此决定要不要把新会话记回任务）。 */
@@ -12,6 +13,11 @@ export type RunOutcome = { sessionId: string; reused: boolean } | { error: strin
 export async function startRun(task: AutomationTask, reuse: string | null): Promise<RunOutcome> {
   try {
     const sessionId = reuse ?? (await api.createSession(task.workspaceId === null ? {} : { workspaceId: task.workspaceId })).sessionId;
+    if (reuse === null) {
+      // 命名即判据：自动化的运行会话是后台会话，不进用户列表（运行历史里仍可打开）。
+      await api.sessionRename({ sessionId, title: automationRunTitle(task.title) })
+        .catch(() => { /* 改名失败只影响列表呈现，不影响本次运行 */ });
+    }
     if (task.model !== null) await api.selectModel({ sessionId, ...task.model });
     if (task.permission !== null) {
       // 权限只能经 /permission 命令写（api.selectModel 那类 RPC 没有这一面）；
