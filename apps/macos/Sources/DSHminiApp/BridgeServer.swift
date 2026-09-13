@@ -11,6 +11,11 @@ import Foundation
 final class BridgeServer {
     static let shared = BridgeServer()
 
+    /// 首选端口被占多为上个实例未退干净（pkill→open 交付链竞态）：短暂重试
+    /// 等端口释放。仍被占才退回内核分配，总等待约 1.5s，只在冲突时发生。
+    private static let portBindRetries = 6
+    private static let portBindRetryIntervalUs: useconds_t = 250_000
+
     private var server: MiniHTTPServer?
     private var engineBase: URL?
     private var webRoot: URL?
@@ -40,16 +45,27 @@ final class BridgeServer {
         }
         // 端口即网页 origin：固定端口是 SPA 的 localStorage（会话覆盖集、用量
         // 缓存、自动化任务）能跨启动保留的前提——端口一变 WebKit 就换一套存储。
-        // 记住的端口被占（别的进程/上个实例没退干净）时退回内核分配。
+        // 临时回退（内核分配）**不改写记住的端口**：临时端口只活本次，下次启动
+        // 回到原 origin，localStorage 不跟着搬家；只有首次运行（pin==0）才记新端口。
         let preferred = UInt16(clamping: DSHAppPrefs.bridgePort)
-        var started = server.start(port: preferred)
-        if !started, preferred != 0 {
-            EngineLog.shared.append("[bridge] port \(preferred) unavailable; falling back to an ephemeral port")
+        var started = false
+        for attempt in 0..<Self.portBindRetries where !started {
+            started = server.start(port: preferred)
+            if !started, attempt + 1 < Self.portBindRetries {
+                usleep(Self.portBindRetryIntervalUs)
+            }
+        }
+        if !started {
+            if preferred != 0 {
+                EngineLog.shared.append("[bridge] port \(preferred) unavailable; falling back to an ephemeral port (pin kept)")
+            }
             started = server.start()
         }
         guard started else { return false }
         self.server = server
-        DSHAppPrefs.setBridgePort(server.port)
+        if preferred == 0 {
+            DSHAppPrefs.setBridgePort(server.port)
+        }
         EngineLog.shared.append("[bridge] listening on 127.0.0.1:\(server.port)")
         return true
     }

@@ -386,7 +386,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // 轮询签名：数据没变就不 setState，避免每 3s 一次的全树重渲染
   // （长会话 + 侧栏百余行的场景下这是周期性卡顿的来源）。
-  const sessionsSigRef = useRef("");
+  // 哨兵必须是 null 而非 ""：全部会话归档/删除时可见签名恒为 ""，与 ""
+  // 初始值相等会让 setSessions 一次都不执行、allSessions 永远为空
+  // （使用统计的取数清单被饿死而全 0，2026-09-13）。
+  const sessionsSigRef = useRef<string | null>(null);
 
   const refresh = async () => {
     // session/list 轮询负责列表元数据与投影（workspace 面由 follow 流驱动，

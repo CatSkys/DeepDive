@@ -315,36 +315,40 @@ const SESSION_TIMEOUT_MS = 8000;
 function collectSessionEvents(sessionId: string): Promise<SessionEvent[]> {
   return new Promise<SessionEvent[]>((resolve, reject) => {
     const out: SessionEvent[] = [];
-    let throughSeq: number | undefined;
-    let earliest: number | undefined;
+    // 快照是全量替换语义（mux 断线/流重开会重发快照）：每次快照清仓重装；
+    // snapGen 让旧一代的翻页循环追加作废，防止重连把同一批账计两遍。
+    let snapGen = 0;
     // 0.1.2：冷读走 session/follow 开窗快照（带 cursor），向前翻页走
     // session/page（throughSeq 必须取自开窗帧）；读完即关流。
     const close = api.followSession(
       { kind: "session", sessionId },
       {
         onSnapshot: (s) => {
-          throughSeq = s.cursor;
+          const gen = ++snapGen;
+          out.length = 0;
           out.push(...s.entries.map((e) => e.event));
-          earliest = s.entries[0]?.event.seq;
-          if (!s.hasMore) { close(); resolve(out); }
+          const firstSeq = s.entries[0]?.event.seq;
+          if (!s.hasMore || firstSeq === undefined) { close(); resolve(out); return; }
+          void pullOlder(gen, s.cursor, firstSeq).catch(reject);
         },
         onEvent: () => { /* 统计只读历史：直播增量忽略 */ },
       },
       HISTORY_PAGE,
     );
-    const pullOlder = async () => {
-      if (throughSeq === undefined || earliest === undefined) return;
+    // 翻页只能在快照到达后驱动：throughSeq/beforeSeq 都取自开窗帧，快照前
+    // 并不存在（2026-09-13 修复：原来在快照前同步调一次直接 return，超过
+    // 一窗的会话永远翻不了页、8s 超时被整只跳过——长会话的量进不了统计）。
+    const pullOlder = async (gen: number, throughSeq: number, beforeSeq: number) => {
       for (;;) {
-        const page = await api.page({ address: { kind: "session", sessionId }, throughSeq, beforeSeq: earliest, maxMessages: HISTORY_PAGE });
+        const page = await api.page({ address: { kind: "session", sessionId }, throughSeq, beforeSeq, maxMessages: HISTORY_PAGE });
+        if (gen !== snapGen) return;
         out.push(...page.entries.map((e) => e.event));
         if (!page.hasMore || page.entries.length === 0) break;
-        earliest = page.entries[0]!.event.seq;
+        beforeSeq = page.entries[0]!.event.seq;
       }
       close();
       resolve(out);
     };
-    // 开窗后驱动翻页；快照即全量时 onSnapshot 已 resolve，这里的 pull 是空转
-    void pullOlder().catch(reject);
     // 兜底：引擎长时间不开窗（重启/断连），调用方按失败处理
     window.setTimeout(() => reject(new Error("session/follow snapshot timeout")), 8000);
   }).then((events) => {

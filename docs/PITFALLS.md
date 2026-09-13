@@ -208,7 +208,7 @@
 
 ### 4.17 桥端口一变，网页 origin 就换一套 localStorage——SPA 的本地状态会"每次启动清零"
 - 现场（2026-09-12，做自动化页时发现）：桥监听端口原为内核随机分配（每次启动都不同，实测 56697/57555/61604/62408/64274…），而 SPA 的 origin 就是 `http://127.0.0.1:<port>/` —— **origin 一换，WebKit 的 localStorage 就是另一套**（`~/Library/WebKit/com.deepdive.app/WebsiteData/Default/<origin 哈希>/…`，实测同一台机积了 113 个 origin 目录）。后果是所有走 localStorage 的状态跨启动全丢：`deepdive.pinned` / `deepdive.unread` / `deepdive.workspace` / `deepdive.unarchived`·`removed` 覆盖集 / `deepdive.usageFold`（统计页的"打开即出"缓存每次重启都要重折一遍——正是用户报"统计加载慢"的隐藏放大器）/ 自动化任务。**症状是静默的**：单次会话内一切正常，只有跨重启才丢。
-- 处置：**把端口固定下来**（`MiniHTTPServer.start(port:)` + `DSHAppPrefs.bridgePort`，被占/非法时退回内核分配并记下新端口）。实测：重启后端口不变（64274 → 64274），localStorage 里 `keepAwake=1` 与已建任务都还在。
+- 处置：**把端口固定下来**（`MiniHTTPServer.start(port:)` + `DSHAppPrefs.bridgePort`）。实测：重启后端口不变（64274 → 64274），localStorage 里 `keepAwake=1` 与已建任务都还在。固定本身还不够（2026-09-13 复发：被占→回退内核分配→**把新端口记成 pin**，origin 永久搬家，前一天写下的 `usageFold` 全量账本搁浅在旧 origin）：首选端口被占改为短暂重试（交付链 pkill→open 竞态几百毫秒即释放）；仍被占才临时回退且**不改写 pin**——临时端口只活本次，下次启动回原 origin；只有首次运行（pin==0）才记端口。
 - 通用教训：**任何"存在浏览器存储里的本机状态"都隐含依赖 origin 稳定**；端口/主机/协议任一漂移都会把存储清零，且不会报错。改动监听方式（端口、host、http↔https）前先想清楚它是不是某个持久层的键。
 
 ### 4.14 bundled node 绝不能放进 `Contents/MacOS/`
