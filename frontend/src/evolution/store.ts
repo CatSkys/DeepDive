@@ -66,6 +66,8 @@ function parseProposal(v: unknown): LessonProposal | null {
   const origin = (o.origin ?? {}) as Record<string, unknown>;
   const createdAt = num(o.createdAt) ?? Date.now();
   const appliedSessionId = str(o.appliedSessionId);
+  const appliedAt = num(o.appliedAt);
+  const lastVerifyAt = num(o.lastVerifyAt);
   const verdict = parseVerdict(o.verdict);
   return {
     id,
@@ -85,6 +87,8 @@ function parseProposal(v: unknown): LessonProposal | null {
       eventSeq: num(origin.eventSeq) ?? -1,
     },
     ...(appliedSessionId === null ? {} : { appliedSessionId }),
+    ...(appliedAt === null ? {} : { appliedAt }),
+    ...(lastVerifyAt === null ? {} : { lastVerifyAt }),
     ...(verdict === null ? {} : { verdict }),
   };
 }

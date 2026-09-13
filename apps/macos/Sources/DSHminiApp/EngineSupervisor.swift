@@ -460,11 +460,12 @@ final class EngineSupervisor {
         return url
     }
 
-    /// 校验器正文：路径（node 与 fzstd）在铺盘时写死——引擎是应用拉起的，会话里的
-    /// `node` 未必在 PATH 上，所以靠 shebang 指绝对路径。
+    /// 校验器正文：node 与 fzstd 路径在铺盘时写死。shebang 直接指向随包 node——
+    /// 会话里的 PATH 未必有 node（内核对 shebang 解释器路径不能含空格；随包路径
+    /// 没有空格，成立）。
     static func lessonVerifyScript(node: String, fzstd: String) -> String {
         """
-        #!/usr/bin/env node
+        #!\(node)
         // DeepDive 自进化·效果校验器（应用每次启动重写；勿手改）。
         // 数一个签名在"落地前"与"落地后"两个等长窗口里各命中几次（按事件自身的 time
         // 归窗），步数类额外给出匹配会话里的工具调用数。输出人读摘要 + 末行机器可读回执。
@@ -486,6 +487,7 @@ final class EngineSupervisor {
         const root = join(process.env.DSH_HOME ?? join(process.env.HOME ?? "", ".dsh"), "sessions");
 
         let before = 0, after = 0, matched = 0;
+        let sessionsBefore = 0, sessionsAfter = 0;
         const timeOf = (e) => {
           const t = e?.time;
           if (typeof t === "number") return t < 1e12 ? t * 1000 : t;
@@ -532,11 +534,26 @@ final class EngineSupervisor {
               }
             }
             if (sessionMatched) matched += 1;
-            if (metric === "steps") { before += toolsBefore; after += toolsAfter; }
-            else { before += hitsBefore; after += hitsAfter; }
+            if (metric === "steps") {
+              // SPEC §6 指标 B：只数**按签名匹配的会话**里的工具调用数，口径是均值
+              // （此前把所有会话的步数加总，量的是整个工作区的活动量，判出来是噪声）。
+              if (!sessionMatched) continue;
+              before += toolsBefore;
+              after += toolsAfter;
+              if (toolsBefore > 0) sessionsBefore += 1;
+              if (toolsAfter > 0) sessionsAfter += 1;
+            } else {
+              before += hitsBefore;
+              after += hitsAfter;
+            }
           }
         }
 
+        if (metric === "steps") {
+          before = sessionsBefore > 0 ? before / sessionsBefore : 0;
+          after = sessionsAfter > 0 ? after / sessionsAfter : 0;
+          console.log("sessions with tool activity: before " + sessionsBefore + " / after " + sessionsAfter);
+        }
         console.log("signature: " + sig);
         console.log("metric: " + metric + " | window: " + days + "d | landed: " + landedISO);
         console.log("matched sessions: " + matched);

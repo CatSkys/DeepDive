@@ -79,19 +79,21 @@ export function reviewPrompt(targets: readonly ReviewTarget[], knownSignatures: 
   ].join("\n");
 }
 
-/** 到期校验：让 agent 去日志里数签名，并回一个校验块。 */
+/** 到期校验：让 agent 去日志里数签名，并回一个校验块。窗口锚定采纳时刻（政策 §4：
+ *  「落库时把窗口切两半」）——createdAt 是提议时刻，不能当落地基线。 */
 export function verifyPrompt(p: LessonProposal): string {
   const predict = p.predict;
   if (predict === null) return "";
+  const landedISO = new Date(p.appliedAt ?? p.createdAt).toISOString();
   return [
     `校验一条已落库经验的效果主张（提案 ${p.id}）。`,
     "",
     `- 主张：${predict.metric}｜签名：${predict.signature}｜窗口：${predict.windowDays} 天`,
-    `- 落库时间：${new Date(p.createdAt).toISOString()}`,
+    `- 落库时间：${landedISO}`,
     `- 落点：${HOME_TARGET[p.home]} 的「${p.anchor}」`,
     "",
     "做法：跑随应用铺好的校验器（它按事件时间把命中归到「落地前 / 落地后」两个等长窗口，并打印末行回执）：",
-    `  $DSH_HOME/deepdive/lesson-verify.mjs ${p.id} "${predict.signature}" ${predict.windowDays} ${new Date(p.createdAt).toISOString()} ${predict.metric}`,
+    `  $DSH_HOME/deepdive/lesson-verify.mjs ${p.id} "${predict.signature}" ${predict.windowDays} ${landedISO} ${predict.metric}`,
     "把末行原样贴进一个围栏块（info string 为 lesson-verify），形如：",
     "```lesson-verify",
     `{"id":"${p.id}","before":12,"after":0}`,

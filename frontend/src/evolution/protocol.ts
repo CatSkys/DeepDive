@@ -58,6 +58,12 @@ export interface LessonProposal {
   origin: { sessionId: string; turn: number; eventSeq: number };
   /** 采纳后交办的那条会话（落库由它完成，见 SPEC §3.4）。 */
   appliedSessionId?: string;
+  /** 采纳（交办）时刻：到期校验的窗口锚点（政策 §4「落库时把窗口切两半」）。
+   *  createdAt 是提议时刻，一条提案可能压很多天才被采纳，不能当落地基线。 */
+  appliedAt?: number;
+  /** 上一次校验派发时刻：回执可能丢（重启/会话中途关闭），用它做重发守卫，
+   *  而不是「没回执就每分钟重发」。 */
+  lastVerifyAt?: number;
   /** 到期校验的结论（有 predict 的才有；见 SPEC §3.5）。 */
   verdict?: LessonVerdict;
 }

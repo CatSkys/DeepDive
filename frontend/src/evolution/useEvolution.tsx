@@ -24,6 +24,12 @@ const PENDING_CAP = 100;
 /** 复盘的日节流：我们的复盘是一整轮 agent（要自己挖日志），比参考里那种无工具的
  *  廉价调用贵得多，所以按天跑（偏离参考的默认批次，理由记在 SPEC §9.0.4）。 */
 const REVIEW_INTERVAL_MS = 24 * 3600_000;
+/** 复盘的静默兜底：即使没有摩擦信号，7 天没复盘也跑一轮（MiMo Dream/Distill 的
+ *  固定节奏——不能只等"用户 正在受苦"才学习）。 */
+const REVIEW_IDLE_MS = 7 * 24 * 3600_000;
+/** 校验重发守卫：回执可能丢（重启、会话中途关掉），丢了以后按这个间隔重派，
+ *  而不是每分钟一轮地烧（P0 修复：此前 due 只认 verdict，收不到就无限重发）。 */
+const VERIFY_RETRY_MS = 30 * 60_000;
 /** 巡检间隔：一分钟一次——到期的提案挑一条交去校验，够条件（攒够轮数 + 日节流）
  *  就起一轮复盘。手动按钮已按用户要求去掉，所以这条自动路径要够勤。 */
 const TICK_MS = 60_000;
@@ -93,6 +99,11 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
   lastReviewRef.current = lastReviewAt;
   const seenRef = useRef<Set<string>>(new Set());
   const frictionRef = useRef<Map<string, Friction>>(new Map());
+  /** 本应用开出的一次性运行会话（复盘/校验）：必须跟着收结果，直到它的 turn/end
+   *  ——P0 修复：此前采集只跟 [当前会话, 交办会话]，自动校验的回执永远没人收。 */
+  const [runSessions, setRunSessions] = useState<string[]>([]);
+  const runSessionsRef = useRef(runSessions);
+  runSessionsRef.current = runSessions;
   const busyRef = useRef(false);
   busyRef.current = busy;
 
@@ -139,11 +150,29 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
     return created.sessionId;
   }, []);
 
+  /** 会话级权限预设：只能经 /permission 命令写（automation runner 同款先例）。
+   *  无人值守的会话必须显式设——引擎按 permission.defaultPreset 给新会话 pin 初始
+   *  预设，workspace-write 档的审批策略是 ask，没人看着的审批卡会永远挂起。
+   *  落库/撤销要写仓库：workspace-write；复盘/校验只读日志：read-only。 */
+  const setPermission = useCallback(async (sessionId: string, preset: "read-only" | "workspace-write") => {
+    const res = await api.commandExecute({ agentId: sessionId, line: `/permission ${preset}` });
+    if (res?.result.kind === "error") throw new Error(res.result.text);
+  }, []);
+
   const handoff = useCallback(async (kind: EvolutionRun["kind"], text: string, note?: string, fresh?: string): Promise<string | null> => {
     if (busyRef.current) return null;
     setBusy(true);
     try {
-      const sessionId = fresh === undefined ? await ensureJobSession() : await freshSession(fresh);
+      const write = kind === "apply" || kind === "revoke";
+      let sessionId: string;
+      if (fresh === undefined) {
+        sessionId = await ensureJobSession();
+      } else {
+        sessionId = await freshSession(fresh);
+        // 一次性运行会话也要收到结果：登记进跟随清单，turn/end 时移除（见采集 effect）。
+        setRunSessions((prev) => (prev.includes(sessionId) ? prev : [...prev, sessionId]));
+      }
+      await setPermission(sessionId, write ? "workspace-write" : "read-only");
       await api.prompt({ requestId: crypto.randomUUID(), sessionId, mode: "queue", content: [{ type: "text", text }] });
       addRun(kind, sessionId, note);
       void storeRef.current.refresh();
@@ -151,13 +180,13 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, [addRun, ensureJobSession, freshSession]);
+  }, [addRun, ensureJobSession, freshSession, setPermission]);
 
   const apply = useCallback(async (id: string): Promise<string | null> => {
     const proposal = proposalsRef.current.find((p) => p.id === id);
     if (!proposal) return null;
     const sessionId = await handoff("apply", applyPrompt(proposal), proposal.id);
-    if (sessionId !== null) patch(id, { status: "applied", appliedSessionId: sessionId });
+    if (sessionId !== null) patch(id, { status: "applied", appliedSessionId: sessionId, appliedAt: Date.now() });
     return sessionId;
   }, [handoff, patch]);
 
@@ -172,8 +201,11 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
   const verify = useCallback(async (id: string): Promise<string | null> => {
     const proposal = proposalsRef.current.find((p) => p.id === id);
     if (!proposal || proposal.predict === null) return null;
-    return handoff("verify", verifyPrompt(proposal), proposal.id, "自进化·校验");
-  }, [handoff]);
+    const sessionId = await handoff("verify", verifyPrompt(proposal), proposal.id, "自进化·校验");
+    // 派发即盖戳：回执丢了也有重发的上界（VERIFY_RETRY_MS），不会每分钟重烧。
+    if (sessionId !== null) patch(id, { lastVerifyAt: Date.now() });
+    return sessionId;
+  }, [handoff, patch]);
 
   const review = useCallback(async (): Promise<string | null> => {
     // 靶子＝距上次复盘后有更新的会话（不再依赖"你正看着"）；摩擦计数仅在观察过时附上。
@@ -204,16 +236,23 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
     return sessionId;
   }, [handoff]);
 
-  // 采集：跟随"当前打开的会话"与"交办会话"（复盘/校验的输出也从那条流里收）。
+  // 采集：跟随"当前打开的会话"、"交办会话"与本应用开出的一次性运行会话。
+  // （复盘/校验的输出——lesson 块与 lesson-verify 回执——都从这些流里收。）
   const activeId = store.activeSessionId;
   useEffect(() => {
     if (!enabled) return; // 开关关着：什么都不采集
-    const ids = [activeId, jobSessionId].filter((v, i, a): v is string => v !== null && a.indexOf(v) === i);
+    const ids = [activeId, jobSessionId, ...runSessionsRef.current]
+      .filter((v, i, a): v is string => v !== null && a.indexOf(v) === i);
     if (ids.length === 0) return;
     const closes = ids.map((sessionId) => api.followSession({ kind: "session", sessionId }, {
       onSnapshot: () => { /* 历史不入队：重开旧会话不该把旧提案再收一遍 */ },
       onEvent: (ev: SessionEvent) => {
         collectFriction(frictionRef.current, sessionId, ev);
+        // 一次性运行会话的轮末即回收：结果已在 turn/end 前的 assistant 消息里收完，
+        // 不再跟着（EverOS 插件同款边界——capture 到 turn-stopping 为止）。
+        if (ev.type === "turn/end") {
+          setRunSessions((prev) => (prev.includes(sessionId) ? prev.filter((s) => s !== sessionId) : prev));
+        }
         if (ev.type !== "assistant/message") return;
         const text = blocksOf(ev).text;
         if (text.includes("lesson-verify")) {
@@ -251,19 +290,25 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
       },
     }));
     return () => { for (const close of closes) close(); };
-  }, [enabled, activeId, jobSessionId]);
+  }, [enabled, activeId, jobSessionId, runSessions]);
 
-  // 无感路径：复盘节流（按天 + 攒够轮数）与到期校验巡检，用户什么都不用做。
+  // 无感路径：复盘节流（按天 + 有更新会话；7 天静默兜底）与到期校验巡检。
   useEffect(() => {
     const tick = () => {
       if (!enabledRef.current) return; // 开关关着：不自动复盘、不自动校验
-      const since = lastReviewRef.current === null ? Number.POSITIVE_INFINITY : Date.now() - lastReviewRef.current;
-      // 触发：日节流 + 距上次复盘后至少有一个更新的会话（攒不够就不起，省一轮 token）
-      const touched = storeRef.current.allSessions.some((s) => s.updatedAt > (lastReviewRef.current ?? 0));
-      if (since >= REVIEW_INTERVAL_MS && touched) void review();
+      const now = Date.now();
+      const last = lastReviewRef.current;
+      const since = last === null ? Number.POSITIVE_INFINITY : now - last;
+      // 触发：日节流 + 距上次复盘后至少有一个更新的会话（攒不够就不起，省一轮 token）；
+      // 或 7 天完全静默也跑一轮（MiMo Dream/Distill 的固定节奏，不能永远不学）。
+      const touched = storeRef.current.allSessions.some((s) => s.updatedAt > (last ?? 0));
+      if (since >= REVIEW_INTERVAL_MS && (touched || since >= REVIEW_IDLE_MS)) void review();
+      // 到期＝窗口从采纳时刻起算（政策 §4「落库时把窗口切两半」）；回执未到时按
+      // VERIFY_RETRY_MS 重派，不无限重发。
       const due = proposalsRef.current.find((p) => (
         p.status === "applied" && p.predict !== null && p.verdict === undefined
-        && Date.now() - p.createdAt >= p.predict.windowDays * 86_400_000
+        && now - (p.appliedAt ?? p.createdAt) >= p.predict.windowDays * 86_400_000
+        && (p.lastVerifyAt === undefined || now - p.lastVerifyAt >= VERIFY_RETRY_MS)
       ));
       if (due) void verify(due.id);
     };

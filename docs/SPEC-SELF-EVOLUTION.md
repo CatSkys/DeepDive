@@ -37,17 +37,15 @@
 ## 4. 数据形状（照 dsh-evolve-modes 的 schema 收敛，字段语义沿用）
 
 ```jsonc
-// 一条提案（存应用侧队列）
+// 一条提案（存应用侧队列）——as-built 字段；origin 由应用盖戳（§9.0.2），不在块里
 {
   "id": "l-7f3a",
-  "action": "add | update | delete",
   "category": "incident | workflow | fact | rule",      // 对应知识家的四类：坑 / 流程 / 事实 / 规则
   "home": "pitfalls | agents | spec | skill | policy",  // 落点（允许清单见 §5）
   "anchor": "### 4.17 桥端口一变",                        // 标题锚；找不到整条拒绝，不猜位置
   "content": "要写入的完整文本（≤2000 字）",
-  "targetId": null,                                     // update / delete 指向已有条目 id
   "inference": "explicit | implicit",
-  "evidence": [{ "sessionId": "…", "turn": 12, "eventSeq": 431, "excerpt": "逐字 ≤500 字" }],
+  "evidence": [{ "excerpt": "逐字 ≤500 字", "note": "出处提示（可选）" }],
   "predict": { "metric": "repeat-incident | steps", "signature": "可 grep 的串", "windowDays": 14 },
   "status": "pending | applied | dismissed | expired",
   "createdAt": 0, "updatedAt": 0
@@ -64,7 +62,7 @@
 
 ## 6. 效果口径（"明确有效果"按这三条算）
 
-- **指标 A · 重复事故率**：`repeat-incident` 类经验在窗口内被 grep 到的次数。目标 **0**；≥1 判无效。数据源：会话日志。
+- **指标 A · 重复事故率**：`repeat-incident` 类经验在窗口内被 grep 到的次数。有效=落地后 ≤ 基线一半（`after ≤ before / 2`）；阈值口径以 `docs/EVOLUTION-POLICY.md §4` 为唯一事实源（判定在应用侧 `judgeVerdict`）。数据源：会话日志。
 - **指标 B · 关键流程步数**：`steps` 类经验落地前后，同一流程（按签名匹配）在会话里的工具调用数均值。目标至少 **−30%**。
 - **指标 C · 循环健康度**：采纳率（目标 ≥50%）、复提率（目标趋近 0）、学习运行失败率。全部可从提案队列算出。
 - **基线可回溯**：A、B 都能先在现有日志上跑一遍得到"之前是多少"，所以第一批落地后**几天内**就有前后对比。
@@ -112,7 +110,7 @@
 ## 10. 验收口径（动工后按这个验）
 
 - 说一句"记住这个" → 设置页待审队列 +1，**消息流里什么都没有**（零 UI）。
-- 点采纳 → 目标文件出现该节、`backups[]` 有一份原文、有一次引用提案 id 的 git 提交。
+- 点采纳 → 目标文件出现该节、有一次引用提案 id 的 git 提交（谱系与撤销都靠它；早先设想的 `backups[]` 不实现，见 §9.0.5）。
 - 点丢弃 → 状态 `dismissed` 留档；同一签名再提会被策略压低优先级（复提率可观测）。
 - 到期校验跑一次 → 标记补上复现次数与结论；人为重造一次那个签名，校验必须判**无效**并产出二级提案。
 - Dashboard 上的"前后对比"能在现有日志上算出来（不依赖新数据积累）。
