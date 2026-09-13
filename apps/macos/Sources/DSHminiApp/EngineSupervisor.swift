@@ -253,6 +253,18 @@ final class EngineSupervisor {
         if FileManager.default.isExecutableFile(atPath: everos.path) {
             environment["EVEROS_DSH_START_COMMAND"] = everos.path + " server start"
         }
+        // EverOS 提取要自己调 LLM（独立进程，读不到引擎的凭据服务）：用户没在
+        // ~/.everos/everos.toml 里配过 api_key 时，把引擎同一把 key 交给它——
+        // 范式见 EverOSKeyBridge。注入进环境，EverOS 服务由插件派生、继承此环境。
+        let support = AppPaths.harnessHome
+        let credentials = try? String(contentsOf: support.appendingPathComponent(".credentials.yaml"), encoding: .utf8)
+        let everosToml = try? String(contentsOf: FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".everos/everos.toml"), encoding: .utf8)
+        if let key = EverOSKeyBridge.resolveApiKey(credentialsYaml: credentials, everosToml: everosToml) {
+            environment["EVEROS_LLM__API_KEY"] = key
+        } else if everosToml == nil {
+            log.append("[engine] everos.toml not found; EverOS extraction key not bridged")
+        }
         // 遥测口径（SPEC-SEMANTICS：客户端默认关闭）：引擎 base 默认
         // FEEDBACK_ONLY，与产品语义冲突——壳显式注入 DISABLED 收口。
         environment["DSH_TELEMETRY_MODE"] = "DISABLED"

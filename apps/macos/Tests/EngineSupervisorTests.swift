@@ -172,6 +172,35 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertTrue(EngineSupervisor.sessionMemoryPluginSource.contains("DSH_HOME"), "笔记目录按 $DSH_HOME 解析")
     }
 
+    /// EverOS 提取密钥的桥：用户配过就不覆盖，没配才用引擎那把 key；解析不出不猜。
+    func testEverOSKeyBridge() {
+        let creds = """
+        version: 1
+        refs:
+          DEEPSEEK_API_KEY: "sk-abc123"
+          KIMI_CODING_API_KEY: "other"
+        records:
+          x:
+            kind: y
+        """
+        XCTAssertEqual(EverOSKeyBridge.apiKeyFromCredentials(creds), "sk-abc123")
+        // 只在 refs 段里找：换成顶层同名键不该命中
+        XCTAssertNil(EverOSKeyBridge.apiKeyFromCredentials("DEEPSEEK_API_KEY: \"sk-top\""))
+        XCTAssertNil(EverOSKeyBridge.apiKeyFromCredentials("refs:\n  DEEPSEEK_API_KEY: \"\""), "空值当没有")
+
+        let emptyToml = "[llm]\nmodel = \"deepseek-chat\"\napi_key = \"\"\n"
+        XCTAssertNil(EverOSKeyBridge.llmApiKeyFromToml(emptyToml), "空 api_key 视为未配置")
+        let filledToml = "[llm]\napi_key = 'user-owned'\n\n[embedding]\napi_key = \"other\"\n"
+        XCTAssertEqual(EverOSKeyBridge.llmApiKeyFromToml(filledToml), "user-owned")
+        XCTAssertNil(EverOSKeyBridge.llmApiKeyFromToml("[embedding]\napi_key = \"other\"\n"), "只看 [llm] 段")
+
+        // 规则：用户配过 → 不覆盖；没配 → 用引擎那把；凭据缺失 → nil（不猜）
+        XCTAssertNil(EverOSKeyBridge.resolveApiKey(credentialsYaml: creds, everosToml: filledToml))
+        XCTAssertEqual(EverOSKeyBridge.resolveApiKey(credentialsYaml: creds, everosToml: emptyToml), "sk-abc123")
+        XCTAssertNil(EverOSKeyBridge.resolveApiKey(credentialsYaml: nil, everosToml: emptyToml))
+        XCTAssertEqual(EverOSKeyBridge.resolveApiKey(credentialsYaml: creds, everosToml: nil), "sk-abc123")
+    }
+
     /// 自进化 / 会话记忆开关关着时，装配里不能出现对应 insert 或指路；开着才在。
     func testSystemPromptPrefixFollowsSwitches() {
         let off = EngineSupervisor.systemPromptPrefix(evolutionEnabled: false, sessionMemoryEnabled: false)
