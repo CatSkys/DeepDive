@@ -13,7 +13,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { evolutionEnv, lessonTool } from "../host";
-import { usePrefs } from "../prefs";
 import { blocksOf } from "../session/eventText";
 import { extractToolResult } from "../session/renderModel";
 import { useStore } from "../store";
@@ -72,8 +71,7 @@ interface Friction { turns: number; failed: number; corrections: number; sawAssi
 
 export function EvolutionProvider({ children }: { children: ReactNode }) {
   const store = useStore();
-  const prefs = usePrefs();
-  const enabled = prefs.evolutionEnabled;
+  const enabled = store.evolutionEnabled;
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const storeRef = useRef(store);
@@ -440,10 +438,10 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
     lastReviewAt,
     busy,
     enabled,
-    setEnabled: prefs.setEvolutionEnabled,
+    setEnabled: store.setEvolutionEnabled,
     dismiss: (id: string) => patch(id, { status: "dismissed" }),
     revoke,
-  }), [proposals, runs, lastReviewAt, busy, enabled, prefs.setEvolutionEnabled, patch, revoke]);
+  }), [proposals, runs, lastReviewAt, busy, enabled, store.setEvolutionEnabled, patch, revoke]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

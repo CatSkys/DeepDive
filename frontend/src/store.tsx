@@ -102,6 +102,12 @@ interface Store {
   setKeybinds: (next: KeybindOverrides) => void;
   /** 全局热键（唤起面板）启用开关，壳偏好持久化；关 = 系统级注销。 */
   hotkeyOn: boolean;
+  /** 自进化总开关（壳持久化；设置→自进化 的开关就是它，管线消费同一份状态）。 */
+  evolutionEnabled: boolean;
+  setEvolutionEnabled: (v: boolean) => void;
+  /** 会话记忆开关（壳持久化；设置→记忆）。 */
+  sessionMemoryEnabled: boolean;
+  setSessionMemoryEnabled: (v: boolean) => void;
   setHotkeyOn: (v: boolean) => void;
   /** 自动归档开关（客户端偏好，localStorage；默认关——归档单向不可撤销）。 */
   autoArchive: boolean;
@@ -187,6 +193,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     appearance, setAppearance,
     keybinds, setKeybinds,
     hotkeyOn, setHotkeyOn,
+    evolutionEnabled, setEvolutionEnabled,
+    sessionMemoryEnabled, setSessionMemoryEnabled,
   } = prefs;
   /** 单值偏好读取：无 localStorage（受限环境）或值非法一律回退默认。 */
   const readPref = <T,>(key: string, fallback: T, parse: (raw: string) => T | null): T => {
@@ -627,6 +635,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     keybinds,
     setKeybinds,
     hotkeyOn,
+    evolutionEnabled, setEvolutionEnabled,
+    sessionMemoryEnabled, setSessionMemoryEnabled,
     setHotkeyOn,
       switchWorkspace,
       createWorkspace,
@@ -667,7 +677,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

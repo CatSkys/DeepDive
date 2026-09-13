@@ -8,12 +8,12 @@ import { Toggle } from "../components/controls";
 import { confirmDialog } from "../components/DialogHost";
 import { useT } from "../i18n";
 import { memoryClear, memoryDelete, memoryList, type MemoryNote } from "../host";
-import { usePrefs } from "../prefs";
+import { useStore } from "../store";
 import css from "../evolution/Evolution.module.css";
 
 export function MemorySection() {
   const { t, tt } = useT();
-  const prefs = usePrefs();
+  const store = useStore();
   const [notes, setNotes] = useState<MemoryNote[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -24,7 +24,7 @@ export function MemorySection() {
 
   /** 开启前说清它做什么（可随时关；关掉后插件不再挂载，对运行中的会话不生效）。 */
   const toggle = async (on: boolean) => {
-    if (!on) { prefs.setSessionMemoryEnabled(false); return; }
+    if (!on) { store.setSessionMemoryEnabled(false); return; }
     const ok = await confirmDialog({
       message: tt(
         "开启「会话记忆」后将发生：每个会话获得一份可累积的 Markdown 笔记，在每个用户轮开始时注入给模型，模型可在工作过程中用工具更新它，并可主动压缩历史上下文。笔记存储在本机引擎目录，可在本页查看或删除；开启会增加每轮的上下文占用与模型调用。该能力可在应用下次启动后关闭。",
@@ -33,7 +33,7 @@ export function MemorySection() {
       confirmLabel: t("我明白，继续"),
       cancelLabel: t("取消"),
     });
-    if (ok) prefs.setSessionMemoryEnabled(true);
+    if (ok) store.setSessionMemoryEnabled(true);
   };
 
   const forget = async (sessionId: string) => {
@@ -66,7 +66,7 @@ export function MemorySection() {
               {t("实验性能力，默认关闭。开启后，每个会话维护一份笔记（目标、计划、踩过的坑等），每轮注入给模型，长对话可用「新上下文」压缩历史而不丢要点；笔记只存本机，可在下方查看或删除。开关在应用下次启动后对会话生效。")}
             </div>
           </div>
-          <Toggle on={prefs.sessionMemoryEnabled} onChange={(v) => void toggle(v)} />
+          <Toggle on={store.sessionMemoryEnabled} onChange={(v) => void toggle(v)} />
         </div>
       </div>
 
