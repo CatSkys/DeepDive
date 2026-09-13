@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, MessageSquare } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import css from "./Bots.module.css";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { api, type ImSnapshot } from "../api";
 import { BotManageDialog } from "./BotManageDialog";
-import { IM_CHANNELS } from "./im";
+import { ChannelLogo } from "./ChannelLogo";
+import { IM_CHANNELS, channelLogoKey } from "./im";
 import { useT } from "../i18n";
 
 // Bot Channel（设置 → 移动端远程控制 右栏）：把工作区接到聊天 Bot 上，
@@ -44,22 +45,24 @@ export function BotChannelCard() {
         {loaded && allUnavailable ? (
           <p className={css.empty}>{t("Bot Channel 未启用：引擎里没有装这个渠道插件。")}</p>
         ) : (
-          IM_CHANNELS.map((channel) => {
-            const state = states[channel.id];
-            return (
-              <button key={channel.id} className={css.channelRow} onClick={() => setOpenChannel(channel.id)}>
-                <MessageSquare size={15} className={css.channelIcon} />
-                <span className={css.channelMain}>
-                  <span className={css.channelName}>{t(channel.label)}</span>
-                  <span className={css.channelCaption}>
-                    {tt("从{label}打开这个工作区。", "Open this workspace from {label}.", { label: t(channel.label) })}
+          <div className={css.channels}>
+            {IM_CHANNELS.map((channel) => {
+              const state = states[channel.id];
+              return (
+                <button key={channel.id} className={css.channelRow} onClick={() => setOpenChannel(channel.id)}>
+                  <span className={css.channelIcon}><ChannelLogo channel={channelLogoKey(channel.id)} size={17} /></span>
+                  <span className={css.channelMain}>
+                    <span className={css.channelName}>{t(channel.label)}</span>
+                    <span className={css.channelCaption}>
+                      {tt("从{label}打开这个工作区。", "Open this workspace from {label}.", { label: t(channel.label) })}
+                    </span>
+                    <span className={css.channelState}>{stateLine(state, t, tt)}</span>
                   </span>
-                  <span className={css.channelState}>{stateLine(state, t, tt)}</span>
-                </span>
-                <ChevronRight size={14} className={css.channelChevron} />
-              </button>
-            );
-          })
+                  <ChevronRight size={14} className={css.channelChevron} />
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 

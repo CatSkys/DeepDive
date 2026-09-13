@@ -163,9 +163,12 @@
 - DSHmini 标题栏整个画在 web 层，壳里那个 `NSToolbar`（`EmptyToolbarDelegate`，0 item）唯一作用就是**把窗口选进大圆角档**：`titlebarAppearsTransparent` 让它不可见、0 item 不交互，空白条 hitTest 与无 toolbar 完全一致（实测）。副产物：挂上后红绿灯默认中心线 16→26pt，恰好等于前端 26px 头部中心线，`alignTrafficLights()` 成为 no-op 兜底。
 - 铁律：不要"清理"这个空 toolbar；前端圆角阶梯以 26 为锚（tokens.json v5 `radius.window`，`.main` 18 = 26−8 同心）。改动后必须截图自检圆角档位（对比 Finder 窗口角）。
 
-### 4.8 每次重打包 = adhoc 签名变化 → TCC 授权重置、启动弹系统授权框
-- `make package` 每次重签 bundle，macOS 按（code signature, bundle id）记 TCC 授权，签名一变「文稿访问」等授权全部重置：启动即弹"DeepDive 想访问文稿"系统框，**模态挡住应用初始化**（表现为 AX 查不到窗口/菜单栏、状态项缺失，像启动失败）。
-- 处置：预期行为，点"允许"即可，不是回归；自动化验证前先确认没有授权框挡着。
+### 4.8 重打包换签名 → TCC 授权重置、启动弹系统授权框
+- macOS 按（code signature, bundle id）记 TCC 授权，签名一变「文稿访问」等授权全部重置：启动即弹"DeepDive 想访问文稿"系统框，**模态挡住应用初始化**（表现为 AX 查不到窗口/菜单栏、状态项缺失，像启动失败）。
+- **根因要治，不是忍着**（2026-09-13 用户报告：重建必弹、人不在跟前没法点、点了还要等退避重试才起来，观感是"过一会才授权"）。ad-hoc 签名没有 Team ID，系统的 designated requirement 只能落到 cdhash 上——**每次重建都是新面孔**，授权必然重来。
+- 处置：**两条构建链统一走 `scripts/sign-app.sh`**（Developer ID 固定身份，逐 Mach-O 签 + hardened runtime；无证书环境回退 adhoc 并明说授权会丢）。授权从此绑 (bundle id + 团队)，跨构建持久。
+- 症状辨识：引擎**零输出**，`sample` 看得到卡在 `process.cwd()` 的 `getcwd()`（`__getcwd` → `open$NOCANCEL`），或零输出即退。壳的退出日志记 `exited (signal N|status N)`——静默 SIGKILL 与引擎自己报错退出才分得开。
+- 换身份后的**第一次**仍会弹一次（对系统而言是新应用），点一次即长期有效。
 
 ### 4.9 监督状态机的动作必须幂等：退避定时器 × 手动 start 并发 = 双 spawn
 - 事故：引擎退出后排了 restartWorkItem 退避重启；退避窗内用户点"重启引擎"直达 `start()`——`start()` 有 `process == nil` 守卫但不取消挂起的定时器，而 `spawn()` 无守卫、`self.process = process` 无条件覆盖——定时器稍后再 spawn 一次，首个引擎成孤儿进程，两引擎共用 DSH_HOME 交错写会话（恰是单实例锁要防的事）。

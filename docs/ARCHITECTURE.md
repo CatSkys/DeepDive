@@ -79,7 +79,8 @@
 
 - **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Resources/Runtime/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`；bundled 残缺或外部入口版本与随包引脚不符一律拒启（版本门，`SPEC-ENGINE-RUNTIME §3.4`）。
 - **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（XcodeGen 把原文件拷进 bundle 作 `Resources/dsh-runtime-version.txt`，版本门据此判外部入口）+ `scripts/node-version.txt`（构建机校验 fail-loud）。
-- **构建链**：`prepare-dsh-runtime.sh`（闭包准备 + 原生/FFI 冒烟，`DSH_SOURCE` 可复用同版本源）→ `embed-engine.sh`（拷入 .app + 自检）→ `build-release.sh` / `package-macos.sh`（Developer ID 深签 DMG，可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
+- **构建链**：`prepare-dsh-runtime.sh`（闭包准备 + 原生/FFI 冒烟，`DSH_SOURCE` 可复用同版本源）+ `prepare-chat-import.sh` / `prepare-dsh-im.sh`（两个随包社区插件的闭包，各自版本引脚在 `scripts/dsh-*-version.txt`）→ `embed-engine.sh`（拷入 .app + `sign-app.sh` 重封 + 自检）→ `build-release.sh` / `package-macos.sh`（最终 `sign-app.sh` 深签 + 可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
+- **签名身份统一走 `sign-app.sh`**（两条链共用一份）：Developer ID 固定身份 → TCC 授权绑 (bundle id + 团队)、跨构建持久；ad-hoc 无 Team ID，授权只能按 cdhash 记，每次重建都重置（PITFALLS §4.8）。无证书环境回退 adhoc 并明说会丢授权。
 - **模型目录新鲜度**：模型目录随引脚走（引擎自带 pi-ai，`prepare-dsh-runtime.sh` 校验其版本与引脚一致）；旧的 `engine-model-data` 数据层覆盖已删。
 - **版本韧性**：稳定面直接用；版本敏感面（provider 管理等）`probeMethod` 能力探测，缺则降级/隐藏。
 - 启动参数 `--profile web --no-open --port 0`；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。

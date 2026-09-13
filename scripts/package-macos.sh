@@ -24,37 +24,10 @@ bash scripts/embed-web.sh "$APP"
 bash scripts/embed-engine.sh "$APP"
 # 签名失败必须停：曾 `|| true` 吞错，bundle 被 embed 改坏时仍照常出 DMG（AUD-013）。
 # embed-engine 已在其自检前 re-seal 一次；此处再签是 DMG 分发前的最终 seal，
-# 二者顺序勿倒（embed → 最终 seal → DMG）。
-# 用本机 Developer ID 固定身份而非 adhoc：macOS 按（签名, bundle id）记 TCC
-# 授权，adhoc 每次重打包签名都变 → 授权反复重置、启动弹「访问文稿」框模态
-# 挡住初始化（PITFALLS §4.8）。固定身份后授权跨构建持久。无证书的环境回退 adhoc。
-IDENTITY="${DSHMINI_CODESIGN_IDENTITY:-Developer ID Application: HANGBIN JIN (49LSZKN27V)}"
-if security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
-  # 公证要求包内每个 Mach-O 都有 Developer ID 签名 + hardened runtime + secure
-  # timestamp。--deep 只覆盖 Frameworks/PlugIns 等标准嵌套位置，Resources/Runtime
-  # 下 node_modules 的 rg/pty.node/sharp 等一律漏签（2026-09-06 notarytool log
-  # 实锤），故先逐个签散文件、最后整体 seal bundle。node 带 JIT entitlements：
-  # hardened runtime 默认禁可执行内存，V8/koffi 没有它运行即崩（见 plist 注释）。
-  find "$APP" -type f -exec sh -c 'file -b "$1" | grep -q Mach-O' _ {} \; -print0 |
-  while IFS= read -r -d '' bin; do
-    case "$bin" in
-      */Resources/Runtime/node)
-        codesign --force -s "$IDENTITY" --options runtime --timestamp \
-          --entitlements scripts/node-entitlements.plist "$bin" \
-          || { echo "FAIL: codesign $bin"; exit 1; }
-        ;;
-      *)
-        codesign --force -s "$IDENTITY" --options runtime --timestamp "$bin" \
-          || { echo "FAIL: codesign $bin"; exit 1; }
-        ;;
-    esac
-  done
-  codesign --force -s "$IDENTITY" --options runtime --timestamp "$APP" \
-    || { echo "FAIL: codesign $APP"; exit 1; }
-else
-  echo "WARN: '$IDENTITY' not in keychain, falling back to ad-hoc signing"
-  codesign --force --deep -s - "$APP" || { echo "FAIL: codesign $APP"; exit 1; }
-fi
+# 二者顺序勿倒（embed → 最终 seal → DMG）。签名身份与做法统一在
+# scripts/sign-app.sh（Developer ID 固定身份 → TCC 授权跨构建持久，PITFALLS §4.8；
+# 无证书环境回退 adhoc）。
+bash scripts/sign-app.sh "$APP"
 
 # 公证（可选）：DSHMINI_NOTARY_PROFILE = notarytool 钥匙串 profile 名
 # （一次性配置：xcrun notarytool store-credentials <名字> --apple-id … --team-id 49LSZKN27V）。

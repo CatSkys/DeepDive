@@ -2690,6 +2690,16 @@ button {
     background: rgba(0, 0, 0, .42);
   }
   .sidebar-resizer { display: none; }
+
+  /* 触屏：指尖比光标粗，也没有 hover 兜底——主要可点目标的响应区提到 ~44px
+     （Apple HIG 的最小触摸目标）。只在本断点内动高度，桌面观感不受影响。
+     顶部两钮变宽后，收起态给会话头让位的左边距要跟着走（原值按 34px 调的）。 */
+  .window-top { top: 4px; }
+  .window-top-btn { width: 44px; height: 44px; }
+  .app.collapsed .session-header { padding-left: 190px; }
+  .app.collapsed .hero-top { padding-left: 166px; }
+  .task-row, .session-back, .snav-item, .ctx-item { height: 44px; }
+  .composer-send, .composer-icon, .composer-mic { width: 38px; height: 38px; }
 }
 @media (max-width: 720px) {
   .msg-block.user { max-width: 88%; }

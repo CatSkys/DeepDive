@@ -10,6 +10,13 @@
   background: var(--fill-soft);
 }
 
+/* 渠道多（12 个）：宽处双列排，窄处自动落回单列——避免一列拉得比左栏长得多 */
+.channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2px;
+}
+
 .empty {
   margin: 0;
   padding: 12px 10px;

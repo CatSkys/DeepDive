@@ -24,12 +24,33 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const attemptRef = useRef<string | null>(null);
-
+  /** 用户显式取消过：不再自动重开配对（否则取消立刻又被拉起来）。 */
+  const cancelledRef = useRef(false);
   const label = channelLabel(channel);
 
-  const pull = useCallback(() => {
-    void api.im.status(channel).then(setSnapshot).catch((e: Error) => setError(e.message));
+  const startPairing = useCallback(() => {
+    setBusy(true);
+    setError("");
+    void api.im.begin(channel, "zh-CN").then((attempt) => {
+      attemptRef.current = attempt.attemptId;
+      setProvision(attempt);
+      if (attempt.verificationUrl) void qrEncode(attempt.verificationUrl).then(setQr);
+    }).catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
   }, [channel]);
+
+  const pull = useCallback(() => {
+    void api.im.status(channel).then((next) => {
+      setSnapshot(next);
+      // 这个渠道一个机器人都没有时，打开就该直接看到二维码——不必再点一次
+      // 「新建机器人」（用户反馈：点开这个渠道本来就是想加机器人）。
+      if (!cancelledRef.current && next.bots.length === 0) {
+        setProvision((current) => {
+          if (current === null && !attemptRef.current) startPairing();
+          return current;
+        });
+      }
+    }).catch((e: Error) => setError(e.message));
+  }, [channel, startPairing]);
 
   useEffect(() => { pull(); }, [pull]);
 
@@ -40,11 +61,12 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
       void api.im.poll(channel, provision.attemptId).then((next) => {
         setProvision(next);
         if (next.status === "connected") {
+          attemptRef.current = null;
           setProvision(null);
           setQr("");
           pull();
         }
-      }).catch((e: Error) => { setError(e.message); setProvision(null); });
+      }).catch((e: Error) => { setError(e.message); attemptRef.current = null; setProvision(null); });
     }, Math.max(400, provision.pollIntervalMs || 1000));
     return () => window.clearTimeout(timer);
   }, [provision, channel, pull]);
@@ -55,21 +77,20 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
     onClose();
   }, [channel, onClose]);
 
+  const stopPairing = () => {
+    cancelledRef.current = true;
+    const attempt = attemptRef.current;
+    attemptRef.current = null;
+    setProvision(null);
+    setQr("");
+    if (attempt) void api.im.cancel(channel, attempt).catch(() => void 0 /* 尝试可能已自行结束 */);
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [close]);
-
-  const startPairing = () => {
-    setBusy(true);
-    setError("");
-    void api.im.begin(channel, "zh-CN").then((attempt) => {
-      attemptRef.current = attempt.attemptId;
-      setProvision(attempt);
-      if (attempt.verificationUrl) void qrEncode(attempt.verificationUrl).then(setQr);
-    }).catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
-  };
 
   const removeBot = async (bot: ImBot) => {
     const ok = await confirmDialog({
@@ -106,7 +127,7 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
                   ? t("已扫码，请在手机上确认。")
                   : tt("用{label}扫这个二维码完成关联。", "Scan this code in {label} to link.", { label })}
               </p>
-              <button className={rowsCss.secondaryButton} onClick={() => void api.im.cancel(channel, provision.attemptId).then(() => { attemptRef.current = null; setProvision(null); setQr(""); })}>
+              <button className={rowsCss.secondaryButton} onClick={stopPairing}>
                 {t("取消")}
               </button>
             </div>
