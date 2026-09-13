@@ -60,6 +60,7 @@ final class EngineSupervisorTests: XCTestCase {
         let skills: [(name: String, md: String, fence: String, url: URL)] = [
             (EngineSupervisor.automationSkillName, EngineSupervisor.automationSkillMarkdown, "```automation", EngineSupervisor.ensureAutomationSkill()),
             (EngineSupervisor.evolutionSkillName, EngineSupervisor.evolutionSkillMarkdown, "```lesson", EngineSupervisor.ensureEvolutionSkill()),
+            (EngineSupervisor.sessionMemorySkillName, EngineSupervisor.sessionMemorySkillMarkdown, "memory_note_write", EngineSupervisor.ensureSessionMemorySkill()),
         ]
         for skill in skills {
             XCTAssertTrue(skill.md.hasPrefix("---\n"), "\(skill.name) 缺 frontmatter")
@@ -126,23 +127,59 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertTrue(EngineSupervisor.lessonScriptURL("lesson-gate.mjs").path == gateURL.path, "lessonScriptURL 与铺盘位置必须一致")
     }
 
-    /// 自进化开关关着时，装配里不能出现那行自进化指路（新会话里模型也就不知道
-    /// 可以提经验）；开着才追加，且自动化指路恒在。
-    func testSystemPromptPrefixFollowsEvolutionSwitch() {
-        let off = EngineSupervisor.systemPromptPrefix(evolutionEnabled: false)
+    /// 会话记忆插件：挂载面（inject/pre-step）、fail-open 纪律、笔记围栏（防注入）、
+    /// 三工具与 new_context 的压缩通道都要在；铺盘位置与挂载名一致。
+    func testSessionMemoryPluginShape() throws {
+        let src = EngineSupervisor.sessionMemoryPluginSource
+        XCTAssertTrue(src.contains("export const name = PLUGIN_NAME"))
+        XCTAssertTrue(src.contains(#"export const inject = ["agents"]"#), "必须声明依赖")
+        XCTAssertTrue(src.contains(#"ctx.on("agent/pre-step""#), "注入点：每轮第一个模型步前")
+        XCTAssertTrue(src.contains("{ prepend: true }"), "注入必须前置（EverOS 同款）")
+        XCTAssertTrue(src.contains("createUserMessage"), "消息构造照 dsh-llm")
+        XCTAssertTrue(src.contains(#"kind: "plugin""#), "注入消息必须带 plugin 出处")
+        XCTAssertTrue(src.contains("step !== 1"), "只在每轮第一步注入，不逐步重复")
+        XCTAssertTrue(src.contains("failed open"), "fail-open：失败绝不挡用户轮次")
+        XCTAssertTrue(src.contains("<session_memory>"), "笔记必须围栏成不可信证据")
+        XCTAssertTrue(src.contains("neutralizeFences"), "围栏记号必须中和，防逃逸")
+        for tool in ["memory_note_read", "memory_note_write", "new_context"] {
+            XCTAssertTrue(src.contains("name: \"\(tool)\""), "缺工具 \(tool)")
+        }
+        XCTAssertTrue(src.contains("compactNow"), "new_context 走引擎压缩通道")
+        XCTAssertTrue(src.contains("ctx.agents.roots().includes"), "只挂 root agent（dsh-schedule 同款）")
+        XCTAssertTrue(src.contains("DSH_HOME"), "笔记目录按 $DSH_HOME 解析")
+        let url = EngineSupervisor.ensureSessionMemoryPlugin()
+        XCTAssertTrue(url.path == EngineSupervisor.sessionMemoryPluginURL.path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), url.path)
+        XCTAssertTrue(EngineSupervisor.memoryDir.path.hasSuffix("deepdive/memory"))
+    }
+
+    /// 自进化 / 会话记忆开关关着时，装配里不能出现对应 insert 或指路；开着才在。
+    func testSystemPromptPrefixFollowsSwitches() {
+        let off = EngineSupervisor.systemPromptPrefix(evolutionEnabled: false, sessionMemoryEnabled: false)
         XCTAssertTrue(off.contains("deepdive-automation"))
         XCTAssertFalse(off.contains("deepdive-evolution"))
-        let on = EngineSupervisor.systemPromptPrefix(evolutionEnabled: true)
-        XCTAssertTrue(on.contains("deepdive-automation") && on.contains("deepdive-evolution"))
-        XCTAssertFalse(EngineSupervisor.enginePatchBody(evolutionEnabled: false).contains("deepdive-evolution"))
-        XCTAssertTrue(EngineSupervisor.enginePatchBody(evolutionEnabled: true).contains("deepdive-evolution"))
+        XCTAssertFalse(off.contains("memory_note_write"))
+        let evoOn = EngineSupervisor.systemPromptPrefix(evolutionEnabled: true, sessionMemoryEnabled: false)
+        XCTAssertTrue(evoOn.contains("deepdive-automation") && evoOn.contains("deepdive-evolution"))
+        XCTAssertFalse(EngineSupervisor.enginePatchBody(evolutionEnabled: false, sessionMemoryEnabled: false).contains("deepdive-evolution"))
+        XCTAssertTrue(EngineSupervisor.enginePatchBody(evolutionEnabled: true, sessionMemoryEnabled: false).contains("deepdive-evolution"))
+        // 会话记忆：开着 → 插件 insert（绝对路径）+ 指路都在；关着 → 都不在。
+        let memOn = EngineSupervisor.enginePatchBody(evolutionEnabled: false, sessionMemoryEnabled: true)
+        XCTAssertTrue(memOn.contains("id: deepdive-session-memory"))
+        XCTAssertTrue(memOn.contains("index.js"))
+        XCTAssertTrue(memOn.contains("memory_note_write"))
+        XCTAssertTrue(memOn.contains("personaPrefix"))
+        let allOff = EngineSupervisor.enginePatchBody(evolutionEnabled: false, sessionMemoryEnabled: false)
+        XCTAssertFalse(allOff.contains("deepdive-session-memory"))
+        XCTAssertFalse(EngineSupervisor.systemPromptPrefix(evolutionEnabled: false, sessionMemoryEnabled: true).contains("deepdive-evolution"))
+        XCTAssertTrue(EngineSupervisor.systemPromptPrefix(evolutionEnabled: false, sessionMemoryEnabled: true).contains("memory_note_write"))
     }
 
     /// 引擎 overlay patch 的形状：写坏了引擎 boot 时 fail-loud 起不来，所以两段
     /// 都得在——schedule 工具 insert + 会话侧自动化协议的 system-prompt 前缀；
     /// 提示词里的引号/换行经 JSON 转义成 YAML 流标量后必须仍是**单行**。
     func testEnginePatchCarriesScheduleInsertAndAutomationPrompt() throws {
-        let body = EngineSupervisor.enginePatchBody(evolutionEnabled: true)
+        let body = EngineSupervisor.enginePatchBody(evolutionEnabled: true, sessionMemoryEnabled: false)
         XCTAssertTrue(body.contains("- id: schedule"))
         XCTAssertTrue(body.contains("@deepseek-ai/dsh-schedule"))
         let prefixLine = try XCTUnwrap(body.split(separator: "\n").first { $0.contains("personaPrefix:") })

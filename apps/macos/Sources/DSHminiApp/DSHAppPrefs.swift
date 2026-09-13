@@ -112,6 +112,18 @@ enum DSHAppPrefs {
         UserDefaults.standard.bool(forKey: evolutionEnabledKey)
     }
 
+    /// 会话记忆（实验能力，默认关）：开着引擎装配才挂笔记插件、新会话才有
+    /// memory 工具（晚一拍：装配在启动时读）。
+    static let sessionMemoryEnabledKey = "deepdive.sessionMemory.enabled"
+
+    static var sessionMemoryEnabled: Bool {
+        UserDefaults.standard.bool(forKey: sessionMemoryEnabledKey)
+    }
+
+    static func setSessionMemoryEnabled(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: sessionMemoryEnabledKey)
+    }
+
     static func setEvolutionEnabled(_ value: Bool) {
         UserDefaults.standard.set(value, forKey: evolutionEnabledKey)
     }

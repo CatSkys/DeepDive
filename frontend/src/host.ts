@@ -236,6 +236,47 @@ export function evolutionEnv(): Promise<{ harnessHome: string } | null> {
   );
 }
 
+/* ── 会话记忆笔记的审计面（可审查性照 Ditto 记忆页：查看/单条忘记/全部清除；
+   MiMo 选 Markdown 的唯一理由也是"用户能看、能删"）。壳只读与删文件。── */
+
+export interface MemoryNote {
+  sessionId: string;
+  content: string;
+}
+
+/** 列出全部会话笔记（内容截断在壳侧）；无壳桥 resolve 空表。 */
+export function memoryList(): Promise<MemoryNote[]> {
+  return bridgeRequest(
+    "memoryFiles",
+    [],
+    (p) => {
+      const r = p as { notes?: MemoryNote[] };
+      return Array.isArray(r?.notes) ? r.notes : [];
+    },
+    (reqId) => sendToShell({ type: "memory-list", reqId }),
+  );
+}
+
+/** 删除一条笔记（Ditto「忘记」）。 */
+export function memoryDelete(sessionId: string): Promise<boolean> {
+  return bridgeRequest(
+    "memoryDeleted",
+    false,
+    (p) => (p as { ok?: boolean } | undefined)?.ok === true,
+    (reqId) => sendToShell({ type: "memory-delete", reqId, sessionId }),
+  );
+}
+
+/** 清空全部笔记（Ditto「全部清除」）。 */
+export function memoryClear(): Promise<boolean> {
+  return bridgeRequest(
+    "memoryCleared",
+    false,
+    (p) => (p as { ok?: boolean } | undefined)?.ok === true,
+    (reqId) => sendToShell({ type: "memory-clear", reqId }),
+  );
+}
+
 /** 壳侧读项目根目录约定图标文件（icon.png / logo.* 等，见 WorkspaceIcon）
  *  为 dataURL；无图标/纯浏览器 resolve null（前端回落项目首字母）。
  *  壳每次都读盘——调用方按路径缓存，勿在渲染路径反复请求。 */

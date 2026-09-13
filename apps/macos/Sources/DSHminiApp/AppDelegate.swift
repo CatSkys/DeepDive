@@ -228,6 +228,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "notifyAttention": DSHAppPrefs.setNotifyAttention(value)
                 case "evolutionEnabled":
                     DSHAppPrefs.setEvolutionEnabled(value)
+                case "sessionMemoryEnabled":
+                    DSHAppPrefs.setSessionMemoryEnabled(value)
                 case "hotkeyOn":
                     DSHAppPrefs.setHotkeyOn(value)
                     if value {
@@ -347,6 +349,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "evolutionEnv",
                 payload: AppDelegate.jsonPayload(["reqId": body["reqId"] as? String ?? "", "harnessHome": AppPaths.harnessHome.path]),
             )
+        case "memory-list":
+            memoryList(reqId: body["reqId"] as? String ?? "")
+        case "memory-delete":
+            memoryDelete(reqId: body["reqId"] as? String ?? "", sessionId: body["sessionId"] as? String ?? "")
+        case "memory-clear":
+            memoryClear(reqId: body["reqId"] as? String ?? "")
         case "open-url":
             // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
@@ -549,8 +557,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 自进化机械脚本执行（lesson-tool → lessonToolResult 回推）：随包 node 直跑
-    /// 固化脚本（gate/land/verify，启动时铺盘在 <DSH_HOME>/deepdive/），模型不在
+    /// 会话记忆笔记的审计面（memory-list/delete/clear）：笔记是插件的落盘文件
+    /// （<DSH_HOME>/deepdive/memory/<sessionId>.md），壳只读与删——可审计性照
+    /// Ditto 记忆页（查看/单条忘记/全部清除）。sessionId 只放行安全字符防穿越。
+    private static func isSafeSessionId(_ id: String) -> Bool {
+        !id.isEmpty && id.count <= 128 && id.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" }
+    }
+
+    private func memoryList(reqId: String) {
+        func reply(_ notes: [[String: Any]]) {
+            windowController.pushHostCommand("memoryFiles", payload: AppDelegate.jsonPayload(["reqId": reqId, "notes": notes]))
+        }
+        let dir = EngineSupervisor.memoryDir
+        let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        let notes: [[String: Any]] = items.compactMap { url in
+            guard url.pathExtension == "md" else { return nil }
+            let sessionId = url.deletingPathExtension().lastPathComponent
+            guard sessionId.hasPrefix("session-"), AppDelegate.isSafeSessionId(sessionId),
+                  let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+            return ["sessionId": sessionId, "content": String(content.prefix(8000))]
+        }
+        reply(notes)
+    }
+
+    private func memoryDelete(reqId: String, sessionId: String) {
+        func reply(_ ok: Bool) {
+            windowController.pushHostCommand("memoryDeleted", payload: AppDelegate.jsonPayload(["reqId": reqId, "ok": ok]))
+        }
+        guard AppDelegate.isSafeSessionId(sessionId) else { reply(false); return }
+        let url = EngineSupervisor.memoryDir.appendingPathComponent(sessionId + ".md")
+        guard FileManager.default.fileExists(atPath: url.path) else { reply(true); return }
+        do { try FileManager.default.removeItem(at: url); reply(true) } catch { reply(false) }
+    }
+
+    private func memoryClear(reqId: String) {
+        func reply(_ ok: Bool) {
+            windowController.pushHostCommand("memoryCleared", payload: AppDelegate.jsonPayload(["reqId": reqId, "ok": ok]))
+        }
+        let dir = EngineSupervisor.memoryDir
+        let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+        do {
+            for url in items where url.pathExtension == "md" {
+                try FileManager.default.removeItem(at: url)
+            }
+            reply(true)
+        } catch {
+            reply(false)
+        }
+    }
+
+    /// 自进化机械脚本执行（lesson-tool → lessonToolResult 回推）：随包 node 直跑    /// 固化脚本（gate/land/verify，启动时铺盘在 <DSH_HOME>/deepdive/），模型不在
     /// 环内——零人审的信任底座（Ditto selftest：宿主验证，不采信 agent 口头"完成"）。
     /// DSH_HOME 显式进脚本环境（壳进程环境里没有）；stdout 完整回传（回执在末行），
     /// 解析在前端边界做。node/脚本缺席（dev 的 .single 入口）显式 ok=false 降级。
@@ -694,6 +750,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "keybinds": DSHAppPrefs.keybinds,
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
         "evolutionEnabled": DSHAppPrefs.evolutionEnabled,
+            "sessionMemoryEnabled": DSHAppPrefs.sessionMemoryEnabled,
             "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
         ]
