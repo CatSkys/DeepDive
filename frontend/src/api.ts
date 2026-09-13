@@ -59,6 +59,94 @@ async function importPanelPost<T>(path: string, body: unknown): Promise<T> {
   return json as T;
 }
 
+// ── IM 渠道面（@xmanrui/dsh-im 插件的 HTTP 面）：每个渠道一个路由
+// `POST /api/dsh-im/<渠道>`，信封与引擎 unary 同形，但 payload 里再嵌一层
+// 「端点 + 参数」：{type:"client-request", rpcId, method:"dsh-im/<渠道>",
+// payload:{method:<端点>, payload:<参数>}}。这是插件自己的契约（不是 typert
+// 网关路由），形状取自其 host bundle 的注册函数（path:`/api/dsh-im${channel}`）。
+// 插件缺席/未铺盘时整条路由 404 —— 调用方据此把整个 Bot Channel 降级掉。
+
+export interface ImBot {
+  botId: string;
+  state: "connected" | "connecting" | "offline" | "error";
+  connected: boolean;
+  /** 凭据是否已保存（扫码配对成功后为真）。 */
+  configured: boolean;
+  /** 这个机器人默认跑在哪个工作区（绝对路径；空串 = 未设置）。 */
+  workspace: string;
+  bot: { name: string; accountIdMasked: string };
+  health: { status: string; summary: string };
+}
+
+export interface ImSnapshot {
+  state: string;
+  bots: ImBot[];
+  totals: { configured: number; connected: number };
+}
+
+/** 扫码配对的一次尝试：verificationUrl 就是二维码内容（前端交给壳画码）。 */
+export interface ImProvision {
+  attemptId: string;
+  status: "starting" | "pending" | "scanned" | "needs_verification" | "connecting" | "connected" | "expired" | "failed" | "cancelled";
+  verificationUrl: string;
+  expiresAt: number;
+  pollIntervalMs: number;
+}
+
+async function imCall<T>(channel: string, endpoint: string, args: Record<string, unknown> = {}): Promise<T> {
+  const res = await fetch(`/api/dsh-im/${channel}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      type: "client-request",
+      rpcId: uuid(),
+      method: `dsh-im/${channel}`,
+      payload: { method: endpoint, payload: args },
+    }),
+  });
+  if (!res.ok) throw new Error(`transport: dsh-im/${channel} HTTP ${res.status}`);
+  const full: { result: RpcResult<T> } = await res.json();
+  if (!full.result.ok) {
+    throw new Error(`${full.result.error?.code ?? "rpc"}: ${full.result.error?.message ?? "unknown"}`);
+  }
+  return full.result.value as T;
+}
+
+/** 渠道快照的边界收窄（铁律 5）：字段漂移按缺省落，不让 undefined 进 UI。 */
+function narrowImSnapshot(raw: ImSnapshot): ImSnapshot {
+  const bots: ImBot[] = [];
+  for (const b of Array.isArray(raw?.bots) ? raw.bots : []) {
+    if (typeof b?.botId !== "string" || !b.botId) continue;
+    bots.push({
+      botId: b.botId,
+      state: b.state ?? "error",
+      connected: b.connected === true,
+      configured: b.configured === true,
+      workspace: typeof b.workspace === "string" ? b.workspace : "",
+      bot: { name: b.bot?.name || b.botId, accountIdMasked: b.bot?.accountIdMasked ?? "" },
+      health: { status: b.health?.status ?? "", summary: b.health?.summary ?? "" },
+    });
+  }
+  return {
+    state: typeof raw?.state === "string" ? raw.state : "unknown",
+    bots,
+    totals: {
+      configured: typeof raw?.totals?.configured === "number" ? raw.totals.configured : bots.length,
+      connected: typeof raw?.totals?.connected === "number" ? raw.totals.connected : bots.filter((b) => b.connected).length,
+    },
+  };
+}
+
+export const im = {
+  status: (channel: string) => imCall<ImSnapshot>(channel, "connection.status").then(narrowImSnapshot),
+  begin: (channel: string, locale: string) => imCall<ImProvision>(channel, "provision.begin", { locale }),
+  poll: (channel: string, attemptId: string) => imCall<ImProvision>(channel, "provision.poll", { attemptId }),
+  cancel: (channel: string, attemptId: string) => imCall<unknown>(channel, "provision.cancel", { attemptId }),
+  /** 端口径与插件的确认式删除一致：`{botId, confirm:true}`，回新快照。 */
+  removeBot: (channel: string, botId: string) =>
+    imCall<ImSnapshot>(channel, "bot.delete", { botId, confirm: true }).then(narrowImSnapshot),
+};
+
 export interface ImportSyncStatus {
   ok: true;
   config: { inbound: { enabled: boolean }; outbound: { enabled: boolean }; watch: { enabled: boolean }; intervalMs: number };
@@ -120,6 +208,8 @@ export type ControlFrame =
   | { type: "projection"; sessionId: string; key: string; value: unknown; seq: number };
 
 export const api = {
+  /** IM 渠道面（Bot Channel / 机器人管理）——插件自己的路由，不是引擎 unary。 */
+  im,
   /** 列出其他 Agent 可导入的会话（插件被动发现，带 mtime 书签缓存）。 */
   importSessions: (payload: { source?: string; query?: string; offset?: number; limit?: number } = {}) =>
     importPanelPost<{ ok: true; sessions: ImportableSession[]; total: number; offset: number; limit: number }>(

@@ -7,6 +7,7 @@ import {
   type RemoteDevice, type RemoteStatus,
 } from "../host";
 import { formatClock } from "../session/format";
+import { BotChannelCard } from "../bots/BotChannelCard";
 import { useT } from "../i18n";
 
 // 设置 → 移动端远程控制：手机扫码配对后接管当前工作区。局域网监听、配对
@@ -60,8 +61,9 @@ export function RemoteControlSection() {
   const devices = status?.devices ?? [];
 
   return (
-    <div className={rowsCss.section}>
-      <div className={rowsCss.sectionTitle}>{t("手机扫码连接")}</div>
+    <div className={css.grid}>
+      <div className={rowsCss.section}>
+        <div className={rowsCss.sectionTitle}>{t("手机扫码连接")}</div>
       <div className={rowsCss.sectionIntro}>{t("用手机相机扫码，在手机上打开这个工作区。")}</div>
 
       {!running ? (
@@ -150,6 +152,11 @@ export function RemoteControlSection() {
           )}
         </div>
       )}
+      </div>
+
+      {/* 右栏：把工作区接到聊天 Bot 上（参考图右栏版式）。数据与技术契约见
+          bots/BotChannelCard 与 docs/SPEC-MOBILE-REMOTE.md。 */}
+      <BotChannelCard />
     </div>
   );
 }

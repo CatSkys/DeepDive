@@ -1,6 +1,18 @@
 /* 移动端远程控制分区样式 —— 沿用设置页语义变量（--ink/--line/--fill），
    二维码卡片是这里的唯一特殊件：二维码必须深色压白底才扫得动。 */
 
+/* 两栏版式（照参考图）：左 = 手机扫码连接，右 = Bot Channel。
+   窄屏落回单列——两栏在手机上谁也读不清。 */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 .card {
   display: flex;
   flex-direction: column;

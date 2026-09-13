@@ -1289,7 +1289,12 @@ final class EngineSupervisor {
 
         let delay = min(30.0, pow(2.0, Double(attempts - 1)))
         state = .restarting(attempt: attempts)
-        log.append("[engine] exited; restart in \(Int(delay))s (attempt \(attempts))")
+        // 退出原因要落日志：静默 SIGKILL（签名/TCC 一类）与引擎自己报错退出
+        // 长得一模一样——都是"零输出 + 退出"，没有这一行就查不出是哪种。
+        let reason = proc.terminationReason == .uncaughtSignal
+            ? "signal \(proc.terminationStatus)"
+            : "status \(proc.terminationStatus)"
+        log.append("[engine] exited (\(reason)); restart in \(Int(delay))s (attempt \(attempts))")
 
         let item = DispatchWorkItem { [weak self] in
             self?.spawn()

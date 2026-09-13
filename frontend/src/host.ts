@@ -349,6 +349,21 @@ export function remoteCopyLink(text: string): void {
   sendToShell({ type: "remote-copy", text });
 }
 
+/** 任意文本 → 二维码 data URL（Bot Channel 的扫码配对：插件给的是
+ *  verificationUrl）。复用壳里那一份 CoreImage 生成器，前端不塞第二套 QR
+ *  实现；无壳桥/壳不回包 resolve 空串（调用方按"画不出码"降级）。 */
+export function qrEncode(text: string): Promise<string> {
+  return bridgeRequest(
+    "qrEncoded",
+    "",
+    (p) => {
+      const qr = (p as { qr?: string } | undefined)?.qr;
+      return typeof qr === "string" && qr.startsWith("data:") ? qr : "";
+    },
+    (reqId) => sendToShell({ type: "qr-encode", reqId, text }),
+  );
+}
+
 /** 壳侧读项目根目录约定图标文件（icon.png / logo.* 等，见 WorkspaceIcon）
  *  为 dataURL；无图标/纯浏览器 resolve null（前端回落项目首字母）。
  *  壳每次都读盘——调用方按路径缓存，勿在渲染路径反复请求。 */

@@ -41,8 +41,57 @@
 - 取不到局域网地址（Wi-Fi 关着）：不显示二维码，改显示「这台 Mac 现在没有局域网地址」，链接与复制按钮禁用。
 - 纯浏览器（无壳桥）：`host.ts` 的远程通道按 `REMOTE_OFF` 空快照降级，分区显示未开启态。
 
-## 5. 尚未做
+## 5. Bot Channel（IM 机器人）
 
-- **手机端布局**：手机拿到的是同一个 SPA（窄屏下侧栏自动收起是既有行为），但**没有为触屏做专门的版式**。触屏适配是下一步。
-- **Bot Channel（IM 机器人）**：微信/飞书/Lark/Telegram 这类「从聊天窗口打开这个工作区」需要把 IM 渠道接进引擎，属第三方 dsh 插件的地盘（`@xmanrui/dsh-im` 等）。当前没有做，原因是**依赖批准（铁律 7）与引擎引脚兼容**两道前提未决：该插件声明兼容到 `0.1.5-alpha.1`，而本仓库引擎引脚是 `0.1.5-rc.1`。
+手机的浏览器只是「能打开工作区」；**Bot Channel 解决的是人离开这台 Mac 之后**——把工作区接到微信/飞书这类聊天工具上，从聊天窗口继续用。
+
+### 5.1 形态与来源
+
+渠道能力不自己造，走社区插件 `@xmanrui/dsh-im`（MIT，版本引脚 `scripts/dsh-im-version.txt`）：
+
+- **随包分发**：`scripts/prepare-dsh-im.sh` 装出**整棵依赖闭包**（插件 + qrcode/undici/dingtalk-stream 等运行时依赖，装机时缺一个即报错），`embed-engine.sh` 拷进 `Resources/Runtime/dsh-im/`；`BotChannelPlugin.swift` 在引擎启动前铺进 `profiles/web`（与 `ChatImportPlugin` 同一套幂等纪律），并把它加进 profile 的 `dsh.profile.bundles`。
+- **为什么是整棵闭包**：它的 host 面是自包含 bundle，但各渠道运行时动态 `import` 那几个 SDK——只拷插件目录会让对应渠道起不来。
+- **只自建设置面**：插件给官方 web UI 配了客户端插件（`dsh.client`），我们不复刻它——它注册的**渠道面**是 HTTP 路由，我们的 SPA 直接调，省掉一整套前端移植。
+
+### 5.2 wire 契约（实测，非 typert 网关路由）
+
+每个渠道一个路由，**方法名不在 URL 里**：
+
+```
+POST /api/dsh-im/<渠道>            # 渠道 = weixin | feishu | dingtalk | telegram | …
+Content-Type: application/json
+{ type: "client-request", rpcId, method: "dsh-im/<渠道>",
+  payload: { method: "<端点>", payload: { …参数 } } }
+→ { type: "server-response", rpcId, result: { ok: true, value } | { ok: false, error } }
+```
+
+渠道名由插件注册时拼成 `dsh-im` + `/渠道`（其 host bundle 的 `path:\`/api/dsh-im${channel}\``）。**路由是插件按渠道注册的，插件没铺盘/该渠道没起时整条 404**——前端据此整体降级。
+
+用到的端点（参数名取自插件客户端源码，勿猜）：
+
+| 端点 | 参数 | 回 |
+|---|---|---|
+| `connection.status` | `{}` | 快照：`{state, bots[], totals{configured,connected}}` |
+| `provision.begin` | `{locale}` | `{attemptId, status, verificationUrl, expiresAt, pollIntervalMs}` |
+| `provision.poll` | `{attemptId}` | 同上（`status` 推进到 `connected`/`expired`/`failed`） |
+| `provision.cancel` | `{attemptId}` | — |
+| `bot.delete` | `{botId, confirm: true}` | 新快照 |
+| `bot.workspace.set` | `{botId, workspace}` | 新快照 |
+
+`verificationUrl` 就是二维码内容（微信给的是 `https://liteapp.weixin.qq.com/q/…`），前端把它交给**壳里那一份** CoreImage 生成器（桥指令 `qr-encode`）画码——前端不塞第二套 QR 实现。
+
+### 5.3 前端
+
+设置 → 移动端远程控制 的**右栏**（参考图右栏版式）：四个渠道行，各显示真实状态（`还没有机器人` / `n 个机器人 · m 已连接` / `这个渠道现在不可用`），点开是该渠道的**机器人管理**弹窗——机器人台账（名称/健康摘要/工作区）+ 新建（扫码 → 轮询 → 落库）+ 移除（确认式删除）。数据与动作全在 `api.im`（`api.ts` 内的 IM 渠道面）；UI 不复刻插件的状态机。
+
+### 5.4 尚未做
+
+- 机器人的**模型 / Agent 预设 / 回复颗粒度 / 工作区访问范围**编辑：插件有对应端点（`bot.model.set`、`bot.agent-preset.set`、`bot.context-enhancement.set`、`bot.access-policy.set`），前端还没接（当前只能在新建后看状态，改不了这些）。
+- 参考图里的「飞书 中国 / Lark 全球」两行：插件里是同一个 `feishu` 渠道（Lark 是国际域名品牌），我们只列一行，不造两行驱动同一个机器人。
+- 渠道列表固定为 微信/飞书/钉钉/Telegram；插件还支持企业微信/QQ/Slack/Discord/WhatsApp/iMessage，加一行即可（`bots/im.ts` 的 `IM_CHANNELS`）。
+
+## 6. 尚未做（其余）
+
+- **手机端布局**：手机拿到的是同一个 SPA。窄屏已做「侧栏浮层 + 遮罩」（点遮罩收起，主列不再被挤成一条缝），但**没有为触屏做完整版式**（顶部按钮 34×34，低于 44 的触屏建议）。
 - 公网访问（隧道）、多用户共用一个引擎、手机离线消息队列：非目标。
+

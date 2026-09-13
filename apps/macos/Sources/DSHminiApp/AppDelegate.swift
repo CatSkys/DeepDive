@@ -104,6 +104,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 in: AppPaths.harnessHome,
                 bundledDir: runtime.appendingPathComponent("Runtime/chat-import", isDirectory: true)
             )
+            // IM 渠道插件同批铺盘：引擎按 profile bundles 加载后才挂上
+            // /api/dsh-im/<渠道>（移动端远程控制的 Bot Channel 与机器人管理）。
+            BotChannelPlugin.ensureInstalled(
+                in: AppPaths.harnessHome,
+                bundledDir: runtime.appendingPathComponent("Runtime/dsh-im", isDirectory: true)
+            )
         }
         // 上次运行登记过的取消归档 / 删除：趁引擎还没起，把引擎状态文件落到位
         // （运行期改会被内存状态覆写——PITFALLS §4.15）
@@ -375,6 +381,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.setString(body["text"] as? String ?? "", forType: .string)
+        case "qr-encode":
+            // 通用二维码（Bot Channel 的扫码配对：插件给的是 verificationUrl）。
+            // 复用壳里那一份 CoreImage 生成器，前端不再塞第二套 QR 实现。
+            windowController.pushHostCommand("qrEncoded", payload: AppDelegate.jsonPayload([
+                "reqId": body["reqId"] as? String ?? "",
+                "qr": QRCode.dataURL(text: body["text"] as? String ?? "") ?? "",
+            ]))
         case "open-url":
             // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {

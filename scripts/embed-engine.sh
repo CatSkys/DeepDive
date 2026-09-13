@@ -102,6 +102,14 @@ mkdir -p "$STAGE/Resources/Runtime/chat-import"
 cp -R "$CHAT_IMPORT_SOURCE/dsh-chat-import" "$STAGE/Resources/Runtime/chat-import/dsh-chat-import"
 cp -R "$CHAT_IMPORT_SOURCE/fzstd" "$STAGE/Resources/Runtime/chat-import/fzstd"
 
+# IM 渠道插件（Bot Channel，社区包 MIT）：独立引脚
+# scripts/dsh-im-version.txt，prepare 脚本给出含整棵依赖闭包的暂存目录。
+# 运行时由 BotChannelPlugin 装进 harness home 的 web profile（引擎启动前）。
+DSH_IM_SOURCE="$(bash "$ROOT/scripts/prepare-dsh-im.sh")"
+rm -rf "$STAGE/Resources/Runtime/dsh-im"
+mkdir -p "$STAGE/Resources/Runtime/dsh-im"
+ditto "$DSH_IM_SOURCE/node_modules" "$STAGE/Resources/Runtime/dsh-im/node_modules"
+
 # Re-seal the bundle AFTER all file mutations, BEFORE the self-check.
 # xcodebuild leaves an (adhoc) seal over Contents; embed-web + this script
 # then add/replace files under it. A stale LaunchServices registration of

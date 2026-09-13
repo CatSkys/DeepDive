@@ -1,0 +1,123 @@
+/* Bot Channel（设置 → 移动端远程控制 右栏）与机器人管理弹窗的样式。
+   沿用设置页语义变量与统一弹出配方，不另立一套观感。 */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-card);
+  background: var(--fill-soft);
+}
+
+.empty {
+  margin: 0;
+  padding: 12px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+/* ── 渠道行（整行可点，打开该渠道的机器人管理） ── */
+.channelRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: var(--dsh-radius-control);
+  background: transparent;
+  text-align: left;
+  transition: background-color var(--dur-fast) ease;
+}
+.channelRow:hover { background: var(--fill); }
+.channelIcon { color: var(--ink-2); flex: none; }
+.channelMain { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.channelName { font-size: 12.5px; color: var(--ink); }
+.channelCaption { font-size: 11.5px; line-height: 15px; color: var(--ink-3); }
+.channelState { font-size: 11px; color: var(--ink-3); }
+.channelChevron { color: var(--ink-3); flex: none; }
+
+/* ── 弹窗内 ── */
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--dsh-radius-control);
+  background: transparent;
+  color: var(--ink-2);
+}
+.closeBtn:hover { background: var(--fill); color: var(--ink); }
+
+.error {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #e5484d;
+}
+
+.manageHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.manageHint { flex: 1; min-width: 0; font-size: 11.5px; color: var(--ink-3); }
+
+.botRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.botIdentity { flex: 1; min-width: 0; }
+.botName {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.botDot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.botDot[data-tone="on"] { background: var(--ink); }
+.botDot[data-tone="warn"] { background: #ff9f0a; }
+.botCaption { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+
+/* ── 扫码配对 ── */
+.pairPane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+.pairQr {
+  width: 208px;
+  height: 208px;
+  border-radius: var(--dsh-radius-control);
+  background: #fff;
+  /* 二维码是 1px 模块的位图，缩放交给浏览器会糊；按整数倍放大渲染 */
+  image-rendering: pixelated;
+}
+.pairQrPending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 208px;
+  height: 208px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  color: var(--ink-3);
+}
+.pairHint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  text-align: center;
+}
