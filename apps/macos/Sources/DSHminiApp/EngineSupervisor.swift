@@ -470,11 +470,25 @@ final class EngineSupervisor {
 
     /// 铺会话记忆插件（每次启动重写：升级以应用内为准；开关关着也铺——挂不挂由
     /// engine-patch 决定，铺盘本身无副作用）。
+    ///
+    /// 插件文件的 `import "@deepseek-ai/dsh-tools"` 从文件位置向上找 node_modules；
+    /// 本目录不在 profiles 树里摸不到安装闭包，缺了它引擎 boot fail-loud（2026-09-13
+    /// 实机 3 连崩）。放一个指向随包 runtime 闭包的 node_modules 链接——与
+    /// `profiles/node_modules` 同一机制；每次启动重写，bundle 挪位置不断链。
     @discardableResult
     static func ensureSessionMemoryPlugin() -> URL {
         let url = sessionMemoryPluginURL
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let dir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try? sessionMemoryPluginSource.write(to: url, atomically: true, encoding: .utf8)
+        if let resources = Bundle.main.resourceURL {
+            let closure = resources.appendingPathComponent("Runtime/dsh/node_modules")
+            if FileManager.default.fileExists(atPath: closure.path) {
+                let link = dir.appendingPathComponent("node_modules", isDirectory: true)
+                try? FileManager.default.removeItem(at: link)
+                try? FileManager.default.createSymbolicLink(at: link, withDestinationURL: closure)
+            }
+        }
         return url
     }
 
@@ -1209,7 +1223,14 @@ final class EngineSupervisor {
             // 自愈（Ditto selftest-rollback 的宿主侧）：连续启动失败且用户层 patch
             // 里有本应用种下的插件挂载块时，摘掉它们再给最后一次机会——坏挂载
             // 不许让引擎永远起不来（EverOS fail-open）。摘过之后仍崩则正常放弃。
-            let removed = quarantineDeepDivePluginMounts()
+            var removed = quarantineDeepDivePluginMounts()
+            // app 层的会话记忆挂载同样纳入自愈：engine-patch 每次启动按开关重写，
+            // 只摘文本会被写回——改偏好本体（= 临时关开关），日志留痕。
+            if removed == 0, DSHAppPrefs.sessionMemoryEnabled {
+                DSHAppPrefs.setSessionMemoryEnabled(false)
+                removed += 1
+                log.append("[engine] session-memory mount suspected in crash loop; toggled off for the retry")
+            }
             if removed > 0 {
                 log.append("[engine] quarantined \(removed) plugin mount(s) from user patch layer; retrying once")
                 attempts = 1

@@ -151,6 +151,15 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertTrue(url.path == EngineSupervisor.sessionMemoryPluginURL.path)
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), url.path)
         XCTAssertTrue(EngineSupervisor.memoryDir.path.hasSuffix("deepdive/memory"))
+        // 闭包链接：插件的 import 靠它解析（缺了引擎 boot fail-loud，2026-09-13 实机）。
+        // 测试宿主若没有随包 runtime 闭包，铺盘函数跳过链接——不判失败。
+        let closure = (Bundle.main.resourceURL?.appendingPathComponent("Runtime/dsh/node_modules"))?.path
+        if let closure, FileManager.default.fileExists(atPath: closure) {
+            let link = url.deletingLastPathComponent().appendingPathComponent("node_modules").path
+            let dest = try FileManager.default.destinationOfSymbolicLink(atPath: link)
+            XCTAssertEqual(dest, closure, "node_modules 链接必须直指随包安装闭包")
+        }
+        XCTAssertTrue(EngineSupervisor.sessionMemoryPluginSource.contains("DSH_HOME"), "笔记目录按 $DSH_HOME 解析")
     }
 
     /// 自进化 / 会话记忆开关关着时，装配里不能出现对应 insert 或指路；开着才在。
