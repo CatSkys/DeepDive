@@ -26,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         BridgeServer.shared.configure(webRoot: webRoot())
         _ = BridgeServer.shared.start()
+        // 移动端远程面：上次开着就接着开（端口固定，手机上已存的链接不必重扫）
+        if RemoteAccess.shared.enabled { _ = RemoteAccess.shared.start() }
 
         supervisor = EngineSupervisor(home: AppPaths.harnessHome, workspace: config.workspaceURL)
         windowController = MainWindowController(themeEnabled: config.themeEnabled)
@@ -355,6 +357,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             memoryDelete(reqId: body["reqId"] as? String ?? "", sessionId: body["sessionId"] as? String ?? "")
         case "memory-clear":
             memoryClear(reqId: body["reqId"] as? String ?? "")
+        case "remote-status":
+            remoteStatus(reqId: body["reqId"] as? String ?? "")
+        case "remote-start":
+            _ = RemoteAccess.shared.start()
+            remoteStatus(reqId: body["reqId"] as? String ?? "")
+        case "remote-stop":
+            RemoteAccess.shared.stop()
+            remoteStatus(reqId: body["reqId"] as? String ?? "")
+        case "remote-refresh":
+            RemoteAccess.shared.rotateToken()
+            remoteStatus(reqId: body["reqId"] as? String ?? "")
+        case "remote-revoke":
+            RemoteAccess.shared.revoke(deviceId: body["deviceId"] as? String ?? "")
+            remoteStatus(reqId: body["reqId"] as? String ?? "")
+        case "remote-copy":
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(body["text"] as? String ?? "", forType: .string)
         case "open-url":
             // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
@@ -604,6 +624,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             reply(false)
         }
+    }
+
+    /// 移动端远程访问的状态回推：开关、局域网链接、二维码 data URL、设备台账。
+    /// 开启/停止/刷新令牌/解绑都回这一份，前端不自己拼状态。
+    private func remoteStatus(reqId: String) {
+        var payload = RemoteAccess.shared.statusPayload()
+        payload["reqId"] = reqId
+        windowController.pushHostCommand("remoteStatus", payload: AppDelegate.jsonPayload(payload))
     }
 
     /// 自进化机械脚本执行（lesson-tool → lessonToolResult 回推）：随包 node 直跑    /// 固化脚本（gate/land/verify，启动时铺盘在 <DSH_HOME>/deepdive/），模型不在

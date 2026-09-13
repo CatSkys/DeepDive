@@ -594,4 +594,24 @@ export const EN: Record<string, string> = {
   // 自进化：前后对照的校验结论
   "{b} → {a} · {v}": "{b} → {a} · {v}",
   "样本不足": "not enough data",
+
+  // 移动端远程控制
+  "移动端远程控制": "Mobile Remote",
+  "手机扫码连接": "Connect by QR Code",
+  "用手机相机扫码，在手机上打开这个工作区。": "Scan with the phone camera to open this workspace on the phone.",
+  "开启远程访问": "Turn on remote access",
+  "开启后，同一局域网内的手机浏览器可以控制这台 Mac 上的工作区（包括执行命令），请只在可信网络下使用。": "Once on, any browser on the same LAN can drive this Mac's workspace — including running commands. Only turn it on for a network you trust.",
+  "手机需与这台 Mac 处在同一局域网。首次开启时 macOS 可能询问是否允许接受传入连接，选「允许」才能连上。": "The phone must be on the same LAN as this Mac. On first use macOS may ask whether to allow incoming connections — choose Allow, or the phone cannot connect.",
+  "已连接 {n} 台设备": "{n} device(s) connected",
+  "等待手机连接": "Waiting for phone",
+  "用手机扫码，或在手机上打开链接。": "Scan with the phone, or open the link on it.",
+  "无法扫码？可以在手机上打开链接。": "Cannot scan? Open the link on the phone instead.",
+  "刷新二维码": "Refresh QR code",
+  "复制链接": "Copy link",
+  "远程访问二维码": "Remote access QR code",
+  "这台 Mac 现在没有局域网地址，先连上 Wi-Fi 或网线。": "This Mac has no LAN address right now — connect to Wi-Fi or Ethernet first.",
+  "已配对设备": "Paired devices",
+  "配对时间 {time}": "Paired {time}",
+  "解绑": "Unpair",
+  "浏览器": "Browser",
 };

@@ -1,0 +1,128 @@
+/* 移动端远程控制分区样式 —— 沿用设置页语义变量（--ink/--line/--fill），
+   二维码卡片是这里的唯一特殊件：二维码必须深色压白底才扫得动。 */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-card);
+  background: var(--fill-soft);
+}
+
+/* ── 未开启 ── */
+.offBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.warn {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+/* ── 状态行 ── */
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.statusMain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: none;
+}
+.statusDot[data-on="true"] { background: var(--ink); }
+.statusText {
+  font-size: 13px;
+  color: var(--ink);
+}
+.kindBadge {
+  padding: 1px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+
+.hint {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* ── 动作行 ── */
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.actionsHint {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* ── 二维码 ── */
+.qrWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.qr {
+  width: 208px;
+  height: 208px;
+  border-radius: var(--dsh-radius-control);
+  background: #fff;
+  /* 二维码是 1px 模块的位图，缩放交给浏览器会糊；按整数倍放大渲染 */
+  image-rendering: pixelated;
+}
+
+.qrMissing {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* ── 设备台账 ── */
+.devices {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+.devicesTitle {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-bottom: 2px;
+}
+.deviceRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.deviceIdentity { flex: 1; min-width: 0; }
+.deviceName { font-size: 12.5px; color: var(--ink); }
+.deviceCaption { font-size: 11px; color: var(--ink-3); margin-top: 2px; }

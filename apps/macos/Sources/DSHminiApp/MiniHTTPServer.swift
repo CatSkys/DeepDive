@@ -1,6 +1,7 @@
 import Foundation
 
-/// Minimal threaded HTTP/1.1 server on 127.0.0.1 — the DSHmini bridge origin.
+/// Minimal threaded HTTP/1.1 server — the DSHmini bridge origin (loopback by
+/// default；移动端远程面另起一个局域网监听，见 `RemoteAccess`).
 /// Short connections for static files and unary /api hops; WebSocket upgrades
 /// are handed to the relay raw. POSIX sockets keep it dependency-free.
 final class MiniHTTPServer {
@@ -55,7 +56,9 @@ final class MiniHTTPServer {
     }
 
     /// port = 0 由内核分配；给定端口则固定监听它（被占时调用方可退回 0）。
-    func start(port: UInt16 = 0) -> Bool {
+    /// address 默认回环：只有移动端远程面（`RemoteAccess`）显式传 "0.0.0.0"，
+    /// 其余调用方一律不暴露到局域网。
+    func start(port: UInt16 = 0, address: String = "127.0.0.1") -> Bool {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         guard fd >= 0 else { return false }
         listenFD = fd
@@ -64,7 +67,7 @@ final class MiniHTTPServer {
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
         addr.sin_port = port.bigEndian
-        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+        addr.sin_addr.s_addr = inet_addr(address)
         let bindResult = withUnsafePointer(to: &addr) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
                 bind(fd, sockaddrPtr, socklen_t(MemoryLayout<sockaddr_in>.size))

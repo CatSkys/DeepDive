@@ -87,7 +87,62 @@ final class BridgeServer {
         if let origin = request.headers["origin"], origin != "http://127.0.0.1:\(server?.port ?? 0)" {
             return .response(.init(status: 403))
         }
+        return routeAuthorized(request)
+    }
 
+    // MARK: - 移动端远程面（局域网监听，见 RemoteAccess）
+
+    /// 远程监听器装配：同一个分发/中继实现，只是入口换成 routeRemote。
+    /// 端口由 RemoteAccess 定（它要保证二维码链接活过重启）。
+    func makeRemoteListener() -> MiniHTTPServer {
+        let server = MiniHTTPServer { [weak self] request in
+            self?.routeRemote(request) ?? .response(.init(status: 503))
+        }
+        server.upgradeHandler = { [weak self] fd, request in
+            self?.wsRelay(fd, request)
+        }
+        server.relayHandler = { [weak self] fd, request, partial in
+            self?.relayStreaming(fd, request, partial)
+        }
+        return server
+    }
+
+    /// 远程面入口：先过配对闸，再走与回环面同一个分发实现。Origin 校验换成
+    /// 「与 Host 同源」——手机访问的是 http://<lan-ip>:<端口>，回环那条
+    /// 精确匹配在这里必然不成立。
+    private func routeRemote(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Stream {
+        if let origin = request.headers["origin"], !Self.originMatchesHost(origin, host: request.headers["host"] ?? "") {
+            return .response(.init(status: 403))
+        }
+        switch RemoteAccess.shared.admit(request) {
+        case .allowed:
+            return routeAuthorized(request)
+        case .paired(let cookie):
+            // 落地即发设备 cookie（后续资源请求靠它放行）；页面仍是同一个 SPA。
+            var response = serveStatic(request)
+            response.headers["set-cookie"] = cookie
+            return .response(response)
+        case .denied:
+            // API 面回 JSON（前端按既有 RPC 错误路径处理），页面面回一页人话：
+            // 未配对的手机打开链接时看到的应该是「去 Mac 上重新扫码」。
+            if request.path.hasPrefix("/api") {
+                let body = #"{"ok":false,"error":{"code":"remote/unauthorized","message":"device not paired"}}"#
+                return .response(.init(status: 401, headers: ["content-type": "application/json"], body: Data(body.utf8)))
+            }
+            return .response(.init(status: 401, headers: ["content-type": "text/html; charset=utf-8"],
+                                   body: Data(RemoteAccess.pairingPage.utf8)))
+        }
+    }
+
+    /// origin 与 Host 同源（scheme+host+port 全等）。Host 由客户端给，所以这
+    /// 条只挡「拿着 A 站 cookie 的跨站页面」，真正的准入是 RemoteAccess 的台账。
+    static func originMatchesHost(_ origin: String, host: String) -> Bool {
+        guard !host.isEmpty else { return false }
+        return origin == "http://" + host || origin == "https://" + host
+    }
+
+    /// Origin 闸之后的共同分发：静态 / unary / WS 升级 / 大 body 直通。
+    private func routeAuthorized(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Stream {
         // Frontend diagnostics channel. Must precede the engineBase guard
         // (AUD-037a)：引擎挂掉期间恰是前端最需要上报错误的时候，503 前置
         // 会把诊断全吞掉。

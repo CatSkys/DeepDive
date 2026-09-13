@@ -277,6 +277,77 @@ export function memoryClear(): Promise<boolean> {
   );
 }
 
+/* ── 移动端远程访问（设置 → 移动端远程控制）：壳在局域网上再起一个监听，
+   手机扫码配对后接管当前工作区。配对令牌与设备台账都在壳侧，前端只渲染
+   快照；「复制链接」也交回壳写剪贴板（WKWebView 里的 clipboard 不可靠）。 ── */
+
+export interface RemoteDevice {
+  id: string;
+  /** UA 归类：iphone / ipad / android / mac / web（展示文案归前端 i18n）。 */
+  kind: string;
+  pairedAt: number;
+  lastSeen: number;
+}
+
+export interface RemoteStatus {
+  on: boolean;
+  port: number;
+  /** 手机可达的本机地址；取不到为空串（此时链接与二维码都为空）。 */
+  lanIp: string;
+  url: string;
+  /** `data:image/png;base64,…`。 */
+  qr: string;
+  devices: RemoteDevice[];
+}
+
+const REMOTE_OFF: RemoteStatus = { on: false, port: 0, lanIp: "", url: "", qr: "", devices: [] };
+
+/** 壳侧快照的边界收窄（铁律 5）：字段漂移按缺省值落，不让 undefined 进 UI。 */
+function narrowRemote(p: unknown): RemoteStatus {
+  const v = p as Partial<RemoteStatus> | undefined;
+  if (!v) return REMOTE_OFF;
+  const devices: RemoteDevice[] = [];
+  for (const item of Array.isArray(v.devices) ? v.devices : []) {
+    const id = typeof item?.id === "string" ? item.id : "";
+    if (!id) continue;
+    devices.push({
+      id,
+      kind: typeof item?.kind === "string" ? item.kind : "web",
+      pairedAt: typeof item?.pairedAt === "number" ? item.pairedAt : 0,
+      lastSeen: typeof item?.lastSeen === "number" ? item.lastSeen : 0,
+    });
+  }
+  return {
+    on: v.on === true,
+    port: typeof v.port === "number" ? v.port : 0,
+    lanIp: typeof v.lanIp === "string" ? v.lanIp : "",
+    url: typeof v.url === "string" ? v.url : "",
+    qr: typeof v.qr === "string" && v.qr.startsWith("data:") ? v.qr : "",
+    devices,
+  };
+}
+
+/** 开关/刷新/解绑都回同一份快照，前端不自己拼状态。 */
+function remoteCommand(type: string, extra: Record<string, unknown> = {}): Promise<RemoteStatus> {
+  return bridgeRequest(
+    "remoteStatus",
+    REMOTE_OFF,
+    narrowRemote,
+    (reqId) => sendToShell({ type, reqId, ...extra }),
+    20_000, // 首次开启要起监听并生成二维码
+  );
+}
+
+export const remoteStatus = () => remoteCommand("remote-status");
+export const remoteStart = () => remoteCommand("remote-start");
+export const remoteStop = () => remoteCommand("remote-stop");
+export const remoteRefresh = () => remoteCommand("remote-refresh");
+export const remoteRevoke = (deviceId: string) => remoteCommand("remote-revoke", { deviceId });
+
+export function remoteCopyLink(text: string): void {
+  sendToShell({ type: "remote-copy", text });
+}
+
 /** 壳侧读项目根目录约定图标文件（icon.png / logo.* 等，见 WorkspaceIcon）
  *  为 dataURL；无图标/纯浏览器 resolve null（前端回落项目首字母）。
  *  壳每次都读盘——调用方按路径缓存，勿在渲染路径反复请求。 */

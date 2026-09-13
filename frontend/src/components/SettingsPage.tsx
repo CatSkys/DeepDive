@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, Brain, CalendarClock, ChartColumn, ChevronLeft, Cpu, Dna, Download, Folder, Keyboard, Moon,
   Monitor, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
+  Smartphone,
   SquarePen, Sun,
   Trash2,
   Undo2,
@@ -14,6 +15,7 @@ import { ImportSection } from "../settings/ImportSection";
 import { UsageSection } from "../stats/UsageSection";
 import { AutomationSection } from "../automation/AutomationSection";
 import { MemorySection } from "../memory/MemorySection";
+import { RemoteControlSection } from "../mobile/RemoteControlSection";
 import { EvolutionSection } from "../evolution/EvolutionSection";
 import type { AutomationProposal } from "../automation/protocol";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
@@ -63,6 +65,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
     { id: "models", label: t("模型"), icon: Cpu },
     { id: "automation", label: t("自动化"), icon: CalendarClock },
     { id: "memory", label: t("记忆"), icon: Brain },
+    { id: "remote", label: t("移动端远程控制"), icon: Smartphone },
     { id: "evolution", label: t("自进化"), icon: Dna },
     { id: "import", label: t("导入"), icon: Download },
     { id: "approval", label: t("审批"), icon: ShieldCheck },
@@ -119,6 +122,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
             <EvolutionSection onOpenSession={(sessionId) => { onClose(); store.openSession(sessionId); }} />
           )}
           {activeId === "memory" && <MemorySection />}
+          {activeId === "remote" && <RemoteControlSection />}
           {activeId === "automation" && (
             <AutomationSection
               onOpenSession={(sessionId) => { onClose(); store.openSession(sessionId); }}
