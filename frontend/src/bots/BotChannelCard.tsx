@@ -73,12 +73,14 @@ export function BotChannelCard() {
   );
 }
 
-/** 一行的状态文案：不可用（未启用）/ 未配置 / n 个机器人 · m 已连接。 */
+/** 一行的状态文案：不可用（未启用）/ 未配置（点开就是扫码，不用再找按钮）/ n 个机器人 · m 已连接。 */
 function stateLine(state: ChannelState, t: (s: string) => string,
                    tt: (zh: string, en: string, vars?: Record<string, string | number>) => string): string {
   if (state === undefined) return t("检查中…");
   if (state === "unavailable") return t("这个渠道现在不可用。");
-  if (state.totals.configured === 0) return t("还没有机器人，点这里新建。");
+  // 文案描述"点开会发生什么"：没有机器人时点开直接出二维码（不必先找按钮），
+  // 有机器人时点开是台账。说成"点这里新建"会让人以为还得再点一次。
+  if (state.totals.configured === 0) return t("还没有机器人，点开即可扫码添加。");
   return tt("{n} 个机器人 · {m} 已连接", "{n} bot(s) · {m} connected",
     { n: state.totals.configured, m: state.totals.connected });
 }

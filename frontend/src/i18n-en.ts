@@ -621,7 +621,7 @@ export const EN: Record<string, string> = {
   "从{label}打开这个工作区。": "Open this workspace from {label}.",
   "检查中…": "Checking…",
   "这个渠道现在不可用。": "This channel is unavailable right now.",
-  "还没有机器人，点这里新建。": "No bot yet — open this to add one.",
+  "还没有机器人，点开即可扫码添加。": "No bot yet — open this to scan and add one.",
   "{n} 个机器人 · {m} 已连接": "{n} bot(s) · {m} connected",
   "Bot Channel 未启用：引擎里没有装这个渠道插件。": "Bot Channels are unavailable: the channel plugin is not installed in the engine.",
   "微信": "WeChat",
