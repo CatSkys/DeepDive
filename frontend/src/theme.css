@@ -2700,6 +2700,9 @@ button {
   .app.collapsed .hero-top { padding-left: 166px; }
   .task-row, .session-back, .snav-item, .ctx-item { height: 44px; }
   .composer-send, .composer-icon, .composer-mic { width: 38px; height: 38px; }
+  /* 审批/提问卡是手机上最需要"点得准"的地方（放行一次命令） */
+  .btn-primary, .btn-plain { min-height: 44px; }
+  .q-option { padding: 12px; }
 }
 @media (max-width: 720px) {
   .msg-block.user { max-width: 88%; }
