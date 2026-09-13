@@ -121,6 +121,8 @@ export function EvolutionProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveLastConsolidate(lastConsolidateAt); }, [lastConsolidateAt]);
   useEffect(() => { saveAppliedToday(appliedToday); }, [appliedToday]);
   useEffect(() => { void evolutionEnv().then((env) => setHarnessHome(env?.harnessHome ?? null)); }, []);
+  // 后台会话告知 store：侧栏不出现（呈现层过滤），allSessions 照常供复盘挑靶与打开会话。
+  useEffect(() => { storeRef.current.declareBackgroundSessions(ownSessions); }, [ownSessions]);
 
   const addRun = useCallback((kind: EvolutionRun["kind"], sessionId: string, note?: string) => {
     const run: EvolutionRun = { id: crypto.randomUUID(), kind, at: Date.now(), sessionId, ...(note === undefined ? {} : { note }) };

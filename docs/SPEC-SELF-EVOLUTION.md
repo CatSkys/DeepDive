@@ -40,7 +40,10 @@
 
 挂载 EverMind 官方 dsh 插件（本地源码安装于 `~/Library/Application Support/DeepDive/vendor/everos-dsh-plugin`，profile bundles 已注册）+ EverOS 服务（`uv tool install everos==1.3.1`，**钉 release**；`defer_extraction` 需其 main 分支，不追）。提取端点 DeepSeek（`~/.everos/everos.toml` → `api.deepseek.com/v1`，api_key 由用户填写——应用不碰凭据）。壳 spawn 时探测 `~/.local/bin/everos` 注入 `EVEROS_DSH_START_COMMAND` 绝对路径。机制：每轮 pre-step 召回注入（围栏成不可信证据）、轮停边界无 LLM 捕获、闲时批量提取、fail-open；**故意不提供模型可写的记忆工具**（单一提取权威）。隐私：捕获轨迹含源码片段与命令，会流经 `~/.everos` 与所配模型提供方——敏感仓库使用前须知晓。
 
-## 7. UI（设置）
+## 7. UI
+
+**后台会话不出现在用户会话列表**：复盘/整理/交办都是机器开的消化过程（MiMo 把它们当后台进程；Ditto 的补丁运行同样不入对话列表）。store 按自进化的 ownSessions 台账在侧栏过滤（`backgroundSessions`），`allSessions` 保留——台账「打开会话」、复盘挑靶照常可达；**会话里零 UI：合法 lesson 块不渲染**（SPEC-AUTOMATION §3 的 automation 卡是另一套交互，勿混用）。
+
 
 - **自进化分区**：开关（默认关，知情确认写明自动落地与消耗）→ 台账 Dashboard（状态环图 + 近 30 天活动柱状）→ 处理中（管线状态：证据校验中/待落地/未过证据门）→ 台账（已定案：落地 commit、校验结论、无效已撤）→ 运行历史（模型会话可打开；本机执行标「本机执行」）。审计动作：丢弃、撤销、查看证据原文（跳 origin 会话——EverMe `read_original` 界面等价）、查看写入会话。
 - **记忆分区**：会话记忆开关 + 笔记查看/单条忘记/全部清除（Ditto 记忆页同款）。
