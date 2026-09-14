@@ -296,9 +296,9 @@ button {
   font-weight: 500;
 }
 
-/* 设置侧栏的分组：组与组之间要看得出分段（.section-label 自身的上内边距只够
-   和上一项拉开一点）。第一组不加，免得与「返回工作区」之间空太多。 */
-.snav-group + .snav-group { margin-top: 12px; }
+/* 设置侧栏的分组：组距与「标签→首项」的间距都在 .snav-item/.snav-group 那组
+   规则里给（同一处维护），这里不再重复一份。 */
+
 
 .task-row.pinned svg { color: var(--ink-2); }
 .task-row {
@@ -2936,11 +2936,20 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   border: none;
   border-radius: var(--dsh-radius-control);
   background: transparent;
-  color: var(--ink-2);
+  /* 一级导航用 --ink-soft：--ink-2（56%）比侧栏会话行（--ink）还灰，
+     一屏字看着发虚（用户反馈）。选中态仍用 --ink + 600 拉开层级。 */
+  color: var(--ink-soft);
   font-size: 12.5px;
   text-align: left;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
+/* 行间留一点气口：连排高亮块贴在一起像一块整板，分不出是两行 */
+.snav-item + .snav-item { margin-top: 3px; }
+/* 组标签：比项暗一档即可（--ink-3 的 40% 在设置侧栏太灰），下间距给足，
+   否则首项的高亮块顶到标签字上。共用类 .section-label 的其它用处
+   （会话列表的置顶/今天）不受影响——这里是 .snav-group 作用域内覆盖。 */
+.snav-group .section-label { color: var(--ink-2); padding-bottom: 8px; }
+.snav-group + .snav-group { margin-top: 16px; }
 .snav-item:hover { background: var(--fill); color: var(--ink); }
 .snav-item.active { background: var(--fill-strong); color: var(--ink); font-weight: 600; }
 
