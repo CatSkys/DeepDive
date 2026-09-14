@@ -74,14 +74,28 @@ export interface ImBot {
   configured: boolean;
   /** 这个机器人默认跑在哪个工作区（绝对路径；空串 = 未设置）。 */
   workspace: string;
+  /** 这个机器人用的模型（null = 跟随引擎默认）。 */
+  model: { provider: string; model: string; reasoningEffort?: string } | null;
+  /** Agent 预设 id（空串 = 未设置）。 */
+  agentPreset: string;
   bot: { name: string; accountIdMasked: string };
   health: { status: string; summary: string };
+}
+
+/** 机器人可选项：模型（提供方 + 模型，取插件快照的 modelCatalog）与预设。 */
+export interface ImModelOption {
+  provider: string;
+  model: string;
+  label: string;
 }
 
 export interface ImSnapshot {
   state: string;
   bots: ImBot[];
   totals: { configured: number; connected: number };
+  /** 插件快照自带的目录；插件没给就是空表，UI 相应退化（不猜）。 */
+  models: ImModelOption[];
+  presets: Array<{ id: string; label: string }>;
 }
 
 /** 扫码配对的一次尝试：verificationUrl 就是二维码内容（前端交给壳画码）。 */
@@ -112,39 +126,94 @@ async function imCall<T>(channel: string, endpoint: string, args: Record<string,
   return full.result.value as T;
 }
 
-/** 渠道快照的边界收窄（铁律 5）：字段漂移按缺省落，不让 undefined 进 UI。 */
-function narrowImSnapshot(raw: ImSnapshot): ImSnapshot {
+/** 渠道快照的边界收窄（铁律 5）：wire 载荷按 unknown 处理，逐字段判定后落成
+ *  契约形状——字段漂移一律按缺省落，不让 undefined 进 UI。 */
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return typeof v === "object" && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null;
+}
+
+function asString(v: unknown, fallback = ""): string {
+  return typeof v === "string" ? v : fallback;
+}
+
+export function narrowImSnapshot(payload: unknown): ImSnapshot {
+  const raw = asRecord(payload) ?? {};
+
   const bots: ImBot[] = [];
-  for (const b of Array.isArray(raw?.bots) ? raw.bots : []) {
-    if (typeof b?.botId !== "string" || !b.botId) continue;
+  for (const item of Array.isArray(raw.bots) ? raw.bots : []) {
+    const b = asRecord(item);
+    const botId = asString(b?.botId);
+    if (!b || !botId) continue;
+    const m = asRecord(b.model);
+    const provider = asString(m?.provider);
+    const model = asString(m?.model);
     bots.push({
-      botId: b.botId,
-      state: b.state ?? "error",
+      botId,
+      state: (asString(b.state, "error") as ImBot["state"]),
       connected: b.connected === true,
       configured: b.configured === true,
-      workspace: typeof b.workspace === "string" ? b.workspace : "",
-      bot: { name: b.bot?.name || b.botId, accountIdMasked: b.bot?.accountIdMasked ?? "" },
-      health: { status: b.health?.status ?? "", summary: b.health?.summary ?? "" },
+      workspace: asString(b.workspace),
+      model: provider && model ? { provider, model } : null,
+      agentPreset: asString(b.agentPreset),
+      bot: { name: asString(asRecord(b.bot)?.name, botId), accountIdMasked: asString(asRecord(b.bot)?.accountIdMasked) },
+      health: { status: asString(asRecord(b.health)?.status), summary: asString(asRecord(b.health)?.summary) },
     });
   }
+
+  // 目录：模型目录按「提供方分组 → 模型」摊平（组 id 即提供方 id）；预设取 items。
+  const models: ImModelOption[] = [];
+  const groups = asRecord(raw.modelCatalog)?.groups;
+  for (const item of Array.isArray(groups) ? groups : []) {
+    const group = asRecord(item);
+    const provider = asString(group?.id);
+    if (!provider) continue;
+    for (const m of Array.isArray(group?.models) ? group!.models as unknown[] : []) {
+      const entry = asRecord(m);
+      const id = asString(entry?.id);
+      if (!id) continue;
+      models.push({ provider, model: id, label: asString(entry?.name, id) });
+    }
+  }
+  const presets: Array<{ id: string; label: string }> = [];
+  const presetItems = asRecord(raw.agentPresetCatalog)?.items;
+  for (const item of Array.isArray(presetItems) ? presetItems : []) {
+    const p = asRecord(item);
+    const id = asString(p?.id);
+    if (!id) continue;
+    presets.push({ id, label: asString(p?.label, id) });
+  }
+
+  const totals = asRecord(raw.totals);
   return {
-    state: typeof raw?.state === "string" ? raw.state : "unknown",
+    state: asString(raw.state, "unknown"),
     bots,
     totals: {
-      configured: typeof raw?.totals?.configured === "number" ? raw.totals.configured : bots.length,
-      connected: typeof raw?.totals?.connected === "number" ? raw.totals.connected : bots.filter((b) => b.connected).length,
+      configured: typeof totals?.configured === "number" ? totals.configured : bots.length,
+      connected: typeof totals?.connected === "number" ? totals.connected : bots.filter((b) => b.connected).length,
     },
+    models,
+    presets,
   };
 }
 
 export const im = {
-  status: (channel: string) => imCall<ImSnapshot>(channel, "connection.status").then(narrowImSnapshot),
+  status: (channel: string) => imCall<unknown>(channel, "connection.status").then(narrowImSnapshot),
   begin: (channel: string, locale: string) => imCall<ImProvision>(channel, "provision.begin", { locale }),
   poll: (channel: string, attemptId: string) => imCall<ImProvision>(channel, "provision.poll", { attemptId }),
   cancel: (channel: string, attemptId: string) => imCall<unknown>(channel, "provision.cancel", { attemptId }),
   /** 端口径与插件的确认式删除一致：`{botId, confirm:true}`，回新快照。 */
   removeBot: (channel: string, botId: string) =>
-    imCall<ImSnapshot>(channel, "bot.delete", { botId, confirm: true }).then(narrowImSnapshot),
+    imCall<unknown>(channel, "bot.delete", { botId, confirm: true }).then(narrowImSnapshot),
+  // ── 机器人细项（四端点参数名取自插件客户端源码的 saveBotSetting：
+  //    统一 `{botId, …载荷}`，全部回新快照）──
+  setBotAlias: (channel: string, botId: string, alias: string) =>
+    imCall<unknown>(channel, "bot.alias.set", { botId, alias }).then(narrowImSnapshot),
+  setBotWorkspace: (channel: string, botId: string, workspace: string) =>
+    imCall<unknown>(channel, "bot.workspace.set", { botId, workspace }).then(narrowImSnapshot),
+  setBotModel: (channel: string, botId: string, model: { provider: string; model: string }) =>
+    imCall<unknown>(channel, "bot.model.set", { botId, model }).then(narrowImSnapshot),
+  setBotPreset: (channel: string, botId: string, agentPreset: string) =>
+    imCall<unknown>(channel, "bot.preset.set", { botId, agentPreset }).then(narrowImSnapshot),
 };
 
 export interface ImportSyncStatus {

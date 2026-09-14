@@ -651,4 +651,8 @@ export const EN: Record<string, string> = {
   "已扫码，请在手机上确认。": "Scanned — confirm on your phone.",
   "移除": "Remove",
   "移除机器人「{name}」？移除后它不再响应{label}消息。": "Remove bot “{name}”? It will stop answering {label} messages.",
+  "别名": "Alias",
+  "工作区": "Workspace",
+  "Agent 预设": "Agent preset",
+  "绝对路径；留空用引擎默认": "Absolute path; empty uses the engine default",
 };

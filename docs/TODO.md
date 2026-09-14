@@ -16,9 +16,9 @@ personaSuffix}`（值 JSON 序列化防 YAML 注入，`--dump-config` 可验挂�
 
 **剩余**：
 
-- **机器人细项编辑**：模型 / Agent 预设 / 回复颗粒度 / 工作区访问范围。插件的端点都在（`bot.model.set`、`bot.agent-preset.set`、`bot.context-enhancement.set`、`bot.access-policy.set`），前端还没接——目前新建后可看状态但不能改这些。
-- **手机端触屏版式**：窄屏已做侧栏浮层 + 遮罩，但没有完整的触屏排版（顶部按钮 34×34，低于 44 建议值）。
-- 更多渠道（企业微信/QQ/Slack/Discord/WhatsApp/iMessage）：插件支持，`bots/im.ts` 的 `IM_CHANNELS` 加一行即可。
+- **机器人细项还剩三项**：别名/工作区/模型/Agent 预设已可改（`SPEC-MOBILE-REMOTE §5.4`）；**访问策略**（`bot.access-policy.set`，direct/group × open/allowlist 的嵌套形状）、**上下文增强**（`bot.context-enhancement.set`）、**投递设置**（另一渠道面 `dsh-im-delivery` 的 `target.*`）未接——前两项要先定 UI 形态。
+- **手机端触屏版式**：窄屏已做侧栏浮层 + 遮罩、触屏目标 44px、hover 隐藏的功能控件在触屏常显、长按代右键；还没有为触屏做完整的版式重排（如会话列表做成全屏抽屉导航）。
+- 更多渠道（QQ/Slack/Discord/WhatsApp/iMessage/AI Office 等）：插件支持，`bots/im.ts` 的 `IM_CHANNELS` 加一行即可。
 
 **非目标**：公网访问（隧道 / 内网穿透）、多人共用一个引擎、手机离线消息队列。
 

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, QrCode, Trash2, X } from "lucide-react";
+import { Plus, QrCode, SlidersHorizontal, Trash2, X } from "lucide-react";
 import css from "./Bots.module.css";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { api, type ImBot, type ImProvision, type ImSnapshot } from "../api";
 import { qrEncode } from "../host";
+import { BotSettings } from "./BotSettings";
 import { channelLabel, provisionPending } from "./im";
 import { useT } from "../i18n";
 import { confirmDialog } from "../components/DialogHost";
@@ -23,6 +24,8 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
   const [qr, setQr] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  /** 展开了细项编辑的机器人（同时只开一个）。 */
+  const [expanded, setExpanded] = useState<string | null>(null);
   const attemptRef = useRef<string | null>(null);
   /** 用户显式取消过：不再自动重开配对（否则取消立刻又被拉起来）。 */
   const cancelledRef = useRef(false);
@@ -105,6 +108,7 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
   };
 
   const bots = snapshot?.bots ?? [];
+  const presets = snapshot?.presets ?? [];
 
   return createPortal(
     <div className={rowsCss.modalOverlay} onClick={close} role="dialog" aria-label={t("机器人")}>
@@ -146,19 +150,44 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
                 <p className={css.empty}>{t("这个渠道还没有机器人。")}</p>
               ) : (
                 bots.map((bot) => (
-                  <div key={bot.botId} className={css.botRow}>
-                    <div className={css.botIdentity}>
-                      <div className={css.botName}>
-                        <span className={css.botDot} data-tone={bot.connected ? "on" : "off"} />
-                        {bot.bot.name}
+                  <div key={bot.botId}>
+                    <div className={css.botRow}>
+                      <div className={css.botIdentity}>
+                        <div className={css.botName}>
+                          <span className={css.botDot} data-tone={bot.connected ? "on" : "off"} />
+                          {bot.bot.name}
+                        </div>
+                        <div className={css.botCaption}>{bot.health.summary || bot.bot.accountIdMasked}</div>
+                        {bot.workspace && <div className={css.botCaption}>{bot.workspace}</div>}
+                        {/* 当前模型 / 预设：收起时也看得出这个机器人跑什么 */}
+                        {(bot.model || bot.agentPreset) && (
+                          <div className={css.botCaption}>
+                            {[bot.model?.model, presets.find((p) => p.id === bot.agentPreset)?.label].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
                       </div>
-                      <div className={css.botCaption}>{bot.health.summary || bot.bot.accountIdMasked}</div>
-                      {bot.workspace && <div className={css.botCaption}>{bot.workspace}</div>}
+                      <button
+                        className={rowsCss.secondaryButton}
+                        onClick={() => setExpanded((cur) => (cur === bot.botId ? null : bot.botId))}
+                      >
+                        <SlidersHorizontal size={12} />
+                        {t("设置")}
+                      </button>
+                      <button className={rowsCss.dangerButton} onClick={() => void removeBot(bot)}>
+                        <Trash2 size={12} />
+                        {t("移除")}
+                      </button>
                     </div>
-                    <button className={rowsCss.dangerButton} onClick={() => void removeBot(bot)}>
-                      <Trash2 size={12} />
-                      {t("移除")}
-                    </button>
+                    {expanded === bot.botId && (
+                      <BotSettings
+                        channel={channel}
+                        bot={bot}
+                        models={snapshot?.models ?? []}
+                        presets={snapshot?.presets ?? []}
+                        onSaved={(next) => { setSnapshot(next); setError(""); }}
+                        onError={setError}
+                      />
+                    )}
                   </div>
                 ))
               )}

@@ -92,9 +92,26 @@ Content-Type: application/json
 
 数据与动作全在 `api.im`（`api.ts` 内的 IM 渠道面）；UI 不复刻插件的状态机。
 
-### 5.4 尚未做
+### 5.4 机器人细项
 
-- 机器人的**模型 / Agent 预设 / 回复颗粒度 / 工作区访问范围**编辑：插件有对应端点（`bot.model.set`、`bot.agent-preset.set`、`bot.context-enhancement.set`、`bot.access-policy.set`），前端还没接（当前只能在新建后看状态，改不了这些）。
+每个机器人行尾有「设置」，展开是四项（**参数名取自插件客户端源码的 `saveBotSetting`，勿猜**；四端点统一 `{botId, …载荷}` 且都回**新快照**，UI 整体替换不本地拼）：
+
+| 项 | 端点 | 载荷 |
+|---|---|---|
+| 别名 | `bot.alias.set` | `{alias}` |
+| 工作区 | `bot.workspace.set` | `{workspace}`（绝对路径；空串 = 引擎默认） |
+| 模型 | `bot.model.set` | `{model: {provider, model}}`（选项来自快照的 `modelCatalog`，按提供方分组摊平） |
+| Agent 预设 | `bot.preset.set` | `{agentPreset}`（选项来自 `agentPresetCatalog.items`） |
+
+提交时机：文字项**失焦/回车且改过才发**；下拉项选中即发。目录为空（插件没给）时该项**不渲染**——不摆点不动的空下拉。
+
+快照的 wire 载荷按 `unknown` 收窄（`api.ts` 的 `narrowImSnapshot`），夹具取自真机响应：目录形状、机器人字段、以及"目录缺失/形状不对一律降级成空表"都有测试钉住。
+
+### 5.5 尚未做
+
+- **访问策略**（`bot.access-policy.set`）：形状是 `direct`/`group` × `open`/`allowlist` 的嵌套对象（白名单还要逐个用户 id + 是否可执行命令），插件自带整页编辑器。要做得先定 UI 形态，不宜顺手塞进现在这四行里。
+- **上下文增强**（`bot.context-enhancement.set`）：`config` 形状另议。
+- **投递设置**（主动推送目标）：属另一个渠道面 `POST /api/dsh-im/dsh-im-delivery`（`target.*` 一族），与机器人本身不是一件事。
 - 参考图里的「飞书 中国 / Lark 全球」两行：插件里是同一个 `feishu` 渠道（Lark 是国际域名品牌），我们只列一行，不造两行驱动同一个机器人。
 
 ## 6. 尚未做（其余）
