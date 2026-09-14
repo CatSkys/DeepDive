@@ -296,6 +296,10 @@ button {
   font-weight: 500;
 }
 
+/* 设置侧栏的分组：组与组之间要看得出分段（.section-label 自身的上内边距只够
+   和上一项拉开一点）。第一组不加，免得与「返回工作区」之间空太多。 */
+.snav-group + .snav-group { margin-top: 12px; }
+
 .task-row.pinned svg { color: var(--ink-2); }
 .task-row {
   display: flex;

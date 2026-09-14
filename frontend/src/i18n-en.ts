@@ -595,6 +595,11 @@ export const EN: Record<string, string> = {
   "{b} → {a} · {v}": "{b} → {a} · {v}",
   "样本不足": "not enough data",
 
+  // 设置导航的分组标签
+  "基础设置": "Basics",
+  "Agent 能力": "Agent capabilities",
+  "数据与统计": "Data & usage",
+
   // 移动端远程控制
   "移动端远程控制": "Mobile Remote",
   "手机扫码连接": "Connect by QR Code",

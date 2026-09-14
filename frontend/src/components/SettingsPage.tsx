@@ -36,8 +36,10 @@ import { sessionDeleteDirs } from "../host";
 // token 体系（dsw-alias 已废除）。数据全部走真实路由，无引擎时各
 // section 独立降级。
 //
-// 分类：通用（外观/语言/Enter 行为/通知）、模型（提供方+密钥）、
-// 审批（默认权限预设）、快捷键、已归档的聊天、数据、使用统计、自动化。
+// 分类（侧栏按用途分三组；组定义与成员见下方 navGroups）：
+//   基础设置——通用（外观/语言/归档/Enter/通知）、模型（提供方+密钥）、审批（默认权限预设）、快捷键
+//   Agent 能力——自动化、记忆、自进化、移动端远程控制、导入
+//   数据与统计——已归档的聊天、数据、使用统计
 
 export function SettingsPage({ initialSection, onClose, automationDraft, onAutomationDraftUsed }: {
   initialSection?: string;
@@ -60,20 +62,39 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const nav = [
-    { id: "general", label: t("通用"), icon: SettingsIcon },
-    { id: "models", label: t("模型"), icon: Cpu },
-    { id: "automation", label: t("自动化"), icon: CalendarClock },
-    { id: "memory", label: t("记忆"), icon: Brain },
-    { id: "remote", label: t("移动端远程控制"), icon: Smartphone },
-    { id: "evolution", label: t("自进化"), icon: Dna },
-    { id: "import", label: t("导入"), icon: Download },
-    { id: "approval", label: t("审批"), icon: ShieldCheck },
-    { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
-    { id: "archived", label: t("已归档的聊天"), icon: Archive },
-    { id: "data", label: t("数据"), icon: Folder },
-    { id: "usage", label: t("使用统计"), icon: ChartColumn },
+  // 分区按用途分组（项多到一个平铺列表读不动）：组的顺序即侧栏阅读顺序。
+  // 组标签复用侧栏既有的 .section-label（会话列表的「置顶/今天」同款），
+  // 不另造一套分组样式。
+  const navGroups = [
+    {
+      label: t("基础设置"),
+      items: [
+        { id: "general", label: t("通用"), icon: SettingsIcon },
+        { id: "models", label: t("模型"), icon: Cpu },
+        { id: "approval", label: t("审批"), icon: ShieldCheck },
+        { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
+      ],
+    },
+    {
+      label: t("Agent 能力"),
+      items: [
+        { id: "automation", label: t("自动化"), icon: CalendarClock },
+        { id: "memory", label: t("记忆"), icon: Brain },
+        { id: "evolution", label: t("自进化"), icon: Dna },
+        { id: "remote", label: t("移动端远程控制"), icon: Smartphone },
+        { id: "import", label: t("导入"), icon: Download },
+      ],
+    },
+    {
+      label: t("数据与统计"),
+      items: [
+        { id: "archived", label: t("已归档的聊天"), icon: Archive },
+        { id: "data", label: t("数据"), icon: Folder },
+        { id: "usage", label: t("使用统计"), icon: ChartColumn },
+      ],
+    },
   ];
+  const nav = navGroups.flatMap((g) => g.items);
   const active = nav.find((n) => n.id === activeId) ?? nav[0];
 
   // 不是覆盖层：侧栏仍是同一个 .sidebar（同一层 chrome 背景），主区仍是
@@ -86,15 +107,20 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
           <ChevronLeft size={15} />
           {t("返回工作区")}
         </button>
-        {nav.map((n) => (
-          <button
-            key={n.id}
-            className={`snav-item${n.id === activeId ? " active" : ""}`}
-            onClick={() => setActiveId(n.id)}
-          >
-            <n.icon size={15} />
-            {n.label}
-          </button>
+        {navGroups.map((group) => (
+          <div key={group.label} className="snav-group">
+            <div className="section-label">{group.label}</div>
+            {group.items.map((n) => (
+              <button
+                key={n.id}
+                className={`snav-item${n.id === activeId ? " active" : ""}`}
+                onClick={() => setActiveId(n.id)}
+              >
+                <n.icon size={15} />
+                {n.label}
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
       <main className="main" aria-label={t("设置")}>
