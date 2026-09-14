@@ -190,7 +190,7 @@
 | **MarkdownContainer** | — | 正文 13/18；代码块 `terminal.bg` 圆角 10+复制；引用 2px 左条 |
 | **EmptyState** | — | 32px 图标 + **一句** |
 | **FloatingCard** | — | 圆角 20 + `surface.raised` + `border.gloss` + `shadow.floating` + scrim（浮层唯一样式） |
-| **FadeEdge** | `fade-x / fade-y` | **超限标准 UI（2026-09 定稿）**：滚动容器有内容被藏住、未滚到该边缘时，那一侧 24px mask 渐隐提示「后面还有」，滚到边自动消失，替代生硬裁切线与裸滚动条。实现：`useEdgeFade`（信号）+ theme.css 末尾 `.fade-x/.fade-y`（样式）；现役：会话流、边栏会话列表、底部空间切换条 |
+| **FadeEdge** | `fade-x / fade-y` | **超限标准 UI（2026-09 定稿）**：滚动容器有内容被藏住、未滚到该边缘时，那一侧 24px mask 渐隐提示「后面还有」，滚到边自动消失，替代生硬裁切线与裸滚动条。实现：`useEdgeFade`（信号）+ theme.css 末尾 `.fade-x/.fade-y`（样式）；现役：会话流、边栏会话列表、底部空间切换条。**会话流的顶部例外**（2026-09-14 用户定稿）：范围按 `--session-fade-top` 拉长到 88px，且会话头部**悬浮**在其上（`.session > .session-header` 绝对定位）、内容上沿顶到界面顶部从头部下面滑过——那一段另叠一层 `.session-fade`（backdrop 模糊 + 渐变遮罩）做「渐隐 + 模糊」 |
 
 ### 2.2 消息规范（两类，严格独立——用户定稿，2026-09）
 

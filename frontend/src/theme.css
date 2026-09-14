@@ -1443,12 +1443,51 @@ button {
 .session-body[data-fullscreen] > .session-bottom,
 .session-body[data-fullscreen] > .jump-down { visibility: hidden; }
 /* 头部顶到卡片上沿：标题行与红绿灯/顶部钮同一视线（官方对齐方式） */
+/* 会话流顶部渐隐的范围：比 FadeEdge 默认的 24px 长得多（用户定稿——内容顶到
+   界面顶部后，滚上去的内容要有一段足够长的渐隐，头部才不压在字上）。
+   与 --session-header-h 是一对：头部多高、内容让位多少，改一个要改另一个。 */
+:root {
+  --session-header-h: 59px;
+  --session-fade-top: 88px;
+}
 .session-header {
   display: flex;
   align-items: flex-start;
   /* padding-top 8px：标题行中心 = .main margin 8 + 8 + 行高半 10 = 26px，
      与顶部按钮/红绿灯的中心线(见 .window-top)对齐 */
   padding: 8px 16px 8px 24px;
+}
+
+/* 浮在内容之上（用户定稿）：内容上沿顶到界面顶部、从头部下面滑过去，所以头部
+   不再占布局空间——让位改由 .flow 的 padding-top 给。z-index 3 在渐隐层(2)之上；
+   弹层（ModelMenu z50）仍在更上。
+   只限 `.session >` 这一支：空白会话（isBlank）分支里的 .session-header 父级不是
+   .session，跟着绝对定位会锚到 .app，把标题甩到窗口左上角。 */
+.session > .session-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+}
+/* 顶部渐隐层：滚上去的内容在这里同时被渐变吃掉 + 被模糊。两层叠加是刻意的
+   （用户定稿「渐变模糊 + 已有的渐变处理，范围更长」）——只有 mask 是硬切，
+   只有 backdrop 会在头部下缘留一条清晰的分界。
+   注意：必须是 .flow 的**兄弟**且在 .flow 之外——WKWebView 不渲染嵌在别的
+   backdrop-filter 面内的子层（见上方「弹出面板统一配方」约束③），
+   而 .session 本身没有 backdrop-filter，这层才拿得到身后的内容。 */
+.session-fade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--session-fade-top);
+  z-index: 2;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .35) 45%, transparent);
+  mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .35) 45%, transparent);
 }
 /* position:relative：ModelMenu 的包含块 —— 缺了它菜单会一路锚到 .app
    （曾把菜单钉在窗口左上角盖住侧栏）。与 .hero-top .left 同款。 */
@@ -1542,6 +1581,9 @@ button {
 .flow {
   flex: 1;
   overflow-y: auto;
+  /* 首条内容让开悬浮的头部；这段内边距会随滚动一起走掉，于是滚上去的内容
+     正好从头部下面穿过（iOS 那种"内容在标题下滑过"）。 */
+  padding-top: var(--session-header-h);
   /* 横向永不滚动：overflow-y 非 visible 会把 overflow-x 提升为 auto，
      几像素的亚像素溢出就会挂出一条滚不动的横向滚动条。 */
   overflow-x: hidden;
@@ -3858,6 +3900,15 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .fade-y[data-fade-start] {
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 24px);
   mask-image: linear-gradient(180deg, transparent, #000 24px);
+}
+/* 会话流例外：顶部渐隐按 --session-fade-top 拉长（见 .session-fade 那段注释） */
+.flow.fade-y[data-fade-start] {
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--session-fade-top));
+  mask-image: linear-gradient(180deg, transparent, #000 var(--session-fade-top));
+}
+.flow.fade-y[data-fade-start][data-fade-end] {
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--session-fade-top), #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 var(--session-fade-top), #000 calc(100% - 24px), transparent);
 }
 .fade-y[data-fade-end] {
   -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent);
