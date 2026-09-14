@@ -1,13 +1,13 @@
 /* Bot Channel（设置 → 移动端远程控制 右栏）与机器人管理弹窗的样式。
    沿用设置页语义变量与统一弹出配方，不另立一套观感。 */
 
+/* 卡片：纯底色区分范围，**不描边**（UI-SPEC §卡片 vs 描边）。 */
 .card {
   display: flex;
   flex-direction: column;
   padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-card);
-  background: var(--fill-soft);
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
 }
 
 /* 渠道多（12 个）：宽处双列排，窄处自动落回单列——避免一列拉得比左栏长得多 */
@@ -38,7 +38,7 @@
   text-align: left;
   transition: background-color var(--dur-fast) ease;
 }
-.channelRow:hover { background: var(--fill); }
+.channelRow:hover { background: var(--fill-soft); }
 .channelIcon { color: var(--ink-2); flex: none; }
 .channelMain { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .channelName { font-size: 12.5px; color: var(--ink); }
@@ -76,11 +76,21 @@
 .manageHint { flex: 1; min-width: 0; font-size: 11.5px; color: var(--ink-3); }
 
 .botRow {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--line);
+  padding: 10px 6px;
+}
+/* 行间分隔线：两端留空、与文本内容对齐（UI-SPEC：禁全宽横线），同 .modelRow */
+.botRow + .botRow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 6px;
+  right: 6px;
+  height: 1px;
+  background: var(--line);
 }
 .botIdentity { flex: 1; min-width: 0; }
 .botName {

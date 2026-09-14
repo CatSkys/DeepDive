@@ -8,14 +8,15 @@
   gap: 32px;
 }
 
+/* 卡片：纯底色区分范围，**不描边**（UI-SPEC §卡片 vs 描边：有底色的卡片一律
+   不描边）。同 .modelGroup 的做法。 */
 .card {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-card);
-  background: var(--fill-soft);
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
 }
 
 /* ── 未开启 ── */
@@ -116,7 +117,6 @@
 .devices {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--line);
   padding-top: 6px;
 }
 .devicesTitle {
@@ -125,10 +125,21 @@
   margin-bottom: 2px;
 }
 .deviceRow {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 0;
+  padding: 8px 6px;
+}
+/* 行间分隔线：两端留空、与文本对齐（UI-SPEC：禁全宽横线） */
+.deviceRow + .deviceRow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 6px;
+  right: 6px;
+  height: 1px;
+  background: var(--line);
 }
 .deviceIdentity { flex: 1; min-width: 0; }
 .deviceName { font-size: 12.5px; color: var(--ink); }
