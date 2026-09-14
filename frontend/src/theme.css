@@ -329,7 +329,9 @@ button {
   color: var(--ink-2);
   font-size: 12px;
   text-align: left;
-  justify-content: flex-start;
+  /* 两端分布：有空间条时 `flex: 1` 的条子把中间吃掉（space-between 无事可做），
+     没有项目时两个图标各贴一边——否则会出现"⚙ ＋"挤在左侧（用户指出）。 */
+  justify-content: space-between;
 }
 /* 设置入口（图标钮；原生设置窗口；UI-SPEC: 无 hover 光晕，仅焦点环）。 */
 .sidebar-foot .settings-entry {
