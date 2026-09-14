@@ -47,18 +47,6 @@
 .channelChevron { color: var(--ink-3); flex: none; }
 
 /* ── 弹窗内 ── */
-.closeBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: var(--dsh-radius-control);
-  background: transparent;
-  color: var(--ink-2);
-}
-.closeBtn:hover { background: var(--fill); color: var(--ink); }
 
 .error {
   margin: 0 0 10px;

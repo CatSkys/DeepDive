@@ -274,6 +274,17 @@
 
 ---
 
+### 5.10 开发档签名：给 bundle 加 hardened runtime 却不签嵌套 = 引擎被静默 SIGKILL
+- 事故（2026-09-14，本会话）：为修 TCC 把开发档签名换成 Developer ID 后，顺手加了 `--options runtime`（想"和分发包一致"），但没逐个签嵌套。结果**引擎每次启动被内核静默杀掉**：日志只有 `[engine] exited (signal 9)`，零输出，应用弹「引擎连续启动失败」恢复屏。
+- 根因：包里的 `Runtime/node` 是 **Node.js Foundation** 签的（另有 node_modules 里若干原生模块），而 `--deep` 够不到 `Resources/Runtime` 这类非标准位置（§5.7 同源）。**hardened runtime 的父进程去 exec/加载跨团队签名的嵌套代码就被杀**——不加 runtime 则无此约束。
+- 处置：`sign-app.sh` 分档写清——
+  - **开发档**＝`codesign --force --deep -s <Developer ID>`，**不带 `--options runtime`**（与仓库原来的 adhoc `--deep` 开发档同构，只是身份换成 Developer ID 以保住 TCC 授权）。实测 7.8s。
+  - **分发档**（`--distribution`）＝逐个 Mach-O + `--options runtime` + `--timestamp`，node 补 JIT entitlements。实测 ~1:20。
+- 判别式：**"分发包要求"与"开发档够用"是两回事**——把分发档的严格配置照搬到开发档，换来的是"编译通过、应用装死"。
+- 附带修掉的一个自伤：批量判定 Mach-O 时不能用默认的「路径: 描述」分隔去 `cut -d: -f1`——**胖二进制**会多出一行 `路径 (for architecture x86_64): ...`，路径尾巴挂着后缀，签的是不存在的文件（`FAIL: ... (for architecture x86_64)`）。改成 `file -F $'\t'` + 去后缀 + `sort -u`。
+
+---
+
 ## 6. 调试技巧
 
 ### 6.1 抓真实事件流

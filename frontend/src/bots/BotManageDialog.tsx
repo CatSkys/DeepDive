@@ -111,7 +111,11 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
       <div className={rowsCss.modal} onClick={(e) => e.stopPropagation()}>
         <div className={rowsCss.modalHead}>
           <span className={rowsCss.modalTitle}>{tt("{label}机器人", "{label} bots", { label })}</span>
-          <button className={css.closeBtn} onClick={close} aria-label={t("关闭")}><X size={15} /></button>
+          {/* 关闭钮顶到右上角（modalHead 是 flex 行，marginLeft:auto 推到行尾）——
+              与 ModelDialog 同款做法，别写成紧跟标题。 */}
+          <button className={rowsCss.iconBtn} style={{ marginLeft: "auto" }} onClick={close} aria-label={t("关闭")}>
+            <X size={15} />
+          </button>
         </div>
 
         <div className={rowsCss.modalBody}>
@@ -127,9 +131,6 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
                   ? t("已扫码，请在手机上确认。")
                   : tt("用{label}扫这个二维码完成关联。", "Scan this code in {label} to link.", { label })}
               </p>
-              <button className={rowsCss.secondaryButton} onClick={stopPairing}>
-                {t("取消")}
-              </button>
             </div>
           ) : (
             <>
@@ -164,6 +165,15 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
             </>
           )}
         </div>
+
+        {/* 动作行：与全站弹窗一致放页脚右对齐（modalFoot），不塞进正文里居中 */}
+        {provision && (
+          <div className={rowsCss.modalFoot}>
+            <button className={rowsCss.secondaryButton} onClick={stopPairing}>
+              {t("取消")}
+            </button>
+          </div>
+        )}
       </div>
     </div>,
     document.body,
