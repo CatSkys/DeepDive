@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, Search } from "lucide-react";
 import { api } from "./api";
 import { alertDialog } from "./components/DialogHost";
 import { installHostBridge } from "./host";
@@ -12,7 +12,6 @@ import { Sidebar } from "./components/Sidebar";
 import { AutomationProvider } from "./automation/useAutomation";
 import { EvolutionProvider } from "./evolution/useEvolution";
 import type { AutomationProposal } from "./automation/protocol";
-import { IconNewChatOutline16 } from "./components/Icons";
 import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
 import { SessionHeader } from "./session/SessionHeader";
@@ -166,17 +165,18 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
           {t("与引擎的连接已断开，正在重试…")}
         </div>
       )}
-      {/* 顶部两钮（＋新会话 / ⊞收起）：红绿灯旁横排，收起/展开都在顶部。
-          ＋只切到草稿页（hero）——真实会话在首条消息发出时才创建。
-          设置页不显示——返回/关闭导航由 SettingsPage 自带。
-          tooltip 键帽随快捷键页的改键实时同步。 */}
+      {/* 顶部两钮（⊞收起 / 🔍搜索）：红绿灯旁横排，收起/展开都在顶部。
+          搜索钮只发 focusSearch 事件（与 ⌘F 同一条链路）——侧栏里展开搜索框
+          并聚焦，侧栏收起时先展开；「新会话」按钮已按用户要求去掉（用得少，
+          草稿页走侧栏会话列的入口即可）。设置页不显示——返回/关闭导航由
+          SettingsPage 自带。tooltip 键帽随快捷键页的改键实时同步。 */}
       {!settingsOpen && (
         <div className="window-top">
           <button className="window-top-btn" data-tip={t("收起侧栏")} data-tip-keys={comboFor("toggle-sidebar", store.keybinds)} onClick={() => store.toggleSidebar()}>
             <PanelLeft size={17} />
           </button>
-          <button className="window-top-btn" data-tip={t("新会话")} data-tip-keys={comboFor("new-session", store.keybinds)} onClick={() => store.openSession(null)}>
-            <IconNewChatOutline16 size={17} />
+          <button className="window-top-btn" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} onClick={() => dispatchAppEvent(DD_EVENTS.focusSearch)}>
+            <Search size={17} />
           </button>
         </div>
       )}

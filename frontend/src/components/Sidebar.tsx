@@ -64,9 +64,12 @@ export function WorkspacePill() {
 export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const store = useStore();
   const [query, setQuery] = useState("");
+  /** 搜索框是否展开（非常驻）。由顶部搜索钮 / ⌘F 打开，Esc 关闭。 */
+  const [searchOpen, setSearchOpen] = useState(false);
   const [ctx, setCtx] = useState<CtxMenu | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  // 搜索快捷键（快捷键页可改）：聚焦搜索框；侧栏收起时先展开。
+  // 搜索入口（顶部搜索钮 / ⌘F）：展开搜索框并聚焦；侧栏收起时先把侧栏展开
+  // ——搜索框在侧栏里，侧栏不展开的话按钮点了没反应。
   // store 对象每次更新都换新引用（toggleSidebar 也在 useMemo 里内联重建），
   // 依赖它会让 window 监听随每次 store 变化重挂——改走 ref 取最新值，只挂一次。
   const storeRef = useRef(store);
@@ -75,6 +78,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     const onFocus = () => {
       const s = storeRef.current;
       if (s.sidebarCollapsed) s.toggleSidebar();
+      setSearchOpen(true);
       requestAnimationFrame(() => searchRef.current?.focus());
     };
     window.addEventListener(DD_EVENTS.focusSearch, onFocus);
@@ -308,15 +312,27 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   return (
     <aside className="sidebar" onWheel={onSidebarWheel}>
-      <div className="search-row" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} data-tip-pos="bottom">
-        <Search size={14} />
-        <input
-          ref={searchRef}
-          placeholder={t("搜索")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
+      {/* 搜索框非常驻：由顶部搜索钮 / ⌘F 打开（用户定稿——侧栏顶部让给会话列表，
+          搜索收成一个按钮）。Esc 关闭并**清空**：否则输入框藏起来后列表还滤着，
+          看着像会话丢了。 */}
+      {searchOpen && (
+        <div className="search-row" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} data-tip-pos="bottom">
+          <Search size={14} />
+          <input
+            ref={searchRef}
+            autoFocus
+            placeholder={t("搜索")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Escape") return;
+              e.stopPropagation();
+              setSearchOpen(false);
+              setQuery("");
+            }}
+          />
+        </div>
+      )}
       {activeWs && (
         <div className="ws-view" key={`head-${activeWs.workspaceId}`} data-dir={slideDir.current}>
           {/* 官方 ProjectRowItem 同款交互：点行折叠/展开会话；hover 显出
