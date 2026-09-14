@@ -11,6 +11,7 @@ import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import { pickNewWorkspace } from "./workspacePicker";
 import { longPressHandlers } from "../longPress";
+import { WorkspaceFolderItems } from "./WorkspaceMenu";
 import { WsSwitcher } from "./WsSwitcher";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import type { SessionSummary, WorkspaceView } from "../types";
@@ -404,6 +405,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       </div>
       {wsCtx && activeWs && (
         <div className="ctx-menu" style={{ top: wsCtx.y, left: Math.min(wsCtx.x, window.innerWidth - 200) }} onClick={(e) => e.stopPropagation()}>
+          {/* 文件夹类动作：与 hero 胶囊 / 空间格的右键菜单同一份实现 */}
+          <WorkspaceFolderItems ws={activeWs} onDone={() => setWsCtx(null)} />
+          <div className="ctx-sep" />
           <div className="ctx-item" onClick={() => renameWorkspace(activeWs)}>
             <SquarePen size={13} /> {t("重命名")}
           </div>

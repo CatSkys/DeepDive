@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { readWorkspaceIcon } from "../host";
 import { useStore } from "../store";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
+import { WorkspaceMenu } from "./WorkspaceMenu";
 import type { WorkspaceView } from "../types";
 
 // 底部空间切换条：一格一空间，当前高亮。只管条内滚动体验——溢出时隐藏
@@ -32,14 +33,18 @@ function useWorkspaceIcon(path: string | undefined): string | null {
 }
 
 /// 空间格：项目根目录有约定图标文件（icon.png / logo.* 等，壳侧读盘）
-/// 显示缩略图，否则回落项目首字母。
-function WorkspaceCell({ ws, active, onSwitch }: { ws: WorkspaceView; active: boolean; onSwitch: () => void }) {
+/// 显示缩略图，否则回落项目首字母。右键出项目文件夹菜单（与 hero 胶囊同源）。
+function WorkspaceCell({ ws, active, onSwitch, onContext }: {
+  ws: WorkspaceView; active: boolean; onSwitch: () => void;
+  onContext: (x: number, y: number) => void;
+}) {
   const icon = useWorkspaceIcon(ws.path);
   return (
     <button
       className={`ws-cell${active ? " active" : ""}`}
       data-tip={ws.title}
       onClick={onSwitch}
+      onContextMenu={(e) => { e.preventDefault(); onContext(e.clientX, e.clientY); }}
     >
       {icon
         ? <img className="ws-cell-icon" src={icon} alt={ws.title} />
@@ -52,6 +57,7 @@ export function WsSwitcher() {
   const store = useStore();
   const fade = useEdgeFade();
   const [strip, setStrip] = useState<HTMLDivElement | null>(null);
+  const [ctx, setCtx] = useState<{ ws: WorkspaceView; x: number; y: number } | null>(null);
 
   // 滚轮就地消费：条子有横向溢出时，纵横滚轮都只滚条子本身。
   // preventDefault 挡浏览器默认的滚动链接（否则纵滚轮会链去上方会话
@@ -92,9 +98,12 @@ export function WsSwitcher() {
             ws={w}
             active={w.workspaceId === store.activeWorkspaceId}
             onSwitch={() => store.switchWorkspace(w.workspaceId)}
+            onContext={(x, y) => setCtx({ ws: w, x, y })}
           />
         ))}
       </div>
+      {/* 右键菜单挂条内：位置取右键坐标，点空处由全局 mousedown 关闭 */}
+      {ctx && <WorkspaceMenu ws={ctx.ws} x={ctx.x} y={ctx.y} onClose={() => setCtx(null)} />}
     </div>
   );
 }
