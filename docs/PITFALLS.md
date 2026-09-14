@@ -146,6 +146,7 @@
 - 架构：webview 对顶部 52px 条带内的**空白**返回 nil（穿透到下层 TitlebarDragView 拖窗），按钮区返回自身可点；「哪里是按钮」由前端 `titlebar.ts` 每 300ms + resize/transitionend 推送全量 rect 表（CSS 视口坐标，y-down），壳端在 hitTest 时用**实时 bounds.height** 换算。
 - 曾用「didFinish 时一次性采样固定选择器（.window-top-btn）」：收起边栏按钮位移/窗口 resize 后 rect 全错，`.session-header .model` 不在选择器里被整条吞掉 → 误触/按钮失灵。
 - 铁律：① strip=52 与 rectPadding 双端常量必须同步（titlebar.ts ↔ MainWindowController）；② 壳端 **fail-open**（没收到 rect 表前不穿透不吞点击），收到前整条可点、不可拖是预期行为；③ 改动顶层布局（window-top/session-header）必须在壳内实测按钮可点 + 空白可拖。
+- **双击要自己补**（2026-09-14 用户报「标题栏双击无法自适应放大」）：标准标题栏的双击由 AppKit 处理，而这条自绘标题栏把条带内所有 mouseDown 都交给 `performDrag`——双击的第二击（clickCount 才到 2）同样被当成一次拖拽，系统偏好（`AppleActionOnDoubleClick`）永远不生效。`TitlebarDragView.mouseDown` 里显式分派：clickCount==2 → Maximize 缩放 / Minimize 最小化 / None 不动（默认分支走缩放）。改拖拽逻辑时别把它再吞回去。
 
 ### 4.4 FileHandle.readabilityHandler 在 EOF 会忙等
 - 引擎进程退出后 availableData 恒为空；handler 不置 nil 会被反复空读调用（CPU 空转）。空数据分支必须 `handle.readabilityHandler = nil`。

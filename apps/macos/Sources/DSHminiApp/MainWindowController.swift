@@ -4,9 +4,22 @@ import WebKit
 /// Drag handle sitting BELOW the webview. The webview returns nil from
 /// hitTest on blank titlebar-strip space, so mouseDown lands here and drags;
 /// everything the strip keeps (buttons, inputs) is hit by the webview itself.
+///
+/// 双击按**系统偏好**走（`AppleActionOnDoubleClick` = Maximize/Minimize/None）：
+/// 标准标题栏的双击由 AppKit 处理，而这条自绘标题栏把所有 mouseDown 都交给了
+/// performDrag（双击的第二击 clickCount 才到 2，同样被当成一次拖拽），所以双击
+/// 一直没有反应（用户报「标题栏双击无法自适应放大」）。这里显式补上。
 private final class TitlebarDragView: NSView {
     override func mouseDown(with event: NSEvent) {
-        window?.performDrag(with: event)
+        guard event.clickCount == 2 else {
+            window?.performDrag(with: event)
+            return
+        }
+        switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+        case "Minimize": window?.miniaturize(nil)
+        case "None": break
+        default: window?.performZoom(nil) // 缺省即「缩放」
+        }
     }
 }
 
