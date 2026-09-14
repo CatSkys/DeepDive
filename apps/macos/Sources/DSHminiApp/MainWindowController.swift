@@ -135,6 +135,22 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 900, height: 560)
         window.setFrameAutosaveName("DeepDiveMain")
+        // 没存过位置（首次启动，或从未移动过窗口）就以**主屏居中**为默认：
+        // contentRect 的原点是 AppKit 坐标（左下角），(0,0) 字面就是「贴屏幕
+        // 左下角」——那是构造坐标系的原点，不是默认位置该有的样子（用户报
+        // 「每次启动都在左下角」）。存过位置则照旧恢复用户摆的地方。
+        // 不直接用 center()、也不取 NSScreen.main：多屏下它们都按"窗口当前所在
+        // 屏 / 当前接收键盘事件的屏"取，实测启动时落到了副屏上，落点不可预期。
+        // 这里明确取 `screens.first`——坐标原点那屏（带菜单栏的主屏），也就是
+        // 改动前窗口一直待着的那块屏，只是从贴左下角变成居中。
+        if !window.setFrameUsingName("DeepDiveMain") {
+            if let visible = NSScreen.screens.first?.visibleFrame {
+                window.setFrameOrigin(NSPoint(
+                    x: visible.midX - window.frame.width / 2,
+                    y: visible.midY - window.frame.height / 2,
+                ))
+            }
+        }
         window.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
 
         // Semi-transparent dark glass: vibrancy + dark overlay (~85% opaque).
