@@ -2289,6 +2289,18 @@ button {
     pointer-events: auto;
   }
 }
+/* 触屏（无 hover）：靠 hover 才出现的**功能**控件必须常显——手机上 hover 永不
+   触发，等于这些动作根本进不去（会话行的置顶/归档、工作区的操作）。纯视觉的
+   图标互换（ws-chevron/folder）不在此列，那些没有也用得上。
+   与上面 `hover: hover` 同一件事的两面：那边管"有 hover 时藏起来",
+   这边管"没有 hover 时露出来"。 */
+@media (hover: none) {
+  .task-row .row-pin-btn { opacity: 1; }
+  /* 时间让位给归档钮（与桌面 hover 时的替换同形），否则一行塞四个东西太挤 */
+  .task-row .row-time { display: none; }
+  .task-row .row-archive { display: inline-flex; }
+  .ws-row .ws-row-actions { display: inline-flex; }
+}
 .meta-action {
   width: 24px;
   height: 24px;
@@ -2713,6 +2725,15 @@ button {
   .hero { padding: 0 14px; }
   .hero-top { padding: 8px 14px 0; }
 }
+
+/* ---- 非壳（手机远程 / 桌面浏览器直开）：没有窗口 chrome ----
+   红绿灯与顶部 52px 标题栏条只有壳里有。上面那些 84px 左偏移与 176/152 让位
+   内边距都是照壳里的 chrome 量的——在手机浏览器里它们只是白白吃掉左三分之一
+   屏宽（390px 屏上头部正文只剩 215px）。按 <html data-shell> 分支覆盖。 */
+html:not([data-shell]) .window-top { left: 12px; }
+html:not([data-shell]) .app.collapsed .session-header { padding-left: 118px; }
+/* hero 自带 24px 横向 padding：减掉才是同一条视觉线 */
+html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 
 /* ─────────────────────────────────────────────────────────
    MOTION LAYER — 全局动效（Liner/Raycast 式：短、轻、precise）

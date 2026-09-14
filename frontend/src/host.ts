@@ -20,6 +20,17 @@ declare global {
   }
 }
 
+/** 是否跑在壳里（WKWebView 的 host 消息桥在）。
+ *
+ *  窗口 chrome——红绿灯 + 顶部 52px 标题栏条——**只有壳里有**：手机经局域网
+ *  打开 SPA 时是普通浏览器，左上角没有红绿灯。所以"顶部两钮左偏移 84px"与
+ *  "收起态给会话头让位的左内边距"都该按这个判据分支，而不是按窗口宽度猜
+ *  （窄窗口的 Mac 窗口仍有红绿灯）。main.tsx 在首帧前把结果标到
+ *  `<html data-shell>`，CSS 据此覆盖。 */
+export function inShell(): boolean {
+  return !!window.webkit?.messageHandlers?.deepdiveHost;
+}
+
 type HostEvent = (cmd: string, payload?: unknown) => void;
 const listeners = new Set<HostEvent>();
 

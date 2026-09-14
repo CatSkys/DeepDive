@@ -23,11 +23,10 @@ bash scripts/embed-web.sh "$APP"
 # to be inside the bundle before codesign (deep) covers it.
 bash scripts/embed-engine.sh "$APP"
 # 签名失败必须停：曾 `|| true` 吞错，bundle 被 embed 改坏时仍照常出 DMG（AUD-013）。
-# embed-engine 已在其自检前 re-seal 一次；此处再签是 DMG 分发前的最终 seal，
-# 二者顺序勿倒（embed → 最终 seal → DMG）。签名身份与做法统一在
-# scripts/sign-app.sh（Developer ID 固定身份 → TCC 授权跨构建持久，PITFALLS §4.8；
-# 无证书环境回退 adhoc）。
-bash scripts/sign-app.sh "$APP"
+# embed-engine 已在其自检前 re-seal 一次（快档：只签本体）；此处是 DMG 分发前的
+# 最终 seal，走 **--distribution**（逐个 Mach-O + secure timestamp，公证硬要求）。
+# 二者顺序勿倒（embed → 最终 seal → DMG）。
+bash scripts/sign-app.sh "$APP" --distribution
 
 # 公证（可选）：DSHMINI_NOTARY_PROFILE = notarytool 钥匙串 profile 名
 # （一次性配置：xcrun notarytool store-credentials <名字> --apple-id … --team-id 49LSZKN27V）。

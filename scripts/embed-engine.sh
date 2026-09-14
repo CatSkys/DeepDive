@@ -116,9 +116,10 @@ ditto "$DSH_IM_SOURCE/node_modules" "$STAGE/Resources/Runtime/dsh-im/node_module
 # the same .app path + broken seal makes macOS 26 SIGKILL (137, silent —
 # no dyld/AMFI message) every exec of the newly embedded binaries. Hit in
 # the wild: engine "exited; restart" x3 right after a rebuild in place.
-# 签名身份走 scripts/sign-app.sh（与 package-macos.sh 同一份）：Developer ID
-# 固定身份让 TCC 授权跨重建持久，ad-hoc 会让「访问文稿」框每次重来
-# （PITFALLS §4.8）。顺序勿倒——embed → 本处 re-seal → 自检 → 打包时最终 seal。
+# 签名身份走 scripts/sign-app.sh 的**快档**（只签本体，秒级）：开发链只需要
+# ①有效封印 ②稳定 code identity（TCC 授权按它记，PITFALLS §4.8），逐个签嵌套
+# 是公证的要求、归 packaging 链的 --distribution 档。顺序勿倒——embed → 本处
+# re-seal → 自检 → 打包时最终 seal。
 bash "$ROOT/scripts/sign-app.sh" "$APP"
 
 # Licenses: prefer files shipped inside the runtime closure; fall back to the

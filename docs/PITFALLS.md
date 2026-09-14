@@ -264,6 +264,14 @@
 - 事故（2026-09-06 公证冒烟测试）：嵌入的 node 是构建机 Homebrew 的动态链接版，拖 14+ 个 `/opt/homebrew` 绝对路径 dylib。hardened runtime 自带**库校验**（只许同 Team ID/Apple 签名的库），开发机上 dyld 直接拒载（SIGABRT，引擎入口都到不了）；干净用户机器上文件根本不存在——**引擎在分发包里本来必死**，此前从未暴露，因为「缺凭据不 spawn」的 fail-loud 挡在前面，引擎 spawn 路径从未被真机端到端跑过（与 §5.6 同型：开发机成立的前提没被验证过）。
 - 处置：`embed-engine.sh` 运行时二进制默认走 `scripts/prepare-node-runtime.sh`——按 `scripts/node-version.txt` 引脚拉 nodejs.org 官方发行版（自包含、仅系统框架），SHASUMS256 校验 + `dist/.node-runtime-cache` 缓存 + 并行锁；嵌入后 otool **自包含门**（只许 `@rpath/@loader_path/@executable_path`、`/usr/lib`、`/System`）挡住任何来源混入。教训：**构建机的 node/npm 只是工具链**（prepare-dsh-runtime 用的），与随包分发的运行时二进制是两回事；**公证通过 ≠ 能跑**——spctl/staple 过了还必须用签名后的二进制实跑引擎入口 + 原生模块加载（`bin.js --version` + require koffi/pty/sharp）。
 
+### 5.9 判定"哪些文件是二进制"别对整包逐个 fork：三万文件的闭包，扫一遍要五分半
+- 事故（2026-09-14 用户报告）：重建交付链（pkill → embed → 签 → open）每次都要等很久，用户点名"有点浪费时间"。
+- 实测：包内文件 **3 万余**，真正的 Mach-O 只有 **12** 个。旧 `sign-app.sh` 用 `find -exec sh -c 'file -b "$1"'` 逐个判定——**每个文件起一个 shell + file 进程**，**光扫描就 5 分 33 秒**（`time` 实测），而它嵌在**每次 embed** 里，`make package` 还会再跑一遍完整签名。
+- 处置（两条一起）：
+  1. **分档**：开发链只需要 ①有效封印 ②稳定 code identity（TCC 按 designated requirement 记，§4.8），**逐个签嵌套是公证的要求**——所以开发档只签 bundle 本体（实测 **7.5s**，`codesign --verify --deep --strict` 通过），逐个 Mach-O + `--timestamp` 只在打包链的 `sign-app.sh --distribution` 档跑。
+  2. 分发档的判定改**批量** `find -print0 | xargs -0 file`（xargs 按 ARG_MAX 自动分批），扫描 5:33 → ~1min。
+- 教训：**对"几万文件的树"做逐文件外部命令判定，先算 fork 次数**——`-exec ... {} \;` 的代价是 O(文件数) 次进程创建，与文件多小无关；同类写法（grep/file/stat）在构建脚本里一律批量喂。
+
 ---
 
 ## 6. 调试技巧

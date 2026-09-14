@@ -10,6 +10,7 @@ import { comboFor } from "../keybinds";
 import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import { pickNewWorkspace } from "./workspacePicker";
+import { longPressHandlers } from "../longPress";
 import { WsSwitcher } from "./WsSwitcher";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import type { SessionSummary, WorkspaceView } from "../types";
@@ -231,6 +232,11 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   // "所有工作空间的内容混铺一屏"（用户报告的混屏根因）。
   const view = query.trim() ? searchGroups : groups;
 
+  // 会话行的菜单打开点：右键与触屏长按共用同一个（longPressHandlers）。
+  const openCtx = (s: SessionSummary, x: number, y: number) => {
+    setCtx({ sessionId: s.sessionId, title: sessionTitle(s, lang), cwd: s.cwd, x, y });
+  };
+
   const renderRow = (s: SessionSummary, snippet?: string) => (
     <button
       key={s.sessionId}
@@ -238,8 +244,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       onClick={() => store.openSession(s.sessionId)}
       onContextMenu={(e) => {
         e.preventDefault();
-        setCtx({ sessionId: s.sessionId, title: sessionTitle(s, lang), cwd: s.cwd, x: e.clientX, y: e.clientY });
+        openCtx(s, e.clientX, e.clientY);
       }}
+      {...longPressHandlers((x, y) => openCtx(s, x, y))}
     >
       {/* 行首槽位：运行/未读状态优先；都没有时给「置顶」钮（hover 显现，
           已置顶常驻）——置顶的会话不受自动归档限制（设置·通用） */}
@@ -276,8 +283,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setCtx({ sessionId: s.sessionId, title: sessionTitle(s, lang), cwd: s.cwd, x: e.clientX, y: e.clientY });
+          openCtx(s, e.clientX, e.clientY);
         }}
+        {...longPressHandlers((x, y) => openCtx(s, x, y))}
       >
         <span className="row-time">{fmtTime(s.updatedAt, lang)}</span>
         <button
