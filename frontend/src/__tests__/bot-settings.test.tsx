@@ -34,6 +34,7 @@ const BOT: ImBot = {
   model: { provider: "deepseek-official", model: "deepseek-flash" },
   agentPreset: "standard",
   bot: { name: "我的微信", accountIdMasked: "wx***" },
+  accessPolicy: null,
   health: { status: "healthy", summary: "" },
 };
 

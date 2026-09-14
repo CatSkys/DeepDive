@@ -78,6 +78,8 @@ export interface ImBot {
   model: { provider: string; model: string; reasoningEffort?: string } | null;
   /** Agent 预设 id（空串 = 未设置）。 */
   agentPreset: string;
+  /** 访问策略（谁能用这个机器人）。读不到完整策略时为 null——UI 据此不渲染编辑器。 */
+  accessPolicy: ImAccessPolicy | null;
   bot: { name: string; accountIdMasked: string };
   health: { status: string; summary: string };
 }
@@ -87,6 +89,30 @@ export interface ImModelOption {
   provider: string;
   model: string;
   label: string;
+}
+
+/** 访问策略里的一个用户（白名单用户 / 开放模式的命令权限例外，两者同形状）。 */
+export interface ImAccessUser {
+  id: string;
+  canExecuteCommands: boolean;
+}
+
+/** 一种会话类型的访问设置。**形状与 wire 完全一致**（不另立扁平表示）——
+ *  插件侧 validateAccessPolicy 要求精确键（mode/open/allowlist，open 下两个键、
+ *  allowlist 下 users），且保存时整份发回，照搬最不容易错。 */
+export interface ImAccessScope {
+  mode: "open" | "allowlist";
+  open: {
+    defaultCanExecuteCommands: boolean;
+    commandPermissionOverrides: ImAccessUser[];
+  };
+  allowlist: { users: ImAccessUser[] };
+}
+
+/** 机器人访问策略：私聊 + 群聊**一次整份保存**（插件要求两边齐全）。 */
+export interface ImAccessPolicy {
+  direct: ImAccessScope;
+  group: ImAccessScope;
 }
 
 export interface ImSnapshot {
@@ -136,6 +162,43 @@ function asString(v: unknown, fallback = ""): string {
   return typeof v === "string" ? v : fallback;
 }
 
+function narrowAccessUsers(v: unknown): ImAccessUser[] | null {
+  if (!Array.isArray(v)) return null;
+  const users: ImAccessUser[] = [];
+  for (const item of v) {
+    const u = asRecord(item);
+    const id = asString(u?.id);
+    if (!u || !id || typeof u.canExecuteCommands !== "boolean") return null;
+    users.push({ id, canExecuteCommands: u.canExecuteCommands });
+  }
+  return users;
+}
+
+function narrowAccessScope(v: unknown): ImAccessScope | null {
+  const s = asRecord(v);
+  const open = asRecord(s?.open);
+  const mode = asString(s?.mode);
+  if (mode !== "open" && mode !== "allowlist") return null;
+  if (typeof open?.defaultCanExecuteCommands !== "boolean") return null;
+  const overrides = narrowAccessUsers(open.commandPermissionOverrides);
+  const users = narrowAccessUsers(asRecord(s?.allowlist)?.users);
+  if (!overrides || !users) return null;
+  return {
+    mode,
+    open: { defaultCanExecuteCommands: open.defaultCanExecuteCommands, commandPermissionOverrides: overrides },
+    allowlist: { users },
+  };
+}
+
+/** 读不到完整策略就当没有：拿不准当前状态时摆一套默认值等于说谎，
+ *  UI 据此整块不渲染。 */
+function narrowAccessPolicy(v: unknown): ImAccessPolicy | null {
+  const p = asRecord(v);
+  const direct = narrowAccessScope(p?.direct);
+  const group = narrowAccessScope(p?.group);
+  return direct && group ? { direct, group } : null;
+}
+
 export function narrowImSnapshot(payload: unknown): ImSnapshot {
   const raw = asRecord(payload) ?? {};
 
@@ -155,6 +218,7 @@ export function narrowImSnapshot(payload: unknown): ImSnapshot {
       workspace: asString(b.workspace),
       model: provider && model ? { provider, model } : null,
       agentPreset: asString(b.agentPreset),
+      accessPolicy: narrowAccessPolicy(b.accessPolicy),
       bot: { name: asString(asRecord(b.bot)?.name, botId), accountIdMasked: asString(asRecord(b.bot)?.accountIdMasked) },
       health: { status: asString(asRecord(b.health)?.status), summary: asString(asRecord(b.health)?.summary) },
     });
@@ -214,6 +278,10 @@ export const im = {
     imCall<unknown>(channel, "bot.model.set", { botId, model }).then(narrowImSnapshot),
   setBotPreset: (channel: string, botId: string, agentPreset: string) =>
     imCall<unknown>(channel, "bot.preset.set", { botId, agentPreset }).then(narrowImSnapshot),
+  /** 访问策略整份发回：`{botId, policy}`——插件要求 direct/group 齐全且键精确
+   *  （见 shared/access-policy.mjs 的 validateAccessPolicy）。 */
+  setBotAccessPolicy: (channel: string, botId: string, policy: ImAccessPolicy) =>
+    imCall<unknown>(channel, "bot.access-policy.set", { botId, policy }).then(narrowImSnapshot),
 };
 
 export interface ImportSyncStatus {

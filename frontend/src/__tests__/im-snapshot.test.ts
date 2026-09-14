@@ -53,6 +53,7 @@ describe("narrowImSnapshot", () => {
       botId: "b1", state: "connected", connected: true, configured: true,
       workspace: "/tmp/ws", model: { provider: "deepseek-official", model: "deepseek-flash" },
       agentPreset: "standard",
+      accessPolicy: null,
       bot: { name: "我的微信", accountIdMasked: "wx***" },
       health: { status: "healthy", summary: "微信连接正常" },
     }]);
@@ -74,6 +75,37 @@ describe("narrowImSnapshot", () => {
       expect(s.presets).toEqual([]);
       expect(s.bots).toEqual([]);
       expect(s.state).toBe("unknown");
+    }
+  });
+});
+
+// ── 访问策略 ──
+// 形状取自插件 shared/access-policy.mjs：{direct, group} × {mode, open{...}, allowlist{users}}。
+const SCOPE = (mode: "open" | "allowlist") => ({
+  mode,
+  open: { defaultCanExecuteCommands: false, commandPermissionOverrides: [] },
+  allowlist: { users: [{ id: "wx-1", canExecuteCommands: true }] },
+});
+
+describe("narrowImSnapshot · 访问策略", () => {
+  it("完整策略逐项落地（形状与 wire 一致，不做扁平化）", () => {
+    const s = narrowImSnapshot({ bots: [{ botId: "b1", accessPolicy: { direct: SCOPE("allowlist"), group: SCOPE("open") } }] });
+    expect(s.bots[0].accessPolicy).toEqual({ direct: SCOPE("allowlist"), group: SCOPE("open") });
+  });
+
+  it("形状不对一律落 null（UI 据此整块不渲染，不摆默认值）", () => {
+    const bad = [
+      undefined,
+      {},
+      { direct: SCOPE("allowlist") },                                   // 缺 group
+      { direct: { ...SCOPE("allowlist"), mode: "everyone" }, group: SCOPE("open") },
+      { direct: { ...SCOPE("open"), open: { defaultCanExecuteCommands: "yes", commandPermissionOverrides: [] } }, group: SCOPE("open") },
+      { direct: { ...SCOPE("open"), allowlist: { users: [{ id: "x" }] } }, group: SCOPE("open") },
+      { direct: { ...SCOPE("open"), allowlist: { users: "none" } }, group: SCOPE("open") },
+    ];
+    for (const accessPolicy of bad) {
+      const s = narrowImSnapshot({ bots: [{ botId: "b1", accessPolicy }] });
+      expect(s.bots[0].accessPolicy, JSON.stringify(accessPolicy)).toBeNull();
     }
   });
 });

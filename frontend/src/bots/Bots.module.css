@@ -115,6 +115,29 @@
 .settingRow { display: flex; align-items: center; gap: 10px; }
 .settingLabel { flex: none; width: 76px; font-size: 12px; color: var(--ink-3); }
 .settingControl { flex: 1; min-width: 0; }
+.settingHint { flex: 1; min-width: 0; font-size: 11.5px; color: var(--ink-3); }
+
+/* ── 访问策略：一种会话类型一块（私聊 / 群聊），缩进表示隶属上面的标题 ── */
+.scopeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0 4px 12px;
+}
+.userList { display: flex; flex-direction: column; gap: 6px; padding-left: 86px; }
+.userListTitle { font-size: 11.5px; color: var(--ink-3); }
+.userListEmpty { font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+.userRow { display: flex; align-items: center; gap: 8px; }
+.userId {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.userInput { flex: 1; min-width: 0; }
 
 /* ── 扫码配对 ── */
 .pairPane {

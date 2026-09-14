@@ -2,6 +2,7 @@ import { useState } from "react";
 import css from "./Bots.module.css";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown } from "../components/controls";
+import { BotAccessPolicy } from "./BotAccessPolicy";
 import { api, type ImBot, type ImModelOption, type ImSnapshot } from "../api";
 import { useT } from "../i18n";
 
@@ -87,6 +88,8 @@ export function BotSettings({ channel, bot, models, presets, onSaved, onError }:
           </span>
         </div>
       )}
+
+      <BotAccessPolicy channel={channel} bot={bot} onSaved={onSaved} onError={onError} />
 
       {presets.length > 0 && (
         <div className={css.settingRow}>

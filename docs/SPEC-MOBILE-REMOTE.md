@@ -94,23 +94,25 @@ Content-Type: application/json
 
 ### 5.4 机器人细项
 
-每个机器人行尾有「设置」，展开是四项（**参数名取自插件客户端源码的 `saveBotSetting`，勿猜**；四端点统一 `{botId, …载荷}` 且都回**新快照**，UI 整体替换不本地拼）：
+每个机器人行尾有「设置」，展开是四项 + 访问策略（**参数名取自插件客户端源码，勿猜**；端点统一 `{botId, …载荷}` 且都回**新快照**，UI 整体替换不本地拼）：
 
 | 项 | 端点 | 载荷 |
 |---|---|---|
 | 别名 | `bot.alias.set` | `{alias}` |
 | 工作区 | `bot.workspace.set` | `{workspace}`（绝对路径；空串 = 引擎默认） |
-| 模型 | `bot.model.set` | `{model: {provider, model}}`（选项来自快照的 `modelCatalog`，按提供方分组摊平） |
+| 模型 | `bot.model.set` | `{model: {provider, model}}`（选项来自 `modelCatalog`，按提供方分组摊平） |
 | Agent 预设 | `bot.preset.set` | `{agentPreset}`（选项来自 `agentPresetCatalog.items`） |
+| 访问策略 | `bot.access-policy.set` | `{policy}`（见下） |
 
-提交时机：文字项**失焦/回车且改过才发**；下拉项选中即发。目录为空（插件没给）时该项**不渲染**——不摆点不动的空下拉。
+提交时机：文字项**失焦/回车且改过才发**；下拉/开关/清单变更即发。目录为空（插件没给）时该项**不渲染**——不摆点不动的空下拉。
 
-快照的 wire 载荷按 `unknown` 收窄（`api.ts` 的 `narrowImSnapshot`），夹具取自真机响应：目录形状、机器人字段、以及"目录缺失/形状不对一律降级成空表"都有测试钉住。
+**访问策略**（谁能用这个机器人）：私聊 / 群聊各一套，每套 = 访问模式（`allowlist` 仅白名单用户 / `open` 所有用户）+ 按模式给白名单用户清单或（默认命令权限开关 + 命令权限例外清单）。两端点要求**精确键**（`shared/access-policy.mjs` 的 `validateAccessPolicy` 用 `hasExactKeys` 校验：`direct`/`group` 必须齐全，scope 下 `mode`/`open`/`allowlist` 一个不能少），所以**每次改动整份发回**——UI 的类型 `ImAccessPolicy` 与 wire 形状逐字一致，不做扁平化（少一层表示少一类错）。
+
+读不到完整策略时**整块不渲染**：拿不准当前状态时摆一套默认值等于说谎。
 
 ### 5.5 尚未做
 
-- **访问策略**（`bot.access-policy.set`）：形状是 `direct`/`group` × `open`/`allowlist` 的嵌套对象（白名单还要逐个用户 id + 是否可执行命令），插件自带整页编辑器。要做得先定 UI 形态，不宜顺手塞进现在这四行里。
-- **上下文增强**（`bot.context-enhancement.set`）：`config` 形状另议。
+- **上下文增强**（`bot.context-enhancement.set`）：载荷形状是 `{config}`，`config` 的结构另议。
 - **投递设置**（主动推送目标）：属另一个渠道面 `POST /api/dsh-im/dsh-im-delivery`（`target.*` 一族），与机器人本身不是一件事。
 - 参考图里的「飞书 中国 / Lark 全球」两行：插件里是同一个 `feishu` 渠道（Lark 是国际域名品牌），我们只列一行，不造两行驱动同一个机器人。
 
