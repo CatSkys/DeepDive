@@ -3,6 +3,7 @@ import { PanelLeft, Search } from "lucide-react";
 import { api } from "./api";
 import { alertDialog } from "./components/DialogHost";
 import { installHostBridge } from "./host";
+import { FadeDebugPanel } from "./debug/FadeDebugPanel";
 import { mux } from "./mux";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
@@ -158,6 +159,10 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
       <TooltipHost />
       <DialogHost />
+      {/* 渐变模糊调试面板（?debug=fade）：开发调参工具，不进导航。 */}
+      {new URLSearchParams(window.location.search).get("debug") === "fade" && (
+        <FadeDebugPanel onClose={() => { history.replaceState(null, "", "/"); }} />
+      )}
       {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失 */}
       {store.everConnected && !store.engineUp && (
         <div className="engine-banner" role="status">

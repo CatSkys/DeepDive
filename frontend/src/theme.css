@@ -1449,6 +1449,10 @@ button {
 :root {
   --session-header-h: 59px;
   --session-fade-top: 88px;
+  --flow-fade-len: 56px;
+  --fade-blur-1: 3px;  --fade-m1a: 45%; --fade-m1b: 100%;
+  --fade-blur-2: 6px;  --fade-m2a: 25%; --fade-m2b: 80%;
+  --fade-blur-3: 11px; --fade-m3a: 10%; --fade-m3b: 55%;
 }
 .session-header {
   display: flex;
@@ -1495,22 +1499,22 @@ button {
 }
 /* 每层都在自己的渐出段里归零（带底无硬切）；强度整体收敛（顶部等效 ~12px）。 */
 .session-fade > i:nth-child(1) {
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
-  -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
+  -webkit-backdrop-filter: blur(var(--fade-blur-1));
+  backdrop-filter: blur(var(--fade-blur-1));
+  -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m1a), transparent var(--fade-m1b));
+  mask-image: linear-gradient(180deg, #000 var(--fade-m1a), transparent var(--fade-m1b));
 }
 .session-fade > i:nth-child(2) {
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  -webkit-mask-image: linear-gradient(180deg, #000 25%, transparent 80%);
-  mask-image: linear-gradient(180deg, #000 25%, transparent 80%);
+  -webkit-backdrop-filter: blur(var(--fade-blur-2));
+  backdrop-filter: blur(var(--fade-blur-2));
+  -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m2a), transparent var(--fade-m2b));
+  mask-image: linear-gradient(180deg, #000 var(--fade-m2a), transparent var(--fade-m2b));
 }
 .session-fade > i:nth-child(3) {
-  -webkit-backdrop-filter: blur(11px);
-  backdrop-filter: blur(11px);
-  -webkit-mask-image: linear-gradient(180deg, #000 10%, transparent 55%);
-  mask-image: linear-gradient(180deg, #000 10%, transparent 55%);
+  -webkit-backdrop-filter: blur(var(--fade-blur-3));
+  backdrop-filter: blur(var(--fade-blur-3));
+  -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m3a), transparent var(--fade-m3b));
+  mask-image: linear-gradient(180deg, #000 var(--fade-m3a), transparent var(--fade-m3b));
 }
 /* position:relative：ModelMenu 的包含块 —— 缺了它菜单会一路锚到 .app
    （曾把菜单钉在窗口左上角盖住侧栏）。与 .hero-top .left 同款。 */
@@ -3928,12 +3932,12 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 渐隐段（56px）比模糊带（88px）短：内容更早回来，模糊梯度在清晰内容上
    收尾——两个常数解耦，整段才不会「糊 + 淡」双重叠加显得过强。 */
 .flow.fade-y[data-fade-start] {
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 56px);
-  mask-image: linear-gradient(180deg, transparent, #000 56px);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--flow-fade-len));
+  mask-image: linear-gradient(180deg, transparent, #000 var(--flow-fade-len));
 }
 .flow.fade-y[data-fade-start][data-fade-end] {
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 56px, #000 calc(100% - 24px), transparent);
-  mask-image: linear-gradient(180deg, transparent, #000 56px, #000 calc(100% - 24px), transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--flow-fade-len), #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 var(--flow-fade-len), #000 calc(100% - 24px), transparent);
 }
 .fade-y[data-fade-end] {
   -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent);
