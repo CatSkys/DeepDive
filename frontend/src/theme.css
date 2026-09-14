@@ -1470,12 +1470,12 @@ button {
   right: 0;
   z-index: 3;
 }
-/* 顶部渐隐层：滚上去的内容在这里同时被渐变吃掉 + 被模糊。两层叠加是刻意的
-   （用户定稿「渐变模糊 + 已有的渐变处理，范围更长」）——只有 mask 是硬切，
-   只有 backdrop 会在头部下缘留一条清晰的分界。
-   注意：必须是 .flow 的**兄弟**且在 .flow 之外——WKWebView 不渲染嵌在别的
-   backdrop-filter 面内的子层（见上方「弹出面板统一配方」约束③），
-   而 .session 本身没有 backdrop-filter，这层才拿得到身后的内容。 */
+/* 顶部渐隐层：一层「内容色的厚雾」——半透明面板底 + 渐变 mask，把穿过头部的
+   文字压淡到读不出，向下渐隐交还内容。
+   为什么不用 backdrop-filter 真模糊（试过，探针实锤）：backdrop 的采样**拿不到
+   兄弟 overflow 滚动容器的内容**——.flow 是 overflow-y:auto，它滚到头部底下的
+   文字在这层看来是空的（对照实验：非滚动的同位置文字一放就糊，挪进 .flow 立刻
+   不糊；blur 拉到 120px 也不糊）。厚雾是工程上干净的近似。 */
 .session-fade {
   position: absolute;
   top: 0;
@@ -1484,10 +1484,30 @@ button {
   height: var(--session-fade-top);
   z-index: 2;
   pointer-events: none;
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .35) 45%, transparent);
-  mask-image: linear-gradient(180deg, #000, rgba(0, 0, 0, .35) 45%, transparent);
+}
+/* 渐变模糊的标准实现（progressive blur，参考 jonothan.dev / devslovecoffee）：
+   叠三层，每层都是模糊面板自身（约束③：blur 必须挂面板自己），用 mask 控制
+   各层显形范围——越强的模糊显形越短，形成「越靠上越糊」的梯度。 */
+.session-fade > i {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.session-fade > i:nth-child(1) {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.session-fade > i:nth-child(2) {
+  -webkit-backdrop-filter: blur(9px);
+  backdrop-filter: blur(9px);
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 75%);
+  mask-image: linear-gradient(180deg, #000 30%, transparent 75%);
+}
+.session-fade > i:nth-child(3) {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  -webkit-mask-image: linear-gradient(180deg, #000 12%, transparent 45%);
+  mask-image: linear-gradient(180deg, #000 12%, transparent 45%);
 }
 /* position:relative：ModelMenu 的包含块 —— 缺了它菜单会一路锚到 .app
    （曾把菜单钉在窗口左上角盖住侧栏）。与 .hero-top .left 同款。 */
