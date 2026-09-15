@@ -1480,6 +1480,8 @@ button {
    兄弟 overflow 滚动容器的内容**——.flow 是 overflow-y:auto，它滚到头部底下的
    文字在这层看来是空的（对照实验：非滚动的同位置文字一放就糊，挪进 .flow 立刻
    不糊；blur 拉到 120px 也不糊）。厚雾是工程上干净的近似。 */
+/* 只在内容真的滚到头部底下时出现（data-on = scrolled）：滚回顶部时第一条
+   消息必须完整可读，不能被常驻的模糊带盖住（用户报障）。淡入淡出跟随滚动。 */
 .session-fade {
   position: absolute;
   top: 0;
@@ -1488,7 +1490,10 @@ button {
   height: var(--session-fade-top);
   z-index: 2;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-med) ease;
 }
+.session-fade[data-on] { opacity: 1; }
 /* 渐变模糊的标准实现（progressive blur，参考 jonothan.dev / devslovecoffee）：
    叠三层，每层都是模糊面板自身（约束③：blur 必须挂面板自己），用 mask 控制
    各层显形范围——越强的模糊显形越短，形成「越靠上越糊」的梯度。 */

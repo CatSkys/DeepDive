@@ -305,7 +305,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     <div className="session">
       {/* 顶部渐隐层：滚上去的内容在头部下面被渐变吃掉 + 模糊（样式见 theme.css）。
           全屏预览时一并隐藏——那是另一个页面。 */}
-      {!previewFull && <div className="session-fade" aria-hidden="true"><i /><i /><i /></div>}
+      {!previewFull && <div className="session-fade" data-on={scrolled ? "" : undefined} aria-hidden="true"><i /><i /><i /></div>}
       {/* 全屏预览 = 打开成的新页面：页头换成「返回 + 文件名 + 打开方式」，
           会话自己的标题/模型/胶囊整体让位（不再是"会话界面顶着文件"）。 */}
       {previewFull ? <PreviewPageHeader preview={preview} /> : (
