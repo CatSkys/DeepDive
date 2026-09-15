@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings, SquarePen, Trash2 } from "lucide-react";
+import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { InlineLoader } from "./LoadingState";
-import { alertDialog, promptDialog, confirmDialog } from "./DialogHost";
+import { alertDialog, promptDialog } from "./DialogHost";
 import { api } from "../api";
 import { sendToShell } from "../host";
 import { useStore } from "../store";
@@ -11,10 +11,10 @@ import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import { pickNewWorkspace } from "./workspacePicker";
 import { longPressHandlers } from "../longPress";
-import { WorkspaceFolderItems } from "./WorkspaceMenu";
+import { WorkspaceMenuItems } from "./WorkspaceMenu";
 import { WsSwitcher } from "./WsSwitcher";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
-import type { SessionSummary, WorkspaceView } from "../types";
+import type { SessionSummary } from "../types";
 import { sessionTitle } from "../session/sessionTitle";
 import { isBadgedSession } from "../session/backgroundSession";
 import { DD_EVENTS } from "../events";
@@ -122,30 +122,6 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   }, [trimmedQuery]);
 
   // 项目行 ⋯ 菜单动作（官方 ProjectRowItem 的 rename/delete 同款）。
-  const renameWorkspace = (ws: WorkspaceView) => {
-    setWsCtx(null);
-    void (async () => {
-      const title = await promptDialog({ title: t("重命名"), initialValue: ws.title });
-      if (!title || !title.trim()) return;
-      try { await api.workspaceRename({ workspaceId: ws.workspaceId, title: title.trim() }); await store.refresh(); }
-      catch (err) { void alertDialog({ message: tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`) }); }
-    })();
-  };
-  const deleteWorkspace = (ws: WorkspaceView) => {
-    setWsCtx(null);
-    void (async () => {
-      const ok = await confirmDialog({ message: tt(`删除工作空间「${ws.title}」？\n（只解除项目归属，磁盘上的文件夹不会被删除）`, `Delete workspace “${ws.title}”?\n(Only detaches the project; files on disk and sessions are kept)`), danger: true });
-      if (!ok) return;
-      try {
-        await api.workspaceDelete({ workspaceId: ws.workspaceId });
-        const rest = store.workspaces.filter((w) => w.workspaceId !== ws.workspaceId);
-        // 删除的是当前空间 → 落到第一个剩余空间；全删光则回单列表模式。
-        if (store.activeWorkspaceId === ws.workspaceId && rest[0]) store.switchWorkspace(rest[0].workspaceId);
-        await store.refresh();
-      } catch (err) { void alertDialog({ message: tt(`删除失败：${(err as Error).message}`, `Delete failed: ${(err as Error).message}`) }); }
-    })();
-  };
-
   // 会话 → 空间归属：不在任何空间的会话按惯例归第一个空间；引擎没有工作
   // 空间面时（hasWs=false）全部会话视为"当前空间"，退回单列表行为。
   const { t, tt, lang } = useT();
@@ -421,15 +397,8 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       </div>
       {wsCtx && activeWs && (
         <div className="ctx-menu" style={{ top: wsCtx.y, left: Math.min(wsCtx.x, window.innerWidth - 200) }} onClick={(e) => e.stopPropagation()}>
-          {/* 文件夹类动作：与 hero 胶囊 / 空间格的右键菜单同一份实现 */}
-          <WorkspaceFolderItems ws={activeWs} onDone={() => setWsCtx(null)} />
-          <div className="ctx-sep" />
-          <div className="ctx-item" onClick={() => renameWorkspace(activeWs)}>
-            <SquarePen size={13} /> {t("重命名")}
-          </div>
-          <div className="ctx-item danger" onClick={() => deleteWorkspace(activeWs)}>
-            <Trash2 size={13} /> {t("删除工作区")}
-          </div>
+          {/* 与 hero 胶囊 / 空间格的右键菜单同一份（五项全量） */}
+          <WorkspaceMenuItems ws={activeWs} onDone={() => setWsCtx(null)} />
         </div>
       )}
       {ctx && (
