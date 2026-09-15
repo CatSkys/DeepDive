@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Folder, Link2 } from "lucide-react";
 import type { WorkspaceView } from "../types";
 import { revealPath } from "../host";
@@ -31,7 +32,9 @@ export function WorkspaceFolderItems({ ws, onDone }: { ws: WorkspaceView; onDone
 }
 
 /** 项目元素的右键菜单（胶囊 / 空间格）：位置取右键坐标。
- *  click-outside 关闭与 ModelMenu/ProjectMenu 同款（mousedown + ref）。 */
+ *  click-outside 关闭与 ModelMenu/ProjectMenu 同款（mousedown + ref）。
+ *  传送到 body 渲染：空间格在侧栏最底部，菜单留在侧栏里会被 overflow 裁掉
+ *  （用户报「下方项目的右键都看不到了」）；空间不够向下就向上翻。 */
 export function WorkspaceMenu({ ws, x, y, onClose }: { ws: WorkspaceView; x: number; y: number; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -41,14 +44,24 @@ export function WorkspaceMenu({ ws, x, y, onClose }: { ws: WorkspaceView; x: num
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [onClose]);
-  return (
+
+  const estimatedH = 84; // 两个菜单项 + 内边距
+  const flip = y + estimatedH > window.innerHeight - 8;
+
+  return createPortal(
     <div
       ref={ref}
       className="ctx-menu"
-      style={{ top: y, left: Math.min(x, window.innerWidth - 220) }}
+      style={{
+        position: "fixed",
+        top: flip ? undefined : y,
+        bottom: flip ? window.innerHeight - y : undefined,
+        left: Math.max(8, Math.min(x, window.innerWidth - 228)),
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       <WorkspaceFolderItems ws={ws} onDone={onClose} />
-    </div>
+    </div>,
+    document.body,
   );
 }
