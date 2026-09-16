@@ -1450,9 +1450,9 @@ button {
   --session-header-h: 59px;
   --session-fade-top: 88px;
   --flow-fade-len: 56px;
-  --fade-blur-1: 3px;  --fade-m1a: 45%; --fade-m1b: 100%;
-  --fade-blur-2: 6px;  --fade-m2a: 25%; --fade-m2b: 80%;
-  --fade-blur-3: 11px; --fade-m3a: 10%; --fade-m3b: 55%;
+  --fade-blur-1: 2px;  --fade-m1a: 45%; --fade-m1b: 100%;
+  --fade-blur-2: 4px;  --fade-m2a: 25%; --fade-m2b: 80%;
+  --fade-blur-3: 7px;  --fade-m3a: 10%; --fade-m3b: 55%;
 }
 .session-header {
   display: flex;
@@ -1474,14 +1474,17 @@ button {
   right: 0;
   z-index: 3;
 }
-/* 顶部渐隐层：一层「内容色的厚雾」——半透明面板底 + 渐变 mask，把穿过头部的
-   文字压淡到读不出，向下渐隐交还内容。
-   为什么不用 backdrop-filter 真模糊（试过，探针实锤）：backdrop 的采样**拿不到
-   兄弟 overflow 滚动容器的内容**——.flow 是 overflow-y:auto，它滚到头部底下的
-   文字在这层看来是空的（对照实验：非滚动的同位置文字一放就糊，挪进 .flow 立刻
-   不糊；blur 拉到 120px 也不糊）。厚雾是工程上干净的近似。 */
-/* 只在内容真的滚到头部底下时出现（data-on = scrolled）：滚回顶部时第一条
-   消息必须完整可读，不能被常驻的模糊带盖住（用户报障）。淡入淡出跟随滚动。 */
+/* 顶部渐隐层：叠三层 backdrop-filter 做 progressive blur（越靠上越糊），把滚进
+   头部底下的内容压成雾；一层 mask 控制各层显形范围，另一层是 .flow 自己的渐隐。
+   两条实测硬约束：① blur 必须挂在面板自身；② 面板**不得改 opacity**——
+   opacity<1 会自建 backdrop root，三层去采样被隔离的空组，模糊整个消失（最小
+   复现页实测：opacity 0.36 与关闭带子像素零差；同族坑见 PITFALLS §1.10）。
+   所以渐显只能走模糊半径，不能走整体 opacity。 */
+/* 强度跟着滚动深度连续变化（--session-fade-ramp 由 SessionView 写在元素上，
+   0→1 走 --flow-fade-len）：内容滚进头部底下多少，雾就浓多少。半径乘 ramp
+   使模糊连续长出来；深度归零即模糊归零，滚回顶部时第一条消息完整可读。
+   旧实现是「scrolled 布尔开关 + opacity 0→1 过渡」：受约束②，过渡期间模糊
+   根本不存在、只在末尾「啪」地蹦出来（用户报「出现得太僵硬」的真因）。 */
 .session-fade {
   position: absolute;
   top: 0;
@@ -1490,10 +1493,7 @@ button {
   height: var(--session-fade-top);
   z-index: 2;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--dur-med) ease;
 }
-.session-fade[data-on] { opacity: 1; }
 /* 渐变模糊的标准实现（progressive blur，参考 jonothan.dev / devslovecoffee）：
    叠三层，每层都是模糊面板自身（约束③：blur 必须挂面板自己），用 mask 控制
    各层显形范围——越强的模糊显形越短，形成「越靠上越糊」的梯度。 */
@@ -1502,22 +1502,24 @@ button {
   inset: 0;
   display: block;
 }
-/* 每层都在自己的渐出段里归零（带底无硬切）；强度整体收敛（顶部等效 ~12px）。 */
+/* 每层都在自己的渐出段里归零（带底无硬切）；强度整体收敛（顶部等效 ~8px）。
+   半径乘 --session-fade-ramp：滚动深度 0 时半径 0（滤镜是空操作，不带自建
+   backdrop root），随深度长到满值——渐显靠半径，不靠 opacity（见上）。 */
 .session-fade > i:nth-child(1) {
-  -webkit-backdrop-filter: blur(var(--fade-blur-1));
-  backdrop-filter: blur(var(--fade-blur-1));
+  -webkit-backdrop-filter: blur(calc(var(--fade-blur-1) * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--fade-blur-1) * var(--session-fade-ramp, 0)));
   -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m1a), transparent var(--fade-m1b));
   mask-image: linear-gradient(180deg, #000 var(--fade-m1a), transparent var(--fade-m1b));
 }
 .session-fade > i:nth-child(2) {
-  -webkit-backdrop-filter: blur(var(--fade-blur-2));
-  backdrop-filter: blur(var(--fade-blur-2));
+  -webkit-backdrop-filter: blur(calc(var(--fade-blur-2) * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--fade-blur-2) * var(--session-fade-ramp, 0)));
   -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m2a), transparent var(--fade-m2b));
   mask-image: linear-gradient(180deg, #000 var(--fade-m2a), transparent var(--fade-m2b));
 }
 .session-fade > i:nth-child(3) {
-  -webkit-backdrop-filter: blur(var(--fade-blur-3));
-  backdrop-filter: blur(var(--fade-blur-3));
+  -webkit-backdrop-filter: blur(calc(var(--fade-blur-3) * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--fade-blur-3) * var(--session-fade-ramp, 0)));
   -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m3a), transparent var(--fade-m3b));
   mask-image: linear-gradient(180deg, #000 var(--fade-m3a), transparent var(--fade-m3b));
 }

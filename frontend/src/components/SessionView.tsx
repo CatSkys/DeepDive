@@ -27,6 +27,10 @@ import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
 import { uuid } from "../uuid";
 
+/** 顶部模糊带满强度所需的滚动深度：与 theme.css 的 --flow-fade-len 同值
+ *  （内容淡出段与雾的渐显段同步走完，两条边不会各显各的）。 */
+const FADE_RAMP_PX = 56;
+
 
 export function SessionView({ sessionId }: { sessionId: string }) {
   const { lang } = useT(); // 订阅语言切换：文案与标题回退随 lang 重渲染
@@ -108,6 +112,21 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     flowRef.current = el;
     syncBottomPad();
   }, [syncBottomPad]);
+  // 顶部模糊带强度 = 滚动深度，0→1 走 FADE_RAMP_PX（与 --flow-fade-len 同值：
+  // 内容淡出段走完，雾正好到满强度）。写的是**模糊半径的倍率**而非整体 opacity：
+  // opacity<1 会让面板自建 backdrop root，三层 backdrop-filter 采样空组、模糊
+  // 整个消失（theme.css 有实测记录）。直接写 CSS 变量、不进 state——每帧都变的
+  // 值走 React 会把整条会话流拖进滚动重渲。
+  const fadeRef = useRef<HTMLDivElement | null>(null);
+  const syncFadeRamp = useCallback((top: number) => {
+    fadeRef.current?.style.setProperty("--session-fade-ramp", String(Math.min(1, top / FADE_RAMP_PX)));
+  }, []);
+  // 带子在预览全屏切换时会重挂（重挂即丢变量）：挂上就按当前深度补一次，
+  // 否则退出全屏要等下一次滚动雾才回来。
+  const attachFade = useCallback((el: HTMLDivElement | null) => {
+    fadeRef.current = el;
+    if (el) syncFadeRamp(flowRef.current?.scrollTop ?? 0);
+  }, [syncFadeRamp]);
   const attachBottom = useCallback((el: HTMLDivElement | null) => {
     bottomRef.current = el;
     syncBottomPad();
@@ -305,7 +324,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     <div className="session">
       {/* 顶部渐隐层：滚上去的内容在头部下面被渐变吃掉 + 模糊（样式见 theme.css）。
           全屏预览时一并隐藏——那是另一个页面。 */}
-      {!previewFull && <div className="session-fade" data-on={scrolled ? "" : undefined} aria-hidden="true"><i /><i /><i /></div>}
+      {!previewFull && <div className="session-fade" ref={attachFade} aria-hidden="true"><i /><i /><i /></div>}
       {/* 全屏预览 = 打开成的新页面：页头换成「返回 + 文件名 + 打开方式」，
           会话自己的标题/模型/胶囊整体让位（不再是"会话界面顶着文件"）。 */}
       {previewFull ? <PreviewPageHeader preview={preview} /> : (
@@ -357,6 +376,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             const el = e.currentTarget;
             setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
             setScrolled(el.scrollTop > 2);
+            syncFadeRamp(el.scrollTop);
             trackActive();
             // 滚到顶自动向前翻页（替代手点「载入更早」）：靠近顶部即拉一页；
             // loadOlder 内部有 paging 互斥 + 锚点保位，连续触发安全。
