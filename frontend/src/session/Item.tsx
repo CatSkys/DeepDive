@@ -9,10 +9,14 @@ import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
-export function Item({ item, running, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, wsPath }: {
+import { PresentedFiles } from "./PresentedFiles";
+export function Item({ item, running, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, wsPath, cwd }: {
   onPreviewFile?: (path: string, line?: number) => void;
   /** 工作区根（相对产物路径 → 绝对解析用）。 */
   wsPath?: string;
+  /** 会话工作目录：present 交付文件的相对路径按它解析（引擎口径，与工作区路径
+   *  可能不同）；老会话摘要缺 cwd 时退回工作区路径。 */
+  cwd?: string;
   item: RenderItem;
   /** 本项是否仍在流式写入（会话在跑 且 本项是列表最后一项）。思考块据此自动
    *  展开/收起——只按会话级 running 判，早已结束的思考会一直摊着不折叠。 */
@@ -85,6 +89,7 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
           </div>
         )}
         <ProducedFiles paths={item.produced ?? []} onPreview={onPreviewFile} wsPath={wsPath} />
+        <PresentedFiles files={item.presented ?? []} root={cwd ?? wsPath} onPreview={onPreviewFile} />
         <MessageMeta
           time={time}
           clockSide="end"

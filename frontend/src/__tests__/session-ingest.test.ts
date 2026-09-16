@@ -196,3 +196,46 @@ describe("ingest 流式累积", () => {
     expect(out.map((x) => x.kind)).toEqual(["reasoning", "tool-call"]);
   });
 });
+
+describe("ingest 交付文件（deliverables/presented）", () => {
+  const presented = (seq: number, files: unknown[]) => ({
+    type: "deliverables/presented", seq, time: 1_800, data: { turn: 1, callId: "c9", files },
+  }) as unknown as SessionEvent;
+
+  it("present 声明的文件挂到本轮轮尾（图片/文档都在）", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    for (const ev of [EV.turn1Start, EV.msg1, presented(20, [{ path: "shot.png", description: "跑分截图" }, { path: "/tmp/rep.md" }]), EV.turn1End]) {
+      ingest(out, { event: ev }, ctx);
+    }
+    finalizeTurns(out, ctx);
+    const tail = out.find((x) => x.kind === "turn-tail");
+    expect(tail?.presented).toEqual([{ path: "shot.png", description: "跑分截图" }, { path: "/tmp/rep.md" }]);
+  });
+
+  it("同路径重复声明只留最后一次（描述以最新为准），且不乱挂到别的轮", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    for (const ev of [
+      EV.turn1Start, EV.msg1,
+      presented(20, [{ path: "shot.png", description: "旧描述" }]),
+      presented(21, [{ path: "shot.png", description: "新描述" }, { path: "doc.md" }]),
+      EV.turn1End,
+    ]) ingest(out, { event: ev }, ctx);
+    finalizeTurns(out, ctx);
+    expect(out.find((x) => x.kind === "turn-tail")?.presented).toEqual([
+      { path: "shot.png", description: "新描述" },
+      { path: "doc.md" },
+    ]);
+  });
+
+  it("空 files / 非法条目不进渲染项", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    for (const ev of [EV.turn1Start, EV.msg1, presented(20, []), presented(21, [{ path: "  " }, { description: "无路径" }]), EV.turn1End]) {
+      ingest(out, { event: ev }, ctx);
+    }
+    finalizeTurns(out, ctx);
+    expect(out.find((x) => x.kind === "turn-tail")?.presented).toEqual([]);
+  });
+});

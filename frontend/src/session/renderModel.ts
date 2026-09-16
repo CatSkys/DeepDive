@@ -44,6 +44,8 @@ export interface RenderItem {
   resultImages?: ResultImage[];
   // turn-local produced file paths (attached during finalizeTurns)
   produced?: string[];
+  // turn-local present 工具声明的交付文件（finalizeTurns 时挂上）
+  presented?: import("../types").PresentedFile[];
   // turn/end 的 seq：branch（session.fork atSeq）的收尾锚点
   forkSeq?: number;
   // 轮终原因（3.5 轮失败增强：error 消息/max-tokens 继续按钮）
@@ -204,6 +206,8 @@ export interface IngestCtx {
   timing: Map<number, { start?: number; end?: number; firstToken?: number; endSeq?: number }>;
   outputs: Map<string, { output: string; failed: boolean }>;
   produced: Map<number, string[]>;
+  /** turn → present 工具声明的交付文件（同轮同路径只留一条，取最后一次声明）。 */
+  presented: Map<number, import("../types").PresentedFile[]>;
   /** callId → rendered tool-call item index (stable identity). */
   callIndex: Map<string, number>;
   /** callId → derived file path (from tool/call arguments) for produced lanes. */
@@ -229,7 +233,7 @@ export interface IngestCtx {
 
 /** Fresh ingest context — history replay, live mux passes and tests share one shape. */
 export function makeIngestCtx(): IngestCtx {
-  return { timing: new Map(), outputs: new Map(), produced: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnText: new Map(), turnTime: new Map(), currentTurn: undefined };
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), presented: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnText: new Map(), turnTime: new Map(), currentTurn: undefined };
 }
 
 export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
@@ -305,6 +309,21 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         // 多步轮按官方口径跨 step 求和（turn-metrics 的 fold 规则）
       }
       ctx.turnTime.set(turn, ev.time);
+      break;
+    }
+    case "deliverables/presented": {
+      // present 工具声明的交付文件（官方 turn-deliverables 同源）。按路径去重：
+      // 同一文件重复声明只留最后一次（描述可能被修正）；轮尾随产物一起呈现。
+      const d = ev.data as { turn: number; files: import("../types").PresentedFile[] };
+      const turn = d.turn ?? ctx.currentTurn ?? -1;
+      const list = ctx.presented.get(turn) ?? [];
+      for (const f of d.files ?? []) {
+        if (!f || typeof f.path !== "string" || f.path.trim() === "") continue;
+        const at = list.findIndex((x) => x.path === f.path);
+        if (at >= 0) list[at] = f;
+        else list.push(f);
+      }
+      if (list.length > 0) ctx.presented.set(turn, list);
       break;
     }
     case "tool/call": {
@@ -493,6 +512,7 @@ export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
         ? ({ type: "assistant/message", seq: -1, time: ctx.turnTime.get(turn) ?? 0, data: { turn, step: 1, message: { role: "assistant", content: [{ type: "text", text: txt }], source: { kind: "model", provider: "", model: "" }, id: `tail:${turn}` } } } as SessionEvent)
         : undefined,
       produced: ctx.produced.get(turn) ?? [],
+      presented: ctx.presented.get(turn) ?? [],
       endReason: ctx.turnReason.get(turn),
     });
   }

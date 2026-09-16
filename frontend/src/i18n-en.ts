@@ -70,6 +70,7 @@ export const EN: Record<string, string> = {
   "回到最新": "Back to latest",
   "退出计划模式": "Exit Plan Mode",
   "产物": "Files",
+  "交付": "Delivered",
   "+ {n} 个文件": "+{n} files",
   "输入": "Input",
   "输出": "Output",

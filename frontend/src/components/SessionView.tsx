@@ -461,6 +461,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             sessionId={sessionId}
                               onPreviewFile={(p, line) => preview.open(absPreviewPath(p), line)}
                             wsPath={wsPath}
+                            cwd={summary?.cwd}
                             hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
                             onContinue={() => {
                               void api.prompt({ requestId: uuid(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点

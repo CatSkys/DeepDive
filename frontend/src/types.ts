@@ -150,6 +150,13 @@ export type TurnEndReason =
   | { kind: "error"; error?: { message?: string; code?: string } }
   | { kind: string; [k: string]: unknown };
 
+/** present 工具声明的交付文件：path 是绝对路径或**相对会话工作目录**的路径（官方
+ *  PresentedFile 同款），description 由模型给出、可缺省。 */
+export interface PresentedFile {
+  path: string;
+  description?: string;
+}
+
 export type SessionEvent =
   | { type: "turn/start"; seq: number; time: number; data: { turn: number }; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "turn/end"; seq: number; time: number; data: { turn: number; reason: TurnEndReason }; sourceEventSeqs?: number[]; surfaceOp?: unknown }
@@ -169,6 +176,7 @@ export type SessionEvent =
   | { type: "tool-workflow/agent-end"; seq: number; time: number; data: WorkflowAgentEndData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "tool-workflow/run-end"; seq: number; time: number; data: WorkflowRunEndData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: "schedule/change"; seq: number; time: number; data: ScheduleChangeData; sourceEventSeqs?: number[]; surfaceOp?: unknown }
+  | { type: "deliverables/presented"; seq: number; time: number; data: { turn: number; callId: string; files: PresentedFile[] }; sourceEventSeqs?: number[]; surfaceOp?: unknown }
   | { type: string; seq: number; time: number; data: unknown; sourceEventSeqs?: number[]; surfaceOp?: unknown; ignorable?: boolean };
 
 /** mux 下行已随 0.1.2 改流化（api.ts ControlFrame/WorkspaceFollowFrame）；

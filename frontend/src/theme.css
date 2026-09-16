@@ -2508,6 +2508,58 @@ button {
 .produced-file:hover { background: var(--fill-strong); color: var(--ink); }
 .produced-more { white-space: nowrap; color: var(--ink-3); flex: none; }
 
+/* ---- 交付文件卡（DSH ui-deliverables 移植：present 声明的文件）----
+   与产物 lane 同一套标签 + 行布局；图片走缩略图，其余走名称 chip + 描述。 */
+.delivered {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 13px;
+  line-height: 22px;
+  position: relative;
+}
+.delivered-label { color: var(--ink-3); grid-area: 1/1; }
+.delivered-row {
+  grid-area: 1/2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.delivered-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 320px;
+  padding: 0 8px;
+  margin: 0;
+  border: none;
+  border-radius: var(--dsh-radius-keycap);
+  background: var(--fill);
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 120ms ease;
+}
+.delivered-card:hover { background: var(--fill-strong); color: var(--ink); }
+.delivered-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.delivered-desc { color: var(--ink-3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 图片卡：缩略图即内容，内边距与底色让位给图本身。尺寸与描边对齐已发送侧
+   图片附件（.user-attachment-thumb 92×68）——同一段对话里两种图看着是一套 */
+.delivered-image { padding: 0; background: transparent; }
+.delivered-image:hover { background: transparent; }
+.delivered-thumb {
+  width: 92px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: var(--dsh-radius-keycap);
+  border: 1px solid var(--line-strong);
+  display: block;
+}
+
 /* ---- todo 列表（任务展开面板） ---- */
 .todo-list {
   display: flex;
