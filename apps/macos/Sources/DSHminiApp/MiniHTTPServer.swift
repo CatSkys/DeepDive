@@ -32,17 +32,10 @@ final class MiniHTTPServer {
         /// WebSocket-style upgrade: the raw client socket is handed to
         /// `upgradeHandler`; the connection stays open.
         case upgrade(Response)
-        /// 大 body 盲直通：raw client socket + 已缓冲的请求头/首段 body 交给
-        /// relayHandler；转发器边收边泵到引擎，不整段缓冲（§2 大文件上传）。
-        case relay
     }
-
-    /// 超过此体积的 uploadFileBinary 交由 relayHandler 盲直通（其余全量缓冲）。
-    static let streamRelayThreshold = 1 * 1024 * 1024
 
     /// Set once at start; responsible for the handshake relay + byte pump.
     var upgradeHandler: ((Int32, Request) -> Void)?
-    var relayHandler: ((Int32, Request, Data) -> Void)?
 
     private var listenFD: Int32 = -1
     private let socketQueue = DispatchQueue(label: "deepdive.bridge.accept")
@@ -105,21 +98,20 @@ final class MiniHTTPServer {
         // 后立刻设接收超时，recv 超时返回 -1，readRequest 按 EOF 处理断开。
         var tv = timeval(tv_sec: 15, tv_usec: 0)
         setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
-        // 统一头优先读取；大 body（uploadFileBinary）交盲直通泵（不整段缓冲）。
+        // 统一头优先读取，再补读剩余 body（全量缓冲；上限见 maxBodyBytes）。
         guard let (headRequest, partial) = readRequestHead(client) else {
             close(client)
             return
         }
-        let wantsRelay = headRequest.path == "/api/session/uploadFileBinary"
-            && (headRequest.contentLength ?? 0) > Self.streamRelayThreshold
-        if wantsRelay {
-            relayHandler?(client, headRequest, partial)
-            // relayHandler 接管 socket（收满 body + 泵回响应 + close）
+        let declared = headRequest.contentLength ?? partial.count
+        if declared > Self.maxBodyBytes {
+            // 显式上限：超大 body 不缓冲不转发，直接拒绝（413）。客户端可能
+            // 仍在发 body，响应先写后关，XHR 侧按 413/网络错误归到上传失败。
+            writeResponse(client, Response(status: 413))
+            close(client)
             return
         }
-        // 常规路径：补读剩余 body 到声明长度
         var body = partial
-        let declared = headRequest.contentLength ?? body.count
         var scratch = [UInt8](repeating: 0, count: 8192)
         while body.count < declared {
             let n = recv(client, &scratch, scratch.count, 0)
@@ -137,8 +129,6 @@ final class MiniHTTPServer {
             // pump); it closes both ends when the stream ends.
             upgradeHandler?(client, request)
             return
-        case .relay:
-            close(client)
         }
     }
 
@@ -183,7 +173,8 @@ final class MiniHTTPServer {
         return (request, partial)
     }
 
-    /// 单请求 body 上限（32MB）：覆盖附件 base64 上传，拒绝内存放大。
+    /// 单请求 body 上限（32MB）：通用文件上传（uploadFileBinary）与其余 /api
+    /// 全部整段缓冲后转发，上限拒绝内存放大；超出回 413。
     private static let maxBodyBytes = 32 * 1024 * 1024
 
     private func writeResponse(_ client: Int32, _ response: Response) {

@@ -199,13 +199,17 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     cancels.current.get(id)?.();
   };
 
-  /** 失败重试 / 草稿页 pending 在会话就绪后补传（编排方发送前调用）。 */
-  const uploadNow = async (sid: string): Promise<boolean> => {
+  /** 失败重试 / 草稿页 pending 在会话就绪后补传（编排方发送前调用）。
+   *  返回本次传就绪的 receiptId 列表——setAttachments 不影响调用方当轮
+   *  闭包里的 content，prompt 载荷必须据此补 {type:'file'} 部件；
+   *  任一文件失败/取消返回 null（chip 停在 error 供重试）。 */
+  const uploadNow = async (sid: string): Promise<string[] | null> => {
     const pendingFiles = attachments.filter((a): a is FileAttachment => a.kind === "file" && a.status !== "ready");
+    const receipts: string[] = [];
     for (const f of pendingFiles) {
-      if (!f.file) return false;
+      if (!f.file) return null;
       setAttachments((prev) => prev.map((a): Attachment => a.id === f.id && a.kind === "file" ? { ...a, status: "uploading", progress: 0 } : a));
-      const ok = await new Promise<boolean>((resolve) => {
+      const receiptId = await new Promise<string | null>((resolve) => {
         const ctl = new AbortController();
         cancels.current.set(f.id, () => ctl.abort());
         void api.uploadFileStreaming({
@@ -219,20 +223,25 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
               a.id === f.id && a.kind === "file"
                 ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, file: undefined }
                 : a));
-            resolve(true);
+            resolve(r.receiptId);
           },
           () => {
             cancels.current.delete(f.id);
             setAttachments((prev) => prev.map((a): Attachment =>
               a.id === f.id && a.kind === "file" ? { ...a, status: "error", error: tt("上传失败", "Upload failed") } : a));
-            resolve(false);
+            resolve(null);
           },
         );
       });
-      if (!ok) return false;
+      if (receiptId === null) return null;
+      receipts.push(receiptId);
     }
-    return true;
+    return receipts;
   };
+
+  /** 草稿页失败 chip 重试：回 pending（无会话可传，发送建会话时补传）。 */
+  const requeueFile = (id: string) => setAttachments((prev) => prev.map((a): Attachment =>
+    a.id === id && a.kind === "file" && a.status === "error" ? { ...a, status: "pending", error: undefined } : a));
 
   /** ＋＝上传附件：壳内 NSOpenPanel（文件+文件夹多选）；纯浏览器降级为
    *  文件选择 input（无路径可引用）。 */
@@ -254,7 +263,7 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     e.target.value = "";
   };
 
-  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, cancelUpload, dragOver, fileRef, onFile };
+  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, requeueFile, cancelUpload, dragOver, fileRef, onFile };
 }
 
 /** 拖拽：窗口级监听——会话界面任意处拖入文件都出虚线框提示；图片收字节

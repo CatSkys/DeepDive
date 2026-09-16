@@ -510,7 +510,8 @@ export const api = {
       submittedAttachments: payload.attachments ?? [],
     }),
   /** 通用文件上传（0.1.5 流式路由）：POST /api/session/uploadFileBinary
-   *  （octet-stream 直传字节，引擎逐块落盘、无字节上限；经桥自动带鉴权）。
+   *  （octet-stream 直传字节，引擎逐块落盘；经桥自动带鉴权；桥整段缓冲
+   *  转发，单请求上限 32MB——见 MiniHTTPServer.maxBodyBytes，超出 413）。
    *  onProgress 报已上传字节；abort() 取消。回执 receiptId 进 prompt 的
    *  {type:'file'} 部件，随 requestId 生命周期退役。 */
   uploadFileStreaming: (payload: {
@@ -529,9 +530,11 @@ export const api = {
       xhr.responseType = "json";
       xhr.upload.onprogress = (e) => payload.onProgress?.(e.loaded, e.total);
       xhr.onload = () => {
-        const body = xhr.response as { result?: { ok: boolean; value?: { receiptId: string; file: { attachmentId: string; name: string; bytes: number } }; error?: { code: string; message: string } } };
-        if (xhr.status === 200 && body?.result?.ok && body.result.value) resolve(body.result.value);
-        else reject(new Error(body?.result?.error ? `${body.result.error.code}: ${body.result.error.message}` : `HTTP ${xhr.status}`));
+        // 该路由回裸 JSON（FileUploadHttpResult = {ok,value} | {ok,error}），
+        // 不是 unary 的 {result:{...}} 信封——按信封解曾让所有上传恒判失败。
+        const body = xhr.response as { ok?: boolean; value?: { receiptId: string; file: { attachmentId: string; name: string; bytes: number } }; error?: { code: string; message: string } };
+        if (xhr.status === 200 && body?.ok === true && body.value) resolve(body.value);
+        else reject(new Error(body?.error ? `${body.error.code}: ${body.error.message}` : `HTTP ${xhr.status}`));
       };
       xhr.onerror = () => reject(new Error("upload network error"));
       payload.signal?.addEventListener("abort", () => { xhr.abort(); reject(new DOMException("upload aborted", "AbortError")); });

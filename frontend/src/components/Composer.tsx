@@ -69,7 +69,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
   const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
-  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, cancelUpload, dragOver, fileRef, onFile } =
+  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, requeueFile, cancelUpload, dragOver, fileRef, onFile } =
     useComposerAttachments({ setText, hasShell, sessionId });
   // 听写 final 落稿后回焦并按新内容重新长高（原 dictation 订阅内的 rAF）
   const refocusDraft = () => requestAnimationFrame(() => {
@@ -119,8 +119,10 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
     return parts;
   }, [attachments, text]);
 
-  /** 文件 chip 全部就绪才可发送（官方 sendSession 同款门槛）。 */
-  const filesReady = attachments.every((a) => a.kind !== "file" || a.status === "ready");
+  /** 文件 chip 全部就绪才可发送（官方 sendSession 同款门槛）。草稿页的
+   *  pending 例外——无会话可传，发送时先建会话补传（uploadNow）。 */
+  const filesReady = attachments.every((a) =>
+    a.kind !== "file" || a.status === "ready" || (sessionId === null && a.status === "pending"));
 
   // ---------- 发送 / 排队 / 插话 ----------
 
@@ -185,12 +187,17 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       ? (modeOverride ?? busyEnter)
       : "queue";
     let sid = sessionId;
+    // 发送载荷：content 是本轮渲染的快照，草稿页补传产生的回执不在其中，
+    // 需显式并入（否则文件传了消息里却没有）。
+    let sendContent = content;
     if (sid === null) {
       const create = await store.createSession();
       if (!create) { setBusy(false); return; }
       sid = create;
       // 草稿页的文件 chip 是 pending（无会话可传）：建好会话立即补传。
-      if (!(await uploadNow(sid))) { setBusy(false); return; }
+      const receipts = await uploadNow(sid);
+      if (receipts === null) { setBusy(false); return; }
+      sendContent = [...content, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
     }
     // 子会话（continuable）走 subagents/prompt：content 只收文本/图片。
     const subagent = variant?.kind === "subagent" ? variant : undefined;
@@ -209,7 +216,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
           content,
         });
       } else {
-        await api.prompt({ requestId: rpcId, sessionId: sid, mode, content });
+        await api.prompt({ requestId: rpcId, sessionId: sid, mode, content: sendContent });
       }
       if (running || mode === "queue") registerSending?.(rpcId);
     } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
@@ -247,7 +254,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
                   : <FileText size={14} />}
                 <span className="att-file-name">{a.name}</span>
                 {a.status === "uploading" && <button className="att-file-retry" aria-label={t("取消上传")} onClick={(e) => { e.stopPropagation(); cancelUpload(a.id); }}>{t("取消")}</button>}
-                {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId); }}>{t("重试")}</button>}
+                {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId); else requeueFile(a.id); }}>{t("重试")}</button>}
                 <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); if (a.status === "uploading") cancelUpload(a.id); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
               </span>
             )

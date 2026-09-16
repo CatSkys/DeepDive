@@ -166,8 +166,9 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
   base64, name?}}` → `{receiptId, file:{attachmentId, name, bytes}}`（attachmentId
   = 字节 sha256）；`session/prompt` 的 content 第三种部件 `{type:'file',
   receiptId}`（回执随 requestId 生命周期：入队/历史/移除即退役）。引擎另有
-  `/api/session/uploadFileBinary?sessionId&name` 流式面（octet-stream，经桥
-  转 RPC 面简化、进度不定态）。用户消息历史块 = `{type:'file',
+  `/api/session/uploadFileBinary?sessionId&name` 流式面（octet-stream；桥
+  整段缓冲转发，单请求上限 32MB 超出 413，见 MiniHTTPServer.maxBodyBytes）。
+  用户消息历史块 = `{type:'file',
   attachment:{attachmentId,name,bytes}}`。子会话无文件通道。
 - **本地媒体（0.1.5）**：`GET /api/file?path=<绝对路径>`（同源经桥，字节上限
   = imageLimits）——Markdown 里单斜杠开头的图片目的地重写到此面（工作区外
