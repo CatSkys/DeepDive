@@ -6,6 +6,10 @@
  *  默认值不在本文件抄一份：从 :root 现读（theme.css 是唯一事实源），「恢复默认」
  *  = 摘掉面板写的行内覆盖再读一次。
  *
+ *  层数（6）与各层波段位置、半径比例是 theme.css 里的**结构**，不是旋钮：CSS 读不到
+ *  JS 常量、波段是写死的 nth-child 规则，做得成旋钮只会多一根调了没反应的——面板
+ *  只暴露真会被人调的量（带高、顶部模糊、内容让位）。
+ *
  *  只在自己调参时用，不是产品功能：入口仅快捷键与 URL 参数，不进任何导航。 */
 
 /** 一根滑杆：绑哪个 CSS 变量、什么单位、什么范围、以及它到底改什么。 */
@@ -21,9 +25,7 @@ export interface FadeKnob {
 
 export const FADE_KNOBS: FadeKnob[] = [
   { key: "--session-fade-top", label: "模糊带高", unit: "px", min: 0, max: 240, hint: "顶部雾带的高度" },
-  { key: "--session-fade-blur", label: "模糊强度", unit: "px", min: 0, max: 24, hint: "带顶的模糊半径（随滚动衬满）" },
-  { key: "--session-fade-solid", label: "满模糊至", unit: "%", min: 0, max: 100, hint: "带顶往下多少以内保持满模糊" },
-  { key: "--session-fade-fade", label: "渐隐至", unit: "%", min: 0, max: 100, hint: "到带子的这个位置模糊归零" },
+  { key: "--session-fade-blur", label: "顶部模糊", unit: "px", min: 0, max: 32, hint: "带顶那层的半径，往下每层减半" },
   { key: "--session-header-h", label: "内容让位", unit: "px", min: 0, max: 120, hint: "消息流顶部留白＝头部高度" },
 ];
 

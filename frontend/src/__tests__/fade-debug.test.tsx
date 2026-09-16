@@ -53,27 +53,24 @@ describe("旋钮模型", () => {
     expect(FADE_KNOBS.map((k) => [k.key, k.unit])).toEqual([
       ["--session-fade-top", "px"],
       ["--session-fade-blur", "px"],
-      ["--session-fade-solid", "%"],
-      ["--session-fade-fade", "%"],
       ["--session-header-h", "px"],
     ]);
   });
 
   it("buildFadeCss 按各自单位出串", () => {
     const css = buildFadeCss({
-      "--session-fade-top": 72, "--session-fade-blur": 16, "--session-fade-solid": 0,
-      "--session-fade-fade": 100, "--session-header-h": 59,
+      "--session-fade-top": 72, "--session-fade-blur": 16, "--session-header-h": 59,
     });
     expect(css).toContain("--session-fade-top: 72px;");
-    expect(css).toContain("--session-fade-fade: 100%;");
+    expect(css).toContain("--session-header-h: 59px;");
   });
 
-  it(":root 的声明是默认值；存档只覆盖在册旋钮，三层时代的旧键不带进来", () => {
+  it(":root 的声明是默认值；存档只覆盖在册旋钮，不在册的旧键不带进来", () => {
     document.documentElement.style.setProperty("--session-fade-blur", "12px");
-    saveFadeValues({ "--session-fade-blur": 20, "--fade-blur-1": 2 } as Record<string, number>);
+    saveFadeValues({ "--session-fade-blur": 20, "--session-fade-solid": 50 } as Record<string, number>);
     const v = loadFadeValues();
     expect(v["--session-fade-blur"]).toBe(20);
-    expect(v["--fade-blur-1"]).toBeUndefined();
+    expect(v["--session-fade-solid"]).toBeUndefined();
     // 存档损坏 → 退回 :root 值，不炸
     localStorage.setItem("deepdive.debug.fade", "{oops");
     expect(loadFadeValues()["--session-fade-blur"]).toBe(12);
@@ -89,7 +86,7 @@ describe("旋钮模型", () => {
 });
 
 describe("FadeDebugPanel", () => {
-  it("五根旋钮都在，拖动写 :root 并存档", () => {
+  it("三根旋钮都在，拖动写 :root 并存档", () => {
     render(<FadeDebugPanel onClose={vi.fn()} />);
     expect(screen.getByRole("dialog", { name: "渐变模糊调试" })).not.toBeNull();
     const sliders = document.querySelectorAll<HTMLInputElement>('input[type="range"]');

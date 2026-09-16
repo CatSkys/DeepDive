@@ -332,8 +332,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   return (
     <div className="session">
       {/* 顶部渐隐层：滚上去的内容在头部下面被渐变吃掉 + 模糊（样式见 theme.css）。
+          六个 <i> 是渐进模糊的六层（半径从峰值逐层减半、各占带高 1/6 的波段），
+          层数写在 theme.css 的 nth-child 规则里，与这里是一对——改层数两处一起改。
           全屏预览时一并隐藏——那是另一个页面。 */}
-      {!previewFull && <div className="session-fade" ref={attachFade} aria-hidden="true" />}
+      {!previewFull && (
+        <div className="session-fade" ref={attachFade} aria-hidden="true">
+          <i /><i /><i /><i /><i /><i />
+        </div>
+      )}
       {/* 全屏预览 = 打开成的新页面：页头换成「返回 + 文件名 + 打开方式」，
           会话自己的标题/模型/胶囊整体让位（不再是"会话界面顶着文件"）。 */}
       {previewFull ? <PreviewPageHeader preview={preview} /> : (

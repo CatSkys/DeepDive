@@ -1464,18 +1464,22 @@ button {
 .session-body[data-fullscreen] > .session-bottom,
 .session-body[data-fullscreen] > .jump-down { visibility: hidden; }
 /* 头部顶到卡片上沿：标题行与红绿灯/顶部钮同一视线（官方对齐方式） */
-/* 会话流顶部渐隐模糊带（用户定稿参数，可用 ⌥⌘D 面板现场调）：
-   一条 backdrop-filter + 一条 mask 就把滚进头部底下的内容压成雾——带顶满模糊，
-   到 --session-fade-fade 处归零。默认「一条 16px 模糊、渐变铺满整条带」。
+/* 会话流顶部渐隐模糊带（渐进模糊，算法见 theme.css 末尾「模糊层」段）：
+   六层 backdrop-filter 叠出**真正的半径梯度**——每层只在自己那一段显形（窄波段），
+   半径按几何级数从 --session-fade-blur 逐层减半，第六层只剩峰值 1/32（16px 时
+   0.5px≈不糊），带子底部因此无缝接回清晰内容。
+   为什么不是单层：单层只能「固定半径 + 整条淡出」，梯度靠不透明度叠不出来——实测
+   带内边缘能量只降一半、看着像淡出不像模糊（用户 2026-09 报「渐变模糊」要的效果）。
    与 --session-header-h 是一对：头部多高、内容让位多少，改一个要改另一个。
-   旧实现叠三层近似「越靠上越糊」的半径梯度，实测与单层无可见差别，却多出 6 个
-   看不清作用的旋钮（调了没反应）——收敛成一层。 */
+   改这条带子前必读：① blur 挂在每层自己身上；② 六层是 .session-fade 的兄弟、
+   .session-fade 自身不带 backdrop-filter——嵌进 backdrop root 就取不到面外内容、
+   模糊整个消失（见上方弹层配方②）；③ mask 只走 CSS，不走 React 内联 style
+   （PITFALLS §1.9 内联 mask 被静默丢弃）；④ 面板改不得 opacity（同②自建 backdrop
+   root）。层数 6 与 SessionView 里 <i> 的个数是一对，改一个要改另一个。 */
 :root {
   --session-header-h: 59px;
   --session-fade-top: 72px;
   --session-fade-blur: 16px;
-  --session-fade-solid: 0%;
-  --session-fade-fade: 100%;
 }
 .session-header {
   display: flex;
@@ -1497,17 +1501,13 @@ button {
   right: 0;
   z-index: 3;
 }
-/* 顶部渐隐层：一条 16px 模糊 + 一条 mask 渐变淡出（带顶满模糊 → --session-fade-fade
-   处归零），把滚进头部底下的内容压成雾；另一层是 .flow 自己的渐隐。
-   两条实测硬约束：① blur 必须挂在面板自身；② 面板**不得改 opacity**——
-   opacity<1 会自建 backdrop root，去采样被隔离的空组，模糊整个消失（最小复现页
-   实测：opacity 0.36 与关闭带子像素零差；同族坑见 PITFALLS §1.10）。
-   所以渐显只能走模糊半径，不能走整体 opacity。 */
-/* 强度跟着滚动深度连续变化（--session-fade-ramp 由 SessionView 写在元素上，
-   0→1 走 FADE_RAMP_PX）：内容滚进头部底下多少，雾就浓多少。半径乘 ramp
-   使模糊连续长出来；深度归零即模糊归零，滚回顶部时第一条消息完整可读。
-   旧实现是「scrolled 布尔开关 + opacity 0→1 过渡」：受约束②，过渡期间模糊
-   根本不存在、只在末尾「啪」地蹦出来（用户报「出现得太僵硬」的真因）。 */
+/* 顶部渐隐层（容器）：只管定位与尺寸，**自身不带 backdrop-filter**（见上约束②），
+   模糊全在下面六层上；另一层是 .flow 自己的渐隐。
+   强度跟着滚动深度连续变化（--session-fade-ramp 由 SessionView 写在元素上，0→1 走
+   FADE_RAMP_PX）：内容滚进头部底下多少，雾就浓多少。半径乘 ramp 使模糊连续长出来；
+   深度归零即半径归零（空操作），滚回顶部时第一条消息完整可读。
+   旧实现是「scrolled 布尔开关 + opacity 0→1 过渡」：受约束④，过渡期间模糊根本不存在、
+   只在末尾「啪」地蹦出来（用户报「出现得太僵硬」的真因），所以渐显只能走模糊半径。 */
 .session-fade {
   position: absolute;
   top: 0;
@@ -1516,10 +1516,53 @@ button {
   height: var(--session-fade-top);
   z-index: 2;
   pointer-events: none;
+}
+/* 模糊层（渐进模糊的核心）：每层都是独立的 backdrop-filter 面板、铺满整条带，靠
+   各自的 mask **只在自己那一段波段显形**——波段按带高 1/6 均分，第 1 层（最强）
+   占顶部 0–1/6，第 6 层（最弱）占 5/6–1；每层两端各留半个波段做软过渡，相邻层
+   重叠一段，接缝处不出现硬边。半径＝峰值 × 2^-(n-1)，即 1 / 0.5 / 0.25 / 0.125 /
+   0.0625 / 0.03125 倍。这也是 progressive-blur（AndrewPrifer）的标准算法：
+   波段互不铺满、半径走几何级数，两点缺一就退化成「一层固定半径的糊」。 */
+.session-fade > i {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.session-fade > i:nth-child(1) {
   -webkit-backdrop-filter: blur(calc(var(--session-fade-blur) * var(--session-fade-ramp, 0)));
   backdrop-filter: blur(calc(var(--session-fade-blur) * var(--session-fade-ramp, 0)));
-  -webkit-mask-image: linear-gradient(180deg, #000 var(--session-fade-solid), transparent var(--session-fade-fade));
-  mask-image: linear-gradient(180deg, #000 var(--session-fade-solid), transparent var(--session-fade-fade));
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 8.3333%, transparent 16.6667%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 8.3333%, transparent 16.6667%);
+}
+.session-fade > i:nth-child(2) {
+  -webkit-backdrop-filter: blur(calc(var(--session-fade-blur) * 0.5 * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--session-fade-blur) * 0.5 * var(--session-fade-ramp, 0)));
+  -webkit-mask-image: linear-gradient(180deg, transparent 8.3333%, #000 16.6667%, #000 25%, transparent 33.3333%);
+  mask-image: linear-gradient(180deg, transparent 8.3333%, #000 16.6667%, #000 25%, transparent 33.3333%);
+}
+.session-fade > i:nth-child(3) {
+  -webkit-backdrop-filter: blur(calc(var(--session-fade-blur) * 0.25 * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--session-fade-blur) * 0.25 * var(--session-fade-ramp, 0)));
+  -webkit-mask-image: linear-gradient(180deg, transparent 25%, #000 33.3333%, #000 41.6667%, transparent 50%);
+  mask-image: linear-gradient(180deg, transparent 25%, #000 33.3333%, #000 41.6667%, transparent 50%);
+}
+.session-fade > i:nth-child(4) {
+  -webkit-backdrop-filter: blur(calc(var(--session-fade-blur) * 0.125 * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--session-fade-blur) * 0.125 * var(--session-fade-ramp, 0)));
+  -webkit-mask-image: linear-gradient(180deg, transparent 41.6667%, #000 50%, #000 58.3333%, transparent 66.6667%);
+  mask-image: linear-gradient(180deg, transparent 41.6667%, #000 50%, #000 58.3333%, transparent 66.6667%);
+}
+.session-fade > i:nth-child(5) {
+  -webkit-backdrop-filter: blur(calc(var(--session-fade-blur) * 0.0625 * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--session-fade-blur) * 0.0625 * var(--session-fade-ramp, 0)));
+  -webkit-mask-image: linear-gradient(180deg, transparent 58.3333%, #000 66.6667%, #000 75%, transparent 83.3333%);
+  mask-image: linear-gradient(180deg, transparent 58.3333%, #000 66.6667%, #000 75%, transparent 83.3333%);
+}
+.session-fade > i:nth-child(6) {
+  -webkit-backdrop-filter: blur(calc(var(--session-fade-blur) * 0.03125 * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--session-fade-blur) * 0.03125 * var(--session-fade-ramp, 0)));
+  -webkit-mask-image: linear-gradient(180deg, transparent 75%, #000 83.3333%, #000 91.6667%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 75%, #000 83.3333%, #000 91.6667%, transparent 100%);
 }
 /* position:relative：ModelMenu 的包含块 —— 缺了它菜单会一路锚到 .app
    （曾把菜单钉在窗口左上角盖住侧栏）。与 .hero-top .left 同款。 */
