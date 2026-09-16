@@ -95,4 +95,24 @@ describe("inline 图片/链接（AUD-021 语义）", () => {
     const out = inline("![](only.png)", "k", noImage);
     expect(out[0]).toMatchObject({ type: "img", props: { src: "only.png", alt: "" } });
   });
+
+  it("裸 URL 自动成链（模型常直出链接，不是 [label](url)）", () => {
+    const out = inline("文档在 https://y0541zlfybv.feishu.cn/docx/YdZ1dmL9 这里", "k", noImage);
+    expect(out[0]).toBe("文档在 ");
+    expect(out[1]).toMatchObject({ type: "a", props: { href: "https://y0541zlfybv.feishu.cn/docx/YdZ1dmL9", children: "https://y0541zlfybv.feishu.cn/docx/YdZ1dmL9" } });
+    expect(out[2]).toBe(" 这里");
+  });
+
+  it("加粗包住的 URL 也是链接（用户现场就是 **https://…**）", () => {
+    const out = inline("**https://e.cn/x?y=1&z=2**", "k", noImage);
+    const strong = out[0] as { type: string; props: { children: unknown[] } };
+    expect(strong.type).toBe("strong");
+    expect(strong.props.children[0]).toMatchObject({ type: "a", props: { href: "https://e.cn/x?y=1&z=2" } });
+  });
+
+  it("中文句末标点与裸右括号不进地址", () => {
+    const out = inline("见（https://e.cn/a）。", "k", noImage);
+    expect(out[1]).toMatchObject({ type: "a", props: { href: "https://e.cn/a" } });
+    expect(out[2]).toBe("）。");
+  });
 });
