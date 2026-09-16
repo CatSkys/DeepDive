@@ -1613,13 +1613,15 @@ button {
 .flow {
   flex: 1;
   overflow-y: auto;
-  /* 首条内容让开悬浮的头部；这段内边距会随滚动一起走掉，于是滚上去的内容
-     正好从头部下面穿过（iOS 那种"内容在标题下滑过"）。 */
-  padding-top: var(--session-header-h);
   /* 横向永不滚动：overflow-y 非 visible 会把 overflow-x 提升为 auto，
      几像素的亚像素溢出就会挂出一条滚不动的横向滚动条。 */
   overflow-x: hidden;
-  padding: 8px clamp(14px, 3vw, 28px) 12px;
+  /* 首条内容让开悬浮的头部；这段内边距会随滚动一起走掉，于是滚上去的内容
+     正好从头部下面穿过（iOS 那种"内容在标题下滑过"）。让位 = 头部高度 +
+     一段呼吸间距：滚到顶时首条消息与标题**不在同一行**（用户定稿）。
+     注意顺序：top 值直接写进简写——padding-top longhand 放在 padding 简写
+     前会被简写整个覆盖（曾因此让位从未生效，首条消息顶进标题行）。 */
+  padding: calc(var(--session-header-h) + 20px) clamp(14px, 3vw, 28px) 12px;
 }
 .flow-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
 /* 会话入场（用户定稿）：历史加载完成内容首次出现时整体轻浮上；key 在

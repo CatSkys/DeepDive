@@ -38,6 +38,17 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   const store = useStore();
   const { t, tt } = useT();
   useAutoArchive();
+  // 渐变模糊调试面板开关：⌥⌘D 就地切换；?debug=fade 初始为开（浏览器入口）。
+  const [fadeDebug, setFadeDebug] = useState(
+    () => new URLSearchParams(window.location.search).get("debug") === "fade",
+  );
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey && e.altKey && (e.key === "d" || e.key === "D")) setFadeDebug((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const active = store.activeSessionId;
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -159,10 +170,9 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
       <TooltipHost />
       <DialogHost />
-      {/* 渐变模糊调试面板（?debug=fade）：开发调参工具，不进导航。 */}
-      {new URLSearchParams(window.location.search).get("debug") === "fade" && (
-        <FadeDebugPanel onClose={() => { history.replaceState(null, "", "/"); }} />
-      )}
+      {/* 渐变模糊调试面板：⌥⌘D 或 ?debug=fade 打开（应用内没有地址栏，
+          得有键盘入口）。开发调参工具，不进导航。 */}
+      {fadeDebug && <FadeDebugPanel onClose={() => setFadeDebug(false)} />}
       {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失 */}
       {store.everConnected && !store.engineUp && (
         <div className="engine-banner" role="status">
