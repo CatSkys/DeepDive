@@ -9,12 +9,14 @@ import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
-export function Item({ item, turnRunning, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, wsPath }: {
+export function Item({ item, running, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, wsPath }: {
   onPreviewFile?: (path: string, line?: number) => void;
   /** 工作区根（相对产物路径 → 绝对解析用）。 */
   wsPath?: string;
   item: RenderItem;
-  turnRunning: boolean;
+  /** 本项是否仍在流式写入（会话在跑 且 本项是列表最后一项）。思考块据此自动
+   *  展开/收起——只按会话级 running 判，早已结束的思考会一直摊着不折叠。 */
+  running: boolean;
   onBranch?: (forkSeq: number) => void;
   onContinue?: () => void;
   sessionId: string;
@@ -49,9 +51,11 @@ export function Item({ item, turnRunning, onBranch, onContinue, sessionId, hideT
   if (item.kind === "reasoning") {
     // Live reasoning-delta accumulation; exists only mid-turn until the final
     // assistant message replaces it with the settled trace.
+    // 注意 running 不是会话级：这一条思考后面一旦出现别的东西（工具行、下一段
+    // 思考、答案），它就不再是直播项，自动收起成「已思考」。
     const text = item.output ?? "";
     if (!text) return null;
-    return <ThinkingState reasoning={text} running={turnRunning} />;
+    return <ThinkingState reasoning={text} running={running} />;
   }
   if (item.kind === "turn-tail") {
     // DSH turn-tail chrome: produced files + copy / branch / clock("end"),

@@ -214,6 +214,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const isBlank = summary ? !!summary.blank : items.length === 0;
   const running = liveRunning || !!summary?.running;
+  // 直播项（流式 chunk/思考）只可能是列表最后一项。思考块用它判定「这一条思考
+  // 是否还在进行」（官方 `running={streaming && i === last}` 口径）——只看会话级
+  // running 的话，同轮后面的工具/答案都已出现、会话还在跑时，早已结束的思考会
+  // 一直摊着「思考中」不收起（用户报障）。
+  const liveItem = items.length > 0 ? items[items.length - 1] : undefined;
   // 子会话身份投影（0.1.5）：continuable 可继续对话，one-shot 只读。
   const subagentMode = (summary?.projections?.values as { subagent?: { mode?: string } } | undefined)?.subagent?.mode;
   // 用量/占用投影（3.1）：空值时 Composer 内的容量圈不渲染
@@ -451,7 +456,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           {bar}
                           <Item
                             item={item}
-                            turnRunning={running}
+                            running={running && item === liveItem}
                             onBranch={branchFrom}
                             sessionId={sessionId}
                               onPreviewFile={(p, line) => preview.open(absPreviewPath(p), line)}

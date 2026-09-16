@@ -266,6 +266,10 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       // Stream frames append chunk items for text-deltas; reasoning deltas
       // accumulate into a live trace item that the final assistant/message
       // replaces with the settled ThinkingState.
+      // key 带 chunk 类别后缀：直播流帧是进程级伪事件（无 seq），只取
+      // `${seq}:${type}` 会让文本行与思考行撞成同一个 "undefined:assistant/chunk"
+      // —— 同列表重复 key 会让 React 复用组件实例，思考块的展开状态会串到
+      // 另一段思考上（表现为「该收起的不收起」）。
       const d = ev.data as { turn: number; step: number; chunk: StreamChunk };
       const chunk = d.chunk;
       if (chunk.type === "text-delta" && typeof chunk.text === "string" && chunk.text) {
@@ -274,13 +278,13 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         if (t0 && t0.firstToken === undefined) t0.firstToken = ev.time;
         const last = out[out.length - 1];
         if (last && last.kind === "chunk" && last.turn === turn) last.output = (last.output ?? "") + chunk.text;
-        else out.push({ ...base, kind: "chunk", output: chunk.text, turn });
+        else out.push({ ...base, key: `${base.key}:text`, kind: "chunk", output: chunk.text, turn });
       }
       if (chunk.type === "reasoning-delta" && typeof chunk.text === "string" && chunk.text) {
         const turn = d.turn;
         const last = out[out.length - 1];
         if (last && last.kind === "reasoning" && last.turn === turn) last.output = (last.output ?? "") + chunk.text;
-        else out.push({ ...base, kind: "reasoning", output: chunk.text, turn });
+        else out.push({ ...base, key: `${base.key}:reasoning`, kind: "reasoning", output: chunk.text, turn });
       }
       break;
     }

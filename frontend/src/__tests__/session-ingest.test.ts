@@ -162,4 +162,37 @@ describe("ingest 流式累积", () => {
     expect(out.map((x) => x.kind)).toEqual(["chunk", "reasoning"]);
     expect(out[1]?.output).toBe("先想想");
   });
+
+  // 直播流帧是进程级伪事件（无 seq，useSessionEvents 合成）：key 若只取
+  // `${seq}:${type}`，chunk 与 reasoning 两条直播项会撞成同一个
+  // "undefined:assistant/chunk" —— 同列表重复 key 会让 React 复用实例，
+  // 思考块的展开状态会串到另一段思考上（表现为「该收起的不收起」）。
+  // 直播流帧是进程级伪事件（无 seq，useSessionEvents 合成）：key 若只取
+  // `${seq}:${type}`，chunk 与 reasoning 两条直播项会撞成同一个
+  // "undefined:assistant/chunk" —— 同列表重复 key 会让 React 复用实例，
+  // 思考块的展开状态会串到另一段思考上（表现为「该收起的不收起」）。
+  it("直播伪事件（无 seq）里 chunk 与 reasoning 的 key 互不相同", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    const live = (chunk: unknown, time: number) => ({ event: { type: "assistant/chunk", time, data: { turn: 1, step: 1, chunk } } as unknown as SessionEvent });
+    ingest(out, live({ type: "reasoning-delta", index: 0, text: "先想想" }, 1_000), ctx);
+    ingest(out, live({ type: "text-delta", index: 0, text: "答案是" }, 1_010), ctx);
+    expect(out.map((x) => x.kind)).toEqual(["reasoning", "chunk"]);
+    expect(new Set(out.map((x) => x.key)).size).toBe(out.length);
+  });
+
+  // 思考块是否显示「思考中 + 展开」由 SessionView 按「本项是否是列表最后一项」
+  // 判定（官方 running={streaming && i === last} 口径）。这条锁该判定所依赖的
+  // 不变量：直播思考项一入列就在尾部，其后一有工具/答案就不再是尾部 —— 即
+  // 「这一条思考结束了」，UI 随即自动收起。
+  it("直播思考项在尾部；其后一入列别的东西，它就不再是尾部（思考结束）", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    const live = (chunk: unknown, time: number) => ({ event: { type: "assistant/chunk", time, data: { turn: 1, step: 1, chunk } } as unknown as SessionEvent });
+    ingest(out, live({ type: "reasoning-delta", index: 0, text: "先想想" }, 1_000), ctx);
+    expect(out[out.length - 1]?.kind).toBe("reasoning");
+    ingest(out, { event: EV.call1 }, ctx);
+    expect(out[out.length - 1]?.kind).not.toBe("reasoning");
+    expect(out.map((x) => x.kind)).toEqual(["reasoning", "tool-call"]);
+  });
 });
