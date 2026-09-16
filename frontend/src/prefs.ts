@@ -56,7 +56,7 @@ export function usePrefs() {
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; evolutionEnabled?: boolean; sessionMemoryEnabled?: boolean };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; evolutionEnabled?: boolean; sessionMemoryEnabled?: boolean;  };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);

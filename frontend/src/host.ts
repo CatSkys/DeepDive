@@ -459,3 +459,51 @@ export function installHostBridge(handlers: {
   sendToShell({ type: "host-ready" });
 }
 
+/* ── 技能文件（设置 → 技能与插件）：技能是 <DSH_HOME>/skills/<id>/SKILL.md 的
+   普通文件，引擎 wire 上没有 skill 方法，清单与删除都走壳（SkillAdmin）。 ── */
+
+export interface SkillFile {
+  /** 目录名 = 技能的发现单位，也是删除目标。 */
+  id: string;
+  /** frontmatter 的 name；缺失时壳回退目录名。 */
+  title: string;
+  detail: string;
+  /** SKILL.md 绝对路径（Finder 定位）。 */
+  manifest: string;
+  /** 技能目录绝对路径（删除）。 */
+  directory: string;
+  /** frontmatter 缺的必填键；非空 = 引擎会静默忽略这个技能。 */
+  missing: string[];
+  /** 随应用发布、每次启动重写：删了也会回来，所以列表里不给删除。 */
+  managed: boolean;
+}
+
+export function skillList(): Promise<SkillFile[]> {
+  return bridgeRequest(
+    "skillFiles",
+    [],
+    (p) => {
+      const r = p as { skills?: SkillFile[] };
+      return Array.isArray(r?.skills) ? r.skills : [];
+    },
+    (reqId) => sendToShell({ type: "skill-list", reqId }),
+  );
+}
+
+/** 删除一个技能目录；失败回原因（只允许技能根下带 SKILL.md 的一层）。 */
+export function skillRemove(directory: string): Promise<{ ok: boolean; error?: string }> {
+  return bridgeRequest<{ ok: boolean; error?: string }>(
+    "skillRemoved",
+    { ok: false },
+    (p) => {
+      const r = p as { ok?: boolean; error?: string } | undefined;
+      return { ok: r?.ok === true, error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "skill-remove", reqId, directory }),
+  );
+}
+
+/** 重启引擎（设置里的改动要重启才装配：插件启停、会话记忆开关等）。 */
+export function restartEngine(): void {
+  sendToShell({ type: "restart-engine" });
+}

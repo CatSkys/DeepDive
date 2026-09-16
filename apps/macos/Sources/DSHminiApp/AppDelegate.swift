@@ -363,6 +363,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             memoryDelete(reqId: body["reqId"] as? String ?? "", sessionId: body["sessionId"] as? String ?? "")
         case "memory-clear":
             memoryClear(reqId: body["reqId"] as? String ?? "")
+        case "skill-list":
+            skillList(reqId: body["reqId"] as? String ?? "")
+        case "skill-remove":
+            skillRemove(reqId: body["reqId"] as? String ?? "", directory: body["directory"] as? String ?? "")
         case "remote-status":
             remoteStatus(reqId: body["reqId"] as? String ?? "")
         case "remote-start":
@@ -637,6 +641,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             reply(false)
         }
+    }
+
+    /// 技能清单（设置 → 技能与插件）：技能是 `<DSH_HOME>/skills` 下的普通文件，
+    /// 引擎侧没有 skill 方法，所以清单由壳读盘给出（含 frontmatter 缺键与是否随应用发布）。
+    private func skillList(reqId: String) {
+        let skills = SkillAdmin.list(in: AppPaths.harnessHome)
+        let rows: [[String: Any]] = skills.map { skill in
+            [
+                "id": skill.id,
+                "title": skill.title,
+                "detail": skill.detail,
+                "manifest": skill.manifest,
+                "directory": skill.directory,
+                "missing": skill.missing,
+                "managed": SkillAdmin.managedNames.contains(skill.id),
+            ]
+        }
+        windowController.pushHostCommand("skillFiles", payload: AppDelegate.jsonPayload(["reqId": reqId, "skills": rows]))
+    }
+
+    /// 删除一个技能目录（前端已在列表里确认过一次；路径穿越由 SkillAdmin 挡）。
+    private func skillRemove(reqId: String, directory: String) {
+        let error = SkillAdmin.remove(directory: directory, home: AppPaths.harnessHome)
+        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil]
+        if let error { fields["error"] = error }
+        windowController.pushHostCommand("skillRemoved", payload: AppDelegate.jsonPayload(fields))
     }
 
     /// 移动端远程访问的状态回推：开关、局域网链接、二维码 data URL、设备台账。

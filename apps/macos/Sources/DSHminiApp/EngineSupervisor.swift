@@ -343,14 +343,20 @@ final class EngineSupervisor {
     static func ensureEnginePatchFile() -> URL {
         let url = AppPaths.supportDir.appendingPathComponent("engine-patch.yml")
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? enginePatchBody(evolutionEnabled: DSHAppPrefs.evolutionEnabled, sessionMemoryEnabled: DSHAppPrefs.sessionMemoryEnabled).write(to: url, atomically: true, encoding: .utf8)
+        try? enginePatchBody(
+            evolutionEnabled: DSHAppPrefs.evolutionEnabled,
+            sessionMemoryEnabled: DSHAppPrefs.sessionMemoryEnabled,
+        ).write(to: url, atomically: true, encoding: .utf8)
         return url
     }
 
     /// Overlay 正文（纯函数，单测钉子）：写坏了引擎会在 boot 时 fail-loud 起不来。
     /// `evolutionEnabled`（自进化开关）与 `sessionMemoryEnabled`（会话记忆开关）：
     /// 关着就不写对应的 insert / 指路行——装配在启动时读，开关晚一拍生效。
-    static func enginePatchBody(evolutionEnabled: Bool, sessionMemoryEnabled: Bool) -> String {
+    static func enginePatchBody(
+        evolutionEnabled: Bool,
+        sessionMemoryEnabled: Bool,
+    ) -> String {
         var body = """
         # Written by DeepDive at every engine launch — app-owned overlay layer.
         # Do not edit: your changes are overwritten on the next launch.

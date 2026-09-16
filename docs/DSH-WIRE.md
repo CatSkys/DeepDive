@@ -44,7 +44,7 @@
 |---|---|
 | `messageFeedback/list\|put\|delete` | **已落地**（args 为 `request` 包裹；put/delete 带 `ifVersion` CAS，version 为不透明字符串 token，version-conflict 回 `current` 权威 item；UI=轮尾 👍/👎+备注，见 `frontend/src/session/feedback.ts`） |
 | `commands/list\|execute` | **已落地**（`{agentId}` / `{agentId, line, images}`——动态目录+Enter 整行直发，见 §6；转录节点=command/run+done 会话事件） |
-| `pluginInventory/list` | **可用**（返回 entries：include/插件清单）；客户端当前不使用（插件市场设置页已按用户定稿移除） |
+| `pluginInventory/list` | **可用**（无参；返回 `{entries, agentPresets?}`：Loader 非 group 条目 + 各 Agent 预设的组合行）。设置「技能与插件」消费它，**只读**——引擎没有启停 RPC；**entryId ≠ patch 的 id**、`enabled:false` = 本层未挂载，两条都在 `PITFALLS §7.6` |
 | `fileReferences/list` | **已落地**（`{agentId, query}` → `[{path,kind}]`，cwd 亲和整库索引；@ 菜单文件候选原生源，见 §7） |
 | `sessionReferenceResolver/candidates` | **已落地**（`{agentId, query}` → 候选自带规范 mention；@ 会话引用候选原生源，见 §7） |
 | `session/search` | **原生常开**——session-query-sqlite 已进 base bundle，`--patch` overlay 的 session-query 条目已删 |

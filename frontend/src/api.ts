@@ -480,6 +480,10 @@ export const api = {
   cancelQuestion: (eventId: string) =>
     mux.answerEvent(eventId, { kind: "rejected", error: { name: "Error", message: "cancelled by user", code: "cancelled" } }),
   agentPresets: () => unary<{ presets: AgentPreset[]; authorable?: boolean }>("agentPresets/list", {}),
+  /** 插件清单（`pluginInventory/list`，只读投影）：Loader 的非 group entry + 每个
+   *  Agent 预设的组合行。引擎**没有任何改动插件的 RPC**，所以设置里这一面只读
+   *  （口径与实测见 frontend/src/plugins/model.ts 与 docs/PITFALLS.md）。 */
+  pluginInventory: () => unary<{ entries: PluginInventoryEntry[]; agentPresets?: PluginPreset[] }>("pluginInventory/list", {}),
   /** @ 文件候选（0.1.2 fileReferences/list，扁平 {agentId, query}）：cwd 亲和
    *  整库递归索引排序；含 / 的查询退化为该目录列举。路径相对 agent cwd。 */
   fileCandidates: (agentId: string, query: string) =>
@@ -649,6 +653,40 @@ export interface SettingsDescribe {
   writable?: boolean;
   hasDocument?: boolean;
   namespaces: SettingsNamespaceEntry[];
+}
+
+/** pluginInventory/list 的一行：Loader 树里的一个非 group 插件条目。
+ *  `enabled:false` 表示**本层没挂载它**（不是"用户关掉了"）；`fiberPhase` 是本进程里
+ *  这一刻的 fiber 状态（null = 没有活着的根 fiber）。 */
+export interface PluginInventoryEntry {
+  entryId: string;
+  moduleName: string;
+  enabled: boolean;
+  fiberPhase: PluginFiberPhase;
+}
+
+export type PluginFiberPhase = "pending" | "loading" | "active" | "failed" | "unloading" | null;
+
+/** agent preset 的一行组合。模型面对的工具/插件挂在这一层（不在 Loader 层）：
+ *  实测 `standard` 预设里 `tool-bash` 是 active，而 Loader 的 `include:tool-bash` 是 off。 */
+export interface PluginPresetRow {
+  /** 组合行自己的 id（可能没写）。 */
+  entryId: string | null;
+  moduleName: string;
+  /** `'conditional'` = 行上带 `!!js` 表达式，只有 Loader context 能判定。 */
+  enabled: boolean | "conditional";
+  condition?: string;
+  fiberPhase: PluginFiberPhase;
+}
+
+export interface PluginPreset {
+  id: string;
+  trust: "system" | "user";
+  name?: string;
+  isDefault: boolean;
+  /** 组合读不出来时的原因；有它就说明 rows 为空。 */
+  broken?: string;
+  rows: PluginPresetRow[];
 }
 
 /** agentPresets/list 行（trust 只来自引擎目录归属；name 为引擎侧原样文本，

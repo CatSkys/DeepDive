@@ -231,6 +231,7 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertTrue(on.contains("`widget`"))
     }
 
+
     /// 引擎 overlay patch 的形状：写坏了引擎 boot 时 fail-loud 起不来，所以两段
     /// 都得在——schedule 工具 insert + 会话侧自动化协议的 system-prompt 前缀；
     /// 提示词里的引号/换行经 JSON 转义成 YAML 流标量后必须仍是**单行**。

@@ -312,6 +312,21 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 
 ---
 
+### 7.6 插件清单的 entryId 不是 patch 的 id；「未挂载」不等于「被关掉」（2026-09-16 实测）
+
+- **patch 的 id 是「行 id」**（如 `hmr`、`session-log-deepseek`），而 `pluginInventory/list`
+  给的是**运行时 entryId**（`include:hmr`）。拿 entryId 直接写 `- id: …` 的结果是引擎每条
+  warn `patch: entry "include:hmr" not found`——**只 warn 不炸**，所以看着像"改了没生效"
+  而不是报错。实测对照：写 `- id: hmr` + `disabled: false` 时 `--dump-config` 里那一行
+  确实翻成 `disabled: false` 且零警告。
+- **`enabled:false` 的正确读法是「本层没挂载它」**：本机 Loader 层 160 行里有 27 行如此
+  （`tool-bash` / `tool-fs` / `skill-filesystem` / `plan-mode` …），而它们在应用里明明能用
+  ——因为**模型面对的工具挂在 agent preset 组合里**（默认 `standard` 预设的 `tool-bash`
+  是 `active`）。据此给 Loader 行加启停开关是错的：对工具行开关无效，对核心行开关会把
+  应用搞坏。设置页那一面因此只读（口径见 `frontend/src/plugins/model.ts` 头部）。
+- 顺带：`pluginInventory/list` 的快照还带 `agentPresets`（本 profile 有 4 个 preset），
+  要判断"某个工具在这台机器上开没开"，查的是预设组合行而不是 Loader 条目。
+
 ## 8. React 状态与表单（2026-09-05 全量体检批次沉淀）
 
 ### 8.1 手写 Context value 的 useMemo deps 是新增 state 的盲区
