@@ -53,3 +53,14 @@
 .label { flex: none; width: 66px; color: var(--ink-2); }
 .row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--ink); }
 .value { flex: none; width: 42px; text-align: right; font-family: var(--dsh-font-mono-family); font-size: 11px; color: var(--ink-3); }
+
+/* 每根旋钮下面一句「它改什么」：面板是给别人（和下一个 agent）用的调参台，
+   旋钮的作用必须写在明面上，而不是靠猜。 */
+.knob { margin-bottom: 2px; }
+.sub {
+  display: block;
+  margin: -2px 0 4px 72px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}

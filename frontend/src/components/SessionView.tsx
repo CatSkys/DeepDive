@@ -27,8 +27,8 @@ import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
 import { uuid } from "../uuid";
 
-/** 顶部模糊带满强度所需的滚动深度：与 theme.css 的 --flow-fade-len 同值
- *  （内容淡出段与雾的渐显段同步走完，两条边不会各显各的）。 */
+/** 顶部模糊带满强度所需的滚动深度（px）：雾的渐显与内容渐隐共用这一个深度，
+ *  两条边同步走完，不会各显各的。 */
 const FADE_RAMP_PX = 96;
 
 
@@ -112,11 +112,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     flowRef.current = el;
     syncBottomPad();
   }, [syncBottomPad]);
-  // 顶部模糊带强度 = 滚动深度，0→1 走 FADE_RAMP_PX（与 --flow-fade-len 同值：
-  // 内容淡出段走完，雾正好到满强度）。写的是**模糊半径的倍率**而非整体 opacity：
-  // opacity<1 会让面板自建 backdrop root，三层 backdrop-filter 采样空组、模糊
-  // 整个消失（theme.css 有实测记录）。直接写 CSS 变量、不进 state——每帧都变的
-  // 值走 React 会把整条会话流拖进滚动重渲。
+  // 顶部模糊带强度 = 滚动深度，0→1 走 FADE_RAMP_PX（内容淡出段走完，雾正好到
+  // 满强度）。写的是**模糊半径的倍率**而非整体 opacity：opacity<1 会让面板自建
+  // backdrop root，backdrop-filter 采样空组、模糊整个消失（theme.css 有实测记录）。
+  // 直接写 CSS 变量、不进 state——每帧都变的值走 React 会把整条会话流拖进滚动重渲。
   const fadeRef = useRef<HTMLDivElement | null>(null);
   // 两个量走同一深度：模糊强度（乘进半径）与内容渐隐长度（--flow-fade-live）。渐隐长度
   // 必须连续长出来——布尔挂上固定长度会让顶部内容越过阈值那一刻整片瞬间变暗，而模糊尚
@@ -334,7 +333,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     <div className="session">
       {/* 顶部渐隐层：滚上去的内容在头部下面被渐变吃掉 + 模糊（样式见 theme.css）。
           全屏预览时一并隐藏——那是另一个页面。 */}
-      {!previewFull && <div className="session-fade" ref={attachFade} aria-hidden="true"><i /><i /><i /></div>}
+      {!previewFull && <div className="session-fade" ref={attachFade} aria-hidden="true" />}
       {/* 全屏预览 = 打开成的新页面：页头换成「返回 + 文件名 + 打开方式」，
           会话自己的标题/模型/胶囊整体让位（不再是"会话界面顶着文件"）。 */}
       {previewFull ? <PreviewPageHeader preview={preview} /> : (

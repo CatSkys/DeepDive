@@ -1456,16 +1456,18 @@ button {
 .session-body[data-fullscreen] > .session-bottom,
 .session-body[data-fullscreen] > .jump-down { visibility: hidden; }
 /* 头部顶到卡片上沿：标题行与红绿灯/顶部钮同一视线（官方对齐方式） */
-/* 会话流顶部渐隐的范围：比 FadeEdge 默认的 24px 长得多（用户定稿——内容顶到
-   界面顶部后，滚上去的内容要有一段足够长的渐隐，头部才不压在字上）。
-   与 --session-header-h 是一对：头部多高、内容让位多少，改一个要改另一个。 */
+/* 会话流顶部渐隐模糊带（用户定稿参数，可用 ⌥⌘D 面板现场调）：
+   一条 backdrop-filter + 一条 mask 就把滚进头部底下的内容压成雾——带顶满模糊，
+   到 --session-fade-fade 处归零。默认「一条 16px 模糊、渐变铺满整条带」。
+   与 --session-header-h 是一对：头部多高、内容让位多少，改一个要改另一个。
+   旧实现叠三层近似「越靠上越糊」的半径梯度，实测与单层无可见差别，却多出 6 个
+   看不清作用的旋钮（调了没反应）——收敛成一层。 */
 :root {
   --session-header-h: 59px;
-  --session-fade-top: 128px;
-  --flow-fade-len: 96px;
-  --fade-blur-1: 2px;  --fade-m1a: 45%; --fade-m1b: 100%;
-  --fade-blur-2: 4px;  --fade-m2a: 25%; --fade-m2b: 80%;
-  --fade-blur-3: 7px;  --fade-m3a: 10%; --fade-m3b: 60%;
+  --session-fade-top: 72px;
+  --session-fade-blur: 16px;
+  --session-fade-solid: 0%;
+  --session-fade-fade: 100%;
 }
 .session-header {
   display: flex;
@@ -1487,14 +1489,14 @@ button {
   right: 0;
   z-index: 3;
 }
-/* 顶部渐隐层：叠三层 backdrop-filter 做 progressive blur（越靠上越糊），把滚进
-   头部底下的内容压成雾；一层 mask 控制各层显形范围，另一层是 .flow 自己的渐隐。
+/* 顶部渐隐层：一条 16px 模糊 + 一条 mask 渐变淡出（带顶满模糊 → --session-fade-fade
+   处归零），把滚进头部底下的内容压成雾；另一层是 .flow 自己的渐隐。
    两条实测硬约束：① blur 必须挂在面板自身；② 面板**不得改 opacity**——
-   opacity<1 会自建 backdrop root，三层去采样被隔离的空组，模糊整个消失（最小
-   复现页实测：opacity 0.36 与关闭带子像素零差；同族坑见 PITFALLS §1.10）。
+   opacity<1 会自建 backdrop root，去采样被隔离的空组，模糊整个消失（最小复现页
+   实测：opacity 0.36 与关闭带子像素零差；同族坑见 PITFALLS §1.10）。
    所以渐显只能走模糊半径，不能走整体 opacity。 */
 /* 强度跟着滚动深度连续变化（--session-fade-ramp 由 SessionView 写在元素上，
-   0→1 走 --flow-fade-len）：内容滚进头部底下多少，雾就浓多少。半径乘 ramp
+   0→1 走 FADE_RAMP_PX）：内容滚进头部底下多少，雾就浓多少。半径乘 ramp
    使模糊连续长出来；深度归零即模糊归零，滚回顶部时第一条消息完整可读。
    旧实现是「scrolled 布尔开关 + opacity 0→1 过渡」：受约束②，过渡期间模糊
    根本不存在、只在末尾「啪」地蹦出来（用户报「出现得太僵硬」的真因）。 */
@@ -1506,35 +1508,10 @@ button {
   height: var(--session-fade-top);
   z-index: 2;
   pointer-events: none;
-}
-/* 渐变模糊的标准实现（progressive blur，参考 jonothan.dev / devslovecoffee）：
-   叠三层，每层都是模糊面板自身（约束③：blur 必须挂面板自己），用 mask 控制
-   各层显形范围——越强的模糊显形越短，形成「越靠上越糊」的梯度。 */
-.session-fade > i {
-  position: absolute;
-  inset: 0;
-  display: block;
-}
-/* 每层都在自己的渐出段里归零（带底无硬切）；强度整体收敛（顶部等效 ~8px）。
-   半径乘 --session-fade-ramp：滚动深度 0 时半径 0（滤镜是空操作，不带自建
-   backdrop root），随深度长到满值——渐显靠半径，不靠 opacity（见上）。 */
-.session-fade > i:nth-child(1) {
-  -webkit-backdrop-filter: blur(calc(var(--fade-blur-1) * var(--session-fade-ramp, 0)));
-  backdrop-filter: blur(calc(var(--fade-blur-1) * var(--session-fade-ramp, 0)));
-  -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m1a), transparent var(--fade-m1b));
-  mask-image: linear-gradient(180deg, #000 var(--fade-m1a), transparent var(--fade-m1b));
-}
-.session-fade > i:nth-child(2) {
-  -webkit-backdrop-filter: blur(calc(var(--fade-blur-2) * var(--session-fade-ramp, 0)));
-  backdrop-filter: blur(calc(var(--fade-blur-2) * var(--session-fade-ramp, 0)));
-  -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m2a), transparent var(--fade-m2b));
-  mask-image: linear-gradient(180deg, #000 var(--fade-m2a), transparent var(--fade-m2b));
-}
-.session-fade > i:nth-child(3) {
-  -webkit-backdrop-filter: blur(calc(var(--fade-blur-3) * var(--session-fade-ramp, 0)));
-  backdrop-filter: blur(calc(var(--fade-blur-3) * var(--session-fade-ramp, 0)));
-  -webkit-mask-image: linear-gradient(180deg, #000 var(--fade-m3a), transparent var(--fade-m3b));
-  mask-image: linear-gradient(180deg, #000 var(--fade-m3a), transparent var(--fade-m3b));
+  -webkit-backdrop-filter: blur(calc(var(--session-fade-blur) * var(--session-fade-ramp, 0)));
+  backdrop-filter: blur(calc(var(--session-fade-blur) * var(--session-fade-ramp, 0)));
+  -webkit-mask-image: linear-gradient(180deg, #000 var(--session-fade-solid), transparent var(--session-fade-fade));
+  mask-image: linear-gradient(180deg, #000 var(--session-fade-solid), transparent var(--session-fade-fade));
 }
 /* position:relative：ModelMenu 的包含块 —— 缺了它菜单会一路锚到 .app
    （曾把菜单钉在窗口左上角盖住侧栏）。与 .hero-top .left 同款。 */
@@ -4026,13 +4003,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
   mask-image: linear-gradient(180deg, transparent, #000 24px);
 }
 /* 会话流例外：顶部渐隐按 --session-fade-top 拉长（见 .session-fade 那段注释） */
-/* 渐隐段（--flow-fade-len）比模糊带（--session-fade-top）短：内容更早回来，模糊梯度在清晰内容上
-   收尾——两个常数解耦，整段才不会「糊 + 淡」双重叠加显得过强。 */
-/* 渐隐长度用**实时值** --flow-fade-live（SessionView 按滚动深度写，与模糊强度同一深度）：
-   此前是布尔挂上固定的 --flow-fade-len，越过阈值那一刻顶部内容整片瞬间变暗、而模糊还没
-   开始长，两条时间线错位就是「过渡僵硬」（2026-09-16 用户报障，帧对比可见）。深度 0 时
-   长度为 0 = 不渐隐；随滚动与模糊一起长到 --flow-fade-len。缺此值时按 0 处理（宁可无
-   渐隐也不硬压一层 —— 深度未知时那就是真相）。 */
+/* 渐隐长度用**实时值** --flow-fade-live（SessionView 按滚动深度写，与模糊强度同一深度，
+   满量程是 SessionView 的 FADE_RAMP_PX）：此前是布尔挂上固定长度，越过阈值那一刻顶部
+   内容整片瞬间变暗、而模糊还没开始长，两条时间线错位就是「过渡僵硬」（2026-09-16 用户
+   报障，帧对比可见）。深度 0 时长度为 0 = 不渐隐；随滚动与模糊一起长到满量程。缺此值时
+   按 0 处理（宁可无渐隐也不硬压一层 —— 深度未知时那就是真相）。 */
 .flow.fade-y[data-fade-start] {
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--flow-fade-live, 0px));
   mask-image: linear-gradient(180deg, transparent, #000 var(--flow-fade-live, 0px));
