@@ -29,7 +29,7 @@ import { uuid } from "../uuid";
 
 /** 顶部模糊带满强度所需的滚动深度：与 theme.css 的 --flow-fade-len 同值
  *  （内容淡出段与雾的渐显段同步走完，两条边不会各显各的）。 */
-const FADE_RAMP_PX = 56;
+const FADE_RAMP_PX = 96;
 
 
 export function SessionView({ sessionId }: { sessionId: string }) {

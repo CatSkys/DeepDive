@@ -1448,11 +1448,11 @@ button {
    与 --session-header-h 是一对：头部多高、内容让位多少，改一个要改另一个。 */
 :root {
   --session-header-h: 59px;
-  --session-fade-top: 88px;
-  --flow-fade-len: 56px;
+  --session-fade-top: 128px;
+  --flow-fade-len: 96px;
   --fade-blur-1: 2px;  --fade-m1a: 45%; --fade-m1b: 100%;
   --fade-blur-2: 4px;  --fade-m2a: 25%; --fade-m2b: 80%;
-  --fade-blur-3: 7px;  --fade-m3a: 10%; --fade-m3b: 55%;
+  --fade-blur-3: 7px;  --fade-m3a: 10%; --fade-m3b: 60%;
 }
 .session-header {
   display: flex;
@@ -3979,7 +3979,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   mask-image: linear-gradient(180deg, transparent, #000 24px);
 }
 /* 会话流例外：顶部渐隐按 --session-fade-top 拉长（见 .session-fade 那段注释） */
-/* 渐隐段（56px）比模糊带（88px）短：内容更早回来，模糊梯度在清晰内容上
+/* 渐隐段（--flow-fade-len）比模糊带（--session-fade-top）短：内容更早回来，模糊梯度在清晰内容上
    收尾——两个常数解耦，整段才不会「糊 + 淡」双重叠加显得过强。 */
 .flow.fade-y[data-fade-start] {
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--flow-fade-len));

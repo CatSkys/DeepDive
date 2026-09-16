@@ -6,8 +6,8 @@
  *  只在自己调参时用，不是产品功能：入口仅 URL 参数，不进任何导航。 */
 
 export const FADE_DEBUG_DEFAULTS = {
-  "--session-fade-top": 88,
-  "--flow-fade-len": 56,
+  "--session-fade-top": 128,
+  "--flow-fade-len": 96,
   "--session-header-h": 59,
   "--fade-blur-1": 2,
   "--fade-m1a": 45,
@@ -17,7 +17,7 @@ export const FADE_DEBUG_DEFAULTS = {
   "--fade-m2b": 80,
   "--fade-blur-3": 7,
   "--fade-m3a": 10,
-  "--fade-m3b": 55,
+  "--fade-m3b": 60,
 } as const;
 
 export type FadeDebugKey = keyof typeof FADE_DEBUG_DEFAULTS;
@@ -50,8 +50,8 @@ export function buildFadeCss(v: FadeDebugValues): string {
 }
 
 export const SLIDERS: Array<{ key: FadeDebugKey; label: string; min: number; max: number }> = [
-  { key: "--session-fade-top", label: "模糊带高", min: 40, max: 160 },
-  { key: "--flow-fade-len", label: "渐隐段", min: 0, max: 120 },
+  { key: "--session-fade-top", label: "模糊带高", min: 40, max: 240 },
+  { key: "--flow-fade-len", label: "渐隐段", min: 0, max: 180 },
   { key: "--session-header-h", label: "内容让位", min: 40, max: 100 },
   { key: "--fade-blur-1", label: "层1 模糊", min: 0, max: 16 },
   { key: "--fade-m1a", label: "层1 全显至", min: 0, max: 100 },
