@@ -46,6 +46,8 @@
 | `EngineSupervisor.swift` / `EngineVersion.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、入口版本门（随包引脚 vs 外部 dsh）、网关调用、token→cookie 交换、事件观察、日志 |
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
+| `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；四个调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`worktreeRun`、`agentRun` |
+| `WorktreeAdmin.swift` | 工作树管理：解析 `git worktree list --porcelain`、组装 add/remove 参数（删除**不带 --force**，有未提交改动时让 git 拒绝）。只做生命周期，不做隔离 |
 | `SkillAdmin.swift` | 技能管理面（设置→技能与插件）：读 `<DSH_HOME>/skills/<id>/SKILL.md` 的清单（frontmatter 解析、缺键标注、随应用发布的三个技能标 managed）、删除一层技能目录（拒穿越）。技能没有 wire 面，读盘/删盘只能由壳做 |
 | `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC 且把会话列表缓存在内存 → ①立即删 `sessions/<bucket>/<id>/`；②覆盖集登记到 UserDefaults，下次启动空窗期落账 `storages/workspace.json` 归档集 + `storages/session_projcache.json`；纯函数 + 原子写，结构不符拒绝落盘） |
 | `StatusItemController.swift` / `RecoveryWindowController.swift` | 菜单栏状态点与菜单、引擎失败恢复屏（诊断复制/凭据冷启动） |
@@ -69,6 +71,8 @@
 | `rich/` | 正文富输出围栏（`mermaid` / `svg` / `widget`，词表在 `fences.ts`）：`mermaidRender` 按需 import mermaid（独立分块）并从 CSS 语义变量读色烘图、明暗切换靠块自订阅（**不赌父组件重渲**，误诊后果=图示配色停在上一个主题）；`sanitizeSvg` 用 DOMPurify 的 svg profile 内联 SVG 并禁 `script`/`foreignObject`/`style`；`WidgetBlock` 用 `sandbox="allow-scripts"`（无 same-origin）跑交互组件；渲染不出来（语法错/超限）一律退回代码块显示源码 |
 | `evolution/` | 自进化（零人审，SPEC-SELF-EVOLUTION v3）：`protocol`（lesson 块与壳侧回执解析、形状边界、七家允许清单）、`pipeline`（自动管线选择器纯函数：revoke→gate→apply→land→verify→review→consolidate）、`prompts`（落库/复盘/撤销/整理提示词，纯函数）、`store`（台账 + 运行历史 + 限速计数持久化）、`useEvolution`（App 级 Provider：采集跟随当前/交办/运行会话，执行管线——机械门/落地/确认/校验走壳桥 lesson-tool 直跑，落库/撤销/复盘/整理交办会话按落点作用域创建）、`chartData`+`Charts`（环图/柱状）、`EvolutionSection`（设置→自进化：开关 + 台账审计视图 + 运行历史；**无采纳按钮**）。标准与红线在 `docs/EVOLUTION-POLICY.md`（§0 自治模型） |
 | `session/backgroundSession.ts` | 后台会话的判据与命名（唯一事实源）：读投影标题而非应用侧 id 台账（MiMo 形态），`badge`（整理类：复盘/整理，留列表加「自动」标识）/ `hidden`（执行类：落库会话、自动化运行，不进列表）；fail-open——读不到标题当用户会话。生产者（自进化交办、自动化运行）建会话时按同一份常量命名 |
+| `collab/` | 会话协作（设置→会话协作）：`model`（外部 agent 联系人的边界校验与命令行拼装）、`CollabSection`（会话联系人＝把消息投进别的会话；外部 agent 联系人＝壳一次性跑本机 CLI；外部会话历史指路「导入」分区）。**引擎没有会话间消息通道**（`MessageSourceMap` 只有 user/plugin/model/tool），投递在客户端完成、对方看到的是普通用户消息 |
+| `worktree/` | 工作树（设置→工作树）：`model`（默认分支/同级目录、主工作树判据、标签纯函数）、`WorktreeSection`（列/建/删 + 注册为工作区）。生命周期交给 git 本体；**并行会话隔离做不到**（会话 cwd 不可变、沙箱根 = 引擎进程 cwd），卡片里如实写明 |
 | `plugins/` | 技能与插件（设置→技能与插件）：`model`（插件行状态/排序/汇总纯函数：`enabled:false` = 本层未挂载，见 `PITFALLS §7.6`）、`PluginsSection`（Agent 预设组合 + 部署层模块两层只读清单 + 技能清单/删除）。**插件面不做开关**：引擎没有运行时启停 RPC，而 Loader 工具行本来就是空壳（真身在预设组合里） |
 | `memory/` | 会话记忆（Session 层）：`MemorySection`（设置→记忆：开关 + 笔记查看/忘记/全清审计面，经壳桥 memory-list/delete/clear）；插件与技能由壳铺盘 |
 | `mobile/` | 移动端远程控制（设置→移动端远程控制）：`RemoteControlSection`（扫码连接卡片 + 二维码 + 已配对设备台账）；远程状态与配对全在壳侧，前端只渲染快照（`host.ts` 的 remoteStatus/remoteStart/remoteStop/remoteRefresh/remoteRevoke/remoteCopyLink/qrEncode）。语义与安全边界见 `SPEC-MOBILE-REMOTE.md` |

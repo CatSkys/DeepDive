@@ -503,7 +503,87 @@ export function skillRemove(directory: string): Promise<{ ok: boolean; error?: s
   );
 }
 
-/** 重启引擎（设置里的改动要重启才装配：插件启停、会话记忆开关等）。 */
-export function restartEngine(): void {
-  sendToShell({ type: "restart-engine" });
+/* ── 外部 agent 联系人（设置 → 会话协作）：壳跑一次本机 CLI 并回收输出。
+   命令给绝对路径，或给一个裸命令名（壳经 /usr/bin/env 走 PATH 解析）；参数数组直传
+   Process，不经 shell。不内置任何 agent 运行时——只是"当联系人调一次"。 ── */
+
+export interface AgentRunResult {
+  ok: boolean;
+  output: string;
+  status?: number;
+  error?: string;
+}
+
+export function runAgent(command: string, args: string[], timeoutSeconds = 120): Promise<AgentRunResult> {
+  return bridgeRequest<AgentRunResult>(
+    "agentRunResult",
+    { ok: false, output: "", error: "no-shell" },
+    (p) => {
+      const r = p as { ok?: boolean; output?: string; status?: number; error?: string } | undefined;
+      return { ok: r?.ok === true, output: r?.output ?? "", status: r?.status, error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "agent-run", reqId, command, args, timeout: timeoutSeconds }),
+    // 外部 CLI 可能跑上一两分钟，10s 的默认桥超时不够
+    180_000,
+  );
+}
+
+/* ── 工作树（设置 → 工作树）：生命周期交给壳跑 git 本体，前端只拼参数与展示 ── */
+
+export interface WorktreeRow {
+  path: string;
+  head: string;
+  branch: string;
+  detached: boolean;
+  bare: boolean;
+  prunable: boolean;
+  locked: boolean;
+}
+
+export interface WorktreeListResult {
+  ok: boolean;
+  worktrees: WorktreeRow[];
+  error?: string;
+}
+
+export function worktreeList(repo: string): Promise<WorktreeListResult> {
+  return bridgeRequest<WorktreeListResult>(
+    "worktrees",
+    { ok: false, worktrees: [], error: "no-shell" },
+    (p) => {
+      const r = p as { ok?: boolean; worktrees?: WorktreeRow[]; error?: string } | undefined;
+      return { ok: r?.ok === true, worktrees: Array.isArray(r?.worktrees) ? r.worktrees : [], error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "worktree-list", reqId, repo }),
+  );
+}
+
+export interface WorktreeActionResult {
+  ok: boolean;
+  output?: string;
+  error?: string;
+}
+
+export function worktreeAdd(repo: string, branch: string, path: string): Promise<WorktreeActionResult> {
+  return bridgeRequest<WorktreeActionResult>(
+    "worktreeDone",
+    { ok: false, error: "no-shell" },
+    (p) => {
+      const r = p as { ok?: boolean; output?: string; error?: string } | undefined;
+      return { ok: r?.ok === true, output: r?.output, error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "worktree-add", reqId, repo, branch, path }),
+  );
+}
+
+export function worktreeRemove(repo: string, path: string): Promise<WorktreeActionResult> {
+  return bridgeRequest<WorktreeActionResult>(
+    "worktreeDone",
+    { ok: false, error: "no-shell" },
+    (p) => {
+      const r = p as { ok?: boolean; output?: string; error?: string } | undefined;
+      return { ok: r?.ok === true, output: r?.output, error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "worktree-remove", reqId, repo, path }),
+  );
 }

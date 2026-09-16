@@ -363,6 +363,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             memoryDelete(reqId: body["reqId"] as? String ?? "", sessionId: body["sessionId"] as? String ?? "")
         case "memory-clear":
             memoryClear(reqId: body["reqId"] as? String ?? "")
+        case "agent-run":
+            agentRun(
+                reqId: body["reqId"] as? String ?? "",
+                command: body["command"] as? String ?? "",
+                args: body["args"] as? [String] ?? [],
+                timeout: (body["timeout"] as? NSNumber)?.doubleValue ?? 120,
+            )
+        case "worktree-list":
+            worktreeRun(
+                reqId: body["reqId"] as? String ?? "", repo: body["repo"] as? String ?? "",
+                args: ["worktree", "list", "--porcelain"], command: "worktrees",
+            )
+        case "worktree-add":
+            worktreeRun(
+                reqId: body["reqId"] as? String ?? "", repo: body["repo"] as? String ?? "",
+                args: WorktreeAdmin.addArguments(
+                    branch: body["branch"] as? String ?? "", path: body["path"] as? String ?? "",
+                ),
+                command: "worktreeDone",
+            )
+        case "worktree-remove":
+            worktreeRun(
+                reqId: body["reqId"] as? String ?? "", repo: body["repo"] as? String ?? "",
+                args: WorktreeAdmin.removeArguments(path: body["path"] as? String ?? ""),
+                command: "worktreeDone",
+            )
         case "skill-list":
             skillList(reqId: body["reqId"] as? String ?? "")
         case "skill-remove":
@@ -507,23 +533,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             windowController.pushHostCommand("gitStatus", payload: AppDelegate.jsonPayload(all))
         }
         DispatchQueue.global(qos: .userInitiated).async {
+            // 管道纪律统一由 ProcessRunner 持有（stderr/stdout 各自排空，不顺序读）
             func git(_ args: [String]) -> String? {
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-                process.arguments = args
-                process.currentDirectoryURL = URL(fileURLWithPath: path)
-                let outPipe = Pipe()
-                let errPipe = Pipe()
-                process.standardOutput = outPipe
-                process.standardError = errPipe
-                do { try process.run() } catch { return nil }
-                // stderr 用独立线程排空、主线程读 stdout：顺序读会有互锁面
-                //（子进程写满一侧缓冲时阻塞，另一侧 EOF 永不到来）。
-                Thread.detachNewThread { _ = errPipe.fileHandleForReading.readDataToEndOfFile() }
-                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-                process.waitUntilExit()
-                guard process.terminationStatus == 0 else { return nil }
-                return String(data: outData, encoding: .utf8)
+                let result = ProcessRunner.run(executable: "/usr/bin/git", arguments: args, workingDirectory: path)
+                return result.status == 0 ? result.output : nil
             }
             guard FileManager.default.fileExists(atPath: path),
                   let branch = git(["rev-parse", "--abbrev-ref", "HEAD"])?.trimmingCharacters(in: .whitespacesAndNewlines) else {
@@ -551,7 +564,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 状态胶囊的 git 动作（git-run → gitRunResult 回推）：切分支/提交/推送。
     /// 参数数组直传 Process，不经 shell，无注入面；push 等网络操作在后台队列
     /// 跑，完成后回主线程回推 ok/output（尾部截断，防超长刷屏）。
-    private func gitRun(reqId: String, path: String, args: [String]) {        func reply(_ ok: Bool, _ output: String) {
+    private func gitRun(reqId: String, path: String, args: [String]) {
+        func reply(_ ok: Bool, _ output: String) {
             let trimmed = output.count > 4000 ? String(output.suffix(4000)) : output
             windowController.pushHostCommand("gitRunResult", payload: AppDelegate.jsonPayload([
                 "reqId": reqId, "ok": ok, "output": trimmed,
@@ -562,35 +576,90 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-            process.arguments = args
-            process.currentDirectoryURL = URL(fileURLWithPath: path)
-            let outPipe = Pipe()
-            let errPipe = Pipe()
-            process.standardOutput = outPipe
-            process.standardError = errPipe
-            do { try process.run() } catch {
-                DispatchQueue.main.async { reply(false, "spawn failed") }
+            let result = ProcessRunner.run(executable: "/usr/bin/git", arguments: args, workingDirectory: path)
+            DispatchQueue.main.async { reply(result.status == 0, result.output) }
+        }
+    }
+
+    // MARK: - 工作树（设置 → 工作树）：生命周期交给 git 本体，解析在 WorktreeAdmin
+
+    private func worktreeRun(
+        reqId: String, repo: String, args: [String], command: String, okExtra: [String: Any] = [:],
+    ) {
+        func reply(_ ok: Bool, _ fields: [String: Any]) {
+            var all = fields
+            all["reqId"] = reqId
+            all["ok"] = ok
+            windowController.pushHostCommand(command, payload: AppDelegate.jsonPayload(all))
+        }
+        guard FileManager.default.fileExists(atPath: repo) else {
+            reply(false, ["error": "工作区路径不存在"])
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = ProcessRunner.run(executable: "/usr/bin/git", arguments: args, workingDirectory: repo)
+            var fields = okExtra
+            if result.status == 0 {
+                if args.first == "worktree", args.dropFirst().first == "list" {
+                    let rows = WorktreeAdmin.parsePorcelain(result.output).map { item -> [String: Any] in
+                        [
+                            "path": item.path, "head": item.head, "branch": item.branch,
+                            "detached": item.detached, "bare": item.bare,
+                            "prunable": item.prunable, "locked": item.locked,
+                        ]
+                    }
+                    fields["worktrees"] = rows
+                } else {
+                    fields["output"] = result.output
+                }
+            } else {
+                // git 的拒绝原文就是最有用的信息（分支已存在 / 工作树有未提交改动），照传
+                fields["error"] = result.output.isEmpty ? "git 命令失败" : result.output
+            }
+            DispatchQueue.main.async { reply(result.status == 0, fields) }
+        }
+    }
+
+    /// 外部 agent 当联系人：跑一次本机已装的 CLI 并回收输出。只接受**绝对路径的可执行
+    /// 文件 + 参数数组**（直传 Process，不经 shell，无注入面）；消息由调用方作为最后一个
+    /// 参数传进来。不内置任何 agent 运行时，也不注册成引擎 provider（用户口径）。
+    private func agentRun(reqId: String, command: String, args: [String], timeout: TimeInterval) {
+        func reply(_ ok: Bool, _ fields: [String: Any]) {
+            var all = fields
+            all["reqId"] = reqId
+            all["ok"] = ok
+            windowController.pushHostCommand("agentRunResult", payload: AppDelegate.jsonPayload(all))
+        }
+        // 带 / 的一律当路径校验可执行位；裸名字交给 /usr/bin/env 走 PATH 解析（参数数组
+        // 直传，env 只做 exec，不经 shell，无注入面）。
+        let isPath = command.contains("/")
+        var executable = command
+        var argv = args
+        if isPath {
+            var isDirectory: ObjCBool = false
+            guard command.hasPrefix("/"), FileManager.default.fileExists(atPath: command, isDirectory: &isDirectory),
+                  !isDirectory.boolValue, FileManager.default.isExecutableFile(atPath: command) else {
+                reply(false, ["error": "不是一个可执行文件：\(command)"])
                 return
             }
-            // stderr 独立线程排空（顺序读有互锁面：一侧缓冲写满时另一侧 EOF 永不到）
-            var errText = ""
-            let errLock = NSLock()
-            Thread.detachNewThread {
-                let d = errPipe.fileHandleForReading.readDataToEndOfFile()
-                errLock.lock()
-                errText = String(data: d, encoding: .utf8) ?? ""
-                errLock.unlock()
+        } else {
+            guard !command.isEmpty, !command.contains(where: { $0.isWhitespace }) else {
+                reply(false, ["error": "命令名不能为空或含空白：\(command)"])
+                return
             }
-            let out = outPipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            var output = String(data: out, encoding: .utf8) ?? ""
-            errLock.lock()
-            if !errText.isEmpty { output += "\n\(errText)" }
-            errLock.unlock()
-            let ok = process.terminationStatus == 0
-            DispatchQueue.main.async { reply(ok, output) }
+            executable = "/usr/bin/env"
+            argv = [command] + args
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = ProcessRunner.run(
+                executable: executable, arguments: argv, workingDirectory: ProcessInfo.processInfo.homePath,
+                timeout: min(max(timeout, 5), 600),
+            )
+            let trimmed = result.output.count > 8000 ? String(result.output.suffix(8000)) : result.output
+            var fields: [String: Any] = ["output": trimmed, "status": Int(result.status)]
+            if result.timedOut { fields["error"] = "执行超时，已终止" }
+            else if result.status != 0 { fields["error"] = "退出码 \(result.status)" }
+            DispatchQueue.main.async { reply(!result.timedOut && result.status == 0, fields) }
         }
     }
 

@@ -175,6 +175,8 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
   截图直显）；read_image 的 tool/result 内容块带 `{type:'image', attachment}`
   引用，字节经 `session/attachment` 取。
 
+- **跨会话投递（设置→会话协作的底座）**：`session/prompt` 按 `sessionId` 寻址，**任何存在的会话都收**——不需要它在 UI 里开着。消息以 `kind:'user'` 落地并在那个会话跑一轮；不存在的 id 回 `session/not-found`（实测）。引擎**没有**"会话间消息源"这一层（`MessageSourceMap` 只有 user/plugin/model/tool），所以别把它当 agent 身份对话；experimental 的 agent-team mailbox 未随引脚闭包分发。
+
 ## 6. 命令面（已原生化；0.1.5 附件键改名）
 
 - `commands/list {agentId}` → `[{name, description, input?:{hint, images?}}]`

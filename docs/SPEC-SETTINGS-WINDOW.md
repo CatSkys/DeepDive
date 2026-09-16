@@ -1,6 +1,7 @@
 # SETTINGS-WINDOW — 设置 spec（P2 · v3 改内置方案）
 
 > **状态（2026-09-03）：已实现**。**v3.2（2026-09-04，用户要求）：移除「Agent 预设」「插件」两分区**（引擎侧 agentPresets 为空、插件可配置项留引擎 settings.yaml 直编，UI 精简；代码可从 git 历史回溯）。模型分区同期改版为折叠卡片式（详见 `frontend/src/settings/ModelsManage.tsx`）。（v3.1 全量落地后又经 f53f2a5 重构）。现行实现：`frontend/src/components/SettingsPage.tsx` + `settings/controls.tsx` + `settings/SettingsRows.module.css`，与主界面同源（--ink/--line/--fill 语义变量 + 统一弹出配方），分类为 通用/模型/审批/快捷键/已归档的聊天/数据。下文提到的 `SettingsRoot.module.css`、`settings/models/`（mux 传输层）已在重构中删除——mux/wire 逻辑并入 `api.ts`（`callRaw`/`probeMethod`）。本文保留为数据层契约（describe/mutate/credentials、revision 围栏、冲突两选一、能力探测降级）。
+> **v3.3（2026-09-16，用户要求）：新增「会话协作」「工作树」两分区**（会话协作＝投递消息给别的会话 + 外部 agent 当联系人 + 外部会话历史指路；工作树＝git worktree 生命周期 + 注册为工作区，并行隔离缺口在卡片里写明）。
 > **v3.3（2026-09-16，用户要求）：恢复「技能与插件」分区**（v3.2 曾把「插件」节整体移除）——技能清单/删除由壳读盘（`SkillAdmin`），插件为两层只读清单（Loader 模块 + Agent 预设组合）；**不做启停开关**，理由见 `PITFALLS §7.6`（引擎无启停 RPC，且 Loader 工具行是空壳）。
 > 工程流 B。目标：提供模型/审批/快捷键/外观/通知/数据六分区设置。
 > **v3 形态变更（用户拍板 2026-08-31）**：独立原生 AppKit 窗口方案（v1/v2）试作后废弃——面板风格与主界面割裂、不可收敛。现行形态为 **WebView 内浮层**：复用官方 dsh `ui-settings-general` 的面板外壳（mask + 800px panel + nav rail，CSS 原样拷贝于 `frontend/src/settings/SettingsRoot.module.css`）与 `ui-settings-models` 的行/卡片/按钮类（`SettingsRows.module.css`），token 驱动自动继承主窗暗玻璃；数据层走前端 same-origin RPC（`settings.describe/update/mutate`、`credentials.*`、能力探测），revision 围栏与两选一冲突恢复保留。

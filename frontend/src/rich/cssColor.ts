@@ -43,7 +43,7 @@ export function compositeOver(
   return toHex(r * a + bg[0] * (1 - a), g * a + bg[1] * (1 - a), b * a + bg[2] * (1 - a));
 }
 
-export function toHex(r: number, g: number, b: number): string {
+function toHex(r: number, g: number, b: number): string {
   return "#" + [r, g, b]
     .map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0"))
     .join("");
