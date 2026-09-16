@@ -21,6 +21,17 @@ describe("parseBlocks 块级", () => {
     ]);
   });
 
+  it("未闭合的围栏带 unclosed 标记（富输出块据此先不渲染，见 Block.unclosed）", () => {
+    expect(parseBlocks("```svg\n<svg>\n  <rect/>").at(-1)).toEqual({
+      kind: "code",
+      lines: ["<svg>", "  <rect/>"],
+      lang: "svg",
+      unclosed: true,
+    });
+    // 闭合之后同一段内容不带这个标记（形状与历史一致，老断言不用改）
+    expect(parseBlocks("```svg\n<svg>\n  <rect/>\n```").at(-1)?.unclosed).toBeUndefined();
+  });
+
   it("引用/无序/有序列表与任务行（任务标记保留原文）", () => {
     expect(parseBlocks("> 引用行")[0]).toEqual({ kind: "quote", lines: ["引用行"] });
     expect(parseBlocks("- 甲\n- [x] 乙")).toEqual([{ kind: "ul", lines: ["甲", "[x] 乙"] }]);

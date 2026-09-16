@@ -382,15 +382,19 @@ final class EngineSupervisor {
     }
 
     /// Rich output: the app renders three fence languages in the conversation body
-    /// (implementation and security boundaries in `frontend/src/rich/`). One line is
-    /// all the model needs — it only has to know the fences exist; without this the
-    /// `widget` fence in particular would never be used.
+    /// (implementation and security boundaries in `frontend/src/rich/`).
+    ///
+    /// 这句必须说清**偏好**，不只是"可以用"：2026-09-16 用户说"画个 svg"，模型直接写了一份
+    /// .svg 文件当产物交付（`dsh_im_return_file`），于是对话里没有任何围栏可渲染——用户看到
+    /// 的就是"没显示"。模型的默认直觉是交付文件，所以要把"想让人在对话里看见 → 用围栏；
+    /// 要文件/交付物 → 写文件"这条分界写出来。
     private static let richOutputProtocolPrompt = """
-    DeepDive rich output: in your replies you may use fenced code blocks with the info \
-    string `mermaid` (diagram), `svg` (inline vector figure) or `widget` (one small \
-    self-contained interactive HTML page, rendered in a sandbox without access to the \
-    app). The app draws them as figures and falls back to showing the code when one \
-    cannot be rendered.
+    DeepDive rich output: when the user should see a figure or diagram in the conversation, \
+    draw it inline in a fenced code block whose info string is `mermaid` (diagram), `svg` \
+    (hand-written vector figure) or `widget` (one small self-contained interactive HTML page, \
+    rendered sandboxed). The app draws those as figures and shows the code verbatim only when \
+    one cannot be rendered. Write or return a file only when the user asked for a file or a \
+    deliverable — "draw me a diagram" means the inline fence, not an .svg file on disk.
     """
 
     /// Deployment system prompt: one pointer, nothing more — the protocol itself

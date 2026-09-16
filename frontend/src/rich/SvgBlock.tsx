@@ -24,12 +24,15 @@ export function withNaturalSize(svg: string): string {
   return svg.replace(/<svg/i, `<svg width="${width}" height="${height}"`);
 }
 
-export function SvgBlock({ source }: { source: string }) {
+export function SvgBlock({ source, unclosed }: { source: string; unclosed: boolean }) {
   const tooBig = source.length > RICH_FENCE_MAX_CHARS;
   const clean = useMemo(
-    () => (tooBig ? null : sanitizeSvg(source)),
-    [source, tooBig],
+    () => (tooBig || unclosed ? null : sanitizeSvg(source)),
+    [source, tooBig, unclosed],
   );
+  // 围栏还没写完：半截 SVG 必然消毒不出根，先显示"正在读取"而不是失败（实测：手写
+  // 168 行 SVG 逐行到达时，中途一直弹"SVG 渲染失败"，写完才成图——纯噪音）
+  if (unclosed) return <p className="md-rich-pending">{t("正在读取图形…")}</p>;
   if (clean === null) {
     return (
       <RichFallback

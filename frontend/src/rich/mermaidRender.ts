@@ -27,7 +27,7 @@ export function renderMermaid(code: string, dark: boolean): Promise<string> {
   const job = mermaidModule().then(async ({ default: mermaid }) => {
     mermaid.initialize(configure(dark));
     const { svg } = await mermaid.render(`dsh-md-${seq++}`, code);
-    const clean = sanitizeSvg(svg, { allowStyle: true });
+    const clean = sanitizeSvg(svg);
     if (clean === null) throw new Error("mermaid returned no svg root");
     return clean;
   });

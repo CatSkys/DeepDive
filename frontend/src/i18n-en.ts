@@ -671,6 +671,8 @@ export const EN: Record<string, string> = {
   "添加": "Add",
   // rich output（正文富输出围栏，见 src/rich/）
   "正在渲染图表…": "Rendering diagram…",
+  "正在读取图形…": "Reading figure…",
+  "正在读取组件…": "Reading widget…",
   "图表渲染失败，已按源码显示": "Diagram failed to render — showing source",
   "SVG 渲染失败，已按源码显示": "SVG failed to render — showing source",
   "内容过大，已按源码显示": "Too large — showing source",

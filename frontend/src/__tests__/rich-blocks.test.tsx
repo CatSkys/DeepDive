@@ -54,13 +54,12 @@ describe("mermaid 围栏", () => {
 });
 
 describe("内联 SVG 围栏", () => {
-  it("消毒后内联：脚本 / 事件属性 / foreignObject / 文档级 style 全剥掉，图形留下", () => {
+  it("消毒后内联：脚本 / 事件属性 / foreignObject 剥掉，图形留下", () => {
     const source = [
       '<svg viewBox="0 0 10 10">',
       "<script>alert(1)</script>",
       '<rect width="10" height="10" onload="alert(2)"/>',
       "<foreignObject><b>x</b></foreignObject>",
-      "<style>body{display:none}</style>",
       '<circle r="2"/>',
       "</svg>",
     ].join("");
@@ -70,7 +69,26 @@ describe("内联 SVG 围栏", () => {
     expect(html).not.toContain("script");
     expect(html).not.toContain("onload");
     expect(html).not.toContain("foreignObject");
-    expect(html).not.toContain("<style");
+  });
+
+  it("自带样式表的 SVG 保留配色，但被 @scope 圈进这张图（剥掉会全变黑）", () => {
+    const source = [
+      '<svg viewBox="0 0 10 10">',
+      "<style>:root{--c:#2E7FE0} .node{fill:var(--c)} body{display:none}</style>",
+      '<rect class="node" width="10" height="10"/>',
+      "</svg>",
+    ].join("");
+    const { container } = render(<Markdown text={"```svg\n" + source + "\n```"} />);
+    const figure = container.querySelector(".md-rich-figure");
+    const style = figure?.querySelector("style")?.textContent ?? "";
+    // 样式留着（否则形状回落成纯黑），但整段被 @scope 圈住，且 :root 改成 :scope
+    expect(style).toContain("@scope (#md-svg-");
+    expect(style).toContain(":scope{--c:#2E7FE0}");
+    expect(style).not.toContain(":root");
+    // 作者给了 id 就沿用他的 id 当作用域
+    expect(figure?.querySelector("rect.node")).not.toBeNull();
+    const withId = '<svg id="mine" viewBox="0 0 1 1"><style>#mine{fill:red}</style><rect/></svg>';
+    expect(sanitizeSvg(withId)).toContain("@scope (#mine)");
   });
 
   it("没有 <svg> 根就退回代码块", () => {
@@ -111,6 +129,34 @@ describe("内联 SVG 尺寸", () => {
     const { container } = render(<Markdown text={'```svg\n<svg viewBox="0 0 24 24"><circle r="4"/></svg>\n```'} />);
     expect(container.querySelector("svg")?.getAttribute("width")).toBe("24");
     expect(container.querySelector("svg")?.getAttribute("height")).toBe("24");
+  });
+});
+
+describe("围栏没写完时不报错（流式噪音）", () => {
+  it("未闭合的 svg 围栏显示「正在读取」，而不是「SVG 渲染失败」", () => {
+    const { container } = render(<Markdown text={"```svg\n<svg viewBox=\"0 0 10 10\">\n  <rect width=\"10\""} />);
+    expect(container.textContent).toContain("正在读取图形");
+    expect(container.textContent).not.toContain("SVG 渲染失败");
+    expect(container.querySelector(".cb")).toBeNull();
+  });
+
+  it("未闭合的 mermaid 围栏同样只是「正在渲染」，且不去调用渲染", async () => {
+    const { container } = render(<Markdown text={"```mermaid\ngraph TD; A-->B"} />);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(container.textContent).toContain("正在渲染图表");
+    expect(container.textContent).not.toContain("图表渲染失败");
+    expect(renderMermaid).not.toHaveBeenCalled();
+  });
+
+  it("未闭合的 widget 围栏不挂 iframe（半截 HTML 不跑）", () => {
+    const { container } = render(<Markdown text={"```widget\n<button>点我"} />);
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.textContent).toContain("正在读取组件");
+  });
+
+  it("闭合但确实坏的 svg 仍然报失败（别把真错误藏起来）", () => {
+    const { container } = render(<Markdown text={"```svg\n<div>不是图</div>\n```"} />);
+    expect(container.textContent).toContain("SVG 渲染失败");
   });
 });
 

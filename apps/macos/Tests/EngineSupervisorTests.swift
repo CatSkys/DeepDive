@@ -229,6 +229,10 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertTrue(off.contains("mermaid") && off.contains("svg") && off.contains("widget"))
         let on = EngineSupervisor.systemPromptPrefix(evolutionEnabled: true, sessionMemoryEnabled: true)
         XCTAssertTrue(on.contains("`widget`"))
+        // 偏好必须写在提示词里：2026-09-16 用户说"画个 svg"，模型直接落了一份 .svg 文件
+        // （产物卡有、对话里没围栏）——"没显示"的真因，别退回只说"可以用围栏"
+        XCTAssertTrue(off.contains("deliverable"), "要区分「对话里看」与「产出文件」")
+        XCTAssertTrue(off.contains("inline fence"))
     }
 
 

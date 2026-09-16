@@ -23,6 +23,10 @@ export interface Block {
   kind: "h1" | "h2" | "h3" | "p" | "ul" | "ol" | "quote" | "code" | "table" | "math";
   lines: string[];
   lang?: string;
+  /** 只在**围栏还没闭合**时出现（流式期间必然如此）。富输出块据此先不渲染：半截
+   *  SVG/HTML 只会渲染失败，弹一句「渲染失败」再自己消失，是纯噪音（2026-09-16 实测：
+   *  168 行的手写 SVG 逐行到达，中途一直显示「SVG 渲染失败」，写完才成图）。 */
+  unclosed?: true;
 }
 
 // 块首判定：分支与段落续行的测试必须用**同一套谓词**，否则会出现「分支都不认、续行
@@ -54,12 +58,13 @@ export function parseBlocks(text: string): Block[] {
     if (fence) {
       const start = i + 1;
       let end = lines.length;
+      let closed = false;
       for (let j = start; j < lines.length; j++) {
-        if (/^```\s*$/.test(lines[j].trim())) { end = j; break; }
+        if (/^```\s*$/.test(lines[j].trim())) { end = j; closed = true; break; }
       }
       const body = lines.slice(start, end);
       if (body.length > 0 || (fence[1] ?? "") !== "") {
-        blocks.push({ kind: "code", lines: body, lang: fence[1] ?? "" });
+        blocks.push({ kind: "code", lines: body, lang: fence[1] ?? "", ...(closed ? {} : { unclosed: true as const }) });
       }
       i = end + 1;
       continue;
@@ -302,9 +307,9 @@ function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) 
             // 富输出围栏（词表见 rich/fences.ts）：图表 / 内联 SVG / 交互组件；各自的
             // 渲染不出来都退回代码块显示原文，不吞掉内容
             const body = b.lines.join("\n");
-            if (b.lang === MERMAID_FENCE) return <MermaidBlock key={key} code={body} />;
-            if (b.lang === SVG_FENCE) return <SvgBlock key={key} source={body} />;
-            if (b.lang === WIDGET_FENCE) return <WidgetBlock key={key} html={body} />;
+            if (b.lang === MERMAID_FENCE) return <MermaidBlock key={key} code={body} unclosed={b.unclosed === true} />;
+            if (b.lang === SVG_FENCE) return <SvgBlock key={key} source={body} unclosed={b.unclosed === true} />;
+            if (b.lang === WIDGET_FENCE) return <WidgetBlock key={key} html={body} unclosed={b.unclosed === true} />;
             return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
           }
           case "math": return <div key={key} className="md-math-block" dangerouslySetInnerHTML={{ __html: renderMath(b.lines[0] ?? "", true) }} />;
@@ -349,7 +354,7 @@ export const Markdown = memo(function Markdown({ text, onOpenFile }: {
   return (
     <div className="md">
       {blocks.map((b, i) => {
-        const sig = `${b.kind}\u0000${b.lang ?? ""}\u0000${b.lines.join("\n")}`;
+        const sig = `${b.kind}\u0000${b.lang ?? ""}\u0000${b.unclosed ? "unclosed" : "closed"}\u0000${b.lines.join("\n")}`;
         let node = cache.current.get(sig);
         if (node === undefined) {
           node = renderBlock(b, `b${i}`, handlers.image, handlers.openFile);

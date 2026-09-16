@@ -7,7 +7,9 @@ import { t } from "../i18n";
 import { RICH_FENCE_MAX_CHARS, WIDGET_FENCE } from "./fences";
 import { RichFallback } from "./RichFallback";
 
-export function WidgetBlock({ html }: { html: string }) {
+export function WidgetBlock({ html, unclosed }: { html: string; unclosed: boolean }) {
+  // 围栏还没写完不挂 iframe：半截 HTML 跑起来等于让模型边写边执行，且会反复重挂
+  if (unclosed) return <p className="md-rich-pending">{t("正在读取组件…")}</p>;
   if (html.length > RICH_FENCE_MAX_CHARS) {
     return (
       <RichFallback lines={html.split("\n")} lang={WIDGET_FENCE} note={t("内容过大，已按源码显示")} />
