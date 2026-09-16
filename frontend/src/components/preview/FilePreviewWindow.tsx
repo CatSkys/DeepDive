@@ -171,37 +171,41 @@ function ViewControls({ preview, active }: { preview: FilePreview; active: Previ
   );
 }
 
-/** 窗口内容（两态共用）：标签条 + 活动标签的预览体。 */
-function PreviewContent({ preview }: { preview: FilePreview }) {
+/** 窗口内容：little 态 = 标签条（含视图控制簇）+ 预览体；全屏态（withTabs
+ *  false）只出预览体——全屏的 chrome 归 PreviewPageHeader，再挂一条标签条
+ *  就是同一套控件画两遍，且两处都贴顶（真机上标题与标签互相压字）。 */
+function PreviewContent({ preview, withTabs = true }: { preview: FilePreview; withTabs?: boolean }) {
   const { tabs, activePath, setActive, close } = preview;
   const active = activeTab(preview);
   return (
     <>
-      <div className="preview-tabs" role="tablist">
-        {tabs.map((tab) => (
-          <button
-            key={tab.path}
-            type="button"
-            role="tab"
-            aria-selected={tab.path === activePath}
-            className="preview-tab"
-            data-active={tab.path === activePath || undefined}
-            title={tab.path}
-            onClick={() => setActive(tab.path)}
-          >
-            <span className="preview-tab-name">{tab.name}</span>
-            <span
-              className="preview-tab-x"
-              role="button"
-              aria-label={t("关闭预览")}
-              onClick={(e) => { e.stopPropagation(); close(tab.path); }}
+      {withTabs && (
+        <div className="preview-tabs" role="tablist">
+          {tabs.map((tab) => (
+            <button
+              key={tab.path}
+              type="button"
+              role="tab"
+              aria-selected={tab.path === activePath}
+              className="preview-tab"
+              data-active={tab.path === activePath || undefined}
+              title={tab.path}
+              onClick={() => setActive(tab.path)}
             >
-              <X size={11} />
-            </span>
-          </button>
-        ))}
-        {active && <ViewControls preview={preview} active={active} />}
-      </div>
+              <span className="preview-tab-name">{tab.name}</span>
+              <span
+                className="preview-tab-x"
+                role="button"
+                aria-label={t("关闭预览")}
+                onClick={(e) => { e.stopPropagation(); close(tab.path); }}
+              >
+                <X size={11} />
+              </span>
+            </button>
+          ))}
+          {active && <ViewControls preview={preview} active={active} />}
+        </div>
+      )}
       <div className="preview-clip">
         {active && (
           <PreviewBody
@@ -220,13 +224,13 @@ function PreviewContent({ preview }: { preview: FilePreview }) {
   );
 }
 
-/** 全屏态：取代会话界面（SessionView 内联挂载在会话体上）。
- *  页头（返回 + 文件名 + 打开方式）由 PreviewPageHeader 出，这里只有内容。 */
+/** 全屏态：取代会话界面（SessionView 内联挂载在会话体上）。页头（返回 +
+ *  文件名 + 视图控制 + 打开方式）由 PreviewPageHeader 出，这里只出预览体。 */
 export function FilePreviewSurface({ preview }: { preview: FilePreview }) {
   useEscapeBack(preview);
   return (
     <div className="preview-surface">
-      <PreviewContent preview={preview} />
+      <PreviewContent preview={preview} withTabs={false} />
     </div>
   );
 }

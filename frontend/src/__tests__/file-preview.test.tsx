@@ -1,9 +1,10 @@
 // 文件预览窗口的渲染网眼（R-001 同款渲染层测试）：little 浮窗的蒙版/控制簇、
 // 全屏面的装配、标签切换与关闭的接线。@vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "../components/preview/FilePreviewWindow";
 import type { FilePreview } from "../components/preview/useFilePreview";
+import { installHostBridge } from "../host";
 
 beforeAll(() => {
   // 预览体一律拉 /api/file：jsdom 里没有桥，给固定文本内容（代码/纯文本渲染器
@@ -38,6 +39,16 @@ function fake(over: Partial<FilePreview> = {}): FilePreview {
 
 const controlLabels = () =>
   [...document.querySelectorAll(".preview-control")].map((b) => b.getAttribute("aria-label"));
+
+/** 全屏态真实装配：页头 + 面（SessionView 就是这么挂的）。视图控制簇只在
+ *  页头出现——面里再挂一条标签条会把同一套控件画两遍。 */
+const renderPage = (p: FilePreview) =>
+  render(
+    <>
+      <PreviewPageHeader preview={p} />
+      <FilePreviewSurface preview={p} />
+    </>,
+  );
 
 describe("little 浮窗", () => {
   it("挂蒙版 + 浮窗，控制簇四颗（关闭/全屏/默认应用打开/Finder），标签条给出文件名", () => {
@@ -117,18 +128,18 @@ describe("渲染器与换行", () => {
 
   it("换行开关只对 code/text 出现，点击回调 toggleWrap", () => {
     const p = fake({ tabs: [{ path: "/w/a.md", name: "a.md", renderer: "markdown" }], activePath: "/w/a.md" });
-    const { unmount } = render(<FilePreviewSurface preview={p} />);
+    const { unmount } = renderPage(p);
     expect(screen.queryByRole("button", { name: "折行" })).toBeNull();
     unmount();
     const q = fake({ tabs: [{ path: "/w/a.md", name: "a.md", renderer: "text" }], activePath: "/w/a.md" });
-    render(<FilePreviewSurface preview={q} />);
+    renderPage(q);
     fireEvent.click(screen.getByRole("button", { name: "折行" }));
     expect(q.toggleWrap).toHaveBeenCalled();
   });
 
   it("渲染器下拉列出候选、当前项打勾，选择回调 setRenderer", () => {
     const p = fake({ tabs: [{ path: "/w/a.md", name: "a.md" }], activePath: "/w/a.md" });
-    render(<FilePreviewSurface preview={p} />);
+    renderPage(p);
     fireEvent.click(screen.getByRole("button", { name: "预览方式" }));
     const rows = [...document.querySelectorAll(".preview-view-item")];
     expect(rows.map((r) => r.textContent)).toEqual(["Markdown", "代码", "纯文本"]);
@@ -141,17 +152,73 @@ describe("渲染器与换行", () => {
 describe("全屏页", () => {
   it("页头=返回钮 + 文件名作标题；面内不再挂四颗悬浮钮、也不挂蒙版", () => {
     const p = fake({ fullscreen: true, tabs: [{ path: "/w/report.md", name: "report.md" }] });
-    render(
-      <>
-        <PreviewPageHeader preview={p} />
-        <FilePreviewSurface preview={p} />
-      </>,
-    );
+    renderPage(p);
     expect(document.querySelector(".preview-page-head .title")?.textContent).toBe("report.md");
     fireEvent.click(screen.getByRole("button", { name: "返回" }));
     expect(p.setFullscreen).toHaveBeenCalledWith(false);
     expect(document.querySelector(".preview-surface")).not.toBeNull();
     expect(document.querySelector(".preview-veil")).toBeNull();
     expect(document.querySelectorAll(".preview-control")).toHaveLength(0);
+  });
+
+  it("面内不挂标签条：chrome 只由页头出一遍（真机上两处都贴顶会压字）", () => {
+    const p = fake({ fullscreen: true, tabs: [{ path: "/w/a.md", name: "a.md" }, { path: "/w/b.md", name: "b.md" }] });
+    renderPage(p);
+    expect(document.querySelector(".preview-surface .preview-tabs")).toBeNull();
+    expect(document.querySelectorAll(".preview-tab")).toHaveLength(0);
+    // 视图控制簇与标签都在页头那一遍里：渲染器下拉、换行、打开方式各一份
+    expect(document.querySelectorAll(".preview-view")).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "预览方式" })).toHaveLength(1);
+  });
+});
+
+describe("打开方式（分离按钮）", () => {
+  const withShell = () => {
+    const post = vi.fn();
+    (window as unknown as { webkit?: unknown }).webkit = { messageHandlers: { deepdiveHost: { postMessage: post } } };
+    installHostBridge({
+      navigateToSession: () => {}, navigateToSettings: () => {}, themeChanged: () => {},
+      workspacePicked: () => {}, systemWake: () => {},
+    });
+    return post;
+  };
+  const replyListing = async (post: ReturnType<typeof vi.fn>, apps: { id: string; name: string }[]) => {
+    const listCall = post.mock.calls.map(([m]) => m as { type: string; reqId: string }).find((m) => m.type === "open-with-list")!;
+    await act(async () => {
+      window.__deepDiveHost!.dispatch("openWith", {
+        reqId: listCall.reqId, defaultId: apps[0]!.id,
+        apps: apps.map((a) => ({ ...a, icon: "data:image/png;base64," })),
+      });
+    });
+  };
+
+  afterEach(() => {
+    delete (window as unknown as { webkit?: unknown }).webkit;
+    delete (window as unknown as { __deepDiveHost?: unknown }).__deepDiveHost;
+  });
+
+  it("主钮直接用它打开（不发菜单），箭头才展开候选", async () => {
+    const post = withShell();
+    renderPage(fake({ fullscreen: true }));
+    await replyListing(post, [{ id: "/Applications/Safari.app", name: "Safari" }]);
+    post.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "用 Safari 打开" }));
+    expect(post).toHaveBeenCalledWith({ type: "open-path-with", path: "/w/a.txt", app: "/Applications/Safari.app" });
+    expect(document.querySelectorAll(".open-with-item")).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "打开方式" }));
+    expect(document.querySelectorAll(".open-with-item")).toHaveLength(1);
+  });
+
+  it("从候选里选一个：切当前 App（主钮文案跟着变）并用它打开", async () => {
+    const post = withShell();
+    renderPage(fake({ fullscreen: true }));
+    await replyListing(post, [{ id: "/Applications/Safari.app", name: "Safari" }, { id: "/Applications/Xcode.app", name: "Xcode" }]);
+
+    fireEvent.click(screen.getByRole("button", { name: "打开方式" }));
+    fireEvent.click(document.querySelector<HTMLElement>(".open-with-item:nth-child(2)")!);
+    expect(post).toHaveBeenCalledWith({ type: "open-path-with", path: "/w/a.txt", app: "/Applications/Xcode.app" });
+    expect(screen.getByRole("button", { name: "用 Xcode 打开" })).not.toBeNull();
   });
 });

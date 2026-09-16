@@ -1115,23 +1115,36 @@ button {
 /* 全屏页页头：与 .session-header 同几何（红线对齐），但不带模型/胶囊 */
 .preview-page-head { align-items: center; }
 
-/* 「打开方式」（全屏预览页右上）：胶囊只有 App 图标 + 展开箭头——不显示
-   文字也不撑满；下拉复用全局 .ctx-menu 铬件（右键菜单同材质），右缘与胶囊
-   右缘对齐（定位在组件里算），行内名称超限走 HoverScrollText 规范。 */
+/* 「打开方式」（全屏预览页右上）：分离按钮——主钮（当前 App 图标）直接打开，
+   右侧箭头开候选菜单；同官方 ui-open-in-app：一个发丝分隔线、共用一个胶囊圆角，
+   两颗各自 hover / 各自命中。下拉复用全局 .ctx-menu 铬件（右键菜单同材质）。 */
 .open-with { flex: none; }
-.open-with-trigger {
+.open-with-split {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
   height: 26px;
-  padding: 0 6px;
   border-radius: var(--dsh-radius-control);
   background: var(--fill);
   color: var(--ink-2);
+  overflow: hidden;
+}
+.open-with-main,
+.open-with-chevron {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  color: inherit;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.open-with-trigger:hover { background: var(--fill-strong); color: var(--ink); }
-.open-with-trigger img { display: block; }
+.open-with-main { padding: 0 6px 0 7px; }
+.open-with-main img { display: block; }
+.open-with-chevron {
+  padding: 0 6px 0 4px;
+  border-left: 0.5px solid var(--line);
+  color: var(--ink-3);
+}
+.open-with-main:hover,
+.open-with-chevron:hover { background: var(--fill-strong); color: var(--ink); }
 /* 长清单内滚（同 .ddMenu 的既有处置），不撑破预览页 */
 .open-with-menu { max-height: 60vh; overflow-y: auto; }
 .open-with-item { width: 100%; text-align: left; }
