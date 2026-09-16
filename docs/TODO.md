@@ -1,6 +1,6 @@
 # DeepDive 路线待办
 
-> 产品路线的唯一事实源：一项一节，只写「要做什么 + 已查明的路径」；完成即删节（沿革归 git）。2026-09-11 重排：0.1.5-rc.1 对齐批（产物三动作/预览 Dock+分栏全屏/上传流式+进度取消/子代理交互/命令原生化/插件市场 v1/统计两摘要/persona 入口）已全部落地并删除；剩余项均带明确前置（§1 热加载实测、§2 鉴权设计稿、§3 公证凭据+依赖批准、§4 用户澄清范围）。
+> 产品路线的唯一事实源：一项一节，只写「要做什么 + 已查明的路径」；完成即删节（沿革归 git）。2026-09-11 重排：0.1.5-rc.1 对齐批（产物三动作/预览 Dock+分栏全屏/上传流式+进度取消/子代理交互/命令原生化/插件市场 v1/统计两摘要/persona 入口）已全部落地并删除；剩余项均带明确前置（§1 热加载实测、§2 鉴权设计稿、§3 公证凭据+依赖批准、§4 用户澄清范围）。2026-09-16 与 MiMoCode 对照后补 §7-§12：三块客户端面缺口（MCP / 记忆 / 富输出）＋ 四组「引擎有包未接」＋ 三项待补 ＋ 五项待拍板。
 
 ## 1. 自定义指令（Persona）—— 已按用户要求移除（2026-09-12）
 
@@ -43,6 +43,48 @@ Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`D
 已查明的关键路径：引擎 win32-x64 由上游 CI 与专用实现背书（`deepseek-harness/.github/workflows/ci.yml`、
 `packages/sandbox/sandbox-windows-acl`、`session-persistence-jsonl/src/win32.ts`）；
 运行时闭包必须在 Windows 构建机准备（macOS 上的 `npm install` 只取 darwin 预编译产物）。
+
+## 7. MCP 接入（引擎侧已就绪，缺挂载与设置面）
+
+`@deepseek-ai/dsh-mcp-client` 随包分发（应用闭包 `Contents/Resources/Runtime/dsh/node_modules/@deepseek-ai/dsh-mcp-client`），但 harness home 的 web profile 既没把它列进 `dsh.profile.bundles`、也没有任何 MCP 行 → 这条能力用户拿不到。挂载形状见 `deepseek-harness/packages/mcp/mcp-client/README.md`：一个 server 一行（`name: '@deepseek-ai/dsh-mcp-client'` + `config: {serverName, transport: stdio|http, command/args/env 或 url/headers}`），工具以 `mcp__<server>__<tool>` 进工具表；默认不启任何 server，且每个 server 的工具定义都会给**每次**请求加 token（启停状态要可见）。
+
+- 要做什么：① 壳侧按既有 overlay 机制（`engine-patch.yml` 插 `dsh-schedule` 的先例，`EngineSupervisor` 以 `--patch` 传入）把用户配置的 server 行写进 web profile；② 设置新增「MCP」分区：server 列表 / 增删改 / 启停 / 连接状态 / 工具计数，`env` 里的密钥走既有凭据面不落明文；③ 工具行认 `mcp__*` 的图标族（`frontend/src/session/toolKind.ts`）。
+- 前置：无（引擎零改动）；热生效依赖 profile 的 `patchReload: live`，接线时实测一次。
+
+## 8. 记忆面补齐（引擎三层已有，客户端只有审计）
+
+引擎侧记忆齐备：会话笔记（壳桥 `memory-list`/`memory-delete`/`memory-clear`）+ 自进化 lesson + EverOS Recall 插件。客户端只有查看与删除（`frontend/src/memory/MemorySection.tsx`、`apps/macos/Sources/DSHminiApp/AppDelegate.swift` 的 `memory-*` 路由）。
+
+- 要做什么：① 「记忆」分区补项目 / 全局两层记忆文件（跨会话）的编辑；② 检索入口（复用引擎/插件已有的检索面）；③ 会话内「记住这条」的快捷写入。
+- 前置：先查清引擎与插件侧已有的可写记忆面与检索接口，客户端不自造第二份平行存储。
+
+## 9. 富输出第一批：正文图表与内联交互组件
+
+正文只有 11 种块（`frontend/src/components/Markdown.tsx`）：图表只能当代码块看，也没有可交互组件位。
+
+- 要做什么：① ```mermaid 围栏渲染成图（或先只做 ```svg 内联 + 白名单消毒，零依赖）；② 正文内可交互组件围栏（iframe `sandbox` 先例见 `frontend/src/components/preview/PreviewBody.tsx`）。
+- 前置：新增 mermaid 依赖需用户批准（铁律 7）；SVG / iframe 的消毒白名单要先定。
+
+## 10. 引擎有包未接：持久终端 / LSP / hooks 桥 / ACP·SDK
+
+四组能力在引擎闭包里齐备，web profile 未挂载、客户端也没有渲染位：持久终端 `deepseek-harness/packages/terminal*`（现役 shell 是逐调用新 shell）、LSP `packages/lsp*`、hooks 桥 `packages/hooks/hooks-claude-code|hooks-codex`（可零改写复用外部 `hooks.json`）、ACP 与 SDK `packages/acp`、`packages/sdk`（引擎可被外部程序驱动）。
+
+- 要做什么：逐组「挂载 + 工具行/面板渲染位 + 设置开关」，并给每组定默认开关。
+- 前置：逐组可行性摸底与工作量估；先接哪组由用户拍板。
+
+## 11. 待补三件（对照后确认的缺口）
+
+- 任务台账产品化：Goal 已有 active/paused/blocked/complete（`frontend/src/components/GoalBar.tsx`）、`todo_write` 进 Todos 胶囊、workflow 成员有 outcome（`frontend/src/session/ToolRow.tsx`）；缺「子任务 + 阻塞原因 + 进度日志」的独立面板。前置：先定载体（引擎 todo 投影扩展 vs 客户端自持台账），别与 Goals 语义打架。
+- 权限：三档档位当前只是**新建会话的初始预设**（`frontend/src/settings/permissionPreset.ts`），会话内只能敲 `/permission`，审批卡只有允许一次 / 拒绝（`frontend/src/session/Cards.tsx`）→ 补「会话内档位显示与就地切换」+ 审批粒度。前置：确认引擎 RPC 是否支持会话内改档与更细的审批。
+- 定时：自动化页六种周期（`frontend/src/automation/model.ts`：时 / 日 / 工作日 / 周 / 月 / 每 N 天）已有，缺一次性计划与任意间隔循环。前置：「关应用也跑」需要常驻代理，另立项。
+
+## 12. 待用户拍板（2026-09-16 与 MiMoCode 对照后提出）
+
+- 跨会话协作：向另一个会话发消息 / 外部 agent 当联系人 / 读外部会话历史。与「期间不做」里的「Codex/Claude Code 内置运行时」相邻但不同（这里是当联系人调用，不引入其运行时）。
+- worktree 隔离：并行会话在同一工作区的并发安全；引擎侧也没有 provider，需一起做。
+- ACP / SDK 对外开放：是否让外部程序（编辑器、其它客户端）驱动本引擎。
+- 成本口径：使用统计已有 token / 时长 / 连续天数，无成本；引擎不提供价格数据，需自带价目表。
+- 技能 / 插件管理面：按用户定稿已移除（`docs/DSH-WIRE.md` 的 `pluginInventory/list` 注记），仅当决定重开时再立。
 
 ## 期间不做
 
