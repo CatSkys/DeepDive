@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
 import type { SessionAddress, SessionEvent } from "../types";
-import { finalizeTurns, foldSchedule, ingest, makeIngestCtx, type IngestCtx, type RenderItem } from "./renderModel";
+import { finalizeTurns, foldSchedule, ingest, makeIngestCtx, type IngestCtx, type RenderItem, openTurnSince } from "./renderModel";
 
 export function useSessionEvents(
   sessionId: string,
@@ -140,6 +140,13 @@ export function useSessionEvents(
           const goalVal = s.projections.values?.goal as import("../types").GoalProjection | undefined;
           setGoalProj(goalVal ?? null);
           setLoadError(false);
+          // 运行态对账：快照是权威基线，尾部该轮的闭合状态说了算。事件侧的 liveRunning
+          // 只是快通道——漏掉一个 turn/end（断线、丢帧、重连落在轮结束之后）会让
+          // 「Deep diving…」永远转下去（用户报「中止后 loading 还在」）。顺带把流逝
+          // 计时锚回该轮真实起点，重连后计时不从头数。
+          const openSince = openTurnSince(eventLog.current);
+          setLiveRunning(openSince !== undefined);
+          setRunningSince(openSince);
           // 断线重连落在流式中段：快照基线里是活跃 attempt 已累计的 chunks，
           // 就地种成直播项续播（后续增量经 onStream 追加）。
           const live = s.assistantStream?.activeAttempt;

@@ -2,7 +2,7 @@
 // （satisfies 编译期校验契约）。这里锁的是会话流的全部不变量，SessionView
 // 后续拆分（R-010）以这组测试为安全网。
 import { describe, expect, it } from "vitest";
-import { finalizeTurns, ingest, makeIngestCtx } from "../session/renderModel";
+import { finalizeTurns, ingest, makeIngestCtx, openTurnSince } from "../session/renderModel";
 import type { RenderItem } from "../session/renderModel";
 import type { SessionEvent } from "../types";
 
@@ -237,5 +237,15 @@ describe("ingest 交付文件（deliverables/presented）", () => {
     }
     finalizeTurns(out, ctx);
     expect(out.find((x) => x.kind === "turn-tail")?.presented).toEqual([]);
+  });
+});
+
+describe("openTurnSince（快照对账运行态）", () => {
+  it("轮已闭合 → undefined；轮未闭合 → 该轮开始时刻", () => {
+    expect(openTurnSince([{ event: EV.turn1Start }, { event: EV.turn1End }])).toBeUndefined();
+    expect(openTurnSince([{ event: EV.turn1Start }])).toBe(EV.turn1Start.time);
+    // 结束事件漏掉（断线/丢帧）也要判成「未闭合」，否则 loading 永远转
+    expect(openTurnSince([{ event: EV.turn1Start }, { event: EV.turn1End }, { event: EV.turn2Start }])).toBe(EV.turn2Start.time);
+    expect(openTurnSince([])).toBeUndefined();
   });
 });

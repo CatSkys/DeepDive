@@ -495,6 +495,19 @@ function retryText(d: import("../types").LlmRetryData): string {
  * Inserted right after the turn's last assistant item; a turn already having
  * a tail is updated in place.
  */
+/** 日志尾部开轮状态：返回最后一个「已开启且未闭合」轮的开始时间；没有未闭合轮时
+ *  undefined。快照（含断线重连）拿它对账事件侧的运行态锁存——运行态此前只由
+ *  turn/start / turn/end 这对事件开关，漏掉一个 turn/end（断线、丢帧、重连落在
+ *  轮结束之后）就会让「Deep diving…」一直转（用户报「中止后 loading 还在」）。 */
+export function openTurnSince(entries: readonly { event: SessionEvent }[]): number | undefined {
+  let open: number | undefined;
+  for (const { event } of entries) {
+    if (event.type === "turn/start") open = event.time;
+    else if (event.type === "turn/end") open = undefined;
+  }
+  return open;
+}
+
 export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
   const closed = [...ctx.timing.entries()].filter(([, t]) => t.start !== undefined && t.end !== undefined);
   if (closed.length === 0) return;
