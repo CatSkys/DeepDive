@@ -4,6 +4,7 @@ import { api } from "./api";
 import { alertDialog } from "./components/DialogHost";
 import { installHostBridge } from "./host";
 import { FadeDebugPanel } from "./debug/FadeDebugPanel";
+import { isFadeDebugShortcut } from "./debug/fadeDebug";
 import { mux } from "./mux";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
@@ -44,7 +45,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   );
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey && e.altKey && (e.key === "d" || e.key === "D")) setFadeDebug((v) => !v);
+      if (isFadeDebugShortcut(e)) setFadeDebug((v) => !v);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -5,6 +5,12 @@
  *
  *  只在自己调参时用，不是产品功能：入口仅 URL 参数，不进任何导航。 */
 
+/** ⌥⌘D 开关判据：只认物理键码 `code`——macOS 在 Option 按下时会把 `key` 合成为
+ *  Option 层字符（US 布局 ⌥D 是 "∂"），按 `key === "d"` 判定在真机上永不命中。 */
+export function isFadeDebugShortcut(e: Pick<KeyboardEvent, "metaKey" | "altKey" | "code">): boolean {
+  return e.metaKey && e.altKey && e.code === "KeyD";
+}
+
 export const FADE_DEBUG_DEFAULTS = {
   "--session-fade-top": 128,
   "--flow-fade-len": 96,
