@@ -141,7 +141,7 @@ export function CollabSection() {
         <div className={css.blockHead}>
           <div className={css.blockTitle}>{t("会话联系人")}</div>
           <div className={css.blockDesc}>
-            {t("选一个会话，把消息投进去：它以**普通用户消息**落在那个会话里并触发一轮回复（引擎没有会话间消息源，所以不是 agent 身份对话）。消息排队投递，不影响你当前这个会话。")}
+            {t("选一个会话，把消息投进去：它以普通用户消息落在那个会话里并触发一轮回复（引擎没有会话间消息源，所以不是 agent 身份对话）。消息排队投递，不影响你当前这个会话。")}
           </div>
         </div>
         <div className={css.blockRow}>

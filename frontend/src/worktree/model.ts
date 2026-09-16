@@ -16,7 +16,10 @@ export function defaultWorktreePath(repo: string, branch: string): string {
   return `${parent}/${name}-${branch.replace(/\//g, "-")}`;
 }
 
-/** 主工作树 = 路径就是仓库本身（git porcelain 不标谁主谁次，但这条判据是确定的）。 */
+/** 主工作树 = 路径就是仓库本身（git porcelain 不标谁主谁次，但这条判据是确定的）。
+ *  **前提**：两个路径要同一把尺子——`git worktree list --porcelain` 给的是 realpath
+ *  （macOS 上 `/var/…` 会写成 `/private/var/…`），所以要传壳回推的 resolvedRepo，
+ *  不能拿用户输入的原样路径比字面量。 */
 export function isMainWorktree(row: Pick<WorktreeRow, "path">, repo: string): boolean {
   const norm = (p: string) => p.replace(/\/+$/, "");
   return norm(row.path) === norm(repo);

@@ -215,6 +215,19 @@
 - 处置：**把端口固定下来**（`MiniHTTPServer.start(port:)` + `DSHAppPrefs.bridgePort`）。实测：重启后端口不变（64274 → 64274），localStorage 里 `keepAwake=1` 与已建任务都还在。固定本身还不够（2026-09-13 复发：被占→回退内核分配→**把新端口记成 pin**，origin 永久搬家，前一天写下的 `usageFold` 全量账本搁浅在旧 origin）：首选端口被占改为短暂重试（交付链 pkill→open 竞态几百毫秒即释放）；仍被占才临时回退且**不改写 pin**——临时端口只活本次，下次启动回原 origin；只有首次运行（pin==0）才记端口。
 - 通用教训：**任何"存在浏览器存储里的本机状态"都隐含依赖 origin 稳定**；端口/主机/协议任一漂移都会把存储清零，且不会报错。改动监听方式（端口、host、http↔https）前先想清楚它是不是某个持久层的键。
 
+### 4.19 比较路径必须同一把尺子：git 回的是 realpath（2026-09-16，工作树分区实测）
+
+- 现象：工作树列表里"哪一条是主工作树"判错——工作区填 `/var/folders/…/proj`，而
+  `git worktree list --porcelain` 回 `/private/var/folders/…/proj`（macOS 上 `/var` 是
+  `/private/var` 的符号链接）。字符串不等 → 主工作树被当成普通工作树，界面于是给出
+  「删除 / 注册为工作区」这对**对主工作树不该有的**动作。
+- 处置：解析符号链接只有壳做得到（`FileManager`），所以 `worktree-list` 的回复里带上
+  `resolvedRepo`（`URL(fileURLWithPath:).resolvingSymlinksInPath()`），前端拿它当
+  "同一把尺子"再比（`isMainWorktree` 的注释里写明这个前提）。
+- 通用教训：**凡是要把两个来源的路径做相等的判断，先问"这两串是不是同一种形态"**
+  （realpath / 尾斜杠 / 大小写 / 相对路径）。本仓已有同源先例：session 目录名按转义 cwd、
+  workspace 成员资格按 realpath 比较（`workspace/entity.ts`）。
+
 ### 4.14 bundled node 绝不能放进 `Contents/MacOS/`
 - 事故（2026-09-10 用户实测）：引擎 node 放在 `Contents/MacOS/node`，Launch Services 把同 bundle `MacOS/` 下的额外可执行文件当成第二个 app——引擎一拉起（含重启）Dock 就闪出独立的 node 图标/窗口，用户连报「不停弹 node 窗口」。
 - 处置：node 落在 `Contents/Resources/Runtime/node`（与 dsh 闭包同级）；`EngineSupervisor.bundledRuntimeState()` / `embed-engine.sh` / `package-macos.sh` 签名 case 同步。`Contents/MacOS/` 只保留 app 主可执行文件。
@@ -285,6 +298,18 @@
 - 附带修掉的一个自伤：批量判定 Mach-O 时不能用默认的「路径: 描述」分隔去 `cut -d: -f1`——**胖二进制**会多出一行 `路径 (for architecture x86_64): ...`，路径尾巴挂着后缀，签的是不存在的文件（`FAIL: ... (for architecture x86_64)`）。改成 `file -F $'\t'` + 去后缀 + `sort -u`。
 
 ---
+
+---
+
+### 5.11 `embed-web` 不会替你构建前端：dist 陈旧会静默嵌旧包（2026-09-16 实踩）
+
+- 事故：改完前端直接 `make app`，应用起来还是旧界面——`embed-web.sh` 只把 `frontend/dist`
+  拷进包，**不跑 `npm run build`**；`make test` 也不构建（只跑 vitest）。dist 是上一次
+  build 的产物，于是"改动没生效"而构建日志一路绿色。
+- 处置：交付链里那条「前端 build」不是修饰语，是**必须自己先跑**的一步：
+  `cd frontend && npm run build` → `make app`。判据：`ls -l frontend/dist/index.html` 的
+  时间戳要新于你最后一次源码改动；`make app` 日志里的 `OK: embedded web` 只说"拷过去了"，
+  不说"拷的是新的"。
 
 ## 6. 调试技巧
 

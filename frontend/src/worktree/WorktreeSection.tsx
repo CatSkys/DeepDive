@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Folder, GitBranch, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Dropdown } from "../components/controls";
 import { confirmDialog } from "../components/DialogHost";
-import { revealPath, worktreeAdd, worktreeList, worktreeRemove, type WorktreeRow } from "../host";
+import { inShell, revealPath, worktreeAdd, worktreeList, worktreeRemove, type WorktreeRow } from "../host";
 import { useT } from "../i18n";
 import { useStore } from "../store";
 import css from "../settings/SettingsRows.module.css";
@@ -27,20 +27,26 @@ export function WorktreeSection() {
   const [busy, setBusy] = useState(false);
   const [branch, setBranch] = useState(() => defaultBranchName(new Date()));
   const [path, setPath] = useState("");
+  /** 判定"哪一条是主工作树"用的仓库路径：以壳回推的 realpath 为准（git 的 porcelain
+   *  给的就是 realpath，拿用户输入的原样路径比字面量会在符号链接上判错）。 */
+  const [treeRepo, setTreeRepo] = useState("");
+  const shell = inShell();
 
   const options = store.workspaces.map((w) => ({ v: w.path, label: w.title || w.path, description: w.path }));
   const active = repo || (options[0]?.v ?? "");
 
   const refresh = useCallback(() => {
-    if (!active) { setRows([]); setLoaded(true); return; }
+    // 列表要跑本机 git（壳的事）：浏览器访问时不去发那个必然超时的桥请求，直接说清楚
+    if (!shell || !active) { setRows([]); setLoaded(true); return; }
     setBusy(true);
     void worktreeList(active).then((result) => {
       setRows(result.worktrees);
+      setTreeRepo(result.resolvedRepo || active);
       setError(result.ok ? null : (result.error ?? t("列不出来，可能不是 git 仓库。")));
       setLoaded(true);
       setBusy(false);
     });
-  }, [active, t]);
+  }, [active, t, shell]);
   useEffect(refresh, [refresh]);
 
   // 换仓库时把默认目录跟着改（分支名保留用户已改的）
@@ -102,12 +108,17 @@ export function WorktreeSection() {
             <RefreshCw size={12} /> {t("刷新")}
           </button>
         </div>
+        {!shell && (
+          <div className={css.blockRow}>
+            <span className={css.muted}>{t("工作树要跑本机 git，只有桌面应用能做——当前是浏览器访问，看不到也改不了。")}</span>
+          </div>
+        )}
         {error && (
           <div className={css.blockRow}>
             <span className={css.muted} style={{ color: "#e5484d", whiteSpace: "pre-wrap" }}>{error}</span>
           </div>
         )}
-        {loaded && !error && rows.length === 0 && (
+        {shell && loaded && !error && rows.length === 0 && (
           <div className={css.blockRow}>
             <span className={css.muted}>{t("这个目录不是 git 仓库，或者还没有工作树。")}</span>
           </div>
@@ -118,7 +129,7 @@ export function WorktreeSection() {
             <div style={{ minWidth: 0, flex: 1 }}>
               <div className={css.rowName}>
                 {worktreeLabel(row)}
-                {isMainWorktree(row, active) && <span className={css.presetBadge}>{t("主工作树")}</span>}
+                {isMainWorktree(row, treeRepo || active) && <span className={css.presetBadge}>{t("主工作树")}</span>}
                 {row.locked && <span className={css.presetBadge}>{t("已锁定")}</span>}
                 {row.prunable && <span className={css.presetBadge}>{t("可清理")}</span>}
               </div>
@@ -128,7 +139,7 @@ export function WorktreeSection() {
               <button className={css.secondaryButton} onClick={() => revealPath(row.path)}>
                 {t("在 Finder 中显示")}
               </button>
-              {!isMainWorktree(row, active) && (
+              {!isMainWorktree(row, treeRepo || active) && (
                 <>
                   <button className={css.secondaryButton} onClick={() => void register(row)}>
                     {t("注册为工作区")}

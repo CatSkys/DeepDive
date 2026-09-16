@@ -609,6 +609,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         ]
                     }
                     fields["worktrees"] = rows
+                    // git 的 porcelain 给的是 realpath（macOS 上 /var 会写成 /private/var），
+                    // 而前端拿到的是用户输入的工作区路径。主工作树的判定要同一把尺子，
+                    // 所以把解析后的仓库路径一并回推（解析符号链接只有壳做得到）。
+                    fields["resolvedRepo"] = URL(fileURLWithPath: repo).resolvingSymlinksInPath().path
                 } else {
                     fields["output"] = result.output
                 }

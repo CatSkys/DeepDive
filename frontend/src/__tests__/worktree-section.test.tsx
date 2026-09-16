@@ -9,7 +9,8 @@ const { worktreeList, worktreeAdd, worktreeRemove, revealPath, createWorkspace, 
   revealPath: vi.fn(), createWorkspace: vi.fn(), confirmDialog: vi.fn(),
 }));
 const workspaces = [{ workspaceId: "w1", path: "/repo/proj", title: "proj", sessionIds: [], createdAt: "", updatedAt: "" }];
-vi.mock("../host", () => ({ worktreeList, worktreeAdd, worktreeRemove, revealPath }));
+// inShell=true：本文件测的是"桌面应用里"的路径（浏览器路径由 no-shell 分支覆盖）
+vi.mock("../host", () => ({ worktreeList, worktreeAdd, worktreeRemove, revealPath, inShell: () => true }));
 vi.mock("../store", () => ({ useStore: () => ({ workspaces, createWorkspace }) }));
 vi.mock("../components/DialogHost", () => ({ confirmDialog }));
 // i18n 的 useT 走 store（这里没有 provider），且**必须返回稳定引用**：真实现按语言缓存
@@ -39,7 +40,7 @@ function rows() {
 
 describe("工作树分区", () => {
   it("列出 git 的工作树，主工作树标出来且不给删/注册", async () => {
-    worktreeList.mockResolvedValue({ ok: true, worktrees: rows() });
+    worktreeList.mockResolvedValue({ ok: true, worktrees: rows(), resolvedRepo: "/repo/proj" });
     const { container } = render(<WorktreeSection />);
     await waitFor(() => expect(container.textContent).toContain("/repo/proj-wt"));
     expect(container.textContent).toContain("主工作树");
@@ -55,7 +56,7 @@ describe("工作树分区", () => {
   });
 
   it("新建走 worktree add -b <branch> <path>（默认目录在仓库同级）", async () => {
-    worktreeList.mockResolvedValue({ ok: true, worktrees: rows() });
+    worktreeList.mockResolvedValue({ ok: true, worktrees: rows(), resolvedRepo: "/repo/proj" });
     worktreeAdd.mockResolvedValue({ ok: true, output: "Preparing worktree" });
     const { getByPlaceholderText, getByText, container } = render(<WorktreeSection />);
     // 等列表落地（busy 期间创建钮是禁用的）
@@ -67,7 +68,7 @@ describe("工作树分区", () => {
   });
 
   it("删除要确认；确认后按 remove 走并把 git 的拒绝原文显示出来", async () => {
-    worktreeList.mockResolvedValue({ ok: true, worktrees: rows() });
+    worktreeList.mockResolvedValue({ ok: true, worktrees: rows(), resolvedRepo: "/repo/proj" });
     worktreeRemove.mockResolvedValue({ ok: false, error: "fatal: contains modified or untracked files" });
     confirmDialog.mockResolvedValue(true);
     const { container, getAllByText } = render(<WorktreeSection />);
@@ -78,7 +79,7 @@ describe("工作树分区", () => {
   });
 
   it("取消确认就不动 git", async () => {
-    worktreeList.mockResolvedValue({ ok: true, worktrees: rows() });
+    worktreeList.mockResolvedValue({ ok: true, worktrees: rows(), resolvedRepo: "/repo/proj" });
     confirmDialog.mockResolvedValue(false);
     const { container, getAllByText } = render(<WorktreeSection />);
     await waitFor(() => expect(container.textContent).toContain("/repo/proj-wt"));
@@ -88,7 +89,7 @@ describe("工作树分区", () => {
   });
 
   it("注册为工作区调 store.createWorkspace（工作树路径）", async () => {
-    worktreeList.mockResolvedValue({ ok: true, worktrees: rows() });
+    worktreeList.mockResolvedValue({ ok: true, worktrees: rows(), resolvedRepo: "/repo/proj" });
     createWorkspace.mockResolvedValue({ workspaceId: "w2" });
     const { container, getByText } = render(<WorktreeSection />);
     await waitFor(() => expect(container.textContent).toContain("/repo/proj-wt"));
@@ -96,8 +97,21 @@ describe("工作树分区", () => {
     await waitFor(() => expect(createWorkspace).toHaveBeenCalledWith("/repo/proj-wt"));
   });
 
+  it("符号链接路径下也能认出主工作树：以壳回推的 realpath 为准，不比字面量", async () => {
+    // 工作区填的是 /repo/proj，而 git 的 porcelain 回的是 realpath /private/repo/proj
+    worktreeList.mockResolvedValue({
+      ok: true,
+      resolvedRepo: "/private/repo/proj",
+      worktrees: [{ path: "/private/repo/proj", head: "86ae71d", branch: "main", detached: false, bare: false, prunable: false, locked: false }],
+    });
+    const { container } = render(<WorktreeSection />);
+    await waitFor(() => expect(container.textContent).toContain("/private/repo/proj"));
+    expect(container.textContent).toContain("主工作树");
+    expect(container.textContent).not.toContain("注册为工作区");
+  });
+
   it("不是 git 仓库时把壳给的错误显示出来", async () => {
-    worktreeList.mockResolvedValue({ ok: false, worktrees: [], error: "fatal: not a git repository" });
+    worktreeList.mockResolvedValue({ ok: false, worktrees: [], resolvedRepo: "", error: "fatal: not a git repository" });
     const { container } = render(<WorktreeSection />);
     await waitFor(() => expect(container.textContent).toContain("not a git repository"));
   });

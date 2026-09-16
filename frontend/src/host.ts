@@ -543,16 +543,23 @@ export interface WorktreeRow {
 export interface WorktreeListResult {
   ok: boolean;
   worktrees: WorktreeRow[];
+  /** git 视角下的仓库真路径（壳解析过符号链接）；缺席时回退调用方给的路径。 */
+  resolvedRepo: string;
   error?: string;
 }
 
 export function worktreeList(repo: string): Promise<WorktreeListResult> {
   return bridgeRequest<WorktreeListResult>(
     "worktrees",
-    { ok: false, worktrees: [], error: "no-shell" },
+    { ok: false, worktrees: [], resolvedRepo: "", error: "no-shell" },
     (p) => {
-      const r = p as { ok?: boolean; worktrees?: WorktreeRow[]; error?: string } | undefined;
-      return { ok: r?.ok === true, worktrees: Array.isArray(r?.worktrees) ? r.worktrees : [], error: r?.error };
+      const r = p as { ok?: boolean; worktrees?: WorktreeRow[]; resolvedRepo?: string; error?: string } | undefined;
+      return {
+        ok: r?.ok === true,
+        worktrees: Array.isArray(r?.worktrees) ? r.worktrees : [],
+        resolvedRepo: typeof r?.resolvedRepo === "string" ? r.resolvedRepo : "",
+        error: r?.error,
+      };
     },
     (reqId) => sendToShell({ type: "worktree-list", reqId, repo }),
   );

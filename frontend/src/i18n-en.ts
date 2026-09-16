@@ -740,4 +740,5 @@ export const EN: Record<string, string> = {
   "创建失败": "Create failed",
   "删除失败": "Delete failed",
   "列不出来，可能不是 git 仓库。": "Could not list — this may not be a git repository.",
+  "工作树要跑本机 git，只有桌面应用能做——当前是浏览器访问，看不到也改不了。": "Worktrees need git on this machine and only the desktop app can run it — you are in a browser, so they cannot be listed or changed here.",
 };
