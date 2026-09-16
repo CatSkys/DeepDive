@@ -116,3 +116,67 @@ describe("inline 图片/链接（AUD-021 语义）", () => {
     expect(out[2]).toBe("）。");
   });
 });
+
+describe("parseBlocks 终止性（2026-09-16 卡死事故回归）", () => {
+  // 事故：流式正文改走 markdown 后，模型刚打出 "- " / "$$" 而内容或闭合还没到的那一瞬，
+  // parseBlocks 出现零前进行——列表分支在 trim 后不认 "- "（要求标记后必须跟内容），
+  // 段落分支却在原始行上认它，于是 i 不动、主线程空转，界面卡死（WebView 84% CPU、
+  // RSS 2.4GB）。下面每条都是当时实测会自锁的输入。
+  const LOCKED = [
+    "- \n内容", "* \n内容", "- a\n- \n内容", "-  ", "*   ",
+    "1. \n内容", "1) \n内容", "1. a\n2. \n内容",
+    "$$", "$$$", "$$ x", "\n$$", "$$ 未闭合\n第二行",
+  ];
+
+  it("曾自锁的输入全部正常返回（不空转）", () => {
+    const t0 = performance.now();
+    for (const input of LOCKED) {
+      const blocks = parseBlocks(input);
+      expect(blocks.length).toBeGreaterThan(0);
+      // 零前进的典型产物是空段落；这里不存在零行块
+      for (const b of blocks) expect(b.lines.length).toBeGreaterThan(0);
+    }
+    expect(performance.now() - t0).toBeLessThan(200);
+  });
+
+  it("流式瞬态渲染成正确形态：列表标记先出现、内容随后填进来", () => {
+    expect(parseBlocks("- ")).toEqual([{ kind: "ul", lines: [""] }]);
+    expect(parseBlocks("- \n内容")).toEqual([{ kind: "ul", lines: [""] }, { kind: "p", lines: ["内容"] }]);
+    expect(parseBlocks("1. \n内容")).toEqual([{ kind: "ol", lines: [""] }, { kind: "p", lines: ["内容"] }]);
+    expect(parseBlocks("- [ ] ")).toEqual([{ kind: "ul", lines: ["[ ]"] }]);
+  });
+
+  it("未闭合的 $$ 按字面段落渲染，闭合后才是公式", () => {
+    expect(parseBlocks("$$ 未闭合\n第二行")).toEqual([{ kind: "p", lines: ["$$ 未闭合", "第二行"] }]);
+    expect(parseBlocks("$$ x^2 $$")).toEqual([{ kind: "math", lines: [" x^2 "] }]);
+    expect(parseBlocks("$$\n a+b \n$$")).toEqual([{ kind: "math", lines: ["\n a+b \n"] }]);
+  });
+
+  it("既有结构不受影响（标题/引用/表格/围栏/列表）", () => {
+    expect(parseBlocks("# 标题").map((b) => b.kind)).toEqual(["h1"]);
+    expect(parseBlocks("> 引用").map((b) => b.kind)).toEqual(["quote"]);
+    expect(parseBlocks("| a | b |\n| --- | --- |\n| 1 | 2 |").map((b) => b.kind)).toEqual(["table"]);
+    expect(parseBlocks("```ts\nconst a = 1;\n```").map((b) => b.kind)).toEqual(["code"]);
+    expect(parseBlocks("- a\n- b").map((b) => b.lines)).toEqual([["a", "b"]]);
+    expect(parseBlocks("1) a\n2) b").map((b) => b.kind)).toEqual(["ol"]);
+    expect(parseBlocks("普通一段\n继续一行").map((b) => b.lines)).toEqual([["普通一段", "继续一行"]]);
+  });
+
+  it("逐字符前缀（模拟流式打字）逐帧可解析且不空转", () => {
+    // 流式期间每一帧都会把「打了一半」的文本喂进来：列表标记单独一行、$$ 只打了一半、
+    // 围栏只有开头三个反引号…… 字符级前缀能覆盖全部这些瞬态。曾在这里空转卡死。
+    const doc = "# 标题\n\n结论：**可以**。\n\n- 第一项\n- 第二项\n\n```ts\nconst a = 1;\n```\n\n$$\nx^2\n$$\n\n尾部";
+    const t0 = performance.now();
+    let frames = 0;
+    for (let n = 1; n <= doc.length; n++) {
+      const blocks = parseBlocks(doc.slice(0, n));
+      frames++;
+      for (const b of blocks) {
+        // 代码块允许空体（围栏刚打出来、正文还没到，是合法瞬态）；其余块零行即零前进
+        if (b.kind !== "code") expect(b.lines.length).toBeGreaterThan(0);
+      }
+    }
+    expect(frames).toBe(doc.length);
+    expect(performance.now() - t0).toBeLessThan(1500);
+  });
+});

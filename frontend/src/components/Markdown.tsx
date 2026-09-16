@@ -21,6 +21,24 @@ export interface Block {
   lang?: string;
 }
 
+// 块首判定：分支与段落续行的测试必须用**同一套谓词**，否则会出现「分支都不认、续行
+// 又认为该停」的零前进行（2026-09-16 事故：流式期间模型刚打出 "- " 内容还没到，主
+// 线程在 parseBlocks 里空转，界面直接卡死）。列表标记允许空内容（`(\s+|$)`），这正是
+// 流式瞬态要渲染的形态：先出现一个空项目，文字随后填进来。
+const RE_FENCE_OPEN = /^```/;
+// 带内容捕获组：谓词与取文本共用同一条正则（尾组 (.*)$ 恒匹配，测试等价于前缀判定）
+const RE_HEADING = /^(#{1,3})\s+(.*)$/;
+const RE_QUOTE = /^>\s?/;
+const RE_BULLET = /^[-*](\s+|$)/;
+const RE_ORDERED = /^\d+[.)](\s+|$)/;
+
+/** 该行是否开启一个新块（同一条判据给分支与续行共用）。 */
+function startsBlock(line: string): boolean {
+  const t = line.trim();
+  return RE_FENCE_OPEN.test(t) || RE_BULLET.test(t) || RE_ORDERED.test(t)
+    || RE_HEADING.test(line) || RE_QUOTE.test(line);
+}
+
 export function parseBlocks(text: string): Block[] {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
@@ -42,48 +60,49 @@ export function parseBlocks(text: string): Block[] {
       i = end + 1;
       continue;
     }
-    // 块级数学：$$ … $$（同行或跨行）；未闭合回退普通段落
+    // 块级数学：$$ … $$（同行或跨行）。未闭合**不消费本行**——游标只前进、绝不回卷：
+    // 回卷写法（i = startLine; continue）会让同一行反复命中本分支。流式期间模型刚
+    // 打出 "$$" 而闭合还没到时必然踩到，正是卡死事故的另一半根因。
     if (line.trim().startsWith("$$")) {
-      const startLine = i;
       let tex = line.trim().slice(2);
-      let closed = false;
-      if (tex.endsWith("$$")) { tex = tex.slice(0, -2); closed = true; }
-      i++;
-      while (!closed && i < lines.length) {
-        const closeIdx = lines[i].indexOf("$$");
-        if (closeIdx >= 0) { tex += "\n" + lines[i].slice(0, closeIdx); closed = true; }
-        else tex += "\n" + lines[i];
-        i++;
+      let closed = tex.endsWith("$$");
+      if (closed) tex = tex.slice(0, -2);
+      let j = i + 1;
+      while (!closed && j < lines.length) {
+        const closeIdx = lines[j].indexOf("$$");
+        if (closeIdx >= 0) { tex += "\n" + lines[j].slice(0, closeIdx); closed = true; }
+        else tex += "\n" + lines[j];
+        j++;
       }
       if (closed) {
         blocks.push({ kind: "math", lines: [tex] });
+        i = j;
         continue;
       }
-      i = startLine;
-      continue;
+      // 未闭合：落到下面的段落分支按字面渲染（闭合到达后自然变成公式）
     }
-    const h = /^(#{1,3})\s+(.*)$/.exec(line);
+    const h = RE_HEADING.exec(line);
     if (h) {
       blocks.push({ kind: ("h" + h[1].length) as Block["kind"], lines: [h[2]] });
       i++;
       continue;
     }
-    if (/^>\s?/.test(line)) {
+    if (RE_QUOTE.test(line)) {
       const start = i;
-      while (i < lines.length && /^>\s?/.test(lines[i])) i++;
+      while (i < lines.length && RE_QUOTE.test(lines[i])) i++;
       blocks.push({ kind: "quote", lines: lines.slice(start, i).map((l) => l.replace(/^>\s?/, "")) });
       continue;
     }
-    if (/^[-*]\s+/.test(line.trim())) {
+    if (RE_BULLET.test(line.trim())) {
       const start = i;
-      while (i < lines.length && /^[-*]\s+/.test(lines[i].trim())) i++;
-      blocks.push({ kind: "ul", lines: lines.slice(start, i).map((l) => l.trim().replace(/^[-*]\s+/, "")) });
+      while (i < lines.length && RE_BULLET.test(lines[i].trim())) i++;
+      blocks.push({ kind: "ul", lines: lines.slice(start, i).map((l) => l.trim().replace(/^[-*]\s*/, "")) });
       continue;
     }
-    if (/^\d+[.)]\s+/.test(line.trim())) {
+    if (RE_ORDERED.test(line.trim())) {
       const start = i;
-      while (i < lines.length && /^\d+[.)]\s+/.test(lines[i].trim())) i++;
-      blocks.push({ kind: "ol", lines: lines.slice(start, i).map((l) => l.trim().replace(/^\d+[.)]\s+/, "")) });
+      while (i < lines.length && RE_ORDERED.test(lines[i].trim())) i++;
+      blocks.push({ kind: "ol", lines: lines.slice(start, i).map((l) => l.trim().replace(/^\d+[.)]\s*/, "")) });
       continue;
     }
     // table: header row + separator row of |---|
@@ -98,9 +117,11 @@ export function parseBlocks(text: string): Block[] {
       blocks.push({ kind: "table", lines: [header.join("||"), ...rows] });
       continue;
     }
-    // paragraph continuation
+    // 段落：先吃掉本行再吃续行 —— i 必须严格前进（上面任何分支漏判一行时，
+    // 这里兜住零前进，最坏只是多一个单行段落，不会卡住界面）
     const start = i;
-    while (i < lines.length && lines[i].trim() !== "" && !/^(#{1,3})\s|^>[>\s]|^[-*]\s|^\d+[.)]\s|^```/.test(lines[i])) i++;
+    i++;
+    while (i < lines.length && lines[i].trim() !== "" && !startsBlock(lines[i])) i++;
     blocks.push({ kind: "p", lines: lines.slice(start, i) });
   }
   return blocks;
