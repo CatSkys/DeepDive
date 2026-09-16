@@ -1464,7 +1464,7 @@ button {
 .session-body[data-fullscreen] > .session-bottom,
 .session-body[data-fullscreen] > .jump-down { visibility: hidden; }
 /* 头部顶到卡片上沿：标题行与红绿灯/顶部钮同一视线（官方对齐方式） */
-/* 会话流顶部渐隐模糊带（渐进模糊，算法见 theme.css 末尾「模糊层」段）：
+/* 会话流顶部渐隐模糊带（渐进模糊，算法见下方「模糊层」段）：
    六层 backdrop-filter 叠出**真正的半径梯度**——每层只在自己那一段显形（窄波段），
    半径按几何级数从 --session-fade-blur 逐层减半，第六层只剩峰值 1/32（16px 时
    0.5px≈不糊），带子底部因此无缝接回清晰内容。
