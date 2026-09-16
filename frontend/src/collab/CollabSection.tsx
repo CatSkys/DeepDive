@@ -57,6 +57,10 @@ export function CollabSection() {
       }));
   }, [store.sessions, lang]);
 
+  /** 生效的投递目标：用户选过就用选的，否则就是列表第一项——必须与 Dropdown 显示的
+   *  是同一个值：显示 A 却按 state 判空，会让"点了投递没反应"变成一个查不出来的静默失败。 */
+  const sessionTarget = sessionId || (sessionOptions[0]?.v ?? "");
+
   const save = (next: AgentContact[]) => {
     setContacts(next);
     try {
@@ -110,12 +114,12 @@ export function CollabSection() {
   /** 会话间投递：消息在目标会话里是普通用户消息，并在那里跑一轮。 */
   const sendToSession = async () => {
     const text = sessionMessage.trim();
-    if (!sessionId || !text) return;
+    if (!sessionTarget || !text) return;
     setSent(null);
     try {
       await api.prompt({
         requestId: uuid(),
-        sessionId,
+        sessionId: sessionTarget,
         mode: "queue",
         content: [{ type: "text", text }],
       });
@@ -144,7 +148,7 @@ export function CollabSection() {
           <MessageSquarePlus size={13} />
           <Dropdown
             options={sessionOptions}
-            value={sessionId || (sessionOptions[0]?.v ?? "")}
+            value={sessionTarget}
             onChange={setSessionId}
           />
         </div>

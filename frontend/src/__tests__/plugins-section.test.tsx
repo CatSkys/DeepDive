@@ -9,17 +9,19 @@ const { pluginInventory } = vi.hoisted(() => ({ pluginInventory: vi.fn() }));
 vi.mock("../api", () => ({ api: { pluginInventory } }));
 // i18n 的 useT 走 store（这里没有 provider）：注入一个只做 {var} 替换的最小实现，
 // 被测的是分区结构而不是词典。
-vi.mock("../i18n", () => ({
-  useT: () => ({
-    lang: "zh" as const,
-    t: (s: string) => s,
-    tt: (zh: string, _en: string, vars?: Record<string, string | number>) => {
-      let out = zh;
-      if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
-      return out;
-    },
-  }),
+// i18n 的 useT 走 store（这里没有 provider），且**必须返回稳定引用**：真实现按语言缓存
+// 闭包（i18n.ts 的 tFuncCache，注释里写明"放依赖不引发每渲染重跑"），mock 若不稳，
+// 组件里 useCallback([t]) 的 effect 会每渲染重跑，测出假问题。
+const tFunc = vi.hoisted(() => ({
+  lang: "zh" as const,
+  t: (s: string) => s,
+  tt: (zh: string, _en: string, vars?: Record<string, string | number>) => {
+    let out = zh;
+    if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
+    return out;
+  },
 }));
+vi.mock("../i18n", () => ({ useT: () => tFunc }));
 
 import { PluginsSection } from "../plugins/PluginsSection";
 
