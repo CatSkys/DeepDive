@@ -235,8 +235,8 @@ export function FilePreviewSurface({ preview }: { preview: FilePreview }) {
   );
 }
 
-/** 全屏页的页头：返回钮 + 文件名（打开物的标题，不是会话标题）+ 右上
- *  「打开方式」。与 .session-header 同一套几何（红线/标题行对齐），
+/** 全屏页的页头：返回钮 + 文件名 + 视图切换（贴标题右侧，与标题同一行）+
+ *  右端「打开方式」。与 .session-header 同一套几何（红线/标题行对齐），
  *  但不带模型选择与状态胶囊——全屏后这就是另一个页面。 */
 export function PreviewPageHeader({ preview }: { preview: FilePreview }) {
   const active = activeTab(preview);
@@ -255,9 +255,9 @@ export function PreviewPageHeader({ preview }: { preview: FilePreview }) {
             <ChevronLeft size={15} />
           </button>
           <div className="title">{active.name}</div>
+          <ViewControls preview={preview} active={active} />
         </div>
       </div>
-      <ViewControls preview={preview} active={active} />
       <OpenWithMenu path={active.path} />
     </div>
   );

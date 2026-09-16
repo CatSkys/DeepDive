@@ -170,6 +170,13 @@ describe("全屏页", () => {
     expect(document.querySelectorAll(".preview-view")).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "预览方式" })).toHaveLength(1);
   });
+
+  it("视图切换贴着标题右侧那一行（返回 / 文件名 / 视图切换同一行）", () => {
+    const p = fake({ fullscreen: true, tabs: [{ path: "/w/a.svg", name: "a.svg" }] });
+    renderPage(p);
+    const row = document.querySelector(".preview-page-head .title-row")!;
+    expect([...row.children].map((c) => c.className)).toEqual(["session-back", "title", "preview-view"]);
+  });
 });
 
 describe("打开方式（分离按钮）", () => {
@@ -202,6 +209,10 @@ describe("打开方式（分离按钮）", () => {
     renderPage(fake({ fullscreen: true }));
     await replyListing(post, [{ id: "/Applications/Safari.app", name: "Safari" }]);
     post.mockClear();
+
+    // 页头最右端是它（视图切换在标题行里，不在右端）
+    const head = document.querySelector(".preview-page-head")!;
+    expect(head.lastElementChild!.className).toContain("open-with");
 
     fireEvent.click(screen.getByRole("button", { name: "用 Safari 打开" }));
     expect(post).toHaveBeenCalledWith({ type: "open-path-with", path: "/w/a.txt", app: "/Applications/Safari.app" });

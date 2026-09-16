@@ -1109,11 +1109,19 @@ button {
   z-index: 40;
   display: flex;
   flex-direction: column;
+  /* 内容从页头下沿起：全屏里没有渐隐雾带（.session-fade 只在会话态挂），内容顶到 0
+     会在页头文字底下裸露重叠。留白与 .flow 的让位共用同一个 --session-header-h。 */
+  padding-top: var(--session-header-h);
   animation: preview-in var(--dur-med) var(--ease-out);
 }
 
-/* 全屏页页头：与 .session-header 同几何（红线对齐），但不带模型/胶囊 */
+/* 全屏页页头：与 .session-header 同几何（红线对齐），但不带模型/胶囊。
+   z-index 必须压过 .preview-surface（40）：页头是 .session 的直接子级、原本只有 3，
+   全屏时整条被预览内容盖住——实测 elementFromPoint 在「返回」中心点上拿到的是
+   IMG.preview-media，返回/视图切换/打开方式三组全点不到。选择器写 3 个类才压得过
+   下面那条 `.session > .session-header`（2 个类，靠源序不稳）。 */
 .preview-page-head { align-items: center; }
+.session > .session-header.preview-page-head { z-index: 41; }
 
 /* 「打开方式」（全屏预览页右上）：分离按钮——主钮（当前 App 图标）直接打开，
    右侧箭头开候选菜单；同官方 ui-open-in-app：一个发丝分隔线、共用一个胶囊圆角，
