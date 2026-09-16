@@ -669,4 +669,11 @@ export const EN: Record<string, string> = {
   "没有例外：命令权限按上面的默认值。": "No exceptions — command permission follows the default above.",
   "用户标识（对方的 id）": "User id (the other party's)",
   "添加": "Add",
+  // rich output（正文富输出围栏，见 src/rich/）
+  "正在渲染图表…": "Rendering diagram…",
+  "图表渲染失败，已按源码显示": "Diagram failed to render — showing source",
+  "SVG 渲染失败，已按源码显示": "SVG failed to render — showing source",
+  "内容过大，已按源码显示": "Too large — showing source",
+  "交互组件": "Interactive widget",
+  "沙箱内运行": "Runs sandboxed",
 };

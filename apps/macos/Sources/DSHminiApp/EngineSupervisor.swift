@@ -366,13 +366,26 @@ final class EngineSupervisor {
         return body
     }
 
-    /// 部署级提示词 = 自动化指路（恒在）+ 自进化 / 会话记忆指路（各自开关决定）。
+    /// 部署级提示词 = 自动化指路（恒在）+ 富输出围栏词表（恒在，随应用发布）+ 自进化 /
+    /// 会话记忆指路（各自开关决定）。
     static func systemPromptPrefix(evolutionEnabled: Bool, sessionMemoryEnabled: Bool) -> String {
-        var parts = [automationProtocolPrompt]
+        var parts = [automationProtocolPrompt, richOutputProtocolPrompt]
         if evolutionEnabled { parts.append(evolutionProtocolPrompt) }
         if sessionMemoryEnabled { parts.append(sessionMemoryProtocolPrompt) }
         return parts.joined(separator: "\n")
     }
+
+    /// Rich output: the app renders three fence languages in the conversation body
+    /// (implementation and security boundaries in `frontend/src/rich/`). One line is
+    /// all the model needs — it only has to know the fences exist; without this the
+    /// `widget` fence in particular would never be used.
+    private static let richOutputProtocolPrompt = """
+    DeepDive rich output: in your replies you may use fenced code blocks with the info \
+    string `mermaid` (diagram), `svg` (inline vector figure) or `widget` (one small \
+    self-contained interactive HTML page, rendered in a sandbox without access to the \
+    app). The app draws them as figures and falls back to showing the code when one \
+    cannot be rendered.
+    """
 
     /// Deployment system prompt: one pointer, nothing more — the protocol itself
     /// lives in the `deepdive-automation` skill (loaded on demand through the

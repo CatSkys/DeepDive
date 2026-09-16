@@ -1,19 +1,23 @@
 import { Fragment, memo, useRef, useState, type ReactNode } from "react";
-import { IconCodeOutline16 } from "./Icons";
 import { Lightbox } from "./Lightbox";
-import { CodeLines } from "./CodeLines";
+import { CodeBlock } from "./CodeBlock";
 import { sendToShell } from "../host";
-import { t } from "../i18n";
 import { AutomationProposalCard } from "../automation/AutomationProposalCard";
 import { parseProposal, PROPOSAL_LANG } from "../automation/protocol";
 import { LESSON_LANG, parseLesson } from "../evolution/protocol";
+import { MERMAID_FENCE, SVG_FENCE, WIDGET_FENCE } from "../rich/fences";
+import { MermaidBlock } from "../rich/MermaidBlock";
+import { SvgBlock } from "../rich/SvgBlock";
+import { WidgetBlock } from "../rich/WidgetBlock";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
-// Lightweight monochrome Markdown renderer (no deps): headings, paragraphs,
+// Lightweight monochrome Markdown renderer: headings, paragraphs,
 // ordered/unordered lists (task lists), quotes, fenced + inline code with
 // highlight.js, bold/italic/strikethrough, links (shell opens), tables, images
-// (click → Lightbox).
+// (click → Lightbox). Three fence languages are handed off instead of shown as
+// code — npm-style proposal/lesson blocks and the rich-output set
+// (mermaid / svg / widget, see src/rich/); everything else stays a code block.
 
 export interface Block {
   kind: "h1" | "h2" | "h3" | "p" | "ul" | "ol" | "quote" | "code" | "table" | "math";
@@ -262,32 +266,6 @@ function renderMath(tex: string, displayMode: boolean): string {
   return katex.renderToString(tex, { displayMode, throwOnError: false, strict: false });
 }
 
-/** 代码预览卡：头栏（语言 + 复制）+ 行号 gutter 代码体（官方代码块样式）。 */
-function CodeBlock({ lines, lang }: { lines: string[]; lang: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(lines.join("\n"));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch { /* clipboard unavailable */ }
-  };
-  return (
-    <div className="cb">
-      <div className="cbHead">
-        <span className="cbFile">
-          <IconCodeOutline16 size={15} className="cbIcon" />
-          <span className="cbLang">{lang || "code"}</span>
-        </span>
-        <button className="cbCopy" onClick={() => void copy()}>{copied ? t("已复制") : t("复制")}</button>
-      </div>
-      <div className="cbBody">
-        <CodeLines lines={lines} lang={lang} />
-      </div>
-    </div>
-  );
-}
-
 /** 单个块 → React 元素（不含 key：块级缓存复用同一个元素对象，key 由调用方的
  *  Fragment 按位置给）。 */
 function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) => void, onOpenFile?: (path: string, line?: number) => void): ReactNode {
@@ -321,6 +299,12 @@ function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) 
             // lesson 块 = 自进化提案：采集端已收进设置里的队列，会话里**零 UI**（SPEC §8）；
             // 只有形状不合法时才退回普通代码块，让"模型没按格式写"看得见
             if (b.lang === LESSON_LANG && parseLesson(b.lines.join("\n")) !== null) return null;
+            // 富输出围栏（词表见 rich/fences.ts）：图表 / 内联 SVG / 交互组件；各自的
+            // 渲染不出来都退回代码块显示原文，不吞掉内容
+            const body = b.lines.join("\n");
+            if (b.lang === MERMAID_FENCE) return <MermaidBlock key={key} code={body} />;
+            if (b.lang === SVG_FENCE) return <SvgBlock key={key} source={body} />;
+            if (b.lang === WIDGET_FENCE) return <WidgetBlock key={key} html={body} />;
             return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
           }
           case "math": return <div key={key} className="md-math-block" dangerouslySetInnerHTML={{ __html: renderMath(b.lines[0] ?? "", true) }} />;
