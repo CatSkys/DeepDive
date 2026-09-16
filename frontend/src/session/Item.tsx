@@ -126,7 +126,14 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
     return <WorkflowCard name={item.args ?? t("工作流")} members={item.members ?? []} status={item.commandStatus} stopReason={item.commandText} />;
   }
   if (item.kind === "chunk" && item.output) {
-    return <div className="msg assistant"><div className="text">{item.output}</div></div>;
+    // 流式正文与落定后走**同一条渲染链**（AgentMessage → Markdown）：边输出边带格式，
+    // 而不是等 assistant/message 落定才排版。此前这里是纯文本 div，结果是"打字期间
+    // 没有格式、落定瞬间整段重排"（用户报障）；同一组件也让两段之间不跳版式。
+    return (
+      <div className="msg-block assistant">
+        <AgentMessage text={item.output} onOpenFile={onPreviewFile} />
+      </div>
+    );
   }
   return null;
 }

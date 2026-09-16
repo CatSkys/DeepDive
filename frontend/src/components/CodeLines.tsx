@@ -6,14 +6,29 @@
 
 import hljs from "highlight.js/lib/common";
 
+// 逐行高亮对 (语言, 行内容) 是纯函数：按内容记忆化。流式期间尾块每帧重渲，已输出
+// 的行直接命中缓存，只有新来的行真正跑 hljs（实测 60 行代码块逐增量 1.7ms → 命中后
+// 只剩新行的代价）。上限兜底：攒满整体丢弃重来，缓存不无限长。
+const hlCache = new Map<string, string | null>();
+const HL_CACHE_MAX = 2000;
+
 /** 单行高亮；无该语言/输入不可解析时回 null（调用方渲染纯文本）。 */
 function highlightLine(line: string, lang: string): string | null {
-  if (!lang || !hljs.getLanguage(lang)) return null;
-  try {
-    return hljs.highlight(line, { language: lang, ignoreIllegals: true }).value;
-  } catch {
-    return null; // illegible input: fall back to plain text
+  const key = `${lang}\u0000${line}`;
+  const hit = hlCache.get(key);
+  if (hit !== undefined) return hit;
+  let out: string | null;
+  if (!lang || !hljs.getLanguage(lang)) out = null;
+  else {
+    try {
+      out = hljs.highlight(line, { language: lang, ignoreIllegals: true }).value;
+    } catch {
+      out = null; // illegible input: fall back to plain text
+    }
   }
+  if (hlCache.size >= HL_CACHE_MAX) hlCache.clear();
+  hlCache.set(key, out);
+  return out;
 }
 
 export function CodeLines({ lines, lang, target }: {

@@ -1811,21 +1811,6 @@ button {
   color: var(--ink);
   user-select: text;
 }
-/* streaming / chunked agent output: same pure-text treatment (no bubble) */
-.msg.assistant, .msg.assistant .text {
-  align-self: stretch;
-  width: 100%;
-  font-size: 14px;
-  line-height: 21px;
-  color: var(--ink);
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  user-select: text;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 .approval-card {
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
@@ -2888,7 +2873,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 
 /* 消息流条目入场：新条目（含切换会话时的整列）以同一节奏浮现；
    key 稳定的旧条目重渲染不重播。 */
-.msg-block, .tool-row, .turn-tail, .msg.assistant {
+.msg-block, .tool-row, .turn-tail {
   animation: row-in var(--dur-med) var(--ease-out) both;
 }
 /* 卡片类（授权/澄清）用轻缩放浮现，比平移更"实体"。 */
@@ -2933,7 +2918,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .msg-block, .tool-row, .turn-tail, .msg.assistant, .approval-card,
+  .msg-block, .tool-row, .turn-tail, .approval-card,
   .model-menu, .model-menu-view, .ws-menu, .tool-collapse, .tool-collapse > .tool-body > *,
   .hero-title, .hero-composer, .model.trigger > svg,
   .ws-view, .ws-cell, .main, .sidebar {
