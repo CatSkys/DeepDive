@@ -118,8 +118,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 整个消失（theme.css 有实测记录）。直接写 CSS 变量、不进 state——每帧都变的
   // 值走 React 会把整条会话流拖进滚动重渲。
   const fadeRef = useRef<HTMLDivElement | null>(null);
+  // 两个量走同一深度：模糊强度（乘进半径）与内容渐隐长度（--flow-fade-live）。渐隐长度
+  // 必须连续长出来——布尔挂上固定长度会让顶部内容越过阈值那一刻整片瞬间变暗，而模糊尚
+  // 未开始，观感就是「过渡僵硬」。
   const syncFadeRamp = useCallback((top: number) => {
-    fadeRef.current?.style.setProperty("--session-fade-ramp", String(Math.min(1, top / FADE_RAMP_PX)));
+    const depth = Math.min(1, top / FADE_RAMP_PX);
+    fadeRef.current?.style.setProperty("--session-fade-ramp", String(depth));
+    flowRef.current?.style.setProperty("--flow-fade-live", `${Math.min(FADE_RAMP_PX, Math.max(0, top))}px`);
   }, []);
   // 带子在预览全屏切换时会重挂（重挂即丢变量）：挂上就按当前深度补一次，
   // 否则退出全屏要等下一次滚动雾才回来。
