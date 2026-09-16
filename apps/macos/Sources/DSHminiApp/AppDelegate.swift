@@ -652,7 +652,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         DispatchQueue.global(qos: .userInitiated).async {
             let result = ProcessRunner.run(
-                executable: executable, arguments: argv, workingDirectory: ProcessInfo.processInfo.homePath,
+                executable: executable, arguments: argv, workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path,
                 timeout: min(max(timeout, 5), 600),
             )
             let trimmed = result.output.count > 8000 ? String(result.output.suffix(8000)) : result.output
