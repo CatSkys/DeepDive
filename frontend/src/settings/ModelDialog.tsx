@@ -246,8 +246,8 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
       return;
     }
     if (isCustom) {
-      if (!isRouteId(finalRoute)) { setError(t("提供方 ID 需要字母开头、只含字母数字与连字符（留空时按接口地址取名）。")); return; }
-      if (providers.some((p) => p.provider === finalRoute) || pi.providers[finalRoute] !== undefined) { setError(t("该提供方 ID 已被使用，请在高级配置里改一个。")); return; }
+      if (!isRouteId(finalRoute)) { setError(t("提供方 ID 只能用字母、数字和连字符，并以字母开头。")); return; }
+      if (providers.some((p) => p.provider === finalRoute) || pi.providers[finalRoute] !== undefined) { setError(t("这个 ID 已被使用，请在高级配置里换一个。")); return; }
     }
     // 模型类型描述的是一个具体模型；留空＝整体并入发现结果，标注无处可落。
     if (visual && !typedId) { setError(t("要标注模型类型，先填模型名称。")); return; }
@@ -408,7 +408,7 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
               value={modelId}
               onChange={(e) => setModelId(e.target.value)}
             />
-            {discoversAll && <div className={cssRows.fieldHint}>{t("留空＝保存时自动加入该提供方能发现的全部模型；填了名称＝只加入这一个")}</div>}
+            {discoversAll && <div className={cssRows.fieldHint}>{t("留空则添加该提供方的全部模型")}</div>}
           </div>
           <div>
             <div className={cssRows.advTitle}>{t("高级配置")}</div>
