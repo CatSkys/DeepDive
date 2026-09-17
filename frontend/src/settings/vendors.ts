@@ -18,13 +18,13 @@ export const VENDOR_NAMES: Record<string, VendorName> = {
   deepseek: { zh: "DeepSeek", en: "DeepSeek" },
   moonshotai: { zh: "Kimi / Moonshot", en: "Kimi / Moonshot" },
   "moonshotai-cn": { zh: "Kimi / Moonshot", en: "Kimi / Moonshot" },
-  "kimi-coding": { zh: "Kimi 编程套餐", en: "Kimi Coding Plan" },
-  zai: { zh: "智谱 GLM", en: "Zhipu GLM" },
-  "zai-coding-cn": { zh: "智谱 GLM 编程套餐", en: "Zhipu GLM Coding Plan" },
+  "kimi-coding": { zh: "Kimi 编程端点", en: "Kimi Coding" },
+  zai: { zh: "智谱 GLM 编程端点", en: "Zhipu GLM Coding" },
+  "zai-coding-cn": { zh: "智谱 GLM 编程端点（国内）", en: "Zhipu GLM Coding (China)" },
   xiaomi: { zh: "小米 MiMo API", en: "Xiaomi MiMo API" },
-  "xiaomi-token-plan-ams": { zh: "小米 MiMo Token 套餐", en: "Xiaomi MiMo Token Plan" },
-  "xiaomi-token-plan-cn": { zh: "小米 MiMo Token 套餐", en: "Xiaomi MiMo Token Plan" },
-  "xiaomi-token-plan-sgp": { zh: "小米 MiMo Token 套餐", en: "Xiaomi MiMo Token Plan" },
+  "xiaomi-token-plan-ams": { zh: "小米 MiMo Token 套餐（阿姆斯特丹）", en: "Xiaomi MiMo Token Plan (Amsterdam)" },
+  "xiaomi-token-plan-cn": { zh: "小米 MiMo Token 套餐（中国）", en: "Xiaomi MiMo Token Plan (China)" },
+  "xiaomi-token-plan-sgp": { zh: "小米 MiMo Token 套餐（新加坡）", en: "Xiaomi MiMo Token Plan (Singapore)" },
   minimax: { zh: "MiniMax", en: "MiniMax" },
   "minimax-cn": { zh: "MiniMax（国内）", en: "MiniMax (China)" },
   openai: { zh: "OpenAI", en: "OpenAI" },
@@ -33,9 +33,9 @@ export const VENDOR_NAMES: Record<string, VendorName> = {
   xai: { zh: "xAI", en: "xAI" },
   opencode: { zh: "OpenCode", en: "OpenCode" },
   "opencode-go": { zh: "OpenCode Go", en: "OpenCode Go" },
-  "qwen-token-plan": { zh: "千问 Qwen", en: "Qwen" },
-  "qwen-token-plan-cn": { zh: "千问 Qwen 套餐", en: "Qwen Token Plan" },
-  "qwen-token-plan-individual": { zh: "千问 Qwen（个人）", en: "Qwen (Individual)" },
+  "qwen-token-plan": { zh: "千问 Qwen 套餐（新加坡）", en: "Qwen Token Plan (Singapore)" },
+  "qwen-token-plan-cn": { zh: "千问 Qwen 套餐（北京）", en: "Qwen Token Plan (Beijing)" },
+  "qwen-token-plan-individual": { zh: "千问 Qwen 套餐（个人版）", en: "Qwen Token Plan (Individual)" },
   google: { zh: "Google Gemini", en: "Google Gemini" },
   "google-vertex": { zh: "Google Vertex AI", en: "Google Vertex AI" },
   "amazon-bedrock": { zh: "Amazon Bedrock", en: "Amazon Bedrock" },
@@ -55,11 +55,14 @@ export const VENDOR_NAMES: Record<string, VendorName> = {
   "vercel-ai-gateway": { zh: "Vercel AI Gateway", en: "Vercel AI Gateway" },
 };
 
-/** 「快速添加」的厂商（按主流程度排；点一个即带出该提供方的填 Key 流程）。 */
+/** 「快速添加」的厂商（按主流程度排；点一个即带出该提供方的填 Key 流程）。
+    入口口径：有 token plan 的用 token plan（小米 / 千问），**不用 `*-coding` 顶**
+    —— 那是编程套餐，与 token plan 不是一回事（Kimi / 智谱没有 token plan 变体，
+    用它们的常规入口）。 */
 export const QUICK_ADD_PROVIDERS: readonly string[] = [
   "deepseek-official",
-  "kimi-coding",
-  "zai-coding-cn",
+  "moonshotai-cn",
+  "zai",
   "xiaomi-token-plan-cn",
   "minimax",
   "openai",
