@@ -48,8 +48,10 @@ Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`D
 
 `@deepseek-ai/dsh-mcp-client` 随包分发（应用闭包 `Contents/Resources/Runtime/dsh/node_modules/@deepseek-ai/dsh-mcp-client`），但 harness home 的 web profile 既没把它列进 `dsh.profile.bundles`、也没有任何 MCP 行 → 这条能力用户拿不到。挂载形状见 `deepseek-harness/packages/mcp/mcp-client/README.md`：一个 server 一行（`name: '@deepseek-ai/dsh-mcp-client'` + `config: {serverName, transport: stdio|http, command/args/env 或 url/headers}`），工具以 `mcp__<server>__<tool>` 进工具表；默认不启任何 server，且每个 server 的工具定义都会给**每次**请求加 token（启停状态要可见）。
 
-- **已实现（2026-09-17）**：① server 行写在 home 级 patch 层的托管块里（`McpServerAdmin`，`- insert:` 一行一 server，`config` 用 JSON 写进 YAML）——**不是** `engine-patch.yml`（那是每次启动重写的 app overlay，存不了用户配置），走 `patchReload: live` 监视的 home 层，所以增删改与启停都热生效（实测 `include:mcp-probe` → `enabled` 翻转 → `fiberPhase: active`，见 `PITFALLS §7.6`）；② 设置 → 插件 → 「MCP」tab：列表 / 启停 / 增删改。
-- **未做**：`env` / `headers`——密钥要走既有凭据面，不能落进明文的 patch 文件（编辑弹窗里已显式说明，不做一个看起来能用、其实把密钥写进明文的输入框）；连接状态与工具计数（引擎侧要探工具表，参考图没有这两个元素）；工具行 `mcp__*` 的图标族（`frontend/src/session/toolKind.ts`）。
+- **已实现（2026-09-17）**：① server 行由壳生成到 home 级 patch 层的托管块里（`McpServerAdmin`，`- insert:` 一行一 server）——**不是** `engine-patch.yml`（那是每次启动重写的 app overlay，存不了用户配置），走 `patchReload: live` 监视的 home 层，所以增删改与启停都热生效（实测 `include:mcp-probe` → `enabled` 翻转 → `fiberPhase: active`，见 `PITFALLS §7.6`）；② 设置 → 插件 → 「MCP」tab：列表 / 启停 / 增删改 / 每行的挂载状态（取该行插件的 `fiberPhase`）。
+- **密钥面（2026-09-17）**：README 的挂载形状是 `env: {TOKEN: !!js process.env.X}`，值只能来自**引擎进程的环境变量** —— 所以配置源放在 app 侧（`<support>/mcp-servers.json`，要与密钥同文件、0600；也因为要生成 `!!js` 这种 YAML 原生语法，直接读写 patch 文件表示不了它），壳在 spawn 引擎时把密钥展平成 `MCP_<SERVER>_<KEY>` 注入环境，**patch 文件里只留变量名这个引用**（单测断言 patch 里不出现密钥值）。前端只回"哪些 key 已配置"、不回值（与模型 Key 同一条惯例）。
+- **未做**：工具计数（引擎没有工具表 RPC，MCP client 也不暴露状态——只有日志；每行的**挂载状态**已由该行插件的 `fiberPhase` 给出）；工具行 `mcp__*` 的图标族（`frontend/src/session/toolKind.ts`）。
+- 更正同段开头：`transport` 的取值是 **`streamable-http`**，不是 `http`（按 README 的字段表）。
 
 ## 8. 记忆面补齐（引擎三层已有，客户端只有审计）
 

@@ -390,7 +390,11 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 另一条（2026-09-17 实测）：MCP server 行用 `- insert:` 插 `@deepseek-ai/dsh-mcp-client`
   （`config: {serverName, transport, command/args 或 url}`），行 id 取 `mcp-<名字>`；同一份
   home 层 patch 里插入后同样热挂载（实测 `include:mcp-probe` → `fiberPhase: active`），
-  行上的 `disabled` 字段照常生效。**但 bundle 成员的增删（如卸载插件）有启动边界**——
+  行上的 `disabled` 字段照常生效。三个易错点：① **`transport` 的取值是
+  `stdio` / `streamable-http`**（不是 `http`，写错挂不上）；② `serverName` 限
+  `[A-Za-z0-9_-]{1,32}`；③ `env`/`headers` 的**值**只能是 `!!js process.env.X` 这种
+  环境变量引用 —— 所以密钥由壳存进 app 侧密钥文件、spawn 引擎时注入环境变量，绝不能
+  写进 patch 文件（那份是明文）。**bundle 成员的增删（如卸载插件）有启动边界**——
   引擎 README 明写 running Profile 保留启动时的 Bundle 集合，那条路必须停起进程。
 
 ## 8. React 状态与表单（2026-09-05 全量体检批次沉淀）
