@@ -6,7 +6,7 @@ import { api } from "../api";
 import { t, tt } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { Dropdown } from "../components/controls";
-import { providerLabel } from "./vendors";
+import { HIDDEN_PROVIDERS, providerLabel } from "./vendors";
 import cssRows from "./SettingsRows.module.css";
 
 // 添加/编辑模型弹窗（参考 WorkBuddy 模型设置版式）：提供商 + API Key + 模型
@@ -271,11 +271,13 @@ export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, cr
   };
 
   const providerOptions = [
-    ...providers.map((p) => ({
-      v: p.provider,
-      label: providerLabel(p.provider, p.displayName),
-      iconNode: <ProviderIcon provider={p.provider} size={14} />,
-    })),
+    ...providers
+      .filter((p) => !HIDDEN_PROVIDERS.includes(p.provider) || pi.providers[p.provider] !== undefined)
+      .map((p) => ({
+        v: p.provider,
+        label: providerLabel(p.provider, p.displayName),
+        iconNode: <ProviderIcon provider={p.provider} size={14} />,
+      })),
     { v: NEW_PROVIDER, label: t("＋ 新建自定义提供方…") },
   ];
   const modelOptions = [

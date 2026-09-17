@@ -73,6 +73,13 @@ export const QUICK_ADD_PROVIDERS: readonly string[] = [
 ];
 
 
+/** 用户点名不要列出的提供方（小米另外两个区域的同一套餐）。
+    已经配置过的不在此列 —— 否则配好的那条会在列表里消失，连删都删不掉。 */
+export const HIDDEN_PROVIDERS: readonly string[] = [
+  "xiaomi-token-plan-ams",
+  "xiaomi-token-plan-sgp",
+];
+
 /** 目录给的 displayName 就是 provider id 本身（全小写）；能认的换成人读的正式名。
     未收录的原样回退 —— 不认识的厂商编不出名字。 */
 export function providerLabel(provider: string, fallback: string): string {
