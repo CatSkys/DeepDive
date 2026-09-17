@@ -37,12 +37,25 @@ export function normalizeBaseURL(raw: string): string | null {
   }
 }
 
-/** 手写路由 id：以小写字母开头的 settings key，同时是凭据名的词干
- *  （keyRefOf 把它大写化，凭据名必须是合法 shell 标识符——数字开头会在凭据
- *  面炸出一条用户看不懂的正则错误）。与官方 CustomProviderCard 同一约束。 */
-const ROUTE_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+/** 手写路由 id：引擎里那条路由的 settings 键，同时经 keyRefOf 派生密钥名
+ *  （<ID>_API_KEY）。引擎只硬性要求派生出的名字匹配 `/^[A-Za-z_][A-Za-z0-9_]*$/`
+ *  ——实测 `9x-gateway` 被拒：`credential ref "9X_GATEWAY_API_KEY" must match …`，
+ *  而 `Acme-Gateway`、`acme_gateway`、`acme.gateway` 都能落盘并服务。所以这里
+ *  只要求「字母开头 + 字母/数字/连字符」，大小写不限；分隔符多音（`a.b` 与 `a-b`
+ *  会折成同一个密钥名）不放开，免得两条路由共用一把密钥。 */
+const ROUTE_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$/;
 export function isRouteId(value: string): boolean {
   return ROUTE_PATTERN.test(value);
+}
+
+/** 路由 id 的默认值：取接口地址的主机名，非字母数字折成 "-"，去首尾与连续连字符。
+ *  推不出（地址无效，或主机名以数字开头——那样派生的密钥名引擎不收）时返回空串，
+ *  由调用方要求用户手填。 */
+export function deriveRouteFromBaseURL(raw: string): string {
+  const normalized = normalizeBaseURL(raw);
+  if (normalized === null) return "";
+  const host = new URL(normalized).hostname.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return /^[a-z][a-z0-9-]*$/.test(host) ? host : "";
 }
 
 /** llm.discoverModels 的候选（引擎只回这四个字段）。 */
@@ -183,7 +196,8 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
 
   const [key, setKey] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [modelId, setModelId] = useState(edit?.origId ?? "");  const [visual, setVisual] = useState(declaredInput(origEntry, visualKey).includes("image"));
+  const [modelId, setModelId] = useState(edit?.origId ?? "");
+  const [visual, setVisual] = useState(declaredInput(origEntry, visualKey).includes("image"));
   const [route, setRoute] = useState("");
   const [baseURL, setBaseURL] = useState("");
   const [apiProto, setApiProto] = useState(piProtocols[0] ?? "");
@@ -196,7 +210,10 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
     return () => document.removeEventListener("keydown", onKey);
   }, [onCancel]);
 
-  const keyRef = keyRefOf(isCustom ? route : (providerId || edit?.provider || ""), deepseek.apiKeyEnv);
+  /** 手写路由的名字：用户填了就用填的，留空按接口地址取（输入框把推导值当占位显示）。 */
+  const derivedRoute = deriveRouteFromBaseURL(baseURL);
+  const finalRoute = route.trim() || derivedRoute;
+  const keyRef = keyRefOf(isCustom ? finalRoute : (providerId || edit?.provider || ""), deepseek.apiKeyEnv);
   // 已配置与否只认 credentials 实况（AUD-101）：编辑态加 `|| !!edit` 会让
   // 未配 key 的提供方也显示"已配置——留空保持不变"，误导用户以为有旧值。
   const keyIsConfigured = !!credentials[keyRef];
@@ -229,8 +246,8 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
       return;
     }
     if (isCustom) {
-      if (!isRouteId(route)) { setError(t("提供方 ID 需以小写字母开头，只含小写字母、数字与连字符。")); return; }
-      if (providers.some((p) => p.provider === route) || pi.providers[route] !== undefined) { setError(t("该提供方 ID 已被使用。")); return; }
+      if (!isRouteId(finalRoute)) { setError(t("提供方 ID 需要字母开头、只含字母数字与连字符（留空时按接口地址取名）。")); return; }
+      if (providers.some((p) => p.provider === finalRoute) || pi.providers[finalRoute] !== undefined) { setError(t("该提供方 ID 已被使用，请在高级配置里改一个。")); return; }
     }
     // 模型类型描述的是一个具体模型；留空＝整体并入发现结果，标注无处可落。
     if (visual && !typedId) { setError(t("要标注模型类型，先填模型名称。")); return; }
@@ -270,7 +287,7 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
         const models = discovered ?? [rewriteEntry<PiModelEntry>(undefined, typedId, "input", visual)];
         await updatePiProviders({
           ...pi.providers,
-          [route]: {
+          [finalRoute]: {
             // 只有在确实要存密钥时才记 references：留空＝走提供方自己的环境认证
             ...(key.trim() ? { apiKeyEnv: keyRef } : {}),
             api: apiProto,
@@ -354,25 +371,17 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
             )}
           </div>
           {isCustom && (
-            <>
-              <div>
-                <span className={cssRows.fieldLabel}>{t("接口地址")}</span>
-                <input
-                  className={cssRows.textField}
-                  style={{ display: "block", width: "100%" }}
-                  placeholder="https://api.example.com/v1"
-                  value={baseURL}
-                  onChange={(e) => setBaseURL(e.target.value)}
-                  onBlur={() => { if (baseURL.trim()) { const n = normalizeBaseURL(baseURL); if (n) setBaseURL(n); } }}
-                />
-                <div className={cssRows.fieldHint}>{t("只填到 /v1，不要带 /chat/completions")}</div>
-              </div>
-              <div>
-                <span className={cssRows.fieldLabel}>{t("提供方 ID")}</span>
-                <input className={cssRows.textField} style={{ display: "block", width: "100%" }} placeholder="acme-gateway" value={route} onChange={(e) => setRoute(e.target.value)} />
-                <div className={cssRows.fieldHint}>{t("小写字母开头，作为引擎里的路由名与密钥名")}</div>
-              </div>
-            </>
+            <div>
+              <span className={cssRows.fieldLabel}>{t("接口地址")}</span>
+              <input
+                className={cssRows.textField}
+                style={{ display: "block", width: "100%" }}
+                placeholder="https://api.example.com/v1"
+                value={baseURL}
+                onChange={(e) => setBaseURL(e.target.value)}
+                onBlur={() => { if (baseURL.trim()) { const n = normalizeBaseURL(baseURL); if (n) setBaseURL(n); } }}
+              />
+            </div>
           )}
           <div>
             <span className={cssRows.fieldLabel}>API Key</span>
@@ -404,12 +413,26 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
           <div>
             <div className={cssRows.advTitle}>{t("高级配置")}</div>
             {isCustom && (
-              <div className={cssRows.advField}>
-                <span className={cssRows.fieldLabel}>{t("协议")}</span>
-                {/* 默认取引擎报的第一个协议（provider.ts 的表首＝手写网关最常说的
-                    openai-completions），照官方卡片的默认口径。 */}
-                <Dropdown block options={protocolOptions} value={apiProto} onChange={setApiProto} />
-              </div>
+              <>
+                <div className={cssRows.advField}>
+                  <span className={cssRows.fieldLabel}>{t("提供方 ID")}</span>
+                  {/* 引擎里那条路由的键（也是密钥名）；留空＝按接口地址取名，
+                      placeholder 把推导出来的名字直接摆出来，不再写一行说明。 */}
+                  <input
+                    className={cssRows.textField}
+                    style={{ display: "block", width: "100%" }}
+                    placeholder={derivedRoute || "acme-gateway"}
+                    value={route}
+                    onChange={(e) => setRoute(e.target.value)}
+                  />
+                </div>
+                <div className={cssRows.advField}>
+                  <span className={cssRows.fieldLabel}>{t("协议")}</span>
+                  {/* 默认取引擎报的第一个协议（provider.ts 的表首＝手写网关最常说的
+                      openai-completions），照官方卡片的默认口径。 */}
+                  <Dropdown block options={protocolOptions} value={apiProto} onChange={setApiProto} />
+                </div>
+              </>
             )}
             <label className={cssRows.checkRow}>
               <input type="checkbox" checked={visual} onChange={(e) => setVisual(e.target.checked)} />

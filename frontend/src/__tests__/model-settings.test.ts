@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   declaredInput,
+  deriveRouteFromBaseURL,
   isRouteId,
   normalizeBaseURL,
   rewriteEntry,
@@ -26,15 +27,32 @@ describe("normalizeBaseURL", () => {
 });
 
 describe("isRouteId", () => {
-  it("小写字母开头的短横线串合法", () => {
-    expect(isRouteId("acme-gateway")).toBe(true);
-    expect(isRouteId("openrouter2")).toBe(true);
+  it("字母开头、字母数字与连字符，大小写不限", () => {
+    for (const ok of ["acme-gateway", "Acme-Gateway", "ACME", "openrouter2"]) {
+      expect(isRouteId(ok)).toBe(true);
+    }
   });
 
-  it("数字开头、大写、下划线、空串都不合法（凭据名会炸在引擎侧）", () => {
-    for (const bad of ["", "9x", "Acme", "acme_gateway", "acme-", "-acme"]) {
+  it("数字开头（派生出的密钥名引擎不收）、空串、多音分隔符都不合法", () => {
+    for (const bad of ["", "9x", "-acme", "acme-", "acme--gw", "acme_gateway", "acme.gateway", "acme gateway"]) {
       expect(isRouteId(bad)).toBe(false);
     }
+  });
+});
+
+describe("deriveRouteFromBaseURL（提供方 ID 留空时的默认名）", () => {
+  it("取主机名，非字母数字折成连字符", () => {
+    expect(deriveRouteFromBaseURL("https://api.example.com/v1")).toBe("api-example-com");
+    expect(deriveRouteFromBaseURL("token-plan-cn.xiaomimimo.com")).toBe("token-plan-cn-xiaomimimo-com");
+  });
+
+  it("地址为空/非法时不给默认名", () => {
+    expect(deriveRouteFromBaseURL("")).toBe("");
+    expect(deriveRouteFromBaseURL("https://")).toBe("");
+  });
+
+  it("主机名以数字开头时不给默认名（派生的密钥名会被引擎拒）", () => {
+    expect(deriveRouteFromBaseURL("http://127.0.0.1:8000/v1")).toBe("");
   });
 });
 
