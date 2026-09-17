@@ -10,6 +10,7 @@ import {
 } from "./ModelDialog";
 import { useModelCatalog } from "./useModelCatalog";
 import { confirmDialog } from "../components/DialogHost";
+import { providerLabel, QUICK_ADD_PROVIDERS } from "./vendors";
 import cssRows from "./SettingsRows.module.css";
 
 // 模型设置（折叠卡片式）：按提供方聚类的可折叠分组，模型行展示 Meta
@@ -44,7 +45,7 @@ export function ModelsManage() {
   const { reload } = cat;
   const [groups, setGroups] = useState<ProviderGroup[] | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [dialog, setDialog] = useState<{ edit: EditTarget | null } | null>(null);
+  const [dialog, setDialog] = useState<{ edit: EditTarget | null; initialProvider?: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [testInfo, setTests] = useState<Record<string, { state: "testing" | "ok" | "fail"; msg: string }>>({});
 
@@ -72,7 +73,7 @@ export function ModelsManage() {
           const p = providerMap.get(g.id);
           return {
             provider: g.id,
-            name: p?.displayName || g.name || g.id,
+            name: providerLabel(g.id, p?.displayName || g.name || g.id),
             // declared=true = 用户手写落盘的自定义提供方（引擎目录内置的
             // deepseek-official 与 pi 预置 catalog 均无此标记），才可组级删除。
             declared: p?.declared === true,
@@ -168,14 +169,30 @@ export function ModelsManage() {
 
   return (
     <div className={cssRows.section}>
-      <div className={cssRows.mgmtCard}>
-        <div className={cssRows.mgmtCardMain}>
-          <div className={cssRows.mgmtCardTitle}>{t("本地配置文件")}</div>
-          <div className={cssRows.mgmtCardDesc}>{t("提供方密钥与模型目录写入引擎 settings.yaml，保存即生效。")}</div>
+      <div className={cssRows.quickAdd}>
+        <div className={cssRows.quickAddTitle}>{t("快速添加")}</div>
+        <div className={cssRows.quickAddGrid}>
+          {QUICK_ADD_PROVIDERS.map((pid) => (
+            <button
+              key={pid}
+              type="button"
+              className={cssRows.quickAddChip}
+              onClick={() => { setNotice(null); setDialog({ edit: null, initialProvider: pid }); }}
+            >
+              <ProviderIcon provider={pid} size={18} />
+              <span>{providerLabel(pid, pid)}</span>
+            </button>
+          ))}
+          {/* 自定义入口＝原来的「添加模型」：弹窗里能选全部提供方与手填 baseURL */}
+          <button
+            type="button"
+            className={cssRows.quickAddChip}
+            onClick={() => { setNotice(null); setDialog({ edit: null }); }}
+          >
+            <Plus size={18} />
+            <span>{t("自定义 / Custom")}</span>
+          </button>
         </div>
-        <button className={cssRows.primaryButton} onClick={() => { setNotice(null); setDialog({ edit: null }); }}>
-          <Plus size={13} /> {t("添加模型")}
-        </button>
       </div>
       <div className={`${cssRows.sectionTitle} ${cssRows.savedTitle}`}>{t("已保存模型")}</div>
       {groups === null && <div className={cssRows.muted}>{t("载入中…")}</div>}
@@ -264,6 +281,7 @@ export function ModelsManage() {
           deepseek={cat.deepseek}
           pi={cat.pi}
           edit={dialog.edit}
+          initialProvider={dialog.initialProvider}
           credentials={cat.credentials}
           onDone={() => { setDialog(null); void reload(); }}
           onCancel={() => setDialog(null)}

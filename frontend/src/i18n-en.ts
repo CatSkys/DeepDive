@@ -215,8 +215,8 @@ export const EN: Record<string, string> = {
   "完成": "done",
   "已取消": "cancelled",
   // settings — models（已保存模型 + 添加/编辑弹窗）
-  "本地配置文件": "Local configuration",
-  "提供方密钥与模型目录写入引擎 settings.yaml，保存即生效。": "Provider keys and model catalogs live in the engine settings.yaml; changes apply on save.",
+  "快速添加": "Quick add",
+  "自定义 / Custom": "Custom",
   "已保存模型": "Saved models",
   "暂无已保存模型——点上方「添加模型」配置提供方密钥。": "No saved models yet — click \"Add model\" above to configure a provider key.",
   "编辑模型": "Edit model",

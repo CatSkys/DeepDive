@@ -6,6 +6,7 @@ import { api } from "../api";
 import { t, tt } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { Dropdown } from "../components/controls";
+import { providerLabel } from "./vendors";
 import cssRows from "./SettingsRows.module.css";
 
 // 添加/编辑模型弹窗（参考 WorkBuddy 模型设置版式）：提供商 + API Key + 模型
@@ -81,11 +82,13 @@ export async function removePiProvider(providerId: string) {
   });
 }
 
-export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone, onCancel }: {
+export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, credentials, onDone, onCancel }: {
   providers: ProviderInfo[];
   deepseek: DeepseekNs;
   pi: PiNs;
   edit: EditTarget | null;
+  /** 添加模式下预选的提供方（「快速添加」点某家厂商时带进来）；弹窗里仍可改成任意一家。 */
+  initialProvider?: string;
   /** 各提供方 keyRef → 密钥已配置（弹窗占位文案用）。 */
   credentials: Record<string, boolean>;
   onDone: () => void;
@@ -93,7 +96,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
 }) {
   const info = edit ? providers.find((p) => p.provider === edit.provider) : undefined;
   // 添加模式默认 DeepSeek 官方（引擎目录必有；编辑模式仍按编辑对象回填）。
-  const [providerId, setProviderId] = useState(edit?.provider ?? "deepseek-official");
+  const [providerId, setProviderId] = useState(edit?.provider ?? initialProvider ?? "deepseek-official");
   const isNewProvider = !edit && providerId === NEW_PROVIDER;
   const profile = providerId && providerId !== NEW_PROVIDER ? pi.providers[providerId] : undefined;
   const knownModels: ModelProfile[] =
@@ -270,7 +273,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
   const providerOptions = [
     ...providers.map((p) => ({
       v: p.provider,
-      label: p.displayName,
+      label: providerLabel(p.provider, p.displayName),
       iconNode: <ProviderIcon provider={p.provider} size={14} />,
     })),
     { v: NEW_PROVIDER, label: t("＋ 新建自定义提供方…") },
@@ -305,7 +308,7 @@ export function ModelDialog({ providers, deepseek, pi, edit, credentials, onDone
             {edit ? (
               <div className={cssRows.modelProviderLocked}>
                 <ProviderIcon provider={providerId} size={15} />
-                <span>{info?.displayName ?? providerId}</span>
+                <span>{providerLabel(providerId, info?.displayName ?? providerId)}</span>
                 <span className={cssRows.mono}>{providerId}</span>
               </div>
             ) : (
