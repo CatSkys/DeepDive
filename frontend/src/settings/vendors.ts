@@ -18,9 +18,9 @@ export const VENDOR_NAMES: Record<string, VendorName> = {
   deepseek: { zh: "DeepSeek", en: "DeepSeek" },
   moonshotai: { zh: "Kimi / Moonshot", en: "Kimi / Moonshot" },
   "moonshotai-cn": { zh: "Kimi / Moonshot", en: "Kimi / Moonshot" },
-  "kimi-coding": { zh: "Kimi 编程版", en: "Kimi Coding" },
+  "kimi-coding": { zh: "Kimi 编程套餐", en: "Kimi Coding Plan" },
   zai: { zh: "智谱 GLM", en: "Zhipu GLM" },
-  "zai-coding-cn": { zh: "智谱 GLM 编程版", en: "Zhipu GLM Coding" },
+  "zai-coding-cn": { zh: "智谱 GLM 编程套餐", en: "Zhipu GLM Coding Plan" },
   xiaomi: { zh: "小米 MiMo API", en: "Xiaomi MiMo API" },
   "xiaomi-token-plan-ams": { zh: "小米 MiMo Token 套餐", en: "Xiaomi MiMo Token Plan" },
   "xiaomi-token-plan-cn": { zh: "小米 MiMo Token 套餐", en: "Xiaomi MiMo Token Plan" },
@@ -34,7 +34,7 @@ export const VENDOR_NAMES: Record<string, VendorName> = {
   opencode: { zh: "OpenCode", en: "OpenCode" },
   "opencode-go": { zh: "OpenCode Go", en: "OpenCode Go" },
   "qwen-token-plan": { zh: "千问 Qwen", en: "Qwen" },
-  "qwen-token-plan-cn": { zh: "千问 Qwen（国内）", en: "Qwen (China)" },
+  "qwen-token-plan-cn": { zh: "千问 Qwen 套餐", en: "Qwen Token Plan" },
   "qwen-token-plan-individual": { zh: "千问 Qwen（个人）", en: "Qwen (Individual)" },
   google: { zh: "Google Gemini", en: "Google Gemini" },
   "google-vertex": { zh: "Google Vertex AI", en: "Google Vertex AI" },
@@ -58,16 +58,17 @@ export const VENDOR_NAMES: Record<string, VendorName> = {
 /** 「快速添加」的厂商（按主流程度排；点一个即带出该提供方的填 Key 流程）。 */
 export const QUICK_ADD_PROVIDERS: readonly string[] = [
   "deepseek-official",
-  "moonshotai-cn",
-  "zai",
-  "xiaomi",
+  "kimi-coding",
+  "zai-coding-cn",
+  "xiaomi-token-plan-cn",
   "minimax",
   "openai",
   "anthropic",
   "xai",
   "opencode",
-  "qwen-token-plan",
+  "qwen-token-plan-cn",
 ];
+
 
 /** 目录给的 displayName 就是 provider id 本身（全小写）；能认的换成人读的正式名。
     未收录的原样回退 —— 不认识的厂商编不出名字。 */
