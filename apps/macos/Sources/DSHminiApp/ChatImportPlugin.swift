@@ -6,7 +6,8 @@ import Foundation
 /// 「导入」设置页与首启欢迎页经桥接中继调用同一契约。
 /// 幂等：已安装且版本一致时零写入；用户自己的 profile bundles 合并保留。
 enum ChatImportPlugin {
-    private static let pluginName = "dsh-chat-import"
+    /// 也用于卸载面的"随包发布、不给卸载"判定（ProfilePluginAdmin）。
+    static let pluginName = "dsh-chat-import"
     private static let dependencyName = "fzstd"
 
     /// 安装结果（EngineLog 用）。

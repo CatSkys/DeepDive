@@ -48,7 +48,11 @@
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
 | `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；四个调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`worktreeRun`、`agentRun` |
 | `WorktreeAdmin.swift` | 工作树管理：解析 `git worktree list --porcelain`、组装 add/remove 参数（删除**不带 --force**，有未提交改动时让 git 拒绝）。只做生命周期，不做隔离 |
-| `SkillAdmin.swift` | 技能管理面（设置→技能与插件）：读 `<DSH_HOME>/skills/<id>/SKILL.md` 的清单（frontmatter 解析、缺键标注、随应用发布的三个技能标 managed）、删除一层技能目录（拒穿越）。技能没有 wire 面，读盘/删盘只能由壳做 |
+| `SkillAdmin.swift` | 技能管理面（设置→插件→技能）：读 `<DSH_HOME>/skills/<id>/SKILL.md` 的清单（frontmatter 解析、缺键标注、随应用发布的三个技能标 managed）、新建（写骨架 SKILL.md）、删除一层技能目录（拒穿越）。技能没有 wire 面，读盘/写盘/删盘只能由壳做 |
+| `ManagedPatchBlock.swift` | home 级 patch 层（`<DSH_HOME>/cordis.patch.yml`）里「托管块」的读写原语：按标记对切/换/取行，段外内容逐字保留、不解析 YAML。两个消费者：`PluginPatchAdmin`、`McpServerAdmin` |
+| `PluginPatchAdmin.swift` | 插件启停的落账：写 home 级 patch 层的托管块（`- id: <行id>` + `disabled:`）。profile 是 `patchReload: live` → **热生效、不重启**（实测 ≤4s 翻转，PITFALLS §7.6） |
+| `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |
+| `McpServerAdmin.swift` | MCP server 行：`- insert:` 一行一 server（`@deepseek-ai/dsh-mcp-client` + `config` 用 JSON 写进 YAML），同一份 home patch 层的第二块托管段；行上的 `disabled` 管启停，同样热生效 |
 | `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC 且把会话列表缓存在内存 → ①立即删 `sessions/<bucket>/<id>/`；②覆盖集登记到 UserDefaults，下次启动空窗期落账 `storages/workspace.json` 归档集 + `storages/session_projcache.json`；纯函数 + 原子写，结构不符拒绝落盘） |
 | `StatusItemController.swift` / `RecoveryWindowController.swift` | 菜单栏状态点与菜单、引擎失败恢复屏（诊断复制/凭据冷启动） |
 | `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | html/body 透明注入（勿加样式）、偏好、数据目录、设置面动态 JSON 树 |
@@ -73,7 +77,7 @@
 | `session/backgroundSession.ts` | 后台会话的判据与命名（唯一事实源）：读投影标题而非应用侧 id 台账（MiMo 形态），`badge`（整理类：复盘/整理，留列表加「自动」标识）/ `hidden`（执行类：落库会话、自动化运行，不进列表）；fail-open——读不到标题当用户会话。生产者（自进化交办、自动化运行）建会话时按同一份常量命名 |
 | `collab/` | 会话协作（设置→会话协作）：`model`（外部 agent 联系人的边界校验与命令行拼装）、`CollabSection`（会话联系人＝把消息投进别的会话；外部 agent 联系人＝壳一次性跑本机 CLI；外部会话历史指路「导入」分区）。**引擎没有会话间消息通道**（`MessageSourceMap` 只有 user/plugin/model/tool），投递在客户端完成、对方看到的是普通用户消息 |
 | `worktree/` | 工作树（设置→工作树）：`model`（默认分支/同级目录、主工作树判据、标签纯函数）、`WorktreeSection`（列/建/删 + 注册为工作区）。生命周期交给 git 本体；**并行会话隔离做不到**（会话 cwd 不可变、沙箱根 = 引擎进程 cwd），卡片里如实写明 |
-| `plugins/` | 技能与插件（设置→技能与插件）：`model`（插件行状态/排序/汇总纯函数：`enabled:false` = 本层未挂载，见 `PITFALLS §7.6`）、`PluginsSection`（Agent 预设组合 + 部署层模块两层只读清单 + 技能清单/删除）。**插件面不做开关**：引擎没有运行时启停 RPC，而 Loader 工具行本来就是空壳（真身在预设组合里） |
+| `plugins/` | 插件页（设置→插件）：`model`（插件行状态/排序/汇总/短名/行 id 纯函数：`enabled:false` 分「用户关掉」与「本层未挂载」两态，见 `PITFALLS §7.6`）、`PluginsSection`（tab 容器：插件/MCP/技能 + 搜索）、`PluginsTab`（已安装的插件与引擎模块两组 + 逐行启停开关 + 行菜单「立即试用/卸载」）、`McpTab`（MCP server 列表/启停/增删改）、`SkillsTab`（技能清单/新建/删除）。开关写壳的 patch 托管块，热生效 |
 | `memory/` | 会话记忆（Session 层）：`MemorySection`（设置→记忆：开关 + 笔记查看/忘记/全清审计面，经壳桥 memory-list/delete/clear）；插件与技能由壳铺盘 |
 | `mobile/` | 移动端远程控制（设置→移动端远程控制）：`RemoteControlSection`（扫码连接卡片 + 二维码 + 已配对设备台账）；远程状态与配对全在壳侧，前端只渲染快照（`host.ts` 的 remoteStatus/remoteStart/remoteStop/remoteRefresh/remoteRevoke/remoteCopyLink/qrEncode）。语义与安全边界见 `SPEC-MOBILE-REMOTE.md` |
 | `bots/` | Bot Channel（设置→移动端远程控制 右栏）：`BotChannelCard`（渠道列表 + 真实状态）、`BotManageDialog`（机器人台账 + 扫码新建 + 移除）、`im.ts`（渠道目录与状态纯函数）。wire 走 `api.ts` 的 `api.im`（插件的 `POST /api/dsh-im/<渠道>`，不是引擎 typert 网关）；契约见 `SPEC-MOBILE-REMOTE.md §5` |

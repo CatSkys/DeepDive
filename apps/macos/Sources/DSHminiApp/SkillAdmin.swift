@@ -87,6 +87,36 @@ enum SkillAdmin {
         }
     }
 
+    /// 新建一个技能：写 `<home>/skills/<name>/SKILL.md`（引擎 chokidar 热发现）。
+    /// 成功回 nil，否则回给用户看的原因。名字即目录名，也是模型侧 `/<name>` 的调用名。
+    /// 正文只放一个最小骨架——技能内容该由用户写，这里不替他编。
+    static func create(name: String, description: String, home: URL) -> String? {
+        let id = name.trimmingCharacters(in: .whitespaces)
+        if id.isEmpty { return "名字不能为空" }
+        if id.contains("/") || id.contains("..") || id.hasPrefix(".") {
+            return "名字不能含斜杠或前后缀点"
+        }
+        if managedNames.contains(id) { return "这个名字随应用发布占用，换一个" }
+        let dir = home.appendingPathComponent("skills", isDirectory: true).appendingPathComponent(id, isDirectory: true)
+        if FileManager.default.fileExists(atPath: dir.path) { return "同名技能已存在" }
+        let body = """
+        ---
+        name: \(ManagedPatchBlock.yamlString(id))
+        description: \(ManagedPatchBlock.yamlString(description.trimmingCharacters(in: .whitespaces)))
+        ---
+
+        # \(id)
+
+        """
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try body.write(to: dir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     // MARK: - 纯函数（单测钉子）
 
     /// SKILL.md 正文 → frontmatter 键值。起始行必须是独立的 `---`；到下一个 `---` 结束；
@@ -102,12 +132,24 @@ enum SkillAdmin {
             guard let colon = line.firstIndex(of: ":") else { continue }
             let key = String(line[line.startIndex..<colon]).trimmingCharacters(in: .whitespaces)
             var value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
-            if value.count >= 2,
-               (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'")) {
+            if value.count >= 2, value.hasPrefix("\""), value.hasSuffix("\"") {
+                // 双引号值按 JSON 字符串字面量解转义 —— 与写出侧的 yamlString 对称
+                // （skill create 写出的引号/换行会被转义，读回不还原就会留下反斜杠）。
+                value = unescapeJSONString(value) ?? String(value.dropFirst().dropLast())
+            } else if value.count >= 2, value.hasPrefix("'"), value.hasSuffix("'") {
                 value = String(value.dropFirst().dropLast())
             }
             if !key.isEmpty { out[key] = value }
         }
         return out
+    }
+
+    /// JSON 字符串字面量 → 原文；不是合法字面量时回 nil（调用方退回"只剥引号"，不猜）。
+    private static func unescapeJSONString(_ literal: String) -> String? {
+        guard let data = "[\(literal)]".data(using: .utf8),
+              let parsed = try? JSONSerialization.jsonObject(with: data) as? [String],
+              let first = parsed.first,
+              parsed.count == 1 else { return nil }
+        return first
     }
 }

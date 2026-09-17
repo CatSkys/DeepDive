@@ -64,6 +64,20 @@
 .ddTrigger[data-danger="true"] { color: #ff9f0a; }
 .ddTrigger[data-danger="true"] .ddTriggerIcon { color: #ff9f0a; }
 
+/* 行内「…」动作菜单的图标触发钮（同一套 .dd 体系，菜单共用 .ddMenu/.ddItem） */
+.ddIconTrigger {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: var(--ink-2);
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.ddIconTrigger:hover { background: var(--fill); color: var(--ink); }
+
 /* ── 下拉菜单（统一弹出面板配方） ── */
 .ddMenu {
   position: absolute;

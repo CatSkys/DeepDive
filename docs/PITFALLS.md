@@ -372,10 +372,26 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **`enabled:false` 的正确读法是「本层没挂载它」**：本机 Loader 层 160 行里有 27 行如此
   （`tool-bash` / `tool-fs` / `skill-filesystem` / `plan-mode` …），而它们在应用里明明能用
   ——因为**模型面对的工具挂在 agent preset 组合里**（默认 `standard` 预设的 `tool-bash`
-  是 `active`）。据此给 Loader 行加启停开关是错的：对工具行开关无效，对核心行开关会把
-  应用搞坏。设置页那一面因此只读（口径见 `frontend/src/plugins/model.ts` 头部）。
+  是 `active`）。所以对工具行开关无效（拨的是那一层空壳）：插件页因此**只给真正挂载的行
+  开关**，未挂载的行只显示状态文字（`frontend/src/plugins/model.ts` 的 `pluginTogglable`）。
+- **注意别再把这条读成"插件不能启停"**：曾据上一段结论把设置页做成只读，2026-09-17 实机
+  验证后推翻了它——启停可行且**热生效**（见下条）。
+- **开关的落点与生效**：写引擎 **home 级** patch 层 `<DSH_HOME>/cordis.patch.yml` 的托管块
+  （`- id: <行id>` + `disabled:`）。web profile 是 `patchReload: live`，引擎监视 profile 与
+  home 两层并事务性重应用——实测写入后 ≤4s `pluginInventory/list` 即翻转
+  （`enabled` true → false → true 可逆），**不需要重启引擎**。app 自有的 `engine-patch.yml`
+  走 `--patch` overlay：每次启动被重写、也不在 live 监视之列，不能拿来存用户开关。
+  同一个文件里 DeepDive 还写第二块托管段（MCP server 的 `- insert` 行），两块互不干扰：
+  块读写原语在 `ManagedPatchBlock`，段外内容（用户手写的 patch）逐字保留。
+- 「用户关掉的」与「本层没挂载」在 inventory 里都是 `enabled:false`，**必须分开**：前者靠
+  托管块里有没有该行 id 判定（壳的 `PluginPatchAdmin`），混在一起会让开关看着"点了没反应"。
 - 顺带：`pluginInventory/list` 的快照还带 `agentPresets`（本 profile 有 4 个 preset），
   要判断"某个工具在这台机器上开没开"，查的是预设组合行而不是 Loader 条目。
+- 另一条（2026-09-17 实测）：MCP server 行用 `- insert:` 插 `@deepseek-ai/dsh-mcp-client`
+  （`config: {serverName, transport, command/args 或 url}`），行 id 取 `mcp-<名字>`；同一份
+  home 层 patch 里插入后同样热挂载（实测 `include:mcp-probe` → `fiberPhase: active`），
+  行上的 `disabled` 字段照常生效。**但 bundle 成员的增删（如卸载插件）有启动边界**——
+  引擎 README 明写 running Profile 保留启动时的 Bundle 集合，那条路必须停起进程。
 
 ## 8. React 状态与表单（2026-09-05 全量体检批次沉淀）
 

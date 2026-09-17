@@ -96,4 +96,25 @@ final class SkillAdminTests: XCTestCase {
         XCTAssertNotNil(SkillAdmin.remove(directory: home.appendingPathComponent("skills/elsewhere").path, home: home))
         XCTAssertTrue(FileManager.default.fileExists(atPath: nested.path), "拒删时不许动到目录")
     }
+
+    // MARK: - create
+
+    func testCreateWritesSkillManifest() throws {
+        XCTAssertNil(SkillAdmin.create(name: "my-skill", description: "带冒号：与引号\"的说明", home: home))
+        let manifest = home.appendingPathComponent("skills/my-skill/SKILL.md")
+        let text = try String(contentsOf: manifest, encoding: .utf8)
+        // 写出去的 frontmatter 必须能被自己的解析器读回（含冒号与引号）
+        let head = SkillAdmin.frontmatter(text)
+        XCTAssertEqual(head["name"], "my-skill")
+        XCTAssertEqual(head["description"], "带冒号：与引号\"的说明")
+    }
+
+    func testCreateRefusesDuplicatesReservedAndBadNames() throws {
+        XCTAssertNil(SkillAdmin.create(name: "dup", description: "x", home: home))
+        XCTAssertNotNil(SkillAdmin.create(name: "dup", description: "x", home: home))
+        XCTAssertNotNil(SkillAdmin.create(name: "has/slash", description: "x", home: home))
+        XCTAssertNotNil(SkillAdmin.create(name: "   ", description: "x", home: home))
+        let reserved = try XCTUnwrap(SkillAdmin.managedNames.first)
+        XCTAssertNotNil(SkillAdmin.create(name: reserved, description: "x", home: home))
+    }
 }

@@ -503,6 +503,131 @@ export function skillRemove(directory: string): Promise<{ ok: boolean; error?: s
   );
 }
 
+/** 新建一个技能（写 SKILL.md 骨架）；引擎 chokidar 热发现，不用重启。 */
+export function skillCreate(name: string, description: string): Promise<{ ok: boolean; error?: string }> {
+  return bridgeRequest<{ ok: boolean; error?: string }>(
+    "skillCreated",
+    { ok: false },
+    (p) => {
+      const r = p as { ok?: boolean; error?: string } | undefined;
+      return { ok: r?.ok === true, error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "skill-create", reqId, name, description }),
+  );
+}
+
+/* ── 插件开关（设置 → 插件）：落账写 home 级 patch 层 `<DSH_HOME>/cordis.patch.yml`，
+   引擎 `patchReload: live` 热重载（写入后数秒内生效，不重启引擎）。引擎没有任何
+   插件写 RPC，所以这一半在壳（PluginPatchAdmin）。 ── */
+
+/** 一行被显式设置过的开关。 */
+export interface PluginPatchToggle {
+  /** patch 的目标是**行 id**（`hmr`），不是 inventory 的 entryId（`include:hmr`）。 */
+  rowId: string;
+  disabled: boolean;
+}
+
+/** 落账全量。「关掉」与「本层本来就没挂载」在 inventory 里都是 enabled:false，
+    靠这份落账才分得开（混在一起会让开关看着点了没反应）。 */
+export function pluginPatchList(): Promise<PluginPatchToggle[]> {
+  return bridgeRequest(
+    "pluginPatches",
+    [],
+    (p) => {
+      const r = p as { toggles?: PluginPatchToggle[] };
+      return Array.isArray(r?.toggles) ? r.toggles : [];
+    },
+    (reqId) => sendToShell({ type: "plugin-patch-list", reqId }),
+  );
+}
+
+/** 拨一行；落盘成功即返回（引擎热重载另行发生，调用方自己等一拍再刷新清单）。 */
+export function pluginPatchSet(rowId: string, disabled: boolean): Promise<{ ok: boolean; error?: string }> {
+  return bridgeRequest<{ ok: boolean; error?: string }>(
+    "pluginPatchSet",
+    { ok: false },
+    (p) => {
+      const r = p as { ok?: boolean; error?: string } | undefined;
+      return { ok: r?.ok === true, error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "plugin-patch-set", reqId, rowId, disabled }),
+  );
+}
+
+/** 随应用发布、每次启动被壳幂等装回来的插件名：这些删了也会回来，不给卸载入口。 */
+export function pluginBundledNames(): Promise<string[]> {
+  return bridgeRequest(
+    "pluginAdminInfo",
+    [],
+    (p) => {
+      const r = p as { bundled?: string[] };
+      return Array.isArray(r?.bundled) ? r.bundled : [];
+    },
+    (reqId) => sendToShell({ type: "plugin-admin-info", reqId }),
+  );
+}
+
+/** 卸载一个插件：摘掉 profile 依赖与 bundle 行。
+    引擎的 bundle 成员有**启动边界**（README：running Profile keeps its Bundle set），
+    改完必须重启引擎才生效——调用方负责调 restartEngine()。 */
+export function pluginUninstall(moduleName: string): Promise<{ ok: boolean; error?: string }> {
+  return bridgeRequest<{ ok: boolean; error?: string }>(
+    "pluginUninstalled",
+    { ok: false },
+    (p) => {
+      const r = p as { ok?: boolean; error?: string } | undefined;
+      return { ok: r?.ok === true, error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "plugin-uninstall", reqId, moduleName }),
+  );
+}
+
+/** 重启引擎进程（stop + start）：换 bundle 集合、改运行时文件后靠它生效。 */
+export function restartEngine(): void {
+  sendToShell({ type: "restart-engine" });
+}
+
+/* ── MCP server（设置 → 插件 → MCP）：每个 server 一行 `@deepseek-ai/dsh-mcp-client`
+   插进 profile 装配树，写在 home 级 patch 层的托管块里（与插件开关同一份文件）。
+   引擎 patchReload:live 热重载，增删改与启停都不必重启。挂载形状见 docs/TODO.md §7。 ── */
+
+export interface McpServerRow {
+  /** 行 id（`mcp-<name>`）：启停开关的 patch 目标。 */
+  rowId: string;
+  /** serverName：模型侧工具名是 `mcp__<name>__<tool>`。 */
+  name: string;
+  transport: "stdio" | "http";
+  command: string;
+  args: string[];
+  url: string;
+  enabled: boolean;
+}
+
+export function mcpServersList(): Promise<McpServerRow[]> {
+  return bridgeRequest(
+    "mcpServers",
+    [],
+    (p) => {
+      const r = p as { servers?: McpServerRow[] };
+      return Array.isArray(r?.servers) ? r.servers : [];
+    },
+    (reqId) => sendToShell({ type: "mcp-servers-list", reqId }),
+  );
+}
+
+/** 全量保存（增删改都走它）；失败回原因（壳侧先校验名字与必填项）。 */
+export function mcpServersSave(servers: McpServerRow[]): Promise<{ ok: boolean; error?: string }> {
+  return bridgeRequest<{ ok: boolean; error?: string }>(
+    "mcpServersSaved",
+    { ok: false },
+    (p) => {
+      const r = p as { ok?: boolean; error?: string } | undefined;
+      return { ok: r?.ok === true, error: r?.error };
+    },
+    (reqId) => sendToShell({ type: "mcp-servers-save", reqId, servers }),
+  );
+}
+
 /* ── 外部 agent 联系人（设置 → 会话协作）：壳跑一次本机 CLI 并回收输出。
    命令给绝对路径，或给一个裸命令名（壳经 /usr/bin/env 走 PATH 解析）；参数数组直传
    Process，不经 shell。不内置任何 agent 运行时——只是"当联系人调一次"。 ── */

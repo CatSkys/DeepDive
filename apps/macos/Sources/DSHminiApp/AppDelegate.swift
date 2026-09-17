@@ -208,6 +208,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pushHotkey()
         case "restart-engine":
             recovery.hide()
+            // 真正的重启：start() 对运行中的引擎是 no-op（process 幂等守卫），
+            // 只调它等于"什么都不做"——而 bundle 成员变化（如卸载插件）必须换进程才生效。
+            supervisor.stop()
             supervisor.start()
         case "rebind-hotkey":
             beginHotkeyRecording()
@@ -393,6 +396,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             skillList(reqId: body["reqId"] as? String ?? "")
         case "skill-remove":
             skillRemove(reqId: body["reqId"] as? String ?? "", directory: body["directory"] as? String ?? "")
+        case "skill-create":
+            skillCreate(
+                reqId: body["reqId"] as? String ?? "",
+                name: body["name"] as? String ?? "",
+                description: body["description"] as? String ?? "",
+            )
+        case "plugin-patch-list":
+            pluginPatchList(reqId: body["reqId"] as? String ?? "")
+        case "plugin-patch-set":
+            pluginPatchSet(
+                reqId: body["reqId"] as? String ?? "",
+                rowId: body["rowId"] as? String ?? "",
+                disabled: body["disabled"] as? Bool ?? false,
+            )
+        case "plugin-admin-info":
+            pluginAdminInfo(reqId: body["reqId"] as? String ?? "")
+        case "plugin-uninstall":
+            pluginUninstall(reqId: body["reqId"] as? String ?? "", moduleName: body["moduleName"] as? String ?? "")
+        case "mcp-servers-list":
+            mcpServersList(reqId: body["reqId"] as? String ?? "")
+        case "mcp-servers-save":
+            mcpServersSave(reqId: body["reqId"] as? String ?? "", rows: body["servers"] as? [[String: Any]] ?? [])
         case "remote-status":
             remoteStatus(reqId: body["reqId"] as? String ?? "")
         case "remote-start":
@@ -740,6 +765,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var fields: [String: Any] = ["reqId": reqId, "ok": error == nil]
         if let error { fields["error"] = error }
         windowController.pushHostCommand("skillRemoved", payload: AppDelegate.jsonPayload(fields))
+    }
+
+    /// 新建一个技能（写 SKILL.md 骨架）；引擎 chokidar 热发现，不用重启。
+    private func skillCreate(reqId: String, name: String, description: String) {
+        let error = SkillAdmin.create(name: name, description: description, home: AppPaths.harnessHome)
+        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil]
+        if let error { fields["error"] = error }
+        windowController.pushHostCommand("skillCreated", payload: AppDelegate.jsonPayload(fields))
+    }
+
+    /// 插件开关的当前落账（设置 → 插件）：托管段里被显式设置过的行。
+    /// 前端据此把"用户关掉的"与"本层本来就没挂载"分开——两者在 inventory 里
+    /// 都是 enabled:false，混在一起会让开关看起来点了没反应（PITFALLS §7.6）。
+    private func pluginPatchList(reqId: String) {
+        let toggles = PluginPatchAdmin.toggles(in: AppPaths.harnessHome)
+        let rows: [[String: Any]] = toggles.map { ["rowId": $0.rowId, "disabled": $0.disabled] }
+        windowController.pushHostCommand("pluginPatches", payload: AppDelegate.jsonPayload(["reqId": reqId, "toggles": rows]))
+    }
+
+    /// 拨一个插件开关：写 home 级 patch 层，引擎 patchReload:live 热重载生效（无需重启）。
+    private func pluginPatchSet(reqId: String, rowId: String, disabled: Bool) {
+        guard !rowId.isEmpty else {
+            windowController.pushHostCommand("pluginPatchSet", payload: AppDelegate.jsonPayload(["reqId": reqId, "ok": false, "error": "缺少行 id"]))
+            return
+        }
+        let error = PluginPatchAdmin.set(rowId: rowId, disabled: disabled, in: AppPaths.harnessHome)
+        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil, "rowId": rowId, "disabled": disabled]
+        if let error { fields["error"] = error }
+        windowController.pushHostCommand("pluginPatchSet", payload: AppDelegate.jsonPayload(fields))
+    }
+
+    /// 随包发布、不给卸载的插件名：前端据此决定行菜单里显不显示「卸载」。
+    private func pluginAdminInfo(reqId: String) {
+        windowController.pushHostCommand(
+            "pluginAdminInfo",
+            payload: AppDelegate.jsonPayload(["reqId": reqId, "bundled": Array(ProfilePluginAdmin.bundledPluginNames).sorted()]),
+        )
+    }
+
+    /// 卸载一个插件：摘掉 profile 依赖与 bundle 行（改完需重启引擎才生效，调用方负责重启）。
+    private func pluginUninstall(reqId: String, moduleName: String) {
+        let error = ProfilePluginAdmin.uninstall(moduleName: moduleName, dshHome: AppPaths.harnessHome)
+        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil, "moduleName": moduleName]
+        if let error { fields["error"] = error }
+        windowController.pushHostCommand("pluginUninstalled", payload: AppDelegate.jsonPayload(fields))
+    }
+
+    /// MCP server 清单（设置 → 插件 → MCP）：读 home 级 patch 层里的托管块。
+    private func mcpServersList(reqId: String) {
+        let rows: [[String: Any]] = McpServerAdmin.servers(in: AppPaths.harnessHome).map {
+            [
+                "rowId": $0.rowId, "name": $0.name, "transport": $0.transport,
+                "command": $0.command, "args": $0.args, "url": $0.url, "enabled": $0.enabled,
+            ]
+        }
+        windowController.pushHostCommand("mcpServers", payload: AppDelegate.jsonPayload(["reqId": reqId, "servers": rows]))
+    }
+
+    /// 全量保存 MCP server（增删改都走它）：写托管块，引擎 patchReload:live 热重载生效。
+    private func mcpServersSave(reqId: String, rows: [[String: Any]]) {
+        let servers = rows.map { row in
+            let name = row["name"] as? String ?? ""
+            return McpServerAdmin.Server(
+                rowId: (row["rowId"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? McpServerAdmin.rowId(of: name),
+                name: name,
+                transport: row["transport"] as? String ?? "stdio",
+                command: row["command"] as? String ?? "",
+                args: row["args"] as? [String] ?? [],
+                url: row["url"] as? String ?? "",
+                enabled: row["enabled"] as? Bool ?? true,
+            )
+        }
+        let error = McpServerAdmin.save(servers, in: AppPaths.harnessHome)
+        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil]
+        if let error { fields["error"] = error }
+        windowController.pushHostCommand("mcpServersSaved", payload: AppDelegate.jsonPayload(fields))
     }
 
     /// 移动端远程访问的状态回推：开关、局域网链接、二维码 data URL、设备台账。

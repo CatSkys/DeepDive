@@ -16,6 +16,8 @@ import { UsageSection } from "../stats/UsageSection";
 import { AutomationSection } from "../automation/AutomationSection";
 import { MemorySection } from "../memory/MemorySection";
 import { PluginsSection } from "../plugins/PluginsSection";
+import { shortModuleName } from "../plugins/model";
+import { draftKeyOf, writeDraft } from "../components/composer/useComposerDraft";
 import { CollabSection } from "../collab/CollabSection";
 import { WorktreeSection } from "../worktree/WorktreeSection";
 import { RemoteControlSection } from "../mobile/RemoteControlSection";
@@ -51,7 +53,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
   automationDraft?: AutomationProposal | null;
   onAutomationDraftUsed?: () => void;
 }) {
-  const { t } = useT();
+  const { t, tt } = useT();
   const store = useStore();
   const [activeId, setActiveId] = useState(initialSection ?? "general");
   /** 当前分区注入页头右侧的批量动作（切分区即清空）：只收数据与回调，按钮由页头渲染。 */
@@ -84,7 +86,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
         { id: "automation", label: t("自动化"), icon: CalendarClock },
         { id: "memory", label: t("记忆"), icon: Brain },
         { id: "evolution", label: t("自进化"), icon: Dna },
-        { id: "plugins", label: t("技能与插件"), icon: Puzzle },
+        { id: "plugins", label: t("插件"), icon: Puzzle },
         { id: "collab", label: t("会话协作"), icon: MessagesSquare },
         { id: "remote", label: t("移动端远程控制"), icon: Smartphone },
         { id: "import", label: t("导入"), icon: Download },
@@ -154,7 +156,20 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
             <EvolutionSection onOpenSession={(sessionId) => { onClose(); store.openSession(sessionId); }} />
           )}
           {activeId === "memory" && <MemorySection />}
-          {activeId === "plugins" && <PluginsSection />}
+          {activeId === "plugins" && (
+            <PluginsSection
+              onTryPlugin={(moduleName) => {
+                // 「立即试用」= 回新会话页 + 预填一条提问（用户可改可发）。
+                // 草稿写在 hero 键上：关掉设置页后 Composer 重新挂载会读回它。
+                writeDraft(
+                  draftKeyOf(null, store.activeWorkspaceId),
+                  tt("{name} 是什么？用它演示一下", "What is {name}? Show me what it does", { name: shortModuleName(moduleName) }),
+                );
+                store.openSession(null);
+                onClose();
+              }}
+            />
+          )}
           {activeId === "collab" && <CollabSection />}
           {activeId === "worktree" && <WorktreeSection />}
           {activeId === "remote" && <RemoteControlSection />}

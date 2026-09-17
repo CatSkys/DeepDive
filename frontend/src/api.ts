@@ -481,8 +481,9 @@ export const api = {
     mux.answerEvent(eventId, { kind: "rejected", error: { name: "Error", message: "cancelled by user", code: "cancelled" } }),
   agentPresets: () => unary<{ presets: AgentPreset[]; authorable?: boolean }>("agentPresets/list", {}),
   /** 插件清单（`pluginInventory/list`，只读投影）：Loader 的非 group entry + 每个
-   *  Agent 预设的组合行。引擎**没有任何改动插件的 RPC**，所以设置里这一面只读
-   *  （口径与实测见 frontend/src/plugins/model.ts 与 docs/PITFALLS.md）。 */
+   *  Agent 预设的组合行。引擎**没有任何改动插件的 RPC**——启停与卸载由壳写 patch /
+   * 改 profile 落账（host.ts 的 pluginPatch、pluginUninstall、mcpServers 系列），口径与实测见
+   * frontend/src/plugins/model.ts 与 docs/PITFALLS.md §7.6。 */
   pluginInventory: () => unary<{ entries: PluginInventoryEntry[]; agentPresets?: PluginPreset[] }>("pluginInventory/list", {}),
   /** @ 文件候选（0.1.2 fileReferences/list，扁平 {agentId, query}）：cwd 亲和
    *  整库递归索引排序；含 / 的查询退化为该目录列举。路径相对 agent cwd。 */

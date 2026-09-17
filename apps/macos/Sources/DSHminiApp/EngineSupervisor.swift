@@ -366,9 +366,9 @@ final class EngineSupervisor {
         """
         if sessionMemoryEnabled {
             // 本地文件插件（boot 时转 file:// URL）；路径含空格，必须 YAML 引号。
-            body += "\n    - id: deepdive-session-memory\n      name: \(Self.yamlString(sessionMemoryPluginURL.path))"
+            body += "\n    - id: deepdive-session-memory\n      name: \(ManagedPatchBlock.yamlString(sessionMemoryPluginURL.path))"
         }
-        body += "\n- id: system-prompt\n  config:\n    personaPrefix: \(Self.yamlString(Self.systemPromptPrefix(evolutionEnabled: evolutionEnabled, sessionMemoryEnabled: sessionMemoryEnabled)))"
+        body += "\n- id: system-prompt\n  config:\n    personaPrefix: \(ManagedPatchBlock.yamlString(Self.systemPromptPrefix(evolutionEnabled: evolutionEnabled, sessionMemoryEnabled: sessionMemoryEnabled)))"
         return body
     }
 
@@ -1200,12 +1200,6 @@ final class EngineSupervisor {
       ctx.logger?.info?.(PLUGIN_NAME + ": active at " + memoryDir);
     }
     """#
-
-    /// YAML 流标量：JSON 序列化单个字符串再掐掉数组方括号——引号/换行天然转义。 */
-    private static func yamlString(_ value: String) -> String {        guard let data = try? JSONSerialization.data(withJSONObject: [value]),
-              let text = String(data: data, encoding: .utf8) else { return "\"\"" }
-        return String(text.dropFirst().dropLast())
-    }
 
     /// Failure copy follows the entry source (SPEC-ENGINE-RUNTIME §3.4):
     /// a broken bundle means "reinstall the app"; a missing system dsh keeps

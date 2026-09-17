@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { createPortal } from "react-dom";
-import { Check } from "lucide-react";
+import { Check, MoreHorizontal } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 
 /** Global shared controls (settings sections + hero preset picker): monochrome
@@ -127,6 +127,104 @@ export function Dropdown({ options, value, onChange, variant }: { options: Dropd
         <ChevronDown size={14} className={rowsCss.ddChevron} />
       </button>
       {menu}
+    </div>
+  );
+}
+
+/** 一行动作菜单项：点一下执行一个动作（与 Dropdown 不同——没有"当前值"）。 */
+export interface RowMenuItem {
+  v: string;
+  label: string;
+  icon?: LucideIcon;
+  /** 危险动作（如卸载）：文字走 danger 语义色。 */
+  danger?: boolean;
+}
+
+const ROW_MENU_WIDTH = 176;
+
+/** 行内「…」动作菜单：触发钮是图标，菜单从它右下方展开、右对齐（靠右的行不会溢出）。
+ *  样式复用 Dropdown 的 `.ddMenu` / `.ddItem`（同一套菜单观感）。 */
+export function RowMenu({ items, onSelect, label }: {
+  items: RowMenuItem[];
+  onSelect: (v: string) => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node;
+      // portal 菜单挂 body，但点击沿 React 树冒泡——判定必须两个子树都算"内部"
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (!open) {
+      const r = triggerRef.current?.getBoundingClientRect();
+      if (r) {
+        const menuHeight = items.length * 30 + 12;
+        // 下方放不下就向上翻；翻转分支必须显式给 top:"auto"，否则与 .ddMenu 类自带的
+        // top 双约束把菜单压成细条（PITFALLS §1.7）
+        const top = window.innerHeight - r.bottom > menuHeight ? r.bottom + 4 : Math.max(8, r.top - menuHeight - 4);
+        setPos({ top, left: Math.max(8, Math.min(r.right - ROW_MENU_WIDTH, window.innerWidth - ROW_MENU_WIDTH - 8)) });
+      }
+    }
+    setOpen((o) => !o);
+  };
+
+  return (
+    <div className={rowsCss.dd} ref={rootRef}>
+      <button ref={triggerRef} type="button" className={rowsCss.ddIconTrigger} aria-label={label} onClick={toggle}>
+        <MoreHorizontal size={15} />
+      </button>
+      {open && pos && createPortal(
+        <div
+          ref={menuRef}
+          className={rowsCss.ddMenu}
+          role="menu"
+          style={{
+            position: "fixed",
+            top: pos.top,
+            bottom: "auto",
+            left: pos.left,
+            right: "auto",
+            minWidth: ROW_MENU_WIDTH,
+          }}
+        >
+          {items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.v}
+                type="button"
+                role="menuitem"
+                className={rowsCss.ddItem}
+                data-danger={item.danger ? "true" : undefined}
+                onClick={() => { setOpen(false); onSelect(item.v); }}
+              >
+                {Icon && <Icon size={15} className={rowsCss.ddItemIcon} />}
+                <span className={rowsCss.ddItemMain}>
+                  <span>{item.label}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

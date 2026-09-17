@@ -1,0 +1,116 @@
+/* 插件页独有元素的样式：页内 tab 胶囊、搜索框、插件图标方块。
+   卡片/行/按钮/徽章一律复用 SettingsRows.module.css（与设置页其他分区同一套观感），
+   颜色全走主题语义变量（--ink / --line / --fill，见 theme.css :root）。 */
+
+/* ── 页内 tab（参考图：胶囊条，选中项反色实底）── */
+/* 副标题：本页按参考图保留一行（UI-SPEC §1.9 的「无副标题」在此开后登记例外，
+   见 docs/UI-SPEC.md §1.9 末条）；负 margin 抵掉 .settings-head 的 16px 下边距，
+   让「标题 → 副标题 → tab」读成一组。 */
+.pageSubtitle {
+  margin: -6px 0 12px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  margin-bottom: 14px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+}
+.tab {
+  height: 26px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.tab:hover { color: var(--ink); }
+/* 两个类一起写：`--ink` 实底要压过 `.tab:hover` 的 2 特异度，且必须定义在其后 */
+.tab.tabActive { background: var(--ink); color: var(--panel-bg); font-weight: 600; }
+
+/* ── 搜索框（参考图：整宽、放大镜在左、无重描边）── */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill-soft);
+}
+.searchIcon { flex: none; color: var(--ink-3); }
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 13px;
+  color: var(--ink);
+}
+.searchInput::placeholder { color: var(--ink-3); }
+
+/* ── 插件图标方块：一插件一色相，取自模块名字符和（参考图的彩色图标位）。 ── */
+.glyph {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+/* ── 区块标题（参考图「已安装」「服务器」）── */
+.groupLabel {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.groupLabel + .card { margin-bottom: 22px; }
+
+/* 区块标题行：标题在左、动作钮在右（如 MCP 的「添加」） */
+.groupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.groupHead .groupLabel { margin: 0; }
+
+/* ── 编辑弹窗里的表单（grid：标签在上、控件在下，避免 flex 嵌套百分比宽）── */
+.form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.field { display: grid; gap: 4px; }
+.fieldLabel { font-size: 11.5px; color: var(--ink-3); }
+.formNote { font-size: 11px; color: var(--ink-3); line-height: 1.5; }
+
+/* ── 行内的模块标识（等宽小字，弱于名称）── */
+.rowMeta {
+  font-family: var(--dsh-font-mono-family);
+  font-size: 11px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 关掉的行整行降亮度（参考图：关闭项仍然可读但退后一层） */
+.rowOff { opacity: .55; }
