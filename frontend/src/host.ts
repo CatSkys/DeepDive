@@ -516,6 +516,20 @@ export function skillCreate(name: string, description: string): Promise<{ ok: bo
   );
 }
 
+/** 从目录安装技能：壳开选目录 sheet，选完把那一层拷进技能根。
+    用户取消时 `cancelled` 为真——那不是错误，调用方不该弹报错框。 */
+export function skillInstall(): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> {
+  return bridgeRequest<{ ok: boolean; error?: string; cancelled?: boolean }>(
+    "skillInstalled",
+    { ok: false },
+    (p) => {
+      const r = p as { ok?: boolean; error?: string; cancelled?: boolean } | undefined;
+      return { ok: r?.ok === true, error: r?.error, cancelled: r?.cancelled === true };
+    },
+    (reqId) => sendToShell({ type: "skill-install", reqId }),
+  );
+}
+
 /* ── 插件开关（设置 → 插件）：落账写 home 级 patch 层 `<DSH_HOME>/cordis.patch.yml`，
    引擎 `patchReload: live` 热重载（写入后数秒内生效，不重启引擎）。引擎没有任何
    插件写 RPC，所以这一半在壳（PluginPatchAdmin）。 ── */
@@ -596,27 +610,43 @@ export interface McpServerRow {
   rowId: string;
   /** serverName：模型侧工具名是 `mcp__<name>__<tool>`。 */
   name: string;
-  transport: "stdio" | "http";
+  /** 引擎 README 的取值，是 `streamable-http` 而不是 `http`。 */
+  transport: "stdio" | "streamable-http";
   command: string;
   args: string[];
   url: string;
+  /** 要注入的**环境变量名**（stdio）；值在壳的密钥表里，patch 只留引用。 */
+  env: string[];
+  /** 要注入的**请求头名**（streamable-http）；值同上。 */
+  headers: string[];
   enabled: boolean;
 }
 
-export function mcpServersList(): Promise<McpServerRow[]> {
-  return bridgeRequest(
+export interface McpStore {
+  servers: McpServerRow[];
+  /** serverName → 已配置的密钥 key **名**（壳不回值，与模型 Key 同一条惯例）。 */
+  configured: Record<string, string[]>;
+}
+
+export function mcpServersList(): Promise<McpStore> {
+  return bridgeRequest<McpStore>(
     "mcpServers",
-    [],
+    { servers: [], configured: {} },
     (p) => {
-      const r = p as { servers?: McpServerRow[] };
-      return Array.isArray(r?.servers) ? r.servers : [];
+      const r = p as { servers?: McpServerRow[]; configured?: Record<string, string[]> };
+      return { servers: Array.isArray(r?.servers) ? r.servers : [], configured: r?.configured ?? {} };
     },
     (reqId) => sendToShell({ type: "mcp-servers-list", reqId }),
   );
 }
 
-/** 全量保存（增删改都走它）；失败回原因（壳侧先校验名字与必填项）。 */
-export function mcpServersSave(servers: McpServerRow[]): Promise<{ ok: boolean; error?: string }> {
+/** 全量保存（增删改都走它）。`secrets` 只带**用户这次填了值**的密钥：
+    壳会与已有值合并（填了就覆盖、不再被 env/headers 引用的 key 丢掉）。
+    失败回原因（壳侧先校验名字与必填项）。 */
+export function mcpServersSave(
+  servers: McpServerRow[],
+  secrets: Record<string, Record<string, string>>,
+): Promise<{ ok: boolean; error?: string }> {
   return bridgeRequest<{ ok: boolean; error?: string }>(
     "mcpServersSaved",
     { ok: false },
@@ -624,7 +654,7 @@ export function mcpServersSave(servers: McpServerRow[]): Promise<{ ok: boolean; 
       const r = p as { ok?: boolean; error?: string } | undefined;
       return { ok: r?.ok === true, error: r?.error };
     },
-    (reqId) => sendToShell({ type: "mcp-servers-save", reqId, servers }),
+    (reqId) => sendToShell({ type: "mcp-servers-save", reqId, servers, secrets }),
   );
 }
 

@@ -6,9 +6,9 @@
 // 没有壳桥（手机浏览器打开 SPA）时显式说不可用，不冒充"空列表"。
 
 import { useCallback, useEffect, useState } from "react";
-import { FileCode2, Folder, Plus, Trash2 } from "lucide-react";
+import { FileCode2, Folder, FolderInput, Plus, Trash2 } from "lucide-react";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
-import { inShell, revealPath, skillCreate, skillList, skillRemove, type SkillFile } from "../host";
+import { inShell, revealPath, skillCreate, skillInstall, skillList, skillRemove, type SkillFile } from "../host";
 import { useT } from "../i18n";
 import rs from "../settings/SettingsRows.module.css";
 import css from "./Plugins.module.css";
@@ -67,6 +67,16 @@ export function SkillsTab({ query }: { query: string }) {
     window.setTimeout(refresh, 600);
   };
 
+  const install = async () => {
+    const result = await skillInstall();
+    if (result.cancelled) return;
+    if (!result.ok) {
+      await alertDialog({ message: result.error ?? t("安装失败") });
+      return;
+    }
+    window.setTimeout(refresh, 600);
+  };
+
   const removeSkill = async (skill: SkillFile) => {
     const ok = await confirmDialog({
       message: tt(
@@ -93,6 +103,9 @@ export function SkillsTab({ query }: { query: string }) {
         <div className={css.groupLabel}>
           {loaded ? tt("已安装（{n}）", "Installed ({n})", { n: String(skills.length) }) : t("已安装")}
         </div>
+        <button className={rs.secondaryButton} onClick={() => { void install(); }} disabled={!shell}>
+          <FolderInput size={12} /> {t("从目录安装")}
+        </button>
         <button className={rs.secondaryButton} onClick={() => setCreating(true)} disabled={!shell}>
           <Plus size={12} /> {t("新建")}
         </button>

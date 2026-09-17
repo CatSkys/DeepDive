@@ -82,15 +82,15 @@
 }
 .groupLabel + .card { margin-bottom: 22px; }
 
-/* 区块标题行：标题在左、动作钮在右（如 MCP 的「添加」） */
+/* 区块标题行：标题在左、动作钮在右（如 MCP 的「添加」、技能的「从目录安装 + 新建」）。
+   标题吃掉剩余宽度，动作钮才不会被 space-between 摊到中间去。 */
 .groupHead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 10px;
 }
-.groupHead .groupLabel { margin: 0; }
+.groupHead .groupLabel { flex: 1; margin: 0; }
 
 /* ── 编辑弹窗里的表单（grid：标签在上、控件在下，避免 flex 嵌套百分比宽）── */
 .form {

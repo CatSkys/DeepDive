@@ -22,7 +22,7 @@ vi.mock("../host", () => ({
   skillCreate: vi.fn(),
   pluginBundledNames: () => Promise.resolve([]),
   pluginUninstall: vi.fn(),
-  mcpServersList: () => Promise.resolve([]),
+  mcpServersList: () => Promise.resolve({ servers: [], configured: {} }),
   mcpServersSave: vi.fn(),
   restartEngine: vi.fn(),
   skillRemove: vi.fn(),

@@ -402,6 +402,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 name: body["name"] as? String ?? "",
                 description: body["description"] as? String ?? "",
             )
+        case "skill-install":
+            skillInstall(reqId: body["reqId"] as? String ?? "")
         case "plugin-patch-list":
             pluginPatchList(reqId: body["reqId"] as? String ?? "")
         case "plugin-patch-set":
@@ -417,7 +419,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "mcp-servers-list":
             mcpServersList(reqId: body["reqId"] as? String ?? "")
         case "mcp-servers-save":
-            mcpServersSave(reqId: body["reqId"] as? String ?? "", rows: body["servers"] as? [[String: Any]] ?? [])
+            mcpServersSave(
+                reqId: body["reqId"] as? String ?? "",
+                rows: body["servers"] as? [[String: Any]] ?? [],
+                newSecrets: (body["secrets"] as? [String: [String: String]]) ?? [:],
+            )
         case "remote-status":
             remoteStatus(reqId: body["reqId"] as? String ?? "")
         case "remote-start":
@@ -775,6 +781,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.pushHostCommand("skillCreated", payload: AppDelegate.jsonPayload(fields))
     }
 
+    /// 从目录安装技能：开一个选目录的 sheet，选完把那一层拷进技能根（引擎 chokidar 热发现）。
+    /// 用户取消时回 cancelled（不是错误），前端据此不弹报错框。
+    private func skillInstall(reqId: String) {
+        guard let window = windowController.window else {
+            windowController.pushHostCommand("skillInstalled", payload: AppDelegate.jsonPayload(
+                ["reqId": reqId, "ok": false, "error": "没有可用窗口"]))
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "选择含 SKILL.md 的技能目录"
+        panel.prompt = "安装"
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            var fields: [String: Any] = ["reqId": reqId]
+            if response == .OK, let url = panel.url {
+                let error = SkillAdmin.install(sourceDirectory: url.path, home: AppPaths.harnessHome)
+                fields["ok"] = error == nil
+                if let error { fields["error"] = error }
+            } else {
+                fields["ok"] = false
+                fields["cancelled"] = true
+            }
+            self.windowController.pushHostCommand("skillInstalled", payload: AppDelegate.jsonPayload(fields))
+        }
+    }
+
     /// 插件开关的当前落账（设置 → 插件）：托管段里被显式设置过的行。
     /// 前端据此把"用户关掉的"与"本层本来就没挂载"分开——两者在 inventory 里
     /// 都是 enabled:false，混在一起会让开关看起来点了没反应（PITFALLS §7.6）。
@@ -812,19 +847,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.pushHostCommand("pluginUninstalled", payload: AppDelegate.jsonPayload(fields))
     }
 
-    /// MCP server 清单（设置 → 插件 → MCP）：读 home 级 patch 层里的托管块。
+    /// MCP server 清单（设置 → 插件 → MCP）：配置源是 app 自己的 JSON，
+    /// patch 块由 McpServerAdmin 生成。密钥**只回"哪些 key 已配置"**（不回值）——
+    /// 与模型 Key 同一条惯例（`credentials/describe` 也不回值）。
     private func mcpServersList(reqId: String) {
-        let rows: [[String: Any]] = McpServerAdmin.servers(in: AppPaths.harnessHome).map {
+        let store = McpServerAdmin.load(in: AppPaths.supportDir)
+        let rows: [[String: Any]] = store.servers.map {
             [
                 "rowId": $0.rowId, "name": $0.name, "transport": $0.transport,
-                "command": $0.command, "args": $0.args, "url": $0.url, "enabled": $0.enabled,
+                "command": $0.command, "args": $0.args, "url": $0.url,
+                "env": $0.env, "headers": $0.headers, "enabled": $0.enabled,
             ]
         }
-        windowController.pushHostCommand("mcpServers", payload: AppDelegate.jsonPayload(["reqId": reqId, "servers": rows]))
+        let configured = store.secrets.mapValues { Array($0.keys).sorted() }
+        windowController.pushHostCommand("mcpServers", payload: AppDelegate.jsonPayload([
+            "reqId": reqId, "servers": rows, "configured": configured,
+        ]))
     }
 
-    /// 全量保存 MCP server（增删改都走它）：写托管块，引擎 patchReload:live 热重载生效。
-    private func mcpServersSave(reqId: String, rows: [[String: Any]]) {
+    /// 保存 MCP server（增删改都走它）。密钥合并规则：用户填了值就覆盖；不再被该
+    /// server 的 env/headers 引用的 key 丢掉（用户在弹窗里删了引用即等于删密钥）。
+    private func mcpServersSave(reqId: String, rows: [[String: Any]], newSecrets: [String: [String: String]]) {
+        let previous = McpServerAdmin.load(in: AppPaths.supportDir)
         let servers = rows.map { row in
             let name = row["name"] as? String ?? ""
             return McpServerAdmin.Server(
@@ -834,10 +878,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 command: row["command"] as? String ?? "",
                 args: row["args"] as? [String] ?? [],
                 url: row["url"] as? String ?? "",
+                env: row["env"] as? [String] ?? [],
+                headers: row["headers"] as? [String] ?? [],
                 enabled: row["enabled"] as? Bool ?? true,
             )
         }
-        let error = McpServerAdmin.save(servers, in: AppPaths.harnessHome)
+        var secrets: [String: [String: String]] = [:]
+        for server in servers {
+            let referenced = Set(server.env + server.headers)
+            var keys = (previous.secrets[server.name] ?? [:]).filter { referenced.contains($0.key) }
+            for key in referenced {
+                if let fresh = newSecrets[server.name]?[key], !fresh.isEmpty { keys[key] = fresh }
+            }
+            if !keys.isEmpty { secrets[server.name] = keys }
+        }
+        let error = McpServerAdmin.save(
+            McpServerAdmin.Store(servers: servers, secrets: secrets),
+            in: AppPaths.supportDir, harnessHome: AppPaths.harnessHome,
+        )
         var fields: [String: Any] = ["reqId": reqId, "ok": error == nil]
         if let error { fields["error"] = error }
         windowController.pushHostCommand("mcpServersSaved", payload: AppDelegate.jsonPayload(fields))

@@ -291,6 +291,12 @@ final class EngineSupervisor {
             process.executableURL = url
             process.arguments = ["--profile", "web", "--patch", patchArg.path, "--no-open", "--port", "0"]
         }
+        // MCP server 的密钥经环境变量交给引擎：patch 里只写
+        // `!!js process.env.MCP_<SERVER>_<KEY>` 这个引用，值本身不落 patch 文件
+        // （MCP client 的挂载形状即如此，见 McpServerAdmin.environment）。
+        for (key, value) in McpServerAdmin.environment(in: AppPaths.supportDir) {
+            environment[key] = value
+        }
         process.environment = environment
         process.currentDirectoryURL = URL(fileURLWithPath: cwd, isDirectory: true)
 

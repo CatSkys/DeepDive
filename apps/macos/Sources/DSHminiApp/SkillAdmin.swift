@@ -117,6 +117,30 @@ enum SkillAdmin {
         }
     }
 
+    /// 从已有目录装一个技能：把 `<source>/SKILL.md` 所在的那一层整个拷进技能根。
+    /// 成功回 nil，否则回给用户看的原因。同名已存在时拒绝（覆盖会静默丢掉用户原稿）。
+    static func install(sourceDirectory: String, home: URL) -> String? {
+        let source = URL(fileURLWithPath: sourceDirectory).standardizedFileURL
+        let root = home.appendingPathComponent("skills", isDirectory: true).standardizedFileURL
+        guard FileManager.default.fileExists(atPath: source.appendingPathComponent("SKILL.md").path) else {
+            return "这个目录里没有 SKILL.md"
+        }
+        guard source.path != root.path, source.deletingLastPathComponent().path != root.path else {
+            return "它已经在技能根里了"
+        }
+        let id = source.lastPathComponent
+        if id.isEmpty || id.hasPrefix(".") { return "目录名不能作技能名" }
+        let target = root.appendingPathComponent(id, isDirectory: true)
+        guard !FileManager.default.fileExists(atPath: target.path) else { return "同名技能已存在" }
+        do {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: source, to: target)
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     // MARK: - 纯函数（单测钉子）
 
     /// SKILL.md 正文 → frontmatter 键值。起始行必须是独立的 `---`；到下一个 `---` 结束；

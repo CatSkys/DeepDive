@@ -46,8 +46,10 @@ enum ManagedPatchBlock {
     }
 
     /// YAML 标量安全引用（JSON 字符串字面量是 YAML 双引号风格的子集）。
+    /// `withoutEscapingSlashes`：默认会把 `/` 写成 `\/`（YAML 认这个转义，但路径与
+    /// URL 满屏反斜杠既难读也难人工核）。 */
     static func yamlString(_ value: String) -> String {
-        guard let data = try? JSONSerialization.data(withJSONObject: [value]),
+        guard let data = try? JSONSerialization.data(withJSONObject: [value], options: [.withoutEscapingSlashes]),
               let text = String(data: data, encoding: .utf8) else { return "\"\"" }
         return String(text.dropFirst().dropLast())
     }
