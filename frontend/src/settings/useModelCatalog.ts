@@ -1,6 +1,7 @@
 // 模型目录数据源（设置页 ModelsManage 与首启引导 FirstRunGate 共用，唯一拷贝）：
 // llm/listConfigurableProviders 目录 + settings 的 llm-deepseek / llm-pi-ai 两命名空间 +
-// 各提供方密钥配置态（credentials.describe 实况）。
+// 各提供方密钥配置态（credentials.describe 实况）+ 手写路由可声明的协议枚举
+// （llm-pi-ai 自己的 schema，见 piProtocols.ts）。
 // 语义红线：「是否已配置」只认读取成功的结果——引擎瞬断/读失败时
 // configuredKnown=false，调用方不得把"读不出配置"冒充成"未配置"
 //（首启门据此防止把密钥已配好的老用户锁进引导页）。
@@ -9,16 +10,20 @@ import { api } from "../api";
 import { tt } from "../i18n";
 import {
   keyRefOf,
+  type DeepseekModelEntry,
   type DeepseekNs,
   type PiNs,
   type PiProviderProfile,
   type ProviderInfo,
 } from "./ModelDialog";
+import { piProtocolsOf } from "./piProtocols";
 
 export interface ModelCatalog {
   providers: ProviderInfo[];
   deepseek: DeepseekNs;
   pi: PiNs;
+  /** 手写提供方可声明的 wire 协议（引擎 llm-pi-ai schema 的枚举；空＝无自定义入口）。 */
+  piProtocols: string[];
   /** keyRef → 密钥已配置（最近一次读取成功的 describe 实况）。 */
   credentials: Record<string, boolean>;
   /** 首轮 reload 结束（成功或失败，失败看 loadError）。 */
@@ -36,6 +41,7 @@ export function useModelCatalog(): ModelCatalog {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [deepseek, setDeepseek] = useState<DeepseekNs>({ apiKeyEnv: "DEEPSEEK_API_KEY", models: [] });
   const [pi, setPi] = useState<PiNs>({ providers: {} });
+  const [piProtocols, setPiProtocols] = useState<string[]>([]);
   const [credentials, setCredentials] = useState<Record<string, boolean>>({});
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -52,7 +58,7 @@ export function useModelCatalog(): ModelCatalog {
       const piNs = (d.namespaces ?? []).find((n) => n.ns === "llm-pi-ai");
       const deepVal = (deepNs?.value ?? {}) as {
         apiKeyEnv?: string;
-        models?: Array<{ id: string; name?: string; contextWindow?: number; inputModalities?: string[] }>;
+        models?: DeepseekModelEntry[];
       };
       const piVal = (piNs?.value ?? {}) as { providers?: Record<string, PiProviderProfile> };
       const apiKeyEnv = deepVal.apiKeyEnv ?? "DEEPSEEK_API_KEY";
@@ -66,6 +72,7 @@ export function useModelCatalog(): ModelCatalog {
       setProviders(list);
       setDeepseek({ apiKeyEnv, models: deepVal.models ?? [] });
       setPi({ providers: piVal.providers ?? {} });
+      setPiProtocols(piProtocolsOf(piNs));
       setReady(true);
 
       // 密钥配置态：读成功才确证（refs 为空 = 目录异常，同样不算确证）。
@@ -96,7 +103,7 @@ export function useModelCatalog(): ModelCatalog {
 
   const anyConfigured = Object.values(credentials).some(Boolean);
   return {
-    providers, deepseek, pi, credentials,
+    providers, deepseek, pi, piProtocols, credentials,
     ready, loadError, configuredKnown, anyConfigured,
     reload,
   };

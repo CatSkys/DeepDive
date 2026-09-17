@@ -9,10 +9,17 @@ import { Dropdown } from "../components/controls";
 import { HIDDEN_PROVIDERS, providerLabel } from "./vendors";
 import cssRows from "./SettingsRows.module.css";
 
-// 添加/编辑模型弹窗（参考 WorkBuddy 模型设置版式）：提供商 + API Key + 模型
-// 三段式渐进表单。数据契约沿用现有路由——密钥走 credentials.set，DeepSeek
-// 目录写 llm-deepseek.models，预置/自定义提供方写 llm-pi-ai.providers，模型
-// 发现走 llm.discoverModels。全部提供方只在此弹窗出现，不再平铺在页面上。
+// 添加/编辑模型弹窗（版式照参考图）：提供商 → 接口地址 → API Key → 模型名称 →
+// 高级配置（模型类型）。字段落点按适配器分流——密钥走 credentials.set，DeepSeek
+// 官方目录写 llm-deepseek.models，预置/手写提供方写 llm-pi-ai.providers，模型
+// 发现走 llm.discoverModels。可声明的协议从 llm-pi-ai 的 schema 读（piProtocols.ts），
+// 前端不另存一份协议表。
+//
+// 条目字段以各适配器自己的 Config 为准（0.1.2-rc.1 settings/describe 实测）：
+//   · pi      ：id / name / contextWindow / maxTokens / input / reasoningEfforts / compat
+//   · deepseek：id / name / description / contextWindow / maxTokens / inputModalities / …
+// 两家的输入模态词表都只有 text 与 image（视频、音频写进去会被 schema 拒绝），
+// 所以「模型类型」只提供视觉（图片输入）一项。
 
 /** BaseURL 规范化与校验（§2）：去空白、补 https:// 缺省协议、去尾斜杠；
  *  返回 null 表示无法成为合法 http(s) 地址。 */
@@ -30,29 +37,53 @@ export function normalizeBaseURL(raw: string): string | null {
   }
 }
 
-export interface ModelProfile { id: string; name?: string; contextWindow?: number; maxTokens?: number; inputModalities?: string[] }
+/** 手写路由 id：以小写字母开头的 settings key，同时是凭据名的词干
+ *  （keyRefOf 把它大写化，凭据名必须是合法 shell 标识符——数字开头会在凭据
+ *  面炸出一条用户看不懂的正则错误）。与官方 CustomProviderCard 同一约束。 */
+const ROUTE_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+export function isRouteId(value: string): boolean {
+  return ROUTE_PATTERN.test(value);
+}
+
+/** llm.discoverModels 的候选（引擎只回这四个字段）。 */
+export interface DiscoveredModel { id: string; name?: string; contextWindow?: number; maxTokens?: number }
+
+/** llm-pi-ai 的模型条目：模态字段拼写是 input。 */
+export interface PiModelEntry extends DiscoveredModel {
+  input?: string[];
+}
+
+/** llm-deepseek 的目录条目：模态字段拼写是 inputModalities。 */
+export interface DeepseekModelEntry extends DiscoveredModel {
+  description?: string;
+  inputModalities?: string[];
+}
+
 export interface PiProviderProfile {
   apiKeyEnv?: string;
   displayName?: string;
   api?: string;
   baseURL?: string;
-  models?: ModelProfile[];
+  models?: PiModelEntry[];
+  /** 按 id 改目录里那一个模型、其余照旧服务（引擎 llm-pi-ai 的 modelOverrides）。 */
+  modelOverrides?: Record<string, Omit<PiModelEntry, "id">>;
 }
 export interface ProviderInfo { provider: string; displayName: string; settingsNs: string; settingsPath?: string[]; active: boolean; /** 用户在 llm-pi-ai 落盘过 profile 的自定义提供方＝可组级删除。 */ declared?: boolean }
 
-export interface DeepseekNs { apiKeyEnv: string; models: ModelProfile[] }
+export interface DeepseekNs { apiKeyEnv: string; models: DeepseekModelEntry[] }
 export interface PiNs { providers: Record<string, PiProviderProfile> }
 
 export interface EditTarget {
   provider: string;
   kind: "deepseek" | "pi";
-  /** 编辑的目录条目原 id（deepseek / 已落盘 pi 目录行才有；引擎声明目录行无）。 */
-  origId?: string;
+  /** 正在编辑的模型 id（回填输入框）。 */
+  origId: string;
+  /** 该 id 是否已落盘成用户条目：引擎目录行＝false，保存时按"改目录条目"处理。 */
+  listed: boolean;
 }
 
-const MANUAL = "__manual__";
-const NEW_MODEL = "__new__";
-const NEW_PROVIDER = "__new__";
+/** 提供方下拉里的「自定义」项：选它＝手写一条路由（接口地址 + 协议 + 模型）。 */
+export const CUSTOM_PROVIDER = "__custom__";
 
 export function keyRefOf(provider: string, deepseekApiKeyEnv: string): string {
   if (provider === "deepseek-official") return deepseekApiKeyEnv || "DEEPSEEK_API_KEY";
@@ -60,7 +91,7 @@ export function keyRefOf(provider: string, deepseekApiKeyEnv: string): string {
 }
 
 /** DeepSeek 模型目录整体落盘（settings.update + revision 围栏）。 */
-export async function updateDeepseekModels(models: ModelProfile[]) {
+export async function updateDeepseekModels(models: DeepseekModelEntry[]) {
   await writeNamespaceOnce("llm-deepseek", t("本引擎未提供模型目录。"), async (ns) => {
     await api.settingsUpdate({ ns: "llm-deepseek", patch: { ...(ns.value ?? {}), models }, expectedRevision: ns.revision });
   });
@@ -82,12 +113,54 @@ export async function removePiProvider(providerId: string) {
   });
 }
 
-export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, credentials, onDone, onCancel }: {
+/** 模型类型声明落在哪个字段：pi 是 input，deepseek 是 inputModalities。 */
+export function visualKeyOf(providerId: string): "input" | "inputModalities" {
+  return providerId === "deepseek-official" ? "inputModalities" : "input";
+}
+
+/** 条目上已声明的输入模态（读原条目，回填勾选态）。 */
+export function declaredInput(entry: unknown, key: "input" | "inputModalities"): string[] {
+  const list = (entry as Record<string, unknown> | null | undefined)?.[key];
+  return Array.isArray(list) ? list.filter((m): m is string => typeof m === "string") : [];
+}
+
+/** 回写一条目录条目：原条目整条带过——界面不编辑的字段（description、
+ *  imagePixelBudget、maxTokens、reasoningEfforts、compat…）不能因为一次编辑
+ *  被整条替换抹掉；只落 id 与模型类型声明。取消勾选＝不声明（引擎按目录条目
+ *  或路由默认收口），不是声明成纯文本——后者会把目录里带视觉的条目降级。 */
+export function rewriteEntry<T extends { id: string }>(
+  orig: T | undefined,
+  id: string,
+  key: "input" | "inputModalities",
+  visual: boolean,
+): T {
+  const next = { ...(orig ?? {}), id } as Record<string, unknown>;
+  if (visual) next[key] = ["text", "image"];
+  else delete next[key];
+  return next as T;
+}
+
+/** 回写一条 modelOverrides 项：形状与条目相同但没有 id（id 是字典的键）。
+ *  返回 null＝这条声明清空后无话可说，调用方把该键删掉而不是留一个空对象。 */
+export function rewriteOverride(
+  orig: Omit<PiModelEntry, "id"> | undefined,
+  key: "input" | "inputModalities",
+  visual: boolean,
+): Omit<PiModelEntry, "id"> | null {
+  const next = { ...(orig ?? {}) } as Record<string, unknown>;
+  if (visual) next[key] = ["text", "image"];
+  else delete next[key];
+  return Object.keys(next).length === 0 ? null : (next as Omit<PiModelEntry, "id">);
+}
+
+export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initialProvider, credentials, onDone, onCancel }: {
   providers: ProviderInfo[];
   deepseek: DeepseekNs;
   pi: PiNs;
+  /** 手写路由可声明的协议（引擎 llm-pi-ai schema 的枚举；空＝本引擎没有自定义入口）。 */
+  piProtocols: string[];
   edit: EditTarget | null;
-  /** 添加模式下预选的提供方（「快速添加」点某家厂商时带进来）；弹窗里仍可改成任意一家。 */
+  /** 添加模式下预选的提供方（「快速添加」点厂商带 provider id，点自定义带 CUSTOM_PROVIDER）。 */
   initialProvider?: string;
   /** 各提供方 keyRef → 密钥已配置（弹窗占位文案用）。 */
   credentials: Record<string, boolean>;
@@ -97,28 +170,23 @@ export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, cr
   const info = edit ? providers.find((p) => p.provider === edit.provider) : undefined;
   // 添加模式默认 DeepSeek 官方（引擎目录必有；编辑模式仍按编辑对象回填）。
   const [providerId, setProviderId] = useState(edit?.provider ?? initialProvider ?? "deepseek-official");
-  const isNewProvider = !edit && providerId === NEW_PROVIDER;
-  const profile = providerId && providerId !== NEW_PROVIDER ? pi.providers[providerId] : undefined;
-  const knownModels: ModelProfile[] =
-    providerId === "deepseek-official" ? deepseek.models : (profile?.models ?? []);
-  // 编辑目录条目必须回填原字段（AUD-067）： modelName/modelContext 留空的话，
-  // 保存按"空值省略字段"整条替换，原有 name/contextWindow 会被静默丢掉。
-  const orig = edit?.origId !== undefined ? knownModels.find((m) => m.id === edit.origId) : undefined;
+  const isCustom = !edit && providerId === CUSTOM_PROVIDER;
+  const isDeepseek = providerId === "deepseek-official";
+  const profile = providerId && !isCustom ? pi.providers[providerId] : undefined;
+  const knownEntries: Array<PiModelEntry | DeepseekModelEntry> =
+    isDeepseek ? deepseek.models : (profile?.models ?? []);
+  // 编辑已落盘条目必须回填原字段（AUD-067）：条目整条替换，界面不展示的字段
+  // （显示名、容量…）靠 rewriteEntry 从原条目带过来。引擎目录行没有用户条目，
+  // 读不到声明，勾选态按"未声明"起手。
+  const origEntry = edit?.listed ? knownEntries.find((m) => m.id === edit.origId) : undefined;
+  const visualKey = visualKeyOf(providerId);
 
   const [key, setKey] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [modelChoice, setModelChoice] = useState<string>(edit?.origId ?? "");
-  const [modelId, setModelId] = useState(edit?.origId ?? "");
-  const [modelName, setModelName] = useState(orig?.name ?? "");
-  const [modelContext, setModelContext] = useState(
-    orig?.contextWindow !== undefined ? String(orig.contextWindow) : "",
-  );
-  const [newId, setNewId] = useState("");
-  const [newDisplayName, setNewDisplayName] = useState("");
+  const [modelId, setModelId] = useState(edit?.origId ?? "");  const [visual, setVisual] = useState(declaredInput(origEntry, visualKey).includes("image"));
+  const [route, setRoute] = useState("");
   const [baseURL, setBaseURL] = useState("");
-  const [apiProto, setApiProto] = useState("");
-  const [discovered, setDiscovered] = useState<ModelProfile[] | null>(null);
-  const [discovering, setDiscovering] = useState(false);
+  const [apiProto, setApiProto] = useState(piProtocols[0] ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -128,138 +196,106 @@ export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, cr
     return () => document.removeEventListener("keydown", onKey);
   }, [onCancel]);
 
-  const isDeepseek = providerId === "deepseek-official";
-  const needsManual = isNewProvider || knownModels.length === 0 || modelChoice === MANUAL;
-  // 编辑目录条目（deepseek 行 / 已落盘的 pi 目录行）时直接展开条目字段
-  const editingEntry = !!edit && (edit.kind === "deepseek" || !!edit.origId);
-  const showEntryFields = editingEntry || (!edit && isDeepseek && modelChoice === NEW_MODEL);
-  const withContext = isDeepseek;
-  const keyRef = keyRefOf(providerId || edit?.provider || "", deepseek.apiKeyEnv);
+  const keyRef = keyRefOf(isCustom ? route : (providerId || edit?.provider || ""), deepseek.apiKeyEnv);
   // 已配置与否只认 credentials 实况（AUD-101）：编辑态加 `|| !!edit` 会让
   // 未配 key 的提供方也显示"已配置——留空保持不变"，误导用户以为有旧值。
   const keyIsConfigured = !!credentials[keyRef];
+  /** 模型名称留空＝保存时问提供方要一份清单（手写路由靠它一次配齐）；编辑态名称必填。 */
+  const discoversAll = !isDeepseek && edit === null;
 
-  const discover = async () => {
-    setDiscovering(true);
-    setError(null);
-    if (isNewProvider && baseURL.trim()) {
-      const normalized = normalizeBaseURL(baseURL);
-      if (normalized === null) {
-        setError(tt("baseURL 无效：需要 http(s) 地址，如 https://api.example.com/v1", "Invalid baseURL: expected an http(s) URL like https://api.example.com/v1"));
-        setDiscovering(false);
-        return;
-      }
-      setBaseURL(normalized);
-    }
-    try {
-      const r = await api.discoverModels({
-        settingsNs: "llm-pi-ai",
-        ...(isNewProvider ? { baseURL, api: apiProto } : { provider: providerId }),
-      });
-      setDiscovered((r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, maxTokens: m.maxTokens })));
-    } catch (err) {
-      setError(tt("发现模型失败：{m}", "Model discovery failed: {m}", { m: (err as Error).message }));
-    }
-    setDiscovering(false);
+  /** 向提供方要一份模型清单：手写路由上送表单里的接口地址与协议，
+   *  预置提供方只报 id；带 apiKey 时用刚填的 Key（还没落盘）。 */
+  const discover = async (apiKey: string): Promise<DiscoveredModel[]> => {
+    const r = await api.discoverModels({
+      settingsNs: "llm-pi-ai",
+      ...(isCustom
+        ? { baseURL: normalizeBaseURL(baseURL) ?? baseURL.trim(), api: apiProto }
+        : { provider: providerId }),
+      ...(apiKey ? { apiKey } : {}),
+    });
+    return (r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, maxTokens: m.maxTokens }));
   };
 
   const save = async () => {
     setError(null);
-    const pid = providerId;
-    if (!pid) { setError(t("请选择提供方。")); return; }
-    // §2：baseURL 只在填写时校验/规范化（0.1.5 引擎侧同样校验，这里给内联前置反馈）
-    const normalizedBaseURL = baseURL.trim() ? normalizeBaseURL(baseURL) : "";
-    if (baseURL.trim() && normalizedBaseURL === null) {
-      setError(tt("baseURL 无效：需要 http(s) 地址，如 https://api.example.com/v1", "Invalid baseURL: expected an http(s) URL like https://api.example.com/v1"));
+    const typedId = modelId.trim();
+    // §2：baseURL 只在填写时校验/规范化（引擎侧同样校验，这里给内联前置反馈）；
+    // 手写路由则必填——引擎靠它定端点，空着只会在发现那步报一条看不懂的错。
+    const typedBase = baseURL.trim();
+    const normalizedBaseURL = typedBase ? normalizeBaseURL(typedBase) : "";
+    if (isCustom && !typedBase) { setError(t("接口地址必填。")); return; }
+    if (normalizedBaseURL === null) {
+      setError(tt("接口地址无效：需要 http(s) 地址，如 https://api.example.com/v1", "Invalid endpoint: expected an http(s) URL like https://api.example.com/v1"));
       return;
     }
-    // 模型 ID 可空（占位承诺：留空 = 沿用/自动并入已有模型）；唯一例外是
-    // 编辑目录条目时把 id 改空——条目没有 id 无法落盘。
-    if (editingEntry && !modelId.trim()) { setError(t("模型 ID 必填。")); return; }
-    if (isNewProvider) {
-      const id = newId.trim();
-      if (!id || pi.providers[id]) { setError(t("提供方 ID 必填且不可与现有重复。")); return; }
+    if (isCustom) {
+      if (!isRouteId(route)) { setError(t("提供方 ID 需以小写字母开头，只含小写字母、数字与连字符。")); return; }
+      if (providers.some((p) => p.provider === route) || pi.providers[route] !== undefined) { setError(t("该提供方 ID 已被使用。")); return; }
     }
+    // 模型类型描述的是一个具体模型；留空＝整体并入发现结果，标注无处可落。
+    if (visual && !typedId) { setError(t("要标注模型类型，先填模型名称。")); return; }
+    // 目录条目没有 id 无法落盘（DeepSeek 官方没有发现路由，编辑态同样必须有个 id）。
+    if (!typedId && (isDeepseek || edit !== null)) { setError(t("模型名称必填。")); return; }
     setSaving(true);
     try {
       // ① 密钥：留空 = 保持不变
       if (key.trim()) {
         await api.credentialsSet({ ref: keyRef, value: key.trim() });
       }
-      // ② pi 提供方模型名称留空 = 用刚填的 Key 按 API 自动发现全部支持模型
-      //    并整体并入（占位承诺的语义）；发现失败才要求手动填写。
-      let effectiveDiscovered = discovered;
-      if (!isDeepseek && !edit?.origId && !effectiveDiscovered && !modelId.trim()) {
-        setDiscovering(true);
+      // ② pi 提供方且手填了一个模型名时直接用；留空才去发现（发现失败必须
+      //    报错退出——静默回落成"只加一个空 id"会写坏目录）。
+      let discovered: DiscoveredModel[] | null = null;
+      if (discoversAll && !typedId) {
         try {
-          const r = await api.discoverModels({
-            settingsNs: "llm-pi-ai",
-            ...(isNewProvider ? { baseURL, api: apiProto } : { provider: pid }),
-            ...(key.trim() ? { apiKey: key.trim() } : {}),
-          });
-          effectiveDiscovered = (r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, maxTokens: m.maxTokens }));
-          setDiscovered(effectiveDiscovered);
+          discovered = await discover(key.trim());
         } catch (err) {
           setError(tt("自动发现模型失败：{m}", "Auto-discovery failed: {m}", { m: (err as Error).message }));
-          // 失败也必须复位 discovering（AUD-068）：否则"发现模型"按钮永久禁用，
-          // 恰好锁死了失败后的重试入口。
-          setDiscovering(false);
           setSaving(false);
           return;
         }
-        setDiscovering(false);
-        if (!effectiveDiscovered.length) {
-          setError(t("该提供方未发现任何模型，请手动填写模型 ID。"));
+        if (!discovered.length) {
+          setError(t("该提供方未发现任何模型，请手动填写模型名称。"));
           setSaving(false);
           return;
         }
       }
-      // ③ 目录落点分流（自动发现结果优先于手填 id）。编辑替换一律先滤掉
-      // 与新 id 撞车的其他条目（AUD-102）：把 id 改成既有条目会造出重复目录行。
-      if (isDeepseek && (editingEntry || (!edit && modelChoice === NEW_MODEL))) {
-        const ctxWin = Number(modelContext);
-        const entry: ModelProfile = {
-          id: modelId.trim(),
-          ...(modelName.trim() ? { name: modelName.trim() } : {}),
-          // 非数字输入会得 NaN，JSON.stringify 成 null 写进引擎设置且 dirty 恒异常
-          ...(modelContext.trim() && Number.isFinite(ctxWin) ? { contextWindow: ctxWin } : {}),
-        };
-        const models = edit?.origId
-          ? deepseek.models
-              .filter((m) => m.id !== entry.id || m.id === edit.origId)
-              .map((m) => (m.id === edit.origId ? entry : m))
-          : [...deepseek.models.filter((m) => m.id !== entry.id), entry];
+      // ③ 落点分流（同 id 的旧条目在新增路径上先滤掉，避免出现重复目录行）。
+      if (isDeepseek) {
+        const entry = rewriteEntry<DeepseekModelEntry>(origEntry as DeepseekModelEntry | undefined, typedId, visualKey, visual);
+        const models = edit
+          ? deepseek.models.map((m) => (m.id === edit.origId ? entry : m))
+          : [...deepseek.models.filter((m) => m.id !== typedId), entry];
         await updateDeepseekModels(models);
-      } else if (isNewProvider) {
-        const models = effectiveDiscovered ?? (modelId.trim() ? [{ id: modelId.trim() }] : []);
+      } else if (isCustom) {
+        const models = discovered ?? [rewriteEntry<PiModelEntry>(undefined, typedId, "input", visual)];
         await updatePiProviders({
           ...pi.providers,
-          [newId.trim()]: {
-            displayName: newDisplayName.trim() || newId.trim(),
-            ...(normalizedBaseURL ? { baseURL: normalizedBaseURL } : {}),
-            ...(apiProto.trim() ? { api: apiProto.trim() } : {}),
-            ...(models.length ? { models } : {}),
+          [route]: {
+            // 只有在确实要存密钥时才记 references：留空＝走提供方自己的环境认证
+            ...(key.trim() ? { apiKeyEnv: keyRef } : {}),
+            api: apiProto,
+            baseURL: normalizedBaseURL,
+            models,
           },
         });
-      } else if (!isDeepseek && (edit?.origId || effectiveDiscovered || (!edit && modelId.trim()))) {
+      } else {
         const prev = profile ?? {};
-        let models = prev.models ?? [];
-        if (edit?.origId) {
-          // pi 编辑界面无 context 字段：原条目的 contextWindow 原样保留（AUD-067）。
-          const entry: ModelProfile = {
-            id: modelId.trim(),
-            ...(modelName.trim() ? { name: modelName.trim() } : {}),
-            ...(orig?.contextWindow !== undefined ? { contextWindow: orig.contextWindow } : {}),
-          };
-          models = models
-            .filter((m) => m.id !== entry.id || m.id === edit.origId)
-            .map((m) => (m.id === edit.origId ? entry : m));
-        } else if (effectiveDiscovered) {
-          models = effectiveDiscovered;
+        if (edit && !edit.listed && typedId === edit.origId) {
+          // 引擎目录行：写 modelOverrides[id]，目录里其余模型照旧服务——models
+          // 列表是"这份清单就是全部"，照它写会把该提供方的其它模型挤掉。
+          const overrides = { ...(prev.modelOverrides ?? {}) };
+          const next = rewriteOverride(overrides[typedId], "input", visual);
+          if (next === null) delete overrides[typedId];
+          else overrides[typedId] = next;
+          await updatePiProviders({ ...pi.providers, [providerId]: { ...prev, modelOverrides: overrides } });
         } else {
-          models = [...models.filter((m) => m.id !== modelId.trim()), { id: modelId.trim() }];
+          const models = discovered ?? (edit
+            ? (prev.models ?? []).map((m) => (m.id === edit.origId
+              ? rewriteEntry<PiModelEntry>(origEntry as PiModelEntry | undefined, typedId, "input", visual)
+              : m))
+            : [...(prev.models ?? []).filter((m) => m.id !== typedId), rewriteEntry<PiModelEntry>(undefined, typedId, "input", visual)]);
+          await updatePiProviders({ ...pi.providers, [providerId]: { ...prev, models } });
         }
-        await updatePiProviders({ ...pi.providers, [pid]: { ...prev, models } });
       }
       onDone();
     } catch (err) {
@@ -278,13 +314,9 @@ export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, cr
         label: providerLabel(p.provider, p.displayName),
         iconNode: <ProviderIcon provider={p.provider} size={14} />,
       })),
-    { v: NEW_PROVIDER, label: t("＋ 新建自定义提供方…") },
+    { v: CUSTOM_PROVIDER, label: t("自定义 / Custom") },
   ];
-  const modelOptions = [
-    ...((isNewProvider ? discovered : knownModels) ?? []).map((m) => ({ v: m.id, label: m.name || m.id })),
-    ...(isDeepseek && !edit ? [{ v: NEW_MODEL, label: t("＋ 新建模型…") }] : []),
-    ...(!isDeepseek && !edit ? [{ v: MANUAL, label: t("手动输入模型 ID…") }] : []),
-  ];
+  const protocolOptions = piProtocols.map((p) => ({ v: p, label: p }));
 
   return createPortal(
     // 关闭只认"按下 overlay 自身"（target===currentTarget）：Dropdown 的菜单
@@ -299,7 +331,6 @@ export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, cr
       <div className={cssRows.modal} onClick={(e) => e.stopPropagation()}>
         <div className={cssRows.modalHead}>
           <span className={cssRows.modalTitle}>{edit ? t("编辑模型") : t("添加模型")}</span>
-          <span className={cssRows.modalBadge}>{t("写入引擎配置，保存即生效")}</span>
           <button className={cssRows.iconBtn} style={{ marginLeft: "auto" }} onClick={onCancel} aria-label={t("关闭")}>
             <X size={15} />
           </button>
@@ -315,31 +346,31 @@ export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, cr
               </div>
             ) : (
               <Dropdown
+                block
                 options={providerOptions}
                 value={providerId}
-                onChange={(v) => { setProviderId(v); setModelChoice(""); setModelId(""); setDiscovered(null); setError(null); }}
+                onChange={(v) => { setProviderId(v); setModelId(""); setVisual(false); setError(null); }}
               />
             )}
           </div>
-          {isNewProvider && (
+          {isCustom && (
             <>
-              <div className={cssRows.fieldGrid2}>
-                <div>
-                  <span className={cssRows.fieldLabel}>{t("提供方 ID")}</span>
-                  <input className={cssRows.textField} placeholder="openrouter" value={newId} onChange={(e) => setNewId(e.target.value)} />
-                </div>
-                <div>
-                  <span className={cssRows.fieldLabel}>{t("显示名称")}</span>
-                  <input className={cssRows.textField} value={newDisplayName} onChange={(e) => setNewDisplayName(e.target.value)} />
-                </div>
+              <div>
+                <span className={cssRows.fieldLabel}>{t("接口地址")}</span>
+                <input
+                  className={cssRows.textField}
+                  style={{ display: "block", width: "100%" }}
+                  placeholder="https://api.example.com/v1"
+                  value={baseURL}
+                  onChange={(e) => setBaseURL(e.target.value)}
+                  onBlur={() => { if (baseURL.trim()) { const n = normalizeBaseURL(baseURL); if (n) setBaseURL(n); } }}
+                />
+                <div className={cssRows.fieldHint}>{t("只填到 /v1，不要带 /chat/completions")}</div>
               </div>
               <div>
-                <span className={cssRows.fieldLabel}>baseURL</span>
-                <input className={cssRows.textField} placeholder="https://…" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} onBlur={() => { if (baseURL.trim()) { const n = normalizeBaseURL(baseURL); if (n) setBaseURL(n); } }} />
-              </div>
-              <div>
-                <span className={cssRows.fieldLabel}>{t("协议（openai-completions / openai-responses）")}</span>
-                <input className={cssRows.textField} value={apiProto} onChange={(e) => setApiProto(e.target.value)} />
+                <span className={cssRows.fieldLabel}>{t("提供方 ID")}</span>
+                <input className={cssRows.textField} style={{ display: "block", width: "100%" }} placeholder="acme-gateway" value={route} onChange={(e) => setRoute(e.target.value)} />
+                <div className={cssRows.fieldHint}>{t("小写字母开头，作为引擎里的路由名与密钥名")}</div>
               </div>
             </>
           )}
@@ -359,38 +390,32 @@ export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, cr
               </button>
             </div>
           </div>
-          {showEntryFields ? (
-            <EntryFields
-              modelId={modelId} setModelId={setModelId}
-              modelName={modelName} setModelName={setModelName}
-              modelContext={modelContext} setModelContext={setModelContext}
-              withContext={withContext}
+          <div>
+            <span className={cssRows.fieldLabel}>{t("模型名称")}</span>
+            <input
+              className={cssRows.textField}
+              style={{ display: "block", width: "100%" }}
+              placeholder={isDeepseek ? "例如 deepseek-v4-flash" : "例如 gpt-4o 或 deepseek-chat"}
+              value={modelId}
+              onChange={(e) => setModelId(e.target.value)}
             />
-          ) : !edit && needsManual ? (
-            <div>
-              <span className={cssRows.fieldLabel}>{t("模型名称")}</span>
-              <div className={cssRows.fieldRow}>
-                <input className={cssRows.textField} style={{ flex: 1 }} placeholder={t("模型名为空则自动添加该提供方全部模型")} value={modelId} onChange={(e) => setModelId(e.target.value)} />
-                {(isNewProvider || profile) && (
-                  <button className={cssRows.secondaryButton} disabled={discovering} onClick={() => void discover()}>
-                    {discovering ? t("载入中…") : t("发现模型")}
-                  </button>
-                )}
+            {discoversAll && <div className={cssRows.fieldHint}>{t("留空＝保存时自动加入该提供方能发现的全部模型；填了名称＝只加入这一个")}</div>}
+          </div>
+          <div>
+            <div className={cssRows.advTitle}>{t("高级配置")}</div>
+            {isCustom && (
+              <div className={cssRows.advField}>
+                <span className={cssRows.fieldLabel}>{t("协议")}</span>
+                {/* 默认取引擎报的第一个协议（provider.ts 的表首＝手写网关最常说的
+                    openai-completions），照官方卡片的默认口径。 */}
+                <Dropdown block options={protocolOptions} value={apiProto} onChange={setApiProto} />
               </div>
-            </div>
-          ) : !edit ? (
-            <div>
-              <span className={cssRows.fieldLabel}>{t("模型名称")}</span>
-              <Dropdown
-                options={modelOptions}
-                value={modelChoice}
-                onChange={(v) => {
-                  setModelChoice(v);
-                  setModelId(v === MANUAL || v === NEW_MODEL ? "" : v);
-                }}
-              />
-            </div>
-          ) : null}
+            )}
+            <label className={cssRows.checkRow}>
+              <input type="checkbox" checked={visual} onChange={(e) => setVisual(e.target.checked)} />
+              <span>{t("视觉（图片输入）")}</span>
+            </label>
+          </div>
           {error && <div className={cssRows.modelError}>{error}</div>}
         </div>
         <div className={cssRows.modalFoot}>
@@ -402,33 +427,5 @@ export function ModelDialog({ providers, deepseek, pi, edit, initialProvider, cr
       </div>
     </div>,
     document.body,
-  );
-}
-
-function EntryFields({ modelId, setModelId, modelName, setModelName, modelContext, setModelContext, withContext }: {
-  modelId: string; setModelId: (v: string) => void;
-  modelName: string; setModelName: (v: string) => void;
-  modelContext: string; setModelContext: (v: string) => void;
-  withContext: boolean;
-}) {
-  // grid 定版（fr 轨道 + input 整宽）：flex 嵌套百分比宽 input 在 WKWebView
-  // 里会塌缩成细条（用户报告的"编辑栏重叠"），grid 不受此怪癖影响。
-  return (
-    <div className={`${cssRows.fieldGrid}${withContext ? ` ${cssRows.fieldGridCtx}` : ""}`}>
-      <div>
-        <span className={cssRows.fieldLabel}>{t("模型 ID")}</span>
-        <input className={cssRows.textField} value={modelId} onChange={(e) => setModelId(e.target.value)} />
-      </div>
-      <div>
-        <span className={cssRows.fieldLabel}>{t("显示名称")}</span>
-        <input className={cssRows.textField} value={modelName} onChange={(e) => setModelName(e.target.value)} />
-      </div>
-      {withContext && (
-        <div>
-          <span className={cssRows.fieldLabel}>{t("上下文窗口")}</span>
-          <input className={cssRows.textField} value={modelContext} onChange={(e) => setModelContext(e.target.value)} />
-        </div>
-      )}
-    </div>
   );
 }

@@ -73,6 +73,11 @@
 }
 .ddTrigger:hover { background: var(--fill-strong); border-color: var(--line-strong); }
 .ddChevron { color: var(--ink-3); flex-shrink: 0; }
+/* block 变体（表单行）：触发器占满容器宽度，与同排输入框对齐 */
+.ddBlock { display: block; width: 100%; }
+.ddBlock .ddTrigger { width: 100%; justify-content: flex-start; }
+/* 箭头仍留在右端（flex-start 后靠 auto 外边距收回去） */
+.ddBlock .ddChevron { margin-left: auto; }
 /* bare 变体（hero 会话模式下拉）：行内文字触发器，无描边无底色 */
 .ddBare .ddTrigger {
   border: none;
@@ -241,31 +246,7 @@
 .muted { color: var(--ink-3); font-size: 11.5px; }
 .mono { font-family: var(--dsh-font-mono-family); font-size: 11px; color: var(--ink-3); }
 
-/* ── 模型管理：本地配置卡片 / 已保存模型行 / 添加·编辑弹窗 ── */
-.mgmtCard {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
-  margin-bottom: 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-control);
-  background: var(--fill-soft);
-}
-.mgmtCardMain { flex: 1; min-width: 0; }
-.mgmtCardTitle { font-size: 13px; font-weight: 600; color: var(--ink); }
-.mgmtCardDesc { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
-.modelRowIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--fill);
-  color: var(--ink);
-  flex: none;
-}
+/* ── 模型管理：已保存模型行 / 添加·编辑弹窗 ── */
 .iconBtn {
   display: flex;
   align-items: center;
@@ -308,13 +289,15 @@
 .modalFoot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; }
 .fieldLabel { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 5px; }
 .fieldRow { display: flex; align-items: flex-end; gap: 8px; }
-.fieldGrid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; align-items: end; }
-.fieldGridCtx { grid-template-columns: 1.2fr 1fr 110px; }
-.fieldGrid .textField { display: block; width: 100%; }
+/* 字段下的一行说明（照参考图：接口地址下面那行"只填到 /v1"） */
+.fieldHint { margin-top: 5px; font-size: 11px; line-height: 1.5; color: var(--ink-3); }
+/* 高级配置：一个标题 + 若干折叠行（协议、模型类型） */
+.advTitle { font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 8px; }
+.advField { margin-bottom: 10px; }
+.checkRow { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink); }
+.checkRow input[type="checkbox"] { width: 14px; height: 14px; flex: none; accent-color: var(--ink); }
 .modelProviderLocked { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); min-height: 30px; }
 .modelError { font-size: 11.5px; color: #e5484d; }
-.fieldGrid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
-.fieldGrid2 .textField { display: block; width: 100%; }
 
 /* ── 模型分组卡片（按提供方折叠）── */
 .modelGroup {

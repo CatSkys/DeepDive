@@ -5,7 +5,7 @@ import { api } from "../api";
 import { tt, useT } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import {
-  ModelDialog, keyRefOf, removePiProvider, updateDeepseekModels, updatePiProviders,
+  CUSTOM_PROVIDER, ModelDialog, keyRefOf, removePiProvider, updateDeepseekModels, updatePiProviders,
   type EditTarget,
 } from "./ModelDialog";
 import { useModelCatalog } from "./useModelCatalog";
@@ -35,7 +35,9 @@ interface ProviderGroup {
   declared: boolean;
 }
 
-const MODALITY_LABEL: Record<string, string> = { text: "文本", image: "视觉", audio: "音频", video: "视频" };
+/** 模态标签：引擎词表只有 text / image，text 是每个模型的默认能力，不值得占一枚
+ *  标签——只标出额外能力（未收录的取值原样显示，不猜）。 */
+const MODALITY_LABEL: Record<string, string> = { image: "视觉" };
 /** 上下文窗口紧凑表示：1000000 → 1M，131072 → 131K */
 const fmtContext = (n: number) => (n >= 1e6 ? `${Math.round((n / 1e6) * 10) / 10}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n));
 
@@ -65,7 +67,9 @@ export function ModelsManage() {
         enrich.set(`deepseek-official|${m.id}`, { contextWindow: m.contextWindow, modalities: m.inputModalities });
       }
       for (const [pid, p] of Object.entries(piVal)) {
-        for (const m of p.models ?? []) enrich.set(`${pid}|${m.id}`, { contextWindow: m.contextWindow });
+        // pi 条目的模态拼写是 input（不是 deepseek 的 inputModalities）；
+        // 没落盘 models 的目录路由这里就没有模态可读——不猜，行上不标。
+        for (const m of p.models ?? []) enrich.set(`${pid}|${m.id}`, { contextWindow: m.contextWindow, modalities: m.input });
       }
       const built = (llm.groups ?? [])
         .filter((g) => (g.models ?? []).length > 0)
@@ -183,11 +187,12 @@ export function ModelsManage() {
               <span>{providerLabel(pid, pid)}</span>
             </button>
           ))}
-          {/* 自定义入口＝原来的「添加模型」：弹窗里能选全部提供方与手填 baseURL */}
+          {/* 自定义入口＝手写一条路由：弹窗直接落到「自定义 / Custom」，
+              不再是"默认帮你选一家"（用户报告的点自定义却选中 DeepSeek）。 */}
           <button
             type="button"
             className={cssRows.quickAddChip}
-            onClick={() => { setNotice(null); setDialog({ edit: null }); }}
+            onClick={() => { setNotice(null); setDialog({ edit: null, initialProvider: CUSTOM_PROVIDER }); }}
           >
             <Plus size={18} />
             <span>{t("自定义 / Custom")}</span>
@@ -237,7 +242,7 @@ export function ModelsManage() {
                   <div className={cssRows.rowName} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     {m.label}
                     {m.reasoning && <span className={cssRows.metaTag}>{t("推理")}</span>}
-                    {(m.modalities ?? []).map((mod) => (
+                    {(m.modalities ?? []).filter((mod) => mod !== "text").map((mod) => (
                       <span key={mod} className={cssRows.metaTag}>{t(MODALITY_LABEL[mod] ?? mod)}</span>
                     ))}
                     {m.contextWindow ? <span className={cssRows.metaTag}>{fmtContext(m.contextWindow)}</span> : null}
@@ -261,7 +266,7 @@ export function ModelsManage() {
                   <button
                     className={cssRows.iconBtn}
                     aria-label={t("编辑")}
-                    onClick={() => setDialog({ edit: { provider: g.provider, kind: g.provider === "deepseek-official" ? "deepseek" : "pi", origId: m.inDir ? m.id : undefined } })}
+                    onClick={() => setDialog({ edit: { provider: g.provider, kind: g.provider === "deepseek-official" ? "deepseek" : "pi", origId: m.id, listed: m.inDir } })}
                   >
                     <Pencil size={14} />
                   </button>
@@ -280,6 +285,7 @@ export function ModelsManage() {
           providers={cat.providers}
           deepseek={cat.deepseek}
           pi={cat.pi}
+          piProtocols={cat.piProtocols}
           edit={dialog.edit}
           initialProvider={dialog.initialProvider}
           credentials={cat.credentials}

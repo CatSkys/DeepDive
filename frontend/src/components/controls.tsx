@@ -34,7 +34,9 @@ export interface DropdownOption {
   danger?: boolean;
 }
 
-export function Dropdown({ options, value, onChange, variant }: { options: DropdownOption[]; value: string; onChange: (v: string) => void; variant?: "bare" }) {
+/** 下拉选择器。variant="bare"＝行内文字触发器（无描边无底色）；
+ *  block＝占满容器宽度（表单里与输入框同宽的一行）。 */
+export function Dropdown({ options, value, onChange, variant, block }: { options: DropdownOption[]; value: string; onChange: (v: string) => void; variant?: "bare"; block?: boolean }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -119,7 +121,7 @@ export function Dropdown({ options, value, onChange, variant }: { options: Dropd
     document.body,
   );
   return (
-    <div className={`${rowsCss.dd}${variant === "bare" ? ` ${rowsCss.ddBare}` : ""}`} ref={rootRef}>
+    <div className={`${rowsCss.dd}${variant === "bare" ? ` ${rowsCss.ddBare}` : ""}${block ? ` ${rowsCss.ddBlock}` : ""}`} ref={rootRef}>
       <button ref={triggerRef} type="button" className={rowsCss.ddTrigger} data-danger={current?.danger ? "true" : undefined} onClick={toggle}>
         {current?.icon && <current.icon size={14} className={rowsCss.ddTriggerIcon} />}
         {current?.iconNode && <span className={rowsCss.ddTriggerIcon}>{current.iconNode}</span>}
