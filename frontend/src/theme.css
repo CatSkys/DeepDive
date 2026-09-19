@@ -515,11 +515,12 @@ button {
 .ws-pill svg { flex: none; color: var(--ink-2); }
 .ws-pill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app.collapsed .ws-pill { display: inline-flex; }
-/* 模式胶囊：默认隐藏，hover 会话标题行才显现（用户定稿，给标题让位）；
+/* 模式胶囊：默认透明常驻（占位不显），hover 会话标题行淡入（用户定稿，给
+   标题让位）；opacity 过渡而非 display 切换——布局零位移，不会"动一下"。
    侧栏收起态保持常显（与项目胶囊同一紧凑头部语法）。无描边，同底色 */
-.preset-pill { display: none; }
+.preset-pill { display: inline-flex; opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
 .session-header .title-row:hover .preset-pill,
-.app.collapsed .preset-pill { display: inline-flex; }
+.app.collapsed .preset-pill { opacity: 1; pointer-events: auto; }
 /* hero 会话模式下拉（招呼语下方）：触发器无描边、随招呼语组居中 */
 .mode-picker { display: flex; justify-content: center; margin-top: 12px; }
 
