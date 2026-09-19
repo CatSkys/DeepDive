@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Folder, ImagePlus, Link2, SquarePen, Trash2 } from "lucide-react";
 import type { WorkspaceView } from "../types";

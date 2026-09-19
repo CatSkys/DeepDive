@@ -756,6 +756,11 @@ export const EN: Record<string, string> = {
   "审批模式": "Approval preset",
   "写入项目指令需要桌面应用。": "Writing project instructions requires the desktop app.",
   "修改图标": "Change icon",
+  // 命令面板（CommandPalette）
+  "命令面板": "Command palette",
+  "搜索操作、项目、会话、设置…": "Search actions, projects, sessions, settings…",
+  "搜索会话全文": "Search sessions (full text)",
+  "收起 / 展开侧栏": "Toggle sidebar",
   "每个会话维护一份笔记，每轮注入给模型；开关在应用下次启动后对会话生效。": "Each session keeps a note that is injected into the model every turn; the toggle applies to sessions after the app next restarts.",
   "从会话中提炼可复用的经验，经机械校验后自动落库并提交；开关对采集与自动化即时生效。": "Extracts reusable lessons from sessions; those passing mechanical checks are committed automatically. The toggle applies to collection and automation immediately.",
   "目录": "Directory",

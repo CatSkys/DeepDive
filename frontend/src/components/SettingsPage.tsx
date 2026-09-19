@@ -40,6 +40,24 @@ import { sessionDeleteDirs } from "../host";
 // token 体系（dsw-alias 已废除）。数据全部走真实路由，无引擎时各
 // section 独立降级。
 //
+// 设置分区清单（命令面板搜索用与侧栏导航同一份事实源）：label 为 i18n 源键。
+export const SETTINGS_SECTIONS: Array<{ id: string; label: string; icon: typeof SettingsIcon; group: "basic" | "agent" | "data" }> = [
+  { id: "general", label: "通用", icon: SettingsIcon, group: "basic" },
+  { id: "models", label: "模型", icon: Cpu, group: "basic" },
+  { id: "approval", label: "审批", icon: ShieldCheck, group: "basic" },
+  { id: "hotkeys", label: "快捷键", icon: Keyboard, group: "basic" },
+  { id: "automation", label: "自动化", icon: CalendarClock, group: "agent" },
+  { id: "memory", label: "记忆", icon: Brain, group: "agent" },
+  { id: "evolution", label: "自进化", icon: Dna, group: "agent" },
+  { id: "plugins", label: "插件", icon: Puzzle, group: "agent" },
+  { id: "remote", label: "移动端远程控制", icon: Smartphone, group: "agent" },
+  { id: "import", label: "导入", icon: Download, group: "agent" },
+  { id: "archived", label: "已归档的聊天", icon: Archive, group: "data" },
+  { id: "data", label: "数据", icon: Folder, group: "data" },
+  { id: "worktree", label: "工作树", icon: GitBranch, group: "data" },
+  { id: "usage", label: "使用统计", icon: ChartColumn, group: "data" },
+];
+
 // 分类（侧栏按用途分三组；组定义与成员见下方 navGroups）：
 //   基础设置——通用（外观/语言/归档/Enter/通知）、模型（提供方+密钥）、审批（默认权限预设）、快捷键
 //   Agent 能力——自动化、记忆、自进化、技能与插件、移动端远程控制、导入
@@ -69,37 +87,16 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
   // 分区按用途分组（项多到一个平铺列表读不动）：组的顺序即侧栏阅读顺序。
   // 组标签复用侧栏既有的 .section-label（会话列表的「置顶/今天」同款），
   // 不另造一套分组样式。
-  const navGroups = [
-    {
-      label: t("基础设置"),
-      items: [
-        { id: "general", label: t("通用"), icon: SettingsIcon },
-        { id: "models", label: t("模型"), icon: Cpu },
-        { id: "approval", label: t("审批"), icon: ShieldCheck },
-        { id: "hotkeys", label: t("快捷键"), icon: Keyboard },
-      ],
-    },
-    {
-      label: t("Agent 能力"),
-      items: [
-        { id: "automation", label: t("自动化"), icon: CalendarClock },
-        { id: "memory", label: t("记忆"), icon: Brain },
-        { id: "evolution", label: t("自进化"), icon: Dna },
-        { id: "plugins", label: t("插件"), icon: Puzzle },
-        { id: "remote", label: t("移动端远程控制"), icon: Smartphone },
-        { id: "import", label: t("导入"), icon: Download },
-      ],
-    },
-    {
-      label: t("数据与统计"),
-      items: [
-        { id: "archived", label: t("已归档的聊天"), icon: Archive },
-        { id: "data", label: t("数据"), icon: Folder },
-        { id: "worktree", label: t("工作树"), icon: GitBranch },
-        { id: "usage", label: t("使用统计"), icon: ChartColumn },
-      ],
-    },
-  ];
+  const navGroups = ([
+    ["basic", "基础设置"],
+    ["agent", "Agent 能力"],
+    ["data", "数据与统计"],
+  ] as const).map(([group, label]) => ({
+    label: t(label),
+    items: SETTINGS_SECTIONS.filter((sec) => sec.group === group).map((sec) => ({
+      id: sec.id, label: t(sec.label), icon: sec.icon,
+    })),
+  }));
   const nav = navGroups.flatMap((g) => g.items);
   const active = nav.find((n) => n.id === activeId) ?? nav[0];
 

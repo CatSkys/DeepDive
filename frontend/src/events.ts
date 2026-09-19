@@ -18,6 +18,8 @@ export const DD_EVENTS = {
   /** 把消息流里的「定时任务建议」带进新建表单。收发：AutomationProposalCard →
    *  App（打开设置→自动化并预填），CustomEvent detail 携带 AutomationProposal。 */
   automationDraft: "dd:automation-draft",
+  /** 打开命令面板（⌘K）。收发：App 键位 → CommandPaletteHost。 */
+  commandPalette: "dd:command-palette",
 } as const;
 
 /** 派发一个应用内事件（window 冒泡阶段监听；detail 可选随事件携带）。 */

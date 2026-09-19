@@ -19,6 +19,7 @@ export const KEYBIND_DEFS: KeybindDef[] = [
   { id: "dictation", zh: "听写", en: "Dictation", combo: "⌘D" },
   { id: "cycle-effort", zh: "思考强度切换", en: "Cycle reasoning effort", combo: "⌘⇧E" },
   { id: "open-settings", zh: "设置", en: "Settings", combo: "⌘," },
+  { id: "command-palette", zh: "命令面板", en: "Command palette", combo: "⌘K" },
 ];
 
 export function parseKeybinds(raw: unknown): KeybindOverrides {
