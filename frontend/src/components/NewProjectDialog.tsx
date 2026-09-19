@@ -6,7 +6,8 @@
 //   · 目录：workspace/create 只收 path 且要求目录已存在（引擎 workspace 包
 //     realpath+stat 校验），所以「留空自动建目录」由壳 prepare-workspace
 //     完成（~/Documents/DeepDive Projects/<净化名>，撞名追加序号）；浏览器
-//     （无壳桥）建不了目录——降级为目录必填手输、指令字段不出现。
+//     （无壳桥）建不了目录——降级为手输绝对路径；指令可填，提交时明确报错
+//     （写 AGENTS.md 只能壳做），不静默丢弃。
 //   · 名称：wire 不收 title，创建后按 workspace/rename 落（自动目录的末级
 //     目录名与名称一致时跳过）。
 //   · 指令：壳写入 <项目>/AGENTS.md（引擎按 cwd 读它）；已存在不改动。
@@ -97,6 +98,11 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     setBusy(true);
     try {
+      // 浏览器没有壳桥写不了 AGENTS.md：明确报错，不静默丢弃
+      if (!hasShell && instructions.trim()) {
+        setError(t("写入项目指令需要桌面应用。"));
+        return;
+      }
       let target = typedPath.trim();
       if (hasShell) {
         // 壳负责：自动建目录（未显式选时）+ 写项目指令（AGENTS.md 不存在时）
@@ -180,7 +186,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
             <div className={css.groupRow}>
               <span className={css.groupLabel}>{t("记忆")}</span>
               <div className={`${css.groupControl} ${css.rowRight}`}>
-                <span className={css.infoIcon} data-tip={t("引擎重启后生效。")}>
+                <span className={css.infoIcon} data-tip={t("每个会话维护一份笔记，每轮注入给模型；开关在应用下次启动后对会话生效。")}>
                   <Info size={14} />
                 </span>
                 <Toggle on={store.sessionMemoryEnabled} onChange={store.setSessionMemoryEnabled} />
@@ -189,6 +195,9 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
             <div className={css.groupRow}>
               <span className={css.groupLabel}>{t("自进化")}</span>
               <div className={`${css.groupControl} ${css.rowRight}`}>
+                <span className={css.infoIcon} data-tip={t("从会话中提炼可复用的经验，经机械校验后自动落库并提交；开关对采集与自动化即时生效。")}>
+                  <Info size={14} />
+                </span>
                 <Toggle on={store.evolutionEnabled} onChange={store.setEvolutionEnabled} />
               </div>
             </div>
@@ -239,17 +248,15 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           </div>
-          {hasShell && (
-            <div>
-              <span className={css.dlgLabel}>{t("项目指令")}</span>
-              <textarea
-                className={css.textArea}
-                placeholder={t("为这个项目下的会话输入指令…")}
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-              />
-            </div>
-          )}
+          <div>
+            <span className={css.dlgLabel}>{t("项目指令")}</span>
+            <textarea
+              className={css.textArea}
+              placeholder={t("为这个项目下的会话输入指令…")}
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+            />
+          </div>
           {hasShell && <div className={css.fieldHint}>{t("指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。")}</div>}
           {error && <div className={css.modelError}>{error}</div>}
         </div>
@@ -257,8 +264,6 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
           <button className={css.ghostBtn} onClick={onClose}>{t("取消")}</button>
           <button className={css.primaryBtn} disabled={!canSubmit} onClick={() => void submit()}>
             {busy ? t("创建中…") : t("创建")}
-            {!busy && <span className={css.keycap} aria-hidden="true">⌘</span>}
-            {!busy && <span className={css.keycap} aria-hidden="true">↵</span>}
           </button>
         </div>
       </div>
