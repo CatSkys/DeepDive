@@ -250,7 +250,12 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div>
-            <span className={css.dlgLabel}>{t("项目指令")}</span>
+            <div className={css.dlgLabelRow}>
+              <span className={css.dlgLabel}>{t("项目指令")}</span>
+              <span className={css.infoIcon} data-tip={t("指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。")}>
+                <Info size={14} />
+              </span>
+            </div>
             <textarea
               className={css.textArea}
               placeholder={t("为这个项目下的会话输入指令…")}
@@ -258,7 +263,6 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
               onChange={(e) => setInstructions(e.target.value)}
             />
           </div>
-          {hasShell && <div className={css.fieldHint}>{t("指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。")}</div>}
           {error && <div className={css.modelError}>{error}</div>}
         </div>
         <div className={css.dlgFoot}>
