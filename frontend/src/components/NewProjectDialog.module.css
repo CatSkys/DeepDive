@@ -16,10 +16,10 @@
   display: flex;
   flex-direction: column;
   width: 560px;
-  min-height: 580px;
   max-width: 92vw;
   max-height: 86vh;
-  overflow: auto;
+  /* 高度随内容自适应、超出视口时只滚表单区（.dlgBody overflow）——footer
+     恒定可见，不再被内容顶出屏幕外 */
   border-radius: var(--dsh-radius-floating);
   /* 浮层统一配方（theme.css 弹出面板组）：.55 玻璃底 + blur(12) saturate(180%)
      + --shadow-pop 轻投影；前缀顺序勿倒——-webkit- 在前、标准在后（PITFALLS §1.8，
@@ -31,7 +31,7 @@
 }
 
 /* 标题行：图标 chip + 大标题（参考图同款） */
-.dlgHead { display: flex; align-items: center; gap: 14px; padding: 26px 28px 12px; }
+.dlgHead { display: flex; align-items: center; gap: 14px; padding: 20px 24px 10px; }
 .dlgChip {
   display: flex;
   align-items: center;
@@ -45,7 +45,7 @@
 }
 .dlgTitle { font-size: 20px; font-weight: 700; color: var(--ink); }
 
-.dlgBody { flex: 1; display: flex; flex-direction: column; gap: 20px; padding: 0 28px 4px; }
+.dlgBody { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 0 24px 4px; }
 
 /* 分组卡片：无描边纯底色（§2.4），行间缩进分隔线，禁全宽横线 */
 .groupCard {
@@ -145,7 +145,7 @@
 .textArea {
   box-sizing: border-box;
   width: 100%;
-  min-height: 170px;
+  min-height: 130px;
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
@@ -164,7 +164,7 @@
 
 /* 底部：取消为文字钮，创建为主按钮 + 键帽（参考图同款）；
    margin-top:auto 吃掉卡片下方留白——弹窗整体近方形 */
-.dlgFoot { display: flex; align-items: center; justify-content: flex-end; gap: 28px; margin-top: auto; padding: 24px 28px 30px; }
+.dlgFoot { display: flex; align-items: center; justify-content: flex-end; gap: 28px; padding: 16px 24px 20px; }
 .ghostBtn {
   height: 40px;
   padding: 0 8px;

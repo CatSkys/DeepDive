@@ -8,7 +8,13 @@ import { sendToShell } from "../host";
 type PickSink = (path: string) => void;
 let sink: PickSink | null = null;
 
-/** 弹窗内「选择目录」：调起壳原生面板，选定后经 routeWorkspacePicked 进 sink。 */
+/** 登记目录选择结果的路由目标（弹窗挂载时）——只登记，不触发选择器。 */
+export function setWorkspacePickSink(s: PickSink | null): void {
+  sink = s;
+}
+
+/** 调起壳原生「选择目录」面板（工作区文件夹按钮点击时）；选定后经
+ *  routeWorkspacePicked 进 sink。 */
 export function beginWorkspacePick(s: PickSink): void {
   sink = s;
   sendToShell({ type: "pick-workspace" });

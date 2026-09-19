@@ -26,7 +26,7 @@ import { PRESET_META } from "./SettingsPage";
 import { alertDialog, promptDialog } from "./DialogHost";
 import { Dropdown, Toggle } from "./controls";
 import { IconPicker } from "./IconPicker";
-import { beginWorkspacePick, endWorkspacePick } from "./workspacePicker";
+import { beginWorkspacePick, endWorkspacePick, setWorkspacePickSink } from "./workspacePicker";
 import { IconProjectAddOutline16 } from "./Icons";
 import css from "./NewProjectDialog.module.css";
 
@@ -85,8 +85,9 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
   };
 
   // 目录选择器结果路由进本弹窗（workspacePicker 模块级 sink），卸载即清。
+  // 只登记不触发——调起系统面板是工作区文件夹按钮自己的事。
   useEffect(() => {
-    beginWorkspacePick((path) => setPickedPath(path));
+    setWorkspacePickSink((path) => setPickedPath(path));
     return () => endWorkspacePick();
   }, []);
 
