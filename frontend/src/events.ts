@@ -20,6 +20,9 @@ export const DD_EVENTS = {
   automationDraft: "dd:automation-draft",
   /** 打开命令面板（⌘K）。收发：App 键位 → CommandPaletteHost。 */
   commandPalette: "dd:command-palette",
+  /** 调起附件选择（命令面板「添加附件」）。收发：CommandPalette →
+   *  useComposerAttachments（同 composer ＋ 按钮）。 */
+  composerAttach: "dd:composer-attach",
 } as const;
 
 /** 派发一个应用内事件（window 冒泡阶段监听；detail 可选随事件携带）。 */

@@ -9,6 +9,7 @@ import { formatMention } from "../../atGrammar";
 import { tt } from "../../i18n";
 import { api } from "../../api";
 import { uuid } from "../../uuid";
+import { DD_EVENTS, onAppEvent } from "../../events";
 
 export interface ImageAttachment {
   /** chip 的稳定 key，摄入时生成；不进发送载荷。 */
@@ -252,6 +253,9 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
       fileRef.current?.click();
     }
   };
+
+  // 命令面板「添加附件」与 composer ＋ 按钮同一条链路
+  useEffect(() => onAppEvent(DD_EVENTS.composerAttach, () => addAttachments()), [addAttachments]);
 
   const dragOver = useWindowFileDrag({ setText, addImageFile, addFileFile });
 
