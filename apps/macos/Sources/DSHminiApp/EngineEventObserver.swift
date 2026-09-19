@@ -292,7 +292,9 @@ final class EngineEventObserver {
             settle(Self.fallbackTitle(sessionId), false)
         }
         Task { @MainActor in
-            guard let items = (try? await EngineGateway.shared.call("session/list"))?.at("items")?.anyValue as? [[String: Any]] else {
+            // session/list 声明必填保留参 `_request`（空对象；前端同款）——空参调用
+            // 被参数校验拒绝，try? 吞掉后必然走超时兜底，通知标题永远是「会话 062bbf」
+            guard let items = (try? await EngineGateway.shared.call("session/list", payload: ["_request": [:]]))?.at("items")?.anyValue as? [[String: Any]] else {
                 return // 拉取失败/超时由兜底接管
             }
             for item in items where (item["sessionId"] as? String) == sessionId {
