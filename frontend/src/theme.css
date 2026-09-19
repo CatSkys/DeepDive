@@ -845,7 +845,8 @@ button {
   font-size: 13px;
 }
 .ws-menu-search input::placeholder { color: var(--ink-3); }
-.ws-menu-body { overflow-y: auto; padding: 6px; }
+/* 列表限高 5 行（行高 34×5 + 内边距）：超出内滚，不把选框顶满屏 */
+.ws-menu-body { overflow-y: auto; padding: 6px; max-height: 182px; }
 .ws-menu-row {
   display: flex;
   align-items: center;
@@ -1570,6 +1571,9 @@ button {
 /* position:relative：ModelMenu 的包含块 —— 缺了它菜单会一路锚到 .app
    （曾把菜单钉在窗口左上角盖住侧栏）。与 .hero-top .left 同款。 */
 .session-header .left { flex: 1; min-width: 0; position: relative; }
+.title-anchor { position: relative; }
+/* 侧栏收起态：标题即项目切换入口（弹出 .ws-menu）；展开态项目名在侧栏 */
+.title.title-switch:hover { color: var(--ink-bright); }
 .session-header .title {
   font-size: 14px;
   font-weight: 600;

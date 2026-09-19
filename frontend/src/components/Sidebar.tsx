@@ -49,14 +49,15 @@ export function bucketLabel(updatedAt: number, lang: "zh" | "en"): string {
   return `${d.getMonth() + 1}${lang === "zh" ? " 月" : ""}`;
 }
 
-/** 顶栏工作空间胶囊（收起态专用、纯展示不可点）：文件夹图标 + 项目名，样式
- *  对齐官方 UI 顶栏。展开态由 CSS 隐藏——项目名那时常驻侧栏顶部。 */
-export function WorkspacePill() {
+/** 顶栏工作空间胶囊（收起态专用）：文件夹图标 + 项目名，样式对齐官方 UI
+ *  顶栏。展开态由 CSS 隐藏——项目名那时常驻侧栏顶部。收起态点击弹出项目
+ *  切换选框（onOpen 由 SessionHeader 传入）。 */
+export function WorkspacePill({ onOpen }: { onOpen?: () => void }) {
   const store = useStore();
   const ws = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
   if (!ws) return null;
   return (
-    <span className="ws-pill">
+    <span className="ws-pill" onClick={onOpen}>
       <Folder size={12} />
       <span className="ws-pill-name">{ws.title}</span>
     </span>
