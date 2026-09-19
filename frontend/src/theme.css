@@ -3946,17 +3946,22 @@ input:focus, textarea:focus, select:focus { outline: none; }
   from { opacity: 0; transform: translate(var(--tip-x), var(--tip-y)); }
   to { opacity: 1; transform: translate(0px, 0px); }
 }
-.tip-keys {
-  flex: none;
-  padding: 1px 4px 1px 6px;
-  border-radius: 5px;
-  border: 1px solid var(--line);
+.tip-keys-row { display: flex; gap: 3px; flex: none; }
+.tip-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 19px;
+  padding: 0 4px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
   background: var(--fill-strong);
-  color: var(--ink-2);
+  color: var(--ink);
   font-size: 11px;
-  line-height: 14px;
-  /* 多键组合（⌘D / ⌘⇧E）符号间要有正常文字间隔；末字符后也有字距，右 padding 收回 */
-  letter-spacing: 2px;
+  line-height: 1;
+  /* Raycast 同款键帽：描边方块 + 底缘微投影 */
+  box-shadow: 0 1px 0 rgba(0,0,0,.28);
 }
 @media (prefers-reduced-motion: reduce) {
   .tip { animation: none; }

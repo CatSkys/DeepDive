@@ -125,7 +125,9 @@ export function TooltipHost() {
       style={placed ? { top: placed.top, left: placed.left } : { visibility: "hidden" }}
     >
       <span className="tip-text">{tip.text}</span>
-      {tip.keys && <kbd className="tip-keys">{tip.keys}</kbd>}
+      {tip.keys && (tip.keys.length <= 3
+        ? <span className="tip-keys-row">{[...tip.keys].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}</span>
+        : <kbd className="tip-key">{tip.keys}</kbd>)}
     </div>,
     document.body,
   );

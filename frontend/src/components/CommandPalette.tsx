@@ -82,12 +82,14 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
     const projects: Row[] = store.workspaces
       .filter((w) => hit(w.title) || hit(w.path))
-      .map((w) => {
+      .map((w, i) => {
         const Glyph = wsGlyphIcon(getWsIcon(w.workspaceId));
         return {
           key: `ws-${w.workspaceId}`,
           icon: Glyph ? <Glyph size={15} /> : <Folder size={15} />,
           label: w.title,
+          // ⌥1-9 直达第 N 个空间（与 WsSwitcher 悬浮提示同口径）
+          combo: i < 9 ? `⌥${i + 1}` : undefined,
           activeMark: w.workspaceId === store.activeWorkspaceId,
           run: () => store.switchWorkspace(w.workspaceId),
         };
@@ -200,8 +202,8 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
                   <span className={css.rowLabel}>{row.label}</span>
                   {row.activeMark && <Check size={14} className={css.check} />}
                   {row.combo && (
-                    <span className={css.keys}>
-                      {[...row.combo].map((ch, i) => <kbd key={i} className={css.keycap}>{ch}</kbd>)}
+                    <span className="tip-keys-row">
+                      {[...row.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
                     </span>
                   )}
                 </button>

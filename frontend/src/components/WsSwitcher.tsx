@@ -37,8 +37,8 @@ function useWorkspaceIcon(path: string | undefined): string | null {
 /// 空间格：优先弹窗里选的项目 glyph，其次项目根目录约定图标文件
 /// （icon.png / logo.* 等，壳侧读盘）显示缩略图，否则回落项目首字母。
 /// 右键出项目文件夹菜单（与 hero 胶囊同源）。
-function WorkspaceCell({ ws, active, onSwitch, onContext }: {
-  ws: WorkspaceView; active: boolean; onSwitch: () => void;
+function WorkspaceCell({ ws, hotkey, active, onSwitch, onContext }: {
+  ws: WorkspaceView; hotkey?: string; active: boolean; onSwitch: () => void;
   onContext: (x: number, y: number) => void;
 }) {
   const icon = useWorkspaceIcon(ws.path);
@@ -47,6 +47,7 @@ function WorkspaceCell({ ws, active, onSwitch, onContext }: {
     <button
       className={`ws-cell${active ? " active" : ""}`}
       data-tip={ws.title}
+      {...(hotkey ? { "data-tip-keys": hotkey } : {})}
       onClick={onSwitch}
       onContextMenu={(e) => { e.preventDefault(); onContext(e.clientX, e.clientY); }}
     >
@@ -98,10 +99,11 @@ export function WsSwitcher() {
       {/* 内包一层 auto margin 居中：justify-content: center 在溢出时会把
           首端格子挤出可滚范围（flex 数据丢失），auto margin 溢出时归零 */}
       <div className="ws-switcher-cells">
-        {store.workspaces.map((w) => (
+        {store.workspaces.map((w, i) => (
           <WorkspaceCell
             key={w.workspaceId}
             ws={w}
+            hotkey={i < 9 ? `⌥${i + 1}` : undefined}
             active={w.workspaceId === store.activeWorkspaceId}
             onSwitch={() => store.switchWorkspace(w.workspaceId)}
             onContext={(x, y) => setCtx({ ws: w, x, y })}

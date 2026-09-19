@@ -141,6 +141,13 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       if (!combo) return;
       const target = e.target as HTMLElement | null;
       const typing = !!target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+      // ⌥1-9 切换第 N 个项目空间（固定键位，不入改键表）：输入框聚焦时放行
+      // ——⌥数字在文本框里是 macOS 特殊字符输入，劫持会打断打字
+      if (!typing && e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
+        const ws = store.workspaces[Number(e.key) - 1];
+        if (ws) { e.preventDefault(); store.switchWorkspace(ws.workspaceId); }
+        return;
+      }
       for (const def of KEYBIND_DEFS) {
         if (isOff(def.id, store.keybinds)) continue;
         if (combo !== comboFor(def.id, store.keybinds)) continue;
