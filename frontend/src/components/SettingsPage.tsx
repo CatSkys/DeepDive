@@ -264,18 +264,19 @@ function GeneralSection() {
         </div>
       </div>
       <div className={rowsCss.section}>
-        <div className={rowsCss.rowCard}>
-          <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("语言")}</div>
+        <div className={rowsCss.rowGroup}>
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("语言")}</div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <Dropdown
+                options={[{ v: "zh", label: t("中文（简体）") }, { v: "en", label: t("English") }]}
+                value={store.lang}
+                onChange={(v) => store.setLang(v as "zh" | "en")}
+              />
+            </div>
           </div>
-          <div className={rowsCss.rowActions}>
-            <Dropdown
-              options={[{ v: "zh", label: t("中文（简体）") }, { v: "en", label: t("English") }]}
-              value={store.lang}
-              onChange={(v) => store.setLang(v as "zh" | "en")}
-            />
-          </div>
-        </div>
         <div className={rowsCss.rowCard}>
           <div className={rowsCss.rowIdentity}>
             <div className={rowsCss.rowName}>{t("自动归档旧任务")}</div>
@@ -311,9 +312,11 @@ function GeneralSection() {
             />
           </div>
         </div>
+        </div>
       </div>
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("通知")}</div>
+        <div className={rowsCss.rowGroup}>
         <div className={rowsCss.rowCard}>
           <div className={rowsCss.rowIdentity}>
             <div className={rowsCss.rowName}>{t("回合完成")}</div>
@@ -358,6 +361,7 @@ function GeneralSection() {
           <div className={rowsCss.rowActions}>
             <Toggle on={prefs.bubble} onChange={(v) => changeNotify("bubble", v)} />
           </div>
+        </div>
         </div>
       </div>
     </>
@@ -417,13 +421,15 @@ function ApprovalSection() {
       {view === undefined && <div className={rowsCss.muted}>{t("载入中…")}</div>}
       {view === null && <div className={rowsCss.muted}>{t("本引擎未提供权限预设。")}</div>}
       {view && (
-        <div className={rowsCss.rowCard}>
-          <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("默认权限预设")}</div>
-            <div className={rowsCss.rowCaption}>{t("新建会话的初始权限。")}</div>
-          </div>
-          <div className={rowsCss.rowActions}>
-            <Dropdown options={options} value={view.current} onChange={(v) => void setDefault(v)} />
+        <div className={rowsCss.rowGroup}>
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("默认权限预设")}</div>
+              <div className={rowsCss.rowCaption}>{t("新建会话的初始权限。")}</div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <Dropdown options={options} value={view.current} onChange={(v) => void setDefault(v)} />
+            </div>
           </div>
         </div>
       )}
@@ -695,6 +701,7 @@ function DataSection() {
   return (
     <div className={rowsCss.section}>
       <div className={rowsCss.sectionTitle}>{t("数据与存储")}</div>
+      <div className={rowsCss.rowGroup}>
       <div className={rowsCss.rowCard}>
         <div className={rowsCss.rowIdentity}>
           <div className={rowsCss.rowName}>{t("存储位置（DSH_HOME）")}</div>
@@ -712,6 +719,7 @@ function DataSection() {
         <div className={rowsCss.rowActions}>
           <button className={rowsCss.secondaryButton} onClick={() => sendToShell({ type: "open-host-doc" })}>{t("打开")}</button>
         </div>
+      </div>
       </div>
     </div>
   );
