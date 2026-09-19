@@ -62,12 +62,14 @@ describe("QuestionCard", () => {
     expect(settleEvent).not.toHaveBeenCalled();
   });
 
-  it("发送钮与回车等价：点击提交并本地清卡；空文本时禁用", async () => {
+  it("发送钮与回车等价：输入后才出现，点击提交并本地清卡", async () => {
     const { container } = render(<QuestionCard eventId="ev1" questions={[QUESTION]} />);
-    const send = container.querySelector(".q-custom .composer-send") as HTMLButtonElement;
-    expect(send.disabled).toBe(true);
+    // 未输入时不渲染发送钮
+    expect(container.querySelector(".q-custom .composer-send")).toBeNull();
     const input = container.querySelector(".q-custom input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "我自己来" } });
+    const send = container.querySelector(".q-custom .composer-send") as HTMLButtonElement;
+    expect(send).not.toBeNull();
     expect(send.disabled).toBe(false);
     fireEvent.click(send);
     await vi.waitFor(() => {

@@ -172,17 +172,19 @@ export function QuestionCard({ eventId, questions }: {
             }
           }}
         />
-        {/* 与 Composer 同款发送钮：回车的可见等价物，空文本禁用 */}
-        <button
-          type="button"
-          className="composer-send"
-          data-tip={t("发送")}
-          data-tip-keys="Enter"
-          disabled={submitting || !custom.trim()}
-          onClick={sendCustom}
-        >
-          <ArrowUp size={15} strokeWidth={2.4} />
-        </button>
+        {/* 胶囊输入框内嵌的发送钮：回车的可见等价物，输入后才出现 */}
+        {custom.trim() !== "" && (
+          <button
+            type="button"
+            className="composer-send"
+            data-tip={t("发送")}
+            data-tip-keys="Enter"
+            disabled={submitting}
+            onClick={sendCustom}
+          >
+            <ArrowUp size={15} strokeWidth={2.4} />
+          </button>
+        )}
       </div>
       <div className="actions">
         <button className="btn-plain" disabled={submitting} onClick={skip}>
