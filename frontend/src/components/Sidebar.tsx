@@ -9,7 +9,9 @@ import { useStore } from "../store";
 import { comboFor } from "../keybinds";
 import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
-import { pickNewWorkspace } from "./workspacePicker";
+import { openNewProjectDialog } from "./NewProjectDialog";
+import { wsGlyphIcon } from "./IconPicker";
+import { useWsIcon } from "../wsIcons";
 import { longPressHandlers } from "../longPress";
 import { WorkspaceMenuItems } from "./WorkspaceMenu";
 import { WsSwitcher } from "./WsSwitcher";
@@ -129,6 +131,8 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const wsOf = (s: SessionSummary): string | undefined =>
     hasWs ? (store.wsOfSession.get(s.sessionId) ?? store.workspaces[0].workspaceId) : undefined;
   const activeWs = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
+  // 项目行行首 glyph（弹窗里选的；没选回落通用文件夹图标）
+  const WsGlyph = wsGlyphIcon(useWsIcon(activeWs?.workspaceId));
 
   // 横滑方向（§2.1）：目标格子在后 → 内容自右滑入（fwd）；在前 → 自左（back）。
   const prevWs = useRef<string | null>(null);
@@ -312,19 +316,21 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       {activeWs && (
         <div className="ws-view" key={`head-${activeWs.workspaceId}`} data-dir={slideDir.current}>
           {/* 官方 ProjectRowItem 同款交互：点行折叠/展开会话；hover 显出
-              chevron（替代文件夹图标，折叠时转 -90°）与 ⋯/＋ 行尾按钮。 */}
+              chevron（替代项目图标，折叠时转 -90°）与 ⋯/＋ 行尾按钮。
+              行首槽位优先显示弹窗里选的项目 glyph（wsIcons），没选回落
+              通用文件夹图标。 */}
           <div
             className={`ws-row${wsCollapsed ? " collapsed" : ""}`}
             role="treeitem"
             aria-expanded={!wsCollapsed}
-           
             onClick={() => setWsCollapsed((v) => !v)}
           >
             <span className="ws-lead" aria-hidden="true">
-              <Folder size={13} className="ws-folder-ic" />
+              {WsGlyph
+                ? <WsGlyph size={13} className="ws-folder-ic" />
+                : <Folder size={13} className="ws-folder-ic" />}
               <ChevronDown size={13} className="ws-chevron-ic" />
             </span>
-            <span className="ws-name">{activeWs.title}</span>
             <span className="ws-row-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="ws-act"
@@ -378,19 +384,12 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           <Settings size={15} />
         </button>
         {hasWs && <WsSwitcher />}
-        {/* ＋新建空间：共享入口 workspacePicker（壳端目录选择器，纯浏览器
-            退化为手输绝对路径；Hero 项目菜单同源）。 */}
+        {/* ＋新建项目：打开 NewProjectDialog 表单弹窗（名称/图标/目录/指令，
+            Hero 项目菜单同源；原"直接弹目录选择器"升级为表单）。 */}
         <button
           className="ws-add"
           data-tip={t("新建项目空间")}
-          onClick={() => pickNewWorkspace(
-            !!window.webkit?.messageHandlers?.deepdiveHost,
-            t("输入要添加为工作空间的文件夹绝对路径："),
-            
-              (p) => void store.createWorkspace(p).then((r) => {
-                if (r.error) void alertDialog({ message: tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }) });
-              }),
-          )}
+          onClick={() => openNewProjectDialog()}
         >
           <IconProjectAddOutline16 size={15} />
         </button>

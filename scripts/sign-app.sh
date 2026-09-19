@@ -42,6 +42,15 @@ if [[ "$MODE" != "--distribution" ]]; then
   # --deep 覆盖标准嵌套位置并重封整个 bundle；不带 runtime 见文件头（跨团队嵌套
   # 代码在 hardened 父进程下会被静默杀掉）。
   codesign --force --deep -s "$IDENTITY" "$APP" || { echo "FAIL: codesign $APP"; exit 1; }
+  # macOS 27 实测（2026-09-19）：--deep 够不到 Resources/Runtime/node（非标准
+  # 嵌套位），它保持 Node.js Foundation 原签（hardened runtime）——处于被重封
+  # 的 bundle 内时 exec 即被内核 SIGKILL(137)，自检与应用内启动双双死。开发链
+  # 把 node 按同档身份补签（无 runtime，与父进程一致；无 runtime 才不需要
+  # JIT entitlements——那对是 --distribution 档的搭配）。
+  NODE_BIN="$APP/Contents/Resources/Runtime/node"
+  if [[ -f "$NODE_BIN" ]]; then
+    codesign --force -s "$IDENTITY" "$NODE_BIN" || { echo "FAIL: codesign node"; exit 1; }
+  fi
   echo "signed (dev seal): Developer ID + --deep，无 hardened runtime → 秒级且 TCC 授权跨构建持久"
   exit 0
 fi

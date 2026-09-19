@@ -390,6 +390,32 @@ export function readWorkspaceIcon(path: string): Promise<string | null> {
   );
 }
 
+/* ── 新建项目弹窗的落地准备：引擎 workspace/create 要求目录已存在（引擎侧
+   realpath+stat 校验，vendored workspace 包），所以「留空自动建目录」只能在
+   壳做——~/Documents/DeepDive Projects/<净化名>（撞名追加序号）；项目指令
+   由壳写入 <目录>/AGENTS.md（已存在不改动）。纯浏览器 resolve 走 fallback
+   （调用方按 hasShell 分流，本不该走到）。 ── */
+
+export interface PreparedWorkspace {
+  /** 落定后的目录绝对路径；失败为空串。 */
+  path: string;
+  /** AGENTS.md 是否本次写入（已存在/未填指令为 false）。 */
+  agentsFile: boolean;
+  error?: string;
+}
+
+export function prepareWorkspace(payload: { name: string; path?: string; instructions?: string }): Promise<PreparedWorkspace> {
+  return bridgeRequest(
+    "workspacePrepared",
+    { path: "", agentsFile: false, error: "bridge unavailable" },
+    (p) => {
+      const r = p as { path?: string; agentsFile?: boolean; error?: string } | undefined;
+      return { path: r?.path ?? "", agentsFile: !!r?.agentsFile, ...(r?.error ? { error: r.error } : {}) };
+    },
+    (reqId) => sendToShell({ type: "prepare-workspace", reqId, ...payload }),
+  );
+}
+
 export interface PickedAttachment {
   path: string;
   name: string;

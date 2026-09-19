@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { readWorkspaceIcon } from "../host";
 import { useStore } from "../store";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
+import { useWsIcon } from "../wsIcons";
+import { wsGlyphIcon } from "./IconPicker";
 import { WorkspaceMenu } from "./WorkspaceMenu";
 import type { WorkspaceView } from "../types";
 
@@ -32,13 +34,15 @@ function useWorkspaceIcon(path: string | undefined): string | null {
   return dataUrl;
 }
 
-/// 空间格：项目根目录有约定图标文件（icon.png / logo.* 等，壳侧读盘）
-/// 显示缩略图，否则回落项目首字母。右键出项目文件夹菜单（与 hero 胶囊同源）。
+/// 空间格：优先弹窗里选的项目 glyph，其次项目根目录约定图标文件
+/// （icon.png / logo.* 等，壳侧读盘）显示缩略图，否则回落项目首字母。
+/// 右键出项目文件夹菜单（与 hero 胶囊同源）。
 function WorkspaceCell({ ws, active, onSwitch, onContext }: {
   ws: WorkspaceView; active: boolean; onSwitch: () => void;
   onContext: (x: number, y: number) => void;
 }) {
   const icon = useWorkspaceIcon(ws.path);
+  const Glyph = wsGlyphIcon(useWsIcon(ws.workspaceId));
   return (
     <button
       className={`ws-cell${active ? " active" : ""}`}
@@ -46,9 +50,11 @@ function WorkspaceCell({ ws, active, onSwitch, onContext }: {
       onClick={onSwitch}
       onContextMenu={(e) => { e.preventDefault(); onContext(e.clientX, e.clientY); }}
     >
-      {icon
-        ? <img className="ws-cell-icon" src={icon} alt={ws.title} />
-        : (ws.title.trim()[0] ?? "?").toUpperCase()}
+      {Glyph
+        ? <Glyph size={15} />
+        : icon
+          ? <img className="ws-cell-icon" src={icon} alt={ws.title} />
+          : (ws.title.trim()[0] ?? "?").toUpperCase()}
     </button>
   );
 }

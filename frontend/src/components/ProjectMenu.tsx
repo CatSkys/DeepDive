@@ -2,15 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Folder, Plus, Search } from "lucide-react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
-import { pickNewWorkspace } from "./workspacePicker";
-import { alertDialog } from "./DialogHost";
+import { openNewProjectDialog } from "./NewProjectDialog";
 
 // Hero 项目切换菜单（新会话页点项目名弹出）：搜索 + 项目列表（文件夹图标 +
 // 名称，当前项目右侧打勾）+ 底部「新建项目」。不做参考图里的「不在项目中
 // 工作」——本客户端每个会话必属一个工作空间，引擎无此语义。
 export function ProjectMenu({ onClose }: { onClose: () => void }) {
   const store = useStore();
-  const { t, tt } = useT();
+  const { t } = useT();
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
@@ -62,15 +61,10 @@ export function ProjectMenu({ onClose }: { onClose: () => void }) {
         <button
           className="ws-menu-row"
           onClick={() => {
-            pickNewWorkspace(
-              !!window.webkit?.messageHandlers?.deepdiveHost,
-              t("输入要添加为工作空间的文件夹绝对路径："),
-              
-              (p) => void store.createWorkspace(p).then((r) => {
-                if (r.error) void alertDialog({ message: tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }) });
-              }),
-            );
+            // 先关菜单再开弹窗：弹窗挂在 App 根部（NewProjectDialogHost），
+            // 不随菜单卸载
             onClose();
+            openNewProjectDialog();
           }}
         >
           <Plus size={15} />

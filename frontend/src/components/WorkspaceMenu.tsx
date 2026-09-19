@@ -5,6 +5,7 @@ import type { WorkspaceView } from "../types";
 import { revealPath } from "../host";
 import { api } from "../api";
 import { useStore } from "../store";
+import { clearWsIcon } from "../wsIcons";
 import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { useT } from "../i18n";
 
@@ -37,6 +38,7 @@ function useWorkspaceActions(ws: WorkspaceView, onDone: () => void) {
       if (!ok) return;
       try {
         await api.workspaceDelete({ workspaceId: ws.workspaceId });
+        clearWsIcon(ws.workspaceId); // glyph 存 localStorage（wsIcons），随删清理
         const rest = store.workspaces.filter((w) => w.workspaceId !== ws.workspaceId);
         if (store.activeWorkspaceId === ws.workspaceId && rest[0]) store.switchWorkspace(rest[0].workspaceId);
         await store.refresh();

@@ -339,6 +339,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         case "pick-workspace":
             pickWorkspaceDirectory()
+        case "prepare-workspace":
+            prepareWorkspace(
+                reqId: body["reqId"] as? String ?? "",
+                path: body["path"] as? String ?? "",
+                name: body["name"] as? String ?? "",
+                instructions: body["instructions"] as? String ?? "",
+            )
         case "pick-attachments":
             pickAttachments(reqId: body["reqId"] as? String ?? "")
         case "list-dir":
@@ -524,6 +531,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "openWith",
             payload: AppDelegate.jsonPayload(OpenWithCatalog.payload(listing, reqId: reqId)),
         )
+    }
+
+    /// 新建项目弹窗的落地准备：① 目录——引擎 workspace/create 要求目录已
+    /// 存在（vendored workspace 包 realpath+stat 校验），自动建目录只能在壳
+    /// 做：未显式给 path 时在 ~/Documents/DeepDive Projects/<净化名> 下建
+    /// （撞名追加序号）；② 项目指令——写入 <目录>/AGENTS.md（引擎按会话
+    /// cwd 读它），文件已存在则不改动。磁盘操作走后台队列（对齐 runGit
+    /// 的线程纪律），主线程只回推 payload。
+    private func prepareWorkspace(reqId: String, path: String, name: String, instructions: String) {
+        func reply(_ fields: [String: Any]) {
+            var all = fields
+            all["reqId"] = reqId
+            windowController.pushHostCommand("workspacePrepared", payload: AppDelegate.jsonPayload(all))
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            var target = path
+            if target.isEmpty {
+                let safe = name
+                    .components(separatedBy: CharacterSet(charactersIn: "/:").union(.newlines).union(.controlCharacters))
+                    .joined(separator: "-")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let base = FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent("Documents", isDirectory: true)
+                    .appendingPathComponent("DeepDive Projects", isDirectory: true)
+                var candidate = base.appendingPathComponent(safe.isEmpty ? "Project" : safe)
+                var n = 2
+                while FileManager.default.fileExists(atPath: candidate.path) {
+                    candidate = base.appendingPathComponent("\(safe.isEmpty ? "Project" : safe) \(n)")
+                    n += 1
+                }
+                target = candidate.path
+            }
+            let fm = FileManager.default
+            do {
+                try fm.createDirectory(atPath: target, withIntermediateDirectories: true)
+            } catch {
+                DispatchQueue.main.async { reply(["error": error.localizedDescription]) }
+                return
+            }
+            var agentsFile = false
+            if !instructions.isEmpty {
+                let agents = URL(fileURLWithPath: target).appendingPathComponent("AGENTS.md")
+                if !fm.fileExists(atPath: agents.path) {
+                    do {
+                        try instructions.write(to: agents, atomically: true, encoding: .utf8)
+                        agentsFile = true
+                    } catch {
+                        DispatchQueue.main.async { reply(["error": error.localizedDescription]) }
+                        return
+                    }
+                }
+            }
+            DispatchQueue.main.async { reply(["path": target, "agentsFile": agentsFile]) }
+        }
     }
 
     /// 侧栏空间格图标：读项目根目录约定图标文件（WorkspaceIcon.probe），

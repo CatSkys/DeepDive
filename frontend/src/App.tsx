@@ -23,6 +23,8 @@ import { useAutoArchive } from "./useAutoArchive";
 import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
+import { NewProjectDialogHost } from "./components/NewProjectDialog";
+import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
 
@@ -77,6 +79,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
       },
       workspacePicked: (path) => {
+        // 新建项目弹窗开着时，目录选择器结果归弹窗（表单流程接管）
+        if (routeWorkspacePicked(path)) return;
         void store.createWorkspace(path).then((r) => {
           if (r.error) void alertDialog({ message: tt("添加工作空间失败：{m}", "Add workspace failed: {m}", { m: r.error }) });
         });
@@ -158,6 +162,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
       <TooltipHost />
       <DialogHost />
+      <NewProjectDialogHost />
       {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失 */}
       {store.everConnected && !store.engineUp && (
         <div className="engine-banner" role="status">
