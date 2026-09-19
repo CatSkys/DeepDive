@@ -2353,6 +2353,29 @@ button {
   content-visibility: auto;
   contain-intrinsic-size: auto 160px;
 }
+/* ---- 流式块级/行级对焦（打字机的替代观感）：正文按 useFocusStream 的受控
+   节奏揭示，新出现的行（段落行/列表项/代码行/表格行）与新块（标题/表格/
+   公式）从模糊聚焦到清晰。粒度与揭示节奏相配：快档整句整行出现时整行
+   对焦，慢档逐字生长、每行开头对焦一次。只挂 .streaming 作用域（直播尾
+   项）：落定消息与历史加载不播，滚动不闪。 ---- */
+@keyframes md-focus-in {
+  from { opacity: 0; filter: blur(10px); }
+}
+.streaming .agent-message .md :is(h1, h2, h3, table, .md-math-block),
+.streaming .agent-message .md p > span,
+.streaming .agent-message .md blockquote p,
+.streaming .agent-message .md li,
+.streaming .agent-message .md .cbRow {
+  animation: md-focus-in 400ms var(--ease-out, ease-out) both;
+}
+/* 直播轮内的工具行/压缩卡/重试行：挂载即对焦（此前瞬间闪现无任何动画） */
+.turn-group.live :is(.tool-row, .compaction-card, .retry-row) {
+  animation: md-focus-in 400ms var(--ease-out, ease-out) both;
+}
+/* 推理流：思考行与正文同款对焦（thinking-live 作用域随 running 挂/摘） */
+.thinking-live .thinking-row {
+  animation: md-focus-in 400ms var(--ease-out, ease-out) both;
+}
 /* assistant 块内部（思考轨迹 + 正文）沿用全局 12px 行距节奏，
    不再让思考行贴着正文。 */
 .msg-block.assistant {
@@ -2977,6 +3000,9 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
     transition: none !important;
   }
   .eq span { animation: none !important; }
+  .streaming .agent-message .md :is(h1, h2, h3, table, .md-math-block, p > span, blockquote p, li, .cbRow),
+  .turn-group.live :is(.tool-row, .compaction-card, .retry-row),
+  .thinking-live .thinking-row { animation: none !important; }
 }
 
 /* ─────────────────────────────────────────────────────────

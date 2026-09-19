@@ -7,7 +7,7 @@ import { ThinkingState } from "../components/ThinkingState";
 import { UserAttachments } from "../components/AttachmentImage";
 import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
-import { UserBubble, AgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
+import { UserBubble, AgentMessage, StreamingAgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ProducedFiles } from "./ToolRow";
 import { PresentedFiles } from "./PresentedFiles";
 export function Item({ item, running, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, wsPath, cwd }: {
@@ -129,10 +129,9 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
     // 流式正文与落定后走**同一条渲染链**（AgentMessage → Markdown）：边输出边带格式，
     // 而不是等 assistant/message 落定才排版。此前这里是纯文本 div，结果是"打字期间
     // 没有格式、落定瞬间整段重排"（用户报障）；同一组件也让两段之间不跳版式。
+    // 揭示节奏与块级对焦动画见 StreamingAgentMessage / useFocusStream。
     return (
-      <div className="msg-block assistant">
-        <AgentMessage text={item.output} onOpenFile={onPreviewFile} />
-      </div>
+      <StreamingAgentMessage output={item.output} running={running} onOpenFile={onPreviewFile} />
     );
   }
   return null;

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { t, tt } from "../i18n";
 import { Markdown } from "../components/Markdown";
+import { useFocusStream } from "./useFocusStream";
 import { IconBranchOutline16, IconCheckOutline16, IconCopyOutline16 } from "../components/Icons";
 import { formatClock } from "./format";
 export function UserBubble({ text }: { text: string }) {
@@ -25,6 +26,23 @@ export function AgentMessage({ text, onOpenFile }: {
   return (
     <div className="agent-message">
       <Markdown text={text} onOpenFile={onOpenFile} />
+    </div>
+  );
+}
+
+
+/** 流式中的正文项：直播缓冲经 useFocusStream 受控揭示（替代打字机式整段
+ *  闪现），并挂 `.streaming` 作用域——块级对焦动画只在这条消息上播；落定
+ *  后由 assistant 项接替（无作用域），历史加载永不重播动画。 */
+export function StreamingAgentMessage({ output, running, onOpenFile }: {
+  output: string;
+  running: boolean;
+  onOpenFile?: (path: string, line?: number) => void;
+}) {
+  const shown = useFocusStream(output, running);
+  return (
+    <div className={`msg-block assistant${running ? " streaming" : ""}`}>
+      <AgentMessage text={shown} onOpenFile={onOpenFile} />
     </div>
   );
 }

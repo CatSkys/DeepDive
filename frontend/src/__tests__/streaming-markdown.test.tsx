@@ -3,17 +3,21 @@
 // ② 已完成的块要被"冻结"复用——增量只重算正在增长的那个尾块，元素不重挂
 //    （这是流式不卡的前提，官方 incremental 渲染的块冻结纪律）。
 // @vitest-environment jsdom
-import { cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Markdown } from "../components/Markdown";
 import { Item } from "../session/Item";
 
 afterEach(cleanup);
+afterEach(() => vi.useRealTimers());
 
 describe("流式正文渲染", () => {
   it("流式 chunk 项渲染 markdown，而不是纯文本", () => {
+    vi.useFakeTimers();
     const item = { key: "1:assistant/chunk", kind: "chunk", output: "## 标题\n\n**粗体**与`码`\n", turn: 1 } as unknown as Parameters<typeof Item>[0]["item"];
     const { container } = render(<Item item={item} running sessionId="s" />);
+    // 直播项经 useFocusStream 受控揭示（打字机的替代观感），推进若干帧让揭示追平缓冲
+    act(() => { vi.advanceTimersByTime(500); });
     expect(container.querySelector(".md")).not.toBeNull();
     expect(container.querySelector("h2")?.textContent).toBe("标题");
     expect(container.querySelector("strong")?.textContent).toBe("粗体");

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n";
+import { useFocusStream } from "../session/useFocusStream";
 
 /* ─────────────────────────────────────────────────────────
  * THINKING — expandable agent reasoning trace
@@ -23,9 +24,11 @@ export function ThinkingState({
   const { t } = useT();
   const [manual, setManual] = useState<boolean | null>(null);
   const expanded = manual ?? running;
+  // 推理流同正文一样走受控揭示（慢逐字/快逐行），替代 delta 整段闪现
+  const shown = useFocusStream(reasoning, running);
   const paragraphs = useMemo(
-    () => reasoning.split(/\n+/).map((p) => p.trim()).filter(Boolean),
-    [reasoning],
+    () => shown.split(/\n+/).map((p) => p.trim()).filter(Boolean),
+    [shown],
   );
 
   // The timeline rule is drawn to the measured height of the trace body so it
@@ -58,7 +61,7 @@ export function ThinkingState({
   };
 
   return (
-    <div className="thinking">
+    <div className={`thinking${running ? " thinking-live" : ""}`}>
       <button
         type="button"
         aria-expanded={expanded}

@@ -418,6 +418,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               const { keyIdx, groups } = layout;
               const nodes: React.ReactNode[] = [];
               groups.forEach((g: TurnGroup, gi: number) => {
+                // 直播轮（会话在跑 且 是最后一轮）挂 .live 作用域：工具行等
+                // 流内元素挂载时播对焦动画；历史轮与已收尾的轮不播。
+                const isLiveGroup = running && gi === groups.length - 1;
                 // 轮内过程折叠：已闭合轮把最终回答之前的工具/中间消息收成披露条；
                 // 默认收起，点击展开。正在跑的轮（无 turn-tail）不折。
                 const proc = g.turn !== null ? computeTurnProcess(g.items) : null;
@@ -436,7 +439,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 const barAt = proc ? (proc.processIndices[0] ?? proc.answerIndex) : -1;
                 let procBarEmitted = false;
                 nodes.push(
-                  <div key={`turn-${g.turn ?? "head"}-${gi}`} className="turn-group" data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
+                  <div key={`turn-${g.turn ?? "head"}-${gi}`} className={`turn-group${isLiveGroup ? " live" : ""}`} data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
                     {g.items.map((item, ii) => {
                       const isProcessMember = proc !== null
                         && ii < proc.answerIndex
