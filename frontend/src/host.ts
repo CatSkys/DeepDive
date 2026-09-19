@@ -658,31 +658,6 @@ export function mcpServersSave(
   );
 }
 
-/* ── 外部 agent 联系人（设置 → 会话协作）：壳跑一次本机 CLI 并回收输出。
-   命令给绝对路径，或给一个裸命令名（壳经 /usr/bin/env 走 PATH 解析）；参数数组直传
-   Process，不经 shell。不内置任何 agent 运行时——只是"当联系人调一次"。 ── */
-
-export interface AgentRunResult {
-  ok: boolean;
-  output: string;
-  status?: number;
-  error?: string;
-}
-
-export function runAgent(command: string, args: string[], timeoutSeconds = 120): Promise<AgentRunResult> {
-  return bridgeRequest<AgentRunResult>(
-    "agentRunResult",
-    { ok: false, output: "", error: "no-shell" },
-    (p) => {
-      const r = p as { ok?: boolean; output?: string; status?: number; error?: string } | undefined;
-      return { ok: r?.ok === true, output: r?.output ?? "", status: r?.status, error: r?.error };
-    },
-    (reqId) => sendToShell({ type: "agent-run", reqId, command, args, timeout: timeoutSeconds }),
-    // 外部 CLI 可能跑上一两分钟，10s 的默认桥超时不够
-    180_000,
-  );
-}
-
 /* ── 工作树（设置 → 工作树）：生命周期交给壳跑 git 本体，前端只拼参数与展示 ── */
 
 export interface WorktreeRow {

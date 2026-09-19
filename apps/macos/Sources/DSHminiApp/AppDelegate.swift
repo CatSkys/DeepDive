@@ -366,13 +366,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             memoryDelete(reqId: body["reqId"] as? String ?? "", sessionId: body["sessionId"] as? String ?? "")
         case "memory-clear":
             memoryClear(reqId: body["reqId"] as? String ?? "")
-        case "agent-run":
-            agentRun(
-                reqId: body["reqId"] as? String ?? "",
-                command: body["command"] as? String ?? "",
-                args: body["args"] as? [String] ?? [],
-                timeout: (body["timeout"] as? NSNumber)?.doubleValue ?? 120,
-            )
         case "worktree-list":
             worktreeRun(
                 reqId: body["reqId"] as? String ?? "", repo: body["repo"] as? String ?? "",
@@ -652,49 +645,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 fields["error"] = result.output.isEmpty ? "git 命令失败" : result.output
             }
             DispatchQueue.main.async { reply(result.status == 0, fields) }
-        }
-    }
-
-    /// 外部 agent 当联系人：跑一次本机已装的 CLI 并回收输出。只接受**绝对路径的可执行
-    /// 文件 + 参数数组**（直传 Process，不经 shell，无注入面）；消息由调用方作为最后一个
-    /// 参数传进来。不内置任何 agent 运行时，也不注册成引擎 provider（用户口径）。
-    private func agentRun(reqId: String, command: String, args: [String], timeout: TimeInterval) {
-        func reply(_ ok: Bool, _ fields: [String: Any]) {
-            var all = fields
-            all["reqId"] = reqId
-            all["ok"] = ok
-            windowController.pushHostCommand("agentRunResult", payload: AppDelegate.jsonPayload(all))
-        }
-        // 带 / 的一律当路径校验可执行位；裸名字交给 /usr/bin/env 走 PATH 解析（参数数组
-        // 直传，env 只做 exec，不经 shell，无注入面）。
-        let isPath = command.contains("/")
-        var executable = command
-        var argv = args
-        if isPath {
-            var isDirectory: ObjCBool = false
-            guard command.hasPrefix("/"), FileManager.default.fileExists(atPath: command, isDirectory: &isDirectory),
-                  !isDirectory.boolValue, FileManager.default.isExecutableFile(atPath: command) else {
-                reply(false, ["error": "不是一个可执行文件：\(command)"])
-                return
-            }
-        } else {
-            guard !command.isEmpty, !command.contains(where: { $0.isWhitespace }) else {
-                reply(false, ["error": "命令名不能为空或含空白：\(command)"])
-                return
-            }
-            executable = "/usr/bin/env"
-            argv = [command] + args
-        }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = ProcessRunner.run(
-                executable: executable, arguments: argv, workingDirectory: FileManager.default.homeDirectoryForCurrentUser.path,
-                timeout: min(max(timeout, 5), 600),
-            )
-            let trimmed = result.output.count > 8000 ? String(result.output.suffix(8000)) : result.output
-            var fields: [String: Any] = ["output": trimmed, "status": Int(result.status)]
-            if result.timedOut { fields["error"] = "执行超时，已终止" }
-            else if result.status != 0 { fields["error"] = "退出码 \(result.status)" }
-            DispatchQueue.main.async { reply(!result.timedOut && result.status == 0, fields) }
         }
     }
 

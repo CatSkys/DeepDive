@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, Brain, CalendarClock, ChartColumn, ChevronLeft, Cpu, Dna, Download, Folder, Keyboard, Moon,
-  GitBranch, MessagesSquare, Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
+  GitBranch, Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
   Smartphone,
   SquarePen, Sun,
   Trash2,
@@ -18,7 +18,6 @@ import { MemorySection } from "../memory/MemorySection";
 import { PluginsSection } from "../plugins/PluginsSection";
 import { shortModuleName } from "../plugins/model";
 import { draftKeyOf, writeDraft } from "../components/composer/useComposerDraft";
-import { CollabSection } from "../collab/CollabSection";
 import { WorktreeSection } from "../worktree/WorktreeSection";
 import { RemoteControlSection } from "../mobile/RemoteControlSection";
 import { EvolutionSection } from "../evolution/EvolutionSection";
@@ -43,7 +42,7 @@ import { sessionDeleteDirs } from "../host";
 //
 // 分类（侧栏按用途分三组；组定义与成员见下方 navGroups）：
 //   基础设置——通用（外观/语言/归档/Enter/通知）、模型（提供方+密钥）、审批（默认权限预设）、快捷键
-//   Agent 能力——自动化、记忆、自进化、技能与插件、会话协作、移动端远程控制、导入
+//   Agent 能力——自动化、记忆、自进化、技能与插件、移动端远程控制、导入
 //   数据与统计——已归档的聊天、数据、工作树、使用统计
 
 export function SettingsPage({ initialSection, onClose, automationDraft, onAutomationDraftUsed }: {
@@ -87,7 +86,6 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
         { id: "memory", label: t("记忆"), icon: Brain },
         { id: "evolution", label: t("自进化"), icon: Dna },
         { id: "plugins", label: t("插件"), icon: Puzzle },
-        { id: "collab", label: t("会话协作"), icon: MessagesSquare },
         { id: "remote", label: t("移动端远程控制"), icon: Smartphone },
         { id: "import", label: t("导入"), icon: Download },
       ],
@@ -170,7 +168,6 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
               }}
             />
           )}
-          {activeId === "collab" && <CollabSection />}
           {activeId === "worktree" && <WorktreeSection />}
           {activeId === "remote" && <RemoteControlSection />}
           {activeId === "automation" && (
