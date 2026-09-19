@@ -27,7 +27,7 @@ import { alertDialog, promptDialog } from "./DialogHost";
 import { Dropdown, Toggle } from "./controls";
 import { IconPicker } from "./IconPicker";
 import { beginWorkspacePick, endWorkspacePick, setWorkspacePickSink } from "./workspacePicker";
-import { IconProjectAddOutline16 } from "./Icons";
+import rowsCss from "../settings/SettingsRows.module.css";
 import css from "./NewProjectDialog.module.css";
 
 let openReq: (() => void) | null = null;
@@ -145,7 +145,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
     // 关闭只认"按下 overlay 自身"；图标选择器的 portal 点击沿 React 树冒泡
     // 会路过这里，onClick+stopPropagation 拦截会误关（PITFALLS §1.7）。
     <div
-      className={css.dlgOverlay}
+      className={rowsCss.modalOverlay}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       role="dialog"
       aria-label={t("新建项目")}
@@ -154,22 +154,19 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
           React 子树里，其内部 Escape 已被菜单 stopPropagation 截住，不会
           连带关掉整个弹窗 */}
       <div
-        className={css.dlgCard}
+        className={rowsCss.modal}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose();
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submit();
         }}
       >
-        <div className={css.dlgHead}>
-          <span className={css.dlgChip} aria-hidden="true">
-            <IconProjectAddOutline16 size={17} />
-          </span>
-          <span className={css.dlgTitle}>{t("新建项目")}</span>
+        <div className={rowsCss.modalHead}>
+          <span className={rowsCss.modalTitle}>{t("新建项目")}</span>
         </div>
-        <div className={css.dlgBody}>
-          <div className={css.groupCard}>
-            <div className={css.groupRow}>
+        <div className={rowsCss.modalBody}>
+          <div className={rowsCss.rowGroup}>
+            <div className={rowsCss.rowCard}>
               <span className={css.groupLabel}>{t("名称")}</span>
               <div className={css.groupControl}>
                 <div className={css.nameField}>
@@ -184,7 +181,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             </div>
-            <div className={css.groupRow}>
+            <div className={rowsCss.rowCard}>
               <span className={css.groupLabel}>{t("记忆")}</span>
               <div className={`${css.groupControl} ${css.rowRight}`}>
                 <span className={css.infoIcon} data-tip={t("每个会话维护一份笔记，每轮注入给模型；开关在应用下次启动后对会话生效。")}>
@@ -193,7 +190,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
                 <Toggle on={store.sessionMemoryEnabled} onChange={store.setSessionMemoryEnabled} />
               </div>
             </div>
-            <div className={css.groupRow}>
+            <div className={rowsCss.rowCard}>
               <span className={css.groupLabel}>{t("自进化")}</span>
               <div className={`${css.groupControl} ${css.rowRight}`}>
                 <span className={css.infoIcon} data-tip={t("从会话中提炼可复用的经验，经机械校验后自动落库并提交；开关对采集与自动化即时生效。")}>
@@ -203,7 +200,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
               </div>
             </div>
             {perm && (
-              <div className={css.groupRow}>
+              <div className={rowsCss.rowCard}>
                 <span className={css.groupLabel}>{t("审批模式")}</span>
                 <div className={`${css.groupControl} ${css.rowRight}`}>
                   <Dropdown
@@ -223,7 +220,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             )}
-            <div className={css.groupRow}>
+            <div className={rowsCss.rowCard}>
               <span className={css.groupLabel}>{t("工作区文件夹")}</span>
               <div className={css.groupControl}>
                 <button
@@ -251,7 +248,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <div className={css.dlgLabelRow}>
-              <span className={css.dlgLabel}>{t("项目指令")}</span>
+              <span className={rowsCss.fieldLabel}>{t("项目指令")}</span>
               <span className={css.infoIcon} data-tip={t("指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。")}>
                 <Info size={14} />
               </span>
@@ -263,11 +260,11 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
               onChange={(e) => setInstructions(e.target.value)}
             />
           </div>
-          {error && <div className={css.modelError}>{error}</div>}
+          {error && <div className={rowsCss.modelError}>{error}</div>}
         </div>
-        <div className={css.dlgFoot}>
-          <button className={css.ghostBtn} onClick={onClose}>{t("取消")}</button>
-          <button className={css.primaryBtn} disabled={!canSubmit} onClick={() => void submit()}>
+        <div className={rowsCss.modalFoot}>
+          <button className={rowsCss.secondaryButton} onClick={onClose}>{t("取消")}</button>
+          <button className={rowsCss.primaryButton} disabled={!canSubmit} onClick={() => void submit()}>
             {busy ? t("创建中…") : t("创建")}
           </button>
         </div>
