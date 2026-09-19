@@ -896,17 +896,16 @@ button {
   padding: 7px 8px;
   border-radius: 999px;
   background: var(--composer-bg);
-  border: 1px solid var(--line);
+  /* 无描边（用户定稿）：只靠磨砂底色分层；外阴影已按要求减淡 */
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.08),
     inset 0 -1px 1px rgba(0,0,0,.16),
-    0 6px 16px rgba(0,0,0,.12);
+    0 4px 12px rgba(0,0,0,.06);
   /* 悬浮后消息从胶囊背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
   -webkit-backdrop-filter: blur(24px) saturate(150%);
   backdrop-filter: blur(24px) saturate(150%);
-  transition: border-color 150ms ease, border-radius 150ms ease;
+  transition: border-radius 150ms ease;
 }
-.composer:focus-within { border-color: var(--line-strong); }
 /* 多行（参考图 4）：文本独占首行，＋/右钮换到底部行，圆角转大 */
 .composer.wide { grid-template-rows: auto auto; row-gap: 8px; border-radius: var(--dsh-radius-bubble); padding: 12px 8px 8px; }
 .composer.wide textarea { grid-column: 1 / -1; grid-row: 1; }
