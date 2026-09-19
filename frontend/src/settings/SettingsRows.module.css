@@ -161,6 +161,8 @@
   background: var(--fill);
   overflow: hidden;
 }
+/* 同一分区里相邻两张卡（如 语言+Enter 与 归档两张）之间的呼吸空隙 */
+.rowGroup + .rowGroup { margin-top: 10px; }
 .rowCard {
   position: relative;
   display: flex;

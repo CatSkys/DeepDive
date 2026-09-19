@@ -277,41 +277,43 @@ function GeneralSection() {
               />
             </div>
           </div>
-        <div className={rowsCss.rowCard}>
-          <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("自动归档旧任务")}</div>
-            <div className={rowsCss.rowCaption}>{t("定时扫描最近打开过的工作区，将已完成、无未读、未置顶且超过保留期的任务自动归档。")}</div>
-          </div>
-          <div className={rowsCss.rowActions}>
-            <Toggle on={store.autoArchive} onChange={store.setAutoArchive} />
-          </div>
-        </div>
-        <div className={rowsCss.rowCard}>
-          <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("归档保留时长")}</div>
-            <div className={rowsCss.rowCaption}>{t("任务最后更新时间早于该时长后，才会进入自动归档候选。")}</div>
-          </div>
-          <div className={rowsCss.rowActions}>
-            <Dropdown
-              options={RETENTIONS.map((r) => ({ v: r.id, label: t(retentionLabel(r.id)) }))}
-              value={store.archiveRetention}
-              onChange={(v) => store.setArchiveRetention(v as ArchiveRetention)}
-            />
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("繁忙时 Enter 键行为")}</div>
+              <div className={rowsCss.rowCaption}>{t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")}</div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <Dropdown
+                options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}
+                value={busy ?? ""}
+                onChange={(v) => void saveBusy(v)}
+              />
+            </div>
           </div>
         </div>
-        <div className={rowsCss.rowCard}>
-          <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("繁忙时 Enter 键行为")}</div>
-            <div className={rowsCss.rowCaption}>{t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")}</div>
+        <div className={rowsCss.rowGroup}>
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("自动归档旧任务")}</div>
+              <div className={rowsCss.rowCaption}>{t("定时扫描最近打开过的工作区，将已完成、无未读、未置顶且超过保留期的任务自动归档。")}</div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <Toggle on={store.autoArchive} onChange={store.setAutoArchive} />
+            </div>
           </div>
-          <div className={rowsCss.rowActions}>
-            <Dropdown
-              options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}
-              value={busy ?? ""}
-              onChange={(v) => void saveBusy(v)}
-            />
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("归档保留时长")}</div>
+              <div className={rowsCss.rowCaption}>{t("任务最后更新时间早于该时长后，才会进入自动归档候选。")}</div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <Dropdown
+                options={RETENTIONS.map((r) => ({ v: r.id, label: t(retentionLabel(r.id)) }))}
+                value={store.archiveRetention}
+                onChange={(v) => store.setArchiveRetention(v as ArchiveRetention)}
+              />
+            </div>
           </div>
-        </div>
         </div>
       </div>
       <div className={rowsCss.section}>
