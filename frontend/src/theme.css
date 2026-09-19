@@ -870,7 +870,7 @@ button {
 .hero-top .right { color: var(--ink-2); }
 
 .hero-composer {
-  width: min(1020px, calc(100% - 48px));
+  width: calc(100% - 48px);
   margin-bottom: 20px;
   display: flex;
   align-items: center;
@@ -889,7 +889,7 @@ button {
 .composer {
   position: relative;
   display: grid;
-  grid-template-columns: 28px minmax(0,1fr) 28px;
+  grid-template-columns: 32px minmax(0,1fr) 32px;
   align-items: center;
   gap: 4px;
   width: 100%;
@@ -897,7 +897,7 @@ button {
      padding+border 一起溢出容器（width:100% + content-box = 右侧多出 18px，
      输入框看起来不居中——2026-09-06 用户实测） */
   box-sizing: border-box;
-  padding: 7px 8px;
+  padding: 9px 10px;
   border-radius: 999px;
   background: var(--composer-bg);
   /* 无描边（用户定稿）：只靠磨砂底色分层；外阴影已按要求减淡 */
@@ -930,15 +930,15 @@ button {
   /* border-box 是对齐关键：autoGrow 写入的 inline height 必须已含上下
      padding，否则打字后外框多出 8px、文本中心偏离按钮中心 */
   box-sizing: border-box;
-  min-height: 30px;
-  padding: 5px 2px;
+  min-height: 36px;
+  padding: 6px 2px;
   background: transparent;
   border: none;
   outline: none;
   resize: none;
   color: var(--ink);
-  font-size: 15px;
-  line-height: 21px;
+  font-size: 16px;
+  line-height: 22px;
   max-height: 160px;
   overflow-wrap: anywhere;
 }
@@ -951,8 +951,8 @@ button {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 999px;
   cursor: pointer;
@@ -1603,7 +1603,7 @@ button {
   right: 0;
   bottom: 0;
   z-index: 30;
-  width: min(1020px, calc(100% - 48px));
+  width: calc(100% - 48px);
   margin: 0 auto;
   padding-bottom: 12px;
 }
