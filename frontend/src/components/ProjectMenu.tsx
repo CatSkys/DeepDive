@@ -30,7 +30,7 @@ export function ProjectMenu({ onClose }: { onClose: () => void }) {
   }, [store.workspaces, query]);
 
   return (
-    <div className="ws-menu" ref={ref}>
+    <div className="ws-menu" ref={ref} data-strip-interactive>
       <div className="ws-menu-search">
         <Search size={13} />
         <input autoFocus placeholder={t("搜索项目")} value={query} onChange={(e) => setQuery(e.target.value)} />

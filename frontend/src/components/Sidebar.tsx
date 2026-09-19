@@ -57,7 +57,7 @@ export function WorkspacePill({ onOpen }: { onOpen?: () => void }) {
   const ws = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
   if (!ws) return null;
   return (
-    <span className="ws-pill" onClick={onOpen}>
+    <span className="ws-pill" role="button" onClick={onOpen}>
       <Folder size={12} />
       <span className="ws-pill-name">{ws.title}</span>
     </span>

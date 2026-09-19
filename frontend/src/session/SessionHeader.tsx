@@ -59,8 +59,11 @@ export function SessionHeader({ title, face }: { title: string; face: ModelFace 
     <div className="left">
       <div className="title-row">
         <span className="title-anchor">
+          {/* role=button：顶栏 52px 条带的点击穿透白名单按它放行（titlebar.ts
+              INTERACTIVE），否则标题点击被壳当拖窗吞掉（PITFALLS §4.3） */}
           <div
             className={`title${sidebarCollapsed ? " title-switch" : ""}`}
+            {...(sidebarCollapsed ? { role: "button" as const } : {})}
             onClick={sidebarCollapsed ? () => setProjOpen((v) => !v) : undefined}
           >
             {title}
