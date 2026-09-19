@@ -4,7 +4,6 @@
 .panel {
   position: fixed;
   top: 84px;
-  left: 50%;
   transform: translateX(-50%);
   width: 640px;
   max-width: 92vw;
