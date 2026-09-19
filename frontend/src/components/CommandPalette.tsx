@@ -161,17 +161,8 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     if (e.key === "Enter" && flat[active]) { e.preventDefault(); runRow(flat[active]); }
   };
 
-  // 面板按「主区」水平居中：窗口中心右移半个侧栏宽（收起/窄屏侧栏不占位，
-  // 回退窗口居中）
-  const sidebarOffset = store.sidebarCollapsed || window.innerWidth < 760 ? 0 : store.sidebarWidth / 2;
   return createPortal(
-    <div
-      className={css.panel}
-      ref={panelRef}
-      role="dialog"
-      aria-label={t("命令面板")}
-      style={{ left: `calc(50% + ${sidebarOffset}px)` }}
-    >
+    <div className={css.panel} ref={panelRef} role="dialog" aria-label={t("命令面板")}>
       <div className={css.searchRow}>
         <Search size={15} />
         <input
