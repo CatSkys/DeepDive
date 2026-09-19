@@ -283,14 +283,14 @@ button {
   background: transparent;
   outline: none;
   color: var(--dsh-text-primary);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .search-row input::placeholder { color: var(--dsh-text-tertiary); }
 
 .sessions { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 1px; }
 
 .section-label {
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--ink-3);
   padding: 8px 8px 3px;
   font-weight: 500;
@@ -311,7 +311,7 @@ button {
   padding: 0 10px;
   border-radius: 999px; /* 选中/悬停底为胶囊（用户定稿：与全站胶囊语法统一） */
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: 13.5px;
   text-align: left;
   overflow: hidden;
 }
@@ -930,15 +930,15 @@ button {
   /* border-box 是对齐关键：autoGrow 写入的 inline height 必须已含上下
      padding，否则打字后外框多出 8px、文本中心偏离按钮中心 */
   box-sizing: border-box;
-  min-height: 28px;
-  padding: 4px 2px;
+  min-height: 30px;
+  padding: 5px 2px;
   background: transparent;
   border: none;
   outline: none;
   resize: none;
   color: var(--ink);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 15px;
+  line-height: 21px;
   max-height: 160px;
   overflow-wrap: anywhere;
 }
@@ -1669,7 +1669,7 @@ button {
      前会被简写整个覆盖（曾因此让位从未生效，首条消息顶进标题行）。 */
   padding: calc(var(--session-header-h) + 20px) clamp(14px, 3vw, 28px) 12px;
 }
-.flow-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.flow-inner { display: flex; flex-direction: column; gap: 10px; }
 /* 会话入场（用户定稿）：历史加载完成内容首次出现时整体轻浮上；key 在
    SessionView（会话:已加载），只在进入会话那一刻重挂重播，流式不重播。
    子消息块各自的 fade-up 照常叠加，容器动势给「会话出现了」一个整体感。
@@ -2823,7 +2823,7 @@ button {
 .task-row .row-archive { display: none; }
 .task-row:hover .row-time { display: none; }
 .task-row:hover .row-archive { display: inline-flex; }
-.task-row .row-time { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.task-row .row-time { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .task-row .row-archive {
   display: none;
   align-items: center;
@@ -3696,7 +3696,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   color: var(--ink-3);
 }
 .row-snippet {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
   color: var(--ink-3);
   overflow: hidden;
@@ -3713,7 +3713,6 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   gap: 8px;
   padding: 6px 12px;
   margin: 0 auto 8px;
-  max-width: 720px;
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-control);
   /* 悬浮区叠消息流：与排队坞同套磨砂，禁无 blur 的 fill 渐变 */
@@ -4013,7 +4012,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
   flex-direction: column;
   gap: 4px;
   align-items: flex-start;
-  max-width: 720px;
   margin: 0 auto 8px;
   padding: 10px 14px;
   border: 1px solid var(--line);
