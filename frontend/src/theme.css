@@ -515,8 +515,11 @@ button {
 .ws-pill svg { flex: none; color: var(--ink-2); }
 .ws-pill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app.collapsed .ws-pill { display: inline-flex; }
-/* 模式胶囊：常显（不随侧栏收起）；无描边，与项目胶囊同底色语法 */
-.preset-pill { display: inline-flex; }
+/* 模式胶囊：默认隐藏，hover 会话标题行才显现（用户定稿，给标题让位）；
+   侧栏收起态保持常显（与项目胶囊同一紧凑头部语法）。无描边，同底色 */
+.preset-pill { display: none; }
+.session-header .title-row:hover .preset-pill,
+.app.collapsed .preset-pill { display: inline-flex; }
 /* hero 会话模式下拉（招呼语下方）：触发器无描边、随招呼语组居中 */
 .mode-picker { display: flex; justify-content: center; margin-top: 12px; }
 
