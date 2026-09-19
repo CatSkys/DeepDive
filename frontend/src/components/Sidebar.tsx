@@ -331,6 +331,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
                 : <Folder size={13} className="ws-folder-ic" />}
               <ChevronDown size={13} className="ws-chevron-ic" />
             </span>
+            <span className="ws-name">{activeWs.title}</span>
             <span className="ws-row-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="ws-act"
