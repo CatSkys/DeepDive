@@ -1841,7 +1841,6 @@ button {
   padding: 7px 15px;
   border-radius: var(--dsh-radius-bubble);
   background: var(--fill);
-  border: 1px solid var(--line);
   box-shadow: inset 0 1px 1px rgba(255,255,255,.08);
   font-size: 13px;
   line-height: 19px;
