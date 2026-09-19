@@ -136,12 +136,13 @@ export const EN: Record<string, string> = {
   "思考中，点击收起推理": "Thinking — click to collapse",
   "已思考，点击展开推理": "Thought — click to expand",
   // question card
-  "澄清一下": "Quick question",
   "取消提问": "Cancel question",
   "自定义回答…": "Custom answer…",
   "跳过此题": "Skip",
   "提交": "Submit",
   "下一题": "Next",
+  "上一题": "Previous",
+  "使用 Tab / 上下键选择，回车或空格选中": "Tab / ↑↓ to choose · Enter or Space to select",
   // queue dock
   "保存排队消息": "Save queued message",
   "取消编辑": "Cancel editing",

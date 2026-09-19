@@ -32,9 +32,9 @@ export function PlanReviewCard({ eventId, review }: { eventId: string; review: P
 
   return (
     <div className="plan-review-card">
-      <div className="head">
-        <span className="plan-dot" aria-hidden="true" />
-        {t("计划审查")}
+      {/* 与提问卡同族的徽标头行（流内三卡统一语言） */}
+      <div className="q-top">
+        <span className="q-badge"><span className="plan-dot" aria-hidden="true" /> {t("计划审查")}</span>
       </div>
       <div className="plan-body">
         <Markdown text={review.plan} />

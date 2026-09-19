@@ -15,7 +15,7 @@
      control 10  按钮与行 hover、输入控件
      keycap 6  迷你图标钮/小标签
      bubble 24  聊天气泡软胶囊；pill 999 / 圆 50% 为语义形状
-   例外：≤16px 的微型元素（lang-badge、q-option-mark、滚动条 thumb、
+   例外：≤16px 的微型元素（lang-badge、滚动条 thumb、
    loader-cell、tool-sep 圆点）允许按比例小圆角。 */
 @import "../packages/design/generated/tokens.css";
 
@@ -309,7 +309,7 @@ button {
   width: 100%;
   height: 28px;
   padding: 0 10px;
-  border-radius: var(--dsh-radius-control);
+  border-radius: 999px; /* 选中/悬停底为胶囊（用户定稿：与全站胶囊语法统一） */
   color: var(--ink);
   font-size: 12.5px;
   text-align: left;
@@ -1866,7 +1866,6 @@ button {
   flex-direction: column;
   gap: 10px;
 }
-.approval-card .head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
 .approval-card .cmd { font-family: var(--dsh-font-mono-family); font-size: 12px; color: var(--dsh-text-secondary); user-select: text; white-space: pre-wrap; }
 .approval-card .actions { display: flex; gap: 8px; justify-content: flex-end; }
 
@@ -1952,7 +1951,8 @@ button {
 }
 .queue-edit:focus { outline: none; border-color: var(--line-heavy); }
 
-/* ---- 意图澄清卡片（ask_user_question，QuestionCard） ---- */
+/* ---- 意图澄清卡片（ask_user_question，QuestionCard；版式用户定稿：
+   题头徽标+问题+分页器一行置顶，选项为无卡片编号行，底部键位提示条） ---- */
 .question-card {
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
@@ -1965,17 +1965,50 @@ button {
   gap: 10px;
   animation: pop-in 200ms cubic-bezier(0.16,1,0.3,1) both;
 }
-.question-card .head {
+.question-card .q-top {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
 }
-.question-card .pager { font-size: 11.5px; font-weight: 400; color: var(--ink-3); }
+.q-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 2px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+.question-card .q-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--ink);
+  user-select: text;
+}
+.q-pager {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.q-pager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+}
+.q-pager-btn:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
+.q-pager-btn:disabled { opacity: .4; }
 .question-card .q-close {
-  margin-left: auto;
+  flex: none;
   width: 24px;
   height: 24px;
   display: inline-flex;
@@ -1985,8 +2018,6 @@ button {
   color: var(--ink-3);
 }
 .question-card .q-close:hover { background: var(--fill); color: var(--ink); }
-.question-card .q-header { font-size: 11.5px; color: var(--ink-3); }
-.question-card .q-text { font-size: 14px; color: var(--ink); user-select: text; }
 .question-card .q-detail {
   font-size: 12.5px;
   line-height: 1.6;
@@ -1996,57 +2027,77 @@ button {
   max-height: 220px;
   overflow-y: auto;
 }
-.q-options { display: flex; flex-direction: column; gap: 8px; }
+/* 选项：无卡片编号行（选项/自定义输入统一编号），选中与键盘高亮用底色 */
+.q-options { display: flex; flex-direction: column; gap: 2px; }
 .q-option {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 9px 14px;
-  border-radius: 999px; /* 胶囊形，无描边，靠底色分层 */
-  background: var(--fill-soft);
+  padding: 7px 10px;
+  border-radius: var(--dsh-radius-control);
+  background: transparent;
   text-align: left;
 }
 .q-option:hover { background: var(--fill); }
 .q-option.active { background: var(--line); }
-.q-option-mark {
+.q-option.kb { background: var(--fill); }
+.q-option.active.kb { background: var(--line); }
+.q-no {
   flex: none;
-  width: 16px;
-  height: 16px;
-  margin-top: 1px;
-  border-radius: 5px;
-  border: 1.5px solid var(--line-heavy);
-}
-.q-option.active .q-option-mark {
-  border-color: var(--ink-bright);
-  background: var(--ink-bright);
-  box-shadow: inset 0 0 0 3px var(--mark-inset);
+  min-width: 20px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 .q-option-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .q-option-label { font-size: 13px; color: var(--ink); }
 .q-option-desc { font-size: 11.5px; color: var(--ink-3); }
-.q-custom { position: relative; display: flex; align-items: center; }
+/* 自定义输入 = 末位编号行：默认与选项行同样透明（用户定稿：无 hover 不出
+   卡片底），聚焦/悬停/键盘高亮时才显底；发送钮在窝里 */
+.q-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 10px;
+  border-radius: 999px;
+  background: transparent;
+}
+.q-custom:hover { background: var(--fill); }
+.q-custom:focus-within { background: var(--fill); }
+.q-custom.kb { background: var(--fill); }
 .q-custom input {
   box-sizing: border-box;
-  width: 100%;
-  height: 36px;
-  padding: 0 44px 0 16px; /* 右侧留发送钮的窝 */
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0;
   border: none;
-  border-radius: 999px; /* 胶囊形，无描边 */
-  background: var(--fill-soft);
+  background: transparent;
   color: var(--ink);
   font-size: 13px;
   font-family: inherit;
 }
-.q-custom input:focus { outline: none; background: var(--fill); }
-.q-custom .composer-send {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-.q-custom .composer-send:active { transform: translateY(-50%) scale(.94); }
+.q-custom input:focus { outline: none; }
 .q-custom .composer-send:disabled { opacity: .45; cursor: default; }
-.question-card .actions .btn-plain { border-radius: 999px; } /* 跳过此题与胶囊选项/输入同族 */
+.q-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.q-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  user-select: none;
+}
+/* 流内三卡（提问/审批/计划审查）同族语言：plain 按钮统一胶囊 */
+.question-card .actions .btn-plain,
+.approval-card .actions .btn-plain,
+.plan-review-card .actions .btn-plain { border-radius: 999px; }
 .question-card .actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 .btn-primary, .btn-plain {
@@ -3165,7 +3216,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   height: 30px;
   padding: 0 10px;
   border: none;
-  border-radius: var(--dsh-radius-control);
+  border-radius: 999px; /* 同侧栏会话行：胶囊语法（用户定稿） */
   background: transparent;
   /* 一级导航用 --ink-soft：--ink-2（56%）比侧栏会话行（--ink）还灰，
      一屏字看着发虚（用户反馈）。选中态仍用 --ink + 600 拉开层级。 */
@@ -3294,14 +3345,6 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   flex-direction: column;
   gap: 10px;
   animation: pop-in var(--dur-med) var(--ease-out) both;
-}
-.plan-review-card .head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
 }
 .plan-review-card .plan-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: pulse 1.6s ease-in-out infinite; }
 .plan-review-card .plan-body {
@@ -3898,7 +3941,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 黑白主题下 goal 编辑框的聚焦反馈（此前无规则，露出系统蓝环） */
 .goal-input:focus { outline: none; border-color: var(--ink-3); background: var(--fill); }
 
-/* 全局悬浮注释（data-tip）：与触发元素四边对齐，键帽快捷键右置 */
+/* 全局悬浮注释（data-tip）：与触发元素四边对齐，键帽快捷键右置；胶囊形
+   （用户定稿：与全站胶囊语法统一） */
 .tip {
   position: fixed;
   z-index: 1300;
@@ -3907,8 +3951,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
   align-items: center;
   gap: 10px;
   max-width: 320px;
-  padding: 5px 10px;
-  border-radius: var(--dsh-radius-control);
+  padding: 5px 12px;
+  border-radius: 999px;
   border: 1px solid var(--line-strong);
   color: var(--ink);
   font-size: 12px;

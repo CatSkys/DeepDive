@@ -81,6 +81,20 @@ describe("QuestionCard", () => {
     });
   });
 
+  it("键盘：方向键循环高亮单元，回车选中当前选项", async () => {
+    const { container } = render(<QuestionCard eventId="ev1" questions={[QUESTION]} />);
+    const card = container.querySelector(".question-card") as HTMLElement;
+    fireEvent.keyDown(card, { key: "ArrowDown" }); // 未高亮 → 第一个（选项甲）
+    fireEvent.keyDown(card, { key: "Enter" });
+    await vi.waitFor(() => {
+      expect(api.answerQuestion).toHaveBeenCalledWith(
+        "ev1",
+        [{ id: "q1", selected: ["甲"] }],
+      );
+      expect(settleEvent).toHaveBeenCalledWith("ev1");
+    });
+  });
+
   it("提交失败不清卡：留在卡片上可重试", async () => {
     vi.mocked(api.answerQuestion).mockRejectedValueOnce(new Error("engine busy"));
     const { container } = render(<QuestionCard eventId="ev1" questions={[QUESTION]} />);
