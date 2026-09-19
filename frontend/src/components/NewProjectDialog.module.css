@@ -1,7 +1,7 @@
-/* 新建项目弹窗专属样式（版式照参考图 Create Project）：大标题 + 图标 chip、
-   分组卡片行（标签左 / 控件右）、加高输入框、大指令 textarea、键帽主按钮。
-   弹窗壳配方（overlay / 玻璃卡）与 settings 模块同源，这里自持一份只属本
-   弹窗的类；颜色圆角全走语义变量。 */
+/* 新建项目弹窗专属样式（版式照参考图 Create Project，逐项照抄）：
+   大标题 + 图标 chip、分组卡片行（标签列约占 1/3、控件列右侧）、加高
+   输入框、大指令 textarea、卡片下方留白、右下键帽主按钮。整体近方形
+   （560 宽 × min-height 580）。颜色圆角全走语义变量。 */
 
 .dlgOverlay {
   position: fixed;
@@ -13,34 +13,39 @@
   justify-content: center;
 }
 .dlgCard {
+  display: flex;
+  flex-direction: column;
   width: 560px;
+  min-height: 580px;
   max-width: 92vw;
   max-height: 86vh;
   overflow: auto;
-  border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-floating);
-  /* 玻璃卡叠一层同 token 自身：单层 .92 会把正后方 hero 大标题的虚影透进
-      表单区（参考图是近实心卡），叠层后 ≈.99 且两种主题都成立 */
-  background: linear-gradient(var(--panel-strong), var(--panel-strong)), var(--panel-strong);
-  backdrop-filter: blur(40px) saturate(160%);
-  box-shadow: 0 24px 64px rgba(0,0,0,.4);
+  /* 浮层统一配方（theme.css 弹出面板组）：.55 玻璃底 + blur(12) saturate(180%)
+     + --shadow-pop 轻投影；前缀顺序勿倒——-webkit- 在前、标准在后（PITFALLS §1.8，
+     压缩器会删重复对里靠前的那个） */
+  background: var(--panel-glass);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: var(--shadow-pop);
 }
 
 /* 标题行：图标 chip + 大标题（参考图同款） */
-.dlgHead { display: flex; align-items: center; gap: 12px; padding: 22px 24px 16px; }
+.dlgHead { display: flex; align-items: center; gap: 14px; padding: 26px 28px 12px; }
 .dlgChip {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   background: var(--fill-strong);
   color: var(--ink);
   flex: none;
 }
-.dlgTitle { font-size: 17px; font-weight: 700; color: var(--ink); }
-.dlgBody { padding: 0 24px 4px; display: flex; flex-direction: column; gap: 16px; }
+.dlgTitle { font-size: 20px; font-weight: 700; color: var(--ink); }
+
+.dlgBody { flex: 1; display: flex; flex-direction: column; gap: 20px; padding: 0 28px 4px; }
 
 /* 分组卡片：无描边纯底色（§2.4），行间缩进分隔线，禁全宽横线 */
 .groupCard {
@@ -53,21 +58,25 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 14px 16px;
+  padding: 16px 18px;
 }
 .groupRow + .groupRow::before {
   content: "";
   position: absolute;
   top: 0;
-  left: 16px;
-  right: 16px;
+  left: 18px;
+  right: 18px;
   height: 1px;
   background: var(--line);
 }
-.groupLabel { flex: none; width: 88px; font-size: 14px; color: var(--ink); }
+/* 标签列约占卡宽 1/3（参考图 Name & Icon / Working Directory 的占比） */
+.groupLabel { flex: none; width: 168px; font-size: 15px; color: var(--ink); }
 .groupControl { flex: 1; min-width: 0; display: flex; }
+/* 开关/下拉行的控件列：右对齐（参考图 Memory 行的 toggle 位置） */
+.rowRight { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.infoIcon { display: flex; color: var(--ink-3); flex: none; }
 
-/* 名称行：输入框 + 行尾图标触发钮（内嵌同一条描边容器，参考图同款）。
+/* 名称行：输入框 + 行尾图标触发钮装在同一条描边容器里（参考图同款）。
    input 必须 flex:1 + min-width:0（PITFALLS §1.6：flex 嵌套百分比宽
    input 在 WKWebView 塌缩成细条） */
 .nameField {
@@ -75,11 +84,11 @@
   align-items: center;
   flex: 1;
   min-width: 0;
-  height: 38px;
+  height: 40px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-control);
   background: var(--panel-bg);
-  padding: 0 4px 0 0;
+  padding-right: 4px;
 }
 .nameField:focus-within { border-color: var(--line-strong); }
 .nameInput {
@@ -90,20 +99,18 @@
   border: none;
   background: none;
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 14px;
   outline: none;
 }
 .nameInput::placeholder { color: var(--ink-3); }
-/* 触发钮与输入之间一条细分隔（参考图的竖线） */
 .pickerTrigger {
   display: flex;
   align-items: center;
-  gap: 3px;
-  height: 26px;
-  padding: 0 8px;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px 0 10px;
   border: none;
-  border-left: 1px solid var(--line);
-  border-radius: 0 var(--dsh-radius-control) var(--dsh-radius-control) 0;
+  border-radius: var(--dsh-radius-control);
   background: none;
   color: var(--ink-2);
   flex: none;
@@ -111,7 +118,8 @@
 .pickerTrigger:hover { color: var(--ink); }
 .pickerRoot { position: relative; flex: none; }
 
-/* 目录行：未选时是「＋ 选择目录…」居中按钮，选中后左对齐显示路径 */
+/* 工作目录行：参考图同款「＋ Choose Directory」填充钮（无描边、底色比
+   卡片亮一档）；未选时居中，选中后左对齐显示路径 */
 .dirBtn {
   display: flex;
   align-items: center;
@@ -119,46 +127,31 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
-  height: 38px;
+  height: 40px;
   padding: 0 12px;
-  border: 1px solid var(--line);
+  border: none;
   border-radius: var(--dsh-radius-control);
-  background: var(--panel-bg);
-  color: var(--ink-3);
-  font-size: 13.5px;
+  background: var(--fill-strong);
+  color: var(--ink);
+  font-size: 14px;
   text-align: left;
 }
-.dirBtn:hover { border-color: var(--line-strong); }
-.dirBtn.filled { justify-content: flex-start; color: var(--ink); }
+.dirBtn:hover { background: var(--ink); color: var(--panel-bg); }
+.dirBtn.filled { justify-content: flex-start; }
 .dirText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 浏览器降级：无壳桥建不了目录，路径只能手输 */
-.dirInput {
-  flex: 1;
-  min-width: 0;
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-control);
-  background: var(--panel-bg);
-  color: var(--ink);
-  font-size: 13.5px;
-  outline: none;
-}
-.dirInput:focus { border-color: var(--line-strong); }
-.dirInput::placeholder { color: var(--ink-3); }
 
 /* 指令区：独立标签 + 大 textarea（参考图在卡片外、占满宽） */
-.dlgLabel { display: block; font-size: 14px; color: var(--ink); margin-bottom: 8px; }
+.dlgLabel { display: block; font-size: 15px; color: var(--ink); margin-bottom: 10px; }
 .textArea {
   box-sizing: border-box;
   width: 100%;
-  min-height: 150px;
-  padding: 12px 14px;
+  min-height: 170px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
   background: var(--fill);
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 14px;
   font-family: inherit;
   line-height: 1.55;
   resize: vertical;
@@ -169,28 +162,29 @@
 
 .fieldHint { font-size: 11.5px; line-height: 1.5; color: var(--ink-3); margin-top: -8px; }
 
-/* 底部：取消为文字钮，创建为主按钮 + 键帽（参考图同款） */
-.dlgFoot { display: flex; align-items: center; justify-content: flex-end; gap: 20px; padding: 18px 24px 24px; }
+/* 底部：取消为文字钮，创建为主按钮 + 键帽（参考图同款）；
+   margin-top:auto 吃掉卡片下方留白——弹窗整体近方形 */
+.dlgFoot { display: flex; align-items: center; justify-content: flex-end; gap: 28px; margin-top: auto; padding: 24px 28px 30px; }
 .ghostBtn {
-  height: 36px;
+  height: 40px;
   padding: 0 8px;
   border: none;
   background: none;
   color: var(--ink);
-  font-size: 14px;
+  font-size: 15px;
 }
 .ghostBtn:hover { opacity: .8; }
 .primaryBtn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px 0 16px;
+  gap: 9px;
+  height: 40px;
+  padding: 0 14px 0 18px;
   border: none;
   border-radius: var(--dsh-radius-control);
   background: var(--ink);
   color: var(--panel-bg);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
 }
 .primaryBtn:hover { opacity: .85; }
@@ -199,12 +193,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 4px;
-  border-radius: 5px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 6px;
   background: rgba(255,255,255,.16);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 400;
 }
 .modelError { font-size: 12px; color: #e5484d; }

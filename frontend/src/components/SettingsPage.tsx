@@ -375,7 +375,7 @@ function GeneralSection() {
 /// 默认权限预设（permission.defaultPreset）：引擎在新会话创建时按此 pin
 /// 初始权限；运行中的会话不受影响。选项枚举来自 schema（见 permissionPreset.ts）；
 /// 已知预设给本地化标签/说明/图标（UI 参考官方权限菜单），未知预设退回引擎原文。
-const PRESET_META: Record<string, { label: string; desc: string; icon: LucideIcon; danger?: boolean }> = {
+export const PRESET_META: Record<string, { label: string; desc: string; icon: LucideIcon; danger?: boolean }> = {
   "read-only": { label: "只读", desc: "只读取与分析，不改文件。", icon: ShieldCheck },
   "workspace-write": { label: "工作区写入", desc: "工作区内自动改文件，越界先确认。", icon: SquarePen },
   "danger-full-access": { label: "完全访问", desc: "全部可写，不再逐步确认。", icon: ShieldAlert, danger: true },

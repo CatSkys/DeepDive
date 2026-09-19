@@ -13,12 +13,17 @@
 //   · 图标：纯前端装饰层，按 workspaceId 存 localStorage（wsIcons.ts）。
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FolderOpen, Plus } from "lucide-react";
+import { FolderOpen, Info, Plus } from "lucide-react";
 import { api } from "../api";
 import { inShell, prepareWorkspace } from "../host";
 import { useStore } from "../store";
 import { setWsIcon } from "../wsIcons";
 import { useT } from "../i18n";
+import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
+import { useSettingNamespace } from "../settings/useSettingNamespace";
+import { PRESET_META } from "./SettingsPage";
+import { alertDialog, promptDialog } from "./DialogHost";
+import { Dropdown, Toggle } from "./controls";
 import { IconPicker } from "./IconPicker";
 import { beginWorkspacePick, endWorkspacePick } from "./workspacePicker";
 import { IconProjectAddOutline16 } from "./Icons";
@@ -53,6 +58,30 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [instructions, setInstructions] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 审批模式：与设置页「审批」同一数据源（permission.defaultPreset，新会话
+  // 的初始权限预设）。undefined=载入中，null=引擎未提供该命名空间（隐藏行）。
+  const [perm, setPerm] = useState<PermissionSettingsView | null | undefined>(undefined);
+  const { describe: describePerm, update: updatePerm } = useSettingNamespace("permission");
+  useEffect(() => {
+    let alive = true;
+    describePerm()
+      .then((ns) => { if (alive) setPerm(permissionPresetView(ns)); })
+      .catch(() => { if (alive) setPerm(null); });
+    return () => { alive = false; };
+  }, [describePerm]);
+
+  const setApproval = async (v: string) => {
+    setPerm((cur) => (cur ? { ...cur, current: v } : cur));
+    try {
+      await updatePerm({ defaultPreset: v });
+    } catch (err) {
+      void alertDialog({ message: tt("保存失败：{m}", "Save failed: {m}", { m: (err as Error).message }) });
+    }
+    describePerm()
+      .then((ns) => setPerm(permissionPresetView(ns)))
+      .catch(() => { /* 引擎重启窗口期：保留乐观值 */ });
+  };
 
   // 目录选择器结果路由进本弹窗（workspacePicker 模块级 sink），卸载即清。
   useEffect(() => {
@@ -149,29 +178,64 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
               </div>
             </div>
             <div className={css.groupRow}>
-              <span className={css.groupLabel}>{t("目录")}</span>
-              <div className={css.groupControl}>
-                {hasShell ? (
-                  <button
-                    type="button"
-                    className={`${css.dirBtn}${pickedPath ? ` ${css.filled}` : ""}`}
-                    onClick={() => beginWorkspacePick((path) => setPickedPath(path))}
-                  >
-                    {pickedPath
-                      ? <FolderOpen size={14} />
-                      : <Plus size={14} />}
-                    <span className={css.dirText}>
-                      {pickedPath ?? t("选择目录…")}
-                    </span>
-                  </button>
-                ) : (
-                  <input
-                    className={css.dirInput}
-                    placeholder={t("目录（绝对路径）")}
-                    value={typedPath}
-                    onChange={(e) => setTypedPath(e.target.value)}
+              <span className={css.groupLabel}>{t("记忆")}</span>
+              <div className={`${css.groupControl} ${css.rowRight}`}>
+                <span className={css.infoIcon} data-tip={t("引擎重启后生效。")}>
+                  <Info size={14} />
+                </span>
+                <Toggle on={store.sessionMemoryEnabled} onChange={store.setSessionMemoryEnabled} />
+              </div>
+            </div>
+            <div className={css.groupRow}>
+              <span className={css.groupLabel}>{t("自进化")}</span>
+              <div className={`${css.groupControl} ${css.rowRight}`}>
+                <Toggle on={store.evolutionEnabled} onChange={store.setEvolutionEnabled} />
+              </div>
+            </div>
+            {perm && (
+              <div className={css.groupRow}>
+                <span className={css.groupLabel}>{t("审批模式")}</span>
+                <div className={`${css.groupControl} ${css.rowRight}`}>
+                  <Dropdown
+                    options={perm.options.map((o) => {
+                      const meta = PRESET_META[o.value];
+                      return {
+                        v: o.value,
+                        label: meta ? t(meta.label) : o.label,
+                        description: meta ? t(meta.desc) : undefined,
+                        icon: meta?.icon,
+                        danger: meta?.danger,
+                      };
+                    })}
+                    value={perm.current}
+                    onChange={(v) => void setApproval(v)}
                   />
-                )}
+                </div>
+              </div>
+            )}
+            <div className={css.groupRow}>
+              <span className={css.groupLabel}>{t("工作区文件夹")}</span>
+              <div className={css.groupControl}>
+                <button
+                  type="button"
+                  data-tip={hasShell ? t("留空则按名称自动创建。") : undefined}
+                  className={`${css.dirBtn}${pickedPath || typedPath ? ` ${css.filled}` : ""}`}
+                  onClick={() => {
+                    if (hasShell) beginWorkspacePick((path) => setPickedPath(path));
+                    else {
+                      // 浏览器降级：无壳桥建不了目录，弹输入框手输绝对路径
+                      void promptDialog({
+                        title: t("输入要添加为工作空间的文件夹绝对路径："),
+                        initialValue: typedPath,
+                      }).then((p) => { if (p && p.trim()) setTypedPath(p.trim()); });
+                    }
+                  }}
+                >
+                  {pickedPath || typedPath ? <FolderOpen size={14} /> : <Plus size={14} />}
+                  <span className={css.dirText}>
+                    {pickedPath || typedPath || t("选择目录…")}
+                  </span>
+                </button>
               </div>
             </div>
           </div>
@@ -186,7 +250,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
               />
             </div>
           )}
-          {hasShell && <div className={css.fieldHint}>{t("目录留空则按名称自动创建；指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。")}</div>}
+          {hasShell && <div className={css.fieldHint}>{t("指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。")}</div>}
           {error && <div className={css.modelError}>{error}</div>}
         </div>
         <div className={css.dlgFoot}>
