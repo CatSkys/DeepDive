@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Folder, ImagePlus, Link2, SquarePen, Trash2 } from "lucide-react";
 import type { WorkspaceView } from "../types";
 import { revealPath } from "../host";
 import { api } from "../api";
@@ -14,7 +13,8 @@ import { useT } from "../i18n";
 //
 // 三处入口共用**同一份动作项**（hero 项目胶囊与底部空间格的右键菜单、侧栏工作区行
 // 的 ⋯ 菜单）——它们指的都是同一个项目文件夹，各写一份会立刻分叉（措辞/能力对不上）。
-// 菜单容器沿用全站的 .ctx-menu/.ctx-item 配方。
+// 菜单容器沿用全站的 .ctx-menu/.ctx-item 配方；行首不带图标（UI-SPEC §2.2bis
+// 右键菜单定稿：动作以文字表达，危险项只用红色）。
 
 /** 重命名 / 删除工作区（工作区生命周期动作）。
  *  原实现住在 Sidebar（⋯ 菜单专用）；三处入口共用菜单后搬来这里，逐字保留
@@ -57,7 +57,7 @@ export function WorkspaceMenuItems({ ws, onDone }: { ws: WorkspaceView; onDone: 
   return (
     <>
       <div className="ctx-item" onClick={() => { revealPath(ws.path); onDone(); }}>
-        <Folder size={13} /> {t("在 Finder 中打开")}
+        {t("在 Finder 中打开")}
       </div>
       <div className="ctx-item" onClick={() => {
         // 与会话右键菜单同一条复制路径（navigator.clipboard）。手机浏览器上
@@ -65,11 +65,11 @@ export function WorkspaceMenuItems({ ws, onDone }: { ws: WorkspaceView; onDone: 
         void navigator.clipboard.writeText(ws.path).catch(() => void 0);
         onDone();
       }}>
-        <Link2 size={13} /> {t("复制路径")}
+        {t("复制路径")}
       </div>
       <div className="ctx-sep" />
       <div className="ctx-item" onClick={rename}>
-        <SquarePen size={13} /> {t("重命名")}
+        {t("重命名")}
       </div>
       {/* 修改图标：坐标锚定的图标选择器（IconPickerHost 挂 App 根部，不随
           本菜单卸载）；选「默认」即清除 glyph 回落首字母/约定文件 */}
@@ -81,10 +81,10 @@ export function WorkspaceMenuItems({ ws, onDone }: { ws: WorkspaceView; onDone: 
         });
         onDone();
       }}>
-        <ImagePlus size={13} /> {t("修改图标")}
+        {t("修改图标")}
       </div>
       <div className="ctx-item danger" onClick={remove}>
-        <Trash2 size={13} /> {t("删除工作区")}
+        {t("删除工作区")}
       </div>
     </>
   );
