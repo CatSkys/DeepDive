@@ -2,7 +2,7 @@
 // session/follow 直播流（0.1.2：开窗快照 + 之后追加事件，断线重连重发快照）、
 // session/page 深历史分页、plan/goal 投影（control 流实时 + 3s 轮询兜底）、
 // schedule 折叠。不管渲染与滚动 UI（分页锚定经 refs 参数借用组件的滚动容器）。
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
 import type { SessionAddress, SessionEvent } from "../types";
@@ -19,6 +19,24 @@ export function useSessionEvents(
   // 现在结构上杜绝：handler 内完成 log.push/ingest/finalize，再一次性快照）。
   const itemsRef = useRef<RenderItem[]>([]);
   itemsRef.current = items;
+  // 翻页锚点：pageOnce 抓到的"当前首行视口偏移"，等新页 items 提交后由
+  // useLayoutEffect 消费（commit 时机，早于绘制）。
+  const pendingAnchorRef = useRef<number | null>(null);
+  // 锚点校正挂在 items 提交时机：翻页进 startTransition 后渲染可跨帧分片，
+  // 原 rAF 校正会跑在渲染完成前（读到旧锚点 → delta=0 → 视口跳位）。
+  useLayoutEffect(() => {
+    const anchorTop = pendingAnchorRef.current;
+    if (anchorTop === null) return;
+    pendingAnchorRef.current = null;
+    const sc = refs.scrollRef.current;
+    const a = refs.olderAnchorRef.current;
+    if (sc && a) {
+      const delta = a.getBoundingClientRect().top - sc.getBoundingClientRect().top - anchorTop;
+      sc.scrollTop += delta;
+    }
+    // refs 是稳定的 ref 容器，items 才是触发源
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
   // 开窗失败不再静默（AUD-050）：非 blank 会话渲染成空白流会让用户以为会话
   // 被清空；retry 经 retryKey 重跑整个挂载 effect。
   const [loadError, setLoadError] = useState(false);
@@ -285,31 +303,28 @@ export function useSessionEvents(
     const beforeSeq = earliestSeqRef.current;
     const throughSeq = throughSeqRef.current;
     if (beforeSeq === undefined || throughSeq === undefined) return { hasMore: false };
-    // Capture the scrollport position of the current first row so we can
-    // keep it visually pinned after older rows are prepended.
-    const el = refs.olderAnchorRef.current;
-    const anchorTop = el ? el.getBoundingClientRect().top - refs.scrollRef.current!.getBoundingClientRect().top : 0;
     const { entries: older, hasMore: more } = await api.page({
       address: addressRef.current, throughSeq, beforeSeq, maxMessages,
     });
     eventLog.current = [...older, ...eventLog.current];
-    setScheduleRecords(foldScheduleAll(eventLog.current));
-    const next = rebuild(eventLog.current);
-    itemsRef.current = next;
-    setItems(next);
-    // After render, restore the anchor row to its captured offset.
-    requestAnimationFrame(() => {
-      const sc = refs.scrollRef.current;
-      const a = refs.olderAnchorRef.current;
-      if (sc && a) {
-        const delta = a.getBoundingClientRect().top - sc.getBoundingClientRect().top - anchorTop;
-        sc.scrollTop += delta;
-      }
-    });
-    setHasMore(more);
     const first = older[0] as { event?: { seq?: number } } | undefined;
     const firstSeq = first?.event?.seq;
     if (firstSeq !== undefined) earliestSeqRef.current = firstSeq;
+    // Capture the scrollport position of the current first row so we can
+    // keep it visually pinned after older rows are prepended.
+    const el = refs.olderAnchorRef.current;
+    pendingAnchorRef.current = el ? el.getBoundingClientRect().top - refs.scrollRef.current!.getBoundingClientRect().top : 0;
+    // 新页挂载进并发渲染（可中断、不占滚动帧）：120 条的 markdown 解析/
+    // 高亮/reconcile 不再把滚动卡死（用户报"滚动一顿顿"主因）。callback
+    // 本体同步执行——itemsRef 在本任务内就指向含新页的列表，直播摄取
+    // （ingest 基于 itemsRef）不会读到缺页旧列表；被延后的只是重渲染。
+    startTransition(() => {
+      const next = rebuild(eventLog.current);
+      itemsRef.current = next;
+      setItems(next);
+      setHasMore(more);
+      setScheduleRecords(foldScheduleAll(eventLog.current));
+    });
     return { firstSeq, hasMore: more };
   };
 
