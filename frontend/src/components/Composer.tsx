@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, Square, Plus, Mic, FileText } from "lucide-react";
 import { api } from "../api";
@@ -71,12 +71,19 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
   const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, requeueFile, cancelUpload, dragOver, fileRef, onFile } =
     useComposerAttachments({ setText, hasShell, sessionId });
-  // 听写 final 落稿后回焦并按新内容重新长高（原 dictation 订阅内的 rAF）
+  // 听写 final 落稿后回焦（长高由 [text] 的 useLayoutEffect 统一负责）
   const refocusDraft = () => requestAnimationFrame(() => {
-    if (taRef.current) autoGrow(taRef.current);
     taRef.current?.focus();
   });
   const { listening, partial, toggleDictation } = useComposerDictation({ setText, refocus: refocusDraft });
+  // 高度与内容单向同步（"输入框突然不居中"的根因修复）：autoGrow 原先只挂在
+  // 键盘 onChange/compositionEnd 上，非键盘路径（发送清空/草稿回填/听写落稿/
+  // 菜单与"添加到当前任务"插入）改了 text 却残留旧 inline height——胶囊保持
+  // 旧高度、单行内容顶在天花板。收敛为单一机制：text 任何来源变化都重算
+  // （useLayoutEffect 避免 session 切换首帧闪错高度）。
+  useLayoutEffect(() => {
+    if (taRef.current) autoGrow(taRef.current);
+  }, [text]);
   // 引擎命令目录（0.1.2 commands/list）：菜单与 Enter 裁决共用一份。
   const commands = useSlashCommands(sessionId);
   const { menu, query, rows } = useComposerMenu({ text, cursor, dismissed, composing, sessionId, setText, commands });
@@ -90,7 +97,6 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       requestAnimationFrame(() => {
         const ta = taRef.current;
         if (!ta) return;
-        autoGrow(ta);
         ta.focus();
         ta.setSelectionRange(ta.value.length, ta.value.length);
       });
@@ -279,10 +285,10 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
             rows={1}
             value={text}
             placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
-            onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); autoGrow(e.target); }}
+            onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); }}
             onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
             onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
-            onCompositionEnd={(e) => { ime.onCompositionEnd(); setComposing(false); autoGrow(e.currentTarget); }}
+            onCompositionEnd={() => { ime.onCompositionEnd(); setComposing(false); }}
             onPaste={(e) => {
               // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
               const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
