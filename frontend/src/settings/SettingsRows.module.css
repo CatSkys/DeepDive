@@ -153,8 +153,11 @@
 
 /* ── 行 / 分组 ── */
 .section { margin-bottom: 28px; }
-.sectionTitle { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
-.sectionIntro { font-size: 12px; color: var(--ink-3); margin-bottom: 10px; }
+/* 标题到内容的间距 ≥12px（UI-SPEC：标题贴内容是反复出现的回归，勿调小） */
+.sectionTitle { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
+.sectionIntro { font-size: 12px; color: var(--ink-3); margin-bottom: 12px; }
+/* 标题+说明是一个头部块：说明紧跟标题（抵掉标题的 12px 下距），说明再与内容留 ≥12px */
+.sectionTitle + .sectionIntro { margin-top: -10px; }
 /* 同类设置行合并成的一张无描边卡片（与 hotkeyCard/archCard/blockCard 同配方） */
 .rowGroup {
   border-radius: var(--dsh-radius-control);

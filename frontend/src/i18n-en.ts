@@ -28,6 +28,7 @@ export const EN: Record<string, string> = {
   "删除工作区": "Delete Workspace",
   "重命名任务": "Rename Session",
   "归档任务": "Archive Session",
+  "归档": "Archive",
   "标记为未读": "Mark as Unread",
   "在 Finder 中打开": "Reveal in Finder",
   "复制路径": "Copy Path",

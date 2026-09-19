@@ -291,6 +291,7 @@ function GeneralSection() {
             </div>
           </div>
         </div>
+        <div className={rowsCss.sectionTitle}>{t("归档")}</div>
         <div className={rowsCss.rowGroup}>
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
