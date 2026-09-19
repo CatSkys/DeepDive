@@ -116,6 +116,7 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
         diffs={item.diffs}
         resultImages={item.resultImages}
         sessionId={sessionId}
+        cwd={cwd}
       />
     );
   }

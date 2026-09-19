@@ -24,6 +24,14 @@ export function summarizeArgs(args: string): string {
   }
 }
 
+/// 项目内路径相对化（用户定稿）：工具行摘要以会话 cwd 开头时剥掉前缀，
+/// 显示项目内路径（frontend/src/...）而不是完整绝对路径。cwd 未知或路径
+/// 在项目外原样返回。
+export function relativizePath(text: string, cwd?: string): string {
+  if (!cwd || !text.startsWith(cwd + "/")) return text;
+  return text.slice(cwd.length + 1);
+}
+
 export function commandOf(args: string): string {
   try {
     const p = JSON.parse(args);
