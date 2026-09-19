@@ -75,7 +75,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
       { key: "attach", icon: <Plus size={15} />, label: t("添加附件"), run: () => dispatchAppEvent(DD_EVENTS.composerAttach) },
       { key: "dictation", icon: <Mic size={15} />, label: t("听写"), combo: comboFor("dictation", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.dictationToggle) },
       { key: "cycle-effort", icon: <Gauge size={15} />, label: t("思考强度切换"), combo: comboFor("cycle-effort", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.cycleEffort) },
-      { key: "search-sessions", icon: <Search size={15} />, label: t("搜索会话全文"), combo: comboFor("search", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.focusSearch) },
+      { key: "search-sessions", icon: <Search size={15} />, label: t("搜索会话全文"), run: () => dispatchAppEvent(DD_EVENTS.focusSearch) },
       { key: "toggle-sidebar", icon: <PanelLeft size={15} />, label: t("收起 / 展开侧栏"), combo: comboFor("toggle-sidebar", store.keybinds), run: () => store.toggleSidebar() },
       { key: "settings", icon: <Settings size={15} />, label: t("设置"), combo: comboFor("open-settings", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.openSettings) },
     ].filter((r) => hit(r.label));

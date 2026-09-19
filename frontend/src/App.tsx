@@ -154,7 +154,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         if (typing && def.id !== "dictation") return;
         e.preventDefault();
         if (def.id === "new-session") store.openSession(null);
-        else if (def.id === "search") dispatchAppEvent(DD_EVENTS.focusSearch);
+        else if (def.id === "search") openCommandPalette();
         else if (def.id === "toggle-sidebar") store.toggleSidebar();
         else if (def.id === "dictation") dispatchAppEvent(DD_EVENTS.dictationToggle);
         else if (def.id === "cycle-effort") dispatchAppEvent(DD_EVENTS.cycleEffort);
@@ -192,7 +192,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
           <button className="window-top-btn" data-tip={t("收起侧栏")} data-tip-keys={comboFor("toggle-sidebar", store.keybinds)} onClick={() => store.toggleSidebar()}>
             <PanelLeft size={17} />
           </button>
-          <button className="window-top-btn" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} onClick={() => dispatchAppEvent(DD_EVENTS.focusSearch)}>
+          <button className="window-top-btn" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} onClick={() => openCommandPalette()}>
             <Search size={17} />
           </button>
         </div>

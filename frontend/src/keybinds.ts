@@ -14,7 +14,7 @@ export type KeybindOverrides = Record<string, { combo?: string; off?: boolean }>
 
 export const KEYBIND_DEFS: KeybindDef[] = [
   { id: "new-session", zh: "新建会话", en: "New session", combo: "⌘N" },
-  { id: "search", zh: "搜索会话", en: "Search sessions", combo: "⌘F" },
+  { id: "search", zh: "搜索", en: "Search", combo: "⌘F" },
   { id: "toggle-sidebar", zh: "收起 / 展开侧栏", en: "Toggle sidebar", combo: "⌘\\" },
   { id: "dictation", zh: "听写", en: "Dictation", combo: "⌘D" },
   { id: "cycle-effort", zh: "思考强度切换", en: "Cycle reasoning effort", combo: "⌘⇧E" },
