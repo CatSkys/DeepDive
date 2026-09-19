@@ -4,6 +4,17 @@
    完全同一套字号与控件规格（标题 15、输入 30 高 12.5、按钮 28 高），
    本文件只补本弹窗独有的几个部件，度量对齐 textField。 */
 
+/* 玻璃材质覆盖：modal 壳沿用其字号/布局，材质换浮层统一配方
+   （--panel-glass .55 + blur(12) saturate(180%) + --shadow-pop；有底色
+   不描边，§2.4）；前缀顺序勿倒——-webkit- 在前、标准在后（PITFALLS §1.8） */
+.glass {
+  border: none;
+  background: var(--panel-glass);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: var(--shadow-pop);
+}
+
 /* 名称行：输入框 + 行尾图标触发钮装在同一条 textField 里。
    input 必须 flex:1 + min-width:0（PITFALLS §1.6：flex 嵌套百分比宽
    input 在 WKWebView 塌缩成细条） */

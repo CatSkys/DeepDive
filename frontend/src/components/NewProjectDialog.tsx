@@ -154,7 +154,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
           React 子树里，其内部 Escape 已被菜单 stopPropagation 截住，不会
           连带关掉整个弹窗 */}
       <div
-        className={rowsCss.modal}
+        className={`${rowsCss.modal} ${css.glass}`}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose();
