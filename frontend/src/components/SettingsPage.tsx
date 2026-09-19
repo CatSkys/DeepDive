@@ -288,6 +288,8 @@ function GeneralSection() {
             </div>
           </div>
         </div>
+      </div>
+      <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("归档")}</div>
         <div className={rowsCss.rowGroup}>
           <div className={rowsCss.rowCard}>
