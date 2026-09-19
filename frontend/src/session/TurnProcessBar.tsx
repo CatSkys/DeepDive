@@ -2,14 +2,13 @@
 // aria-expanded 表示过程是否展开。样式走 theme.css .turn-process-row。
 import { ChevronDown } from "lucide-react";
 import { t, tt } from "../i18n";
-import { turnProcessLabel, type TurnProcessInfo } from "./turnProcess";
+import { turnWorkLabel, type TurnProcessInfo } from "./turnProcess";
 
 export function TurnProcessBar({ info, open, onToggle }: {
   info: TurnProcessInfo;
   open: boolean;
   onToggle: () => void;
 }) {
-  const label = turnProcessLabel(info, tt);
   return (
     <button
       type="button"
@@ -19,7 +18,7 @@ export function TurnProcessBar({ info, open, onToggle }: {
       aria-label={open ? t("收起过程") : t("展开过程")}
       onClick={onToggle}
     >
-      <span className="turn-process-label">{label}</span>
+      <span className="turn-process-label">{turnWorkLabel(info.durationMs, tt)}</span>
       <ChevronDown size={14} className="turn-process-chevron" />
     </button>
   );
