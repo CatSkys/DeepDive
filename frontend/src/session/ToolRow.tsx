@@ -11,6 +11,7 @@ import { AttachmentThumb } from "../components/AttachmentImage";
 import { IconCheckOutline16, IconChecklistOutline14, IconCopyOutline16 } from "../components/Icons";
 import { askSummary, basename, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
+import { fileUrlOf, renderersOf } from "../components/preview/previewModel";
 import { StateDot } from "./MessageRow";
 import { ToolIcon, FileLangIcon } from "./ToolIcon";
 /** 常见工具名的中文标题；未收录的显示原名。 */
@@ -266,23 +267,54 @@ function TerminalBlock({ command, output, failed }: { command: string; output: s
 }
 
 
-/// Produced files lane — DSH ProducedFiles port (label + file chips).
-export function ProducedFiles({ paths, onPreview, wsPath }: { paths: string[]; onPreview?: (path: string) => void; wsPath?: string }) {
-  const abs = (p: string) => (p.startsWith("/") || !wsPath ? p : `${wsPath}/${p}`);
-  if (paths.length === 0) return null;
-  const shown = paths.slice(0, 6);
-  const hidden = paths.length - shown.length;
+/// 产物/交付合并行（用户定稿：单一「产物」行、单行不换）：present 交付与
+/// 工具产物按绝对路径去重后合成一条 chip 行，超出容量的以 +n 收尾；交付
+/// 描述降为 chip tooltip，交付图片仍出缩略图。原 ProducedFiles/PresentedFiles
+/// 两行由此替代。
+export function ArtifactsRow({ produced, presented, root, onPreview }: {
+  produced: string[];
+  presented: import("../types").PresentedFile[];
+  /** 相对路径的解析根（引擎口径：会话工作目录，缺省退回工作区路径由调用方并好）。 */
+  root?: string;
+  onPreview?: (path: string) => void;
+}) {
+  const abs = (p: string) => (p.startsWith("/") || !root ? p : `${root}/${p}`);
+  const open = (path: string) => (onPreview ? onPreview(path) : openPath(path));
+  const items: Array<{ key: string; path: string; desc?: string; image: boolean }> = [];
+  const seen = new Set<string>();
+  for (const f of presented) {
+    const path = abs(f.path);
+    if (seen.has(path)) continue;
+    seen.add(path);
+    items.push({ key: `d:${f.path}`, path, desc: f.description, image: renderersOf(path).includes("image") });
+  }
+  for (const p of produced) {
+    const path = abs(p);
+    if (seen.has(path)) continue;
+    seen.add(path);
+    items.push({ key: `p:${p}`, path, image: false });
+  }
+  if (items.length === 0) return null;
+  const shown = items.slice(0, 8);
+  const hidden = items.length - shown.length;
   return (
     <div className="produced">
       <span className="produced-label">{t("产物")}</span>
       <div className="produced-row">
-        {shown.map((p) => (
-          // 点 chip = 应用内预览；默认应用打开 / Finder 定位在右键菜单里
-          // （data-file-ctx 是消息流右键菜单认的锚，见 SelectionActions）
-          <button key={p} type="button" className="produced-file" data-tip={p}
-            data-file-ctx={abs(p)}
-            onClick={() => (onPreview ? onPreview(abs(p)) : openPath(abs(p)))}>
-            {basename(p)}
+        {shown.map((it) => (
+          <button
+            key={it.key}
+            type="button"
+            className={it.image ? "delivered-card delivered-image" : "produced-file"}
+            title={it.desc ?? it.path}
+            data-file-ctx={it.path}
+            onClick={() => open(it.path)}
+          >
+            {it.image ? (
+              <img className="delivered-thumb" src={fileUrlOf(it.path)} alt={it.desc ?? basename(it.path)} loading="lazy" />
+            ) : (
+              basename(it.path)
+            )}
           </button>
         ))}
         {hidden > 0 && <span className="produced-more">{tt("+ {n} 个文件", "+{n} files", { n: hidden })}</span>}
