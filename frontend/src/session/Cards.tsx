@@ -3,21 +3,23 @@
 // request 同路）。挂起身份与应答都走 eventId。
 
 import { useState } from "react";
-import { ShieldCheck, X } from "lucide-react";
+import { ArrowUp, ShieldCheck, X } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
+import { useStore } from "../store";
 import { useCompositionGuard } from "../useCompositionGuard";
 import { IconQuestionOutline14 } from "../components/Icons";
 export function ApprovalCard({ eventId, toolName, reason }: { eventId: string; toolName: string; reason?: string }) {
-  const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
+  const { settleEvent } = useStore();
   const answer = async (outcome: "allowed-once" | "rejected") => {
     setPending(true);
     try {
       await api.answerApproval(eventId, outcome);
-      setDone(true);
+      // 网关不给应答者回 cancel 帧：卡片移除以本地结算为准（官方 answer().then(clear) 同款）。
+      settleEvent(eventId);
     } catch {
-      setPending(false); // 应答提交失败：按钮恢复可点重试（卡片清除仅由引擎 cancel/应答完成驱动）
+      setPending(false); // 应答提交失败：按钮恢复可点重试
     }
   };
   return (
@@ -28,10 +30,10 @@ export function ApprovalCard({ eventId, toolName, reason }: { eventId: string; t
       </div>
       <div className="cmd">{reason || toolName}</div>
       <div className="actions">
-        <button className="btn-plain" disabled={done || pending} onClick={() => void answer("rejected")}>
+        <button className="btn-plain" disabled={pending} onClick={() => void answer("rejected")}>
           <X size={13} style={{ verticalAlign: -2 }} /> {t("拒绝")}
         </button>
-        <button className="btn-primary" disabled={done || pending} onClick={() => void answer("allowed-once")}>
+        <button className="btn-primary" disabled={pending} onClick={() => void answer("allowed-once")}>
           {t("允许一次")}
         </button>
       </div>
@@ -43,7 +45,8 @@ export function ApprovalCard({ eventId, toolName, reason }: { eventId: string; t
 /** 意图澄清卡片 — 官方 ui-user-questions QuestionComposer 的卡片化移植。
  *  单选题点击即锁定并推进（最后一题自动提交整批答案）；多选题勾选后用
  *  底部按钮推进；每题可跳过（selected: []）；关闭 = ASK_CANCELLED。
- *  应答按 eventId 经 $events/result 回传，卡片由引擎 cancel 帧清除。 */
+ *  应答按 eventId 经 $events/result 回传；网关不给应答者回 cancel 帧，
+ *  提交/取消成功即本地结算清卡（官方 answer().then(clear) 同款）。 */
 export function QuestionCard({ eventId, questions }: {
   eventId: string;
   questions: Array<{ id: string; question: string; header?: string; detail?: string; options?: Array<{ label: string; description?: string }>; multiSelect?: boolean }>;
@@ -52,6 +55,7 @@ export function QuestionCard({ eventId, questions }: {
   const [drafts, setDrafts] = useState<Record<string, { selected: string[]; custom?: string }>>({});
   const [custom, setCustom] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { settleEvent } = useStore();
   const ime = useCompositionGuard();
   const q = questions[Math.min(page, questions.length - 1)];
   if (!q) return null;
@@ -74,9 +78,10 @@ export function QuestionCard({ eventId, questions }: {
           return { id: item.id, selected: d.selected, ...(d.custom ? { custom: d.custom } : {}) };
         }),
       );
-      // 卡片由引擎应答完成/cancel 帧负责移除；这里只防重复提交。
+      // 提交成功即本地结算清卡（见组件注释）；失败留在卡片上可重试。
+      settleEvent(eventId);
     } catch {
-      setSubmitting(false); // 引擎不可达：留在卡片上可重试
+      setSubmitting(false);
     }
   };
 
@@ -109,7 +114,12 @@ export function QuestionCard({ eventId, questions }: {
   };
   const cancel = async () => {
     setSubmitting(true);
-    try { await api.cancelQuestion(eventId); } catch { setSubmitting(false); /* 应答提交失败：卡片保持可再点重试（清除仅由引擎 cancel 帧驱动） */ }
+    try {
+      await api.cancelQuestion(eventId);
+      settleEvent(eventId); // 取消成功同样本地结算（网关不给发起者回 cancel 帧）
+    } catch {
+      setSubmitting(false); // 提交失败：卡片保持可再点重试
+    }
   };
 
   return (
@@ -162,6 +172,17 @@ export function QuestionCard({ eventId, questions }: {
             }
           }}
         />
+        {/* 与 Composer 同款发送钮：回车的可见等价物，空文本禁用 */}
+        <button
+          type="button"
+          className="composer-send"
+          data-tip={t("发送")}
+          data-tip-keys="Enter"
+          disabled={submitting || !custom.trim()}
+          onClick={sendCustom}
+        >
+          <ArrowUp size={15} strokeWidth={2.4} />
+        </button>
       </div>
       <div className="actions">
         <button className="btn-plain" disabled={submitting} onClick={skip}>

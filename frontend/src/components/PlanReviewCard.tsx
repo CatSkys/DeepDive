@@ -3,23 +3,28 @@ import { X } from "lucide-react";
 import { Markdown } from "./Markdown";
 import { api } from "../api";
 import { t } from "../i18n";
+import { useStore } from "../store";
 import type { PlanReview } from "../planReview";
 
 // PlanReviewCard：plan-review 提意的决策卡（官方 PlanReviewPanel 移植）。
 // 一份计划、一个决策：批准/拒绝应答选项原文 label，继续讨论走 cancel
-// （ASK_CANCELLED）。卡片由 question/resolved 帧清除；发送失败回解除
-// 忙锁并显示原因（官方 settle 语义）。
+// （ASK_CANCELLED）。提交/取消成功即本地结算清卡（网关不给应答者回
+// cancel 帧，官方 answer().then(clear) 同款）；发送失败回解除忙锁并显示
+// 原因（官方 settle 语义）。
 
 export function PlanReviewCard({ eventId, review }: { eventId: string; review: PlanReview }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { settleEvent } = useStore();
   const settle = (send: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
-    void send().catch((err: unknown) => {
-      setBusy(false);
-      setError(err instanceof Error ? err.message : String(err));
-    });
+    void send()
+      .then(() => settleEvent(eventId))
+      .catch((err: unknown) => {
+        setBusy(false);
+        setError(err instanceof Error ? err.message : String(err));
+      });
   };
   const decide = (label: string) =>
     settle(() => api.answerQuestion(eventId, [{ id: review.id, selected: [label] }]));

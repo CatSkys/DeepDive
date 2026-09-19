@@ -64,6 +64,12 @@ interface Store {
   activeSessionId: string | null;
   approvals: Map<string, ApprovalPending>;
   questions: Map<string, QuestionPending>;
+  /** 应答/取消成功后的本地结算清卡（审批/提问共用）：网关不给应答者回
+   *  cancel 帧（应答时该客户端的 delivery 已先摘除，gateway
+   *  receiveRemoteEventResult → finishRemoteEvent），卡片移除以本地结算
+   *  为准——官方客户端 answer().then(clear) 同款；cancel 帧仍保留，兜
+   *  多端与引擎侧撤销。 */
+  settleEvent: (eventId: string) => void;
   /** 各会话的排队消息（session/control 帧，全量 items）。 */
   queues: Map<string, SessionQueuedItem[]>;
   /** 各会话的后台任务快照（session/control 帧，5.3）。 */
@@ -471,6 +477,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // $events 转发流（0.1.2）：emit 通知 + 审批/提问 waterfall + 取消。
+  const settleEvent = useCallback((eventId: string) => {
+    const drop = <T,>(prev: Map<string, T>): Map<string, T> => {
+      if (!prev.has(eventId)) return prev;
+      const next = new Map(prev);
+      next.delete(eventId);
+      return next;
+    };
+    setApprovals(drop);
+    setQuestions(drop);
+  }, []);
   useEffect(() => {
     return api.onEvents({
       onEmit: (event, args) => {
@@ -503,18 +519,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
       onCancel: (eventId) => {
         // 引擎侧撤销挂起交互：按 eventId 配对移除（审批/提问共用）。
-        setApprovals((prev) => {
-          if (!prev.has(eventId)) return prev;
-          const next = new Map(prev);
-          next.delete(eventId);
-          return next;
-        });
-        setQuestions((prev) => {
-          if (!prev.has(eventId)) return prev;
-          const next = new Map(prev);
-          next.delete(eventId);
-          return next;
-        });
+        settleEvent(eventId);
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -632,6 +637,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       activeSessionId,
       approvals,
       questions,
+      settleEvent,
       queues,
       jobsBySession,
       refresh,
@@ -682,7 +688,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
