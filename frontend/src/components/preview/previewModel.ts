@@ -1,3 +1,5 @@
+import { t } from "../../i18n";
+
 // 预览模型（纯函数）：扩展名 → 可选渲染器 + 高亮语言 + 换行能力。
 // 语义对齐官方 ui-sidebar-documentpreview 的渲染器注册表：一个文件可命中多个
 // 渲染器（`.md` 同时是 Markdown 与代码、`.html` 同时是 HTML 与代码），纯文本

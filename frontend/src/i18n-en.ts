@@ -779,4 +779,41 @@ export const EN: Record<string, string> = {
   "删除失败": "Delete failed",
   "列不出来，可能不是 git 仓库。": "Could not list — this may not be a git repository.",
   "工作树要跑本机 git，只有桌面应用能做——当前是浏览器访问，看不到也改不了。": "Worktrees need git on this machine and only the desktop app can run it — you are in a browser, so they cannot be listed or changed here.",
+  // 预览窗（FilePreviewWindow / previewModel / OpenWithMenu）
+  "全屏预览": "Full-screen preview",
+  "退出全屏": "Exit full screen",
+  "关闭预览": "Close preview",
+  "文件预览": "File preview",
+  "默认应用打开": "Open with default app",
+  "无法在应用内预览该文件": "This file can't be previewed in the app",
+  "该文件类型不支持应用内预览": "This file type doesn't support in-app preview",
+  // composer
+  "取消上传": "Cancel upload",
+  "指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。": "Instructions are written to the project's AGENTS.md on create — an existing file is left untouched.",
+  "解码速度": "Decode speed",
+  "平均首 token": "Avg. first token",
+  "发送中…": "Sending…",
+  // 会话头 / 消息流
+  "工作区文件夹": "Workspace folder",
+  "留空则按名称自动创建。": "Auto-created from the name if left empty.",
+  "自动": "Auto",
+  "轮次": "Turns",
+  "轮次导航": "Turn navigation",
+  // 自进化（EvolutionSection）
+  "思考强度切换": "Cycle reasoning effort",
+  "实验性能力，默认关闭。开启后，应用从会话中提炼可复用的经验，经机械校验后由 Agent 自动落库并提交，定期复盘、到期校验、无效自动回滚；不修改产品代码，会读取会话日志并消耗模型额度。开关对采集与自动化即时生效，对会话内的提示在应用下次启动后生效。": "Experimental, off by default. When enabled, the app extracts reusable lessons from sessions; lessons passing mechanical checks are committed automatically by an Agent, reviewed periodically, verified on expiry and rolled back when ineffective. It never modifies product code, reads session logs, and consumes model quota. The toggle applies to collection and automation immediately; in-session prompts apply after the app next restarts.",
+  "经验自动落地并接受效果校验；判定标准见仓库 docs/EVOLUTION-POLICY.md。": "Lessons land automatically and go through effect verification; criteria in the repo's docs/EVOLUTION-POLICY.md.",
+  "处理中": "Processing",
+  "暂无处理中的经验。经验由会话中的明确要求或后台复盘产出。": "No lessons in progress. Lessons come from explicit session requests or background reviews.",
+  "台账": "Ledger",
+  "本机执行": "Local runs",
+  "落地中": "Landing",
+  "查看原文": "View source",
+  "全部清除": "Clear all",
+  // 记忆（MemorySection）
+  "会话记忆": "Session memory",
+  "实验性能力，默认关闭。开启后，每个会话维护一份笔记（目标、计划、踩过的坑等），每轮注入给模型，长对话可用「新上下文」压缩历史而不丢要点；笔记只存本机，可在下方查看或删除。开关在应用下次启动后对会话生效。": "Experimental, off by default. When enabled, each session keeps a note (goals, plans, pitfalls…), injected into the model every turn; long chats can compress history with “New context” without losing key points. Notes stay on this machine and can be viewed or deleted below. The toggle applies to sessions after the app next restarts.",
+  "暂无会话笔记。开启会话记忆并使用后，笔记会出现在这里。": "No session notes yet. Turn on session memory and use it — notes will appear here.",
+  "忘记": "Forget",
 };
+
