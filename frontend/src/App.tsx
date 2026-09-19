@@ -24,6 +24,7 @@ import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
 import { NewProjectDialogHost } from "./components/NewProjectDialog";
+import { IconPickerHost } from "./components/IconPicker";
 import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
@@ -163,6 +164,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       <TooltipHost />
       <DialogHost />
       <NewProjectDialogHost />
+      <IconPickerHost />
       {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失 */}
       {store.everConnected && !store.engineUp && (
         <div className="engine-banner" role="status">

@@ -1,11 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Folder, Link2, SquarePen, Trash2 } from "lucide-react";
+import { Folder, ImagePlus, Link2, SquarePen, Trash2 } from "lucide-react";
 import type { WorkspaceView } from "../types";
 import { revealPath } from "../host";
 import { api } from "../api";
 import { useStore } from "../store";
-import { clearWsIcon } from "../wsIcons";
+import { clearWsIcon, getWsIcon, setWsIcon } from "../wsIcons";
+import { openIconPickerAt } from "./IconPicker";
 import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { useT } from "../i18n";
 
@@ -70,6 +71,18 @@ export function WorkspaceMenuItems({ ws, onDone }: { ws: WorkspaceView; onDone: 
       <div className="ctx-item" onClick={rename}>
         <SquarePen size={13} /> {t("重命名")}
       </div>
+      {/* 修改图标：坐标锚定的图标选择器（IconPickerHost 挂 App 根部，不随
+          本菜单卸载）；选「默认」即清除 glyph 回落首字母/约定文件 */}
+      <div className="ctx-item" onClick={(e) => {
+        openIconPickerAt({
+          x: e.clientX, y: e.clientY,
+          value: getWsIcon(ws.workspaceId),
+          onChange: (v) => { if (v) setWsIcon(ws.workspaceId, v); else clearWsIcon(ws.workspaceId); },
+        });
+        onDone();
+      }}>
+        <ImagePlus size={13} /> {t("修改图标")}
+      </div>
       <div className="ctx-item danger" onClick={remove}>
         <Trash2 size={13} /> {t("删除工作区")}
       </div>
@@ -91,7 +104,7 @@ export function WorkspaceMenu({ ws, x, y, onClose }: { ws: WorkspaceView; x: num
     return () => document.removeEventListener("mousedown", close);
   }, [onClose]);
 
-  const estimatedH = 174; // 五个菜单项 + 分隔线 + 内边距
+  const estimatedH = 204; // 六个菜单项 + 分隔线 + 内边距
   const flip = y + estimatedH > window.innerHeight - 8;
 
   return createPortal(

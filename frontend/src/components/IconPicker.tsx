@@ -126,27 +126,7 @@ export function IconPicker({ value, onChange }: { value: string | null; onChange
         if (e.key === "Escape") { e.stopPropagation(); setOpen(false); }
       }}
     >
-      <div className={css.searchRow}>
-        <input autoFocus placeholder={t("搜索")} value={query} onChange={(e) => setQuery(e.target.value)} />
-      </div>
-      <button type="button" className={rowsCss.ddItem} onClick={() => { setOpen(false); onChange(null); }}>
-        <CircleSlash size={15} className={rowsCss.ddItemIcon} />
-        <span className={rowsCss.ddItemMain}><span>{t("默认（首字母）")}</span></span>
-        {value === null && <Check size={14} className={rowsCss.ddCheck} />}
-      </button>
-      {filtered.map(({ name, icon: Icon }) => (
-        <button
-          key={name}
-          type="button"
-          className={rowsCss.ddItem}
-          onClick={() => { setOpen(false); onChange(name); }}
-        >
-          <Icon size={15} className={rowsCss.ddItemIcon} />
-          <span className={rowsCss.ddItemMain}><span>{name}</span></span>
-          {value === name && <Check size={14} className={rowsCss.ddCheck} />}
-        </button>
-      ))}
-      {filtered.length === 0 && <div className={css.searchEmpty}>{t("无结果")}</div>}
+      <IconMenuBody value={value} onPick={(v) => { setOpen(false); onChange(v); }} query={query} setQuery={setQuery} />
     </div>,
     document.body,
   );
@@ -159,5 +139,115 @@ export function IconPicker({ value, onChange }: { value: string | null; onChange
       </button>
       {menu}
     </div>
+  );
+}
+
+/* ── 菜单体：搜索行 + 「默认」复位项 + 精选集过滤列表（两种入口共用） ── */
+
+function IconMenuBody({ value, onPick, query, setQuery }: {
+  value: string | null;
+  onPick: (v: string | null) => void;
+  query: string;
+  setQuery: (q: string) => void;
+}) {
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return ICONS;
+    return ICONS.filter((i) => i.name.toLowerCase().includes(q));
+  }, [query]);
+  return (
+    <>
+      <div className={css.searchRow}>
+        <input autoFocus placeholder={t("搜索")} value={query} onChange={(e) => setQuery(e.target.value)} />
+      </div>
+      <button type="button" className={rowsCss.ddItem} onClick={() => onPick(null)}>
+        <CircleSlash size={15} className={rowsCss.ddItemIcon} />
+        <span className={rowsCss.ddItemMain}><span>{t("默认（首字母）")}</span></span>
+        {value === null && <Check size={14} className={rowsCss.ddCheck} />}
+      </button>
+      {filtered.map(({ name, icon: Icon }) => (
+        <button key={name} type="button" className={rowsCss.ddItem} onClick={() => onPick(name)}>
+          <Icon size={15} className={rowsCss.ddItemIcon} />
+          <span className={rowsCss.ddItemMain}><span>{name}</span></span>
+          {value === name && <Check size={14} className={rowsCss.ddCheck} />}
+        </button>
+      ))}
+      {filtered.length === 0 && <div className={css.searchEmpty}>{t("无结果")}</div>}
+    </>
+  );
+}
+
+/* ── 坐标锚定的独立图标选择器（项目右键菜单「修改图标」）：App 根部挂一次
+    <IconPickerHost />，任何入口经 openIconPickerAt 打开 ── */
+
+interface IconPickerRequest {
+  x: number;
+  y: number;
+  value: string | null;
+  onChange: (v: string | null) => void;
+}
+
+let dispatchReq: ((req: IconPickerRequest) => void) | null = null;
+
+export function openIconPickerAt(req: IconPickerRequest): void {
+  dispatchReq?.(req);
+}
+
+export function IconPickerHost() {
+  const [req, setReq] = useState<IconPickerRequest | null>(null);
+  const [query, setQuery] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dispatchReq = (r) => { setQuery(""); setReq(r); };
+    return () => { dispatchReq = null; };
+  }, []);
+
+  useEffect(() => {
+    if (!req) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setReq(null);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setReq(null); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [req]);
+
+  if (!req) return null;
+  // 位置夹在视口内；底部放不下向上翻（maxH 压限内滚）
+  const left = Math.max(8, Math.min(req.x, window.innerWidth - MENU_WIDTH - 8));
+  const h = 46 + ICONS.length * 30 + 16;
+  const below = window.innerHeight - req.y;
+  const flip = below < h + 12 && req.y > below;
+  const top = flip ? Math.max(8, req.y - Math.min(h, req.y - 12) - 4) : req.y + 4;
+  return createPortal(
+    <div
+      ref={menuRef}
+      className={rowsCss.ddMenu}
+      role="listbox"
+      style={{
+        position: "fixed",
+        top,
+        bottom: "auto",
+        left,
+        right: "auto",
+        width: MENU_WIDTH,
+        minWidth: MENU_WIDTH,
+        maxHeight: Math.min(h, (flip ? req.y : below) - 16),
+        overflowY: "auto",
+      }}
+    >
+      <IconMenuBody
+        value={req.value}
+        onPick={(v) => { req.onChange(v); setReq(null); }}
+        query={query}
+        setQuery={setQuery}
+      />
+    </div>,
+    document.body,
   );
 }
