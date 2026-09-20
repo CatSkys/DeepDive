@@ -138,7 +138,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   const pickModel = async (m: ModelOption, reasoningEffort?: string) => {
     setModelName(m.label);
     // 菜单关闭由 ModelMenu 决定（与 useSessionModels 同一口径）：无档位模型
-    // 选完即关；带档位的留在滑杆页，松手经 applyModelEffort 一次提交。
+    // 选完即关；带档位的留在档位选择页，点选后经 applyModelEffort 一次提交。
     // 草稿页（hero）选模型：会话还没真正创建，暂存草稿，首条消息创建会话时
     // 由 store.createSession 随新会话 selectModel 带走——这里不建会话。
     if (!store.activeSessionId) {

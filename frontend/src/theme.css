@@ -191,7 +191,7 @@ button {
    ③ blur 必须挂在面板自身：WKWebView 不渲染 backdrop-filter 子层
       （frost 子层方案两轮实机失败，2026-09 完全不透事故）。
    ④ 投影统一 --shadow-pop：重投影会把低透明面板边界重新描黑
-      （2026-09 阴影过重反馈）。effort-cell 是填充格不是浮层，不入组。 */
+      （2026-09 阴影过重反馈）。 */
 :root {
   --shadow-pop:
     inset 0 1px 0 rgba(255,255,255,.08),
@@ -765,65 +765,7 @@ button {
 }
 .model-menu-row .chev { color: var(--ink-3); flex-shrink: 0; }
 
-/* ── 思考强度页：厚胶囊填充滑杆（无拖柄/无下方档位名） ──
-   填充区铺满思考动画同款像素闪烁（pixel-on，组件按尺寸铺格）；
-   停靠点只标未覆盖档位。 */
-.effort-wrap { padding: 10px 12px 2px; }
-.effort-slider {
-  --p: 0;
-  position: relative;
-  height: 28px;
-  cursor: pointer;
-  touch-action: none;
-}
-.effort-slider.dragging { cursor: grabbing; }
-.effort-track {
-  position: absolute;
-  left: 14px; right: 14px; top: 0; bottom: 0;
-  border-radius: 999px;
-  background: var(--fill-strong);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
-}
-.effort-fill {
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: calc(var(--p) * 100%);
-  border-radius: 999px;
-  /* 减淡墨色（用户定）：亮用 --dsh-signal-effortFill，暗为柔和白 */
-  background: rgba(255,255,255,.88);
-  overflow: hidden;
-}
-/* 像素涌动铺满整个填充条（用户定稿）：思考动画同款 pixel-on 闪烁，格子
-   固定 6px 节距 8px 不拉伸；颜色取面板底反差色——暗色下即黑（用户：暗色
-   以黑为主），波谷 opacity 压到几乎不可见、波峰纯黑浮出。 */
-.effort-cells {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  gap: 2px;
-  justify-content: center;
-  align-content: center;
-  pointer-events: none;
-}
-.effort-cell {
-  border-radius: 1.5px;
-  /* 不透明纯色：--panel-bg 系带透明度，叠浅填充会显灰出不来黑色波峰 */
-  background: #0a0a0c;
-  opacity: .08;
-}
-:root[data-theme="light"] .effort-cell { background: #fff; }
-@media (prefers-reduced-motion: reduce) {
-  .effort-cell { animation: none !important; }
-}
-:root[data-theme="light"] .effort-fill { background: var(--dsh-signal-effortFill); }
-.effort-tick {
-  position: absolute;
-  top: 50%;
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--ink-3);
-}
+/* ── 思考强度页：档位单选列表（行样式复用 .model-menu-row，选中行填充 + 行尾对勾） ── */
 .effort-head-value { font-size: 11.5px; font-weight: 400; color: var(--ink-3); margin-left: 4px; }
 .model-menu-row:hover { background: var(--fill); }
 .model-menu-row.active { background: var(--fill-strong); color: var(--ink-bright); }

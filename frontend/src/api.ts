@@ -583,7 +583,7 @@ export const api = {
   }>("session/modelCatalog", {}),
   /** 统一模型选项（选择器数据源）：session/modelCatalog 是唯一目录面
    *  （session/models 与 llm/models 已随 0.1.2 移除）。reasoning 元数据必须
-   *  透传——模型菜单靠它决定「选完即关」还是「进档位滑杆页」。 */
+   *  透传——模型菜单靠它决定「选完即关」还是「进档位选择页」。 */
   modelOptions: async () => {
     type CatalogGroup = { id: string; name: string; models: Array<{ id: string; name: string; reasoning?: { efforts?: Array<{ id: string; name: string }>; defaultEffort?: string } }> };
     const flatten = (groups: CatalogGroup[]) => {

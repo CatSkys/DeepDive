@@ -47,8 +47,8 @@ export function useSessionModels(sessionId: string) {
   }, [sessionId]);
 
   const pickModel = async (m: ModelOption) => {
-    // 菜单关闭由 ModelMenu 决定：无档位模型选完即关；带档位的进滑杆页，
-    // 档位滑杆松手即通过 applyModelEffort 一次提交模型+档位后关闭。
+    // 菜单关闭由 ModelMenu 决定：无档位模型选完即关；带档位的进档位选择页，
+    // 点选一个档位时经 applyModelEffort 一次提交模型+档位后关闭。
     const prevLabel = modelName;
     setModelName(m.label);
     try {
