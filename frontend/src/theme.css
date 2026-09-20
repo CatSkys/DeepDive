@@ -366,7 +366,7 @@ button {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  border-radius: var(--dsh-radius-control);
+  border-radius: 14px; /* 胶囊与 task-row 同语法：半径用高度值（PITFALLS §1.1） */
 }
 .ws-row:hover { background: var(--fill); }
 .ws-row svg { color: var(--ink-3); flex: none; }
