@@ -85,6 +85,10 @@ final class EngineSupervisor {
 
     func start() {
         stopping = false
+        // 手动启动/重启＝重新给满重试窗口。旧实现只在"稳定运行 300s"后清零，于是
+        // 放弃之后用户点重试，一次失败就是第 4 次 → 立刻再次 failed，退避形同虚设。
+        // 自愈路径走 spawn()，不经这里，所以清零只影响手动动作。
+        attempts = 0
         // AUD-070：手动启动/重启必须先取消挂起的退避重启项——退避窗内本函数
         // spawn 一次、定时器稍后再 spawn 一次，会得到双引擎孤儿进程共用
         // DSH_HOME（会话写入交错，恰是单实例锁要防的事）。运行中调用则是
@@ -322,8 +326,10 @@ final class EngineSupervisor {
         // FEEDBACK_ONLY，与产品语义冲突——壳显式注入 DISABLED 收口。
         environment["DSH_TELEMETRY_MODE"] = "DISABLED"
 
-        // Engine cwd = workspace root: sandbox-policy.workspaceRoot defaults to
-        // process.cwd(), so workspace choice is the safety boundary (SPEC §4.2).
+        // Engine cwd = 启动工作区。**安全边界不在这里**：沙箱根按会话取
+        // session.header.cwd（= 该会话所属工作区），引擎进程 cwd 只是没有会话
+        // 上下文时的兜底根（agentless 调用）与 @ 文件索引的扫描根——PITFALLS
+        // §4.13 那场 TCC 弹窗风暴就是它扫到家目录引起的。
         // 解析顺序见 resolveLaunchWorkspace——init 时已定，不再回落 home。
         let cwd = workspace.path
 

@@ -76,7 +76,7 @@
 | `rich/` | 正文富输出围栏（`mermaid` / `svg` / `widget`，词表在 `fences.ts`）：`mermaidRender` 按需 import mermaid（独立分块）并从 CSS 语义变量读色烘图、明暗切换靠块自订阅（**不赌父组件重渲**，误诊后果=图示配色停在上一个主题）；`sanitizeSvg` 用 DOMPurify 的 svg profile 内联 SVG，禁 `script`/`foreignObject`，并把作者自带的 `<style>` 用 `@scope (#id)` 圈进这张图（剥掉会让手写 SVG 一片纯黑，`PITFALLS §3.8`）；`WidgetBlock` 用 `sandbox="allow-scripts"`（无 same-origin）跑交互组件；围栏未闭合（流式）显示「正在读取…」且不发起渲染；渲染不出来（语法错/超限）一律退回代码块显示源码（`PITFALLS §3.7`） |
 | `evolution/` | 自进化（零人审，SPEC-SELF-EVOLUTION v3）：`protocol`（lesson 块与壳侧回执解析、形状边界、七家允许清单）、`pipeline`（自动管线选择器纯函数：revoke→gate→apply→land→verify→review→consolidate）、`prompts`（落库/复盘/撤销/整理提示词，纯函数）、`store`（台账 + 运行历史 + 限速计数持久化）、`useEvolution`（App 级 Provider：采集跟随当前/交办/运行会话，执行管线——机械门/落地/确认/校验走壳桥 lesson-tool 直跑，落库/撤销/复盘/整理交办会话按落点作用域创建）、`chartData`+`Charts`（环图/柱状）、`EvolutionSection`（设置→自进化：开关 + 台账审计视图 + 运行历史；**无采纳按钮**）。标准与红线在 `docs/EVOLUTION-POLICY.md`（§0 自治模型） |
 | `session/backgroundSession.ts` | 后台会话的判据与命名（唯一事实源）：读投影标题而非应用侧 id 台账（MiMo 形态），`badge`（整理类：复盘/整理，留列表加「自动」标识）/ `hidden`（执行类：落库会话、自动化运行，不进列表）；fail-open——读不到标题当用户会话。生产者（自进化交办、自动化运行）建会话时按同一份常量命名 |
-| `worktree/` | 工作树（设置→工作树）：`model`（默认分支/同级目录、主工作树判据、标签纯函数）、`WorktreeSection`（列/建/删 + 注册为工作区）。生命周期交给 git 本体；**并行会话隔离做不到**（会话 cwd 不可变、沙箱根 = 引擎进程 cwd），卡片里如实写明 |
+| `worktree/` | 工作树（设置→工作树）：`model`（默认分支/同级目录、主工作树判据、标签纯函数）、`WorktreeSection`（列/建/删 + 注册为工作区）。生命周期交给 git 本体；**并行会话隔离做不到**（会话的 cwd 在创建时定死、之后改不了，而 cwd 就是它的沙箱根——`sandbox-policy.resolve({session})` 取 `session.header.cwd`），卡片里如实写明 |
 | `plugins/` | 插件页（设置→插件）：`model`（插件行状态/排序/汇总/短名/行 id 纯函数：`enabled:false` 分「用户关掉」与「本层未挂载」两态，见 `PITFALLS §7.6`）、`PluginsSection`（tab 容器：插件/MCP/技能 + 搜索）、`PluginsTab`（已安装的插件与引擎模块两组 + 逐行启停开关 + 行菜单「立即试用/卸载」）、`McpTab`（MCP server 列表/启停/增删改）、`SkillsTab`（技能清单/新建/删除）。开关写壳的 patch 托管块，热生效 |
 | `memory/` | 会话记忆（Session 层）：`MemorySection`（设置→记忆：开关 + 笔记查看/忘记/全清审计面，经壳桥 memory-list/delete/clear）；插件与技能由壳铺盘 |
 | `mobile/` | 移动端远程控制（设置→移动端远程控制）：`RemoteControlSection`（扫码连接卡片 + 二维码 + 已配对设备台账）；远程状态与配对全在壳侧，前端只渲染快照（`host.ts` 的 remoteStatus/remoteStart/remoteStop/remoteRefresh/remoteRevoke/remoteCopyLink/qrEncode）。语义与安全边界见 `SPEC-MOBILE-REMOTE.md` |
@@ -115,7 +115,7 @@ deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引�
 
 - **未做**：Raycast 式 Launcher NSPanel（现为主窗 ⌥Space 显隐）、Windows 外壳（方案见 `PLAN-WINDOWS.md`，暂缓）、Keychain 凭证插件（凭据走引擎 `credentials.*` + 设置页）、Sparkle 自动更新、dsh 插件形态定制（主题/听写等全部实现在壳与 SPA 内，未走 Cordis 插件行）。
 - **改道**：设置从"独立原生窗口"改为 **WebView 内浮层**（`SPEC-SETTINGS-WINDOW v3`）；审批用 WebView 内卡片而非原生弹窗；模型菜单/工作区侧栏为自建呈现，不挂官方 Slots。
-- **已知限制**：工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。路线待办见 `docs/TODO.md`。
+- **已知限制**：自动更新未做；会话 cwd 创建即定死（工作树并行隔离据此受限，见 `docs/TODO.md` §12）。侧栏切空间只是换视图，不重启引擎——引擎进程的 cwd 只当**没有会话上下文**时的兜底根（agentless 调用）与 `@` 文件索引的扫描根，改它由菜单栏「选择引擎启动工作区」负责（那条路径会重启引擎）。路线待办见 `docs/TODO.md`。
 
 ## 9. 沿革
 

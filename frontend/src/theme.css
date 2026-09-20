@@ -3467,6 +3467,20 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   white-space: nowrap;
 }
 .engine-banner-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dsh-signal-warn); animation: pulse 1.2s ease-in-out infinite; }
+/* 已放弃重试：不再闪（没有"正在重试"这回事了），并给一个就地重试的钮 */
+.engine-banner[data-phase="failed"] .engine-banner-dot { background: var(--dsh-signal-danger); animation: none; }
+.engine-banner-text { max-width: 46ch; overflow: hidden; text-overflow: ellipsis; }
+.engine-banner-action {
+  flex: none;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: 1px solid var(--line-strong);
+  background: var(--fill);
+  color: var(--ink);
+  font-size: 12px;
+}
+.engine-banner-action:hover { background: var(--fill-2, var(--fill)); }
 
 /* 侧栏置顶钉 */
 /* 行首置顶钮（14px 槽位里）：未置顶 hover 才现，已置顶常驻 */

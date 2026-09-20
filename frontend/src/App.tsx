@@ -186,11 +186,24 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       <NewProjectDialogHost />
       <IconPickerHost />
       <CommandPaletteHost />
-      {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失 */}
+      {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失。
+          壳的退避重试/放弃只有壳知道，所以文案分三档——旧实现放弃之后还写着
+          "正在重试…"，既没有原因也没有重试入口。 */}
       {store.everConnected && !store.engineUp && (
-        <div className="engine-banner" role="status">
+        <div className="engine-banner" role="status" data-phase={store.enginePhase}>
           <span className="engine-banner-dot" aria-hidden="true" />
-          {t("与引擎的连接已断开，正在重试…")}
+          {store.enginePhase === "failed" ? (
+            <>
+              <span className="engine-banner-text">
+                {tt("引擎启动失败：{m}", "Engine failed to start: {m}", { m: store.engineFailureReason || t("原因见日志") })}
+              </span>
+              <button className="engine-banner-action" onClick={() => store.restartEngine()}>{t("重试")}</button>
+            </>
+          ) : store.enginePhase === "restarting" ? (
+            tt("引擎正在重启（第 {n} 次）…", "Restarting the engine (attempt {n})…", { n: String(store.engineRestartingAttempt) })
+          ) : (
+            t("与引擎的连接已断开，正在重试…")
+          )}
         </div>
       )}
       {/* 顶部两钮（⊞收起 / 🔍搜索）：红绿灯旁横排，收起/展开都在顶部。

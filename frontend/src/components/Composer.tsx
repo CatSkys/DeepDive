@@ -505,7 +505,14 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
               type="button"
               className="composer-send stop"
               data-tip={t("停止")}
-              onClick={() => sessionId && void api.cancel({ sessionId }).catch(() => void 0) /* 停止请求失败：吞掉不弹错，运行态随事件流收敛 */}
+              onClick={() => {
+                // 停止失败要说话：静默吞掉时用户会以为"点了没反应"，而引擎挂着
+                // 恰恰是最需要知道"停不下来"的时候（运行态仍随事件流收敛）。
+                if (!sessionId) return;
+                void api.cancel({ sessionId }).catch((err: unknown) => {
+                  void alertDialog({ message: tt(`停止失败：${(err as Error).message}`, `Stop failed: ${(err as Error).message}`) });
+                });
+              }}
             >
               <Square size={13} fill="currentColor" />
             </button>

@@ -1161,6 +1161,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// 引擎状态 → 前端（banner 文案与"重试"入口的依据）。
+    private func pushEngineState(_ state: EngineSupervisor.State) {
+        var payload: [String: Any] = [:]
+        switch state {
+        case .idle: payload["phase"] = "idle"
+        case .launching: payload["phase"] = "launching"
+        case .ready: payload["phase"] = "ready"
+        case .restarting(let attempt):
+            payload["phase"] = "restarting"
+            payload["attempt"] = attempt
+        case .failed(let reason):
+            payload["phase"] = "failed"
+            payload["reason"] = reason
+        }
+        windowController.pushHostCommand("engineState", payload: Self.jsonPayload(payload))
+    }
+
     /// A SIGTERM (kill from terminal / launchd) must not orphan the engine:
     /// route it through the normal terminate path so applicationWillTerminate
     /// stops the child process.
@@ -1205,6 +1222,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleEngineState(_ state: EngineSupervisor.State) {
         statusItem.setState(state)
+        // 状态推给 SPA：壳的退避重试/放弃只有壳知道，不推的话前端永远显示
+        // "正在重试…"（旧实现：放弃重试后界面还是同一句话，没有原因也没有重试入口）。
+        pushEngineState(state)
         switch state {
         case .ready(let url):
             recovery.hide()

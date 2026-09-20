@@ -24,7 +24,6 @@ export const EN: Record<string, string> = {
   "无结果": "No results",
   "暂无会话": "No sessions yet",
   // sidebar rows / ctx menu
-  "重命名": "Rename",
   "删除工作区": "Delete Workspace",
   "重命名任务": "Rename Session",
   "归档任务": "Archive Session",
@@ -66,7 +65,6 @@ export const EN: Record<string, string> = {
   "会话": "Session",
   "加载中…": "Loading…",
   "历史加载失败": "Failed to load history",
-  "重试": "Retry",
   "载入更早": "Load earlier",
   "回到最新": "Back to latest",
   "退出计划模式": "Exit Plan Mode",
@@ -820,5 +818,14 @@ export const EN: Record<string, string> = {
   "正在运行或正开着的会话不能删除——先停掉它或切到别的会话": "A running or currently-open chat cannot be deleted — stop it or switch to another chat first",
   "这个会话正在运行。归档只把它移出任务列表，任务会继续跑；要停请先在会话里点停止。": "This chat is running. Archiving only removes it from the task list — the run continues; use Stop inside the chat to end it.",
   "调度在本机进行：应用没在运行时不会触发；错过的班次不补跑（超过 5 分钟就顺延到下一班）。": "Scheduling is local: nothing fires while the app is closed, and missed runs are skipped (later than 5 minutes simply rolls to the next slot).",
+  "只按标题匹配；输入 2 个字以上可搜全文内容": "Matching titles only — type 2+ characters to search message text",
+  "全文结果较多，只显示前 20 条——再输入几个字缩小范围": "Many matches; showing the first 20 — type more to narrow it down",
+  "已归档": "Archived",
+  "这个名字以后台会话前缀开头（自进化·／自动化·），改完这个会话会从列表里消失。确定吗？": "This name starts with a background-session prefix (自进化· / 自动化·); renaming hides the chat from the list. Continue?",
+  "重命名": "Rename",
+  "引擎启动失败：{m}": "Engine failed to start: {m}",
+  "原因见日志": "see the log for details",
+  "重试": "Retry",
+  "引擎正在重启（第 {n} 次）…": "Restarting the engine (attempt {n})…",
 };
 

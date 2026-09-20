@@ -57,14 +57,14 @@
 ## 4. 交互语义
 
 ### 4.1 唤起
-- `⌥Space`（可改）全局唤起 Launcher 面板；主窗口常驻菜单栏。Esc/失焦收起面板。
+- `⌥Space`（可改）全局热键显隐**主窗口**（无独立 Launcher 面板）；应用常驻菜单栏。
 
 ### 4.2 工作区语义（✅ D1 = Codex 式）
 - **每个任务创建时显式绑定工作区**：选择器（最近工作区列表 + "选择文件夹…"）。
 - 默认**记住上次选择**（最近项目优先），但工作区边界始终可见可改（顶部切换器、任务详情徽标）。
 - 侧栏任务列表**按当前工作区过滤**；切换工作区即切换视图。
 - 任务详情始终显示归属工作区；任务间跳转不丢工作区身份。
-- **安全边界绑定**：工作区即沙箱边界（实测 `sandbox-policy.workspaceRoot = 进程 cwd`）。客户端启动引擎时 `cwd` 必须等于当前工作区；切换工作区时的引擎级处理（重启引擎 / 引擎工作区 API）是 P1 的**验收关键项**。
+- **安全边界绑定**：**会话 cwd 即该会话的沙箱边界**（实测 `sandbox-policy.resolve({session})` 取 `session.header.cwd`，`session/create` 的 cwd 取 `workspace.path`）；引擎进程 cwd 只当没有会话上下文时的兜底根（agentless 调用）与 `@` 文件索引的扫描根。所以侧栏切换工作区只是换视图，不需要重启引擎。
 
 ### 4.3 主窗口语义（✅ D2 = Codex 式并行 + 参考图侧栏）
 - **单主窗口 = 侧栏（任务列表）+ 内容区（会话视图）**；多任务**并行**同窗分列。
@@ -97,9 +97,9 @@
 ### 4.6 干预语义（全部为会话内操作）
 | 动作 | 触发 | 效果 |
 |---|---|---|
-| 打断 | Esc（运行中）/ 按钮 | 停止当前 turn，会话保持可继续 |
+| 打断 | 运行时 Composer 右槽的停止按钮（无键盘打断：Esc 的语义留给「收起菜单/候选」） | 停止当前 turn，会话保持可继续 |
 | 纠正 | 直接输入新消息 | 进入 inbox，下一步前送达 |
-| 审批 | **原生弹窗**（AppKit alert/popover，P1 即原生）：批准 / 拒绝 / 记住策略 | `approval` seam；引擎默认策略 `ask`（实测），`danger-full-access` 预设下 `never` |
+| 审批 | **WebView 内审批卡**（`session/Cards.tsx`）：允许一次 / 拒绝 | `approval` seam；引擎默认策略 `ask`（实测），`danger-full-access` 预设下 `never` |
 | 回答 | 选项点击 / 自由输入 | `user-questions` seam |
 | 计划确认 | 阅读→批准/修改后继续；以引擎 plan mode 为准（**默认关闭**，会话级开关） | `plan/mode` |
 | Fork | 历史消息点 → 新建任务 | `sessions.fork`（P1 基础，P2 细粒度） |
@@ -204,7 +204,7 @@
 |---|---|---|
 | 审批策略 | `ask`（仅 `DSH_PERMISSION_MODE=danger-full-access` 时 `never`） | `dsh-user-approval` config |
 | 权限预设 | `read-only`(ask) / `workspace-write`(ask, 默认) / `danger-full-access`(never) | `dsh-permission-presets` config |
-| 沙箱工作区根 | `process.cwd()` —— **客户端启动引擎时 cwd 必须等于当前工作区** | `sandbox-policy.workspaceRoot` |
+| 沙箱工作区根 | 会话有 cwd 就用 `session.header.cwd`（= 该会话所属工作区的路径），否则 `process.cwd()` | `sandbox-policy.resolve` |
 | 默认模型 | `deepseek-official / deepseek-v4-flash` | `agent-default-model` config |
 | 遥测 | `DISABLED`——壳启动引擎时显式注入 `DSH_TELEMETRY_MODE=DISABLED`（引擎 base 默认 FEEDBACK_ONLY，被壳覆盖，2026-09-10 拍板收口） | `session-telemetry-otel` config |
 | 标题 | 引擎自动（LLM，≤64 tokens 输出） | `session-title-llm` config |

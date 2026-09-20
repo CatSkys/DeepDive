@@ -12,7 +12,7 @@
 ## 1. 通知（`UNUserNotificationCenter`）
 
 ### 1.1 授权与投递
-- `UNUserNotificationCenter.current().delegate = self`；**授权时机：首次派发任务时** `requestAuthorization(options: [.alert, .sound])`，App 启动不弹（避免启动即打扰；用户拒绝后静默降级为仅菜单栏/悬浮球状态提示）。授权请求是异步弹窗，**完成前的首次通知由菜单栏/悬浮球状态兜底**。
+- `UNUserNotificationCenter.current().delegate = self`；**授权时机：用户在设置里打开任一通知开关时，或首次派发任务时**（两处都调，谁先到算谁）`requestAuthorization(options: [.alert, .sound])`，App 启动不弹（避免启动即打扰；用户拒绝后静默降级为仅菜单栏/悬浮球状态提示）。授权请求是异步弹窗，**完成前的首次通知由菜单栏/悬浮球状态兜底**。
 - `post(id, title, body, silent)`：`UNMutableNotificationContent`（title/body）+ `UNNotificationRequest(trigger: nil)` 立即投递。**sound 按 `SPEC-SEMANTICS §5` 打扰分级**：待审批/待提问（高打扰）带 sound；**回合完成静默（`silent = true`，中打扰=静默通知）**；引擎失败带 sound。
 - 点击通知 → 激活 App + 主窗口到前 + **转入对应会话**：原生层记录触发通知的 `sessionId`，经 **§3.1 外壳→前端通道** 下发 `navigateToSession(sessionId)`（参考项目只有"点击走 `FloatingBubbleManager.shared.bubbleClicked()`"，"转入会话"为本项目新增，依赖桥通道）。
 - `willPresent`：App 前台也显示 banner（可选，按产品取舍；前台时本来就被 §1.2 前台抑制覆盖，此条仅作 API 兜底）。

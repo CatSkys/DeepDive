@@ -3,7 +3,7 @@ import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
 import { converged, visibleArchived, visibleSessions } from "./sessionOverrides";
 import { backgroundTier, isHiddenSession, isSidebarSession } from "./session/backgroundSession";
-import { sessionAdminSync, setQuietSessions } from "./host";
+import { onHostEvent, sendToShell, sessionAdminSync, setQuietSessions } from "./host";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
 import { usePrefs } from "./prefs";
@@ -62,6 +62,13 @@ interface Store {
   heroPreset: string | undefined;
   setHeroPreset: (id: string) => void;
   engineUp: boolean;
+  /** 壳给的引擎状态（退避重试/放弃只有壳知道）：banner 文案与重试入口的依据。 */
+  enginePhase: "idle" | "launching" | "ready" | "restarting" | "failed";
+  engineFailureReason: string | null;
+  /** 壳正在退避重试的第几次（0 = 不在重试中）。 */
+  engineRestartingAttempt: number;
+  /** 请壳重启引擎（失败态下的「重试」）。 */
+  restartEngine: () => void;
   /** 曾成功连上引擎。启动期引擎未起不算断线——横幅只在「掉过线」时出现。 */
   everConnected: boolean;
   activeSessionId: string | null;
@@ -181,6 +188,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [heroPreset, setHeroPreset] = useState<string | undefined>(undefined);
   const [engineUp, setEngineUp] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
+  const [enginePhase, setEnginePhase] = useState<Store["enginePhase"]>("idle");
+  const [engineFailureReason, setEngineFailureReason] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<Map<string, ApprovalPending>>(new Map());
   const [questions, setQuestions] = useState<Map<string, QuestionPending>>(new Map());
@@ -192,6 +201,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [narrowViewport, setNarrowViewport] = useState(
     () => window.matchMedia("(max-width: 760px)").matches,
   );
+  const [engineRestartingAttempt, setEngineRestartingAttempt] = useState(0);
+  const restartEngine = useCallback(() => sendToShell({ type: "restart-engine" }), []);
+  // 壳的引擎状态推送（退避重试/放弃只有壳知道）→ banner 文案与重试入口。
+  useEffect(() => onHostEvent((cmd, payload) => {
+    if (cmd !== "engineState") return;
+    const p = payload as { phase?: string; attempt?: number; reason?: string } | undefined;
+    const phase = p?.phase;
+    if (phase !== "idle" && phase !== "launching" && phase !== "ready" && phase !== "restarting" && phase !== "failed") return;
+    setEnginePhase(phase);
+    setEngineFailureReason(phase === "failed" ? (p?.reason ?? "") : null);
+    setEngineRestartingAttempt(phase === "restarting" ? (p?.attempt ?? 0) : 0);
+  }), []);
+
   // Agent 会话预设目录（一次性；失败 = 引擎无预设面，选择器/胶囊显式不渲染）
   useEffect(() => {
     api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);
@@ -496,6 +518,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // 回退会在每次重启复活被遗忘的会话，用户报告）。
     } catch {
       setEngineUp(false);
+      // 引擎不可达时"运行中"是陈旧的：这条轮询失败说明读不到状态，而引擎退出
+      // 意味着正在跑的那一轮已经不在了。留着 running 会让侧栏一直转圈、停止按钮
+      // 点了也没用（旧实现：停止请求被静默吞掉）。重连后引擎给回真值。
+      setSessions((prev) => (prev.some((s) => s.running)
+        ? prev.map((s) => (s.running ? { ...s, running: false } : s))
+        : prev));
     }
   };
 
@@ -695,6 +723,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setHeroPreset,
       engineUp,
       everConnected,
+      enginePhase,
+      engineFailureReason,
+      engineRestartingAttempt,
+      restartEngine,
       activeSessionId,
       approvals,
       questions,
@@ -751,7 +783,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, enginePhase, engineFailureReason, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
