@@ -208,6 +208,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "host-ready":
             pushPrefs()
             pushHotkey()
+            // 引擎状态的快照也要推：SPA 每次 ready 都会整体重载，重载后它只剩默认
+            // 相位——不补这一下，"重启中/已失败"在重载后就退回成笼统的"正在重试…"。
+            pushEngineState(supervisor.state)
         case "restart-engine":
             recovery.hide()
             // 真正的重启：start() 对运行中的引擎是 no-op（process 幂等守卫），
