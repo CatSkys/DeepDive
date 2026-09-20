@@ -196,6 +196,10 @@
 /* 条目错落入场：给列表项加 .rowIn + 内联 animation-delay（步进 20ms 上下）。 */
 .rowIn { animation: row-in-soft var(--dur-med) var(--ease-out) both; }
 
+/* 退场：卡片先淡出 + 轻微缩小/下沉（380ms，spring 收尾），礼花此时还在撒。 */
+.overlayLeaving { animation: none; transition: opacity 380ms var(--ease-spring); opacity: 0; }
+.cardLeaving { animation: none; transition: opacity 380ms var(--ease-spring), transform 380ms var(--ease-spring); opacity: 0; transform: scale(.965) translateY(8px); }
+
 @keyframes wizard-veil { from { opacity: 0; } to { opacity: 1; } }
 @keyframes wizard-in {
   from { opacity: 0; transform: translateY(10px) scale(.965); }
@@ -292,16 +296,28 @@
 /* 清单很长时（模型全量）在卡内滚：底栏固定，列表自己滚。 */
 .rowsTall { max-height: 260px; overflow: auto; }
 .pickRow { display: flex; align-items: center; gap: 6px; }
-.subPick {
-  margin: 4px 0 6px;
-  padding: 8px 8px 6px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--fill-soft, var(--fill));
+/* 模型分组：整行 hover（勾选位与折叠头一起亮）。不复用设置页那个 head 按钮类——它
+   自带 `:hover` 背景，套在整行高亮里会叠出第二层（用户实测"问题还是存在"）。排版类
+   （名字/计数/箭头）照旧复用，只把按钮本体换成自己的。 */
+.groupHeadBtn {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.groupRow { border-radius: 10px; transition: background-color var(--dur-fast) ease; }
+.groupRow:hover { background: var(--fill); }
+.headPick { display: inline-flex; align-items: center; padding: 0 2px 0 8px; cursor: pointer; }
+.pickMeta { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 4px; }
+.tallList { max-height: 220px; overflow: auto; }
+.rowActions { display: inline-flex; align-items: center; padding-right: 8px; cursor: pointer; }
 .pickMain {
   flex: 1;
   display: flex;

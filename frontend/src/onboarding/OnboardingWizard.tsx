@@ -6,7 +6,7 @@
 // **导航统一在右下角**（上一步 / 下一步，末步是「开始使用」）；不再有"跳过"按钮——
 // 右上角的 × 就是整卡退出，单步不做副操作。卡是盖在主界面上的覆盖层（不替换：
 // 用户能看到自己的侧栏在下面长出来）。
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Info, X } from "lucide-react";
 import { useT } from "../i18n";
 import { ONBOARDING_STEPS, useOnboarding, type OnboardingStepId } from "./useOnboarding";
@@ -18,6 +18,7 @@ import { OnboardingCatalogProvider } from "./catalog";
 import { Confetti } from "./Confetti";
 import { playCelebrationChime } from "./celebrate";
 import { useModelCatalog } from "../settings/useModelCatalog";
+import { useStore } from "../store";
 import css from "./OnboardingWizard.module.css";
 import logoUrl from "../assets/deepdive-logo-256.png";
 
@@ -39,7 +40,15 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
   const { t, tt } = useT();
   const ob = useOnboarding({ forced });
   // 卡片内唯一一份模型目录：各步共用（配置步改了密钥，左栏打勾与迁移计划同帧更新）。
+  // 注意它的自拉发生在**本组件挂载**时（可能早于引擎就绪，那一拉必然失败且不会自动
+  // 重来），所以引擎就绪后必须补拉一次——否则迁移计划会拿空目录去算，全部条目被
+  // "没有这个内置提供方 / 引擎未提供该协议" 挡掉（用户实测反复报的"模型导入不可用"）。
   const catalog = useModelCatalog();
+  const engineUp = useStore().engineUp;
+  const reloadCatalog = catalog.reload;
+  useEffect(() => {
+    if (engineUp) void reloadCatalog();
+  }, [engineUp, reloadCatalog]);
   // 步骤切换的方向（前进/后退各一套入场动画）与"下一步前先做的事"（项目步：下一步=创建）。
   const prevIndex = useRef(ob.stepIndex);
   const direction = ob.stepIndex >= prevIndex.current ? "fwd" : "back";
@@ -47,8 +56,9 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
   // 当前步登记的主操作（迁移步＝导入并前进；项目步＝创建并前进）。未登记时用默认
   // 的「下一步 / 开始使用」——底栏永远只有一个前进按钮，不做重复动作。
   const [primary, setPrimary] = useState<{ label: string; run: () => void | Promise<void>; disabled?: boolean } | null>(null);
-  /** 收尾庆祝：礼花撒完（或降低动效时立即）再关卡片。 */
+  /** 收尾庆祝：卡片先丝滑淡出，礼花继续撒；撒完（或降低动效时立即）再卸载。 */
   const [celebrating, setCelebrating] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const registerPrimary = useCallback((next: { label: string; run: () => void | Promise<void>; disabled?: boolean } | null) => {
     setPrimary(next);
   }, []);
@@ -58,7 +68,14 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
   const last = stepIndex === ONBOARDING_STEPS.length - 1;
   const goForward = async () => {
     if (primary) { await primary.run(); return; }
-    if (last) { playCelebrationChime(); setCelebrating(true); return; } // 礼花跑完再关（见 Confetti onDone）
+    if (last) {
+      // 卡片退场与礼花同时开始：卡片 380ms 淡出缩放（--ease-spring 收尾），
+      // 礼花继续撒到落屏外（最多 3.2s），撒完再真正卸载。
+      playCelebrationChime();
+      setLeaving(true);
+      setCelebrating(true);
+      return;
+    }
     next();
   };
 
@@ -70,8 +87,8 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
           onDone={() => { setCelebrating(false); finish(); onClosed?.(); }}
         />
       )}
-      <div className={css.overlay}>
-        <div className={css.card} role="dialog" aria-modal="true" aria-label={t("新手引导")}>
+      <div className={leaving ? `${css.overlay} ${css.overlayLeaving}` : css.overlay}>
+        <div className={leaving ? `${css.card} ${css.cardLeaving}` : css.card} role="dialog" aria-modal="true" aria-label={t("新手引导")}>
           <button className={css.close} onClick={() => { skip(); onClosed?.(); }} aria-label={t("关闭引导")} title={t("关闭引导")}>
             <X size={15} />
           </button>

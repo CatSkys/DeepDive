@@ -1,17 +1,9 @@
-/* 礼花容器：铺满窗口、不吃事件（纯视觉）；粒子本身由 Web Animations 逐片定位。 */
+/* 礼花画布：铺满窗口、不吃事件（纯视觉）；粒子由 canvas 逐帧绘制。 */
 .host {
   position: fixed;
   inset: 0;
   z-index: 240; /* 盖在引导卡（210）之上、右键菜单（2000）之下 */
   pointer-events: none;
-  overflow: hidden;
-}
-
-.piece {
-  position: absolute;
-  top: 0;
-  left: 0;
-  border-radius: 1px;
-  will-change: transform, opacity;
-  transform: translate3d(-50%, -50%, 0);
+  width: 100vw;
+  height: 100vh;
 }

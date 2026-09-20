@@ -4,7 +4,7 @@
 // 两件事都在这一步，但**都可选**：来源与条目各带勾选框，主按钮写明将导入多少
 //（用户反馈："一个孤零零的导入按钮，不知道会发生什么" → 按钮必须说清范围与数量）。
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronUp, ListChecks } from "lucide-react";
+import { Check, ChevronDown, ListChecks } from "lucide-react";
 import { api, type ImportableSession } from "../../api";
 import { scanAgentConfigs } from "../../host";
 import { useT } from "../../i18n";
@@ -14,6 +14,7 @@ import { ImportDialog } from "../../settings/ImportDialog";
 import { ProviderIcon } from "../../components/ProviderIcon";
 import { applyModelImport, planModelImport, type ModelImportPlan } from "../agentModelImport";
 import css from "../OnboardingWizard.module.css";
+import rowsCss from "../../settings/SettingsRows.module.css";
 
 interface ChatGroup {
   source: string;
@@ -221,6 +222,12 @@ export function MigrateStep({ onNext, registerPrimary }: {
         {t("把其他 Agent 的聊天记录和模型配置带过来，省得重新配一遍。勾选你要的部分。")}
       </div>
 
+      {cat.loadError && (
+        <div className={css.error}>
+          {tt("读取模型目录失败：{m}", "Failed to read the model catalog: {m}", { m: cat.loadError })}
+          <button type="button" className={css.mini} onClick={() => void cat.reload()}>{t("重试")}</button>
+        </div>
+      )}
       {scanError && (
         <div className={css.error}>
           {tt("检测失败：{m}", "Scan failed: {m}", { m: scanError })}
@@ -303,98 +310,103 @@ export function MigrateStep({ onNext, registerPrimary }: {
           {allModels.length === 0 ? (
             <div className={css.empty}>{t("没有可导入的模型配置。")}</div>
           ) : (
-            <ul className={css.rows}>
-              {allModels.map((item, i) => {
+            // 版式照设置页「已保存模型」的分组卡：组头（勾选 + 图标 + 名字 + 计数 + 折叠箭头）
+            // + 展开后的模型行（行内标签）。右侧功能键换成我们自己的：组头是勾选、行是勾选。
+            <div className={rowsCss.modelGroup}>
+              {allModels.map((item) => {
                 const key = modelKey(item);
+                const models = item.models ?? [];
+                const open = expanded.has(key);
+                const chosen = modelChoice.get(key) ?? new Set(models.map((m) => m.id));
+                const needle = (modelFilter[key] ?? "").trim().toLowerCase();
+                const shown = needle
+                  ? models.filter((m) => `${m.name ?? ""} ${m.id}`.toLowerCase().includes(needle))
+                  : models;
+                const setChosen = (next: Set<string>) => setModelChoice((cur) => new Map(cur).set(key, next));
                 return (
-                  <li key={key} className={`${css.pickRow} ${css.rowIn}`} style={rowStyle(i)}>
-                    <label className={css.pickMain}>
-                      <input
-                        className={css.native}
-                        type="checkbox"
-                        checked={pickedModels.has(key)}
-                        onChange={(e) => setPickedModels(toggle(pickedModels, key, e.target.checked))}
-                      />
-                      <span className={css.box} aria-hidden="true"><Check size={11} /></span>
-                      <ProviderIcon provider={item.providerId ?? item.routeId} size={15} />
-                      <span className={css.rowName}>{item.label}</span>
-                      <span className={css.rowMeta}>
-                        {item.providerId
-                          ? t("内置 · 密钥")
-                          : tt("{n} 个模型", "{n} models", { n: item.models?.length ?? 0 })}
-                        <span className={css.srcTag}>{item.source}</span>
-                      </span>
-                    </label>
-                    {(item.models?.length ?? 0) > 0 && (
-                      <button
-                        type="button"
-                        className={css.mini}
-                        onClick={() => setExpanded(toggle(expanded, key, !expanded.has(key)))}
-                      >
-                        {expanded.has(key) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                        {t("选模型…")}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {/* 展开的模型挑选：全量列出（长列表在卡内滚）+ 筛选 + 全选 */}
-          {allModels.filter((item) => expanded.has(modelKey(item))).map((item) => {
-            const key = modelKey(item);
-            const models = item.models ?? [];
-            const chosen = modelChoice.get(key) ?? new Set(models.map((m) => m.id));
-            const needle = (modelFilter[key] ?? "").trim().toLowerCase();
-            const shown = needle
-              ? models.filter((m) => `${m.name ?? ""} ${m.id}`.toLowerCase().includes(needle))
-              : models;
-            const setChosen = (next: Set<string>) => setModelChoice((cur) => new Map(cur).set(key, next));
-            return (
-              <div key={`pick-${key}`} className={css.subPick}>
-                <div className={css.groupHead}>
-                  <span className={css.groupLabel}>{item.label}</span>
-                  <span className={css.rowMeta}>
-                    {tt("已选 {a}/{b}", "{a}/{b} selected", { a: chosen.size, b: models.length })}
-                    <button
-                      type="button"
-                      className={css.mini}
-                      onClick={() => setChosen(chosen.size === models.length ? new Set() : new Set(models.map((m) => m.id)))}
-                    >
-                      {chosen.size === models.length ? t("全不选") : t("全选")}
-                    </button>
-                  </span>
-                </div>
-                {models.length > 12 && (
-                  <input
-                    className={css.field}
-                    placeholder={t("筛选模型…")}
-                    value={modelFilter[key] ?? ""}
-                    onChange={(e) => setModelFilter((cur) => ({ ...cur, [key]: e.target.value }))}
-                  />
-                )}
-                <ul className={`${css.rows} ${css.rowsTall}`}>
-                  {shown.map((m) => (
-                    <li key={m.id}>
-                      <label className={css.pickMain}>
+                  <div key={key}>
+                    <div className={`${rowsCss.modelGroupHeadRow} ${css.groupRow}`}>
+                      <label className={css.headPick}>
                         <input
                           className={css.native}
                           type="checkbox"
-                          checked={chosen.has(m.id)}
-                          onChange={(e) => setChosen(toggle(chosen, m.id, e.target.checked))}
+                          checked={pickedModels.has(key)}
+                          onChange={(e) => setPickedModels(toggle(pickedModels, key, e.target.checked))}
                         />
                         <span className={css.box} aria-hidden="true"><Check size={11} /></span>
-                        <span className={css.rowName}>{m.name ?? m.id}</span>
-                        {typeof m.contextWindow === "number" && (
-                          <span className={css.rowMeta}>{`${Math.round(m.contextWindow / 1000)}K`}</span>
-                        )}
                       </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
+                      <button
+                        type="button"
+                        className={css.groupHeadBtn}
+                        aria-expanded={models.length === 0 || open}
+                        onClick={() => (models.length === 0 ? undefined : setExpanded(toggle(expanded, key, !open)))}
+                      >
+                        <ProviderIcon provider={item.providerId ?? item.routeId} size={17} />
+                        <span className={rowsCss.modelGroupName}>{item.label}</span>
+                        <span className={rowsCss.modelGroupCount}>
+                          {item.providerId ? t("内置 · 密钥") : tt("{n} 个模型", "{n} models", { n: models.length })}
+                        </span>
+                        <span className={css.srcTag}>{item.source}</span>
+                        {models.length > 0 && (
+                          <ChevronDown size={14} className={`${rowsCss.modelGroupChevron}${open ? "" : ` ${rowsCss.closed}`}`} />
+                        )}
+                      </button>
+                    </div>
+                    {open && models.length > 0 && (
+                      <>
+                        <div className={css.pickMeta}>
+                          <span className={css.mini}>
+                            {tt("已选 {a}/{b}", "{a}/{b} selected", { a: chosen.size, b: models.length })}
+                          </span>
+                          <button
+                            type="button"
+                            className={css.mini}
+                            onClick={() => setChosen(chosen.size === models.length ? new Set() : new Set(models.map((m) => m.id)))}
+                          >
+                            {chosen.size === models.length ? t("全不选") : t("全选")}
+                          </button>
+                        </div>
+                        {models.length > 12 && (
+                          <input
+                            className={css.field}
+                            placeholder={t("筛选模型…")}
+                            value={modelFilter[key] ?? ""}
+                            onChange={(e) => setModelFilter((cur) => ({ ...cur, [key]: e.target.value }))}
+                          />
+                        )}
+                        <div className={`${css.tallList}`}>
+                          {shown.map((m) => (
+                            <div key={m.id} className={rowsCss.modelRow}>
+                              <div className={rowsCss.modelRowMain}>
+                                <div className={rowsCss.rowName} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  {m.name ?? m.id}
+                                  {typeof m.contextWindow === "number" && (
+                                    <span className={rowsCss.metaTag}>{`${Math.round(m.contextWindow / 1000)}K`}</span>
+                                  )}
+                                  {(m.input ?? []).filter((k) => k !== "text").map((k) => (
+                                    <span key={k} className={rowsCss.metaTag}>{k === "image" ? t("视觉") : k}</span>
+                                  ))}
+                                </div>
+                              </div>
+                              <label className={css.rowActions}>
+                                <input
+                                  className={css.native}
+                                  type="checkbox"
+                                  checked={chosen.has(m.id)}
+                                  onChange={(e) => setChosen(toggle(chosen, m.id, e.target.checked))}
+                                />
+                                <span className={css.box} aria-hidden="true"><Check size={11} /></span>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {(plan?.notes.length ?? 0) > 0 && (
             <ul className={css.notes}>
               {plan?.notes.map((n) => (

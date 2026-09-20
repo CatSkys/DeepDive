@@ -1,19 +1,27 @@
-// 引导收尾的礼花：单色系粒子（与整体黑白气质一致），无新依赖、无外部资产。
+// 引导收尾的礼花：复刻主流礼花（canvas-confetti 的物理与形态）——彩色纸屑、中心爆发 +
+// 两侧斜喷两波、重力 + 阻力 + 自旋 + 翻转（用纵向缩放伪造 3D 翻转），全部粒子落屏外
+// 或超时才结束，总时长约 2.6–3.2s。
 //
-// 形态参考 UI 参考库的粒子类效果（juiceeffect / snowfall：密度、初速、旋转、淡出），
-// 这里按同一形态自己实现：一次性爆发 → 重力下落 → 淡出，跑完即自行卸载。
-// 纪律：① 片数/时长/色阶是常量（可调一处）；② 轨迹用 Web Animations API 逐片下发，
-// 不铺 60 条 CSS keyframes；③ 尊重 prefers-reduced-motion（不撒粒子，交给音效收尾）。
+// 自己实现而不是引依赖（铁律 7）：形状/配色/物理都是画布上的几十行，加一个包不值。
+// 确定性伪随机（LCG）：同一次庆祝的形状可复现，对截图/复现问题有用。
+// 尊重 prefers-reduced-motion：不撒粒子，直接回报结束。
 import { useEffect, useRef } from "react";
 import css from "./Confetti.module.css";
 
-const PIECES = 70;
-const DURATION_MS = 1500;
-/** 单色系：纸屑用亮/中/暗三档白灰（--ink-bright 系），与界面同一材质语言。 */
-const COLORS = ["rgba(255,255,255,.92)", "rgba(226,228,233,.85)", "rgba(160,163,170,.75)"];
-const WIDTHS = [5, 7, 9];
+interface Particle {
+  x: number; y: number;
+  vx: number; vy: number;
+  rot: number; vr: number;
+  w: number; h: number;
+  color: string;
+}
 
-/** 确定性伪随机（LCG）：同一次庆祝的形状可复现，出问题时能对着截图比对。 */
+/** 主流礼花配色（高饱和多色，暗色界面上够醒目）。 */
+const COLORS = ["#26ccff", "#a25afd", "#ff5e7e", "#88ff5a", "#fcff42", "#ffa62d", "#ff36ff"];
+const GRAVITY = 0.42;
+const DRAG = 0.995;
+const MAX_MS = 3200;
+
 function makeRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -22,55 +30,85 @@ function makeRandom(seed: number): () => number {
   };
 }
 
-export function Confetti({ seed = 1, onDone }: { seed?: number; onDone: () => void }) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
+export function Confetti({ seed = 7, onDone }: { seed?: number; onDone: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
 
   useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) { onDone(); return; }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { doneRef.current(); return; }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { doneRef.current(); return; }
 
     const rand = makeRandom(seed);
-    const hostRect = host.getBoundingClientRect();
-    const originX = hostRect.width / 2;
-    const originY = hostRect.height * 0.52;
-    let finished = 0;
+    const dpr = window.devicePixelRatio || 1;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    for (let i = 0; i < PIECES; i += 1) {
-      const piece = document.createElement("span");
-      piece.className = css.piece;
-      piece.style.width = `${WIDTHS[i % WIDTHS.length]}px`;
-      piece.style.height = `${WIDTHS[i % WIDTHS.length] * 1.6}px`;
-      piece.style.background = COLORS[i % COLORS.length];
-      host.appendChild(piece);
+    const particles: Particle[] = [];
+    /** 一波：从 (x,y) 朝 angle±spread 喷 count 片。 */
+    const burst = (x: number, y: number, count: number, angle: number, spread: number, power: number) => {
+      for (let i = 0; i < count; i += 1) {
+        const a = angle + (rand() - 0.5) * spread;
+        const v = power * (0.55 + rand() * 0.75);
+        particles.push({
+          x, y,
+          vx: Math.sin(a) * v,
+          vy: -Math.cos(a) * v,
+          rot: rand() * Math.PI * 2,
+          vr: (rand() - 0.5) * 0.34,
+          w: 6 + rand() * 6,
+          h: 8 + rand() * 8,
+          color: COLORS[Math.floor(rand() * COLORS.length)] ?? COLORS[0],
+        });
+      }
+    };
+    // 起手三波（主流礼花的默认形态：中心偏上爆发 + 两侧斜喷）
+    burst(width * 0.5, height * 0.42, 90, 0, Math.PI * 1.7, 13);
+    burst(width * 0.22, height * 0.62, 45, -Math.PI / 5, Math.PI * 0.5, 15);
+    burst(width * 0.78, height * 0.62, 45, Math.PI / 5, Math.PI * 0.5, 15);
 
-      // 初速：以向上为主的扇形（±62°），越靠中间的越高；横向另有轻微散开。
-      const angle = (rand() - 0.5) * Math.PI * 0.7;
-      const power = 140 + rand() * 190;
-      const dx = Math.sin(angle) * power;
-      const rise = Math.cos(angle) * power;
-      const spin = (rand() - 0.5) * 720;
-      const fall = 220 + rand() * 200; // 重力下落距离
+    const started = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const elapsed = now - started;
+      ctx.clearRect(0, 0, width, height);
+      let alive = 0;
+      for (const p of particles) {
+        p.vy += GRAVITY;
+        p.vx *= DRAG;
+        p.vy *= DRAG;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        if (p.y < height + 40) alive += 1;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        // 纵向缩放伪造翻转（纸屑翻面时的"变薄"）
+        ctx.scale(1, Math.max(0.18, Math.abs(Math.cos(p.rot * 1.6))));
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+      if (alive > 0 && elapsed < MAX_MS) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        ctx.clearRect(0, 0, width, height);
+        doneRef.current();
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      ctx.clearRect(0, 0, width, height);
+    };
+  }, [seed]);
 
-      const animation = piece.animate(
-        [
-          { transform: `translate3d(${originX}px, ${originY}px, 0) rotate(0deg)`, opacity: 0 },
-          { transform: `translate3d(${originX + dx * 0.55}px, ${originY - rise}px, 0) rotate(${spin * 0.6}deg)`, opacity: 1, offset: 0.32 },
-          { transform: `translate3d(${originX + dx}px, ${originY - rise + fall}px, 0) rotate(${spin}deg)`, opacity: 0 },
-        ],
-        { duration: DURATION_MS, easing: "cubic-bezier(.22,.9,.24,1)", delay: rand() * 90, fill: "forwards" },
-      );
-      animation.onfinish = () => {
-        piece.remove();
-        finished += 1;
-        if (finished === PIECES) onDone();
-      };
-      animation.oncancel = () => { piece.remove(); };
-    }
-    return () => { host.replaceChildren(); };
-    // 只撒一次：seed 变才算新的一轮（本轮固定 1）
-  }, [seed, onDone]);
-
-  return <div ref={hostRef} className={css.host} aria-hidden="true" />;
+  return <canvas ref={canvasRef} className={css.host} aria-hidden="true" />;
 }

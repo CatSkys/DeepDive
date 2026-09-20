@@ -44,8 +44,6 @@ export function ModelStep() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ModelRow[]>([]);
   const [picked, setPicked] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [savedDefault, setSavedDefault] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
 
   const ref = keyRefOf(provider, cat.deepseek.apiKeyEnv);
@@ -134,9 +132,8 @@ export function ModelStep() {
     setTesting(false);
   };
 
-  /** 选中即落默认：单选本身就是决定，不需要再按一次"设为默认"（用户定稿）。 */
+  /** 选中即落默认：单选本身就是决定（不再有按钮，也不再多一句话提示）。 */
   const saveDefaultFor = async (modelId: string) => {
-    setSaving(true);
     setError(null);
     try {
       await writeNamespaceOnce(
@@ -151,11 +148,9 @@ export function ModelStep() {
           });
         },
       );
-      setSavedDefault(true);
     } catch (err) {
       setError((err as Error).message.slice(0, 200));
     }
-    setSaving(false);
   };
 
   return (
@@ -177,7 +172,7 @@ export function ModelStep() {
               type="button"
               className={id === provider ? `${css.chip} ${css.chipOn} ${css.rowIn}` : `${css.chip} ${css.rowIn}`}
               style={rowStyle(i)}
-              onClick={() => { setProvider(id); setKey(""); setNotice(null); setError(null); setSavedDefault(false); }}
+              onClick={() => { setProvider(id); setKey(""); setNotice(null); setError(null); }}
             >
               <ProviderIcon provider={id} size={15} />
               {providerLabel(id, name)}
@@ -194,7 +189,7 @@ export function ModelStep() {
               key={id}
               type="button"
               className={id === provider ? `${css.chip} ${css.chipOn}` : css.chip}
-              onClick={() => { setProvider(id); setKey(""); setNotice(null); setError(null); setSavedDefault(false); }}
+              onClick={() => { setProvider(id); setKey(""); setNotice(null); setError(null); }}
             >
               <ProviderIcon provider={id} size={15} />
               {profile?.displayName ?? id}
@@ -251,7 +246,6 @@ export function ModelStep() {
                       checked={picked === row.id}
                       onChange={() => {
                         setPicked(row.id);
-                        setSavedDefault(false);
                         setError(null);
                         void saveDefaultFor(row.id);
                       }}
@@ -264,9 +258,6 @@ export function ModelStep() {
               ))}
             </ul>
           )}
-          <div className={css.rowMeta}>
-            {saving ? t("保存中…") : savedDefault ? t("已设为默认模型") : t("选中即设为默认模型")}
-          </div>
         </>
       )}
 
