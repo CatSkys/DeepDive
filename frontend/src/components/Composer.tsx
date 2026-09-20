@@ -10,7 +10,7 @@ import { Lightbox } from "./Lightbox";
 import { alertDialog } from "./DialogHost";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { CommandSubmitAttachment, PromptContentPart } from "../types";
-import { classifyAttachmentRefusal, dropAttachmentParts } from "../attachmentRefusal";
+import { classifyAttachmentRefusal } from "../attachmentRefusal";
 import type { RpcErrorFacts } from "../api";
 import { useComposerDraft } from "./composer/useComposerDraft";
 import { useComposerAttachments, type ImageAttachment } from "./composer/useComposerAttachments";
@@ -71,7 +71,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
   const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
-  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, requeueFile, cancelUpload, dragOver, fileRef, onFile } =
+  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, dragOver, fileRef, onFile } =
     useComposerAttachments({ setText, hasShell, sessionId });
   // 听写 final 落稿后回焦（长高由 [text] 的 useLayoutEffect 统一负责）
   const refocusDraft = () => requestAnimationFrame(() => {
@@ -86,6 +86,28 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   useLayoutEffect(() => {
     if (taRef.current) autoGrow(taRef.current);
   }, [text]);
+  /** 把「模型条目不吃 inline 图片」的那批图片按通用文件原件重投：同一份字节走
+   *  文件回执，内容不减、顺序不变（文本/文件部件原样保留）。有一张投不出去就整条
+   *  返回 null——由调用方按失败处理（不静默）。 */
+  const restageImages = async (sid: string, parts: PromptContentPart[]): Promise<PromptContentPart[] | null> => {
+    const images = attachments.filter((a): a is ImageAttachment => a.kind === "image");
+    if (images.length === 0) return null;
+    const receipts = await Promise.all(images.map((a) => stageImageAsFile(sid, a)));
+    if (receipts.some((r) => r === null)) return null;
+    let next = 0;
+    return parts.map((part): PromptContentPart => (part.type === "image" ? { type: "file", receiptId: receipts[next++]! } : part));
+  };
+
+  /** 命令载荷同理：inline 图片部件换成文件回执，其它部件不动。 */
+  const restageCommandImages = async (sid: string, parts: CommandSubmitAttachment[]): Promise<CommandSubmitAttachment[] | null> => {
+    const images = attachments.filter((a): a is ImageAttachment => a.kind === "image");
+    if (images.length === 0 || !parts.some((p) => p.type === "image")) return null;
+    const receipts = await Promise.all(images.map((a) => stageImageAsFile(sid, a)));
+    if (receipts.some((r) => r === null)) return null;
+    let next = 0;
+    return parts.map((part): CommandSubmitAttachment => (part.type === "image" ? { type: "file", receiptId: receipts[next++]! } : part));
+  };
+
   /** 失败提示文案：优先引擎原文（带可读原因），没有就回落到通用一句。 */
   const failureText = (err: unknown, fallback: string) =>
     err instanceof Error && err.message ? err.message : fallback;
@@ -213,19 +235,25 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
           setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
         }
       } catch (err) {
-        // 附件准入拒了整条命令，但否掉的只是附件：去掉附件照样执行，并说明
+        // 同 prompt 路径：图片被准入拒就改按通用文件投递（不丢附件、不弹拒绝）
         const facts = err as Error & RpcErrorFacts;
-        if (submitted.length === 0 || classifyAttachmentRefusal(facts.reason) === undefined) {
+        const restaged = classifyAttachmentRefusal(facts.reason) === "images" && submitted.length > 0
+          ? await restageCommandImages(sid, submitted)
+          : null;
+        if (restaged === null) {
           void alertDialog({ message: failureText(facts, tt("命令发送失败", "Failed to send command")) });
           setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
         }
         try {
-          const res = await runLine([]);
-          if (res !== undefined && res.result.kind === "error") {
+          const res = await runLine(restaged);
+          if (res === undefined) {
+            void alertDialog({ message: tt(`未知命令：/${decision.command.name}`, `Unknown command: /${decision.command.name}`) });
+            setBusy(false); return;
+          }
+          if (res.result.kind === "error") {
             void alertDialog({ message: res.result.text });
             setBusy(false); return;
           }
-          void alertDialog({ message: tt("附件未随本条命令发送（{r}）", "Attachments were not sent with this command ({r})", { r: facts.engineMessage ?? facts.message }) });
         } catch (err2) {
           void alertDialog({ message: failureText(err2, tt("命令发送失败", "Failed to send command")) });
           setBusy(false); return;
@@ -277,27 +305,22 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       await send(sendContent);
       if (running || mode === "queue") registerSending?.(rpcId);
     } catch (err) {
-      // 附件被引擎的附件准入拒（模型不吃图、图片太大、文件没传完…）时，消息照样发：
-      // 丢掉被拒的那一类部件重发一次，正文保留（用户定稿：模型支不支持附件是模型的
-      // 事，不该让准入把整条消息挡死），并如实说明丢的是什么。其余失败照常报错——
-      // 静默吞掉会把「消息没发出去」伪装成「发成功了但会话是空的」（2026-09-20 报障真因）。
+      // 引擎对「模型条目没声明图片能力」的会话会在准入处拒 inline 图片部件。用户定稿：
+      // 附件与内容必须发出去，跟模型无关——所以不丢附件、不弹拒绝，改把这批图片按通用
+      // 文件原件投递（同一份字节，走文件回执），原样重发一次。模型能不能看图是模型自己
+      // 的事（它会自己说），我们只负责把东西送到。
       const facts = err as Error & RpcErrorFacts;
-      const drop = classifyAttachmentRefusal(facts.reason);
-      const reduced = drop === undefined ? null : dropAttachmentParts(sendContent, drop);
-      if (reduced === null) {
+      const delivered = classifyAttachmentRefusal(facts.reason) === "images"
+        ? await restageImages(sid, sendContent)
+        : null;
+      if (delivered === null) {
         void alertDialog({ message: failureText(facts, tt("发送失败，请重试", "Send failed; please retry")) });
         setBusy(false);
         return;
       }
       try {
-        await send(reduced);
+        await send(delivered);
         if (running || mode === "queue") registerSending?.(rpcId);
-        void alertDialog({
-          message: tt("{k}未随本条发送（{r}），消息已按纯文本发出", "{k} were not sent with this message ({r}); it was sent as text", {
-            k: drop === "images" ? tt("图片", "Images") : tt("附件", "Attachments"),
-            r: facts.engineMessage ?? facts.message,
-          }),
-        });
       } catch (err2) {
         void alertDialog({ message: failureText(err2, tt("发送失败，请重试", "Send failed; please retry")) });
         setBusy(false);

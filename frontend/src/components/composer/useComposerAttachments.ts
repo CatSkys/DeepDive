@@ -267,7 +267,26 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     e.target.value = "";
   };
 
-  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, requeueFile, cancelUpload, dragOver, fileRef, onFile };
+  /** 图片按通用文件原件再传一份（返回文件回执）：引擎对「模型条目没声明图片能力」
+   *  的会话会在准入处拒 inline 图片部件，编排方据此把同一份字节改走文件回执投递，
+   *  内容不减、发送不被打断（用户定稿：附件与内容必须发出去，跟模型无关）。 */
+  const stageImageAsFile = async (sid: string, a: ImageAttachment): Promise<string | null> => {
+    const binary = atob(a.data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    try {
+      const r = await api.uploadFileStreaming({
+        sessionId: sid,
+        file: new Blob([bytes], { type: a.mediaType }),
+        name: a.name || "image",
+      });
+      return r.receiptId;
+    } catch {
+      return null; // 上传失败：由编排方按失败处理（不静默吞）
+    }
+  };
+
+  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, dragOver, fileRef, onFile };
 }
 
 /** 拖拽：窗口级监听——会话界面任意处拖入文件都出虚线框提示；图片收字节
