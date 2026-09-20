@@ -53,6 +53,16 @@ export function wsGlyphIcon(name: string | null): LucideIcon | null {
 }
 
 const MENU_WIDTH = 240;
+/** 行高 30 = .ddItem；列表本体最多露 5 项（用户定稿，含「默认（首字母）」那一行，
+   与 .iconList 的 max-height 150px 是一对，改一个要改另一个）。 */
+const ROW_H = 30;
+const MAX_ROWS = 5;
+/** 搜索行与菜单内边距的高度估算（沿用原值，未变）。 */
+const SEARCH_H = 46;
+const MENU_PAD = 16;
+
+/** 菜单自然高度：搜索行 + 最多 5 项 + 内边距。 */
+const menuHeight = (iconCount: number) => SEARCH_H + Math.min(1 + iconCount, MAX_ROWS) * ROW_H + MENU_PAD;
 
 export function IconPicker({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
   const [open, setOpen] = useState(false);
@@ -79,14 +89,12 @@ export function IconPicker({ value, onChange }: { value: string | null; onChange
     return ICONS.filter((i) => i.name.toLowerCase().includes(q));
   }, [query]);
 
-  // 菜单高：搜索行 46 + 行 30/个 + 内边距；摆不下时压限高度内滚。
-  const menuH = (n: number) => 46 + n * 30 + 16;
-
+  // 菜单高：搜索行 + 最多 5 项 + 内边距；摆不下时压限高度内滚。
   const toggle = () => {
     if (!open) {
       const r = triggerRef.current?.getBoundingClientRect();
       if (r) {
-        const h = menuH(filtered.length);
+        const h = menuHeight(filtered.length);
         const below = window.innerHeight - r.bottom;
         // 下方放不下且上方更高才向上翻；翻转分支显式 top:"auto"（PITFALLS §1.7）
         const flip = below < h + 12 && r.top > below;
@@ -160,19 +168,21 @@ function IconMenuBody({ value, onPick, query, setQuery }: {
       <div className={css.searchRow}>
         <input autoFocus placeholder={t("搜索")} value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
-      <button type="button" className={rowsCss.ddItem} onClick={() => onPick(null)}>
-        <CircleSlash size={15} className={rowsCss.ddItemIcon} />
-        <span className={rowsCss.ddItemMain}><span>{t("默认（首字母）")}</span></span>
-        {value === null && <Check size={14} className={rowsCss.ddCheck} />}
-      </button>
-      {filtered.map(({ name, icon: Icon }) => (
-        <button key={name} type="button" className={rowsCss.ddItem} onClick={() => onPick(name)}>
-          <Icon size={15} className={rowsCss.ddItemIcon} />
-          <span className={rowsCss.ddItemMain}><span>{name}</span></span>
-          {value === name && <Check size={14} className={rowsCss.ddCheck} />}
+      <div className={css.iconList}>
+        <button type="button" className={rowsCss.ddItem} onClick={() => onPick(null)}>
+          <CircleSlash size={15} className={rowsCss.ddItemIcon} />
+          <span className={rowsCss.ddItemMain}><span>{t("默认（首字母）")}</span></span>
+          {value === null && <Check size={14} className={rowsCss.ddCheck} />}
         </button>
-      ))}
-      {filtered.length === 0 && <div className={css.searchEmpty}>{t("无结果")}</div>}
+        {filtered.map(({ name, icon: Icon }) => (
+          <button key={name} type="button" className={rowsCss.ddItem} onClick={() => onPick(name)}>
+            <Icon size={15} className={rowsCss.ddItemIcon} />
+            <span className={rowsCss.ddItemMain}><span>{name}</span></span>
+            {value === name && <Check size={14} className={rowsCss.ddCheck} />}
+          </button>
+        ))}
+        {filtered.length === 0 && <div className={css.searchEmpty}>{t("无结果")}</div>}
+      </div>
     </>
   );
 }
@@ -220,7 +230,7 @@ export function IconPickerHost() {
   if (!req) return null;
   // 位置夹在视口内；底部放不下向上翻（maxH 压限内滚）
   const left = Math.max(8, Math.min(req.x, window.innerWidth - MENU_WIDTH - 8));
-  const h = 46 + ICONS.length * 30 + 16;
+  const h = menuHeight(ICONS.length);
   const below = window.innerHeight - req.y;
   const flip = below < h + 12 && req.y > below;
   const top = flip ? Math.max(8, req.y - Math.min(h, req.y - 12) - 4) : req.y + 4;

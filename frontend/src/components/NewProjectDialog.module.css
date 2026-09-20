@@ -118,4 +118,7 @@
   font-size: 12.5px;
 }
 .searchRow input::placeholder { color: var(--ink-3); }
+/* 列表本体限高 5 行（行高 30 = .ddItem）：搜索行留在外层不跟着滚，
+   超出在这层内滚（IconPicker 的 MAX_ROWS 与这里是一对，改一个要改另一个） */
+.iconList { max-height: 150px; overflow-y: auto; overscroll-behavior: contain; }
 .searchEmpty { padding: 10px 12px; font-size: 12px; color: var(--ink-3); }
