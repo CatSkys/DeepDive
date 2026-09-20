@@ -16,7 +16,7 @@ import { ProjectStep } from "./steps/ProjectStep";
 import { DoneStep } from "./steps/DoneStep";
 import { OnboardingCatalogProvider } from "./catalog";
 import { Confetti } from "./Confetti";
-import { playCelebrationChime } from "./celebrate";
+import { playPartyPopper } from "./celebrate";
 import { useModelCatalog } from "../settings/useModelCatalog";
 import { useStore } from "../store";
 import css from "./OnboardingWizard.module.css";
@@ -71,7 +71,7 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
     if (last) {
       // 卡片退场与礼花同时开始：卡片 380ms 淡出缩放（--ease-spring 收尾），
       // 礼花继续撒到落屏外（最多 3.2s），撒完再真正卸载。
-      playCelebrationChime();
+      playPartyPopper();
       setLeaving(true);
       setCelebrating(true);
       return;

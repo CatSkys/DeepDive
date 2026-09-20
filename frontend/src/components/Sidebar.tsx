@@ -328,10 +328,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           />
         </div>
       )}
-      {/* 侧栏首行「新会话」入口（§3.2 New Chat 式）：切草稿页，首条消息才建会话 */}
+      {/* 侧栏首行「新会话」入口（§3.2 New Chat 式）：切草稿页，首条消息才建会话。
+          行内已有文字与快捷键，不再挂 data-tip——提示只给没有文字的按钮用。 */}
       <button
         className="new-session-entry"
-        data-tip={t("新会话")}
         onClick={() => store.openSession(null)}
       >
         <CirclePlus size={14} />
