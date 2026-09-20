@@ -215,7 +215,7 @@
 
 ### 4.13 引擎 cwd 绝不落到用户主目录：home 工作区 = TCC 弹窗风暴
 - 事故（2026-09-10 用户报告）：接连弹「媒体资料库/Apple Music」「照片图库」「其他App的数据」授权框，且开窗后延迟数秒陆续冒出。根因链：`launchWorkspace` 未配置时引擎以 home 启动（引擎进程 cwd=home，而 `@` 索引的扫描根与 agentless 调用的兜底根取它——会话自己另有 cwd）；home 作用域会话里输入 `@` 触发引擎**整库递归文件索引**（vendored `context/file-reference-local/search.ts` scanWorkspace，BFS），索引走到 ~/Music、照片图库、~/Library/Application Support 其他 App 容器、桌面/文稿，逐保护区触发 TCC——延迟即遍历到达时间差。叠加 §4.8（adhoc 重签→授权重置），每个新包都全套重来。
-- 处置：`EngineSupervisor.resolveLaunchWorkspace` 三级解析——显式 `launchWorkspace` 配置 → harness 存储 `storages/workspace.json` 首个注册空间（`global.workspaceIds[0]`，与侧栏同序）→ 新用户兜底 `~/Documents/DeepDive`（不存在则建）。侧栏空间仍是项目单位，多项目经空间注册/切换，不受影响。
+- 处置：`EngineSupervisor.resolveLaunchWorkspace` 三级解析——显式 `launchWorkspace` 配置 → harness 存储 `storages/workspace.json` 首个注册空间（`global.workspaceIds[0]`，与侧栏同序）→ 新用户兜底 `~/DeepDive`（不存在则建；**不放进 `~/Documents`**：那是受保护目录，首启在那里建目录会弹「文稿」授权框，而弹框出现在主窗口之前、主线程上——用户忽略就卡住整个启动，点了拒绝引擎连 cwd 都进不去，见 §4.8/§7.1.2）。侧栏空间仍是项目单位，多项目经空间注册/切换，不受影响。
 - 排查实录（勿重复走弯路）：引擎 AI 工具调用与子代理命令全部只在项目目录内（逐条核对 tool/call 事件），`@` 索引才是家目录扫描源；lsof 抓不到瞬态访问，tccd 统一日志私有不可读，结论靠引擎源码 + workspace 注册表 + 事件日志三角钉死。
 
 ### 4.15 引擎把归档集与会话列表缓存在内存：改状态文件只能在停机时，UI 侧走本地覆盖

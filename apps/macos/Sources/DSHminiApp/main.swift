@@ -12,11 +12,25 @@ let lockFD: Int32 = open(lockPath, O_CREAT | O_RDWR | O_CLOEXEC, 0o644)
 /// 取锁：上一实例退出要等引擎收尾（stop() 的宽限期），这段时间锁还握着——
 /// 旧的"一次 LOCK_NB 失败就 exit(0)"会把"刚退出就想再开"的启动静默吃掉
 ///（用户看到的是"点了没反应"）。所以先等一小会儿，再放弃。
+///
+/// 等待期间**反复**唤醒已有实例（不是只发一次）：接收方在
+/// applicationDidFinishLaunching 末尾才挂上观察者，而那条路上要跑桥监听、
+/// 插件铺盘、引擎启动——启动头几百毫秒里到达的通知会静默丢掉，而"双击没反应
+/// 就再双击一下"恰好落在这个窗口里（第二个进程 exit(0) 前什么都没做，用户
+/// 看到的是彻底没反应）。接收方按幂等处理，已在最前就不重放动画。
 func acquireLock(fd: Int32, timeout: TimeInterval) -> Bool {
     let deadline = Date().addingTimeInterval(timeout)
+    var nextPing = Date()
     repeat {
         if flock(fd, LOCK_EX | LOCK_NB) == 0 { return true }
         if errno != EWOULDBLOCK { return false }
+        if Date() >= nextPing {
+            nextPing = Date().addingTimeInterval(0.5)
+            DistributedNotificationCenter.default().post(
+                name: Notification.Name("com.deepdive.app.show"),
+                object: nil
+            )
+        }
         usleep(100_000)
     } while Date() < deadline
     return false

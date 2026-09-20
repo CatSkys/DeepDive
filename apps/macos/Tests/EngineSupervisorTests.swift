@@ -299,4 +299,15 @@ final class EngineSupervisorTests: XCTestCase {
             registered,
         )
     }
+
+    /// 兜底工作区不许落在受保护目录（~/Documents 等）：首启在那里建目录会弹系统
+    /// 授权框，而它出现在主窗口之前、主线程上——忽略就卡死启动，拒绝则引擎连
+    /// cwd 都进不去（PITFALLS §4.8 / §7.1.2）。锁死在家目录下的 DeepDive。
+    func testResolveLaunchWorkspaceFallbackStaysOutOfProtectedFolders() throws {
+        let home = try makeHarnessHome(with: nil)
+        let resolved = EngineSupervisor.resolveLaunchWorkspace(explicit: nil, home: home)
+        XCTAssertEqual(resolved.lastPathComponent, "DeepDive")
+        XCTAssertEqual(resolved.deletingLastPathComponent(), FileManager.default.homeDirectoryForCurrentUser)
+        XCTAssertFalse(resolved.path.contains("/Documents/"))
+    }
 }

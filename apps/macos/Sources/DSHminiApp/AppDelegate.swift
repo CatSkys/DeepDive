@@ -25,7 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             at: AppPaths.supportDir, withIntermediateDirectories: true
         )
         BridgeServer.shared.configure(webRoot: webRoot())
-        _ = BridgeServer.shared.start()
+        // 监听失败 = SPA 无处加载（窗口只有透明底、没有任何 JS 报错）：结果不能丢
+        // （AUD-039 同族：静默放行比崩溃更难查）。
+        if !BridgeServer.shared.start() {
+            EngineLog.shared.append("[bridge] no listener could be started — the SPA cannot be served")
+        }
         // 移动端远程面：上次开着就接着开（端口固定，手机上已存的链接不必重扫）
         if RemoteAccess.shared.enabled { _ = RemoteAccess.shared.start() }
 
@@ -155,7 +159,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// 第二个实例的唤醒（双击图标时已有实例在跑）：把面板带到前台。
+    /// 已在最前就什么都不做——发起方在等锁期间每 0.5s 补发一次（它的首个通知
+    /// 可能早于本实例挂上观察者），连点图标不该让窗口反复淡入。
     @objc private func showFromOtherInstance(_ note: Notification) {
+        guard let window = windowController.window else { return }
+        if window.isVisible, window.isKeyWindow, NSApp.isActive { return }
         windowController.showPanel()
     }
 

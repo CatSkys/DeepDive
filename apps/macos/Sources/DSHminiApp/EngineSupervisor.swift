@@ -48,16 +48,20 @@ final class EngineSupervisor {
     private let log = EngineLog.shared
 
     /// 引擎 cwd（=sandbox-policy.workspaceRoot 默认）解析顺序：显式配置 →
-    /// harness 存储里已注册的首个空间 → 新用户兜底 ~/Documents/DeepDive。
+    /// harness 存储里已注册的首个空间 → 新用户兜底 ~/DeepDive。
     /// 绝不落到用户主目录：home 做工作区会让引擎的 @ 文件索引递归扫全盘
     /// 家目录，逐保护区触发 TCC 授权弹窗（音乐/照片/其他App数据，
     /// PITFALLS §4.13），且沙箱根过大。
+    /// 兜底目录同样**不放进 ~/Documents**：那是受保护目录，首启在这里建目录会
+    /// 弹「DeepDive 想访问文稿」系统框——而它发生在主窗口建出之前的主线程上，
+    /// 用户忽略就卡住整个启动、点了拒绝引擎则连 cwd 都进不去（§4.8 /§7.1.2）。
+    /// ~/DeepDive 不收系统授权，首启全程无弹窗；已注册过工作区的用户不受影响
+    /// （走上一级 workspace.json）。
     static func resolveLaunchWorkspace(explicit: URL?, home: URL) -> URL {
         if let explicit { return explicit }
         if let first = firstRegisteredWorkspace(home: home) { return first }
-        let fallback = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+        let fallback = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("DeepDive", isDirectory: true)
-            ?? home.appendingPathComponent("workspace", isDirectory: true)
         try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
         return fallback
     }
