@@ -3625,12 +3625,73 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   cursor: zoom-out;
   animation: lightbox-in 160ms cubic-bezier(.2,0,0,1);
 }
+/* 图片容器：铺满遮罩、可滚动（放大后平移用）；margin:auto 让图居中且两端都滚得到 */
+.lightbox-body {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: auto;
+  cursor: grab;
+  scrollbar-width: none;
+}
+.lightbox-body::-webkit-scrollbar { display: none; }
+.lightbox-body:active { cursor: grabbing; }
 .lightbox img {
+  /* 未取到原图尺寸前先按视口适配（与 Lightbox 的 fitScale 同口径），
+     取到后由组件写死像素宽（缩放），此时下面那条把上限放开 */
   max-width: 94vw;
   max-height: 94vh;
+  /* flex: none 关键：否则放大到超过视口时被 flex-shrink 压回容器宽 —— 胶囊数字变了
+     画面却不变大（实测）。不缩 + overflow 滚动才是真缩放 */
+  flex: none;
+  margin: auto;
   border-radius: var(--dsh-radius-card);
   box-shadow: 0 24px 64px rgba(0,0,0,.4);
   animation: lightbox-zoom 160ms cubic-bezier(.2,0,0,1);
+  -webkit-user-drag: none;
+}
+.lightbox img[data-zoomed] { max-width: none; max-height: none; }
+/* 缩放胶囊（底部居中）：叠在任意亮度的图上，配色不随主题（与 .lightbox-close 同语言）。
+   半径按高度值给（胶囊 38→19、按钮 30→15），不用 999px（PITFALLS §1.1） */
+.lightbox-zoom {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 19px;
+  background: rgba(0, 0, 0, .5);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  color: #fff;
+  user-select: none;
+  cursor: default;
+}
+.lightbox-zoom button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 15px;
+  background: transparent;
+  color: #fff;
+  font-size: 17px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.lightbox-zoom button:hover { background: rgba(255,255,255,.16); }
+.lightbox-zoom .lightbox-zoom-value {
+  width: auto;
+  min-width: 62px;
+  padding: 0 8px;
+  border-radius: 15px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 /* 关闭钮：叠在遮罩右上角，配色不随主题（与 .att-chip-x 同语言） */
 .lightbox-close {
