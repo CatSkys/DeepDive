@@ -283,16 +283,16 @@ button {
   background: transparent;
   outline: none;
   color: var(--dsh-text-primary);
-  font-size: 13.5px;
+  font-size: 14px;
 }
 .search-row input::placeholder { color: var(--dsh-text-tertiary); }
 
-.sessions { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 1px; }
+.sessions { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; }
 
 .section-label {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--ink-3);
-  padding: 8px 8px 3px;
+  padding: 10px 8px 4px;
   font-weight: 500;
 }
 
@@ -305,13 +305,13 @@ button {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
-  height: 28px;
+  height: 32px;
   padding: 0 10px;
-  border-radius: 999px; /* 选中/悬停底为胶囊（用户定稿：与全站胶囊语法统一） */
+  border-radius: 16px; /* 选中/悬停底为胶囊（用户定稿：半径用高度值，PITFALLS §1.1） */
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 14px;
   text-align: left;
   overflow: hidden;
 }
@@ -360,13 +360,13 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
+  height: 32px;
   padding: 0 8px;
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 14px; /* 胶囊与 task-row 同语法：半径用高度值（PITFALLS §1.1） */
+  border-radius: 16px; /* 胶囊与 task-row 同语法：半径用高度值（PITFALLS §1.1） */
 }
 .ws-row:hover { background: var(--fill); }
 .ws-row svg { color: var(--ink-3); flex: none; }
@@ -377,11 +377,11 @@ button {
   /* 度量对齐 .ws-row（内距 8 / 图标 13 / gap 6），图标文字与项目行左缘同线 */
   gap: 6px;
   width: 100%;
-  height: 28px;
+  height: 32px;
   padding: 0 8px;
-  border-radius: 14px; /* 胶囊用高度值（PITFALLS §1.1） */
+  border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 14px;
   text-align: left;
 }
 .new-session-entry:hover { background: var(--fill); }
@@ -2846,7 +2846,7 @@ button {
 .task-row .row-archive { display: none; }
 .task-row:hover .row-time { display: none; }
 .task-row:hover .row-archive { display: inline-flex; }
-.task-row .row-time { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.task-row .row-time { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
 .task-row .row-archive {
   display: none;
   align-items: center;
@@ -3719,7 +3719,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   color: var(--ink-3);
 }
 .row-snippet {
-  font-size: 12px;
+  font-size: 12.5px;
   line-height: 1.4;
   color: var(--ink-3);
   overflow: hidden;
