@@ -169,7 +169,9 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
         cancels.current.delete(id);
         setAttachments((prev) => prev.map((a): Attachment =>
           a.id === id && a.kind === "file"
-            ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, file: undefined, error: undefined }
+            // file 字节留着不清：引擎侧回执失效（FILE_NOT_STAGED）时要重传同一份字节
+            // ——用户定稿附件必须发出去（useComposerAttachments.uploadNow 的 force）
+            ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, error: undefined }
             : a));
       },
       (err: unknown) => {
@@ -203,9 +205,12 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
   /** 失败重试 / 草稿页 pending 在会话就绪后补传（编排方发送前调用）。
    *  返回本次传就绪的 receiptId 列表——setAttachments 不影响调用方当轮
    *  闭包里的 content，prompt 载荷必须据此补 {type:'file'} 部件；
-   *  任一文件失败/取消返回 null（chip 停在 error 供重试）。 */
-  const uploadNow = async (sid: string): Promise<string[] | null> => {
-    const pendingFiles = attachments.filter((a): a is FileAttachment => a.kind === "file" && a.status !== "ready");
+   *  任一文件失败/取消返回 null（chip 停在 error 供重试）。
+   *  force：连已就绪的也重传一遍（引擎回 FILE_NOT_STAGED = 旧回执在引擎侧已不可用，
+   *  用户定稿附件必须发出去，所以拿到新回执再重发一次；字节一直留到发送，别清）。 */
+  const uploadNow = async (sid: string, force = false): Promise<string[] | null> => {
+    const pendingFiles = attachments.filter((a): a is FileAttachment =>
+      a.kind === "file" && (force || a.status !== "ready"));
     const receipts: string[] = [];
     for (const f of pendingFiles) {
       if (!f.file) return null;
@@ -222,7 +227,8 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
             cancels.current.delete(f.id);
             setAttachments((prev) => prev.map((a): Attachment =>
               a.id === f.id && a.kind === "file"
-                ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, file: undefined }
+                // 同上：留字节供回执失效时重传
+                ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes }
                 : a));
             resolve(r.receiptId);
           },
