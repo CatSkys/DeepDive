@@ -73,7 +73,9 @@ describe("草稿页命令兜底车道", () => {
 
   it("claim/直发分叉与引擎一致：有 input 才 claim 续输", () => {
     const input = (name: string) => DRAFT_COMMANDS.find((c) => c.name === name)?.input;
-    expect(input("goal")).toEqual({ hint: "[<objective>|clear|edit <objective>|pause|resume]" });
+    // goal/plan 引擎声明了 input.attachments → 车道也要带上（附件准入按它判）
+    expect(input("goal")).toEqual({ hint: "[<objective>|clear|edit <objective>|pause|resume]", attachments: true });
+    expect(input("plan")).toEqual({ hint: "[off|message]", attachments: true });
     expect(input("permission")).toEqual({ hint: "<preset>" });
     expect(input("compact")).toBeUndefined();
   });

@@ -23,6 +23,8 @@ export interface BuiltinCommand {
   /** 引擎 input.hint 原文。有 input 即表示命令吃自由输入：菜单点击是 claim
    *  （插 /name 续输）而非直发——这一位是菜单行为的开关，勿当纯文案。 */
   hint?: string;
+  /** 引擎 input.attachments：声明了才收附件（图片与文件同一条声明）。 */
+  attachments?: boolean;
   /** 行图标；缺省（插件命令）走通用终端图标。 */
   icon?: LucideIcon;
 }
@@ -32,13 +34,13 @@ const BUILTINS: BuiltinCommand[] = [
   { name: "compact", zh: "压缩更早的会话历史", icon: Shrink },
   { name: "doctor", zh: "只读健康检查（导入注册表/会话/技能）", hint: "无需参数" },
   { name: "feedback", zh: "记录本会话的反馈", hint: "<text>", icon: ClipboardList },
-  { name: "goal", zh: "设定或查看长任务的 Goal", hint: "[<objective>|clear|edit <objective>|pause|resume]" },
+  { name: "goal", zh: "设定或查看长任务的 Goal", hint: "[<objective>|clear|edit <objective>|pause|resume]", attachments: true },
   { name: "import", zh: "从外部聊天记录导入历史会话", hint: "<source> <path>" },
   { name: "import-all", zh: "批导入选定来源的全部历史会话", hint: "[source] [path]" },
   { name: "import-reset", zh: "清空导入扫描缓存", hint: "无需参数" },
   { name: "mcp-status", zh: "查看 MCP 配置扫描结果", hint: "无需参数" },
   { name: "permission", zh: "切换权限预设（沙箱模式 + 审批策略）", hint: "<preset>", icon: ShieldCheck },
-  { name: "plan", zh: "进入或退出计划模式", hint: "[off|message]", icon: Route },
+  { name: "plan", zh: "进入或退出计划模式", hint: "[off|message]", icon: Route, attachments: true },
   { name: "resume-claude", zh: "从 Claude Code 历史会话生成交接摘要", hint: "[id:<会话id> | 标题关键词]" },
   { name: "resume-codex", zh: "从 Codex 历史会话生成交接摘要", hint: "[id:<会话id> | 标题关键词]" },
   { name: "settings-suggest", zh: "解析 Claude/Codex 配置给出迁移建议" },
@@ -59,5 +61,7 @@ export function builtinIcon(name: string): LucideIcon {
 /** 草稿页兜底车道的目录。description 取本表中文说明——它就是菜单要显示的主
  *  文案（会话车道那侧同样由本表中文覆盖引擎原文，两个车道显示一致）。 */
 export const DRAFT_COMMANDS: CommandDescriptor[] = BUILTINS.map((c) => (
-  c.hint ? { name: c.name, description: c.zh, input: { hint: c.hint } } : { name: c.name, description: c.zh }
+  c.hint
+    ? { name: c.name, description: c.zh, input: { hint: c.hint, ...(c.attachments ? { attachments: true } : {}) } }
+    : { name: c.name, description: c.zh }
 ));

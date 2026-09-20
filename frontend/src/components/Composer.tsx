@@ -9,7 +9,7 @@ import { useCompositionGuard } from "../useCompositionGuard";
 import { Lightbox } from "./Lightbox";
 import { alertDialog } from "./DialogHost";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
-import type { PromptContentPart } from "../types";
+import type { CommandSubmitAttachment, PromptContentPart } from "../types";
 import { useComposerDraft } from "./composer/useComposerDraft";
 import { useComposerAttachments, type ImageAttachment } from "./composer/useComposerAttachments";
 import { DD_EVENTS } from "../events";
@@ -173,27 +173,35 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
         void alertDialog({ message: tt(`未知命令：/${decision.name}`, `Unknown command: /${decision.name}`) });
         return; // 草稿保留供修正（官方语义：不静默发给模型）
       }
-      const imageAttachments = attachments.filter((a): a is ImageAttachment => a.kind === "image");
-      if (attachments.length > 0 && !decision.command.input?.images) {
-        void alertDialog({ message: tt("该命令不支持图片附件", "This command does not accept image attachments") });
-        return;
-      }
-      if (attachments.some((a) => a.kind === "file")) {
-        void alertDialog({ message: tt("命令不支持文件附件，请随普通消息发送", "Commands do not accept file attachments; send them with a normal message") });
+      // 附件随命令走：引擎声明了 input.attachments 才收（图片直传字节、文件走
+      // receiptId，同一条声明管两种；引擎在 execute 内再判一次准入，前端这次
+      // 只是提前给出同款提示，不再一律拒收）。引用（@）本来就是普通消息正文，
+      // 附件随 prompt 走，不受这里约束。
+      if (attachments.length > 0 && !decision.command.input?.attachments) {
+        void alertDialog({ message: tt("该命令不支持附件，请随普通消息发送", "This command does not accept attachments; send them with a normal message") });
         return;
       }
       setBusy(true);
       let sid = sessionId;
+      let submitted: CommandSubmitAttachment[] = [];
+      for (const a of attachments) {
+        if (a.kind === "image") submitted.push({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name });
+        else if (a.status === "ready" && a.receiptId) submitted.push({ type: "file", receiptId: a.receiptId });
+      }
       if (sid === null) {
         const create = await store.createSession();
         if (!create) { setBusy(false); return; }
         sid = create;
+        // 草稿页的 pending 文件此刻才有会话可落：补传后并入载荷（与 prompt 路径同法）
+        const receipts = await uploadNow(sid);
+        if (receipts === null) { setBusy(false); return; }
+        submitted = [...submitted, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
       }
       try {
         const res = await api.commandExecute({
           agentId: sid,
           line: decision.line,
-          attachments: imageAttachments.map((a) => ({ type: "image" as const, mediaType: a.mediaType, data: a.data, name: a.name })),
+          attachments: submitted,
         });
         if (res === undefined) {
           void alertDialog({ message: tt(`未知命令：/${decision.command.name}`, `Unknown command: /${decision.command.name}`) });
@@ -203,8 +211,10 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
           void alertDialog({ message: res.result.text });
           setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
         }
-      } catch {
-        setBusy(false); return; // 发送失败：输入保留（与 prompt 路径同策略）
+      } catch (err) {
+        // 同 prompt 路径：命令失败也要显式告知（引擎原因或网络错误）
+        void alertDialog({ message: err instanceof Error && err.message ? err.message : tt("命令发送失败", "Failed to send command") });
+        setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
       }
       setText("");
       setAttachments([]);
@@ -252,7 +262,15 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
         await api.prompt({ requestId: rpcId, sessionId: sid, mode, content: sendContent });
       }
       if (running || mode === "queue") registerSending?.(rpcId);
-    } catch { /* 发送失败：解除 busy、输入保留供重试（不弹错） */ setBusy(false); return; }
+    } catch (err) {
+      // 发送失败必须让用户看见：引擎的业务拒绝自带可读原因（例
+      // session/attachment-invalid「Model … does not support image input」——
+      // 当前模型不吃图），静默吞掉会把「消息没发出去」伪装成「发成功了但会话
+      // 是空的」（2026-09-20 用户报障的真因）。输入与附件留在原地供重试。
+      void alertDialog({ message: err instanceof Error && err.message ? err.message : tt("发送失败，请重试", "Send failed; please retry") });
+      setBusy(false);
+      return;
+    }
     setText("");
     setAttachments([]);
     if (draftKey) localStorage.removeItem(draftKey);

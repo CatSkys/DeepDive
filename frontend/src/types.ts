@@ -272,9 +272,16 @@ export interface CommandDescriptor {
   /** 无斜杠小写命令名（引擎 parseCommand 同名）。 */
   name: string;
   description: string;
-  /** 存在即表示命令吃自由输入：hint 是占位提示；images=true 才接受图片。 */
-  input?: { hint: string; images?: boolean };
+  /** 存在即表示命令吃自由输入：hint 是占位提示；attachments=true 才收附件
+   *  （引擎 input.attachments，图片与文件同一条声明）。 */
+  input?: { hint: string; attachments?: boolean };
 }
+
+/** commands/execute 的附件部件（引擎 CommandSubmitAttachment 的同形）：图片直传
+ *  字节、通用文件走已落盘的 receiptId。 */
+export type CommandSubmitAttachment =
+  | { type: "image"; mediaType: string; data: string; name?: string }
+  | { type: "file"; receiptId: string };
 
 /**
  * commands/execute 回包（undefined = 未知/畸形命令，引擎不落任何事件）。

@@ -504,10 +504,7 @@ export const api = {
   commandExecute: (payload: {
     agentId: string;
     line: string;
-    attachments?: Array<
-      | { type: "image"; mediaType: string; data: string; name?: string }
-      | { type: "file"; receiptId: string }
-    >;
+    attachments?: import("./types").CommandSubmitAttachment[];
   }) =>
     unary<import("./types").CommandExecution | undefined>("commands/execute", {
       agentId: payload.agentId,
