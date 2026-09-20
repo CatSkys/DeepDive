@@ -38,7 +38,8 @@ function failureTailLines(text: string | null): string {
   return (text ?? "").trim().split("\n").slice(-FAILURE_TAIL_LINES).join("\n");
 }
 
-function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, automationDraft, onAutomationDraftUsed }: {
+function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, automationDraft, onAutomationDraftUsed, onOpenOnboarding }: {
+  onOpenOnboarding: () => void;
   settingsOpen: boolean;
   settingsSection: string;
   openSettings: (section?: string) => void;
@@ -102,6 +103,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         closeSettings();
         store.openSession(null);
       },
+      // 菜单「帮助 → 新手引导」：强制把卡片请出来（关闭时只收起，不改自动出现的判据）。
+      openOnboarding: () => onOpenOnboarding(),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -331,6 +334,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
 }
 
 export default function App() {
+  /** 菜单「帮助 → 新手引导」的强制打开（false = 回归自动判据）。 */
+  const [onboardingForced, setOnboardingForced] = useState(false);
   // 设置页开合与分节放在 App（始终挂载）：引导卡派发 dd:open-settings
   // 时门还压着 Shell——监听必须住在门外，跳转才不会丢。
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -355,8 +360,9 @@ export default function App() {
     <StoreProvider>
       <AutomationProvider>
         <EvolutionProvider>
-        <OnboardingWizard>
+        <OnboardingWizard forced={onboardingForced} onClosed={() => setOnboardingForced(false)}>
           <Shell
+            onOpenOnboarding={() => setOnboardingForced(true)}
             settingsOpen={settingsOpen}
             settingsSection={settingsSection}
             openSettings={openSettings}

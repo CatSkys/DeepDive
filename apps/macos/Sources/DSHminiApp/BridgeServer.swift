@@ -325,7 +325,10 @@ final class BridgeServer {
         }.resume()
         // AUD-037b：引擎挂起时 dataTask 可能永不出回调，无限 wait 会把这条
         // 桥线程永久钉死——超时按 502 网关错误返回。
-        if semaphore.wait(timeout: .now() + 30) == .timedOut {
+        // 例外：导入面板的扫描是**聚合长任务**（首次全源扫描实测 30s+，436 条会话），
+        // 用通用的 30s 会把它判成网关错误——前端只能看到"没有会话"而不知道是被掐断的。
+        let timeout: TimeInterval = request.path.hasPrefix("/api-import/") ? 180 : 30
+        if semaphore.wait(timeout: .now() + timeout) == .timedOut {
             return .init(status: 502)
         }
         return result

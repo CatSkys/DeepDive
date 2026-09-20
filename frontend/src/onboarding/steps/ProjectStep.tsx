@@ -2,6 +2,7 @@
 // 表单是**与「新建项目」弹窗同一份实现**（components/projectForm.tsx + projectCreate.ts）：
 // 名称（行尾图标钮）/ 记忆 / 自进化 / 审批模式 / 工作区文件夹 / 项目指令，版式一致。
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useT } from "../../i18n";
 import { useStore } from "../../store";
 import { createProject } from "../../components/projectCreate";
@@ -9,8 +10,12 @@ import { ProjectFormFields, useProjectForm } from "../../components/projectForm"
 import { endWorkspacePick, setWorkspacePickSink } from "../../components/workspacePicker";
 import css from "../OnboardingWizard.module.css";
 
-export function ProjectStep() {
-  const { t, tt } = useT();
+export function ProjectStep({ onNext, registerPrimary }: {
+  onNext: () => void;
+  /** 登记底栏主按钮：这里就是"下一步＝创建"。 */
+  registerPrimary: (p: { label: string; run: () => void | Promise<void>; disabled?: boolean } | null) => void;
+}) {
+  const { t } = useT();
   const store = useStore();
   const form = useProjectForm();
   const [busy, setBusy] = useState(false);
@@ -25,34 +30,27 @@ export function ProjectStep() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const submit = async () => {
-    if (!form.canSubmit) return;
-    setError(null);
-    setBusy(true);
-    const result = await createProject(form.args(), {
-      createWorkspace: store.createWorkspace,
-      refresh: store.refresh,
+  // 底栏主按钮：名称填了就创建（成功才前进），没填就直接前进（跳过建项目）。
+  useEffect(() => {
+    registerPrimary({
+      label: busy ? t("创建中…") : t("下一步"),
+      disabled: busy,
+      run: async () => {
+        if (created || !form.canSubmit) { onNext(); return; }
+        setError(null);
+        setBusy(true);
+        const result = await createProject(form.args(), {
+          createWorkspace: store.createWorkspace,
+          refresh: store.refresh,
+        });
+        setBusy(false);
+        if (result.error) { setError(result.error); return; }
+        setCreated(result.path ?? form.name);
+        onNext();
+      },
     });
-    if (result.error) {
-      setError(result.error);
-      setBusy(false);
-      return;
-    }
-    setCreated(result.path ?? form.name);
-    setBusy(false);
-  };
-
-  if (created) {
-    return (
-      <div className={css.step}>
-        <div className={css.stepTitle}>{t("项目已创建")}</div>
-        <div className={css.stepLead}>
-          {tt("「{name}」已就位，Agent 会在这个文件夹里读写文件。", "\"{name}\" is ready — the agent reads and writes files inside this folder.", { name: form.name })}
-        </div>
-        <div className={css.pathLine}>{created}</div>
-      </div>
-    );
-  }
+    return () => registerPrimary(null);
+  });
 
   return (
     <div className={css.step}>
@@ -62,11 +60,7 @@ export function ProjectStep() {
       </div>
       <ProjectFormFields form={form} />
       {error && <div className={css.error}>{error}</div>}
-      <div className={css.actions}>
-        <button type="button" className={css.primary} disabled={busy || !form.canSubmit} onClick={() => void submit()}>
-          {busy ? t("创建中…") : t("创建")}
-        </button>
-      </div>
+      {busy && <div className={css.scanning}><Loader2 size={14} className={css.spin} />{t("创建中…")}</div>}
     </div>
   );
 }

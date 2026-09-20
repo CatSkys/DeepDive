@@ -5,7 +5,7 @@
 // 语义红线：「是否已配置」只认读取成功的结果——引擎瞬断/读失败时
 // configuredKnown=false，调用方不得把"读不出配置"冒充成"未配置"
 //（首启门据此防止把密钥已配好的老用户锁进引导页）。
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { tt } from "../i18n";
 import {
@@ -100,6 +100,12 @@ export function useModelCatalog(): ModelCatalog {
       return false;
     }
   }, []);
+
+  // 挂载即自拉一次：这是数据源 hook 的契约。此前靠每个消费方自己记得调 reload，
+  // 新手引导卡的迁移步就漏了——目录恒空，于是"明明有配置却导不进来"（所有项都被
+  // 内置/协议两道表挡掉）。调用方仍可在 engineUp 翻转时再拉（引擎晚起的窗口）。
+  useEffect(() => { void reload(); }, [reload]);
+
 
   const anyConfigured = Object.values(credentials).some(Boolean);
   return {

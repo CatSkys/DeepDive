@@ -185,7 +185,7 @@ describe("打开方式（分离按钮）", () => {
     (window as unknown as { webkit?: unknown }).webkit = { messageHandlers: { deepdiveHost: { postMessage: post } } };
     installHostBridge({
       navigateToSession: () => {}, navigateToSettings: () => {}, themeChanged: () => {},
-      workspacePicked: () => {}, systemWake: () => {}, newSession: () => {},
+      workspacePicked: () => {}, systemWake: () => {}, newSession: () => {}, openOnboarding: () => {},
     });
     return post;
   };

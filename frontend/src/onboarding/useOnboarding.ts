@@ -73,7 +73,7 @@ export function onboardingVisible(input: {
   return !state.skipped && !state.done && (state.step > 1 || freshGap);
 }
 
-export function useOnboarding(): OnboardingView {
+export function useOnboarding(options: { forced?: boolean } = {}): OnboardingView {
   const store = useStore();
   const { onboarding, setOnboarding } = usePrefs();
   const cat = useModelCatalog();
@@ -85,7 +85,8 @@ export function useOnboarding(): OnboardingView {
   const hasProject = store.workspaces.length > 0;
   // 「全新」= 既没有项目空间也没有任何会话：升级上来的老用户两者都有，不会被弹。
   const freshGap = !hasProject && store.sessions.length === 0;
-  const visible = onboardingVisible({ engineUp: store.engineUp, noKey, freshGap, state });
+  // 强制打开（帮助菜单入口）：与自动出现并列，不走自动条件——用户主动要看的。
+  const visible = options.forced === true || onboardingVisible({ engineUp: store.engineUp, noKey, freshGap, state });
 
   // 步 2 的完成以密钥为准（可观测）；迁移步按"已走过"记（它没有可观测结果）。
   const completed: Record<OnboardingStepId, boolean> = {

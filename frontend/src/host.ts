@@ -479,6 +479,8 @@ export function installHostBridge(handlers: {
   systemWake: () => void;
   /** 菜单「文件 → 新建会话」：切到草稿页（与侧栏「新建会话」/⌘N 同一条路径）。 */
   newSession: () => void;
+  /** 菜单「帮助 → 新手引导」：把引导卡再请出来（与首启那张同一份）。 */
+  openOnboarding: () => void;
 }): void {
   if (window.__deepDiveHost) return; // idempotent mount (StrictMode/reloads)
   window.__deepDiveHost = {
@@ -509,6 +511,10 @@ export function installHostBridge(handlers: {
         }
         case "newSession": {
           handlers.newSession();
+          break;
+        }
+        case "openOnboarding": {
+          handlers.openOnboarding();
           break;
         }
         default:

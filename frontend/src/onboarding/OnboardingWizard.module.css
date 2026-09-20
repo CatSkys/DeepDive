@@ -4,6 +4,7 @@
    颜色/圆角/时长一律走语义变量与 theme.css 的 --dur-*，不写裸值。 */
 
 .overlay {
+  animation: wizard-veil var(--dur-med) var(--ease-out) both;
   position: fixed;
   inset: 0;
   z-index: 210;
@@ -14,6 +15,7 @@
 }
 
 .card {
+  animation: wizard-in var(--dur-slow) var(--ease-spring) both;
   position: relative;
   display: flex;
   width: 880px;
@@ -81,6 +83,22 @@
   margin-top: 12px;
 }
 
+.infoCorner {
+  margin-top: auto;                /* 贴左栏底部（用户定稿：说明收在左下角） */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: default;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.infoCorner:hover { background: var(--fill); color: var(--ink-2); }
+
 .steps {
   list-style: none;
   margin: 18px 0 0;
@@ -126,14 +144,6 @@
 
 .stepLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.spacer { flex: 1; }
-
-.caption {
-  font-size: 11.5px;
-  color: var(--ink-3);
-  line-height: 1.55;
-}
-
 /* ── 右栏：内容面（液态金属底色 + 内容列 + 底栏） ── */
 .right {
   flex: 1;
@@ -178,6 +188,93 @@
   padding: 0 24px 18px;
 }
 
+/* 步骤切换：前进从右侧滑入、后退从左侧滑入（用户要"明显且优雅"的进场）。
+   key 换新 → 动画重放；不做退出动画（新帧直接进来就够，退场叠影反而糊）。 */
+.stepInFwd { animation: step-in-fwd var(--dur-slow) var(--ease-spring) both; }
+.stepInBack { animation: step-in-back var(--dur-slow) var(--ease-spring) both; }
+
+/* 条目错落入场：给列表项加 .rowIn + 内联 animation-delay（步进 20ms 上下）。 */
+.rowIn { animation: row-in-soft var(--dur-med) var(--ease-out) both; }
+
+@keyframes wizard-veil { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wizard-in {
+  from { opacity: 0; transform: translateY(10px) scale(.965); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes step-in-fwd {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes step-in-back {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes row-in-soft {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay, .card, .stepInFwd, .stepInBack, .rowIn { animation: none; }
+}
+
+/* 扫描期骨架（形状照真实清单）：分组标签 + 勾选行，整组同步脉冲（行间微错落）。 */
+.skeleton { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.skelGroup,
+.skelRow { background: var(--fill); animation: skel-pulse 1.7s ease-in-out infinite; }
+.skelGroup { width: 56px; height: 9px; border-radius: 5px; }
+.skelRow { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; }
+.skelBox { flex: none; width: 16px; height: 16px; border-radius: 5px; background: var(--fill-strong); }
+.skelBar { height: 9px; border-radius: 5px; background: var(--fill-strong); }
+.skelHint { margin-top: 2px; font-size: 11.5px; color: var(--ink-3); }
+@keyframes skel-pulse {
+  0%, 100% { opacity: .45; }
+  50%      { opacity: .95; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skelGroup, .skelRow { animation: none; opacity: .6; }
+}
+
+/* 自绘勾选与单选（用户定稿：要合整体气质，不用系统蓝）：
+   原生 input 隐形但仍在（键盘/读屏可用），紧随其后的 .box/.dot 是可视件。
+   选中态＝描边方块填 --ink + 反相勾，与左栏步进标记同一套语言。 */
+.native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.box,
+.dot {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: transparent;
+  color: transparent;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.dot { border-radius: 50%; }
+.native:checked + .box {
+  background: var(--ink);
+  border-color: transparent;
+  color: var(--panel-bg);
+}
+.native:checked + .dot { border-color: var(--ink); }
+.native:checked + .dot::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.native:focus-visible + .box,
+.native:focus-visible + .dot { outline: 2px solid var(--line-focus); outline-offset: 2px; }
+
 /* ── 步骤内部 ── */
 .step { display: flex; flex-direction: column; gap: 8px; }
 .stepTitle { font-size: 15px; font-weight: 700; color: var(--ink-bright); }
@@ -192,6 +289,49 @@
 }
 
 .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+/* 清单很长时（模型全量）在卡内滚：底栏固定，列表自己滚。 */
+.rowsTall { max-height: 260px; overflow: auto; }
+.pickRow { display: flex; align-items: center; gap: 6px; }
+.subPick {
+  margin: 4px 0 6px;
+  padding: 8px 8px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--fill-soft, var(--fill));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pickMain {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--fill);
+  font-size: 12.5px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.pickMain:hover { background: var(--fill-strong); }
+.groupHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.mini:hover { color: var(--ink); background: var(--fill); }
+.srcTag { margin-left: 6px; font-size: 11px; color: var(--ink-faint, var(--ink-3)); }
 .row,
 .radioRow,
 .checkRow {
@@ -235,6 +375,7 @@
 }
 .chip:hover { background: var(--fill-strong); color: var(--ink); }
 .chipOn { background: var(--ink); color: var(--panel-bg); border-color: transparent; font-weight: 600; }
+.chipGhost { border-style: dashed; color: var(--ink-3); }
 
 .fieldLabel { margin-top: 6px; font-size: 11.5px; color: var(--ink-3); }
 .field {

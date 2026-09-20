@@ -1148,6 +1148,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pickWorkspaceDirectory()
     }
 
+    /// 菜单「帮助 → 新手引导」：把卡片请出来（渲染在 SPA 里，壳只发指令）。
+    @objc func openOnboardingFromMenu(_ sender: Any?) {
+        showMainWindow()
+        windowController.pushHostCommand("openOnboarding", payload: "{}")
+    }
+
     @objc func revealLogFromMenu(_ sender: Any?) {
         NSWorkspace.shared.activateFileViewerSelecting([AppPaths.logURL])
     }

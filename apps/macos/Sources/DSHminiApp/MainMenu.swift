@@ -124,6 +124,11 @@ enum MainMenu {
         let item = NSMenuItem()
         let menu = NSMenu(title: "帮助")
         item.submenu = menu
+        // 新手引导可随时再打开（首启错过 / 想复查各步设置）——同一张卡，不是第二套。
+        let onboarding = NSMenuItem(title: "新手引导", action: #selector(AppDelegate.openOnboardingFromMenu(_:)), keyEquivalent: "")
+        onboarding.target = target
+        menu.addItem(onboarding)
+        menu.addItem(.separator())
         let log = NSMenuItem(title: "显示日志", action: #selector(AppDelegate.revealLogFromMenu(_:)), keyEquivalent: "")
         log.target = target
         menu.addItem(log)

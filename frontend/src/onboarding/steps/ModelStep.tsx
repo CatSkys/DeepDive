@@ -1,4 +1,7 @@
-// 引导第 2 步·模型：选提供方（与设置→模型同一份快捷厂商表）→ 填密钥 → 选默认模型。
+// 引导第 2 步·模型：选提供方（与设置→模型同一份快捷厂商表，带厂商图标）→ 填密钥 →
+// 选默认模型。模型清单**全量展示**（不截断）：非 DeepSeek 优先用发现接口的端点实况
+//（`llm/discoverModels`，即设置页"测试连通"报的那个数），失败或 DeepSeek（无发现路由）
+// 再回落到引擎目录。
 //
 // 落库两条（活引擎实测的契约，别简化）：
 //  ① `credentials/set {ref}`——ref 按 `keyRefOf`（与设置页同一规则）；
@@ -7,48 +10,79 @@
 //     补上空 profile 立刻出现 4 个模型）。空 profile 服务引擎完整目录，所以这里
 //     不写 models（写非空会整体替换该路由目录，PITFALLS §7.4）。DeepSeek official
 //     是随包组合的，不需要 profile，只写密钥。
-import { useEffect, useMemo, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Loader2, Plus } from "lucide-react";
 import { api } from "../../api";
 import { useT } from "../../i18n";
-import { keyRefOf } from "../../settings/ModelDialog";
+import { CUSTOM_PROVIDER, ModelDialog, keyRefOf } from "../../settings/ModelDialog";
 import { probeProvider } from "../../settings/providerProbe";
-import { useModelCatalog } from "../../settings/useModelCatalog";
+import { useOnboardingCatalog } from "../catalog";
 import { writeNamespaceOnce } from "../../settings/useSettingNamespace";
 import { QUICK_ADD_PROVIDERS, providerLabel } from "../../settings/vendors";
-import type { ModelOption } from "../../components/ModelMenu";
+import { ProviderIcon } from "../../components/ProviderIcon";
 import css from "../OnboardingWizard.module.css";
 
 const DEEPSEEK = "deepseek-official";
 
+/** 条目错落入场（同迁移步）。 */
+const rowStyle = (index: number) => ({ animationDelay: `${Math.min(index, 12) * 20}ms` });
+
+/** 展示用的一行模型（来源可能是发现接口或引擎目录，字段归一到这里）。 */
+interface ModelRow {
+  id: string;
+  label: string;
+  note?: string;
+}
+
 export function ModelStep() {
   const { t, tt } = useT();
-  const cat = useModelCatalog();
+  const cat = useOnboardingCatalog();
   const [provider, setProvider] = useState<string>(DEEPSEEK);
   const [key, setKey] = useState("");
   const [testing, setTesting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [options, setOptions] = useState<ModelOption[]>([]);
+  const [rows, setRows] = useState<ModelRow[]>([]);
   const [picked, setPicked] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedDefault, setSavedDefault] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
 
   const ref = keyRefOf(provider, cat.deepseek.apiKeyEnv);
   const configured = cat.credentials[ref] === true;
+  // chip = 快捷厂商 + 其他已声明的提供方（自定义加的、迁移导入的都在这里出现，
+  // 否则那些提供方在引导里根本选不到）。
+  const extraProviders = Object.keys(cat.pi.providers).filter((id) => !QUICK_ADD_PROVIDERS.includes(id));
 
-  // 该提供方在引擎目录里的模型（声明 + 密钥齐了才有）。
-  const providerModels = useMemo(() => options.filter((o) => o.provider === provider), [options, provider]);
-
+  // 该提供方的模型清单：发现接口优先（端点实况），回落到引擎目录。
   useEffect(() => {
-    if (!configured) return;
-    void api.modelOptions().then(({ options: list, default: def }) => {
-      setOptions(list);
-      const own = list.filter((o) => o.provider === provider);
-      const hit = def && def.provider === provider ? `${def.provider}|${def.model}` : null;
-      setPicked(hit ?? (own[0] ? `${own[0].provider}|${own[0].model}` : null));
-    }).catch(() => setOptions([]));
+    if (!configured) { setRows([]); setPicked(null); return; }
+    let alive = true;
+    (async () => {
+      if (provider !== DEEPSEEK) {
+        const discovered = await api.discoverModels({ settingsNs: "llm-pi-ai", provider }).catch(() => null);
+        if (!alive) return;
+        if (discovered && discovered.length > 0) {
+          setRows(discovered.map((m) => ({
+            id: m.id,
+            label: m.name ?? m.id,
+            ...(typeof m.contextWindow === "number" ? { note: `${Math.round(m.contextWindow / 1000)}K` } : {}),
+          })));
+          return;
+        }
+      }
+      const { options: list } = await api.modelOptions().catch(() => ({ options: [] }));
+      if (!alive) return;
+      setRows(list.filter((o) => o.provider === provider).map((o) => ({ id: o.model, label: o.label, note: o.providerLabel })));
+    })();
+    return () => { alive = false; };
   }, [configured, provider]);
+
+  // 默认选中：引擎当前默认（若就是这家）→ 否则第一个。
+  useEffect(() => {
+    if (rows.length === 0) return;
+    setPicked((cur) => (cur && rows.some((r) => r.id === cur) ? cur : rows[0].id));
+  }, [rows]);
 
   const saveKey = async () => {
     setTesting(true);
@@ -78,20 +112,30 @@ export function ModelStep() {
       if (!result.ok) { setError(result.message); return; }
       setNotice(result.message);
       await cat.reload();
-      const { options: list, default: def } = await api.modelOptions();
-      setOptions(list);
-      const own = list.filter((o) => o.provider === provider);
-      const hit = def && def.provider === provider ? `${def.provider}|${def.model}` : null;
-      setPicked(hit ?? (own[0] ? `${own[0].provider}|${own[0].model}` : null));
     } catch (err) {
       setError((err as Error).message.slice(0, 200));
     }
     setTesting(false);
   };
 
-  const saveDefault = async () => {
-    const hit = options.find((o) => `${o.provider}|${o.model}` === picked);
-    if (!hit) return;
+  /** 清除已保存的密钥（填进去就要能撤）。设置页那套「删除提供方」还连带摘 profile，
+      这里只清密钥：profile 是路由声明，留着无害（没有密钥的提供方不会进目录）。 */
+  const clearKey = async () => {
+    setTesting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await api.credentialsUnset({ ref });
+      await cat.reload();
+      setNotice(t("已清除密钥"));
+    } catch (err) {
+      setError((err as Error).message.slice(0, 200));
+    }
+    setTesting(false);
+  };
+
+  /** 选中即落默认：单选本身就是决定，不需要再按一次"设为默认"（用户定稿）。 */
+  const saveDefaultFor = async (modelId: string) => {
     setSaving(true);
     setError(null);
     try {
@@ -102,12 +146,7 @@ export function ModelStep() {
           const value = (entry.value ?? {}) as { reasoningEffort?: string };
           await api.settingsUpdate({
             ns: "agent-default-model",
-            patch: {
-              ...value,
-              provider: hit.provider,
-              model: hit.model,
-              ...(hit.defaultEffort ?? value.reasoningEffort ? { reasoningEffort: hit.defaultEffort ?? value.reasoningEffort } : {}),
-            },
+            patch: { ...value, provider, model: modelId },
             expectedRevision: entry.revision,
           });
         },
@@ -128,7 +167,7 @@ export function ModelStep() {
 
       <div className={css.groupLabel}>{t("提供方")}</div>
       <div className={css.chips}>
-        {QUICK_ADD_PROVIDERS.map((id) => {
+        {QUICK_ADD_PROVIDERS.map((id, i) => {
           const vendorRef = keyRefOf(id, cat.deepseek.apiKeyEnv);
           const done = cat.credentials[vendorRef] === true;
           const name = cat.providers.find((p) => p.provider === id)?.displayName ?? id;
@@ -136,14 +175,36 @@ export function ModelStep() {
             <button
               key={id}
               type="button"
-              className={id === provider ? `${css.chip} ${css.chipOn}` : css.chip}
+              className={id === provider ? `${css.chip} ${css.chipOn} ${css.rowIn}` : `${css.chip} ${css.rowIn}`}
+              style={rowStyle(i)}
               onClick={() => { setProvider(id); setKey(""); setNotice(null); setError(null); setSavedDefault(false); }}
             >
+              <ProviderIcon provider={id} size={15} />
               {providerLabel(id, name)}
               {done && <Check size={12} />}
             </button>
           );
         })}
+        {extraProviders.map((id) => {
+          const extraRef = keyRefOf(id, cat.deepseek.apiKeyEnv);
+          const done = cat.credentials[extraRef] === true;
+          const profile = cat.pi.providers[id] as { displayName?: string } | undefined;
+          return (
+            <button
+              key={id}
+              type="button"
+              className={id === provider ? `${css.chip} ${css.chipOn}` : css.chip}
+              onClick={() => { setProvider(id); setKey(""); setNotice(null); setError(null); setSavedDefault(false); }}
+            >
+              <ProviderIcon provider={id} size={15} />
+              {profile?.displayName ?? id}
+              {done && <Check size={12} />}
+            </button>
+          );
+        })}
+        <button type="button" className={`${css.chip} ${css.chipGhost}`} onClick={() => setCustomOpen(true)}>
+          <Plus size={14} />{t("自定义提供方…")}
+        </button>
       </div>
 
       <label className={css.fieldLabel} htmlFor="onboarding-key">
@@ -162,46 +223,68 @@ export function ModelStep() {
         <button type="button" className={css.primary} disabled={testing || key.trim().length === 0} onClick={() => void saveKey()}>
           {testing ? <><Loader2 size={14} className={css.spin} />{t("测试中…")}</> : t("保存并测试")}
         </button>
+        {configured && (
+          <button type="button" className={css.secondary} disabled={testing} onClick={() => void clearKey()}>
+            {t("清除密钥")}
+          </button>
+        )}
+        {notice && !error && <span className={css.ok}><Check size={13} />{notice}</span>}
       </div>
-      {notice && !error && <div className={css.ok}><Check size={13} />{notice}</div>}
 
       {configured && (
         <>
-          <div className={css.groupLabel}>{t("默认模型")}</div>
-          {providerModels.length === 0 ? (
-            <div className={css.empty}>{t("引擎目录里还没有这家的模型。")}</div>
+          <div className={css.groupHead}>
+            <span className={css.groupLabel}>{t("默认模型")}</span>
+            <span className={css.rowMeta}>{tt("{n} 个模型", "{n} models", { n: rows.length })}</span>
+          </div>
+          {rows.length === 0 ? (
+            <div className={css.empty}>{t("还没拿到这家的模型清单。")}</div>
           ) : (
-            <ul className={css.rows}>
-              {providerModels.slice(0, 12).map((o) => {
-                const id = `${o.provider}|${o.model}`;
-                return (
-                  <li key={id}>
-                    <label className={css.radioRow}>
-                      <input
-                        type="radio"
-                        name="onboarding-model"
-                        checked={picked === id}
-                        onChange={() => { setPicked(id); setSavedDefault(false); }}
-                      />
-                      <span className={css.rowName}>{o.label}</span>
-                      <span className={css.rowMeta}>{o.providerLabel}</span>
-                    </label>
-                  </li>
-                );
-              })}
+            <ul className={`${css.rows} ${css.rowsTall}`}>
+              {rows.map((row, i) => (
+                <li key={row.id} className={css.rowIn} style={rowStyle(i)}>
+                  <label className={css.radioRow}>
+                    <input
+                      className={css.native}
+                      type="radio"
+                      name="onboarding-model"
+                      checked={picked === row.id}
+                      onChange={() => {
+                        setPicked(row.id);
+                        setSavedDefault(false);
+                        setError(null);
+                        void saveDefaultFor(row.id);
+                      }}
+                    />
+                    <span className={css.dot} aria-hidden="true" />
+                    <span className={css.rowName}>{row.label}</span>
+                    {row.note && <span className={css.rowMeta}>{row.note}</span>}
+                  </label>
+                </li>
+              ))}
             </ul>
           )}
-          {!savedDefault && (
-            <div className={css.actions}>
-              <button type="button" className={css.secondary} disabled={saving || !picked} onClick={() => void saveDefault()}>
-                {saving ? t("保存中…") : t("设为默认模型")}
-              </button>
-            </div>
-          )}
+          <div className={css.rowMeta}>
+            {saving ? t("保存中…") : savedDefault ? t("已设为默认模型") : t("选中即设为默认模型")}
+          </div>
         </>
       )}
 
       {error && <div className={css.error}>{error}</div>}
+
+      {customOpen && (
+        <ModelDialog
+          providers={cat.providers}
+          deepseek={cat.deepseek}
+          pi={cat.pi}
+          piProtocols={cat.piProtocols}
+          edit={null}
+          initialProvider={CUSTOM_PROVIDER}
+          credentials={cat.credentials}
+          onDone={() => { setCustomOpen(false); void cat.reload(); }}
+          onCancel={() => setCustomOpen(false)}
+        />
+      )}
     </div>
   );
 }

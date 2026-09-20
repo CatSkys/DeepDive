@@ -69,6 +69,9 @@
      BootSkeleton 的整层淡出（时长只此一处，两边都引这个变量）。 */
   --dur-slowest: 520ms;
   --ease-out: cubic-bezier(.2, 0, 0, 1);
+  /* 带一点回弹的缓动：**只给"入场"用**（引导卡的卡面/步骤切换——用户要"明显且优雅"的
+     进场）。持续位移/悬停仍用 --ease-out，回弹在反复交互里会显得毛躁。 */
+  --ease-spring: cubic-bezier(.22, .9, .24, 1.04);
 }
 :root[data-theme="light"] {
     --ink: rgba(22,23,26,.90);

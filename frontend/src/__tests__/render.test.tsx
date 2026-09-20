@@ -76,14 +76,19 @@ describe("ArchivedSection（AUD-012 回归钉）", () => {
       </StoreProvider>,
     );
     // 列表行渲染出来（拉取成功）；标题走 sessionTitle（zh=任务/en=Task，语言无关匹配）
+    // waitFor 的默认预算只有 1s，而"整仓并行跑 jsdom"时首帧偶尔更慢——等待预算
+    // 给足（判据本身不变，抓循环的那条断言照旧）。
     await waitFor(() => {
       expect(screen.getByText(/^(任务|Task) s-arch$/)).toBeTruthy();
-    });
+    }, { timeout: 8000 });
     const callsAfterFirstPaint = vi.mocked(api.sessions).mock.calls.length;
     expect(callsAfterFirstPaint).toBeGreaterThanOrEqual(1);
-    // 稳定后不再有新增拉取（旧 [t] 每渲染新闭包 → 无限 fetch 循环）
+    // 稳定后不再有新增拉取（旧 [t] 每渲染新闭包 → 无限 fetch 循环）。
+    // 允许 +1：轮询是**固定 3s 一跳**，而并行负载下首帧可能慢到贴近 3s 边界，
+    // 那一跳会落进这 50ms 窗口（实测偶发）。真循环在 50ms 里会加几十次，
+    // 所以"至多多一跳"照样钉得住。
     await new Promise((r) => setTimeout(r, 50));
-    expect(vi.mocked(api.sessions).mock.calls.length).toBe(callsAfterFirstPaint);
+    expect(vi.mocked(api.sessions).mock.calls.length).toBeLessThanOrEqual(callsAfterFirstPaint + 1);
   });
 });
 
