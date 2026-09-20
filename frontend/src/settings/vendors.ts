@@ -59,7 +59,8 @@ export const VENDOR_NAMES: Record<string, VendorName> = {
 
 /** 「快速添加」的厂商：一家一张卡片，有 Token Plan 就指套餐端点、否则指国内端点；
     顺序＝先国内后海外。名字直接取 {@link VENDOR_NAMES}（首选端点不带地区后缀），
-    卡片不带地区信息——同一家的其它区域端点只在弹窗的提供方下拉里出现。 */
+    卡片不带地区信息——同一家的其它区域端点只在弹窗的提供方下拉里出现。
+    OpenCode 指套餐端点 `opencode-go` 而非 `opencode`：后者目录上百条（用户定稿）。 */
 export const QUICK_ADD_PROVIDERS: readonly string[] = [
   "deepseek-official",
   "kimi-coding",
@@ -70,7 +71,7 @@ export const QUICK_ADD_PROVIDERS: readonly string[] = [
   "openai",
   "anthropic",
   "xai",
-  "opencode",
+  "opencode-go",
 ];
 
 
@@ -80,6 +81,11 @@ export const HIDDEN_PROVIDERS: readonly string[] = [
   "xiaomi-token-plan-ams",
   "xiaomi-token-plan-sgp",
 ];
+
+/** 引导卡的提供方行里不出现的提供方：OpenCode 的入口收敛到套餐端点 `opencode-go`
+    （`opencode` 目录上百条，用户定稿）。只在**挑选入口**生效——设置页「已保存模型」
+    照旧列它，那里是配置管理面，藏掉会让已配好的密钥没法管。 */
+export const PICKER_EXCLUDED_PROVIDERS: readonly string[] = ["opencode"];
 
 /** 目录给的 displayName 就是 provider id 本身（全小写）；能认的换成人读的正式名。
     未收录的原样回退 —— 不认识的厂商编不出名字。 */

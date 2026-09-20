@@ -18,7 +18,7 @@ import { CUSTOM_PROVIDER, ModelDialog, keyRefOf } from "../../settings/ModelDial
 import { probeProvider } from "../../settings/providerProbe";
 import { useOnboardingCatalog } from "../catalog";
 import { writeNamespaceOnce } from "../../settings/useSettingNamespace";
-import { QUICK_ADD_PROVIDERS, providerLabel } from "../../settings/vendors";
+import { PICKER_EXCLUDED_PROVIDERS, QUICK_ADD_PROVIDERS, providerLabel } from "../../settings/vendors";
 import { ProviderIcon } from "../../components/ProviderIcon";
 import css from "../OnboardingWizard.module.css";
 
@@ -49,8 +49,11 @@ export function ModelStep() {
   const ref = keyRefOf(provider, cat.deepseek.apiKeyEnv);
   const configured = cat.credentials[ref] === true;
   // chip = 快捷厂商 + 其他已声明的提供方（自定义加的、迁移导入的都在这里出现，
-  // 否则那些提供方在引导里根本选不到）。
-  const extraProviders = Object.keys(cat.pi.providers).filter((id) => !QUICK_ADD_PROVIDERS.includes(id));
+  // 否则那些提供方在引导里根本选不到）；挑选入口排除表（PICKER_EXCLUDED_PROVIDERS）
+  // 里的提供方即使已配密钥也不出现——它的入口已收敛到另一条端点。
+  const extraProviders = Object.keys(cat.pi.providers).filter(
+    (id) => !QUICK_ADD_PROVIDERS.includes(id) && !PICKER_EXCLUDED_PROVIDERS.includes(id),
+  );
 
   // 该提供方的模型清单：发现接口优先（端点实况），回落到引擎目录。
   useEffect(() => {
@@ -192,7 +195,7 @@ export function ModelStep() {
               onClick={() => { setProvider(id); setKey(""); setNotice(null); setError(null); }}
             >
               <ProviderIcon provider={id} size={15} />
-              {profile?.displayName ?? id}
+              {providerLabel(id, profile?.displayName ?? id)}
               {done && <Check size={12} />}
             </button>
           );
