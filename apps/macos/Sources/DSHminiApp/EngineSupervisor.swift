@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Supervises the `dsh` child process: spawn, parse the `dsh web:` URL,
@@ -91,6 +92,9 @@ final class EngineSupervisor {
         restartWorkItem?.cancel()
         restartWorkItem = nil
         guard process == nil else { return }
+        // 壳被强杀过（上一条 pid 还活着）：先收掉它，再起新的——同一份 DSH_HOME
+        // 同时被两个引擎写，会话会交错。
+        Self.reapLeftoverEngine()
         if !FileManager.default.fileExists(
             atPath: home.appendingPathComponent(".credentials.yaml").path
         ) {
@@ -102,13 +106,62 @@ final class EngineSupervisor {
         spawn()
     }
 
+    /// 收掉引擎：SIGTERM →（等它走）→ SIGKILL。
+    /// 旧实现发完 SIGTERM 就把引用丢了、不等待：SIGTERM 被忽略或卡住的引擎就此
+    /// 变成孤儿，继续占着 DSH_HOME 写会话——下次启动就是两个引擎交错写同一份存储
+    /// （单实例锁想防的正是这件事）。等待有上限（引擎正常是毫秒级退出）。
     func stop() {
         stopping = true
         restartWorkItem?.cancel()
         restartWorkItem = nil
-        process?.terminate()
+        guard let proc = process else { state = .idle; return }
         process = nil
+        proc.terminate()
+        let deadline = Date().addingTimeInterval(Self.stopGraceSeconds)
+        while proc.isRunning, Date() < deadline {
+            usleep(20_000)
+        }
+        if proc.isRunning {
+            log.append("[engine] did not exit on SIGTERM within \(Self.stopGraceSeconds)s; SIGKILL")
+            kill(proc.processIdentifier, SIGKILL)
+            proc.waitUntilExit()
+        }
+        Self.clearPidFile()
         state = .idle
+    }
+
+    /// SIGTERM 之后等它自己走的宽限（正常是毫秒级；卡住的引擎不该拖住退出）。
+    private static let stopGraceSeconds: TimeInterval = 2
+
+    /// 引擎 pid 文件：壳被强杀（Force Quit / SIGKILL）时进程不会走 stop()，
+    /// 留下的引擎靠它在下一次启动时被收掉。
+    static var enginePidFile: URL { AppPaths.supportDir.appendingPathComponent("engine.pid") }
+
+    private static func clearPidFile() {
+        try? FileManager.default.removeItem(at: enginePidFile)
+    }
+
+    /// 收掉上一次运行残留的引擎（壳被强杀才会出现）。**先核对可执行路径**再动手：
+    /// pid 会被复用，不看身份就 kill 可能误杀无关进程。
+    static func reapLeftoverEngine() {
+        guard let raw = try? String(contentsOf: enginePidFile, encoding: .utf8),
+              let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
+        defer { clearPidFile() }
+        guard kill(pid, 0) == 0 else { return } // 已经死了
+        var buffer = [UInt8](repeating: 0, count: Int(MAXPATHLEN))
+        let n = proc_pidpath(pid, &buffer, UInt32(buffer.count))
+        guard n > 0 else { return }
+        let path = String(decoding: buffer[0..<Int(n)], as: UTF8.self)
+        // 身份核对：必须是我们的随包 node（或外部 dsh）在跑引擎脚本
+        guard path.contains(".app/Contents/Resources/Runtime/") || path.hasSuffix("/bin/node") else {
+            EngineLog.shared.append("[engine] leftover pid \(pid) has unexpected image \(path); leaving it alone")
+            return
+        }
+        EngineLog.shared.append("[engine] reaping leftover engine pid \(pid) (\(path))")
+        kill(pid, SIGTERM)
+        let deadline = Date().addingTimeInterval(stopGraceSeconds)
+        while kill(pid, 0) == 0, Date() < deadline { usleep(20_000) }
+        if kill(pid, 0) == 0 { kill(pid, SIGKILL) }
     }
 
     // MARK: - entry resolution
@@ -275,11 +328,18 @@ final class EngineSupervisor {
         let cwd = workspace.path
 
         let process = Process()
-        let patchArg = Self.ensureEnginePatchFile()
+        // 顺序要紧：先铺插件拿到"能不能挂"的结论，patch 才据此决定挂不挂
         Self.ensureAutomationSkill()
         Self.ensureEvolutionSkill()
         Self.ensureSessionMemorySkill()
-        Self.ensureSessionMemoryPlugin()
+        let memoryAvailability = Self.ensureSessionMemoryPlugin()
+        if DSHAppPrefs.sessionMemoryEnabled, case .unavailable(let why) = memoryAvailability {
+            log.append("[engine] session-memory plugin not mounted: \(why)")
+            DSHAppPrefs.setSessionMemoryMountNote(why)
+        } else {
+            DSHAppPrefs.setSessionMemoryMountNote(nil)
+        }
+        let patchArg = Self.ensureEnginePatchFile(sessionMemory: memoryAvailability)
         Self.ensureLessonVerifyScript()
         Self.ensureLessonGateScript()
         Self.ensureLessonLandScript()
@@ -307,6 +367,7 @@ final class EngineSupervisor {
             DispatchQueue.main.async { self?.handleExit(proc) }
         }
 
+        try? "\(process.processIdentifier)".write(to: Self.enginePidFile, atomically: true, encoding: .utf8)
         state = .launching
         switch entry {
         case .bundled(let node, let script):
@@ -346,12 +407,15 @@ final class EngineSupervisor {
     /// always win; a write failure degrades to those two capabilities being
     /// unavailable (the engine still boots: overlay errors fail-loud, so only a
     /// missing file is tolerable — it must exist, else the arg points nowhere).
-    static func ensureEnginePatchFile() -> URL {
+    static func ensureEnginePatchFile(sessionMemory: LocalPluginAvailability) -> URL {
         let url = AppPaths.supportDir.appendingPathComponent("engine-patch.yml")
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let memoryUsable = DSHAppPrefs.sessionMemoryEnabled
+            && DSHAppPrefs.sessionMemoryQuarantineReason == nil
+            && sessionMemory == .available
         try? enginePatchBody(
             evolutionEnabled: DSHAppPrefs.evolutionEnabled,
-            sessionMemoryEnabled: DSHAppPrefs.sessionMemoryEnabled,
+            sessionMemoryEnabled: memoryUsable,
         ).write(to: url, atomically: true, encoding: .utf8)
         return url
     }
@@ -509,28 +573,53 @@ final class EngineSupervisor {
             .appendingPathComponent("index.js")
     }
 
+    /// 本地文件插件的可挂载性（自检结果）。
+    enum LocalPluginAvailability: Equatable {
+        case available
+        /// 原因要能直接给用户看（设置页据此解释开关为何不生效）。
+        case unavailable(String)
+    }
+
     /// 铺会话记忆插件（每次启动重写：升级以应用内为准；开关关着也铺——挂不挂由
-    /// engine-patch 决定，铺盘本身无副作用）。
+    /// engine-patch 决定，铺盘本身无副作用）并**自检依赖能不能解析**。
     ///
     /// 插件文件的 `import "@deepseek-ai/dsh-tools"` 从文件位置向上找 node_modules；
-    /// 本目录不在 profiles 树里摸不到安装闭包，缺了它引擎 boot fail-loud（2026-09-13
-    /// 实机 3 连崩）。放一个指向随包 runtime 闭包的 node_modules 链接——与
-    /// `profiles/node_modules` 同一机制；每次启动重写，bundle 挪位置不断链。
+    /// 本目录不在 profiles 树里摸不到安装闭包——缺了它不是"这个功能不可用"，而是
+    /// **整棵插件树起不来**：引擎 boot fail-loud、三次启动失败进恢复屏（engine.log
+    /// 实测 5 次 Cannot find package '@deepseek-ai/dsh-tools'）。所以：
+    ///   ① 依赖放一个指向随包 runtime 闭包的 node_modules 链接（每次启动重写）；
+    ///   ② 闭包不存在（开发构建没嵌运行时）时**删掉旧链接**，不留悬空目标；
+    ///   ③ 自检链接与 @deepseek-ai/dsh-tools 都在，才回 available。
+    /// 调用方据返回值决定挂不挂——一个可选功能没有资格把引擎搞死。
     @discardableResult
-    static func ensureSessionMemoryPlugin() -> URL {
+    static func ensureSessionMemoryPlugin() -> LocalPluginAvailability {
         let url = sessionMemoryPluginURL
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try? sessionMemoryPluginSource.write(to: url, atomically: true, encoding: .utf8)
-        if let resources = Bundle.main.resourceURL {
-            let closure = resources.appendingPathComponent("Runtime/dsh/node_modules")
-            if FileManager.default.fileExists(atPath: closure.path) {
-                let link = dir.appendingPathComponent("node_modules", isDirectory: true)
-                try? FileManager.default.removeItem(at: link)
-                try? FileManager.default.createSymbolicLink(at: link, withDestinationURL: closure)
-            }
+        let link = dir.appendingPathComponent("node_modules", isDirectory: true)
+        guard let resources = Bundle.main.resourceURL else {
+            try? FileManager.default.removeItem(at: link)
+            return .unavailable("找不到应用资源目录")
         }
-        return url
+        let closure = resources.appendingPathComponent("Runtime/dsh/node_modules")
+        guard FileManager.default.fileExists(atPath: closure.path) else {
+            // 开发构建没嵌入运行时：旧链接会指向一个不存在的闭包 → boot 崩
+            try? FileManager.default.removeItem(at: link)
+            return .unavailable("随包运行时未嵌入（开发构建或 Runtime 缺失）")
+        }
+        try? FileManager.default.removeItem(at: link)
+        do {
+            try FileManager.default.createSymbolicLink(at: link, withDestinationURL: closure)
+        } catch {
+            return .unavailable("依赖链接建立失败：\(error.localizedDescription)")
+        }
+        guard FileManager.default.fileExists(
+            atPath: link.appendingPathComponent("@deepseek-ai/dsh-tools").path
+        ) else {
+            return .unavailable("随包运行时里没有 @deepseek-ai/dsh-tools")
+        }
+        return .available
     }
 
     private static func writeSkill(name: String, markdown: String) -> URL {
@@ -1211,6 +1300,7 @@ final class EngineSupervisor {
     /// a broken bundle means "reinstall the app"; a missing system dsh keeps
     /// the historic "install dsh" hint.
     private func launchFailureCopy(_ entry: Entry, error: Error) -> String {
+        if let mismatch = Self.archMismatchCopy(error) { return mismatch }
         switch entry {
         case .bundled:
             return "引擎程序不完整或无法执行（bundled runtime）。\n\n请重新安装 DeepDive。\n\n技术信息：\(error.localizedDescription)"
@@ -1223,6 +1313,16 @@ final class EngineSupervisor {
             }
             return "无法启动引擎：\(error.localizedDescription)\n\n请确认已安装 dsh：\nnpm i -g @deepseek-ai/dsh"
         }
+    }
+
+    /// EBADARCH（strerror(86) = "Bad CPU type in executable"）＝ 随包运行时不是
+    /// 本机架构：`prepare-node-runtime.sh` 按**构建机**架构取 node，所以在 Intel
+    /// Mac 上跑到这段的包必然是 arm64-only 的（PITFALLS §5.8 同族：分发包成立与否
+    /// 从没在目标机上端到端验证过）。这与「包不完整」无关，报成「请重新安装」会让
+    /// 用户重装到底也起不来——照实说清。nil = 不是这个原因，交给调用方原有文案。
+    private static func archMismatchCopy(_ error: Error) -> String? {
+        guard let posix = error as? POSIXError, posix.code == .EBADARCH else { return nil }
+        return "此分发包只带 Apple 芯片（arm64）的引擎运行时，无法在这台 Mac（Intel 处理器）上启动。\n\n请在 Apple 芯片的 Mac 上使用 DeepDive。"
     }
 
     private func consume(_ data: Data) {
@@ -1284,10 +1384,12 @@ final class EngineSupervisor {
             var removed = quarantineDeepDivePluginMounts()
             // app 层的会话记忆挂载同样纳入自愈：engine-patch 每次启动按开关重写，
             // 只摘文本会被写回——改偏好本体（= 临时关开关），日志留痕。
-            if removed == 0, DSHAppPrefs.sessionMemoryEnabled {
-                DSHAppPrefs.setSessionMemoryEnabled(false)
+            if removed == 0, DSHAppPrefs.sessionMemoryEnabled,
+               DSHAppPrefs.sessionMemoryQuarantineReason == nil {
+                // 不改用户的开关值，只登记隔离原因（设置页会显示"已自动停用：…"）
+                DSHAppPrefs.setSessionMemoryQuarantineReason("上次启动因它连续崩溃，已自动停用一次重试")
                 removed += 1
-                log.append("[engine] session-memory mount suspected in crash loop; toggled off for the retry")
+                log.append("[engine] session-memory mount suspected in crash loop; quarantined for the retry")
             }
             if removed > 0 {
                 log.append("[engine] quarantined \(removed) plugin mount(s) from user patch layer; retrying once")

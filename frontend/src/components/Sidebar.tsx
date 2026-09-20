@@ -18,7 +18,7 @@ import { WsSwitcher } from "./WsSwitcher";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import type { SessionSummary } from "../types";
 import { sessionTitle } from "../session/sessionTitle";
-import { isBadgedSession } from "../session/backgroundSession";
+import { isBadgedSession, isSidebarSession, titleHidesSession } from "../session/backgroundSession";
 import { DD_EVENTS } from "../events";
 
 interface CtxMenu { sessionId: string; title: string; cwd?: string; x: number; y: number }
@@ -90,6 +90,8 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   // 全文搜索（4.1）：引擎 session.search（标题∪正文）。内容命中随防抖
   // 异步到达；禁用部署（无 --patch 放行）下请求失败 → 静默降级 title-only。
   const [contentHits, setContentHits] = useState<Map<string, string>>(new Map());
+  /** 全文命中被引擎截断（session/search 上限 20 条）：结果少不是没有，得说一声。 */
+  const [hitsTruncated, setHitsTruncated] = useState(false);
   // 项目行：会话列表折叠（点行切换）与 ⋯ 菜单（重命名/删除工作区）。
   const [wsCollapsed, setWsCollapsed] = useState(false);
   const [wsCtx, setWsCtx] = useState<{ x: number; y: number } | null>(null);
@@ -109,6 +111,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   useEffect(() => {
     if (trimmedQuery.length < 2) {
       setContentHits(new Map());
+      setHitsTruncated(false);
       return;
     }
     const seq = ++searchReqRef.current;
@@ -116,9 +119,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       void api.search({ query: trimmedQuery }).then((r) => {
         if (searchReqRef.current !== seq) return;
         setContentHits(new Map(r.items.map((x) => [x.sessionId, x.snippet])));
+        setHitsTruncated(r.hasMore === true);
       }).catch(() => {
         // 引擎未放行 session.query 索引（DSH-WIRE §1）：保持 title-only
-        if (searchReqRef.current === seq) setContentHits(new Map());
+        if (searchReqRef.current === seq) { setContentHits(new Map()); setHitsTruncated(false); }
       });
     }, 250);
     return () => clearTimeout(timer);
@@ -195,7 +199,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const searchGroups = useMemo<Array<{ label: string; items: SessionSummary[] }>>(() => {
     if (!query) return [];
     const q = query.trim().toLowerCase();
-    const visible = store.sidebarSessions;
+    // 搜索域＝用户列表层 + 归档（归档只是列表归属，不该搜不到；引擎本来就
+    // 返回归档命中，旧实现拿过滤后的列表取交集，把它们全丢了）；本地已删的除外。
+    const visible = store.allSessions.filter((s) => isSidebarSession(s) && !store.removed.has(s.sessionId));
     const hits = visible.filter((s) => sessionTitle(s, lang).toLowerCase().includes(q));
     const hitIds = new Set(hits.map((s) => s.sessionId));
     const contentOnly = visible.filter((s) => !hitIds.has(s.sessionId) && contentHits.has(s.sessionId));
@@ -212,7 +218,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       .map((w) => ({ label: w.title, items: byWs.get(w.workspaceId)! }));
     // wsOf 是每渲染函数包装（仅读 wsOfSession，已入表）——入表即每渲染重算，显式排除
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, store.sessions, store.workspaces, store.wsOfSession, contentHits, lang, hasWs]);
+  }, [query, store.allSessions, store.removed, store.workspaces, store.wsOfSession, contentHits, lang, hasWs]);
 
   // 判定"是否在搜索"必须用 trim 后的值：搜索框残留一个空格时原始 query
   // 为真值、而 trim 后的空串会命中全部会话 —— 曾把跨空间搜索视图退化成
@@ -224,7 +230,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     setCtx({ sessionId: s.sessionId, title: sessionTitle(s, lang), cwd: s.cwd, x, y });
   };
 
-  const renderRow = (s: SessionSummary, snippet?: string) => (
+  const renderRow = (s: SessionSummary, snippet?: string, archived = false) => (
     <button
       key={s.sessionId}
       className={`task-row${s.sessionId === store.activeSessionId ? " selected" : ""}${s.running ? " running" : ""}${store.unread.has(s.sessionId) ? " unread" : ""}`}
@@ -261,6 +267,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             执行类（落库/自动化运行）已被 store 过滤，不会走到这里。 */}
         <span className="row-title-line">
           {isBadgedSession(s) && <span className="row-auto-badge">{t("自动")}</span>}
+          {archived && <span className="row-auto-badge">{t("已归档")}</span>}
           <HoverScrollText className="title">{sessionTitle(s, lang)}</HoverScrollText>
         </span>
         {snippet && <span className="row-snippet">{snippet}</span>}
@@ -386,11 +393,18 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           {view.map(({ label, items }) => (
             <div key={label}>
               {label && <div className="section-label">{label}</div>}
-              {items.map((s) => renderRow(s, !query.trim() ? undefined : contentHits.get(s.sessionId)))}
+              {items.map((s) => renderRow(s, !query.trim() ? undefined : contentHits.get(s.sessionId),
+                !query.trim() ? false : store.archived.has(s.sessionId)))}
             </div>
           ))}
           {view.length === 0 && (
             <div className="empty-state">{query ? t("无结果") : t("暂无会话")}</div>
+          )}
+          {query.trim().length === 1 && (
+            <div className="search-hint">{t("只按标题匹配；输入 2 个字以上可搜全文内容")}</div>
+          )}
+          {hitsTruncated && (
+            <div className="search-hint">{t("全文结果较多，只显示前 20 条——再输入几个字缩小范围")}</div>
           )}
         </div>
       </div>
@@ -428,9 +442,18 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           <div className="ctx-item" onClick={() => {
             setCtx(null);
             void promptDialog({ title: t("重命名任务"), initialValue: ctx.title }).then(async (title) => {
-              if (title && title.trim()) {
-                try { await api.sessionRename({ sessionId: ctx.sessionId, title: title.trim() }); await store.refresh(); } catch (err) { void alertDialog({ message: tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`) }); }
+              if (!title || !title.trim()) return;
+              const next = title.trim();
+              // 列表可见性由标题前缀派生：改成一个后台会话的名字 = 它从列表里消失
+              if (titleHidesSession(next)) {
+                const ok = await confirmDialog({
+                  title: t("重命名任务"),
+                  message: t("这个名字以后台会话前缀开头（自进化·／自动化·），改完这个会话会从列表里消失。确定吗？"),
+                  confirmLabel: t("重命名"),
+                });
+                if (!ok) return;
               }
+              try { await api.sessionRename({ sessionId: ctx.sessionId, title: next }); await store.refresh(); } catch (err) { void alertDialog({ message: tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`) }); }
             });
           }}>{t("重命名任务")}</div>
           <div className="ctx-item" onClick={async () => {

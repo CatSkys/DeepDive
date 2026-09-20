@@ -122,6 +122,39 @@ enum DSHAppPrefs {
 
     static func setSessionMemoryEnabled(_ value: Bool) {
         UserDefaults.standard.set(value, forKey: sessionMemoryEnabledKey)
+        // 用户自己再打开＝一次自觉的重试：清掉上次的自动隔离记录
+        if value { setSessionMemoryQuarantineReason(nil) }
+    }
+
+    /// 自动隔离原因（连续启动失败时由自愈写下）：挂在引擎 patch 之外，**不动用户
+    /// 的开关值**——旧实现直接把开关改成 false，用户下次打开设置页只看到"关着"，
+    /// 没有任何解释。设置页读它显示"已自动停用：<原因>"，用户点开关即重试。
+    static let sessionMemoryQuarantineKey = "deepdive.sessionMemory.quarantineReason"
+
+    static var sessionMemoryQuarantineReason: String? {
+        UserDefaults.standard.string(forKey: sessionMemoryQuarantineKey)
+    }
+
+    static func setSessionMemoryQuarantineReason(_ value: String?) {
+        if let value { UserDefaults.standard.set(value, forKey: sessionMemoryQuarantineKey) }
+        else { UserDefaults.standard.removeObject(forKey: sessionMemoryQuarantineKey) }
+    }
+
+    /// 本次启动"想挂但挂不上"的原因（依赖自检不过）：每次启动重写，条件好了自动清。
+    static let sessionMemoryMountNoteKey = "deepdive.sessionMemory.mountNote"
+
+    static var sessionMemoryMountNote: String? {
+        UserDefaults.standard.string(forKey: sessionMemoryMountNoteKey)
+    }
+
+    static func setSessionMemoryMountNote(_ value: String?) {
+        if let value { UserDefaults.standard.set(value, forKey: sessionMemoryMountNoteKey) }
+        else { UserDefaults.standard.removeObject(forKey: sessionMemoryMountNoteKey) }
+    }
+
+    /// 设置页要看的那一句：为什么打开着却没生效（隔离原因优先于本次自检结果）。
+    static var sessionMemoryBlockedReason: String? {
+        sessionMemoryQuarantineReason ?? sessionMemoryMountNote
     }
 
     static func setEvolutionEnabled(_ value: Bool) {

@@ -101,6 +101,12 @@ export interface SessionAdminResult {
 
 /** 登记本地覆盖集（unarchived/removed）并同步删掉 removed 的日志目录；
  *  无壳桥时静默（纯浏览器）。壳在下次启动空窗期把引擎状态改到位。 */
+/** 告诉壳哪些会话不该打扰用户（后台会话的"完成"不弹通知、不点亮悬浮球）。
+ *  判据的唯一事实源在前端（session/backgroundSession），壳只照做。 */
+export function setQuietSessions(ids: string[]): void {
+  sendToShell({ type: "quiet-sessions", ids });
+}
+
 export function sessionAdminSync(payload: { unarchived: string[]; removed: string[] }): void {
   sendToShell({ type: "session-admin-sync", ...payload });
 }

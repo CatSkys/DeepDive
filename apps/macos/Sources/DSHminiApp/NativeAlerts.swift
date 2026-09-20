@@ -72,7 +72,9 @@ enum NativeAlerts {
     static func notifyApprovalNeeded(toolName: String, sessionTitle: String, sessionId: String?) {
         guard DSHAppPrefs.notifyAttention, !NSApp.isActive else { return }
         NSApp.requestUserAttention(.informationalRequest)
-        post(id: "approval-\(UUID().uuidString)",
+        // 按会话合并：同一会话连来几个审批只留最新一条横幅（id 相同即替换），
+        // 十个待办也不该刷十屏；换会话仍然各弹一条（不同的东西要你处理）。
+        post(id: "approval-\(sessionId ?? UUID().uuidString)",
              title: "需要你的许可",
              subtitle: sessionTitle,
              body: "请求执行：\(toolName)",
@@ -83,7 +85,7 @@ enum NativeAlerts {
     static func notifyQuestionNeeded(questionText: String, sessionTitle: String, sessionId: String?) {
         guard DSHAppPrefs.notifyAttention, !NSApp.isActive else { return }
         NSApp.requestUserAttention(.informationalRequest)
-        post(id: "question-\(UUID().uuidString)",
+        post(id: "question-\(sessionId ?? UUID().uuidString)",
              title: "有问题要问你",
              subtitle: sessionTitle,
              body: truncated(questionText),

@@ -83,9 +83,11 @@ final class RemoteAccess {
         server?.stop()
         server = nil
         UserDefaults.standard.set(false, forKey: Self.enabledKey)
-        // 关掉即换令牌：下次开启的二维码与上一次无关。
+        // 关掉即换令牌：下次开启的二维码与上一次无关；同时换世代——已连上的
+        // 手机凭 cookie 还能继续读直播流的话，"关闭"就是句空话（SPEC §1 关闭即断）。
         lock.lock()
         token = Self.newToken()
+        generation += 1
         lock.unlock()
         EngineLog.shared.append("[remote] stopped")
     }
@@ -103,6 +105,35 @@ final class RemoteAccess {
         let snapshot = devices
         lock.unlock()
         Self.saveDevices(snapshot)
+        // 已升级的 WS 由中继自己收摊：台账里没有它了，下一轮醒来即断开
+        //（≤1s，见 BridgeServer 中继的注销票据）。HTTP 请求本来就是逐条查台账。
+    }
+
+    // MARK: - 活连接的注销票据（stop/解绑要能立刻切断已连上的手机）
+
+    /// 世代号：stop() 自增 → 所有远程中继作废（重新开启要重新配对）。
+    private var generation = 0
+
+    /// 一张票据＝"此刻的世代"；中继每轮拿它回查一次。
+    func connectionTicket() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return generation
+    }
+
+    /// 中继还该不该活着：世代没换 **且** 该设备仍在台账里。
+    /// 只读判定，不动 fd——跨线程关 fd 会撞 fd 复用（BridgeServer 中继注释）。
+    func connectionStillAllowed(ticket: Int, deviceId: String?) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard ticket == generation else { return false }
+        guard let deviceId else { return true }
+        return devices.contains { $0.id == deviceId }
+    }
+
+    /// 这条请求带的设备 cookie 对应的设备 id（没有/未配对回 nil）。
+    func deviceIdFor(_ request: MiniHTTPServer.Request) -> String? {
+        deviceId(fromCookie: request.headers["cookie"])
     }
 
     // MARK: - 准入

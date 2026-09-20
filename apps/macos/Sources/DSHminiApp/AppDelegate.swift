@@ -139,10 +139,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
-        // First run: show the window so onboarding is discoverable.
-        if !FileManager.default.fileExists(atPath: AppPaths.configURL.path) {
-            windowController.showPanel()
-        }
+        // 双击图标启动就是要用：一律把窗口带到前台。旧判据是「config.json 不
+        // 存在才算首启」，而 config.json 会被「改快捷键」与菜单栏「设置启动
+        // 工作区…」（说明书里就教这一步）顺手创建——此后冷启动双击图标毫无
+        // 反应，菜单栏应用连个提示都没有，被用户报成「打不开」（只剩 Dock
+        // 图标 / 菜单栏 / ⌥Space 三条唤出路径）。bridge URL 已在上方 load。
+        windowController.showPanel()
 
         // Dev/verification hook (same family as DSHMINI_OPEN_SID): open the
         // settings window right after boot.
@@ -235,8 +237,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if CFGetTypeID(raw) == CFBooleanGetTypeID() {
                 let value = raw.boolValue
                 switch key {
-                case "notifyTurnEnd": DSHAppPrefs.setNotifyTurnEnd(value)
-                case "notifyAttention": DSHAppPrefs.setNotifyAttention(value)
+                case "notifyTurnEnd":
+                    DSHAppPrefs.setNotifyTurnEnd(value)
+                    // 打开开关就是用户表达"我要通知"的时刻：授权请求在这里发。
+                    // 旧实现只在首个任务派发时请求（且只在 running=true 时），
+                    // 于是没跑过任务的会话永远拿不到授权，引擎异常通知静默丢弃、
+                    // 设置页的开关看着能用其实没生效（AUD-0xx）。
+                    if value { NativeAlerts.requestAuthorizationIfNeeded() }
+                case "notifyAttention":
+                    DSHAppPrefs.setNotifyAttention(value)
+                    if value { NativeAlerts.requestAuthorizationIfNeeded() }
                 case "evolutionEnabled":
                     DSHAppPrefs.setEvolutionEnabled(value)
                 case "sessionMemoryEnabled":
@@ -339,6 +349,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         case "pick-workspace":
             pickWorkspaceDirectory()
+        case "quiet-sessions":
+            // 前端推来的"不打扰"会话集（后台会话判据的唯一事实源在前端）
+            EngineEventObserver.shared.setQuietSessions(body["ids"] as? [String] ?? [])
         case "prepare-workspace":
             prepareWorkspace(
                 reqId: body["reqId"] as? String ?? "",
@@ -1065,6 +1078,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
         "evolutionEnabled": DSHAppPrefs.evolutionEnabled,
             "sessionMemoryEnabled": DSHAppPrefs.sessionMemoryEnabled,
+            // 开关开着却没挂上时的原因（依赖缺失/上次崩溃被隔离）：设置页据此说明
+            "sessionMemoryBlocked": DSHAppPrefs.sessionMemoryBlockedReason as Any,
             "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
         ]

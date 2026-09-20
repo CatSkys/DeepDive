@@ -13,8 +13,9 @@ import { useT } from "../i18n";
 import { comboFor } from "../keybinds";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { api } from "../api";
-import { alertDialog, promptDialog } from "./DialogHost";
+import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { sessionTitle } from "../session/sessionTitle";
+import { titleHidesSession } from "../session/backgroundSession";
 import { WsGlyph } from "./IconPicker";
 import { IconProjectAddOutline16 } from "./Icons";
 import { openNewProjectDialog } from "./NewProjectDialog";
@@ -119,7 +120,17 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
       { key: "rename-session", icon: <SquarePen size={15} />, label: t("重命名当前会话"), run: () => {
         void promptDialog({ title: t("重命名任务") }).then(async (title) => {
           if (!title || !title.trim()) return;
-          try { await api.sessionRename({ sessionId: sid, title: title.trim() }); await store.refresh(); }
+          const next = title.trim();
+          // 同侧栏右键：标题前缀决定列表可见性，改完会消失的先问一句
+          if (titleHidesSession(next)) {
+            const ok = await confirmDialog({
+              title: t("重命名任务"),
+              message: t("这个名字以后台会话前缀开头（自进化·／自动化·），改完这个会话会从列表里消失。确定吗？"),
+              confirmLabel: t("重命名"),
+            });
+            if (!ok) return;
+          }
+          try { await api.sessionRename({ sessionId: sid, title: next }); await store.refresh(); }
           catch (err) { void alertDialog({ message: tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`) }); }
         });
       } },

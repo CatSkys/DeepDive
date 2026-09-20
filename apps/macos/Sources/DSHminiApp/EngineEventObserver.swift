@@ -23,6 +23,16 @@ final class EngineEventObserver {
     var needsAttention: Bool { !pendingApprovals.isEmpty || !pendingQuestions.isEmpty }
     var isRunning: Bool { !runningSessions.isEmpty }
 
+    /// 不该打扰用户的会话（自动化的运行会话、自进化的落库/复盘会话）——判据由
+    /// 前端给（session/backgroundSession 是唯一事实源，壳不复刻标题前缀规则）。
+    /// 只用来压"完成"这类噪音；**待审批/提问照旧通知**（那是真有人在等）。
+    private var quietSessions = Set<String>()
+
+    func setQuietSessions(_ ids: [String]) {
+        quietSessions = Set(ids)
+        publish()
+    }
+
     private var task: URLSessionWebSocketTask?
     private var session: URLSession?
     private var base: URL?
@@ -207,7 +217,9 @@ final class EngineEventObserver {
             NativeAlerts.requestAuthorizationIfNeeded()
             runningSessions.insert(sessionId)
             lastErrors[sessionId] = nil
-            FloatingBubbleManager.shared.noteRunningStarted(sessionId: sessionId)
+            if !quietSessions.contains(sessionId) {
+                FloatingBubbleManager.shared.noteRunningStarted(sessionId: sessionId)
+            }
         } else {
             let wasRunning = runningSessions.remove(sessionId) != nil
             if wasRunning {
@@ -226,11 +238,15 @@ final class EngineEventObserver {
             // request = {toolName, callId?, reason?}（user-approval 契约）。
             let request = value["request"] as? [String: Any] ?? [:]
             let toolName = request["toolName"] as? String ?? "工具调用"
-            pendingApprovals.insert(eventId)
+            // 同一 eventId 重发（mux 重连后引擎会重播仍挂起的 waterfall）不再弹：
+            // 旧实现 insert 后无条件通知，重连一次就是第二条横幅 + 第二次弹跳。
+            let isNew = pendingApprovals.insert(eventId).inserted
             FloatingBubbleManager.shared.noteNeedsAttention()
             answerNext(eventId: eventId)
-            resolveTitle(sessionId: sessionId) { title in
-                NativeAlerts.notifyApprovalNeeded(toolName: toolName, sessionTitle: title, sessionId: sessionId)
+            if isNew {
+                resolveTitle(sessionId: sessionId) { title in
+                    NativeAlerts.notifyApprovalNeeded(toolName: toolName, sessionTitle: title, sessionId: sessionId)
+                }
             }
             publish()
         case "user-questions/request":
@@ -239,11 +255,13 @@ final class EngineEventObserver {
             let questionText = (request["questions"] as? [[String: Any]])?
                 .compactMap { $0["question"] as? String }
                 .first ?? "打开 DeepDive 查看并回答"
-            pendingQuestions.insert(eventId)
+            let isNew = pendingQuestions.insert(eventId).inserted
             FloatingBubbleManager.shared.noteNeedsAttention()
             answerNext(eventId: eventId)
-            resolveTitle(sessionId: sessionId) { title in
-                NativeAlerts.notifyQuestionNeeded(questionText: questionText, sessionTitle: title, sessionId: sessionId)
+            if isNew {
+                resolveTitle(sessionId: sessionId) { title in
+                    NativeAlerts.notifyQuestionNeeded(questionText: questionText, sessionTitle: title, sessionId: sessionId)
+                }
             }
             publish()
         default:
@@ -264,6 +282,7 @@ final class EngineEventObserver {
     }
 
     private func noteTurnFinished(sessionId: String, failed: Bool) {
+        if quietSessions.contains(sessionId) { return } // 机器会话的完成不值得打扰
         let appInactive = !NSApp.isActive
         FloatingBubbleManager.shared.noteTurnFinished(sessionId: sessionId, appInactive: appInactive)
         if appInactive, !failed {
@@ -312,7 +331,9 @@ final class EngineEventObserver {
     }
 
     private func publish() {
-        FloatingBubbleManager.shared.sync(running: isRunning, attention: needsAttention)
-        StatusItemController.shared?.setActivity(running: isRunning, attention: needsAttention)
+        // running 只在"用户会话"上算：后台跑（自动化/落库）不该点亮悬浮球与菜单栏
+        let userRunning = !runningSessions.subtracting(quietSessions).isEmpty
+        FloatingBubbleManager.shared.sync(running: userRunning, attention: needsAttention)
+        StatusItemController.shared?.setActivity(running: userRunning, attention: needsAttention)
     }
 }

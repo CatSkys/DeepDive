@@ -68,6 +68,11 @@ export function MemorySection() {
           </div>
           <Toggle on={store.sessionMemoryEnabled} onChange={(v) => void toggle(v)} />
         </div>
+        {store.sessionMemoryEnabled && store.sessionMemoryBlocked !== null && (
+          <div className={css.note} data-tone="warn">
+            {tt("开关是开着的，但这次启动没能挂上：{why}。修好后重启应用即可生效。", "The toggle is on, but this launch could not mount it: {why}. Fix it and restart the app.", { why: store.sessionMemoryBlocked })}
+          </div>
+        )}
       </div>
 
       <div className={css.sectionLabel}>{tt("会话笔记（{n}）", "Session notes ({n})", { n: String(notes.length) })}</div>

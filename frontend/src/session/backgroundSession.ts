@@ -41,16 +41,27 @@ export function automationRunTitle(taskTitle: string): string {
 /** 会话的归类：null = 用户会话照常显示。 */
 export type BackgroundTier = "badge" | "hidden";
 
-/** 单个会话的处置。读不到标题 → null（fail-open，见文件头）。 */
-export function backgroundTier(s: SessionSummary): BackgroundTier | null {
-  const raw = (s.projections?.values as { title?: unknown } | undefined)?.title;
-  if (typeof raw !== "string") return null;
-  const title = raw.trim();
+/** 标题 → 处置（判据本体）。会话形态与"把它改成这个名字会变成什么"共用这一份
+ *  ——改名入口据此先问一句，别让一次重命名把会话从列表里改没了。
+ *  读不到标题 → null（fail-open，见文件头）。 */
+export function tierOfTitle(rawTitle: string | null): BackgroundTier | null {
+  const title = rawTitle?.trim() ?? "";
   if (title === "") return null;
   if ((CONSOLIDATE_TITLES as readonly string[]).includes(title)) return "badge";
   if (title.startsWith(EVOLUTION_PREFIX)) return "hidden";
   if (title.startsWith(AUTOMATION_PREFIX)) return "hidden";
   return null;
+}
+
+/** 单个会话的处置。 */
+export function backgroundTier(s: SessionSummary): BackgroundTier | null {
+  const raw = (s.projections?.values as { title?: unknown } | undefined)?.title;
+  return tierOfTitle(typeof raw === "string" ? raw : null);
+}
+
+/** 改名的准入判据：这个名字会不会让会话从用户列表里消失（进后台隐藏层）。 */
+export function titleHidesSession(title: string): boolean {
+  return tierOfTitle(title) === "hidden";
 }
 
 /** 是否不进用户会话列表（执行类后台会话）。 */

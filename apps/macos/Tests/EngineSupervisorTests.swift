@@ -157,17 +157,24 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertEqual(src.components(separatedBy: #"card: "generic""#).count - 1, 3, "presentCall 必须带 card")
         XCTAssertTrue(src.contains("ctx.agents.roots().includes"), "只挂 root agent（dsh-schedule 同款）")
         XCTAssertTrue(src.contains("DSH_HOME"), "笔记目录按 $DSH_HOME 解析")
-        let url = EngineSupervisor.ensureSessionMemoryPlugin()
-        XCTAssertTrue(url.path == EngineSupervisor.sessionMemoryPluginURL.path)
+        let availability = EngineSupervisor.ensureSessionMemoryPlugin()
+        let url = EngineSupervisor.sessionMemoryPluginURL
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), url.path)
         XCTAssertTrue(EngineSupervisor.memoryDir.path.hasSuffix("deepdive/memory"))
-        // 闭包链接：插件的 import 靠它解析（缺了引擎 boot fail-loud，2026-09-13 实机）。
-        // 测试宿主若没有随包 runtime 闭包，铺盘函数跳过链接——不判失败。
+        // 闭包链接 + 依赖自检：插件的 import 靠它解析，缺了不是"功能不可用"而是
+        // **整棵插件树起不来**（2026-09-13 实机）。测试宿主没有随包 runtime 闭包，
+        // 此时必须报 unavailable 且**不留悬空链接**——挂载判据据此不挂它。
         let closure = (Bundle.main.resourceURL?.appendingPathComponent("Runtime/dsh/node_modules"))?.path
+        let link = url.deletingLastPathComponent().appendingPathComponent("node_modules").path
         if let closure, FileManager.default.fileExists(atPath: closure) {
-            let link = url.deletingLastPathComponent().appendingPathComponent("node_modules").path
+            XCTAssertEqual(availability, .available)
             let dest = try FileManager.default.destinationOfSymbolicLink(atPath: link)
             XCTAssertEqual(dest, closure, "node_modules 链接必须直指随包安装闭包")
+        } else {
+            guard case .unavailable = availability else {
+                return XCTFail("没有随包闭包时必须报 unavailable，不能报可挂载")
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: link), "不留悬空链接")
         }
         XCTAssertTrue(EngineSupervisor.sessionMemoryPluginSource.contains("DSH_HOME"), "笔记目录按 $DSH_HOME 解析")
     }

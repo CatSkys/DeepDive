@@ -3,7 +3,7 @@ import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
 import { converged, visibleArchived, visibleSessions } from "./sessionOverrides";
 import { backgroundTier, isHiddenSession, isSidebarSession } from "./session/backgroundSession";
-import { sessionAdminSync } from "./host";
+import { sessionAdminSync, setQuietSessions } from "./host";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
 import { usePrefs } from "./prefs";
@@ -119,6 +119,8 @@ interface Store {
   setEvolutionEnabled: (v: boolean) => void;
   /** 会话记忆开关（壳持久化；设置→记忆）。 */
   sessionMemoryEnabled: boolean;
+  /** 会话记忆开着却没生效时的原因（壳给）；空 = 正常。 */
+  sessionMemoryBlocked: string | null;
   setSessionMemoryEnabled: (v: boolean) => void;
   /** 后台会话的处置判据（标题即判据，见 session/backgroundSession.ts）：allSessions 保留。 */
   backgroundTier: typeof backgroundTier;
@@ -214,6 +216,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     hotkeyOn, setHotkeyOn,
     evolutionEnabled, setEvolutionEnabled,
     sessionMemoryEnabled, setSessionMemoryEnabled,
+    sessionMemoryBlocked,
   } = prefs;
   /** 单值偏好读取：无 localStorage（受限环境）或值非法一律回退默认。 */
   const readPref = <T,>(key: string, fallback: T, parse: (raw: string) => T | null): T => {
@@ -668,6 +671,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sidebarSessions = useMemo(() => visibleList.filter(isSidebarSession), [visibleList]);
   const sidebarSessionsRef = useRef(sidebarSessions);
   sidebarSessionsRef.current = sidebarSessions;
+  // 机器会话集推给壳：自动化的运行会话/自进化的落库会话"完成"时不该弹通知、
+  // 不该点亮悬浮球（待审批照旧——那是真有人在等）。只推变化，别每轮刷。
+  const quietKey = sessions.filter(isHiddenSession).map((s) => s.sessionId).sort().join(",");
+  const quietKeyRef = useRef("");
+  useEffect(() => {
+    if (quietKey === quietKeyRef.current) return;
+    quietKeyRef.current = quietKey;
+    setQuietSessions(quietKey === "" ? [] : quietKey.split(","));
+  }, [quietKey]);
 
   const value = useMemo<Store>(
     () => ({
@@ -696,6 +708,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     hotkeyOn,
     evolutionEnabled, setEvolutionEnabled,
     sessionMemoryEnabled, setSessionMemoryEnabled,
+    sessionMemoryBlocked,
     backgroundTier,
     setHotkeyOn,
       switchWorkspace,
@@ -738,7 +751,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

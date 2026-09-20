@@ -56,7 +56,9 @@ final class FloatingBubbleManager: ObservableObject {
 
     func noteTurnFinished(sessionId: String, appInactive: Bool) {
         if appInactive { unseenCompletion = true }
-        if focusSessionId == nil { focusSessionId = sessionId }
+        // 点击要去的是"最近完成的那个"：旧实现只在 nil 时设一次，此后永远指向
+        // 本次运行里第一个完成（往往早就看过了）的会话。
+        focusSessionId = sessionId
     }
 
     func noteNeedsAttention() {

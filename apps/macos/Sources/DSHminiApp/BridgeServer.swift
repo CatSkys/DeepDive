@@ -96,7 +96,8 @@ final class BridgeServer {
             self?.routeRemote(request) ?? .response(.init(status: 503))
         }
         server.upgradeHandler = { [weak self] fd, request in
-            self?.wsRelay(fd, request)
+            // 远程中继带设备身份：解绑/关闭时要能立刻断掉它的活连接
+            self?.wsRelay(fd, request, remoteDevice: RemoteAccess.shared.deviceIdFor(request))
         }
         return server
     }
@@ -176,11 +177,14 @@ final class BridgeServer {
 
     // MARK: - WebSocket blind relay (upgrade + bidirectional pump)
 
-    private func wsRelay(_ client: Int32, _ request: MiniHTTPServer.Request) {
+    private func wsRelay(_ client: Int32, _ request: MiniHTTPServer.Request, remoteDevice: String? = nil) {
         guard let engineBase else {
             close(client)
             return
         }
+        // 远程连接取一张注销票据（回环面为 nil）：stop/解绑后中继自己收摊——
+        // **不能从别的线程关它的 fd**（fd 复用会误伤新连接，见下方中继注释）。
+        let ticket = remoteDevice == nil ? nil : RemoteAccess.shared.connectionTicket()
         guard let host = engineBase.host, let port = engineBase.port,
               let key = request.headers["sec-websocket-key"] else {
             close(client)
@@ -249,7 +253,14 @@ final class BridgeServer {
                 pollfd(fd: client, events: Int16(POLLIN), revents: 0),
             ]
             pump: while true {
-                if poll(&fds, 2, -1) <= 0 { break }
+                // 远程连接用 1s 超时轮询：醒来先查"还要不要活着"（有票据的才查）。
+                // 回环面保持无限等待——它没有可被撤销的身份。
+                if let ticket, !RemoteAccess.shared.connectionStillAllowed(ticket: ticket, deviceId: remoteDevice) {
+                    break pump
+                }
+                let ready = poll(&fds, 2, ticket == nil ? -1 : 1000)
+                if ready < 0 { break }
+                if ready == 0 { continue }
                 for i in 0..<2 {
                     if fds[i].revents == 0 { continue }
                     let n = recv(fds[i].fd, &buf, buf.count, 0)

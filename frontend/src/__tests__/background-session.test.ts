@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AUTOMATION_PREFIX, CONSOLIDATE_TITLES, EVOLUTION_PREFIX, HOME_TASK_TITLE, REPO_TASK_TITLE,
-  automationRunTitle, backgroundTier, isBadgedSession, isHiddenSession,
+  automationRunTitle, backgroundTier, isBadgedSession, isHiddenSession, titleHidesSession,
 } from "../session/backgroundSession";
 import type { SessionSummary } from "../types";
 
@@ -64,5 +64,18 @@ describe("automationRunTitle", () => {
     expect(EVOLUTION_PREFIX.endsWith("·")).toBe(true);
     expect(AUTOMATION_PREFIX.endsWith("·")).toBe(true);
     expect(REPO_TASK_TITLE.startsWith(EVOLUTION_PREFIX)).toBe(true);
+  });
+});
+
+describe("titleHidesSession（改名准入）", () => {
+  it("改名成后台前缀会隐藏会话——入口据此先问一句", () => {
+    expect(titleHidesSession(`${EVOLUTION_PREFIX}落库`)).toBe(true);
+    expect(titleHidesSession(`${AUTOMATION_PREFIX}每日报告`)).toBe(true);
+  });
+
+  it("普通名字与整理类名字不隐藏", () => {
+    expect(titleHidesSession("修登录 bug")).toBe(false);
+    expect(titleHidesSession(`${EVOLUTION_PREFIX}复盘`)).toBe(false);
+    expect(titleHidesSession("  ")).toBe(false);
   });
 });
