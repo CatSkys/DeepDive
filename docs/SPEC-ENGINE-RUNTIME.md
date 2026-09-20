@@ -39,7 +39,7 @@
 - 在 `build-release.sh` / `package-macos.sh` / `dev.sh` 中追加一步（与 `embed-web.sh` 平级）。
 - 将：
   - `node` 可执行（按 §3.1 `node-version.txt` 引脚取，非本机随手版）→ `Contents/Resources/Runtime/node`（**勿放 `Contents/MacOS/`**：LS 会当成第二个 app，Dock 闪 node 窗口；校验架构匹配、动态 node 的 `libnode*.dylib` 拷到 `Resources/Runtime/lib` 与二进制做兄弟目录——`@executable_path/../lib` 靠它解析）。
-  - 准备好的 DSH runtime 闭包（`prepare-dsh-runtime.sh` 输出）→ **`Contents/Resources/Runtime/dsh/`（整目录拷入，入口脚本为 `Runtime/dsh/lib/bin.js`）**。
+  - 准备好的 DSH runtime 闭包（`prepare-dsh-runtime.sh` 输出）→ **`Contents/Resources/Runtime/dsh/`（整目录拷入，入口脚本为 `Runtime/dsh/lib/bin.js`）**；拷入后由 `patch-engine-model-data.sh` 把 pi-ai 的生成数据层覆盖为 `scripts/engine-model-data/` 快照（模型目录新鲜度，见 `ARCHITECTURE §5`；带版本闸，引脚自带 pi-ai 够新即自动跳过）。
 - 记录/声明运行时许可（Node LICENSE、DSH runtime THIRD_PARTY_NOTICES）。
 
 ### 3.4 入口解析与 spawn 形状（`EngineSupervisor`）

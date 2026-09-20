@@ -463,7 +463,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 
 ### 7.4 llm-pi-ai 配置段会被静默丢弃 + YAML `off` 键变布尔（2026-09-05 实测）
 - 症状：`settings.describe` 没有 `llm-pi-ai` 命名空间、`llm.models` 只剩 deepseek-official，**引擎日志零报错**。
-- 根因两起叠加：①引擎落盘 settings.yaml 时 `reasoningEfforts` 的 `off` 键不加引号，YAML 1.1 重读成布尔键 `false`（此后每轮启动都带着损坏键）；②配置条目在目录数据更换（当时嵌入时覆盖了 pi-ai 数据层，该覆盖层现已删除，模型目录改为随引脚走）后令路由解析失败，引擎对 llm-pi-ai 段的解析/决议失败一律**静默丢段**。
+- 根因两起叠加：①引擎落盘 settings.yaml 时 `reasoningEfforts` 的 `off` 键不加引号，YAML 1.1 重读成布尔键 `false`（此后每轮启动都带着损坏键）；②配置条目在目录数据更换（嵌入时覆盖 pi-ai 数据层，见 `ARCHITECTURE §5` 模型目录新鲜度）后令路由解析失败，引擎对 llm-pi-ai 段的解析/决议失败一律**静默丢段**。
 - 处置：隔离 home 二分（同配置 × 旧/新引擎对跑 + 逐条目字段矩阵）定位；先查 `settings.describe` 的 ns 清单判断段是否被丢。修复 = 把 `llm-pi-ai.providers.<id>` profile **置空**（空 profile 服务完整引擎目录，模型菜单随目录数据走）；勿再手写 models 快照——配置 models 非空即整体替换目录（`dsh-llm-pi-ai` catalog 的 `resolveRouteModels`），且混合协议路由下配置新增陌生 id 会令整路由解析失败。
 
 

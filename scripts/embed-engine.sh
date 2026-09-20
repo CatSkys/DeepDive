@@ -93,6 +93,12 @@ fi
 rm -rf "$STAGE/Resources/Runtime/dsh"
 ditto "$RUNTIME_SOURCE" "$STAGE/Resources/Runtime/dsh"
 
+# Model-menu freshness: the pinned engine's pi-ai catalog is frozen at its
+# release date. Overlay the newer generated data layer (pure data, no code —
+# scripts/engine-model-data/README.md); no-ops once the pin's pi-ai is newer
+# than the snapshot。
+bash "$ROOT/scripts/patch-engine-model-data.sh" "$STAGE/Resources/Runtime/dsh"
+
 # Chat-import plugin（导入其他 Agent 会话，社区包 MIT）：独立引脚
 # scripts/dsh-chat-import-version.txt，prepare 脚本给出含 fzstd 的暂存目录。
 # 运行时由 ChatImportPlugin 装进 harness home 的 web profile（引擎启动前）。

@@ -93,7 +93,7 @@
 - **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（XcodeGen 把原文件拷进 bundle 作 `Resources/dsh-runtime-version.txt`，版本门据此判外部入口）+ `scripts/node-version.txt`（构建机校验 fail-loud）。
 - **构建链**：`prepare-dsh-runtime.sh`（闭包准备 + 原生/FFI 冒烟，`DSH_SOURCE` 可复用同版本源）+ `prepare-chat-import.sh` / `prepare-dsh-im.sh`（两个随包社区插件的闭包，各自版本引脚在 `scripts/dsh-*-version.txt`）→ `embed-engine.sh`（拷入 .app + `sign-app.sh` 重封 + 自检）→ `build-release.sh` / `package-macos.sh`（最终 `sign-app.sh` 深签 + 可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
 - **签名身份统一走 `sign-app.sh`**（两条链共用一份）：Developer ID 固定身份 → TCC 授权绑 (bundle id + 团队)、跨构建持久；ad-hoc 无 Team ID，授权只能按 cdhash 记，每次重建都重置（PITFALLS §4.8）。无证书环境回退 adhoc 并明说会丢授权。
-- **模型目录新鲜度**：模型目录随引脚走（引擎自带 pi-ai，`prepare-dsh-runtime.sh` 校验其版本与引脚一致）；旧的 `engine-model-data` 数据层覆盖已删。
+- **模型目录新鲜度**：pi-ai 的模型目录只在**它自己发版时**刷新（引擎自带发布当天的快照），所以引脚不动期间目录会过时。嵌入时由 `scripts/patch-engine-model-data.sh` 把 `scripts/engine-model-data/` 的**生成数据层**（纯数据、无代码改动）覆盖进 bundle 内的 pi-ai dist；脚本带版本闸（运行时 pi-ai ≥ 快照版次即跳过），引脚升过该版次后删掉覆盖目录（来源、更新步骤与快照语义变化见该目录 README）。`prepare-dsh-runtime.sh` 仍校验引擎自带 pi-ai 版本与引脚一致。
 - **版本韧性**：稳定面直接用；版本敏感面（provider 管理等）`probeMethod` 能力探测，缺则降级/隐藏。
 - 启动参数 `--profile web --no-open --port 0`；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。
 
