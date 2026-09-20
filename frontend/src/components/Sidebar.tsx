@@ -333,7 +333,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
               chevron（替代项目图标，折叠时转 -90°）与 ⋯/＋ 行尾按钮。
               行首槽位只显示弹窗里选的项目 glyph（wsIcons）；没选留空。 */}
           <div
-            className={`ws-row${wsCollapsed ? " collapsed" : ""}`}
+            className={`ws-row${wsCollapsed ? " collapsed" : ""}${WsGlyph ? "" : " no-glyph"}`}
             role="treeitem"
             aria-expanded={!wsCollapsed}
             onClick={() => setWsCollapsed((v) => !v)}

@@ -428,7 +428,9 @@ button {
 .ws-row:hover .ws-chevron-ic { transform: none; }
 .ws-row.collapsed .ws-chevron-ic { transform: rotate(-90deg); }
 .ws-row:hover .ws-lead .ws-folder-ic, .ws-row.collapsed .ws-lead .ws-folder-ic { opacity: 0; }
-.ws-row:hover .ws-name, .ws-row.collapsed .ws-name { margin-left: 20px; } /* 14 槽 + 6 gap */
+/* 让位只对「没选 glyph」的行：那时箭头落在项目名首字那一格，必须让开；选了 glyph 的
+   行箭头本来就在图标格里顶替 glyph，名字（已在文字列）不必动——动了反而多一次右移 */
+.ws-row.no-glyph:hover .ws-name, .ws-row.no-glyph.collapsed .ws-name { margin-left: 20px; } /* 14 槽 + 6 gap */
 
 .ws-row-actions { margin-left: auto; display: none; align-items: center; gap: 2px; }
 .ws-row:hover .ws-row-actions { display: inline-flex; }
