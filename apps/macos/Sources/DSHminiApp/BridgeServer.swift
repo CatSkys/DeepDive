@@ -31,6 +31,10 @@ final class BridgeServer {
         engineBase = base
     }
 
+    /// 上游引擎是否已在跑：判"这次页面加载是热重载还是冷启动"用——MainWindowController
+    /// 重载时据此带 `engine=ready`，前端首帧据此决定画不画启动骨架屏（见 App.tsx）。
+    var hasEngine: Bool { engineBase != nil }
+
     @discardableResult
     func start() -> Bool {
         guard server == nil else { return true }

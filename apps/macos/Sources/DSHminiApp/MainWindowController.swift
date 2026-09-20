@@ -254,10 +254,21 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     }
 
     func reloadWeb() {
-        if webView.url != nil {
-            webView.reload()
-            EngineLog.shared.append("[web] manual reload")
-        }
+        guard let url = webView.url else { return }
+        webView.load(URLRequest(url: Self.urlMarkingEngineReady(url)))
+        EngineLog.shared.append("[web] manual reload")
+    }
+
+    /// 重载时给 URL 带上 `engine=ready`：前端首帧据此知道引擎已在跑，直接渲染真实
+    /// 界面、不再闪一次启动骨架屏。冷启动那次加载（AppDelegate 的首次 load）不带这个
+    /// 参数——那时引擎确实还在起，骨架屏正是要显示的东西。
+    private static func urlMarkingEngineReady(_ url: URL) -> URL {
+        guard BridgeServer.shared.hasEngine,
+              var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        var items = (comps.queryItems ?? []).filter { $0.name != "engine" }
+        items.append(URLQueryItem(name: "engine", value: "ready"))
+        comps.queryItems = items
+        return comps.url ?? url
     }
 
     // MARK: - appearance（跟随系统 / 亮 / 暗）
@@ -297,7 +308,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         applyTheme()
         window?.appearance = enabled ? NSAppearance(named: .darkAqua) : nil
         if let url = webView.url {
-            webView.load(URLRequest(url: url))
+            webView.load(URLRequest(url: Self.urlMarkingEngineReady(url)))
         }
         // §3.1 联动指令：reload 已同步主题；再推一次 themeChanged 供前端钩子
         // 做 data-theme 切换（未就绪时经 pending 在新页面加载后投递）。

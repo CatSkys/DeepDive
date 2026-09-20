@@ -193,20 +193,18 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.keybinds]);
 
-  // 启动骨架屏的防抖：SPA 每次重载（引擎就绪时壳会 load 一次、切主题也会 reload）
-  // store 都是全新的，`everConnected` 要等首个 tick/壳的状态推送才翻真——直接判会
-  // 闪一下骨架屏，且正好闪在"启动→就绪"那一瞬。等 250ms 再显示：冷启动照样盖住
-  // 引擎启动期，重载则根本不出现。
-  const [skeletonArmed, setSkeletonArmed] = useState(false);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSkeletonArmed(true), 250);
-    return () => window.clearTimeout(timer);
-  }, []);
-  const booting = skeletonArmed && !store.everConnected && store.enginePhase !== "failed";
-  // 挂载 / 卸载：启动期挂上；结束时先淡出（时长在 CSS），由骨架屏自己在
+  // 启动骨架屏的判定**必须发生在首帧**：定时器/effect 都会让首帧先渲染真实界面，
+  // 于是"先看到画面再变成占位动画"（用户报的就是这一下）。所以冷启动与否由**文档
+  // 自带的 URL 参数**决定——壳在加载时就知道引擎在不在跑：
+  //   · 冷启动（应用刚拉起，引擎正在起）→ 不带参数 → 首帧就画骨架屏；
+  //   · 热重载（切主题 / 菜单「刷新界面」，引擎已在跑）→ 带 `engine=ready` →
+  //     直接渲染真实界面，数据几十毫秒内由 store 补上，不再闪骨架屏。
+  const engineReadyAtLoad = new URLSearchParams(window.location.search).get("engine") === "ready";
+  const booting = !engineReadyAtLoad && !store.everConnected && store.enginePhase !== "failed";
+  // 挂载 / 卸载：首帧即挂（见上）；结束时先淡出（时长在 CSS），由骨架屏自己在
   // transitionend 回报后再卸载——卸载时机不写第二份时长。失败态不算"启动中"
-  // （那是横幅的活：有原因、有重试，骨架屏会把它盖成"还在加载"）。
-  const [skeletonMounted, setSkeletonMounted] = useState(false);
+  //（那是横幅的活：有原因、有重试，骨架屏会把它盖成"还在加载"）。
+  const [skeletonMounted, setSkeletonMounted] = useState(booting);
   useEffect(() => {
     if (booting) setSkeletonMounted(true);
   }, [booting]);
