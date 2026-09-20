@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  apiKeyDeclaration,
   declaredInput,
   deriveRouteFromBaseURL,
   isRouteId,
+  keyRefOf,
   normalizeBaseURL,
   rewriteEntry,
   rewriteOverride,
+  sessionHeaders,
   visualKeyOf,
 } from "../settings/ModelDialog";
 import { piProtocolsOf } from "../settings/piProtocols";
@@ -103,6 +106,38 @@ describe("rewriteOverride（引擎目录行走 modelOverrides，不动 models �
 
   it("取消视觉只摘掉 input，其余字段留着", () => {
     expect(rewriteOverride({ input: ["text", "image"], maxTokens: 8192 }, "input", false)).toEqual({ maxTokens: 8192 });
+  });
+});
+
+describe("apiKeyDeclaration（存了密钥就要在 profile 上声明 ref）", () => {
+  it("填了密钥＝声明它落库用的那个 ref（由 keyRefOf 派生）", () => {
+    const ref = keyRefOf("opencode-go", "DEEPSEEK_API_KEY");
+    expect(ref).toBe("OPENCODE_GO_API_KEY");
+    expect(apiKeyDeclaration("sk-abc", ref)).toEqual({ apiKeyEnv: "OPENCODE_GO_API_KEY" });
+  });
+
+  it("留空＝不作声，由调用方 `...prev` 保留 profile 里原有的声明", () => {
+    expect(apiKeyDeclaration("", "OPENCODE_GO_API_KEY")).toEqual({});
+    expect(apiKeyDeclaration("   ", "OPENCODE_GO_API_KEY")).toEqual({});
+  });
+});
+
+describe("sessionHeaders（端点要求的路由级会话头）", () => {
+  it("表里的提供方生成一个稳定 id，并在下次保存时原样带过", () => {
+    const first = sessionHeaders("opencode-go", undefined);
+    expect(first?.["x-opencode-session"]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    const second = sessionHeaders("opencode-go", first);
+    expect(second?.["x-opencode-session"]).toBe(first?.["x-opencode-session"]);
+  });
+
+  it("已有的其它头原样保留", () => {
+    const next = sessionHeaders("opencode", { "x-opencode-session": "keep-me", "x-other": "v" });
+    expect(next).toEqual({ "x-opencode-session": "keep-me", "x-other": "v" });
+  });
+
+  it("表外的提供方不加头", () => {
+    expect(sessionHeaders("deepseek-official", undefined)).toBeUndefined();
+    expect(sessionHeaders("acme-gateway", undefined)).toBeUndefined();
   });
 });
 

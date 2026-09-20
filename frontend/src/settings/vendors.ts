@@ -87,6 +87,16 @@ export const HIDDEN_PROVIDERS: readonly string[] = [
     照旧列它，那里是配置管理面，藏掉会让已配好的密钥没法管。 */
 export const PICKER_EXCLUDED_PROVIDERS: readonly string[] = ["opencode"];
 
+/** 要求每个请求自报会话身份的端点：provider id → 头名。
+    OpenCode Go/Zen 实测：缺这个头直接 `400 MissingSessionID`，官方文档也把
+    「不发它」列为客户端接入缺陷。值是安装期生成一次、此后原样带过的稳定 id
+    ——引擎的 profile 头是 per-route 静态值，给不了「每个会话一个」；引擎带的
+    pi-ai 不填这个头，所以只能由路由层补。 */
+export const PROVIDER_SESSION_HEADERS: Record<string, string> = {
+  opencode: "x-opencode-session",
+  "opencode-go": "x-opencode-session",
+};
+
 /** 目录给的 displayName 就是 provider id 本身（全小写）；能认的换成人读的正式名。
     未收录的原样回退 —— 不认识的厂商编不出名字。 */
 export function providerLabel(provider: string, fallback: string): string {

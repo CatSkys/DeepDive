@@ -6,14 +6,16 @@ import { api } from "../api";
 import { t, tt } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { Dropdown } from "../components/controls";
-import { HIDDEN_PROVIDERS, providerLabel } from "./vendors";
+import { HIDDEN_PROVIDERS, PROVIDER_SESSION_HEADERS, providerLabel } from "./vendors";
+import { uuid } from "../uuid";
 import cssRows from "./SettingsRows.module.css";
 
 // 添加/编辑模型弹窗（版式照参考图）：提供商 → 接口地址 → API Key → 模型名称 →
 // 高级配置（模型类型）。字段落点按适配器分流——密钥走 credentials.set，DeepSeek
 // 官方目录写 llm-deepseek.models，预置/手写提供方写 llm-pi-ai.providers，模型
 // 发现走 llm.discoverModels。可声明的协议从 llm-pi-ai 的 schema 读（piProtocols.ts），
-// 前端不另存一份协议表。
+// 前端不另存一份协议表。pi 提供方存密钥时必须同时声明 ref（apiKeyDeclaration）：
+// 引擎只按 profile 的 apiKeyEnv 去凭据服务取密钥。
 //
 // 条目字段以各适配器自己的 Config 为准（0.1.2-rc.1 settings/describe 实测）：
 //   · pi      ：id / name / contextWindow / maxTokens / input / reasoningEfforts / compat
@@ -77,6 +79,8 @@ export interface PiProviderProfile {
   displayName?: string;
   api?: string;
   baseURL?: string;
+  /** 路由级请求头（引擎 `llm-pi-ai` profile 的字段）；会话头见 {@link sessionHeaders}。 */
+  headers?: Record<string, string>;
   models?: PiModelEntry[];
   /** 按 id 改目录里那一个模型、其余照旧服务（引擎 llm-pi-ai 的 modelOverrides）。 */
   modelOverrides?: Record<string, Omit<PiModelEntry, "id">>;
@@ -164,6 +168,34 @@ export function rewriteOverride(
   if (visual) next[key] = ["text", "image"];
   else delete next[key];
   return Object.keys(next).length === 0 ? null : (next as Omit<PiModelEntry, "id">);
+}
+
+/** 一次保存里的密钥声明：**这次填了密钥，就必须在 profile 上声明它落库用的那个
+ *  ref**（`apiKeyEnv`）。引擎只按 profile 的这个字段去凭据服务取密钥，路由没声明
+ *  就等于没有密钥——密钥存在、界面显示"已配置"，请求仍以
+ *  `Provider is not configured: <路由 id>` 失败（pi-ai 兜底只找它自己那套环境名，
+ *  与 `keyRefOf` 派生的名字对不上）。预置提供方与手写路由同此一规：两者的密钥都
+ *  落在 credentials。留空＝不表态：profile 里原有的声明（有的话）由调用方带过。
+ *  @param typedKey - 用户在这次保存里填的密钥。
+ *  @param ref - 密钥落库用的 ref（{@link keyRefOf} 派生）。
+ *  @returns 要并进 profile 的字段；留空时为空对象。 */
+export function apiKeyDeclaration(typedKey: string, ref: string): Pick<PiProviderProfile, "apiKeyEnv"> {
+  return typedKey.trim() ? { apiKeyEnv: ref } : {};
+}
+
+/** 该提供方的路由要带的会话头（表在 {@link PROVIDER_SESSION_HEADERS}）：值沿用
+ *  profile 里已有的——它是端点的路由身份，每次保存换一个等于每次换身份；没有才
+ *  现在生成。表外的提供方不加头（不认识的端点没有可猜的规矩）。
+ *  @param provider - 提供方 id（也是 profile 的键）。
+ *  @param existing - profile 里已有的头，原样保留。
+ *  @returns 要并进 profile 的头；该提供方不需要时为 undefined。 */
+export function sessionHeaders(
+  provider: string,
+  existing: Readonly<Record<string, string>> | undefined,
+): Record<string, string> | undefined {
+  const name = PROVIDER_SESSION_HEADERS[provider];
+  if (name === undefined) return undefined;
+  return { ...existing, [name]: existing?.[name] ?? uuid() };
 }
 
 export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initialProvider, credentials, onDone, onCancel }: {
@@ -288,8 +320,7 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
         await updatePiProviders({
           ...pi.providers,
           [finalRoute]: {
-            // 只有在确实要存密钥时才记 references：留空＝走提供方自己的环境认证
-            ...(key.trim() ? { apiKeyEnv: keyRef } : {}),
+            ...apiKeyDeclaration(key, keyRef),
             api: apiProto,
             baseURL: normalizedBaseURL,
             models,
@@ -297,6 +328,15 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
         });
       } else {
         const prev = profile ?? {};
+        // 预置提供方的密钥同样要声明在 profile 上（apiKeyDeclaration）：只在
+        // credentials 里存着而 profile 不声明 ref，路由就是"没配密钥"；少数端点
+        // 还要求会话头（sessionHeaders），一并在这里落。
+        const headers = sessionHeaders(providerId, prev.headers);
+        const merged = {
+          ...prev,
+          ...apiKeyDeclaration(key, keyRef),
+          ...(headers === undefined ? {} : { headers }),
+        };
         if (edit && !edit.listed && typedId === edit.origId) {
           // 引擎目录行：写 modelOverrides[id]，目录里其余模型照旧服务——models
           // 列表是"这份清单就是全部"，照它写会把该提供方的其它模型挤掉。
@@ -304,14 +344,14 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
           const next = rewriteOverride(overrides[typedId], "input", visual);
           if (next === null) delete overrides[typedId];
           else overrides[typedId] = next;
-          await updatePiProviders({ ...pi.providers, [providerId]: { ...prev, modelOverrides: overrides } });
+          await updatePiProviders({ ...pi.providers, [providerId]: { ...merged, modelOverrides: overrides } });
         } else {
           const models = discovered ?? (edit
             ? (prev.models ?? []).map((m) => (m.id === edit.origId
               ? rewriteEntry<PiModelEntry>(origEntry as PiModelEntry | undefined, typedId, "input", visual)
               : m))
             : [...(prev.models ?? []).filter((m) => m.id !== typedId), rewriteEntry<PiModelEntry>(undefined, typedId, "input", visual)]);
-          await updatePiProviders({ ...pi.providers, [providerId]: { ...prev, models } });
+          await updatePiProviders({ ...pi.providers, [providerId]: { ...merged, models } });
         }
       }
       onDone();

@@ -5,16 +5,17 @@
 //
 // 落库两条（活引擎实测的契约，别简化）：
 //  ① `credentials/set {ref}`——ref 按 `keyRefOf`（与设置页同一规则）；
-//  ② `llm-pi-ai.providers.<id> = {apiKeyEnv}` —— **只写密钥不声明 profile，提供方
-//     不会出现在模型目录里**（实测：写 KIMI_CODING_API_KEY 后目录仍只有 DeepSeek；
-//     补上空 profile 立刻出现 4 个模型）。空 profile 服务引擎完整目录，所以这里
-//     不写 models（写非空会整体替换该路由目录，PITFALLS §7.4）。DeepSeek official
-//     是随包组合的，不需要 profile，只写密钥。
+//  ② `llm-pi-ai.providers.<id> = {apiKeyEnv, headers?}` —— **只写密钥不声明 profile，
+//     提供方不会出现在模型目录里**（实测：写 KIMI_CODING_API_KEY 后目录仍只有 DeepSeek；
+//     补上空 profile 立刻出现 4 个模型）。这里只补密钥声明与该端点的会话头，profile
+//     其余字段（models 清单等）原样带过：不写 models 是本步的规矩（写非空会整体替换
+//     该路由目录，PITFALLS §7.4），但别处的声明也不能被这一次保存抹掉。DeepSeek
+//     official 是随包组合的，不需要 profile，只写密钥。
 import { useEffect, useState } from "react";
 import { Check, Loader2, Plus } from "lucide-react";
 import { api } from "../../api";
 import { useT } from "../../i18n";
-import { CUSTOM_PROVIDER, ModelDialog, keyRefOf } from "../../settings/ModelDialog";
+import { CUSTOM_PROVIDER, ModelDialog, keyRefOf, sessionHeaders, type PiProviderProfile } from "../../settings/ModelDialog";
 import { probeProvider } from "../../settings/providerProbe";
 import { useOnboardingCatalog } from "../catalog";
 import { writeNamespaceOnce } from "../../settings/useSettingNamespace";
@@ -92,17 +93,28 @@ export function ModelStep() {
     try {
       await api.credentialsSet({ ref, value: key.trim() });
       if (provider !== DEEPSEEK) {
-        // 声明 profile（空壳）：不写它，提供方不会出现在模型目录里。
+        // 声明 profile：不写它，提供方不会出现在模型目录里。原有的 profile **原样
+        // 带过**（models 清单、会话头都是别处落下的路由事实），只补密钥声明与
+        // 该端点的会话头。
         await writeNamespaceOnce(
           "llm-pi-ai",
           tt("引擎未提供 llm-pi-ai 命名空间，无法添加提供方", "The engine exposes no llm-pi-ai namespace; cannot add the provider"),
           async (entry) => {
-            const current = (entry.value ?? {}) as { providers?: Record<string, unknown> };
+            const current = (entry.value ?? {}) as { providers?: Record<string, PiProviderProfile> };
+            const prev = current.providers?.[provider];
+            const headers = sessionHeaders(provider, prev?.headers);
             await api.settingsUpdate({
               ns: "llm-pi-ai",
               patch: {
                 ...current,
-                providers: { ...(current.providers ?? {}), [provider]: { apiKeyEnv: ref } },
+                providers: {
+                  ...(current.providers ?? {}),
+                  [provider]: {
+                    ...prev,
+                    apiKeyEnv: ref,
+                    ...(headers === undefined ? {} : { headers }),
+                  },
+                },
               },
               expectedRevision: entry.revision,
             });
