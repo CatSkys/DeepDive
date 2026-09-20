@@ -12,6 +12,26 @@ import { uuid } from "./uuid";
 // Live data rides /api/remote.mux logical streams (mux.ts): $events forwarded
 // events + session/follow / session/control / workspace/follow.
 
+/** 引擎业务错误的附加事实（挂在抛出的 Error 上）：code 是 wire 错误码，reason 是
+ *  `details.reason`（附件准入那一类用它区分图片/文件与具体原因），engineMessage
+ *  是引擎原文——展示用，避免去解析 `code: message` 这个拼接串。 */
+export interface RpcErrorFacts {
+  code?: string;
+  reason?: string;
+  engineMessage?: string;
+}
+
+/** wire 错误 → Error（附上 code/reason/engineMessage；无 details 时只带 code）。 */
+function rpcError(error: { code?: string; message?: string; details?: unknown } | undefined): Error {
+  const err = new Error(`${error?.code ?? "rpc"}: ${error?.message ?? "unknown"}`);
+  Object.assign(err, {
+    code: error?.code,
+    reason: (error?.details as { reason?: string } | undefined)?.reason,
+    engineMessage: error?.message,
+  } satisfies RpcErrorFacts);
+  return err;
+}
+
 async function unary<T = unknown>(method: string, args: Record<string, unknown> = {}): Promise<T> {
   const res = await fetch("/api/" + method, {
     method: "POST",
@@ -26,8 +46,7 @@ async function unary<T = unknown>(method: string, args: Record<string, unknown> 
   if (!res.ok) throw new Error(`transport: ${method} HTTP ${res.status}`);
   const full: { rpcId: string; result: RpcResult<T> } = await res.json();
   if (!full.result.ok) {
-    const err = full.result.error;
-    throw new Error(`${err?.code ?? "rpc"}: ${err?.message ?? "unknown"}`);
+    throw rpcError(full.result.error);
   }
   return full.result.value as T;
 }

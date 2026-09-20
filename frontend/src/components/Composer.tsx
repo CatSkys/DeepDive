@@ -10,6 +10,8 @@ import { Lightbox } from "./Lightbox";
 import { alertDialog } from "./DialogHost";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { CommandSubmitAttachment, PromptContentPart } from "../types";
+import { classifyAttachmentRefusal, dropAttachmentParts } from "../attachmentRefusal";
+import type { RpcErrorFacts } from "../api";
 import { useComposerDraft } from "./composer/useComposerDraft";
 import { useComposerAttachments, type ImageAttachment } from "./composer/useComposerAttachments";
 import { DD_EVENTS } from "../events";
@@ -84,6 +86,9 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   useLayoutEffect(() => {
     if (taRef.current) autoGrow(taRef.current);
   }, [text]);
+  /** 失败提示文案：优先引擎原文（带可读原因），没有就回落到通用一句。 */
+  const failureText = (err: unknown, fallback: string) =>
+    err instanceof Error && err.message ? err.message : fallback;
   // 引擎命令目录（0.1.2 commands/list）：菜单与 Enter 裁决共用一份；草稿页没有
   // agent，拿的是前端内建兜底车道（useSlashCommands）。
   const commands = useSlashCommands(sessionId);
@@ -174,9 +179,8 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
         return; // 草稿保留供修正（官方语义：不静默发给模型）
       }
       // 附件随命令走：引擎声明了 input.attachments 才收（图片直传字节、文件走
-      // receiptId，同一条声明管两种；引擎在 execute 内再判一次准入，前端这次
-      // 只是提前给出同款提示，不再一律拒收）。引用（@）本来就是普通消息正文，
-      // 附件随 prompt 走，不受这里约束。
+      // receiptId，同一条声明管两种）。声明了但被引擎的附件准入拒（模型不吃图等）
+      // 时照样执行——附件是附件的事，不让它把命令挡死（见下方 catch）。
       if (attachments.length > 0 && !decision.command.input?.attachments) {
         void alertDialog({ message: tt("该命令不支持附件，请随普通消息发送", "This command does not accept attachments; send them with a normal message") });
         return;
@@ -197,12 +201,9 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
         if (receipts === null) { setBusy(false); return; }
         submitted = [...submitted, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
       }
+      const runLine = (parts: CommandSubmitAttachment[]) => api.commandExecute({ agentId: sid, line: decision.line, attachments: parts });
       try {
-        const res = await api.commandExecute({
-          agentId: sid,
-          line: decision.line,
-          attachments: submitted,
-        });
+        const res = await runLine(submitted);
         if (res === undefined) {
           void alertDialog({ message: tt(`未知命令：/${decision.command.name}`, `Unknown command: /${decision.command.name}`) });
           setBusy(false); return;
@@ -212,9 +213,23 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
           setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
         }
       } catch (err) {
-        // 同 prompt 路径：命令失败也要显式告知（引擎原因或网络错误）
-        void alertDialog({ message: err instanceof Error && err.message ? err.message : tt("命令发送失败", "Failed to send command") });
-        setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
+        // 附件准入拒了整条命令，但否掉的只是附件：去掉附件照样执行，并说明
+        const facts = err as Error & RpcErrorFacts;
+        if (submitted.length === 0 || classifyAttachmentRefusal(facts.reason) === undefined) {
+          void alertDialog({ message: failureText(facts, tt("命令发送失败", "Failed to send command")) });
+          setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
+        }
+        try {
+          const res = await runLine([]);
+          if (res !== undefined && res.result.kind === "error") {
+            void alertDialog({ message: res.result.text });
+            setBusy(false); return;
+          }
+          void alertDialog({ message: tt("附件未随本条命令发送（{r}）", "Attachments were not sent with this command ({r})", { r: facts.engineMessage ?? facts.message }) });
+        } catch (err2) {
+          void alertDialog({ message: failureText(err2, tt("命令发送失败", "Failed to send command")) });
+          setBusy(false); return;
+        }
       }
       setText("");
       setAttachments([]);
@@ -248,28 +263,46 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       void alertDialog({ message: tt("子会话不支持文件附件", "File attachments are not supported in subagent sessions") });
       setBusy(false); return;
     }
+    const rpcId = uuid();
+    const send = (parts: PromptContentPart[]) => (subagent
+      ? api.subagentPrompt({
+        requestId: rpcId,
+        parentSessionId: subagent.parentSessionId,
+        childSessionId: sid,
+        delivery: running ? mode : "queue",
+        content: parts,
+      })
+      : api.prompt({ requestId: rpcId, sessionId: sid, mode, content: parts }));
     try {
-      const rpcId = uuid();
-      if (subagent) {
-        await api.subagentPrompt({
-          requestId: rpcId,
-          parentSessionId: subagent.parentSessionId,
-          childSessionId: sid,
-          delivery: running ? mode : "queue",
-          content,
-        });
-      } else {
-        await api.prompt({ requestId: rpcId, sessionId: sid, mode, content: sendContent });
-      }
+      await send(sendContent);
       if (running || mode === "queue") registerSending?.(rpcId);
     } catch (err) {
-      // 发送失败必须让用户看见：引擎的业务拒绝自带可读原因（例
-      // session/attachment-invalid「Model … does not support image input」——
-      // 当前模型不吃图），静默吞掉会把「消息没发出去」伪装成「发成功了但会话
-      // 是空的」（2026-09-20 用户报障的真因）。输入与附件留在原地供重试。
-      void alertDialog({ message: err instanceof Error && err.message ? err.message : tt("发送失败，请重试", "Send failed; please retry") });
-      setBusy(false);
-      return;
+      // 附件被引擎的附件准入拒（模型不吃图、图片太大、文件没传完…）时，消息照样发：
+      // 丢掉被拒的那一类部件重发一次，正文保留（用户定稿：模型支不支持附件是模型的
+      // 事，不该让准入把整条消息挡死），并如实说明丢的是什么。其余失败照常报错——
+      // 静默吞掉会把「消息没发出去」伪装成「发成功了但会话是空的」（2026-09-20 报障真因）。
+      const facts = err as Error & RpcErrorFacts;
+      const drop = classifyAttachmentRefusal(facts.reason);
+      const reduced = drop === undefined ? null : dropAttachmentParts(sendContent, drop);
+      if (reduced === null) {
+        void alertDialog({ message: failureText(facts, tt("发送失败，请重试", "Send failed; please retry")) });
+        setBusy(false);
+        return;
+      }
+      try {
+        await send(reduced);
+        if (running || mode === "queue") registerSending?.(rpcId);
+        void alertDialog({
+          message: tt("{k}未随本条发送（{r}），消息已按纯文本发出", "{k} were not sent with this message ({r}); it was sent as text", {
+            k: drop === "images" ? tt("图片", "Images") : tt("附件", "Attachments"),
+            r: facts.engineMessage ?? facts.message,
+          }),
+        });
+      } catch (err2) {
+        void alertDialog({ message: failureText(err2, tt("发送失败，请重试", "Send failed; please retry")) });
+        setBusy(false);
+        return;
+      }
     }
     setText("");
     setAttachments([]);
