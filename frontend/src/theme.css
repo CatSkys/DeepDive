@@ -359,9 +359,10 @@ button {
 .ws-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  /* 内距 10 / 槽位 14 / gap 8：与 .task-row 同一左缘语法，侧栏各行文字同一条竖线 */
+  gap: 8px;
   height: 32px;
-  padding: 0 8px;
+  padding: 0 10px;
   color: var(--ink);
   font-size: 14px;
   font-weight: 600;
@@ -374,11 +375,11 @@ button {
 .new-session-entry {
   display: flex;
   align-items: center;
-  /* 度量对齐 .ws-row（内距 8 / 图标 13 / gap 6），图标文字与项目行左缘同线 */
-  gap: 6px;
+  /* 度量对齐 .ws-row（内距 10 / 图标 14 / gap 8），也就是与侧栏其余行同一条左缘 */
+  gap: 8px;
   width: 100%;
   height: 32px;
-  padding: 0 8px;
+  padding: 0 10px;
   border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
   color: var(--ink);
   font-size: 14px;
@@ -403,17 +404,26 @@ button {
   line-height: 1;
   color: var(--ink-2);
 }
-.ws-lead { position: relative; width: 13px; height: 13px; flex: none; }
-.ws-lead .ws-folder-ic,
-.ws-lead .ws-chevron-ic {
+.ws-row { position: relative; }
+.ws-lead { position: relative; width: 14px; height: 14px; flex: none; }
+.ws-lead .ws-folder-ic {
   position: absolute;
   inset: 0;
-  transition: opacity 120ms ease, transform 160ms ease;
+  transition: opacity 120ms ease;
 }
-.ws-lead .ws-chevron-ic { opacity: 0; }
+/* 折叠箭头：行内绝对定位在图标列（左内距 10px 处），不参与布局——有没有 glyph
+   都不改标题左缘；收起时先收内容、箭头随后向右转出（弹性缓动 + 70ms 起步），
+   展开时立刻转回来 */
+.ws-chevron-ic {
+  position: absolute;
+  left: 10px;
+  top: 9.5px;
+  opacity: 0;
+  transition: opacity 160ms ease, transform 300ms cubic-bezier(.34, 1.56, .64, 1);
+}
 .ws-row:hover .ws-chevron-ic, .ws-row.collapsed .ws-chevron-ic { opacity: 1; }
-.ws-row:hover .ws-folder-ic, .ws-row.collapsed .ws-folder-ic { opacity: 0; }
-.ws-row.collapsed .ws-chevron-ic { transform: rotate(-90deg); }
+.ws-row:hover .ws-lead .ws-folder-ic, .ws-row.collapsed .ws-lead .ws-folder-ic { opacity: 0; }
+.ws-row.collapsed .ws-chevron-ic { transform: rotate(-90deg); transition-delay: 70ms; }
 .ws-row-actions { margin-left: auto; display: none; align-items: center; gap: 2px; }
 .ws-row:hover .ws-row-actions { display: inline-flex; }
 .ws-row .ws-act {

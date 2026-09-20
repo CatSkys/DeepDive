@@ -10,7 +10,7 @@ import { comboFor, isOff } from "../keybinds";
 import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import { openNewProjectDialog } from "./NewProjectDialog";
-import { WsGlyph } from "./IconPicker";
+import { wsGlyphIcon } from "./IconPicker";
 import { useWsIcon } from "../wsIcons";
 import { longPressHandlers } from "../longPress";
 import { WorkspaceMenuItems } from "./WorkspaceMenu";
@@ -132,8 +132,9 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const wsOf = (s: SessionSummary): string | undefined =>
     hasWs ? (store.wsOfSession.get(s.sessionId) ?? store.workspaces[0].workspaceId) : undefined;
   const activeWs = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
-  // 项目行行首图标位：弹窗里选的 glyph，没选就是名称首字母（WsGlyph）
-  const wsIconName = useWsIcon(activeWs?.workspaceId);
+  // 项目行行首图标位：只显示"选过"的项目 glyph；没选就留空——行首摆一个首字母很怪，
+  // 首字母只在切换条/命令面板/图标选择器里出现（用户定稿：仅此一处例外）。
+  const WsGlyph = wsGlyphIcon(useWsIcon(activeWs?.workspaceId));
 
   // 横滑方向（§2.1）：目标格子在后 → 内容自右滑入（fwd）；在前 → 自左（back）。
   const prevWs = useRef<string | null>(null);
@@ -320,7 +321,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         data-tip={t("新会话")}
         onClick={() => store.openSession(null)}
       >
-        <CirclePlus size={13} />
+        <CirclePlus size={14} />
         <span className="ns-label">{t("新会话")}</span>
         {!isOff("new-session", store.keybinds) && (
           <span className="ns-keys">{comboFor("new-session", store.keybinds)}</span>
@@ -330,18 +331,22 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         <div className="ws-view" key={`head-${activeWs.workspaceId}`} data-dir={slideDir.current}>
           {/* 官方 ProjectRowItem 同款交互：点行折叠/展开会话；hover 显出
               chevron（替代项目图标，折叠时转 -90°）与 ⋯/＋ 行尾按钮。
-              行首槽位优先显示弹窗里选的项目 glyph（wsIcons），没选回落
-              项目名首字母（WsGlyph 两档）。 */}
+              行首槽位只显示弹窗里选的项目 glyph（wsIcons）；没选留空。 */}
           <div
             className={`ws-row${wsCollapsed ? " collapsed" : ""}`}
             role="treeitem"
             aria-expanded={!wsCollapsed}
             onClick={() => setWsCollapsed((v) => !v)}
           >
-            <span className="ws-lead" aria-hidden="true">
-              <WsGlyph name={wsIconName} label={activeWs.title} size={13} className="ws-folder-ic" />
-              <ChevronDown size={13} className="ws-chevron-ic" />
-            </span>
+            {/* 图标槽只在选了 glyph 时占位：没选就没有缩进，标题首字与上方图标同列
+                （用户定稿）。折叠箭头是行内绝对定位——它悬停/折叠时盖在图标槽那一位，
+                所以有没有 glyph 都不参与布局、不会把标题推走。 */}
+            {WsGlyph && (
+              <span className="ws-lead" aria-hidden="true">
+                <WsGlyph size={13} className="ws-folder-ic" />
+              </span>
+            )}
+            <ChevronDown size={13} className="ws-chevron-ic" aria-hidden="true" />
             <span className="ws-name">{activeWs.title}</span>
             <span className="ws-row-actions" onClick={(e) => e.stopPropagation()}>
               <button
