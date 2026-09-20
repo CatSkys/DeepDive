@@ -6,9 +6,17 @@ DeepDive（深潜）— DeepSeek Harness 的 macOS 桌面客户端
    拷贝完成后即可在「应用程序」或启动台里找到它。
 
 二、首次启动
-   正式发布的公证包双击即可打开。若拿到的是未公证的自建包，且系统提示
-   「无法验证开发者」：在「应用程序」里右键 DeepDive → 「打开」→ 再点
-   「打开」，只需一次；也可以到 系统设置 → 隐私与安全性 → 点「仍要打开」。
+   公证过的包（正式发布）双击即可打开。
+
+   自建包（未公证）在 macOS 15 及以上会被 Gatekeeper 拦下：双击后弹
+   「未打开 "DeepDive"，Apple 无法验证…」。两条别踩：
+   · 不要点「移到废纸篓」——它是这个对话框的默认按钮，点了应用就进废纸篓；
+   · 不要指望「右键 → 打开」绕过——macOS 15 起该入口已取消。
+   一次过的正确做法：
+     ① 对话框点「完成」；
+     ② 系统设置 → 隐私与安全性 → 安全性 一栏 → 点「仍要打开」；
+     ③ 再双击 DeepDive 即可（找不到「仍要打开」时，先重新双击一次让它出现）。
+   想彻底免掉这一步，只能用公证过的包（打包说明见 README）。
 
 三、基本使用
    · 启动后菜单栏会出现 DeepDive 图标，状态点表示引擎运行中；
@@ -22,4 +30,5 @@ DeepDive（深潜）— DeepSeek Harness 的 macOS 桌面客户端
    运行日志：~/Library/Application Support/DeepDive/engine.log
    配置文件：~/Library/Application Support/DeepDive/config.json
 
-系统要求：macOS 14 及以上。
+系统要求：macOS 14 及以上；Apple 芯片（arm64）。包内只带 Apple 芯片的
+Node 运行时，Intel（x86_64）Mac 上引擎无法启动。
