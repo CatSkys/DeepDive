@@ -57,7 +57,7 @@ export function MemorySection() {
   };
 
   return (
-    <div className={css.col}>
+    <div>
       <div className={css.card}>
         <div className={css.switchRow}>
           <div className={css.switchText}>

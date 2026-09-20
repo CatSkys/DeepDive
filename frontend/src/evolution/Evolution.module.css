@@ -1,7 +1,6 @@
 /* 自进化分区样式：与自动化分区同一套语言（卡片靠 --fill 分层、无描边；
-   行用 --fill 底 + 展开区用 fill-soft）。 */
-
-.col { max-width: 830px; }
+   行用 --fill 底 + 展开区用 fill-soft）。分区内容装进设置页的
+   .settings-content（它负责滚动与内边距），与其它分区一样通栏占满。 */
 
 .card {
   border-radius: var(--dsh-radius-card);

@@ -1,9 +1,7 @@
 /* 自动化分区样式（列表 / 编辑器 / 运行历史）。卡片按设计规范「有底色不描边」
-   （--fill 分层，无 border）；弹层复用全局 .ctx-menu 配方，模块内不另造一套。 */
-
-/* 分区内容装进设置页的 .settings-content（它负责滚动与内边距），这里只定宽：
-   卡片栅格两列在宽窗口下不拉成两条大长条 */
-.col { max-width: 830px; }
+   （--fill 分层，无 border）；弹层复用全局 .ctx-menu 配方，模块内不另造一套。
+   分区内容装进设置页的 .settings-content（它负责滚动与内边距），与其它分区
+   一样通栏占满。 */
 
 /* ── 面包屑（编辑器两态共用，列表态不显示）── */
 .crumb { display: flex; align-items: center; gap: 4px; margin-bottom: 16px; font-size: 12px; color: var(--ink-3); }

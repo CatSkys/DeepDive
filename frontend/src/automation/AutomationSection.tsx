@@ -7,7 +7,6 @@ import { TaskEditorPage } from "./TaskEditorPage";
 import { TaskListPage } from "./TaskListPage";
 import type { AutomationProposal } from "./protocol";
 import type { TaskTemplate } from "./templates";
-import css from "./Automation.module.css";
 
 type Route =
   | { kind: "list" }
@@ -30,7 +29,7 @@ export function AutomationSection({ onOpenSession, initialDraft, onDraftUsed }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <div className={css.col}>
+    <div>
       {route.kind === "list" ? (
         <TaskListPage
           onCreate={(template) => setRoute({ kind: "new", template, proposal: null })}
