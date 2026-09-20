@@ -179,20 +179,27 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
 
 ## 6. 命令面（已原生化；0.1.5 附件键改名）
 
-- `commands/list {agentId}` → `[{name, description, input?:{hint, images?}}]`
+- `commands/list {agentId}` → `[{name, description, input?:{hint, attachments?}}]`
   （name 排序；插件注册面随引擎走，实测含 attach-workspaces/doctor/import/
   resume-* 等）——前端目录动态拉取（`useSlashCommands`），`commands/change`
-  广播失效重拉。描述是引擎注册的英文原文（官方 UI 也不翻译，0.1.5 的
-  中文化在其 UI 层）。
+  广播失效重拉。描述是引擎注册的英文原文（官方 UI 也不翻译，中文化在其 UI
+  层；SPA 侧内建命令的中文说明与行图标由 `builtinCommands` 一张表补）。`agentId`
+  必填——命令面只有 `execute`/`list` 两条路由，没有无会话的目录，**草稿页的
+  `/` 因此走前端内建表合成的兜底车道**（`builtinCommands.DRAFT_COMMANDS`，
+  与草稿页 `@` 的壳侧 list-dir 兜底面同一性质）；插件注册的命令只在会话车道
+  可见。两个车道都不含 `/export`（引擎在列，官方面按下载流呈现，SPA 无承接）。
 - `commands/execute {agentId, line, submittedAttachments}`（**0.1.5 从 images
   改名 submittedAttachments**，实测 args-invalid 钉死）→ `{commandId,
   result:{kind:'success'|'error', …}}`；`undefined` = 未知命令（引擎不落
   事件）。附件元素 `{type:'image',mediaType,data,name?} | {type:'file',
-  receiptId}`。执行自驱效果、不经 `session/prompt`（**prompt 无命令槽**）；
-  转录节点来自 `command/run`+`command/done` 会话事件（按 commandId 配对）。
+  receiptId}`。附件准入由引擎在 execute 内判定（未声明 `input.attachments`
+  的命令带附件即 error 回包），前端同款拦截读的必须是 `input.attachments`。
+  执行自驱效果、不经 `session/prompt`（**prompt 无命令槽**）；转录节点来自
+  `command/run`+`command/done` 会话事件（按 commandId 配对）。
 - Composer Enter 裁决（`commandLine.ts`）：整行 `/name [args…]` 命中已知命令
   即直发；未知名字拒绝并保留草稿；带 `input` 的命令菜单点击为 claim（插
-  `/name ` 续输）。`/export` 按范围拍板仍不入菜单。
+  `/name ` 续输），无 `input` 的点击即直发——草稿页直发前先建会话（与首条
+  消息同链路，见 SPEC-SEMANTICS §4.3）。
 
 ## 7. @ 引用（0.1.2 已原生化）与 plan-review
 

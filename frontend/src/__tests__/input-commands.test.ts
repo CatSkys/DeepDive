@@ -1,8 +1,10 @@
-// 输入纯函数钉子：@ 引用 grammar（atGrammar，官方语义）与整行斜杠命令裁决
-//（commandLine，官方 ui-commands matchEnter 的最小移植）。
+// 输入纯函数钉子：@ 引用 grammar（atGrammar，官方语义）、整行斜杠命令裁决
+//（commandLine，官方 ui-commands matchEnter 的最小移植）与草稿页命令兜底车道
+//（builtinCommands 合成的目录——草稿页无 agent，引擎目录不可达）。
 import { describe, expect, it } from "vitest";
 import { activeAtToken, formatMention } from "../atGrammar";
 import { adjudicateSlashLine } from "../commandLine";
+import { DRAFT_COMMANDS } from "../components/composer/builtinCommands";
 import type { CommandDescriptor } from "../types";
 
 describe("activeAtToken", () => {
@@ -58,5 +60,26 @@ describe("adjudicateSlashLine", () => {
     expect(adjudicateSlashLine("/foo.ts", catalog)).toBeNull(); // 名字不合法（路径）
     expect(adjudicateSlashLine("普通消息", catalog)).toBeNull();
     expect(adjudicateSlashLine("", catalog)).toBeNull();
+  });
+});
+
+describe("草稿页命令兜底车道", () => {
+  it("列内建命令（含参数提示），/export 不入列", () => {
+    const names = DRAFT_COMMANDS.map((c) => c.name);
+    expect(names).toHaveLength(14);
+    expect(names).not.toContain("export");
+    expect(names).toContain("compact");
+  });
+
+  it("claim/直发分叉与引擎一致：有 input 才 claim 续输", () => {
+    const input = (name: string) => DRAFT_COMMANDS.find((c) => c.name === name)?.input;
+    expect(input("goal")).toEqual({ hint: "[<objective>|clear|edit <objective>|pause|resume]" });
+    expect(input("permission")).toEqual({ hint: "<preset>" });
+    expect(input("compact")).toBeUndefined();
+  });
+
+  it("整行裁决认得本车道（草稿页 Enter 与菜单同源）", () => {
+    expect(adjudicateSlashLine("/compact", DRAFT_COMMANDS)).toMatchObject({ kind: "command", command: { name: "compact" } });
+    expect(adjudicateSlashLine("/nope", DRAFT_COMMANDS)).toEqual({ kind: "unknown", name: "nope" });
   });
 });

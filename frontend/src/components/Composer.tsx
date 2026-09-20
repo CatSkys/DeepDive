@@ -84,9 +84,36 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   useLayoutEffect(() => {
     if (taRef.current) autoGrow(taRef.current);
   }, [text]);
-  // 引擎命令目录（0.1.2 commands/list）：菜单与 Enter 裁决共用一份。
+  // 引擎命令目录（0.1.2 commands/list）：菜单与 Enter 裁决共用一份；草稿页没有
+  // agent，拿的是前端内建兜底车道（useSlashCommands）。
   const commands = useSlashCommands(sessionId);
-  const { menu, query, rows } = useComposerMenu({ text, cursor, dismissed, composing, sessionId, setText, commands });
+  // 无参命令的菜单直发（useComposerMenu 的 run 归到这里）：commands/execute 按
+  // agentId 派发，草稿页得先把会话建出来——与首条消息同一链路（建完即进该会话、
+  // 草稿清除），会话内则直接用当前会话。
+  const runCommand = async (name: string, start: number) => {
+    let sid = sessionId;
+    if (sid === null) {
+      const created = await store.createSession();
+      if (created === null) return; // 建会话失败：草稿保留供重试（与发送同策略）
+      sid = created;
+      if (draftKey) localStorage.removeItem(draftKey);
+    }
+    try {
+      const res = await api.commandExecute({ agentId: sid, line: `/${name}` });
+      if (res === undefined) {
+        void alertDialog({ message: tt(`未知命令：/${name}`, `Unknown command: /${name}`) });
+        return;
+      }
+      if (res.result.kind === "error") {
+        void alertDialog({ message: res.result.text });
+        return;
+      }
+      setText((prev) => prev.slice(0, start));
+    } catch {
+      void alertDialog({ message: tt("命令发送失败", "Failed to send command") });
+    }
+  };
+  const { menu, query, rows } = useComposerMenu({ text, cursor, dismissed, composing, sessionId, setText, commands, onRunCommand: runCommand });
   // 选中文字「添加到当前任务」（SelectionActions 派发）：追加到现有草稿尾部
   // （带空行分隔），光标落末尾并重新长高。
   useEffect(() => {

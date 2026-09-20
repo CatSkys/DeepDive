@@ -3,16 +3,12 @@
 // 只管"当前该展示哪些行"；菜单渲染在 ComposerMenu，键盘导航在编排方。
 
 import { useMemo } from "react";
-import { alertDialog } from "../DialogHost";
-import {
-  ClipboardList, File as FileIcon, Folder, MessageSquare, Route, ShieldCheck, Shrink, TerminalSquare,
-  type LucideIcon,
-} from "lucide-react";
-import { api } from "../../api";
+import { File as FileIcon, Folder, MessageSquare, type LucideIcon } from "lucide-react";
 import { useStore } from "../../store";
 import { useT, type TFunc } from "../../i18n";
 import { activeAtToken, formatMention, type ActiveAtToken } from "../../atGrammar";
 import { useFileCandidates, useSessionCandidates, type AtEntry, type SessionCandidate } from "../../useMentionCandidates";
+import { builtinCommand, builtinIcon } from "./builtinCommands";
 import type { CommandDescriptor } from "../../types";
 
 export interface MenuRow {
@@ -37,51 +33,25 @@ function parseSlashToken(text: string): { query: string; start: number } | null 
 // 命令行语义对齐官方 ui-commands 的裁决表（0.1.2 commands 面）：
 // - 带 input（hint）的命令 → claim：插入 "/name " 由用户补参，Enter 整行
 //   经 commands/execute 直发（编排方 submit 裁决）；
-// - 无 input 的命令 → 菜单点击即直发（官方 runDetached），成败明示。
-/** 内建命令中文描述（引擎 description 为英文原文；插件命令不在此列）。 */
-const CMD_DESC_ZH: Record<string, string> = {
-  compact: "压缩更早的会话历史",
-  plan: "进入或退出计划模式",
-  permission: "切换权限预设（沙箱模式 + 审批策略）",
-  goal: "设定或查看长任务的 Goal",
-  feedback: "记录本会话的反馈",
-  export: "下载本会话日志（ZIP）",
-  doctor: "只读健康检查（导入注册表/会话/技能）",
-  "attach-workspaces": "把已导入会话重新挂到匹配的工作区",
-  "import-reset": "清空导入扫描缓存",
-  "mcp-status": "查看 MCP 配置扫描结果",
-  import: "从外部聊天记录导入历史会话",
-  "import-all": "批导入选定来源的全部历史会话",
-  "resume-claude": "从 Claude Code 历史会话生成交接摘要",
-  "resume-codex": "从 Codex 历史会话生成交接摘要",
-  "settings-suggest": "解析 Claude/Codex 配置给出迁移建议",
-};
-
-const CMD_ICONS: Record<string, LucideIcon> = {
-  compact: Shrink,
-  plan: Route,
-  permission: ShieldCheck,
-  feedback: ClipboardList,
-};
-
+// - 无 input 的命令 → 菜单点击即直发（官方 runDetached），成败明示；派发
+//   归编排方（onRunCommand）——草稿页要先把会话建出来才有 agentId 可用。
 type SetText = React.Dispatch<React.SetStateAction<string>>;
 
 function buildSlashRows(args: {
   t: TFunc["t"];
-  tt: TFunc["tt"];
   text: string;
   slashTok: { query: string; start: number } | null;
-  sessionId: string | null;
   setText: SetText;
   commands: CommandDescriptor[];
+  onRunCommand: (name: string, start: number) => void;
 }): MenuRow[] {
-  const { t, tt, text, slashTok, sessionId, setText, commands } = args;
+  const { t, text, slashTok, setText, commands, onRunCommand } = args;
   return commands.map((cmd) => {
-    const icon = CMD_ICONS[cmd.name] ?? TerminalSquare;
-    // 命令描述：内建命令给中文（引擎返回英文原文，0.1.5 的中文化在官方 UI 层）；
-    // 插件命令保留引擎原文。
-    const zhDesc = CMD_DESC_ZH[cmd.name];
-    const detail = [zhDesc ?? cmd.description, cmd.input?.hint].filter(Boolean).join(" ");
+    // 说明与图标：内建命令由本表补中文与图标（引擎给的是英文原文），插件命令
+    // 回落引擎原文 + 通用终端图标。
+    const meta = builtinCommand(cmd.name);
+    const detail = [meta?.zh ?? cmd.description, cmd.input?.hint].filter(Boolean).join(" ");
+    const icon = builtinIcon(cmd.name);
     if (cmd.input) {
       return {
         id: `cmd:${cmd.name}`,
@@ -102,20 +72,8 @@ function buildSlashRows(args: {
       detail,
       section: t("命令"),
       run: () => {
-        if (!slashTok || !sessionId) return;
-        void api.commandExecute({ agentId: sessionId, line: `/${cmd.name}` })
-          .then((res) => {
-            if (res === undefined) {
-              void alertDialog({ message: tt(`未知命令：/${cmd.name}`, `Unknown command: /${cmd.name}`) });
-              return;
-            }
-            if (res.result.kind === "error") {
-              void alertDialog({ message: res.result.text });
-              return;
-            }
-            setText(text.slice(0, slashTok.start));
-          })
-          .catch(() => void alertDialog({ message: tt("命令发送失败", "Failed to send command") }));
+        if (!slashTok) return;
+        onRunCommand(cmd.name, slashTok.start);
       },
     };
   });
@@ -179,8 +137,10 @@ export function useComposerMenu(args: {
   sessionId: string | null;
   setText: SetText;
   commands: CommandDescriptor[];
+  /** 无参命令的直发（草稿页需先建会话才拿得到 agentId，故归编排方）。 */
+  onRunCommand: (name: string, start: number) => void;
 }): { menu: "at" | "slash" | null; query: string; rows: MenuRow[] } {
-  const { text, cursor, dismissed, composing, sessionId, setText, commands } = args;
+  const { text, cursor, dismissed, composing, sessionId, setText, commands, onRunCommand } = args;
   const store = useStore();
   const { t, tt, lang } = useT();
   // @ 文件候选：会话内引擎索引；草稿页用工作空间根（无空间面时无候选）。
@@ -194,7 +154,7 @@ export function useComposerMenu(args: {
   const atEntries = useFileCandidates({ query: atQuery, sessionId, wsPath });
   const sessionCands = useSessionCandidates({ sessionId, query: atQuery, sessions: store.sessions, lang });
 
-  const slashRows = buildSlashRows({ t, tt, text, slashTok, sessionId, setText, commands });
+  const slashRows = buildSlashRows({ t, text, slashTok, setText, commands, onRunCommand });
   const atRows = buildAtRows({ t, atEntries, atTok, cursor, text, setText });
   const sessionDateFmt = useMemo(
     () => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
