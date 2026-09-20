@@ -391,6 +391,18 @@ button {
 .new-session-entry .ns-keys { flex: none; font-size: 11px; color: var(--ink-3); letter-spacing: 2px; margin-right: -2px; }
 
 .ws-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 项目图标位的首字母回落（没有任何 glyph/图标文件时的末档，见 wsIcons.ts 头部
+   的显示优先级）：四个消费面（侧栏行首 / 底部切换条 / 命令面板 / 图标选择器）
+   共用同一语法——裸字母、600 字重、--ink-2，与同槽位的 lucide 图标同视觉重量。 */
+.ws-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-2);
+}
 .ws-lead { position: relative; width: 13px; height: 13px; flex: none; }
 .ws-lead .ws-folder-ic,
 .ws-lead .ws-chevron-ic {

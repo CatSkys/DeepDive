@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
-import { Archive, Check, Folder, Gauge, MessageSquare, Mic, PanelLeft, Pin, Plus, Search, Settings, SquarePen } from "lucide-react";
+import { Archive, Check, Gauge, MessageSquare, Mic, PanelLeft, Pin, Plus, Search, Settings, SquarePen } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useStore } from "../store";
 import { getWsIcon, useWsIcon } from "../wsIcons";
@@ -14,7 +14,7 @@ import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { api } from "../api";
 import { alertDialog, promptDialog } from "./DialogHost";
 import { sessionTitle } from "../session/sessionTitle";
-import { wsGlyphIcon } from "./IconPicker";
+import { WsGlyph } from "./IconPicker";
 import { IconProjectAddOutline16 } from "./Icons";
 import { openNewProjectDialog } from "./NewProjectDialog";
 import { SETTINGS_SECTIONS } from "./SettingsPage";
@@ -83,10 +83,9 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     const projects: Row[] = store.workspaces
       .filter((w) => hit(w.title) || hit(w.path))
       .map((w, i) => {
-        const Glyph = wsGlyphIcon(getWsIcon(w.workspaceId));
         return {
           key: `ws-${w.workspaceId}`,
-          icon: Glyph ? <Glyph size={15} /> : <Folder size={15} />,
+          icon: <WsGlyph name={getWsIcon(w.workspaceId)} label={w.title} size={15} />,
           label: w.title,
           // ⌥1-9 直达第 N 个空间（与 WsSwitcher 悬浮提示同口径）
           combo: i < 9 ? `⌥${i + 1}` : undefined,

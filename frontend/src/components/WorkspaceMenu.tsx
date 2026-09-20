@@ -77,6 +77,7 @@ export function WorkspaceMenuItems({ ws, onDone }: { ws: WorkspaceView; onDone: 
         openIconPickerAt({
           x: e.clientX, y: e.clientY,
           value: getWsIcon(ws.workspaceId),
+          label: ws.title,
           onChange: (v) => { if (v) setWsIcon(ws.workspaceId, v); else clearWsIcon(ws.workspaceId); },
         });
         onDone();

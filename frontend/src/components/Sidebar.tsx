@@ -10,7 +10,7 @@ import { comboFor, isOff } from "../keybinds";
 import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import { openNewProjectDialog } from "./NewProjectDialog";
-import { wsGlyphIcon } from "./IconPicker";
+import { WsGlyph } from "./IconPicker";
 import { useWsIcon } from "../wsIcons";
 import { longPressHandlers } from "../longPress";
 import { WorkspaceMenuItems } from "./WorkspaceMenu";
@@ -132,8 +132,8 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const wsOf = (s: SessionSummary): string | undefined =>
     hasWs ? (store.wsOfSession.get(s.sessionId) ?? store.workspaces[0].workspaceId) : undefined;
   const activeWs = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
-  // 项目行行首 glyph（弹窗里选的；没选回落通用文件夹图标）
-  const WsGlyph = wsGlyphIcon(useWsIcon(activeWs?.workspaceId));
+  // 项目行行首图标位：弹窗里选的 glyph，没选就是名称首字母（WsGlyph）
+  const wsIconName = useWsIcon(activeWs?.workspaceId);
 
   // 横滑方向（§2.1）：目标格子在后 → 内容自右滑入（fwd）；在前 → 自左（back）。
   const prevWs = useRef<string | null>(null);
@@ -331,7 +331,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           {/* 官方 ProjectRowItem 同款交互：点行折叠/展开会话；hover 显出
               chevron（替代项目图标，折叠时转 -90°）与 ⋯/＋ 行尾按钮。
               行首槽位优先显示弹窗里选的项目 glyph（wsIcons），没选回落
-              通用文件夹图标。 */}
+              项目名首字母（WsGlyph 两档）。 */}
           <div
             className={`ws-row${wsCollapsed ? " collapsed" : ""}`}
             role="treeitem"
@@ -339,9 +339,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             onClick={() => setWsCollapsed((v) => !v)}
           >
             <span className="ws-lead" aria-hidden="true">
-              {WsGlyph
-                ? <WsGlyph size={13} className="ws-folder-ic" />
-                : <Folder size={13} className="ws-folder-ic" />}
+              <WsGlyph name={wsIconName} label={activeWs.title} size={13} className="ws-folder-ic" />
               <ChevronDown size={13} className="ws-chevron-ic" />
             </span>
             <span className="ws-name">{activeWs.title}</span>

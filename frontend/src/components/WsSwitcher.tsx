@@ -3,7 +3,7 @@ import { readWorkspaceIcon } from "../host";
 import { useStore } from "../store";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import { useWsIcon } from "../wsIcons";
-import { wsGlyphIcon } from "./IconPicker";
+import { WsInitial, wsGlyphIcon } from "./IconPicker";
 import { WorkspaceMenu } from "./WorkspaceMenu";
 import type { WorkspaceView } from "../types";
 
@@ -55,7 +55,7 @@ function WorkspaceCell({ ws, hotkey, active, onSwitch, onContext }: {
         ? <Glyph size={15} />
         : icon
           ? <img className="ws-cell-icon" src={icon} alt={ws.title} />
-          : (ws.title.trim()[0] ?? "?").toUpperCase()}
+          : <WsInitial label={ws.title} size={15} />}
     </button>
   );
 }
