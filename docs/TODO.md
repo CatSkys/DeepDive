@@ -102,6 +102,31 @@ Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`D
   SIGKILL，且启动时按 pid+可执行路径收残留引擎；但引擎自己的子进程（bash 等）不在
   进程组里，收尾依赖引擎自己。要彻底解决得给引擎起独立进程组。
 
+## 15. 样式类名静默失效的清理（2026-09-20）
+
+CSS Module 对**不存在的键返回 `undefined`**：`className={css.xxx}` 写错名字不会报错、
+不会类型报错、也不会让测试变红，只是那块样式凭空消失——轻则少一层间距，重则整块
+UI 不可见（2026-09-20「新建项目」弹窗就是这么"点了没反应"的：遮罩写成了本模块里
+没有的 `css.modalOverlay`，那个类定义在设置页那份 `SettingsRows.module.css`）。
+写样式前先在模块里确认类名存在；**引用全局 `theme.css` 的类要用字面量 className**，
+经 module 引用只会拿到 undefined。
+
+已查明待清理的引用（一次全量扫描的结果，未逐条复核是否真缺样式）：
+
+- `components/controls.tsx` `rowsCss.on`
+- `components/SettingsPage.tsx` `rowsCss.recording` / `rowsCss.off` / `rowsCss.active`
+- `components/CommandPalette.tsx` `css.active`
+- `settings/ModelsManage.tsx` `cssRows.closed`
+- `onboarding/steps/MigrateStep.tsx` `rowsCss.closed`
+- `plugins/PluginsSection.tsx` `css.tabActive`
+
+（同一轮扫描里 `plugins/McpTab.tsx` 的 `rs.json` / `rs.length` 是数据成员访问，不是样式
+引用——扫描器的误报样本，清理时别照着改。）
+
+复跑方式：解出每个 tsx 的 `import X from "…module.css"`，比对 `X.<名字>` 的出现处与那份
+CSS 里出现过的 `.名字`；全局类会被误判，结果需人工复核。要机械化的话，加一条 ESLint
+规则比写测试贴切——**属新增工具链动作，先要用户点头**（铁律 7）。
+
 ## 期间不做
 
 - **Agent Teams**（上游 experimental：单会话内 Lead + 命名队友 + 持久消息 + 共享任务板，四包 `experimental/agent-team*`）：用户拍板暂不用。接的话 = 挂 experimental profile + 花名册/任务板面板；地基已备——队友即 continuable 子会话，子代理续聊已落地。
