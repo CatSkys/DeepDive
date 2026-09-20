@@ -134,8 +134,10 @@ final class EngineSupervisor {
         state = .idle
     }
 
-    /// SIGTERM 之后等它自己走的宽限（正常是毫秒级；卡住的引擎不该拖住退出）。
-    private static let stopGraceSeconds: TimeInterval = 2
+    /// SIGTERM 之后等它自己走的宽限。实测空闲时 0.78s 退出，但忙时（一轮在跑、
+    /// 投影缓存正在落盘）见过 >2s——SIGKILL 打断写盘会截断会话日志，所以宁可多等。
+    /// 它一退出就立刻返回，所以正常退出不受这个上限影响。
+    private static let stopGraceSeconds: TimeInterval = 6
 
     /// 引擎 pid 文件：壳被强杀（Force Quit / SIGKILL）时进程不会走 stop()，
     /// 留下的引擎靠它在下一次启动时被收掉。
@@ -373,7 +375,6 @@ final class EngineSupervisor {
             DispatchQueue.main.async { self?.handleExit(proc) }
         }
 
-        try? "\(process.processIdentifier)".write(to: Self.enginePidFile, atomically: true, encoding: .utf8)
         state = .launching
         switch entry {
         case .bundled(let node, let script):
@@ -397,6 +398,8 @@ final class EngineSupervisor {
         do {
             try process.run()
             self.process = process
+            // pid 落盘必须在 run() 之后（此前 processIdentifier 还是 0）
+            try? "\(process.processIdentifier)".write(to: Self.enginePidFile, atomically: true, encoding: .utf8)
         } catch {
             log.append("[engine] launch failed: \(error.localizedDescription)")
             state = .failed(reason: launchFailureCopy(entry, error: error))
