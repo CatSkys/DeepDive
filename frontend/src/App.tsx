@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelLeft, Search } from "lucide-react";
 import { api } from "./api";
 import { alertDialog } from "./components/DialogHost";
@@ -25,7 +25,7 @@ import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
 import { NewProjectDialogHost } from "./components/NewProjectDialog";
 import { IconPickerHost } from "./components/IconPicker";
-import { CommandPaletteHost, openCommandPalette } from "./components/CommandPalette";
+import { CommandPaletteHost, openCommandPalette, toggleCommandPalette } from "./components/CommandPalette";
 import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
@@ -135,8 +135,14 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   };
   // 应用内快捷键：window 捕获段匹配键位注册表（快捷键页可改/可停用）。
   // 输入框聚焦时仅听写可触发，避免打字误触。
+  // 键位处理必须读「当下这一个」store：store 对象按状态重建（toggleSidebar 等
+  // 闭包捕获了当时的 sidebarOverride），而这个监听只随 keybinds 重挂——直接闭包
+  // store 会拿到旧副本，⌘B 连按只生效一次（收得起、展不开）。
+  const storeRef = useRef(store);
+  storeRef.current = store;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const store = storeRef.current;
       const combo = comboOf(e);
       if (!combo) return;
       const target = e.target as HTMLElement | null;
@@ -151,15 +157,20 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       for (const def of KEYBIND_DEFS) {
         if (isOff(def.id, store.keybinds)) continue;
         if (combo !== comboFor(def.id, store.keybinds)) continue;
-        if (typing && def.id !== "dictation") return;
+        // 输入中放行的例外：听写（要在输入框里唤起）、⌘B 侧栏、⌘K 搜索——
+        // 三个都不是文本编辑键（⌘B 只在富文本里是加粗，本应用输入面都是纯文本），
+        // 且 ⌘K 必须放行才能「开着再按一次收起」（面板自己的输入框一开就抢焦点）
+        const typingAllowed =
+          def.id === "dictation" || def.id === "toggle-sidebar" || def.id === "command-palette";
+        if (typing && !typingAllowed) return;
         e.preventDefault();
         if (def.id === "new-session") store.openSession(null);
-        else if (def.id === "search") openCommandPalette();
         else if (def.id === "toggle-sidebar") store.toggleSidebar();
         else if (def.id === "dictation") dispatchAppEvent(DD_EVENTS.dictationToggle);
         else if (def.id === "cycle-effort") dispatchAppEvent(DD_EVENTS.cycleEffort);
         else if (def.id === "open-settings") openSettings();
-        else if (def.id === "command-palette") openCommandPalette();
+        // 搜索面板是开关：开着再按一次收起（⌘K）
+        else if (def.id === "command-palette") toggleCommandPalette();
         return;
       }
     };
@@ -183,7 +194,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         </div>
       )}
       {/* 顶部两钮（⊞收起 / 🔍搜索）：红绿灯旁横排，收起/展开都在顶部。
-          搜索钮只发 focusSearch 事件（与 ⌘F 同一条链路）——侧栏里展开搜索框
+          搜索钮打开搜索面板（与 ⌘K 同一条链路）——面板里的「搜索会话全文」才发 focusSearch 事件展开侧栏搜索框
           并聚焦，侧栏收起时先展开；「新会话」按钮已按用户要求去掉（用得少，
           草稿页走侧栏会话列的入口即可）。设置页不显示——返回/关闭导航由
           SettingsPage 自带。tooltip 键帽随快捷键页的改键实时同步。 */}
@@ -192,7 +203,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
           <button className="window-top-btn" data-tip={t("收起侧栏")} data-tip-keys={comboFor("toggle-sidebar", store.keybinds)} onClick={() => store.toggleSidebar()}>
             <PanelLeft size={17} />
           </button>
-          <button className="window-top-btn" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} onClick={() => openCommandPalette()}>
+          <button className="window-top-btn" data-tip={t("搜索")} data-tip-keys={comboFor("command-palette", store.keybinds)} onClick={() => openCommandPalette()}>
             <Search size={17} />
           </button>
         </div>

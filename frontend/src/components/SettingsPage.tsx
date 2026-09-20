@@ -26,7 +26,7 @@ import { permissionPresetView, type PermissionSettingsView } from "../settings/p
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { RETENTIONS, retentionLabel, type ArchiveRetention } from "../autoArchive";
 import { api } from "../api";
-import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "../keybinds";
+import { comboFor, comboOf, FIXED_KEYBINDS, isOff, KEYBIND_DEFS } from "../keybinds";
 import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
 import { sessionTitle } from "../session/sessionTitle";
@@ -478,53 +478,90 @@ function HotkeysSection() {
     setKeybinds({ ...keybinds, [id]: { combo: comboFor(id, keybinds), off: !isOff(id, keybinds) } });
 
   return (
-    <div className={rowsCss.section}>
-      <div className={rowsCss.hotkeyCard}>
-        <div className={rowsCss.hotkeyRow}>
-          <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName} style={!store.hotkeyOn ? { color: "var(--ink-3)" } : undefined}>
-              {t("唤起面板")}
-              <span className={rowsCss.metaTag}>{t("全局")}</span>
+    <>
+      <div className={rowsCss.section}>
+        <div className={rowsCss.sectionTitle}>{t("全局唤起")}</div>
+        <div className={rowsCss.sectionIntro}>{t("系统级热键，任何应用在前台都能唤起面板并聚焦输入框。")}</div>
+        <div className={rowsCss.hotkeyCard}>
+          <div className={rowsCss.hotkeyRow}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName} style={!store.hotkeyOn ? { color: "var(--ink-3)" } : undefined}>
+                {t("唤起面板")}
+                <span className={rowsCss.metaTag}>{t("全局")}</span>
+              </div>
             </div>
-          </div>
-          <div className={rowsCss.rowActions}>
-            <button
-              type="button"
-              className={`${rowsCss.comboChip}${recording ? ` ${rowsCss.recording}` : ""}${!store.hotkeyOn ? ` ${rowsCss.off}` : ""}`}
-              onClick={() => { if (store.hotkeyOn && !recording) { setRecording(true); sendToShell({ type: "rebind-hotkey" }); } }}
-              aria-label={t("修改快捷键")}
-            >
-              {recording ? t("录制中…") : hotkey}
-            </button>
-            <Toggle on={store.hotkeyOn} onChange={(v) => store.setHotkeyOn(v)} />
+            <div className={rowsCss.rowActions}>
+              <button
+                type="button"
+                className={`${rowsCss.comboChip}${recording ? ` ${rowsCss.recording}` : ""}${!store.hotkeyOn ? ` ${rowsCss.off}` : ""}`}
+                onClick={() => { if (store.hotkeyOn && !recording) { setRecording(true); sendToShell({ type: "rebind-hotkey" }); } }}
+                aria-label={t("修改快捷键")}
+              >
+                {recording ? t("录制中…") : hotkey}
+              </button>
+              <Toggle on={store.hotkeyOn} onChange={(v) => store.setHotkeyOn(v)} />
+            </div>
           </div>
         </div>
-        {KEYBIND_DEFS.map((def) => {
-          const combo = comboFor(def.id, keybinds);
-          const off = isOff(def.id, keybinds);
-          const isRec = recordingId === def.id;
-          return (
-            <div key={def.id} className={rowsCss.hotkeyRow}>
-              <div className={rowsCss.rowIdentity}>
-                <div className={rowsCss.rowName} style={off ? { color: "var(--ink-3)" } : undefined}>{tt(def.zh, def.en)}</div>
-              </div>
-              <div className={rowsCss.rowActions}>
-                <button
-                  type="button"
-                  className={`${rowsCss.comboChip}${isRec ? ` ${rowsCss.recording}` : ""}${off ? ` ${rowsCss.off}` : ""}`}
-                  onClick={() => { setConflict(null); setRecordingId(def.id); }}
-                  aria-label={t("修改快捷键")}
-                >
-                  {isRec ? t("按下新组合…") : combo}
-                </button>
-                <Toggle on={!off} onChange={() => toggleBind(def.id)} />
-              </div>
-            </div>
-          );
-        })}
-        {conflict && <div className={rowsCss.modelError} style={{ padding: "0 14px 10px" }}>{conflict}</div>}
       </div>
-    </div>
+
+      <div className={rowsCss.section}>
+        <div className={rowsCss.sectionTitle}>{t("应用快捷键")}</div>
+        <div className={rowsCss.sectionIntro}>{t("点组合即可改键；右侧开关停用该键位。")}</div>
+        <div className={rowsCss.hotkeyCard}>
+          {KEYBIND_DEFS.map((def) => {
+            const combo = comboFor(def.id, keybinds);
+            const off = isOff(def.id, keybinds);
+            const isRec = recordingId === def.id;
+            return (
+              <div key={def.id} className={rowsCss.hotkeyRow}>
+                <div className={rowsCss.rowIdentity}>
+                  <div className={rowsCss.rowName} style={off ? { color: "var(--ink-3)" } : undefined}>{tt(def.zh, def.en)}</div>
+                </div>
+                <div className={rowsCss.rowActions}>
+                  <button
+                    type="button"
+                    className={`${rowsCss.comboChip}${isRec ? ` ${rowsCss.recording}` : ""}${off ? ` ${rowsCss.off}` : ""}`}
+                    onClick={() => { setConflict(null); setRecordingId(def.id); }}
+                    aria-label={t("修改快捷键")}
+                  >
+                    {isRec ? t("按下新组合…") : combo}
+                  </button>
+                  <Toggle on={!off} onChange={() => toggleBind(def.id)} />
+                </div>
+              </div>
+            );
+          })}
+          {conflict && <div className={rowsCss.modelError} style={{ padding: "0 14px 10px" }}>{conflict}</div>}
+        </div>
+      </div>
+
+      <div className={rowsCss.section}>
+        <div className={rowsCss.sectionTitle}>{t("固定键位")}</div>
+        <div className={rowsCss.sectionIntro}>{t("由各自交互面固定的键位，不可改键。")}</div>
+        <div className={rowsCss.hotkeyCard}>
+          {FIXED_KEYBINDS.map((group) => (
+            <div key={group.zh}>
+              <div className={rowsCss.hotkeyRow}>
+                <div className={rowsCss.rowIdentity}>
+                  <div className={rowsCss.rowCaption}>{tt(group.zh, group.en)}</div>
+                </div>
+              </div>
+              {group.items.map((item) => (
+                <div key={`${group.zh}:${item.keys}:${item.zh}`} className={rowsCss.hotkeyRow}>
+                  <div className={rowsCss.rowIdentity}>
+                    <div className={rowsCss.rowName}>{tt(item.zh, item.en)}</div>
+                  </div>
+                  <div className={rowsCss.rowActions}>
+                    <span className={rowsCss.comboChip}>{item.keys}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 

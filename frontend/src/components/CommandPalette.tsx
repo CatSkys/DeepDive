@@ -1,6 +1,7 @@
-// 全局命令面板（⌘K，版式照参考图 Search for actions）：操作 / 项目 / 会话 /
-// 设置分区统一搜索，回车直达。OpenHost 挂 App 根部，openCommandPalette()
-// 供键位与其它入口调用。无全屏遮罩：浮层挂 top-center，点外部 / Esc 关闭。
+// 全局搜索面板（⌘K，版式照参考图 Search for actions）：操作 / 项目 / 会话 /
+// 设置分区统一搜索，回车直达。OpenHost 挂 App 根部，openCommandPalette() /
+// toggleCommandPalette() 供键位与其它入口调用。无全屏遮罩：浮层挂 top-center，
+// 点外部 / Esc 关闭。
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
@@ -21,18 +22,25 @@ import { SETTINGS_SECTIONS } from "./SettingsPage";
 import css from "./CommandPalette.module.css";
 
 let openReq: (() => void) | null = null;
+let toggleReq: (() => void) | null = null;
 
-/** 打开命令面板（App ⌘K 键位等入口）。 */
+/** 打开搜索面板（顶栏搜索钮、面板内动作等入口）。 */
 export function openCommandPalette(): void {
   openReq?.();
 }
 
-/** App 根部挂一次：消费 openCommandPalette 请求。 */
+/** 开着的再按一次收起——⌘K 走这条（面板内 Esc / 点外部是另一条关闭路径）。 */
+export function toggleCommandPalette(): void {
+  toggleReq?.();
+}
+
+/** App 根部挂一次：消费 openCommandPalette / toggleCommandPalette 请求。 */
 export function CommandPaletteHost() {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     openReq = () => setOpen(true);
-    return () => { openReq = null; };
+    toggleReq = () => setOpen((v) => !v);
+    return () => { openReq = null; toggleReq = null; };
   }, []);
   return open ? <CommandPalette onClose={() => setOpen(false)} /> : null;
 }
@@ -161,7 +169,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   };
 
   return createPortal(
-    <div className={css.panel} ref={panelRef} role="dialog" aria-label={t("命令面板")}>
+    <div className={css.panel} ref={panelRef} role="dialog" aria-label={t("搜索")}>
       <div className={css.searchRow}>
         <Search size={15} />
         <input

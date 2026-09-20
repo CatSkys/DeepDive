@@ -297,7 +297,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           搜索收成一个按钮）。Esc 关闭并**清空**：否则输入框藏起来后列表还滤着，
           看着像会话丢了。 */}
       {searchOpen && (
-        <div className="search-row" data-tip={t("搜索")} data-tip-keys={comboFor("search", store.keybinds)} data-tip-pos="bottom">
+        <div className="search-row" data-tip={t("搜索")} data-tip-keys={comboFor("command-palette", store.keybinds)} data-tip-pos="bottom">
           <Search size={14} />
           <input
             ref={searchRef}

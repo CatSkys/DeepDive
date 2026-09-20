@@ -755,8 +755,7 @@ export const EN: Record<string, string> = {
   "审批模式": "Approval preset",
   "写入项目指令需要桌面应用。": "Writing project instructions requires the desktop app.",
   "修改图标": "Change icon",
-  // 命令面板（CommandPalette）
-  "命令面板": "Command palette",
+  // 搜索面板（CommandPalette）
   "搜索操作、项目、会话、设置…": "Search actions, projects, sessions, settings…",
   "搜索会话全文": "Search sessions (full text)",
   "添加附件": "Add attachment…",
