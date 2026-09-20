@@ -10,7 +10,7 @@ import { Lightbox } from "./Lightbox";
 import { alertDialog } from "./DialogHost";
 import { ContextRing, hasContextData, type ContextData } from "./UsageMeter";
 import type { CommandSubmitAttachment, PromptContentPart } from "../types";
-import { classifyAttachmentRefusal } from "../attachmentRefusal";
+import { classifyAttachmentRefusal, classifyAttachmentRefusalText, type AttachmentRefusalClass } from "../attachmentRefusal";
 import type { RpcErrorFacts } from "../api";
 import { useComposerDraft } from "./composer/useComposerDraft";
 import { useComposerAttachments, type ImageAttachment } from "./composer/useComposerAttachments";
@@ -114,11 +114,11 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
     return parts.map((part): PromptContentPart => (part.type === "file" && next < receipts.length ? { type: "file", receiptId: receipts[next++]! } : part));
   };
 
-  /** 命令载荷同理：重投被拒的那一类附件，其它部件不动。 */
+  /** 命令载荷同理：重投被拒的那一类附件，其它部件不动（判类由调用方给——
+   *  抛错路径有 reason 码，error 结果路径只有引擎原文）。 */
   const redeliverCommand = async (
-    sid: string, parts: CommandSubmitAttachment[], reason: string | undefined,
+    sid: string, parts: CommandSubmitAttachment[], cls: AttachmentRefusalClass | undefined,
   ): Promise<CommandSubmitAttachment[] | null> => {
-    const cls = classifyAttachmentRefusal(reason);
     if (cls === "images") return restageCommandImages(sid, parts);
     if (cls !== "files") return null;
     const receipts = await refreshFileReceipts(sid);
@@ -295,38 +295,33 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
         submitted = [...submitted, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
       }
       const runLine = (parts: CommandSubmitAttachment[]) => api.commandExecute({ agentId: sid, line: decision.line, attachments: parts });
-      try {
-        const res = await runLine(submitted);
-        if (res === undefined) {
-          void alertDialog({ message: tt(`未知命令：/${decision.command.name}`, `Unknown command: /${decision.command.name}`) });
-          setBusy(false); return;
-        }
-        if (res.result.kind === "error") {
-          void alertDialog({ message: res.result.text });
-          setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
-        }
-      } catch (err) {
-        // 同 prompt 路径：图片被准入拒就改按通用文件投递，文件回执失效就重传——不丢附件
-        const facts = err as Error & RpcErrorFacts;
-        const restaged = await redeliverCommand(sid, submitted, facts.reason);
-        if (restaged === null) {
-          void alertDialog({ message: failureText(facts, tt("命令发送失败", "Failed to send command")) });
-          setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
-        }
+      // 附件被准入拒时**引擎不抛错**：它把失败包成一次成功 RPC 的 error 结果
+      //（interaction/commands 的 settle），所以判类要看原文；抛错那条留给传输/其他
+      // RPC 错误。两条路径都做一次等效重投，重投不成才报错（旧实现只在 catch 里
+      // 重投，而准入拒绝永远走不到那儿——等于命令带附件永远发不出去）。
+      let parts = submitted;
+      let failure: string | null = null;
+      for (let round = 0; round < 2 && failure === null; round += 1) {
         try {
-          const res = await runLine(restaged);
+          const res = await runLine(parts);
           if (res === undefined) {
             void alertDialog({ message: tt(`未知命令：/${decision.command.name}`, `Unknown command: /${decision.command.name}`) });
             setBusy(false); return;
           }
-          if (res.result.kind === "error") {
-            void alertDialog({ message: res.result.text });
-            setBusy(false); return;
-          }
-        } catch (err2) {
-          void alertDialog({ message: failureText(err2, tt("命令发送失败", "Failed to send command")) });
-          setBusy(false); return;
+          if (res.result.kind !== "error") break; // 成功
+          const retry = round === 0 ? await redeliverCommand(sid, parts, classifyAttachmentRefusalText(res.result.text)) : null;
+          if (retry === null) failure = res.result.text;
+          else parts = retry;
+        } catch (err) {
+          const facts = err as Error & RpcErrorFacts;
+          const retry = round === 0 ? await redeliverCommand(sid, parts, classifyAttachmentRefusal(facts.reason)) : null;
+          if (retry === null) failure = failureText(facts, tt("命令发送失败", "Failed to send command"));
+          else parts = retry;
         }
+      }
+      if (failure !== null) {
+        void alertDialog({ message: failure });
+        setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
       }
       setText("");
       setAttachments([]);

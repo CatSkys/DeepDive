@@ -14,3 +14,16 @@ export function classifyAttachmentRefusal(reason: string | undefined): Attachmen
   if (reason.includes("FILE")) return "files";
   return undefined;
 }
+
+/** 命令路径的等价判类。`commands/execute` 把附件准入失败**当成功 RPC 回**
+ *  （`result.kind:'error'`，见引擎 interaction/commands 的 settle），reason 码在
+ *  那一步就丢了，只剩引擎原文。所以这里匹配引擎的英文常量——逐条列明出处，不猜：
+ *  收据失效（commands 的 admitCommandAttachments）、图片限额与格式（attachment-local
+ *  的 AttachmentError.message）、文件读失效（file-store）。 */
+export function classifyAttachmentRefusalText(text: string | undefined): AttachmentRefusalClass | undefined {
+  if (!text) return undefined;
+  if (text.includes("receipt is unknown")) return "files";
+  if (/Image exceeds|Unsupported or malformed image/.test(text)) return "images";
+  if (/attachment object is missing|Unable to read file attachment/.test(text)) return "files";
+  return undefined;
+}
