@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ChevronDown, Ellipsis, Folder, Pin, Plus, Search, Settings } from "lucide-react";
+import { Archive, ChevronDown, CirclePlus, Ellipsis, Folder, Pin, Plus, Search, Settings } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { InlineLoader } from "./LoadingState";
 import { alertDialog, promptDialog } from "./DialogHost";
 import { api } from "../api";
 import { sendToShell } from "../host";
 import { useStore } from "../store";
-import { comboFor } from "../keybinds";
+import { comboFor, isOff } from "../keybinds";
 import { useT } from "../i18n";
 import { HoverScrollText } from "./HoverScrollText";
 import { openNewProjectDialog } from "./NewProjectDialog";
@@ -314,6 +314,18 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           />
         </div>
       )}
+      {/* 侧栏首行「新会话」入口（§3.2 New Chat 式）：切草稿页，首条消息才建会话 */}
+      <button
+        className="new-session-entry"
+        data-tip={t("新会话")}
+        onClick={() => store.openSession(null)}
+      >
+        <CirclePlus size={15} />
+        <span className="ns-label">{t("新会话")}</span>
+        {!isOff("new-session", store.keybinds) && (
+          <span className="ns-keys">{comboFor("new-session", store.keybinds)}</span>
+        )}
+      </button>
       {activeWs && (
         <div className="ws-view" key={`head-${activeWs.workspaceId}`} data-dir={slideDir.current}>
           {/* 官方 ProjectRowItem 同款交互：点行折叠/展开会话；hover 显出
