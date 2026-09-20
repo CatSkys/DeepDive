@@ -7,6 +7,15 @@ DeepSeek Harness 桌面客户端：原生玻璃窗口（Swift + AppKit + WKWebVi
 - macOS 14+，Xcode 26（或 16+），[XcodeGen](https://github.com/yonaskolb/XcodeGen)（`brew install xcodegen`）
 - `dsh` CLI：`npm i -g @deepseek-ai/dsh`（`make dev` 默认用系统 dsh，Release/package 构建捆绑引脚版运行时；`DSHMINI_DSH_ENTRY` 可覆盖路径）
 
+## 安装（把 DMG 给使用者）
+
+DMG 里只有两项：**DeepDive.app** 与 **Applications 链接**，安装引导画在窗口背景上（背景图源在 `design/dmg/`，改图见该目录 README）。
+
+1. 打开 DMG，把 DeepDive 拖进「应用程序」；
+2. 从「启动台」或「应用程序」打开——**公证过的包双击即进主界面**，没有额外步骤（未公证的自建包会撞 Gatekeeper，见下节）。
+
+系统要求：**macOS 14 及以上，且仅 Apple 芯片（arm64）**。包内只带 Apple 芯片的 Node 运行时，Intel（x86_64）Mac 上引擎起不来，会给出明确提示。
+
 ## 开发
 
 ```sh
