@@ -19,7 +19,7 @@ import { HeroBrand } from "./components/HeroBrand";
 import { AgentModePicker } from "./components/AgentMode";
 import { SettingsPage } from "./components/SettingsPage";
 import { BootSkeleton } from "./components/BootSkeleton";
-import { FirstRunGate } from "./settings/FirstRunGate";
+import { OnboardingWizard } from "./onboarding/OnboardingWizard";
 import { useAutoArchive } from "./useAutoArchive";
 import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
@@ -331,7 +331,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
 }
 
 export default function App() {
-  // 设置页开合与分节放在 App（始终挂载）：FirstRunGate 派发 dd:open-settings
+  // 设置页开合与分节放在 App（始终挂载）：引导卡派发 dd:open-settings
   // 时门还压着 Shell——监听必须住在门外，跳转才不会丢。
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState("general");
@@ -355,7 +355,7 @@ export default function App() {
     <StoreProvider>
       <AutomationProvider>
         <EvolutionProvider>
-        <FirstRunGate>
+        <OnboardingWizard>
           <Shell
             settingsOpen={settingsOpen}
             settingsSection={settingsSection}
@@ -364,7 +364,7 @@ export default function App() {
             automationDraft={automationDraft}
             onAutomationDraftUsed={() => setAutomationDraft(null)}
           />
-        </FirstRunGate>
+        </OnboardingWizard>
         </EvolutionProvider>
       </AutomationProvider>
     </StoreProvider>

@@ -36,6 +36,10 @@ enum DSHAppPrefs {
     /// 桥监听端口：固定下来前端 origin 才稳（localStorage 按 origin 分家）。
     /// 0 = 还没定过（首次启动由内核分配，随后记下）。
     static let bridgePortKey = "deepdive.bridge.port"
+    /// 新手引导进度（JSON 串，结构由前端 `onboarding/useOnboarding.ts` 定义并解析，
+    /// 壳只存不解析）。跨启动的 durable 状态走壳而不走 localStorage——后者随 origin
+    /// 漂移（PITFALLS §4.17）。
+    static let onboardingKey = "deepdive.onboarding"
 
     /// 侧栏拖拽边界。唯一事实源是 tokens.json 的 size.sidebar.min/max；
     /// 前端消费侧（frontend/src/store.tsx）为同值手工双写——改动必须三处
@@ -89,6 +93,15 @@ enum DSHAppPrefs {
 
     static func setKeybinds(_ value: String) {
         UserDefaults.standard.set(value, forKey: keybindsKey)
+    }
+
+    /// 新手引导进度（前端定义的 JSON 串；缺省 = 从未开始）。
+    static var onboarding: String {
+        UserDefaults.standard.string(forKey: onboardingKey) ?? ""
+    }
+
+    static func setOnboarding(_ value: String) {
+        UserDefaults.standard.set(value, forKey: onboardingKey)
     }
 
     static var hotkeyOn: Bool {

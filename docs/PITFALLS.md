@@ -162,7 +162,7 @@
 
 ### 4.1 独立 harness home 需自带 `.credentials.yaml`
 - 事故：`DSH_HOME` 指向独立 harness home（现为 `~/Library/Application Support/DeepDive/harness`；改名前 `…/DSHmini/…`，首启动已自动迁移），无 `~/.dsh/.credentials.yaml` → LLM 每轮返回**空回复**（assistant 文本为空），且无报错。
-- 处置：缺凭据**不再拒启**（照常 spawn，引擎侧容忍缺文件且热发布；冷启动闭环改由 SPA 的首启门接管，见 §5.6）。老 dsh CLI 的凭据由壳在**启动期一次性迁移**进 harness home（`LegacyCredentials.perform()`，已有/无来源静默；成功与失败各落一行日志）。
+- 处置：缺凭据**不再拒启**（照常 spawn，引擎侧容忍缺文件且热发布；冷启动闭环改由 SPA 的新手引导卡接管，见 §5.6）。老 dsh CLI 的凭据由壳在**启动期一次性迁移**进 harness home（`LegacyCredentials.perform()`，已有/无来源静默；成功与失败各落一行日志）。
 
 ### 4.2 mux 帧是 `server-request` wrapper，需解包 `payload`
 - `frame = (raw.payload) || raw` 解包正确；帧类型在 `payload.type`（session/event / approval/requested …）。
@@ -291,7 +291,7 @@
 
 ### 5.6 全新机器首启黑屏：桥接把静态页也挡在引擎 503 后面，凭据拒启又焊死了闭环
 - 事故（2026-09-06，分享给新用户后报告）：主窗纯黑，恢复窗「打开设置」点了还是黑。两个叠加根因：① `BridgeServer.route` 的 `guard let engineBase else 503` 排在 `serveStatic` 之前——引擎没起来时连 `index.html` 都 503，WKWebView 拿到空 body 的 503 也算导航完成（日志有 `didFinish`、无任何 JS 报错），页面就是空的、透出底层 tint；② `EngineSupervisor` 缺 `.credentials.yaml` 直接 `.failed` 不 spawn，而设置页配 Key 走的 `credentials.set` 是**引擎 RPC**——恢复窗引导的「打开设置配 Key」在设计上就不可能走通。开发机永远有凭据，这条路从未被端到端跑过。
-- 处置：静态资源一律不看引擎状态（只有 `/api` 保留 503）；缺凭据照常启动引擎（引擎侧对文件缺失容忍且 watch 热发布，见 vendored `packages/credentials/credentials-local`），首启由 SPA 的 `FirstRunGate` 接管（`credentials.describe` 正向确证无任何已配置密钥才出门，读失败绝不冒充"未配置"）。
+- 处置：静态资源一律不看引擎状态（只有 `/api` 保留 503）；缺凭据照常启动引擎（引擎侧对文件缺失容忍且 watch 热发布，见 vendored `packages/credentials/credentials-local`），首启由 SPA 的新手引导卡接管（`credentials.describe` 正向确证无任何已配置密钥才出门，读失败绝不冒充"未配置"）。
 - 复现/验收手法：`DSHMINI_SUPPORT_DIR=/tmp/fresh <app>/Contents/MacOS/DeepDive` 用空目录模拟全新机器（隔离锁/harness/日志，不动真实实例）；引擎 ready 后打开 bridge URL 走完配 Key → 检查 `/tmp/fresh/harness/.credentials.yaml` 落盘 → 门放行。**显示器休眠/合盖时 `screencapture -l` 截 WKWebView 只有原生 tint 层（纯黑）**——那是采集假象不是页面黑，以 `host-ready`/`[titlebar] control rects` 日志与浏览器同源渲染为准，显示器亮后再补像素图。
 
 ### 5.7 公证的签名要求：`--deep` 漏签 Resources 下散文件；hardened runtime 还需 JIT entitlements，否则公证过了引擎也崩

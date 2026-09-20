@@ -1,4 +1,4 @@
-// 模型目录数据源（设置页 ModelsManage 与首启引导 FirstRunGate 共用，唯一拷贝）：
+// 模型目录数据源（设置页 ModelsManage 与新手引导卡共用，唯一拷贝）：
 // llm/listConfigurableProviders 目录 + settings 的 llm-deepseek / llm-pi-ai 两命名空间 +
 // 各提供方密钥配置态（credentials.describe 实况）+ 手写路由可声明的协议枚举
 // （llm-pi-ai 自己的 schema，见 piProtocols.ts）。

@@ -371,6 +371,27 @@ export function copyText(text: string): void {
 /** 任意文本 → 二维码 data URL（Bot Channel 的扫码配对：插件给的是
  *  verificationUrl）。复用壳里那一份 CoreImage 生成器，前端不塞第二套 QR
  *  实现；无壳桥/壳不回包 resolve 空串（调用方按"画不出码"降级）。 */
+/** 读其他 Agent 的模型配置**原文**（新手引导「迁移」步）：壳只搬运不解析，
+ *  解析/映射在 onboarding/agentModelImport.ts。无壳桥/超时/无文件一律空表——
+ *  调用方按"这家没有可导入的模型配置"降级，不做第二次尝试。 */
+export function scanAgentConfigs(): Promise<Record<string, string>> {
+  return bridgeRequest(
+    "agentConfigs",
+    {},
+    (p) => {
+      const files = (p as { files?: Record<string, string> } | undefined)?.files;
+      if (!files || typeof files !== "object") return {};
+      const out: Record<string, string> = {};
+      for (const [source, text] of Object.entries(files)) {
+        if (typeof text === "string") out[source] = text;
+      }
+      return out;
+    },
+    (reqId) => sendToShell({ type: "scan-agent-configs", reqId }),
+    4000,
+  );
+}
+
 export function qrEncode(text: string): Promise<string> {
   return bridgeRequest(
     "qrEncoded",

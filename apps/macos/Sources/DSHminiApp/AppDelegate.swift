@@ -231,6 +231,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 } else if key == "keybinds" {
                     // 前端键位覆盖（JSON 串，结构由前端定义）：只存不解析。
                     DSHAppPrefs.setKeybinds(mode)
+                } else if key == "onboarding" {
+                    // 新手引导进度（JSON 串，结构由前端 onboarding/useOnboarding 定义）。
+                    DSHAppPrefs.setOnboarding(mode)
                 }
                 break
             }
@@ -467,6 +470,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             windowController.pushHostCommand("qrEncoded", payload: AppDelegate.jsonPayload([
                 "reqId": body["reqId"] as? String ?? "",
                 "qr": QRCode.dataURL(text: body["text"] as? String ?? "") ?? "",
+            ]))
+        case "scan-agent-configs":
+            // 新手引导「迁移」步：读其他 Agent 的配置原文交给前端解析（壳不解析、不落日志，
+            // 见 AgentConfigScan 的隐私边界）。文件按白名单，缺失的来源直接不出现。
+            windowController.pushHostCommand("agentConfigs", payload: AppDelegate.jsonPayload([
+                "reqId": body["reqId"] as? String ?? "",
+                "files": AgentConfigScan.read(home: FileManager.default.homeDirectoryForCurrentUser),
             ]))
         case "open-url":
             // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
@@ -1081,6 +1091,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "appearance": DSHAppPrefs.appearance,
             "language": DSHAppPrefs.language,
             "keybinds": DSHAppPrefs.keybinds,
+            "onboarding": DSHAppPrefs.onboarding,
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
         "evolutionEnabled": DSHAppPrefs.evolutionEnabled,
             "sessionMemoryEnabled": DSHAppPrefs.sessionMemoryEnabled,

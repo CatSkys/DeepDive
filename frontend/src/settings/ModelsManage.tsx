@@ -9,6 +9,7 @@ import {
   type EditTarget,
 } from "./ModelDialog";
 import { useModelCatalog } from "./useModelCatalog";
+import { probeProvider } from "./providerProbe";
 import { confirmDialog } from "../components/DialogHost";
 import { providerLabel, QUICK_ADD_PROVIDERS } from "./vendors";
 import cssRows from "./SettingsRows.module.css";
@@ -98,24 +99,12 @@ export function ModelsManage() {
     })();
   }, [cat.ready, cat.loadError, cat.providers, cat.deepseek, cat.pi]);
 
-  /** 连通测试：pi 提供方走发现接口（列出模型 = 连通且 Key 有效）；
-      DeepSeek 无发现路由，退化为密钥配置状态检查。 */
+  /** 连通测试：探测实现在 providerProbe（与新手引导卡共用同一份）。 */
   const test = async (row: { provider: string; id: string }) => {
     const key = `${row.provider}|${row.id}`;
     setTests((s0) => ({ ...s0, [key]: { state: "testing", msg: t("测试中…") } }));
-    try {
-      if (row.provider === "deepseek-official") {
-        const ref = keyRefOf(row.provider, cat.deepseek.apiKeyEnv);
-        const cr = await api.credentialsDescribe({ refs: [ref] });
-        const ok = !!cr?.[ref]?.configured;
-        setTests((s0) => ({ ...s0, [key]: { state: ok ? "ok" : "fail", msg: ok ? t("密钥已配置") : t("未配置密钥") } }));
-      } else {
-        const r = await api.discoverModels({ settingsNs: "llm-pi-ai", provider: row.provider });
-        setTests((s0) => ({ ...s0, [key]: { state: "ok", msg: tt("连通 · {n} 个模型", "Connected · {n} models", { n: r.length }) } }));
-      }
-    } catch (err) {
-      setTests((s0) => ({ ...s0, [key]: { state: "fail", msg: String((err as Error).message).slice(0, 140) } }));
-    }
+    const result = await probeProvider({ provider: row.provider, deepseekApiKeyEnv: cat.deepseek.apiKeyEnv });
+    setTests((s0) => ({ ...s0, [key]: { state: result.ok ? "ok" : "fail", msg: result.message } }));
     setTimeout(() => setTests((s0) => {
       const next = { ...s0 };
       delete next[key];

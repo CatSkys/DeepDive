@@ -55,11 +55,17 @@ export function usePrefs() {
     setSessionMemoryEnabledState(v);
     sendToShell({ type: "set-pref", key: "sessionMemoryEnabled", value: v });
   }, []);
+  // 新手引导进度（JSON 串，结构见 onboarding/useOnboarding.ts）：壳只存不解析。
+  const [onboarding, setOnboardingState] = useState("");
+  const setOnboarding = useCallback((v: string) => {
+    setOnboardingState(v);
+    sendToShell({ type: "set-pref", key: "onboarding", value: v });
+  }, []);
   // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗、键位覆盖；
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; evolutionEnabled?: boolean; sessionMemoryEnabled?: boolean; sessionMemoryBlocked?: string | null };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; evolutionEnabled?: boolean; sessionMemoryEnabled?: boolean; sessionMemoryBlocked?: string | null; onboarding?: string };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
@@ -71,6 +77,7 @@ export function usePrefs() {
       if (typeof p.sessionMemoryBlocked === "string" || p.sessionMemoryBlocked === null) {
         setSessionMemoryBlockedState(p.sessionMemoryBlocked ?? null);
       }
+      if (typeof p.onboarding === "string") setOnboardingState(p.onboarding);
     }
     if (cmd === "themeChanged") {
       const dark = (payload as { dark?: boolean } | undefined)?.dark;
@@ -91,5 +98,6 @@ export function usePrefs() {
     evolutionEnabled, setEvolutionEnabled,
     sessionMemoryEnabled, setSessionMemoryEnabled,
     sessionMemoryBlocked,
+    onboarding, setOnboarding,
   };
 }

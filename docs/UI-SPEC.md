@@ -226,7 +226,7 @@
 | **MemoryCard** | **参考图式**：① 标题行（pin 图标 + `Memory` + 右侧操作钮：`🔄 重新生成`（图标+文字按钮）、删除）② 小节 `Work context`：persona 文本段落 ③ 底部 `Personal context`：技能/上下文构成（小字列表） | 上下文信息卡；只展示数据，无说明句；入口=会话头 `brain` 图标；重生成 P2 |
 | **AgentPicker** | 小标题 `AI Agents` + 选项（图标+名称，选中=亮度差）+ **底部搜索框（占位 `搜索角色…`，P1 即过滤 preset）** | FloatingCard 居中；选项包括用户自建 preset |
 | **MenuBarPopover**（原生） | 引擎状态 + 最近会话 5 + [设置][退出] | 宽 280 |
-| **OnboardingCard** | 三步：连接模型 → 选工作区 → 示例任务 | 每步**一个动词短语 + 一个按钮** |
+| **OnboardingCard** | 四步：**迁移**（其他 Agent 的会话 + 模型配置一键导入）→ **配置模型**（Key + 默认模型）→ **新建项目**（＝工作区，建目录 + 注册）→ **开始使用**（结尾语，只讲怎么发消息） | 卡内完成、左栏步进进度；每步**一个动词短语 + 一个动作**；可逐步跳过，进度存壳偏好 `deepdive.onboarding`（`onboarding/OnboardingWizard.tsx`） |
 
 ### 2.3 键盘映射
 

@@ -15,10 +15,9 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { FolderOpen, Info, Plus } from "lucide-react";
-import { api } from "../api";
-import { inShell, prepareWorkspace } from "../host";
+import { inShell } from "../host";
+import { createProject } from "./projectCreate";
 import { useStore } from "../store";
-import { setWsIcon } from "../wsIcons";
 import { useT } from "../i18n";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { useSettingNamespace } from "../settings/useSettingNamespace";
@@ -95,50 +94,25 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
 
   const submit = async () => {
     if (!canSubmit) return;
-    const trimmed = name.trim();
     setError(null);
     setBusy(true);
-    try {
-      // 浏览器没有壳桥写不了 AGENTS.md：明确报错，不静默丢弃
-      if (!hasShell && instructions.trim()) {
-        setError(t("写入项目指令需要桌面应用。"));
-        return;
-      }
-      let target = typedPath.trim();
-      if (hasShell) {
-        // 壳负责：自动建目录（未显式选时）+ 写项目指令（AGENTS.md 不存在时）
-        const prep = await prepareWorkspace({
-          name: trimmed,
-          ...(pickedPath ? { path: pickedPath } : {}),
-          ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
-        });
-        if (prep.error || !prep.path) {
-          setError(prep.error ?? tt("创建项目失败：壳未响应。", "Create project failed: the shell did not respond."));
-          setBusy(false);
-          return;
-        }
-        target = prep.path;
-      }
-      const res = await store.createWorkspace(target);
-      if (res.error || !res.workspaceId) {
-        setError(tt("创建项目失败：{m}", "Create project failed: {m}", { m: res.error ?? "unknown" }));
-        setBusy(false);
-        return;
-      }
-      if (glyph) setWsIcon(res.workspaceId, glyph);
-      // 名称与目录末级名不同才 rename（一致时引擎默认标题已经是它）
-      const base = target.split("/").filter(Boolean).pop() ?? "";
-      if (base !== trimmed) {
-        try {
-          await api.workspaceRename({ workspaceId: res.workspaceId, title: trimmed });
-          await store.refresh();
-        } catch { /* 引擎可能对重名标题做去重改名，落库失败不挡创建 */ }
-      }
-      onClose();
-    } catch (err) {
-      setError(tt("创建项目失败：{m}", "Create project failed: {m}", { m: (err as Error).message }));
+    // 建项目的编排在 projectCreate（与新手引导卡共用同一份实现）。
+    const result = await createProject(
+      {
+        name,
+        ...(pickedPath ? { path: pickedPath } : typedPath.trim() ? { path: typedPath.trim() } : {}),
+        ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
+        ...(glyph ? { glyph } : {}),
+        hasShell,
+      },
+      { createWorkspace: store.createWorkspace, refresh: store.refresh },
+    );
+    if (result.error) {
+      setError(result.error);
       setBusy(false);
+      return;
     }
+    onClose();
   };
 
   return createPortal(
