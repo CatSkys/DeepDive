@@ -411,19 +411,25 @@ button {
   inset: 0;
   transition: opacity 120ms ease;
 }
-/* 折叠箭头：行内绝对定位在图标列（左内距 10px 处），不参与布局——有没有 glyph
-   都不改标题左缘；收起时先收内容、箭头随后向右转出（弹性缓动 + 70ms 起步），
-   展开时立刻转回来 */
+/* 折叠箭头：行内绝对定位在图标列（左内距 10px），不参与布局——静止时项目名首字与
+   上方图标同列（用户定稿）。悬停/折叠时它在这格弹入（缩放 + 弹性缓动，60ms 起步：
+   先让名字走、箭头再到），项目名同步右移到文字列并让位——否则箭头会压在首字上。
+   折叠态箭头指向右（rotate -90°），展开时转回朝下。 */
 .ws-chevron-ic {
   position: absolute;
   left: 10px;
   top: 9.5px;
   opacity: 0;
-  transition: opacity 160ms ease, transform 300ms cubic-bezier(.34, 1.56, .64, 1);
+  transform: scale(.8);
+  transition: opacity 160ms ease, transform 260ms cubic-bezier(.34, 1.56, .64, 1);
 }
-.ws-row:hover .ws-chevron-ic, .ws-row.collapsed .ws-chevron-ic { opacity: 1; }
+.ws-name { transition: margin-left 220ms cubic-bezier(.34, 1.4, .64, 1); }
+.ws-row:hover .ws-chevron-ic, .ws-row.collapsed .ws-chevron-ic { opacity: 1; transition-delay: 60ms; }
+.ws-row:hover .ws-chevron-ic { transform: none; }
+.ws-row.collapsed .ws-chevron-ic { transform: rotate(-90deg); }
 .ws-row:hover .ws-lead .ws-folder-ic, .ws-row.collapsed .ws-lead .ws-folder-ic { opacity: 0; }
-.ws-row.collapsed .ws-chevron-ic { transform: rotate(-90deg); transition-delay: 70ms; }
+.ws-row:hover .ws-name, .ws-row.collapsed .ws-name { margin-left: 20px; } /* 14 槽 + 6 gap */
+
 .ws-row-actions { margin-left: auto; display: none; align-items: center; gap: 2px; }
 .ws-row:hover .ws-row-actions { display: inline-flex; }
 .ws-row .ws-act {
