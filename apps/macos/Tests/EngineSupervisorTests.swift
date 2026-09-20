@@ -310,4 +310,24 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertEqual(resolved.deletingLastPathComponent(), FileManager.default.homeDirectoryForCurrentUser)
         XCTAssertFalse(resolved.path.contains("/Documents/"))
     }
+
+    /// Intel Mac 上引擎起不来时用户读到的那句话。本机是 Apple 芯片、装不了"内核
+    /// 拒绝执行的架构"，所以钉的是**判定与文案**（真实错误形制照 Process.run 实测：
+    /// NSPOSIXErrorDomain + errno 86）。别的失败原因必须回 nil，交给原有文案——
+    /// 这条不许吞掉 ENOEXEC（非可执行）之类的其他启动失败。
+    func testArchMismatchCopyOnlyFiresForBadCPUType() {
+        let asProcessRunGives = NSError(
+            domain: NSPOSIXErrorDomain,
+            code: Int(POSIXErrorCode.EBADARCH.rawValue),
+            userInfo: nil,
+        )
+        let message = EngineSupervisor.archMismatchCopy(asProcessRunGives)
+        XCTAssertNotNil(message)
+        XCTAssertTrue(message?.contains("Apple 芯片") == true)
+        XCTAssertTrue(message?.contains("Intel") == true)
+        XCTAssertEqual(message, EngineSupervisor.archMismatchCopy(POSIXError(.EBADARCH)))
+
+        XCTAssertNil(EngineSupervisor.archMismatchCopy(POSIXError(.ENOEXEC)))
+        XCTAssertNil(EngineSupervisor.archMismatchCopy(POSIXError(.EACCES)))
+    }
 }

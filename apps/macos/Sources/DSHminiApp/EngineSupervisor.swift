@@ -1333,7 +1333,8 @@ final class EngineSupervisor {
     /// Mac 上跑到这段的包必然是 arm64-only 的（PITFALLS §5.8 同族：分发包成立与否
     /// 从没在目标机上端到端验证过）。这与「包不完整」无关，报成「请重新安装」会让
     /// 用户重装到底也起不来——照实说清。nil = 不是这个原因，交给调用方原有文案。
-    private static func archMismatchCopy(_ error: Error) -> String? {
+    /// 纯函数，回归钉在 EngineSupervisorTests（Intel 用户看到的就是这句话）。
+    static func archMismatchCopy(_ error: Error) -> String? {
         guard let posix = error as? POSIXError, posix.code == .EBADARCH else { return nil }
         return "此分发包只带 Apple 芯片（arm64）的引擎运行时，无法在这台 Mac（Intel 处理器）上启动。\n\n请在 Apple 芯片的 Mac 上使用 DeepDive。"
     }
