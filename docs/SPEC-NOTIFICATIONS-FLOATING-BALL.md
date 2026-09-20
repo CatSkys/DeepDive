@@ -13,7 +13,7 @@
 
 ### 1.1 授权与投递
 - `UNUserNotificationCenter.current().delegate = self`；**授权时机：用户在设置里打开任一通知开关时，或首次派发任务时**（两处都调，谁先到算谁）`requestAuthorization(options: [.alert, .sound])`，App 启动不弹（避免启动即打扰；用户拒绝后静默降级为仅菜单栏/悬浮球状态提示）。授权请求是异步弹窗，**完成前的首次通知由菜单栏/悬浮球状态兜底**。
-- `post(id, title, body, silent)`：`UNMutableNotificationContent`（title/body）+ `UNNotificationRequest(trigger: nil)` 立即投递。**sound 按 `SPEC-SEMANTICS §5` 打扰分级**：待审批/待提问（高打扰）带 sound；**回合完成静默（`silent = true`，中打扰=静默通知）**；引擎失败带 sound。
+- `post(id, title, body, silent)`：`UNMutableNotificationContent`（title/body）+ `UNNotificationRequest(trigger: nil)` 立即投递。**sound 按 `SPEC-SEMANTICS §5` 打扰分级**：待审批/待提问（高打扰）带 sound；**回合完成静默（`silent = true`，中打扰=静默通知）**。引擎失败**不发通知**（报错面一律在应用内，见 `SPEC-SEMANTICS §5`）。
 - 点击通知 → 激活 App + 主窗口到前 + **转入对应会话**：原生层记录触发通知的 `sessionId`，经 **§3.1 外壳→前端通道** 下发 `navigateToSession(sessionId)`（参考项目只有"点击走 `FloatingBubbleManager.shared.bubbleClicked()`"，"转入会话"为本项目新增，依赖桥通道）。
 - `willPresent`：App 前台也显示 banner（可选，按产品取舍；前台时本来就被 §1.2 前台抑制覆盖，此条仅作 API 兜底）。
 
@@ -22,7 +22,7 @@
 - 待审批：`approval/requested` → `notifyApprovalNeeded(toolName, sessionTitle, sessionId)` → **"需要你的许可 / <会话标题> / 请求执行：<tool>"**（带 sound）+ `NSApp.requestUserAttention(.informationalRequest)`（dock 弹跳）。
 - 待提问：`question/requested` → `notifyQuestionNeeded(questionText, sessionTitle, sessionId)` → **"有问题要问你 / <会话标题> / <首条提问文本，截断 120 字>"**（带 sound；载荷契约见引擎 `askUserQuestionItemSchema`）+ dock 弹跳。
 - 回合完成：`turn/end(completed)` → `notifyTurnFinished(sessionTitle, sessionId)` → **"回合已完成 / <会话标题>"**（**静默**，对齐 SEMANTICS §5）。
-- 引擎失败：`EngineSupervisor` 进入 `.failed`（连续重启失败）→ 通知"引擎异常 — <reason 摘要>"（带 sound；对齐 SEMANTICS §5"失败/引擎异常"，状态点同时变）。
+- 引擎失败：**不发通知**——`EngineSupervisor` 进入 `.failed` 后由壳推 `engineState`（含原因与日志尾部），SPA 的引擎横幅给出原因 + 重试 + 详情（对齐 SEMANTICS §5"失败/引擎异常"），菜单栏状态点同时变红。系统通知与原生窗口都不是应用报错的地方。
 - 前台抑制：仅当 `!NSApp.isActive` 才弹通知与弹跳；悬浮球状态始终实时反映；菜单栏图标也可经 §1.3 开关整体隐藏（隐藏后状态面只剩悬浮球/通知本身）。
 > 范围外声明：SEMANTICS §5 的「专注模式（通知时间窗）」为 P2 后续项，不在本 spec 实现；本阶段只做前台抑制。
 

@@ -3,7 +3,7 @@ import { Link2, RefreshCw, Smartphone, Square } from "lucide-react";
 import css from "./RemoteControl.module.css";
 import rowsCss from "../settings/SettingsRows.module.css";
 import {
-  remoteCopyLink, remoteRefresh, remoteRevoke, remoteStart, remoteStatus, remoteStop,
+  copyText, remoteRefresh, remoteRevoke, remoteStart, remoteStatus, remoteStop,
   type RemoteDevice, type RemoteStatus,
 } from "../host";
 import { formatClock } from "../session/format";
@@ -53,7 +53,7 @@ export function RemoteControlSection() {
 
   const copyLink = () => {
     if (!status?.url) return;
-    remoteCopyLink(status.url);
+    copyText(status.url);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   };

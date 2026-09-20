@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: MainWindowController!
     private var statusItem: StatusItemController!
     private var hotKey: HotKeyManager!
-    private var recovery: RecoveryWindowController!
     private var config: AppConfig!
     private var terminationSource: DispatchSourceSignal?
 
@@ -35,7 +34,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         supervisor = EngineSupervisor(home: AppPaths.harnessHome, workspace: config.workspaceURL)
         windowController = MainWindowController(themeEnabled: config.themeEnabled)
-        recovery = RecoveryWindowController()
         statusItem = StatusItemController()
         hotKey = HotKeyManager()
         installDictation()
@@ -44,11 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onShowWindow = { [weak self] in self?.windowController.showPanel() }
         statusItem.onOpenSettings = { [weak self] in self?.openSettings() }
         statusItem.onReloadWeb = { [weak self] in self?.windowController.reloadWeb() }
-        statusItem.onRestartEngine = { [weak self] in
-            guard let self else { return }
-            self.recovery.hide()
-            self.supervisor.start()
-        }
+        statusItem.onRestartEngine = { [weak self] in self?.supervisor.start() }
         statusItem.onChooseWorkspace = { [weak self] in self?.chooseWorkspace() }
         statusItem.onQuit = { [weak self] in
             self?.supervisor.stop()
@@ -58,13 +52,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // accessory 策略（不经 Dock/Cmd⌘-Tab，窗口与热键不受影响）。
         statusItem.setVisible(DSHAppPrefs.menuBar)
         NSApp.setActivationPolicy(DSHAppPrefs.dockIcon ? .regular : .accessory)
-
-        recovery.onRetry = { [weak self] in
-            self?.supervisor.start()
-        }
-        recovery.onOpenSettings = { [weak self] in
-            self?.openSettings()
-        }
 
         supervisor.onState = { [weak self] state in
             self?.handleEngineState(state)
@@ -120,6 +107,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let applied = SessionAdmin.applyPending(home: AppPaths.harnessHome) {
             EngineLog.shared.append("[session-admin] applied pending: removed \(applied.removed.count)\(applied.error.map { " error: \($0)" } ?? "")")
         }
+        // 老 dsh CLI（~/.dsh）的凭据一次性接过来——引擎只认 DSH_HOME 下那一份。
+        // 原挂载点是恢复窗的按钮，恢复窗删除后改在启动期自动走（.already/.missing
+        // 是常态、静默；.imported/.failed 由 LegacyCredentials 自己落日志）。
+        _ = LegacyCredentials.perform()
         supervisor.start()
 
         // Load the bridge (SPA shows "引擎启动中" until the engine is up).
@@ -221,7 +212,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // 相位——不补这一下，"重启中/已失败"在重载后就退回成笼统的"正在重试…"。
             pushEngineState(supervisor.state)
         case "restart-engine":
-            recovery.hide()
             // 真正的重启：start() 对运行中的引擎是 no-op（process 幂等守卫），
             // 只调它等于"什么都不做"——而 bundle 成员变化（如卸载插件）必须换进程才生效。
             supervisor.stop()
@@ -463,7 +453,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "remote-revoke":
             RemoteAccess.shared.revoke(deviceId: body["deviceId"] as? String ?? "")
             remoteStatus(reqId: body["reqId"] as? String ?? "")
-        case "remote-copy":
+        case "copy-text":
+            // 前端唯一剪贴板通道（远程页的链接、引擎失败详情的诊断日志共用）：
+            // WKWebView 里 navigator.clipboard 要权限、也写不进系统剪贴板的
+            // 原生语义，所以统一由壳落 NSPasteboard。
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.setString(body["text"] as? String ?? "", forType: .string)
@@ -1186,6 +1179,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .failed(let reason):
             payload["phase"] = "failed"
             payload["reason"] = reason
+            // 日志尾随失败一起推：失败面在 SPA 里（横幅 + 详情弹窗），诊断信息
+            // 必须跟着过去——原生的"复制诊断"没了，用户要能从界面里看到/复制日志。
+            payload["tail"] = EngineLog.shared.tailText
         }
         windowController.pushHostCommand("engineState", payload: Self.jsonPayload(payload))
     }
@@ -1239,7 +1235,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pushEngineState(state)
         switch state {
         case .ready(let url):
-            recovery.hide()
             BridgeServer.shared.setEngine(url)
             // Mint the engine browser-auth cookie FIRST (alpha.2+), then wire
             // the native consumers (settings RPC + event observer, §3 方案 A).
@@ -1254,13 +1249,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let bridgeURL = BridgeServer.shared.url {
                 windowController.load(url: bridgeURL)
             }
-        case .failed(let reason):
-            statusItem.setState(state)
+        case .failed:
+            // 失败只走内置面（SPA 的引擎横幅 + 详情弹窗，见 pushEngineState 的
+            // tail 字段）：不弹原生窗口、不发系统通知——错误面一律在应用内
+            //（UI-SPEC 的 ToastBar/DialogHost 约定：DialogHost 全应用替换系统弹窗）。
             EngineAuth.shared.update(base: nil)
             EngineEventObserver.shared.update(base: nil)
             EngineGateway.shared.update(base: nil)
-            NativeAlerts.notifyEngineFailed(reason: reason)
-            recovery.show(reason: reason, log: EngineLog.shared.tailText)
         case .launching, .restarting, .idle:
             break
         }
@@ -1286,7 +1281,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         config.launchWorkspace = url.path
         config.save()
         EngineLog.shared.append("[shell] workspace set to \(url.path); restarting engine")
-        recovery.hide()
         supervisor.stop()
         // Engine binds workspace committed at process start (sandbox root = cwd).
         let newSupervisor = EngineSupervisor(home: AppPaths.harnessHome, workspace: config.workspaceURL)

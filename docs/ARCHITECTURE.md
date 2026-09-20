@@ -11,7 +11,7 @@
 ┌──────────────────────────────────────────────────────────────┐
 │ 原生外壳  Swift + AppKit（apps/macos，XcodeGen 生成工程）      │
 │  玻璃主窗(WKWebView) · 全局热键 · 菜单栏 · 原生通知 · 悬浮球   │
-│  听写 · 引擎监督(自愈重启/恢复屏) · BridgeServer(同源托管)     │
+│  听写 · 引擎监督(自愈重启/失败面在 SPA 内) · BridgeServer(同源托管) │
 ├──────────────────────────────────────────────────────────────┤
 │ 自建 SPA  React + TS + Vite（frontend/）                       │
 │  会话流/工具行/审批卡/提问卡/排队 · 模型菜单(思考强度) ·        │
@@ -54,7 +54,7 @@
 | `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |
 | `McpServerAdmin.swift` | MCP server 行：`- insert:` 一行一 server（`@deepseek-ai/dsh-mcp-client` + `config` 用 JSON 写进 YAML），同一份 home patch 层的第二块托管段；行上的 `disabled` 管启停，同样热生效 |
 | `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC 且把会话列表缓存在内存 → ①立即删 `sessions/<bucket>/<id>/`；②覆盖集登记到 UserDefaults，下次启动空窗期落账 `storages/workspace.json` 归档集 + `storages/session_projcache.json`；纯函数 + 原子写，结构不符拒绝落盘） |
-| `StatusItemController.swift` / `RecoveryWindowController.swift` | 菜单栏状态点与菜单、引擎失败恢复屏（诊断复制/凭据冷启动） |
+| `StatusItemController.swift` | 菜单栏状态点与菜单（引擎状态以图标呈现；失败的具体原因在 SPA 的引擎横幅里，见 §3 事件表） |
 | `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | html/body 透明注入（勿加样式）、偏好、数据目录、设置面动态 JSON 树 |
 | `EngineSupervisor.ensureLesson{Verify,Gate,Land}Script` | 自进化三份固化脚本：每次启动铺到 `<DSH_HOME>/deepdive/` 并置可执行位（shebang 指向随包 node、写死随包 fzstd 路径）。verify 数签名在落地前后两窗的命中（steps=匹配会话均值口径）；gate 机械门（证据逐字=解码后事件字段值包含摘录 + 锚点存在）；land 落地确认（git 提交 --grep 提案id + 触碰文件 ⊆ 允许清单 + 文件回读；plugin 家 node --check + 挂载块带戳）。壳经 `lesson-tool` 桥直跑，模型不在环内 |
 | `EngineSupervisor.quarantineDeepDivePluginMounts` | 自愈：引擎连续启动失败且用户层 patch（profiles/web/cordis.patch.yml）里有 lesson- 挂载块时整块摘除（全文进日志）再重启一次——坏挂载不许让引擎永远起不来 |

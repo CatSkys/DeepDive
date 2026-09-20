@@ -35,14 +35,14 @@
 ## 3. 为什么不是别的路
 
 - **Electron**：上游官方桌面端即 Electron（`deepseek-harness/apps/desktop`），有完整先例可抄；
-  但它与我们已建成的壳能力（原生通知/悬浮球/热键/标题栏契约/恢复屏）和打包链全不兼容，
+  但它与我们已建成的壳能力（原生通知/悬浮球/热键/标题栏契约/引擎失败面）和打包链全不兼容，
   且 Chromium 基线内存换不来我们需要的东西。文章对 Electron 的排除理由（深集成、系统 WebView）
   在我们这里同样成立。
 - **Tauri / WinUI 3 / Flutter / Qt / RN for Desktop**：文章的排除理由（原生控制力不足、
   成熟度不够）逐条成立，不重复论证。
 - **复用上游 desktop profile（不开端口，走管道 + `dsh-app://`）**：否决。该 profile 会
   `disabled: [web-startup, webserver, web-runtime, ...]`（`apps/desktop-host/config/desktop.cordis.patch.yml`），
-  而我们的桥**必须能在引擎不在时托管 SPA**——凭据冷启动与引擎故障恢复屏正是"引擎没起来"
+  而我们的桥**必须能在引擎不在时托管 SPA**——凭据冷启动与引擎故障的内置错误面正是"引擎没起来"
   的窗口（PITFALLS §5.6，静态资源被 503 挡住会把新装机器焊成黑窗）。端口形态的本机回环桥
   是维持这条的最简办法，且保住"浏览器打开 bridge URL 做 DOM 调试"（PITFALLS §6.2）。
   上游那套管道传输留作远期选项，不进本期。

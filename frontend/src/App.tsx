@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelLeft, Search } from "lucide-react";
 import { api } from "./api";
-import { alertDialog } from "./components/DialogHost";
-import { installHostBridge } from "./host";
+import { alertDialog, confirmDialog } from "./components/DialogHost";
+import { installHostBridge, copyText } from "./host";
 import { mux } from "./mux";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
@@ -29,6 +29,13 @@ import { CommandPaletteHost, openCommandPalette, toggleCommandPalette } from "./
 import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
+
+/** 引擎失败详情里展示/复制的日志行数：壳最多推 400 行，弹窗只看得下末尾这几行。 */
+const FAILURE_TAIL_LINES = 40;
+
+function failureTailLines(text: string | null): string {
+  return (text ?? "").trim().split("\n").slice(-FAILURE_TAIL_LINES).join("\n");
+}
 
 function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, automationDraft, onAutomationDraftUsed }: {
   settingsOpen: boolean;
@@ -179,6 +186,21 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     // 真实依赖只有 keybinds；store.openSession/toggleSidebar 按稳定引用约定不入表
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.keybinds]);
+
+  // 引擎失败详情：原因 + 日志尾部，可就地复制诊断——原原生恢复窗的两样能力
+  // （看原因、复制诊断）搬进应用内。报错一律在应用内呈现，不弹系统窗/系统通知。
+  const showEngineFailureDetail = async () => {
+    const reason = (store.engineFailureReason ?? "").trim();
+    const tail = failureTailLines(store.engineFailureTail);
+    const diagnostics = reason && tail ? `${reason}\n\n${tail}` : reason || tail;
+    const copy = await confirmDialog({
+      title: t("引擎启动失败"),
+      message: diagnostics || t("原因见日志"),
+      confirmLabel: t("复制诊断"),
+      cancelLabel: t("关闭"),
+    });
+    if (copy) copyText(diagnostics);
+  };
   return (
     <div className={`app${store.sidebarCollapsed ? " collapsed" : ""}`}>
       <TooltipHost />
@@ -186,10 +208,13 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       <NewProjectDialogHost />
       <IconPickerHost />
       <CommandPaletteHost />
-      {/* 断线横幅：只在连上后掉线时出现（启动期引擎未起不算），重连即消失。
+      {/* 断线横幅：连上后掉线时出现（启动期引擎未起不算），重连即消失。
+          但 failed 是**硬失败**，与"掉线"不同：首启就失败（新装机器入口缺失/
+          架构不符/连续崩溃）时从没连上过，everConnected 恒 false——不特判就等于
+          一个错误都不显示（原生的恢复窗已删，报错一律在这个横幅里）。
           壳的退避重试/放弃只有壳知道，所以文案分三档——旧实现放弃之后还写着
           "正在重试…"，既没有原因也没有重试入口。 */}
-      {store.everConnected && !store.engineUp && (
+      {store.enginePhase === "failed" || (store.everConnected && !store.engineUp) ? (
         <div className="engine-banner" role="status" data-phase={store.enginePhase}>
           <span className="engine-banner-dot" aria-hidden="true" />
           {store.enginePhase === "failed" ? (
@@ -197,6 +222,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
               <span className="engine-banner-text">
                 {tt("引擎启动失败：{m}", "Engine failed to start: {m}", { m: store.engineFailureReason || t("原因见日志") })}
               </span>
+              <button className="engine-banner-action" onClick={() => void showEngineFailureDetail()}>{t("详情")}</button>
               <button className="engine-banner-action" onClick={() => store.restartEngine()}>{t("重试")}</button>
             </>
           ) : store.enginePhase === "restarting" ? (
@@ -205,7 +231,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
             t("与引擎的连接已断开，正在重试…")
           )}
         </div>
-      )}
+      ) : null}
       {/* 顶部两钮（⊞收起 / 🔍搜索）：红绿灯旁横排，收起/展开都在顶部。
           搜索钮打开搜索面板（与 ⌘K 同一条链路）——面板里的「搜索会话全文」才发 focusSearch 事件展开侧栏搜索框
           并聚焦，侧栏收起时先展开；「新会话」按钮已按用户要求去掉（用得少，

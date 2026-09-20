@@ -65,6 +65,8 @@ interface Store {
   /** 壳给的引擎状态（退避重试/放弃只有壳知道）：banner 文案与重试入口的依据。 */
   enginePhase: "idle" | "launching" | "ready" | "restarting" | "failed";
   engineFailureReason: string | null;
+  /** 失败时随状态推来的引擎日志尾部（诊断用；原生恢复窗的「复制诊断」搬到内置面）。 */
+  engineFailureTail: string | null;
   /** 壳正在退避重试的第几次（0 = 不在重试中）。 */
   engineRestartingAttempt: number;
   /** 请壳重启引擎（失败态下的「重试」）。 */
@@ -190,6 +192,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [everConnected, setEverConnected] = useState(false);
   const [enginePhase, setEnginePhase] = useState<Store["enginePhase"]>("idle");
   const [engineFailureReason, setEngineFailureReason] = useState<string | null>(null);
+  const [engineFailureTail, setEngineFailureTail] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<Map<string, ApprovalPending>>(new Map());
   const [questions, setQuestions] = useState<Map<string, QuestionPending>>(new Map());
@@ -206,11 +209,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // 壳的引擎状态推送（退避重试/放弃只有壳知道）→ banner 文案与重试入口。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd !== "engineState") return;
-    const p = payload as { phase?: string; attempt?: number; reason?: string } | undefined;
+    const p = payload as { phase?: string; attempt?: number; reason?: string; tail?: string } | undefined;
     const phase = p?.phase;
     if (phase !== "idle" && phase !== "launching" && phase !== "ready" && phase !== "restarting" && phase !== "failed") return;
     setEnginePhase(phase);
     setEngineFailureReason(phase === "failed" ? (p?.reason ?? "") : null);
+    setEngineFailureTail(phase === "failed" ? (p?.tail ?? "") : null);
     setEngineRestartingAttempt(phase === "restarting" ? (p?.attempt ?? 0) : 0);
   }), []);
 
@@ -725,6 +729,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       everConnected,
       enginePhase,
       engineFailureReason,
+      engineFailureTail,
       engineRestartingAttempt,
       restartEngine,
       activeSessionId,
@@ -783,7 +788,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, enginePhase, engineFailureReason, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -156,6 +156,10 @@ export const EN: Record<string, string> = {
   "计划审查": "Plan review",
   "继续讨论": "Discuss instead",
   "与引擎的连接已断开，正在重试…": "Engine connection lost — retrying…",
+  // 引擎失败的详情面（原因 + 日志尾部，就地复制诊断）
+  "引擎启动失败": "Engine failed to start",
+  "复制诊断": "Copy diagnostics",
+  "详情": "Details",
   // phase 2 commands & input
   "控制新会话的文件写入与审批策略；运行中的会话保持开始时的预设。": "Controls file access and approval policy for new sessions; running sessions keep their starting preset.",
   "本引擎未提供权限预设。": "This engine exposes no permission presets.",

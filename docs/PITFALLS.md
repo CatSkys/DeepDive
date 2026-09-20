@@ -162,7 +162,7 @@
 
 ### 4.1 独立 harness home 需自带 `.credentials.yaml`
 - 事故：`DSH_HOME` 指向独立 harness home（现为 `~/Library/Application Support/DeepDive/harness`；改名前 `…/DSHmini/…`，首启动已自动迁移），无 `~/.dsh/.credentials.yaml` → LLM 每轮返回**空回复**（assistant 文本为空），且无报错。
-- 处置：`EngineSupervisor.start()` 前**断言凭据存在**，缺失即 `state = .failed(...)` fail-loud，不再静默空引擎；恢复屏提供「配置 API Key / 从 ~/.dsh 导入凭据」，配好自动重启（冷启动闭环）。
+- 处置：缺凭据**不再拒启**（照常 spawn，引擎侧容忍缺文件且热发布；冷启动闭环改由 SPA 的首启门接管，见 §5.6）。老 dsh CLI 的凭据由壳在**启动期一次性迁移**进 harness home（`LegacyCredentials.perform()`，已有/无来源静默；成功与失败各落一行日志）。
 
 ### 4.2 mux 帧是 `server-request` wrapper，需解包 `payload`
 - `frame = (raw.payload) || raw` 解包正确；帧类型在 `payload.type`（session/event / approval/requested …）。

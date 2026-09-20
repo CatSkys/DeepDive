@@ -1,7 +1,7 @@
 import Foundation
 
-/// ~/.dsh/.credentials.yaml → DeepDive harness home 的旧版凭据导入
-/// （恢复窗「从 ~/.dsh 导入凭据」按钮的唯一实现）。
+/// ~/.dsh/.credentials.yaml → DeepDive harness home 的旧版凭据迁移
+/// （壳在启动期调一次，见 AppDelegate；引擎只认 DSH_HOME 下那一份）。
 enum LegacyCredentials {
     enum Status: Equatable {
         /// 已从 ~/.dsh 复制进 harness home。

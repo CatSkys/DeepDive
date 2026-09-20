@@ -598,7 +598,8 @@ final class EngineSupervisor {
     ///
     /// 插件文件的 `import "@deepseek-ai/dsh-tools"` 从文件位置向上找 node_modules；
     /// 本目录不在 profiles 树里摸不到安装闭包——缺了它不是"这个功能不可用"，而是
-    /// **整棵插件树起不来**：引擎 boot fail-loud、三次启动失败进恢复屏（engine.log
+    /// **整棵插件树起不来**：引擎 boot fail-loud、三次启动失败（SPA 的引擎横幅
+    /// 给出原因与重试；engine.log
     /// 实测 5 次 Cannot find package '@deepseek-ai/dsh-tools'）。所以：
     ///   ① 依赖放一个指向随包 runtime 闭包的 node_modules 链接（每次启动重写）；
     ///   ② 闭包不存在（开发构建没嵌运行时）时**删掉旧链接**，不留悬空目标；

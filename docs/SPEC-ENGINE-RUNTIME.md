@@ -74,9 +74,10 @@
 ### 4.4 凭据冷启动闭环（首启引导）
 - 引擎**不因缺凭据而拒启**：DSH_HOME 缺 `.credentials.yaml` 时 `EngineSupervisor` 只记一行日志、照常 spawn。依据是引擎自身的契约——`credentials-local` 对文件缺失容忍（ENOENT 视为空），且 watch 文件热发布；而配 Key 的 `credentials.set` 是引擎 RPC，引擎不在跑就没有任何合法途径写出第一把 Key（PITFALLS §5.6）。
 - 桥接静态资源与引擎状态无关：SPA 在引擎启动期/失败期都能加载，只有 `/api` 在引擎未就绪时 503。
-- 首启由 SPA 的 `FirstRunGate`（`frontend/src/settings/FirstRunGate.tsx`）接管：引擎连上后经 `credentials.describe` 对全部提供方 keyRef 确证「没有任何已配置密钥」→ 整窗替换为首启欢迎卡（左栏徽标/logo/标题 + 「开始使用 DeepDive」直达设置页「模型」分节 + 「从 ~/.dsh 导入凭据」；右栏黑白液态金属视觉）。导入走壳桥 `import-legacy-credentials` → `LegacyCredentials` 共享实现（恢复窗同一份），成功即重 describe 自动放行；「开始使用」与 × 只收起当次会话，重启仍未配置会再次出现。读取失败 ≠ 未配置（`useModelCatalog.configuredKnown`），引擎瞬断绝不把老用户锁进欢迎页。目录与密钥态数据源与设置页「模型」共用 `useModelCatalog`。
+- 首启由 SPA 的 `FirstRunGate`（`frontend/src/settings/FirstRunGate.tsx`）接管：引擎连上后经 `credentials.describe` 对全部提供方 keyRef 确证「没有任何已配置密钥」→ 整窗替换为首启欢迎卡（左栏徽标/logo/标题 + 「开始使用 DeepDive」直达设置页「模型」分节 + 「导入会话」；右栏黑白液态金属视觉）；「开始使用」与 × 只收起当次会话，重启仍未配置会再次出现。读取失败 ≠ 未配置（`useModelCatalog.configuredKnown`），引擎瞬断绝不把老用户锁进欢迎页。目录与密钥态数据源与设置页「模型」共用 `useModelCatalog`。
+- 老 dsh CLI（`~/.dsh/.credentials.yaml`）的凭据由壳在**启动期一次性迁移**进 harness home（`LegacyCredentials.perform()`，已有/无来源静默；成功与失败各落一行日志）——引擎只认 DSH_HOME 下那一份，迁移后老用户开箱即用、首启门不会出现。
 - 会话导入（「从其他 Agent 导入」）：官方 dsh 的「导入会话」实为社区插件 `dsh-chat-import`（MIT，npm），非引擎内置——引擎本体（按当前引脚）的 RPC 面与官方 web 资产里都没有该功能；用户机器上的入口来自 `~/.dsh/profiles/web` 插件层。DeepDive 随包分发该插件（独立引脚 `scripts/dsh-chat-import-version.txt`，`prepare-chat-import.sh` 备闭包、`embed-engine.sh` 嵌入 `Resources/Runtime/chat-import/`），启动前由壳 `ChatImportPlugin` 幂等装进 harness home 的 web profile（合并 bundles、保留用户已有插件）。插件在引擎上挂 `/api-import/sessions|import|sync` 面板路由，桥接与 `/api` 同等中继；SPA 设置页「导入」分区（三块卡：自动同步 / 来源列表 / 导入历史）与首启欢迎页「导入会话」入口共用该契约。导入必经 ImportDialog 勾选确认（按项目分组，DB 源 zcode/opencode/mimocode 走 sessionIds 只导所选，文件源按 sourcePath 逐条）；扫描按来源并行渐进渲染（全量单扫太慢会被当成卡死），扫描带世代守卫防并发叠加。
-- 恢复窗（`RecoveryWindowController`）只服务真实引擎故障（入口缺失/连续崩溃）；其「打开设置」「从 ~/.dsh 导入」按钮按凭据文件是否存在显隐，导入路径保留为老用户迁移的旁路。
+- 引擎故障（入口缺失/连续崩溃）的**报错面在 SPA 内**：壳把状态（含原因与日志尾部）经 `engineState` 推给前端，横幅显示原因 + 「重试」+「详情」（详情 = 内置弹窗展示原因与日志尾部，可就地复制诊断）。不弹原生窗口、不发系统通知。
 
 ## 5. 引擎升级与更新
 
@@ -97,6 +98,6 @@
 | `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` | 入口解析优先 bundled + spawn 形状（node+bin.js）+ 失败文案区分（§3.4） |
 | `apps/macos/Sources/DSHminiApp/EngineVersion.swift` / `apps/macos/project.yml` | 版本门：随包引脚（`dsh-runtime-version.txt` 作 bundle 资源）+ 外部入口 `--version` 探测与拒启文案（§3.4） |
 | `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` / `BridgeServer.swift` | 缺凭据只记日志、照常 spawn；静态资源不受引擎状态门控（§4.4） |
-| `apps/macos/Sources/DSHminiApp/RecoveryWindowController.swift` | 恢复界面加"配置 API Key"入口 + 一键导入（§4.4） |
+| `apps/macos/Sources/DSHminiApp/AppDelegate.swift` / `frontend/src/App.tsx` | 失败面在 SPA 内：`engineState`（原因 + 日志尾部）+ 横幅/详情弹窗（§4.4）；`LegacyCredentials` 启动期迁移 |
 
 > 依赖：DSHmini 需在构建机有 Node/npm（仅构建时）。运行时自包含，不依赖全局 npm/PATH。

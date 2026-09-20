@@ -104,15 +104,9 @@ enum NativeAlerts {
              sessionId: sessionId)
     }
 
-    /// Engine failure always surfaces (SEMANTICS §5 失败/引擎异常), sound on.
-    static func notifyEngineFailed(reason: String) {
-        let head = reason.split(separator: "\n").first.map(String.init) ?? "引擎异常"
-        post(id: "engine-\(UUID().uuidString)",
-             title: "引擎异常",
-             body: head,
-             silent: false,
-             sessionId: nil)
-    }
+    // 引擎异常**不走系统通知**（用户定稿）：报错一律在应用内——SPA 的引擎横幅给
+    // 原因与「重试」，菜单栏状态点随即变红。原 notifyEngineFailed 与原生恢复窗
+    // 一并删除：系统通知与系统窗口都不该是应用报错的地方。
 
     // MARK: - foreground presentation (§1.1)
 

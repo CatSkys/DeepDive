@@ -362,8 +362,10 @@ export const remoteStop = () => remoteCommand("remote-stop");
 export const remoteRefresh = () => remoteCommand("remote-refresh");
 export const remoteRevoke = (deviceId: string) => remoteCommand("remote-revoke", { deviceId });
 
-export function remoteCopyLink(text: string): void {
-  sendToShell({ type: "remote-copy", text });
+/** 唯一剪贴板通道：写系统剪贴板只能壳做（WKWebView 里 navigator.clipboard
+ *  要授权、语义也不同）。远程页复制链接与引擎失败详情复制诊断共用这一条。 */
+export function copyText(text: string): void {
+  sendToShell({ type: "copy-text", text });
 }
 
 /** 任意文本 → 二维码 data URL（Bot Channel 的扫码配对：插件给的是

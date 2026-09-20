@@ -2,7 +2,7 @@ import Foundation
 
 /// Engine version identity for the entry gate (SPEC-ENGINE-RUNTIME §3.4).
 /// 管什么：读随包 pin、探测非 bundled 入口版本、给出拒启文案。
-/// 不管什么：spawn 参数、恢复窗 UI、会话迁移。
+/// 不管什么：spawn 参数、失败面（在 SPA 内）、会话迁移。
 enum EngineVersion {
     /// 随包引擎引脚：`scripts/dsh-runtime-version.txt` 由 project.yml 直接拷进
     /// bundle（唯一事实源，不复制版本值）。读资源而不是内嵌 runtime 的

@@ -474,8 +474,13 @@ extension MainWindowController: WKScriptMessageHandler {
     }
 }
 
-// MARK: - WKUIDelegate (JS alert / confirm / prompt panels)
+// MARK: - WKUIDelegate（JS 原生弹窗：不弹系统窗，只落诊断）
 
+/// 应用内**不允许出现系统弹窗**（用户定稿；前端的唯一弹窗入口是
+/// `frontend/src/components/DialogHost.tsx`，报错面走引擎横幅/内置弹窗）。
+/// 所以 JS 的 alert/confirm/prompt 一律不弹原生面板，只留一条诊断日志：
+/// 静默 no-op 会让调用点看起来"点了没反应"（ctx-menu 重命名就这么死过一次），
+/// 日志能把违反约定的调用点直接点名。confirm/prompt 按"取消"返回。
 extension MainWindowController: WKUIDelegate {
     func webView(
         _ webView: WKWebView,
@@ -483,11 +488,7 @@ extension MainWindowController: WKUIDelegate {
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping () -> Void
     ) {
-        let alert = NSAlert()
-        alert.messageText = "DeepDive"
-        alert.informativeText = message
-        alert.addButton(withTitle: "好")
-        alert.runModal()
+        EngineLog.shared.append("[web] alert() ignored — use DialogHost: \(message.prefix(200))")
         completionHandler()
     }
 
@@ -497,12 +498,8 @@ extension MainWindowController: WKUIDelegate {
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping (Bool) -> Void
     ) {
-        let alert = NSAlert()
-        alert.messageText = "DeepDive"
-        alert.informativeText = message
-        alert.addButton(withTitle: "好")
-        alert.addButton(withTitle: "取消")
-        completionHandler(alert.runModal() == .alertFirstButtonReturn)
+        EngineLog.shared.append("[web] confirm() ignored (returns false) — use DialogHost: \(message.prefix(200))")
+        completionHandler(false)
     }
 
     func webView(
@@ -512,16 +509,7 @@ extension MainWindowController: WKUIDelegate {
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping (String?) -> Void
     ) {
-        let alert = NSAlert()
-        alert.messageText = "DeepDive"
-        alert.informativeText = prompt
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
-        input.stringValue = defaultText ?? ""
-        alert.accessoryView = input
-        alert.addButton(withTitle: "好")
-        alert.addButton(withTitle: "取消")
-        alert.window.initialFirstResponder = input
-        let ok = alert.runModal() == .alertFirstButtonReturn
-        completionHandler(ok ? input.stringValue : nil)
+        EngineLog.shared.append("[web] prompt() ignored (returns nil) — use DialogHost: \(prompt.prefix(200))")
+        completionHandler(nil)
     }
 }
