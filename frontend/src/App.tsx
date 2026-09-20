@@ -96,6 +96,11 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       },
       // 系统唤醒：WS 可能已假死（PITFALLS §4.7），弃掉重建让直播流自愈。
       systemWake: () => mux.recycle(),
+      // 菜单「文件 → 新建会话」：与侧栏入口/⌘N 同一条路径（切草稿页）。
+      newSession: () => {
+        closeSettings();
+        store.openSession(null);
+      },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

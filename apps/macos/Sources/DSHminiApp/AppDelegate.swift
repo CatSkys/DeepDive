@@ -15,7 +15,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppDelegate.shared = self
         installTerminationHandler()
         installWakeObserver()
-        installMainMenu()
         adjustOcclusionDetection()
         config = AppConfig.load()
 
@@ -34,6 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         supervisor = EngineSupervisor(home: AppPaths.harnessHome, workspace: config.workspaceURL)
         windowController = MainWindowController(themeEnabled: config.themeEnabled)
+        // 菜单在窗口控制器之后装：视图菜单的缩放动作要挂到它身上（AUD：早装=取到 nil 崩）。
+        installMainMenu()
         statusItem = StatusItemController()
         hotKey = HotKeyManager()
         installDictation()
@@ -1119,35 +1120,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - main menu (⌘, needs a menu seat; Edit menu powers ⌘C/⌘V in
     // native text fields)
 
+    // MARK: - 主菜单（结构在 MainMenu.swift，这里只放动作实现）
+
     private func installMainMenu() {
-        let mainMenu = NSMenu()
-
-        let appItem = NSMenuItem()
-        mainMenu.addItem(appItem)
-        let appMenu = NSMenu()
-        appItem.submenu = appMenu
-        appMenu.addItem(NSMenuItem(title: "关于 DeepDive", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
-        appMenu.addItem(.separator())
-        let settingsItem = NSMenuItem(title: "设置…", action: #selector(openSettingsFromMenu), keyEquivalent: ",")
-        settingsItem.target = self
-        appMenu.addItem(settingsItem)
-        appMenu.addItem(.separator())
-        appMenu.addItem(NSMenuItem(title: "隐藏 DeepDive", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
-        appMenu.addItem(NSMenuItem(title: "退出 DeepDive", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-
-        let editItem = NSMenuItem()
-        mainMenu.addItem(editItem)
-        let editMenu = NSMenu(title: "编辑")
-        editItem.submenu = editMenu
-        editMenu.addItem(NSMenuItem(title: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
-        editMenu.addItem(NSMenuItem(title: "拷贝", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
-        editMenu.addItem(NSMenuItem(title: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
-        editMenu.addItem(NSMenuItem(title: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
-
-        NSApp.mainMenu = mainMenu
+        MainMenu.install(app: NSApp, target: self, window: windowController)
     }
 
-    @objc private func openSettingsFromMenu() {
+    /// 新建会话：会话由前端 store 管，菜单只发桥指令（与侧栏「新建会话」同一入口）。
+    @objc func newSessionFromMenu(_ sender: Any?) {
+        showMainWindow()
+        windowController.pushHostCommand("newSession", payload: "{}")
+    }
+
+    /// 打开工作区：目录选择器在壳（引擎要求目录已存在），选完经 workspacePicked 回推前端注册。
+    @objc func pickWorkspaceFromMenu(_ sender: Any?) {
+        pickWorkspaceDirectory()
+    }
+
+    @objc func revealLogFromMenu(_ sender: Any?) {
+        NSWorkspace.shared.activateFileViewerSelecting([AppPaths.logURL])
+    }
+
+    /// 复制诊断信息：与引擎失败详情的「复制诊断」同源（日志尾部），排障时一键交出。
+    @objc func copyDiagnosticsFromMenu(_ sender: Any?) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(EngineLog.shared.tailText, forType: .string)
+    }
+
+    @objc func revealDataDirFromMenu(_ sender: Any?) {
+        NSWorkspace.shared.open(AppPaths.harnessHome)
+    }
+
+    @objc func openSettingsFromMenu(_ sender: Any?) {
         openSettings()
     }
 

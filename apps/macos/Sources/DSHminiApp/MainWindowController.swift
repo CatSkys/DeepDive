@@ -359,6 +359,21 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         }
     }
 
+    // MARK: - 视图菜单：页面缩放（⌘+ / ⌘- / ⌘0）
+
+    /// 整页缩放走 WKWebView 的 pageZoom（窗口尺寸不动，只缩放内容）。范围是显示
+    /// 口径：上限 2.0 免得布局散架，下限 0.5 仍可读；「实际大小」回 1.0。
+    private static let pageZoomStep: CGFloat = 0.1
+    private static let pageZoomRange: ClosedRange<CGFloat> = 0.5...2.0
+
+    @objc func pageZoomIn(_ sender: Any?) { applyPageZoom(webView.pageZoom + Self.pageZoomStep) }
+    @objc func pageZoomOut(_ sender: Any?) { applyPageZoom(webView.pageZoom - Self.pageZoomStep) }
+    @objc func pageZoomReset(_ sender: Any?) { applyPageZoom(1) }
+
+    private func applyPageZoom(_ value: CGFloat) {
+        webView.pageZoom = min(max(value, Self.pageZoomRange.lowerBound), Self.pageZoomRange.upperBound)
+    }
+
     // MARK: - show / hide (anti-flicker panel)
 
     func togglePanel() {
@@ -377,6 +392,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     func showPanel() {
         guard let window else { return }
         panelVisibleIntent = true
+        // 菜单给了「最小化」：缩进 Dock 的窗口不会因为 orderFront 回来，必须先还原——
+        // 否则 ⌘M 会把窗口丢进 Dock 后再也唤不出（hotkey/菜单/Dock 图标都只是 orderFront）。
+        if window.isMiniaturized { window.deminiaturize(nil) }
         showWindow(nil)
         window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)

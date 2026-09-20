@@ -456,6 +456,8 @@ export function installHostBridge(handlers: {
   /** 系统唤醒通知（PITFALLS §4.7）：WKWebView 里的 WS 可能已假死，
    *  前端据此弃掉 mux socket 重建，直播流自愈。 */
   systemWake: () => void;
+  /** 菜单「文件 → 新建会话」：切到草稿页（与侧栏「新建会话」/⌘N 同一条路径）。 */
+  newSession: () => void;
 }): void {
   if (window.__deepDiveHost) return; // idempotent mount (StrictMode/reloads)
   window.__deepDiveHost = {
@@ -482,6 +484,10 @@ export function installHostBridge(handlers: {
         }
         case "systemWake": {
           handlers.systemWake();
+          break;
+        }
+        case "newSession": {
+          handlers.newSession();
           break;
         }
         default:
