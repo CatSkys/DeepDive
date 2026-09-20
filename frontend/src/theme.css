@@ -374,19 +374,21 @@ button {
 .new-session-entry {
   display: flex;
   align-items: center;
-  gap: 7px;
+  /* 度量对齐 .ws-row（内距 8 / 图标 13 / gap 6），图标文字与项目行左缘同线 */
+  gap: 6px;
   width: 100%;
   height: 28px;
-  padding: 0 10px;
+  padding: 0 8px;
   border-radius: 14px; /* 胶囊用高度值（PITFALLS §1.1） */
   color: var(--ink);
   font-size: 13.5px;
   text-align: left;
 }
 .new-session-entry:hover { background: var(--fill); }
-.new-session-entry svg { color: var(--ink-2); flex: none; }
+.new-session-entry svg { color: var(--ink-3); flex: none; }
 .new-session-entry .ns-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.new-session-entry .ns-keys { flex: none; font-size: 11px; color: var(--ink-3); }
+/* 键帽字符间留字距（⌘N 别贴成一块），末字符字距用负边距收回 */
+.new-session-entry .ns-keys { flex: none; font-size: 11px; color: var(--ink-3); letter-spacing: 2px; margin-right: -2px; }
 
 .ws-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-lead { position: relative; width: 13px; height: 13px; flex: none; }

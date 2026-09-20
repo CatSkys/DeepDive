@@ -320,7 +320,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         data-tip={t("新会话")}
         onClick={() => store.openSession(null)}
       >
-        <CirclePlus size={15} />
+        <CirclePlus size={13} />
         <span className="ns-label">{t("新会话")}</span>
         {!isOff("new-session", store.keybinds) && (
           <span className="ns-keys">{comboFor("new-session", store.keybinds)}</span>
