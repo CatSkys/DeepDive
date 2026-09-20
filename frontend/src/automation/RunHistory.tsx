@@ -2,7 +2,7 @@
 // 成功的可以跳去那次会话看转录。记录由 useAutomation 在每次执行时落。
 
 import { useT } from "../i18n";
-import { runTimeText } from "./model";
+import { lateText, runTimeText } from "./model";
 import { useAutomation } from "./useAutomation";
 import css from "./Automation.module.css";
 
@@ -17,7 +17,10 @@ export function RunHistory({ taskId, onOpenSession }: { taskId: string | null; o
         const sid = run.sessionId;
         return (
           <div key={run.id} className={css.runRow}>
-            <span className={css.runTime}>{runTimeText(run.startedAt, lang)}</span>
+            <span className={css.runTime}>
+              {runTimeText(run.startedAt, lang)}
+              {lateText(run.lateMs, lang) !== "" && <span className={css.runLate}> · {lateText(run.lateMs, lang)}</span>}
+            </span>
             <span className={css.runStatus} data-status={run.status}>
               {run.status === "running" ? t("运行中…")
                 : run.status === "done" ? t("已完成")

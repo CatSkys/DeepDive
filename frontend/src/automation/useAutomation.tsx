@@ -73,14 +73,22 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     if (inFlightRef.current.has(task.id)) return null;
     inFlightRef.current.add(task.id);
     setRunning(new Set(inFlightRef.current));
-    const run: TaskRun = { id: uuid(), taskId: task.id, sessionId: null, startedAt: now, status: "running" };
+    // lateMs：这次比原计划晚了多久（运行历史要看得见"迟到"，别让补跑隐形）
+    const planned = task.nextRunAt ?? now;
+    const run: TaskRun = {
+      id: uuid(), taskId: task.id, sessionId: null, startedAt: now, status: "running",
+      lateMs: Math.max(0, now - planned),
+    };
     addRun(run);
     setTasks((prev) => prev.map((t) => (t.id === task.id
       ? { ...t, nextRunAt: nextRunAt(t.schedule, now), lastRunAt: now, runCount: t.runCount + 1 }
       : t)));
     // 复用目标要确认那个会话还在（引擎列表里没有 = 被删了）——不在就新建一个。
     const known = new Set(storeRef.current.allSessions.map((s) => s.sessionId));
-    const outcome = await startRun(task, reuseSessionId(task, known));
+    const outcome = await startRun(task, reuseSessionId(task, known), (sessionId) => {
+      // 会话一建好就记进这条运行记录：应用中途退出也留得下对账线索
+      setRuns((prev) => prev.map((r) => (r.id === run.id ? { ...r, sessionId } : r)));
+    });
     setRuns((prev) => prev.map((r) => {
       if (r.id !== run.id) return r;
       return "error" in outcome
@@ -116,24 +124,43 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const tick = useCallback(async () => {
+  /** 一轮调度。catchUpMs 是"迟到多久就不再补跑、直接顺延"的窗口——**每一轮都过
+   *  这道门**（不只在启动时）：合盖睡了 8 小时再打开，一样不该一次炸出一串补跑。
+   *  取传参而非读 tasksRef：启动那一轮必须立刻按修正后的清单走，不能等 state 渲染
+   *  （旧实现的补差就是这么形同虚设的）。 */
+  const tick = useCallback(async (list: AutomationTask[] = tasksRef.current) => {
     const now = Date.now();
     reconcile(now);
-    for (const task of tasksRef.current) {
+    const overdue: string[] = [];
+    for (const task of list) {
       if (task.status !== "enabled" || task.nextRunAt === null) continue;
+      if (now - task.nextRunAt > CATCHUP_MS) { overdue.push(task.id); continue; }
       if (task.nextRunAt > now || inFlightRef.current.has(task.id)) continue;
       await fire(task, now);
     }
+    if (overdue.length > 0) {
+      const skip = new Set(overdue);
+      setTasks((prev) => prev.map((t) => (skip.has(t.id) ? { ...t, nextRunAt: nextRunAt(t.schedule, Date.now()) } : t)));
+    }
   }, [fire, reconcile]);
 
-  // 启动：排期补差 + 首轮 tick；此后按 TICK_MS 走。
+  // 应用重启的账目：上次退出时还挂着"运行中"的记录，结局已不可知——留痕说明，
+  // 别让它永远转圈（旧实现里 reconcile 跳过 sessionId 为 null 的记录，那种记录
+  // 永远不会被收尾）。有会话 id 的交给 reconcile 按引擎状态判。
   useEffect(() => {
-    const now = Date.now();
-    setTasks((prev) => prev.map((t) => {
-      if (t.status !== "enabled") return t;
-      if (t.nextRunAt === null || now - t.nextRunAt > CATCHUP_MS) return { ...t, nextRunAt: nextRunAt(t.schedule, now) };
-      return t;
-    }));
+    setRuns((prev) => {
+      let changed = false;
+      const next = prev.map((r): TaskRun => {
+        if (r.status !== "running" || r.sessionId !== null) return r;
+        changed = true;
+        return { ...r, status: "error", error: tt("应用在运行期间退出，结果未知", "The app quit mid-run; outcome unknown") };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  // 启动：首轮 tick（补差由 tick 自己按窗口处理）；此后按 TICK_MS 走。
+  useEffect(() => {
     void tick();
     const iv = window.setInterval(() => { void tick(); }, TICK_MS);
     return () => window.clearInterval(iv);

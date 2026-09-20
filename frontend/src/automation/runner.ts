@@ -11,9 +11,16 @@ import { uuid } from "../uuid";
 /** reused = 这次是复用既有会话（调用方据此决定要不要把新会话记回任务）。 */
 export type RunOutcome = { sessionId: string; reused: boolean } | { error: string };
 
-export async function startRun(task: AutomationTask, reuse: string | null): Promise<RunOutcome> {
+export async function startRun(
+  task: AutomationTask,
+  reuse: string | null,
+  /** 会话一建好就回调：调用方把 sessionId 立刻记进运行记录——应用若在这次
+   *  运行中途退出，记录里仍有会话可对账（否则只剩一条永远"运行中"的无主记录）。 */
+  onSession?: (sessionId: string) => void,
+): Promise<RunOutcome> {
   try {
     const sessionId = reuse ?? (await api.createSession(task.workspaceId === null ? {} : { workspaceId: task.workspaceId })).sessionId;
+    onSession?.(sessionId);
     if (reuse === null) {
       // 命名即判据：自动化的运行会话是后台会话，不进用户列表（运行历史里仍可打开）。
       await api.sessionRename({ sessionId, title: automationRunTitle(task.title) })

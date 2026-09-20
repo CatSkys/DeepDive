@@ -18,7 +18,9 @@ export function useAutoArchive(): void {
     let alive = true;
     const scan = async () => {
       const s = storeRef.current;
-      const ids = archiveCandidates(s.sessions, {
+      // 候选只从"用户列表那一层"里挑（sidebarSessions）：隐藏的后台运行会话
+      // 与子代理会话不归自动归档管，扫描也不该看见它们。
+      const ids = archiveCandidates(s.sidebarSessions, {
         pinned: s.pinned,
         unread: s.unread,
         activeSessionId: s.activeSessionId,

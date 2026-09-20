@@ -2,14 +2,33 @@
 // 图片收字节 chip（随 prompt 直传），通用文件收上传 chip（fileUploads/upload
 // 回执，就绪才可发送），文件夹转 @ 引用（引擎宿主侧读盘）。只管摄入与
 // chip 集合；chip 预览与发送时拼 PromptContentPart 由编排方做。
+// 摄入被拒（超限/读不到字节）必须当场说出来——用户定稿"附件不许静默丢"。
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { pickAttachments, type PickedAttachment } from "../../host";
 import { formatMention } from "../../atGrammar";
 import { tt } from "../../i18n";
 import { api } from "../../api";
 import { uuid } from "../../uuid";
 import { DD_EVENTS, onAppEvent } from "../../events";
+import { alertDialog } from "../DialogHost";
+
+/** 单文件上限＝桥的单请求上限（MiniHTTPServer.maxBodyBytes，超出即 413）：
+ *  客户端先拦一次，别让用户等一个注定失败的上传。 */
+const MAX_UPLOAD_BYTES = 32 * 1024 * 1024;
+
+/** 超过上传上限的文件说明（图片与通用文件同一口径）。 */
+function tooLargeNote(name: string): string {
+  return tt(`「${name}」超过 32 MB 上传上限`, `"${name}" exceeds the 32 MB upload limit`);
+}
+
+/** 上传失败的原话：引擎/桥的错误文本优先（413 明确说成"超过 32 MB"），
+ *  没有就回落通用一句——chip 的 tooltip 与发送失败的弹窗都读它。 */
+export function uploadErrorText(err: unknown): string {
+  const msg = err instanceof Error ? err.message : "";
+  if (/\b413\b/.test(msg)) return tt("超过 32 MB 上传上限", "Exceeds the 32 MB upload limit");
+  return msg || tt("上传失败", "Upload failed");
+}
 
 export interface ImageAttachment {
   /** chip 的稳定 key，摄入时生成；不进发送载荷。 */
@@ -63,49 +82,66 @@ function isFileDrag(e: DragEvent): boolean {
   return Array.from(e.dataTransfer?.types ?? []).includes("Files");
 }
 
-/** 拖拽载荷里的 WebKit public.file-url → 文件路径（getAsString 是回调制，包 Promise）。 */
-function fileUrlsOf(dt: DataTransfer): Promise<string[]> {
-  return new Promise((resolve) => {
-    const items = Array.from(dt.items).filter((i) => i.kind === "file" && i.type === "public.file-url");
-    const out: string[] = [];
-    let pending = items.length;
-    if (pending === 0) { resolve(out); return; }
-    for (const item of items) {
-      item.getAsString((s) => {
-        if (s?.startsWith("file://")) out.push(decodeURIComponent(s.replace(/^file:\/\//, "")));
-        pending -= 1;
-        if (pending === 0) resolve(out);
-      });
-    }
-  });
+/** 一个拖入项：是文件就带 File 字节，是文件夹就带它的路径（转 @ 引用）。 */
+interface DroppedEntry {
+  file?: File;
+  /** 文件夹的绝对路径（WebKit 的 public.file-url 才给；纯浏览器往往拿不到）。 */
+  dirPath?: string;
 }
 
-/** drop 载荷摄入（0.1.5）：图片收字节 chip；通用文件（dt.files 有字节）走
- *  上传 chip；file-url 里的文件夹转 @ 引用；纯浏览器环境拿不到路径的文件
- *  明示不可为。 */
+/** 拖拽载荷逐项分类。判断"是不是文件夹"只认文件系统条目（webkitGetAsEntry）—
+ *  旧实现按"路径里有没有点"猜，把 Makefile/Dockerfile 当文件夹（多发一条无效
+ *  @ 引用）、把 v1.2 这种带点的目录整个丢掉（什么都不发生）。 */
+function classifyDrop(dt: DataTransfer): Promise<DroppedEntry[]> {
+  const items = Array.from(dt.items).filter((i) => i.kind === "file");
+  if (items.length === 0) {
+    // 无 items（旧环境）：dt.files 一律按文件收，不做目录猜测。
+    return Promise.resolve(Array.from(dt.files).map((file) => ({ file })));
+  }
+  const pending: Promise<DroppedEntry>[] = items.map((item) => {
+    const entry = item.webkitGetAsEntry?.() ?? null;
+    if (entry?.isDirectory !== true) return Promise.resolve({ file: item.getAsFile() ?? undefined });
+    return new Promise<DroppedEntry>((resolve) => {
+      item.getAsString((s) => resolve({
+        dirPath: s?.startsWith("file://") ? decodeURIComponent(s.replace(/^file:\/\//, "")) : undefined,
+      }));
+    });
+  });
+  return Promise.all(pending);
+}
+
+/** drop 载荷摄入（0.1.5）：图片收字节 chip；通用文件走上传 chip；文件夹转
+ *  @ 引用（引擎宿主侧读盘）。文件夹拿不到路径（纯浏览器）时明说，不静默。 */
 function ingestDropped(
   dt: DataTransfer,
   addImageFile: (file: File) => void,
   addFileFile: (file: File) => void,
   setText: React.Dispatch<React.SetStateAction<string>>,
 ): void {
-  for (const f of Array.from(dt.files)) {
-    if (f.type.startsWith("image/")) addImageFile(f);
-    else addFileFile(f);
-  }
-  void fileUrlsOf(dt).then((urls) => {
-    // 文件夹（路径以 / 结尾或无扩展名目录形态）才转引用；文件已走真上传。
-    // 纯浏览器环境拖文件夹无 file-url 也无字节——静默无操作（旧行为是弹
-    // 窗提示，文件改真上传后该提示已无对应场景）。
-    const mentions = urls
-      .filter((p) => p.endsWith("/") || !p.split("/").pop()?.includes("."))
-      .map((p) => mentionOf(p, true))
-      .filter((m): m is string => m !== undefined);
+  void classifyDrop(dt).then((entries) => {
+    let dirs = 0;
+    const mentions: string[] = [];
+    for (const entry of entries) {
+      if (entry.dirPath !== undefined) {
+        dirs += 1;
+        const m = mentionOf(entry.dirPath, true);
+        if (m) mentions.push(m);
+      } else if (entry.file) {
+        if (entry.file.type.startsWith("image/")) addImageFile(entry.file);
+        else addFileFile(entry.file);
+      }
+    }
     if (mentions.length > 0) appendMentionsTo(setText, mentions);
+    if (dirs > mentions.length) {
+      void alertDialog({ message: tt("拖入的文件夹拿不到路径，无法引用（请在桌面应用里拖）", "Dropped folders expose no path here; drag them in the desktop app instead") });
+    }
   });
 }
 
-/** 壳选择器结果：图片→字节 chip，文件→上传 chip，文件夹→@ 引用。 */
+
+/** 壳选择器结果：图片→字节 chip，文件→上传 chip，文件夹→@ 引用。
+ *  壳因超限/读取失败没带字节的，明说改走了 @ 引用（引擎自己读盘），
+ *  别让用户以为附件已随消息上传。 */
 function ingestPicked(
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>,
   addFile: (file: File) => void,
@@ -113,6 +149,7 @@ function ingestPicked(
   items: PickedAttachment[],
 ): void {
   const mentions: string[] = [];
+  const skipped: string[] = [];
   for (const it of items) {
     const mime = IMAGE_MIME[it.name.split(".").pop()?.toLowerCase() ?? ""];
     if (it.isImage && it.base64 && mime) {
@@ -126,9 +163,18 @@ function ingestPicked(
     } else {
       const m = mentionOf(it.path, it.isDir);
       if (m) mentions.push(m);
+      if (!it.isDir) skipped.push(tooLargeNote(it.name));
     }
   }
   if (mentions.length > 0) appendMentionsTo(setText, mentions);
+  if (skipped.length > 0) {
+    void alertDialog({
+      message: tt(
+        `${skipped.join("；")}，已改为 @ 引用（由引擎自行读取，不随消息上传）`,
+        `${skipped.join("; ")} — added as an @ reference instead (read by the engine, not uploaded with the message)`,
+      ),
+    });
+  }
 }
 
 export function useComposerAttachments({ setText, hasShell, sessionId }: {
@@ -144,6 +190,10 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
 
   const addImageFile = (file: File) => {
     if (!file.type.startsWith("image/")) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      void alertDialog({ message: tooLargeNote(file.name) });
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const dataURL = String(reader.result);
@@ -154,13 +204,21 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     reader.readAsDataURL(file);
   };
 
-  // 通用文件：读字节成 chip 并立即上传（无会话则 pending）。
-  const addFileFile = (file: File) => addFile(file);
+  const addFileFile = (file: File) => {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      void alertDialog({ message: tooLargeNote(file.name) });
+      return;
+    }
+    addFile(file);
+  };
 
-  const startUpload = (id: string, sid: string, file: File) => {
+  /** 一份字节的一次上传：progress 上报、中止器登记、chip 终态（成功留字节、
+   *  失败留原因），返回回执；失败/取消回 null。摄入即传（addFile）与发送前
+   *  补传/重传（uploadNow）共用这一份，别再写第二遍。 */
+  const uploadOne = useCallback((id: string, sid: string, file: File): Promise<string | null> => {
     const ctl = new AbortController();
     cancels.current.set(id, () => ctl.abort());
-    void api.uploadFileStreaming({
+    return api.uploadFileStreaming({
       sessionId: sid, file, name: file.name, signal: ctl.signal,
       onProgress: (loaded, total) => setAttachments((prev) => prev.map((a): Attachment =>
         a.id === id && a.kind === "file" ? { ...a, progress: total > 0 ? Math.round((loaded / total) * 100) : 0 } : a)),
@@ -170,32 +228,32 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
         setAttachments((prev) => prev.map((a): Attachment =>
           a.id === id && a.kind === "file"
             // file 字节留着不清：引擎侧回执失效（FILE_NOT_STAGED）时要重传同一份字节
-            // ——用户定稿附件必须发出去（useComposerAttachments.uploadNow 的 force）
+            // ——用户定稿附件必须发出去（见 uploadNow 的 force）
             ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, error: undefined }
             : a));
+        return r.receiptId;
       },
       (err: unknown) => {
         cancels.current.delete(id);
         const aborted = err instanceof DOMException && err.name === "AbortError";
         setAttachments((prev) => prev.map((a): Attachment =>
           a.id === id && a.kind === "file"
-            ? aborted
-              ? { ...a, status: "error", error: tt("已取消", "Cancelled") }
-              : { ...a, status: "error", error: tt("上传失败", "Upload failed") }
+            ? { ...a, status: "error", error: aborted ? tt("已取消", "Cancelled") : uploadErrorText(err) }
             : a));
+        return null;
       },
     );
-  };
+  }, []);
 
-  const addFile = (file: File) => {
+  const addFile = useCallback((file: File) => {
     const id = uuid();
     if (sessionId) {
       setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "uploading", file, progress: 0 }]);
-      startUpload(id, sessionId, file);
+      void uploadOne(id, sessionId, file);
     } else {
       setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "pending", file }]);
     }
-  };
+  }, [sessionId, uploadOne]);
 
   /** 取消一次进行中的上传（chip 上的 ×；已取消/失败可重试）。 */
   const cancelUpload = (id: string) => {
@@ -215,36 +273,16 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     for (const f of pendingFiles) {
       if (!f.file) return null;
       setAttachments((prev) => prev.map((a): Attachment => a.id === f.id && a.kind === "file" ? { ...a, status: "uploading", progress: 0 } : a));
-      const receiptId = await new Promise<string | null>((resolve) => {
-        const ctl = new AbortController();
-        cancels.current.set(f.id, () => ctl.abort());
-        void api.uploadFileStreaming({
-          sessionId: sid, file: f.file!, name: f.name, signal: ctl.signal,
-          onProgress: (loaded, total) => setAttachments((prev) => prev.map((a): Attachment =>
-            a.id === f.id && a.kind === "file" ? { ...a, progress: total > 0 ? Math.round((loaded / total) * 100) : 0 } : a)),
-        }).then(
-          (r) => {
-            cancels.current.delete(f.id);
-            setAttachments((prev) => prev.map((a): Attachment =>
-              a.id === f.id && a.kind === "file"
-                // 同上：留字节供回执失效时重传
-                ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes }
-                : a));
-            resolve(r.receiptId);
-          },
-          () => {
-            cancels.current.delete(f.id);
-            setAttachments((prev) => prev.map((a): Attachment =>
-              a.id === f.id && a.kind === "file" ? { ...a, status: "error", error: tt("上传失败", "Upload failed") } : a));
-            resolve(null);
-          },
-        );
-      });
+      const receiptId = await uploadOne(f.id, sid, f.file);
       if (receiptId === null) return null;
       receipts.push(receiptId);
     }
     return receipts;
   };
+
+  /** 失败 chip 的失败原因（编排方在发送失败时把原话带给用户）。 */
+  const firstUploadError = (): string | null =>
+    attachments.find((a): a is FileAttachment => a.kind === "file" && a.status === "error")?.error ?? null;
 
   /** 草稿页失败 chip 重试：回 pending（无会话可传，发送建会话时补传）。 */
   const requeueFile = (id: string) => setAttachments((prev) => prev.map((a): Attachment =>
@@ -252,13 +290,13 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
 
   /** ＋＝上传附件：壳内 NSOpenPanel（文件+文件夹多选）；纯浏览器降级为
    *  文件选择 input（无路径可引用）。 */
-  const addAttachments = () => {
+  const addAttachments = useCallback(() => {
     if (hasShell) {
       void pickAttachments().then((items) => { if (items) ingestPicked(setAttachments, addFile, setText, items); });
     } else {
       fileRef.current?.click();
     }
-  };
+  }, [hasShell, addFile, setText]);
 
   // 命令面板「添加附件」与 composer ＋ 按钮同一条链路
   useEffect(() => onAppEvent(DD_EVENTS.composerAttach, () => addAttachments()), [addAttachments]);
@@ -292,7 +330,7 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     }
   };
 
-  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, dragOver, fileRef, onFile };
+  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile };
 }
 
 /** 拖拽：窗口级监听——会话界面任意处拖入文件都出虚线框提示；图片收字节

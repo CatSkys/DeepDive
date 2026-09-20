@@ -62,3 +62,9 @@ export function isHiddenSession(s: SessionSummary): boolean {
 export function isBadgedSession(s: SessionSummary): boolean {
   return backgroundTier(s) === "badge";
 }
+
+/** 是否属于"用户列表"这一层（侧栏/搜索/切换空间的落点/自动归档的候选都用它）：
+ *  执行类后台会话与子代理派生会话不进用户列表（各自的审计入口仍在）。 */
+export function isSidebarSession(s: SessionSummary): boolean {
+  return !isHiddenSession(s) && s.origin !== "subagent";
+}

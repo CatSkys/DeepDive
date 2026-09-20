@@ -71,7 +71,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
   const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
-  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, dragOver, fileRef, onFile } =
+  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile } =
     useComposerAttachments({ setText, hasShell, sessionId });
   // 听写 final 落稿后回焦（长高由 [text] 的 useLayoutEffect 统一负责）
   const refocusDraft = () => requestAnimationFrame(() => {
@@ -140,6 +140,39 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   /** 失败提示文案：优先引擎原文（带可读原因），没有就回落到通用一句。 */
   const failureText = (err: unknown, fallback: string) =>
     err instanceof Error && err.message ? err.message : fallback;
+
+  /** 草稿页发消息要先有会话：建一条但**先不切过去**（store.createSession 的
+   *  activate:false）。发送真正成功才切——建完即切的老路子一旦这轮发送失败，
+   *  草稿与附件 chip 就随组件卸载没了，用户只剩一个空会话（用户报过）。
+   *  建好的会话记在 ref 里复用：重试不会再建第二条。 */
+  const pendingSessionRef = useRef<{ sessionId: string; workspaceId: string | null } | null>(null);
+  const ensureSession = async (): Promise<string | null> => {
+    if (sessionId) return sessionId;
+    const pending = pendingSessionRef.current;
+    if (pending && pending.workspaceId === store.activeWorkspaceId) return pending.sessionId;
+    const created = await store.createSession(undefined, { activate: false });
+    if (created === null) {
+      void alertDialog({ message: tt("新建会话失败（引擎未就绪？），请稍后重试", "Could not create a session (engine not ready?); please retry") });
+      return null;
+    }
+    pendingSessionRef.current = { sessionId: created, workspaceId: store.activeWorkspaceId };
+    return created;
+  };
+  /** 发送成功：切进这条会话（草稿页建的那条），并清掉复用位。 */
+  const enterSentSession = (sid: string) => {
+    if (pendingSessionRef.current?.sessionId === sid) {
+      pendingSessionRef.current = null;
+      store.openSession(sid);
+    }
+  };
+  /** 附件没传成时的说明：带上 chip 上的原话（引擎/桥的错误文本）。 */
+  const uploadFailureText = () => {
+    const why = firstUploadError();
+    return tt(
+      `附件没能上传${why ? `：${why}` : ""}，消息没有发出——请重试或删掉该附件后重发`,
+      `Attachment upload failed${why ? `: ${why}` : ""}; nothing was sent — retry or remove the attachment`,
+    );
+  };
   // 引擎命令目录（0.1.2 commands/list）：菜单与 Enter 裁决共用一份；草稿页没有
   // agent，拿的是前端内建兜底车道（useSlashCommands）。
   const commands = useSlashCommands(sessionId);
@@ -149,8 +182,8 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   const runCommand = async (name: string, start: number) => {
     let sid = sessionId;
     if (sid === null) {
-      const created = await store.createSession();
-      if (created === null) return; // 建会话失败：草稿保留供重试（与发送同策略）
+      const created = await ensureSession();
+      if (created === null) return; // 建会话失败已弹窗；草稿保留供重试
       sid = created;
       if (draftKey) localStorage.removeItem(draftKey);
     }
@@ -165,6 +198,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
         return;
       }
       setText((prev) => prev.slice(0, start));
+      enterSentSession(sid);
     } catch {
       void alertDialog({ message: tt("命令发送失败", "Failed to send command") });
     }
@@ -218,7 +252,12 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   const submit = async (modeOverride?: "queue" | "steer") => {
     if (content.length === 0 || busy) return;
     if (!filesReady) {
-      void alertDialog({ message: tt("文件还在上传中，稍候再发送", "Files are still uploading; try again shortly") });
+      // 失败 chip 说真话：笼统的"还在上传中"会让一个永远不会完成的附件
+      // 看着像在等（原因就在 chip 的 error 上，带出来）。
+      const why = firstUploadError();
+      void alertDialog({ message: why
+        ? tt(`附件上传失败：${why}——重试或删除该附件后发送`, `Attachment upload failed: ${why} — retry or remove it, then send`)
+        : tt("文件还在上传中，稍候再发送", "Files are still uploading; try again shortly") });
       return;
     }
     // 整行斜杠命令裁决（官方 matchEnter）：已知命令 → commands/execute 直发
@@ -244,12 +283,15 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
         else if (a.status === "ready" && a.receiptId) submitted.push({ type: "file", receiptId: a.receiptId });
       }
       if (sid === null) {
-        const create = await store.createSession();
-        if (!create) { setBusy(false); return; }
-        sid = create;
+        const created = await ensureSession();
+        if (created === null) { setBusy(false); return; }
+        sid = created;
         // 草稿页的 pending 文件此刻才有会话可落：补传后并入载荷（与 prompt 路径同法）
         const receipts = await uploadNow(sid);
-        if (receipts === null) { setBusy(false); return; }
+        if (receipts === null) {
+          void alertDialog({ message: uploadFailureText() });
+          setBusy(false); return;
+        }
         submitted = [...submitted, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
       }
       const runLine = (parts: CommandSubmitAttachment[]) => api.commandExecute({ agentId: sid, line: decision.line, attachments: parts });
@@ -290,6 +332,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       setAttachments([]);
       if (draftKey) localStorage.removeItem(draftKey);
       setBusy(false);
+      enterSentSession(sid);
       onSent?.();
       return;
     }
@@ -303,13 +346,17 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
     // 发送载荷：content 是本轮渲染的快照，草稿页补传产生的回执不在其中，
     // 需显式并入（否则文件传了消息里却没有）。
     let sendContent = content;
+    const fromDraft = sid === null;
     if (sid === null) {
-      const create = await store.createSession();
-      if (!create) { setBusy(false); return; }
-      sid = create;
+      const created = await ensureSession();
+      if (created === null) { setBusy(false); return; }
+      sid = created;
       // 草稿页的文件 chip 是 pending（无会话可传）：建好会话立即补传。
       const receipts = await uploadNow(sid);
-      if (receipts === null) { setBusy(false); return; }
+      if (receipts === null) {
+        void alertDialog({ message: uploadFailureText() });
+        setBusy(false); return;
+      }
       sendContent = [...content, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
     }
     // 子会话（continuable）走 subagents/prompt：content 只收文本/图片。
@@ -356,6 +403,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
     setAttachments([]);
     if (draftKey) localStorage.removeItem(draftKey);
     setBusy(false);
+    if (fromDraft) enterSentSession(sid);
     onSent?.();
   };
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ChevronDown, CirclePlus, Ellipsis, Folder, Pin, Plus, Search, Settings } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { InlineLoader } from "./LoadingState";
-import { alertDialog, promptDialog } from "./DialogHost";
+import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { api } from "../api";
 import { sendToShell } from "../host";
 import { useStore } from "../store";
@@ -173,7 +173,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   // 会话不进会话栏（引擎自动创建的工作单元，入口在状态胶囊/父会话）。
   const groups = useMemo<Array<{ label: string; items: SessionSummary[] }>>(() => {
     if (query.trim()) return [];
-    const list = store.sessions.filter((s) => s.origin !== "subagent" && (!hasWs || wsOf(s) === store.activeWorkspaceId));
+    const list = store.sidebarSessions.filter((s) => !hasWs || wsOf(s) === store.activeWorkspaceId);
     const pinnedList = list.filter((s) => store.pinned.has(s.sessionId));
     const rest = list.filter((s) => !store.pinned.has(s.sessionId));
     const byBucket = new Map<string, SessionSummary[]>();
@@ -187,7 +187,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     return [...out, ...[...byBucket.entries()].map(([label, items]) => ({ label, items }))];
     // wsOf 是每渲染函数包装（仅读 wsOfSession，已入表）——入表即每渲染重算，显式排除
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, store.sessions, store.workspaces, store.activeWorkspaceId, store.wsOfSession, store.pinned, lang, hasWs, t]);
+  }, [query, store.sidebarSessions, store.workspaces, store.activeWorkspaceId, store.wsOfSession, store.pinned, lang, hasWs, t]);
 
   // 搜索视图：全空间结果，按来源项目分组（§2.5）；标题命中 + 全文命中
   // 去重合并（标题命中优先，内容命中带 snippet 行）；点击经 openSession
@@ -195,7 +195,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const searchGroups = useMemo<Array<{ label: string; items: SessionSummary[] }>>(() => {
     if (!query) return [];
     const q = query.trim().toLowerCase();
-    const visible = store.sessions.filter((s) => s.origin !== "subagent");
+    const visible = store.sidebarSessions;
     const hits = visible.filter((s) => sessionTitle(s, lang).toLowerCase().includes(q));
     const hitIds = new Set(hits.map((s) => s.sessionId));
     const contentOnly = visible.filter((s) => !hitIds.has(s.sessionId) && contentHits.has(s.sessionId));
@@ -279,11 +279,17 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           className="row-archive"
           data-tip={t("归档任务")}
           onClick={async () => {
-            try {
-              await api.workspaceArchiveSession({ sessionId: s.sessionId });
-              store.clearUnarchiveOverride(s.sessionId);
-              await store.refresh();
-            } catch { /* surfaced by poll */ }
+            // 运行中会话归档前问一句：归档只挪列表归属，任务照跑（不拦死也不误伤）
+            if (s.running) {
+              const ok = await confirmDialog({
+                title: t("归档任务"),
+                message: t("这个会话正在运行。归档只把它移出任务列表，任务会继续跑；要停请先在会话里点停止。"),
+                confirmLabel: t("归档"),
+              });
+              if (!ok) return;
+            }
+            const err = await store.archiveSession(s.sessionId);
+            if (err) void alertDialog({ message: tt("归档失败：{m}", "Archive failed: {m}", { m: err }) });
           }}
         >
           <Archive size={13} />
@@ -428,7 +434,8 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             });
           }}>{t("重命名任务")}</div>
           <div className="ctx-item" onClick={async () => {
-            try { await api.workspaceArchiveSession({ sessionId: ctx.sessionId }); await store.refresh(); } catch (err) { void alertDialog({ message: `归档失败：${(err as Error).message}` }); }
+            const err = await store.archiveSession(ctx.sessionId);
+            if (err) void alertDialog({ message: tt("归档失败：{m}", "Archive failed: {m}", { m: err }) });
             setCtx(null);
           }}>{t("归档任务")}</div>
           <div className="ctx-item" onClick={() => { store.markUnread(ctx.sessionId); setCtx(null); }}>{t("标记为未读")}</div>

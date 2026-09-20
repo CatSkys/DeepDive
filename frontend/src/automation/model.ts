@@ -60,8 +60,12 @@ export interface AutomationTask {
 export interface TaskRun {
   id: string;
   taskId: string;
+  /** 建会话那一刻就补上（不是跑完才补）——应用中途退出时，这条记录仍能对账。 */
   sessionId: string | null;
+  /** 实际开始时刻（醒来补跑时就是补跑时刻）。 */
   startedAt: number;
+  /** 本次比计划晚多久（ms，0 = 准点）；运行历史里显示，别让"迟到"隐形。 */
+  lateMs?: number;
   status: "running" | "done" | "error";
   error?: string;
 }
@@ -201,6 +205,14 @@ export function runTimeText(ts: number, lang: Lang): string {
   return new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
     month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
   }).format(new Date(ts));
+}
+
+/** 迟到文案：本次比计划晚了多久（准点或差不到 1 分钟 = 空串，不占地方）。 */
+export function lateText(lateMs: number | undefined, lang: Lang): string {
+  if (lateMs === undefined || lateMs < 60_000) return "";
+  const m = Math.round(lateMs / 60_000);
+  const label = m < 60 ? (lang === "zh" ? `${m} 分` : `${m}m`) : (lang === "zh" ? `${Math.round(m / 60)} 小时` : `${Math.round(m / 60)}h`);
+  return lang === "zh" ? `迟 ${label}` : `${label} late`;
 }
 
 /** 形状校验（localStorage 是外部输入边界）：参数齐全且都是有限数的才算数。 */

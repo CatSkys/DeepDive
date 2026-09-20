@@ -598,13 +598,26 @@ export function ArchivedSection({ onBulk }: { onBulk?: (bulk: { count: number; o
   /** 取消归档：本地覆盖即时生效（引擎状态在下次启动空窗期收敛），无需确认。 */
   const restore = (sessionId: string) => store.unarchiveSession(sessionId);
 
-  /** 删除：本地即时摘掉 + 请壳立刻删日志目录（毫秒级，不重启引擎）。 */
+  /** 删除：本地即时摘掉 + 请壳立刻删日志目录（毫秒级，不重启引擎）。
+   *  运行中 / 正开着的会话由 store 拒绝（不可逆动作不能误伤），被拒的说明白。 */
   const remove = async (sessionIds: string[]) => {
     if (sessionIds.length === 0) return;
-    for (const sessionId of sessionIds) store.removeSession(sessionId);
+    const accepted: string[] = [];
+    let refused = 0;
+    for (const sessionId of sessionIds) {
+      if (store.removeSession(sessionId).ok) accepted.push(sessionId);
+      else refused += 1;
+    }
+    if (accepted.length === 0) {
+      void alertDialog({ message: t("正在运行或正开着的会话不能删除——先停掉它或切到别的会话") });
+      return;
+    }
+    if (refused > 0) {
+      void alertDialog({ message: tt(`已跳过 ${refused} 个正在运行或正开着的会话，其余 ${accepted.length} 个在删`, `Skipped ${refused} running or currently-open chats; deleting the other ${accepted.length}`) });
+    }
     const unarchived = [...store.unarchived];
-    const removed = [...store.removed, ...sessionIds];
-    const result = await sessionDeleteDirs({ sessionIds, unarchived, removed });
+    const removed = [...store.removed, ...accepted];
+    const result = await sessionDeleteDirs({ sessionIds: accepted, unarchived, removed });
     if (result.error) {
       void alertDialog({ message: tt("部分聊天记录未能删除：{m}", "Some transcripts could not be deleted: {m}", { m: result.error }) });
     }

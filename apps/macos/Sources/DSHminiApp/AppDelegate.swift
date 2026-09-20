@@ -1021,17 +1021,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         "name": url.lastPathComponent,
                         "isDir": (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false,
                     ]
-                    // 0.1.5：图片附 base64（imageLimits 准入类型）；其余
-                    // 文件 ≤8MB 也附 base64（fileUploads/upload 真上传），
-                    // 超限/读取失败降级为纯路径（前端转 @ 引用）。
+                    // 0.1.5：图片附 base64（imageLimits 准入类型）；其余文件同样附
+                    // base64（fileUploads/upload 真上传）。两者共用同一个上限——桥
+                    // 单请求 32MB，超了必 413，先在选文件这一步就分开走（前端明说）。
                     let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-                    if !isDir, let data = try? Data(contentsOf: url) {
+                    if !isDir, let data = try? Data(contentsOf: url), data.count <= Self.maxPickFileBytes {
                         if Self.imageExtensions.contains(url.pathExtension.lowercased()) {
                             item["isImage"] = true
-                            item["base64"] = data.base64EncodedString()
-                        } else if data.count <= Self.maxPickFileBytes {
-                            item["base64"] = data.base64EncodedString()
                         }
+                        item["base64"] = data.base64EncodedString()
                     }
                     items.append(item)
                 }
@@ -1045,8 +1043,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 与引擎 imageLimits 准入的媒体类型对齐（png/jpeg/webp/gif）。
     private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "webp", "gif"]
-    /// 选择器单文件字节上限（对齐桥直通与引擎无上限的流式路由）。
-    private static let maxPickFileBytes = 128 * 1024 * 1024
+    /// 选择器单文件字节上限：**等于桥的单请求上限**（`MiniHTTPServer.maxBodyBytes`，
+    /// 超了回 413）。图片与通用文件同一口径——上限只在选文件这一步分流，
+    /// 不在这里给用户一个注定 413 的 base64。
+    private static let maxPickFileBytes = 32 * 1024 * 1024
 
     /// Preference + path snapshot for the settings page (推送于 host-ready
     /// 与 get-prefs;键值与 frontend/src/components/SettingsPage.tsx 约定)。

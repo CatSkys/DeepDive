@@ -5,7 +5,11 @@
 // deletion or unarchive control”。而归档集与会话日志都是 DSH_HOME 下的普通文件：
 //   归档集 = storages/workspace.json 的 global.archivedSessionIds
 //   会话日志 = sessions/<转义 cwd>/<sessionId>/（session*.jsonl.zstd + lock）
-//   投影缓存 = storages/session_projcache.json 的 tables.sessions[<id>]
+//   投影缓存 = storages/session_projcache/sessions/<sessionId>.json
+//              （per-record 布局：一个会话一份文档，见引擎
+//              session-projection-cache/src/spec.ts 的 layout: 'per-record'。
+//              同名的 session_projcache.json 是旧整文件布局，引擎只在"新树里
+//              一个文档都没有"时拿它做 bootstrap，此后**永不读写**——别再写它。）
 //
 // 两条路径（用户定稿：**不重启引擎**，重启太慢且会闪断连横幅）：
 //   ① 立即：删掉被删会话的日志目录（毫秒级，不需要引擎配合）；
@@ -14,6 +18,7 @@
 //      运行中删日志目录后 session/list 照样列它），运行期改文件会被内存状态覆写，
 //      所以只在停机时写。
 // 纪律：JSON 结构不符预期一律不写、fail-loud 报错，不做“尽量修一修”的兜底。
+// 会话是否在跑 / 是否正开着由调用方把关（壳这边读不到运行态，见 deleteDirectories）。
 
 import Foundation
 
@@ -39,16 +44,16 @@ enum SessionAdmin {
         return next
     }
 
-    /** 清掉投影缓存里这些会话的条目；缺 tables.sessions（新装/无缓存）回原状态。 */
-    static func removingProjections(_ ids: Set<String>, from state: [String: Any]) -> [String: Any]? {
-        guard let tables = state["tables"] as? [String: Any] else { return nil }
-        guard var sessions = tables["sessions"] as? [String: Any] else { return state }
-        for id in ids { sessions.removeValue(forKey: id) }
-        var nextTables = tables
-        nextTables["sessions"] = sessions
-        var next = state
-        next["tables"] = nextTables
-        return next
+    /** 投影缓存里这些会话的文档（per-record：一会话一份，见文件头）。
+     *  整文件 session_projcache.json 是引擎的 legacy bootstrap，按存储层契约
+     *  "never changed or deleted"——不碰它。 */
+    static func projectionDocuments(in home: URL, sessionIds: Set<String>) -> [URL] {
+        let dir = home.appendingPathComponent("storages/session_projcache/sessions", isDirectory: true)
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles],
+        )) ?? []
+        return files.filter { sessionIds.contains($0.deletingPathExtension().lastPathComponent) &&
+            $0.pathExtension == "json" }
     }
 
     /** 会话日志目录：sessions/<转义 cwd>/<sessionId>/（目录名就是 sessionId，
@@ -106,8 +111,8 @@ enum SessionAdmin {
         return (raw["unarchived"] as? [String] ?? [], raw["removed"] as? [String] ?? [])
     }
 
-    /// 启动空窗期落账：把归档集里这些 id 摘掉、清投影缓存、补删 removed 的日志目录
-    /// （删目录可能在上次运行中失败——进程被杀/权限），最后清空登记。
+    /// 启动空窗期落账：把归档集里这些 id 摘掉、删投影缓存文档、补删 removed 的日志
+    /// 目录（删目录可能在上次运行中失败——进程被杀/权限），最后清空登记。
     /// 调用方保证此刻引擎还没起（否则写文件会被内存状态覆写）。
     @discardableResult
     static func applyPending(home: URL) -> Result? {
@@ -122,25 +127,40 @@ enum SessionAdmin {
         } else {
             errors.append("workspace 状态不可用")
         }
-        let cacheURL = home.appendingPathComponent("storages/session_projcache.json")
-        if let state = readJSON(cacheURL), let next = removingProjections(Set(pend.removed), from: state) {
-            if !writeJSON(next, to: cacheURL) { errors.append("投影缓存写入失败") }
+        for doc in projectionDocuments(in: home, sessionIds: Set(pend.removed)) {
+            do {
+                try FileManager.default.removeItem(at: doc)
+            } catch {
+                errors.append("投影缓存 \(doc.lastPathComponent): \(error.localizedDescription)")
+            }
         }
         for dir in sessionDirectories(in: home, sessionIds: Set(pend.removed)) {
-            try? FileManager.default.removeItem(at: dir)
-            removed.append(dir.lastPathComponent)
+            do {
+                try FileManager.default.removeItem(at: dir)
+                removed.append(dir.lastPathComponent)
+            } catch {
+                errors.append("\(dir.lastPathComponent): \(error.localizedDescription)")
+            }
         }
         // 只在全部落到位时清登记：失败（状态文件不可读等）留到下次启动再试
         if errors.isEmpty { UserDefaults.standard.removeObject(forKey: pendingKey) }
         return Result(removed: removed, error: errors.isEmpty ? nil : errors.joined(separator: "; "))
     }
 
-    /// 立即删掉这些会话的日志目录（运行中也安全：删的是已关闭会话的文件）。
+    /// 立即删掉这些会话的日志目录与投影缓存文档。
+    /// **会话在跑 / 正开着由调用方挡住**（壳读不到运行态，这里不猜）。
     static func deleteDirectories(sessionIds: [String], home: URL) -> Result {
-        let dirs = sessionDirectories(in: home, sessionIds: Set(sessionIds))
+        let ids = Set(sessionIds)
         var removed: [String] = []
         var errors: [String] = []
-        for dir in dirs {
+        for doc in projectionDocuments(in: home, sessionIds: ids) {
+            do {
+                try FileManager.default.removeItem(at: doc)
+            } catch {
+                errors.append("投影缓存 \(doc.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        for dir in sessionDirectories(in: home, sessionIds: ids) {
             do {
                 try FileManager.default.removeItem(at: dir)
                 removed.append(dir.lastPathComponent)

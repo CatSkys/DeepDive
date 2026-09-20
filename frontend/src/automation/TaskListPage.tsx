@@ -28,7 +28,11 @@ export function TaskListPage({ onCreate, onEdit, onOpenSession }: {
       </div>
       <div className={css.notice}>
         <Timer size={14} />
-        <span className={css.noticeText}>{t("运行会话时保持电脑唤醒。")}</span>
+        <span className={css.noticeText}>
+          {t("运行会话时保持电脑唤醒。")}
+          <br />
+          {t("调度在本机进行：应用没在运行时不会触发；错过的班次不补跑（超过 5 分钟就顺延到下一班）。")}
+        </span>
         <Toggle on={auto.keepAwake} onChange={auto.setKeepAwake} />
       </div>
 

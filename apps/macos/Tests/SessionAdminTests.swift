@@ -38,6 +38,16 @@ final class SessionAdminTests: XCTestCase {
         return dir
     }
 
+    /// 投影缓存文档（per-record：storages/session_projcache/sessions/<id>.json）。
+    @discardableResult
+    private func makeProjectionDoc(_ id: String) throws -> URL {
+        let dir = home.appendingPathComponent("storages/session_projcache/sessions", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("\(id).json")
+        try "{}".write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
     private var workspaceState: [String: Any] {
         [
             "unit": ["name": "workspace", "version": 2],
@@ -56,11 +66,6 @@ final class SessionAdminTests: XCTestCase {
         XCTAssertNotNil(next["tables"])
     }
 
-    func testRemovingProjectionsToleratesMissingSessionsTable() {
-        XCTAssertNotNil(SessionAdmin.removingProjections(["a"], from: ["tables": [String: Any]()]))
-        XCTAssertNil(SessionAdmin.removingProjections(["a"], from: ["tables": "nope"]))
-    }
-
     func testSessionDirectoriesScansOneBucketLevel() throws {
         _ = try makeSessionDir("s1")
         _ = try makeSessionDir("s2")
@@ -68,21 +73,33 @@ final class SessionAdminTests: XCTestCase {
         XCTAssertEqual(hits.map(\.lastPathComponent), ["s1"])
     }
 
+    func testProjectionDocumentsMatchPerRecordLayoutOnly() throws {
+        _ = try makeProjectionDoc("a")
+        // 同名但非 json / 非目标 id 的一律不动
+        let stray = home.appendingPathComponent("storages/session_projcache/sessions/a.txt")
+        try "x".write(to: stray, atomically: true, encoding: .utf8)
+        let hits = SessionAdmin.projectionDocuments(in: home, sessionIds: ["a", "ghost"])
+        XCTAssertEqual(hits.map(\.lastPathComponent), ["a.json"])
+    }
+
     // MARK: - 立即删目录（不重启引擎）
 
     func testDeleteDirectoriesIsImmediateAndIdempotentForMissing() throws {
         let dir = try makeSessionDir("x")
+        let doc = try makeProjectionDoc("x")
         let result = SessionAdmin.deleteDirectories(sessionIds: ["x", "ghost"], home: home)
         XCTAssertEqual(result.error, nil)   // 不存在的 id 不算错
         XCTAssertEqual(result.removed, ["x"])
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: doc.path))
     }
 
     // MARK: - 下次启动空窗期落账
 
     func testApplyPendingWritesArchiveAndProjectionAndClearsPending() throws {
         try write(workspaceState, to: "workspace.json")
-        try write(["tables": ["sessions": ["a": ["identity": [:] as [String: Any]], "z": 1]]], to: "session_projcache.json")
+        let doc = try makeProjectionDoc("a")
+        let keep = try makeProjectionDoc("z")
         let dir = try makeSessionDir("a")
         SessionAdmin.remember(unarchived: ["a", "b"], removed: ["a"])
         let result = try XCTUnwrap(SessionAdmin.applyPending(home: home))
@@ -91,9 +108,8 @@ final class SessionAdminTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path))
         let global = try XCTUnwrap(try read("workspace.json")["global"] as? [String: Any])
         XCTAssertEqual(global["archivedSessionIds"] as? [String], ["c"])   // a、b 都摘掉
-        let sessions = try XCTUnwrap((try read("session_projcache.json")["tables"] as? [String: Any])?["sessions"] as? [String: Any])
-        XCTAssertNil(sessions["a"])
-        XCTAssertNotNil(sessions["z"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: doc.path))   // 投影文档随删除一起走
+        XCTAssertTrue(FileManager.default.fileExists(atPath: keep.path))
         // 落账后清登记：下一次启动不再重复处理
         XCTAssertNil(SessionAdmin.applyPending(home: home))
     }

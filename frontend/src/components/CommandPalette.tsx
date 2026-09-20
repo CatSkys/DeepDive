@@ -126,8 +126,8 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
       { key: "pin-session", icon: <Pin size={15} />, label: t(store.pinned.has(sid) ? "取消置顶" : "置顶"), run: () => store.togglePin(sid) },
       { key: "archive-session", icon: <Archive size={15} />, label: t("归档当前会话"), run: () => {
         void (async () => {
-          try { await api.workspaceArchiveSession({ sessionId: sid }); await store.refresh(); }
-          catch (err) { void alertDialog({ message: tt(`归档失败：${(err as Error).message}`, `Archive failed: ${(err as Error).message}`) }); }
+          const err = await store.archiveSession(sid);
+          if (err) void alertDialog({ message: tt("归档失败：{m}", "Archive failed: {m}", { m: err }) });
         })();
       } },
     ] as Row[]).filter((r) => hit(r.label)) : [];

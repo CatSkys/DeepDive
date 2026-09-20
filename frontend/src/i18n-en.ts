@@ -817,5 +817,8 @@ export const EN: Record<string, string> = {
   "实验性能力，默认关闭。开启后，每个会话维护一份笔记（目标、计划、踩过的坑等），每轮注入给模型，长对话可用「新上下文」压缩历史而不丢要点；笔记只存本机，可在下方查看或删除。开关在应用下次启动后对会话生效。": "Experimental, off by default. When enabled, each session keeps a note (goals, plans, pitfalls…), injected into the model every turn; long chats can compress history with “New context” without losing key points. Notes stay on this machine and can be viewed or deleted below. The toggle applies to sessions after the app next restarts.",
   "暂无会话笔记。开启会话记忆并使用后，笔记会出现在这里。": "No session notes yet. Turn on session memory and use it — notes will appear here.",
   "忘记": "Forget",
+  "正在运行或正开着的会话不能删除——先停掉它或切到别的会话": "A running or currently-open chat cannot be deleted — stop it or switch to another chat first",
+  "这个会话正在运行。归档只把它移出任务列表，任务会继续跑；要停请先在会话里点停止。": "This chat is running. Archiving only removes it from the task list — the run continues; use Stop inside the chat to end it.",
+  "调度在本机进行：应用没在运行时不会触发；错过的班次不补跑（超过 5 分钟就顺延到下一班）。": "Scheduling is local: nothing fires while the app is closed, and missed runs are skipped (later than 5 minutes simply rolls to the next slot).",
 };
 

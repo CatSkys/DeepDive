@@ -69,7 +69,12 @@ function parseRun(v: unknown): TaskRun | null {
   if (id === null || taskId === null || startedAt === null) return null;
   if (r.status !== "running" && r.status !== "done" && r.status !== "error") return null;
   const error = str(r.error);
-  return { id, taskId, sessionId: str(r.sessionId), startedAt, status: r.status, ...(error === null ? {} : { error }) };
+  const lateMs = num(r.lateMs);
+  return {
+    id, taskId, sessionId: str(r.sessionId), startedAt, status: r.status,
+    ...(lateMs === null ? {} : { lateMs }),
+    ...(error === null ? {} : { error }),
+  };
 }
 
 export function loadTasks(): AutomationTask[] {

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
 import { converged, visibleArchived, visibleSessions } from "./sessionOverrides";
-import { backgroundTier, isHiddenSession } from "./session/backgroundSession";
+import { backgroundTier, isHiddenSession, isSidebarSession } from "./session/backgroundSession";
 import { sessionAdminSync } from "./host";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
@@ -53,6 +53,9 @@ interface Store {
    *  无工作空间面时为空表，此时全部会话视为"当前空间"。 */
   wsOfSession: Map<string, string>;
   sessions: SessionSummary[];
+  /** 用户列表这一层：`sessions` 再去掉子代理派生会话（侧栏/搜索/切换空间/自动归档
+   *  共用一份口径——各处自己 filter 一遍就是漏一处的开始）。 */
+  sidebarSessions: SessionSummary[];
   /** 引擎 Agent 会话预设（agentPresets/list 一次性拉取；失败为空 = 隐藏入口）。 */
   presets: AgentPreset[];
   /** hero 页选中的会话模式；createSession 未显式传参时作为 agentPreset。 */
@@ -84,7 +87,9 @@ interface Store {
    *  成功后刷新列表并切入该空间。失败经 error 带出，弹窗归调用方（词典键
    *  「添加工作空间失败：{m}」），store 自身不碰 UI 文案。 */
   createWorkspace: (path: string) => Promise<{ workspaceId: string | null; error?: string }>;
-  createSession: (presetId?: string) => Promise<string | null>;
+  /** 建会话。activate=false：建好但**不切过去**（草稿页首条消息专用——发送真正
+   *  成功才切，失败时草稿与附件留在原地可重试）。 */
+  createSession: (presetId?: string, opts?: { activate?: boolean }) => Promise<string | null>;
   /** 草稿模型：新会话页（hero）上选的模型。此时会话尚未真正创建，先暂存；
    *  首条消息触发 createSession 时随新会话 selectModel 一次性带走并清空。 */
   draftModel: { provider: string; model: string; reasoningEffort?: string } | null;
@@ -131,9 +136,14 @@ interface Store {
   unarchived: Set<string>;
   removed: Set<string>;
   unarchiveSession: (id: string) => void;
-  removeSession: (id: string) => void;
+  /** 删除会话（不可逆）：只接受既没在跑、也不是当前打开的那个。
+   *  拒绝原因回给调用方去说人话（store 不碰 UI 文案）。 */
+  removeSession: (id: string) => { ok: true } | { ok: false; reason: "running" | "active" };
   /** 引擎侧归档落地时清掉本地"已取消归档"覆盖。 */
   clearUnarchiveOverride: (id: string) => void;
+  /** 归档会话（侧栏行/右键/命令面板唯一入口）：引擎落账 + 清掉本地"已取消
+   *  归档"覆盖 + 刷新。失败回引擎错误文本（调用方弹窗），成功回 null。 */
+  archiveSession: (id: string) => Promise<string | null>;
   pinned: Set<string>;
   unread: Set<string>;
   togglePin: (id: string) => void;
@@ -247,12 +257,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const cur = overridesRef.current;
     applyOverrides(new Set(cur.unarchived).add(id), cur.removed);
   }, [applyOverrides]);
-  /** 删除：本地即时摘掉（日志目录由壳同步删除，见 bridge 调用方）。 */
+  /** 删除：本地即时摘掉（日志目录由壳同步删除，见 bridge 调用方）。
+   *  不可逆，所以只认"既没在跑、也没正开着"的会话——运行中删日志目录，引擎
+   *  会继续往一个已删的会话里写；删掉正开着的那个，用户就对着空气打字了。 */
   const removeSession = useCallback((id: string) => {
+    if (id === activeIdRef.current) return { ok: false as const, reason: "active" as const };
+    if (sessionsRef.current.some((s) => s.sessionId === id && s.running)) return { ok: false as const, reason: "running" as const };
     const cur = overridesRef.current;
     const nextUnarchived = new Set(cur.unarchived);
     nextUnarchived.delete(id);
     applyOverrides(nextUnarchived, new Set(cur.removed).add(id));
+    return { ok: true as const };
   }, [applyOverrides]);
   /** 引擎侧归档落地时，清掉本地的"已取消归档"覆盖（同一会话不能再被本地视图放出来）。 */
   const clearUnarchiveOverride = useCallback((id: string) => {
@@ -262,10 +277,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     next.delete(id);
     applyOverrides(next, cur.removed);
   }, [applyOverrides]);
+  /** 归档：三个入口（侧栏行 / 右键菜单 / 命令面板）共用——旧写法各抄一遍，
+   *  漏了清覆盖集的那两处看起来像"归档点了没反应"。 */
+  const archiveSession = useCallback(async (id: string) => {
+    try {
+      await api.workspaceArchiveSession({ sessionId: id });
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+    clearUnarchiveOverride(id);
+    await forceRefreshSessionsRef.current();
+    return null;
+  }, [clearUnarchiveOverride]);
   // 覆盖项收敛：引擎（下次启动后）不再报告某会话已归档 / 不再列出某会话时，
   // 本地覆盖就没用了——丢掉它，避免覆盖集无限增长。
+  /** 收敛的前提是"真值到了"：归档集要等 workspace follow 的基线、会话列表要
+   *  等首次刷新。缺了这道门，挂载瞬间（archived/removed 覆盖集已从 localStorage
+   *  读回、archived 与 sessions 还是空集）会把**所有**覆盖项判成"引擎已不报告"
+   *  而整批抹掉——连壳里待落账的登记一起（2026-09 修的：取消归档活不过一次
+   *  应用内引擎重启）。 */
+  const truthArrivedRef = useRef({ archived: false, sessions: false });
   useEffect(() => {
     if (unarchived.size === 0 && removedLocal.size === 0) return;
+    if (!truthArrivedRef.current.archived || !truthArrivedRef.current.sessions) return;
     const liveArchive = archivedRef.current;
     const liveIds = new Set(sessions.map((s) => s.sessionId));
     const gone = converged(liveArchive, liveIds, unarchived, removedLocal);
@@ -349,6 +383,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         workspacesRef.current = frame.value.items;
         setWorkspaces(frame.value.items);
         syncArchived(frame.value.archivedSessionIds ?? []);
+        truthArrivedRef.current.archived = true;
         resolveActiveWs(frame.value.items);
         return;
       }
@@ -433,6 +468,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       setEngineUp(true);
       setEverConnected(true);
+      truthArrivedRef.current.sessions = true;
       resolveActiveWs(workspacesRef.current);
       // 会话→空间归属：用本 tick 的数据现算（wsOfSession 的 memo 镜像要等
       // 重渲染才更新，boot 策略等不得），并同步回 ref 供即时读取。
@@ -564,7 +600,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const list = workspacesRef.current;
-    const target = sessionsRef.current.find(
+    // 落点必须是用户在侧栏看得见的那一层：归档/本地删/隐藏的后台运行/子代理
+    // 会话都可能是"该空间最近更新的那条"，跟进去了就是对着机器会话发呆。
+    const target = sidebarSessionsRef.current.find(
       (s) => (wsOfRef.current.get(s.sessionId) ?? list[0]?.workspaceId) === id,
     );
     setActiveSessionId(target?.sessionId ?? null);
@@ -577,12 +615,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const heroPresetRef = useRef(heroPreset);
   heroPresetRef.current = heroPreset;
 
-  const createSession = async (presetId?: string) => {
+  const createSession = async (presetId?: string, opts?: { activate?: boolean }) => {
+    const activate = opts?.activate ?? true;
     const wsId = activeWsRef.current ?? workspacesRef.current[0]?.workspaceId;
     // Optimistic switch: leave the current session immediately so the
     // create round-trip never lingers on (and looks like a flash-back of)
     // the old conversation. App renders its hero while active is null.
-    setActiveSessionId(null);
+    // activate=false（草稿页首条消息）不切：切了就没得重试了——见 Composer.ensureSession。
+    if (activate) setActiveSessionId(null);
     try {
       const res = await api.createSession({ workspaceId: wsId, agentPreset: presetId ?? heroPresetRef.current });
       const dm = draftModelRef.current;
@@ -593,7 +633,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } catch { /* engine may be busy */ }
       }
       await forceRefreshSessions();
-      setActiveSessionId(res.sessionId);
+      if (activate) setActiveSessionId(res.sessionId);
       return res.sessionId;
     } catch {
       // 创建失败：留在草稿页，草稿模型保留，重新发送即再试。
@@ -617,6 +657,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [switchWorkspace]);
 
+  /** 视图层（已按归档与本地删除过滤）：Store.sessions 与 sidebarSessions 共用
+   *  这一份，别再各 filter 一遍。 */
+  const visibleList = useMemo(() => visibleSessions(
+    sessions.filter((s) => !isHiddenSession(s)
+      && !visibleArchived(archived, unarchived, removedLocal).has(s.sessionId)),
+    removedLocal,
+  ), [sessions, archived, unarchived, removedLocal]);
+  /** 用户列表层（见 Store.sidebarSessions）。留 ref 供 switchWorkspace 同步挑落点。 */
+  const sidebarSessions = useMemo(() => visibleList.filter(isSidebarSession), [visibleList]);
+  const sidebarSessionsRef = useRef(sidebarSessions);
+  sidebarSessionsRef.current = sidebarSessions;
+
   const value = useMemo<Store>(
     () => ({
       workspaces,
@@ -624,11 +676,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       activeWorkspaceId,
       wsOfSession,
       allSessions: sessions,
-      sessions: visibleSessions(
-        sessions.filter((s) => !isHiddenSession(s)
-          && !visibleArchived(archived, unarchived, removedLocal).has(s.sessionId)),
-        removedLocal,
-      ),
+      sidebarSessions,
+      sessions: visibleList,
       presets,
       heroPreset,
       setHeroPreset,
@@ -671,6 +720,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       removed: removedLocal,
       unarchiveSession,
       removeSession,
+      archiveSession,
       clearUnarchiveOverride,
       pinned,
       unread,
@@ -688,7 +738,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

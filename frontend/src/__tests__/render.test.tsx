@@ -65,7 +65,9 @@ describe("Markdown 组件渲染", () => {
 });
 
 describe("ArchivedSection（AUD-012 回归钉）", () => {
-  it("挂载后只拉取一轮，不随重渲循环拉取", async () => {
+  // 超时给宽：整仓并行跑 jsdom 时首帧拉取偶尔超过默认 5s（本文件单独跑 <2s）。
+  // 放宽的只是等待预算，"不再新增拉取"那条断言照样能抓住真的循环。
+  it("挂载后只拉取一轮，不随重渲循环拉取", { timeout: 20_000 }, async () => {
     const { api } = await import("../api");
     const { ArchivedSection } = await import("../components/SettingsPage");
     render(

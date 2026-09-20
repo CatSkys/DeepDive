@@ -178,6 +178,7 @@
 /* ── 运行历史 ── */
 .runRow { display: flex; align-items: center; gap: 12px; padding: 9px 2px; font-size: 12.5px; color: var(--ink-2); }
 .runTime { flex: none; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.runLate { color: var(--dsh-signal-warn, var(--ink-3)); }
 .runStatus[data-status="running"] { color: var(--ink); }
 .runStatus[data-status="error"] { color: var(--dsh-signal-danger); }
 .runError { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-3); }
