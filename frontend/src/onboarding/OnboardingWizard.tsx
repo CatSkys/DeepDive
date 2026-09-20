@@ -2,9 +2,10 @@
 // 在卡内完成。管什么：卡片骨架（左栏品牌 + 步进列表 + 底栏导航）；不管什么：各步的
 // 表单与落库（在 steps/ 下，能力全部复用现有 API 与宿主消息）。
 //
-// 视觉沿用旧欢迎卡的配方（760×480 磨砂卡：--panel-strong + blur 40 + 圆角 14）：
-// 左栏品牌与进度，右栏当前步内容（黑白液态金属留在右栏当底）。卡是**盖在主界面上的
-// 覆盖层**（不是替换）——用户能看到自己的侧栏与会话在下面长出来。
+// 版式（用户定稿）：卡 880×560，左栏固定 216px 步进（窄），右栏吃满剩下一半以上；
+// **导航统一在右下角**（上一步 / 下一步，末步是「开始使用」）；不再有"跳过"按钮——
+// 右上角的 × 就是整卡退出，单步不做副操作。卡是盖在主界面上的覆盖层（不替换：
+// 用户能看到自己的侧栏在下面长出来）。
 import { Check, X } from "lucide-react";
 import { useT } from "../i18n";
 import { ONBOARDING_STEPS, useOnboarding, type OnboardingStepId } from "./useOnboarding";
@@ -29,18 +30,19 @@ export function OnboardingWizard({ children }: { children: React.ReactNode }) {
 
   if (!ob.visible) return <>{children}</>;
   const { stepIndex, completed, setStep, next, back, skip, finish } = ob;
+  const last = stepIndex === ONBOARDING_STEPS.length - 1;
 
   return (
     <>
       {children}
       <div className={css.overlay}>
         <div className={css.card} role="dialog" aria-modal="true" aria-label={t("新手引导")}>
-          <button className={css.close} onClick={skip} aria-label={t("跳过引导")} title={t("跳过引导")}>
+          <button className={css.close} onClick={skip} aria-label={t("关闭引导")} title={t("关闭引导")}>
             <X size={15} />
           </button>
           <div className={css.left}>
             <span className={css.badge}>{t("新手引导")}</span>
-            <img className={css.logo} src={logoUrl} alt="" width={52} height={52} />
+            <img className={css.logo} src={logoUrl} alt="" width={44} height={44} />
             <div className={css.title}>{t("欢迎使用 DeepDive")}</div>
             <ol className={css.steps}>
               {ONBOARDING_STEPS.map((id, index) => {
@@ -68,16 +70,19 @@ export function OnboardingWizard({ children }: { children: React.ReactNode }) {
           <div className={css.right}>
             <div className={css.metal} aria-hidden="true" />
             <div className={css.stepBody}>
-              {ob.step === "migrate" && <MigrateStep onNext={next} />}
-              {ob.step === "model" && <ModelStep onNext={next} />}
-              {ob.step === "project" && <ProjectStep onNext={next} />}
-              {ob.step === "done" && <DoneStep onFinish={finish} />}
+              {ob.step === "migrate" && <MigrateStep />}
+              {ob.step === "model" && <ModelStep />}
+              {ob.step === "project" && <ProjectStep />}
+              {ob.step === "done" && <DoneStep />}
             </div>
+            {/* 导航统一在右下角：上一步 | 下一步（末步＝开始使用） */}
             <div className={css.foot}>
-              <button type="button" className={css.link} onClick={skip}>{t("跳过引导")}</button>
               {stepIndex > 0 && (
                 <button type="button" className={css.secondary} onClick={back}>{t("上一步")}</button>
               )}
+              <button type="button" className={css.primary} onClick={last ? finish : next}>
+                {last ? t("开始使用") : t("下一步")}
+              </button>
             </div>
           </div>
         </div>

@@ -16,9 +16,9 @@
 .card {
   position: relative;
   display: flex;
-  width: 760px;
+  width: 880px;
   max-width: calc(100vw - 48px);
-  height: 480px;
+  height: 560px;
   max-height: calc(100vh - 48px);
   border: 1px solid var(--line-strong);
   border-radius: 14px;
@@ -47,9 +47,10 @@
 }
 .close:hover { background: rgba(255, 255, 255, 0.16); }
 
-/* ── 左栏：品牌 + 步进 ── */
+/* ── 左栏：品牌 + 步进（固定窄栏，把宽度让给右栏内容）── */
 .left {
-  flex: 1 1 44%;
+  flex: none;
+  width: 216px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -135,7 +136,7 @@
 
 /* ── 右栏：内容面（液态金属底色 + 内容列 + 底栏） ── */
 .right {
-  flex: 1 1 56%;
+  flex: 1;
   position: relative;
   margin: 10px 10px 10px 0;
   border-radius: 10px;
@@ -172,20 +173,10 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;   /* 导航统一右下角（用户定稿） */
   gap: 8px;
-  padding: 0 20px 16px;
+  padding: 0 24px 18px;
 }
-
-.link {
-  border: none;
-  background: transparent;
-  padding: 0;
-  font-size: 12px;
-  color: var(--ink-3);
-  cursor: pointer;
-}
-.link:hover { color: var(--ink-2); }
 
 /* ── 步骤内部 ── */
 .step { display: flex; flex-direction: column; gap: 8px; }
@@ -226,6 +217,24 @@
   line-height: 1.6;
   color: var(--ink-3);
 }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--fill);
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.chip:hover { background: var(--fill-strong); color: var(--ink); }
+.chipOn { background: var(--ink); color: var(--panel-bg); border-color: transparent; font-weight: 600; }
 
 .fieldLabel { margin-top: 6px; font-size: 11.5px; color: var(--ink-3); }
 .field {

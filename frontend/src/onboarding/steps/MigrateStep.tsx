@@ -1,7 +1,7 @@
 // 引导第 1 步·迁移：检测其他 Agent 的会话与**模型配置**，一次点击都带进来。
 // 会话导入走既有插件面板路由（api.importSessions / api.importRun），模型配置走
 // 壳读原文 + onboarding/agentModelImport 的映射计划——两件事都在这一步、一个按钮。
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useT } from "../../i18n";
 import { api, type ImportableSession } from "../../api";
 import { scanAgentConfigs } from "../../host";
@@ -9,7 +9,7 @@ import { useStore } from "../../store";
 import { useModelCatalog } from "../../settings/useModelCatalog";
 import { applyModelImport, planModelImport, type ModelImportPlan } from "../agentModelImport";
 import css from "../OnboardingWizard.module.css";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface ChatGroup {
   source: string;
@@ -22,22 +22,23 @@ interface ImportSummary {
   failed: string[];
 }
 
-export function MigrateStep({ onNext }: { onNext: () => void }) {
+export function MigrateStep() {
   const { t, tt } = useT();
   const store = useStore();
   const cat = useModelCatalog();
   const [groups, setGroups] = useState<ChatGroup[] | null>(null);
-  const [plan, setPlan] = useState<ModelImportPlan | null>(null);
+  const [files, setFiles] = useState<Record<string, string> | null>(null);
   const [withModels, setWithModels] = useState(true);
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 扫描只做一次：会话（插件面板路由）与配置文件原文（壳宿主消息）。
   useEffect(() => {
     let alive = true;
     (async () => {
       const sessions = await api.importSessions({ limit: 500 }).then((r) => r.sessions).catch(() => []);
-      const files = await scanAgentConfigs().catch(() => ({}));
+      const configs = await scanAgentConfigs().catch(() => ({}));
       if (!alive) return;
       const bySource = new Map<string, ImportableSession[]>();
       for (const s of sessions) {
@@ -46,18 +47,24 @@ export function MigrateStep({ onNext }: { onNext: () => void }) {
         bySource.set(s.format, list);
       }
       setGroups([...bySource.entries()].map(([source, list]) => ({ source, sessions: list })));
-      setPlan(planModelImport({
-        files,
-        providers: cat.providers,
-        deepseekApiKeyEnv: cat.deepseek.apiKeyEnv,
-        existingRoutes: Object.keys(cat.pi.providers),
-        protocols: cat.piProtocols,
-      }));
+      setFiles(configs);
     })();
     return () => { alive = false; };
-    // 只跑一次：目录（providers/protocols）在挂载时已经就绪（这一步只在引擎连上后出现）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 计划是**纯派生**：模型目录（providers / 协议枚举）首拉回来后自动重算。
+  // 曾经在挂载那一刻直接读目录算一次——那时目录还是空的，所有自定义路由都被
+  // "引擎未提供该协议的可声明面"挡掉，表现为"明明有配置却导不进来"。
+  const plan: ModelImportPlan | null = useMemo(() => {
+    if (files === null) return null;
+    return planModelImport({
+      files,
+      providers: cat.providers,
+      deepseekApiKeyEnv: cat.deepseek.apiKeyEnv,
+      existingRoutes: Object.keys(cat.pi.providers),
+      protocols: cat.piProtocols,
+    });
+  }, [files, cat.providers, cat.deepseek.apiKeyEnv, cat.pi.providers, cat.piProtocols]);
 
   const chatCount = (groups ?? []).reduce((n, g) => n + g.sessions.length, 0);
   const modelItems = plan?.items ?? [];
@@ -108,14 +115,9 @@ export function MigrateStep({ onNext }: { onNext: () => void }) {
         )}
         {summary.failed.length > 0 && (
           <ul className={css.notes}>
-            {summary.failed.slice(0, 4).map((reason) => <li key={reason}>{reason}</li>)}
+            {summary.failed.map((reason) => <li key={reason}>{reason}</li>)}
           </ul>
         )}
-        <div className={css.actions}>
-          <button type="button" className={css.primary} onClick={onNext}>
-            {t("下一步")}<ArrowRight size={14} />
-          </button>
-        </div>
       </div>
     );
   }
@@ -167,7 +169,7 @@ export function MigrateStep({ onNext }: { onNext: () => void }) {
           )}
           {(plan?.notes.length ?? 0) > 0 && (
             <ul className={css.notes}>
-              {plan?.notes.slice(0, 4).map((n) => (
+              {plan?.notes.map((n) => (
                 <li key={`${n.source}-${n.label}`}>{tt("{s} 的 {l}：{r}", "{s} · {l}: {r}", { s: n.source, l: n.label, r: n.reason })}</li>
               ))}
             </ul>
@@ -180,7 +182,6 @@ export function MigrateStep({ onNext }: { onNext: () => void }) {
         <button type="button" className={css.primary} disabled={busy || !hasAnything} onClick={() => void run()}>
           {busy ? t("正在导入…") : t("导入")}
         </button>
-        <button type="button" className={css.secondary} disabled={busy} onClick={onNext}>{t("跳过这一步")}</button>
       </div>
     </div>
   );

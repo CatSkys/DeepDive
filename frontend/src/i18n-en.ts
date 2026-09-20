@@ -890,6 +890,12 @@ export const EN: Record<string, string> = {
   "引擎未提供默认模型命名空间，无法保存": "The engine exposes no default-model namespace; cannot save",
   "请填写项目名称": "Enter a project name",
   "请选择项目文件夹": "Choose a project folder",
+  "关闭引导": "Close the intro",
+  "提供方": "Provider",
+  "{p} 的 API Key": "{p} API key",
+  "选一家模型服务、填入 API Key 就能开始；自定义端点在设置 → 模型里加。": "Pick a model service and paste its API key to start; custom endpoints can be added in Settings → Models.",
+  "引擎目录里还没有这家的模型。": "The engine catalog has no models for this provider yet.",
+  "引擎未提供 llm-pi-ai 命名空间，无法添加提供方": "The engine exposes no llm-pi-ai namespace; cannot add the provider",
 
 };
 
