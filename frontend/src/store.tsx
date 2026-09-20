@@ -206,6 +206,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
   const [engineRestartingAttempt, setEngineRestartingAttempt] = useState(0);
   const restartEngine = useCallback(() => sendToShell({ type: "restart-engine" }), []);
+  /** 立即取一次数（不等 3s 轮询）——引擎就绪那一刻要用；refresh 定义在后，经 ref 传递。 */
+  const refreshRef = useRef<(() => void) | null>(null);
   // 壳的引擎状态推送（退避重试/放弃只有壳知道）→ banner 文案与重试入口。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd !== "engineState") return;
@@ -216,12 +218,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setEngineFailureReason(phase === "failed" ? (p?.reason ?? "") : null);
     setEngineFailureTail(phase === "failed" ? (p?.tail ?? "") : null);
     setEngineRestartingAttempt(phase === "restarting" ? (p?.attempt ?? 0) : 0);
+    // 就绪即立刻取数：轮询是 3s 一跳，等下一跳会让骨架屏在引擎已好之后还挂几秒
+    //（交接要跟手）。壳不再因引擎就绪整页重载 SPA（那样交接处会白屏断一下）。
+    if (phase === "ready") {
+      const kick = refreshRef.current;
+      if (kick) kick();
+    }
   }), []);
 
-  // Agent 会话预设目录（一次性；失败 = 引擎无预设面，选择器/胶囊显式不渲染）
+  // Agent 会话预设目录（失败 = 引擎无预设面，选择器/胶囊显式不渲染）。启动期引擎
+  // 还没起（RPC 503），就绪后补取一次——这是原来靠"就绪即重载整页"掩盖掉的那批
+  // 一次性取数之一，重载去掉后必须自己补上。
   useEffect(() => {
+    if (!engineUp) return;
     api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);
-  }, []);
+  }, [engineUp]);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 760px)");
     const onChange = () => {
@@ -530,6 +541,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         : prev));
     }
   };
+
+  // ref 镜像（副作用只在 handler/effect 里跑，渲染期只做这次赋值）：上面的
+  // engineState 「ready」分支要能立刻取一次数，而 refresh 定义在此处之后。
+  refreshRef.current = refresh;
 
   useEffect(() => {
     let alive = true;

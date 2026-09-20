@@ -1248,12 +1248,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 EngineGateway.shared.update(base: url)
                 EngineEventObserver.shared.update(base: url)
             }
-            // The SPA loads unconditionally (static serving never 503s); this
-            // reload re-boots it against the now-live upstream so boot-time
-            // RPCs that hit the 503 window get real answers.
-            if let bridgeURL = BridgeServer.shared.url {
-                windowController.load(url: bridgeURL)
-            }
+            // **不重载 SPA**：就绪那一刻整页 load 会把文档拆掉重建——启动骨架屏 →
+            // 真实界面的交接处因此必断一下（用户报"卡一下"，无论过渡动画怎么做都盖
+            // 不住白屏那一帧）。原来这次重载是为了让启动期撞上 503 的那些一次性 RPC
+            // 重来一遍，那批取数已改为自补：store 的就绪分支立刻 kick 一次 refresh +
+            // presets 跟随 engineUp 重取（见 frontend/src/store.tsx）。
+            // 断线重连（引擎重启）同理不必重载：mux 自带重连、桥的 engineBase 也在
+            // setEngine 里换新，各流重连后重发快照。
         case .failed:
             // 失败只走内置面（SPA 的引擎横幅 + 详情弹窗，见 pushEngineState 的
             // tail 字段）：不弹原生窗口、不发系统通知——错误面一律在应用内

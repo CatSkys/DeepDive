@@ -64,6 +64,10 @@
   --dur-fast: 120ms;
   --dur-med: 200ms;
   --dur-slow: 300ms;
+  /* 启动过渡（骨架屏 → 界面）刻意比 slow 再慢一档：这是全局唯一一处"等待感"的
+     收尾，慢一点才丝滑（用户定稿）。用它的地方：App 的启动交叉淡入 + 
+     BootSkeleton 的整层淡出（时长只此一处，两边都引这个变量）。 */
+  --dur-slowest: 520ms;
   --ease-out: cubic-bezier(.2, 0, 0, 1);
 }
 :root[data-theme="light"] {
@@ -224,6 +228,21 @@ button {
 .app.collapsed .session-header { padding-left: 176px; }
 /* hero 自带 24px 横向 padding：补 152 = 会话头同位（176），两页空隙一致 */
 .app.collapsed .hero-top { padding-left: 152px; }
+
+/* 启动过渡的舞台：把「侧栏 + 主卡」这对兄弟包进一个自己就是 flex row 的容器，
+   几何与 .app 直接持有它们时一致（同样 flex:1 + min-width:0 + 同样的子元素），
+   腾出的位置给 BootSkeleton 当绝对定位层（见 components/BootSkeleton.module.css）。
+   .boot-shell 是真实界面层：引擎就绪前压到 0——否则空列表会从骨架屏的半透明块
+   下透出来（那正是要治的歧义）；就绪后按 --dur-slowest 慢速淡入。 */
+.boot-stage { display: flex; flex: 1; min-width: 0; position: relative; }
+.boot-shell {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  opacity: 1;
+  transition: opacity var(--dur-slowest) var(--ease-out);
+}
+.boot-shell[data-dim="1"] { opacity: 0; pointer-events: none; }
 
 /* ---- 侧栏拖拽调宽热区：完全不可见（无线条/无底色），只有 col-resize 光标 ----
    data-strip-interactive 让 titlebar.ts 把它计入顶条 rect 表：热区上段

@@ -1,0 +1,88 @@
+/* 启动骨架屏：块状占位 + 整屏同步脉冲。填充走语义变量（--fill / --fill-2 /
+   --composer-bg），亮暗主题与外观三态自动跟随；几何对齐真实布局（侧栏行高 32 /
+   胶囊半径 16 / 主卡 composer 48 高）——这些数字来自 theme.css 的 .task-row /
+   .composer，改那边时这里要一起看。 */
+
+/* 只做淡入淡出的呼吸（用户定稿："整个是脉冲动画"）。用模块内自定义动画名，
+   不复用 theme.css 的 pulse：CSS module 会给动画名做作用域改写，跨文件引用
+   会被改到不存在的名字上（静默不动）。 */
+@keyframes skeletonPulse {
+  0%, 100% { opacity: .32; }
+  50%      { opacity: .82; }
+}
+
+/* 整层（覆盖在 .boot-shell 之上）：启动期不透明、就绪后按 --dur-slowest 淡出——
+   淡出期间脉冲还在跑，被整层的透明度平滑带走（不是硬切，用户反馈"闪一下"）。
+   时长与 App 侧 .boot-shell 的淡入同源（theme.css 的 --dur-slowest）。 */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  opacity: 1;
+  transition: opacity var(--dur-slowest) var(--ease-out);
+}
+.overlay[data-fading="1"] { opacity: 0; pointer-events: none; }
+
+.sidebarInner {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 8px 8px;
+}
+
+.block {
+  background: var(--fill);
+  border-radius: 6px;
+  animation: skeletonPulse 1.6s ease-in-out infinite;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;            /* = .task-row */
+  padding: 0 10px;
+}
+
+.glyph { width: 16px; height: 16px; border-radius: 5px; flex: none; }
+.line { height: 10px; }
+.group { width: 44px; height: 9px; margin: 10px 0 3px 10px; border-radius: 5px; }
+
+.foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 6px 2px;
+}
+.footBtn { width: 26px; height: 26px; border-radius: 8px; }
+
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 24px;
+}
+.heroTitle { width: 232px; height: 22px; border-radius: 8px; }
+.heroSub { width: 92px; height: 12px; border-radius: 6px; }
+
+/* composer 壳：容器本体不脉冲（避免与外层块互相叠加闪烁），只给轮廓。 */
+.composer {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(660px, 100%);
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 24px;      /* = .composer 胶囊 */
+  border: 1px solid var(--line);
+  background: var(--composer-bg);
+}
+.plus { width: 18px; height: 18px; border-radius: 6px; flex: none; }
+.send { width: 26px; height: 26px; border-radius: 13px; flex: none; margin-left: auto; }

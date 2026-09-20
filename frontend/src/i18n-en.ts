@@ -160,6 +160,8 @@ export const EN: Record<string, string> = {
   "引擎启动失败": "Engine failed to start",
   "复制诊断": "Copy diagnostics",
   "详情": "Details",
+  // 启动骨架屏（读屏用；视觉是形状占位，没有文字）
+  "正在启动引擎…": "Starting the engine…",
   // phase 2 commands & input
   "控制新会话的文件写入与审批策略；运行中的会话保持开始时的预设。": "Controls file access and approval policy for new sessions; running sessions keep their starting preset.",
   "本引擎未提供权限预设。": "This engine exposes no permission presets.",

@@ -222,13 +222,16 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
     return () => window.removeEventListener(DD_EVENTS.composerAppend, onAppend);
   }, [setText]);
 
+  // 发送行为偏好（busyEnter：排队/插话）存在引擎里。启动期引擎还没起（503）→
+  // 就绪后补取一次：壳不再因引擎就绪重载整页 SPA，这类一次性取数得自己跟上。
   useEffect(() => {
+    if (!store.engineUp) return;
     api.settingsDescribe().then((d) => {
       const ns = (d.namespaces ?? []).find((n) => n.ns === "ui-conversation");
       const v = (ns?.value as { busyEnter?: string } | null)?.busyEnter;
       if (v === "steer" || v === "queue") setBusyEnter(v);
     }).catch(() => void 0); // engine booting: keep default
-  }, []);
+  }, [store.engineUp]);
 
   // ---------- prompt assembly ----------
 

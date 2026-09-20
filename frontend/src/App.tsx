@@ -18,6 +18,7 @@ import { SessionHeader } from "./session/SessionHeader";
 import { HeroBrand } from "./components/HeroBrand";
 import { AgentModePicker } from "./components/AgentMode";
 import { SettingsPage } from "./components/SettingsPage";
+import { BootSkeleton } from "./components/BootSkeleton";
 import { FirstRunGate } from "./settings/FirstRunGate";
 import { useAutoArchive } from "./useAutoArchive";
 import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
@@ -192,6 +193,24 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.keybinds]);
 
+  // 启动骨架屏的防抖：SPA 每次重载（引擎就绪时壳会 load 一次、切主题也会 reload）
+  // store 都是全新的，`everConnected` 要等首个 tick/壳的状态推送才翻真——直接判会
+  // 闪一下骨架屏，且正好闪在"启动→就绪"那一瞬。等 250ms 再显示：冷启动照样盖住
+  // 引擎启动期，重载则根本不出现。
+  const [skeletonArmed, setSkeletonArmed] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSkeletonArmed(true), 250);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const booting = skeletonArmed && !store.everConnected && store.enginePhase !== "failed";
+  // 挂载 / 卸载：启动期挂上；结束时先淡出（时长在 CSS），由骨架屏自己在
+  // transitionend 回报后再卸载——卸载时机不写第二份时长。失败态不算"启动中"
+  // （那是横幅的活：有原因、有重试，骨架屏会把它盖成"还在加载"）。
+  const [skeletonMounted, setSkeletonMounted] = useState(false);
+  useEffect(() => {
+    if (booting) setSkeletonMounted(true);
+  }, [booting]);
+
   // 引擎失败详情：原因 + 日志尾部，可就地复制诊断——原原生恢复窗的两样能力
   // （看原因、复制诊断）搬进应用内。报错一律在应用内呈现，不弹系统窗/系统通知。
   const showEngineFailureDetail = async () => {
@@ -267,6 +286,10 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       {!store.sidebarCollapsed && (
         <button className="sidebar-scrim" aria-label={t("收起侧栏")} onClick={() => store.toggleSidebar()} />
       )}
+      {/* 启动过渡舞台：真实界面层（.boot-shell，启动期压到 0）+ 骨架屏覆盖层。
+          两层按 --dur-slowest 交叉淡入淡出，不硬切（用户反馈"闪一下、不够丝滑"）。 */}
+      <div className="boot-stage">
+      <div className="boot-shell" data-dim={booting ? "1" : "0"}>
       <Sidebar onOpenSettings={() => openSettings()} />
       {/* SessionView key：会话切换必须全新挂载——无 key 时 React 复用实例，
           旧会话的 items/eventLog 残留会在新会话 summary 就位前闪现旧内容。 */}
@@ -296,6 +319,11 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
           </div>
         )}
       </main>
+      </div>
+      {skeletonMounted && (
+        <BootSkeleton fading={!booting} onFadedOut={() => setSkeletonMounted(false)} />
+      )}
+      </div>
         {/* 全局单例：消息流选中文字的浮条与右键复制菜单（portal 自挂 body） */}
         <SelectionActions />
         </>
