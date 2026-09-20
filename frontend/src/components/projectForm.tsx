@@ -96,7 +96,7 @@ export function ProjectFormFields({ form }: { form: ProjectForm }) {
   const { permission } = form;
   return (
     <>
-      <div className={css.group}>
+      <div className={rowsCss.rowGroup}>
         <div className={rowsCss.rowCard}>
           <span className={css.groupLabel}>{t("项目名称")}</span>
           <div className={css.groupControl}>
@@ -106,6 +106,7 @@ export function ProjectFormFields({ form }: { form: ProjectForm }) {
                 placeholder={t("项目名称")}
                 value={form.name}
                 onChange={(e) => form.setName(e.target.value)}
+                autoFocus
               />
               <IconPicker value={form.glyph} label={form.name} onChange={form.setGlyph} />
             </div>

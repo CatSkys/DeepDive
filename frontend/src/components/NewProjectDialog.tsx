@@ -74,12 +74,21 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
   return createPortal(
     // 关闭只认"按下 overlay 自身"；图标选择器的 portal 点击沿 React 树冒泡
     <div
-      className={css.modalOverlay}
+      className={rowsCss.modalOverlay}
       onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}
       role="dialog"
       aria-label={t("新建项目")}
     >
-      <div className={`${rowsCss.modal} ${css.glass}`} onClick={(e) => e.stopPropagation()}>
+      {/* Escape/⌘↵ 挂卡片上（不挂 document）：图标选择器 portal 后仍在本弹窗 React
+          子树里，其内部 Escape 已被菜单 stopPropagation 截住，不会连带关掉弹窗 */}
+      <div
+        className={`${rowsCss.modal} ${css.glass}`}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submit();
+        }}
+      >
         <div className={rowsCss.modalHead}>
           <span className={rowsCss.modalTitle}>{t("新建项目")}</span>
         </div>
