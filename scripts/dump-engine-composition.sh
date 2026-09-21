@@ -143,10 +143,11 @@ if [[ -s "$STDERR_LOG" ]]; then
 fi
 
 NORMALIZED="$STAGE/composition.txt"
-awk '
-  /^# == / { next }                       # provenance header: changes with the bundle list
-  { sub(/[ \t]+$/, ""); print }
-' "$STAGE/dump.raw" > "$NORMALIZED"
+# Exactly one transformation: drop the provenance header lines. Nothing else —
+# rows carry block scalars whose blank lines and (in a literal scalar) trailing
+# spaces are content, so any cosmetic pass here would corrupt the thing being
+# compared.
+awk '/^# == / { next } { print }' "$STAGE/dump.raw" > "$NORMALIZED"
 
 if [[ -n "$OUT" ]]; then
   mkdir -p "$(dirname "$OUT")"
