@@ -10,8 +10,8 @@ import { planReviewOf } from "../planReview";
 import { PlanReviewCard } from "./PlanReviewCard";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, type TurnGroup } from "../turnGroups";
-import { groupExploreItems } from "../session/toolGroups";
-import { ExploreGroupRow } from "../session/ExploreGroupRow";
+import { groupTools } from "../session/toolGroups";
+import { ToolGroupRow } from "../session/ToolGroupRow";
 import { Item } from "../session/Item";
 import { useSessionActions } from "../session/useSessionActions";
 import { TurnNavigator } from "../session/TurnNavigator";
@@ -431,11 +431,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 let procBarEmitted = false;
                 nodes.push(
                   <div key={`turn-${g.turn ?? "head"}-${gi}`} className={`turn-group${isLiveGroup ? " live" : ""}`} data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
-                    {groupExploreItems(g.items).map((unit) => {
-                      // 一组连续的只读/读取/搜索工具折成「查阅」组；其余原样
-                      const members = unit.kind === "explore-group" ? unit.members : [unit.item];
-                      const indices = unit.kind === "explore-group" ? unit.indices : [unit.index];
-                      const key = unit.kind === "explore-group" ? unit.key : unit.item.key;
+                    {groupTools(g.items).map((unit) => {
+                      // 连续的同类工具折成一个组（查阅/终端/更改）；其余原样
+                      const members = unit.kind === "tool-group" ? unit.members : [unit.item];
+                      const indices = unit.kind === "tool-group" ? unit.indices : [unit.index];
+                      const key = unit.kind === "tool-group" ? unit.key : unit.item.key;
                       const first = indices[0]!;
                       const last = indices[indices.length - 1]!;
                       // 过程折叠按"整组"判：成员全在过程窗内才算过程项（组内不会只藏一半）
@@ -479,10 +479,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
                         >
                           {bar}
-                          {unit.kind === "explore-group" ? (
-                            <ExploreGroupRow members={unit.members}>
+                          {unit.kind === "tool-group" ? (
+                            <ToolGroupRow groupKind={unit.groupKind} members={unit.members}>
                               {unit.members.map((m) => <div key={m.key}>{renderItem(m)}</div>)}
-                            </ExploreGroupRow>
+                            </ToolGroupRow>
                           ) : renderItem(unit.item)}
                         </div>
                       );

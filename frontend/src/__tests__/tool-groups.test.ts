@@ -1,18 +1,31 @@
-// 工具合并（"查阅"组）的判定与分组。夹具直接用真实会话里那批命令——它们全是
-// `cd X && 程序 | grep … 2>/dev/null | head` 这种形态，是本功能的真实负载：
-// 判定必须能认出来（否则"整屏 bash 行"这个要解决的问题原样还在）。
+// 工具执行合并：三组（查阅/终端/更改）的判定、分组与摘要。夹具用真实会话里那批命令
+// （`cd X && 程序 | grep … 2>/dev/null | head` 这种形态），并且**同时覆盖原始命令串与
+// JSON 参数两种形态**——后者漏剥过一次，真实会话里那 11 条 bash 全因此没并成组。
 import { describe, expect, it } from "vitest";
 import {
-  classifyExploreItem, formatExploreSummary, groupExploreItems, isExploreItem, isReadOnlyCommand,
+  changedFiles, classifyExploreItem, commandOf, formatGroupSummary, groupKindOf, groupTools,
+  isReadOnlyCommand,
 } from "../session/toolGroups";
 import type { RenderItem } from "../session/renderModel";
 
 let seq = 0;
-const tool = (toolName: string, args = ""): RenderItem =>
-  ({ key: `k${++seq}`, kind: "tool-call", toolName, args }) as RenderItem;
+const tool = (toolName: string, args = "", failed?: boolean): RenderItem =>
+  ({ key: `k${++seq}`, kind: "tool-call", toolName, args, failed }) as RenderItem;
+/** 引擎另一种参数形态：把命令包进 JSON。 */
+const asJson = (command: string) => JSON.stringify({ command });
+
+/** 摘要文案：取中文分支并替换占位符（ttPair 的签名是 (zh, en, vars)）。 */
+function zh(zhText: string, enText: string, vars?: Record<string, string | number>): string {
+  const chosen = zhText.length > 0 ? zhText : enText;
+  if (!vars) return chosen;
+  let out = chosen;
+  for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
+  return out;
+}
 
 /** 真实负载：截图里那批只读排查命令。 */
 const REAL_READONLY = [
+  'date; echo "--- ls-files ---"; git ls-files design/dmg/; echo "--- file ---"; ls -la design/dmg/',
   'grep -rn "DS_Store\\|烘成\\|访问\\|Finder" --include="*.md" --include="*.sh" --include="*.mjs" .',
   "cd /Users/hanbyking/Documents/DSHmini && plutil -p design/dmg/DS_Store 2>&1 | head -60",
   "cd /Users/hanbyking/Documents/DSHmini && strings -a design/dmg/DS_Store | head -40",
@@ -22,97 +35,132 @@ const REAL_READONLY = [
   "cd /Users/hanbyking/Documents/DSHmini && hdiutil info | awk '/DeepDive-0.1.0-dev/{f=1} f' | head -20",
   'mount | grep -i "disk9\\|disk10" ; echo "=== diskutil ==="; diskutil list disk9 2>&1 | head -20',
   'hdiutil info | grep -n "^image-path\\|^/dev/disk\\|^framework name"',
-  'cd /Users/hanbyking/Documents/DSHmini && hdiutil imageinfo dist/DeepDive-0.1.0-dev.dmg 2>&1 | grep -i "format"',
   'diskutil info /dev/disk10s1 2>&1 | head -20; echo "=== ps ==="; ps -p 31261 -o pid,command 2>&1 | head -3',
 ];
+
+describe("commandOf：原始命令串与 JSON 两种形态", () => {
+  it("原始命令串原样返回", () => {
+    expect(commandOf("ls -la")).toBe("ls -la");
+  });
+  it("JSON 形态取命令字段（command / cmd / script）", () => {
+    expect(commandOf(asJson("git status"))).toBe("git status");
+    expect(commandOf(JSON.stringify({ cmd: "ls" }))).toBe("ls");
+    expect(commandOf(JSON.stringify({ script: "echo hi" }))).toBe("echo hi");
+  });
+  it("JSON 里没有命令字段 / 非法 JSON：退回原串", () => {
+    expect(commandOf('{"path":"/tmp/a"}')).toBe('{"path":"/tmp/a"}');
+    expect(commandOf("{不是 json")).toBe("{不是 json");
+  });
+});
 
 describe("isReadOnlyCommand：真实只读命令要认出来", () => {
   it.each(REAL_READONLY)("%s", (cmd) => {
     expect(isReadOnlyCommand(cmd)).toBe(true);
   });
-
   it.each([
-    "rm -rf dist",
-    "cd x && git commit -m 'x'",
-    "sed -i '' 's/a/b/' f.txt",
-    "echo hi > out.txt",
-    "npm install",
-    "mkdir -p a/b",
-    "cat a > b",
-    "git push",
-    'echo "x" >> log.txt',
-    "cd x && make package",
-    "嗯这不是命令",
-  ])("写操作/认不出来一律不算：%s", (cmd) => {
+    "rm -rf dist", "cd x && git commit -m 'x'", "sed -i '' 's/a/b/' f.txt",
+    "echo hi > out.txt", "npm install", "mkdir -p a/b", "git push", 'echo "x" >> log.txt',
+  ])("写操作一律不算：%s", (cmd) => {
     expect(isReadOnlyCommand(cmd)).toBe(false);
   });
+  it("JSON 形态也要能判（漏剥过一次）", () => {
+    expect(isReadOnlyCommand(commandOf(asJson(REAL_READONLY[1]!)))).toBe(true);
+    expect(isReadOnlyCommand(commandOf(asJson("rm -rf dist")))).toBe(false);
+  });
 });
 
-describe("isExploreItem：族与只读判定", () => {
-  it("读族与搜索族一律算（不看命令）", () => {
-    expect(isExploreItem(tool("read", "src/a.ts"))).toBe(true);
-    expect(isExploreItem(tool("read_image"))).toBe(true);
-    expect(isExploreItem(tool("grep", "foo"))).toBe(true);
-    expect(isExploreItem(tool("glob", "**/*.ts"))).toBe(true);
-    expect(isExploreItem(tool("web_search"))).toBe(true);
-  });
-  it("写族/代码/技能/提问一律不算", () => {
-    for (const name of ["write", "edit", "str_replace_editor", "apply_patch", "run_code", "skill", "ask_user_question"]) {
-      expect(isExploreItem(tool(name))).toBe(false);
+describe("groupKindOf：三类的归属", () => {
+  it("读族/搜索族 → 查阅", () => {
+    for (const name of ["read", "read_file", "read_image", "grep", "glob", "web_search", "web_fetch"]) {
+      expect(groupKindOf(tool(name))).toBe("explore");
     }
   });
-  it("命令族按只读判定：只读的算，写的不算", () => {
-    expect(isExploreItem(tool("bash", REAL_READONLY[1]!))).toBe(true);
-    expect(isExploreItem(tool("bash", "rm -rf dist"))).toBe(false);
+  it("写族 → 更改", () => {
+    for (const name of ["write", "edit", "str_replace_editor", "multiedit", "apply_patch"]) {
+      expect(groupKindOf(tool(name))).toBe("changes");
+    }
+  });
+  it("命令族：只读 → 查阅，其余 → 终端（两种参数形态都算）", () => {
+    expect(groupKindOf(tool("bash", REAL_READONLY[2]!))).toBe("explore");
+    expect(groupKindOf(tool("bash", asJson(REAL_READONLY[2]!)))).toBe("explore");
+    expect(groupKindOf(tool("bash", asJson("npm install")))).toBe("execute");
+    expect(groupKindOf(tool("bash", ""))).toBe("execute");
+  });
+  it("代码/技能/提问/非工具项一律不入组", () => {
+    for (const name of ["run_code", "skill", "ask_user_question", "todo_write"]) {
+      expect(groupKindOf(tool(name))).toBeNull();
+    }
+    expect(groupKindOf({ key: "x", kind: "assistant" } as RenderItem)).toBeNull();
   });
 });
 
-describe("groupExploreItems：连续同族且 ≥2 条才成组", () => {
-  it("一整屏只读 bash（截图那种）折成一个组", () => {
+describe("groupTools：相邻同类且 ≥2 条才成组", () => {
+  it("一整屏只读 bash（截图那种）折成 1 个「查阅」组", () => {
     const items = REAL_READONLY.map((c) => tool("bash", c));
-    const units = groupExploreItems(items);
+    const units = groupTools(items);
     expect(units).toHaveLength(1);
     const g = units[0]!;
-    expect(g.kind).toBe("explore-group");
-    if (g.kind !== "explore-group") throw new Error("unreachable");
+    if (g.kind !== "tool-group") throw new Error("unreachable");
+    expect(g.groupKind).toBe("explore");
     expect(g.members).toHaveLength(11);
     expect(g.indices).toEqual(items.map((_, i) => i));
-    // key 锚在首个成员上：流式追加不会换身份
-    expect(g.key).toBe(`explore:${items[0]!.key}`);
+    expect(g.key).toBe(`group:${items[0]!.key}`); // 锚在首个成员上
   });
 
-  it("单条不成组（原样保留成普通行）", () => {
-    const units = groupExploreItems([tool("read", "a.ts")]);
-    expect(units).toEqual([{ kind: "item", index: 0, item: expect.objectContaining({ toolName: "read" }) }]);
+  it("同一批命令换成 JSON 参数也照样成组（回归）", () => {
+    const items = REAL_READONLY.map((c) => tool("bash", asJson(c)));
+    const units = groupTools(items);
+    expect(units).toHaveLength(1);
+    if (units[0]!.kind !== "tool-group") throw new Error("unreachable");
+    expect(units[0]!.groupKind).toBe("explore");
   });
 
-  it("写操作/换族即断组", () => {
-    const items = [tool("read", "a"), tool("read", "b"), tool("write", "c"), tool("read", "d"), tool("read", "e")];
-    const units = groupExploreItems(items);
-    expect(units.map((u) => u.kind)).toEqual(["explore-group", "item", "explore-group"]);
+  it("写命令成「终端」组，摘要给命令数", () => {
+    const items = [tool("bash", asJson("npm install")), tool("bash", asJson("make package")), tool("bash", asJson("rm -rf dist"))];
+    const units = groupTools(items);
+    expect(units).toHaveLength(1);
+    if (units[0]!.kind !== "tool-group") throw new Error("unreachable");
+    expect(units[0]!.groupKind).toBe("execute");
+    expect(formatGroupSummary("execute", units[0]!.members, zh)).toBe("3 个命令");
   });
 
-  it("读+搜混合成一组，命令族的写操作不入组", () => {
-    const items = [tool("read", "a.ts"), tool("grep", "x"), tool("glob", "**/*"), tool("bash", "ls -la")];
-    const [g] = groupExploreItems(items);
-    expect(g!.kind).toBe("explore-group");
+  it("编辑族成「更改」组", () => {
+    const items = [tool("edit", JSON.stringify({ file_path: "a.ts" })), tool("write", JSON.stringify({ file_path: "b.ts" }))];
+    const units = groupTools(items);
+    if (units[0]!.kind !== "tool-group") throw new Error("unreachable");
+    expect(units[0]!.groupKind).toBe("changes");
+    expect(changedFiles(units[0]!.members)).toEqual(["a.ts", "b.ts"]);
+    expect(formatGroupSummary("changes", units[0]!.members, zh)).toBe("2 个文件 · a.ts, b.ts");
+  });
+
+  it("换类即断组；单条不成组", () => {
+    const items = [
+      tool("read", "a"), tool("read", "b"),          // 查阅
+      tool("bash", asJson("npm install")),           // 终端（一条，不成组）
+      tool("read", "c"), tool("read", "d"),          // 查阅
+    ];
+    expect(groupTools(items).map((u) => (u.kind === "tool-group" ? u.groupKind : "single"))).toEqual([
+      "explore", "single", "explore",
+    ]);
+    expect(groupTools([tool("read", "a")])).toHaveLength(1);
   });
 });
 
-describe("formatExploreSummary：桶序固定、0 不出现、逗号分隔", () => {
-  /** 摘要文案取中文（回调签名是 (zh, en, n)，少的参数可省）。 */
-  const zh = (label: string) => label;
-  it("按搜索 → 列表 → 文件计数", () => {
+describe("formatGroupSummary：三类各自的形状", () => {
+  it("查阅：桶序固定、0 不出现、逗号分隔", () => {
     const items = [tool("grep", "x"), tool("glob", "**/*"), tool("read", "a.ts"), tool("read", "b.ts")];
-    expect(formatExploreSummary(items, zh)).toBe("1 搜索, 1 列表, 2 文件");
+    expect(formatGroupSummary("explore", items, zh)).toBe("1 搜索, 1 列表, 2 文件");
+    expect(formatGroupSummary("explore", [tool("read", "a"), tool("read", "b")], zh)).toBe("2 文件");
   });
-  it("只出现命中的桶", () => {
-    expect(formatExploreSummary([tool("read", "a"), tool("read", "b")], zh)).toBe("2 文件");
-    expect(formatExploreSummary([tool("grep", "x"), tool("grep", "y")], zh)).toBe("2 搜索");
+  it("终端：失败计数另起一段", () => {
+    const items = [tool("bash", asJson("npm test"), true), tool("bash", asJson("make"))];
+    expect(formatGroupSummary("execute", items, zh)).toBe("2 个命令, 1 个失败");
   });
-  it("有内容的桶一个不少（计数之和 = 成员数）", () => {
+  it("更改：单文件只给文件名，多文件给计数 + 清单", () => {
+    expect(formatGroupSummary("changes", [tool("edit", JSON.stringify({ file_path: "only.ts" }))], zh)).toBe("only.ts");
+  });
+  it("桶计数之和 = 成员数（不漏不重）", () => {
     const items = REAL_READONLY.map((c) => tool("bash", c));
-    const counts = items.map(classifyExploreItem);
-    expect(counts).toHaveLength(items.length);
+    expect(items.map(classifyExploreItem)).toHaveLength(items.length);
   });
 });
