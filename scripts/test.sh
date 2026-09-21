@@ -5,6 +5,10 @@ cd "$(dirname "$0")/.."
 
 (cd frontend && npm run test)
 
+# 架构约束门：CSS Module 类名写错、新文件超行数上限这类**不会让构建或测试变红**的
+# 静默失效（TODO §15 的事故类）。只让新增违规失败，存量按指纹在基线里放行。
+node frontend/scripts/check-architecture.mjs
+
 # 引擎组合漂移门：engine/profile 是我们自己的行表，上游改了自己那两层不会自动
 # 到达我们这儿，而未命中的 `- id:` 只 warn 不报错（PITFALLS §7.6）——只有重新
 # dump 对比才发现。无 pinned runtime 时它自己 skip（不是静默通过，会打印一行）。

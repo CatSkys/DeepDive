@@ -102,7 +102,7 @@ Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`D
   SIGKILL，且启动时按 pid+可执行路径收残留引擎；但引擎自己的子进程（bash 等）不在
   进程组里，收尾依赖引擎自己。要彻底解决得给引擎起独立进程组。
 
-## 15. 样式类名静默失效的清理（2026-09-20）
+## 15. 样式类名静默失效 —— 已机械化（2026-09-21）
 
 CSS Module 对**不存在的键返回 `undefined`**：`className={css.xxx}` 写错名字不会报错、
 不会类型报错、也不会让测试变红，只是那块样式凭空消失——轻则少一层间距，重则整块
@@ -111,21 +111,19 @@ UI 不可见（2026-09-20「新建项目」弹窗就是这么"点了没反应"�
 写样式前先在模块里确认类名存在；**引用全局 `theme.css` 的类要用字面量 className**，
 经 module 引用只会拿到 undefined。
 
-已查明待清理的引用（一次全量扫描的结果，未逐条复核是否真缺样式）：
+**现在有机械门了**：`frontend/scripts/check-architecture.mjs`（`make test` 会跑）对
+**每个** `*.module.css` 导入绑定做同一条判定——`X.<名字>` 必须是那份 CSS 里出现过的
+`.名字`。所以这条不再依赖谁记得。
 
-- `components/controls.tsx` `rowsCss.on`
-- `components/SettingsPage.tsx` `rowsCss.recording` / `rowsCss.off` / `rowsCss.active`
-- `components/CommandPalette.tsx` `css.active`
-- `settings/ModelsManage.tsx` `cssRows.closed`
-- `onboarding/steps/MigrateStep.tsx` `rowsCss.closed`
-- `plugins/PluginsSection.tsx` `css.tabActive`
+**那份"待清理清单"已作废：六处全是误报**，逐条复核结果——`.on` / `.off` / `.recording` /
+`.active` / `.closed` / `.tabActive` 等都以**复合选择器**形式声明在各自的 CSS 里
+（如 `.toggle.on { … }`），先前那次扫描用 `^\.名字` 匹配行首，才把复合选择器漏成"缺失"。
+检查器扫过全部 41 个导入文件，零真违规。（`McpTab.tsx` 的 `rs.json` / `rs.length` 同样
+是误报：`rs` 确实是 CSS module 绑定，但那两个访问在文件里并不存在。）
 
-（同一轮扫描里 `plugins/McpTab.tsx` 的 `rs.json` / `rs.length` 是数据成员访问，不是样式
-引用——扫描器的误报样本，清理时别照着改。）
-
-复跑方式：解出每个 tsx 的 `import X from "…module.css"`，比对 `X.<名字>` 的出现处与那份
-CSS 里出现过的 `.名字`；全局类会被误判，结果需人工复核。要机械化的话，加一条 ESLint
-规则比写测试贴切——**属新增工具链动作，先要用户点头**（铁律 7）。
+维护方式：新增违规必须修掉；存量按指纹进 `frontend/scripts/architecture-baseline.json`，
+`node frontend/scripts/check-architecture.mjs --baseline:update` 刷新（棘轮，不是垃圾桶）。
+同一脚本还带一条**新文件行数上限**（300 行，与 `AGENTS.md` 一致；存量 29 个超限文件在基线里）。
 
 ## 16. 高速输出时随机出现紫色条带（2026-09-20 用户报，未修，待取证）
 

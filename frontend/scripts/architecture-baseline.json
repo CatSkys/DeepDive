@@ -1,0 +1,180 @@
+{
+  "version": 1,
+  "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
+  "violations": [
+    {
+      "id": "9f0f52564f9f09fa",
+      "rule": "file-lines",
+      "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
+      "detail": "1321 lines > 300"
+    },
+    {
+      "id": "510fb9988664948f",
+      "rule": "file-lines",
+      "file": "apps/macos/Sources/DSHminiApp/BridgeServer.swift",
+      "detail": "398 lines > 300"
+    },
+    {
+      "id": "ab5b5da21009aae6",
+      "rule": "file-lines",
+      "file": "apps/macos/Sources/DSHminiApp/EngineEventObserver.swift",
+      "detail": "340 lines > 300"
+    },
+    {
+      "id": "39689782d66bd2c7",
+      "rule": "file-lines",
+      "file": "apps/macos/Sources/DSHminiApp/EngineSupervisor.swift",
+      "detail": "1410 lines > 300"
+    },
+    {
+      "id": "62fad347c3aa2ff7",
+      "rule": "file-lines",
+      "file": "apps/macos/Sources/DSHminiApp/FloatingBubble.swift",
+      "detail": "303 lines > 300"
+    },
+    {
+      "id": "c8b22b5a98411efc",
+      "rule": "file-lines",
+      "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
+      "detail": "545 lines > 300"
+    },
+    {
+      "id": "0a512c83dc5be250",
+      "rule": "file-lines",
+      "file": "apps/macos/Sources/DSHminiApp/RemoteAccess.swift",
+      "detail": "335 lines > 300"
+    },
+    {
+      "id": "6ebabb17b929ba13",
+      "rule": "file-lines",
+      "file": "frontend/src/api.ts",
+      "detail": "735 lines > 300"
+    },
+    {
+      "id": "9afcd54c9f1b0da3",
+      "rule": "file-lines",
+      "file": "frontend/src/App.tsx",
+      "detail": "379 lines > 300"
+    },
+    {
+      "id": "0245bc19d244d65a",
+      "rule": "file-lines",
+      "file": "frontend/src/automation/TaskEditorPage.tsx",
+      "detail": "338 lines > 300"
+    },
+    {
+      "id": "8f26d19669e9abfd",
+      "rule": "file-lines",
+      "file": "frontend/src/components/Composer.tsx",
+      "detail": "594 lines > 300"
+    },
+    {
+      "id": "a048c32abe5dcbfe",
+      "rule": "file-lines",
+      "file": "frontend/src/components/composer/useComposerAttachments.ts",
+      "detail": "400 lines > 300"
+    },
+    {
+      "id": "5f02690528bf66c3",
+      "rule": "file-lines",
+      "file": "frontend/src/components/Markdown.tsx",
+      "detail": "371 lines > 300"
+    },
+    {
+      "id": "532f2741a1b30720",
+      "rule": "file-lines",
+      "file": "frontend/src/components/SessionView.tsx",
+      "detail": "541 lines > 300"
+    },
+    {
+      "id": "89c8321c5fe786b0",
+      "rule": "file-lines",
+      "file": "frontend/src/components/SettingsPage.tsx",
+      "detail": "776 lines > 300"
+    },
+    {
+      "id": "12fc4e8b39e8c299",
+      "rule": "file-lines",
+      "file": "frontend/src/components/Sidebar.tsx",
+      "detail": "526 lines > 300"
+    },
+    {
+      "id": "a2bd0c83c8cecf00",
+      "rule": "file-lines",
+      "file": "frontend/src/evolution/useEvolution.tsx",
+      "detail": "463 lines > 300"
+    },
+    {
+      "id": "d989f08ee03ce8c1",
+      "rule": "file-lines",
+      "file": "frontend/src/host.ts",
+      "detail": "794 lines > 300"
+    },
+    {
+      "id": "fb3375e746fcebb6",
+      "rule": "file-lines",
+      "file": "frontend/src/i18n-en.ts",
+      "detail": "921 lines > 300"
+    },
+    {
+      "id": "243df8aa0448c8ca",
+      "rule": "file-lines",
+      "file": "frontend/src/mux.ts",
+      "detail": "319 lines > 300"
+    },
+    {
+      "id": "ea66fb24c2947289",
+      "rule": "file-lines",
+      "file": "frontend/src/onboarding/agentModelImport.ts",
+      "detail": "359 lines > 300"
+    },
+    {
+      "id": "a00cf7aac5dabeaf",
+      "rule": "file-lines",
+      "file": "frontend/src/onboarding/steps/MigrateStep.tsx",
+      "detail": "439 lines > 300"
+    },
+    {
+      "id": "383788858cf483ce",
+      "rule": "file-lines",
+      "file": "frontend/src/session/renderModel.ts",
+      "detail": "559 lines > 300"
+    },
+    {
+      "id": "2b6f9eca8347da35",
+      "rule": "file-lines",
+      "file": "frontend/src/session/ToolRow.tsx",
+      "detail": "327 lines > 300"
+    },
+    {
+      "id": "b36c2c7d99443170",
+      "rule": "file-lines",
+      "file": "frontend/src/session/useSessionEvents.ts",
+      "detail": "382 lines > 300"
+    },
+    {
+      "id": "6e60185ec857426a",
+      "rule": "file-lines",
+      "file": "frontend/src/settings/ModelDialog.tsx",
+      "detail": "495 lines > 300"
+    },
+    {
+      "id": "4c1dab9e1f0de87e",
+      "rule": "file-lines",
+      "file": "frontend/src/stats/usageStats.ts",
+      "detail": "418 lines > 300"
+    },
+    {
+      "id": "c223675116b389c3",
+      "rule": "file-lines",
+      "file": "frontend/src/store.tsx",
+      "detail": "811 lines > 300"
+    },
+    {
+      "id": "2d2859ec9ebb8a6e",
+      "rule": "file-lines",
+      "file": "frontend/src/types.ts",
+      "detail": "432 lines > 300"
+    }
+  ]
+}

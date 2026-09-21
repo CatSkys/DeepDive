@@ -42,6 +42,7 @@ make clean      # 清 .build 与 dist
 cd frontend && npm run build   # tsc -b --noEmit && vite build
 cd frontend && npm run test    # vitest run（事件回放/纯函数/api 信封）
 cd frontend && npm run lint    # eslint src，零报错
+node frontend/scripts/check-architecture.mjs   # 架构约束门（make test 已含）：CSS Module 类名写错、新文件超行数
 cd apps/macos && xcodegen generate   # 改 project.yml 后重新生成工程
 cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -configuration Debug -derivedDataPath ../../.build/debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO   # 壳 XCTest（改 Swift 后必跑）
 ```
@@ -50,6 +51,7 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 
 - `cd frontend && npm run build` 通过，且 `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` 零错误。
 - `cd frontend && npm run test` 与 `npm run lint` 零失败；改过壳侧 Swift 则 XCTest 全绿。
+- `make test` 里的两道门零失败：架构约束（`check-architecture.mjs`，新增违规为零）与引擎组合漂移（`check-engine-composition.sh`）。
 - 改前端/UI 的提交走完交付链并截图自查（铁律 2）。
 - 无死代码残留：删除功能时代码、样式、文案、文档引用一并删干净；禁止留下注释掉的代码。
 
