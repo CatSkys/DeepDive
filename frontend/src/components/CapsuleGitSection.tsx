@@ -82,7 +82,7 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
   const busyLabel = busy === "commit" ? t("提交中…") : busy === "push" ? t("推送中…") : t("切换中…");
 
   return (
-    <div className="capsule-sec">
+    <>
       <div className="capsule-row">
         <FileDiff size={14} />
         <span className="capsule-row-text">{t("变更")}</span>
@@ -144,6 +144,6 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
       )}
       {busy && <div className="capsule-note">{busyLabel}</div>}
       {note && <div className="capsule-note">{note}</div>}
-    </div>
+    </>
   );
 }

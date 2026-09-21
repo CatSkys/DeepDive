@@ -3936,24 +3936,44 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   margin: -3px 0 5px;
   background: var(--line);
 }
-.capsule-sec-name {
+/* 区头：可折叠触发器（标题 + 箭头）+ 右侧附属信息槽。箭头平时不显、hover 或
+   键盘聚焦才出现（照 ZCode StatusSectionHeader）——它只是"这区可折"的提示，
+   不占视觉。区头不带图标（他们如此），行的前导图标仍在各行上。 */
+.capsule-sec-head {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  height: 32px;
+}
+.capsule-sec-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink-3);
-  margin-bottom: 4px;
 }
-.capsule-refresh { color: var(--ink-3); padding: 2px; border-radius: 4px; margin-left: auto; }
-.capsule-refresh:hover { color: var(--ink); }
-/* 区名右侧的进度（已完成/总数）：与区名同色弱一档，等宽数字防跳动 */
-.capsule-sec-count {
+.capsule-sec-trigger:hover { color: var(--ink); }
+.capsule-sec-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.capsule-sec-chevron { flex: none; opacity: 0; transition: opacity .12s ease; }
+.capsule-sec-trigger:hover .capsule-sec-chevron,
+.capsule-sec-trigger:focus-visible .capsule-sec-chevron { opacity: 1; }
+.capsule-sec-trail {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
+/* 区体限高内滚：滚动视口放在折叠内容内部，标题与控制因此始终固定、折叠动画不被
+   破坏（同 ZCode 的 STATUS_SECTION_SCROLL_POLICY）。normal 一档、tall 给计划类。 */
+.capsule-sec-scroll { max-height: 192px; overflow-x: hidden; overflow-y: auto; }
+.capsule-sec-scroll[data-tall] { max-height: 320px; }
+.capsule-refresh { color: var(--ink-3); padding: 2px; border-radius: 4px; margin-left: auto; }
+.capsule-refresh:hover { color: var(--ink); }
 .capsule-row {
   display: flex;
   align-items: flex-start;

@@ -1,24 +1,17 @@
-// 状态胶囊的「任务与计划」区。长清单只留进行中 + 前几项未完成、其余折成计数行，
-// 短清单（≤ TODO_COMPACT_THRESHOLD）连已完成一起内联——做过什么本身就是信息，
-// 短清单还收起来要多点一次。
-// 两个开合标记是**本区自己的**状态：放在这里，面板就不必为它多担一份状态。
+// 状态面板「任务与计划」区的区体（区头与折叠由 CapsuleSection 提供）。
+// 长清单只留进行中 + 前几项未完成、其余折成计数行；短清单（≤ TODO_COMPACT_THRESHOLD）
+// 连已完成一起内联——做过什么本身就是信息，短清单还收起来要多点一次。
+// 两个开合标记是本区自己的状态。
 import { useState } from "react";
-import { ArrowRight, ChevronDown, Circle, CircleCheck, ListTodo } from "lucide-react";
-import { t, tt } from "../i18n";
-import { todoView, type CapsuleTodo } from "./capsuleModel";
+import { ArrowRight, ChevronDown, Circle, CircleCheck } from "lucide-react";
+import { tt } from "../i18n";
+import type { CapsuleTodoView } from "./capsuleModel";
 
-export function CapsuleTodoSection({ todos }: { todos: CapsuleTodo[] | null | undefined }) {
+export function CapsuleTodoSection({ todo }: { todo: CapsuleTodoView }) {
   const [showDone, setShowDone] = useState(false);
   const [showAllPending, setShowAllPending] = useState(false);
-  const todo = todoView(todos);
-  if (todo.total === 0) return null;
   return (
-    <div className="capsule-sec">
-      <div className="capsule-sec-name">
-        <ListTodo size={12} />{t("任务与计划")}
-        {/* 区名右侧的进度：与胶囊 pill 同一个数（已完成/总数） */}
-        <span className="capsule-sec-count">{todo.done}/{todo.total}</span>
-      </div>
+    <>
       {todo.active && (
         <div className="capsule-row">
           <ArrowRight size={13} />
@@ -61,6 +54,6 @@ export function CapsuleTodoSection({ todos }: { todos: CapsuleTodo[] | null | un
           ))}
         </>
       ))}
-    </div>
+    </>
   );
 }

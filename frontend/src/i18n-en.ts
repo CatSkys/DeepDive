@@ -108,6 +108,7 @@ export const EN: Record<string, string> = {
   "已推送": "Pushed",
   "输入提交信息…": "Commit message…",
   "提醒与自动化": "Reminders & automation",
+  "Git 工具": "Git tools",
   // tool titles (DSH 同款英文)
   "提问": "Ask",
   "任务": "Todos",

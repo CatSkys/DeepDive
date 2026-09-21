@@ -8,8 +8,9 @@ import { gitStatus } from "../host";
 import { useStore } from "../store";
 import { t, tt } from "../i18n";
 import { CapsuleGitSection } from "./CapsuleGitSection";
+import { CapsuleSection } from "./CapsuleSection";
 import { CapsuleTodoSection } from "./CapsuleTodoSection";
-import { capsulePill, classifyJobs, goalPhasePair, statusPanelHasContent, type CapsuleTodo } from "./capsuleModel";
+import { capsulePill, classifyJobs, goalPhasePair, statusPanelHasContent, todoView, type CapsuleTodo } from "./capsuleModel";
 import { formatElapsed } from "../session/format";
 import type { GitStatus, GoalProjection, JobView, ScheduleRecord, SubagentListEntry } from "../types";
 
@@ -143,6 +144,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
     setBusy(false);
   };
 
+  const todo = todoView(todos);
   const runningCount = runningChildren + jobSplit.live.length;
   const endedCount = jobSplit.ended.length + (children.length - runningChildren);
   const hasContent = statusPanelHasContent({
@@ -202,24 +204,28 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
             </button>
           </div>
           {goal && (
-            <div className="capsule-sec">
-              <div className="capsule-sec-name"><Flag size={12} />{t("目标")}</div>
+            <CapsuleSection title={t("目标")}>
               <div className="capsule-row">
                 <span className={`state-dot ${goal.phase === "active" ? "running" : goal.phase === "complete" ? "ok" : "warning"}`} aria-hidden="true" />
                 <span className="capsule-row-text">{goal.objective}</span>
                 <span className="capsule-row-meta">{tt(...goalPhasePair(goal.phase))}</span>
               </div>
-            </div>
+            </CapsuleSection>
           )}
-          <CapsuleTodoSection todos={todos} />
+          {todo.total > 0 && (
+            <CapsuleSection title={t("任务与计划")} trailing={`${todo.done}/${todo.total}`} scroll="tall">
+              <CapsuleTodoSection todo={todo} />
+            </CapsuleSection>
+          )}
           {children.length > 0 && (
-            <div className="capsule-sec">
-              <div className="capsule-sec-name">
-                <Bot size={12} />{t("子智能体")}
+            <CapsuleSection
+              title={t("子智能体")}
+              trailing={
                 <button type="button" className="capsule-refresh" data-tip={t("刷新")} onClick={loadChildren}>
                   <RefreshCw size={11} />
                 </button>
-              </div>
+              }
+            >
               {children.map((c) => {
                 const live = childRunning(c);
                 const modeLabel = c.mode === "continuable" ? t("可续") : t("一次性");
@@ -239,12 +245,15 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                 );
               })}
               {diag && <div className="capsule-note">{t("部分子会话状态不可读")}</div>}
-            </div>
+            </CapsuleSection>
           )}
-          {git && git.files > 0 && <CapsuleGitSection wsPath={wsPath} git={git} onRefresh={loadGit} />}
+          {git && git.files > 0 && (
+            <CapsuleSection title={t("Git 工具")} scroll="none">
+              <CapsuleGitSection wsPath={wsPath} git={git} onRefresh={loadGit} />
+            </CapsuleSection>
+          )}
           {(scheduleRecords.length > 0 || jobs.length > 0) && (
-            <div className="capsule-sec">
-              <div className="capsule-sec-name"><AlarmClock size={12} />{t("提醒与自动化")}</div>
+            <CapsuleSection title={t("提醒与自动化")}>
               {scheduleRecords.map((r) => (
                 <div key={r.id} className="capsule-row">
                   <span className="state-dot running" aria-hidden="true" />
@@ -263,7 +272,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                   {showEndedJobs && jobSplit.ended.map((j) => <JobRow key={j.id} job={j} now={now} />)}
                 </>
               )}
-            </div>
+            </CapsuleSection>
           )}
         </div>
       )}
