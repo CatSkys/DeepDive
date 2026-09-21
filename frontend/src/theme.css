@@ -925,7 +925,14 @@ button {
   backdrop-filter: blur(24px) saturate(150%);
   transition: border-radius 150ms ease;
 }
-/* 多行（参考图 4）：文本独占首行，＋/右钮换到底部行，圆角转大 */
+/* 单行态落位一律显式写死（原来靠自动排布按 DOM 顺序找空格）：行数量测件与输入框
+   共用第 2 列首行，自动排布会把它们互相挤到第 3 列/第 2 行去。 */
+.composer textarea { grid-column: 2; grid-row: 1; }
+.composer-icon { grid-column: 1; grid-row: 1; }
+.composer-mic, .composer-send { grid-column: 3; grid-row: 1; }
+/* 多行（参考图 4）：文本独占首行，＋/右钮换到底部行，圆角转大。多行 = 内容在
+   文本列宽下折成两行以上（Composer 的 .composer-probe 量出来的行数），软换行
+   与手动换行同等对待——整框只按内容长高，底边不动即向上生长。 */
 .composer.wide { grid-template-rows: auto auto; row-gap: 8px; border-radius: var(--dsh-radius-bubble); padding: 12px 8px 8px; }
 .composer.wide textarea { grid-column: 1 / -1; grid-row: 1; }
 .composer.wide .composer-icon { grid-row: 2; grid-column: 1; }
@@ -939,6 +946,19 @@ button {
 .composer.wide.has-ctx .composer-send,
 .composer.wide.has-ctx .composer-mic { grid-row: 2; grid-column: 4; }
 .composer.wide.has-ctx .ctx-ring-wrap { grid-row: 2; grid-column: 3; }
+/* 行数量测件：与输入框同格（第 2 列首行）、零高度、不绘制、不交互——只为读它的
+   scrollHeight 得折行行数。宽度天然等于输入框宽度（同一条网格轨上的拉伸项），
+   所以「几行」的判据与当前是单行态还是宽态无关。放 .wide 之后是为了压过
+   `.composer.wide textarea` 的整行跨列（量测宽度不能跟着布局变）。 */
+.composer textarea.composer-probe {
+  grid-column: 2;
+  grid-row: 1;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
 .composer textarea {
   flex: 1;
   min-width: 0;
