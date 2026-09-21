@@ -108,20 +108,23 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
         <span className="capsule-git-label">{git.branch ?? "—"}</span>
         <ChevronDown size={14} className="capsule-row-go" style={branchOpen ? undefined : { transform: "rotate(-90deg)" }} />
       </button>
+      {/* 分支列表与动作菜单共用同一张行下卡片（用户定稿：两处统一） */}
       {branchOpen && (
-        <div className="capsule-branches">
+        <div className="capsule-card">
           {branches === null && <span className="capsule-note">{t("载入中…")}</span>}
           {branches !== null && branches.length === 0 && <span className="capsule-note">{t("无结果")}</span>}
           {branches?.map((b) => (
             <button
               key={b}
               type="button"
-              className="capsule-branch"
+              className="capsule-card-item"
+              aria-current={b === git.branch ? "true" : undefined}
               disabled={busy !== null || b === git.branch}
               onClick={() => void checkout(b)}
             >
+              <GitBranch size={16} />
               <span className="capsule-git-label">{b}</span>
-              {b === git.branch && <Check size={12} className="capsule-check" />}
+              {b === git.branch && <Check size={14} className="capsule-check capsule-card-check" />}
             </button>
           ))}
         </div>
@@ -132,15 +135,15 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
         <ChevronDown size={14} className="capsule-row-go" style={menuOpen ? undefined : { transform: "rotate(-90deg)" }} />
       </button>
       {menuOpen && (
-        <div className="capsule-menu">
+        <div className="capsule-card">
           {/* 提交要脏工作树；推送只要有分支就允许（同 ZCode 的 commitEnabled/pushEnabled 分判） */}
-          <button type="button" className="capsule-menu-item" disabled={busy !== null || !dirty} onClick={() => void commitFlow(false)}>
+          <button type="button" className="capsule-card-item" disabled={busy !== null || !dirty} onClick={() => void commitFlow(false)}>
             <GitCommitHorizontal size={14} /><span>{t("提交")}</span>
           </button>
-          <button type="button" className="capsule-menu-item" disabled={busy !== null || !dirty} onClick={() => void commitFlow(true)}>
+          <button type="button" className="capsule-card-item" disabled={busy !== null || !dirty} onClick={() => void commitFlow(true)}>
             <CloudUpload size={14} /><span>{t("提交并推送")}</span>
           </button>
-          <button type="button" className="capsule-menu-item" disabled={busy !== null} onClick={() => void pushFlow()}>
+          <button type="button" className="capsule-card-item" disabled={busy !== null} onClick={() => void pushFlow()}>
             <CloudUpload size={14} /><span>{t("推送")}</span>
           </button>
         </div>

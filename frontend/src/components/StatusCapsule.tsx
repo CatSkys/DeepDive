@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { ChevronDown, Minimize2, RefreshCw } from "lucide-react";
 import { api } from "../api";
 import { gitStatus } from "../host";
 import { useStore } from "../store";
@@ -186,10 +186,11 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
       {pill && <CapsuleStatusPill pill={pill} open={open} onToggle={togglePanel} />}
       {open && (
         <div className="capsule-panel">
-          <div className="capsule-head">
-            <span className="capsule-title">{t("摘要")}</span>
+          {/* 面板没有标题行（ZCode 如此）：收起控件浮在右上角，区头为它留出右边距 */}
+          <div className="capsule-controls">
+            {/* 收起钮的图标用他们那枚（Minimize2），不是普通 chevron */}
             <button type="button" className="capsule-fold" data-tip={t("收起")} onClick={() => setOpen(false)}>
-              <ChevronUp size={14} />
+              <Minimize2 size={14} />
             </button>
           </div>
           {goal && (

@@ -3908,24 +3908,39 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   padding: 4px 0;
   border-radius: var(--dsh-radius-card);
 }
-.capsule-head {
-  position: relative;
+/* 面板没有标题行（ZCode 如此）：收起控件浮在右上角，压在第一个区的区头上；
+   区头因此留出右侧内距（ZCode 的 StatusSectionHeader 就是 pr-8）。 */
+.capsule-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px 6px;
+  gap: 2px;
 }
-/* 头部分隔线两侧内缩留呼吸空隙（不通到边） */
-.capsule-head::after {
-  content: "";
+/* pill 的前导图标：两层叠放，hover/聚焦时常态图标淡出、"展开"那枚淡入
+   （照 ZCode StatusSummaryMetric 的 group-hover 叠层）。 */
+.capsule-pill-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: inline-block;
+}
+.capsule-pill-icon > span {
   position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 0;
-  height: 1px;
-  background: var(--line);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--dur-fast) ease;
 }
-.capsule-title { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.capsule-pill-expand { position: absolute; inset: 0; margin: auto; opacity: 0; transition: opacity var(--dur-fast) ease; }
+.capsule-trigger:hover .capsule-pill-icon > span,
+.capsule-trigger:focus-visible .capsule-pill-icon > span { opacity: 0; }
+.capsule-trigger:hover .capsule-pill-expand,
+.capsule-trigger:focus-visible .capsule-pill-expand { opacity: 1; }
 .capsule-fold { color: var(--ink-3); padding: 3px; border-radius: var(--dsh-radius-keycap); }
 .capsule-fold:hover { color: var(--ink); background: var(--fill); }
 .capsule-sec { padding: 8px 14px; }
@@ -3944,6 +3959,8 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   align-items: center;
   gap: 6px;
   height: 32px;
+  /* 右侧留出浮在角上的收起钮（他们 StatusSectionHeader 的 pr-8） */
+  padding-right: 32px;
 }
 .capsule-sec-trigger {
   display: inline-flex;
@@ -4005,22 +4022,24 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 .capsule-git-row:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
 .capsule-git-row:disabled { opacity: .5; cursor: default; }
 .capsule-git-row > svg { flex: none; }
-.capsule-git-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 动作菜单（提交/提交并推送/推送）：随行展开的小浮层，材质与其它浮层同配方 */
-.capsule-menu {
+.capsule-git-label { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 行下展开的卡片：动作菜单与分支列表共用同一副（用户定稿：两处统一成卡片）。
+   卡内每行是整行可点的条目——左对齐、图标 16、hover 底色。 */
+.capsule-card {
   display: flex;
   flex-direction: column;
   gap: 1px;
   margin: 2px 0 4px;
   padding: 4px;
-  border-radius: var(--dsh-radius-control);
+  border-radius: var(--dsh-radius-card);
   background: var(--fill);
   animation: fadein var(--dur-fast) ease both;
 }
-.capsule-menu-item {
+.capsule-card-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   height: 28px;
   padding: 0 8px;
   border-radius: var(--dsh-radius-keycap);
@@ -4028,23 +4047,12 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   color: var(--ink-2);
   text-align: left;
 }
-.capsule-menu-item:hover:not(:disabled) { background: var(--fill-strong); color: var(--ink); }
-.capsule-menu-item:disabled { opacity: .5; cursor: default; }
-.capsule-menu-item > svg { flex: none; }
+.capsule-card-item:hover:not(:disabled) { background: var(--fill-strong); color: var(--ink); }
+.capsule-card-item:disabled { cursor: default; color: var(--ink); }
+.capsule-card-item:disabled:not([aria-current]) { opacity: .5; }
+.capsule-card-item > svg { flex: none; }
+.capsule-card-check { margin-left: auto; flex: none; }
 .capsule-row-go { margin-left: auto; color: var(--ink-3); flex: none; transition: transform var(--dur-fast) ease; }
-.capsule-branches { display: flex; flex-direction: column; padding: 2px 0 4px 21px; gap: 1px; animation: fadein var(--dur-fast) ease both; }
-.capsule-branch {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 3px 8px;
-  font-size: 13px;
-  color: var(--ink-2);
-  border-radius: var(--dsh-radius-keycap);
-}
-.capsule-branch:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
-.capsule-branch:disabled { cursor: default; color: var(--ink); }
 .capsule-row-meta { margin-left: auto; font-size: 12px; color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
 .capsule-row-main {
   display: flex;
@@ -4128,12 +4136,12 @@ input:focus, textarea:focus, select:focus { outline: none; }
   .tip { animation: none; }
 }
 
-.capsule-git-row, .capsule-menu-item, .capsule-branch, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
+.capsule-git-row, .capsule-card-item, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
   transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .capsule-trigger, .capsule-panel, .capsule-branches, .capsule-menu { animation: none; }
+  .capsule-trigger, .capsule-panel, .capsule-card { animation: none; }
 }
 
 
