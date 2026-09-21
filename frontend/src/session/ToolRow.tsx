@@ -13,7 +13,8 @@ import { askSummary, basename, commandOf, prettyArgs, relativizePath, summarizeA
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
 import { fileUrlOf, renderersOf } from "../components/preview/previewModel";
 import { StateDot } from "./MessageRow";
-import { ToolIcon, FileLangIcon } from "./ToolIcon";
+import { ToolIcon } from "./ToolIcon";
+import { FileIcon } from "./FileIcon";
 /** 常见工具名的中文标题；未收录的显示原名。 */
 const TOOL_TITLE_ZH: Record<string, string> = {
   ask_user_question: "提问",
@@ -71,7 +72,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         {summary && (
           <>
             <span className="tool-sep" aria-hidden="true" />
-            {filePath && <FileLangIcon file={filePath} />}
+            {filePath && <FileIcon file={filePath} />}
             <span className="tool-summary">{summary}</span>
           </>
         )}

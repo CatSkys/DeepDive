@@ -34,3 +34,11 @@ npx tsc --noEmit --noUnusedLocals --noUnusedParameters   # 死代码门槛，应
 - 用户消息与 Agent 消息是两套独立组件/规则（`UserBubble`/`AgentMessage`），禁止共用容器改子类（UI-SPEC §2.2）。
 - 流式性能：历史消息靠 `Markdown` memo 跳过重渲；勿在 render 路径新增全量 reconcile。
 - 空状态/加载态用现成 `HeroBrand`/`LoadingState`/`ThinkingState`，勿另起炉灶。
+
+## 依赖与素材
+
+- 新增依赖/素材先过根 `AGENTS.md` 铁律 7（是否主流、是否必要）；资产类依赖同样要能说清许可。
+- 语言/文件图标来自 `material-icon-theme`（MIT，Copyright (c) 2025 Material Extensions）：只在
+  `session/FileIcon.tsx` 逐名 `?raw` 内联（与 `ProviderIcon` 同一条通道），许可原文在
+  `node_modules/material-icon-theme/LICENSE`。
+- **MIT 要求分发时随附许可，而本应用目前没有「第三方许可」展示面**——把包发给他人前得先落实落点。

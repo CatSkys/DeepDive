@@ -141,10 +141,10 @@
       "detail": "559 lines > 300"
     },
     {
-      "id": "2b6f9eca8347da35",
+      "id": "2a112f4bbf1f8e4c",
       "rule": "file-lines",
       "file": "frontend/src/session/ToolRow.tsx",
-      "detail": "327 lines > 300"
+      "detail": "328 lines > 300"
     },
     {
       "id": "b36c2c7d99443170",

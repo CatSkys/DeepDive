@@ -15,7 +15,7 @@
      control 10  按钮与行 hover、输入控件
      keycap 6  迷你图标钮/小标签
      bubble 24  聊天气泡软胶囊；pill 999 / 圆 50% 为语义形状
-   例外：≤16px 的微型元素（lang-badge、滚动条 thumb、
+   例外：≤16px 的微型元素（滚动条 thumb、
    loader-cell、tool-sep 圆点）允许按比例小圆角。 */
 @import "../packages/design/generated/tokens.css";
 
@@ -693,20 +693,20 @@ button {
 .model-menu-back:hover { background: var(--fill); color: var(--ink); }
 .model-menu-row.active svg { color: var(--ink); }
 
-/* 文件语言徽标（工具行文件名前的彩色语言图标）。
-   14px 高微型元素：按比例小圆角（tokens v5 微型例外，不入阶梯）。 */
-.lang-badge {
+/* 文件语言/类型图标（工具行文件名前，Material Icon Theme 素材，见 session/FileIcon.tsx）。
+   素材自带品牌色，故不做 mask 反白；尺寸由组件内联，这里只负责盒模型、缩放与
+   图标↔文件名的间隙（4px：比 .tool-sep 的 8px 紧一档，图标与文件名是一组）。 */
+.file-icon {
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 17px;
-  height: 14px;
-  border-radius: 4px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: .02em;
-  line-height: 1;
+  margin-right: 4px;
+}
+.file-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .model-menu {
