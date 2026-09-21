@@ -30,7 +30,7 @@ const GOAL_PHASE: Record<string, [string, string]> = {
   complete: ["已完成", "Complete"],
 };
 
-/** 目标阶段文案对（[zh, en]），消费方 tt(...pair)：状态面板与 GoalBar 共用这一份；
+/** 目标阶段文案对（[zh, en]），消费方 tt(...pair)：状态面板的目标区（CapsuleGoalSection）；
  *  未知阶段按"进行中"显示。 */
 export function goalPhasePair(phase: string): [string, string] {
   return GOAL_PHASE[phase] ?? GOAL_PHASE.active;

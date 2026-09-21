@@ -69,7 +69,7 @@ Sparkle：appcast + EdDSA 签名 + 增量更新。**前置：公证凭据**（`D
 
 ## 11. 待补三件（对照后确认的缺口）
 
-- 任务台账产品化：Goal 已有 active/paused/blocked/complete（`frontend/src/components/GoalBar.tsx`）、`todo_write` 进 Todos 胶囊、workflow 成员有 outcome（`frontend/src/session/ToolRow.tsx`）；缺「子任务 + 阻塞原因 + 进度日志」的独立面板。前置：先定载体（引擎 todo 投影扩展 vs 客户端自持台账），别与 Goals 语义打架。
+- 任务台账产品化：Goal 已有 active/paused/blocked/complete（面板目标区 `frontend/src/components/CapsuleGoalSection.tsx`，原 GoalBar 条已并入面板）、`todo_write` 进 Todos 胶囊、workflow 成员有 outcome（`frontend/src/session/ToolRow.tsx`）；缺「子任务 + 阻塞原因 + 进度日志」的独立面板。前置：先定载体（引擎 todo 投影扩展 vs 客户端自持台账），别与 Goals 语义打架。
 - 权限：三档档位当前只是**新建会话的初始预设**（`frontend/src/settings/permissionPreset.ts`），会话内只能敲 `/permission`，审批卡只有允许一次 / 拒绝（`frontend/src/session/Cards.tsx`）→ 补「会话内档位显示与就地切换」+ 审批粒度。前置：确认引擎 RPC 是否支持会话内改档与更细的审批。
 - 定时：自动化页六种周期（`frontend/src/automation/model.ts`：时 / 日 / 工作日 / 周 / 月 / 每 N 天）已有，缺一次性计划与任意间隔循环。前置：「关应用也跑」需要常驻代理，另立项。
 

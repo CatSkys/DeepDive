@@ -1,7 +1,7 @@
 # DSHmini 语义层产品规格（v0.4 · P2+ 蓝图）
 
 > 文档位置：架构 `docs/ARCHITECTURE.md` → 语义 `docs/SPEC-SEMANTICS.md`。
-> **状态（2026-09-03）**：本文是**部分已落地的产品蓝图**。已实现：多工作区侧栏（置顶/最近）、会话流+工具行折叠+异常高亮、审批卡/提问卡/排队消息（WebView 内卡片，非原生弹窗）、模型菜单+思考强度、通知分级（`SPEC-NOTIFICATIONS`）、引擎监督/恢复/凭据冷启动、自动标题+重命名、turn-tail 分支 fork（`session.fork`）、子会话只读视图、**会话状态胶囊**（头部聚合 Todos/子代理/未提交 Git 改动/后台任务/会话提醒，原任务目录/会话提醒/子代理谱系三 chip 已收编，Git 摘要经壳层 `run-git` 桥命令）、Goal/Workflow 卡、全文搜索、@文件引用、拖放图片、KaTeX、上下文用量环。**未实现**（仍为蓝图）：Launcher 面板（⌥Space 唤主窗替代）、Memory 卡、⌘K 动作浮层、任务 detach、专注模式、Windows；轨迹视图/Jobs kill/导出为用户拍板不做。**已移除**：消息反馈（轮尾 👍/👎+备注）——引擎侧三 RPC、`/feedback` 命令与 OTLP 遥测随通道一并撤出组合，见 `engine/profile/cordis.patch.yml`。
+> **状态（2026-09-03）**：本文是**部分已落地的产品蓝图**。已实现：多工作区侧栏（置顶/最近）、会话流+工具行折叠+异常高亮、审批卡/提问卡/排队消息（WebView 内卡片，非原生弹窗）、模型菜单+思考强度、通知分级（`SPEC-NOTIFICATIONS`）、引擎监督/恢复/凭据冷启动、自动标题+重命名、turn-tail 分支 fork（`session.fork`）、子会话只读视图、**会话状态胶囊**（头部聚合，收起态是一条优先级回落链——当前任务/目标/改动/已完成任务/运行中计数/提醒/已结束；展开为分区面板：目标（含暂停·恢复·编辑·清除，原 composer 上方的 GoalBar 条已并入此处）/任务与计划（N/M、长清单聚焦窗）/子智能体（在跑 + 已结束折叠）/Git 工具（更改·分支·提交或推送，Git 摘要经壳层 `run-git` 桥命令）/提醒/后台任务（在跑 + 已结束折叠））、全文搜索、@文件引用、拖放图片、KaTeX、上下文用量环。**未实现**（仍为蓝图）：Launcher 面板（⌥Space 唤主窗替代）、Memory 卡、任务 detach、专注模式、Windows；轨迹视图/Jobs kill/导出为用户拍板不做。**已移除**：消息反馈（轮尾 👍/👎+备注）——引擎侧三 RPC、`/feedback` 命令与 OTLP 遥测随通道一并撤出组合，见 `engine/profile/cordis.patch.yml`。
 > 核心原则：**以 DSH 为主**——语义本体（对象、状态、边界）全部来自 DSH 引擎；参考图/Codex 仅为 UX 参照。客户端只做呈现与编排，不做第二套状态。
 
 ---
@@ -29,7 +29,7 @@
 | **侧栏**（Pinned / Recent / Last Week / April） | **全局任务侧栏**：置顶 + 最近 + 时间分组；工作区为筛选器（全部/某工作区） | `ctx.sessions` 列表、`sessions.fork`、workspace 注册表 |
 | **Task 任务**（侧栏单元） | **Session 会话**（运行中=任务在干） | `session` 日志、`ctx.sessions` |
 | **⟳ 重制 / ➤ 发送** | Composer 左=重置(重开任务)，右=发送（`arrow-up`） | 会话命令 |
-| **search for actions…**（浮层底部） | **⌘K 动作浮层**（FloatingCard：标题+列表+底部搜索）：命令/动作/切换 | `commands` 注册表 |
+| **search for actions…**（浮层底部） | **⌘K 命令面板**（CommandPalette，已实现）：见 `UI-SPEC` §命令面板 | `commands` 注册表 |
 | **Agent 状态（「Maya…」人格）** | Persona 作为身份行 | `dsh-persona` |
 
 客户端**自有**语义只有三个：**Launcher 面板**（快速入口）、**主窗口侧栏**（任务一览）、**通知/注意力**（打扰规则）。
@@ -73,7 +73,7 @@
 - 侧栏每项：状态点 + **一句话标题（单行截断）**；waiting 任务 = 行高亮 + 白点呼吸 + 标题加粗。
 - **会话头**（右上对齐，New Chat / Personal Assistant / Cl... 式）：任务标题 + 状态点 + **角色只读标签** + 模型名；agent 状态行（"编辑中…"）只在这里。**顶栏操作**：侧栏开关、重命名（✎）、Memory 入口（🧠）。
 - 任务可**置顶/取消置顶**（pin，对应侧栏分组）；新建任务＝并行启动（并发跟随引擎：无硬上限，客户端不做二次排队）；需要你的任务侧栏计数。
-- **⌘K 动作浮层**（FloatingCard：小标题 + 动作列表 + 底部 `搜索动作…`）：命令、切换角色/工作区、会话操作。
+- **⌘K 命令面板**（已实现，`frontend/src/components/CommandPalette.tsx`）：操作 / 项目 / 会话 / 设置分区四类统一搜索。
 - P2：任意任务可 **detach 为独立窗口**。
 
 ### 4.4 输入语义（含 ✅ D6 附件 = P1 基础能力；Input-first 单入口）
@@ -175,7 +175,7 @@
 | 引导卡、设置窗口（模型/角色名单/审批策略/外观） | Core | P1 |
 | **Memory 卡**（persona/上下文构成：P1 只读展示+编辑 persona；P2 重生成） | 增强 | P1~P2 |
 | fork（历史点分叉） | 增强（引擎已支持，P1 排期允许则提前） | P1~P2 |
-| 轨迹视图 / 子代理视图 / **⌘K 动作浮层**（FloatingCard+底部搜索） | 增强 | P2 |
+| 轨迹视图 / 子代理视图 | 增强 | P2 |
 | 任务 detach 独立窗口 / 专注模式 / 用量统计 | 增强 | P2 |
 | 文件快速打开 / @引用全文 / 导出高级 / 截图快捷键 | 增强 | P2 |
 | Windows 外壳 / 多端同步 / 插件市场（自研，若做） / 皮肤 | 远期 | P3+ |
@@ -199,7 +199,7 @@
 | D10 | 语义来源 | **DSH 为主、参考图（Ask Anything）/Codex 均为 UX 参照** | 用户拍板 |
 | D11 | **Agent 角色（AI Agents）** | 一等语义：新建任务 chip 选择（**staged、创建即锁**，引擎 `agent-preset-locked` 拒绝运行中切换）；会话头只读标签（角色+模型名）；设置页名单（复制/删除/默认） | 参考图 + **引擎 `agent-presets` / `dsh-client-ui-agent-preset`** |
 | D12 | **Memory 上下文卡** | FloatingCard：persona（工作上下文）+ 技能/上下文构成（个人上下文）；P1 只读+编辑，重生成 P2（客户端增强） | 参考图 + 引擎 `dsh-persona` / `dsh-skill` |
-| D13 | **⌘K 动作浮层** | FloatingCard（小标题+动作列表+底部 `搜索动作…`）；与命令面板合并，P2 | 参考图（`search for actions…`）+ `commands` 注册表 |
+| D13 | **⌘K 命令面板** | 已实现：操作 / 项目 / 会话 / 设置分区四类统一搜索（`CommandPalette.tsx`，键位事实源 `keybinds.ts`） | 参考图（`search for actions…`）+ `commands` 注册表 |
 
 ### DSH 引擎实测默认值（供 P1 设定参考）
 | 项 | 值 | 来源 |
