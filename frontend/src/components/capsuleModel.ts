@@ -37,6 +37,44 @@ export function todoStats(todos: CapsuleTodo[] | null | undefined): {
   };
 }
 
+/** 短表阈值：整表不超过它就全列（含已完成），超过才走聚焦窗。 */
+export const TODO_COMPACT_THRESHOLD = 6;
+/** 聚焦窗留下的未完成项条数（长表才生效）。 */
+export const TODO_PENDING_WINDOW = 3;
+
+export interface CapsuleTodoView {
+  done: number;
+  total: number;
+  active: CapsuleTodo | undefined;
+  /** 未完成项（进行中已单列，故这里只含 pending）；长表已被窗口裁剪。 */
+  pending: CapsuleTodo[];
+  /** 被窗口折掉的未完成项（短表为空）——调用方给"展开其余 N 项"的计数与落点。 */
+  pendingHidden: CapsuleTodo[];
+  /** 已完成项。 */
+  completed: CapsuleTodo[];
+  /** 短表：已完成直接内联展示，不折叠——清单短时"做过什么"本身就是可读信息，
+   *  收起来反而要多点一次（对照 ZCode 只对长清单做折叠的做法）。 */
+  listCompleted: boolean;
+}
+
+/** 任务清单的展示视图（纯函数）：短表全列；长表只留进行中 + 前 N 项未完成，
+ *  其余折成计数行，避免面板被一条长清单灌满。 */
+export function todoView(todos: CapsuleTodo[] | null | undefined): CapsuleTodoView {
+  const list = todos ?? [];
+  const pending = list.filter((t) => t.status === "pending");
+  const completed = list.filter((t) => t.status === "completed");
+  const compact = list.length <= TODO_COMPACT_THRESHOLD;
+  return {
+    done: completed.length,
+    total: list.length,
+    active: list.find((t) => t.status === "in_progress"),
+    pending: compact ? pending : pending.slice(0, TODO_PENDING_WINDOW),
+    pendingHidden: compact ? [] : pending.slice(TODO_PENDING_WINDOW),
+    completed,
+    listCompleted: compact,
+  };
+}
+
 /** 最近提醒：取折叠序首条（schedule/change 折叠序即会话内最新目录）。 */
 export function nextScheduleRecord(records: ScheduleRecord[]): ScheduleRecord | null {
   return records[0] ?? null;

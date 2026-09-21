@@ -3947,6 +3947,13 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 }
 .capsule-refresh { color: var(--ink-3); padding: 2px; border-radius: 4px; margin-left: auto; }
 .capsule-refresh:hover { color: var(--ink); }
+/* 区名右侧的进度（已完成/总数）：与区名同色弱一档，等宽数字防跳动 */
+.capsule-sec-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
 .capsule-row {
   display: flex;
   align-items: flex-start;

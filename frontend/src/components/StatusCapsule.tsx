@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlarmClock, ArrowRight, Bot, ChevronDown, ChevronUp, Circle,
-  CircleCheck, FileDiff, Flag, ListTodo, RefreshCw, Square,
+  AlarmClock, ArrowRight, Bot, ChevronUp, FileDiff, Flag, RefreshCw, Square,
 } from "lucide-react";
 import { api } from "../api";
 import { gitStatus } from "../host";
 import { useStore } from "../store";
 import { t, tt } from "../i18n";
 import { CapsuleGitSection } from "./CapsuleGitSection";
-import { capsuleCategory, goalPhasePair, todoStats, type CapsuleTodo } from "./capsuleModel";
+import { CapsuleTodoSection } from "./CapsuleTodoSection";
+import { capsuleCategory, goalPhasePair, type CapsuleTodo } from "./capsuleModel";
 import { formatElapsed } from "../session/format";
 import type { GitStatus, GoalProjection, ScheduleRecord, SubagentListEntry } from "../types";
 
@@ -45,7 +45,6 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   const [diag, setDiag] = useState(false);
   const [git, setGit] = useState<GitStatus | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showDone, setShowDone] = useState(false);
   const [now, setNow] = useState(Date.now());
   const ref = useRef<HTMLDivElement>(null);
 
@@ -132,9 +131,6 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   });
   if (!open && !cat) return null;
 
-  const stats = todoStats(todos);
-  const pending = (todos ?? []).filter((x) => x.status === "pending");
-  const completed = (todos ?? []).filter((x) => x.status === "completed");
 
   return (
     <div className="capsule-wrap" ref={ref}>
@@ -179,37 +175,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
               </div>
             </div>
           )}
-          {(todos ?? []).length > 0 && (
-            <div className="capsule-sec">
-              <div className="capsule-sec-name"><ListTodo size={12} />{t("任务与计划")}</div>
-              {stats.active && (
-                <div className="capsule-row">
-                  <ArrowRight size={13} />
-                  <span className="capsule-row-text">{stats.active.content}</span>
-                </div>
-              )}
-              {pending.map((p) => (
-                <div key={p.content} className="capsule-row">
-                  <Circle size={12} />
-                  <span className="capsule-row-text">{p.content}</span>
-                </div>
-              ))}
-              {completed.length > 0 && (
-                <>
-                  <button type="button" className="capsule-sec-toggle" onClick={() => setShowDone((v) => !v)}>
-                    <ChevronDown size={12} style={showDone ? undefined : { transform: "rotate(-90deg)" }} />
-                    {tt("已完成 {n} 项", "Completed {n}", { n: completed.length })}
-                  </button>
-                  {showDone && completed.map((c) => (
-                    <div key={c.content} className="capsule-row">
-                      <CircleCheck size={13} className="capsule-check" />
-                      <span className="capsule-row-text capsule-row-done">{c.content}</span>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
+          <CapsuleTodoSection todos={todos} />
           {children.length > 0 && (
             <div className="capsule-sec">
               <div className="capsule-sec-name">

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { capsuleCategory, nextScheduleRecord, todoStats } from "../components/capsuleModel";
+import { capsuleCategory, nextScheduleRecord, todoStats, todoView, TODO_COMPACT_THRESHOLD, TODO_PENDING_WINDOW } from "../components/capsuleModel";
+import type { CapsuleTodo } from "../components/capsuleModel";
 import { narrowGitStatus } from "../host";
 import type { ScheduleRecord } from "../types";
 
 const schedule: ScheduleRecord = { id: "s1", kind: "after", prompt: "喝水", afterSeconds: 1800 };
+
+const t = (content: string, status: CapsuleTodo["status"]): CapsuleTodo => ({ content, status });
 
 describe("todoStats", () => {
   it("统计 done/total 并取第一个 in_progress", () => {
@@ -17,6 +20,55 @@ describe("todoStats", () => {
   it("null/undefined 视为空清单", () => {
     expect(todoStats(null)).toEqual({ done: 0, total: 0, active: undefined });
     expect(todoStats(undefined)).toEqual({ done: 0, total: 0, active: undefined });
+  });
+});
+
+describe("todoView：短表全列 / 长表聚焦窗", () => {
+  it("短表（≤ 阈值）：未完成全列，已完成直接内联，不折叠", () => {
+    const list = [t("a", "completed"), t("b", "in_progress"), t("c", "pending"), t("d", "completed")];
+    const v = todoView(list);
+    expect(v.total).toBe(4);
+    expect(v.done).toBe(2);
+    expect(v.active?.content).toBe("b");
+    expect(v.pending.map((x) => x.content)).toEqual(["c"]);
+    expect(v.pendingHidden).toEqual([]);
+    expect(v.completed.map((x) => x.content)).toEqual(["a", "d"]);
+    expect(v.listCompleted).toBe(true);
+  });
+
+  it("正好等于阈值仍算短表", () => {
+    const list = Array.from({ length: TODO_COMPACT_THRESHOLD }, (_, i) => t(`p${i}`, "pending"));
+    const v = todoView(list);
+    expect(v.pending).toHaveLength(TODO_COMPACT_THRESHOLD);
+    expect(v.pendingHidden).toEqual([]);
+    expect(v.listCompleted).toBe(true);
+  });
+
+  it("长表：未完成只留前 N 项，其余进 pendingHidden，已完成交给折叠钮", () => {
+    const list = [
+      t("done1", "completed"),
+      ...Array.from({ length: 5 }, (_, i) => t(`p${i}`, "pending")),
+    ];
+    const v = todoView(list);
+    expect(v.total).toBe(6); // 1 已完成 + 5 未完成 —— 恰好阈值，仍是短表
+    expect(v.listCompleted).toBe(true);
+
+    const long = [...list, t("p5", "pending")];
+    const w = todoView(long);
+    expect(w.total).toBe(7);
+    expect(w.pending.map((x) => x.content)).toEqual(["p0", "p1", "p2"].slice(0, TODO_PENDING_WINDOW));
+    expect(w.pendingHidden.map((x) => x.content)).toEqual(["p3", "p4", "p5"]);
+    expect(w.listCompleted).toBe(false);
+    // 折叠只影响展示：项数守恒
+    expect(w.pending.length + w.pendingHidden.length).toBe(6);
+    expect(w.done).toBe(1);
+  });
+
+  it("空清单 / null：全零，不产生折叠", () => {
+    for (const input of [null, undefined, []]) {
+      const v = todoView(input);
+      expect(v).toEqual({ done: 0, total: 0, active: undefined, pending: [], pendingHidden: [], completed: [], listCompleted: true });
+    }
   });
 });
 
