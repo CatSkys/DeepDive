@@ -100,6 +100,9 @@
   （官方 GUI 客户端、反馈通道与遥测、webhook 等；移除清单与 `cordis.patch.yml` 的
   "有意移除清单"是同一个决定的两种形态）。判据是**真实启动**——
   `scripts/smoke-engine-boot.sh` 在构建链里用随包 node 把引擎起一次等就绪行。
+- **外向数据流**：这台机器往外发什么（模型调用、联网工具、IM 渠道、听写、正文里的远程图片、
+  `widget` 围栏……）逐条记在 **`docs/DATA-FLOW.md`**——组合归本仓之后"我们发了什么"是我们的
+  责任，那份文档同时写明**未审计项**，别把它读成完整清单。
 - **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Resources/Runtime/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`；bundled 残缺或外部入口版本与随包引脚不符一律拒启（版本门，`SPEC-ENGINE-RUNTIME §3.4`）。
 - **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（XcodeGen 把原文件拷进 bundle 作 `Resources/dsh-runtime-version.txt`，版本门据此判外部入口）+ `scripts/node-version.txt`（构建机校验 fail-loud）。
 - **构建链**：`prepare-dsh-runtime.sh`（闭包准备 + 原生/FFI 冒烟，`DSH_SOURCE` 可复用同版本源）+ `prepare-chat-import.sh` / `prepare-dsh-im.sh`（两个随包社区插件的闭包，各自版本引脚在 `scripts/dsh-*-version.txt`）→ `embed-engine.sh`，其步骤有序且不得乱调：拷 node/闭包 → `patch-engine-model-data.sh`（模型目录）→ `prune-dsh-runtime.sh`（裁剪）→ 拷 `engine/profile` 进 `Resources/EngineProfile/` + 组合自检（`--dump-config`，挡补丁写坏）→ **`sign-app.sh` 重封**（所有文件改动之后）→ 许可 → `bin.js --version` → `smoke-engine-boot.sh`（用随包 node 真起一次等就绪行——`--version` 不装载插件、`--dump-config` 只解析补丁层，两者都发现不了"包被裁掉但某行还依赖它"）→ `build-release.sh` / `package-macos.sh`（最终 `sign-app.sh` 深签 + 可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
