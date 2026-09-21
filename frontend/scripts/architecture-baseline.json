@@ -81,10 +81,10 @@
       "detail": "371 lines > 300"
     },
     {
-      "id": "532f2741a1b30720",
+      "id": "bea2e981f8a93d8d",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
-      "detail": "541 lines > 300"
+      "detail": "530 lines > 300"
     },
     {
       "id": "89c8321c5fe786b0",

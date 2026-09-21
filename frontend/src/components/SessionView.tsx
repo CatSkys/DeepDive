@@ -12,6 +12,7 @@ import { GoalBar } from "./GoalBar";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
+import { useSessionActions } from "../session/useSessionActions";
 import { TurnNavigator } from "../session/TurnNavigator";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "./preview/FilePreviewWindow";
 import { useFilePreview } from "./preview/useFilePreview";
@@ -25,7 +26,6 @@ import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
-import { uuid } from "../uuid";
 
 /** 顶部模糊带满强度所需的滚动深度（px）：雾的渐显与内容渐隐共用这一个深度，
  *  两条边同步走完，不会各显各的。 */
@@ -59,7 +59,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const previewFull = preview.tabs.length > 0 && preview.fullscreen;
   // 产物/预览路径解析：模型常写 cwd 相对路径，/api/file 与壳动作都要绝对路径
   const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
-  const absPreviewPath = useCallback((p: string) => (p.startsWith("/") || !wsPath ? p : `${wsPath}/${p}`), [wsPath]);
+  // 会话动作回调（打开预览 / 分叉 / 继续）：三者都要引用稳定，契约与出处见该 hook。
+  const { openPreviewFile, branchFrom, continueTurn } = useSessionActions({ sessionId, store, preview, wsPath });
 
   // 底部悬浮区（用户定稿「消息区下延贴底」）：composer 悬浮于消息流之上，
   // flow 的 padding-bottom 按悬浮区实测高度动态设置（附件/排队坞/多行输入
@@ -204,16 +205,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       if (!(queues.get(sessionId) ?? []).some((i) => i.rpcId === rpcId)) { clearInterval(iv); stop(); }
     }, 500);
     setTimeout(() => { clearInterval(iv); stop(); }, 10000);
-  };
-
-  // branch（官方 forkAt）：从轮收尾 seq 分叉子会话并切入；失败保持原会话不动。
-  const branchFrom = (atSeq: number) => {
-    api.fork({ sessionId, atSeq })
-      .then((r) => {
-        void store.refresh();
-        store.openSession(r.sessionId);
-      })
-      .catch(() => void 0); // fork 失败留在当前会话：无部分状态可回滚
   };
 
   const isBlank = summary ? !!summary.blank : items.length === 0;
@@ -472,13 +463,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                             running={running && item === liveItem}
                             onBranch={branchFrom}
                             sessionId={sessionId}
-                              onPreviewFile={(p, line) => preview.open(absPreviewPath(p), line)}
+                            onPreviewFile={openPreviewFile}
                             wsPath={wsPath}
                             cwd={summary?.cwd}
                             hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
-                            onContinue={() => {
-                              void api.prompt({ requestId: uuid(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0); // 发送失败：max-tokens 卡保留，用户可再点
-                            }}
+                            onContinue={continueTurn}
                           />
                         </div>
                       );
