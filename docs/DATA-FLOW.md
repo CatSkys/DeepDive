@@ -30,10 +30,12 @@ bundle 内各插件的 README/实现），**没有做网络抓包**。所以这�
 | 打开链接 / 文件 / 在访达中显示 | 你点击 | 默认浏览器或对应 App | 该 URL/路径 |
 | 移动端远程访问 | 你显式开启 | 局域网**入向**监听 | — |
 
-**听写这条要留意**：`DictationController` 用 `SFSpeechRecognizer()` 默认构造，
-**没有设 `requiresOnDeviceRecognition`**——macOS 的 Speech 框架在未强制本地识别时
-可以走 Apple 的服务器。锁成本地识别是一行的事，但会让不支持本地识别的语言直接不可用，
-所以是产品决定，没擅自改。
+**听写这条要留意**：识别语言现在显式解析（`DictationController.resolveLocale`——默认构造
+`SFSpeechRecognizer()` 取 `Locale.current`，而本 app 未声明本地化，那会恒落回英文，
+是 2026-09-21 用户实测报的"一直是英文"的根因）。但**没有设 `requiresOnDeviceRecognition`**
+——macOS 的 Speech 框架在未强制本地识别时**可以走 Apple 的服务器**。锁成本地识别是一行的
+事，但会让不支持本地识别的语言直接不可用，所以是产品决定，没擅自改。每次开始听写会落一行
+日志记下选中的语言（`[dictation] locale …`），排查"识别成英文"时那是第一现场。
 
 ## 3. 运行时 — SPA（WKWebView）
 
