@@ -11,8 +11,9 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 
 export function CapsuleSection({ title, trailing, defaultOpen = true, open: openProp, onOpenChange, scroll = "normal", children }: {
   title: string;
-  /** 标题右侧的附属信息（计数/时长/刷新钮）。 */
-  trailing?: ReactNode;
+  /** 标题右侧的附属信息（计数/时长/刷新钮）。可传函数按开合态取不同内容——
+   *  ZCode 的 Git 区就是这么用的：折叠时显示 +N −N，展开时交给区内的「更改」行。 */
+  trailing?: ReactNode | ((open: boolean) => ReactNode);
   defaultOpen?: boolean;
   /** 受控开合（与 ZCode StatusSection 同款：不传就是非受控）。活动区由宿主持有
    *  开合状态，静态区不传、走 defaultOpen。 */
@@ -39,7 +40,11 @@ export function CapsuleSection({ title, trailing, defaultOpen = true, open: open
             ? <ChevronDown size={14} className="capsule-sec-chevron" />
             : <ChevronRight size={14} className="capsule-sec-chevron" />}
         </button>
-        {trailing ? <span className="capsule-sec-trail">{trailing}</span> : null}
+        {trailing ? (
+          <span className="capsule-sec-trail">
+            {typeof trailing === "function" ? trailing(open) : trailing}
+          </span>
+        ) : null}
       </div>
       {open && (
         <div

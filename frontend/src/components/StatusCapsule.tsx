@@ -228,7 +228,13 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
             </CapsuleSection>
           )}
           {git && git.files > 0 && (
-            <CapsuleSection title={t("Git 工具")} scroll="none">
+            <CapsuleSection
+              title={t("Git 工具")}
+              scroll="none"
+              trailing={(isOpen) => (isOpen ? null : (
+                <span><b className="capsule-add">+{git.additions}</b> <b className="capsule-del">−{git.deletions}</b></span>
+              ))}
+            >
               <CapsuleGitSection wsPath={wsPath} git={git} onRefresh={loadGit} />
             </CapsuleSection>
           )}

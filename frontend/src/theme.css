@@ -3988,20 +3988,49 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 .capsule-row-done { color: var(--ink-3); text-decoration: line-through; }
 .capsule-check { color: rgba(120,220,140,.95); }
 /* Git 动作行（切换分支/提交/推送）与其展开体 */
-.capsule-row-btn {
+/* Git 区三行：整行可点，高度/圆角/内距照 ZCode 的 status-row（h-8 + rounded-lg +
+   px-2 + hover 底色），图标 16、标签 flex-1 截断、值等宽右对齐。 */
+.capsule-git-row {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--dsh-radius-control);
   text-align: left;
-  padding: 4px 0;
   font-size: 13px;
-  line-height: 18px;
   color: var(--ink-2);
 }
-.capsule-row-btn:hover:not(:disabled) { color: var(--ink); }
-.capsule-row-btn:disabled { opacity: .5; }
-.capsule-row-btn > svg { flex: none; }
+.capsule-git-row:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
+.capsule-git-row:disabled { opacity: .5; cursor: default; }
+.capsule-git-row > svg { flex: none; }
+.capsule-git-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 动作菜单（提交/提交并推送/推送）：随行展开的小浮层，材质与其它浮层同配方 */
+.capsule-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 4px;
+  padding: 4px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  animation: fadein var(--dur-fast) ease both;
+}
+.capsule-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--dsh-radius-keycap);
+  font-size: 13px;
+  color: var(--ink-2);
+  text-align: left;
+}
+.capsule-menu-item:hover:not(:disabled) { background: var(--fill-strong); color: var(--ink); }
+.capsule-menu-item:disabled { opacity: .5; cursor: default; }
+.capsule-menu-item > svg { flex: none; }
 .capsule-row-go { margin-left: auto; color: var(--ink-3); flex: none; transition: transform var(--dur-fast) ease; }
 .capsule-branches { display: flex; flex-direction: column; padding: 2px 0 4px 21px; gap: 1px; animation: fadein var(--dur-fast) ease both; }
 .capsule-branch {
@@ -4016,19 +4045,6 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 }
 .capsule-branch:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
 .capsule-branch:disabled { cursor: default; color: var(--ink); }
-.capsule-commit { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 4px 21px; animation: fadein var(--dur-fast) ease both; }
-.capsule-input {
-  flex: 1;
-  min-width: 0;
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--dsh-radius-keycap);
-  background: var(--fill);
-  color: var(--ink);
-  font-size: 13px;
-}
-.capsule-input:focus { outline: none; border-color: var(--ink-3); }
 .capsule-row-meta { margin-left: auto; font-size: 12px; color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
 .capsule-row-main {
   display: flex;
@@ -4059,7 +4075,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 .capsule-note { font-size: 11px; color: var(--ink-3); padding: 4px 0 2px; }
 
 /* 输入类统一去系统蓝色聚焦框：可见性由各控件自身的边框/底色反馈承担
-   （queue-edit/q-custom/capsule-input 同款）；新增输入面不需要再逐个补。 */
+   （queue-edit/q-custom 同款）；新增输入面不需要再逐个补。 */
 input:focus, textarea:focus, select:focus { outline: none; }
 
 /* 黑白主题下 goal 编辑框的聚焦反馈（此前无规则，露出系统蓝环） */
@@ -4112,13 +4128,12 @@ input:focus, textarea:focus, select:focus { outline: none; }
   .tip { animation: none; }
 }
 
-.capsule-row-btn, .capsule-branch, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
+.capsule-git-row, .capsule-menu-item, .capsule-branch, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
   transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.capsule-input { transition: border-color var(--dur-fast) ease; }
 
 @media (prefers-reduced-motion: reduce) {
-  .capsule-trigger, .capsule-panel, .capsule-branches, .capsule-commit { animation: none; }
+  .capsule-trigger, .capsule-panel, .capsule-branches, .capsule-menu { animation: none; }
 }
 
 
