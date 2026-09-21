@@ -79,14 +79,17 @@ ln -s /Applications "$STAGE/Applications"
 # tiffutil 把 1x/2x 两张打成一个多表示 TIFF。tiffutil 系统自带，不是新依赖。
 tiffutil -cathidpicheck design/dmg/background.png "design/dmg/background@2x.png" -out "$BG" >/dev/null
 
-# 先做可写镜像 → 挂载后落背景与布局 → 再压成只读 UDZO。布局（窗口尺寸、图标
-# 位置与大小、背景指向）是 Finder 的 .DS_Store，**只能由 Finder 自己写**，所以走
-# 「模板优先、现场布局兜底」：
-#   · design/dmg/DS_Store 存在（正常情况）→ 直接拷进去，构建完全确定、不要任何授权；
-#   · 不存在（首次）→ osascript 让 Finder 现场布局，成功后把结果烘成模板（提交即可）。
-# 现场布局有两条硬要求，缺一即失败：① 构建宿主拿到「访问访达」自动化授权（系统设置
-# → 隐私与安全性 → 自动化）；② 镜像必须挂在 **/Volumes 下**——Finder 的 `disk` 类
-# 不认挂到别处的卷（用 -mountpoint 临时目录会报 -1728「不能获得 disk」）。
+# 先做可写镜像 → 挂载后落布局 → 再压成只读 UDZO。布局是 Finder 的 .DS_Store，
+# **只能由 Finder 自己写**。两条硬要求，缺一即失败：① 构建宿主拿到「访问访达」
+# 自动化授权（系统设置 → 隐私与安全性 → 自动化）；② 镜像必须挂在 **/Volumes 下**
+# ——Finder 的 `disk` 类不认挂到别处的卷（用 -mountpoint 挂临时目录会报 -1728
+# 「不能获得 disk」）。
+#
+# **背景图必须每轮在本卷上设一次，不能靠拷模板**（2026-09-20 实机踩到）：Finder
+# 把"背景图片"存成指向**该卷身份**的别名，从别的卷拷来的 .DS_Store 里那个别名解析
+# 不到（实测：首启偶尔按路径侥幸解析成功、之后每次挂载都退回白底）。图标位置与
+# 窗口几何是卷无关的，所以 design/dmg/DS_Store 只在**没有自动化授权**时兜底用
+# （位置对、背景没有，此时大声告警）。
 if [[ -d /Volumes/DeepDive ]]; then hdiutil detach /Volumes/DeepDive -quiet 2>/dev/null || true; fi
 hdiutil create -quiet -volname "DeepDive" -srcfolder "$STAGE" -ov -format UDRW -fs HFS+ "$RW"
 hdiutil attach "$RW" -quiet
@@ -100,11 +103,8 @@ if cp -f "$APP/Contents/Resources/AppIcon.icns" "$MP/.VolumeIcon.icns" 2>/dev/nu
 fi
 
 LAYOUT_ERR=""
-if [[ -f design/dmg/DS_Store ]]; then
-  cp -f design/dmg/DS_Store "$MP/.DS_Store"
-else
-  # 成功时 osascript 不输出任何东西，所以"输出为空"即成功
-  LAYOUT_ERR="$(osascript <<'APPLESCRIPT' 2>&1
+# 成功时 osascript 不输出任何东西，所以"输出为空"即成功
+LAYOUT_ERR="$(osascript <<'APPLESCRIPT' 2>&1
 tell application "Finder"
   tell disk "DeepDive"
     open
@@ -127,17 +127,16 @@ tell application "Finder"
 end tell
 APPLESCRIPT
 )" || true
-  if [[ -z "$LAYOUT_ERR" ]]; then
-    # 现场布局成功 → 烘成模板：此后（含别人机器）无需「访问访达」授权即可复现同一布局
-    cp -f "$MP/.DS_Store" design/dmg/DS_Store 2>/dev/null && \
-      echo "note: 已把本次布局烘成 design/dmg/DS_Store（提交它，后续构建不再需要访达授权）"
-  fi
+if [[ -n "$LAYOUT_ERR" ]]; then
+  # 没有自动化授权时的兜底：模板里的图标位置/窗口几何是卷无关的，先拷进来至少位置整齐
+  # （背景别名跨卷无效，这个包会没有背景图——所以下面必须大声告警）。
+  if [[ -f design/dmg/DS_Store ]]; then cp -f design/dmg/DS_Store "$MP/.DS_Store"; fi
 fi
 sync
 hdiutil detach "$MP" -quiet
 
 if [[ -n "$LAYOUT_ERR" ]]; then
-  echo "WARN: 窗口布局没落上——此包**没有拖拽引导**，别就这么发出去。"
+  echo "WARN: 窗口布局没落上——此包**没有安装引导背景**（图标位置按模板兜底），别就这么发出去。"
   echo "      Finder 报：$LAYOUT_ERR"
   echo "      两条硬要求：① 系统设置 → 隐私与安全性 → 自动化，给构建宿主打开「访达」；"
   echo "                  ② 镜像须挂在 /Volumes 下（脚本已这么做，别改成 -mountpoint 临时目录）。"
