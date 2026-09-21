@@ -41,8 +41,11 @@ bundles（按 dsh.profile.bundles 顺序）→ profiles/<name>/cordis.patch.yml
 
 ## 升引脚时怎么查漂移
 
-上游每次升引脚都可能改自己那两层。**把上游两层与我们这份跑出来的组合对 diff，就是漂移报告**，
-不需要额外的行表提取工具：
+`composition.expected.txt` 是本目录组合结果的**期望快照**，`scripts/check-engine-composition.sh`
+每次 `make test` 与构建链都会拿实际 dump 与它对比，不一致即失败。所以漂移不会静默：
+升完引脚第一次跑测试就会红，diff 直接告诉你上游动了什么。
+
+裁决时把上游两层也 dump 一份，与我们的对比——**差异就是待裁决清单**：
 
 ```sh
 # 上游两层在本 pin 下组合出什么
@@ -56,6 +59,14 @@ scripts/dump-engine-composition.sh --bundles 'deepdive-engine-profile' \
 diff /tmp/upstream-composition.txt /tmp/ours-composition.txt
 ```
 
-**差异就是待裁决清单**，逐条判断：上游新增的核心行（我们没跟上 → 能力静默缺失）、
-上游改过的 config（我们要不要跟）、上游删掉的行（我们的行成了死行）。裁决完把结论
-落回 `cordis.patch.yml`，再提交——这就是「整棵树归本仓」的代价，用这条流程把它变成机械动作。
+逐条判断：上游新增的核心行（我们没跟上 → 能力静默缺失）、上游改过的 config（要不要跟）、
+上游删掉的行（我们的行成了死行）。注意我们**有意移除**的那批行也在 diff 里，
+它们同时列在 `cordis.patch.yml` 的文件头——在清单里=我们有意为之，不在=新漂移。
+裁决完把结论落回 `cordis.patch.yml`，重新生成期望快照，两者一起提交:
+
+```sh
+scripts/dump-engine-composition.sh --bundles deepdive-engine-profile \
+  --local-bundle engine/profile --out engine/profile/composition.expected.txt
+```
+
+这就是「整棵树归本仓」的代价，用这条流程把它变成机械动作。
