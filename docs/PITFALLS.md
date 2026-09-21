@@ -397,6 +397,33 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   写进 patch 文件（那份是明文）。**bundle 成员的增删（如卸载插件）有启动边界**——
   引擎 README 明写 running Profile 保留启动时的 Bundle 集合，那条路必须停起进程。
 
+### 7.7 补丁的 config 是整体替换；部署级 persona 会被 agent preset 遮蔽（2026-09-21 实测）
+
+- **`config` 整体替换、不深合并**（`applyEntryPatches`：`target[key] = value`）。上游自己的
+  补丁头就在警告这件事，而我们踩了：`EngineSupervisor.enginePatchBody` 对 `system-prompt`
+  只写 `personaPrefix`，于是一经应用，web 层设的 `personaSuffix` 整段消失、退回引擎
+  schema 默认的空串。实测（`scripts/dump-engine-composition.sh --patch`）：带 overlay 时
+  该行 config 只剩 `personaPrefix` 一个键。
+  **写任何带 config 的补丁行，必须写全该行**——不是"改哪个键写哪个键"。
+- **但这不等于模型收不到那句 persona**：随包的四个 agent preset 都挂 `@deepseek-ai/dsh-persona`，
+  而它 `import { PERSONA_PREFIX_SECTION } from "@deepseek-ai/dsh-system-prompt"`
+  （`dsh-persona/lib/index.js:2`）并以**同一个 section 名**注册（`:37`）——即按设计
+  "shadowing the deployment-wide defaults for that session"。`standard`（`agent-presets`
+  的 `default`）自己就带 `suffix: Your working directory is {{cwd}}.`，所以运行时那句工作
+  目录来自 preset、不是那条被改坏的宿主行。
+- **由此引出的开放问题（未实测，别当结论）**：同理，壳经 `system-prompt` 的
+  `personaPrefix` 注入的部署级提示词（自动化协议、富输出围栏词表、自进化/会话记忆指路）
+  是否也被 preset 遮蔽、到不了模型。`deepdive-automation` 技能是另一条独立载体，
+  可能正是它在兜底。**验证方法**：隔离 DSH_HOME 起引擎 → 建会话发一条消息 →
+  读会话日志里的 `request/context` / `system/message`，看实际发出的 system prompt 里
+  有没有 `automationProtocolPrompt` 的特征串。查清前不要改那行 overlay，也不要
+  据此删 `deepdive-automation` 技能。
+- 另：**preset 是独立的 agent-plane 组合**，按包名自己挂工具（`presets/<name>/agent.cordis.yml`），
+  其中 `@deepseek-ai/dsh-persona`、`dsh-tool-ask-user`、`dsh-tool-present`、`dsh-terminal*`、
+  `dsh-tool-cordis` 等**不在宿主组合里**。裁剪闭包时只按宿主组合判断可达性，
+  会把 preset 要用的包当成死包删掉——静态扫描（只读 JS 的 import）尤其不可信，
+  它看不见这些 YAML 组合。
+
 ## 8. React 状态与表单（2026-09-05 全量体检批次沉淀）
 
 ### 8.1 手写 Context value 的 useMemo deps 是新增 state 的盲区
