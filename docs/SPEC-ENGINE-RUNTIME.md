@@ -1,6 +1,9 @@
 # ENGINE-RUNTIME — 引擎捆绑与版本韧性 spec（P2 · v2.1 复审收口）
 
 > **状态（2026-09-03）：已实现**（构建链/入口优先级/能力探测/凭据冷启动均落地，见 `ARCHITECTURE §5` 与 `scripts/`）。本文保留为行为契约与决策依据。
+> **增补（2026-09-21）：组合归本仓**——引擎装载哪些插件不再由上游 bundle 层决定，改由
+> `engine/profile/` 定义，并据此裁剪闭包（§3.3/§3.5）；部署提示词的落点也从 personaPrefix
+> 改到 AGENTS.md（§3.6，原因见 `PITFALLS §7.7`）。
 > 工程流 A。目标：**用户无需安装 dsh** + **引擎版本变化对客户端无感**。
 > 参考：`luochenw/deepseek-harness-macos` 的 `scripts/prepare-dsh-runtime.sh`、`scripts/build-macos-app.sh`、`scripts/dsh-runtime-version.txt`、`DSHHostProtocol` 的 settings/credentials 端点。
 > v2 变更：钉死 bundled 入口形状（node + `lib/bin.js`，修 v1 的路径自相矛盾）；node 二进制版本同样引脚化；新增 §4.4 凭据冷启动闭环。
@@ -40,6 +43,9 @@
 - 将：
   - `node` 可执行（按 §3.1 `node-version.txt` 引脚取，非本机随手版）→ `Contents/Resources/Runtime/node`（**勿放 `Contents/MacOS/`**：LS 会当成第二个 app，Dock 闪 node 窗口；校验架构匹配、动态 node 的 `libnode*.dylib` 拷到 `Resources/Runtime/lib` 与二进制做兄弟目录——`@executable_path/../lib` 靠它解析）。
   - 准备好的 DSH runtime 闭包（`prepare-dsh-runtime.sh` 输出）→ **`Contents/Resources/Runtime/dsh/`（整目录拷入，入口脚本为 `Runtime/dsh/lib/bin.js`）**；拷入后由 `patch-engine-model-data.sh` 把 pi-ai 的生成数据层覆盖为 `scripts/engine-model-data/` 快照（模型目录新鲜度，见 `ARCHITECTURE §5`；带版本闸，引脚自带 pi-ai 够新即自动跳过）。
+  - `engine/profile/`（自有组合）→ `Contents/Resources/EngineProfile/`，供壳在引擎启动前装进 harness home（§3.5）。
+- 步骤**有序且不得乱调**：拷 node/闭包 → 模型目录覆盖 → **`prune-dsh-runtime.sh`（裁掉自有组合不装载的包）** → 拷 `EngineProfile` + 组合自检（`--dump-config`）→ **`sign-app.sh` 重封**（必须在所有文件改动之后）→ 许可 → `bin.js --version` → **`smoke-engine-boot.sh`**（用随包 node 真起一次引擎等 `dsh web:` 就绪行）。
+  最后一步不是可选项：`--version` 根本不装载插件、`--dump-config` 只解析补丁层，两者都发现不了"某个包被裁掉但某行还依赖它"——那正是裁剪唯一会犯的错，只有真实启动能判。
 - 记录/声明运行时许可（Node LICENSE、DSH runtime THIRD_PARTY_NOTICES）。
 
 ### 3.4 入口解析与 spawn 形状（`EngineSupervisor`）
@@ -54,6 +60,32 @@
   - `DSHMINI_DSH_ENTRY` 保留为开发对照，异版本**仅告警**（§5 的对照实验靠它）。
   - pin 读 `Resources/dsh-runtime-version.txt`：由 `apps/macos/project.yml` 把 `scripts/dsh-runtime-version.txt` **原文件**拷进 bundle（不复制版本值），故未嵌入引擎的构建（`make dev`）也读得出 pin——否则版本门恰好在唯一需要它的场景里失效（`EngineVersion`）。
 - **失败文案随来源区分**：bundled 缺失/损坏（bin.js 或 node 不存在、启动即崩）提示"引擎程序不完整，请重新安装 App"；版本门拒启提示两侧版本 + 重装/`DSHMINI_DSH_ENTRY`；仅系统 dsh 找不到时才提示"请安装 dsh"（现状文案）。
+
+
+### 3.5 组合归属（自有组合取代挂载上游两层）
+- **装载哪些插件由本仓定义**：`engine/profile/cordis.patch.yml` 是唯一事实源，上游的
+  `@deepseek-ai/dsh-base` / `dsh-web-app` 只作为**包**留在闭包里，**不作为补丁层参与组合**。
+- 部署由壳 `ProfileComposer` 在引擎启动前完成（晚于任何读 profile 的动作、早于
+  `EngineSupervisor.start()`）：装 `Contents/Resources/EngineProfile/` 到
+  `$DSH_HOME/profiles/web/node_modules/deepdive-engine-profile`，再写
+  `dsh.profile.bundles`。**顺序不能反**——bundle 解析先查 dsh 安装锚点、再查 profile 的
+  `node_modules`，而 loader 的模块兜底修复不会替我们创建 bundle 包。
+- 迁移：旧版本壳往 profile 里写的是上游两层 + 社区插件，只追加我们的包没用（上游仍在列表里
+  会被继续叠上来），所以退役的那两个名字要摘掉、自有组合排最前、社区与用户自加的逐字保留。
+- **裁剪与它同源**：`prune-dsh-runtime.sh` 的移除清单与 `cordis.patch.yml` 的"有意移除清单"
+  是同一个决定的两种形态，改一处必须改另一处。
+- 改法、验收与**升引脚的漂移流程**（上游两层与我们各 dump 一次对 diff）见
+  `engine/profile/README.md`；`scripts/check-engine-composition.sh` 已接进 `make test`，
+  与入库的期望快照不一致即失败。
+
+### 3.6 部署提示词的落点（为什么不是 personaPrefix）
+壳注入的部署提示词（自动化协议指路、富输出围栏词表、自进化/会话记忆指路）曾写在
+`--patch` overlay 的 `id: system-prompt` 的 `personaPrefix` 上。**那条路到不了模型**：
+随包的四个 agent preset 都挂 `@deepseek-ai/dsh-persona`，它注册的 section 名与
+`dsh-system-prompt` 的部署级 persona 相同，按设计遮蔽部署级默认值（实测与修法见
+`PITFALLS §7.7`）。现在落在 `<DSH_HOME>/AGENTS.md` 的**托管块**里
+（`DeploymentPrompt`）：AGENTS.md 经 agent-instructions 进系统提示词、不经过 persona section；
+用托管块是因为该文件还有另一个写入者（自进化落地的 lesson），段外内容逐字保留。
 
 ## 4. 版本韧性
 
@@ -100,5 +132,13 @@
 | `apps/macos/Sources/DSHminiApp/EngineVersion.swift` / `apps/macos/project.yml` | 版本门：随包引脚（`dsh-runtime-version.txt` 作 bundle 资源）+ 外部入口 `--version` 探测与拒启文案（§3.4） |
 | `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` / `BridgeServer.swift` | 缺凭据只记日志、照常 spawn；静态资源不受引擎状态门控（§4.4） |
 | `apps/macos/Sources/DSHminiApp/AppDelegate.swift` / `frontend/src/App.tsx` | 失败面在 SPA 内：`engineState`（原因 + 日志尾部）+ 横幅/详情弹窗（§4.4）；`LegacyCredentials` 启动期迁移 |
+| `engine/profile/` | 新增：自有组合（`cordis.patch.yml` 唯一事实源 + `composition.expected.txt` 期望快照 + README 的改法与升引脚流程）（§3.5） |
+| `scripts/embed-engine.sh` | 追加：拷 `EngineProfile` + 组合自检；插入裁剪与启动冒烟，并把步骤顺序固定下来（§3.3） |
+| `scripts/prune-dsh-runtime.sh` | 新增：按自有组合裁掉闭包里不装载的包（移除清单与 `cordis.patch.yml` 同源） |
+| `scripts/smoke-engine-boot.sh` | 新增：真起一次引擎等就绪行——裁剪与组合的唯一有效判据（§3.3） |
+| `scripts/dump-engine-composition.sh` / `check-engine-composition.sh` | 新增：组合的可 diff 事实源 + 漂移门（接进 `make test`） |
+| `apps/macos/Sources/DSHminiApp/ProfileComposer.swift` | 新增：组合的部署与既有安装迁移（§3.5） |
+| `apps/macos/Sources/DSHminiApp/DeploymentPrompt.swift` | 新增：部署提示词及其落点（`<DSH_HOME>/AGENTS.md` 托管块）（§3.6） |
+| `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` | `enginePatchBody` 去掉 `system-prompt` 的 personaPrefix（那条路被 preset 遮蔽，§3.6）、缩到只剩"装配"两行 insert |
 
 > 依赖：DSHmini 需在构建机有 Node/npm（仅构建时）。运行时自包含，不依赖全局 npm/PATH。

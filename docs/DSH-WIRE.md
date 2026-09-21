@@ -40,6 +40,10 @@
 
 ## 1. 通道可用性（2026-09-10 复验）
 
+> **哪些面真的挂着，以 `engine/profile/cordis.patch.yml` 为准**（2026-09-21 起组合归本仓，
+> 上游两层不再参与组合，所以"引擎有这个包"不等于"这个面可用"）。本表的结论是客户端视角的
+> 现状；某条写着"未挂载"时，先看那份行表与它的"有意移除清单"，别去引擎源码里找。
+
 | 方法/面 | 结论 |
 |---|---|
 | `messageFeedback/list\|put\|delete` | **未挂载**——DeepDive 不装 `dsh-message-feedback`：反馈通道已定案移除（SPA 无 👍/👎 卡，`/feedback` 命令与 OTLP 遥测随通道一并撤掉，见 `engine/profile/cordis.patch.yml` 的移除清单）。上游 wire 面仍在：args 为 `request` 包裹，put/delete 带 `ifVersion` CAS，version 为不透明字符串 token |

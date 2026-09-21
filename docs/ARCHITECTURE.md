@@ -45,6 +45,8 @@
 | `RemoteAccess.swift` + `QRCode.swift` | 移动端远程访问：配对令牌（落地即轮换）、设备台账（逐台解绑）、局域网地址探测、CoreImage 生成二维码。只管「谁被允许进来」，HTTP 面复用 BridgeServer；安全边界见 `SPEC-MOBILE-REMOTE.md` |
 | `BotChannelPlugin.swift` | IM 渠道插件（`@xmanrui/dsh-im`，社区包 MIT，引脚 `scripts/dsh-im-version.txt`）安装器：把随包的整棵依赖闭包铺进 `profiles/web` 并登记 profile bundles，引擎启动后挂上 `POST /api/dsh-im/<渠道>`（Bot Channel 与机器人管理走这条）。幂等 + 失败不阻塞引擎（与 `ChatImportPlugin` 同款纪律） |
 | `EngineSupervisor.swift` / `EngineVersion.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、入口版本门（随包引脚 vs 外部 dsh）、网关调用、token→cookie 交换、事件观察、日志 |
+| `ProfileComposer.swift` | 引擎组合的部署器：把随包的 `engine/profile` 装进 harness home 的 web profile，并把 `dsh.profile.bundles` 收敛到它（摘掉退役的上游两层、保留社区与用户自加的、迁移既有安装）。幂等 + 失败不阻塞启动，纪律同 `ChatImportPlugin` |
+| `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表 + 自进化/会话记忆指路）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
 | `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；四个调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`worktreeRun`、`agentRun` |
@@ -89,13 +91,28 @@
 
 ## 5. 引擎运行时（SPEC-ENGINE-RUNTIME）
 
+- **组合归本仓**：引擎装载哪些插件由 `engine/profile/` 定义（`cordis.patch.yml` 是唯一事实源），
+  上游的 `@deepseek-ai/dsh-base` / `dsh-web-app` **不作为层参与组合**；壳在引擎启动前经
+  `ProfileComposer` 把它装进 harness home 的 web profile 并收敛 `dsh.profile.bundles`
+  （含既有安装的迁移：摘掉退役的上游两层）。改法与**升引脚的漂移流程**见该目录 README；
+  `scripts/check-engine-composition.sh` 每次 `make test` 拿实际组合对比入库的期望快照，不一致即失败。
+- **闭包裁剪**：`scripts/prune-dsh-runtime.sh` 把自有组合不装载的包从分发里摘掉
+  （官方 GUI 客户端、反馈通道与遥测、webhook 等；移除清单与 `cordis.patch.yml` 的
+  "有意移除清单"是同一个决定的两种形态）。判据是**真实启动**——
+  `scripts/smoke-engine-boot.sh` 在构建链里用随包 node 把引擎起一次等就绪行。
 - **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Resources/Runtime/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`；bundled 残缺或外部入口版本与随包引脚不符一律拒启（版本门，`SPEC-ENGINE-RUNTIME §3.4`）。
 - **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（XcodeGen 把原文件拷进 bundle 作 `Resources/dsh-runtime-version.txt`，版本门据此判外部入口）+ `scripts/node-version.txt`（构建机校验 fail-loud）。
-- **构建链**：`prepare-dsh-runtime.sh`（闭包准备 + 原生/FFI 冒烟，`DSH_SOURCE` 可复用同版本源）+ `prepare-chat-import.sh` / `prepare-dsh-im.sh`（两个随包社区插件的闭包，各自版本引脚在 `scripts/dsh-*-version.txt`）→ `embed-engine.sh`（拷入 .app + `sign-app.sh` 重封 + 自检）→ `build-release.sh` / `package-macos.sh`（最终 `sign-app.sh` 深签 + 可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
+- **构建链**：`prepare-dsh-runtime.sh`（闭包准备 + 原生/FFI 冒烟，`DSH_SOURCE` 可复用同版本源）+ `prepare-chat-import.sh` / `prepare-dsh-im.sh`（两个随包社区插件的闭包，各自版本引脚在 `scripts/dsh-*-version.txt`）→ `embed-engine.sh`，其步骤有序且不得乱调：拷 node/闭包 → `patch-engine-model-data.sh`（模型目录）→ `prune-dsh-runtime.sh`（裁剪）→ 拷 `engine/profile` 进 `Resources/EngineProfile/` + 组合自检（`--dump-config`，挡补丁写坏）→ **`sign-app.sh` 重封**（所有文件改动之后）→ 许可 → `bin.js --version` → `smoke-engine-boot.sh`（用随包 node 真起一次等就绪行——`--version` 不装载插件、`--dump-config` 只解析补丁层，两者都发现不了"包被裁掉但某行还依赖它"）→ `build-release.sh` / `package-macos.sh`（最终 `sign-app.sh` 深签 + 可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
 - **签名身份统一走 `sign-app.sh`**（两条链共用一份）：Developer ID 固定身份 → TCC 授权绑 (bundle id + 团队)、跨构建持久；ad-hoc 无 Team ID，授权只能按 cdhash 记，每次重建都重置（PITFALLS §4.8）。无证书环境回退 adhoc 并明说会丢授权。
 - **模型目录新鲜度**：pi-ai 的模型目录只在**它自己发版时**刷新（引擎自带发布当天的快照），所以引脚不动期间目录会过时。嵌入时由 `scripts/patch-engine-model-data.sh` 把 `scripts/engine-model-data/` 的**生成数据层**（纯数据、无代码改动）覆盖进 bundle 内的 pi-ai dist；脚本带版本闸（运行时 pi-ai ≥ 快照版次即跳过），引脚升过该版次后删掉覆盖目录（来源、更新步骤与快照语义变化见该目录 README）。`prepare-dsh-runtime.sh` 仍校验引擎自带 pi-ai 版本与引脚一致。
 - **版本韧性**：稳定面直接用；版本敏感面（provider 管理等）`probeMethod` 能力探测，缺则降级/隐藏。
-- 启动参数 `--profile web --no-open --port 0`；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。
+- **部署提示词落 AGENTS.md，不走 `system-prompt` 的 personaPrefix**：后者被随包 agent preset 的
+  `@deepseek-ai/dsh-persona` 按同名 section 遮蔽、到不了模型（实测与修法见 `PITFALLS §7.7`），
+  而现在落在 `<DSH_HOME>/AGENTS.md` 的托管块里（`DeploymentPrompt`，段外内容逐字保留——
+  自进化的 lesson 也写这个文件）。内容 = 自动化协议指路 + 富输出围栏词表（恒在）+ 自进化 /
+  会话记忆指路（各随开关）。
+- 启动参数 `--profile web --patch <support>/engine-patch.yml --no-open --port 0`；
+  overlay 只放"装配"（schedule 与会话记忆两条 insert）；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。
 
 ## 6. 设计 token 管线
 
@@ -106,8 +123,9 @@
 ```
 apps/macos/                Swift 壳（XcodeGen project.yml；xcodeproj/Info.plist 生成物已 ignore）
 frontend/                  自建 SPA（Vite 单入口）；packages/design = token 源 + 生成器
+engine/profile/            引擎组合：装载哪些插件的唯一事实源（bundle 包 + 期望快照 + README）
 design/logo/               DeepDive 黑底反白鲸鱼 logo 种子工程与导出（BRANDING.md）
-scripts/                   构建/打包/嵌入/运行时准备脚本 + 版本引脚
+scripts/                   构建/打包/嵌入/运行时准备/裁剪/组合门脚本 + 版本引脚
 docs/                      本架构 + 规范（UI/SEMANTICS/三个 P2 SPEC）+ PITFALLS + WORKING-AGREEMENTS
 deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引脚，embed 时 check-dsh-source.sh 强校验）——资产/移植对照，勿当运行时
 ```
