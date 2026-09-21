@@ -208,53 +208,59 @@ final class EngineSupervisorTests: XCTestCase {
         XCTAssertEqual(EverOSKeyBridge.resolveApiKey(credentialsYaml: creds, everosToml: nil), "sk-abc123")
     }
 
-    /// 自进化 / 会话记忆开关关着时，装配里不能出现对应 insert 或指路；开着才在。
-    func testSystemPromptPrefixFollowsSwitches() {
-        let off = EngineSupervisor.systemPromptPrefix(evolutionEnabled: false, sessionMemoryEnabled: false)
+    /// 自进化 / 会话记忆开关关着时，指路里不能出现对应那句；开着才在。
+    /// 部署提示词的落点已从 overlay 的 personaPrefix 改为 AGENTS.md 托管块，见
+    /// `DeploymentPromptTests` 与 `DeploymentPrompt` 头注（遮蔽实测：PITFALLS §7.7）。
+    func testDeploymentPromptFollowsSwitches() {
+        func text(_ evo: Bool, _ mem: Bool) -> String {
+            DeploymentPrompt.body(evolutionEnabled: evo, sessionMemoryEnabled: mem).joined(separator: "\n")
+        }
+        let off = text(false, false)
         XCTAssertTrue(off.contains("deepdive-automation"))
         XCTAssertFalse(off.contains("deepdive-evolution"))
         XCTAssertFalse(off.contains("memory_note_write"))
-        let evoOn = EngineSupervisor.systemPromptPrefix(evolutionEnabled: true, sessionMemoryEnabled: false)
+
+        let evoOn = text(true, false)
         XCTAssertTrue(evoOn.contains("deepdive-automation") && evoOn.contains("deepdive-evolution"))
-        XCTAssertFalse(EngineSupervisor.enginePatchBody(evolutionEnabled: false, sessionMemoryEnabled: false).contains("deepdive-evolution"))
-        XCTAssertTrue(EngineSupervisor.enginePatchBody(evolutionEnabled: true, sessionMemoryEnabled: false).contains("deepdive-evolution"))
-        // 会话记忆：开着 → 插件 insert（绝对路径）+ 指路都在；关着 → 都不在。
-        let memOn = EngineSupervisor.enginePatchBody(evolutionEnabled: false, sessionMemoryEnabled: true)
-        XCTAssertTrue(memOn.contains("id: deepdive-session-memory"))
-        XCTAssertTrue(memOn.contains("index.js"))
+        XCTAssertFalse(evoOn.contains("memory_note_write"))
+
+        let memOn = text(false, true)
         XCTAssertTrue(memOn.contains("memory_note_write"))
-        XCTAssertTrue(memOn.contains("personaPrefix"))
-        let allOff = EngineSupervisor.enginePatchBody(evolutionEnabled: false, sessionMemoryEnabled: false)
-        XCTAssertFalse(allOff.contains("deepdive-session-memory"))
-        XCTAssertFalse(EngineSupervisor.systemPromptPrefix(evolutionEnabled: false, sessionMemoryEnabled: true).contains("deepdive-evolution"))
-        XCTAssertTrue(EngineSupervisor.systemPromptPrefix(evolutionEnabled: false, sessionMemoryEnabled: true).contains("memory_note_write"))
+        XCTAssertFalse(memOn.contains("deepdive-evolution"))
     }
 
     /// 富输出围栏的指路恒在（与开关无关）：模型不被告知词表就永远不会用 widget。
-    func testSystemPromptPrefixAlwaysListsRichOutputFences() {
-        let off = EngineSupervisor.systemPromptPrefix(evolutionEnabled: false, sessionMemoryEnabled: false)
+    func testDeploymentPromptAlwaysListsRichOutputFences() {
+        let off = DeploymentPrompt.body(evolutionEnabled: false, sessionMemoryEnabled: false).joined(separator: "\n")
         XCTAssertTrue(off.contains("mermaid") && off.contains("svg") && off.contains("widget"))
-        let on = EngineSupervisor.systemPromptPrefix(evolutionEnabled: true, sessionMemoryEnabled: true)
-        XCTAssertTrue(on.contains("`widget`"))
         // 偏好必须写在提示词里：2026-09-16 用户说"画个 svg"，模型直接落了一份 .svg 文件
-        // （产物卡有、对话里没围栏）——"没显示"的真因，别退回只说"可以用围栏"
+        // （产物卡有、对话里没围栏）——"没显示"的真因，别退回只说"可以用围栏"。
+        // 注：那次修复补的就是这句，而当时它经 personaPrefix 注入、到不了模型，
+        // 所以从未生效过；改落点后才真正到达（PITFALLS §7.7）。
         XCTAssertTrue(off.contains("deliverable"), "要区分「对话里看」与「产出文件」")
         XCTAssertTrue(off.contains("inline fence"))
     }
 
+    /// 引擎 overlay patch 的形状：写坏了引擎 boot 时 fail-loud 起不来，所以 insert
+    /// 段的形状是钉子。**且它不再带 `system-prompt` 行**——那条路被 agent preset 的
+    /// `dsh-persona` 遮蔽（PITFALLS §7.7），而且它对 config 是整体替换，会顺手打掉
+    /// web 层设的 personaSuffix。部署提示词改落 AGENTS.md，这条断言防它被加回来。
+    func testEnginePatchCarriesOnlyAssemblyInserts() {
+        let withMemory = EngineSupervisor.enginePatchBody(sessionMemoryEnabled: true)
+        XCTAssertTrue(withMemory.contains("- id: schedule"))
+        XCTAssertTrue(withMemory.contains("@deepseek-ai/dsh-schedule"))
+        XCTAssertTrue(withMemory.contains("id: deepdive-session-memory"))
+        XCTAssertTrue(withMemory.contains("index.js"), "本地插件按绝对路径挂")
+        XCTAssertFalse(withMemory.contains("system-prompt"), "personaPrefix 那条路到不了模型，别加回来")
+        XCTAssertFalse(withMemory.contains("personaPrefix"))
 
-    /// 引擎 overlay patch 的形状：写坏了引擎 boot 时 fail-loud 起不来，所以两段
-    /// 都得在——schedule 工具 insert + 会话侧自动化协议的 system-prompt 前缀；
-    /// 提示词里的引号/换行经 JSON 转义成 YAML 流标量后必须仍是**单行**。
-    func testEnginePatchCarriesScheduleInsertAndAutomationPrompt() throws {
-        let body = EngineSupervisor.enginePatchBody(evolutionEnabled: true, sessionMemoryEnabled: false)
-        XCTAssertTrue(body.contains("- id: schedule"))
-        XCTAssertTrue(body.contains("@deepseek-ai/dsh-schedule"))
-        let prefixLine = try XCTUnwrap(body.split(separator: "\n").first { $0.contains("personaPrefix:") })
-        XCTAssertTrue(prefixLine.contains("automation"), "协议说明缺失")
-        XCTAssertTrue(prefixLine.hasPrefix("    personaPrefix: \""))
-        XCTAssertTrue(prefixLine.hasSuffix("\""), "值没有被引号包住——YAML 流标量会破")
-        XCTAssertFalse(prefixLine.contains("\t"))
+        let withoutMemory = EngineSupervisor.enginePatchBody(sessionMemoryEnabled: false)
+        XCTAssertTrue(withoutMemory.contains("- id: schedule"))
+        XCTAssertFalse(withoutMemory.contains("deepdive-session-memory"))
+
+        for line in withMemory.split(separator: "\n") where line.contains("name:") {
+            XCTAssertFalse(line.contains("\t"), "YAML 流标量不能有制表符")
+        }
     }
 
     func testFirstRegisteredWorkspaceFollowsIdOrderAndIgnoresInvalid() throws {

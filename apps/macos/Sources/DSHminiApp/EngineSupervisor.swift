@@ -352,6 +352,15 @@ final class EngineSupervisor {
             DSHAppPrefs.setSessionMemoryMountNote(nil)
         }
         let patchArg = Self.ensureEnginePatchFile(sessionMemory: memoryAvailability)
+        // 部署提示词落 AGENTS.md（不是 overlay 的 personaPrefix——那条路被 agent preset
+        // 遮蔽，见 DeploymentPrompt 的头注与 PITFALLS §7.7）。
+        DeploymentPrompt.ensureInstalled(
+            in: home,
+            evolutionEnabled: DSHAppPrefs.evolutionEnabled,
+            sessionMemoryEnabled: DSHAppPrefs.sessionMemoryEnabled
+                && DSHAppPrefs.sessionMemoryQuarantineReason == nil
+                && memoryAvailability == .available,
+        )
         Self.ensureLessonVerifyScript()
         Self.ensureLessonGateScript()
         Self.ensureLessonLandScript()
@@ -426,20 +435,19 @@ final class EngineSupervisor {
         let memoryUsable = DSHAppPrefs.sessionMemoryEnabled
             && DSHAppPrefs.sessionMemoryQuarantineReason == nil
             && sessionMemory == .available
-        try? enginePatchBody(
-            evolutionEnabled: DSHAppPrefs.evolutionEnabled,
-            sessionMemoryEnabled: memoryUsable,
-        ).write(to: url, atomically: true, encoding: .utf8)
+        try? enginePatchBody(sessionMemoryEnabled: memoryUsable)
+            .write(to: url, atomically: true, encoding: .utf8)
         return url
     }
 
     /// Overlay 正文（纯函数，单测钉子）：写坏了引擎会在 boot 时 fail-loud 起不来。
-    /// `evolutionEnabled`（自进化开关）与 `sessionMemoryEnabled`（会话记忆开关）：
-    /// 关着就不写对应的 insert / 指路行——装配在启动时读，开关晚一拍生效。
-    static func enginePatchBody(
-        evolutionEnabled: Bool,
-        sessionMemoryEnabled: Bool,
-    ) -> String {
+    /// `sessionMemoryEnabled` 关着就不写那条 insert——装配在启动时读，开关晚一拍生效。
+    ///
+    /// **不写 `system-prompt` 的 personaPrefix**：那条路被 agent preset 的
+    /// `dsh-persona` 遮蔽、到不了模型（PITFALLS §7.7 实测），而且它对 config 是整体
+    /// 替换，还会顺手打掉 web 层设的 personaSuffix。部署提示词改落
+    /// `<DSH_HOME>/AGENTS.md`（`DeploymentPrompt`）。
+    static func enginePatchBody(sessionMemoryEnabled: Bool) -> String {
         var body = """
         # Written by DeepDive at every engine launch — app-owned overlay layer.
         # Do not edit: your changes are overwritten on the next launch.
@@ -451,54 +459,8 @@ final class EngineSupervisor {
             // 本地文件插件（boot 时转 file:// URL）；路径含空格，必须 YAML 引号。
             body += "\n    - id: deepdive-session-memory\n      name: \(ManagedPatchBlock.yamlString(sessionMemoryPluginURL.path))"
         }
-        body += "\n- id: system-prompt\n  config:\n    personaPrefix: \(ManagedPatchBlock.yamlString(Self.systemPromptPrefix(evolutionEnabled: evolutionEnabled, sessionMemoryEnabled: sessionMemoryEnabled)))"
         return body
     }
-
-    /// 部署级提示词 = 自动化指路（恒在）+ 富输出围栏词表（恒在，随应用发布）+ 自进化 /
-    /// 会话记忆指路（各自开关决定）。
-    static func systemPromptPrefix(evolutionEnabled: Bool, sessionMemoryEnabled: Bool) -> String {
-        var parts = [automationProtocolPrompt, richOutputProtocolPrompt]
-        if evolutionEnabled { parts.append(evolutionProtocolPrompt) }
-        if sessionMemoryEnabled { parts.append(sessionMemoryProtocolPrompt) }
-        return parts.joined(separator: "\n")
-    }
-
-    /// Rich output: the app renders three fence languages in the conversation body
-    /// (implementation and security boundaries in `frontend/src/rich/`).
-    ///
-    /// 这句必须说清**偏好**，不只是"可以用"：2026-09-16 用户说"画个 svg"，模型直接写了一份
-    /// .svg 文件当产物交付（`dsh_im_return_file`），于是对话里没有任何围栏可渲染——用户看到
-    /// 的就是"没显示"。模型的默认直觉是交付文件，所以要把"想让人在对话里看见 → 用围栏；
-    /// 要文件/交付物 → 写文件"这条分界写出来。
-    private static let richOutputProtocolPrompt = """
-    DeepDive rich output: when the user should see a figure or diagram in the conversation, \
-    draw it inline in a fenced code block whose info string is `mermaid` (diagram), `svg` \
-    (hand-written vector figure) or `widget` (one small self-contained interactive HTML page, \
-    rendered sandboxed). The app draws those as figures and shows the code verbatim only when \
-    one cannot be rendered. Write or return a file only when the user asked for a file or a \
-    deliverable — "draw me a diagram" means the inline fence, not an .svg file on disk.
-    """
-
-    /// Deployment system prompt: one pointer, nothing more — the protocol itself
-    /// lives in the `deepdive-automation` skill (loaded on demand through the
-    /// engine's skill tool), so every session does not pay for the full shape.
-    private static let automationProtocolPrompt = """
-    DeepDive automation: when the user asks for a scheduled or recurring task, or to change one, \
-    load the `deepdive-automation` skill and follow its protocol exactly. One-off reminders \
-    inside this conversation keep using the schedule tools.
-    """
-    private static let evolutionProtocolPrompt = """
-    DeepDive self-evolution: when the user says "remember this" / "don't make me re-explain", or \
-    you just worked something out the hard way, load the `deepdive-evolution` skill and propose a \
-    lesson. Proposals only — never change rules or docs yourself; the user accepts them in \
-    Settings → Self-evolution.
-    """
-    private static let sessionMemoryProtocolPrompt = """
-    DeepDive session memory: your session notes are injected at the start of each user turn. Keep \
-    them current with the `memory_note_write` tool as you make progress or hit dead ends, and use \
-    `new_context` before the window feels long — see the `deepdive-session-memory` skill.
-    """
 
     /// The skill that carries the conversation-side automation protocol. Written on
     /// every launch into the engine's user skill root (<DSH_HOME>/skills/<name>/

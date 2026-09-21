@@ -411,13 +411,22 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   "shadowing the deployment-wide defaults for that session"。`standard`（`agent-presets`
   的 `default`）自己就带 `suffix: Your working directory is {{cwd}}.`，所以运行时那句工作
   目录来自 preset、不是那条被改坏的宿主行。
-- **由此引出的开放问题（未实测，别当结论）**：同理，壳经 `system-prompt` 的
-  `personaPrefix` 注入的部署级提示词（自动化协议、富输出围栏词表、自进化/会话记忆指路）
-  是否也被 preset 遮蔽、到不了模型。`deepdive-automation` 技能是另一条独立载体，
-  可能正是它在兜底。**验证方法**：隔离 DSH_HOME 起引擎 → 建会话发一条消息 →
-  读会话日志里的 `request/context` / `system/message`，看实际发出的 system prompt 里
-  有没有 `automationProtocolPrompt` 的特征串。查清前不要改那行 overlay，也不要
-  据此删 `deepdive-automation` 技能。
+- **已实测（2026-09-21）：部署级 `personaPrefix` 确实被遮蔽，模型收不到。** 隔离 DSH_HOME 起
+  引擎 → `session/create`（回来的 `agentPreset: "standard"` 坐实会话跑在预设下）→
+  `session/prompt` → 用 `Decompress` 解 `sessions/<bucket>/<id>/session.v3.jsonl.zstd`
+  （多帧 zstd，一次性解只出第一帧，§1.15），读其中的 `system/message`（组装好的系统提示词）。
+  四个探针串的结果：overlay 注入的 `personaPrefix` **不在**；preset 的
+  `You are a coding agent powered by` 与 `Your working directory is` **都在**。
+  → 壳 `EngineSupervisor.systemPromptPrefix`（自动化协议、富输出围栏词表、自进化/会话记忆
+  指路）在当前链路上**到不了模型**。
+- **这条已在发货产品里造成过假修复**：2026-09-16 用户报"画个 svg 结果模型交付了 .svg 文件、
+  对话里看不见"，当时的处置是往 `richOutputProtocolPrompt` 补一句"想让人在对话里看见就用
+  围栏"——那句话经同一条 personaPrefix 注入，**在结构上不可能生效**。同类"改了没生效"
+  请先按上一条实测，别只读 `--dump-config`。
+- **可用的替代通道（同轮实测）**：`$DSH_HOME/AGENTS.md` 经 agent-instructions 进系统提示词，
+  **不经过 persona section、不被预设遮蔽**（同一实验里把标记写进该文件，命中）。
+  往这个文件写要**用托管块**（`ManagedPatchBlock`），因为自进化落的 lesson 也写它
+  （`EVOLUTION-POLICY` 的 global 落点）——整段重写会把用户的 lesson 抹掉。
 - 另：**preset 是独立的 agent-plane 组合**，按包名自己挂工具（`presets/<name>/agent.cordis.yml`），
   其中 `@deepseek-ai/dsh-persona`、`dsh-tool-ask-user`、`dsh-tool-present`、`dsh-terminal*`、
   `dsh-tool-cordis` 等**不在宿主组合里**。裁剪闭包时只按宿主组合判断可达性，
