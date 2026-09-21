@@ -10,6 +10,8 @@ import { planReviewOf } from "../planReview";
 import { PlanReviewCard } from "./PlanReviewCard";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, type TurnGroup } from "../turnGroups";
+import { groupExploreItems } from "../session/toolGroups";
+import { ExploreGroupRow } from "../session/ExploreGroupRow";
 import { Item } from "../session/Item";
 import { useSessionActions } from "../session/useSessionActions";
 import { TurnNavigator } from "../session/TurnNavigator";
@@ -429,15 +431,21 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                 let procBarEmitted = false;
                 nodes.push(
                   <div key={`turn-${g.turn ?? "head"}-${gi}`} className={`turn-group${isLiveGroup ? " live" : ""}`} data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
-                    {g.items.map((item, ii) => {
+                    {groupExploreItems(g.items).map((unit) => {
+                      // 一组连续的只读/读取/搜索工具折成「查阅」组；其余原样
+                      const members = unit.kind === "explore-group" ? unit.members : [unit.item];
+                      const indices = unit.kind === "explore-group" ? unit.indices : [unit.index];
+                      const key = unit.kind === "explore-group" ? unit.key : unit.item.key;
+                      const first = indices[0]!;
+                      const last = indices[indices.length - 1]!;
+                      // 过程折叠按"整组"判：成员全在过程窗内才算过程项（组内不会只藏一半）
                       const isProcessMember = proc !== null
-                        && ii < proc.answerIndex
-                        && proc.processIndices.includes(ii);
+                        && indices.every((k) => k < proc.answerIndex && proc.processIndices.includes(k));
                       const hideItem = isProcessMember && !procOpen;
                       // 披露条挂在过程窗起点（首个过程项；无外部过程时挂最终回答前），
                       // 该起点项被收起时仍要吐出条子，否则折叠态无处点开。
                       const barHere = proc !== null && toggleProc !== null
-                        && !procBarEmitted && ii === barAt;
+                        && !procBarEmitted && first === barAt;
                       if (barHere) procBarEmitted = true;
                       const bar = barHere && proc && toggleProc ? (
                         <TurnProcessBar
@@ -446,27 +454,36 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                           onToggle={() => toggleProc(!procOpen)}
                         />
                       ) : null;
-                      if (hideItem) return bar ? <span key={item.key} className="turn-process-slot">{bar}</span> : null;
-                      const idx = keyIdx.get(item.key) ?? -1;
-                      const isAnswer = proc !== null && ii === proc.answerIndex;
+                      if (hideItem) return bar ? <span key={key} className="turn-process-slot">{bar}</span> : null;
+                      // 锚点按首个成员的 key 查（组自身不在 keyIdx 里，直接用组 key 会丢掉落点）
+                      const idx = keyIdx.get(members[0]!.key) ?? -1;
+                      const isAnswer = proc !== null && last === proc.answerIndex;
+                      // 组内每一行与单行走同一条渲染（同一份 props，避免两处拷贝）
+                      const renderItem = (it: import("../session/renderModel").RenderItem) => (
+                        <Item
+                          item={it}
+                          running={running && it === liveItem}
+                          onBranch={branchFrom}
+                          sessionId={sessionId}
+                          onPreviewFile={openPreviewFile}
+                          wsPath={wsPath}
+                          cwd={summary?.cwd}
+                          hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
+                          onContinue={continueTurn}
+                        />
+                      );
                       return (
                         <div
-                          key={item.key}
+                          key={key}
                           className="chat-anchor-row"
                           ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
                         >
                           {bar}
-                          <Item
-                            item={item}
-                            running={running && item === liveItem}
-                            onBranch={branchFrom}
-                            sessionId={sessionId}
-                            onPreviewFile={openPreviewFile}
-                            wsPath={wsPath}
-                            cwd={summary?.cwd}
-                            hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
-                            onContinue={continueTurn}
-                          />
+                          {unit.kind === "explore-group" ? (
+                            <ExploreGroupRow members={unit.members}>
+                              {unit.members.map((m) => <div key={m.key}>{renderItem(m)}</div>)}
+                            </ExploreGroupRow>
+                          ) : renderItem(unit.item)}
                         </div>
                       );
                     })}

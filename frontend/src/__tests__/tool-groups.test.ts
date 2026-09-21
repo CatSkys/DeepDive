@@ -100,7 +100,8 @@ describe("groupExploreItems：连续同族且 ≥2 条才成组", () => {
 });
 
 describe("formatExploreSummary：桶序固定、0 不出现、逗号分隔", () => {
-  const zh = (_zh: string, _en: string, _n: number) => _zh;
+  /** 摘要文案取中文（回调签名是 (zh, en, n)，少的参数可省）。 */
+  const zh = (label: string) => label;
   it("按搜索 → 列表 → 文件计数", () => {
     const items = [tool("grep", "x"), tool("glob", "**/*"), tool("read", "a.ts"), tool("read", "b.ts")];
     expect(formatExploreSummary(items, zh)).toBe("1 搜索, 1 列表, 2 文件");

@@ -3827,6 +3827,37 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   -webkit-box-orient: vertical;
 }
 
+/* ── 工具执行合并（「查阅」组）─────────────────────────────────
+   连续同族的只读/读取/搜索工具折成一行摘要，展开是缩进的子行。
+   分组与摘要口径见 frontend/src/session/toolGroups.ts。 ── */
+.explore-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 24px;
+  padding: 2px 0;
+  text-align: left;
+  color: var(--ink-2);
+}
+.explore-head:hover { color: var(--ink); }
+.explore-head > svg:first-child { flex: none; color: var(--ink-3); }
+.explore-label { flex: none; font-size: 14px; line-height: 24px; }
+.explore-sep { flex: none; color: var(--ink-3); }
+.explore-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-3);
+  font-size: 14px;
+  line-height: 24px;
+}
+.explore-chevron { flex: none; color: var(--ink-3); transition: transform var(--dur-fast) ease; }
+/* 展开体：缩进 + 左分隔线（他们 ml-2 border-l pl-3.5 的同款） */
+.explore-body { margin-left: 8px; padding-left: 14px; border-left: 1px solid var(--line); }
+
 /* ── 阶段 5：Goal 条 / 谱系 / 后台任务与提醒 / 工作流卡 / 子会话只读 ── */
 /* 目标区的动作行（图标钮）与就地编辑输入：原先的独立目标条（GoalBar）并进面板后
    搬过来的那几件。图标钮与收起钮共用同一套（.capsule-icon-btn）。 */
