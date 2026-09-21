@@ -1,26 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  AlarmClock, ArrowRight, Bot, ChevronDown, ChevronUp, CircleCheck, FileDiff, Flag,
-  History, RefreshCw, Square,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { api } from "../api";
 import { gitStatus } from "../host";
 import { useStore } from "../store";
 import { t, tt } from "../i18n";
 import { CapsuleGitSection } from "./CapsuleGitSection";
 import { CapsuleSection } from "./CapsuleSection";
+import { CapsuleStatusPill } from "./CapsuleStatusPill";
+import { CapsuleSubagentSection } from "./CapsuleSubagentSection";
 import { CapsuleTodoSection } from "./CapsuleTodoSection";
-import { capsulePill, classifyJobs, goalPhasePair, statusPanelHasContent, todoView, type CapsuleTodo } from "./capsuleModel";
+import {
+  capsulePill, classifyJobs, goalPhasePair, sectionOpenOnCountChange, sectionOpenOnForceExpand,
+  statusPanelHasContent, todoView,
+  type CapsuleTodo,
+} from "./capsuleModel";
 import { formatElapsed } from "../session/format";
 import type { GitStatus, GoalProjection, JobView, ScheduleRecord, SubagentListEntry } from "../types";
+
+type ChildEntry = Extract<SubagentListEntry, { kind: "child" }>;
 
 // 会话状态胶囊：头部右上角的聚合信息框，收编原 JobsMenu/ScheduleMenu/
 // SubagentLineage 三个 chip。收起态是一条优先级回落链（顺序与理由见
 // capsuleModel 的 capsulePill），点击展开为分区面板；无内容可画才隐藏。
 // 派生与优先级全在 capsuleModel（纯函数、可测），本组件只负责取数与渲染。
 // Git 数据来自壳层 run-git 桥消息（引擎无 git 能力）。
-
-type ChildEntry = Extract<SubagentListEntry, { kind: "child" }>;
 
 const JOB_STATUS: Record<string, [string, string]> = {
   running: ["运行中", "running"],
@@ -64,6 +67,10 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   const [git, setGit] = useState<GitStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [showEndedJobs, setShowEndedJobs] = useState(false);
+  // 活动区的开合由本组件持有（ZCode 放在 SessionPane：那边 model 在宿主手里；
+  // 本仓这些数据是胶囊自己取的，所以标记跟着数据走）
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [jobsOpen, setJobsOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const ref = useRef<HTMLDivElement>(null);
 
@@ -73,6 +80,10 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   const storeTodos = sessions.find((s) => s.sessionId === sessionId)?.projections?.values?.todos as CapsuleTodo[] | null | undefined;
   const todos = liveTodos ?? storeTodos;
   const goal = (sessions.find((s) => s.sessionId === sessionId)?.projections?.values?.goal as GoalProjection | null | undefined)?.goal;
+
+  const childRunning = (c: ChildEntry) => !!sessions.find((s) => s.sessionId === c.id)?.running || c.activity === "running";
+  const runningChildren = children.filter(childRunning).length;
+  const runningChildIds = new Set(children.filter(childRunning).map((c) => c.id));
 
   // todo 投影实时帧（control 流 projection key=todos 整表推送）快于 3s 轮询
   useEffect(() => subscribeControl((frame) => {
@@ -111,15 +122,17 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
     return () => clearInterval(iv);
   }, [wsPath, loadGit]);
 
-  const childRunning = (c: ChildEntry) => !!sessions.find((s) => s.sessionId === c.id)?.running || c.activity === "running";
-  const runningChildren = children.filter(childRunning).length;
-
   // 面板展开且有活跃任务时，秒级时钟刷新运行时长
   useEffect(() => {
     if (!open || jobSplit.live.length === 0) return;
     const iv = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(iv);
   }, [open, jobSplit.live.length]);
+
+  // 活动区开合的状态机（照 ZCode：切会话回关、在跑数归零自动收起）
+  useEffect(() => { setAgentOpen(false); setJobsOpen(false); }, [sessionId]);
+  useEffect(() => { setAgentOpen((v) => sectionOpenOnCountChange(v, runningChildren)); }, [runningChildren]);
+  useEffect(() => { setJobsOpen((v) => sectionOpenOnCountChange(v, jobSplit.live.length)); }, [jobSplit.live.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -134,6 +147,16 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  // 从入口展开面板时，把"有料的活动区"一并展开（ZCode 是点 composer 的活动徽标做
+  // 这件事；本仓没有那个徽标，入口就是 pill 本身——同一意图，入口不同）。
+  const togglePanel = () => {
+    if (!open) {
+      setAgentOpen(sectionOpenOnForceExpand(runningChildren));
+      setJobsOpen(sectionOpenOnForceExpand(jobSplit.live.length));
+    }
+    setOpen((v) => !v);
+  };
 
   const interrupt = async (childId: string) => {
     setBusy(true);
@@ -160,41 +183,7 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
 
   return (
     <div className="capsule-wrap" ref={ref}>
-      {pill && (
-        <button type="button" className="capsule-trigger" data-tip={t("摘要")} data-open={open ? "true" : "false"} onClick={() => setOpen((v) => !v)}>
-          {pill.kind === "todo" && <>
-            <ArrowRight size={13} />
-            <span className="capsule-pill-text">{pill.text}</span>
-            <span className="capsule-pill-meta">{pill.done}/{pill.total}</span>
-          </>}
-          {pill.kind === "goal" && <>
-            {pill.done ? <CircleCheck size={13} className="capsule-check" /> : <Flag size={13} />}
-            <span className="capsule-pill-text">{pill.title}</span>
-          </>}
-          {pill.kind === "git" && <>
-            <FileDiff size={13} />
-            <span className="capsule-pill-meta"><b className="capsule-add">+{pill.additions}</b> <b className="capsule-del">−{pill.deletions}</b></span>
-          </>}
-          {pill.kind === "todoDone" && <>
-            <CircleCheck size={13} className="capsule-check" />
-            <span className="capsule-pill-text">{pill.text}</span>
-          </>}
-          {pill.kind === "running" && <>
-            <Bot size={13} />
-            <span>{tt("{n} 运行中", "{n} running", { n: pill.count })}</span>
-            <span className="capsule-live" aria-hidden="true" />
-          </>}
-          {pill.kind === "schedule" && <>
-            <AlarmClock size={13} />
-            <span className="capsule-pill-text">{pill.prompt}</span>
-            <span className="capsule-pill-meta">{pill.when}</span>
-          </>}
-          {pill.kind === "ended" && <>
-            <History size={13} />
-            <span className="capsule-pill-meta">{tt("{n} 项已结束", "{n} ended", { n: pill.count })}</span>
-          </>}
-        </button>
-      )}
+      {pill && <CapsuleStatusPill pill={pill} open={open} onToggle={togglePanel} />}
       {open && (
         <div className="capsule-panel">
           <div className="capsule-head">
@@ -220,31 +209,22 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
           {children.length > 0 && (
             <CapsuleSection
               title={t("子智能体")}
+              open={agentOpen}
+              onOpenChange={setAgentOpen}
               trailing={
                 <button type="button" className="capsule-refresh" data-tip={t("刷新")} onClick={loadChildren}>
                   <RefreshCw size={11} />
                 </button>
               }
             >
-              {children.map((c) => {
-                const live = childRunning(c);
-                const modeLabel = c.mode === "continuable" ? t("可续") : t("一次性");
-                return (
-                  <div key={c.id} className="capsule-row">
-                    <button type="button" className="capsule-row-main" onClick={() => { setOpen(false); openSession(c.id); }}>
-                      <span className={`capsule-dot${live ? " live" : ""}`} aria-hidden="true" />
-                      <span className="capsule-row-text">{c.label ?? c.id.slice(0, 8)}</span>
-                      <span className="capsule-row-meta">{modeLabel}{live ? ` · ${t("运行中")}` : ""}</span>
-                    </button>
-                    {live && c.mode === "continuable" && (
-                      <button type="button" className="capsule-stop" data-tip={t("中断子智能体")} disabled={busy} onClick={() => void interrupt(c.id)}>
-                        <Square size={11} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-              {diag && <div className="capsule-note">{t("部分子会话状态不可读")}</div>}
+              <CapsuleSubagentSection
+                children={children}
+                runningIds={runningChildIds}
+                diag={diag}
+                busy={busy}
+                onOpen={(childId) => { setOpen(false); openSession(childId); }}
+                onInterrupt={(childId) => void interrupt(childId)}
+              />
             </CapsuleSection>
           )}
           {git && git.files > 0 && (
@@ -252,8 +232,8 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
               <CapsuleGitSection wsPath={wsPath} git={git} onRefresh={loadGit} />
             </CapsuleSection>
           )}
-          {(scheduleRecords.length > 0 || jobs.length > 0) && (
-            <CapsuleSection title={t("提醒与自动化")}>
+          {scheduleRecords.length > 0 && (
+            <CapsuleSection title={tt("提醒", "Reminders")}>
               {scheduleRecords.map((r) => (
                 <div key={r.id} className="capsule-row">
                   <span className="state-dot running" aria-hidden="true" />
@@ -261,6 +241,12 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                   <span className="capsule-row-meta">{fmtScheduleWhen(r)}</span>
                 </div>
               ))}
+            </CapsuleSection>
+          )}
+          {/* 后台任务独立成区：它是"活动区"，与 ZCode 的 terminals 区同位——受控开合、
+              计数归零自动收起；提醒是静态区，不参与那套状态机。 */}
+          {jobs.length > 0 && (
+            <CapsuleSection title={t("后台任务")} open={jobsOpen} onOpenChange={setJobsOpen}>
               {/* 还在跑的列在区里；已结束的折一行（与 ZCode 把"已结束"另给落点同款处理） */}
               {jobSplit.live.map((j) => <JobRow key={j.id} job={j} now={now} />)}
               {jobSplit.ended.length > 0 && (

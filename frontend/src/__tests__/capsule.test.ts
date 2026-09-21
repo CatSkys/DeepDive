@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  capsulePill, classifyJobs, nextScheduleRecord, statusPanelHasContent, todoView,
+  capsulePill, classifyJobs, nextScheduleRecord, sectionOpenOnCountChange, sectionOpenOnForceExpand,
+  statusPanelHasContent, todoView,
   TODO_COMPACT_THRESHOLD, TODO_PENDING_WINDOW,
   type CapsuleGoal, type CapsuleTodo,
 } from "../components/capsuleModel";
@@ -172,5 +173,22 @@ describe("statusPanelHasContent：面板存亡的判据", () => {
       const got = capsulePill({ ...c, endedCount: (c as { endedCount?: number }).endedCount ?? 0, fmtScheduleWhen: () => "—" });
       expect(got).not.toBeNull();
     }
+  });
+});
+
+describe("活动区开合的状态机（照 ZCode SessionPane 的 open 标记规则）", () => {
+  // 另两条规则是宿主的：初值关、切会话回关（effect keyed on sessionId）——
+  // 它们是"什么时候套用"，不是"套用什么"，ZCode 那边也没有对应用例。
+  it("在跑数归零 → 自动收起，无论用户此前是否手动打开过", () => {
+    expect(sectionOpenOnCountChange(true, 0)).toBe(false);
+    expect(sectionOpenOnCountChange(false, 0)).toBe(false);
+  });
+  it("还有在跑的 → 保持当前开合（既不自作主张展开，也不收起）", () => {
+    expect(sectionOpenOnCountChange(true, 2)).toBe(true);
+    expect(sectionOpenOnCountChange(false, 2)).toBe(false);
+  });
+  it("强制展开（ZCode：点活动徽标）时按该区自身是否有料决定", () => {
+    expect(sectionOpenOnForceExpand(3)).toBe(true);
+    expect(sectionOpenOnForceExpand(0)).toBe(false);
   });
 });

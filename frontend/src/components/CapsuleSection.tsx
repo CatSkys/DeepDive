@@ -9,21 +9,31 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
-export function CapsuleSection({ title, trailing, defaultOpen = true, scroll = "normal", children }: {
+export function CapsuleSection({ title, trailing, defaultOpen = true, open: openProp, onOpenChange, scroll = "normal", children }: {
   title: string;
   /** 标题右侧的附属信息（计数/时长/刷新钮）。 */
   trailing?: ReactNode;
   defaultOpen?: boolean;
+  /** 受控开合（与 ZCode StatusSection 同款：不传就是非受控）。活动区由宿主持有
+   *  开合状态，静态区不传、走 defaultOpen。 */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   /** 区体限高档：none 不限高（Git 区行少且含输入框）；tall 给计划类两倍高度
    *  （同 ZCode STATUS_SECTION_SCROLL_POLICY 的 plan=max-h-80，其余 max-h-48）。 */
   scroll?: "none" | "normal" | "tall";
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const controlled = openProp !== undefined;
+  const open = openProp ?? uncontrolledOpen;
+  const toggle = () => {
+    if (!controlled) setUncontrolledOpen(!open);
+    onOpenChange?.(!open);
+  };
   return (
     <div className="capsule-sec">
       <div className="capsule-sec-head">
-        <button type="button" className="capsule-sec-trigger" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <button type="button" className="capsule-sec-trigger" aria-expanded={open} onClick={toggle}>
           <span className="capsule-sec-title">{title}</span>
           {open
             ? <ChevronDown size={14} className="capsule-sec-chevron" />

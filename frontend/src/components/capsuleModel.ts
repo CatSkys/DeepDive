@@ -162,3 +162,16 @@ export function statusPanelHasContent(input: {
     || input.subagentEntryCount > 0
     || input.runningCount > 0;
 }
+
+/** 活动区的开合状态机（照 ZCode SessionPane 的三个 open 标记的规则）：
+ *  初值关（挂载与切会话都回到关）；用户开过之后只要该域还有在跑的保持开着；
+ *  在跑数归零就自动收起。ZCode 用三个独立 effect 表达这条规则，这里把规则本身
+ *  抽成纯函数，宿主只负责在计数变化时套用它。 */
+export function sectionOpenOnCountChange(current: boolean, runningCount: number): boolean {
+  return runningCount === 0 ? false : current;
+}
+
+/** 强制展开（ZCode：点 composer 的活动徽标）时每区按"自己是否有料"决定开合。 */
+export function sectionOpenOnForceExpand(runningCount: number): boolean {
+  return runningCount > 0;
+}
