@@ -102,6 +102,10 @@ ditto "$RUNTIME_SOURCE" "$STAGE/Resources/Runtime/dsh"
 # than the snapshot。
 bash "$ROOT/scripts/patch-engine-model-data.sh" "$STAGE/Resources/Runtime/dsh"
 
+# 闭包裁剪：engine/profile 不装载的包从分发里摘掉（官方 GUI 客户端等，见该脚本
+# 的移除清单）。自有组合是这件事成立的前提——我们知道自己装载什么，才敢删。
+bash "$ROOT/scripts/prune-dsh-runtime.sh" "$STAGE/Resources/Runtime/dsh"
+
 # Chat-import plugin（导入其他 Agent 会话，社区包 MIT）：独立引脚
 # scripts/dsh-chat-import-version.txt，prepare 脚本给出含 fzstd 的暂存目录。
 # 运行时由 ChatImportPlugin 装进 harness home 的 web profile（引擎启动前）。
@@ -181,5 +185,15 @@ fi
 # Post-embed self-check: proves the exact node+bin.js spawn shape the app
 # uses at runtime (SPEC-ENGINE-RUNTIME §3.4) before the bundle is signed.
 "$STAGE/Resources/Runtime/node" "$STAGE/Resources/Runtime/dsh/lib/bin.js" --version
+
+# Boot smoke: the pruned closure must actually load every row of our composition.
+# --version never loads a plugin and --dump-config only parses patch layers, so
+# neither notices a package a row still needs but the prune removed. Runs AFTER
+# the re-seal (a stale seal over freshly embedded binaries gets SIGKILL'd — see
+# the re-seal note above) and with the BUNDLED node, so what is asserted is the
+# bytes that ship, not the build machine's node.
+NODE_SMOKE_SOURCE="$STAGE/Resources/Runtime/node" \
+  bash "$ROOT/scripts/smoke-engine-boot.sh" \
+    "$STAGE/Resources/Runtime/dsh" "$STAGE/Resources/EngineProfile" 90
 
 echo "OK: engine embedded in $APP (node $EXPECTED_NODE_VERSION + $RUNTIME_SOURCE)"
