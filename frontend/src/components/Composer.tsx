@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, Square, Plus, Mic, FileText } from "lucide-react";
 import { api } from "../api";
@@ -55,8 +55,10 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   const [composing, setComposing] = useState(false);
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState(false);
-  /** 内容已折成两行以上（软换行也算）→ 卡片布局（见下方 measure） */
+  /** 内容已折成两行以上（软换行也算）→ 卡片布局（见下方 useLayoutEffect） */
   const [multiline, setMultiline] = useState(false);
+  /** 量测件宽度变化的计数（只用来重跑上面那条 useLayoutEffect） */
+  const [widthTick, setWidthTick] = useState(0);
   // 繁忙时 Enter 行为（settings ui-conversation ns，设置页同款；默认排队）
   const [busyEnter, setBusyEnter] = useState<"queue" | "steer">("queue");
   const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.deepdiveHost);
@@ -88,31 +90,33 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   // 旧高度、单行内容顶在天花板。收敛为单一机制：text 任何来源变化都重算
   // （useLayoutEffect 避免 session 切换首帧闪错高度）。
   //
-  // 同一处判「是否多行」：内容在当前文本列宽下折成两行以上（软换行也算）即换
+  // 同一处判「是否多行」：内容在单行态文本列宽下折成两行以上（软换行也算）即换
   // 卡片布局——文本在上、控件贴底、整框只按内容长高。行数必须用量测件
-  // （.composer-probe：同款只读 textarea，占第 2 列＝单行态文本列宽）读，不能拿
-  // 输入框自己的 scrollHeight：wide 态输入框更宽，临界文本会量到「1 行」而收
-  // 回单行、单行列宽下又折成 2 行，来回翻。
-  const measure = useCallback(() => {
+  // （.composer-probe：同款只读 textarea，与输入框同格）读，不能拿输入框自己的
+  // scrollHeight：卡片态输入框更宽，临界文本会量到「1 行」而收回单行、单行列宽下
+  // 又折成 2 行，来回翻。
+  useLayoutEffect(() => {
     const el = taRef.current;
     const probe = probeRef.current;
     if (!el || !probe) return;
-    autoGrow(el);
     const cs = getComputedStyle(probe);
     const rows = Math.round(
       (probe.scrollHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) / parseFloat(cs.lineHeight),
     );
-    setMultiline(rows > 1);
-  }, []);
-  useLayoutEffect(measure, [measure, text]);
-  // 列宽变化（窗口缩放、容量圈进出）会移动折行点，行数要跟着重量
+    const next = rows > 1;
+    // 翻转的这一轮只改布局：输入框宽度跟着布局变，高度必须等新宽度落地后再量。
+    // 否则窄态量出的高度留着——框里多一条空行，再敲一个字才回落。
+    if (next !== multiline) { setMultiline(next); return; }
+    autoGrow(el);
+  }, [text, multiline, widthTick]);
+  // 列宽变化（窗口缩放、容量圈进出）会移动折行点：量测件宽度一变就重跑上面那条
   useEffect(() => {
     const probe = probeRef.current;
     if (!probe) return;
-    const ro = new ResizeObserver(measure);
+    const ro = new ResizeObserver(() => setWidthTick((t) => t + 1));
     ro.observe(probe);
     return () => ro.disconnect();
-  }, [measure]);
+  }, []);
   /** 把「模型条目不吃 inline 图片」的那批图片按通用文件原件重投：同一份字节走
    *  文件回执，内容不减、顺序不变（文本/文件部件原样保留）。有一张投不出去就整条
    *  返回 null——由调用方按失败处理（不静默）。 */
