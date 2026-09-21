@@ -529,29 +529,29 @@ export function finalizeTurns(items: RenderItem[], ctx: IngestCtx) {
       endReason: ctx.turnReason.get(turn),
     });
   }
-  // Insert each turn's tail right after the LAST item belonging to that turn,
-  // scanning left-to-right so earlier splices never invalidate a later anchor.
-  // The live mux path re-finalizes on every turn/end, so a turn already
-  // carrying a tail keeps it — re-emitting would duplicate every earlier tail.
+  // 把每个 turn 的 tail 插在该 turn 最后一项之后。判定「本 turn 的最后一项」靠预先算好的
+  // 下标表，不靠向后扫本 turn 的下一次出现（后者对每个带 turn 的项扫到末尾，而本函数在
+  // 每个 turn/end 都跑一次）。表不跨调用缓存——ingest 往同一数组尾部追加会作废下标。
+  const lastIndexOf = new Map<number, number>();
+  const tailed = new Set<number>();
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const turn = item.turn;
+    if (turn === undefined) continue;
+    lastIndexOf.set(turn, i);
+    // 已在尾的 turn 不再发（实时通路每个 turn/end 都再收尾，重发会让旧 turn 多一条 tail）。
+    if (item.kind === "turn-tail") tailed.add(turn);
+  }
+  // Rebuild left-to-right so an earlier insert never invalidates a later anchor.
   const order: RenderItem[] = [];
-  const emitted = new Set<number>();
-  const tailed = new Set(items.filter((it) => it.kind === "turn-tail").map((it) => it.turn));
-  let i = 0;
-  while (i < items.length) {
+  for (let i = 0; i < items.length; i++) {
     const item = items[i];
     order.push(item);
     const turn = item.turn;
-    if (turn !== undefined) {
-      // Is this the last item carrying this turn? The scan above exits either
-      // at the array end (yes) or on the next item of the same turn (no).
-      let j = i + 1;
-      while (j < items.length && items[j].turn !== turn) j++;
-      if (j >= items.length && tails.has(turn) && !emitted.has(turn) && !tailed.has(turn)) {
-        order.push(tails.get(turn)!);
-        emitted.add(turn);
-      }
-    }
-    i++;
+    if (turn === undefined || lastIndexOf.get(turn) !== i) continue;
+    if (!tails.has(turn) || tailed.has(turn)) continue;
+    order.push(tails.get(turn)!);
+    tailed.add(turn);
   }
   items.length = 0;
   items.push(...order);

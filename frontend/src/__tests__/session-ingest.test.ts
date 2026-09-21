@@ -79,6 +79,15 @@ function replay(events: SessionEvent[]): RenderItem[] {
   return out;
 }
 
+/** 历史回灌通路：一次 ingest 全部条目，最后只收尾一次。 */
+function replayBulk(events: SessionEvent[]): RenderItem[] {
+  const ctx = makeIngestCtx();
+  const out: RenderItem[] = [];
+  for (const event of events) ingest(out, { event }, ctx);
+  finalizeTurns(out, ctx);
+  return out;
+}
+
 describe("ingest 黄金回放", () => {
   const out = replay(Object.values(EV));
 
@@ -247,5 +256,44 @@ describe("openTurnSince（快照对账运行态）", () => {
     // 结束事件漏掉（断线/丢帧）也要判成「未闭合」，否则 loading 永远转
     expect(openTurnSince([{ event: EV.turn1Start }, { event: EV.turn1End }, { event: EV.turn2Start }])).toBe(EV.turn2Start.time);
     expect(openTurnSince([])).toBeUndefined();
+  });
+});
+
+// 两条通路（切会话/断线重连后的历史回灌 vs 实时流）必须落在同一份渲染项上：
+// 回灌走「一次 ingest 全部 + 收尾一次」，实时走「逐条 ingest + 每个 turn/end 收尾」。
+// 二者若分叉，同一段会话在重连前后会渲染成两个样子——这是收尾逻辑（tail 锚点、
+// 流式项替换、幂等）全部改动的安全网。
+describe("全量回灌 ≡ 实时增量", () => {
+  it("同一份事件日志，两条通路产出逐项相同的渲染项", () => {
+    const ALL = Object.values(EV);
+    expect(replayBulk(ALL)).toEqual(replay(ALL));
+  });
+
+  it("同一轮多步：每步的流式项各被本步的 assistant/message 取代，跨步不残留（PITFALLS §3.1/§3.2）", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    const stream = (seq: number, step: number, chunkType: string, text: string) => ({
+      type: "assistant/chunk", seq, time: seq * 10, data: { turn: 1, step, chunk: { type: chunkType, index: 0, text } },
+    }) as unknown as SessionEvent;
+    const settled = (seq: number, step: number, text: string) => ({
+      type: "assistant/message", seq, time: seq * 10,
+      data: {
+        turn: 1, step,
+        message: { role: "assistant", id: `m${step}`, content: [{ type: "text", text }], source: { kind: "model", provider: "deepseek", model: "r1" } },
+      },
+    }) as unknown as SessionEvent;
+    for (const ev of [
+      EV.turn1Start,
+      stream(2, 1, "text-delta", "第一步"),
+      settled(3, 1, "第一步"),
+      stream(4, 2, "reasoning-delta", "第二步想想"),
+      settled(5, 2, "第二步"),
+      EV.turn1End,
+    ]) ingest(out, { event: ev }, ctx);
+    finalizeTurns(out, ctx);
+
+    expect(out.some((x) => x.kind === "chunk" || x.kind === "reasoning")).toBe(false);
+    expect(out.filter((x) => x.kind === "assistant")).toHaveLength(2);
+    expect(out.filter((x) => x.kind === "turn-tail")).toHaveLength(1);
   });
 });
