@@ -258,6 +258,27 @@
 - 处置：node 落在 `Contents/Resources/Runtime/node`（与 dsh 闭包同级）；`EngineSupervisor.bundledRuntimeState()` / `embed-engine.sh` / `package-macos.sh` 签名 case 同步。`Contents/MacOS/` 只保留 app 主可执行文件。
 - 旧布局残留：嵌过旧布局（`MacOS/node`）的 .app 在新自查下呈「残缺」（`Resources/Runtime/node` 缺、`Runtime/dsh` 在）而被判「引擎程序不完整」拒启——处置是重新打包（或删掉旧 .app 重构建），别去追引擎为什么不再启动。
 
+### 4.20 App 未声明本地化 → `Locale.current` 落回开发语言，与系统语言无关（2026-09-21 用户实测）
+
+- 事故：听写在中英文混合使用下**一直识别成英文**。根因不是识别器，是取语言的方式——
+  `SFSpeechRecognizer()` 的默认构造取 `Locale.current`，而 macOS 上 `Locale.current` 是
+  **"用户偏好 ∩ App 自身本地化"**：本 app 没声明任何本地化（`CFBundleDevelopmentRegion`
+  = 开发语言 `en`，工程无 `knownRegions`/`.lproj`），于是恒落回英文。在 app 包上下文里实测：
+  `Bundle.main.localizations == ["en"]`、`Locale.current == en_CN`（**语言英文、区域中国**）、
+  而 `Locale.preferredLanguages == zh-Hans-CN`。代码里那句"识别区域语言跟随系统"的注释是错的。
+- 处置：识别语言显式解析（`DictationController.resolveLocale`），**用 `Locale.preferredLanguages`
+  而不是 `Locale.current`**。另在开始听写时落一行 `[dictation] locale …`——选中的语言是
+  "看不见的决定"，这类问题这行日志是第一现场。
+- 匹配别自己写：偏好语言是**脚本形式**（`zh-Hans-CN`），识别器支持的是**区域形式**
+  （实测这台机器 zh 只有 `zh-CN`/`zh-HK`/`zh-TW`），前缀匹配必然失败；
+  `Bundle.preferredLocalizations(from:forPreferences:)` 就是干这个的。**一个反直觉的兜底**：
+  一个都匹配不上时（含支持集为空）它回的是 **bundle 的开发语言**（`en`），不是空数组——
+  我第一版测试就按"空集 → nil"断言，是测试写错而不是实现错。
+- 通用教训：**任何"跟随系统"的行为都要问一句"它取的到底是哪一个 locale"**——
+  `Locale.current` / `Locale.preferredLanguages` / `Locale.autoupdatingCurrent` 三者语义不同，
+  而 App 未本地化时第一者会静默退回开发语言。本仓同类面还有：引擎/SPA 的语言（我们自建
+  `i18n`，不看系统）、`pdf.js` 与 `mermaid` 的本地化。
+
 ---
 
 ## 5. 版本角标 / 交付自检
