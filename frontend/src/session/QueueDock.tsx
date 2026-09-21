@@ -6,7 +6,7 @@
 // （sendingRpcIds 由 Composer 经 store 登记到快照出现为止）。
 
 import { useState } from "react";
-import { ArrowUp, GripVertical, Pencil, Trash2, X } from "lucide-react";
+import { ArrowUp, Pencil, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
@@ -38,7 +38,6 @@ export function QueueDock({ sessionId, items, sendingRpcIds }: { sessionId: stri
         const sending = item.placement === "steering" || (sendingRpcIds?.has(item.rpcId ?? "") ?? false);
         return (
           <div className="queue-row" key={item.id} data-sending={sending || undefined}>
-            <span className="queue-handle" aria-hidden="true"><GripVertical size={13} /></span>
             {editing ? (
               <>
                 <input
@@ -73,14 +72,14 @@ export function QueueDock({ sessionId, items, sendingRpcIds }: { sessionId: stri
                 <span className="queue-text" data-tip={text}>{text}</span>
                 <div className="queue-actions">
                   <button className="queue-now" data-tip={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
-                    <ArrowUp size={13} />
+                    <ArrowUp size={14} />
                     {t("立即")}
                   </button>
                   <button className="queue-btn" data-tip={t("编辑排队消息")} onClick={() => { setEditingId(item.id); setDraft(text); }}>
-                    <Pencil size={13} />
+                    <Pencil size={14} />
                   </button>
                   <button className="queue-btn" data-tip={t("删除排队消息")} onClick={() => void mutate(item.id, { kind: "remove" })}>
-                    <Trash2 size={13} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </>

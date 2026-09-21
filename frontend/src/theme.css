@@ -1934,10 +1934,16 @@ button {
   align-items: center;
   gap: 10px;
   min-height: 40px;
-  padding: 2px 8px;
+  /* 左内边距让排队文本与下方输入框的正文同列（输入框正文列 = 8 pill 内边距 + 28 加号列
+     + 4 栅格间距 + 2 textarea 自身的 UA 内边距 = 42；本卡左缘比会话输入区再缩 6，
+     卡内减去 1px 描边 + 8 卡片内边距 → 27）。此前这个位置由一个**不能拖**的抓手占着：
+     引擎的排队操作只有 edit / remove / steer，没有排序。 */
+  padding: 2px 8px 2px 27px;
 }
 .queue-row + .queue-row { border-top: 1px solid var(--line); }
-.queue-handle { color: var(--ink-3); flex: none; display: inline-flex; }
+/* 不可操作行（steering 已递给模型 / 本端刚发出、快照尚未观察到）：操作钮本就不渲染，
+   文本一并降一档亮度——状态表达靠亮度，不靠颜色（UI-SPEC §0.6）。 */
+.queue-row[data-sending] .queue-text { color: var(--ink-2); }
 .queue-text {
   flex: 1;
   min-width: 0;
@@ -1948,12 +1954,22 @@ button {
   white-space: nowrap;
   user-select: text;
 }
+/* 「发送中…」是行内状态词、不参与文本截断。必须有字号与亮度：无规则时它继承到浏览器
+   默认 16px，比旁边的消息文本（13px）还大（用户报过）。 */
+.queue-sending {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
 .queue-actions { flex: none; display: flex; align-items: center; gap: 6px; }
+/* 行内控件高度取 28：与输入框的编辑态（.queue-edit 28）和下方输入框 pill 里的控件
+   同高（UI-SPEC §2.1 Button 28/32）——同一张卡里出现两种按钮高度是无意的。 */
 .queue-now {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 26px;
+  height: 28px;
   padding: 0 10px;
   border-radius: var(--dsh-radius-control);
   background: var(--fill-strong);
@@ -1965,8 +1981,8 @@ button {
 }
 .queue-now:hover { background: var(--fill-strong); color: var(--ink-bright); }
 .queue-btn {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--dsh-radius-control);
   display: inline-flex;
   align-items: center;
@@ -1983,7 +1999,10 @@ button {
   border-radius: var(--dsh-radius-control);
   border: 1px solid var(--line-strong);
   background: var(--fill);
-  color: var(--dsh-text-primary);
+  /* 配色走语义变量（--ink*）：主题由 html[data-theme] 切，而 --dsh-* 那一套按
+     prefers-color-scheme 切，两套在「应用暗 × 系统亮」（本机现状）下互相打架——
+     用 --dsh-text-primary 会在暗色玻璃底上写出近黑字（编辑态看不见）。 */
+  color: var(--ink);
   font-size: 13px;
   font-family: inherit;
 }
