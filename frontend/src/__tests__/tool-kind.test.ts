@@ -1,0 +1,51 @@
+// 工具名 → 语义族的分类口径（唯一映射，ToolIcon 按族选 glyph）。
+// 特别钉住 mcp__*：官方 UI 不给 MCP 工具专属行——ui-tool 的 TOOL_VARIANTS 是精确
+// 匹配表 + 缺省 others，而注册了 tool.call.toolview 专属卡的只有 ui-cordis
+// （cordis_* 三兄弟）与 ui-skill（skill），mcp-client 不注册。所以 mcp__* 落 other
+// 是官方口径而非缺口：不要为它加族，除非官方先加。
+import { describe, expect, it } from "vitest";
+import { toolVariant } from "../session/toolKind";
+import type { ToolVariant } from "../session/toolKind";
+
+describe("toolVariant：工具名 → 语义族", () => {
+  it.each<[string, ToolVariant]>([
+    ["bash", "shell"],
+    ["terminal-bash", "shell"],
+    ["pwsh", "shell"],
+    ["write", "edit"],
+    ["edit", "edit"],
+    ["str_replace_editor", "edit"],
+    ["multiedit", "edit"],
+    ["apply_patch", "edit"],
+    ["read", "read"],
+    ["read_file", "read"],
+    ["file_read", "read"],
+    ["read_image", "read"],
+    ["web_fetch", "read"],
+    ["cordis_package_inspect", "read"],
+    ["cordis_runtime_inspect", "read"],
+    ["web_search", "search"],
+    ["grep", "search"],
+    ["glob", "search"],
+    ["run_code", "code"],
+    ["code_execute", "code"],
+    ["skill", "skill"],
+    ["ask_user_question", "question"],
+    ["ask_user", "question"],
+  ])("%s → %s", (name, variant) => {
+    expect(toolVariant(name)).toBe(variant);
+  });
+
+  it.each(["mcp__github__create_issue", "mcp__filesystem__read_file", "mcp__x__y"])(
+    "%s → other（官方口径：MCP 没有专属行）",
+    (name) => {
+      expect(toolVariant(name)).toBe("other");
+    },
+  );
+
+  it("未收录的名字一律回 other", () => {
+    for (const name of ["todo_write", "subagent", "jobs", "goal", "完全不存在的工具"]) {
+      expect(toolVariant(name)).toBe("other");
+    }
+  });
+});

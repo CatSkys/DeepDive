@@ -1,39 +1,33 @@
 // 工具图标与语言徽标（R-007 从 SessionView 搬出）：ToolIcon 分流、
 // LANG_BADGES 配色表、React/文件语言标。
-/// Variant leading icons — DSH figma table (all glyphs render at 14 inside the
-/// 16px leading box): search / read(browse) / bash(api) / write-edit(edit) /
-/// code / question for unknown. Ported from ui-tool GenericToolCard.
-/// Variant leading icons — 对齐官方 tool-call-model 的 TOOL_VARIANTS（figma 表，
-/// 所有 glyph 在 16px 前导盒内按 14 渲染）：bash/pwsh → api；read 家族（含
-/// web_fetch、read_image、cordis inspect）→ browse；search 家族（web_search/
-/// grep/glob）→ search；write/edit → edit；run_code → code；skill → 专用图标；
-/// 未分类（含 jobs/goal/subagent/ralph 等）→ sparkle。ask_user_question 保留
+/// 族 → 前导 glyph：对齐官方 tool-call-model 的 TOOL_VARIANTS 与 GenericToolCard 的
+/// VARIANT_ICONS（figma 表，所有 glyph 在 16px 前导盒内按 14 渲染）：bash/pwsh →
+/// api；read 家族（含 web_fetch、read_image、cordis inspect）→ browse；search 家族
+/// （web_search/grep/glob）→ search；write/edit → edit；run_code → code；skill → 专用
+/// 图标；未分类（含 mcp__*、jobs/goal/subagent 等）→ sparkle。ask_user_question 保留
 /// 问号：与等待回答行语义直接对应。
+/// 表按族穷举（与官方同形）：新增族漏写是类型错误，不会静默落到别的分支。
 
+import type { ReactNode } from "react";
 import {
   IconApiOutline14, IconBrowseOutline16, IconCodeOutline16, IconEditOutline16,
   IconQuestionOutline14, IconSearchOutline16, IconSkillOutline16, IconSparkle16,
 } from "../components/Icons";
-import { toolVariant } from "./toolKind";
+import { toolVariant, type ToolVariant } from "./toolKind";
+
+const VARIANT_ICONS: Record<ToolVariant, ReactNode> = {
+  shell: <IconApiOutline14 size={14} />,
+  edit: <IconEditOutline16 size={14} />,
+  read: <IconBrowseOutline16 size={14} />,
+  search: <IconSearchOutline16 size={14} />,
+  code: <IconCodeOutline16 size={14} />,
+  skill: <IconSkillOutline16 size={14} />,
+  question: <IconQuestionOutline14 size={14} />,
+  other: <IconSparkle16 size={14} />,
+};
+
 export function ToolIcon({ name }: { name: string }) {
-  switch (toolVariant(name)) {
-    case "shell":
-      return <IconApiOutline14 size={14} />;
-    case "edit":
-      return <IconEditOutline16 size={14} />;
-    case "read":
-      return <IconBrowseOutline16 size={14} />;
-    case "search":
-      return <IconSearchOutline16 size={14} />;
-    case "code":
-      return <IconCodeOutline16 size={14} />;
-    case "skill":
-      return <IconSkillOutline16 size={14} />;
-    case "question":
-      return <IconQuestionOutline14 size={14} />;
-    case "other":
-      return <IconSparkle16 size={14} />;
-  }
+  return <>{VARIANT_ICONS[toolVariant(name)]}</>;
 }
 
 
