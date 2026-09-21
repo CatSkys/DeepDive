@@ -1,0 +1,12 @@
+{
+  "name": "deepdive-engine-profile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DeepDive's own engine composition: the single profile bundle that defines which plugins the shipped engine loads.",
+  "type": "module",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
