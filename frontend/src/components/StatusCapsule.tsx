@@ -5,12 +5,13 @@ import { gitStatus } from "../host";
 import { useStore } from "../store";
 import { t, tt } from "../i18n";
 import { CapsuleGitSection } from "./CapsuleGitSection";
+import { CapsuleGoalSection } from "./CapsuleGoalSection";
 import { CapsuleSection } from "./CapsuleSection";
 import { CapsuleStatusPill } from "./CapsuleStatusPill";
 import { CapsuleSubagentSection } from "./CapsuleSubagentSection";
 import { CapsuleTodoSection } from "./CapsuleTodoSection";
 import {
-  capsulePill, classifyJobs, goalPhasePair, sectionOpenOnCountChange, sectionOpenOnForceExpand,
+  capsulePill, classifyJobs, sectionOpenOnCountChange, sectionOpenOnForceExpand,
   statusPanelHasContent, todoView,
   type CapsuleTodo,
 } from "./capsuleModel";
@@ -58,7 +59,7 @@ function JobRow({ job, now }: { job: JobView; now: number }) {
 }
 
 export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: string; scheduleRecords: ScheduleRecord[] }) {
-  const { sessions, jobsBySession, openSession, wsOfSession, workspaces, activeWorkspaceId, subscribeControl } = useStore();
+  const { sessions, jobsBySession, openSession, wsOfSession, workspaces, activeWorkspaceId, subscribeControl, refresh } = useStore();
   const [open, setOpen] = useState(false);
   // control 流实时帧优先（undefined=尚无帧，用 store 投影基线），照 SessionView goal 模式
   const [liveTodos, setLiveTodos] = useState<CapsuleTodo[] | null | undefined>(undefined);
@@ -189,17 +190,13 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
           {/* 面板没有标题行（ZCode 如此）：收起控件浮在右上角，区头为它留出右边距 */}
           <div className="capsule-controls">
             {/* 收起钮的图标用他们那枚（Minimize2），不是普通 chevron */}
-            <button type="button" className="capsule-fold" data-tip={t("收起")} onClick={() => setOpen(false)}>
+            <button type="button" className="capsule-icon-btn" data-tip={t("收起")} onClick={() => setOpen(false)}>
               <Minimize2 size={14} />
             </button>
           </div>
           {goal && (
             <CapsuleSection title={t("目标")}>
-              <div className="capsule-row">
-                <span className={`state-dot ${goal.phase === "active" ? "running" : goal.phase === "complete" ? "ok" : "warning"}`} aria-hidden="true" />
-                <span className="capsule-row-text">{goal.objective}</span>
-                <span className="capsule-row-meta">{tt(...goalPhasePair(goal.phase))}</span>
-              </div>
+              <CapsuleGoalSection goal={goal} sessionId={sessionId} onChange={refresh} />
             </CapsuleSection>
           )}
           {todo.total > 0 && (

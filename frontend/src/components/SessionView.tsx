@@ -8,7 +8,6 @@ import { HeroBrand } from "./HeroBrand";
 import { LoadingState } from "./LoadingState";
 import { planReviewOf } from "../planReview";
 import { PlanReviewCard } from "./PlanReviewCard";
-import { GoalBar } from "./GoalBar";
 import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
 import { groupTurns, type TurnGroup } from "../turnGroups";
 import { Item } from "../session/Item";
@@ -47,7 +46,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 供 syncBottomPad 同步读）保持一个事实源，拆两套监听会算出两个贴底。
   const [scrolled, setScrolled] = useState(false);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
-  const { items, liveRunning, runningSince, plan, goalProj, refreshGoal, scheduleRecords, hasMore, loadingOlder, loadOlder, outline, loadThrough, loadError, retry } =
+  const { items, liveRunning, runningSince, plan, scheduleRecords, hasMore, loadingOlder, loadOlder, outline, loadThrough, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("会话");
@@ -312,7 +311,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         <div className="hero">
           <HeroBrand />
           <div className="hero-composer">
-            <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
             <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
           </div>
         </div>
@@ -510,7 +508,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <QueueDock sessionId={sessionId} items={queuedItems} sendingRpcIds={sendingRpcIds} />
             </div>
           )}
-          <GoalBar projection={goalProj} onChange={refreshGoal} sessionId={sessionId} />
           {summary?.origin === "subagent" && (subagentMode !== "continuable" || !summary.parentSessionId) ? (
             <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
           ) : summary?.origin === "subagent" ? (

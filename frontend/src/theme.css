@@ -3828,50 +3828,38 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 }
 
 /* ── 阶段 5：Goal 条 / 谱系 / 后台任务与提醒 / 工作流卡 / 子会话只读 ── */
-.goal-bar {
+/* 目标区的动作行（图标钮）与就地编辑输入：原先的独立目标条（GoalBar）并进面板后
+   搬过来的那几件。图标钮与收起钮共用同一套（.capsule-icon-btn）。 */
+.capsule-goal-actions { display: inline-flex; gap: 2px; margin-left: auto; padding: 2px 0; }
+/* 卡片里的搜索行（分支搜索）：图标 + 输入，与卡片内距对齐 */
+.capsule-card-search {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  margin: 0 auto 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--dsh-radius-control);
-  /* 悬浮区叠消息流：与排队坞同套磨砂，禁无 blur 的 fill 渐变 */
-  background: var(--panel-glass);
-  /* 前缀顺序勿倒：-webkit- 在前 */
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: var(--shadow-pop);
-  font-size: 12.5px;
-  color: var(--ink-2);
+  gap: 6px;
+  padding: 0 8px 4px;
+  color: var(--ink-3);
 }
-.goal-glyph { color: var(--ink-3); display: inline-flex; }
-.goal-bar[data-phase="active"] .goal-glyph { color: var(--dsh-signal-live); }
-.goal-bar[data-phase="paused"] .goal-glyph { color: #FFCB6B; }
-.goal-bar[data-phase="blocked"] .goal-glyph { color: var(--dsh-signal-warn); }
-.goal-phase { font-weight: 600; color: var(--ink-soft); flex: none; }
-.goal-objective { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
-.goal-input {
-  flex: 1;
-  min-width: 0;
-  background: var(--fill-soft);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--dsh-radius-keycap);
-  color: var(--ink);
-  font-size: 12.5px;
-  padding: 3px 8px;
-}
-.goal-actions { display: inline-flex; gap: 2px; margin-left: auto; flex: none; }
-.goal-act {
+.capsule-card-search > svg { flex: none; }
+.capsule-icon-btn {
   display: inline-flex;
   align-items: center;
   padding: 3px;
   border-radius: var(--dsh-radius-keycap);
   color: var(--ink-3);
 }
-.goal-act:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
-.goal-act:disabled { opacity: .4; }
-.goal-error { font-size: 11px; color: var(--dsh-signal-warn); flex: none; }
+.capsule-icon-btn:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
+.capsule-icon-btn:disabled { opacity: .4; }
+.capsule-inline-input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--dsh-radius-keycap);
+  background: var(--fill-soft);
+  color: var(--ink);
+  font-size: 12.5px;
+}
 
 /* 会话状态胶囊：横条 pill（两端全圆）按运行状态显示一类，展开为摘要卡片 */
 .capsule-wrap { position: relative; }
@@ -3941,8 +3929,6 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 .capsule-trigger:focus-visible .capsule-pill-icon > span { opacity: 0; }
 .capsule-trigger:hover .capsule-pill-expand,
 .capsule-trigger:focus-visible .capsule-pill-expand { opacity: 1; }
-.capsule-fold { color: var(--ink-3); padding: 3px; border-radius: var(--dsh-radius-keycap); }
-.capsule-fold:hover { color: var(--ink); background: var(--fill); }
 .capsule-sec { padding: 8px 14px; }
 .capsule-sec + .capsule-sec::before {
   content: "";
@@ -4087,7 +4073,6 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 input:focus, textarea:focus, select:focus { outline: none; }
 
 /* 黑白主题下 goal 编辑框的聚焦反馈（此前无规则，露出系统蓝环） */
-.goal-input:focus { outline: none; border-color: var(--ink-3); background: var(--fill); }
 
 /* 全局悬浮注释（data-tip）：与触发元素四边对齐，键帽快捷键右置；胶囊形
    （用户定稿：与全站胶囊语法统一） */
@@ -4136,7 +4121,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   .tip { animation: none; }
 }
 
-.capsule-git-row, .capsule-card-item, .capsule-fold, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
+.capsule-git-row, .capsule-card-item, .capsule-icon-btn, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
   transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 

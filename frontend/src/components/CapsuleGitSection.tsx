@@ -10,7 +10,7 @@
 //  ② 他们的提交与推送是两个对话框 + 一个动作菜单（GitActionMenu 1,404 行）；本仓
 //     复用现有 promptDialog/confirmDialog，三个动作收在一个随行展开的小菜单里。
 import { useRef, useState } from "react";
-import { Check, ChevronDown, CloudUpload, FileDiff, GitBranch, GitCommitHorizontal } from "lucide-react";
+import { Check, ChevronDown, CloudUpload, FileDiff, GitBranch, GitCommitHorizontal, Search } from "lucide-react";
 import { gitRun } from "../host";
 import { t, tt } from "../i18n";
 import { confirmDialog, promptDialog } from "./DialogHost";
@@ -25,6 +25,7 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
 }) {
   const [branchOpen, setBranchOpen] = useState(false);
   const [branches, setBranches] = useState<string[] | null>(null);
+  const [branchQuery, setBranchQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
     setBranchOpen(next);
     if (!next) return;
     setBranches(null);
+    setBranchQuery("");
     const seq = ++branchesReqRef.current;
     const r = wsPath ? await gitRun(wsPath, ["for-each-ref", "refs/heads", "--format=%(refname:short)"]) : null;
     if (branchesReqRef.current !== seq) return;
@@ -93,6 +95,8 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
   };
 
   const dirty = git.files > 0;
+  const query = branchQuery.trim().toLowerCase();
+  const filteredBranches = (branches ?? []).filter((b) => b.toLowerCase().includes(query));
   const busyLabel = busy === "commit" ? t("提交中…") : busy === "push" ? t("推送中…") : t("切换中…");
 
   return (
@@ -111,9 +115,20 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
       {/* 分支列表与动作菜单共用同一张行下卡片（用户定稿：两处统一） */}
       {branchOpen && (
         <div className="capsule-card">
+          {/* 搜框（ZCode GitBranchSwitcher 的 searchPlaceholder）：分支多时按子串过滤 */}
+          <div className="capsule-card-search">
+            <Search size={13} />
+            <input
+              className="capsule-inline-input"
+              value={branchQuery}
+              placeholder={tt("搜索分支…", "Search branches…")}
+              aria-label={tt("搜索分支…", "Search branches…")}
+              onChange={(e) => setBranchQuery(e.target.value)}
+            />
+          </div>
           {branches === null && <span className="capsule-note">{t("载入中…")}</span>}
-          {branches !== null && branches.length === 0 && <span className="capsule-note">{t("无结果")}</span>}
-          {branches?.map((b) => (
+          {branches !== null && filteredBranches.length === 0 && <span className="capsule-note">{t("无结果")}</span>}
+          {branches !== null && filteredBranches.map((b) => (
             <button
               key={b}
               type="button"
