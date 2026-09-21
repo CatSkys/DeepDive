@@ -1,10 +1,22 @@
-import type { GitStatus, ScheduleRecord } from "../types";
+import type { GitStatus, GoalProjection, JobView, ScheduleRecord } from "../types";
 
-// 状态聚合胶囊的数据模型（纯函数，无 React）。收起态不是轮播：按当前运行
-// 状态固定显示一类，优先级 = 运行中的智能体 > 进行中任务 > 未提交改动 >
-// 最近提醒，全空则胶囊隐藏。引擎契约：todos 投影 = {content,status}[] |
-// null（todo/write 整表替换，DSH-WIRE §3.3）；git 数据来自壳层 run-git
-// 桥消息（引擎无 git 能力），非 git 仓库收窄为 null。
+// 状态面板的数据模型（纯函数，无 React）。形状照 ZCode 的
+// conversationStatusPanelModel：派生与优先级都收在这里，组件只把模型画出来，
+// 所以状态转换可测（此前这些派生散在组件里，只有纯函数那几段有护栏）。
+//
+// 收起态 pill 是一条**优先级回落链**（对应 ZCode ConversationStatusPanel 的
+// StatusSummaryRow）：从上往下第一个非空者获胜。顺序与它一致——
+//   当前任务 → 活动中的目标 → 未提交改动 → 已完成的目标 → 最后一条已完成任务
+//   → 运行中计数 → 最近提醒 → 已结束计数
+// 三条排序理由也照抄：当前任务先于一切；"活动中的目标"与"已完成的目标"分列两级
+// （同一个标题会换级）；**live 活动只作兜底**（composer 自己已有活动入口，pill 不跟
+// 它重复），所以运行计数排在任务/目标/改动之后；最后的已结束计数与 ZCode 的
+// "已结束工作流"同级同位——它存在的意义是别让面板塌成空壳。
+// ZCode 链里还有一级"最近的会话计划"（ExitPlanMode 历史行），本仓引擎没有那类历史，
+// 故这一级缺省（不是遗漏，是数据面没有）。
+
+/** 目标状态：复用 types.ts 里 GoalProjection 的内层形状，不另立一份。 */
+export type CapsuleGoal = GoalProjection["goal"];
 
 export interface CapsuleTodo {
   content: string;
@@ -18,23 +30,10 @@ const GOAL_PHASE: Record<string, [string, string]> = {
   complete: ["已完成", "Complete"],
 };
 
-/** 目标阶段文案对（[zh, en]），消费方 tt(...pair)：StatusCapsule 摘要与
- *  GoalBar 共用这一份；未知阶段按"进行中"显示。 */
+/** 目标阶段文案对（[zh, en]），消费方 tt(...pair)：状态面板与 GoalBar 共用这一份；
+ *  未知阶段按"进行中"显示。 */
 export function goalPhasePair(phase: string): [string, string] {
   return GOAL_PHASE[phase] ?? GOAL_PHASE.active;
-}
-
-export function todoStats(todos: CapsuleTodo[] | null | undefined): {
-  done: number;
-  total: number;
-  active: CapsuleTodo | undefined;
-} {
-  const list = todos ?? [];
-  return {
-    done: list.filter((t) => t.status === "completed").length,
-    total: list.length,
-    active: list.find((t) => t.status === "in_progress"),
-  };
 }
 
 /** 短表阈值：整表不超过它就全列（含已完成），超过才走聚焦窗。 */
@@ -80,27 +79,86 @@ export function nextScheduleRecord(records: ScheduleRecord[]): ScheduleRecord | 
   return records[0] ?? null;
 }
 
-export type CapsuleCategory =
-  | { kind: "agents"; count: number }
-  | { kind: "todo"; active: string; done: number; total: number }
-  | { kind: "git"; additions: number; deletions: number }
-  | { kind: "schedule"; prompt: string; when: string };
+/** 活动域：后台任务按"还在跑 / 已结束"分两拨（ZCode 对 terminals 只看 running，
+ *  已结束的另给落点，不混在同一列表里）。 */
+export interface CapsuleJobs {
+  live: JobView[];
+  ended: JobView[];
+}
 
-/** 收起态显示哪一类：第一个非空的优先级；全空 → null（胶囊隐藏）。 */
-export function capsuleCategory(input: {
-  agentsRunning: number;
+export function classifyJobs(jobs: readonly JobView[]): CapsuleJobs {
+  const live: JobView[] = [];
+  const ended: JobView[] = [];
+  for (const j of jobs) (j.status === "running" || j.status === "stopping" ? live : ended).push(j);
+  return { live, ended };
+}
+
+export type CapsulePill =
+  | { kind: "todo"; text: string; done: number; total: number }
+  | { kind: "goal"; title: string; done: boolean }
+  | { kind: "git"; additions: number; deletions: number }
+  | { kind: "todoDone"; text: string }
+  | { kind: "running"; count: number }
+  | { kind: "schedule"; prompt: string; when: string }
+  | { kind: "ended"; count: number };
+
+/** 收起态显示什么：优先级回落链，第一个非空者获胜；全空 → null（胶囊隐藏）。 */
+export function capsulePill(input: {
   todos: CapsuleTodo[] | null | undefined;
+  goal: CapsuleGoal | null | undefined;
   git: GitStatus | null;
+  runningCount: number;
+  endedCount: number;
   scheduleRecords: ScheduleRecord[];
   fmtScheduleWhen: (r: ScheduleRecord) => string;
-}): CapsuleCategory | null {
-  if (input.agentsRunning > 0) return { kind: "agents", count: input.agentsRunning };
-  const s = todoStats(input.todos);
-  if (s.active) return { kind: "todo", active: s.active.content, done: s.done, total: s.total };
+}): CapsulePill | null {
+  const list = input.todos ?? [];
+  const completed = list.filter((t) => t.status === "completed");
+  // ① 当前任务：进行中优先，其次第一条待办（ZCode: inProgress ?? 第一条 pending）。
+  //    只看 in_progress 的话，模型刚写完计划、还没开工时 pill 会整个空掉。
+  const current = list.find((t) => t.status === "in_progress") ?? list.find((t) => t.status === "pending");
+  if (current) return { kind: "todo", text: current.content, done: completed.length, total: list.length };
+  // ② 活动中的目标（本仓阶段：active / paused / blocked 都算"还没完"）
+  const title = input.goal?.objective;
+  const phase = input.goal?.phase;
+  if (title && phase && phase !== "complete") return { kind: "goal", title, done: false };
+  // ③ 未提交改动
   if (input.git && input.git.files > 0) {
     return { kind: "git", additions: input.git.additions, deletions: input.git.deletions };
   }
+  // ④ 已完成的目标（与 ② 同一个标题分列两级，ZCode 同款写法）
+  if (title && phase === "complete") return { kind: "goal", title, done: true };
+  // ⑤ 最后一条已完成的任务
+  const lastDone = completed[completed.length - 1];
+  if (lastDone) return { kind: "todoDone", text: lastDone.content };
+  // ⑥ 运行中计数（live 活动只作兜底，见文件头）
+  if (input.runningCount > 0) return { kind: "running", count: input.runningCount };
+  // ⑦ 最近提醒：兜底一级，避免面板塌成空壳
   const next = nextScheduleRecord(input.scheduleRecords);
   if (next) return { kind: "schedule", prompt: next.prompt, when: input.fmtScheduleWhen(next) };
+  // ⑧ 已结束计数：兜底链的最底层（ZCode 的"已结束工作流"同位）
+  if (input.endedCount > 0) return { kind: "ended", count: input.endedCount };
   return null;
+}
+
+/** 面板是否有内容可画——它决定面板存亡，所以取"每个会渲染的区是否有料"的或：
+ *  任务表 / 目标 / 改动 / 提醒 / 后台任务（含已结束，本仓这一区会列出它们）/
+ *  子智能体目录 / 运行中的子会话。ZCode 同款判据（只是他们的区集合不同）。 */
+export function statusPanelHasContent(input: {
+  todos: CapsuleTodo[] | null | undefined;
+  goal: CapsuleGoal | null | undefined;
+  git: GitStatus | null;
+  scheduleRecords: ScheduleRecord[];
+  jobCount: number;
+  subagentEntryCount: number;
+  runningCount: number;
+}): boolean {
+  const list = input.todos ?? [];
+  return list.length > 0
+    || Boolean(input.goal)
+    || Boolean(input.git && input.git.files > 0)
+    || input.scheduleRecords.length > 0
+    || input.jobCount > 0
+    || input.subagentEntryCount > 0
+    || input.runningCount > 0;
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlarmClock, ArrowRight, Bot, ChevronUp, FileDiff, Flag, RefreshCw, Square,
+  AlarmClock, ArrowRight, Bot, ChevronDown, ChevronUp, CircleCheck, FileDiff, Flag,
+  History, RefreshCw, Square,
 } from "lucide-react";
 import { api } from "../api";
 import { gitStatus } from "../host";
@@ -8,14 +9,15 @@ import { useStore } from "../store";
 import { t, tt } from "../i18n";
 import { CapsuleGitSection } from "./CapsuleGitSection";
 import { CapsuleTodoSection } from "./CapsuleTodoSection";
-import { capsuleCategory, goalPhasePair, type CapsuleTodo } from "./capsuleModel";
+import { capsulePill, classifyJobs, goalPhasePair, statusPanelHasContent, type CapsuleTodo } from "./capsuleModel";
 import { formatElapsed } from "../session/format";
-import type { GitStatus, GoalProjection, ScheduleRecord, SubagentListEntry } from "../types";
+import type { GitStatus, GoalProjection, JobView, ScheduleRecord, SubagentListEntry } from "../types";
 
 // 会话状态胶囊：头部右上角的聚合信息框，收编原 JobsMenu/ScheduleMenu/
-// SubagentLineage 三个 chip。收起态按当前运行状态固定显示一类（优先级见
-// capsuleModel），点击展开为分区面板（任务/子智能体/Git 改动/提醒与自动化）；
-// 全空自动隐藏。Git 数据来自壳层 run-git 桥消息（引擎无 git 能力）。
+// SubagentLineage 三个 chip。收起态是一条优先级回落链（顺序与理由见
+// capsuleModel 的 capsulePill），点击展开为分区面板；无内容可画才隐藏。
+// 派生与优先级全在 capsuleModel（纯函数、可测），本组件只负责取数与渲染。
+// Git 数据来自壳层 run-git 桥消息（引擎无 git 能力）。
 
 type ChildEntry = Extract<SubagentListEntry, { kind: "child" }>;
 
@@ -31,9 +33,24 @@ function fmtScheduleWhen(r: ScheduleRecord): string {
   if (r.kind === "every") return tt("每 {n} 分钟", "every {n} min", { n: Math.round((r.everySeconds ?? 300) / 60) });
   if (typeof r.afterSeconds === "number") return tt("{n} 分钟后", "in {n} min", { n: Math.max(1, Math.round(r.afterSeconds / 60)) });
   if (r.scheduledAt) {
-    return new Date(r.scheduledAt).toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(r.scheduledAt).toLocaleString(undefined, { month: "numeric", day: "2-digit", hour: "2-digit", minute: "2-digit" });
   }
   return "—";
+}
+
+/** 后台任务一行：状态点 + 名称 + 类型/状态 + 运行时长（已结束的用 finishedAt 定格）。 */
+function JobRow({ job, now }: { job: JobView; now: number }) {
+  return (
+    <div className="capsule-row">
+      <span className={`state-dot ${job.status === "failed" ? "error" : job.status === "running" ? "running" : "ok"}`} aria-hidden="true" />
+      <span className="capsule-row-text">{job.label}</span>
+      <span className="capsule-row-meta">
+        {job.kind} · {tt(...(JOB_STATUS[job.status] ?? JOB_STATUS.running!))}
+        {job.detail ? ` · ${job.detail}` : ""}
+      </span>
+      <span className="capsule-row-meta">{formatElapsed((job.finishedAt ?? now) - job.startedAt)}</span>
+    </div>
+  );
 }
 
 export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: string; scheduleRecords: ScheduleRecord[] }) {
@@ -45,12 +62,13 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
   const [diag, setDiag] = useState(false);
   const [git, setGit] = useState<GitStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showEndedJobs, setShowEndedJobs] = useState(false);
   const [now, setNow] = useState(Date.now());
   const ref = useRef<HTMLDivElement>(null);
 
   const running = sessions.find((s) => s.sessionId === sessionId)?.running ?? false;
   const jobs = jobsBySession.get(sessionId) ?? [];
-  const liveJobs = jobs.filter((j) => j.status === "running" || j.status === "stopping");
+  const jobSplit = classifyJobs(jobs);
   const storeTodos = sessions.find((s) => s.sessionId === sessionId)?.projections?.values?.todos as CapsuleTodo[] | null | undefined;
   const todos = liveTodos ?? storeTodos;
   const goal = (sessions.find((s) => s.sessionId === sessionId)?.projections?.values?.goal as GoalProjection | null | undefined)?.goal;
@@ -92,12 +110,15 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
     return () => clearInterval(iv);
   }, [wsPath, loadGit]);
 
+  const childRunning = (c: ChildEntry) => !!sessions.find((s) => s.sessionId === c.id)?.running || c.activity === "running";
+  const runningChildren = children.filter(childRunning).length;
+
   // 面板展开且有活跃任务时，秒级时钟刷新运行时长
   useEffect(() => {
-    if (!open || liveJobs.length === 0) return;
+    if (!open || jobSplit.live.length === 0) return;
     const iv = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(iv);
-  }, [open, liveJobs.length]);
+  }, [open, jobSplit.live.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,38 +143,53 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
     setBusy(false);
   };
 
-  const runningChildren = children.filter((c) => sessions.find((s) => s.sessionId === c.id)?.running || c.activity === "running").length;
-  const cat = capsuleCategory({
-    agentsRunning: runningChildren + liveJobs.length,
-    todos, git,
-    scheduleRecords,
-    fmtScheduleWhen,
+  const runningCount = runningChildren + jobSplit.live.length;
+  const endedCount = jobSplit.ended.length + (children.length - runningChildren);
+  const hasContent = statusPanelHasContent({
+    todos, goal, git, scheduleRecords,
+    jobCount: jobs.length,
+    subagentEntryCount: children.length,
+    runningCount,
   });
-  if (!open && !cat) return null;
-
+  if (!open && !hasContent) return null;
+  const pill = capsulePill({
+    todos, goal, git, runningCount, endedCount, scheduleRecords, fmtScheduleWhen,
+  });
 
   return (
     <div className="capsule-wrap" ref={ref}>
-      {cat && (
+      {pill && (
         <button type="button" className="capsule-trigger" data-tip={t("摘要")} data-open={open ? "true" : "false"} onClick={() => setOpen((v) => !v)}>
-          {cat.kind === "agents" && <>
+          {pill.kind === "todo" && <>
+            <ArrowRight size={13} />
+            <span className="capsule-pill-text">{pill.text}</span>
+            <span className="capsule-pill-meta">{pill.done}/{pill.total}</span>
+          </>}
+          {pill.kind === "goal" && <>
+            {pill.done ? <CircleCheck size={13} className="capsule-check" /> : <Flag size={13} />}
+            <span className="capsule-pill-text">{pill.title}</span>
+          </>}
+          {pill.kind === "git" && <>
+            <FileDiff size={13} />
+            <span className="capsule-pill-meta"><b className="capsule-add">+{pill.additions}</b> <b className="capsule-del">−{pill.deletions}</b></span>
+          </>}
+          {pill.kind === "todoDone" && <>
+            <CircleCheck size={13} className="capsule-check" />
+            <span className="capsule-pill-text">{pill.text}</span>
+          </>}
+          {pill.kind === "running" && <>
             <Bot size={13} />
-            <span>{tt("{n} 运行中", "{n} running", { n: cat.count })}</span>
+            <span>{tt("{n} 运行中", "{n} running", { n: pill.count })}</span>
             <span className="capsule-live" aria-hidden="true" />
           </>}
-          {cat.kind === "todo" && <>
-            <ArrowRight size={13} />
-            <span className="capsule-pill-text">{cat.active}</span>
-            <span className="capsule-pill-meta">{cat.done}/{cat.total}</span>
-          </>}
-          {cat.kind === "git" && <>
-            <FileDiff size={13} />
-            <span className="capsule-pill-meta"><b className="capsule-add">+{cat.additions}</b> <b className="capsule-del">−{cat.deletions}</b></span>
-          </>}
-          {cat.kind === "schedule" && <>
+          {pill.kind === "schedule" && <>
             <AlarmClock size={13} />
-            <span className="capsule-pill-text">{cat.prompt}</span>
-            <span className="capsule-pill-meta">{cat.when}</span>
+            <span className="capsule-pill-text">{pill.prompt}</span>
+            <span className="capsule-pill-meta">{pill.when}</span>
+          </>}
+          {pill.kind === "ended" && <>
+            <History size={13} />
+            <span className="capsule-pill-meta">{tt("{n} 项已结束", "{n} ended", { n: pill.count })}</span>
           </>}
         </button>
       )}
@@ -185,16 +221,16 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                 </button>
               </div>
               {children.map((c) => {
-                const childRunning = !!sessions.find((s) => s.sessionId === c.id)?.running || c.activity === "running";
+                const live = childRunning(c);
                 const modeLabel = c.mode === "continuable" ? t("可续") : t("一次性");
                 return (
                   <div key={c.id} className="capsule-row">
                     <button type="button" className="capsule-row-main" onClick={() => { setOpen(false); openSession(c.id); }}>
-                      <span className={`capsule-dot${childRunning ? " live" : ""}`} aria-hidden="true" />
+                      <span className={`capsule-dot${live ? " live" : ""}`} aria-hidden="true" />
                       <span className="capsule-row-text">{c.label ?? c.id.slice(0, 8)}</span>
-                      <span className="capsule-row-meta">{modeLabel}{childRunning ? ` · ${t("运行中")}` : ""}</span>
+                      <span className="capsule-row-meta">{modeLabel}{live ? ` · ${t("运行中")}` : ""}</span>
                     </button>
-                    {childRunning && c.mode === "continuable" && (
+                    {live && c.mode === "continuable" && (
                       <button type="button" className="capsule-stop" data-tip={t("中断子智能体")} disabled={busy} onClick={() => void interrupt(c.id)}>
                         <Square size={11} />
                       </button>
@@ -216,17 +252,17 @@ export function StatusCapsule({ sessionId, scheduleRecords }: { sessionId: strin
                   <span className="capsule-row-meta">{fmtScheduleWhen(r)}</span>
                 </div>
               ))}
-              {jobs.map((j) => (
-                <div key={j.id} className="capsule-row">
-                  <span className={`state-dot ${j.status === "failed" ? "error" : j.status === "running" ? "running" : "ok"}`} aria-hidden="true" />
-                  <span className="capsule-row-text">{j.label}</span>
-                  <span className="capsule-row-meta">
-                    {j.kind} · {tt(...(JOB_STATUS[j.status] ?? JOB_STATUS.running!))}
-                    {j.detail ? ` · ${j.detail}` : ""}
-                  </span>
-                  <span className="capsule-row-meta">{formatElapsed((j.finishedAt ?? now) - j.startedAt)}</span>
-                </div>
-              ))}
+              {/* 还在跑的列在区里；已结束的折一行（与 ZCode 把"已结束"另给落点同款处理） */}
+              {jobSplit.live.map((j) => <JobRow key={j.id} job={j} now={now} />)}
+              {jobSplit.ended.length > 0 && (
+                <>
+                  <button type="button" className="capsule-sec-toggle" onClick={() => setShowEndedJobs((v) => !v)}>
+                    <ChevronDown size={12} style={showEndedJobs ? undefined : { transform: "rotate(-90deg)" }} />
+                    {tt("已结束 {n} 项", "Ended {n}", { n: jobSplit.ended.length })}
+                  </button>
+                  {showEndedJobs && jobSplit.ended.map((j) => <JobRow key={j.id} job={j} now={now} />)}
+                </>
+              )}
             </div>
           )}
         </div>
