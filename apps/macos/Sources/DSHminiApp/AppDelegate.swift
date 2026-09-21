@@ -92,6 +92,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Chat-import 插件须在引擎启动前装进 harness home 的 web profile：
         // 引擎按 profile bundles 加载后才挂上 /api-import/* 导入路由。
         if let runtime = Bundle.main.resourceURL {
+            // 组合先落地、再谈别的插件：ProfileComposer 写 dsh.profile.bundles，
+            // 下面两个安装器读同一份清单做合并——顺序倒了就会把上游两层重新写回去。
+            ProfileComposer.ensureInstalled(
+                in: AppPaths.harnessHome,
+                bundledDir: runtime.appendingPathComponent("EngineProfile", isDirectory: true)
+            )
             ChatImportPlugin.ensureInstalled(
                 in: AppPaths.harnessHome,
                 bundledDir: runtime.appendingPathComponent("Runtime/chat-import", isDirectory: true)

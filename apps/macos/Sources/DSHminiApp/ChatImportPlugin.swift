@@ -31,7 +31,9 @@ enum ChatImportPlugin {
             var config = (try? JSONSerialization.jsonObject(with: Data(contentsOf: packageURL))) as? [String: Any] ?? [:]
             var dsh = config["dsh"] as? [String: Any] ?? [:]
             var profileSpec = dsh["profile"] as? [String: Any] ?? [:]
-            var bundles = profileSpec["bundles"] as? [String] ?? ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]
+            // 兜底元组 = 自有组合（ProfileComposer 先跑，正常不会走到这里）；
+            // 写回上游两层会让引擎重新挂载上游产品。
+            var bundles = profileSpec["bundles"] as? [String] ?? [ProfileComposer.bundleName]
             if !bundles.contains(pluginName) { bundles.append(pluginName) }
             profileSpec["bundles"] = bundles
             dsh["profile"] = profileSpec

@@ -13,7 +13,8 @@ import Foundation
 
 enum ProfilePluginAdmin {
     /// 随应用发布、每次启动重装的插件：不提供卸载（删了也会回来）。
-    static var bundledPluginNames: Set<String> { [ChatImportPlugin.pluginName] }
+    /// 含自有组合包——它每次启动由 ProfileComposer 装回来，摘掉它等于拆掉引擎的整棵插件树。
+    static var bundledPluginNames: Set<String> { [ChatImportPlugin.pluginName, ProfileComposer.bundleName] }
 
     /// web profile 目录。与 ChatImportPlugin 同一路径约定（壳只启动这一个 profile）。
     static func profileDir(in dshHome: URL) -> URL {

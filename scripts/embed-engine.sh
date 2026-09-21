@@ -8,6 +8,9 @@
 #   Contents/Resources/Runtime/lib/libnode*.dylib — only when node is dynamic
 #   Contents/Resources/Runtime/dsh/          — DSH runtime closure (whole dir)
 #     └─ lib/bin.js                          — engine entry (spawn: node bin.js)
+#   Contents/Resources/EngineProfile/        — DeepDive's own engine composition
+#     （engine/profile：引擎装载哪些插件的唯一事实源；上游的 base/web-app 两层
+#      不再参与组合。运行时由 ProfileComposer 装进 harness home 的 web profile）
 #   Contents/Resources/Licenses/Node.js-LICENSE
 #   Contents/Resources/Licenses/dsh-THIRD_PARTY_NOTICES*
 #
@@ -115,6 +118,32 @@ DSH_IM_SOURCE="$(bash "$ROOT/scripts/prepare-dsh-im.sh")"
 rm -rf "$STAGE/Resources/Runtime/dsh-im"
 mkdir -p "$STAGE/Resources/Runtime/dsh-im"
 ditto "$DSH_IM_SOURCE/node_modules" "$STAGE/Resources/Runtime/dsh-im/node_modules"
+
+# 引擎组合（本仓自有）：engine/profile 是"引擎装载哪些插件"的唯一事实源。
+# 它随包分发、由 ProfileComposer 在引擎启动前装进 harness home 的 web profile，
+# 此处只负责把它放进包里。
+rm -rf "$STAGE/Resources/EngineProfile"
+mkdir -p "$STAGE/Resources/EngineProfile"
+cp -R "$ROOT/engine/profile/." "$STAGE/Resources/EngineProfile/"
+for required in package.json cordis.patch.yml; do
+  [[ -f "$STAGE/Resources/EngineProfile/$required" ]] || {
+    echo "engine composition is incomplete: engine/profile/$required missing" >&2; exit 1
+  }
+done
+
+# 组合自检：让**包里这份**组合与**包里这份**运行时真的组合一次。--dump-config
+# 不装载插件、只解析补丁层，所以这条很快；它能挡住"补丁 YAML 写坏/行结构不对"
+# 这类会让用户启动即崩的错。注意它证明的是组合成立，不是插件都能解析——后者
+# 只有真实启动才验得出（见 engine/profile/README.md 的验收流程）。
+# 输出落临时目录：它只是构建期证据，不该随包分发。
+COMPOSITION_CHECK="$(mktemp "${TMPDIR:-/tmp}/deepdive-composition-check.XXXXXX")"
+trap 'rm -f "$COMPOSITION_CHECK"' EXIT
+bash "$ROOT/scripts/dump-engine-composition.sh" \
+  --runtime "$STAGE/Resources/Runtime/dsh" \
+  --bundles "deepdive-engine-profile" \
+  --local-bundle "$STAGE/Resources/EngineProfile" \
+  --out "$COMPOSITION_CHECK" >/dev/null
+echo "OK: engine composition self-check ($(grep -c '^- id:' "$COMPOSITION_CHECK") rows)"
 
 # Re-seal the bundle AFTER all file mutations, BEFORE the self-check.
 # xcodebuild leaves an (adhoc) seal over Contents; embed-web + this script
