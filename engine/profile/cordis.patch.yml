@@ -7,13 +7,37 @@
 # Provenance: the rendered composition the upstream pair produced at the pin in
 # scripts/dsh-runtime-version.txt — base's core rows with the web layer's
 # overrides already applied in place, then the web layer's own rows, in the same
-# order — so a re-dump diffs empty until something here changes deliberately.
+# order — with DeepDive's own deliberate removals applied on top (listed below).
+#
+# DELIBERATELY REMOVED (upstream ships these; we do not load them). This list is
+# what keeps the pin-bump drift diff readable — when that diff shows a removal,
+# check it here first: if it is listed, it is ours and intended; if not, it is
+# new drift to adjudicate (see README.md).
+#
+#   Official-GUI-only rows — 34 of them: ui-agent-preset ui-approval ui-attachment
+#   ui-brand-official ui-commands ui-cordis ui-goal ui-input-trigger ui-jobs
+#   ui-layout ui-message-feedback ui-model-selection ui-open-in-app ui-permission
+#   ui-plan ui-reference ui-renderer ui-schedule ui-session ui-settings
+#   ui-settings-models ui-settings-plugin-inventory ui-settings-plugins
+#   ui-sidebar ui-sidebar-documentpreview ui-sidebar-files ui-sidebar-right
+#   ui-skill ui-subagent ui-tool ui-trajectory ui-user-questions ui-workflow-run
+#   ui-workspace
+#     Their node halves are empty `apply() {}` stubs — they exist only to ship
+#     browser modules to the official web page, which DeepDive never loads.
+#   Client plumbing that serves only that page: modules client-hmr resources
+#     (clientModules bundle route, browser rebuild chain) and cordis-client-runner
+#     (empty stub). `connection` and `file-upload` are NOT here despite the
+#     `dsh-client-` prefix: they carry the host-side /api transport and the
+#     upload route. Neither is `ui-deliverables`, `ui-theme`, `ui-chat`,
+#     `ui-conversation`, `ui-settings-general` or `locale` — each registers real
+#     host state (a system-prompt section or a settings namespace), so removing
+#     them is a product decision, not a cleanup: see PITFALLS §7.7.
 #
 # The upstream pair's layering is collapsed into this one insert, so the three
 # rules the engine enforces have to be honoured by hand:
 #   · a patch REPLACES the targeted row's whole `config`, never merges into it,
 #     so any row carrying config restates it in full (this is what upstream's own
-#     headers warn about, and what our overlay got wrong — see PITFALLS);
+#     headers warn about, and what our overlay got wrong — see PITFALLS §7.7);
 #   · there is no delete, only `disabled: true`;
 #   · an `- id:` that matches nothing warns and is skipped, never fails, so drift
 #     is caught by a re-dump diff, not by boot.
@@ -393,8 +417,6 @@
         probeTimeoutMs: 10000
         iconTimeoutMs: 10000
         launchWatchMs: 1000
-    - id: ui-open-in-app
-      name: '@deepseek-ai/dsh-client-ui-open-in-app'
     - id: workspace
       name: '@deepseek-ai/dsh-workspace'
     - id: session-reference
@@ -440,10 +462,6 @@
         printUrl: true
         surfaceContext: true
         trustedHosts: !!js ctx.webStartup.trustedHosts
-    - id: client-hmr
-      name: '@deepseek-ai/dsh-client-hmr'
-    - id: modules
-      name: '@deepseek-ai/dsh-client-modules'
     - id: connection
       name: '@deepseek-ai/dsh-client-connection'
       inject:
@@ -454,89 +472,18 @@
       name: '@deepseek-ai/dsh-client-file-upload'
     - id: api-remotes
       name: '@deepseek-ai/dsh-api-remotes'
-    - id: cordis-client-runner
-      name: '@deepseek-ai/dsh-cordis-client-runner'
     - id: ui-theme
       name: '@deepseek-ai/dsh-client-ui-theme'
     - id: locale
       name: '@deepseek-ai/dsh-client-locale'
-    - id: ui-layout
-      name: '@deepseek-ai/dsh-client-ui-layout'
-    - id: ui-renderer
-      name: '@deepseek-ai/dsh-client-ui-renderer'
-    - id: ui-session
-      name: '@deepseek-ai/dsh-client-ui-session'
-    - id: resources
-      name: '@deepseek-ai/dsh-client-resources'
-    - id: ui-sidebar
-      name: '@deepseek-ai/dsh-client-ui-sidebar'
-    - id: ui-sidebar-right
-      name: '@deepseek-ai/dsh-client-ui-sidebar-right'
-    - id: ui-sidebar-documentpreview
-      name: '@deepseek-ai/dsh-client-ui-sidebar-documentpreview'
-    - id: ui-sidebar-files
-      name: '@deepseek-ai/dsh-client-ui-sidebar-files'
-    - id: ui-settings
-      name: '@deepseek-ai/dsh-client-ui-settings'
     - id: ui-settings-general
       name: '@deepseek-ai/dsh-client-ui-settings-general'
-    - id: ui-settings-models
-      name: '@deepseek-ai/dsh-client-ui-settings-models'
-    - id: ui-settings-plugin-inventory
-      name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'
-    - id: ui-approval
-      name: '@deepseek-ai/dsh-client-ui-approval'
     - id: ui-chat
       name: '@deepseek-ai/dsh-client-ui-chat'
-    - id: ui-brand-official
-      name: '@deepseek-ai/dsh-client-ui-brand-official'
-    - id: ui-attachment
-      name: '@deepseek-ai/dsh-client-ui-attachment'
-    - id: ui-tool
-      name: '@deepseek-ai/dsh-client-ui-tool'
-    - id: ui-cordis
-      name: '@deepseek-ai/dsh-client-ui-cordis'
-    - id: ui-workflow-run
-      name: '@deepseek-ai/dsh-client-ui-workflow-run'
     - id: ui-deliverables
       name: '@deepseek-ai/dsh-client-ui-deliverables'
-    - id: ui-workspace
-      name: '@deepseek-ai/dsh-client-ui-workspace'
-    - id: ui-input-trigger
-      name: '@deepseek-ai/dsh-client-ui-input-trigger'
-    - id: ui-commands
-      name: '@deepseek-ai/dsh-client-ui-commands'
-    - id: ui-skill
-      name: '@deepseek-ai/dsh-client-ui-skill'
-    - id: ui-subagent
-      name: '@deepseek-ai/dsh-client-ui-subagent'
-    - id: ui-reference
-      name: '@deepseek-ai/dsh-client-ui-reference'
-    - id: ui-schedule
-      name: '@deepseek-ai/dsh-client-ui-schedule'
-      disabled: true
-    - id: ui-jobs
-      name: '@deepseek-ai/dsh-client-ui-jobs'
-    - id: ui-goal
-      name: '@deepseek-ai/dsh-client-ui-goal'
-    - id: ui-message-feedback
-      name: '@deepseek-ai/dsh-client-ui-message-feedback'
-    - id: ui-model-selection
-      name: '@deepseek-ai/dsh-client-ui-model-selection'
-    - id: ui-permission
-      name: '@deepseek-ai/dsh-client-ui-permission-presets'
-    - id: ui-agent-preset
-      name: '@deepseek-ai/dsh-client-ui-agent-preset'
-    - id: ui-settings-plugins
-      name: '@deepseek-ai/dsh-client-ui-settings-plugins'
-    - id: ui-plan
-      name: '@deepseek-ai/dsh-client-ui-plan'
-    - id: ui-user-questions
-      name: '@deepseek-ai/dsh-client-ui-user-questions'
-    - id: ui-trajectory
-      name: '@deepseek-ai/dsh-client-ui-trajectory'
     - id: agent-presets
       name: '@deepseek-ai/dsh-agent-presets'
       config:
