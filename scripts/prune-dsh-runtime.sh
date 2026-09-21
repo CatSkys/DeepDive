@@ -87,10 +87,18 @@ REMOVE=(
   # A GitHub webhook surface no composition of ours mounts. Kept out of the
   # patch-file list (it never had a row); removed here so the tree goes with it.
   @deepseek-ai/dsh-webhook-github
+  # The feedback channel, all three faces (see the rationale in
+  # engine/profile/cordis.patch.yml): DeepDive has no feedback UI, so the OTLP
+  # transport can never fire, and the two feedback packages import each other.
+  @deepseek-ai/dsh-message-feedback
+  @deepseek-ai/dsh-command-feedback
+  @deepseek-ai/dsh-session-telemetry-otel
 )
 # Third-party trees reached only through the removals above.
 REMOVE_SCOPED=(
   @octokit
+  # The OTLP stack: 11 packages, ~34 MB, reached only by session-telemetry-otel.
+  @opentelemetry
 )
 
 kb() { du -sk "$1" 2>/dev/null | awk '{print $1}'; }

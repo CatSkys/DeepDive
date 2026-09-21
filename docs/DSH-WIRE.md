@@ -42,7 +42,7 @@
 
 | 方法/面 | 结论 |
 |---|---|
-| `messageFeedback/list\|put\|delete` | **已落地**（args 为 `request` 包裹；put/delete 带 `ifVersion` CAS，version 为不透明字符串 token，version-conflict 回 `current` 权威 item；UI=轮尾 👍/👎+备注，见 `frontend/src/session/feedback.ts`） |
+| `messageFeedback/list\|put\|delete` | **未挂载**——DeepDive 不装 `dsh-message-feedback`：反馈通道已定案移除（SPA 无 👍/👎 卡，`/feedback` 命令与 OTLP 遥测随通道一并撤掉，见 `engine/profile/cordis.patch.yml` 的移除清单）。上游 wire 面仍在：args 为 `request` 包裹，put/delete 带 `ifVersion` CAS，version 为不透明字符串 token |
 | `commands/list\|execute` | **已落地**（`{agentId}` / `{agentId, line, images}`——动态目录+Enter 整行直发，见 §6；转录节点=command/run+done 会话事件） |
 | `pluginInventory/list` | **可用**（无参；返回 `{entries, agentPresets?}`：Loader 非 group 条目 + 各 Agent 预设的组合行）。设置「技能与插件」消费它，**只读**——引擎没有启停 RPC；**entryId ≠ patch 的 id**、`enabled:false` = 本层未挂载，两条都在 `PITFALLS §7.6` |
 | `fileReferences/list` | **已落地**（`{agentId, query}` → `[{path,kind}]`，cwd 亲和整库索引；@ 菜单文件候选原生源，见 §7） |

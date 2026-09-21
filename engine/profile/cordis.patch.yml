@@ -32,6 +32,17 @@
 #     `ui-conversation`, `ui-settings-general` or `locale` — each registers real
 #     host state (a system-prompt section or a settings namespace), so removing
 #     them is a product decision, not a cleanup: see PITFALLS §7.7.
+#   The feedback channel, all three faces of it: message-feedback (unused
+#     messageFeedback/* RPCs), command-feedback (the global `/feedback` command)
+#     and session-telemetry-otel (the OTLP transport, ~34 MB with @opentelemetry).
+#     DeepDive has no feedback UI — the 👍/👎 card was removed from the SPA, and
+#     docs/DSH-WIRE.md §1 still claimed otherwise (stale; corrected). Under
+#     `FEEDBACK_ONLY` the transport uploads a session prefix *only* when a feedback
+#     event fires, so with the channel gone it can never fire: keeping it would ship
+#     34 MB of transport plus a live upload path to DeepSeek's OTLP endpoint for a
+#     feature deliberately removed. The two feedback packages go together —
+#     dsh-message-feedback imports FEEDBACK_CATEGORIES from dsh-command-feedback,
+#     so removing either one alone breaks the other's import.
 #
 # The upstream pair's layering is collapsed into this one insert, so the three
 # rules the engine enforces have to be honoured by hand:
@@ -131,22 +142,6 @@
       config:
         writeEveryEvents: 200
         writeIntervalMs: 5000
-    - id: session-telemetry-otel
-      name: '@deepseek-ai/dsh-session-telemetry-otel'
-      config:
-        mode: !!js process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'
-        shutdownTimeoutMillis: 3000
-        exporter:
-          url: !!js >-
-            process.env.DSH_TELEMETRY_OTLP_URL ??
-            'https://harness-telemetry.deepseeksvc.com/v1/logs'
-          compression: gzip
-          timeoutMillis: 1000
-        processor:
-          scheduledDelayMillis: 10000
-          maxQueueSize: 2048
-          maxExportBatchSize: 2048
-          exportTimeoutMillis: 1500
     - id: subprocess
       name: '@deepseek-ai/dsh-subprocess-local'
     - id: sandbox
@@ -222,8 +217,6 @@
       disabled: true
     - id: commands
       name: '@deepseek-ai/dsh-commands'
-    - id: command-feedback
-      name: '@deepseek-ai/dsh-command-feedback'
     - id: goal
       name: '@deepseek-ai/dsh-goal'
     - id: goal-round-driver
@@ -405,10 +398,6 @@
       name: '@deepseek-ai/dsh-tool-subagent/model-selection-settings'
     - id: code-runtime
       name: '@deepseek-ai/dsh-code-runtime-worker-thread'
-    - id: message-feedback
-      name: '@deepseek-ai/dsh-message-feedback'
-      config:
-        maxNoteBytes: 8192
     - id: session-log-download
       name: '@deepseek-ai/dsh-session-log-export'
     - id: open-in-app
