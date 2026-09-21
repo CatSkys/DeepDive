@@ -3861,11 +3861,10 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   max-width: 360px;
   padding: 4px 12px;
   border-radius: 13px;
-  border: 1px solid var(--line-strong);
   background: var(--fill-soft);
   color: var(--ink-2);
   font-size: 12px;
-  transition: background var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
   animation: fadein var(--dur-fast) ease both;
 }
 .capsule-trigger:hover, .capsule-trigger[data-open="true"] { background: var(--fill); color: var(--ink); }
@@ -3887,7 +3886,6 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   overflow-y: auto;
   padding: 4px 0;
   border-radius: var(--dsh-radius-card);
-  border: 1px solid var(--line-strong);
 }
 .capsule-head {
   position: relative;
