@@ -7,6 +7,7 @@ import { onHostEvent, sendToShell, sessionAdminSync, setQuietSessions } from "./
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
 import { usePrefs } from "./prefs";
+import { useSidebarLayout } from "./useSidebarLayout";
 import type { KeybindOverrides } from "./keybinds";
 import type { ApprovalPending, QuestionItem, QuestionPending, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
 
@@ -199,11 +200,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [queues, setQueues] = useState<Map<string, SessionQueuedItem[]>>(new Map());
   const [jobsBySession, setJobsBySession] = useState<Map<string, import("./types").JobView[]>>(new Map());
   const [controlHandlers] = useState<Set<ControlHandler>>(new Set());
-  // 响应式侧栏：窄窗口自动收起，手动开合在同断点内优先；跨越断点时重置。
-  const [sidebarOverride, setSidebarOverride] = useState<boolean | null>(null);
-  const [narrowViewport, setNarrowViewport] = useState(
-    () => window.matchMedia("(max-width: 760px)").matches,
-  );
   const [engineRestartingAttempt, setEngineRestartingAttempt] = useState(0);
   const restartEngine = useCallback(() => sendToShell({ type: "restart-engine" }), []);
   /** 立即取一次数（不等 3s 轮询）——引擎就绪那一刻要用；refresh 定义在后，经 ref 传递。 */
@@ -233,16 +229,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!engineUp) return;
     api.agentPresets().then((r) => setPresets(r?.presets ?? [])).catch(() => void 0);
   }, [engineUp]);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 760px)");
-    const onChange = () => {
-      setNarrowViewport(mq.matches);
-      setSidebarOverride(null);
-    };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-  const sidebarCollapsed = sidebarOverride ?? narrowViewport;
+  const { sidebarCollapsed, toggleSidebar } = useSidebarLayout();
   const prefs = usePrefs();
   const {
     sidebarWidth, setSidebarWidth,
@@ -757,7 +744,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       schemeDark,
       appearance,
       setAppearance,
-      toggleSidebar: () => setSidebarOverride(!(sidebarOverride ?? narrowViewport)),
+      toggleSidebar,
       autoArchive,
       setAutoArchive,
       archiveRetention,
@@ -784,7 +771,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, sidebarOverride, narrowViewport, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
