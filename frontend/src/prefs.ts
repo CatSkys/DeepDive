@@ -1,10 +1,22 @@
-// 壳偏好状态 hook（AUD-063 从 store.tsx 拆出）：语言/外观三态/生效明暗/
-// 键位覆盖/全局热键开关/侧栏宽。持久化一律经壳 UserDefaults（set-pref），
-// 下发经 host-ready 后的 prefs 推送与 themeChanged 实时推送——localStorage
-// 会因端口轮换丢，这是走壳的原因。只管偏好读写，不管业务状态。
+// 偏好状态 hook（AUD-063 从 store.tsx 拆出）：语言/外观三态/生效明暗/
+// 键位覆盖/全局热键开关/侧栏宽/自进化/会话记忆/引导进度，以及客户端本地
+// 归档偏好。壳偏好持久化经 UserDefaults（set-pref），下发经 host-ready 后的
+// prefs 推送与 themeChanged 实时推送——localStorage 会因端口轮换丢，这是
+// 走壳的原因；纯客户端偏好（自动归档）才落 localStorage。只管偏好读写，
+// 不管业务状态。
 import { useCallback, useEffect, useState } from "react";
+import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
 import { onHostEvent, sendToShell } from "./host";
 import { parseKeybinds, type KeybindOverrides } from "./keybinds";
+
+/** 单值本地偏好读取：无 localStorage（受限环境）或值非法一律回退默认。 */
+function readPref<T>(key: string, fallback: T, parse: (raw: string) => T | null): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? fallback : (parse(raw) ?? fallback);
+  } catch { /* 无 localStorage（测试/受限环境）→ 默认 */ }
+  return fallback;
+}
 
 export function usePrefs() {
   // 侧栏宽：壳 prefs（host-ready 时推送）为初值；setSidebarWidth 落点持久化。
@@ -61,6 +73,20 @@ export function usePrefs() {
     setOnboardingState(v);
     sendToShell({ type: "set-pref", key: "onboarding", value: v });
   }, []);
+  // 自动归档（客户端偏好，localStorage；默认关——归档单向不可撤销）。
+  const [autoArchive, setAutoArchiveState] = useState(() =>
+    readPref("deepdive.autoArchive", false, (raw) => raw === "1"));
+  const [archiveRetention, setArchiveRetentionState] = useState<ArchiveRetention>(() =>
+    readPref("deepdive.archiveRetention", DEFAULT_RETENTION, (raw) =>
+      (RETENTIONS.some((r) => r.id === raw) ? (raw as ArchiveRetention) : null)));
+  const setAutoArchive = useCallback((v: boolean) => {
+    localStorage.setItem("deepdive.autoArchive", v ? "1" : "0");
+    setAutoArchiveState(v);
+  }, []);
+  const setArchiveRetention = useCallback((v: ArchiveRetention) => {
+    localStorage.setItem("deepdive.archiveRetention", v);
+    setArchiveRetentionState(v);
+  }, []);
   // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗、键位覆盖；
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
   useEffect(() => onHostEvent((cmd, payload) => {
@@ -99,5 +125,7 @@ export function usePrefs() {
     sessionMemoryEnabled, setSessionMemoryEnabled,
     sessionMemoryBlocked,
     onboarding, setOnboarding,
+    autoArchive, setAutoArchive,
+    archiveRetention, setArchiveRetention,
   };
 }

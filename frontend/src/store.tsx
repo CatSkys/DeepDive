@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
-import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
+import type { ArchiveRetention } from "./autoArchive";
 import { converged, visibleArchived, visibleSessions } from "./sessionOverrides";
 import { backgroundTier, isHiddenSession, isSidebarSession } from "./session/backgroundSession";
 import { onHostEvent, sendToShell, sessionAdminSync, setQuietSessions } from "./host";
@@ -254,28 +254,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     evolutionEnabled, setEvolutionEnabled,
     sessionMemoryEnabled, setSessionMemoryEnabled,
     sessionMemoryBlocked,
+    autoArchive, setAutoArchive,
+    archiveRetention, setArchiveRetention,
   } = prefs;
-  /** 单值偏好读取：无 localStorage（受限环境）或值非法一律回退默认。 */
-  const readPref = <T,>(key: string, fallback: T, parse: (raw: string) => T | null): T => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw === null ? fallback : (parse(raw) ?? fallback);
-    } catch { /* 无 localStorage（测试/受限环境）→ 默认 */ }
-    return fallback;
-  };
-  const [autoArchive, setAutoArchiveState] = useState(() =>
-    readPref("deepdive.autoArchive", false, (raw) => raw === "1"));
-  const [archiveRetention, setArchiveRetentionState] = useState<ArchiveRetention>(() =>
-    readPref("deepdive.archiveRetention", DEFAULT_RETENTION, (raw) =>
-      (RETENTIONS.some((r) => r.id === raw) ? (raw as ArchiveRetention) : null)));
-  const setAutoArchive = useCallback((v: boolean) => {
-    localStorage.setItem("deepdive.autoArchive", v ? "1" : "0");
-    setAutoArchiveState(v);
-  }, []);
-  const setArchiveRetention = useCallback((v: ArchiveRetention) => {
-    localStorage.setItem("deepdive.archiveRetention", v);
-    setArchiveRetentionState(v);
-  }, []);
   const [unarchived, setUnarchived] = useState<Set<string>>(() => readIdSet("deepdive.unarchived"));
   const [removedLocal, setRemovedLocal] = useState<Set<string>>(() => readIdSet("deepdive.removed"));
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
