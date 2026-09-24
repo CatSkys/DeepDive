@@ -165,10 +165,10 @@
       "detail": "418 lines > 300"
     },
     {
-      "id": "c223675116b389c3",
+      "id": "3bc5b76e5ec91a75",
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
-      "detail": "811 lines > 300"
+      "detail": "779 lines > 300"
     },
     {
       "id": "2d2859ec9ebb8a6e",
