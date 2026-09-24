@@ -308,8 +308,11 @@
   - 诊断锚点：引擎 3 连崩 / 自检 137 + `node --version` 在新路径可跑 → 路径击杀；`codesign --verify` 报 web 资源增删 → 封签。
 
 ### 5.3 交付前必截图自检（WORKING-AGREEMENTS）
-- 改完样式/渲染 → 构建 → 打包 → 启动 → 用 Playwright（channel chrome headless 打开 bridge URL）截图，核对：消息流居中、无卡片、tool 行/产物/turn-tail/meta 位置、用户消息右对齐等。
+- 改完样式/渲染 → 构建 → 打包 → 启动 → 截图，核对：消息流居中、无卡片、tool 行/产物/turn-tail/meta 位置、用户消息右对齐等。
 - 只改用户指出的项；不质疑用户、不拿"旧实例"当借口。
+- **看真实会话的配方（2026-09-24 定稿并实测，照这个走别再摸）**：`DSHMINI_OPEN_SID=session-<uuid> <app>/Contents/MacOS/DeepDive`（要直接跑二进制才带得上环境变量）→ 等 ~16s → `osascript -e 'tell application "System Events" to tell process "DeepDive" to get {position, size} of window 1'` 现取窗口矩形 → `screencapture -x -R<x,y,w,h> <png>` → PIL **粗步长**采样量边缘（逐像素全图扫会跑几分钟）。三个关键点：① **id 必须带 `session-` 前缀**——wire 上的 `sessionId` 本就带前缀（拿 `storages/workspace.json` 的 `archivedSessionIds` 对），裸 uuid 会被 `store.tsx` 的深链判定静默忽略，页面停在草稿页且**零报错**；② **窗口矩形每次现取**——位置/尺寸随用户拖动变化，写死会截到桌面；③ 屏幕上是这条会话的**哪一段取决于它的尾部**，要看工具行/代码块就挑一条尾部含 ``` 的会话（`cd $DSH_HOME/sessions && du -sk ./*/*/ | sort -rn | head -12 | awk '{print $2}' | while read d; do zstd -dc "${d}session.v3.jsonl.zstd" 2>/dev/null | tail -8 | grep -c '```'; done`——**`./` 前缀不能省**：工作区目录名以 `--` 开头，`du */*/` 会被当成选项吃掉），别去滚动（`.flow` 不吃 End/PageDown）；最后一条消息很长时视口停在这条消息的开头，看不到尾部的代码块——换一条尾部消息短的。另：启动后落在哪个界面还受 SPA 现有状态影响（实测有一次停在设置页），**截图先确认画面确实是会话流再下结论**。
+- **三条死路别再试**（2026-09-24 各烧掉十几分钟）：① 无头 Chrome 开 bridge URL——没有壳就没有 vibrancy、渲染成**亮色草稿页**，深链也打不开会话（只对草稿页/纯布局改动有效）；② 发键盘或 `CGEvent` 合成滚轮——滚不动 `.flow`，且事件落在**当时最前的那个 App** 上（本日两次打进用户正在用的别的窗口，属事故级）；③ 手动 `embed-web` + `pkill` + `open` 当快路径（封签/路径击杀，见 §5.2）。
+- **成本纪律（同次复盘）**：单条 grep/read 占一轮 = 5–15s 模型时间 + 每轮约 5s 固定开销；查代码/查文档要**一轮并发发多条探针**。只改样式时中间用浏览器看（草稿页足够验布局与字号），**最后一次才 `make package`**——本日为一个 `clamp` 打了两次包（各约 2.5 min）。
 - 截图通道不可用时（Read 返回 CDN 回执而非像素）：如实说明"像素级目检未完成"，改用 DOM/computed-style 断言覆盖改动面（类存在性、token 变量解析值、原生 title= 归零等），绝不假装看过图。
 
 ### 5.4 `xcodebuild | tail` 吞退出码：管线截尾必须落盘再截

@@ -60,7 +60,7 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 每条 1-3 行；事故与细节在链接的家，勿在此展开。
 
 1. **改前先读 PITFALLS 对应条目**；用户报告"没生效/不对"时先读源码与构建产物实证，绝不拿"旧实例/没重启"打发（WORKING-AGREEMENTS §1，PITFALLS §5.1）。
-2. **交付链固定**：前端 build → package → pkill 旧进程 → open 最新包 → 日志确认 → 截图亲自看图后再回复（WORKING-AGREEMENTS §2/§4；PITFALLS §5.2）。改前端/UI 必须走全链。
+2. **交付链固定**：前端 build → package → pkill 旧进程 → open 最新包 → 日志确认 → 截图亲自看图后再回复（WORKING-AGREEMENTS §2/§4；PITFALLS §5.2/§5.3）。改前端/UI 必须走全链；看真实会话的配方、三条死路与成本纪律（一轮并发多条探针、只改样式时最后一次才 package）在 §5.3。
 3. **单一事实源**：token=`tokens.json`、样式=`theme.css`、引擎版本=`scripts/dsh-runtime-version.txt`。易变值（版本号、端口、状态）**不内联**进文档正文与代码注释，指向事实源。
 4. **wire 契约勿猜**：新 RPC 方法先查引擎源码 `UNARY_ROUTES`（PITFALLS §4.6）；版本敏感面用 `probeMethod` 能力探测降级，缺则隐藏不崩溃。
 5. **空 catch 必须写明吞掉了什么**（`/* engine may be busy */` 式）；降级与静默必须是显式决定，外部输入只在边界处校验（wire/解析/持久化），同进程信任类型。
