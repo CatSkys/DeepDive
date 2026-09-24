@@ -72,8 +72,23 @@ final class SkillAdminTests: XCTestCase {
     func testManagedNamesCoverTheSkillsTheAppRewrites() {
         XCTAssertEqual(
             SkillAdmin.managedNames,
-            ["deepdive-automation", "deepdive-evolution", "deepdive-session-memory"],
+            ["deepdive-automation"],
         )
+    }
+
+    /// 停发的技能不留盘（引擎自动发现技能根下的一切，留着就是继续教模型一个
+    /// 没人消费的协议）；用户自己的技能一个都不许碰。
+    func testRemoveRetiredOnlyDropsRetiredSkills() throws {
+        try writeSkill("deepdive-evolution", "---\nname: deepdive-evolution\ndescription: 旧\n---\n正文")
+        try writeSkill("deepdive-session-memory", "---\nname: deepdive-session-memory\ndescription: 旧\n---\n正文")
+        try writeSkill("deepdive-automation", "---\nname: deepdive-automation\ndescription: 在\n---\n正文")
+        try writeSkill("mine", "---\nname: mine\ndescription: 自建\n---\n正文")
+
+        XCTAssertEqual(SkillAdmin.removeRetired(in: home), ["deepdive-evolution", "deepdive-session-memory"])
+        XCTAssertEqual(SkillAdmin.list(in: home).map(\.id), ["deepdive-automation", "mine"])
+        // 幂等：再跑一次没有任何可删的
+        XCTAssertEqual(SkillAdmin.removeRetired(in: home), [])
+        XCTAssertEqual(SkillAdmin.list(in: home).map(\.id), ["deepdive-automation", "mine"])
     }
 
     // MARK: - 删除

@@ -1,19 +1,20 @@
-// 插件页「插件」tab：引擎装配的模块清单 + 逐行开关。
+// 插件页「插件」tab：用户装进来的插件清单 + 逐行开关。
+//
+// 只列**用户可安装可使用的插件**：引擎自带的内部模块（`@deepseek-ai/*` 与
+// `cordis:*`，随自有组合包发布）不在这里显示——它们不是用户装的东西，开关对它们
+// 也没有意义（工具类挂在 agent preset 组合里，见 model.ts 顶部那段实测事实）。
+// 判据与分组归 `model.ts` 的 `isBundledModule`。
 //
 // 数据两处合起来才是真相：`pluginInventory/list`（引擎只读投影，直读）说明每行的
 // 挂载与运行状态；壳的 `pluginPatchList()` 说明**哪些行是用户关掉的**——两者在
 // inventory 里都是 `enabled:false`，混在一起会让开关看着"点了没反应"（PITFALLS §7.6）。
 //
-// 清单分两组（参考图里「已安装」只列用户认得的那几个插件）：用户装进来的第三方插件
-// 单独成组，引擎自带的 130 余个内部模块另成一组建在下面——摊平在一屏里只会把前者淹掉。
-// 分组只影响展示顺序，两组的开关能力完全相同。
-//
 // 开关落盘后由引擎 `patchReload: live` 热重载，不重启进程；实测数秒内翻转，
 // 所以拨完延迟一拍重拉清单，并留一个手动刷新入口兜底。
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, RefreshCw, Sparkles, Trash2 } from "lucide-react";
-import { api, type PluginInventoryEntry, type PluginPreset } from "../api";
+import { RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { api, type PluginInventoryEntry } from "../api";
 import { RowMenu, Toggle, type RowMenuItem } from "../components/controls";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
 import {
@@ -24,8 +25,8 @@ import { useT } from "../i18n";
 import rs from "../settings/SettingsRows.module.css";
 import css from "./Plugins.module.css";
 import {
-  isBundledModule, matchesQuery, pluginState, pluginTogglable, presetRowLike, rowIdOf,
-  shortModuleName, sortPluginRows, summarizePluginRows, type PluginRowLike, type PluginState,
+  isBundledModule, matchesQuery, pluginState, pluginTogglable, rowIdOf,
+  shortModuleName, sortPluginRows, type PluginRowLike, type PluginState,
 } from "./model";
 
 const STATE_KEY: Record<PluginState, string> = {
@@ -73,22 +74,15 @@ export function PluginsTab({ query, onTryPlugin }: {
 }) {
   const { t, tt } = useT();
   const [entries, setEntries] = useState<PluginInventoryEntry[] | null>(null);
-  const [presets, setPresets] = useState<PluginPreset[]>([]);
   const [patches, setPatches] = useState<PluginPatchToggle[]>([]);
   const [bundledNames, setBundledNames] = useState<string[]>([]);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [openPreset, setOpenPreset] = useState<string | null>(null);
-  const [showUnmounted, setShowUnmounted] = useState(false);
   const shell = inShell();
 
   const load = useCallback(() => {
     api.pluginInventory()
-      .then((snapshot) => {
-        setEntries(snapshot.entries);
-        setPresets(snapshot.agentPresets ?? []);
-        setError(false);
-      })
+      .then((snapshot) => { setEntries(snapshot.entries); setError(false); })
       .catch(() => { setEntries([]); setError(true); });
     if (shell) {
       void pluginPatchList().then(setPatches);
@@ -188,94 +182,27 @@ export function PluginsTab({ query, onTryPlugin }: {
   }
 
   const rows = (entries ?? []).filter((e) => matchesQuery(e.moduleName, e.entryId, query));
-  const thirdParty = sortPluginRows(rows.filter((e) => !isBundledModule(e.moduleName)));
-  const bundled = sortPluginRows(rows.filter((e) => isBundledModule(e.moduleName)));
-  const bundledUnmounted = bundled.filter((e) => !e.enabled);
-  const summary = summarizePluginRows(entries ?? []);
+  const installed = sortPluginRows(rows.filter((e) => !isBundledModule(e.moduleName)));
 
   return (
     <>
       <div className={css.groupLabel}>
-        {tt("已安装（{n}）", "Installed ({n})", { n: String(thirdParty.length) })}
+        {tt("已安装（{n}）", "Installed ({n})", { n: String(installed.length) })}
       </div>
       <div className={rs.blockCard}>
-        {thirdParty.length === 0 && (
+        {installed.length === 0 && (
           <div className={rs.blockRow}>
-            <span className={rs.muted}>{t("没有匹配的插件。")}</span>
+            <span className={rs.muted}>{query.trim().length > 0 ? t("没有匹配的插件。") : t("还没有安装第三方插件。")}</span>
           </div>
         )}
-        {thirdParty.map(renderRow)}
-      </div>
-
-      <div className={css.groupLabel}>{t("引擎模块")}</div>
-      <div className={rs.blockCard}>
-        {(showUnmounted ? bundled : bundled.filter((e) => e.enabled)).map(renderRow)}
-        {bundledUnmounted.length > 0 && (
-          <div className={rs.blockRow}>
-            <span className={rs.muted}>
-              {showUnmounted
-                ? t("已展开全部模块。")
-                : tt("另有 {n} 个模块在本层未挂载。", "{n} more modules are not mounted at this level.", { n: String(bundledUnmounted.length) })}
-            </span>
-            <span style={{ marginLeft: "auto" }} />
-            <button className={rs.secondaryButton} onClick={() => setShowUnmounted((v) => !v)}>
-              {showUnmounted ? t("只看已挂载") : t("展开全部")}
-            </button>
-          </div>
-        )}
+        {installed.map(renderRow)}
         <div className={rs.blockRow}>
-          <span className={rs.muted}>
-            {tt(
-              "共 {total} 个模块 · 已挂载 {mounted} · 失败 {failed}。本层未挂载的多是工具类插件——它们按预设组合挂载。",
-              "{total} modules · {mounted} mounted · {failed} failed. Modules not mounted at this level are mostly tools, which mount through agent presets.",
-              { total: String(summary.total), mounted: String(bundled.filter((e) => e.enabled).length), failed: String(summary.failed) },
-            )}
-          </span>
           <span style={{ marginLeft: "auto" }} />
           <button className={rs.secondaryButton} onClick={load} disabled={busy !== null}>
             <RefreshCw size={12} /> {t("刷新")}
           </button>
         </div>
       </div>
-
-      {presets.length > 0 && (
-        <>
-          <div className={css.groupLabel}>{t("Agent 预设与工具")}</div>
-          <div className={rs.blockCard}>
-            {presets.map((preset) => {
-              const open = openPreset === preset.id;
-              const presetRows = sortPluginRows(preset.rows.map(presetRowLike));
-              const presetSummary = summarizePluginRows(presetRows);
-              return (
-                <div key={preset.id}>
-                  <button className={rs.blockRow} aria-expanded={open} onClick={() => setOpenPreset(open ? null : preset.id)}>
-                    <ChevronDown size={13} style={{ transform: open ? "none" : "rotate(-90deg)" }} />
-                    <div style={{ minWidth: 0, flex: 1, textAlign: "left" }}>
-                      <div className={rs.rowName}>
-                        {preset.name ?? preset.id}
-                        {preset.isDefault && <span className={rs.presetBadge}>{t("默认")}</span>}
-                      </div>
-                      <div className={rs.rowCaption}>
-                        {preset.broken
-                          ? tt("这个预设的组合读不出来：{why}", "This preset's composition cannot be read: {why}", { why: preset.broken })
-                          : tt("{n} 个成员 · 活跃 {a}", "{n} members · {a} active", { n: String(presetSummary.total), a: String(presetSummary.active) })}
-                      </div>
-                    </div>
-                  </button>
-                  {open && presetRows.map((row) => (
-                    <div key={`${row.moduleName}:${row.entryId ?? ""}`} className={rs.blockRow} style={{ paddingLeft: 32 }}>
-                      <span className={rs.mono}>{row.moduleName}</span>
-                      <span style={{ marginLeft: "auto" }}>
-                        <StateBadge state={pluginState(row)} />
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
     </>
   );
 }

@@ -79,13 +79,13 @@
   与入库的期望快照不一致即失败。
 
 ### 3.6 部署提示词的落点（为什么不是 personaPrefix）
-壳注入的部署提示词（自动化协议指路、富输出围栏词表、自进化/会话记忆指路）曾写在
+壳注入的部署提示词（自动化协议指路、富输出围栏词表）曾写在
 `--patch` overlay 的 `id: system-prompt` 的 `personaPrefix` 上。**那条路到不了模型**：
 随包的四个 agent preset 都挂 `@deepseek-ai/dsh-persona`，它注册的 section 名与
 `dsh-system-prompt` 的部署级 persona 相同，按设计遮蔽部署级默认值（实测与修法见
 `PITFALLS §7.7`）。现在落在 `<DSH_HOME>/AGENTS.md` 的**托管块**里
 （`DeploymentPrompt`）：AGENTS.md 经 agent-instructions 进系统提示词、不经过 persona section；
-用托管块是因为该文件还有另一个写入者（自进化落地的 lesson），段外内容逐字保留。
+用托管块是因为该文件用户自己也会写，段外内容逐字保留。
 
 ## 4. 版本韧性
 

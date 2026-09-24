@@ -46,7 +46,7 @@
 | `BotChannelPlugin.swift` | IM 渠道插件（`@xmanrui/dsh-im`，社区包 MIT，引脚 `scripts/dsh-im-version.txt`）安装器：把随包的整棵依赖闭包铺进 `profiles/web` 并登记 profile bundles，引擎启动后挂上 `POST /api/dsh-im/<渠道>`（Bot Channel 与机器人管理走这条）。幂等 + 失败不阻塞引擎（与 `ChatImportPlugin` 同款纪律） |
 | `EngineSupervisor.swift` / `EngineVersion.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、入口版本门（随包引脚 vs 外部 dsh）、网关调用、token→cookie 交换、事件观察、日志 |
 | `ProfileComposer.swift` | 引擎组合的部署器：把随包的 `engine/profile` 装进 harness home 的 web profile，并把 `dsh.profile.bundles` 收敛到它（摘掉退役的上游两层、保留社区与用户自加的、迁移既有安装）。幂等 + 失败不阻塞启动，纪律同 `ChatImportPlugin` |
-| `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表 + 自进化/会话记忆指路）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
+| `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
 | `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；四个调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`worktreeRun`、`agentRun` |
@@ -59,10 +59,7 @@
 | `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC 且把会话列表缓存在内存 → ①立即删 `sessions/<bucket>/<id>/`；②覆盖集登记到 UserDefaults，下次启动空窗期落账 `storages/workspace.json` 归档集 + `storages/session_projcache.json`；纯函数 + 原子写，结构不符拒绝落盘） |
 | `StatusItemController.swift` | 菜单栏状态点与菜单（引擎状态以图标呈现；失败的具体原因在 SPA 的引擎横幅里，见 §3 事件表） |
 | `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | html/body 透明注入（勿加样式）、偏好、数据目录、设置面动态 JSON 树 |
-| `EngineSupervisor.ensureLesson{Verify,Gate,Land}Script` | 自进化三份固化脚本：每次启动铺到 `<DSH_HOME>/deepdive/` 并置可执行位（shebang 指向随包 node、写死随包 fzstd 路径）。verify 数签名在落地前后两窗的命中（steps=匹配会话均值口径）；gate 机械门（证据逐字=解码后事件字段值包含摘录 + 锚点存在）；land 落地确认（git 提交 --grep 提案id + 触碰文件 ⊆ 允许清单 + 文件回读；plugin 家 node --check + 挂载块带戳）。壳经 `lesson-tool` 桥直跑，模型不在环内 |
-| `EngineSupervisor.quarantineDeepDivePluginMounts` | 自愈：引擎连续启动失败且用户层 patch（profiles/web/cordis.patch.yml）里有 lesson- 挂载块时整块摘除（全文进日志）再重启一次——坏挂载不许让引擎永远起不来 |
-| `EngineSupervisor.ensureSessionMemoryPlugin / sessionMemorySkill` | 会话记忆（Session 层）：`deepdive-session-memory` 插件（每轮 pre-step 注入 <session_memory> 围栏笔记 + memory_note_read/write/new_context 三工具，fail-open）与同名技能随启动铺盘；挂载随 `sessionMemoryEnabled` 开关写进 engine-patch insert（本地文件插件，热装） |
-| `EngineSupervisor.ensure*Skill` | 启动时把两个「随应用发的技能」铺进引擎用户技能根（`<DSH_HOME>/skills/<name>/SKILL.md`）：`deepdive-automation`（会话里提议定时任务）与 `deepdive-evolution`（会话里提议沉淀经验）；`system-prompt` 前缀只剩各自一行指路 |
+| `EngineSupervisor.ensureAutomationSkill` | 启动时把随应用发的技能铺进引擎用户技能根（`<DSH_HOME>/skills/deepdive-automation/SKILL.md`）：会话里提议定时任务；`system-prompt` 前缀只剩一行指路 |
 | `KeepAwake.swift` | 空闲休眠断言：自动化分区「运行会话时保持电脑唤醒」按下时 `ProcessInfo.beginActivity(.idleSystemSleepDisabled)`，停跑/关开关即释放（幂等；合盖与手动休眠不拦） |
 | `OpenWithCatalog.swift` / `WorkspaceIcon.swift` | 壳侧事实目录（预览页「打开方式」候选/图标、空间图标探测），只出数据不做决策 |
 
@@ -77,11 +74,9 @@
 | `stats/` | 设置→使用统计：会话历史用量折叠（usageStats）+ 热力图/趋势图/圆环卡；引擎无 usage RPC，全部前端聚合。**数据模型（用户定稿）**：用量按会话记录在本地（`deepdive.usageFold`，localStorage）并与归档/删除解耦——页面第一帧就折缓存的账直接展示（含已归档/已删除会话），引擎侧只在后台补"变过的会话"（逐会话 follow+page 读历史很贵，159 会话十几秒，故只补差不全量读） |
 | `components/Markdown.tsx` / `ThinkingState.tsx` / `LoadingState.tsx` / `Icons.tsx` / `ProviderIcon.tsx` / `HoverScrollText.tsx` / `HeroBrand.tsx` | 呈现组件（`Markdown` 见下行 `rich/` 的围栏分流） |
 | `rich/` | 正文富输出围栏（`mermaid` / `svg` / `widget`，词表在 `fences.ts`）：`mermaidRender` 按需 import mermaid（独立分块）并从 CSS 语义变量读色烘图、明暗切换靠块自订阅（**不赌父组件重渲**，误诊后果=图示配色停在上一个主题）；`sanitizeSvg` 用 DOMPurify 的 svg profile 消毒内联 SVG（禁 `script`/`foreignObject`），成品图连带作者自带的 `<style>` 一起进 shadow root（`ScopedSvg`；`@scope (#id)` 会静默废掉 `#<svg-id> …` 这类选择器让整张图变黑，`PITFALLS §3.8`）；`WidgetBlock` 用 `sandbox="allow-scripts"`（无 same-origin）跑交互组件；围栏未闭合（流式）显示「正在读取…」且不发起渲染；渲染不出来（语法错/超限）一律退回代码块显示源码（`PITFALLS §3.7`） |
-| `evolution/` | 自进化（零人审，SPEC-SELF-EVOLUTION v3）：`protocol`（lesson 块与壳侧回执解析、形状边界、七家允许清单）、`pipeline`（自动管线选择器纯函数：revoke→gate→apply→land→verify→review→consolidate）、`prompts`（落库/复盘/撤销/整理提示词，纯函数）、`store`（台账 + 运行历史 + 限速计数持久化）、`useEvolution`（App 级 Provider：采集跟随当前/交办/运行会话，执行管线——机械门/落地/确认/校验走壳桥 lesson-tool 直跑，落库/撤销/复盘/整理交办会话按落点作用域创建）、`chartData`+`Charts`（环图/柱状）、`EvolutionSection`（设置→自进化：开关 + 台账审计视图 + 运行历史；**无采纳按钮**）。标准与红线在 `docs/EVOLUTION-POLICY.md`（§0 自治模型） |
-| `session/backgroundSession.ts` | 后台会话的判据与命名（唯一事实源）：读投影标题而非应用侧 id 台账（MiMo 形态），`badge`（整理类：复盘/整理，留列表加「自动」标识）/ `hidden`（执行类：落库会话、自动化运行，不进列表）；fail-open——读不到标题当用户会话。生产者（自进化交办、自动化运行）建会话时按同一份常量命名 |
+| `session/backgroundSession.ts` | 后台会话的判据与命名（唯一事实源）：读投影标题而非应用侧 id 台账（MiMo 形态）——自动化运行会话不进用户列表（该任务的运行历史仍可打开；已删的「自进化」留下的 `自进化·` 机器会话按同一条规则继续隐藏）；fail-open：读不到标题当用户会话。生产者（自动化运行）建会话时按同一份常量命名 |
 | `worktree/` | 工作树（设置→工作树）：`model`（默认分支/同级目录、主工作树判据、标签纯函数）、`WorktreeSection`（列/建/删 + 注册为工作区）。生命周期交给 git 本体；**并行会话隔离做不到**（会话的 cwd 在创建时定死、之后改不了，而 cwd 就是它的沙箱根——`sandbox-policy.resolve({session})` 取 `session.header.cwd`），卡片里如实写明 |
-| `plugins/` | 插件页（设置→插件）：`model`（插件行状态/排序/汇总/短名/行 id 纯函数：`enabled:false` 分「用户关掉」与「本层未挂载」两态，见 `PITFALLS §7.6`）、`PluginsSection`（tab 容器：插件/MCP/技能 + 搜索）、`PluginsTab`（已安装的插件与引擎模块两组 + 逐行启停开关 + 行菜单「立即试用/卸载」）、`McpTab`（MCP server 列表/启停/增删改）、`SkillsTab`（技能清单/新建/删除）。开关写壳的 patch 托管块，热生效 |
-| `memory/` | 会话记忆（Session 层）：`MemorySection`（设置→记忆：开关 + 笔记查看/忘记/全清审计面，经壳桥 memory-list/delete/clear）；插件与技能由壳铺盘 |
+| `plugins/` | 插件页（设置→插件）：`model`（插件行状态/排序/汇总/短名/行 id 纯函数：`enabled:false` 分「用户关掉」与「本层未挂载」两态，见 `PITFALLS §7.6`）、`PluginsSection`（tab 容器：插件/MCP/技能 + 搜索）、`PluginsTab`（只列用户装进来的插件：引擎自带的内部模块根本不出现；逐行启停开关 + 行菜单「立即试用/卸载」）、`McpTab`（MCP server 列表/启停/增删改）、`SkillsTab`（技能清单/新建/删除）。开关写壳的 patch 托管块，热生效 |
 | `mobile/` | 移动端远程控制（设置→移动端远程控制）：`RemoteControlSection`（扫码连接卡片 + 二维码 + 已配对设备台账）；远程状态与配对全在壳侧，前端只渲染快照（`host.ts` 的 remoteStatus/remoteStart/remoteStop/remoteRefresh/remoteRevoke/remoteCopyLink/qrEncode）。语义与安全边界见 `SPEC-MOBILE-REMOTE.md` |
 | `bots/` | Bot Channel（设置→移动端远程控制 右栏）：`BotChannelCard`（渠道列表 + 真实状态）、`BotManageDialog`（机器人台账 + 扫码新建 + 移除）、`im.ts`（渠道目录与状态纯函数）。wire 走 `api.ts` 的 `api.im`（插件的 `POST /api/dsh-im/<渠道>`，不是引擎 typert 网关）；契约见 `SPEC-MOBILE-REMOTE.md §5` |
 | `automation/` | 自动化（定时任务）：`model`（计划类型 + 次回触发/文案纯函数）、`templates`（四张模板卡）、`storage`（localStorage 持久化，读取即边界校验）、`runner`（到点执行：建会话→选模型→`/permission`→发指令）、`useAutomation`（App 级 Provider：任务/历史状态 + 30s 调度 tick + 运行对账 + 保持唤醒信号）、`protocol`（会话里创建自动化的围栏块协议：解析 + 形状校验）、`AutomationProposalCard`（消息流里的建议卡，点创建→预填表单）、`AutomationSection`（设置页「自动化」分区：列表↔编辑器两态路由）+ `TaskListPage`/`TaskCard`/`TaskEditorPage`/`ScheduleRow`/`RunHistory`（视图）。**调度在客户端**：引擎没有定时任务 RPC（`dsh-schedule` 只是会话内提醒工具），代价与应用语义见 `SPEC-AUTOMATION.md` |
@@ -112,10 +107,9 @@
 - **部署提示词落 AGENTS.md，不走 `system-prompt` 的 personaPrefix**：后者被随包 agent preset 的
   `@deepseek-ai/dsh-persona` 按同名 section 遮蔽、到不了模型（实测与修法见 `PITFALLS §7.7`），
   而现在落在 `<DSH_HOME>/AGENTS.md` 的托管块里（`DeploymentPrompt`，段外内容逐字保留——
-  自进化的 lesson 也写这个文件）。内容 = 自动化协议指路 + 富输出围栏词表（恒在）+ 自进化 /
-  会话记忆指路（各随开关）。
+  用户自己也会写这个文件）。内容 = 自动化协议指路 + 富输出围栏词表。
 - 启动参数 `--profile web --patch <support>/engine-patch.yml --no-open --port 0`；
-  overlay 只放"装配"（schedule 与会话记忆两条 insert）；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。
+  overlay 只放"装配"（schedule 一条 insert）；`DSH_HOME` = `~/Library/Application Support/DeepDive/harness`（完整独立 dsh 安装，首启动自 DSHmini 旧目录迁移）。
 
 ## 6. 设计 token 管线
 

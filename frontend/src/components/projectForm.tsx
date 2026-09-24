@@ -1,5 +1,5 @@
 // 新建项目表单的字段与状态：**唯一一份**——「新建项目」弹窗与新手引导卡的「新建项目」
-// 步共用（版式照 Create Project 参考图：名称（行尾内嵌图标钮）→ 记忆 / 自进化 / 审批模式
+// 步共用（版式照 Create Project 参考图：名称（行尾内嵌图标钮）→ 审批模式
 // → 工作区文件夹 → 项目指令）。管什么：字段、校验、提交参数；不管什么：弹窗壳、页脚、
 // 提交本身（走 components/projectCreate.ts）。
 //
@@ -9,13 +9,12 @@
 import { useEffect, useState } from "react";
 import { FolderOpen, Info, Plus } from "lucide-react";
 import { inShell } from "../host";
-import { useStore } from "../store";
 import { useT } from "../i18n";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
 import { useSettingNamespace } from "../settings/useSettingNamespace";
 import { PRESET_META } from "./SettingsPage";
 import { promptDialog } from "./DialogHost";
-import { Dropdown, Toggle } from "./controls";
+import { Dropdown } from "./controls";
 import { IconPicker } from "./IconPicker";
 import { beginWorkspacePick } from "./workspacePicker";
 import rowsCss from "../settings/SettingsRows.module.css";
@@ -91,7 +90,6 @@ export function useProjectForm(): ProjectForm {
 
 export function ProjectFormFields({ form }: { form: ProjectForm }) {
   const { t } = useT();
-  const store = useStore();
   const hasShell = inShell();
   const { permission } = form;
   return (
@@ -110,24 +108,6 @@ export function ProjectFormFields({ form }: { form: ProjectForm }) {
               />
               <IconPicker value={form.glyph} label={form.name} onChange={form.setGlyph} />
             </div>
-          </div>
-        </div>
-        <div className={rowsCss.rowCard}>
-          <span className={css.groupLabel}>{t("记忆")}</span>
-          <div className={`${css.groupControl} ${css.rowRight}`}>
-            <span className={css.infoIcon} data-tip={t("每个会话维护一份笔记，每轮注入给模型；开关在应用下次启动后对会话生效。")}>
-              <Info size={14} />
-            </span>
-            <Toggle on={store.sessionMemoryEnabled} onChange={store.setSessionMemoryEnabled} />
-          </div>
-        </div>
-        <div className={rowsCss.rowCard}>
-          <span className={css.groupLabel}>{t("自进化")}</span>
-          <div className={`${css.groupControl} ${css.rowRight}`}>
-            <span className={css.infoIcon} data-tip={t("从会话中提炼可复用的经验，经机械校验后自动落库并提交；开关对采集与自动化即时生效。")}>
-              <Info size={14} />
-            </span>
-            <Toggle on={store.evolutionEnabled} onChange={store.setEvolutionEnabled} />
           </div>
         </div>
         {permission && (

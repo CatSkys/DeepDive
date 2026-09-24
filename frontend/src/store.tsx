@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import type { ArchiveRetention } from "./autoArchive";
 import { converged, visibleArchived, visibleSessions } from "./sessionOverrides";
-import { backgroundTier, isHiddenSession, isSidebarSession } from "./session/backgroundSession";
+import { isHiddenSession, isSidebarSession } from "./session/backgroundSession";
 import { onHostEvent, sendToShell, sessionAdminSync, setQuietSessions } from "./host";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
@@ -122,16 +122,6 @@ interface Store {
   setKeybinds: (next: KeybindOverrides) => void;
   /** 全局热键（唤起面板）启用开关，壳偏好持久化；关 = 系统级注销。 */
   hotkeyOn: boolean;
-  /** 自进化总开关（壳持久化；设置→自进化 的开关就是它，管线消费同一份状态）。 */
-  evolutionEnabled: boolean;
-  setEvolutionEnabled: (v: boolean) => void;
-  /** 会话记忆开关（壳持久化；设置→记忆）。 */
-  sessionMemoryEnabled: boolean;
-  /** 会话记忆开着却没生效时的原因（壳给）；空 = 正常。 */
-  sessionMemoryBlocked: string | null;
-  setSessionMemoryEnabled: (v: boolean) => void;
-  /** 后台会话的处置判据（标题即判据，见 session/backgroundSession.ts）：allSessions 保留。 */
-  backgroundTier: typeof backgroundTier;
   setHotkeyOn: (v: boolean) => void;
   /** 自动归档开关（客户端偏好，localStorage；默认关——归档单向不可撤销）。 */
   autoArchive: boolean;
@@ -235,9 +225,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     appearance, setAppearance,
     keybinds, setKeybinds,
     hotkeyOn, setHotkeyOn,
-    evolutionEnabled, setEvolutionEnabled,
-    sessionMemoryEnabled, setSessionMemoryEnabled,
-    sessionMemoryBlocked,
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,
   } = prefs;
@@ -683,7 +670,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sidebarSessions = useMemo(() => visibleList.filter(isSidebarSession), [visibleList]);
   const sidebarSessionsRef = useRef(sidebarSessions);
   sidebarSessionsRef.current = sidebarSessions;
-  // 机器会话集推给壳：自动化的运行会话/自进化的落库会话"完成"时不该弹通知、
+  // 机器会话集推给壳：自动化的运行会话"完成"时不该弹通知、
   // 不该点亮悬浮球（待审批照旧——那是真有人在等）。只推变化，别每轮刷。
   const quietKey = sessions.filter(isHiddenSession).map((s) => s.sessionId).sort().join(",");
   const quietKeyRef = useRef("");
@@ -721,10 +708,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     keybinds,
     setKeybinds,
     hotkeyOn,
-    evolutionEnabled, setEvolutionEnabled,
-    sessionMemoryEnabled, setSessionMemoryEnabled,
-    sessionMemoryBlocked,
-    backgroundTier,
     setHotkeyOn,
       switchWorkspace,
       createWorkspace,
@@ -766,7 +749,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

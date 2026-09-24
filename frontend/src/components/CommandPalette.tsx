@@ -125,7 +125,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
           if (titleHidesSession(next)) {
             const ok = await confirmDialog({
               title: t("重命名任务"),
-              message: t("这个名字以后台会话前缀开头（自进化·／自动化·），改完这个会话会从列表里消失。确定吗？"),
+              message: t("这个名字以后台会话的保留前缀开头（自动化·／自进化·），改完这个会话会从列表里消失。确定吗？"),
               confirmLabel: t("重命名"),
             });
             if (!ok) return;

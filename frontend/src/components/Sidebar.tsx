@@ -18,7 +18,7 @@ import { WsSwitcher } from "./WsSwitcher";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import type { SessionSummary } from "../types";
 import { sessionTitle } from "../session/sessionTitle";
-import { isBadgedSession, isSidebarSession, titleHidesSession } from "../session/backgroundSession";
+import { isSidebarSession, titleHidesSession } from "../session/backgroundSession";
 import { DD_EVENTS } from "../events";
 
 interface CtxMenu { sessionId: string; title: string; cwd?: string; x: number; y: number }
@@ -263,10 +263,8 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         )}
       </span>
       <span className="row-main">
-        {/* 整理类后台会话（复盘/整理）留在列表但加自动标识——MiMo 的 [Auto] 徽章；
-            执行类（落库/自动化运行）已被 store 过滤，不会走到这里。 */}
+        {/* 后台运行会话已被 store 过滤，不会走到这里；剩下的标识只有「已归档」 */}
         <span className="row-title-line">
-          {isBadgedSession(s) && <span className="row-auto-badge">{t("自动")}</span>}
           {archived && <span className="row-auto-badge">{t("已归档")}</span>}
           <HoverScrollText className="title">{sessionTitle(s, lang)}</HoverScrollText>
         </span>
@@ -448,7 +446,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
               if (titleHidesSession(next)) {
                 const ok = await confirmDialog({
                   title: t("重命名任务"),
-                  message: t("这个名字以后台会话前缀开头（自进化·／自动化·），改完这个会话会从列表里消失。确定吗？"),
+                  message: t("这个名字以后台会话的保留前缀开头（自动化·／自进化·），改完这个会话会从列表里消失。确定吗？"),
                   confirmLabel: t("重命名"),
                 });
                 if (!ok) return;

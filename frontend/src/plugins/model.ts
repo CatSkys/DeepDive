@@ -11,7 +11,7 @@
 // 都是 `enabled:false`，混在一起会让开关看着「点了没反应」——所以这里显式分成
 // `offByUser` 与 `unmounted` 两态，只有前者给开关。
 
-import type { PluginFiberPhase, PluginPresetRow } from "../api";
+import type { PluginFiberPhase } from "../api";
 
 /** 一行插件在页面上的展示状态。 */
 export type PluginState = "active" | "failed" | "starting" | "idle" | "off" | "conditional" | "offByUser";
@@ -40,34 +40,11 @@ export function pluginState(row: Pick<PluginRowLike, "enabled" | "fiberPhase">, 
   }
 }
 
-/** 预设组合行 → 判定形状（组合行的 entryId 可能没写）。 */
-export function presetRowLike(row: PluginPresetRow): PluginRowLike {
-  return { moduleName: row.moduleName, entryId: row.entryId, enabled: row.enabled, fiberPhase: row.fiberPhase };
-}
-
 /** 按模块名排序：引擎给的是 Loader 顺序（装了什么就跟着变），不利于回看与对比。 */
 export function sortPluginRows<T extends PluginRowLike>(rows: T[]): T[] {
   return [...rows].sort(
     (a, b) => a.moduleName.localeCompare(b.moduleName) || (a.entryId ?? "").localeCompare(b.entryId ?? ""),
   );
-}
-
-export interface PluginSummary {
-  total: number;
-  active: number;
-  failed: number;
-  off: number;
-}
-
-export function summarizePluginRows(rows: PluginRowLike[]): PluginSummary {
-  const summary: PluginSummary = { total: rows.length, active: 0, failed: 0, off: 0 };
-  for (const row of rows) {
-    const state = pluginState(row);
-    if (state === "active") summary.active += 1;
-    else if (state === "failed") summary.failed += 1;
-    else if (state === "off") summary.off += 1;
-  }
-  return summary;
 }
 
 /** inventory 的 entryId（`include:hmr`）→ patch 的目标**行 id**（`hmr`）。
@@ -95,10 +72,12 @@ export function pluginTogglable(state: PluginState): boolean {
   return state === "active" || state === "starting" || state === "failed" || state === "offByUser";
 }
 
-/** 一行是否属于引擎自带模块（而非用户装进来的插件）。
+/** 一行是否属于引擎自带模块（而非用户装进来的插件）——**插件页据此决定显示与否**。
     用户装的是 profile 的 bundle/pnpm 依赖（`dsh-chat-import`、`@everos-ai/dsh-plugin`…），
-    其余 `@deepseek-ai/*` 与 `cordis:*` 都是随引擎发布的内部模块——两者在列表里价值不同：
-    前者是用户认得、也真想管的东西，后者摊开只会淹掉它。 */
+    其余 `@deepseek-ai/*` 与 `cordis:*` 都是随自有组合包（`engine/profile`）发布的内部
+    模块：它们不是用户装的东西、也大多不该由用户拨开关，摊在页面上只会淹掉前者。
+    判据目前是模块名作用域——自有组合的 111 行全是 `@deepseek-ai/*`，与"来自组合包"
+    等价；哪天组合里出现第三方包，这条要跟着换。 */
 export function isBundledModule(moduleName: string): boolean {
   return moduleName.startsWith("@deepseek-ai/") || moduleName.startsWith("cordis:");
 }

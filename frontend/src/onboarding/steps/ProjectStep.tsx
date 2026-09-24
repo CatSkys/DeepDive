@@ -1,6 +1,6 @@
 // 引导第 3 步·项目：建第一个项目空间（= 工作区，Agent 在这个文件夹里干活）。
 // 表单是**与「新建项目」弹窗同一份实现**（components/projectForm.tsx + projectCreate.ts）：
-// 名称（行尾图标钮）/ 记忆 / 自进化 / 审批模式 / 工作区文件夹 / 项目指令，版式一致。
+// 名称（行尾图标钮）/ 审批模式 / 工作区文件夹 / 项目指令，版式一致。
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useT } from "../../i18n";

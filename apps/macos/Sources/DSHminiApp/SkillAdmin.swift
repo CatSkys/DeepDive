@@ -29,11 +29,25 @@ enum SkillAdmin {
 
     /// 随应用发布、每次启动重写的技能：列表里标注来源，不提供删除（删了下次启动回来）。
     static var managedNames: Set<String> {
-        [
-            EngineSupervisor.automationSkillName,
-            EngineSupervisor.evolutionSkillName,
-            EngineSupervisor.sessionMemorySkillName,
-        ]
+        [EngineSupervisor.automationSkillName]
+    }
+
+    /// 已停发、但旧版本铺在盘上的技能名。技能根是引擎自动发现的（rank 400），
+    /// 留着等于继续教模型一个没人消费的协议——每次启动幂等清一次
+    /// （同 ProfileComposer 的 retiredBundleNames）。
+    static let retiredNames: Set<String> = ["deepdive-evolution", "deepdive-session-memory"]
+
+    /// 清掉停发技能的目录，返回实际删掉的目录名（供调用方记日志）。
+    @discardableResult
+    static func removeRetired(in home: URL) -> [String] {
+        var removed: [String] = []
+        for name in retiredNames.sorted() {
+            let directory = home.appendingPathComponent("skills/\(name)").path
+            if FileManager.default.fileExists(atPath: directory), remove(directory: directory, home: home) == nil {
+                removed.append(name)
+            }
+        }
+        return removed
     }
 
     /// `<home>/skills/<name>/SKILL.md` 的清单（按目录名排序）。

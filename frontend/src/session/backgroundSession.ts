@@ -5,32 +5,23 @@
 // 而不是应用侧另存一份 id 台账——那份台账活在会话之外，会随 localStorage 一起丢，
 // 且对"台账之前就建好的会话"失效（MiMo 的注释记着他们的代理判据误杀过 28 个真会话）。
 //
-// 两层处置也照 MiMo：
-// - `badge`（整理类：复盘/整理）＝ MiMo 的 dream/distill——是可以读的整理工作，
-//   留在列表里、加自动标识；TUI 里它们就是带 `[Auto]` 徽章显示的。
-// - `hidden`（执行类：落库/撤销，以及自动化的每次运行）＝ MiMo 的 checkpoint-writer
-//   宿主——只为跑机器动作而存在的会话，不进用户列表（各功能自己的「运行历史」
-//   仍可打开：那是审计路径）。
+// 唯一的后台会话来源是**自动化**：每次运行开一个一次性会话，只为跑机器动作而存在，
+// 所以不进用户列表（该任务自己的「运行历史」仍可打开：那是审计路径）。
 //
 // fail-open 照 MiMo：读不到标题（无投影/老会话）一律判**不是**后台会话——
 // 宁可多显示一个真会话，不可少显示一个。
 
 import type { SessionSummary } from "../types";
 
-/** 后台会话标题的统一前缀（生产者与判据共用的唯一一份）。 */
-export const EVOLUTION_PREFIX = "自进化·";
+/** 自动化运行会话的标题前缀（生产者与判据共用的唯一一份）。 */
 export const AUTOMATION_PREFIX = "自动化·";
 
-/** 整理类（留列表 + 自动标识）。 */
-export const CONSOLIDATE_TITLES = [
-  `${EVOLUTION_PREFIX}复盘`,
-  `${EVOLUTION_PREFIX}整理`,
-  `${EVOLUTION_PREFIX}整理（引擎目录）`,
-] as const;
+/** 已删除的「自进化」留下的机器会话前缀：**只用于判据**，没有生产者。
+ *  那些会话当初就不该进用户列表，功能删了不等于把它们倒进用户的列表里。 */
+export const LEGACY_EVOLUTION_PREFIX = "自进化·";
 
-/** 执行类（不进列表）：落库会话按作用域各一条，长期复用（MiMo 式固定系统标题）。 */
-export const REPO_TASK_TITLE = `${EVOLUTION_PREFIX}落库`;
-export const HOME_TASK_TITLE = `${EVOLUTION_PREFIX}落库（引擎目录）`;
+/** 后台会话的保留前缀（判据与改名准入共用）。 */
+const HIDDEN_PREFIXES: readonly string[] = [AUTOMATION_PREFIX, LEGACY_EVOLUTION_PREFIX];
 
 /** 自动化每次运行的会话标题（任务名便于在运行历史里辨认）。 */
 export function automationRunTitle(taskTitle: string): string {
@@ -38,44 +29,22 @@ export function automationRunTitle(taskTitle: string): string {
   return `${AUTOMATION_PREFIX}${name === "" ? "运行" : name}`;
 }
 
-/** 会话的归类：null = 用户会话照常显示。 */
-export type BackgroundTier = "badge" | "hidden";
-
-/** 标题 → 处置（判据本体）。会话形态与"把它改成这个名字会变成什么"共用这一份
- *  ——改名入口据此先问一句，别让一次重命名把会话从列表里改没了。
- *  读不到标题 → null（fail-open，见文件头）。 */
-export function tierOfTitle(rawTitle: string | null): BackgroundTier | null {
-  const title = rawTitle?.trim() ?? "";
-  if (title === "") return null;
-  if ((CONSOLIDATE_TITLES as readonly string[]).includes(title)) return "badge";
-  if (title.startsWith(EVOLUTION_PREFIX)) return "hidden";
-  if (title.startsWith(AUTOMATION_PREFIX)) return "hidden";
-  return null;
+/** 标题 → 是否属于后台执行类会话（判据本体）。会话形态与"把它改成这个名字会变成
+ *  什么"共用这一份——改名入口据此先问一句，别让一次重命名把会话从列表里改没了。
+ *  读不到标题 → false（fail-open，见文件头）。 */
+export function titleHidesSession(title: string | null): boolean {
+  const raw = title?.trim() ?? "";
+  return raw !== "" && HIDDEN_PREFIXES.some((prefix) => raw.startsWith(prefix));
 }
 
 /** 单个会话的处置。 */
-export function backgroundTier(s: SessionSummary): BackgroundTier | null {
-  const raw = (s.projections?.values as { title?: unknown } | undefined)?.title;
-  return tierOfTitle(typeof raw === "string" ? raw : null);
-}
-
-/** 改名的准入判据：这个名字会不会让会话从用户列表里消失（进后台隐藏层）。 */
-export function titleHidesSession(title: string): boolean {
-  return tierOfTitle(title) === "hidden";
-}
-
-/** 是否不进用户会话列表（执行类后台会话）。 */
 export function isHiddenSession(s: SessionSummary): boolean {
-  return backgroundTier(s) === "hidden";
-}
-
-/** 是否带自动标识显示（整理类后台会话）。 */
-export function isBadgedSession(s: SessionSummary): boolean {
-  return backgroundTier(s) === "badge";
+  const raw = (s.projections?.values as { title?: unknown } | undefined)?.title;
+  return titleHidesSession(typeof raw === "string" ? raw : null);
 }
 
 /** 是否属于"用户列表"这一层（侧栏/搜索/切换空间的落点/自动归档的候选都用它）：
- *  执行类后台会话与子代理派生会话不进用户列表（各自的审计入口仍在）。 */
+ *  后台运行会话与子代理派生会话不进用户列表（各自的审计入口仍在）。 */
 export function isSidebarSession(s: SessionSummary): boolean {
   return !isHiddenSession(s) && s.origin !== "subagent";
 }

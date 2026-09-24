@@ -14,9 +14,12 @@
 - 引擎也没有通用生成路由：`frontend/src/api.ts` 与 wire 事实源里都没有 `generate*`。
 - 所以按钮需要**引擎侧**先有一条方法。
 
-## 3. 落点：随包本地插件（复用现成模式）
+## 3. 落点：随包本地插件
 
-与 `deepdive-session-memory` 同一套（`EngineSupervisor.ensureSessionMemoryPlugin`）：
+> 这套铺盘（本地文件插件 + `node_modules` 软链 + overlay insert）原先由会话记忆插件
+> 实现，该插件 2026-09-24 随「记忆」分区一并移除——本仓现在没有可抄的实现，
+> 施工时这一段要照下面三条从零写（`ProfileComposer` 的"失败只记日志不阻塞启动"是
+> 唯一还在的同款纪律）。
 
 1. 壳每次启动把插件源码写到 `<DSH_HOME>/deepdive/plugins/git-commit-message/index.js`，并在同目录建 `node_modules` 软链指向随包 runtime 闭包（`Resources/Runtime/dsh/node_modules`）——插件里 `import '@deepseek-ai/dsh-*'` 靠它解析。**闭包不存在时必须删掉旧链接**（否则 boot fail-loud），并回报不可用，由调用方决定不挂。
 2. `engine-patch.yml`（`EngineSupervisor.enginePatchBody`）里 `- insert:` 一条挂载；开关与可用性一起决定挂不挂。
@@ -77,4 +80,4 @@
 2. 工作树干净 → 按钮可用但提示无改动（或按改动集为空直接禁用），不产生空提交。
 3. 模型不可用 / 方法缺失 → 按钮不出现；手动填写的既有路径不受影响。
 4. 中英双语：生成的信息语言随 `locale`（词典与设置里的语言一致）。
-5. 插件铺盘失败（运行时未嵌入）→ 引擎照常启动、按钮消失，与 `deepdive-session-memory` 同款降级。
+5. 插件铺盘失败（运行时未嵌入）→ 引擎照常启动、按钮消失（可选能力没有资格把引擎搞死）。

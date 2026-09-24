@@ -55,7 +55,7 @@ bundle 内各插件的 README/实现），**没有做网络抓包**。所以这�
 ## 5. 留在这台机器上的
 
 - `~/Library/Application Support/DeepDive/harness/` — 会话日志（V3 事件流）、引擎设置、
-  会话记忆、技能、`storages/`。
+  技能、`storages/`。
 - `harness/.credentials.yaml` — 模型 API Key（0600）。
 - `<support>/mcp-servers.json` — MCP 密钥（0600；壳 spawn 引擎时展平成环境变量注入，
   patch 文件里只留变量名）。

@@ -23,7 +23,7 @@ final class EngineEventObserver {
     var needsAttention: Bool { !pendingApprovals.isEmpty || !pendingQuestions.isEmpty }
     var isRunning: Bool { !runningSessions.isEmpty }
 
-    /// 不该打扰用户的会话（自动化的运行会话、自进化的落库/复盘会话）——判据由
+    /// 不该打扰用户的会话（自动化的运行会话）——判据由
     /// 前端给（session/backgroundSession 是唯一事实源，壳不复刻标题前缀规则）。
     /// 只用来压"完成"这类噪音；**待审批/提问照旧通知**（那是真有人在等）。
     private var quietSessions = Set<String>()

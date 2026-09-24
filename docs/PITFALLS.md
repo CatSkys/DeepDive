@@ -64,8 +64,8 @@
 - 附带事实（同源）：流内卡片（`.question-card` / `.approval-card` / `.plan-review-card` / `.auto-proposal`）的 `linear-gradient` 底色同样被清掉，它们在应用里本来就是**只有描边**的形态——别照着"应该有个底色"去调它们的层级。**已知同类隐患**：审批卡的「允许」用的是 `.btn-primary`，落在这条规则下同样是隐形文字（本轮未改，用户没提；要改就是上面那条例外或把它换成描边钮）。
 
 ### 1.15 会话日志是多帧 zstd：fzstd 的一次性 `decompress` 只解第一帧（静默给 1 行，不报错）
-- 事故（2026-09-13，做自进化校验器时）：`decompress(await readFile(session.v3.jsonl.zstd))` 对一份 432KB 的日志返回了**一行**，而 `zstd -dc | grep -c` 在同一文件上数出 14 处命中——脚本于是报"0 命中"，看着像"这个坑没再出现"（最坏的方向：假有效）。根因：会话日志是**逐次追加**写出来的，文件里是多帧 zstd；fzstd 的 `decompress(dat, buf)` 只在**给了输出缓冲**时才连解多帧（README 原话），不给就停在第一帧且**不抛错**。
-- 处置：用流式 `Decompress`（`new Decompress((chunk) => chunks.push(Buffer.from(chunk))); inflater.push(raw)`）把所有帧拼起来。给校验脚本的单测加了"必须走流式"的断言。
+- 事故（2026-09-13，写读会话日志的统计脚本时）：`decompress(await readFile(session.v3.jsonl.zstd))` 对一份 432KB 的日志返回了**一行**，而 `zstd -dc | grep -c` 在同一文件上数出 14 处命中——脚本于是报"0 命中"，看着像"这个坑没再出现"（最坏的方向：假有效）。根因：会话日志是**逐次追加**写出来的，文件里是多帧 zstd；fzstd 的 `decompress(dat, buf)` 只在**给了输出缓冲**时才连解多帧（README 原话），不给就停在第一帧且**不抛错**。
+- 处置：用流式 `Decompress`（`new Decompress((chunk) => chunks.push(Buffer.from(chunk))); inflater.push(raw)`）把所有帧拼起来。凡是要读会话日志的脚本都只有这一条路。
 - 通用教训：**压缩流的"部分解码"往往不报错**——凡是数命中/做统计的地方，先拿 `zstd -dc` 之类的全量解码做一次交叉对账（本次正是靠这个对账才发现差 14 vs 0）。
 
 ### 1.12 content-visibility 估高让 scrollHeight 漂移：编程滚动落点必须二次校准
@@ -235,7 +235,7 @@
 - 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache/sessions/<sessionId>.json`（**per-record 布局**：一个会话一份文档，见引擎 `session-projection-cache/src/spec.ts` 的 `layout: 'per-record'`。同目录下那个同名的整文件 `session_projcache.json` 是旧布局，只在「新树里一个文档都没有」时做 bootstrap，引擎此后**永不读写**——别去改它）；会话日志 = `sessions/<转义 cwd>/<sessionId>/`（**目录名就是 sessionId**，别复刻引擎的 cwd 转义规则——扫一层同名目录即可）。写盘一律临时文件 + `replaceItemAt`，结构不符拒绝写入并报错。
 
 ### 4.18 清理验收痕迹只能按显式 id：用"最近更新的会话"挑，会误删用户会话（2026-09-13 事故）
-- 事故：做完自进化校验的验收后清理测试会话，脚本按 **mtime 取最近两个**当作"我的痕迹"，结果第一个是刚建的验收会话、第二个是**用户自己的「帮我实现 Deepdive 构建」**（更新于前一天 13:14）——`rmtree` + 覆盖集登记后，会话目录、归档集、投影缓存三处同时被清，**不可恢复**（本机无 APFS 本地快照）。
+- 事故：做完一次验收后清理测试会话，脚本按 **mtime 取最近两个**当作"我的痕迹"，结果第一个是刚建的验收会话、第二个是**用户自己的「帮我实现 Deepdive 构建」**（更新于前一天 13:14）——`rmtree` + 覆盖集登记后，会话目录、归档集、投影缓存三处同时被清，**不可恢复**（本机无 APFS 本地快照）。
 - 根因不是命令，是**选择器**：验收痕迹的正确来源是"本轮我自己创建的那些 id"（建会话时记下来），而不是"看上去最新的"。任何"推断式选择器"（最近 N 个 / 最近 N 分钟）在用户数据上都可能误伤。
 - 处置（纪律）：清理只允许**显式 id 列表**，且删前逐个打印 id、标题与创建时间让人看清；删除动作与登记覆盖集同批执行，不做"先删后想"。**删会话类操作一旦执行不可逆——宁可留着问用户，也不要推断。**
 - 附带事实：删目录 + 登记覆盖集之后，该会话的投影文档（`storages/session_projcache/sessions/<id>.json`）也随删（立即删除时同步删，落账时补删），所以「从投影缓存里恢复标题/摘要」这条路也断了。
@@ -451,16 +451,16 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   （多帧 zstd，一次性解只出第一帧，§1.15），读其中的 `system/message`（组装好的系统提示词）。
   四个探针串的结果：overlay 注入的 `personaPrefix` **不在**；preset 的
   `You are a coding agent powered by` 与 `Your working directory is` **都在**。
-  → 壳 `EngineSupervisor.systemPromptPrefix`（自动化协议、富输出围栏词表、自进化/会话记忆
-  指路）在当前链路上**到不了模型**。
+  → 壳当时那条 `systemPromptPrefix`（自动化协议、富输出围栏词表）在当前链路上
+  **到不了模型**。
 - **这条已在发货产品里造成过假修复**：2026-09-16 用户报"画个 svg 结果模型交付了 .svg 文件、
   对话里看不见"，当时的处置是往 `richOutputProtocolPrompt` 补一句"想让人在对话里看见就用
   围栏"——那句话经同一条 personaPrefix 注入，**在结构上不可能生效**。同类"改了没生效"
   请先按上一条实测，别只读 `--dump-config`。
 - **可用的替代通道（同轮实测）**：`$DSH_HOME/AGENTS.md` 经 agent-instructions 进系统提示词，
   **不经过 persona section、不被预设遮蔽**（同一实验里把标记写进该文件，命中）。
-  往这个文件写要**用托管块**（`ManagedPatchBlock`），因为自进化落的 lesson 也写它
-  （`EVOLUTION-POLICY` 的 global 落点）——整段重写会把用户的 lesson 抹掉。
+  往这个文件写要**用托管块**（`ManagedPatchBlock`），因为用户自己也会往这个文件写
+  ——整段重写会把他的内容抹掉。
 - 另：**preset 是独立的 agent-plane 组合**，按包名自己挂工具（`presets/<name>/agent.cordis.yml`），
   其中 `@deepseek-ai/dsh-persona`、`dsh-tool-ask-user`、`dsh-tool-present`、`dsh-terminal*`、
   `dsh-tool-cordis` 等**不在宿主组合里**。裁剪闭包时只按宿主组合判断可达性，

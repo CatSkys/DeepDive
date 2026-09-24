@@ -10,7 +10,6 @@ import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
 import { DD_EVENTS, dispatchAppEvent, onAppEvent } from "./events";
 import { Sidebar } from "./components/Sidebar";
 import { AutomationProvider } from "./automation/useAutomation";
-import { EvolutionProvider } from "./evolution/useEvolution";
 import type { AutomationProposal } from "./automation/protocol";
 import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
@@ -356,7 +355,6 @@ export default function App() {
   return (
     <StoreProvider>
       <AutomationProvider>
-        <EvolutionProvider>
         <OnboardingWizard forced={onboardingForced} onClosed={() => setOnboardingForced(false)}>
           <Shell
             onOpenOnboarding={() => setOnboardingForced(true)}
@@ -368,7 +366,6 @@ export default function App() {
             onAutomationDraftUsed={() => setAutomationDraft(null)}
           />
         </OnboardingWizard>
-        </EvolutionProvider>
       </AutomationProvider>
     </StoreProvider>
   );

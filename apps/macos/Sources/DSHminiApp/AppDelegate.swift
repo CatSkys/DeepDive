@@ -259,10 +259,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "notifyAttention":
                     DSHAppPrefs.setNotifyAttention(value)
                     if value { NativeAlerts.requestAuthorizationIfNeeded() }
-                case "evolutionEnabled":
-                    DSHAppPrefs.setEvolutionEnabled(value)
-                case "sessionMemoryEnabled":
-                    DSHAppPrefs.setSessionMemoryEnabled(value)
                 case "hotkeyOn":
                     DSHAppPrefs.setHotkeyOn(value)
                     if value {
@@ -383,21 +379,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             gitRun(reqId: body["reqId"] as? String ?? "",
                    path: body["path"] as? String ?? "",
                    args: body["args"] as? [String] ?? [])
-        case "lesson-tool":
-            lessonTool(reqId: body["reqId"] as? String ?? "",
-                       tool: body["tool"] as? String ?? "",
-                       args: body["args"] as? [String] ?? [])
-        case "evolution-env":
-            windowController.pushHostCommand(
-                "evolutionEnv",
-                payload: AppDelegate.jsonPayload(["reqId": body["reqId"] as? String ?? "", "harnessHome": AppPaths.harnessHome.path]),
-            )
-        case "memory-list":
-            memoryList(reqId: body["reqId"] as? String ?? "")
-        case "memory-delete":
-            memoryDelete(reqId: body["reqId"] as? String ?? "", sessionId: body["sessionId"] as? String ?? "")
-        case "memory-clear":
-            memoryClear(reqId: body["reqId"] as? String ?? "")
         case "worktree-list":
             worktreeRun(
                 reqId: body["reqId"] as? String ?? "", repo: body["repo"] as? String ?? "",
@@ -744,54 +725,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 会话记忆笔记的审计面（memory-list/delete/clear）：笔记是插件的落盘文件
-    /// （<DSH_HOME>/deepdive/memory/<sessionId>.md），壳只读与删——可审计性照
-    /// Ditto 记忆页（查看/单条忘记/全部清除）。sessionId 只放行安全字符防穿越。
-    private static func isSafeSessionId(_ id: String) -> Bool {
-        !id.isEmpty && id.count <= 128 && id.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" }
-    }
-
-    private func memoryList(reqId: String) {
-        func reply(_ notes: [[String: Any]]) {
-            windowController.pushHostCommand("memoryFiles", payload: AppDelegate.jsonPayload(["reqId": reqId, "notes": notes]))
-        }
-        let dir = EngineSupervisor.memoryDir
-        let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
-        let notes: [[String: Any]] = items.compactMap { url in
-            guard url.pathExtension == "md" else { return nil }
-            let sessionId = url.deletingPathExtension().lastPathComponent
-            guard sessionId.hasPrefix("session-"), AppDelegate.isSafeSessionId(sessionId),
-                  let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-            return ["sessionId": sessionId, "content": String(content.prefix(8000))]
-        }
-        reply(notes)
-    }
-
-    private func memoryDelete(reqId: String, sessionId: String) {
-        func reply(_ ok: Bool) {
-            windowController.pushHostCommand("memoryDeleted", payload: AppDelegate.jsonPayload(["reqId": reqId, "ok": ok]))
-        }
-        guard AppDelegate.isSafeSessionId(sessionId) else { reply(false); return }
-        let url = EngineSupervisor.memoryDir.appendingPathComponent(sessionId + ".md")
-        guard FileManager.default.fileExists(atPath: url.path) else { reply(true); return }
-        do { try FileManager.default.removeItem(at: url); reply(true) } catch { reply(false) }
-    }
-
-    private func memoryClear(reqId: String) {
-        func reply(_ ok: Bool) {
-            windowController.pushHostCommand("memoryCleared", payload: AppDelegate.jsonPayload(["reqId": reqId, "ok": ok]))
-        }
-        let dir = EngineSupervisor.memoryDir
-        let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-        do {
-            for url in items where url.pathExtension == "md" {
-                try FileManager.default.removeItem(at: url)
-            }
-            reply(true)
-        } catch {
-            reply(false)
-        }
-    }
 
     /// 技能清单（设置 → 技能与插件）：技能是 `<DSH_HOME>/skills` 下的普通文件，
     /// 引擎侧没有 skill 方法，所以清单由壳读盘给出（含 frontmatter 缺键与是否随应用发布）。
@@ -955,62 +888,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.pushHostCommand("remoteStatus", payload: AppDelegate.jsonPayload(payload))
     }
 
-    /// 自进化机械脚本执行（lesson-tool → lessonToolResult 回推）：随包 node 直跑    /// 固化脚本（gate/land/verify，启动时铺盘在 <DSH_HOME>/deepdive/），模型不在
-    /// 环内——零人审的信任底座（Ditto selftest：宿主验证，不采信 agent 口头"完成"）。
-    /// DSH_HOME 显式进脚本环境（壳进程环境里没有）；stdout 完整回传（回执在末行），
-    /// 解析在前端边界做。node/脚本缺席（dev 的 .single 入口）显式 ok=false 降级。
-    private func lessonTool(reqId: String, tool: String, args: [String]) {
-        func reply(_ ok: Bool, _ output: String) {
-            let trimmed = output.count > 8000 ? String(output.suffix(8000)) : output
-            windowController.pushHostCommand("lessonToolResult", payload: AppDelegate.jsonPayload([
-                "reqId": reqId, "ok": ok, "output": trimmed,
-            ]))
-        }
-        let script: URL? = switch tool {
-        case "gate": EngineSupervisor.lessonScriptURL("lesson-gate.mjs")
-        case "land": EngineSupervisor.lessonScriptURL("lesson-land.mjs")
-        case "verify": EngineSupervisor.lessonScriptURL("lesson-verify.mjs")
-        default: nil
-        }
-        guard let node = EngineSupervisor.bundledNodePath, let script, FileManager.default.fileExists(atPath: script.path) else {
-            reply(false, "lesson tool unavailable: \(tool)")
-            return
-        }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: node)
-            process.arguments = [script.path] + args
-            process.environment = ProcessInfo.processInfo.environment.merging(
-                ["DSH_HOME": AppPaths.harnessHome.path],
-            ) { _, new in new }
-            let outPipe = Pipe()
-            let errPipe = Pipe()
-            process.standardOutput = outPipe
-            process.standardError = errPipe
-            do { try process.run() } catch {
-                DispatchQueue.main.async { reply(false, "spawn failed") }
-                return
-            }
-            // stderr 独立线程排空（与 gitRun 同因：顺序读有管道互锁面）
-            var errText = ""
-            let errLock = NSLock()
-            Thread.detachNewThread {
-                let d = errPipe.fileHandleForReading.readDataToEndOfFile()
-                errLock.lock()
-                errText = String(data: d, encoding: .utf8) ?? ""
-                errLock.unlock()
-            }
-            let out = outPipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            var output = String(data: out, encoding: .utf8) ?? ""
-            errLock.lock()
-            if !errText.isEmpty { output += "\n\(errText)" }
-            errLock.unlock()
-            let ok = process.terminationStatus == 0
-            DispatchQueue.main.async { reply(ok, output) }
-        }
-    }
-
     /// 目录选择器（侧栏「＋新建空间」）：选一个已有文件夹，把绝对路径推回
     /// 前端，由前端调引擎 `workspace.create` 注册（与官方 DSH 一致）；取消
     /// 不发任何消息。sheet 挂主窗口，不阻塞 webview 其余交互。
@@ -1099,10 +976,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "keybinds": DSHAppPrefs.keybinds,
             "onboarding": DSHAppPrefs.onboarding,
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
-        "evolutionEnabled": DSHAppPrefs.evolutionEnabled,
-            "sessionMemoryEnabled": DSHAppPrefs.sessionMemoryEnabled,
-            // 开关开着却没挂上时的原因（依赖缺失/上次崩溃被隔离）：设置页据此说明
-            "sessionMemoryBlocked": DSHAppPrefs.sessionMemoryBlockedReason as Any,
             "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
         ]

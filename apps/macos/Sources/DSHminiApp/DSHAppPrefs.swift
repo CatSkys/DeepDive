@@ -30,9 +30,6 @@ enum DSHAppPrefs {
     static let keybindsKey = "deepdive.keybinds"
     /// 全局热键（唤起面板）启用开关；关 = 系统级注销。
     static let hotkeyOnKey = "deepdive.hotkey.on"
-    /// 自进化（实验能力，默认关）：开着应用才会采集/复盘/校验，装配层也才写那行
-    /// 「可以提经验」的指路（晚一拍：装配在启动时读，见 SPEC-SELF-EVOLUTION §8）。
-    static let evolutionEnabledKey = "deepdive.evolution.enabled"
     /// 桥监听端口：固定下来前端 origin 才稳（localStorage 按 origin 分家）。
     /// 0 = 还没定过（首次启动由内核分配，随后记下）。
     static let bridgePortKey = "deepdive.bridge.port"
@@ -119,59 +116,6 @@ enum DSHAppPrefs {
 
     static func setLanguage(_ value: String) {
         UserDefaults.standard.set(value == "en" ? "en" : "zh", forKey: languageKey)
-    }
-
-    static var evolutionEnabled: Bool {
-        UserDefaults.standard.bool(forKey: evolutionEnabledKey)
-    }
-
-    /// 会话记忆（实验能力，默认关）：开着引擎装配才挂笔记插件、新会话才有
-    /// memory 工具（晚一拍：装配在启动时读）。
-    static let sessionMemoryEnabledKey = "deepdive.sessionMemory.enabled"
-
-    static var sessionMemoryEnabled: Bool {
-        UserDefaults.standard.bool(forKey: sessionMemoryEnabledKey)
-    }
-
-    static func setSessionMemoryEnabled(_ value: Bool) {
-        UserDefaults.standard.set(value, forKey: sessionMemoryEnabledKey)
-        // 用户自己再打开＝一次自觉的重试：清掉上次的自动隔离记录
-        if value { setSessionMemoryQuarantineReason(nil) }
-    }
-
-    /// 自动隔离原因（连续启动失败时由自愈写下）：挂在引擎 patch 之外，**不动用户
-    /// 的开关值**——旧实现直接把开关改成 false，用户下次打开设置页只看到"关着"，
-    /// 没有任何解释。设置页读它显示"已自动停用：<原因>"，用户点开关即重试。
-    static let sessionMemoryQuarantineKey = "deepdive.sessionMemory.quarantineReason"
-
-    static var sessionMemoryQuarantineReason: String? {
-        UserDefaults.standard.string(forKey: sessionMemoryQuarantineKey)
-    }
-
-    static func setSessionMemoryQuarantineReason(_ value: String?) {
-        if let value { UserDefaults.standard.set(value, forKey: sessionMemoryQuarantineKey) }
-        else { UserDefaults.standard.removeObject(forKey: sessionMemoryQuarantineKey) }
-    }
-
-    /// 本次启动"想挂但挂不上"的原因（依赖自检不过）：每次启动重写，条件好了自动清。
-    static let sessionMemoryMountNoteKey = "deepdive.sessionMemory.mountNote"
-
-    static var sessionMemoryMountNote: String? {
-        UserDefaults.standard.string(forKey: sessionMemoryMountNoteKey)
-    }
-
-    static func setSessionMemoryMountNote(_ value: String?) {
-        if let value { UserDefaults.standard.set(value, forKey: sessionMemoryMountNoteKey) }
-        else { UserDefaults.standard.removeObject(forKey: sessionMemoryMountNoteKey) }
-    }
-
-    /// 设置页要看的那一句：为什么打开着却没生效（隔离原因优先于本次自检结果）。
-    static var sessionMemoryBlockedReason: String? {
-        sessionMemoryQuarantineReason ?? sessionMemoryMountNote
-    }
-
-    static func setEvolutionEnabled(_ value: Bool) {
-        UserDefaults.standard.set(value, forKey: evolutionEnabledKey)
     }
 
     static var bridgePort: Int {

@@ -3,10 +3,10 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "9f0f52564f9f09fa",
+      "id": "98d7a3dc5bebe1a4",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1321 lines > 300"
+      "detail": "1194 lines > 300"
     },
     {
       "id": "510fb9988664948f",
@@ -21,10 +21,10 @@
       "detail": "340 lines > 300"
     },
     {
-      "id": "39689782d66bd2c7",
+      "id": "6090e7d0a8a9fb0b",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/EngineSupervisor.swift",
-      "detail": "1410 lines > 300"
+      "detail": "630 lines > 300"
     },
     {
       "id": "62fad347c3aa2ff7",
@@ -45,16 +45,16 @@
       "detail": "335 lines > 300"
     },
     {
-      "id": "6ebabb17b929ba13",
+      "id": "e4ad1bf1d934c90b",
       "rule": "file-lines",
       "file": "frontend/src/api.ts",
-      "detail": "735 lines > 300"
+      "detail": "714 lines > 300"
     },
     {
-      "id": "35c77ede2e890a53",
+      "id": "7b8fb21912ee41d7",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "376 lines > 300"
+      "detail": "373 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -75,10 +75,10 @@
       "detail": "400 lines > 300"
     },
     {
-      "id": "5f02690528bf66c3",
+      "id": "b90ce62082e73701",
       "rule": "file-lines",
       "file": "frontend/src/components/Markdown.tsx",
-      "detail": "371 lines > 300"
+      "detail": "367 lines > 300"
     },
     {
       "id": "27357889383b64ab",
@@ -87,34 +87,28 @@
       "detail": "544 lines > 300"
     },
     {
-      "id": "96fd8127320b3058",
+      "id": "dbd52a4b4d375857",
       "rule": "file-lines",
       "file": "frontend/src/components/SettingsPage.tsx",
-      "detail": "778 lines > 300"
+      "detail": "769 lines > 300"
     },
     {
-      "id": "12fc4e8b39e8c299",
+      "id": "ec9f3aa9b70274b3",
       "rule": "file-lines",
       "file": "frontend/src/components/Sidebar.tsx",
-      "detail": "526 lines > 300"
+      "detail": "524 lines > 300"
     },
     {
-      "id": "a2bd0c83c8cecf00",
-      "rule": "file-lines",
-      "file": "frontend/src/evolution/useEvolution.tsx",
-      "detail": "463 lines > 300"
-    },
-    {
-      "id": "d989f08ee03ce8c1",
+      "id": "a344ef78a21fd891",
       "rule": "file-lines",
       "file": "frontend/src/host.ts",
-      "detail": "794 lines > 300"
+      "detail": "711 lines > 300"
     },
     {
-      "id": "151c6276a4998210",
+      "id": "ed2c2830c19044b2",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "925 lines > 300"
+      "detail": "845 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",
@@ -165,10 +159,10 @@
       "detail": "418 lines > 300"
     },
     {
-      "id": "97ee82eb93aaa4b5",
+      "id": "1f856f4cc61c68ef",
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
-      "detail": "774 lines > 300"
+      "detail": "757 lines > 300"
     },
     {
       "id": "2d2859ec9ebb8a6e",

@@ -4,7 +4,6 @@ import { CodeBlock } from "./CodeBlock";
 import { sendToShell } from "../host";
 import { AutomationProposalCard } from "../automation/AutomationProposalCard";
 import { parseProposal, PROPOSAL_LANG } from "../automation/protocol";
-import { LESSON_LANG, parseLesson } from "../evolution/protocol";
 import { MERMAID_FENCE, SVG_FENCE, WIDGET_FENCE } from "../rich/fences";
 import { MermaidBlock } from "../rich/MermaidBlock";
 import { SvgBlock } from "../rich/SvgBlock";
@@ -15,8 +14,8 @@ import "katex/dist/katex.min.css";
 // Lightweight monochrome Markdown renderer: headings, paragraphs,
 // ordered/unordered lists (task lists), quotes, fenced + inline code with
 // highlight.js, bold/italic/strikethrough, links (shell opens), tables, images
-// (click → Lightbox). Three fence languages are handed off instead of shown as
-// code — npm-style proposal/lesson blocks and the rich-output set
+// (click → Lightbox). Four fence languages are handed off instead of shown as
+// code — the npm-style proposal block and the rich-output set
 // (mermaid / svg / widget, see src/rich/); everything else stays a code block.
 
 export interface Block {
@@ -301,9 +300,6 @@ function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) 
             // automation 围栏块 = 模型提出的定时任务建议；解析不了就当普通代码块
             const proposal = b.lang === PROPOSAL_LANG ? parseProposal(b.lines.join("\n")) : null;
             if (proposal !== null) return <AutomationProposalCard key={key} proposal={proposal} />;
-            // lesson 块 = 自进化提案：采集端已收进设置里的队列，会话里**零 UI**（SPEC §8）；
-            // 只有形状不合法时才退回普通代码块，让"模型没按格式写"看得见
-            if (b.lang === LESSON_LANG && parseLesson(b.lines.join("\n")) !== null) return null;
             // 富输出围栏（词表见 rich/fences.ts）：图表 / 内联 SVG / 交互组件；各自的
             // 渲染不出来都退回代码块显示原文，不吞掉内容
             const body = b.lines.join("\n");
