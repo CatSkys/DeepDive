@@ -8,7 +8,7 @@
 > 参考：`luochenw/deepseek-harness-macos` 的 `scripts/prepare-dsh-runtime.sh`、`scripts/build-macos-app.sh`、`scripts/dsh-runtime-version.txt`、`DSHHostProtocol` 的 settings/credentials 端点。
 > v2 变更：钉死 bundled 入口形状（node + `lib/bin.js`，修 v1 的路径自相矛盾）；node 二进制版本同样引脚化；新增 §4.4 凭据冷启动闭环。
 > v2.1 变更：入口优先级修正（`DSHMINI_DSH_ENTRY` 显式 env 最强覆盖、压过 bundled，否则 §5"对照不同版本"失效）；子命令形状以实测为准；`PATH` 注入 bundled node；`package-macos.sh` 签名改 `--deep`；node 引脚不符改 fail-loud（不做自动下载）。
-> **引脚版本以 `scripts/dsh-runtime-version.txt` 为唯一事实源，不在本文内联数字**。版本史：rc.2 → 0.1.2-alpha.2 协议移植试验 → c590653 回退 rc.2（alpha.2 UNARY 面当时不可用）→ 2026-09-09 **升 0.1.2-rc.1 全量落地** → 2026-09-10 **升 0.1.5-rc.1 全量落地**（会话格式 V3 → §3.4 版本门；wire 契约现状态见 `DSH-WIRE.md`；旧兼容层已删）。
+> **引脚版本以 `scripts/dsh-runtime-version.txt` 为唯一事实源，不在本文内联数字**。版本史：rc.2 → 0.1.2-alpha.2 协议移植试验 → c590653 回退 rc.2（alpha.2 UNARY 面当时不可用）→ 2026-09-09 **升 0.1.2-rc.1 全量落地** → 2026-09-10 **升 0.1.5-rc.1 全量落地**（会话格式 V3 → §3.4 版本门；wire 契约现状态见 `DSH-WIRE.md`；旧兼容层已删）→ 2026-09-24 **评估上游 0.1.7-rc.1：暂不升**（依据与触发条件见 §5.1）。
 
 ---
 
@@ -117,6 +117,54 @@
 - 引擎版本随**应用整体发布**（当前规格）——升级 bundled runtime = 发新版 App。
 - 长期：**App 自更新（Sparkle，`ARCHITECTURE §12` 已选型）**随更新带新内核；配合 §4 能力探测，双保险使引擎更新无感。
 - 开发：`DSHMINI_DSH_ENTRY` 指向任意目标版本 dsh，用于对照不同版本 API 面（异版本仅告警；对照务必配 `DSHMINI_SUPPORT_DIR` 隔离——生产 home 的会话格式不可降级读取，§3.4 版本门拦的正是这种混用）。
+
+### 5.1 上游新 rc 的升级裁决：0.1.7-rc.1 暂不升（2026-09-24）
+
+上游 rc 线已到 `0.1.7-rc.1`（npm `next`；`latest` 仍停在 0.1.5-rc.3 且无对应 GitHub release）。
+裁决为**暂不升**：不存在硬性驱动，而代价是不可分割的单向迁移。
+
+**没有硬性驱动**（逐条实证）：
+
+- **引擎无强制更新机制**——boot/core 内无版本门或 outdated 检查，服务端也不拒绝旧客户端。
+- **模型目录新鲜度已与引脚解耦**：`@earendil-works/pi-ai` 在新旧闭包里逐字节相同（`diff -rq` 零差异），
+  故 `scripts/engine-model-data/` 的快照继续生效；新模型上线只更新该目录的数据，不动引脚（流程见其 README）。
+- **DeepSeek 路由不构成约束**：本 pin 的 `dsh-llm-deepseek` 走 `{baseURL}/chat/completions`，
+  0.1.7 改为 Messages-only 并硬拒 `protocol` 配置项；pi-ai 的 `deepseek` provider 同为 openai-completions，
+  **故本 pin 上无配置逃生口**。但无凭据探测该端点仍返回 401（在线而非 404），官方文档无弃用公告，
+  旧模型名仍被接受并路由到当前旗舰；本仓默认模型名即文档推荐的当前名字。
+- **构建链已能接受新闭包**：`prepare-dsh-runtime.sh --validate` 对新闭包退出 0（嵌套依赖清单无需改）。
+
+**代价不可分割**：0.1.7 不是一堆可挑着拿的修复，而是一次整体迁移——会话日志 V4（`tool/result`
+消息 role 由 `user` 改 `tool`、来源 `plugin` 改 `kind`、新增 `developer/message`）与 tool-role
+消息模型、Messages 协议、图片 offload 互为前提；`dsh-llm-pi-ai/context.ts` 的两百余行改动全为这套
+模型服务，上游那条"大型流式工具参数阻塞进程"的修复也落在其中，**无法单独回移**。日志 V4 是单向门，
+而本仓有真实 V3 数据（上次升级迁移的会话）。
+
+**收益面很薄**：0.1.7 的功能卖点绝大多数落在本仓有意删除的面上（侧边栏终端/浏览器、Office 预览、
+插件管理页、语音、Browser/Computer Use、Agent Team、账号）。留下来可能用到的只有 MCP 资源发现与
+长会话加载/轮次跳转性能两项。
+
+**将来要升时的已知硬断点**（届时仍按 `engine/profile/README.md` 的漂移流程重新推导）：
+
+- `session/control` 不再发 `queue`/`jobs` 帧 → 改读 `inbox` 投影 + `job/list|follow`；`subagents/list`
+  删除 → 改读 `subagentCatalog` 投影（两者本仓当前都在用，升则必改）。
+- 预设面重排：`agent-preset-registry` 行存在而解析不到任何预设时，**每个 `session/create` 都会失败**
+  （`agent-preset/not-found`）——要么不声明该行（宿主平面工具照旧直达 agent），要么同时声明预设。
+- 闭包体积翻倍（Office/语音运行时），需重裁 `prune-dsh-runtime.sh`。
+
+**触发条件**（出现其一再启动评估）：
+
+1. DeepSeek 官方宣布 `/chat/completions` 下线；
+2. 需要只在 0.1.7+ 存在、且不属本仓裁剪面的能力（当前只有 MCP 资源发现、长会话加载性能两项沾边）；
+3. 上游出现影响本仓代码路径的安全修复。
+
+**复核手法**（三条非显然的实证，免下次从零摸）：
+
+- **pi-ai 一致性**：`diff -rq <旧闭包>/node_modules/@earendil-works/pi-ai/dist <新闭包>/…/dist`——
+  零差异即模型数据快照仍适用，不必重做。
+- **端点在线性**：无凭据 POST 目标端点，`401` = 在线、`404` = 已下线（**不要拿用户凭据去试**）。
+- **路由表**：权威清单 = 各生成客户端 `lib/typert.remote-client.js` 里的 `id: '<包>#<路由>'`
+  （`UNARY_ROUTES` 已随包消亡，勿按旧文寻址）。
 
 ## 6. 文件变更（实现起参考）
 
