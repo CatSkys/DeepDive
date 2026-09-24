@@ -51,3 +51,36 @@
   见 `engine/profile/cordis.patch.yml` 的移除清单）。
 - 命令面：`packages/client/ui-commands/src/client/service.ts`（commands/list 驱动目录 + execute 整行派发；带参命令 claim、无参直发、未知命令拒收保草稿）→ SPA `composer/useSlashCommands.ts` + `commandLine.ts`。
 - @ 候选：`packages/client/ui-reference/src/client/index.ts`（sessionReferenceResolver/candidates 消费）+ `packages/api/session-controller/src/file-references.ts`（fileReferences/list，本地实现 `file-reference-local`：cwd 亲和整库索引）→ SPA `useMentionCandidates.ts`。
+
+## 会话右侧边栏
+- `packages/client/ui-sidebar-right/`（README + `src/client/`）
+  - README 是完整设计文档：角落展开按钮（`shell/ExpandButton.tsx`）、两种呈现（push/fullscreen）、
+    每会话一份 `SurfaceState`（`stores.ts`）、tab 型注册表（`tab-registry.ts`）、Tab 域
+    （`tab-domain.ts`）、默认页规则与 guide（`tabs/guide/`）。
+  - 本仓移植到 `frontend/src/sidebar-right/`：`panelState.ts`（SurfaceState 的纯函数化）、
+    `panelStore.ts`（每会话宿主）、`viewRegistry.ts`（页型声明）、`SessionPanel.tsx`（面板本体）、
+    `PanelTrigger.tsx`（角落座位：胶囊 or 展开按钮）。
+  - 有意裁剪：官方 dockkit 的分栏/浮动与 tab 持久化/撤销不做（本仓只三个页型），
+    见 `SPEC-BROWSER-USE.md §1`。
+
+## 侧栏浏览器
+- `@deepseek-ai/dsh-client-ui-sidebar-browser`（**0.1.7 才有**，本仓 vendored 副本是 0.1.5，
+  所以参考物单独入库在 `reference/dsh-0.1.7-client-ui/sidebar-browser/`）
+  - `lib/types/client/browser/url.ts` → `frontend/src/sidebar-right/browserUrl.ts`（逐条照抄）
+  - `lib/types/client/browser/BrowserNavigation.js`（编译在 `lib/client.js`）→
+    `frontend/src/sidebar-right/browserNavigation.ts`（类改成不可变纯函数）
+  - `lib/types/client/browser/IframeImpl.js` + `view/IframePresentation.js` →
+    `frontend/src/sidebar-right/useIframeBrowser.ts` + `BrowserCarrier.tsx`
+  - `lib/types/client/view/BrowserBody.js`（工具栏五钮 + 地址栏）→ `BrowserPane.tsx`
+  - `lib/types/client/electron/ElectronWebViewImpl.js` → 壳侧 `BrowserHost.swift`（载体换成 WKWebView）
+  - 参考物入库理由：它是 0.1.7 的包而 vendored 副本停在引脚 0.1.5；本仓纪律要求对照物在仓内，
+    否则下一个接手者无法重新推导（见该目录 README）。
+
+## 浏览器工具面（agent 驱动）
+- `/tmp/zcode-read/apps/zcode-cli/packages/browser-use-plugin/`（ZCode，非本仓资产）
+  - `skills/control-browser/SKILL.md` → `EngineSupervisor.browserSkillMarkdown`（纪律照抄）
+  - `scripts/browser-client.mjs` + `docs/api.json` → `apps/macos/BrowserUse/browser-client.mjs`
+  - `packages/shared/src/browser-use/commands.ts` 的命令族 → 壳侧 `/browser-control` 的原语集
+  - 有意偏离：ZCode 的 `js` 工具跑在 node_repl 里、有 IAB/extension/cdp 三种后端；
+    本仓只有一种后端（壳内 WKWebView）、单标签，且内核取值要写 `return`（ZCode 是 REPL 完成值）。
+    理由与边界记在 `SPEC-BROWSER-USE.md §4`。

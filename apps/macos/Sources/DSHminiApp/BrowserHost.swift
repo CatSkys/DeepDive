@@ -1,0 +1,238 @@
+// 侧栏浏览器的壳侧宿主：窗口里的第二个 WKWebView。对应官方
+// @deepseek-ai/dsh-client-ui-sidebar-browser 的 ElectronWebViewImpl（Electron <webview> 那一支），
+// 位置由前端推上来的槽位 rect 决定（nativeSlot.ts），命令由 SPA 与 agent 两侧共用。
+//
+// 三条与官方对齐的策略：
+//   · 协议白名单：只放 http/https/about:blank（file:/data:/blob 一律拒；本地文件预览归文档预览）；
+//   · 独立数据存储：nonPersistent，cookie/Web 存储不落盘、不与应用自身会话共享；
+//   · 不让页面拿到任何宿主能力：无 userContentController 处理器、无脚本注入、弹窗不开原生窗口。
+//
+// 缩略图态要让点击落到 SPA（点它是"展开面板"而非操作网页）：那由 hitTest 直接返回 nil 完成
+// ——原生视图恒在 SPA 之上，不收点击必须由壳让位。
+
+import AppKit
+import WebKit
+
+/// 收点击可控的浏览器视图：`acceptsInput == false` 时整格对鼠标透明。
+final class BrowserHostView: WKWebView {
+    var acceptsInput = true
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        acceptsInput ? super.hitTest(point) : nil
+    }
+}
+
+/// 前端推上来的槽位：CSS px 的 rect + 可见/收点击标志。
+struct BrowserSlot {
+    var rect: NSRect
+    var visible: Bool
+    var interactive: Bool
+
+    /// 换算成 AppKit 的 frame：横向与尺寸乘 pageZoom（CSS px → point），y 轴翻转用
+    /// **当前**内容高度（不缓存高度，窗口尺寸变化就不会过期）。
+    func frame(contentHeight: CGFloat, zoom: CGFloat) -> NSRect {
+        NSRect(
+            x: rect.minX * zoom,
+            y: contentHeight - (rect.minY + rect.height) * zoom,
+            width: rect.width * zoom,
+            height: rect.height * zoom
+        )
+    }
+}
+
+/// 推给 SPA 的浏览器观察（前端 useNativeBrowser 的 NativeBrowserState 同形）。
+struct BrowserObservation {
+    var url: String = ""
+    var title: String = ""
+    var loading: Bool = false
+    var canGoBack: Bool = false
+    var canGoForward: Bool = false
+    var error: Bool = false
+
+    var payload: [String: Any] {
+        [
+            "url": url, "title": title, "loading": loading,
+            "canGoBack": canGoBack, "canGoForward": canGoForward, "error": error,
+        ]
+    }
+}
+
+final class BrowserHost: NSObject {
+    let view: BrowserHostView
+    /// 观察变化回调（主线程）。
+    var onObservation: ((BrowserObservation) -> Void)?
+
+    private var lastError = false
+    /// 最近一次槽位；窗口尺寸或 pageZoom 变化时按它重算（槽位状态放这里，主窗口控制器
+    /// 就不必为它多一个存储属性）。
+    private var slot: BrowserSlot?
+
+    override init() {
+        let config = WKWebViewConfiguration()
+        // 独立且不落盘：浏览器的 cookie/存储不与应用自身会话共享，重启即清
+        config.websiteDataStore = .nonPersistent()
+        config.userContentController = WKUserContentController()
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        view = BrowserHostView(frame: .zero, configuration: config)
+        super.init()
+        view.navigationDelegate = self
+        view.uiDelegate = self
+        view.allowsMagnification = false
+        view.isInspectable = true
+        view.autoresizingMask = []
+    }
+
+    // MARK: - 位置与可见性
+
+    /// 记下前端推来的槽位并立刻摆位。
+    func setSlot(_ slot: BrowserSlot, contentHeight: CGFloat, zoom: CGFloat) {
+        self.slot = slot
+        applySlot(contentHeight: contentHeight, zoom: zoom)
+    }
+
+    /// 按缓存的槽位与当前 bounds/pageZoom 重算 frame。
+    func applySlot(contentHeight: CGFloat, zoom: CGFloat) {
+        guard let slot else {
+            place(rect: .zero, visible: false, interactive: false)
+            return
+        }
+        place(rect: slot.frame(contentHeight: contentHeight, zoom: zoom), visible: slot.visible, interactive: slot.interactive)
+    }
+
+    /// 按槽位摆放。`visible == false` 时移出可视区（而不是 alpha 0——那仍会合成）。
+    func place(rect: NSRect, visible: Bool, interactive: Bool) {
+        view.acceptsInput = interactive
+        guard visible else {
+            view.isHidden = true
+            return
+        }
+        view.isHidden = false
+        if view.frame != rect { view.frame = rect }
+    }
+
+    // MARK: - 命令（SPA 与 agent 共用同一份）
+
+    /// 只放行 http/https/about:blank（官方 parseBrowserAddress 的壳侧等价物）。
+    static func allowed(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        if scheme == "about" { return url.absoluteString == "about:blank" }
+        return scheme == "http" || scheme == "https"
+    }
+
+    func load(_ urlString: String) {
+        guard let url = URL(string: urlString), Self.allowed(url) else {
+            lastError = true
+            publish()
+            return
+        }
+        lastError = false
+        view.load(URLRequest(url: url))
+    }
+
+    func goBack() { if view.canGoBack { view.goBack() } }
+    func goForward() { if view.canGoForward { view.goForward() } }
+    func reload() {
+        if view.url == nil { return }
+        lastError = false
+        view.reload()
+    }
+
+    /// 截图（MCP 的 browser_screenshot 用）：返回 PNG 的规范 base64。
+    func screenshot(completion: @escaping (String?) -> Void) {
+        let config = WKSnapshotConfiguration()
+        config.rect = view.bounds
+        view.takeSnapshot(with: config) { image, _ in
+            guard let image,
+                  let tiff = image.tiffRepresentation,
+                  let rep = NSBitmapImageRep(data: tiff),
+                  let png = rep.representation(using: .png, properties: [:]) else {
+                completion(nil)
+                return
+            }
+            completion(png.base64EncodedString())
+        }
+    }
+
+    /// 在页面里执行 JS（MCP 的 browser_evaluate 用）；结果转成 JSON 文本。
+    func evaluate(_ script: String, completion: @escaping (String) -> Void) {
+        view.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { result in
+            switch result {
+            case .success(let value):
+                if JSONSerialization.isValidJSONObject(value),
+                   let data = try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed]),
+                   let text = String(data: data, encoding: .utf8) {
+                    completion(text)
+                } else if value is NSNull {
+                    completion("null")
+                } else {
+                    completion(String(describing: value))
+                }
+            case .failure(let error):
+                completion("Error: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func publish() {
+        let observation = BrowserObservation(
+            url: view.url?.absoluteString ?? "",
+            title: view.title ?? "",
+            loading: view.isLoading,
+            canGoBack: view.canGoBack,
+            canGoForward: view.canGoForward,
+            error: lastError
+        )
+        onObservation?(observation)
+    }
+}
+
+extension BrowserHost: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        lastError = false
+        publish()
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        publish()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        lastError = true
+        publish()
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        lastError = true
+        publish()
+    }
+
+    /// 协议闸：白名单外一律取消（file:/data:/blob/javascript: 都不放行）。
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        // about:blank 是 WebKit 自己的空白页，放行；其余按白名单
+        decisionHandler(BrowserHost.allowed(url) ? .allow : .cancel)
+    }
+
+    /// 下载：不落地、不弹存盘面板（官方 Desktop 同样 deny downloads）。
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
+                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        decisionHandler(navigationResponse.canShowMIMEType ? .allow : .cancel)
+    }
+}
+
+extension BrowserHost: WKUIDelegate {
+    /// 弹窗不开原生窗口：白名单内的在同一个视图里加载（官方 Desktop 是开成侧栏新页，
+    /// 本仓只有一个浏览器视图，等价做法是就地导航）。
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                 for navigationAction: WKNavigationAction,
+                 windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = navigationAction.request.url, BrowserHost.allowed(url) {
+            webView.load(URLRequest(url: url))
+        }
+        return nil
+    }
+}

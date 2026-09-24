@@ -38,6 +38,7 @@ export function ModelMenu({
   onPick,
   onApplyEffort,
   onClose,
+  inline,
 }: {
   options: ModelOption[];
   current: string;
@@ -49,6 +50,9 @@ export function ModelMenu({
   /** 应用：一次调用同时提交模型与思考档位（selectModel + reasoningEffort）。 */
   onApplyEffort: (m: ModelOption, id: string | undefined) => void;
   onClose: () => void;
+  /** 内联展开（右侧边栏的会话设置用）：不做绝对定位、不挂外部点击关闭——
+   *  边栏正文是滚动容器，绝对定位的下拉会被它裁掉。 */
+  inline?: boolean;
 }) {
   const { t } = useT();
   const [draft, setDraft] = useState<EffortDraft | null>(null);
@@ -56,12 +60,13 @@ export function ModelMenu({
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (inline) return;
     const close = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
-  }, [onClose]);
+  }, [onClose, inline]);
 
   const flat = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -85,7 +90,7 @@ export function ModelMenu({
   };
 
   return (
-    <div className="model-menu" ref={ref}>
+    <div className={inline === true ? "model-menu inline" : "model-menu"} ref={ref}>
       {draft === null ? (
         <div className="model-menu-view" key="root">
           <div className="model-menu-search">

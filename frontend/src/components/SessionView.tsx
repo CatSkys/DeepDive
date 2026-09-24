@@ -8,7 +8,11 @@ import { HeroBrand } from "./HeroBrand";
 import { LoadingState } from "./LoadingState";
 import { planReviewOf } from "../planReview";
 import { PlanReviewCard } from "./PlanReviewCard";
-import { StatusCapsule, SubagentReadOnlyNotice } from "./StatusCapsule";
+import { SubagentReadOnlyNotice } from "../session/SubagentReadOnlyNotice";
+import { PanelTrigger } from "../sidebar-right/PanelTrigger";
+import { SessionPanel } from "../sidebar-right/SessionPanel";
+import { sessionArtifacts } from "../sidebar-right/sessionArtifacts";
+import type { PermissionSelect } from "../sidebar-right/SessionSettings";
 import { groupTurns, type TurnGroup } from "../turnGroups";
 import { groupTools } from "../session/toolGroups";
 import { ToolGroupRow } from "../session/ToolGroupRow";
@@ -237,6 +241,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     return { keyIdx, groups };
   }, [items]);
 
+  // 右侧边栏的两份取数：会话产物清单（面板的「产物」区）与会话权限投影视图
+  // （引擎已经把它算成 {options, currentValue} 的下拉形状）。
+  const artifacts = useMemo(() => sessionArtifacts(items, summary?.cwd ?? wsPath), [items, summary?.cwd, wsPath]);
+  const permissions = (summary?.projections?.values as { permissions?: PermissionSelect } | undefined)?.permissions ?? null;
+
   if (isBlank) {
     return (
       <>
@@ -254,6 +263,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   }
 
   return (
+    <div className="session-row">
     <div className="session">
       {/* 顶部渐隐层：滚上去的内容在头部下面被渐变吃掉 + 模糊（样式见 theme.css）。
           六个 <i> 是渐进模糊的六层（半径从峰值逐层减半、各占带高 1/6 的波段），
@@ -287,9 +297,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           </span>
         )}
-        {/* 子会话视图不挂状态胶囊：过程查看经只读说明条返回父会话 */}
+        {/* 子会话视图不挂右侧边栏入口：过程查看经只读说明条返回父会话 */}
         {summary?.origin !== "subagent" && (
-          <StatusCapsule sessionId={sessionId} scheduleRecords={scheduleRecords} />
+          <PanelTrigger sessionId={sessionId} scheduleRecords={scheduleRecords} />
         )}
       </div>
       )}
@@ -459,6 +469,14 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       </div>
       {preview.tabs.length > 0 && !previewFull && <FilePreviewOverlay preview={preview} />}
     </div>
+    <SessionPanel
+      sessionId={sessionId}
+      scheduleRecords={scheduleRecords}
+      artifacts={artifacts}
+      face={modelFace}
+      permissions={permissions}
+      onPreview={openPreviewFile}
+    />
+    </div>
   );
 }
-

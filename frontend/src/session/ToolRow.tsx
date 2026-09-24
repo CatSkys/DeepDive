@@ -11,7 +11,8 @@ import { AttachmentThumb } from "../components/AttachmentImage";
 import { IconCheckOutline16, IconChecklistOutline14, IconCopyOutline16 } from "../components/Icons";
 import { askSummary, basename, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
-import { fileUrlOf, renderersOf } from "../components/preview/previewModel";
+import { fileUrlOf } from "../components/preview/previewModel";
+import { mergeArtifacts } from "../sidebar-right/sessionArtifacts";
 import { StateDot } from "./MessageRow";
 import { ToolIcon } from "./ToolIcon";
 import { FileIcon } from "./FileIcon";
@@ -279,22 +280,8 @@ export function ArtifactsRow({ produced, presented, root, onPreview }: {
   root?: string;
   onPreview?: (path: string) => void;
 }) {
-  const abs = (p: string) => (p.startsWith("/") || !root ? p : `${root}/${p}`);
   const open = (path: string) => (onPreview ? onPreview(path) : openPath(path));
-  const items: Array<{ key: string; path: string; desc?: string; image: boolean }> = [];
-  const seen = new Set<string>();
-  for (const f of presented) {
-    const path = abs(f.path);
-    if (seen.has(path)) continue;
-    seen.add(path);
-    items.push({ key: `d:${f.path}`, path, desc: f.description, image: renderersOf(path).includes("image") });
-  }
-  for (const p of produced) {
-    const path = abs(p);
-    if (seen.has(path)) continue;
-    seen.add(path);
-    items.push({ key: `p:${p}`, path, image: false });
-  }
+  const items = mergeArtifacts(produced, presented, root);
   if (items.length === 0) return null;
   const shown = items.slice(0, 8);
   const hidden = items.length - shown.length;

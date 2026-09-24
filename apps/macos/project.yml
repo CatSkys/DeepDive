@@ -19,6 +19,13 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
+      # 侧栏浏览器的 agent 控制面：MCP server（暴露单个 js 工具）+ 浏览器 SDK。
+      # 纯 JS 资源，由 BrowserUseInstaller 装进 support 目录后交给引擎 spawn。
+      # type: folder —— 必须是目录引用：普通资源会被拷到 Resources 根下摊平，
+      # 安装器按目录整体复制就找不到它们了。
+      - path: BrowserUse
+        type: folder
+        buildPhase: resources
       # 随包引擎版本引脚：直接拷入 bundle（不复制版本值，避免第二份事实源）。
       # 版本门要用它在「未嵌入引擎」的构建里也能读出 pin（SPEC-ENGINE-RUNTIME §3.4）。
       - path: ../../scripts/dsh-runtime-version.txt
@@ -41,6 +48,8 @@ targets:
         NSHighResolutionCapable: true
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+          # 侧栏浏览器（第二个 WKWebView）要能加载 http:// 公网站点；只放宽 Web 内容
+          NSAllowsArbitraryLoadsInWebContent: true
         NSMicrophoneUsageDescription: "听写需要使用麦克风。"
         NSSpeechRecognitionUsageDescription: "听写使用系统语音识别将你的语音转换为文字。"
   DSHminiAppTests:

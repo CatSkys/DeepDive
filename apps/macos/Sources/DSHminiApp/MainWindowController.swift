@@ -85,6 +85,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     private let tintView = NSView()
     private var themeEnabled: Bool
 
+    /// 侧栏浏览器的壳侧宿主（窗口里的第二个 WKWebView）。位置由前端推上来的槽位 rect
+    /// 决定（frontend/src/nativeSlot.ts → `native-slot` 消息），命令来自 SPA（browser-nav）
+    /// 与 agent（/mcp）两侧。
+    let browser = BrowserHost()
+    /// 槽位换算需要的两个实时值（effectView / webView 是私有的，只开这一对读数口给
+    /// MainWindowController+Browser 用）。
+    var browserContainerHeight: CGFloat { effectView.bounds.height }
+    var browserZoom: CGFloat { webView.pageZoom }
+
+    /// 按当前内容高度与 pageZoom 重算浏览器视图的 frame（槽位本身存在 BrowserHost 里）。
+    private func applyBrowserSlot() {
+        browser.applySlot(contentHeight: browserContainerHeight, zoom: browserZoom)
+    }
+
     /// Frontend asks the shell to act (SPEC-NOTIFICATIONS §3.1 前端→外壳)，
     /// 与 AppDelegate.handleHostMessage 的 case 一一对应（加 case 必须同步此清单）：
     /// host-ready / restart-engine / rebind-hotkey / set-pref / set-theme /
@@ -196,6 +210,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         webView.frame = effectView.bounds
         webView.autoresizingMask = [.width, .height]
         effectView.addSubview(webView)
+
+        // 浏览器宿主加在 webView **之后** = 最上层：它盖住 SPA 挖的那一格，点击归它自己
+        // （缩略图态由 hitTest 让位，见 BrowserHostView）。初始隐藏，等前端推槽位。
+        browser.onObservation = { [weak self] observation in
+            self?.pushHostCommand("browserState", payload: AppDelegate.jsonPayload(observation.payload))
+        }
+        // agent 控制面（/browser-control）要拿到这个窗口的浏览器宿主
+        BrowserControl.hostProvider = { [weak self] in self?.browser }
+        browser.view.isHidden = true
+        effectView.addSubview(browser.view)
 
         webView.navigationDelegate = self
         // JS alert()/confirm()/prompt() need a WKUIDelegate; without one they
@@ -383,6 +407,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     private func applyPageZoom(_ value: CGFloat) {
         webView.pageZoom = min(max(value, Self.pageZoomRange.lowerBound), Self.pageZoomRange.upperBound)
+        // pageZoom 是 CSS px → point 的系数：槽位换算必须跟着变，否则缩放后原生视图错位
+        applyBrowserSlot()
     }
 
     // MARK: - show / hide (anti-flicker panel)
@@ -441,6 +467,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     func windowDidResize(_ notification: Notification) {
         alignTrafficLights()
+        // 槽位按 point 定位：窗口尺寸变了要按新 bounds 重算 y（前端也会重推，但那是
+        // 300ms 兜底节奏，拖窗期间会看到原生视图浮在旧位置）
+        applyBrowserSlot()
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
@@ -473,6 +502,7 @@ extension MainWindowController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "deepdive" {
             handleTitlebarRects(message)
+            handleNativeSlot(message)
             return
         }
         if message.name == "deepdiveHost" {
@@ -498,6 +528,11 @@ extension MainWindowController: WKScriptMessageHandler {
     private func handleHostMessage(_ message: WKScriptMessage) {
         guard let body = message.body as? [String: Any],
               let type = body["type"] as? String else { return }
+        // 浏览器命令由本窗口的扩展处理（宿主就在这儿），其余按原路交给 AppDelegate 的 case 表
+        if type == "browser-nav" {
+            handleBrowserNav(body)
+            return
+        }
         EngineLog.shared.append("[bridge] host message: \(type)")
         onHostMessage?(body)
     }

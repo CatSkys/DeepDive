@@ -541,3 +541,28 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 事故（2026-09-06）：用户指认 dsh 有「导入会话」面板，但 vendored 源码、npm 主包 `@deepseek-ai/dsh`（含最新 0.1.2-rc.1）与官方 web 资产 grep 全部 0 命中，一度误判为"ZCode 自有功能"。真相：入口来自 **web profile 插件层**（`~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 列了社区包 `dsh-chat-import`），引擎只提供插件挂载点。
 - 查证路径：先看 `~/.dsh/profiles/web/package.json` 的 bundles/dependencies，再读插件包源码（`lib/panel.mjs` 等）拿真实路由契约——不要在引擎源里死磕。
 - 同场加映：`/api-import/import` 的结果条目在整源失败时只有 `status:"failed"+error` 没有数值字段，前端汇总要归一化否则 NaN；前端渐进扫描（逐来源 append）在「导入后立即 rescan」时与上一轮并发，来源行整组重复——世代守卫（ref 计数）是这类并发 setState 的最小修法。
+
+## 9. 原生视图槽位（侧栏浏览器，2026-09-25 起）
+
+### 9.1 原生视图恒在 SPA 之上——浮层会被它压住
+- 现象：侧栏浏览器那一格是壳摆的原生 `WKWebView`（在 SPA 的 webview 之后 = 最上层）。任何与它重叠的 DOM 浮层（命令面板、模态弹窗、下拉菜单）都画在它**下面**，看不见也点不到。
+- 处置：`frontend/src/nativeSlot.ts` 每次推 rect 时做**命中测试**（`elementFromPoint` 取槽位中心与两个偏差点，最上层元素不在槽位内就置 `visible:false`）。这样新增浮层不必逐个登记，槽位自己让位。
+- 别改成"遍历已知浮层列表"：那是漏一个就瞎一处的写法。
+
+### 9.2 rect 换算必须乘 pageZoom
+- 现象：前端给的是 CSS px，AppKit 要的是 point；`webView.pageZoom` 是两者之间的系数。不乘它，⌘+/⌘− 之后原生视图与页面里挖的洞立刻错位。
+- 另一处同源陷阱：`titlebar.ts` 的 52px 条带判定同样没有乘 pageZoom（既有的，尚未修）——缩放后条带深度在两端不一致。
+- 处置：`MainWindowController.applyBrowserSlot()` 乘 `pageZoom`；窗口 resize / 全屏 / pageZoom 变化时都重算（前端重推有 300ms 兜底节奏，拖窗期间会看到原生视图浮在旧位置）。
+
+### 9.3 缩略图态要让点击落回 SPA
+- 现象：缩略图要"点它展开面板"，但原生视图在最上层，点击直接进了网页。
+- 处置：`BrowserHostView.hitTest` 在 `acceptsInput == false` 时返回 nil，点击穿透到下面的 SPA；收点击与否由前端在槽位元素上声明（`data-native-slot-interactive`）。展开态才置 1，让人直接操作网页。
+
+### 9.4 MCP 的 request 绝不能回 202
+- 现象：`@deepseek-ai/dsh-mcp-client` 用 SDK 的 Streamable HTTP 客户端；对**含 id 的请求**回 202 会被客户端当成"已受理、无响应"，此后一直等到 `toolCallTimeoutMs`（默认 60s）超时——表现是"工具调用卡死一分钟然后报超时"。
+- 处置：我们的 stdio server 不回 HTTP，但同样的纪律适用于任何自定义 MCP 端点：request → 200 + JSON；notification → 200 空体。
+- 附带两条：不下发 `mcp-session-id`（客户端 404 后不会重新握手，壳重启就会全线失败）；`tools/list` 的 cursor 若给了就必须每次推进（重复 cursor 会让整批工具不注册）。
+
+### 9.5 ATS 会拦内嵌浏览器的 http 站点
+- 现象：`Info.plist` 只有 `NSAllowsLocalNetworking` 时，侧栏浏览器加载 `http://` 公网站点被 ATS 直接拒绝，而引擎侧的 `web_fetch` 却正常——看着像浏览器坏了。
+- 处置：加 `NSAllowsArbitraryLoadsInWebContent`（只放宽 Web 内容，应用自身网络仍走默认策略）。`Info.plist` 与 `project.yml` 两处都要改（后者是生成源）。

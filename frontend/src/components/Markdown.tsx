@@ -1,7 +1,7 @@
 import { Fragment, memo, useRef, useState, type ReactNode } from "react";
 import { Lightbox } from "./Lightbox";
 import { CodeBlock } from "./CodeBlock";
-import { sendToShell } from "../host";
+import { openExternalUrl } from "../host";
 import { AutomationProposalCard } from "../automation/AutomationProposalCard";
 import { parseProposal, PROPOSAL_LANG } from "../automation/protocol";
 import { MERMAID_FENCE, SVG_FENCE, WIDGET_FENCE } from "../rich/fences";
@@ -252,10 +252,7 @@ export function localFileTarget(url: string): { path: string; line?: number } | 
 }
 
 function openExternal(url: string): void {
-  // 只放行安全 scheme：javascript:/data: 等一旦经壳 open-url 或新窗口打开即是执行面
-  if (!/^(https?|file|mailto):/i.test(url)) return;
-  if (window.webkit?.messageHandlers?.deepdiveHost) sendToShell({ type: "open-url", url });
-  else window.open(url, "_blank");
+  openExternalUrl(url);
 }
 
 /** 任务列表行：- [ ] / - [x] 前缀（GitHub 语法），渲染为只读勾选行。 */

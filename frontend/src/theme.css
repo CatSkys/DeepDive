@@ -4283,3 +4283,235 @@ input:focus, textarea:focus, select:focus { outline: none; }
   .dialog-overlay, .dialog-card { animation: none; }
 }
 
+
+/* ---------- 右侧边栏（会话面板）----------
+   移植官方 ui-sidebar-right：面板是**页面的一列**，不是浮起来的卡片——它用会话自己的底色
+   与字号，与正文之间只有一条 1px 分隔线；两种呈现 push（会话让位）/ fullscreen（盖住整卡）。
+   面板里的浏览器那一层由壳摆原生 WKWebView（见 nativeSlot.ts），所以它只负责挖洞与留位。 */
+/* 会话列 + 面板的横排容器。**必须是定位祖先**：面板的 fullscreen 呈现是
+   `position:absolute; inset:0`，没有这一条它会一路找到 .app（窗口）上去——实测表现是
+   面板顶条压到红绿灯上、浏览器正文铺满整个窗口。 */
+.session-row { position: relative; display: flex; flex: 1; min-height: 0; }
+/* 有定宽兄弟列时 flex item 的 min-width:auto 会被长代码块顶破卡片 */
+.session { min-width: 0; }
+
+.panel {
+  flex: none;
+  width: 320px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--card-gradient);
+  animation: panel-in var(--dur-med) var(--ease-out) both;
+}
+@keyframes panel-in { from { opacity: 0; transform: translateX(8px); } }
+/* fullscreen 呈现：盖住整张主卡（会话让位由覆盖完成，不参与宽度计算）。
+   底下的会话列要**停绘制**：面板的底色是卡片那层半透明渐变，不盖住的话会话正文会
+   从面板里透出来（实测：标题压在页签上、代码块透过地址栏）。与文件预览全屏同一套
+   ——visibility 而不是 display，滚动位置与事件状态都保住。 */
+.panel[data-fullscreen="true"] { position: absolute; inset: 0; width: auto; z-index: 45; border-left: none; }
+.session-row:has(> .panel[data-fullscreen="true"]) > .session { visibility: hidden; }
+
+.panel-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-tabs { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 1; overflow: hidden; }
+.panel-tab {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+  font-size: var(--dsh-font-size-sm);
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.panel-tab:hover { background: var(--fill); color: var(--ink); }
+.panel-tab.active { background: var(--fill-strong); color: var(--ink); }
+.panel-controls { flex: none; display: flex; align-items: center; gap: 2px; }
+.panel-icon-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.panel-icon-btn:hover { background: var(--fill); color: var(--ink); }
+
+.panel-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.panel-content { flex: 1; min-height: 0; overflow-y: auto; }
+
+/* 头部角落座位的展开按钮（官方 ExpandButton：左栏收起图标的镜像） */
+.panel-expand-btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--dsh-radius-keycap);
+  border: 1px solid var(--line);
+  background: var(--fill-soft);
+  color: var(--ink-2);
+  animation: fadein var(--dur-fast) ease both;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.panel-expand-btn:hover { background: var(--fill); color: var(--ink); }
+
+/* ---------- 面板里的浏览器 ---------- */
+.panel-browser-layer { flex: none; display: flex; flex-direction: column; min-height: 0; }
+/* 浏览器页：这一层要吃掉整块正文高度——否则 .panel-browser 的 flex:1 会落在一个
+   内容高度的父级上、塌成一条（实测 iframe 只有 150px 高）。 */
+.panel[data-view="browser"] .panel-browser-layer { flex: 1; min-height: 0; }
+.panel-browser-layer[data-hidden="true"] { display: none; }
+.panel-browser { display: flex; flex-direction: column; min-height: 0; }
+.panel-browser.slot { height: 176px; padding: 8px 8px 0; }
+.panel-browser.expanded { flex: 1; min-height: 0; }
+.panel-browser-body { position: relative; flex: 1; min-height: 0; border-radius: var(--dsh-radius-card); overflow: hidden; background: var(--fill-soft); }
+.panel-browser.slot .panel-browser-body { border: 1px solid var(--line); }
+/* 缩略图态的遮罩：点它展开（原生视图在这一格不收点击，见 BrowserHost.setInteractive） */
+.panel-browser-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.42));
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+.panel-browser.slot:hover .panel-browser-veil { opacity: 1; }
+.sr-browser-slot { position: absolute; inset: 0; }
+.sr-browser-frame { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
+.panel-browser-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ink-faint); font-size: var(--dsh-font-size-sm); }
+
+.panel-browser-toolbar { flex: none; display: flex; align-items: center; gap: 3px; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+.panel-browser-tool {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.panel-browser-tool:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
+.panel-browser-tool:disabled { opacity: .4; }
+.panel-browser-tool.off { color: var(--dsh-signal-danger); }
+.panel-browser-address-box { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; }
+.panel-browser-address {
+  width: 100%;
+  height: 24px;
+  padding: 0 26px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill-soft);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+}
+.panel-browser-address:focus { border-color: var(--line-focus); }
+.panel-browser-address.unknown { color: var(--ink-3); font-style: italic; }
+.panel-browser-changed { position: absolute; right: 28px; font-size: var(--dsh-font-size-xs); color: var(--ink-faint); pointer-events: none; }
+.panel-browser-address-box .panel-browser-tool { position: absolute; right: 2px; }
+.panel-browser-note { flex: none; font-size: var(--dsh-font-size-xs); }
+.panel-browser-note.bad { color: var(--dsh-signal-danger); }
+
+/* ---------- 面板里的会话设置 ---------- */
+.panel-settings { display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
+.panel-settings-head { display: flex; align-items: center; gap: 6px; }
+.panel-settings-title { font-size: var(--dsh-font-size-base); color: var(--ink); font-weight: 500; }
+.panel-settings-section { display: flex; flex-direction: column; gap: 6px; }
+.panel-settings-label { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+.panel-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill-soft);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+  text-align: left;
+}
+.panel-settings-row.static { justify-content: flex-start; }
+.panel-settings-row:hover { background: var(--fill); }
+.panel-settings-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-settings-meta { flex: none; color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
+.panel-settings-hint { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); }
+.panel-settings-list { display: flex; flex-direction: column; gap: 4px; }
+.panel-settings-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-control);
+  color: var(--ink-2);
+  font-size: var(--dsh-font-size-sm);
+  text-align: left;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.panel-settings-choice:hover { background: var(--fill); color: var(--ink); }
+.panel-settings-choice.active { border-color: var(--line-focus); color: var(--ink); }
+.panel-settings-choice-desc { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); }
+.panel-settings-plugins { max-height: 260px; overflow-y: auto; }
+
+/* 面板里的模型菜单走内联变体：正文是滚动容器，绝对定位的下拉会被裁掉 */
+.model-menu.inline { position: static; width: auto; max-height: 320px; margin-top: 4px; }
+
+/* ---------- 面板里的分区与产物 ---------- */
+.panel-artifact {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 5px 4px;
+  border-radius: var(--dsh-radius-keycap);
+  text-align: left;
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+  transition: background-color var(--dur-fast) ease;
+}
+.panel-artifact:hover { background: var(--fill); }
+.panel-artifact-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-artifact-meta { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-empty { padding: 18px 14px; color: var(--ink-faint); font-size: var(--dsh-font-size-sm); text-align: center; }
+
+/* ---------- 面板里的指南页 ---------- */
+.panel-guide { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 16px; }
+.panel-guide-glyph { color: var(--ink-faint); }
+.panel-guide-entry {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-card);
+  text-align: left;
+  color: var(--ink);
+}
+.panel-guide-entry:hover { background: var(--fill); }
+.panel-guide-name { font-size: var(--dsh-font-size-base); }
+.panel-guide-desc { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); }
+
+/* 窄屏（手机远程）：面板改用 fullscreen 呈现（官方：768px 以下自动全屏） */
+@media (max-width: 760px) {
+  .panel { width: 100%; }
+}

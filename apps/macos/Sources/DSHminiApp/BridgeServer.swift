@@ -151,6 +151,14 @@ final class BridgeServer {
             return .response(.init(status: 204))
         }
 
+        // 侧栏浏览器的 agent 控制面（随包的 MCP server → 壳里的 WKWebView）。必须放在
+        // 静态兜底之前：/browser-control 不以 /api 开头，否则会被当成静态资源 404。
+        // 鉴权走 BrowserControl 自己的 boot token（回环上的非浏览器客户端不带 Origin，
+        // Origin 全等闸对它本就是放行的）。
+        if request.method == "POST", request.path == "/browser-control" {
+            return .response(BrowserControl.handle(request))
+        }
+
         // SPA + assets must load regardless of engine state: the credentials
         // cold start (engine never boots until a key is configured) is exactly
         // when the first-run setup UI is needed; gating static on engineBase

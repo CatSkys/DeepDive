@@ -53,6 +53,14 @@ export function revealPath(path: string): void {
   sendToShell({ type: "reveal-path", path });
 }
 
+/** 用系统默认浏览器打开一个外部 URL（唯一入口：正文链接、侧栏浏览器的「在浏览器打开」）。
+ *  只放行安全 scheme——javascript:/data: 一旦经壳 open-url 或新窗口打开即是执行面。 */
+export function openExternalUrl(url: string): void {
+  if (!/^(https?|file|mailto):/i.test(url)) return;
+  if (inShell()) sendToShell({ type: "open-url", url });
+  else window.open(url, "_blank");
+}
+
 /* ── 打开方式（全屏预览页右上选择器）：壳侧 OpenWithCatalog 列「能打开该
    文件的 App」+ 默认项 + 图标 dataURL；选一个就请壳用该 App 打开。 ── */
 

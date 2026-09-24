@@ -31,7 +31,9 @@
 | SPA → 引擎 | same-origin `POST /api/<ns>/<method>`（client-request 信封、`{args}` 具名包裹）+ 单条 `ws /api/remote.mux` 多路流（`$events`/`session/follow`/`session/control`/`workspace/follow`） | 经壳内 BridgeServer 反代（token+cookie 注入）；wire 契约实测见 `DSH-WIRE.md` |
 | 手机浏览器 → 引擎 | 同一个 SPA 与同一套 `/api` 转发，但走**远程面**（独立局域网监听） | 用户显式开启才起（默认关）；一次性配对令牌 + 设备 cookie 台账，见 `SPEC-MOBILE-REMOTE.md` |
 | 壳 → 引擎 | stdio（`dsh web:` URL 行、日志尾巴）+ 进程信号 | 只关心 UP/BOOT_FAILED/EXITED 与端口 |
-| 壳 ↔ SPA | `WKScriptMessageHandler`（`deepdive` 标题栏 rect 表 / `deepdiveHost` 前端指令）；壳→前端 `evaluateJavaScript` 调 `window.__deepDiveHost.dispatch`（pending 单条暂存） | 指令集与降级纪律见 `SPEC-NOTIFICATIONS-FLOATING-BALL §3.1`；标题栏拖拽契约见 `PITFALLS §4.3` |
+| 壳 ↔ SPA | `WKScriptMessageHandler`（`deepdive` 标题栏 rect 表 / `deepdiveHost` 前端指令）；壳→前端 `evaluateJavaScript` 调 `window.__deepDiveHost.dispatch`（pending 单条暂存） | 指令集与降级纪律见 `SPEC-NOTIFICATIONS-FLOATING-BALL §3.1`；标题栏拖拽契约见 `PITFALLS §4.3`；**原生视图槽位**（`native-slot` 消息：rect + visible + interactive）见 `SPEC-BROWSER-USE §3` |
+| MCP server → 壳 | `POST /browser-control`（回环、`Authorization: Bearer <boot token>`） | 浏览器 agent 控制面；token 经引擎环境变量注入，见 `SPEC-BROWSER-USE §4` |
+| 引擎 → MCP server | stdio（引擎按组合行 spawn 随包 Node 跑 `browser-use-server.mjs`） | 工具面只有一个 `js`；协议要点见该文件头注 |
 | 壳 → 引擎事件 | `EngineEventObserver` 自读 `$events` 流派生 running/完成/待审批状态（waterfall 恒回 `next`，不决策） | 通知/悬浮球/菜单栏徽标原生实时，不依赖前端 |
 
 ## 3. 原生外壳（apps/macos/Sources/DSHminiApp/）
@@ -39,6 +41,9 @@
 | 文件 | 职责 |
 |---|---|
 | `AppDelegate.swift` | 生命周期、host 指令路由、设置/外观/通知接线 |
+| `BrowserHost.swift` | 侧栏浏览器的壳侧宿主：窗口里的第二个 WKWebView（独立 `nonPersistent` 数据存储、自己的导航/UI delegate、协议白名单、截图/执行 JS/导航原语）。加在 SPA webview 之后 = 最上层；缩略图态由 `hitTest` 让位（见 `SPEC-BROWSER-USE.md §3`） |
+| `BrowserControl.swift` | 浏览器控制面：桥的 `POST /browser-control`（boot token 鉴权）→ 落到同一个 `BrowserHost`。只提供原语（导航/观察/截图/执行 JS/轮询等待），高层语义在 JS 侧 SDK 里 |
+| `BrowserUseInstaller.swift` | 把随包的 `BrowserUse/`（MCP server + 浏览器 SDK）装进 `<support>/browser-use/`（幂等），并给出引擎 spawn 要注入的控制面 URL 与 token；组合行由 `EngineSupervisor.enginePatchBody` 写 |
 | `MainWindowController.swift` | 玻璃主窗 + 透明 WKWebView + 显隐防闪烁 + 标题栏拖拽 rect 表 + 空 NSToolbar（Tahoe 大圆角档，勿删，`PITFALLS §4.7`）+ 视图菜单的页面缩放 |
 | `MainMenu.swift` | 主菜单结构（文件/编辑/视图/窗口/帮助）：只连选择器，动作实现在 AppDelegate/MainWindowController。**可改键位不写死**——应用内快捷键（⌘N/⌘K/⌘B/⌘D/⌘⇧E/⌘,）的事实源是前端键位注册表，菜单项不占这些键，否则改键失效（文件头有完整说明） |
 | `BridgeServer.swift` + `MiniHTTPServer.swift` | 同源托管：SPA 静态文件 + `/api` 反代 + WS 盲中继（Origin 全等校验）。**监听端口固定**（`DSHAppPrefs.bridgePort` 记住，被占才退回内核分配）：端口即网页 origin，换了 origin 前端的 localStorage（会话覆盖集/用量缓存/自动化任务）就等于清零（PITFALLS §4.17）。移动端远程面复用同一套分发与中继，只是监听在 `0.0.0.0` 且先过配对闸 |

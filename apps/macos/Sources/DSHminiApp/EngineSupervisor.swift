@@ -340,7 +340,7 @@ final class EngineSupervisor {
         let cwd = workspace.path
 
         let process = Process()
-        Self.ensureAutomationSkill()
+        Self.ensureSkills()
         let retired = SkillAdmin.removeRetired(in: home)
         if !retired.isEmpty { log.append("[engine] dropped retired skills: \(retired.joined(separator: ", "))") }
         let patchArg = Self.ensureEnginePatchFile()
@@ -359,6 +359,10 @@ final class EngineSupervisor {
         // `!!js process.env.MCP_<SERVER>_<KEY>` 这个引用，值本身不落 patch 文件
         // （MCP client 的挂载形状即如此，见 McpServerAdmin.environment）。
         for (key, value) in McpServerAdmin.environment(in: AppPaths.supportDir) {
+            environment[key] = value
+        }
+        // 浏览器控制面：地址（桥的回环 URL）+ boot token。组合行里只写这两个变量名。
+        for (key, value) in BrowserUseInstaller.environment(bridgeURL: BridgeServer.shared.url) {
             environment[key] = value
         }
         process.environment = environment
@@ -415,9 +419,17 @@ final class EngineSupervisor {
     static func ensureEnginePatchFile() -> URL {
         let url = AppPaths.supportDir.appendingPathComponent("engine-patch.yml")
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? enginePatchBody()
+        try? enginePatchBody(browserUse: installBrowserUseControlPlane())
             .write(to: url, atomically: true, encoding: .utf8)
         return url
+    }
+
+    /// 装浏览器控制面（随包 BrowserUse → support）并返回路径；装不上就回 nil，组合里
+    /// 少一行（引擎照常起，只是模型手里没有浏览器工具）。
+    private static func installBrowserUseControlPlane() -> BrowserUseInstaller.Paths? {
+        guard let resources = Bundle.main.resourceURL else { return nil }
+        let bundled = resources.appendingPathComponent(BrowserUseInstaller.resourceDirName, isDirectory: true)
+        return BrowserUseInstaller.ensureInstalled(in: AppPaths.supportDir, bundledDir: bundled)
     }
 
     /// Overlay 正文（纯函数，单测钉子）：写坏了引擎会在 boot 时 fail-loud 起不来。
@@ -426,13 +438,21 @@ final class EngineSupervisor {
     /// `dsh-persona` 遮蔽、到不了模型（PITFALLS §7.7 实测），而且它对 config 是整体
     /// 替换，还会顺手打掉 web 层设的 personaSuffix。部署提示词改落
     /// `<DSH_HOME>/AGENTS.md`（`DeploymentPrompt`）。
-    static func enginePatchBody() -> String {
+    ///
+    /// 浏览器行只在控制面装好了才写（路径每次启动重算，所以绝对路径写死在这里是安全的）。
+    static func enginePatchBody(browserUse: BrowserUseInstaller.Paths? = nil) -> String {
+        var rows = """
+            - id: schedule
+              name: '@deepseek-ai/dsh-schedule'
         """
+        if let browserUse {
+            rows += "\n" + BrowserUseInstaller.patchRow(paths: browserUse)
+        }
+        return """
         # Written by DeepDive at every engine launch — app-owned overlay layer.
         # Do not edit: your changes are overwritten on the next launch.
         - insert:
-            - id: schedule
-              name: '@deepseek-ai/dsh-schedule'
+        \(rows)
         """
     }
 
@@ -503,6 +523,13 @@ final class EngineSupervisor {
     static func ensureAutomationSkill() -> URL {
         writeSkill(name: automationSkillName, markdown: automationSkillMarkdown)
     }
+
+    /// 铺两个 skill（自动化 + 浏览器），每次启动重写：升级以应用内为准。
+    static func ensureSkills() {
+        ensureAutomationSkill()
+        writeSkill(name: BrowserSkill.name, markdown: BrowserSkill.markdown)
+    }
+
 
     private static func writeSkill(name: String, markdown: String) -> URL {
         let dir = AppPaths.harnessHome
