@@ -358,6 +358,9 @@ export const EN: Record<string, string> = {
   // settings — approvals
   "默认权限预设": "Default permission preset",
   "新建会话的初始权限。": "Initial permission for new sessions.",
+  // settings — session mode
+  "默认会话模式": "Default session mode",
+  "新建会话时使用；运行中的会话保持开始时的模式。": "Used when a new session is created; running sessions keep the mode they started with.",
   // settings — hotkeys
   "全局热键": "Global hotkey",
   "任意应用下生效。": "Works from any app.",

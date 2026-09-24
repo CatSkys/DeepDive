@@ -23,7 +23,7 @@
 | 参考图（Ask Anything 截图） | DSHmini 对象 | 引擎来源 |
 |---|---|---|
 | **Ask Anything 单入口**（标题+大输入框） | **Launcher Composer**：一行输入 = 任务/@引用/命令 | `ctx.sessions`、`commands`、`attachment` |
-| **AI Agents 面板**（选择器） | **Agent Preset 角色**：新建任务时选择，**创建即锁定**（`agent-preset-locked`，引擎拒绝运行中切换） | `agent-presets`（内置 standard/code/minimal/cordis + 用户自建）、`agentPreset.list`、`agent-preset/selected` |
+| **AI Agents 面板**（选择器） | **Agent Preset 角色**：通用设置「默认会话模式」卡片选定，**新建会话生效、创建即锁定**（`agent-preset-locked`，引擎拒绝运行中切换）；只开放 standard（标准）/ minimal（极简）两项 | `agent-presets` 设置命名空间 `default`、`agentPresets/list`、`agent-preset/selected` |
 | **New Chat / Claude Sonnet 4.6**（右上） | **会话头**：标题 + 状态点 + **角色只读标签** + 模型名 | preset 摘要 + `ctx.llm` |
 | **Memory 卡**（Work context / Personal context） | **Persona 与上下文**：persona 文本（工作上下文）、技能/上下文构成（个人上下文） | `dsh-persona`（`deployment:persona` section）、`dsh-skill`、system-prompt context providers |
 | **侧栏**（Pinned / Recent / Last Week / April） | **全局任务侧栏**：置顶 + 最近 + 时间分组；工作区为筛选器（全部/某工作区） | `ctx.sessions` 列表、`sessions.fork`、workspace 注册表 |
@@ -197,7 +197,7 @@
 | D8 | 并发上限 | **以 DSH 为准：引擎无会话级并发硬上限**；客户端**不做二次排队**；可选软上限设置（默认"不限制"） | DSH 实测 |
 | D9 | plan-then-execute | **以 DSH 为准：plan mode 默认关闭**，会话级开关；不做"新任务先计划"强制默认 | DSH 实测 |
 | D10 | 语义来源 | **DSH 为主、参考图（Ask Anything）/Codex 均为 UX 参照** | 用户拍板 |
-| D11 | **Agent 角色（AI Agents）** | 一等语义：新建任务 chip 选择（**staged、创建即锁**，引擎 `agent-preset-locked` 拒绝运行中切换）；会话头只读标签（角色+模型名）；设置页名单（复制/删除/默认） | 参考图 + **引擎 `agent-presets` / `dsh-client-ui-agent-preset`** |
+| D11 | **Agent 角色（AI Agents）** | 一等语义：通用设置「默认会话模式」卡片选定（**创建即锁**，引擎 `agent-preset-locked` 拒绝运行中切换）；会话头只读标签（角色+模型名）；开放清单只有标准/极简（引擎随包的 ptc / cordis 不呈现，见 `frontend/src/settings/agentPreset.ts`） | 参考图 + **引擎 `agent-presets` / `dsh-client-ui-agent-preset`** |
 | D12 | **Memory 上下文卡** | FloatingCard：persona（工作上下文）+ 技能/上下文构成（个人上下文）；P1 只读+编辑，重生成 P2（客户端增强） | 参考图 + 引擎 `dsh-persona` / `dsh-skill` |
 | D13 | **⌘K 命令面板** | 已实现：操作 / 项目 / 会话 / 设置分区四类统一搜索（`CommandPalette.tsx`，键位事实源 `keybinds.ts`） | 参考图（`search for actions…`）+ `commands` 注册表 |
 

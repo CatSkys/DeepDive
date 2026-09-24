@@ -57,11 +57,9 @@ interface Store {
   /** 用户列表这一层：`sessions` 再去掉子代理派生会话（侧栏/搜索/切换空间/自动归档
    *  共用一份口径——各处自己 filter 一遍就是漏一处的开始）。 */
   sidebarSessions: SessionSummary[];
-  /** 引擎 Agent 会话预设（agentPresets/list 一次性拉取；失败为空 = 隐藏入口）。 */
+  /** 引擎 Agent 会话预设名录（agentPresets/list 一次性拉取；失败为空 = 隐藏入口）。
+   *  呈现哪几个由 settings/agentPreset.ts 裁决，这里存引擎原文。 */
   presets: AgentPreset[];
-  /** hero 页选中的会话模式；createSession 未显式传参时作为 agentPreset。 */
-  heroPreset: string | undefined;
-  setHeroPreset: (id: string) => void;
   engineUp: boolean;
   /** 壳给的引擎状态（退避重试/放弃只有壳知道）：banner 文案与重试入口的依据。 */
   enginePhase: "idle" | "launching" | "ready" | "restarting" | "failed";
@@ -99,7 +97,7 @@ interface Store {
   createWorkspace: (path: string) => Promise<{ workspaceId: string | null; error?: string }>;
   /** 建会话。activate=false：建好但**不切过去**（草稿页首条消息专用——发送真正
    *  成功才切，失败时草稿与附件留在原地可重试）。 */
-  createSession: (presetId?: string, opts?: { activate?: boolean }) => Promise<string | null>;
+  createSession: (opts?: { activate?: boolean }) => Promise<string | null>;
   /** 草稿模型：新会话页（hero）上选的模型。此时会话尚未真正创建，先暂存；
    *  首条消息触发 createSession 时随新会话 selectModel 一次性带走并清空。 */
   draftModel: { provider: string; model: string; reasoningEffort?: string } | null;
@@ -188,7 +186,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [presets, setPresets] = useState<AgentPreset[]>([]);
-  const [heroPreset, setHeroPreset] = useState<string | undefined>(undefined);
   const [engineUp, setEngineUp] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
   const [enginePhase, setEnginePhase] = useState<Store["enginePhase"]>("idle");
@@ -630,10 +627,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [draftModel, setDraftModel] = useState<{ provider: string; model: string; reasoningEffort?: string } | null>(null);
   const draftModelRef = useRef(draftModel);
   draftModelRef.current = draftModel;
-  const heroPresetRef = useRef(heroPreset);
-  heroPresetRef.current = heroPreset;
 
-  const createSession = async (presetId?: string, opts?: { activate?: boolean }) => {
+  // 模式不在这里传：引擎按 `agent-presets` 设置命名空间的 default 决定
+  // （通用设置里的「默认会话模式」卡片），会话创建即 pin。
+  const createSession = async (opts?: { activate?: boolean }) => {
     const activate = opts?.activate ?? true;
     const wsId = activeWsRef.current ?? workspacesRef.current[0]?.workspaceId;
     // Optimistic switch: leave the current session immediately so the
@@ -642,7 +639,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // activate=false（草稿页首条消息）不切：切了就没得重试了——见 Composer.ensureSession。
     if (activate) setActiveSessionId(null);
     try {
-      const res = await api.createSession({ workspaceId: wsId, agentPreset: presetId ?? heroPresetRef.current });
+      const res = await api.createSession({ workspaceId: wsId });
       const dm = draftModelRef.current;
       if (dm) {
         setDraftModel(null);
@@ -706,8 +703,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       sidebarSessions,
       sessions: visibleList,
       presets,
-      heroPreset,
-      setHeroPreset,
       engineUp,
       everConnected,
       enginePhase,
@@ -771,7 +766,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, heroPreset, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, evolutionEnabled, setEvolutionEnabled, sessionMemoryEnabled, setSessionMemoryEnabled, sessionMemoryBlocked, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

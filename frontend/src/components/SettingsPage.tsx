@@ -23,6 +23,7 @@ import { RemoteControlSection } from "../mobile/RemoteControlSection";
 import { EvolutionSection } from "../evolution/EvolutionSection";
 import type { AutomationProposal } from "../automation/protocol";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
+import { AgentPresetCard } from "../settings/AgentPresetCard";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { RETENTIONS, retentionLabel, type ArchiveRetention } from "../autoArchive";
 import { api } from "../api";
@@ -59,7 +60,7 @@ export const SETTINGS_SECTIONS: Array<{ id: string; label: string; icon: typeof 
 ];
 
 // 分类（侧栏按用途分三组；组定义与成员见下方 navGroups）：
-//   基础设置——通用（外观/语言/归档/Enter/通知）、模型（提供方+密钥）、审批（默认权限预设）、快捷键
+//   基础设置——通用（外观/语言/归档/Enter/通知/默认会话模式）、模型（提供方+密钥）、审批（默认权限预设）、快捷键
 //   Agent 能力——自动化、记忆、自进化、技能与插件、移动端远程控制、导入
 //   数据与统计——已归档的聊天、数据、工作树、使用统计
 
@@ -271,6 +272,7 @@ function GeneralSection() {
               />
             </div>
           </div>
+          <AgentPresetCard />
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("繁忙时 Enter 键行为")}</div>

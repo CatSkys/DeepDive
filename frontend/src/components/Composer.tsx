@@ -181,7 +181,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
     if (sessionId) return sessionId;
     const pending = pendingSessionRef.current;
     if (pending && pending.workspaceId === store.activeWorkspaceId) return pending.sessionId;
-    const created = await store.createSession(undefined, { activate: false });
+    const created = await store.createSession({ activate: false });
     if (created === null) {
       void alertDialog({ message: tt("新建会话失败（引擎未就绪？），请稍后重试", "Could not create a session (engine not ready?); please retry") });
       return null;

@@ -9,7 +9,7 @@ import { ChevronDown } from "lucide-react";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
 import { WorkspacePill } from "../components/Sidebar";
 import { ProjectMenu } from "../components/ProjectMenu";
-import { PresetPill } from "../components/AgentMode";
+import { PresetPill } from "./PresetPill";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
 import { useT } from "../i18n";

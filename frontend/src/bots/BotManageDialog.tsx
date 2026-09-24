@@ -7,6 +7,7 @@ import { api, type ImBot, type ImProvision, type ImSnapshot } from "../api";
 import { qrEncode } from "../host";
 import { BotSettings } from "./BotSettings";
 import { channelLabel, provisionPending } from "./im";
+import { visibleAgentPresets } from "../settings/agentPreset";
 import { useT } from "../i18n";
 import { confirmDialog } from "../components/DialogHost";
 
@@ -108,7 +109,8 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
   };
 
   const bots = snapshot?.bots ?? [];
-  const presets = snapshot?.presets ?? [];
+  // 模式清单与设置页同一份开放口径（引擎目录里的 ptc / cordis 不呈现）
+  const presets = visibleAgentPresets(snapshot?.presets ?? []);
 
   return createPortal(
     <div className={rowsCss.modalOverlay} onClick={close} role="dialog" aria-label={t("机器人")}>

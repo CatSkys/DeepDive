@@ -78,7 +78,7 @@
 .ddBlock .ddTrigger { width: 100%; justify-content: flex-start; }
 /* 箭头仍留在右端（flex-start 后靠 auto 外边距收回去） */
 .ddBlock .ddChevron { margin-left: auto; }
-/* bare 变体（hero 会话模式下拉）：行内文字触发器，无描边无底色 */
+/* bare 变体（自动化任务编辑器的行内选择）：行内文字触发器，无描边无底色 */
 .ddBare .ddTrigger {
   border: none;
   background: transparent;

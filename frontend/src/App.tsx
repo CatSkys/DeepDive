@@ -16,7 +16,6 @@ import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
 import { SessionHeader } from "./session/SessionHeader";
 import { HeroBrand } from "./components/HeroBrand";
-import { AgentModePicker } from "./components/AgentMode";
 import { SettingsPage } from "./components/SettingsPage";
 import { BootSkeleton } from "./components/BootSkeleton";
 import { OnboardingWizard } from "./onboarding/OnboardingWizard";
@@ -311,9 +310,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
                 pickModel, applyModelEffort: pickModel,
               }} />
             </div>
-            <HeroBrand>
-              <AgentModePicker />
-            </HeroBrand>
+            <HeroBrand />
             <div className="hero-composer">
               <Composer sessionId={null} />
             </div>

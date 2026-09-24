@@ -593,8 +593,6 @@ button {
 .preset-pill { display: inline-flex; opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
 .session-header .title-row:hover .preset-pill,
 .app.collapsed .preset-pill { opacity: 1; pointer-events: auto; }
-/* hero 会话模式下拉（招呼语下方）：触发器无描边、随招呼语组居中 */
-.mode-picker { display: flex; justify-content: center; margin-top: 12px; }
 
 /* ---------- content / hero ---------- */
 

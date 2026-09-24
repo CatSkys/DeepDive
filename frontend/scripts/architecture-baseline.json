@@ -51,10 +51,10 @@
       "detail": "735 lines > 300"
     },
     {
-      "id": "9afcd54c9f1b0da3",
+      "id": "35c77ede2e890a53",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "379 lines > 300"
+      "detail": "376 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -87,10 +87,10 @@
       "detail": "544 lines > 300"
     },
     {
-      "id": "89c8321c5fe786b0",
+      "id": "96fd8127320b3058",
       "rule": "file-lines",
       "file": "frontend/src/components/SettingsPage.tsx",
-      "detail": "776 lines > 300"
+      "detail": "778 lines > 300"
     },
     {
       "id": "12fc4e8b39e8c299",
@@ -111,10 +111,10 @@
       "detail": "794 lines > 300"
     },
     {
-      "id": "99da3944d70b0f80",
+      "id": "151c6276a4998210",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "922 lines > 300"
+      "detail": "925 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",
@@ -165,10 +165,10 @@
       "detail": "418 lines > 300"
     },
     {
-      "id": "3bc5b76e5ec91a75",
+      "id": "97ee82eb93aaa4b5",
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
-      "detail": "779 lines > 300"
+      "detail": "774 lines > 300"
     },
     {
       "id": "2d2859ec9ebb8a6e",
