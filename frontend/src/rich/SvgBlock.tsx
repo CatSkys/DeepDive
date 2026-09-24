@@ -1,10 +1,11 @@
-// 内联 SVG 围栏：消毒后直接进文档（同步、无依赖）。消毒口径见 sanitizeSvg——围栏里的
+// 内联 SVG 围栏：消毒后进影子树（同步、无依赖）。消毒口径见 sanitizeSvg——围栏里的
 // SVG 是模型输出，内联进文档等于把它的 DOM 加进 SPA。
 import { useMemo } from "react";
 import { t } from "../i18n";
 import { RICH_FENCE_MAX_CHARS, SVG_FENCE } from "./fences";
 import { RichFallback } from "./RichFallback";
 import { sanitizeSvg } from "./sanitizeSvg";
+import { ScopedSvg } from "./ScopedSvg";
 
 /**
  * 只有 viewBox、没写宽高的 SVG 在 CSS 里默认 `width:100%`——一枚小图标会被拉满整张卡。
@@ -42,5 +43,5 @@ export function SvgBlock({ source, unclosed }: { source: string; unclosed: boole
       />
     );
   }
-  return <div className="md-rich-figure" dangerouslySetInnerHTML={{ __html: withNaturalSize(clean) }} />;
+  return <ScopedSvg svg={withNaturalSize(clean)} />;
 }

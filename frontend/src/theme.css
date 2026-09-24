@@ -3184,7 +3184,8 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 
 /* ── 富输出块（mermaid 图表 / 内联 SVG / 交互组件）：与代码卡同一张"描边卡"
    形态。流内一切 background 都被 `.flow *` 的 !important 清掉（PITFALLS §1.14），
-   所以这里不写 background，靠描边与面板透出分层。 ── */
+   所以这里不写 background，靠描边与面板透出分层。图本身（含它的 svg 尺寸规则）在影子
+   树里，跨不过选择器边界，见 rich/ScopedSvg.tsx。 ── */
 .md-rich-figure {
   box-sizing: border-box;
   margin: 0 0 9px;
@@ -3193,8 +3194,6 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   border-radius: var(--dsh-radius-card);
   overflow-x: auto;
 }
-/* mermaid / 手写 SVG 的尺寸都归 SVG 自己的 viewBox，这里只压住不越界 */
-.md-rich-figure > svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 .md-rich-note { margin: 0; font-size: 12px; color: var(--ink-2); }
 .md-rich-pending { margin: 0 0 9px; font-size: 12px; color: var(--ink-2); }
 .md-widget {

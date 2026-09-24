@@ -22,12 +22,21 @@ afterEach(() => {
   document.documentElement.removeAttribute("data-theme");
 });
 
+/** 图连带它的样式表都关在 .md-rich-figure 的影子树里（见 rich/ScopedSvg.tsx），
+ *  查 svg / style 要先过 shadowRoot——这层隔离是规格的一部分，不是实现细节。 */
+function figureOf(container: HTMLElement): HTMLElement | null {
+  return container.querySelector<HTMLElement>(".md-rich-figure");
+}
+function shadowOf(container: HTMLElement): ShadowRoot | null {
+  return figureOf(container)?.shadowRoot ?? null;
+}
+
 describe("mermaid 围栏", () => {
   it("不再当代码块，异步成图后进正文", async () => {
     const { container } = render(<Markdown text={"```mermaid\ngraph TD; A-->B;\n```"} />);
     expect(container.querySelector(".cb")).toBeNull();
     expect(container.querySelector(".md-rich-pending")).not.toBeNull();
-    await waitFor(() => expect(container.querySelector(".md-rich-figure > svg")).not.toBeNull());
+    await waitFor(() => expect(shadowOf(container)?.querySelector("svg")).toBeTruthy());
     expect(renderMermaid).toHaveBeenCalledWith("graph TD; A-->B;", true);
   });
 
@@ -54,7 +63,7 @@ describe("mermaid 围栏", () => {
 });
 
 describe("内联 SVG 围栏", () => {
-  it("消毒后内联：脚本 / 事件属性 / foreignObject 剥掉，图形留下", () => {
+  it("消毒后进影子树：脚本 / 事件属性 / foreignObject 剥掉，图形留下", () => {
     const source = [
       '<svg viewBox="0 0 10 10">',
       "<script>alert(1)</script>",
@@ -64,31 +73,36 @@ describe("内联 SVG 围栏", () => {
       "</svg>",
     ].join("");
     const { container } = render(<Markdown text={"```svg\n" + source + "\n```"} />);
-    const html = container.querySelector(".md-rich-figure")?.innerHTML ?? "";
-    expect(container.querySelector("circle")).not.toBeNull();
+    const shadow = shadowOf(container);
+    const html = shadow?.innerHTML ?? "";
+    expect(shadow?.querySelector("circle")).toBeTruthy();
     expect(html).not.toContain("script");
     expect(html).not.toContain("onload");
     expect(html).not.toContain("foreignObject");
+    // 影子树之外的文档里不该留下图的任何节点（应用样式表才碰不到它）
+    expect(container.querySelector("svg")).toBeNull();
   });
 
-  it("自带样式表的 SVG 保留配色，但被 @scope 圈进这张图（剥掉会全变黑）", () => {
+  it("作者样式表原样进影子树：`#id` 打头的选择器不能被改写（改写/包 @scope 都会全变黑）", () => {
     const source = [
-      '<svg viewBox="0 0 10 10">',
-      "<style>:root{--c:#2E7FE0} .node{fill:var(--c)} body{display:none}</style>",
+      '<svg id="mine" viewBox="0 0 10 10">',
+      "<style>:root{--c:#2E7FE0} #mine .node rect{fill:var(--c)} body{display:none}</style>",
       '<rect class="node" width="10" height="10"/>',
       "</svg>",
     ].join("");
     const { container } = render(<Markdown text={"```svg\n" + source + "\n```"} />);
-    const figure = container.querySelector(".md-rich-figure");
-    const style = figure?.querySelector("style")?.textContent ?? "";
-    // 样式留着（否则形状回落成纯黑），但整段被 @scope 圈住，且 :root 改成 :scope
-    expect(style).toContain("@scope (#md-svg-");
-    expect(style).toContain(":scope{--c:#2E7FE0}");
-    expect(style).not.toContain(":root");
-    // 作者给了 id 就沿用他的 id 当作用域
-    expect(figure?.querySelector("rect.node")).not.toBeNull();
-    const withId = '<svg id="mine" viewBox="0 0 1 1"><style>#mine{fill:red}</style><rect/></svg>';
-    expect(sanitizeSvg(withId)).toContain("@scope (#mine)");
+    const shadow = shadowOf(container);
+    const authorStyle = shadow?.querySelector("svg style")?.textContent ?? "";
+    // 模型手写与 mermaid 产物都靠 `#<svg-id> …` 这种选择器配色，一字不改才配得上画面；
+    // `:root` 指文档根、在影子树里匹配不到任何元素，落脚点改成 svg 自己
+    expect(authorStyle).toContain("#mine .node rect{fill:var(--c)}");
+    expect(authorStyle).toContain("svg{--c:#2E7FE0}");
+    expect(authorStyle).not.toContain(":root");
+    expect(authorStyle).not.toContain("@scope");
+    expect(shadow?.querySelector("rect.node")).toBeTruthy();
+    // 尺寸规则（max-width:100% 等）跨不进影子树，得随图一起进去（影子树里第一条 style）
+    expect(shadow?.querySelector("style")?.textContent).toContain("max-width:100%");
+    expect(sanitizeSvg(source)).toContain("#mine .node rect{fill:var(--c)}");
   });
 
   it("没有 <svg> 根就退回代码块", () => {
@@ -127,8 +141,9 @@ describe("内联 SVG 尺寸", () => {
 
   it("渲染路径上确实补上了尺寸", () => {
     const { container } = render(<Markdown text={'```svg\n<svg viewBox="0 0 24 24"><circle r="4"/></svg>\n```'} />);
-    expect(container.querySelector("svg")?.getAttribute("width")).toBe("24");
-    expect(container.querySelector("svg")?.getAttribute("height")).toBe("24");
+    const svg = shadowOf(container)?.querySelector("svg");
+    expect(svg?.getAttribute("width")).toBe("24");
+    expect(svg?.getAttribute("height")).toBe("24");
   });
 });
 

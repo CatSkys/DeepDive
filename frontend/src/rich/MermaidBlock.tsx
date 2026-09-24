@@ -7,6 +7,7 @@ import { useDarkTheme } from "./appTheme";
 import { MERMAID_FENCE, RICH_FENCE_MAX_CHARS } from "./fences";
 import { renderMermaid } from "./mermaidRender";
 import { RichFallback } from "./RichFallback";
+import { ScopedSvg } from "./ScopedSvg";
 
 /** 流式增量合并窗：小于打字间隔的抖动都并进同一次渲染。 */
 const DEBOUNCE_MS = 250;
@@ -40,5 +41,5 @@ export function MermaidBlock({ code, unclosed }: { code: string; /** 围栏还�
     );
   }
   if (svg === null) return <p className="md-rich-pending">{t("正在渲染图表…")}</p>;
-  return <div className="md-rich-figure" dangerouslySetInnerHTML={{ __html: svg }} />;
+  return <ScopedSvg svg={svg} />;
 }
