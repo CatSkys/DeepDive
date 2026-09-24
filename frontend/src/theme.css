@@ -884,6 +884,8 @@ button {
 
 .hero-composer {
   width: calc(100% - 48px);
+  /* 与会话正文列同宽（--reading-col）：草稿页与会话页的输入区不能两套宽度 */
+  max-width: var(--reading-col);
   margin-bottom: 20px;
   display: flex;
   align-items: center;
@@ -1517,6 +1519,13 @@ button {
   --session-header-h: 59px;
   --session-fade-top: 72px;
   --session-fade-blur: 16px;
+  /* 正文列定宽（ZCode conversationLayout 的 max-w-4xl = 56rem）：正文、会话输入区、
+     空态输入区共用同一列——宽屏居中定宽、两侧留白，窄窗自然全宽。只给 max-width、
+     不设断点：侧栏拖宽、预览分栏、手机浮层怎么变都不会压出过窄的列（ZCode 用容器
+     查询分 864/1280 两档，我们不需要它那档「面板让位」，一档封顶即可）。 */
+  --reading-col: 896px;
+  /* .flow 的横向内边距：正文列右补偿要用同一份值，抽出来免得两处漂移 */
+  --flow-pad-x: clamp(14px, 3vw, 28px);
 }
 .session-header {
   display: flex;
@@ -1641,6 +1650,8 @@ button {
   bottom: 0;
   z-index: 30;
   width: calc(100% - 48px);
+  /* 与正文列同宽同轴（--reading-col）：宽屏下输入区不再比正文宽出一截 */
+  max-width: var(--reading-col);
   margin: 0 auto;
   padding-bottom: 12px;
 }
@@ -1704,9 +1715,18 @@ button {
      一段呼吸间距：滚到顶时首条消息与标题**不在同一行**（用户定稿）。
      注意顺序：top 值直接写进简写——padding-top longhand 放在 padding 简写
      前会被简写整个覆盖（曾因此让位从未生效，首条消息顶进标题行）。 */
-  padding: calc(var(--session-header-h) + 20px) clamp(14px, 3vw, 28px) 12px;
+  padding: calc(var(--session-header-h) + 20px) var(--flow-pad-x) 12px;
 }
-.flow-inner { display: flex; flex-direction: column; gap: 10px; }
+.flow-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* 正文列（--reading-col）：宽屏居中定宽，窄窗被 max-width 让成整宽。
+     约束的是列本身而非滚动容器 .flow——滚动条与渐隐带仍贴主卡边缘。 */
+  width: 100%;
+  max-width: var(--reading-col);
+  margin-inline: auto;
+}
 /* 会话入场（用户定稿）：历史加载完成内容首次出现时整体轻浮上；key 在
    SessionView（会话:已加载），只在进入会话那一刻重挂重播，流式不重播。
    子消息块各自的 fade-up 照常叠加，容器动势给「会话出现了」一个整体感。
@@ -1729,6 +1749,17 @@ button {
    tip 必须挂在滚动 list 之外（官方 .preview 是 .scroller 兄弟）——挂在
    list 内会被 overflow-y:auto 裁掉，hover 看不见卡。 */
 .flow-row { flex: 1; min-height: 0; display: flex; }
+/* 大纲轨在 .flow 左侧占 30px（.turn-rail 宽 18 + 左留白 12），正文列在 .flow 内
+   居中会比 composer 列右偏 15px。有富余时右侧补回同宽，把列压回主卡中轴；窄窗
+   没有富余就不补——补了既白吃 30px，又让左右 padding 不对称（clamp 第三参是
+   轨道宽，第二参「富余」= 主卡宽 − 列宽 − 两侧 padding − 轨道）。 */
+.turn-rail + .flow {
+  --rail-w: 30px;
+  padding-right: calc(
+    var(--flow-pad-x) +
+      clamp(0px, 100% - var(--reading-col) - 2 * var(--flow-pad-x) - var(--rail-w), var(--rail-w))
+  );
+}
 .turn-rail {
   position: relative;
   flex: none;
@@ -2423,7 +2454,7 @@ button {
   flex-direction: column;
   gap: 4px;
   padding: 4px 0;
-  /* ~10 行视口（12.5px × 1.6 + 上下 padding）：内容超出即在框内滚动，
+  /* 固定行数视口（≈7 行：base 14 × 1.6 + 行距 4）：内容超出即在框内滚动，
      流式时由 ThinkingState 吸底跟随，不再把整条消息流撑长 */
   max-height: 208px;
   overflow-y: auto;
