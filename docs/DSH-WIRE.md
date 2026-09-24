@@ -140,9 +140,8 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
   （`coldBlankProbeMaxBytes` 预算），大会话标题在打开观察后出现——官方同款
   行为，非缺陷。`modelSelection` = `{next, lastUsed}`（会话实时选择 =
   `next ?? lastUsed`，session/models 的替代读法）。`turnOutline` = `[{turn,
-  seq, prompt≤50, response≤120}]`（seq 是该轮 turn/start 的事件 seq，深分页
-  跳转目标）——SPA 大纲轨消费（`TurnNavigator`，快照种子 + control
-  projection 帧实时整值）。`inbox` = `{next-turn:[], next-step:[]}`（排队
+  seq, prompt≤50, response≤120}]`（seq 是该轮 turn/start 的事件 seq）——引擎照推，
+  客户端当前没有消费者（轮次大纲轨已按用户口径撤下，见 `docs/TODO.md`）。`inbox` = `{next-turn:[], next-step:[]}`（排队
   消息全量投影，control queue 帧即由它派生）。`subagent`（子会话身上）=
   `{mode:'continuable'|'one-shot', label?, seq}`——continuable 判据，SPA
   以此解锁子会话 Composer；`subagentCatalog`（父会话身上）= 子会话目录。

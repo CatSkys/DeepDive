@@ -375,10 +375,6 @@ export const EN: Record<string, string> = {
   "补全": "Autocomplete",
   "收起菜单 / 取消": "Dismiss menu / cancel",
   // settings — data
-  "数据与存储": "Data & Storage",
-  "存储位置（DSH_HOME）": "Storage location (DSH_HOME)",
-  "在访达中打开": "Reveal in Finder",
-  "引擎配置文档": "Engine configuration doc",
   "打开": "Open",
   "高级（命名空间原始 JSON 编辑）": "Advanced (raw namespace JSON editor)",
   "diff 后只提交改到的路径；revision 围栏防串写。": "Only changed paths are submitted; revision fencing prevents clobbering.",
@@ -687,17 +683,6 @@ export const EN: Record<string, string> = {
   "执行失败": "Failed",
   // worktrees（设置 → 工作树）
   "工作树": "Worktrees",
-  "在一个 git 工作区上开工作树（分支 + 同级目录），把工作树注册成新工作区，就能在独立目录里干活而不互相踩文件。注意：引擎的会话工作目录在创建时固定（沙箱根 = 引擎进程启动目录），所以「同一工作区里多个会话各跑一个工作树」现在还做不到——每个工作树只能作为独立工作区使用。": "Open a worktree (a branch plus a sibling directory) on a git workspace and register it as its own workspace to work in an isolated directory without stepping on files. Note: a session's working directory is fixed when it is created (the sandbox root is the engine process's launch directory), so “one worktree per session inside a single workspace” is not possible yet — each worktree can only be used as its own workspace.",
-  "工作树挂在某个工作区（仓库）上；列表来自 git 自己。": "Worktrees belong to a workspace (a repository); the list comes from git itself.",
-  "这个目录不是 git 仓库，或者还没有工作树。": "This directory is not a git repository, or has no worktree yet.",
-  "主工作树": "main",
-  "已锁定": "locked",
-  "可清理": "prunable",
-  "注册为工作区": "Register as workspace",
-  "新建工作树": "New worktree",
-  "分支已存在、目录被占等情形由 git 拒绝，报错原文会显示在上面——这里不替它猜原因。": "git itself refuses when the branch exists or the directory is taken; its message is shown above rather than guessed at here.",
-  "分支名": "Branch",
-  "目录（绝对路径）": "Directory (absolute path)",
   // 新建项目弹窗（NewProjectDialog）
   "图标": "Icon",
   "审批模式": "Approval preset",
@@ -722,8 +707,6 @@ export const EN: Record<string, string> = {
   "创建": "Create",
   "创建失败": "Create failed",
   "删除失败": "Delete failed",
-  "列不出来，可能不是 git 仓库。": "Could not list — this may not be a git repository.",
-  "工作树要跑本机 git，只有桌面应用能做——当前是浏览器访问，看不到也改不了。": "Worktrees need git on this machine and only the desktop app can run it — you are in a browser, so they cannot be listed or changed here.",
   // 预览窗（FilePreviewWindow / previewModel / OpenWithMenu）
   "全屏预览": "Full-screen preview",
   "退出全屏": "Exit full screen",

@@ -186,8 +186,13 @@ export function PluginsTab({ query, onTryPlugin }: {
 
   return (
     <>
-      <div className={css.groupLabel}>
-        {tt("已安装（{n}）", "Installed ({n})", { n: String(installed.length) })}
+      <div className={css.groupHead}>
+        <div className={css.groupLabel}>
+          {tt("已安装（{n}）", "Installed ({n})", { n: String(installed.length) })}
+        </div>
+        <button className={rs.secondaryButton} onClick={load} disabled={busy !== null}>
+          <RefreshCw size={12} /> {t("刷新")}
+        </button>
       </div>
       <div className={rs.blockCard}>
         {installed.length === 0 && (
@@ -196,12 +201,6 @@ export function PluginsTab({ query, onTryPlugin }: {
           </div>
         )}
         {installed.map(renderRow)}
-        <div className={rs.blockRow}>
-          <span style={{ marginLeft: "auto" }} />
-          <button className={rs.secondaryButton} onClick={load} disabled={busy !== null}>
-            <RefreshCw size={12} /> {t("刷新")}
-          </button>
-        </div>
       </div>
     </>
   );

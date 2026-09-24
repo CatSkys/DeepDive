@@ -3,10 +3,10 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "98d7a3dc5bebe1a4",
+      "id": "7b04bb3c1b804910",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1194 lines > 300"
+      "detail": "1129 lines > 300"
     },
     {
       "id": "510fb9988664948f",
@@ -81,16 +81,16 @@
       "detail": "367 lines > 300"
     },
     {
-      "id": "27357889383b64ab",
+      "id": "e6b2838aa982b8fd",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
-      "detail": "544 lines > 300"
+      "detail": "465 lines > 300"
     },
     {
-      "id": "dbd52a4b4d375857",
+      "id": "ebbeb341ff3ff841",
       "rule": "file-lines",
       "file": "frontend/src/components/SettingsPage.tsx",
-      "detail": "769 lines > 300"
+      "detail": "726 lines > 300"
     },
     {
       "id": "ec9f3aa9b70274b3",
@@ -99,16 +99,16 @@
       "detail": "524 lines > 300"
     },
     {
-      "id": "a344ef78a21fd891",
+      "id": "aec678ec40a65671",
       "rule": "file-lines",
       "file": "frontend/src/host.ts",
-      "detail": "711 lines > 300"
+      "detail": "644 lines > 300"
     },
     {
-      "id": "ed2c2830c19044b2",
+      "id": "1dc3275e5804266c",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "845 lines > 300"
+      "detail": "828 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",
@@ -141,10 +141,10 @@
       "detail": "328 lines > 300"
     },
     {
-      "id": "b36c2c7d99443170",
+      "id": "e9b86ac6d376cc83",
       "rule": "file-lines",
       "file": "frontend/src/session/useSessionEvents.ts",
-      "detail": "382 lines > 300"
+      "detail": "344 lines > 300"
     },
     {
       "id": "6e60185ec857426a",
@@ -165,10 +165,10 @@
       "detail": "757 lines > 300"
     },
     {
-      "id": "2d2859ec9ebb8a6e",
+      "id": "b5a2dc790aada236",
       "rule": "file-lines",
       "file": "frontend/src/types.ts",
-      "detail": "432 lines > 300"
+      "detail": "421 lines > 300"
     }
   ]
 }

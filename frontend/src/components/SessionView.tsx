@@ -14,13 +14,10 @@ import { groupTools } from "../session/toolGroups";
 import { ToolGroupRow } from "../session/ToolGroupRow";
 import { Item } from "../session/Item";
 import { useSessionActions } from "../session/useSessionActions";
-import { TurnNavigator } from "../session/TurnNavigator";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "./preview/FilePreviewWindow";
 import { useFilePreview } from "./preview/useFilePreview";
 import { computeTurnProcess } from "../session/turnProcess";
-import { FOLLOW_THRESHOLD, activeTurnFor, readingLineOffset } from "../session/activeTurn";
 import { TurnProcessBar } from "../session/TurnProcessBar";
-import type { TurnOutlineEntry } from "../types";
 import { SessionHeader } from "../session/SessionHeader";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
@@ -48,13 +45,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 供 syncBottomPad 同步读）保持一个事实源，拆两套监听会算出两个贴底。
   const [scrolled, setScrolled] = useState(false);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
-  const { items, liveRunning, runningSince, plan, scheduleRecords, hasMore, loadingOlder, loadOlder, outline, loadThrough, loadError, retry } =
+  const { items, liveRunning, runningSince, plan, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("会话");
-  // Turn 大纲轨（TODO §0-2）：活动轮（滚动派生）与深分页忙碌轮。
-  const [activeTurn, setActiveTurn] = useState<number | undefined>(undefined);
-  const [busyTurn, setBusyTurn] = useState<number | undefined>(undefined);
   // 文件预览窗口（产物/文件 chip 打开）：little 浮窗与全屏两态
   const preview = useFilePreview();
   const previewFull = preview.tabs.length > 0 && preview.fullscreen;
@@ -240,69 +234,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const layout = useMemo(() => {
     const keyIdx = new Map(items.map((it, i) => [it.key, i] as const));
     const groups = groupTurns(items);
-    // 大纲轨的 loaded 判定集：轮号在内存窗口中即 loaded。
-    const loadedTurns = new Set(groups.map((g) => g.turn).filter((n): n is number => n !== null));
-    return { keyIdx, groups, loadedTurns };
+    return { keyIdx, groups };
   }, [items]);
-
-  // 视口所在轮（rAF 合并）：贴底取最后一轮、否则取阅读线上方最新一轮，
-  // 驱动大纲轨高亮（判定在 activeTurn.ts，语义照官方 ChatView）。
-  const activeRafRef = useRef<number | null>(null);
-  const railTurns = useMemo(() => outline.map((e) => e.turn), [outline]);
-  const trackActive = useCallback(() => {
-    if (activeRafRef.current !== null) return;
-    activeRafRef.current = requestAnimationFrame(() => {
-      activeRafRef.current = null;
-      const flow = flowRef.current;
-      if (!flow) return;
-      const atBottom = flow.scrollHeight - flow.scrollTop - flow.clientHeight <= FOLLOW_THRESHOLD + 1;
-      let reading: number | null = null;
-      if (!atBottom) {
-        const line = flow.getBoundingClientRect().top + readingLineOffset(flow.clientHeight);
-        for (const el of flow.querySelectorAll<HTMLElement>(".turn-group[data-turn]")) {
-          if (el.getBoundingClientRect().top <= line) reading = Number(el.dataset.turn);
-          else break;
-        }
-      }
-      setActiveTurn(activeTurnFor(atBottom, reading, railTurns) ?? undefined);
-    });
-  }, [railTurns]);
-  useEffect(() => {
-    trackActive();
-    return () => {
-      if (activeRafRef.current !== null) cancelAnimationFrame(activeRafRef.current);
-      activeRafRef.current = null;
-    };
-  }, [items, trackActive]);
-
-  // 大纲跳转落点：等目标轮组进 DOM 后对齐到流顶（翻页渲染是异步的，帧重试）。
-  const scrollToTurn = (turn: number) => {
-    let frames = 0;
-    const step = () => {
-      const flow = flowRef.current;
-      if (!flow) return;
-      const group = flow.querySelector<HTMLElement>(`.turn-group[data-turn="${turn}"]`);
-      if (group) {
-        flow.scrollTop += group.getBoundingClientRect().top - flow.getBoundingClientRect().top - 8;
-        return;
-      }
-      if (frames++ < 12) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  };
-
-  const pickTurn = async (e: TurnOutlineEntry) => {
-    // 未在内存窗口：先深分页覆盖到该轮 turn/start 的 seq（官方 loadThrough）。
-    if (!layout.loadedTurns.has(e.turn)) {
-      setBusyTurn(e.turn);
-      try {
-        await loadThrough(e.seq);
-      } finally {
-        setBusyTurn(undefined);
-      }
-    }
-    scrollToTurn(e.turn);
-  };
 
   if (isBlank) {
     return (
@@ -363,16 +296,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       {/* 会话体：消息流 + 悬浮输入区 + （全屏预览时）盖在其上的预览面。
           全屏不让底下两颗卸载——滚动位置与事件状态都在它们身上，停绘制即可。 */}
       <div className="session-body" data-fullscreen={previewFull || undefined}>
-        <div className="flow-row">
-          {outline.length >= 2 && (
-            <TurnNavigator
-              entries={outline}
-              activeTurn={activeTurn}
-              busyTurn={busyTurn}
-              loadedTurns={layout.loadedTurns}
-              onPick={(e) => void pickTurn(e)}
-            />
-          )}
         <div
           className="flow fade-y"
           ref={attachFlow}
@@ -383,7 +306,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
             setScrolled(el.scrollTop > 2);
             syncFadeRamp(el.scrollTop);
-            trackActive();
             // 滚到顶自动向前翻页（替代手点「载入更早」）：靠近顶部即拉一页；
             // loadOlder 内部有 paging 互斥 + 锚点保位，连续触发安全。
             if (el.scrollTop < 48 && hasMore && !loadingOlder) void loadOlder();
@@ -505,7 +427,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             })}
             {running && <LoadingState label="Deep diving..." since={runningSince} />}
           </div>
-        </div>
         </div>
         {!follow && (
           <button

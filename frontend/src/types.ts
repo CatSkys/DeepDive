@@ -255,17 +255,6 @@ export interface GoalProjection {
   updatedAt: number;
 }
 
-/**
- * turnOutline 投影条目（引擎 session-turn-outline：wire 值为裸数组，按 turn
- * 严格递增）。`seq` 是该轮 turn/start 的事件 seq——向前翻页覆盖到它即得整轮；
- * prompt/response 是引擎侧预算过的预览（50/120 字符）。
- */
-export interface TurnOutlineEntry {
-  turn: number;
-  seq: number;
-  prompt: string;
-  response: string;
-}
 
 /** commands/list 条目（引擎 interaction/commands CommandDescriptor，name 排序）。 */
 export interface CommandDescriptor {

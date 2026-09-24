@@ -50,5 +50,4 @@
   `packages/feedback/message-feedback/` 都不在组合里（连同 `/feedback` 命令与遥测一并移除，
   见 `engine/profile/cordis.patch.yml` 的移除清单）。
 - 命令面：`packages/client/ui-commands/src/client/service.ts`（commands/list 驱动目录 + execute 整行派发；带参命令 claim、无参直发、未知命令拒收保草稿）→ SPA `composer/useSlashCommands.ts` + `commandLine.ts`。
-- Turn 大纲轨：`packages/client/ui-chat/src/client/chat/TurnNavigator.tsx`（10px 节距刻度轨 + hover 预览卡 + 活动刻度自动居中）与 `turn-rail-items.ts`/`ChatView.tsx`（loaded/unloaded 合流 + loadThrough 深跳）→ SPA `session/TurnNavigator.tsx` + `useSessionEvents.loadThrough`。
 - @ 候选：`packages/client/ui-reference/src/client/index.ts`（sessionReferenceResolver/candidates 消费）+ `packages/api/session-controller/src/file-references.ts`（fileReferences/list，本地实现 `file-reference-local`：cwd 亲和整库索引）→ SPA `useMentionCandidates.ts`。

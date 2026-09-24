@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, CalendarClock, ChartColumn, ChevronLeft, Cpu, Download, Folder, Keyboard, Moon,
-  GitBranch, Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
+  Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
   Smartphone,
   SquarePen, Sun,
   Trash2,
@@ -17,7 +17,6 @@ import { AutomationSection } from "../automation/AutomationSection";
 import { PluginsSection } from "../plugins/PluginsSection";
 import { shortModuleName } from "../plugins/model";
 import { draftKeyOf, writeDraft } from "../components/composer/useComposerDraft";
-import { WorktreeSection } from "../worktree/WorktreeSection";
 import { RemoteControlSection } from "../mobile/RemoteControlSection";
 import type { AutomationProposal } from "../automation/protocol";
 import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
@@ -50,15 +49,13 @@ export const SETTINGS_SECTIONS: Array<{ id: string; label: string; icon: typeof 
   { id: "remote", label: "移动端远程控制", icon: Smartphone, group: "agent" },
   { id: "import", label: "导入", icon: Download, group: "agent" },
   { id: "archived", label: "已归档的聊天", icon: Archive, group: "data" },
-  { id: "data", label: "数据", icon: Folder, group: "data" },
-  { id: "worktree", label: "工作树", icon: GitBranch, group: "data" },
   { id: "usage", label: "使用统计", icon: ChartColumn, group: "data" },
 ];
 
 // 分类（侧栏按用途分三组；组定义与成员见下方 navGroups）：
 //   基础设置——通用（外观/语言/归档/Enter/通知/默认会话模式）、模型（提供方+密钥）、审批（默认权限预设）、快捷键
 //   Agent 能力——自动化、技能与插件、移动端远程控制、导入
-//   数据与统计——已归档的聊天、数据、工作树、使用统计
+//   数据与统计——已归档的聊天、使用统计
 
 export function SettingsPage({ initialSection, onClose, automationDraft, onAutomationDraftUsed }: {
   initialSection?: string;
@@ -157,7 +154,6 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
               }}
             />
           )}
-          {activeId === "worktree" && <WorktreeSection />}
           {activeId === "remote" && <RemoteControlSection />}
           {activeId === "automation" && (
             <AutomationSection
@@ -170,7 +166,6 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
           {activeId === "archived" && <ArchivedSection onBulk={setBulk} />}
-          {activeId === "data" && <DataSection />}
           {activeId === "usage" && <UsageSection />}
         </div>
       </main>
@@ -725,44 +720,6 @@ export function ArchivedSection({ onBulk }: { onBulk?: (bulk: { count: number; o
           </div>
         </section>
       ))}
-    </div>
-  );
-}
-
-/* ───────────────────────── 数据 ───────────────────────── */
-
-function DataSection() {
-  const { t } = useT();
-  const [home, setHome] = useState("");
-  useEffect(() => {
-    sendToShell({ type: "get-prefs" });
-    return onHostEvent((cmd, payload) => {
-      if (cmd === "prefs" && payload) setHome((payload as { home?: string }).home ?? "");
-    });
-  }, []);
-  return (
-    <div className={rowsCss.section}>
-      <div className={rowsCss.sectionTitle}>{t("数据与存储")}</div>
-      <div className={rowsCss.rowGroup}>
-      <div className={rowsCss.rowCard}>
-        <div className={rowsCss.rowIdentity}>
-          <div className={rowsCss.rowName}>{t("存储位置（DSH_HOME）")}</div>
-          <div className={rowsCss.rowCaption}>{home || t("加载中…")}</div>
-        </div>
-        <div className={rowsCss.rowActions}>
-          <button className={rowsCss.secondaryButton} onClick={() => sendToShell({ type: "reveal-home" })}>{t("在访达中打开")}</button>
-        </div>
-      </div>
-      <div className={rowsCss.rowCard}>
-        <div className={rowsCss.rowIdentity}>
-          <div className={rowsCss.rowName}>settings.yaml</div>
-          <div className={rowsCss.rowCaption}>{t("引擎配置文档")}</div>
-        </div>
-        <div className={rowsCss.rowActions}>
-          <button className={rowsCss.secondaryButton} onClick={() => sendToShell({ type: "open-host-doc" })}>{t("打开")}</button>
-        </div>
-      </div>
-      </div>
     </div>
   );
 }

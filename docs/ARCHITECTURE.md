@@ -49,8 +49,7 @@
 | `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
-| `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；四个调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`worktreeRun`、`agentRun` |
-| `WorktreeAdmin.swift` | 工作树管理：解析 `git worktree list --porcelain`、组装 add/remove 参数（删除**不带 --force**，有未提交改动时让 git 拒绝）。只做生命周期，不做隔离 |
+| `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`agentRun` |
 | `SkillAdmin.swift` | 技能管理面（设置→插件→技能）：读 `<DSH_HOME>/skills/<id>/SKILL.md` 的清单（frontmatter 解析、缺键标注、随应用发布的三个技能标 managed）、新建（写骨架 SKILL.md）、删除一层技能目录（拒穿越）。技能没有 wire 面，读盘/写盘/删盘只能由壳做 |
 | `ManagedPatchBlock.swift` | home 级 patch 层（`<DSH_HOME>/cordis.patch.yml`）里「托管块」的读写原语：按标记对切/换/取行，段外内容逐字保留、不解析 YAML。两个消费者：`PluginPatchAdmin`、`McpServerAdmin` |
 | `PluginPatchAdmin.swift` | 插件启停的落账：写 home 级 patch 层的托管块（`- id: <行id>` + `disabled:`）。profile 是 `patchReload: live` → **热生效、不重启**（实测 ≤4s 翻转，PITFALLS §7.6） |
@@ -75,7 +74,6 @@
 | `components/Markdown.tsx` / `ThinkingState.tsx` / `LoadingState.tsx` / `Icons.tsx` / `ProviderIcon.tsx` / `HoverScrollText.tsx` / `HeroBrand.tsx` | 呈现组件（`Markdown` 见下行 `rich/` 的围栏分流） |
 | `rich/` | 正文富输出围栏（`mermaid` / `svg` / `widget`，词表在 `fences.ts`）：`mermaidRender` 按需 import mermaid（独立分块）并从 CSS 语义变量读色烘图、明暗切换靠块自订阅（**不赌父组件重渲**，误诊后果=图示配色停在上一个主题）；`sanitizeSvg` 用 DOMPurify 的 svg profile 消毒内联 SVG（禁 `script`/`foreignObject`），成品图连带作者自带的 `<style>` 一起进 shadow root（`ScopedSvg`；`@scope (#id)` 会静默废掉 `#<svg-id> …` 这类选择器让整张图变黑，`PITFALLS §3.8`）；`WidgetBlock` 用 `sandbox="allow-scripts"`（无 same-origin）跑交互组件；围栏未闭合（流式）显示「正在读取…」且不发起渲染；渲染不出来（语法错/超限）一律退回代码块显示源码（`PITFALLS §3.7`） |
 | `session/backgroundSession.ts` | 后台会话的判据与命名（唯一事实源）：读投影标题而非应用侧 id 台账（MiMo 形态）——自动化运行会话不进用户列表（该任务的运行历史仍可打开；已删的「自进化」留下的 `自进化·` 机器会话按同一条规则继续隐藏）；fail-open：读不到标题当用户会话。生产者（自动化运行）建会话时按同一份常量命名 |
-| `worktree/` | 工作树（设置→工作树）：`model`（默认分支/同级目录、主工作树判据、标签纯函数）、`WorktreeSection`（列/建/删 + 注册为工作区）。生命周期交给 git 本体；**并行会话隔离做不到**（会话的 cwd 在创建时定死、之后改不了，而 cwd 就是它的沙箱根——`sandbox-policy.resolve({session})` 取 `session.header.cwd`），卡片里如实写明 |
 | `plugins/` | 插件页（设置→插件）：`model`（插件行状态/排序/汇总/短名/行 id 纯函数：`enabled:false` 分「用户关掉」与「本层未挂载」两态，见 `PITFALLS §7.6`）、`PluginsSection`（tab 容器：插件/MCP/技能 + 搜索）、`PluginsTab`（只列用户装进来的插件：引擎自带的内部模块根本不出现；逐行启停开关 + 行菜单「立即试用/卸载」）、`McpTab`（MCP server 列表/启停/增删改）、`SkillsTab`（技能清单/新建/删除）。开关写壳的 patch 托管块，热生效 |
 | `mobile/` | 移动端远程控制（设置→移动端远程控制）：`RemoteControlSection`（扫码连接卡片 + 二维码 + 已配对设备台账）；远程状态与配对全在壳侧，前端只渲染快照（`host.ts` 的 remoteStatus/remoteStart/remoteStop/remoteRefresh/remoteRevoke/remoteCopyLink/qrEncode）。语义与安全边界见 `SPEC-MOBILE-REMOTE.md` |
 | `bots/` | Bot Channel（设置→移动端远程控制 右栏）：`BotChannelCard`（渠道列表 + 真实状态）、`BotManageDialog`（机器人台账 + 扫码新建 + 移除）、`im.ts`（渠道目录与状态纯函数）。wire 走 `api.ts` 的 `api.im`（插件的 `POST /api/dsh-im/<渠道>`，不是引擎 typert 网关）；契约见 `SPEC-MOBILE-REMOTE.md §5` |

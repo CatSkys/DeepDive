@@ -198,7 +198,7 @@ button {
     0 12px 28px rgba(0,0,0,.20),
     0 2px 6px rgba(0,0,0,.10);
 }
-.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .turn-rail-tip, .preview-window {
+.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .preview-window {
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
      别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
@@ -1499,7 +1499,7 @@ button {
 }
 /* 全屏预览取代会话界面：底下两颗只停绘制不卸载（滚动位置与事件状态都在
    它们身上，display:none 会把 scrollTop 打回 0），全屏面盖在其上。 */
-.session-body[data-fullscreen] > .flow-row,
+.session-body[data-fullscreen] > .flow,
 .session-body[data-fullscreen] > .session-bottom,
 .session-body[data-fullscreen] > .jump-down { visibility: hidden; }
 /* 头部顶到卡片上沿：标题行与红绿灯/顶部钮同一视线（官方对齐方式） */
@@ -1741,158 +1741,6 @@ button {
    空 = 菜单变纯透明（实测事故），标题行内无弹层所以安全。 */
 .session-header .title-row { animation: header-in var(--dur-med) var(--ease-out) backwards; }
 @keyframes header-in { from { opacity: 0; transform: translateY(-4px); } }
-
-/* ---- Turn 大纲轨（官方 ui-chat TurnNavigator 移植，用户定稿放消息流左缘） ----
-   .flow-row 包轨道与消息流：轨道占位 18px、不与内容重叠（免 z-index/遮罩
-   博弈）；刻度 10px 间距（官方同款节距），溢出在轨内滚动 + 上下渐隐。
-   .turn-rail-tip 已并入上方弹层统一配方（轨道在 .flow 外，backdrop 可用）。
-   tip 必须挂在滚动 list 之外（官方 .preview 是 .scroller 兄弟）——挂在
-   list 内会被 overflow-y:auto 裁掉，hover 看不见卡。 */
-.flow-row { flex: 1; min-height: 0; display: flex; }
-/* 大纲轨在 .flow 左侧占 30px（.turn-rail 宽 18 + 左留白 12），正文列在 .flow 内
-   居中会比 composer 列右偏 15px。有富余时右侧补回同宽，把列压回主卡中轴；窄窗
-   没有富余就不补——补了既白吃 30px，又让左右 padding 不对称（clamp 第三参是
-   轨道宽，第二参「富余」= 主卡宽 − 列宽 − 两侧 padding − 轨道）。 */
-.turn-rail + .flow {
-  --rail-w: 30px;
-  padding-right: calc(
-    var(--flow-pad-x) +
-      clamp(0px, 100% - var(--reading-col) - 2 * var(--flow-pad-x) - var(--rail-w), var(--rail-w))
-  );
-}
-.turn-rail {
-  position: relative;
-  flex: none;
-  width: 18px;
-  /* 距主卡左缘留白：不贴 .main 边框，与 .flow 横向 padding 同一呼吸感 */
-  margin-left: 12px;
-  display: flex;
-  align-items: center;
-  padding: 20px 0;
-  /* 随会话内容一起轻浮入（与 session-enter 同曲线，方向取横向贴边感） */
-  animation: turn-rail-in 380ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
-}
-@keyframes turn-rail-in { from { opacity: 0; transform: translateX(-8px); } }
-.turn-rail-list {
-  position: relative;      /* 指示器的定位父级（offsetTop 以 list 内容计） */
-  /* 显式占满轨宽：row-flex 里 auto 宽会收缩到内容宽（5px），指示器一上
-     来就被 overflow-x 裁掉左半（实测事故） */
-  width: 100%;
-  max-height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-  display: flex;
-  flex-direction: column;
-  padding: 6px 0;
-  mask-image: linear-gradient(180deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
-}
-.turn-rail-list::-webkit-scrollbar { display: none; }
-.turn-rail-mark {
-  position: relative;
-  flex: none;
-  height: 16px;           /* 节距：给 12px 指示器留出均匀呼吸（勿回 10px 挤压） */
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* 命中区扩容：±2px 不可见外扩（无布局位移） */
-.turn-rail-mark::after { content: ""; position: absolute; inset: -2px 0; }
-/* 刻度 = 圆点（所有轮同款暗灰小圆点）；当前/悬停轮由亮白竖向胶囊指示
-   器接管（盖在圆点上），未加载轮更弱。 */
-.turn-rail-mark::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--ink-3);
-  transition:
-    transform 200ms cubic-bezier(0.34, 1.3, 0.64, 1),
-    background-color var(--dur-fast) ease,
-    opacity var(--dur-fast) ease;
-}
-.turn-rail-mark:hover::before { background: var(--ink-2); transform: scale(1.25); }
-.turn-rail-mark[data-unloaded]::before { opacity: .45; }
-.turn-rail-mark[data-unloaded]:hover::before { opacity: .75; }
-.turn-rail-mark[data-active]::before { background: var(--ink-2); }
-.turn-rail-mark[aria-busy="true"]::before { animation: turn-rail-busy 1.1s ease-in-out infinite; }
-@keyframes turn-rail-busy { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-/* 亮白竖向胶囊指示器：盖在当前/悬停轮的圆点上（hover 到哪弹滑到哪，无
-   hover 停在活动轮）。top 用带回弹的 spring 曲线——跨刻度是滑动越界再
-   回落，不是跳变。 */
-.turn-rail-cursor {
-  position: absolute;
-  left: 50%;
-  width: 6px;
-  height: 12px;
-  margin: 0 0 0 -3px;
-  border-radius: 3px;
-  background: var(--ink);
-  box-shadow: 0 0 5px rgba(255, 255, 255, .18);
-  pointer-events: none;
-  opacity: 0;
-  transform: scaleY(.6);
-  transition:
-    top 320ms cubic-bezier(0.34, 1.45, 0.64, 1),
-    opacity 180ms var(--ease-out),
-    transform 220ms cubic-bezier(0.34, 1.45, 0.64, 1);
-}
-.turn-rail-cursor[data-show] {
-  opacity: 1;
-  transform: scaleY(1);
-  animation: turn-cursor-in 220ms cubic-bezier(0.34, 1.45, 0.64, 1);
-}
-@keyframes turn-cursor-in { from { opacity: 0; transform: scaleY(.6); } }
-.turn-rail-tip {
-  position: absolute;
-  left: calc(100% + 8px);
-  width: 230px;
-  border-radius: 10px;
-  padding: 8px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  text-align: left;
-  pointer-events: none;
-  z-index: 30;
-  /* 进：首次挂载播一次滑入；关合/换刻度全走 transition——top 弹滑（与指示
-     器同曲线，跟手感一致）、透明度+横移淡入淡出（data-open 翻转），出场
-     不清空内容（组件持久挂载） */
-  opacity: 0;
-  transform: translateY(-50%) translateX(-6px);
-  transition:
-    top 320ms cubic-bezier(0.34, 1.45, 0.64, 1),
-    opacity 160ms var(--ease-out),
-    transform 160ms var(--ease-out);
-  animation: turn-tip-in 160ms var(--ease-out) backwards;
-}
-.turn-rail-tip[data-open] { opacity: 1; transform: translateY(-50%) translateX(0); }
-@keyframes turn-tip-in { from { opacity: 0; transform: translateY(-50%) translateX(-6px); } }
-.turn-rail-tip-head {
-  font-size: var(--dsh-font-size-sm);
-  line-height: 17px;
-  color: var(--ink);
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.turn-rail-tip-body {
-  font-size: var(--dsh-font-size-xs);
-  line-height: 16px;
-  color: var(--ink-3);
-  white-space: pre-line;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
 .flow, .flow-inner, .md, .md *, .agent-message, .agent-message * { background: transparent !important; }
 /* Composition isolation: any compositor-level halo is confined to the flow. */

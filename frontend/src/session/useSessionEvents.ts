@@ -49,12 +49,10 @@ export function useSessionEvents(
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   // 已加载窗口最早事件 seq（分页游标）：state 无渲染读者，ref 即事实源，
-  // loadOlder/loadThrough 循环里同步读现值。
+  // loadOlder 循环里同步读现值。
   const earliestSeqRef = useRef<number | undefined>(undefined);
-  // 深跳互斥：一次跳转进行中忽略新的跳转/载入更早点击。
+  // 载入更早的互斥：一次进行中忽略新的点击。
   const pagingRef = useRef(false);
-  /** turnOutline 投影（开窗快照种子 + control projection 帧实时整值）。 */
-  const [outline, setOutline] = useState<import("../types").TurnOutlineEntry[]>([]);
   // 5.1 Goal：goal 投影整值（control projection 实时推，3s 轮询兜底）
   const [goalProj, setGoalProj] = useState<import("../types").GoalProjection | null | undefined>(undefined);
   const refreshGoal = () => {
@@ -114,7 +112,6 @@ export function useSessionEvents(
     setLiveRunning(false);
     setHasMore(false);
     earliestSeqRef.current = undefined;
-    setOutline([]);
 
     // 0.1.2 engine surface (PITFALLS §4.6)：冷读+直播统一走 session/follow 流
     // ——开窗帧给 {cursor, records, hasMore}，此后同流追加事件；向前翻页走
@@ -151,8 +148,6 @@ export function useSessionEvents(
           setScheduleRecords(foldScheduleAll(eventLog.current));
           const first = s.entries[0];
           earliestSeqRef.current = first ? first.event.seq : undefined;
-          const outlineVal = s.projections.values?.turnOutline as import("../types").TurnOutlineEntry[] | undefined;
-          setOutline(Array.isArray(outlineVal) ? outlineVal : []);
           const last = s.entries[s.entries.length - 1];
           seqFloor = last ? last.event.seq + 1 : 0;
           const goalVal = s.projections.values?.goal as import("../types").GoalProjection | undefined;
@@ -291,8 +286,6 @@ export function useSessionEvents(
       if (frame.type !== "projection" || frame.sessionId !== sessionId) return;
       if (frame.key === "goal") {
         setGoalProj((frame.value ?? null) as import("../types").GoalProjection | null);
-      } else if (frame.key === "turnOutline") {
-        setOutline(Array.isArray(frame.value) ? frame.value as import("../types").TurnOutlineEntry[] : []);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -342,40 +335,9 @@ export function useSessionEvents(
     }
   };
 
-  /** 大纲跳转（官方 loadThrough 语义）：200/页循环向前翻，直到窗口覆盖到
-   *  目标 turn/start 的 seq；无进展（!hasMore 或 firstSeq 不再前移）即止。 */
-  const loadThrough = async (seq: number) => {
-    if (pagingRef.current) return;
-    pagingRef.current = true;
-    setLoadingOlder(true);
-    try {
-      await driveLoadThrough(seq, () => earliestSeqRef.current, pageOnce);
-    } catch {
-      // engine may be busy; 已翻到的页保留，跳转按当前窗口尽力落点
-    } finally {
-      pagingRef.current = false;
-      setLoadingOlder(false);
-    }
-  };
-
   return {
     items, liveRunning, runningSince, plan, goalProj, refreshGoal,
-    scheduleRecords, hasMore, loadingOlder, loadOlder, outline, loadThrough,
+    scheduleRecords, hasMore, loadingOlder, loadOlder,
     loadError, retry: () => setRetryKey((k) => k + 1),
   };
-}
-
-/** 深跳翻页驱动（纯函数钉测面）：翻到窗口覆盖 seq 为止；!hasMore、单页无
- *  前移或 60 页上限任一触发即止——防引擎回包异常时死循环。 */
-export async function driveLoadThrough(
-  seq: number,
-  getEarliest: () => number | undefined,
-  page: (maxMessages: number) => Promise<{ firstSeq?: number; hasMore: boolean }>,
-): Promise<void> {
-  let guard = 0;
-  while ((getEarliest() ?? 0) > seq && guard++ < 60) {
-    const prev = getEarliest();
-    const r = await page(200);
-    if (!r.hasMore || r.firstSeq === undefined || r.firstSeq >= (prev ?? 0)) break;
-  }
 }

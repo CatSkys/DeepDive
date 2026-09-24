@@ -379,25 +379,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             gitRun(reqId: body["reqId"] as? String ?? "",
                    path: body["path"] as? String ?? "",
                    args: body["args"] as? [String] ?? [])
-        case "worktree-list":
-            worktreeRun(
-                reqId: body["reqId"] as? String ?? "", repo: body["repo"] as? String ?? "",
-                args: ["worktree", "list", "--porcelain"], command: "worktrees",
-            )
-        case "worktree-add":
-            worktreeRun(
-                reqId: body["reqId"] as? String ?? "", repo: body["repo"] as? String ?? "",
-                args: WorktreeAdmin.addArguments(
-                    branch: body["branch"] as? String ?? "", path: body["path"] as? String ?? "",
-                ),
-                command: "worktreeDone",
-            )
-        case "worktree-remove":
-            worktreeRun(
-                reqId: body["reqId"] as? String ?? "", repo: body["repo"] as? String ?? "",
-                args: WorktreeAdmin.removeArguments(path: body["path"] as? String ?? ""),
-                command: "worktreeDone",
-            )
         case "skill-list":
             skillList(reqId: body["reqId"] as? String ?? "")
         case "skill-remove":
@@ -682,52 +663,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - 工作树（设置 → 工作树）：生命周期交给 git 本体，解析在 WorktreeAdmin
-
-    private func worktreeRun(
-        reqId: String, repo: String, args: [String], command: String, okExtra: [String: Any] = [:],
-    ) {
-        func reply(_ ok: Bool, _ fields: [String: Any]) {
-            var all = fields
-            all["reqId"] = reqId
-            all["ok"] = ok
-            windowController.pushHostCommand(command, payload: AppDelegate.jsonPayload(all))
-        }
-        guard FileManager.default.fileExists(atPath: repo) else {
-            reply(false, ["error": "工作区路径不存在"])
-            return
-        }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = ProcessRunner.run(executable: "/usr/bin/git", arguments: args, workingDirectory: repo)
-            var fields = okExtra
-            if result.status == 0 {
-                if args.first == "worktree", args.dropFirst().first == "list" {
-                    let rows = WorktreeAdmin.parsePorcelain(result.output).map { item -> [String: Any] in
-                        [
-                            "path": item.path, "head": item.head, "branch": item.branch,
-                            "detached": item.detached, "bare": item.bare,
-                            "prunable": item.prunable, "locked": item.locked,
-                        ]
-                    }
-                    fields["worktrees"] = rows
-                    // git 的 porcelain 给的是 realpath（macOS 上 /var 会写成 /private/var），
-                    // 而前端拿到的是用户输入的工作区路径。主工作树的判定要同一把尺子，
-                    // 所以把解析后的仓库路径一并回推（解析符号链接只有壳做得到）。
-                    fields["resolvedRepo"] = URL(fileURLWithPath: repo).resolvingSymlinksInPath().path
-                } else {
-                    fields["output"] = result.output
-                }
-            } else {
-                // git 的拒绝原文就是最有用的信息（分支已存在 / 工作树有未提交改动），照传
-                fields["error"] = result.output.isEmpty ? "git 命令失败" : result.output
-            }
-            DispatchQueue.main.async { reply(result.status == 0, fields) }
-        }
-    }
-
-
-    /// 技能清单（设置 → 技能与插件）：技能是 `<DSH_HOME>/skills` 下的普通文件，
-    /// 引擎侧没有 skill 方法，所以清单由壳读盘给出（含 frontmatter 缺键与是否随应用发布）。
     private func skillList(reqId: String) {
         let skills = SkillAdmin.list(in: AppPaths.harnessHome)
         let rows: [[String: Any]] = skills.map { skill in
