@@ -62,15 +62,19 @@
 |---|---|---|
 | `font.ui` | `-apple-system, "PingFang SC", "SF Pro Text", sans-serif` | 全系统一 |
 | `font.mono` | `"SF Mono", ui-monospace, Menlo, monospace` | 代码、diff、上下文卡小标题、计数 |
-| `font.size.caption` | 11px / 14 / 500 | 键帽、徽标 |
-| `font.size.small` | 12px / 16 / 500 | **分组标签**（Pinned / Recent / Last Week）、浮层小标题（AI Agents） |
-| `font.size.body` | 13px / 18 | 正文默认 |
-| `font.size.title` | 15px / 20 / 600 | 会话标题 |
-| `font.size.hero` | 20px / 24 / 600 | **面板唯一主标题** |
-| `font.size.input` | 16px / 22 | 输入框 |
+| `font.base` | 14px | 阶梯基准（`--dsh-ui-font-size`）：只改它，五档一起动 |
+| `font.size.xs` | base − 4 = 10px | 键帽、徽标、计数、极弱元数据 |
+| `font.size.sm` | base − 2 = 12px | 次要文案、分组标签（Pinned / Recent / Last Week）、浮层小标题、Tooltip、行内代码 |
+| `font.size.base` | base = 14px | **正文默认**：正文、按钮、列表行、会话标题、markdown h3–h6、代码块正文 |
+| `font.size.lg` | base + 2 = 16px | 分区/弹窗标题、输入框、markdown h2 |
+| `font.size.xl` | base + 4 = 18px | markdown h1、浮层大字形（灯箱关闭/缩放） |
+| `font.size.hero` | 24px（**显示级**，不随基准） | 面板主标题、引导页标题、页内一级标题、环图中心数 |
 | `font.weight` | 400 · 500 · 600 仅三档 | |
 | `num.style` | `tabular-nums` | 计数、耗时 |
 
+- 五档一律由基准加偏移生成（`calc(var(--dsh-ui-font-size) ± Npx)`），**禁止**在规则里手写字号：写 `var(--dsh-font-size-*)`。迁移口径同 ZCode——遗留的 12.5/13px 归 `base`（不是新建一档），11.5px 归 `sm`，11px 归 `xs`。
+- 字重与字号是**两个独立决定**（`font-weight` 逐规则写，不焊进字号档）；行高同理。
+- 例外：图表轴标签（`UsageTrend` 的日期轴）、mermaid 主题字号、KaTeX 的 `1.02em` 与首字母 monogram 的几何推导字号**不进阶梯**——它们是图表/图形内部件，随容器几何走。
 - 跟随系统字号缩放（P2）；中文不斜体。
 
 ### 1.3 间距与尺寸（4pt 网格）
@@ -154,7 +158,7 @@
 
 ### 1.8 键帽（KeyboardHint）
 
-字体 11/500；圆角 6；底 `surface.input`；描边 `border.default`；内边距 3×5；顺序 `⌥ ⌃ ⇧ ⌘`（`⌥Space`）；英文键大写。**仅显示于操作栏与需要学习的动作旁，不解释。**
+字体 `xs`/500；圆角 6；底 `surface.input`；描边 `border.default`；内边距 3×5；顺序 `⌥ ⌃ ⇧ ⌘`（`⌥Space`）；英文键大写。**仅显示于操作栏与需要学习的动作旁，不解释。**
 
 ### 1.9 文案规则（Anti-Copy，评审 gate）
 
@@ -183,7 +187,7 @@
 | **KeyboardHint** | — | 见 1.8 |
 | **Chip** | `file/image/tag` | 高 22 圆角 10；× 按下态；黑白 |
 | **StatusDot** | 五档 | queued 灰 · running 白(呼吸) · waiting ⚠白(呼吸,行高亮) · done 灰✓ · failed ✕白；12px |
-| **SectionLabel** | — | 12/500/`text.tertiary`；高 24；仅分组名 |
+| **SectionLabel** | — | `sm`/500/`text.tertiary`；高 24；仅分组名 |
 | **Segmented** | 2–3 段 | 高 24；选中段 `surface.raised`+阴影；无彩色 |
 | **Tooltip** | — | P1 Web 内 120ms；**P2 原生** |
 | **ToastBar** | 信息/错误 | 面板底部：左一句 右动作+键帽；3s |
@@ -199,7 +203,7 @@
 
 | | 用户消息 `user-bubble` | Agent 回复 `agent-message` |
 |---|---|---|
-| 形态 | **降量显示**的气泡（克制、弱层）：小字号 13、半透 α .07、弱边框/弱内高光、圆角 14、61% 最大宽、右对齐 | **无气泡、无任何元素背景**：纯文字（14/21 白 93%）+ Markdown 层级 |
+| 形态 | **降量显示**的气泡（克制、弱层）：小字号 `base`、半透 α .07、弱边框/弱内高光、圆角 14、61% 最大宽、右对齐 | **无气泡、无任何元素背景**：纯文字（`base`/21 白 93%）+ Markdown 层级 |
 | 定位 | 弱于正文（不抢戏） | 主视觉通道 |
 | 背景 | 半透明单层（无模糊） | `background: transparent`（元素与全部伪元素强制透明） |
 
@@ -240,7 +244,7 @@
 - **分组卡片**：卡片**无描边**，纯底色区分范围（`var(--fill)`）；行间分隔线用缩进 `::before`（左对齐文本、右留空），**禁全宽横线**；区块标题与内容间距 ≥12px（标题贴内容为反复出现的回归）；**页面头已有大标题时，卡片内不再重复同级标题**（2026-09-04 快捷键页"快捷键"×2）。
 - **Meta 胶囊与数值**：标签胶囊只呈现引擎真实数据（reasoning / 额外输入模态 / 上下文窗口），缺的属性不编造；`text` 是每个模型的默认能力、不占标签，模态来源字段 pi 是 `input`、DeepSeek 是 `inputModalities`（别互相代用）；数值紧凑化（1000000→1M、131072→131K）。
 - **模型弹窗（2026-09 定稿，照参考图）**：字段面＝提供商 → 接口地址（自定义）→ API Key → 模型名称 → 高级配置（提供方 ID / 协议 / 视觉）；说明只留真正改变行为的那一条（模型名称下方「留空则添加该提供方的全部模型」），且写成一句软件提示、不写「A＝X；B＝Y」式规格口气，能从界面自明的（按接口地址推导的名字摆在占位里、协议有默认值）不再写一行解释；不出上下文窗口与显示名称，模型类型只给引擎真能兑现的「视觉（图片输入）」。
-- **新建项目弹窗（2026-09 定稿）**：**壳、字号、控件规格与添加模型弹窗完全同源**（复用 SettingsRows 的 modal/rowGroup/rowCard/按钮类——标题 15、输入 30 高 12.5、按钮 28 高；自定大字号被否决），字段面＝名称（必填，行尾内嵌图标触发钮）→ 记忆 → 自进化 → 审批模式 → 工作区文件夹（textField 同规格按钮「＋ 选择目录…」）→ 项目指令（可选 textarea，说明并入标签旁 ⓘ）。记忆/自进化/审批三行绑定**应用级**设置（壳 pref 与引擎 `permission.defaultPreset`，与设置页同源同义，审批行引擎未提供时隐藏）——项目级化需引擎扩展，另行立项。工作区文件夹留空由壳在 `~/Documents/DeepDive Projects/<净化名>` 自动建（引擎 workspace/create 要求目录已存在，建目录只能壳做；撞名追加序号）；名称与目录末级名不同才走 workspace/rename；指令由壳写入 `<项目>/AGENTS.md`（引擎按 cwd 读），已存在不改动。图标选择器＝搜索行 + lucide 精选集（~46 个，含「默认（首字母）」复位项），portal 菜单复用 `.ddMenu/.ddItem` 配方（显式 min-width 压掉类的 `min-width:100%`）、放不下向上翻；选择按 workspaceId 存 localStorage（`deepdive.ws.icon.<id>`，桥端口已固定），显示优先级 glyph > 根目录约定图标文件 > 首字母，删除工作区同步清 key。浏览器（无壳桥）降级＝工作区文件夹手输路径（promptDialog）、指令字段不出现。
+- **新建项目弹窗（2026-09 定稿）**：**壳、字号、控件规格与添加模型弹窗完全同源**（复用 SettingsRows 的 modal/rowGroup/rowCard/按钮类——标题 `lg`、输入 30 高 `base`、按钮 28 高；自定大字号被否决），字段面＝名称（必填，行尾内嵌图标触发钮）→ 记忆 → 自进化 → 审批模式 → 工作区文件夹（textField 同规格按钮「＋ 选择目录…」）→ 项目指令（可选 textarea，说明并入标签旁 ⓘ）。记忆/自进化/审批三行绑定**应用级**设置（壳 pref 与引擎 `permission.defaultPreset`，与设置页同源同义，审批行引擎未提供时隐藏）——项目级化需引擎扩展，另行立项。工作区文件夹留空由壳在 `~/Documents/DeepDive Projects/<净化名>` 自动建（引擎 workspace/create 要求目录已存在，建目录只能壳做；撞名追加序号）；名称与目录末级名不同才走 workspace/rename；指令由壳写入 `<项目>/AGENTS.md`（引擎按 cwd 读），已存在不改动。图标选择器＝搜索行 + lucide 精选集（~46 个，含「默认（首字母）」复位项），portal 菜单复用 `.ddMenu/.ddItem` 配方（显式 min-width 压掉类的 `min-width:100%`）、放不下向上翻；选择按 workspaceId 存 localStorage（`deepdive.ws.icon.<id>`，桥端口已固定），显示优先级 glyph > 根目录约定图标文件 > 首字母，删除工作区同步清 key。浏览器（无壳桥）降级＝工作区文件夹手输路径（promptDialog）、指令字段不出现。
 
 ---
 

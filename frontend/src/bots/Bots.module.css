@@ -20,7 +20,7 @@
 .empty {
   margin: 0;
   padding: 12px 10px;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   line-height: 1.6;
   color: var(--ink-3);
 }
@@ -41,16 +41,16 @@
 .channelRow:hover { background: var(--fill-soft); }
 .channelIcon { color: var(--ink-2); flex: none; }
 .channelMain { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.channelName { font-size: 12.5px; color: var(--ink); }
-.channelCaption { font-size: 11.5px; line-height: 15px; color: var(--ink-3); }
-.channelState { font-size: 11px; color: var(--ink-3); }
+.channelName { font-size: var(--dsh-font-size-base); color: var(--ink); }
+.channelCaption { font-size: var(--dsh-font-size-sm); line-height: 15px; color: var(--ink-3); }
+.channelState { font-size: var(--dsh-font-size-xs); color: var(--ink-3); }
 .channelChevron { color: var(--ink-3); flex: none; }
 
 /* ── 弹窗内 ── */
 
 .error {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   line-height: 1.6;
   color: #e5484d;
 }
@@ -61,7 +61,7 @@
   gap: 12px;
   margin-bottom: 6px;
 }
-.manageHint { flex: 1; min-width: 0; font-size: 11.5px; color: var(--ink-3); }
+.manageHint { flex: 1; min-width: 0; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 
 .botRow {
   position: relative;
@@ -85,13 +85,13 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
   color: var(--ink);
 }
 .botDot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); flex: none; }
 .botDot[data-tone="on"] { background: var(--ink); }
 .botDot[data-tone="warn"] { background: #ff9f0a; }
-.botCaption { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+.botCaption { font-size: var(--dsh-font-size-xs); color: var(--ink-3); margin-top: 3px; }
 
 /* ── 机器人细项（别名 / 工作区 / 模型 / 预设）── */
 .settings {
@@ -113,9 +113,9 @@
 }
 .settings[data-busy] { opacity: .6; }
 .settingRow { display: flex; align-items: center; gap: 10px; }
-.settingLabel { flex: none; width: 76px; font-size: 12px; color: var(--ink-3); }
+.settingLabel { flex: none; width: 76px; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .settingControl { flex: 1; min-width: 0; }
-.settingHint { flex: 1; min-width: 0; font-size: 11.5px; color: var(--ink-3); }
+.settingHint { flex: 1; min-width: 0; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 
 /* ── 访问策略：一种会话类型一块（私聊 / 群聊），缩进表示隶属上面的标题 ── */
 .scopeBlock {
@@ -125,13 +125,13 @@
   padding: 8px 0 4px 12px;
 }
 .userList { display: flex; flex-direction: column; gap: 6px; padding-left: 86px; }
-.userListTitle { font-size: 11.5px; color: var(--ink-3); }
-.userListEmpty { font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+.userListTitle { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+.userListEmpty { font-size: var(--dsh-font-size-sm); line-height: 1.5; color: var(--ink-3); }
 .userRow { display: flex; align-items: center; gap: 8px; }
 .userId {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -167,7 +167,7 @@
 }
 .pairHint {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   line-height: 1.6;
   color: var(--ink-2);
   text-align: center;

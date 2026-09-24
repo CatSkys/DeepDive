@@ -4,17 +4,17 @@
    一样通栏占满。 */
 
 /* ── 面包屑（编辑器两态共用，列表态不显示）── */
-.crumb { display: flex; align-items: center; gap: 4px; margin-bottom: 16px; font-size: 12px; color: var(--ink-3); }
-.crumbLink { height: 20px; padding: 0 2px; color: var(--ink-3); font-size: 12px; }
+.crumb { display: flex; align-items: center; gap: 4px; margin-bottom: 16px; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+.crumbLink { height: 20px; padding: 0 2px; color: var(--ink-3); font-size: var(--dsh-font-size-sm); }
 .crumbLink:hover { color: var(--ink); }
 .crumbNow { color: var(--ink-2); }
 
 /* ── 页头 ── */
 /* 说明行：左边一句话、右边创建入口（用户定稿：按钮在右上） */
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.sub { font-size: 12.5px; color: var(--ink-3); }
+.sub { font-size: var(--dsh-font-size-base); color: var(--ink-3); }
 /* 编辑器页标题（分区名在设置页头，这里是页内一级标题，不重复） */
-.h1 { font-size: 22px; font-weight: 700; color: var(--ink); }
+.h1 { font-size: var(--dsh-font-size-hero); font-weight: 700; color: var(--ink); }
 
 /* ── 按钮（.btn 次级填充 / .btnPrimary 主操作实底，与设置页同款语义）── */
 .btn {
@@ -26,7 +26,7 @@
   border-radius: var(--dsh-radius-control);
   background: var(--fill-strong);
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -46,14 +46,14 @@
   border-radius: var(--dsh-radius-card);
   background: var(--fill);
   color: var(--ink-2);
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
 }
 .noticeText { flex: 1; min-width: 0; }
 
 /* ── 区块 ── */
-.sectionLabel { margin: 24px 0 10px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.sectionLabel { margin: 24px 0 10px; font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.empty { padding: 26px 0; text-align: center; font-size: 12.5px; color: var(--ink-3); }
+.empty { padding: 26px 0; text-align: center; font-size: var(--dsh-font-size-base); color: var(--ink-3); }
 
 /* ── 任务卡 ── */
 .card {
@@ -68,7 +68,7 @@
 }
 .card:hover { background: var(--fill-strong); }
 .cardHead { display: flex; align-items: flex-start; gap: 8px; }
-.cardTitle { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.cardTitle { flex: 1; min-width: 0; font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
 /* 常显（不靠 hover 才现）：右上那枚 ⋯ 是卡片唯一的操作入口，藏起来等于没有 */
 .cardMenuBtn {
   flex: none;
@@ -83,7 +83,7 @@
 }
 .cardMenuBtn:hover, .cardMenuBtn[data-open] { background: var(--fill-heavy); color: var(--ink); }
 .cardDesc {
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   line-height: 1.65;
   color: var(--ink-2);
   display: -webkit-box;
@@ -91,7 +91,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.cardFoot { display: flex; align-items: center; gap: 12px; margin-top: auto; font-size: 11.5px; color: var(--ink-3); }
+.cardFoot { display: flex; align-items: center; gap: 12px; margin-top: auto; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .cardFoot > svg { flex: none; }
 .statusPill { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .statusPill[data-status="enabled"] { color: var(--ink-2); }
@@ -105,7 +105,7 @@
 .tabsRow { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
 .editorActions { display: flex; align-items: center; gap: 8px; }
 .field { margin-bottom: 18px; }
-.fieldLabel { display: block; margin-bottom: 8px; font-size: 12.5px; color: var(--ink-2); }
+.fieldLabel { display: block; margin-bottom: 8px; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
 .input {
   box-sizing: border-box; /* 仓库没有全局 border-box，width:100% + padding 会右溢 */
   width: 100%;
@@ -115,7 +115,7 @@
   background: var(--fill);
   border: 1px solid var(--line);
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--dsh-font-size-base);
   font-family: inherit;
 }
 .input::placeholder { color: var(--ink-faintest); }
@@ -130,7 +130,7 @@
   background: transparent;
   border: none;
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--dsh-font-size-base);
   line-height: 1.65;
   font-family: inherit;
   resize: none;
@@ -143,7 +143,7 @@
   gap: 6px;
   padding: 7px 10px;
   border-top: 1px solid var(--line);
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
 }
 .spacer { flex: 1; }
@@ -159,10 +159,10 @@
   border-radius: var(--dsh-radius-control);
   background: var(--fill);
   color: var(--ink-2);
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
 }
 .addPlan:hover { background: var(--fill-strong); color: var(--ink); }
-.schedText { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.schedText { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: var(--dsh-font-size-sm); white-space: nowrap; }
 .trashBtn {
   margin-left: auto;
   width: 28px;
@@ -176,13 +176,13 @@
 .trashBtn:hover { background: var(--fill); color: var(--dsh-signal-danger); }
 
 /* ── 运行历史 ── */
-.runRow { display: flex; align-items: center; gap: 12px; padding: 9px 2px; font-size: 12.5px; color: var(--ink-2); }
+.runRow { display: flex; align-items: center; gap: 12px; padding: 9px 2px; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
 .runTime { flex: none; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .runLate { color: var(--dsh-signal-warn, var(--ink-3)); }
 .runStatus[data-status="running"] { color: var(--ink); }
 .runStatus[data-status="error"] { color: var(--dsh-signal-danger); }
 .runError { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-3); }
-.link { height: 22px; padding: 0 4px; color: var(--ink-2); font-size: 12px; }
+.link { height: 22px; padding: 0 4px; color: var(--ink-2); font-size: var(--dsh-font-size-sm); }
 .link:hover { color: var(--ink); }
 
 /* 编辑器状态胶囊：可点（启用 ⇄ 暂停） */
@@ -195,6 +195,6 @@
   border-radius: var(--dsh-radius-control);
   background: var(--fill);
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
 }
 .statusBtn[data-status="enabled"] { color: var(--ink); }

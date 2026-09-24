@@ -36,7 +36,7 @@
   background: none;
   outline: none;
   color: var(--ink);
-  font-size: 14px;
+  font-size: var(--dsh-font-size-base);
 }
 .searchRow input::placeholder { color: var(--ink-3); }
 
@@ -54,7 +54,7 @@
   border-radius: 8px;
   background: none;
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--dsh-font-size-base);
   text-align: left;
 }
 .row.active { background: var(--fill); }
@@ -63,4 +63,4 @@
 .rowLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .check { color: var(--ink); flex: none; }
 
-.empty { padding: 14px 12px; font-size: 12.5px; color: var(--ink-3); }
+.empty { padding: 14px 12px; font-size: var(--dsh-font-size-base); color: var(--ink-3); }

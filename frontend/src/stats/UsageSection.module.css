@@ -15,7 +15,7 @@
   gap: 12px;
   margin-bottom: 12px;
 }
-.cardTitle { font-size: 13px; font-weight: 600; color: var(--ink); }
+.cardTitle { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); }
 
 /* ── 摘要五列（列间细分隔线）── */
 .summary {
@@ -26,13 +26,13 @@
 .summaryCell { min-width: 0; text-align: center; padding: 2px 10px; }
 .summaryCell + .summaryCell { border-left: 1px solid var(--line); }
 .summaryValue {
-  font-size: 18px;
+  font-size: var(--dsh-font-size-xl);
   font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.summaryLabel { font-size: 11.5px; color: var(--ink-3); margin-top: 6px; white-space: nowrap; }
+.summaryLabel { font-size: var(--dsh-font-size-sm); color: var(--ink-3); margin-top: 6px; white-space: nowrap; }
 
 /* ── 分段控件（每日/每周/累计 · 近7日/近30日）：激活项 ink 实底 ── */
 .seg {
@@ -47,7 +47,7 @@
   height: 24px;
   padding: 0 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
   white-space: nowrap;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
@@ -79,11 +79,11 @@
 .heatCell.l4 { background: var(--dsh-chart-heat4); }
 .heatCell.l5 { background: var(--dsh-chart-heat5); }
 .heatMonths { display: grid; gap: 3px; margin-top: 6px; height: 16px; }
-.heatMonth { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: visible; }
+.heatMonth { font-size: var(--dsh-font-size-xs); color: var(--ink-3); white-space: nowrap; overflow: visible; }
 
 /* ── 趋势图 ── */
 .trendLegend { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
-.trendLegendItem { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.trendLegendItem { display: inline-flex; align-items: center; gap: 6px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .trendPlot { position: relative; }
 .trendSvg { display: block; }
@@ -100,16 +100,16 @@
   justify-content: center;
   pointer-events: none;
 }
-.donutCenterValue { font-size: 17px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-.donutCenterUnit { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.donutCenterValue { font-size: var(--dsh-font-size-xl); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.donutCenterUnit { font-size: var(--dsh-font-size-sm); color: var(--ink-3); margin-top: 2px; }
 .donutLegend { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .legendRow { display: flex; align-items: flex-start; gap: 8px; padding: 9px 2px; }
 .legendRow + .legendRow { border-top: 1px solid var(--line); }
 .legendRow .dot { margin-top: 4px; }
 .legendMain { flex: 1; min-width: 0; }
-.legendName { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.legendTokens { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
-.legendPct { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.legendName { font-size: var(--dsh-font-size-base); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legendTokens { font-size: var(--dsh-font-size-sm); color: var(--ink-3); margin-top: 3px; }
+.legendPct { font-size: var(--dsh-font-size-base); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
 /* ── 图表悬浮提示：磨砂实底 + 控件圆角，fixed 定位不随卡片裁剪 ──
    自带 backdrop-filter（CSS module 类进不了 theme.css 的配方组，PITFALLS §1.8），
@@ -125,7 +125,7 @@
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   backdrop-filter: blur(12px) saturate(180%);
   box-shadow: 0 12px 32px rgba(0,0,0,.4);
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink);
 }
 .tipTitle { font-weight: 600; white-space: nowrap; }
@@ -139,7 +139,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
 }
 .sectionFoot { display: flex; justify-content: flex-end; margin-top: 4px; }

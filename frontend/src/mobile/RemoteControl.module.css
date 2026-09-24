@@ -28,13 +28,13 @@
 }
 .warn {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   line-height: 1.6;
   color: var(--ink-2);
 }
 .note {
   margin: 0;
-  font-size: 11.5px;
+  font-size: var(--dsh-font-size-sm);
   line-height: 1.6;
   color: var(--ink-3);
 }
@@ -61,19 +61,19 @@
 }
 .statusDot[data-on="true"] { background: var(--ink); }
 .statusText {
-  font-size: 13px;
+  font-size: var(--dsh-font-size-base);
   color: var(--ink);
 }
 .kindBadge {
   padding: 1px 8px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: var(--dsh-font-size-xs);
   color: var(--ink-2);
 }
 
 .hint {
-  font-size: 11.5px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
 }
 
@@ -86,7 +86,7 @@
 .actionsHint {
   flex: 1;
   min-width: 0;
-  font-size: 11.5px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
 }
 
@@ -109,7 +109,7 @@
 
 .qrMissing {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
 }
 
@@ -120,7 +120,7 @@
   padding-top: 6px;
 }
 .devicesTitle {
-  font-size: 11.5px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
   margin-bottom: 2px;
 }
@@ -142,5 +142,5 @@
   background: var(--line);
 }
 .deviceIdentity { flex: 1; min-width: 0; }
-.deviceName { font-size: 12.5px; color: var(--ink); }
-.deviceCaption { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.deviceName { font-size: var(--dsh-font-size-base); color: var(--ink); }
+.deviceCaption { font-size: var(--dsh-font-size-xs); color: var(--ink-3); margin-top: 2px; }

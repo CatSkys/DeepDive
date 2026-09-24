@@ -61,7 +61,7 @@
 }
 
 .badge {
-  font-size: 11px;
+  font-size: var(--dsh-font-size-xs);
   color: var(--ink-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -77,7 +77,7 @@
 }
 
 .title {
-  font-size: 22px;
+  font-size: var(--dsh-font-size-hero);
   font-weight: 700;
   color: var(--ink);
   margin-top: 12px;
@@ -120,7 +120,7 @@
   border-radius: 9px;
   background: transparent;
   color: var(--ink-2);
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
   text-align: left;
   cursor: pointer;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
@@ -137,7 +137,7 @@
   height: 18px;
   border-radius: 6px;
   border: 1px solid var(--line);
-  font-size: 11px;
+  font-size: var(--dsh-font-size-xs);
   color: var(--ink-2);
 }
 .stepDone { background: var(--ink); color: var(--panel-bg); border-color: transparent; }
@@ -229,7 +229,7 @@
 .skelRow { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; }
 .skelBox { flex: none; width: 16px; height: 16px; border-radius: 5px; background: var(--fill-strong); }
 .skelBar { height: 9px; border-radius: 5px; background: var(--fill-strong); }
-.skelHint { margin-top: 2px; font-size: 11.5px; color: var(--ink-3); }
+.skelHint { margin-top: 2px; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 @keyframes skel-pulse {
   0%, 100% { opacity: .45; }
   50%      { opacity: .95; }
@@ -281,12 +281,12 @@
 
 /* ── 步骤内部 ── */
 .step { display: flex; flex-direction: column; gap: 8px; }
-.stepTitle { font-size: 15px; font-weight: 700; color: var(--ink-bright); }
-.stepLead { font-size: 12.5px; line-height: 1.6; color: var(--ink-2); }
+.stepTitle { font-size: var(--dsh-font-size-lg); font-weight: 700; color: var(--ink-bright); }
+.stepLead { font-size: var(--dsh-font-size-base); line-height: 1.6; color: var(--ink-2); }
 
 .groupLabel {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: var(--dsh-font-size-xs);
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--ink-3);
@@ -328,7 +328,7 @@
   padding: 0 8px;
   border-radius: 8px;
   background: var(--fill);
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
   color: var(--ink);
   cursor: pointer;
 }
@@ -342,12 +342,12 @@
   background: transparent;
   padding: 2px 4px;
   border-radius: 6px;
-  font-size: 11.5px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
   cursor: pointer;
 }
 .mini:hover { color: var(--ink); background: var(--fill); }
-.srcTag { margin-left: 6px; font-size: 11px; color: var(--ink-faint, var(--ink-3)); }
+.srcTag { margin-left: 6px; font-size: var(--dsh-font-size-xs); color: var(--ink-faint, var(--ink-3)); }
 .row,
 .radioRow,
 .checkRow {
@@ -358,18 +358,18 @@
   padding: 0 8px;
   border-radius: 8px;
   background: var(--fill);
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
   color: var(--ink);
 }
 .radioRow, .checkRow { cursor: pointer; }
 .radioRow:hover, .checkRow:hover { background: var(--fill-strong); }
 .rowName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rowMeta { margin-left: auto; flex: none; font-size: 11.5px; color: var(--ink-3); }
+.rowMeta { margin-left: auto; flex: none; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 
 .notes {
   margin: 4px 0 0;
   padding-left: 16px;
-  font-size: 11.5px;
+  font-size: var(--dsh-font-size-sm);
   line-height: 1.6;
   color: var(--ink-3);
 }
@@ -385,7 +385,7 @@
   border-radius: 13px;
   background: var(--fill);
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   cursor: pointer;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
@@ -393,7 +393,7 @@
 .chipOn { background: var(--ink); color: var(--panel-bg); border-color: transparent; font-weight: 600; }
 .chipGhost { border-style: dashed; color: var(--ink-3); }
 
-.fieldLabel { margin-top: 6px; font-size: 11.5px; color: var(--ink-3); }
+.fieldLabel { margin-top: 6px; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .field {
   width: 100%;
   height: 30px;
@@ -402,7 +402,7 @@
   border-radius: 8px;
   background: var(--fill);
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
 }
 .field:focus-visible { outline: 2px solid var(--line-focus); outline-offset: 1px; }
 
@@ -412,12 +412,12 @@
   padding: 6px 8px;
   border-radius: 8px;
   background: var(--fill);
-  font-size: 11.5px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
   word-break: break-all;
 }
 
-.tips { margin: 2px 0 0; padding-left: 16px; font-size: 12.5px; line-height: 1.8; color: var(--ink-2); }
+.tips { margin: 2px 0 0; padding-left: 16px; font-size: var(--dsh-font-size-base); line-height: 1.8; color: var(--ink-2); }
 
 .actions {
   display: flex;
@@ -435,7 +435,7 @@
   height: 32px;
   padding: 0 14px;
   border-radius: var(--dsh-radius-control);
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
   font-weight: 600;
   cursor: pointer;
   transition: opacity var(--dur-fast) ease, background-color var(--dur-fast) ease;
@@ -447,10 +447,10 @@
 .secondary:hover { background: var(--fill-strong); }
 .secondary:disabled { opacity: 0.5; cursor: default; }
 
-.ok { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dsh-signal-ok, var(--ink-2)); }
-.error { font-size: 12px; color: var(--dsh-signal-danger); line-height: 1.5; }
-.empty { font-size: 12px; color: var(--ink-3); line-height: 1.6; }
-.scanning { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+.ok { display: flex; align-items: center; gap: 6px; font-size: var(--dsh-font-size-sm); color: var(--dsh-signal-ok, var(--ink-2)); }
+.error { font-size: var(--dsh-font-size-sm); color: var(--dsh-signal-danger); line-height: 1.5; }
+.empty { font-size: var(--dsh-font-size-sm); color: var(--ink-3); line-height: 1.6; }
+.scanning { display: flex; align-items: center; gap: 8px; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
 
 @keyframes onboarding-spin { to { transform: rotate(360deg); } }
 .spin { animation: onboarding-spin 1s linear infinite; }

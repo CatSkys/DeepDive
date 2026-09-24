@@ -8,7 +8,7 @@
    让「标题 → 副标题 → tab」读成一组。 */
 .pageSubtitle {
   margin: -6px 0 12px;
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
   color: var(--ink-3);
 }
 .tabs {
@@ -24,7 +24,7 @@
   height: 26px;
   padding: 0 14px;
   border-radius: 8px;
-  font-size: 12.5px;
+  font-size: var(--dsh-font-size-base);
   color: var(--ink-2);
   white-space: nowrap;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
@@ -52,7 +52,7 @@
   border: none;
   background: none;
   outline: none;
-  font-size: 13px;
+  font-size: var(--dsh-font-size-base);
   color: var(--ink);
 }
 .searchInput::placeholder { color: var(--ink-3); }
@@ -67,7 +67,7 @@
   height: 32px;
   border-radius: 8px;
   color: #FFFFFF;
-  font-size: 14px;
+  font-size: var(--dsh-font-size-base);
   font-weight: 600;
   text-transform: uppercase;
   user-select: none;
@@ -76,7 +76,7 @@
 /* ── 区块标题（参考图「已安装」「服务器」）── */
 .groupLabel {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: var(--dsh-font-size-sm);
   font-weight: 600;
   color: var(--ink-3);
 }
@@ -99,13 +99,13 @@
   margin-bottom: 4px;
 }
 .field { display: grid; gap: 4px; }
-.fieldLabel { font-size: 11.5px; color: var(--ink-3); }
-.formNote { font-size: 11px; color: var(--ink-3); line-height: 1.5; }
+.fieldLabel { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+.formNote { font-size: var(--dsh-font-size-xs); color: var(--ink-3); line-height: 1.5; }
 
 /* ── 行内的模块标识（等宽小字，弱于名称）── */
 .rowMeta {
   font-family: var(--dsh-font-mono-family);
-  font-size: 11px;
+  font-size: var(--dsh-font-size-xs);
   color: var(--ink-3);
   overflow: hidden;
   text-overflow: ellipsis;
