@@ -23,11 +23,11 @@ describe("ArtifactsRow 产物/交付合并行", () => {
     expect(getByTitle("同一文件不重复").textContent).toBe("a.ts"); // 描述降为 tooltip
   });
 
-  it("超过 8 个以 +n 收尾；无文件整行不渲染", () => {
+  it("超过 6 个以 +n 收尾（照官方 ProducedFiles 的 SHOWN_LIMIT）；无文件整行不渲染", () => {
     const many = Array.from({ length: 11 }, (_, i) => `f${i}.ts`);
     const { container } = render(<ArtifactsRow produced={many} presented={[]} root="/w" />);
-    expect(container.querySelectorAll(".produced-file")).toHaveLength(8);
-    expect(container.querySelector(".produced-more")?.textContent).toBe("+ 3 个文件");
+    expect(container.querySelectorAll(".produced-file")).toHaveLength(6);
+    expect(container.querySelector(".produced-more")?.textContent).toBe("+ 5 个文件");
 
     const { container: empty } = render(<ArtifactsRow produced={[]} presented={[]} root="/w" />);
     expect(empty.querySelector(".produced")).toBeNull();

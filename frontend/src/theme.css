@@ -3857,6 +3857,9 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 .capsule-trigger:focus-visible .capsule-pill-icon > span { opacity: 0; }
 .capsule-trigger:hover .capsule-pill-expand,
 .capsule-trigger:focus-visible .capsule-pill-expand { opacity: 1; }
+/* 面板正文：每区内距 8/14，行自己再吃 8px 横向内距——这样"行"的文字与"区标题"
+   的左缘对齐在 22px（14 + 8），与 ZCode 的 `px-2 py-*`（行）落在 `p-3`（正文）里的
+   同一套栅格一致。少一层就错位，别把行内距挪到区上。 */
 .capsule-sec { padding: 8px 14px; }
 .capsule-sec + .capsule-sec::before {
   content: "";
@@ -3867,7 +3870,8 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 }
 /* 区头：可折叠触发器（标题 + 箭头）+ 右侧附属信息槽。箭头平时不显、hover 或
    键盘聚焦才出现（照 ZCode StatusSectionHeader）——它只是"这区可折"的提示，
-   不占视觉。区头不带图标（他们如此），行的前导图标仍在各行上。 */
+   不占视觉。区头不带图标（他们如此），行的前导图标仍在各行上。
+   高度 32 = ZCode 的 h-8；标题字号与他们同为 text-ui-base，不是小一号的 sm。 */
 .capsule-sec-head {
   display: flex;
   align-items: center;
@@ -3881,13 +3885,12 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   align-items: center;
   gap: 4px;
   min-width: 0;
-  font-size: var(--dsh-font-size-sm);
-  font-weight: 500;
-  color: var(--ink-3);
+  font-size: var(--dsh-font-size-base);
+  color: var(--ink-2);
 }
 .capsule-sec-trigger:hover { color: var(--ink); }
 .capsule-sec-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.capsule-sec-chevron { flex: none; opacity: 0; transition: opacity .12s ease; }
+.capsule-sec-chevron { flex: none; color: var(--ink-3); opacity: 0; transition: opacity .12s ease; }
 .capsule-sec-trigger:hover .capsule-sec-chevron,
 .capsule-sec-trigger:focus-visible .capsule-sec-chevron { opacity: 1; }
 .capsule-sec-trail {
@@ -3895,10 +3898,12 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--dsh-font-size-xs);
+  min-width: 0;
+  font-size: var(--dsh-font-size-sm);
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
+.capsule-sec-trail > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 区体限高内滚：滚动视口放在折叠内容内部，标题与控制因此始终固定、折叠动画不被
    破坏（同 ZCode 的 STATUS_SECTION_SCROLL_POLICY）。normal 一档、tall 给计划类。 */
 .capsule-sec-scroll { max-height: 192px; overflow-x: hidden; overflow-y: auto; }
@@ -3909,12 +3914,26 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 4px 0;
+  /* 行横向内距 8 = ZCode 活动行的 px-2；区头标题的左缘与之对齐（见 .capsule-sec 注释） */
+  padding: 4px 8px;
   font-size: var(--dsh-font-size-base);
   line-height: 18px;
   color: var(--ink-2);
 }
-.capsule-row > svg, .capsule-row > .state-dot { flex: none; margin-top: 2px; }
+/* 活动行的前导图标（ZCode 是 SquareTerminal/日历那类 size-4 灰图标，不是状态点） */
+.capsule-row > svg, .capsule-row-icon { flex: none; margin-top: 1px; color: var(--ink-3); }
+/* 活动行主体：标题一行 + 元信息一行（ZCode 的两行结构） */
+.capsule-row-main { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
+.capsule-row-sub {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-3);
+}
+.capsule-row-sub > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capsule-row-text { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .capsule-row-done { color: var(--ink-3); text-decoration: line-through; }
 .capsule-check { color: rgba(120,220,140,.95); }
@@ -3968,7 +3987,9 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
 .capsule-card-check { margin-left: auto; flex: none; }
 .capsule-row-go { margin-left: auto; color: var(--ink-3); flex: none; transition: transform var(--dur-fast) ease; }
 .capsule-row-meta { margin-left: auto; font-size: var(--dsh-font-size-sm); color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
-.capsule-row-main {
+/* 行内的整行可点区（子智能体行用；活动行的时间线用 .capsule-row-main 的两行变体，
+   见上）。两者同名不同形——子智能体那行是"点标题开子会话"，横向排布。 */
+.capsule-row-click {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3979,9 +4000,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
   margin: -2px -4px;
   border-radius: var(--dsh-radius-keycap);
 }
-.capsule-row-main:hover { background: var(--fill); }
-.capsule-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); flex: none; }
-.capsule-dot.live { background: var(--dsh-signal-live); animation: pulse 1.2s ease-in-out infinite; }
+.capsule-row-click:hover { background: var(--fill); }
 .capsule-stop { color: var(--ink-3); padding: 3px; border-radius: 4px; flex: none; align-self: center; }
 .capsule-stop:hover:not(:disabled) { color: var(--dsh-signal-warn); background: var(--fill); }
 .capsule-sec-toggle {
@@ -4485,21 +4504,39 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-settings-plugins { max-height: 260px; overflow-y: auto; }
 
 /* ---------- 面板里的分区与产物 ---------- */
+/* 产物一行：前导图标 + 单行文件名（参考图口径：一行一件事，描述只走 tooltip）。
+   行高与 .capsule-git-row 同档，两类清单在一张卡里读起来是一套。 */
 .panel-artifact {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 5px 4px;
-  border-radius: var(--dsh-radius-keycap);
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--dsh-radius-control);
   text-align: left;
-  color: var(--ink);
-  font-size: var(--dsh-font-size-sm);
-  transition: background-color var(--dur-fast) ease;
+  color: var(--ink-soft);
+  font-size: var(--dsh-font-size-base);
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.panel-artifact:hover { background: var(--fill); }
-.panel-artifact-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.panel-artifact-meta { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-artifact:hover { background: var(--fill); color: var(--ink); }
+.panel-artifact-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 收起态的行尾「查看全部」：与产物行同一栅格，只是标签换了个词（参考图同款） */
+.panel-artifact-more {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--dsh-radius-control);
+  text-align: left;
+  color: var(--ink-3);
+  font-size: var(--dsh-font-size-base);
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.panel-artifact-more:hover { background: var(--fill); color: var(--ink); }
+.panel-artifact-more > svg { flex: none; }
 .panel-empty { padding: 18px 14px; color: var(--ink-faint); font-size: var(--dsh-font-size-sm); text-align: center; }
 
 /* 窄屏（手机远程）：面板改用 fullscreen 呈现（官方：768px 以下自动全屏） */

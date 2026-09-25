@@ -95,6 +95,8 @@ export const EN: Record<string, string> = {
   "发送方式": "Send behaviour",
   "这个会话还没有可展示的状态": "Nothing to show for this chat yet",
   "已结束 {n} 项": "Ended {n}",
+  "查看全部": "View all",
+  "{n} 个后台运行": "{n} running in background",
   // 侧栏浏览器（移植官方 ui-sidebar-browser 的文案）
   "后退": "Back",
   "前进": "Forward",

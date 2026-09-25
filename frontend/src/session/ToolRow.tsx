@@ -273,6 +273,10 @@ function TerminalBlock({ command, output, failed }: { command: string; output: s
 /// 工具产物按绝对路径去重后合成一条 chip 行，超出容量的以 +n 收尾；交付
 /// 描述降为 chip tooltip，交付图片仍出缩略图。原 ProducedFiles/PresentedFiles
 /// 两行由此替代。
+/// chip 上限照官方 ProducedFiles 的 SHOWN_LIMIT=6：那一行 nowrap + 裁剪，
+/// 给多了后面的 chip 会被切掉看不全，"还有几个"也失去意义。
+const ARTIFACT_CHIP_LIMIT = 6;
+
 export function ArtifactsRow({ produced, presented, root, onPreview }: {
   produced: string[];
   presented: import("../types").PresentedFile[];
@@ -283,7 +287,7 @@ export function ArtifactsRow({ produced, presented, root, onPreview }: {
   const open = (path: string) => (onPreview ? onPreview(path) : openPath(path));
   const items = mergeArtifacts(produced, presented, root);
   if (items.length === 0) return null;
-  const shown = items.slice(0, 8);
+  const shown = items.slice(0, ARTIFACT_CHIP_LIMIT);
   const hidden = items.length - shown.length;
   return (
     <div className="produced">
