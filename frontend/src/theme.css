@@ -658,6 +658,23 @@ button {
 }
 .hero-top .left { flex: 1; position: relative; }
 .hero-top .title { font-size: var(--dsh-font-size-base); font-weight: 600; line-height: 20px; color: var(--ink); }
+/* 草稿页与会话页同构：草稿列与右侧会话设置卡并列两张卡（.session-row 那套几何
+   直接复用——.hero 在下面按会话卡同规格补圆角/描边/卡面）。 */
+.session-row > .hero {
+  position: relative;   /* 边栏入口（.hero-panel-btn）的定位祖先 */
+  box-sizing: border-box;
+  border-radius: var(--dsh-radius-panel);
+  border: 1px solid var(--line);
+  background: var(--card-gradient);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+/* 草稿页的会话设置卡：只有设置分区，没有屏幕缩略图与状态分区 */
+.hero-panel .panel-settings { padding: 4px 12px 20px; }
+/* 右边栏入口与会话头那颗**同位**：会话头是 padding 8/16 的绝对定位条，
+   这里同样按卡片定 8/16——不跟着 .hero 自己的 24px 横向 padding 走，
+   否则比会话页往里缩 24px（用户报"按钮位置不一致"）。 */
+.hero-panel-btn { position: absolute; top: 8px; right: 16px; }
 .hero-top .model {
   position: relative;
   display: block;

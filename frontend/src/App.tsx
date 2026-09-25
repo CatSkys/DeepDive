@@ -13,7 +13,8 @@ import { AutomationProvider } from "./automation/useAutomation";
 import type { AutomationProposal } from "./automation/protocol";
 import { Composer } from "./components/Composer";
 import { SessionView } from "./components/SessionView";
-import { SessionHeader } from "./session/SessionHeader";
+import { SessionHeader, type ModelFace } from "./session/SessionHeader";
+import { HeroPanel, HeroPanelTrigger } from "./sidebar-right/HeroPanel";
 import { HeroBrand } from "./components/HeroBrand";
 import { SettingsPage } from "./components/SettingsPage";
 import { BootSkeleton } from "./components/BootSkeleton";
@@ -52,6 +53,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [showModels, setShowModels] = useState(false);
+  /** 草稿页的右侧边栏卡（只有会话设置，无会话可读所以没有状态分区）。 */
+  const [heroPanelOpen, setHeroPanelOpen] = useState(false);
 
   // Deferred native navigation: a navigateToSession push (notification /
   // bubble) can arrive before the session list has loaded — hold it until the
@@ -128,6 +131,10 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   useEffect(() => {
     if (showModels) void loadModels();
   }, [showModels, loadModels]);
+  // 传给草稿面板的同一个加载器：**必须是稳定引用**——面板把 identity 放进 effect
+  // 依赖，每次渲染新建箭头会变成 fetch → setState → 重渲 → 再 fetch 的死循环
+  // （i18n.ts 的 t/tt 缓存注释记过同型事故）。
+  const reloadModels = useCallback(() => void loadModels(), [loadModels]);
 
   // 草稿选择与其目录元数据（思考强度档位）——hero 头部显示与菜单共用
   const draft = store.draftModel;
@@ -146,6 +153,17 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     try {
       await api.selectModel({ sessionId: store.activeSessionId, provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });
     } catch { /* engine may be booting */ }
+  };
+
+  // 草稿页的模型面：头部那一行与会话设置卡共用同一份（同一目录、同一草稿选择，
+  // 两处各写一遍字面量会漂移——其中一处改了 modelName 另一处就不跟着）。
+  const heroFace: ModelFace = {
+    showModels, setShowModels, modelName, models,
+    currentModel: draft ? { provider: draft.provider, model: draft.model } : undefined,
+    effortLevels: draftOption?.efforts ?? [],
+    effort: draft?.reasoningEffort,
+    effortLabel: (id) => effortDisplayName(id, draftOption?.efforts ?? []),
+    pickModel, applyModelEffort: pickModel,
   };
   // 应用内快捷键：window 捕获段匹配键位注册表（快捷键页可改/可停用）。
   // 输入框聚焦时仅听写可触发，避免打字误触。
@@ -296,23 +314,27 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         {active ? (
           <SessionView key={active} sessionId={active} />
         ) : (
+          <div className="session-row">
           <div className="hero">
+            {/* 草稿页右上角的右边栏入口：会话页那颗 PanelTrigger 的同款同位置
+                （绝对定位挂在卡片上，与会话头的右 16 / 上 8 对齐）。 */}
+            <HeroPanelTrigger open={heroPanelOpen} onToggle={() => setHeroPanelOpen((v) => !v)} />
             <div className="hero-top">
               {/* 草稿选择（draftModel）派生头部模型与思考档位显示——档位元
                   数据来自 models 里的 efforts（modelOptions 透传）。 */}
-              <SessionHeader title={t("新会话")} face={{
-                showModels, setShowModels, modelName, models,
-                currentModel: draft ? { provider: draft.provider, model: draft.model } : undefined,
-                effortLevels: draftOption?.efforts ?? [],
-                effort: draft?.reasoningEffort,
-                effortLabel: (id) => effortDisplayName(id, draftOption?.efforts ?? []),
-                pickModel, applyModelEffort: pickModel,
-              }} />
+              <SessionHeader title={t("新会话")} face={heroFace} />
             </div>
             <HeroBrand />
             <div className="hero-composer">
               <Composer sessionId={null} />
             </div>
+          </div>
+          <HeroPanel
+            open={heroPanelOpen}
+            onClose={() => setHeroPanelOpen(false)}
+            reloadModels={reloadModels}
+            face={heroFace}
+          />
           </div>
         )}
       </main>
