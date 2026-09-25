@@ -197,6 +197,11 @@ button {
     inset 0 1px 0 rgba(255,255,255,.08),
     0 12px 28px rgba(0,0,0,.20),
     0 2px 6px rgba(0,0,0,.10);
+  /* 悬浮卡（.main 主卡 / 会话卡 / 右侧面板卡是同一张卡的三处落地）：
+     只留贴身一档——大范围环境投影会让下沿发糊、显松散。 */
+  --shadow-card:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 4px 14px rgba(0,0,0,.20);
 }
 .model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .preview-window {
   background: var(--panel-glass);
@@ -596,9 +601,10 @@ button {
 
 /* ---------- content / hero ---------- */
 
-/* 第 2 层 · 主区悬浮卡：唯一悬浮的会话卡。与背景层四周（含左侧侧栏边）
-   都留 ~8px 细缝；圆角 + 同套 1px 极细描边 + 玻璃高光 + 投影（视觉纪律：
-   与背景层描边同一亮度，避免双粗边）。收起时左移补位，仍是这张卡。 */
+/* 第 2 层 · 主区悬浮卡：一张悬浮卡，与背景层四周（含左侧侧栏边）都留 ~8px
+   细缝；圆角 + 同套 1px 极细描边 + 玻璃高光 + 投影（视觉纪律：与背景层描边同一
+   亮度，避免双粗边）。收起时左移补位，仍是这张卡。
+   会话页这张卡拆成两张（.session + .panel）——见下方 .session-row 一段。 */
 .main {
   flex: 1;
   display: flex;
@@ -609,10 +615,7 @@ button {
   border-radius: var(--dsh-radius-panel);
   border: 1px solid var(--line);
   background: var(--card-gradient);
-  /* 投影只留贴身一档：大范围环境投影（16px/48px）会让下沿发糊、显松散 */
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.06),
-    0 4px 14px rgba(0,0,0,.20);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   transition: margin 220ms cubic-bezier(.2,0,0,1);
 }
@@ -4284,32 +4287,65 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 
 /* ---------- 右侧边栏（会话面板）----------
-   移植官方 ui-sidebar-right：面板是**页面的一列**，不是浮起来的卡片——它用会话自己的底色
-   与字号，与正文之间只有一条 1px 分隔线；两种呈现 push（会话让位）/ fullscreen（盖住整卡）。
+   移植官方 ui-sidebar-right：两种呈现 push（会话让位）/ fullscreen（盖住整卡）。
+   形状按用户定稿：**会话列与面板是两张并列的悬浮卡**，与草稿页那张 .main 用同一套
+   卡片几何（圆角/1px 极细描边/卡面/贴身投影/裁切），中间与四周各留 8px 缝，缝里透出
+   背景层——面板不再是主卡里切出来的一列。
    面板里的浏览器那一层由壳摆原生 WKWebView（见 nativeSlot.ts），所以它只负责挖洞与留位。 */
+
 /* 会话列 + 面板的横排容器。**必须是定位祖先**：面板的 fullscreen 呈现是
    `position:absolute; inset:0`，没有这一条它会一路找到 .app（窗口）上去——实测表现是
    面板顶条压到红绿灯上、浏览器正文铺满整个窗口。 */
-.session-row { position: relative; display: flex; flex: 1; min-height: 0; }
+.session-row { position: relative; display: flex; flex: 1; min-height: 0; gap: 8px; }
+
+/* 会话页的 .main 不再自己当卡，交给两张子卡：容器只留 8px 内边距。
+   **卡片位置与"一张大卡"时代逐像素一致**：原来的 margin 8 换成 padding 8，
+   原来的 1px 主卡描边由两张子卡各自的描边接上（卡片外沿仍在 8px 处）。 */
+.main:has(> .session-row) {
+  margin: 0;
+  padding: 8px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
 /* 有定宽兄弟列时 flex item 的 min-width:auto 会被长代码块顶破卡片 */
 .session { min-width: 0; }
+/* 会话卡：与右侧面板卡（以及草稿页的 .main）同一套几何 */
+.session-row > .session {
+  box-sizing: border-box;
+  border-radius: var(--dsh-radius-panel);
+  border: 1px solid var(--line);
+  background: var(--card-gradient);
+  box-shadow: var(--shadow-card);
+  /* 卡片自裁：全屏预览面/面板的圆角不再由 .main 代裁 */
+  overflow: hidden;
+}
 
 .panel {
   flex: none;
+  /* border-box：卡宽 = 320 就是卡的外沿宽（内容框 318），窄屏 width:100% 也不会
+     被两条 1px 描边顶出主区（.main 在会话页是 overflow:visible，顶出去就是溢出） */
+  box-sizing: border-box;
   width: 320px;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--line);
+  border-radius: var(--dsh-radius-panel);
+  border: 1px solid var(--line);
   background: var(--card-gradient);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
   animation: panel-in var(--dur-med) var(--ease-out) both;
 }
 @keyframes panel-in { from { opacity: 0; transform: translateX(8px); } }
-/* fullscreen 呈现：盖住整张主卡（会话让位由覆盖完成，不参与宽度计算）。
-   底下的会话列要**停绘制**：面板的底色是卡片那层半透明渐变，不盖住的话会话正文会
-   从面板里透出来（实测：标题压在页签上、代码块透过地址栏）。与文件预览全屏同一套
+/* fullscreen 呈现：盖住整张会话卡（会话让位由覆盖完成，不参与宽度计算）——
+   它就是那一格里唯一的一张卡，四边描边照常描。
+   底下的会话列要**停绘制**：两张卡同色，不盖住的话会话正文会从面板里透出来
+   （实测：标题压在页签上、代码块透过地址栏）。与文件预览全屏同一套
    ——visibility 而不是 display，滚动位置与事件状态都保住。 */
-.panel[data-fullscreen="true"] { position: absolute; inset: 0; width: auto; z-index: 45; border-left: none; }
+.panel[data-fullscreen="true"] { position: absolute; inset: 0; width: auto; z-index: 45; }
 .session-row:has(> .panel[data-fullscreen="true"]) > .session { visibility: hidden; }
 
 .panel-head {
@@ -4468,4 +4504,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 窄屏（手机远程）：面板改用 fullscreen 呈现（官方：768px 以下自动全屏） */
 @media (max-width: 760px) {
   .panel { width: 100%; }
+  /* 窄屏下两张卡不再并列：缝要去掉，否则"100% + 8px 缝"会溢出主区右缘；
+     会话列被挤成 0 宽，这里连它的描边一起停绘制（visibility 而非 display，
+     与全屏同一条理由：滚动位置与事件状态都保住）。 */
+  .session-row { gap: 0; }
+  .session-row:has(> .panel) > .session { visibility: hidden; }
 }
