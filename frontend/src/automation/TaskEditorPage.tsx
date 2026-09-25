@@ -167,7 +167,7 @@ export function TaskEditorPage({ taskId, template, proposal, onBack, onOpenSessi
   ];
   const permissionOptions: DropdownOption[] = [
     { v: "", label: t("跟随会话默认"), icon: Hand },
-    ...options.permissions.map((p): DropdownOption => ({ v: p.value, label: p.label, icon: Hand })),
+    ...options.permissions.map((p): DropdownOption => ({ v: p.value, label: p.name, icon: Hand })),
   ];
 
   return (

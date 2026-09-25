@@ -19,9 +19,10 @@ import { dispatchAppEvent, DD_EVENTS } from "../events";
 import { usePanelSurface, panelActions } from "./panelStore";
 import { BrowserPane } from "./BrowserPane";
 import { StatusSections } from "./StatusSections";
-import { SessionSettings, type PermissionSelect } from "./SessionSettings";
+import { SessionSettings } from "./SessionSettings";
 import { useCapsuleData } from "./useCapsuleData";
 import type { ArtifactItem } from "./sessionArtifacts";
+import type { PermissionSelect } from "../settings/permissionPreset";
 import type { ModelFace } from "../session/SessionHeader";
 import type { ScheduleRecord } from "../types";
 

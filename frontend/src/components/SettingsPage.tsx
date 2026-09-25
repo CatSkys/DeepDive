@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, CalendarClock, ChartColumn, ChevronLeft, Cpu, Download, Folder, Keyboard, Moon,
-  Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldAlert, ShieldCheck,
+  Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldCheck,
   Smartphone,
-  SquarePen, Sun,
+  Sun,
   Trash2,
   Undo2,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
@@ -19,7 +18,7 @@ import { shortModuleName } from "../plugins/model";
 import { draftKeyOf, writeDraft } from "../components/composer/useComposerDraft";
 import { RemoteControlSection } from "../mobile/RemoteControlSection";
 import type { AutomationProposal } from "../automation/protocol";
-import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
+import { permissionPresetView, presetDropdownOptions, type PermissionSettingsView } from "../settings/permissionPreset";
 import { AgentPresetCard } from "../settings/AgentPresetCard";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { RETENTIONS, retentionLabel, type ArchiveRetention } from "../autoArchive";
@@ -358,14 +357,7 @@ function GeneralSection() {
 /* ───────────────────────── 审批 ───────────────────────── */
 
 /// 默认权限预设（permission.defaultPreset）：引擎在新会话创建时按此 pin
-/// 初始权限；运行中的会话不受影响。选项枚举来自 schema（见 permissionPreset.ts）；
-/// 已知预设给本地化标签/说明/图标（UI 参考官方权限菜单），未知预设退回引擎原文。
-export const PRESET_META: Record<string, { label: string; desc: string; icon: LucideIcon; danger?: boolean }> = {
-  "read-only": { label: "只读", desc: "只读取与分析，不改文件。", icon: ShieldCheck },
-  "workspace-write": { label: "工作区写入", desc: "工作区内自动改文件，越界先确认。", icon: SquarePen },
-  "danger-full-access": { label: "完全访问", desc: "全部可写，不再逐步确认。", icon: ShieldAlert, danger: true },
-};
-
+/// 初始权限；运行中的会话不受影响。选项枚举与标签表在 permissionPreset.ts。
 function ApprovalSection() {
   const { t, tt } = useT();
   // undefined=载入中，null=引擎未提供 permission 命名空间
@@ -391,16 +383,7 @@ function ApprovalSection() {
     await load();
   };
 
-  const options = (view?.options ?? []).map((o) => {
-    const meta = PRESET_META[o.value];
-    return {
-      v: o.value,
-      label: meta ? t(meta.label) : o.label,
-      description: meta ? t(meta.desc) : undefined,
-      icon: meta?.icon,
-      danger: meta?.danger,
-    };
-  });
+  const options = presetDropdownOptions(view?.options ?? [], t);
 
   return (
     <div className={rowsCss.section}>

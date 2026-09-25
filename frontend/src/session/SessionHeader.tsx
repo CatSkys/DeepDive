@@ -34,6 +34,7 @@ export function SessionHeader({ title, face }: { title: string; face: ModelFace 
   // 项目切换选框（参考图 Create Project 顶栏样式，复用 Hero 项目菜单）：
   // 侧栏收起时点会话标题或项目胶囊弹出——侧栏展开时项目名在侧栏常驻，不弹
   const [projOpen, setProjOpen] = useState(false);
+  const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
   // face（useSessionModels 每渲染返回新对象）镜像到 ref：监听只挂一次，
   // 触发时读现值——避免流式期渲染反复重挂（AUD-115）。
   const faceRef = useRef(face);
@@ -73,7 +74,7 @@ export function SessionHeader({ title, face }: { title: string; face: ModelFace 
         <PresetPill />
         <WorkspacePill onOpen={sidebarCollapsed ? () => setProjOpen((v) => !v) : undefined} />
       </div>
-      <button className="model trigger" data-open={face.showModels ? "true" : "false"} onClick={() => face.setShowModels(true)}>
+      <button ref={modelTriggerRef} className="model trigger" data-open={face.showModels ? "true" : "false"} onClick={() => face.setShowModels(true)}>
         {face.modelName || "Auto"}
         {face.effortLevels.length > 0 && (
           <span className="effort-tag" data-tip={t("思考强度切换")} data-tip-keys={comboFor("cycle-effort", keybinds)}>
@@ -91,6 +92,7 @@ export function SessionHeader({ title, face }: { title: string; face: ModelFace 
           onPick={(m) => void face.pickModel(m)}
           onApplyEffort={(m, id) => void face.applyModelEffort(m, id)}
           onClose={() => face.setShowModels(false)}
+          anchorRef={modelTriggerRef}
         />
       )}
     </div>

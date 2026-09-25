@@ -5,18 +5,18 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { ModelOption } from "../components/ModelMenu";
-import { permissionPresetView, type PermissionPresetOption } from "../settings/permissionPreset";
+import { permissionPresetView, type PresetOption } from "../settings/permissionPreset";
 import { useStore } from "../store";
 
 export interface RunOptions {
   workspaces: ReturnType<typeof useStore>["workspaces"];
-  permissions: PermissionPresetOption[];
+  permissions: PresetOption[];
   models: ModelOption[];
 }
 
 export function useRunOptions(): RunOptions {
   const store = useStore();
-  const [permissions, setPermissions] = useState<PermissionPresetOption[]>([]);
+  const [permissions, setPermissions] = useState<PresetOption[]>([]);
   const [models, setModels] = useState<ModelOption[]>([]);
 
   useEffect(() => {

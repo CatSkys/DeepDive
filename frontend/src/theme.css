@@ -708,11 +708,9 @@ button {
 }
 
 .model-menu {
-  position: absolute;
-  /* 45 = .left 顶(17) + 标题行 20 + 间距 3 + 触发器高 ~20 + 余量：
-     菜单上沿贴触发器下沿（hero-top 与 session-header 同构，共用此值） */
-  top: 45px;
-  left: -6px;
+  /* 弹层挂 body（ModelMenu 的 portal）：fixed + 行内 top/left 由触发器 rect 算出，
+     放在会话头或右侧边栏的滚动容器里都不会被裁、也不占布局 */
+  position: fixed;
   width: 280px;
   max-height: 460px;
   display: flex;
@@ -721,7 +719,8 @@ button {
   border: 1px solid var(--line);
   /* 统一投影（弹出面板配方）：贴身锐影 + 中距柔影，不再各写一套 */
   overflow: hidden;
-  z-index: 50;
+  /* 与 .ddMenu 同层：都是挂 body 的浮动菜单（portaled 菜单的层序） */
+  z-index: 1100;
 }
 .model-menu::before {
   content: "";
@@ -4427,6 +4426,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-settings { display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
 .panel-settings-section { display: flex; flex-direction: column; gap: 6px; }
 .panel-settings-label { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+/* 模型那一行：与会话设置里的权限/发送方式下拉（.ddTrigger 尺寸与底色）同一形态 */
 .panel-settings-row {
   display: flex;
   align-items: center;
@@ -4436,36 +4436,16 @@ input:focus, textarea:focus, select:focus { outline: none; }
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-control);
-  background: var(--fill-soft);
+  background: var(--fill);
   color: var(--ink);
-  font-size: var(--dsh-font-size-sm);
+  font-size: var(--dsh-font-size-base);
   text-align: left;
 }
-.panel-settings-row.static { justify-content: flex-start; }
-.panel-settings-row:hover { background: var(--fill); }
+.panel-settings-row:hover { background: var(--fill-strong); }
 .panel-settings-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-settings-meta { flex: none; color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
 .panel-settings-hint { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); }
-.panel-settings-list { display: flex; flex-direction: column; gap: 4px; }
-.panel-settings-choice {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-control);
-  color: var(--ink-2);
-  font-size: var(--dsh-font-size-sm);
-  text-align: left;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
-}
-.panel-settings-choice:hover { background: var(--fill); color: var(--ink); }
-.panel-settings-choice.active { border-color: var(--line-focus); color: var(--ink); }
-.panel-settings-choice-desc { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); }
 .panel-settings-plugins { max-height: 260px; overflow-y: auto; }
-
-/* 面板里的模型菜单走内联变体：正文是滚动容器，绝对定位的下拉会被裁掉 */
-.model-menu.inline { position: static; width: auto; max-height: 320px; margin-top: 4px; }
 
 /* ---------- 面板里的分区与产物 ---------- */
 .panel-artifact {

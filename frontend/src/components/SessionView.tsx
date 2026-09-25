@@ -12,7 +12,7 @@ import { SubagentReadOnlyNotice } from "../session/SubagentReadOnlyNotice";
 import { PanelTrigger } from "../sidebar-right/PanelTrigger";
 import { SessionPanel } from "../sidebar-right/SessionPanel";
 import { sessionArtifacts } from "../sidebar-right/sessionArtifacts";
-import type { PermissionSelect } from "../sidebar-right/SessionSettings";
+import type { PermissionSelect } from "../settings/permissionPreset";
 import { groupTurns, type TurnGroup } from "../turnGroups";
 import { groupTools } from "../session/toolGroups";
 import { ToolGroupRow } from "../session/ToolGroupRow";

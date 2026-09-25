@@ -10,9 +10,8 @@ import { useEffect, useState } from "react";
 import { FolderOpen, Info, Plus } from "lucide-react";
 import { inShell } from "../host";
 import { useT } from "../i18n";
-import { permissionPresetView, type PermissionSettingsView } from "../settings/permissionPreset";
+import { permissionPresetView, presetDropdownOptions, type PermissionSettingsView } from "../settings/permissionPreset";
 import { useSettingNamespace } from "../settings/useSettingNamespace";
-import { PRESET_META } from "./SettingsPage";
 import { promptDialog } from "./DialogHost";
 import { Dropdown } from "./controls";
 import { IconPicker } from "./IconPicker";
@@ -115,16 +114,7 @@ export function ProjectFormFields({ form }: { form: ProjectForm }) {
             <span className={css.groupLabel}>{t("审批模式")}</span>
             <div className={`${css.groupControl} ${css.rowRight}`}>
               <Dropdown
-                options={permission.options.map((o) => {
-                  const meta = PRESET_META[o.value];
-                  return {
-                    v: o.value,
-                    label: meta ? t(meta.label) : o.label,
-                    description: meta ? t(meta.desc) : undefined,
-                    icon: meta?.icon,
-                    danger: meta?.danger,
-                  };
-                })}
+                options={presetDropdownOptions(permission.options, t)}
                 value={permission.current}
                 onChange={(v) => void form.setApproval(v)}
               />

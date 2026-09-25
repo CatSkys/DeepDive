@@ -1,26 +1,24 @@
 // 右侧边栏的「会话设置」页（照 ZCode 的 Chat Settings：面板内切视图，右上角齿轮进、左上角返回出）。
 // 四项都复用现成的读写通道，没有新契约：
-//   模型   —— useSessionModels 的 face + ModelMenu（内联变体）
+//   模型   —— useSessionModels 的 face + ModelMenu（挂 body 的弹层，不挤动下方分区）
 //   权限   —— 引擎已经把会话权限投影成下拉视图（permissions: {options, currentValue}），
 //             写入只有 /permission <preset> 一条路（引擎注释原话：the one write path a web client uses）
 //   插件   —— plugins/PluginsTab 原样内嵌
 //   发送方式 —— 引擎 ui-conversation.busyEnter（全局设置，与设置→通用同源；引擎没有会话级开关）
+//
+// 三个选择器（含模型那一行）同一形态：占满栏宽的一行，左值右箭头——与设置页/新建
+// 项目表单的审批下拉同一套（presetDropdownOptions + Dropdown）。
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
 import { Dropdown } from "../components/controls";
 import { ModelMenu } from "../components/ModelMenu";
 import { PluginsTab } from "../plugins/PluginsTab";
+import { presetDropdownOptions, type PermissionSelect } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import type { ModelFace } from "../session/SessionHeader";
-
-/** 会话权限投影的 wire 视图（引擎 permission-presets 注册的 viewSchema）。 */
-export interface PermissionSelect {
-  options: Array<{ value: string; name: string; description?: string }>;
-  currentValue: string;
-}
 
 export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }: {
   sessionId: string;
@@ -33,6 +31,7 @@ export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }:
   const [current, setCurrent] = useState<string | null>(null);
   const [showModels, setShowModels] = useState(false);
   const [busy, setBusy] = useState("");
+  const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { describe: describeUiNs, update: updateUiNs } = useSettingNamespace("ui-conversation");
 
   // 本地乐观值只用于点击后立刻反映；投影推进后以投影为准
@@ -69,6 +68,7 @@ export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }:
       <div className="panel-settings-section">
         <div className="panel-settings-label">{t("模型")}</div>
         <button
+          ref={modelTriggerRef}
           type="button"
           className="panel-settings-row"
           data-open={showModels ? "true" : "false"}
@@ -79,7 +79,6 @@ export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }:
         </button>
         {showModels && (
           <ModelMenu
-            inline
             options={face.models}
             current={face.modelName}
             currentModel={face.currentModel}
@@ -87,6 +86,7 @@ export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }:
             onPick={(m) => void face.pickModel(m)}
             onApplyEffort={(m, id) => void face.applyModelEffort(m, id)}
             onClose={() => setShowModels(false)}
+            anchorRef={modelTriggerRef}
           />
         )}
       </div>
@@ -94,31 +94,23 @@ export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }:
       {permissions !== null && (
         <div className="panel-settings-section">
           <div className="panel-settings-label">{t("权限")}</div>
-          <div className="panel-settings-list">
-            {permissions.options.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                className={`panel-settings-choice${o.value === currentValue ? " active" : ""}`}
-                onClick={() => pickPermission(o.value)}
-              >
-                <span className="panel-settings-choice-name">{o.name}</span>
-                {o.description !== undefined && <span className="panel-settings-choice-desc">{o.description}</span>}
-              </button>
-            ))}
-          </div>
+          <Dropdown
+            block
+            options={presetDropdownOptions(permissions.options, t)}
+            value={currentValue}
+            onChange={pickPermission}
+          />
         </div>
       )}
 
       <div className="panel-settings-section">
         <div className="panel-settings-label">{t("发送方式")}</div>
-        <div className="panel-settings-row static">
-          <Dropdown
-            options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}
-            value={busy}
-            onChange={(v) => void saveBusy(v)}
-          />
-        </div>
+        <Dropdown
+          block
+          options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}
+          value={busy}
+          onChange={(v) => void saveBusy(v)}
+        />
         <div className="panel-settings-hint">{t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")}</div>
       </div>
 

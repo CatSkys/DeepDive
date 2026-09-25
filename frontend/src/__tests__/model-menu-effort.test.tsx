@@ -1,7 +1,7 @@
 // 模型菜单第二层（思考强度）的渲染网眼：档位是**单选列表**（选中行带对勾）、
 // 点选即提交并关菜单。滑杆改菜单是用户拍板的交互简化（拖拽手势多一层状态），
 // 这几条钉住它别退回手势形态。@vitest-environment jsdom
-import type { ComponentProps } from "react";
+import { createRef, type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
@@ -25,17 +25,23 @@ function setup(over: Partial<ComponentProps<typeof ModelMenu>> = {}) {
   const onPick = vi.fn();
   const onApplyEffort = vi.fn();
   const onClose = vi.fn();
+  // 弹层按触发器 rect 定位（挂 body）：测试里给一个真实触发钮
+  const anchorRef = createRef<HTMLButtonElement>();
   render(
-    <ModelMenu
-      options={[FLASH, PLAIN]}
-      current="GPT-4o"
-      currentModel={{ provider: "openai", model: "gpt" }}
-      effortValue={undefined}
-      onPick={onPick}
-      onApplyEffort={onApplyEffort}
-      onClose={onClose}
-      {...over}
-    />,
+    <>
+      <button ref={anchorRef} type="button">模型</button>
+      <ModelMenu
+        options={[FLASH, PLAIN]}
+        current="GPT-4o"
+        currentModel={{ provider: "openai", model: "gpt" }}
+        effortValue={undefined}
+        onPick={onPick}
+        onApplyEffort={onApplyEffort}
+        onClose={onClose}
+        anchorRef={anchorRef}
+        {...over}
+      />
+    </>,
   );
   return { onPick, onApplyEffort, onClose };
 }

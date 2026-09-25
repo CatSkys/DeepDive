@@ -87,10 +87,10 @@
       "detail": "484 lines > 300"
     },
     {
-      "id": "ebbeb341ff3ff841",
+      "id": "fad5d8c1900c1ce9",
       "rule": "file-lines",
       "file": "frontend/src/components/SettingsPage.tsx",
-      "detail": "726 lines > 300"
+      "detail": "709 lines > 300"
     },
     {
       "id": "ec9f3aa9b70274b3",
