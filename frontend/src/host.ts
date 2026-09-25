@@ -16,7 +16,13 @@ interface HostBridge {
 declare global {
   interface Window {
     __deepDiveHost?: HostBridge;
-    webkit?: { messageHandlers?: { deepdiveHost?: { postMessage: (msg: unknown) => void } } };
+    /** 两个通道：`deepdiveHost` = 指令（host.ts），`deepdive` = rect 表（titlebar/nativeSlot）。 */
+    webkit?: {
+      messageHandlers?: {
+        deepdiveHost?: { postMessage: (msg: unknown) => void };
+        deepdive?: { postMessage: (msg: unknown) => void };
+      };
+    };
   }
 }
 
@@ -41,6 +47,15 @@ export function onHostEvent(cb: HostEvent): () => void {
 
 export function sendToShell(message: Record<string, unknown>): void {
   window.webkit?.messageHandlers?.deepdiveHost?.postMessage(message);
+}
+
+/** 「rect 表」通道（`deepdive` message handler）：顶条控件 rect 与原生槽位 rect 共用，
+ *  300ms 一推、量大且无应答——与 `deepdiveHost`（指令通道，壳侧走 case 表 + 单条暂存）
+ *  分开是**壳侧按 channel 分派**的既有契约（MainWindowController.userContentController：
+ *  `deepdive` → 两张 rect 表，`deepdiveHost` → 指令）。
+ *  发错通道不会报错：壳那边只是"没人接"，表现为控件点不动/原生视图不显示。 */
+export function sendRects(message: Record<string, unknown>): void {
+  window.webkit?.messageHandlers?.deepdive?.postMessage(message);
 }
 
 /** 用默认应用打开一个本地路径（0.1.5 产物三动作之一；壳 NSWorkspace.open）。 */

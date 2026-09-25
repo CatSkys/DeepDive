@@ -12,6 +12,8 @@
 // Until the first table arrives the shell fails open: nothing is draggable
 // and nothing is swallowed.
 
+import { sendRects } from "./host";
+
 const STRIP_HEIGHT = 52; // keep in sync with TitlebarAwareWebView.dragStripHeight
 const PUSH_INTERVAL_MS = 300;
 
@@ -26,8 +28,9 @@ interface BridgeHost {
   webkit?: { messageHandlers?: { deepdive?: { postMessage(msg: unknown): void } } };
 }
 
-function handler(): { postMessage(msg: unknown): void } | null {
-  return ((window as unknown as BridgeHost).webkit?.messageHandlers?.deepdive) ?? null;
+/** 壳桥在不在（rect 表通道）：纯浏览器里全部静默降级。 */
+function bridgeUp(): boolean {
+  return !!((window as unknown as BridgeHost).webkit?.messageHandlers?.deepdive);
 }
 
 // data-strip-interactive: 非控件但必须可在顶条内交互的元素（侧栏拖拽
@@ -35,8 +38,7 @@ function handler(): { postMessage(msg: unknown): void } | null {
 const INTERACTIVE = "button, a, input, textarea, select, [role='button'], [data-strip-interactive]";
 
 function pushRects() {
-  const target = handler();
-  if (!target) return;
+  if (!bridgeUp()) return;
   const rects: Rect[] = [];
   for (const el of document.querySelectorAll(INTERACTIVE)) {
     const r = el.getBoundingClientRect();
@@ -45,11 +47,11 @@ function pushRects() {
     if (r.top >= STRIP_HEIGHT || r.bottom <= 0 || r.right <= 0 || r.left >= window.innerWidth) continue;
     rects.push({ x: r.x, y: r.y, w: r.width, h: r.height });
   }
-  target.postMessage({ type: "titlebar-rects", rects });
+  sendRects({ type: "titlebar-rects", rects });
 }
 
 export function initTitlebarBridge(): void {
-  if (!handler()) return; // plain browser (dev / Playwright): nothing to bridge
+  if (!bridgeUp()) return; // plain browser (dev / Playwright): nothing to bridge
   pushRects();
   // React mounts after this script; catch the window-top buttons late.
   for (const delay of [300, 800, 1500]) setTimeout(pushRects, delay);

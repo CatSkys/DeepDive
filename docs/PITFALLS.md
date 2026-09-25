@@ -290,10 +290,18 @@
   而 App 未本地化时第一者会静默退回开发语言。本仓同类面还有：引擎/SPA 的语言（我们自建
   `i18n`，不看系统）、`pdf.js` 与 `mermaid` 的本地化。
 
-### 4.21 原生槽位这条链有四份契约，任一份"忘了设"都表现为"浏览器坏了"而不是报错（2026-09-25 用户报"浏览器显示好像没有正常使用"）
+### 4.21 原生槽位这条链有五份契约，任一份"忘了设/发错"都表现为"浏览器坏了"而不是报错（2026-09-25 用户报"浏览器显示好像没有正常使用"）
 
 - 事故：agent 已经把页面开在小红书（它还读得到页面内容），面板里却是"还没有打开的网页"。
-  四个独立缺陷叠在同一条链上，逐个查才拆开：
+  五个独立缺陷叠在同一条链上，逐个查才拆开：
+  0. **发错通道（真凶，且一直没工作过）**：SPA 的 `nativeSlot.ts` 用 `sendToShell`（`deepdiveHost`
+     指令通道）推 `native-slot`，而壳只在 `deepdive`（rect 表通道）那一支调 `handleNativeSlot`
+     → `setSlot` **一次都没被调用过** → 原生视图永远摆在 idleViewport、alpha 0。两个通道由
+     `MainWindowController.userContentController` 按 `message.name` 分派，发错不报错、只是"没人接"。
+     修：rect 表类消息统一走 host.ts 新导出的 `sendRects`（`titlebar.ts` 与 `nativeSlot.ts` 共用
+     一份通道访问，不再各写一份 `webkit.messageHandlers` 取用）。
+     **判据**：壳侧临时打点 `handleNativeSlot` 的入参，或直接看 `[bridge] host message: native-slot`
+     是否每 300ms 刷在**指令**通道的日志里（刷了就是发错通道）。
   1. **壳的观察是"变化才推"**（WKWebView 的 didStart/didFinish）。面板关着时 agent 导航过的
      那一条没人收，而 SPA 没有"要一次当前状态"的路 → 后挂载的 SPA 地址恒空 → 走空态、连槽位
      都不渲染 → 壳里已经打开的页面看不见。修：`browser-sync` 消息 + `BrowserHost.resync()`，
@@ -310,10 +318,16 @@
   4. **`data-native-slot-interactive` 定义了但从来没人设**：壳侧 `acceptsInput = visible &&
      interactive` 于是恒 false → 展开后的页面看得见、点不动（`hitTest` 返回 nil，事件穿透回
      SPA）。修：`NativeCarrier interactive={expanded}`。
-- 纪律：槽位这条链的契约是四份——rect / visible / interactive / **未挂载也要显式表达**。
+- 纪律：槽位这条链的契约是五份——**发对通道** / rect / visible / interactive / **未挂载也要显式表达**。
   `pushNativeSlots` 原来只遍历"现在还在 DOM 里"的元素，槽位整块卸载（面板收起、浏览器页换成
   空态）时什么都不发，壳沿用旧 rect 把原生视图留在原地盖住界面；现在按上一轮推过的 id 补发
-  `visible:false`。**新增槽位时按这四份逐条核对**，它们的失效方式都是"看着像没生效"。
+  `visible:false`。**新增槽位时按这五份逐条核对**，它们的失效方式都是"看着像没生效"。
+- **验证方法上的教训（比缺陷本身更值钱）**：桥接 URL 够不到原生槽位（纯浏览器 `inShell()`
+  为假、走 iframe），所以我造了个"伪壳"（`addInitScript` 立起 webkit.messageHandlers +
+  `__deepDiveHost.dispatch`）来端到端验证——**伪壳只实现了 `deepdiveHost` 通道，把槽位消息
+  照单全收**，于是缺陷 0（发错通道）在它面前完全隐形，五项里四项"验证通过"而真机仍然全黑。
+  教训：**伪壳必须照真实分派逐通道复刻**（按 `message.name` 分流），否则它验的是"我以为的
+  契约"而不是"壳的契约"；能用真机日志（`handleNativeSlot` 打点）就先上真机。
 
 ---
 

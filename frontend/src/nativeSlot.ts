@@ -1,6 +1,8 @@
 // 原生视图槽位：把 SPA 里标记了 `data-native-slot` 的元素的 rect 推给壳，壳据此在窗口里摆
 // 原生视图（侧栏浏览器的 WKWebView 载体）。与 titlebar.ts 的 rect 表同一套思路，但两处
 // 用途不同、互不影响：那条是"52px 条带里的控件放行"，这条是"页面里挖个洞交给原生视图"。
+// **两条都走 `deepdive` 通道**（rect 表通道）——壳按 channel 分派，发到 `deepdiveHost`
+// 会被当指令走 case 表、槽位永远摆不出来（本模块曾这么错过一次）。
 //
 // 三条纪律（原生视图恒在 SPA 之上，错了就是浮层被压住/点击落到页面上）：
 //   ① 槽位不可见或未挂载 → 必须显式推 visible:false，不能靠 rect 归零表达；
@@ -10,7 +12,7 @@
 //
 // 无壳桥时全部静默：纯浏览器里走 iframe 载体，这个模块不参与。
 
-import { inShell, sendToShell } from "./host";
+import { inShell, sendRects } from "./host";
 
 /** 槽位元素的标记属性（壳只认 id，不认类名）。 */
 export const NATIVE_SLOT_ATTR = "data-native-slot";
@@ -70,12 +72,12 @@ export function pushNativeSlots(): void {
     const box = readRect(el);
     const visible = box !== null && unobstructed(el, box);
     const interactive = el.getAttribute(NATIVE_SLOT_INTERACTIVE_ATTR) === "1";
-    sendToShell({ type: "native-slot", id, visible, interactive, rect: box ?? { x: 0, y: 0, w: 0, h: 0 } });
+    sendRects({ type: "native-slot", id, visible, interactive, rect: box ?? { x: 0, y: 0, w: 0, h: 0 } });
     seen.push(id);
   }
   for (const id of pushedIds) {
     if (seen.includes(id)) continue;
-    sendToShell({ type: "native-slot", id, visible: false, interactive: false, rect: { x: 0, y: 0, w: 0, h: 0 } });
+    sendRects({ type: "native-slot", id, visible: false, interactive: false, rect: { x: 0, y: 0, w: 0, h: 0 } });
   }
   pushedIds = seen;
 }
@@ -85,7 +87,7 @@ export function hideNativeSlots(): void {
   if (!inShell()) return;
   for (const el of document.querySelectorAll(`[${NATIVE_SLOT_ATTR}]`)) {
     const id = el.getAttribute(NATIVE_SLOT_ATTR) ?? "";
-    if (id !== "") sendToShell({ type: "native-slot", id, visible: false, interactive: false, rect: { x: 0, y: 0, w: 0, h: 0 } });
+    if (id !== "") sendRects({ type: "native-slot", id, visible: false, interactive: false, rect: { x: 0, y: 0, w: 0, h: 0 } });
   }
 }
 
