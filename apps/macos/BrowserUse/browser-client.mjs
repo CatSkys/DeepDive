@@ -91,7 +91,29 @@ class Tab {
     const tab = this;
     return {
       async domSnapshot() { return (await control("evaluate", { script: page.SNAPSHOT })).result; },
-      async waitForLoadState() { await tab.#waitReady(); },
+      /**
+       * 等这一次导航真正结束。**判据取壳的观察**（isLoading=false 且有 url），
+       * 不是 `document.readyState`——新导航开始时旧文档（about:blank）已经是 complete，
+       * 只看 readyState 会立刻返回，随后拿到的快照是"还没排版的空页"（实测：
+       * 快照返回 (no interactive elements) 而页面明明已加载）。ZCode 的 SKILL 也点过这个坑
+       * （"an already-loaded old page can satisfy the load-state waiter"）。
+       */
+      async waitForLoadState(options = {}) {
+        // 加载态给 10s（其余常规等待仍是 ZCode 的 3000ms 口径）：壳报的是权威的
+        // isLoading，而 WebKit 冷启动的**第一次**导航实测会超过 3s——那会让模型的第一步
+        // 就吃一个超时。有界即可，不必抠到 3s。
+        const timeout = options.timeout ?? 10000;
+        const deadline = Date.now() + timeout;
+        while (Date.now() < deadline) {
+          const state = (await control("get_state")).state;
+          if (!state.loading && state.url !== "") {
+            const ready = await control("evaluate", { script: page.READY_STATE });
+            if (ready.result === "true") return;
+          }
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        throw new Error("waitForLoadState timed out after " + timeout + "ms");
+      },
       async waitForTimeout(ms) { await new Promise((r) => setTimeout(r, ms)); },
       async waitForURL(pattern, options = {}) {
         const timeout = options.timeout ?? 3000;
@@ -121,9 +143,6 @@ class Tab {
       keypress: async ({ keys }) => { await control("evaluate", { script: page.pressKeys(keys) }); },
       type: async ({ text }) => { await control("evaluate", { script: page.typeRef(null, text) }); },
     };
-  }
-  async #waitReady() {
-    await control("wait_for", { script: page.READY_STATE, timeoutMs: 3000 });
   }
 }
 
@@ -197,9 +216,9 @@ snapshot facts; never guess a selector or a label.
   \`tab.cua.scroll({scrollX,scrollY})\`, \`tab.cua.keypress({keys})\`.
 
 ## Navigate
-\`await tab.goto(url)\` then \`await tab.playwright.waitForLoadState()\`. Only
-http/https/about:blank are accepted; \`file:\`, \`data:\`, \`blob:\` and \`javascript:\`
-are refused. Routine waits are capped at 3000ms.
+\`await tab.goto(url)\` then \`await tab.playwright.waitForLoadState()\` (10s budget; every
+other routine wait is capped at 3000ms). Only http/https/about:blank are accepted;
+\`file:\`, \`data:\`, \`blob:\` and \`javascript:\` are refused.
 
 ## Screenshots
 Take one only when vision matters (layout/styling, the user asked for it, or the

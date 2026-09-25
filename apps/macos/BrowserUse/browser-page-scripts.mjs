@@ -5,6 +5,40 @@
 //
 // 这些脚本必须是**自求值表达式**（evaluate 只回一个 JSON 值），所以每个都是一段 IIFE。
 
+
+/** 角色推断的**唯一实现**：快照与定位器都用它。曾经两处各写一份，定位器那份漏了
+ *  heading 映射，于是"快照里明明有 r1 heading"却 getByRole("heading") 匹配不到。 */
+const ROLE_FN = `(el) => {
+  const explicit = el.getAttribute('role');
+  if (explicit) return explicit;
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'a') return el.hasAttribute('href') ? 'link' : 'generic';
+  if (tag === 'button') return 'button';
+  if (tag === 'select') return 'combobox';
+  if (tag === 'textarea') return 'textbox';
+  if (tag === 'img') return 'img';
+  if (tag === 'li') return 'listitem';
+  if (tag === 'form') return 'form';
+  if (tag === 'label') return 'label';
+  if (/^h[1-6]$/.test(tag)) return 'heading';
+  if (tag === 'input') {
+    const type = (el.getAttribute('type') || 'text').toLowerCase();
+    if (type === 'checkbox') return 'checkbox';
+    if (type === 'radio') return 'radio';
+    if (type === 'submit' || type === 'button' || type === 'reset') return 'button';
+    if (type === 'range') return 'slider';
+    return 'textbox';
+  }
+  return 'generic';
+}`;
+
+/** 可访问名（快照与定位器共用同一份口径）。 */
+const NAME_FN = `(el) => {
+  const label = el.getAttribute('aria-label') || el.getAttribute('alt') || el.getAttribute('placeholder');
+  if (label) return label.trim().slice(0, 90);
+  return (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 90);
+}`;
+
 /** 快照：给可见的交互元素编号并把紧凑树拼成文本（ZCode domSnapshot 的等价物）。 */
 export const SNAPSHOT = `(() => {
   document.querySelectorAll('[data-dd-ref]').forEach((e) => e.removeAttribute('data-dd-ref'));
@@ -14,35 +48,8 @@ export const SNAPSHOT = `(() => {
     const s = getComputedStyle(el);
     return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
   };
-  const roleOf = (el) => {
-    const explicit = el.getAttribute('role');
-    if (explicit) return explicit;
-    const tag = el.tagName.toLowerCase();
-    if (tag === 'a') return el.hasAttribute('href') ? 'link' : 'generic';
-    if (tag === 'button') return 'button';
-    if (tag === 'select') return 'combobox';
-    if (tag === 'textarea') return 'textbox';
-    if (tag === 'img') return 'img';
-    if (tag === 'li') return 'listitem';
-    if (tag === 'form') return 'form';
-    if (tag === 'label') return 'label';
-    if (/^h[1-6]$/.test(tag)) return 'heading';
-    if (tag === 'input') {
-      const type = (el.getAttribute('type') || 'text').toLowerCase();
-      if (type === 'checkbox') return 'checkbox';
-      if (type === 'radio') return 'radio';
-      if (type === 'submit' || type === 'button' || type === 'reset') return 'button';
-      if (type === 'range') return 'slider';
-      return 'textbox';
-    }
-    return 'generic';
-  };
-  const nameOf = (el) => {
-    const label = el.getAttribute('aria-label') || el.getAttribute('alt') || el.getAttribute('placeholder');
-    if (label) return label.trim().slice(0, 90);
-    const text = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
-    return text.slice(0, 90);
-  };
+  const roleOf = ${ROLE_FN};
+  const nameOf = ${NAME_FN};
   const selector = 'a,button,input,select,textarea,[role],[contenteditable="true"],h1,h2,h3,h4,h5,h6,li,img,form,label';
   const lines = [];
   let n = 0;
@@ -152,10 +159,9 @@ export const scrollBy = (dx, dy) => `(() => { window.scrollBy(${dx}, ${dy}); ret
 /** 定位器：按角色+名字、文本、标签、testid 或选择器找元素，可选执行一个动作。 */
 export function locatorScript(kind, value, action, argument) {
   const matcher = {
-    role: `(el) => { const role = (el.getAttribute('role') || '').toLowerCase() ||
-        ({ a: 'link', button: 'button', select: 'combobox', textarea: 'textbox', img: 'img', li: 'listitem' }[el.tagName.toLowerCase()] || '');
-      const name = (el.getAttribute('aria-label') || el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
-      return role === ${JSON.stringify(String(value).toLowerCase())} && (!${JSON.stringify(String(argument ?? ''))} || name.includes(${JSON.stringify(String(argument ?? ''))})); }`,
+    role: `(el) => { const role = (${ROLE_FN})(el).toLowerCase();
+      const name = (${NAME_FN})(el);
+      return role === ${JSON.stringify(String(value).toLowerCase())} && (!${JSON.stringify(String(argument ?? ""))} || name.includes(${JSON.stringify(String(argument ?? ""))})); }`,
     text: `(el) => ((el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim()).includes(${JSON.stringify(String(value))})`,
     label: `(el) => (el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').includes(${JSON.stringify(String(value))})`,
     testid: `(el) => el.getAttribute('data-testid') === ${JSON.stringify(String(value))}`,

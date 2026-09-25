@@ -218,7 +218,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         }
         // agent 控制面（/browser-control）要拿到这个窗口的浏览器宿主
         BrowserControl.hostProvider = { [weak self] in self?.browser }
-        browser.view.isHidden = true
+        browser.place(rect: BrowserHost.idleViewport, visible: false, interactive: false)
         effectView.addSubview(browser.view)
 
         webView.navigationDelegate = self

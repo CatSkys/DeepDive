@@ -73,7 +73,7 @@ final class BrowserHost: NSObject {
         config.websiteDataStore = .nonPersistent()
         config.userContentController = WKUserContentController()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
-        view = BrowserHostView(frame: .zero, configuration: config)
+        view = BrowserHostView(frame: Self.idleViewport, configuration: config)
         super.init()
         view.navigationDelegate = self
         view.uiDelegate = self
@@ -99,15 +99,21 @@ final class BrowserHost: NSObject {
         place(rect: slot.frame(contentHeight: contentHeight, zoom: zoom), visible: slot.visible, interactive: slot.interactive)
     }
 
-    /// 按槽位摆放。`visible == false` 时移出可视区（而不是 alpha 0——那仍会合成）。
+    /// agent 看不到面板时的默认视口（ZCode 的 DEFAULT_AGENT_BROWSER_VIEWPORT 同值）：
+    /// 面板关着也要能截图，而截图尺寸就是这个 frame。
+    static let idleViewport = NSRect(x: 0, y: 0, width: 1280, height: 720)
+
+    /// 按槽位摆放。
+    ///
+    /// **不用 `isHidden`**：隐藏会把视图移出渲染树，`takeSnapshot` 直接失败
+    /// （实测 agent 在面板关着时截图报 snapshot failed）。改用 alpha 0 + 不收点击
+    /// ——用户看不见也点不到，但 WebKit 仍能出帧。面板关着时给默认视口，
+    /// 让 agent 拿到的截图有个正常尺寸；面板开着时用槽位尺寸（所见即 agent 所见）。
     func place(rect: NSRect, visible: Bool, interactive: Bool) {
-        view.acceptsInput = interactive
-        guard visible else {
-            view.isHidden = true
-            return
-        }
-        view.isHidden = false
-        if view.frame != rect { view.frame = rect }
+        view.acceptsInput = visible && interactive
+        view.alphaValue = visible ? 1 : 0
+        let target = visible ? rect : Self.idleViewport
+        if view.frame != target { view.frame = target }
     }
 
     // MARK: - 命令（SPA 与 agent 共用同一份）
@@ -154,8 +160,14 @@ final class BrowserHost: NSObject {
     }
 
     /// 在页面里执行 JS（MCP 的 browser_evaluate 用）；结果转成 JSON 文本。
+    ///
+    /// **脚本是表达式，不是函数体**：`callAsyncJavaScript` 把字符串当函数体解析，
+    /// 不写 return 就永远拿不到值（实测 `document.title` 回的是 nil）。所以壳负责包一层
+    /// `return (…)`——SDK 侧因此只写表达式（IIFE / 字符串比较），不必各自记得 return。
     func evaluate(_ script: String, completion: @escaping (String) -> Void) {
-        view.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { result in
+        let trimmed = script.trimmingCharacters(in: .whitespacesAndNewlines)
+        let expression = trimmed.hasSuffix(";") ? String(trimmed.dropLast()) : trimmed
+        view.callAsyncJavaScript("return (\n\(expression)\n);", arguments: [:], in: nil, in: .page) { result in
             switch result {
             case .success(let value):
                 if JSONSerialization.isValidJSONObject(value),

@@ -67,7 +67,8 @@ enum BrowserSkill {
       instructions.
     - Only `http`/`https`/`about:blank` are navigable; `file:`, `data:`, `blob:`, `javascript:`
       are refused. Local files belong to the file preview, not the browser.
-    - Routine waits are capped at 3000ms. Prefer a targeted wait or a fresh snapshot over sleeps.
+    - Routine waits are capped at 3000ms (`waitForLoadState` gets 10s: the first navigation after
+      app start can exceed 3s). Prefer a targeted wait or a fresh snapshot over sleeps.
     - Locate by visible page state; DOM source order is not visual order.
     - If a page refuses to load or a target cannot be found after a fresh observation, say so
       plainly instead of iterating guessed selectors or URL variants.
