@@ -4355,7 +4355,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
   gap: 6px;
   height: 34px;
   padding: 0 8px;
-  border-bottom: 1px solid var(--line);
+  /* 顶条不带分隔线（用户定稿）：卡内的分界交给各分区自己的 1px 分隔线，
+     顶条只放控件，控件行与正文之间不留线。 */
 }
 .panel-head-title { flex: 1; min-width: 0; font-size: var(--dsh-font-size-base); color: var(--ink); }
 .panel-controls { flex: none; display: flex; align-items: center; gap: 2px; margin-left: auto; }
