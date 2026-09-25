@@ -537,6 +537,10 @@ extension MainWindowController: WKScriptMessageHandler {
             handleBrowserSync()
             return
         }
+        if type == "browser-shot" {
+            handleBrowserShot()
+            return
+        }
         EngineLog.shared.append("[bridge] host message: \(type)")
         onHostMessage?(body)
     }

@@ -108,7 +108,9 @@ function SlotOverlay({ label, onExpand }: { label: string; onExpand: () => void 
   );
 }
 
-/** 壳载体：页面由壳里的 WKWebView 承载（缩略图态让壳把这一格设成不收点击）。 */
+/** 壳载体：页面由壳里的 WKWebView 承载。展开态把槽位挖给壳的原生视图（人在这里操作）；
+ *  缩略图态显示壳给的**快照图**——WKWebView 没法"缩小放进去"（pageZoom 是重新排版，
+ *  见 BrowserHost.previewShot），缩略图要的是整屏的等比缩小。 */
 function NativeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
   expanded: boolean;
   applicationOrigin: string;
@@ -125,15 +127,18 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
       {expanded && <BrowserToolbar face={face} />}
       <div className="panel-browser-body">
-        {/* 遮罩装在槽位**里面**：它是"点开面板"的点击靶，不该把自己的槽位判成被盖住
-            （那会让壳把原生视图藏起来，缩略图里就看不到页面了）。 */}
-        {empty
-          ? <BrowserEmpty />
-          : (
-            <NativeCarrier interactive={expanded}>
-              {!expanded && <SlotOverlay label={t("展开浏览器")} onExpand={onExpand} />}
-            </NativeCarrier>
-          )}
+        {expanded ? (
+          <NativeCarrier interactive>{null}</NativeCarrier>
+        ) : (
+          <>
+            {empty && <BrowserEmpty />}
+            {!empty && browser.shot !== null && (
+              <img className="sr-browser-shot" src={`data:image/png;base64,${browser.shot}`} alt={browser.title || caption} />
+            )}
+            {/* 遮罩装在槽位外面：缩略图态这格是快照图（不是原生视图），遮罩要盖在图上 */}
+            <SlotOverlay label={t("展开浏览器")} onExpand={onExpand} />
+          </>
+        )}
       </div>
       {!expanded && <ScreenCaption text={caption} />}
     </div>

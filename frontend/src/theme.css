@@ -4438,7 +4438,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser { display: flex; flex-direction: column; min-height: 0; }
 /* 缩略图态：一块带圆角的"屏幕" + 下面一行居中的说明（参考图的形状） */
 .panel-browser.slot { flex: none; padding: 12px 12px 0; gap: 10px; }
-.panel-browser.slot .panel-browser-body { aspect-ratio: 10 / 7; flex: none; }
+/* 与浏览器整屏同比例（16:9）：那一格显示的是整屏快照，盒子比例不同就只能裁边或留黑边 */
+.panel-browser.slot .panel-browser-body { aspect-ratio: 16 / 9; flex: none; }
 .panel-browser.expanded { flex: 1; min-height: 0; }
 .panel-browser-body { position: relative; display: flex; flex: 1; min-height: 0; border-radius: var(--dsh-radius-card); overflow: hidden; background: var(--fill-soft); }
 .panel-browser.slot .panel-browser-body { border: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); }
@@ -4457,6 +4458,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .panel-browser.slot:hover .panel-browser-veil { opacity: 1; }
 .sr-browser-slot { position: absolute; inset: 0; }
+/* 缩略图预览：壳给的整屏快照，等比铺满那一格 */
+.sr-browser-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .sr-browser-frame { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
 /* 空态：类名与 BrowserCarrier 的 sr-browser-empty 一致——曾写成 panel-browser-empty，
    规则一条都不生效（全局类没有 CSS Module 的类名门，只能靠人眼对齐）。 */

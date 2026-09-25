@@ -159,6 +159,44 @@ final class BrowserHost: NSObject {
         }
     }
 
+    /// 缩略图预览用的小图（面板收起时那一格显示的就是它）。
+    ///
+    /// 为什么不是"把 WKWebView 缩小放进去"：`pageZoom` 是**重新排版**（参考实现 Search 的
+    /// 原话："not a magnifying glass over the rendered page — the page is laid out again at
+    /// this size"），缩到 292 宽只会把页面排成又矮又窄的版式；`magnification` 只缩放不改
+    /// 排版；`scaleUnitSquare` 是相对缩放、连调会爆掉 bounds（实测把 app 打崩）。所以预览走
+    /// **快照图**：页面始终按正常屏宽排版，缩略图只是它的一张缩小照片（同参考实现给睡着的
+    /// tab 存 `takeSnapshot` 图）。缩略图因此也顺带把 agent 的截图保持在整屏尺寸。
+    func previewShot(width: CGFloat, completion: @escaping (String?) -> Void) {
+        // snapshotWidth 在这版 WebKit 上被忽略（实测照旧出整屏像素），所以自己缩：
+        // 缩略图那一格不到 300pt 宽，480px 足够清楚，又不至于每 4s 推几百 KB 过桥。
+        view.takeSnapshot(with: WKSnapshotConfiguration()) { image, _ in
+            guard let image, image.size.width > 0 else {
+                completion(nil)
+                return
+            }
+            let scale = min(1, width / image.size.width)
+            let size = NSSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+            guard let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+            ) else {
+                completion(nil)
+                return
+            }
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            image.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .copy, fraction: 1)
+            NSGraphicsContext.restoreGraphicsState()
+            guard let png = rep.representation(using: .png, properties: [:]) else {
+                completion(nil)
+                return
+            }
+            completion(png.base64EncodedString())
+        }
+    }
+
     /// 在页面里执行 JS（MCP 的 browser_evaluate 用）；结果转成 JSON 文本。
     ///
     /// **脚本是表达式，不是函数体**：`callAsyncJavaScript` 把字符串当函数体解析，

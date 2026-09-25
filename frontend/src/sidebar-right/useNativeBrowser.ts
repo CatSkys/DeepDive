@@ -24,6 +24,8 @@ const EMPTY: NativeBrowserState = { url: "", title: "", loading: false, canGoBac
 
 export interface NativeBrowser {
   frame: BrowserFrameState;
+  /** 缩略图预览图（data:image/png;base64 的裸串）；空 = 还没拿到 */
+  shot: string | null;
   title: string;
   draft: string;
   setDraft: (v: string) => void;
@@ -37,13 +39,20 @@ export interface NativeBrowser {
 /** 壳载体的浏览器状态：观察来自壳，命令发给壳。 */
 export function useNativeBrowser(applicationOrigin: string): NativeBrowser {
   const [observed, setObserved] = useState<NativeBrowserState>(EMPTY);
+  const [shot, setShot] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [failure, setFailure] = useState<BrowserAddressFailure | undefined>(undefined);
   const editing = useRef(false);
 
   useEffect(() => onHostEvent((cmd, payload) => {
-    if (cmd !== "browserState") return;
-    setObserved({ ...EMPTY, ...(payload as Partial<NativeBrowserState> | undefined) });
+    if (cmd === "browserState") {
+      setObserved({ ...EMPTY, ...(payload as Partial<NativeBrowserState> | undefined) });
+      return;
+    }
+    if (cmd === "browserShot") {
+      const png = (payload as { png?: unknown } | undefined)?.png;
+      if (typeof png === "string" && png) setShot(png);
+    }
   }), []);
 
   // 挂载即主动要一次当前状态：壳的观察是**变化才推**的，而面板关着时 agent 也在用
@@ -53,6 +62,16 @@ export function useNativeBrowser(applicationOrigin: string): NativeBrowser {
   useEffect(() => {
     sendToShell({ type: "browser-sync" });
   }, []);
+
+  // 缩略图预览：页面在壳里按整屏排版，那一格显示的是它的**快照**（不是缩小版的
+  // WKWebView——壳侧没有"缩小放进去"这条路，见 BrowserHost.previewShot）。
+  // 打开时取一张，之后每 4s 续一张（agent 会滚动/导航，预览要跟得上）。
+  useEffect(() => {
+    if (observed.url === "") return;
+    sendToShell({ type: "browser-shot" });
+    const timer = window.setInterval(() => sendToShell({ type: "browser-shot" }), 4000);
+    return () => window.clearInterval(timer);
+  }, [observed.url]);
 
   const load = useCallback((value: string) => {
     const parsed = parseBrowserAddress(value, applicationOrigin);
@@ -88,6 +107,7 @@ export function useNativeBrowser(applicationOrigin: string): NativeBrowser {
 
   return {
     frame,
+    shot,
     title: observed.title,
     draft,
     setDraft: (v) => { editing.current = true; setDraft(v); },

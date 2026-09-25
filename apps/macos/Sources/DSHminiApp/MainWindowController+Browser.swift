@@ -40,6 +40,15 @@ extension MainWindowController {
         }
     }
 
+    /// SPA 索要缩略图预览（`browser-shot`）：回报一张缩小的快照。
+    /// 面板收起时那一格显示它——WKWebView 没法"缩小放进去"（见 BrowserHost.previewShot）。
+    func handleBrowserShot() {
+        browser.previewShot(width: 480) { [weak self] base64 in
+            guard let self, let base64 else { return }
+            self.pushHostCommand("browserShot", payload: AppDelegate.jsonPayload(["png": base64]))
+        }
+    }
+
     /// SPA 挂载浏览器页时取一次当前观察（`browser-sync`）：观察是"变化才推"的，
     /// 面板关着时 agent 导航过的那一条对后挂载的 SPA 就丢了——不补这一次，SPA 会以为
     /// 浏览器是空的（走空态、连槽位都不推，壳里已经打开的页面因此看不见）。
