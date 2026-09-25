@@ -94,6 +94,11 @@ function BrowserToolbar({ face, sandbox }: {
   );
 }
 
+/** 缩略图下面那行说明（图 2 的 "<名字>'s screen"）。 */
+function ScreenCaption({ text }: { text: string }) {
+  return <div className="panel-browser-caption">{text}</div>;
+}
+
 /** 缩略图态的遮罩：点它展开，不把点击透给网页。 */
 function SlotOverlay({ label, onExpand }: { label: string; onExpand: () => void }) {
   return (
@@ -104,10 +109,11 @@ function SlotOverlay({ label, onExpand }: { label: string; onExpand: () => void 
 }
 
 /** 壳载体：页面由壳里的 WKWebView 承载（缩略图态让壳把这一格设成不收点击）。 */
-function NativeBrowserPane({ expanded, applicationOrigin, onExpand }: {
+function NativeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
+  caption: string;
 }) {
   const browser = useNativeBrowser(applicationOrigin);
   const face: PaneFace = {
@@ -122,15 +128,17 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand }: {
         {empty ? <BrowserEmpty /> : <NativeCarrier />}
         {!expanded && <SlotOverlay label={t("展开浏览器")} onExpand={onExpand} />}
       </div>
+      {!expanded && <ScreenCaption text={caption} />}
     </div>
   );
 }
 
 /** iframe 载体：跨域读不到地址，所以自带"应用自有历史 + 未知地址"状态机。 */
-function IframeBrowserPane({ expanded, applicationOrigin, onExpand }: {
+function IframeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
+  caption: string;
 }) {
   const browser = useIframeBrowser(applicationOrigin);
   const [sandboxed, setSandboxed] = useState(true);
@@ -154,17 +162,19 @@ function IframeBrowserPane({ expanded, applicationOrigin, onExpand }: {
             />}
         {!expanded && <SlotOverlay label={t("展开浏览器")} onExpand={onExpand} />}
       </div>
+      {!expanded && <ScreenCaption text={caption} />}
     </div>
   );
 }
 
 /** 侧栏浏览器（对外入口）：按载体选一支，两种尺寸由调用方给。 */
-export function BrowserPane({ expanded, applicationOrigin, onExpand }: {
+export function BrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
+  caption: string;
 }) {
   return browserCarrierKind() === "native"
-    ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} />
-    : <IframeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} />;
+    ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} caption={caption} />
+    : <IframeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} caption={caption} />;
 }

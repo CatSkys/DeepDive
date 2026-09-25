@@ -58,10 +58,10 @@
     每会话一份 `SurfaceState`（`stores.ts`）、tab 型注册表（`tab-registry.ts`）、Tab 域
     （`tab-domain.ts`）、默认页规则与 guide（`tabs/guide/`）。
   - 本仓移植到 `frontend/src/sidebar-right/`：`panelState.ts`（SurfaceState 的纯函数化）、
-    `panelStore.ts`（每会话宿主）、`viewRegistry.ts`（页型声明）、`SessionPanel.tsx`（面板本体）、
-    `PanelTrigger.tsx`（角落座位：胶囊 or 展开按钮）。
-  - 有意裁剪：官方 dockkit 的分栏/浮动与 tab 持久化/撤销不做（本仓只三个页型），
-    见 `SPEC-BROWSER-USE.md §1`。
+    `panelStore.ts`（每会话宿主）、`SessionPanel.tsx`（面板本体）、`PanelTrigger.tsx`
+    （角落座位：胶囊 or 展开按钮）。
+  - 有意裁剪：官方的 tab 型注册表、dockkit 分栏/浮动、状态持久化与撤销都不做——本仓只有
+    「默认页 + 浏览器页」两页（参考图与用户定稿的形状），见 `SPEC-BROWSER-USE.md §1`。
 
 ## 侧栏浏览器
 - `@deepseek-ai/dsh-client-ui-sidebar-browser`（**0.1.7 才有**，本仓 vendored 副本是 0.1.5，

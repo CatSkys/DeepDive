@@ -90,15 +90,11 @@ export const EN: Record<string, string> = {
   // 右侧边栏（会话面板）与会话设置
   "展开边栏": "Open side panel",
   "会话设置": "Chat settings",
-  "全屏": "Fullscreen",
   "跟随默认": "Follow default",
   "权限": "Permissions",
   "发送方式": "Send behaviour",
   "这个会话还没有可展示的状态": "Nothing to show for this chat yet",
   "已结束 {n} 项": "Ended {n}",
-  "指南": "Guide",
-  "会话状态": "Chat status",
-  "任务与计划、产物、后台任务": "Tasks and plan, artifacts, background jobs",
   // 侧栏浏览器（移植官方 ui-sidebar-browser 的文案）
   "后退": "Back",
   "前进": "Forward",

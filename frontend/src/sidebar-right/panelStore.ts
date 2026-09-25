@@ -7,8 +7,8 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import {
-  closeTab, collapse, emptySurface, expand, focusTab, openTab, setFullscreen,
-  type SurfaceState, type TabKind,
+  collapse, emptySurface, expand, expandBrowser, setFullscreen, setMode, showSession,
+  type PanelMode, type SurfaceState,
 } from "./panelState";
 
 const surfaces = new Map<string, SurfaceState>();
@@ -46,29 +46,27 @@ export function usePanelSurface(sessionId: string | null): SurfaceState {
 /** 写：每个动作都要 sessionId；没有会话时全部无操作（官方：无会话无面板）。 */
 export const panelActions = {
   setOpen(sessionId: string, open: boolean): void {
-    commit(sessionId, open ? expand(surfaceOf(sessionId), "status", "") : collapse(surfaceOf(sessionId)));
+    commit(sessionId, open ? expand(surfaceOf(sessionId)) : collapse(surfaceOf(sessionId)));
   },
   toggle(sessionId: string): void {
     const s = surfaceOf(sessionId);
-    commit(sessionId, s.open ? collapse(s) : expand(s, "status", ""));
+    commit(sessionId, s.open ? collapse(s) : expand(s));
   },
   setFullscreen(sessionId: string, fullscreen: boolean): void {
     commit(sessionId, setFullscreen(surfaceOf(sessionId), fullscreen));
   },
-  openTab(sessionId: string, kind: TabKind, title: string, params?: Record<string, unknown>): void {
-    commit(sessionId, openTab(surfaceOf(sessionId), kind, title, params));
+  setMode(sessionId: string, mode: PanelMode): void {
+    commit(sessionId, setMode(surfaceOf(sessionId), mode));
   },
-  closeTab(sessionId: string, id: string): void {
-    commit(sessionId, closeTab(surfaceOf(sessionId), id));
+  /** 点屏幕缩略图：换到浏览器页并进全屏呈现。 */
+  expandBrowser(sessionId: string): void {
+    commit(sessionId, expandBrowser(surfaceOf(sessionId)));
   },
-  focusTab(sessionId: string, id: string): void {
-    commit(sessionId, focusTab(surfaceOf(sessionId), id));
+  /** 从浏览器页退回默认页。 */
+  showSession(sessionId: string): void {
+    commit(sessionId, showSession(surfaceOf(sessionId)));
   },
-  /** 回到默认页（浏览器槽位 + 能力分区那一页）。 */
-  showDefault(sessionId: string): void {
-    commit(sessionId, { ...surfaceOf(sessionId), activeId: null });
-  },
-  /** 测试与热路径之外的重置入口（切会话不需要它：状态本来就是每会话的）。 */
+  /** 测试用的重置入口。 */
   reset(): void {
     surfaces.clear();
     for (const l of listeners) l();

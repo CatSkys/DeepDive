@@ -4322,19 +4322,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
   padding: 0 8px;
   border-bottom: 1px solid var(--line);
 }
-.panel-tabs { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 1; overflow: hidden; }
-.panel-tab {
-  flex: none;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: var(--dsh-radius-keycap);
-  color: var(--ink-3);
-  font-size: var(--dsh-font-size-sm);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
-}
-.panel-tab:hover { background: var(--fill); color: var(--ink); }
-.panel-tab.active { background: var(--fill-strong); color: var(--ink); }
-.panel-controls { flex: none; display: flex; align-items: center; gap: 2px; }
+.panel-head-title { flex: 1; min-width: 0; font-size: var(--dsh-font-size-base); color: var(--ink); }
+.panel-controls { flex: none; display: flex; align-items: center; gap: 2px; margin-left: auto; }
 .panel-icon-btn {
   width: 24px;
   height: 24px;
@@ -4372,13 +4361,16 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-layer { flex: none; display: flex; flex-direction: column; min-height: 0; }
 /* 浏览器页：这一层要吃掉整块正文高度——否则 .panel-browser 的 flex:1 会落在一个
    内容高度的父级上、塌成一条（实测 iframe 只有 150px 高）。 */
-.panel[data-view="browser"] .panel-browser-layer { flex: 1; min-height: 0; }
+.panel[data-mode="browser"] .panel-browser-layer { flex: 1; min-height: 0; }
 .panel-browser-layer[data-hidden="true"] { display: none; }
 .panel-browser { display: flex; flex-direction: column; min-height: 0; }
-.panel-browser.slot { height: 176px; padding: 8px 8px 0; }
+/* 缩略图态：一块带圆角的"屏幕" + 下面一行居中的说明（参考图的形状） */
+.panel-browser.slot { flex: none; padding: 12px 12px 0; gap: 10px; }
+.panel-browser.slot .panel-browser-body { aspect-ratio: 10 / 7; flex: none; }
 .panel-browser.expanded { flex: 1; min-height: 0; }
-.panel-browser-body { position: relative; flex: 1; min-height: 0; border-radius: var(--dsh-radius-card); overflow: hidden; background: var(--fill-soft); }
-.panel-browser.slot .panel-browser-body { border: 1px solid var(--line); }
+.panel-browser-body { position: relative; display: flex; flex: 1; min-height: 0; border-radius: var(--dsh-radius-card); overflow: hidden; background: var(--fill-soft); }
+.panel-browser.slot .panel-browser-body { border: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); }
+.panel-browser-caption { flex: none; text-align: center; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 /* 缩略图态的遮罩：点它展开（原生视图在这一格不收点击，见 BrowserHost.setInteractive） */
 .panel-browser-veil {
   position: absolute;
@@ -4394,7 +4386,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser.slot:hover .panel-browser-veil { opacity: 1; }
 .sr-browser-slot { position: absolute; inset: 0; }
 .sr-browser-frame { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
-.panel-browser-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ink-faint); font-size: var(--dsh-font-size-sm); }
+/* 空态：类名与 BrowserCarrier 的 sr-browser-empty 一致——曾写成 panel-browser-empty，
+   规则一条都不生效（全局类没有 CSS Module 的类名门，只能靠人眼对齐）。 */
+.sr-browser-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: var(--dsh-font-size-sm); }
 
 .panel-browser-toolbar { flex: none; display: flex; align-items: center; gap: 3px; padding: 5px 6px; border-bottom: 1px solid var(--line); }
 .panel-browser-tool {
@@ -4431,8 +4425,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 /* ---------- 面板里的会话设置 ---------- */
 .panel-settings { display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
-.panel-settings-head { display: flex; align-items: center; gap: 6px; }
-.panel-settings-title { font-size: var(--dsh-font-size-base); color: var(--ink); font-weight: 500; }
 .panel-settings-section { display: flex; flex-direction: column; gap: 6px; }
 .panel-settings-label { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .panel-settings-row {
@@ -4492,24 +4484,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-artifact-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-artifact-meta { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-empty { padding: 18px 14px; color: var(--ink-faint); font-size: var(--dsh-font-size-sm); text-align: center; }
-
-/* ---------- 面板里的指南页 ---------- */
-.panel-guide { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 16px; }
-.panel-guide-glyph { color: var(--ink-faint); }
-.panel-guide-entry {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-card);
-  text-align: left;
-  color: var(--ink);
-}
-.panel-guide-entry:hover { background: var(--fill); }
-.panel-guide-name { font-size: var(--dsh-font-size-base); }
-.panel-guide-desc { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); }
 
 /* 窄屏（手机远程）：面板改用 fullscreen 呈现（官方：768px 以下自动全屏） */
 @media (max-width: 760px) {

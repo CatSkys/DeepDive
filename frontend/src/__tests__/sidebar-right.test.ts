@@ -9,7 +9,7 @@ import {
   navigate, reload,
 } from "../sidebar-right/browserNavigation";
 import {
-  closeTab, collapse, emptySurface, expand, focusTab, openTab, setFullscreen, toggleExpanded,
+  collapse, emptySurface, expand, expandBrowser, setFullscreen, setMode, showSession, toggleExpanded,
 } from "../sidebar-right/panelState";
 import { mergeArtifacts, sessionArtifacts } from "../sidebar-right/sessionArtifacts";
 import type { RenderItem } from "../session/renderModel";
@@ -116,44 +116,45 @@ describe("导航状态机（官方 BrowserNavigation）", () => {
 });
 
 describe("面板状态（官方 ui-sidebar-right 的规则）", () => {
-  it("一个会话从收起且空开始；展开时补默认页", () => {
-    const s = expand(emptySurface(), "status", "会话");
+  it("一个会话从收起且空开始；展开落在默认页（屏幕缩略图 + 能力分区）", () => {
+    const s = expand(emptySurface());
     expect(s.open).toBe(true);
-    expect(s.tabs.map((t) => t.kind)).toEqual(["status"]);
-    expect(s.activeId).toBe(s.tabs[0]!.id);
+    expect(s.mode).toBe("session");
+    expect(s.fullscreen).toBe(false);
   });
 
-  it("收起连全屏一起收（不留一个全屏的空面板）", () => {
-    const s = setFullscreen(expand(emptySurface(), "status", "会话"), true);
+  it("收起连全屏与浏览器页一起收（不留一个全屏的空面板）", () => {
+    const s = expandBrowser(emptySurface());
+    expect(s.fullscreen).toBe(true);
     expect(collapse(s).fullscreen).toBe(false);
     expect(collapse(s).open).toBe(false);
+    expect(collapse(s).mode).toBe("session");
   });
 
   it("toggle 在收起/展开之间来回", () => {
-    const opened = toggleExpanded(emptySurface(), "status", "会话");
+    const opened = toggleExpanded(emptySurface());
     expect(opened.open).toBe(true);
-    expect(toggleExpanded(opened, "status", "会话").open).toBe(false);
+    expect(toggleExpanded(opened).open).toBe(false);
   });
 
-  it("开同一个地址的 tab 只聚焦不新增", () => {
-    let s = expand(emptySurface(), "status", "会话");
-    s = openTab(s, "browser", "浏览器", { url: "https://a.com/" });
-    s = openTab(s, "browser", "浏览器", { url: "https://a.com/" });
-    expect(s.tabs.filter((t) => t.kind === "browser").length).toBe(1);
+  it("点缩略图展开浏览器：换页 + 进全屏", () => {
+    const s = expandBrowser(emptySurface());
+    expect(s.mode).toBe("browser");
+    expect(s.fullscreen).toBe(true);
+    expect(s.open).toBe(true);
   });
 
-  it("关掉最后一个 tab 连同整列一起收", () => {
-    const s = openTab(expand(emptySurface(), "status", "会话"), "browser", "浏览器", { url: "https://a.com/" });
-    const closed = closeTab(s, s.activeId!);
-    expect(closed.tabs.length).toBe(1);
-    expect(closed.open).toBe(true);
-    const emptied = closeTab({ ...closed, tabs: [closed.tabs[0]!], activeId: closed.tabs[0]!.id }, closed.tabs[0]!.id);
-    expect(emptied.open).toBe(false);
+  it("从浏览器页退回默认页：呈现也跟着退回 push", () => {
+    const s = showSession(expandBrowser(emptySurface()));
+    expect(s.mode).toBe("session");
+    expect(s.fullscreen).toBe(false);
+    expect(s.open).toBe(true);
   });
 
-  it("聚焦不存在的 tab 无操作", () => {
-    const s = expand(emptySurface(), "status", "会话");
-    expect(focusTab(s, "nope")).toBe(s);
+  it("单独切全屏不改页", () => {
+    const s = setFullscreen(setMode(expand(emptySurface()), "browser"), true);
+    expect(s.mode).toBe("browser");
+    expect(setFullscreen(s, false).mode).toBe("browser");
   });
 });
 

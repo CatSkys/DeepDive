@@ -7,7 +7,6 @@
 //   发送方式 —— 引擎 ui-conversation.busyEnter（全局设置，与设置→通用同源；引擎没有会话级开关）
 
 import { useEffect, useState } from "react";
-import { ChevronLeft } from "lucide-react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
@@ -23,12 +22,11 @@ export interface PermissionSelect {
   currentValue: string;
 }
 
-export function SessionSettings({ sessionId, face, permissions, onBack, onOpenPlugins }: {
+export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }: {
   sessionId: string;
   face: ModelFace;
   /** 会话权限的投影视图（调用方从 summary.projections.values.permissions 取）；读不到就不显示这一区。 */
   permissions: PermissionSelect | null;
-  onBack: () => void;
   /** 插件页的"去装一个"落点：切到设置页的插件分区（面板里不重造安装流程）。 */
   onOpenPlugins: () => void;
 }) {
@@ -68,13 +66,6 @@ export function SessionSettings({ sessionId, face, permissions, onBack, onOpenPl
 
   return (
     <div className="panel-settings">
-      <div className="panel-settings-head">
-        <button type="button" className="panel-icon-btn" aria-label={t("返回")} data-tip={t("返回")} onClick={onBack}>
-          <ChevronLeft size={15} />
-        </button>
-        <span className="panel-settings-title">{t("会话设置")}</span>
-      </div>
-
       <div className="panel-settings-section">
         <div className="panel-settings-label">{t("模型")}</div>
         <button
