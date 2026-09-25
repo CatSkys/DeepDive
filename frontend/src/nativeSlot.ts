@@ -35,12 +35,18 @@ function readRect(el: Element): SlotBox | null {
   return { x: r.left, y: r.top, w: r.width, h: r.height };
 }
 
-/** 命中测试：槽位中心与两个偏差点处的最上层 DOM 元素是否都还在槽位内。 */
+/** 命中测试：槽位中心与两个内缩点处的最上层 DOM 元素是否都还在槽位内。
+ *
+ *  内缩量**不能小于宿主容器的圆角**：圆角外的角区被父级 `overflow:hidden` 裁掉，探针
+ *  落在那里命中的是父级本身，于是"自家圆角"会被误判成"被浮层盖住"（浏览器缩略图那格
+ *  14px 圆角 + 4px 探针 → 恒判 visible:false，原生视图永远不显示）。12px 对常见圆角
+ *  （control 8 / card 14 / panel 18）都安全；槽位很小时按四分之一边长收窄。 */
 function unobstructed(el: Element, box: SlotBox): boolean {
+  const inset = Math.max(1, Math.min(12, box.w / 4, box.h / 4));
   const probes: Array<[number, number]> = [
     [box.x + box.w / 2, box.y + box.h / 2],
-    [box.x + 4, box.y + 4],
-    [box.x + box.w - 4, box.y + box.h - 4],
+    [box.x + inset, box.y + inset],
+    [box.x + box.w - inset, box.y + box.h - inset],
   ];
   for (const [px, py] of probes) {
     const hit = document.elementFromPoint(px, py);
@@ -49,9 +55,15 @@ function unobstructed(el: Element, box: SlotBox): boolean {
   return true;
 }
 
+/** 上一轮推过的槽位 id：这一轮不在 DOM 里的要**显式**推 visible:false。
+ *  纪律①（见文件头）说的是"未挂载也要显式表达"，而槽位元素整块卸载时（面板收起、
+ *  浏览器页换成空态）循环自然漏掉它——壳会沿用旧 rect 把原生视图留在原地盖住界面。 */
+let pushedIds: string[] = [];
+
 /** 推一次所有槽位（导出供测试与立即生效用）。 */
 export function pushNativeSlots(): void {
   if (!inShell()) return;
+  const seen: string[] = [];
   for (const el of document.querySelectorAll(`[${NATIVE_SLOT_ATTR}]`)) {
     const id = el.getAttribute(NATIVE_SLOT_ATTR) ?? "";
     if (id === "") continue;
@@ -59,7 +71,13 @@ export function pushNativeSlots(): void {
     const visible = box !== null && unobstructed(el, box);
     const interactive = el.getAttribute(NATIVE_SLOT_INTERACTIVE_ATTR) === "1";
     sendToShell({ type: "native-slot", id, visible, interactive, rect: box ?? { x: 0, y: 0, w: 0, h: 0 } });
+    seen.push(id);
   }
+  for (const id of pushedIds) {
+    if (seen.includes(id)) continue;
+    sendToShell({ type: "native-slot", id, visible: false, interactive: false, rect: { x: 0, y: 0, w: 0, h: 0 } });
+  }
+  pushedIds = seen;
 }
 
 /** 隐藏全部槽位（整页导航前调用；壳侧据此立刻把原生视图收起来）。 */

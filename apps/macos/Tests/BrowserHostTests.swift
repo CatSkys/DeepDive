@@ -50,6 +50,19 @@ final class BrowserHostTests: XCTestCase {
         XCTAssertFalse(BrowserHost.allowed(URL(string: "about:config")!))
     }
 
+    // MARK: - 观察重推（SPA 挂载浏览器页时经 browser-sync 主动要一次）
+
+    func testResyncPublishesAnObservation() {
+        // 观察只在导航事件里推；resync 是"面板后挂载"补那一次的唯一入口。空白页面也要发
+        // （url 为空是有效事实：SPA 据此走空态），不能静默什么都不做。
+        let host = BrowserHost()
+        var seen: BrowserObservation?
+        host.onObservation = { seen = $0 }
+        host.resync()
+        XCTAssertNotNil(seen, "resync 必须推一条观察，即使页面还是空的")
+        XCTAssertEqual(seen?.url, "")
+    }
+
     // MARK: - 组合行（app 自有 overlay 里的内置 MCP server）
 
     func testPatchRowPinsPathsAndSecretReferences() {

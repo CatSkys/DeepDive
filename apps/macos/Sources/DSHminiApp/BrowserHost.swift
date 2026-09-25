@@ -185,6 +185,10 @@ final class BrowserHost: NSObject {
         }
     }
 
+    /// 把当前观察重推一次（SPA 挂载浏览器页时经 `browser-sync` 主动要一次）。
+    /// 观察只在导航事件里发，面板关着时 agent 导航过的那一条没人收——重推是补那一次。
+    func resync() { publish() }
+
     private func publish() {
         let observation = BrowserObservation(
             url: view.url?.absoluteString ?? "",

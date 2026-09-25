@@ -46,6 +46,14 @@ export function useNativeBrowser(applicationOrigin: string): NativeBrowser {
     setObserved({ ...EMPTY, ...(payload as Partial<NativeBrowserState> | undefined) });
   }), []);
 
+  // 挂载即主动要一次当前状态：壳的观察是**变化才推**的，而面板关着时 agent 也在用
+  // 同一个浏览器（它导航完就推过了）。后挂载的 SPA 收不到那一帧，地址会一直是空的
+  // → 走空态、连槽位都不渲染 → 壳里已经打开的页面看不见（用户报"浏览器显示好像没有
+  // 正常使用"）。同步后壳回一条 browserState。
+  useEffect(() => {
+    sendToShell({ type: "browser-sync" });
+  }, []);
+
   const load = useCallback((value: string) => {
     const parsed = parseBrowserAddress(value, applicationOrigin);
     if (!parsed.ok) {

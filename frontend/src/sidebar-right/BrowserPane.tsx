@@ -125,8 +125,15 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
       {expanded && <BrowserToolbar face={face} />}
       <div className="panel-browser-body">
-        {empty ? <BrowserEmpty /> : <NativeCarrier />}
-        {!expanded && <SlotOverlay label={t("展开浏览器")} onExpand={onExpand} />}
+        {/* 遮罩装在槽位**里面**：它是"点开面板"的点击靶，不该把自己的槽位判成被盖住
+            （那会让壳把原生视图藏起来，缩略图里就看不到页面了）。 */}
+        {empty
+          ? <BrowserEmpty />
+          : (
+            <NativeCarrier interactive={expanded}>
+              {!expanded && <SlotOverlay label={t("展开浏览器")} onExpand={onExpand} />}
+            </NativeCarrier>
+          )}
       </div>
       {!expanded && <ScreenCaption text={caption} />}
     </div>

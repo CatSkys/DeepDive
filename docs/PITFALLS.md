@@ -290,6 +290,31 @@
   而 App 未本地化时第一者会静默退回开发语言。本仓同类面还有：引擎/SPA 的语言（我们自建
   `i18n`，不看系统）、`pdf.js` 与 `mermaid` 的本地化。
 
+### 4.21 原生槽位这条链有四份契约，任一份"忘了设"都表现为"浏览器坏了"而不是报错（2026-09-25 用户报"浏览器显示好像没有正常使用"）
+
+- 事故：agent 已经把页面开在小红书（它还读得到页面内容），面板里却是"还没有打开的网页"。
+  四个独立缺陷叠在同一条链上，逐个查才拆开：
+  1. **壳的观察是"变化才推"**（WKWebView 的 didStart/didFinish）。面板关着时 agent 导航过的
+     那一条没人收，而 SPA 没有"要一次当前状态"的路 → 后挂载的 SPA 地址恒空 → 走空态、连槽位
+     都不渲染 → 壳里已经打开的页面看不见。修：`browser-sync` 消息 + `BrowserHost.resync()`，
+     `useNativeBrowser` 挂载即要一次。
+  2. **自家遮罩把自家槽位判成"被盖住"**：缩略图态的展开遮罩当时是槽位元素的**兄弟**，而可见性
+     判定是"最上层元素是否仍在槽位内"（`unobstructed`）→ 推 `visible:false` → 缩略图永远空白。
+     修：遮罩装进槽位元素**里面**——要挡的是点击，那由 `interactive` 交壳的 `hitTest`，
+     不需要靠"遮住"表达。
+  3. **探针内缩小于容器圆角**：`unobstructed` 原用 4px 内缩，而宿主是 `border-radius: 14px` +
+     `overflow:hidden` ——探针落进圆角被裁掉的角区，命中的是父级本身，于是恒判"被盖住"（与 2
+     叠加，两个都在同一处失效）。修：内缩量按圆角定（12px，槽位小时按 1/4 边长收窄）。
+     量法：`document.elementsFromPoint` 在距角 3px/4px 各打一次，栈顶从槽位变成父级的那个
+     偏移量就是圆角的裁切边界。
+  4. **`data-native-slot-interactive` 定义了但从来没人设**：壳侧 `acceptsInput = visible &&
+     interactive` 于是恒 false → 展开后的页面看得见、点不动（`hitTest` 返回 nil，事件穿透回
+     SPA）。修：`NativeCarrier interactive={expanded}`。
+- 纪律：槽位这条链的契约是四份——rect / visible / interactive / **未挂载也要显式表达**。
+  `pushNativeSlots` 原来只遍历"现在还在 DOM 里"的元素，槽位整块卸载（面板收起、浏览器页换成
+  空态）时什么都不发，壳沿用旧 rect 把原生视图留在原地盖住界面；现在按上一轮推过的 id 补发
+  `visible:false`。**新增槽位时按这四份逐条核对**，它们的失效方式都是"看着像没生效"。
+
 ---
 
 ## 5. 版本角标 / 交付自检

@@ -86,8 +86,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     private var themeEnabled: Bool
 
     /// 侧栏浏览器的壳侧宿主（窗口里的第二个 WKWebView）。位置由前端推上来的槽位 rect
-    /// 决定（frontend/src/nativeSlot.ts → `native-slot` 消息），命令来自 SPA（browser-nav）
-    /// 与 agent（/mcp）两侧。
+    /// 决定（frontend/src/nativeSlot.ts → `native-slot` 消息），命令来自 SPA（browser-nav
+    /// 导航 / browser-sync 取当前观察）与 agent（/mcp）两侧。
     let browser = BrowserHost()
     /// 槽位换算需要的两个实时值（effectView / webView 是私有的，只开这一对读数口给
     /// MainWindowController+Browser 用）。
@@ -531,6 +531,10 @@ extension MainWindowController: WKScriptMessageHandler {
         // 浏览器命令由本窗口的扩展处理（宿主就在这儿），其余按原路交给 AppDelegate 的 case 表
         if type == "browser-nav" {
             handleBrowserNav(body)
+            return
+        }
+        if type == "browser-sync" {
+            handleBrowserSync()
             return
         }
         EngineLog.shared.append("[bridge] host message: \(type)")

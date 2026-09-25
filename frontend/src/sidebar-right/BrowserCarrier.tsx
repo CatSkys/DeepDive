@@ -9,14 +9,31 @@
 
 import { t } from "../i18n";
 import { inShell } from "../host";
+import { NATIVE_SLOT_INTERACTIVE_ATTR } from "../nativeSlot";
 import { WEB_BROWSER_SANDBOX } from "./useIframeBrowser";
+import type { ReactNode } from "react";
 
 /** 原生槽位：壳按这个元素的 rect 摆 WKWebView；id 全局唯一（壳只有一个浏览器视图）。 */
 export const NATIVE_BROWSER_SLOT = "browser";
 
-/** 壳载体的槽位元素（无壳桥时不渲染——那时走 iframe）。 */
-export function NativeCarrier() {
-  return <div className="sr-browser-slot" data-native-slot={NATIVE_BROWSER_SLOT} />;
+/** 原生槽位：壳按这个元素的 rect 摆 WKWebView；id 全局唯一（壳只有一个浏览器视图）。
+ *
+ *  **槽内的东西都装在它里面**（children）：nativeSlot 的可见性判定是"最上层元素是否仍在
+ *  槽位内"（unobstructed），把自家的展开遮罩放成兄弟就会被判成"被盖住" → 推 visible:false
+ *  → 缩略图那格什么都看不见（原生视图让位给遮罩了）。遮罩要挡的是**点击**，那由
+ *  `interactive` 交壳的 hitTest 做，不需要靠"遮住"来表达。
+ *
+ *  `interactive`：缩略图态 false（点它是"展开面板"而不是操作网页），展开态 true。 */
+export function NativeCarrier({ interactive, children }: { interactive: boolean; children?: ReactNode }) {
+  return (
+    <div
+      className="sr-browser-slot"
+      data-native-slot={NATIVE_BROWSER_SLOT}
+      {...(interactive ? { [NATIVE_SLOT_INTERACTIVE_ATTR]: "1" } : {})}
+    >
+      {children}
+    </div>
+  );
 }
 
 /** iframe 载体：每次请求换 key → 重新挂载即重新加载（应用自有历史的等价物）。 */

@@ -39,4 +39,11 @@ extension MainWindowController {
         default: break
         }
     }
+
+    /// SPA 挂载浏览器页时取一次当前观察（`browser-sync`）：观察是"变化才推"的，
+    /// 面板关着时 agent 导航过的那一条对后挂载的 SPA 就丢了——不补这一次，SPA 会以为
+    /// 浏览器是空的（走空态、连槽位都不推，壳里已经打开的页面因此看不见）。
+    func handleBrowserSync() {
+        browser.resync()
+    }
 }
