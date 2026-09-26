@@ -33,10 +33,10 @@
       "detail": "303 lines > 300"
     },
     {
-      "id": "00f42dae25155ee0",
+      "id": "86a11cddd724cd04",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
-      "detail": "588 lines > 300"
+      "detail": "620 lines > 300"
     },
     {
       "id": "0a512c83dc5be250",
@@ -81,10 +81,10 @@
       "detail": "364 lines > 300"
     },
     {
-      "id": "b156231ed0733ce7",
+      "id": "a8ab237c0a7b3c91",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
-      "detail": "484 lines > 300"
+      "detail": "489 lines > 300"
     },
     {
       "id": "fad5d8c1900c1ce9",

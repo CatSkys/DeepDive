@@ -77,6 +77,26 @@ final class BrowserHostTests: XCTestCase {
         XCTAssertNotEqual(version, "0")
     }
 
+
+    // MARK: - 悬浮输入框叠加层（浏览器全屏时浮在网页之上）
+
+    func testPillRectFlipsIntoAppKitCoordinates() {
+        // 页面坐标是 CSS（左上原点、y 向下），AppKit 是左下原点 —— 这层翻转写错了
+        // 不会报错，只会"胶囊那块点不动 / 透明处把网页点击吞掉"，所以钉住它。
+        let host = ComposerOverlayHost()
+        host.view.frame = NSRect(x: 0, y: 0, width: 800, height: 320)
+        host.setPill(cssRect: NSRect(x: 200, y: 240, width: 300, height: 60), zoom: 1)
+        XCTAssertEqual(host.view.interactiveRect, NSRect(x: 200, y: 20, width: 300, height: 60))
+    }
+
+    func testOverlayIsTransparentAndStartsHidden() {
+        // 透明是这个方案的前提：不透明就会盖住底下的网页那一整条带。
+        let host = ComposerOverlayHost()
+        // 比颜色空间没意义（sRGB 与 Generic Gray 的 clear 不等价）——要的是"透"
+        XCTAssertEqual(host.view.underPageBackgroundColor.alphaComponent, 0)
+        XCTAssertEqual(host.view.alphaValue, 0)
+    }
+
     // MARK: - 组合行（app 自有 overlay 里的内置 MCP server）
 
     func testPatchRowPinsPathsAndSecretReferences() {

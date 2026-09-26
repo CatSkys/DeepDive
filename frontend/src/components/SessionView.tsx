@@ -11,6 +11,7 @@ import { PlanReviewCard } from "./PlanReviewCard";
 import { SubagentReadOnlyNotice } from "../session/SubagentReadOnlyNotice";
 import { PanelTrigger } from "../sidebar-right/PanelTrigger";
 import { SessionPanel } from "../sidebar-right/SessionPanel";
+import { useComposerOverlay } from "../sidebar-right/useComposerOverlay";
 import { sessionArtifacts } from "../sidebar-right/sessionArtifacts";
 import type { PermissionSelect } from "../settings/permissionPreset";
 import { groupTurns, type TurnGroup } from "../turnGroups";
@@ -223,6 +224,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     sessionStats?: { turns?: number; steps?: number; llmMs?: number; toolMs?: number; ttftMs?: number; ttftSteps?: number; decodeMs?: number; decodeTokens?: number };
   };
   // 容量圈数据挂在输入框上（发送/听写钮左侧，hover 出面板）
+  // 浏览器全屏 → 壳在网页之上叠一层透明 webview 跑同一个 Composer（悬浮输入框）；
+  // 同时这里把自己那份收起来：同一会话只允许一个活着的 composer。
+  const browserFullscreen = useComposerOverlay(sessionId);
+
   const ctxData = {
     projected: projVals.contextPressure?.projectedTokens,
     window: projVals.contextPressure?.contextWindow,
@@ -461,7 +466,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           ) : summary?.origin === "subagent" ? (
             // continuable 子会话（0.1.5）：subagents/prompt 经父会话投递
             <Composer sessionId={sessionId} ctx={ctxData} variant={{ kind: "subagent", parentSessionId: summary.parentSessionId! }} registerSending={registerSending} />
-          ) : (
+          ) : browserFullscreen ? null : (
             <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
           )}
         </div>

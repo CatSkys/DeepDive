@@ -354,6 +354,27 @@
   真首页、`navigator.userAgent` 末段为 `Version/27.0 Safari/605.1.15`。
 
 
+### 4.23 原生网页之上浮不了 HTML：悬浮输入框只能让壳再叠一层**透明** webview（2026-09-26 用户要"浏览器全屏时的悬浮输入框"）
+
+- 症状与根因同 §4.21：侧栏浏览器的页面是壳里的 `WKWebView`，**恒画在 SPA 的 HTML 之上**。
+  所以"把输入框浮在网页上面"这件事，HTML 里做不到（同一条原因也让缩略图那层悬停蒙层看不见）。
+- 走通的路：壳在浏览器视图**之后**再叠一层 `WKWebView`（`ComposerOverlayHost`），它：
+  ① 透明——壳侧 `setValue(false, forKey: "drawsBackground")` + `underPageBackgroundColor = .clear`
+  （与主 SPA 那个 webview 同一配方，见 `MainWindowController`），页面侧 `[data-overlay] body`
+  也不画底；② 里面跑的是**同一份 SPA**（`?composer=<sid>` 只挂输入框那一支），所以输入能力
+  与配色没有第二份实现；③ 只在自己那块矩形里收事件，其余透传（见下一条）。
+- **透明层会吞掉底下的点击与滚轮**：整层若照单全收，网页在那块区域就点不动了。做法是页面把
+  胶囊（含上方浮条）的 rect 报上来（`composer-pill`），壳把它换算成 AppKit 坐标存进
+  `interactiveRect`，`hitTest` 只在那块返回自己，其余返回 nil。坐标翻转是这层唯一的算术，
+  写错不报错、只表现为"胶囊点不动/网页点不动"，所以 `BrowserHostTests` 里钉了一条。
+- 位置由主 SPA 算（它知道面板网页那一格的几何）后推 `composer-overlay`（含 rect）；会话为
+  nil 即收起。同屏只允许一个活着的 composer：浏览器全屏时会话列自己那份不再渲染。
+- 顺带一条 CSS 坑：`Composer` 的根是 `.composer-wrap`（`flex: 1` 的弹性项）。把它放进
+  `flex-direction: column; align-items: center` 的容器里，它会被缩成"内容宽"——实测 1110 宽的
+  带子里胶囊只有 312px。容器要 `align-items: stretch`，再让需要收窄的浮条自己
+  `align-self: center`。
+
+
 ---
 
 ## 5. 版本角标 / 交付自检

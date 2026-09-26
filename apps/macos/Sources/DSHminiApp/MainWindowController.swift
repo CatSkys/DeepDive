@@ -89,10 +89,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     /// 决定（frontend/src/nativeSlot.ts → `native-slot` 消息），命令来自 SPA（browser-nav
     /// 导航 / browser-sync 取当前观察）与 agent（/mcp）两侧。
     let browser = BrowserHost()
+    /// 浏览器全屏时的**悬浮输入框**叠加层（透明 webview，见 ComposerOverlayHost）。
+    let composerOverlay = ComposerOverlayHost()
     /// 槽位换算需要的两个实时值（effectView / webView 是私有的，只开这一对读数口给
     /// MainWindowController+Browser 用）。
     var browserContainerHeight: CGFloat { effectView.bounds.height }
     var browserZoom: CGFloat { webView.pageZoom }
+    /// SPA 的源（scheme://host:port）：叠加层要用同一个源打开同一个包，才能共用
+    /// localStorage（草稿按会话存在那儿）与同一套桥。
+    var spaOrigin: String {
+        guard let url = webView.url, let scheme = url.scheme, let host = url.host else { return "" }
+        return url.port.map { "\(scheme)://\(host):\($0)" } ?? "\(scheme)://\(host)"
+    }
 
     /// 按当前内容高度与 pageZoom 重算浏览器视图的 frame（槽位本身存在 BrowserHost 里）。
     private func applyBrowserSlot() {
@@ -220,6 +228,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         BrowserControl.hostProvider = { [weak self] in self?.browser }
         browser.place(rect: BrowserHost.idleViewport, visible: false, interactive: false)
         effectView.addSubview(browser.view)
+
+        // 悬浮输入框叠加层加在浏览器视图**之后**：网页之上才能浮得住（网页是原生视图，
+        // 恒在 SPA 的 HTML 之上，HTML 浮不上去）。它只在自己那颗胶囊的矩形里收点击，
+        // 其余对鼠标透明（ComposerOverlayView.hitTest）。桥与主 SPA 同一套：输入框要用
+        // 到的附件选择/听写都走这里。
+        let overlayController = composerOverlay.view.configuration.userContentController
+        overlayController.add(self, name: "deepdiveHost")
+        overlayController.add(self, name: "deepdive")
+        composerOverlay.view.navigationDelegate = self
+        composerOverlay.view.uiDelegate = self
+        effectView.addSubview(composerOverlay.view)
 
         webView.navigationDelegate = self
         // JS alert()/confirm()/prompt() need a WKUIDelegate; without one they
@@ -368,6 +387,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
             return
         }
         let js = "window.__deepDiveHost ? (window.__deepDiveHost.dispatch('\(cmd)', \(payload)), 'ok') : 'no-host'"
+        // 悬浮输入框那一层是另一个 webview：听写回执、附件选择结果这类"壳→前端"的命令
+        // 只发主 SPA 就会落空，所以叠加层可见时一并投一份。
+        if composerOverlay.view.alphaValue > 0 {
+            composerOverlay.view.evaluateJavaScript(js) { _, _ in }
+        }
         webView.evaluateJavaScript(js) { result, _ in
             completion((result as? String) == "ok")
         }
@@ -539,6 +563,14 @@ extension MainWindowController: WKScriptMessageHandler {
         }
         if type == "browser-shot" {
             handleBrowserShot()
+            return
+        }
+        if type == "composer-overlay" {
+            handleComposerOverlay(body)
+            return
+        }
+        if type == "composer-pill" {
+            handleComposerPill(body)
             return
         }
         EngineLog.shared.append("[bridge] host message: \(type)")

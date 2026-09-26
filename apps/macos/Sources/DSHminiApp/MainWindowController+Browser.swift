@@ -40,6 +40,43 @@ extension MainWindowController {
         }
     }
 
+    /// 浏览器全屏时的悬浮输入框（`composer-overlay`）：显示/收起那一层透明 webview。
+    /// rect 由 SPA 算（它知道面板网页那一格的几何）；会话为 nil 表示收起。
+    func handleComposerOverlay(_ body: [String: Any]) {
+        guard let sessionId = body["sessionId"] as? String else {
+            composerOverlay.hide()
+            return
+        }
+        let d = (body["rect"] as? [String: Any]) ?? [:]
+        let rect = NSRect(
+            x: d["x"] as? Double ?? 0,
+            y: d["y"] as? Double ?? 0,
+            width: d["w"] as? Double ?? 0,
+            height: d["h"] as? Double ?? 0
+        )
+        composerOverlay.show(
+            sessionId: sessionId,
+            rect: rect,
+            contentHeight: browserContainerHeight,
+            zoom: browserZoom,
+            origin: spaOrigin
+        )
+    }
+
+    /// 叠加层页面报上来的"可点矩形"（`composer-pill`）：胶囊之外要透传点击给网页。
+    func handleComposerPill(_ body: [String: Any]) {
+        let d = (body["rect"] as? [String: Any]) ?? [:]
+        composerOverlay.setPill(
+            cssRect: NSRect(
+                x: d["x"] as? Double ?? 0,
+                y: d["y"] as? Double ?? 0,
+                width: d["w"] as? Double ?? 0,
+                height: d["h"] as? Double ?? 0
+            ),
+            zoom: browserZoom
+        )
+    }
+
     /// SPA 索要缩略图预览（`browser-shot`）：回报一张缩小的快照。
     /// 面板收起时那一格显示它——WKWebView 没法"缩小放进去"（见 BrowserHost.previewShot）。
     func handleBrowserShot() {

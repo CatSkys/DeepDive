@@ -4568,3 +4568,36 @@ input:focus, textarea:focus, select:focus { outline: none; }
   .session-row { gap: 0; }
   .session-row:has(> .panel) > .session { visibility: hidden; }
 }
+
+/* ── 浏览器全屏时的悬浮输入框（壳侧透明叠加层里那一页，`?composer=<sid>`）──
+   壳在浏览器页之上叠一层透明 WKWebView，那一层只渲染这一支：整页透明（网页从胶囊
+   四周透出来），内容贴底居中；壳按页面上报的胶囊矩形做 hitTest，矩形之外点击透传给
+   网页——所以这一层的高度可以给足，不担心挡住页面。 */
+:root[data-overlay] body { background: transparent; }
+.composer-float {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  /* 必须 stretch：Composer 的根是 `.composer-wrap`（flex:1 的弹性项），在
+     align-items:center 的列容器里会被缩成"内容宽"（实测 1110 宽的带子里只有 312，
+     胶囊缩成一小颗）。浮条自己再用 align-self: center 收窄。 */
+  align-items: stretch;
+  gap: 8px;
+  padding: 0 24px 14px;
+}
+/* 输入框上方那条「已工作 x」：与会话流里的轮内过程条同一句话（turnWorkLabel） */
+.composer-float-elapsed {
+  align-self: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--fill-soft);
+  border: 1px solid var(--line);
+  color: var(--dsh-text-tertiary);
+  font-size: var(--dsh-font-size-sm);
+  line-height: 1.4;
+}
+/* 与正文列同宽同轴（会话里那条 --reading-col 的规矩在叠加层里同样成立） */
+.composer-float > .composer-wrap { width: 100%; max-width: var(--reading-col); margin: 0 auto; }
