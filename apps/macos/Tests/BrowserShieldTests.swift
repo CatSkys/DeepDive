@@ -142,6 +142,25 @@ final class BrowserShieldTests: XCTestCase {
         XCTAssertTrue(JSONSerialization.isValidJSONObject(["enabled": BrowserShield.shared.enabled(), "paused": BrowserShield.shared.pausedHosts()]))
     }
 
+    // MARK: - wait_for 的条件判定（跨端契约）
+
+    func testWaitConditionShapes() {
+        XCTAssertTrue(BrowserControl.matches("https://a.test/x", ["equals": "https://a.test/x"]))
+        XCTAssertFalse(BrowserControl.matches("https://a.test/x", ["equals": "https://a.test/y"]))
+        XCTAssertTrue(BrowserControl.matches("https://a.test/x", ["contains": "a.test"]))
+        XCTAssertFalse(BrowserControl.matches("https://a.test/x", ["contains": "b.test"]))
+        XCTAssertTrue(BrowserControl.matches("WebKit - 维基百科", ["matches": "维基"]))
+        XCTAssertTrue(BrowserControl.matches("https://a.test/x", ["matches": "^https://[a-z]+\\.test/"]))
+        XCTAssertFalse(BrowserControl.matches("https://a.test/x", ["matches": "^http://"]))
+        // 什么都没给 = 只要字段非空（SDK 用它等"地址终于有了"，不关心是什么）
+        XCTAssertTrue(BrowserControl.matches("https://a.test/x", [:]))
+        XCTAssertFalse(BrowserControl.matches("", [:]))
+        // 多个条件同时给：按 equals → contains → matches 的**优先级**取第一个给的（SDK 每次只给一个）
+        XCTAssertTrue(BrowserControl.matches("https://a.test/x", ["equals": "https://a.test/x", "contains": "zzz"]))
+        XCTAssertFalse(BrowserControl.matches("https://a.test/x", ["equals": "nope", "contains": "a.test"]), "equals 优先，不会被 contains 救回来")
+        XCTAssertTrue(BrowserControl.matches("https://a.test/x", ["contains": "a.test", "matches": "zzz"]))
+    }
+
     // MARK: - 规则表
 
     func testRuleListCompilesForReal() {

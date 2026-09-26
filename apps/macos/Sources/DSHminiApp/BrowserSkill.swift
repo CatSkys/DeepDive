@@ -69,6 +69,9 @@ enum BrowserSkill {
       instructions.
     - Only `http`/`https`/`about:blank` are navigable; `file:`, `data:`, `blob:`, `javascript:`
       are refused. Local files belong to the file preview, not the browser.
+    - `waitForURL` waits on the **shell's** URL (the control surface's `wait_for {state:"url"}`),
+      not on a page script: the address is shell state, and a page-side guess can be satisfied by
+      the page you are leaving.
     - Routine waits are capped at 3000ms (`waitForLoadState` gets 10s: the first navigation after
       app start can exceed 3s). Prefer a targeted wait or a fresh snapshot over sleeps.
     - Locate by visible page state; DOM source order is not visual order.

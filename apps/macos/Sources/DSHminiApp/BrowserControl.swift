@@ -180,10 +180,17 @@ enum BrowserControl {
             pumpUntil(timeout: 10) { out["ok"] as? Bool == true }
             return out
         case "wait_for":
-            guard let script = command["script"] as? String else {
-                return ["ok": false, "error": "wait_for needs a script"]
+            // 两种形状（都给 = 两个条件都要满足）：页面里的真值脚本，与**壳里的状态**稳定下来。
+            // 后者是必要的：地址/标题的到位由壳自己的导航事件定，页面脚本得靠猜（PITFALLS §4.29
+            // 就是"标题比导航事件晚"那一课）。
+            let script = command["script"] as? String
+            let stateKey = command["state"] as? String
+            guard script != nil || stateKey != nil else {
+                return ["ok": false, "error": "wait_for needs a script or a state"]
             }
-            return waitFor(host: host, script: script, timeoutMs: command["timeoutMs"] as? Int ?? 3_000)
+            return waitFor(tab: tab, host: host, script: script,
+                           stateKey: stateKey, command: command,
+                           timeoutMs: command["timeoutMs"] as? Int ?? 3_000)
         default:
             return ["ok": false, "error": "unknown method: \(method)"]
         }
@@ -211,19 +218,59 @@ enum BrowserControl {
         ]
     }
 
-    /// 轮询执行一段返回真值的页面脚本（ZCode 的 waitFor 语义：可观察状态优先，不睡固定时长）。
-    private static func waitFor(host: BrowserHost, script: String, timeoutMs: Int) -> [String: Any] {
+    /// 轮询等待（ZCode 的 waitFor 语义：可观察状态优先，不睡固定时长）。
+    ///
+    /// `script` 是在页面里求值的真值脚本；`stateKey` 是壳里的状态字段（url/title），配
+    /// `equals` / `contains` / `matches`（正则）之一。两个都给就两个都要满足。
+    private static func waitFor(tab: BrowserTab, host: BrowserHost, script: String?,
+                                stateKey: String?, command: [String: Any], timeoutMs: Int) -> [String: Any] {
         let deadline = Date().addingTimeInterval(Double(min(timeoutMs, maxWaitMs)) / 1000)
         var last = "false"
         while Date() < deadline {
-            var out: [String: Any] = ["ok": false]
-            host.evaluate(script) { text in out = ["ok": true, "result": text] }
-            pumpUntil(timeout: 5) { out["ok"] as? Bool == true }
-            last = out["result"] as? String ?? last
-            if last == "true" { return ["ok": true, "result": "true"] }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+            if let script {
+                var out: [String: Any] = ["ok": false]
+                host.evaluate(script) { text in out = ["ok": true, "result": text] }
+                pumpUntil(timeout: 5) { out["ok"] as? Bool == true }
+                last = out["result"] as? String ?? last
+                if last != "true" {
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+                    continue
+                }
+            }
+            if let stateKey {
+                let value = stateValue(tab: tab, host: host, key: stateKey)
+                if !matches(value, command) {
+                    last = value
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+                    continue
+                }
+            }
+            return ["ok": true, "result": "true"]
         }
         return ["ok": false, "error": "timeout waiting for condition (last: \(last))"]
+    }
+
+    /// 壳里的那个字段（与 get_state 同一份来源）。
+    private static func stateValue(tab: BrowserTab, host: BrowserHost, key: String) -> String {
+        switch key {
+        case "url": return host.view.url?.absoluteString ?? tab.url
+        case "title": return host.view.title ?? tab.title
+        default: return ""
+        }
+    }
+
+    /// 条件三选一（`equals` / `contains` / `matches`）；一个都没给 = 只要字段非空。
+    ///
+    /// 不是 `private`：它是**跨端契约**的判定（SDK 的 `waitForURL` 按它拼请求），拼错不会报错、
+    /// 只会一直等到超时——所以要有单测钉住。
+    static func matches(_ value: String, _ command: [String: Any]) -> Bool {
+        if let wanted = command["equals"] as? String { return value == wanted }
+        if let part = command["contains"] as? String { return value.contains(part) }
+        if let pattern = command["matches"] as? String {
+            return (try? NSRegularExpression(pattern: pattern))?.firstMatch(
+                in: value, range: NSRange(value.startIndex..., in: value)) != nil
+        }
+        return !value.isEmpty
     }
 
     /// 在主线程上泵 runloop 直到条件成立或超时（WKWebView 的回调都是主线程派发的）。

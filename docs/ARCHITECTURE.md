@@ -55,7 +55,7 @@
 | `BrowserHidden.swift` + `BrowserHost+Hidden.swift` | 按站隐藏：按 host 记一组选择器、导航前挂 CSS（`WKUserScript`）、页面上的拾取脚本与回话弱代理 |
 | `BrowserShield.swift` | 广告/跟踪拦截：`WKContentRuleList` 的规则表（故意短的域名清单 + 几处广告位）、全局开关、按站暂停；导航那一刻按站点加减规则 |
 | `BrowserPermissions.swift` | 按站权限记忆：摄像头/麦克风的决定按"站点 + 种类"记住，没记过就推给 SPA 弹窗问（30s 超时拒绝、一次只问一个） |
-| `BrowserControl.swift` | 浏览器控制面：桥的 `POST /browser-control`（boot token 鉴权）→ 落到 `BrowserTabs` 里的某个标签（命令带 `tabId`，缺省当前标签）。只提供原语（导航/观察/截图/执行 JS/轮询等待/标签增删选），高层语义在 JS 侧 SDK 里 |
+| `BrowserControl.swift` | 浏览器控制面：桥的 `POST /browser-control`（boot token 鉴权）→ 落到 `BrowserTabs` 里的某个标签（命令带 `tabId`，缺省当前标签）。只提供原语（导航/观察/截图/执行 JS/轮询等待（页面脚本或壳里的状态）/标签增删选），高层语义在 JS 侧 SDK 里 |
 | `BrowserUseInstaller.swift` | 把随包的 `BrowserUse/`（MCP server + 浏览器 SDK）装进 `<support>/browser-use/`（幂等），并给出引擎 spawn 要注入的控制面 URL 与 token；组合行由 `EngineSupervisor.enginePatchBody` 写 |
 | `MainWindowController.swift` | 玻璃主窗 + 透明 WKWebView + 显隐防闪烁 + 标题栏拖拽 rect 表 + 空 NSToolbar（Tahoe 大圆角档，勿删，`PITFALLS §4.7`）+ 视图菜单的页面缩放 |
 | `MainMenu.swift` | 主菜单结构（文件/编辑/视图/窗口/帮助）：只连选择器，动作实现在 AppDelegate/MainWindowController。**可改键位不写死**——应用内快捷键（⌘N/⌘K/⌘B/⌘D/⌘⇧E/⌘,）的事实源是前端键位注册表，菜单项不占这些键，否则改键失效（文件头有完整说明） |

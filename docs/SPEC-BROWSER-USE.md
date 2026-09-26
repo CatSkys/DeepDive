@@ -63,8 +63,10 @@
   地址也可能是搜索词：补全项 = 壳里的浏览历史（`browserHistory.ts` 读壳推来的那份，取 6）加一条
   "搜索 …"（`browserUrl.ts` 的 `looksLikeSearch` 分辨地址与搜索词，模板由设置页选）；地址未知
   时显示"页面已跳转，地址未知"标记。
-- **「…」菜单**：放大 / 缩小 / 重置缩放（带当前百分比）/ 页内查找 / 在默认浏览器打开。
-  一项都没有时整枚不渲染（纯浏览器里的空白页就是这种情形）。
+- **「…」菜单**（原生载体给得出哪几项就渲染哪几项）：放大 / 缩小 / 重置缩放（带当前百分比）/
+  阅读模式（在阅读模式里变成"退出阅读模式"）/ 隐藏页面上的元素…（拾取中变成"取消拾取元素"）/
+  本站暂停·恢复拦截（按当前站点，见下）/ 加入·已加入书签 / 恢复本站隐藏的 N 项（藏过才出现）/
+  页内查找 / 在默认浏览器打开。一项都没有时整枚不渲染（纯浏览器里的空白页就是这种情形）。
 - **缩放**是 `pageZoom`（按新尺寸重新排版，不是放大镜）：档位、上下限、按站点记忆、默认值
   与桥消息解析都归 `apps/macos/Sources/DSHminiApp/BrowserZoom.swift`；壳在 `didCommit`
   （第一帧之前）应用该站点的记忆值，写入发生在人真的改了缩放那一刻。
@@ -98,8 +100,9 @@
   标签**（规则只在导航那一刻算数）。规则没编译成功时设置页会说出来（开关写着"开"而实际什么都没挡）。
 - **按站权限记忆**（`BrowserPermissions.swift`）：网页申请摄像头/麦克风时 WebKit 把决定权交给壳
   （`requestMediaCapturePermissionFor`），壳按"站点 + 种类"记住；没记过就用应用自己的弹窗问一次
-  （桥推给 SPA，走 `DialogHost`，壳不弹系统框），30s 没人答就拒绝（页面被 WebKit 挂着等这个决定）。
-  一次只问一个：上一个没答完，新的直接拒（排队会让第二个页面莫名其妙地等）。
+  （桥推给 SPA，走 `DialogHost`，壳不弹系统框），120s 没人答就拒绝——**超时不写记忆**（超时不是
+  "用户拒绝了这个站点"，记下来的话这个站点以后连问都不问了）。一次只问一个：上一个没答完，
+  新的直接拒（排队会让第二个页面莫名其妙地等）。
 - **浏览历史与书签**（`BrowserHistory.swift` / `BrowserBookmarks.swift`）：两份记忆都在壳里，
   SPA 只渲染与发命令——地址栏补全用的"最近去过哪儿"也是壳推过去的（`browserHistory`，只推最近 50；
   设置页要看长表就 `{action:"list", limit}`）。历史按 url 去重（再访就提前 + 计数）、上限 500、
@@ -201,9 +204,11 @@ A–R 清单里**还没做**的（都不在这一版里，各自是独立一块�
               BrowserTabs（壳里的标签集合；当前标签那个 WKWebView 就是面板里人看的那个）
 ```
 
-分层与 ZCode 一致：**高层语义在 JS 侧**（快照/ref/定位器/坐标逃生口由 SDK 拼页面脚本），
-壳只提供原语——`navigate` / `back` / `forward` / `reload` / `get_state` / `screenshot` /
-`evaluate` / `wait_for`，外加标签的 `list_tabs` / `new_tab` / `select_tab` / `close_tab`，
+分层与 ZCode 一致：**高层语义在 JS 侧**（快照/ref/定位器/点击/输入/等待条件都由 SDK 拼页面脚本，
+经 `evaluate` 与 `wait_for` 落到页面），壳只提供原语——`navigate` / `back` / `forward` / `reload` /
+`get_state` / `screenshot` / `evaluate`，以及 `wait_for` 的两种形状（`{script}` 轮询真值、
+`{state:"url"|"title", equals|contains|matches}` 等壳里的状态稳定下来；两种都给就等于两个条件都满足），
+外加标签的 `list_tabs` / `new_tab` / `select_tab` / `close_tab`，
 登录态的 `list_cookie_sources` / `import_cookies` / `import_cookies_status`，
 拦截的 `get_shield` / `set_shield`（`enabled` 或 `host`+`paused`，改完重载当前标签），
 以及页面改造的 `reader {on}` 与 `hidden` / `hide_element` / `restore_hidden`。

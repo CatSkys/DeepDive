@@ -119,14 +119,16 @@ class Tab {
       },
       async waitForTimeout(ms) { await new Promise((r) => setTimeout(r, ms)); },
       async waitForURL(pattern, options = {}) {
+        // 走壳的 wait_for（{state:"url", contains}）：状态在壳里，页面脚本得靠猜。
+        // 仍然保留 3s 口径；正则用 matches，普通串用 contains。
         const timeout = options.timeout ?? 3000;
-        const deadline = Date.now() + timeout;
-        while (Date.now() < deadline) {
-          const current = await tab.url();
-          if (String(current).includes(pattern)) return;
-          await new Promise((r) => setTimeout(r, 120));
-        }
-        throw new Error("waitForURL timed out: " + pattern);
+        const out = await control("wait_for", {
+          tabId: tab.id,
+          state: "url",
+          ...(pattern instanceof RegExp ? { matches: pattern.source } : { contains: String(pattern) }),
+          timeoutMs: timeout,
+        });
+        if (!out.ok) throw new Error("waitForURL timed out: " + pattern);
       },
       getByRole(role, options = {}) { return new Locator(tab.id, "role", role, options.name); },
       getByText(text) { return new Locator(tab.id, "text", text); },
