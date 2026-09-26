@@ -75,7 +75,7 @@ function EndSlot({ tab, onClose }: { tab: BrowserTabFace; onClose: () => void })
         data-tip={t("关闭标签")}
         onClick={onClose}
       >
-        <X size={11} />
+        <X size={9} />
       </button>
     </span>
   );

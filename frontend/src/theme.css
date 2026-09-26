@@ -4546,7 +4546,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 转圈：参考 Ring 的同一款——缺口圆环自己转 */
 .panel-browser-tab-ring {
   position: absolute; inset: 0; margin: auto;
-  width: 15px; height: 15px;
+  width: 12px; height: 12px;
   border: 1.4px solid var(--ink-3); border-radius: 50%;
   border-right-color: transparent;
   animation: panel-browser-ring-spin .85s linear infinite;
@@ -4561,12 +4561,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
   opacity: 0; transition: opacity var(--dur-fast) ease;
 }
 .panel-browser-tab-close > svg {
-  width: 15px; height: 15px; padding: 2px;
-  border-radius: 50%; background: transparent;
+  width: 10px; height: 10px; padding: 2px;
+  border-radius: 50%; background: var(--fill-strong);
 }
-.panel-browser-tab-close:hover > svg { background: var(--fill-strong); }
 .panel-browser-tab:hover .panel-browser-tab-close { opacity: 1; }
-.panel-browser-tab-close:hover { background: var(--fill-strong); color: var(--ink); }
 .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; }
 .panel-browser-tab-new {
   flex: none; display: flex; align-items: center; justify-content: center;

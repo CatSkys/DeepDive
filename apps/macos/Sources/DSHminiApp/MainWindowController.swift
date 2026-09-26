@@ -9,6 +9,19 @@ import WebKit
 /// 标准标题栏的双击由 AppKit 处理，而这条自绘标题栏把所有 mouseDown 都交给了
 /// performDrag（双击的第二击 clickCount 才到 2，同样被当成一次拖拽），所以双击
 /// 一直没有反应（用户报「标题栏双击无法自适应放大」）。这里显式补上。
+/// 浏览器舞台容器：**只把落在子视图（当前标签的原生 webview）上的事件留在自己这条链**，
+/// 空白区域返回 nil 穿透给下层。普通 NSView 盖在 SPA webview 之上时，点击尚可因
+/// hitTest 落到子视图而工作，但 mouseMoved（hover 的来源）会被这个整窗容器截住——
+/// SPA 的 :hover 就全灭了（真机实证：置前 + 合成 mouseMoved，像素零变化）。
+final class BrowserStageView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        for sub in subviews.reversed() {
+            if let hit = sub.hitTest(point) { return hit }
+        }
+        return nil
+    }
+}
+
 private final class TitlebarDragView: NSView {
     override func mouseDown(with event: NSEvent) {
         guard event.clickCount == 2 else {
@@ -91,7 +104,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     let browserTabs = BrowserTabs()
     /// 浏览器视图的舞台：装 SPA webView 之后、聊天叠加层之前——换标签只换里面的视图，
     /// 这一层在窗口里的上下位置不动（否则新标签的网页会盖住悬浮对话卡）。
-    let browserStage = NSView()
+    let browserStage = BrowserStageView()
     /// SPA 上一次要的历史条数：列表刷新与增删按它推（设置页拉 200 条时别被增量推送砍短）。
     var historyLimit = 50
     /// 浏览器全屏时的**悬浮输入框**叠加层（透明 webview，见 ComposerOverlayHost）。
