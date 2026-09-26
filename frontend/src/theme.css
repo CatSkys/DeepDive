@@ -4490,14 +4490,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 胶囊本体不带底色：未选中的与跑道融为一体（参考的极简——没有选框，hover 才有一层浅灰，
    选中那枚的灰底是外面那枚会滑的公共底）。宽度三档照参考 Metrics：186 / 80 / 36 */
 .panel-browser-tab {
-  flex: 0 1 186px; min-width: 36px; height: 28px;
+  flex: none; height: 28px;
   display: flex; align-items: center; position: relative;
   border-radius: 8px; background: transparent; color: var(--ink-3);
 }
 .panel-browser-tab:hover { background: var(--fill-soft); color: var(--ink-2); }
 /* 选中那枚：底色在会滑的公共底上；标题用正色。编辑档照参考 span = min(340, room) */
 .panel-browser-tab.live { color: var(--ink); }
-.panel-browser-tab.live.editing { flex: 0 1 340px; min-width: 240px; }
 /* 紧凑档（胶囊 < 80，参考 tabTitled 同一门槛）：只留图标，标题与喇叭撤掉 */
 .panel-browser-chrome-run.compact .panel-browser-tab-title,
 .panel-browser-chrome-run.compact .panel-browser-tab-speaker { display: none; }
@@ -4510,6 +4509,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   transition: left .28s cubic-bezier(.25, .8, .25, 1), width .28s cubic-bezier(.25, .8, .25, 1);
 }
 .panel-browser-tab, .panel-browser-tab-body, .panel-browser-tab-live-field { z-index: 1; }
+.panel-browser-tab { transition: width .28s cubic-bezier(.25, .8, .25, 1); }
 .panel-browser-tab.live .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; position: relative; }
 .panel-browser-tab.live .panel-browser-field-input { background: transparent; border-color: transparent; }
 .panel-browser-tab.live .panel-browser-field-input:focus { background: transparent; border-color: transparent; }
@@ -4600,7 +4600,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-field.big { flex: none; width: 560px; max-width: 100%; z-index: 61; }
 .panel-browser-field.big .panel-browser-field-input {
   height: 50px; padding: 0 22px; border-radius: 14px;
-  background: var(--surface-raised); box-shadow: var(--shadow-pop);
+  background: var(--surface-raised);
   font-size: var(--dsh-font-size-lg);
 }
 /* 补全列表：挂在框正下方（不遮页面、不浮到页面正中） */

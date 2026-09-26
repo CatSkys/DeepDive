@@ -109,6 +109,12 @@ export function BrowserTabStrip({ face, tabs, activeId, onSelect, onClose, onNew
   const glidePlaced = useRef(false);
   /** 紧凑档：胶囊压到 80 以下就只显示图标（参考 tabTitled 的同一门槛） */
   const [compact, setCompact] = useState(false);
+  /** 等宽模型（参考 width(in:) 同一公式）：每枚松散标签等宽 = clamp(36, 186, (room-间隙)/n)，
+   *  编辑档那枚 = min(340, room)。显式定宽，宽度不随标题内容漂移。 */
+  const [pillWidth, setPillWidth] = useState(186);
+  const [roomWidth, setRoomWidth] = useState(600);
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const helmBoxRef = useRef<HTMLDivElement>(null);
 
   const beginEdit = () => {
     if (!active) return;
@@ -159,23 +165,42 @@ export function BrowserTabStrip({ face, tabs, activeId, onSelect, onClose, onNew
   useEffect(() => {
     setEditing(false);
   }, [activeId]);
+  // 等宽测量：跑道可用宽 = 标签行内宽 −「+」− 行尾工具组 − 间隙（参考 room(in:) 的同一分工）
+  useEffect(() => {
+    const measure = () => {
+      const chrome = chromeRef.current;
+      if (!chrome) return;
+      const helmW = helmBoxRef.current ? helmBoxRef.current.offsetWidth : 190;
+      const room = chrome.clientWidth - 14 - 26 - 2 - helmW - 8 - 6;
+      const n = Math.max(1, tabs.length);
+      setRoomWidth(Math.max(120, room));
+      setPillWidth(Math.max(36, Math.min(186, Math.floor((Math.max(120, room) - (n - 1) * 2) / n))));
+    };
+    measure();
+    // jsdom（vitest）没有 ResizeObserver：没有就退化为只听 resize
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (chromeRef.current && ro) ro.observe(chromeRef.current);
+    window.addEventListener("resize", measure);
+    return () => { ro?.disconnect(); window.removeEventListener("resize", measure); };
+  }, [tabs.length]);
+
   // 灰底滑到选中那枚 + 紧凑档判定 + 把当前那枚滚回可视区（同一次测量全干了）
   useEffect(() => {
     const run = runRef.current;
     const box = run?.querySelector(".panel-browser-tab.live") as HTMLElement | null;
     if (!run || !box) { setGlide(null); return; }
     setGlide({ left: box.offsetLeft, width: box.offsetWidth });
-    setCompact(!editing && box.offsetWidth < 80);
+    setCompact(pillWidth < 80);
     if (box.offsetLeft < run.scrollLeft) run.scrollTo({ left: box.offsetLeft });
     else if (box.offsetLeft + box.offsetWidth > run.scrollLeft + run.clientWidth) {
       run.scrollTo({ left: box.offsetLeft + box.offsetWidth - run.clientWidth });
     }
-  }, [activeId, tabs, editing]);
+  }, [activeId, tabs, editing, pillWidth]);
 
   return (
     // data-strip-interactive：整行计入顶条控件 rect 表（titlebar.ts 契约）——标签行压在
     // 52pt 拖拽条里，不标记的话行内空白=拖窗、SPA 收不到 mouseMoved，hover 全灭
-    <div className="panel-browser-chrome" role="tablist" aria-label={t("标签页")} data-strip-interactive>
+    <div className="panel-browser-chrome" role="tablist" aria-label={t("标签页")} data-strip-interactive ref={chromeRef}>
       {/* 滚动区只装标签（「+」在区外贴着尾巴，滚多远它都在）。
           **按 tabs 原位顺序渲染**（参考 ForEach(browser.tabs) 的同一条铁律）：选中的那枚
           只是被高亮、就地展开，不挪窝——挪窝就是用户看到的"标签跑来跑去"。
@@ -198,7 +223,7 @@ export function BrowserTabStrip({ face, tabs, activeId, onSelect, onClose, onNew
         {tabs.map((tab) => {
           if (tab.id === activeId && editing) {
             return (
-              <div key={tab.id} className={`panel-browser-tab live editing${tab.asleep ? " asleep" : ""}`}>
+              <div key={tab.id} className={`panel-browser-tab live editing${tab.asleep ? " asleep" : ""}`} style={{ width: Math.min(340, roomWidth) }}>
                 <div className="panel-browser-tab-live-field">
                   <AddressField
                     face={face}
@@ -217,7 +242,7 @@ export function BrowserTabStrip({ face, tabs, activeId, onSelect, onClose, onNew
           }
           const name = tabName(tab);
           return (
-            <div key={tab.id} className={`panel-browser-tab${tab.id === activeId ? " live" : ""}${tab.asleep ? " asleep" : ""}`}>
+            <div key={tab.id} className={`panel-browser-tab${tab.id === activeId ? " live" : ""}${tab.asleep ? " asleep" : ""}`} style={{ width: pillWidth }}>
               <button
                 type="button"
                 role="tab"
@@ -246,7 +271,7 @@ export function BrowserTabStrip({ face, tabs, activeId, onSelect, onClose, onNew
       >
         <Plus size={13} />
       </button>
-      <div className="panel-browser-chrome-end">{trailing}</div>
+      <div className="panel-browser-chrome-end" ref={helmBoxRef}>{trailing}</div>
     </div>
   );
 }
