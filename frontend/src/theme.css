@@ -4545,7 +4545,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 /* 转圈：参考 Ring 的同一款——缺口圆环自己转 */
 .panel-browser-tab-ring {
-  position: absolute; inset: 0;
+  position: absolute; inset: 0; margin: auto;
+  width: 15px; height: 15px;
   border: 1.4px solid var(--ink-3); border-radius: 50%;
   border-right-color: transparent;
   animation: panel-browser-ring-spin .85s linear infinite;
