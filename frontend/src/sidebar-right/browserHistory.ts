@@ -56,7 +56,8 @@ function snapshot(): LibraryState {
 /** 按输入前缀/子串过滤候选（大小写不敏感，最多 6 条）——地址栏 render 里同步调用。 */
 export function completeVisits(input: string): { url: string; title: string }[] {
   const text = input.trim().toLowerCase();
-  if (text === "") return [];
+  // 空输入 = 刚点开、还没打字：列最近去过的几条（参考的 omnibox 一展开就有东西可点）
+  if (text === "") return state.visits.slice(0, SUGGEST_LIMIT).map((item) => ({ url: item.url, title: item.title }));
   return state.visits
     .filter((item) => item.url.toLowerCase().includes(text) || item.title.toLowerCase().includes(text))
     .slice(0, SUGGEST_LIMIT)

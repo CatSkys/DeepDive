@@ -119,6 +119,8 @@ export const EN: Record<string, string> = {
   "不能打开 DeepDive 自己的地址": "The DeepDive address itself cannot be opened",
   "地址无效": "Invalid address",
   "输入地址或搜索": "Enter an address or search",
+  "沙箱": "Sandbox",
+  "输入地址开始，或从补全里选一条": "Type an address, or pick one from the list",
   "没有匹配": "No match",
   "上一个": "Previous",
   "下一个": "Next",

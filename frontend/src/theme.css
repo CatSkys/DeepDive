@@ -4467,22 +4467,115 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 /* 标签栏：横向的 site icon 式标签（图标 + 关闭），末尾一枚 new tab。标签本体只放图标，
    所以格子很窄；多了就横向滚，不换行——换行会把网页那一格越挤越矮。 */
-.panel-browser-tabs { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 6px 2px; overflow-x: auto; }
-.panel-browser-tabs::-webkit-scrollbar { display: none; }
-.panel-browser-tab { flex: none; display: flex; align-items: center; height: 26px; border: 1px solid transparent; border-radius: 8px; background: var(--fill-soft); }
-.panel-browser-tab.active { background: var(--fill); border-color: var(--line-strong); }
+/* ---------- 顶部那一行（标签行 = 这一格的标题栏，形状照参考 TabBar/Metrics） ---------- */
+.panel-browser-chrome {
+  flex: none; display: flex; align-items: center; gap: 2px;
+  height: 40px; padding: 0 8px 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+/* 标签胶囊：图标 + 标题。参考的 186/80/36 三档在这里压成 168/96：面板比整窗窄 */
+.panel-browser-tab {
+  flex: 0 1 168px; min-width: 96px; height: 28px;
+  display: flex; align-items: center; position: relative;
+  border-radius: 8px; background: var(--fill-soft);
+}
+.panel-browser-tab:hover { background: var(--fill); }
+/* 选中那枚：展开成地址框，所以它自己不带底色（底色在框上） */
+.panel-browser-tab.live { flex: 1 1 auto; min-width: 240px; gap: 6px; padding-left: 8px; }
+/* 选中那枚里的框就是标签本体：同高、同圆角、同底色档位（不是浮在上面的地址栏） */
+.panel-browser-tab.live .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; }
+.panel-browser-tab.live .panel-browser-field-input { background: var(--fill); border-color: var(--line); }
 /* 睡着：压暗一档——标签还在，只是页面进程收回去了（点它就醒） */
 .panel-browser-tab.asleep { opacity: .5; }
-.panel-browser-tab-body { flex: none; display: flex; align-items: center; justify-content: center; width: 26px; height: 24px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); }
-.panel-browser-tab-body:hover { background: var(--fill); color: var(--ink); }
-.panel-browser-tab-icon { width: 14px; height: 14px; border-radius: 3px; object-fit: contain; }
-.panel-browser-tab-glyph { display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; font-size: var(--dsh-font-size-xs); font-weight: 600; color: var(--ink-3); }
-.panel-browser-tab-close { flex: none; display: flex; align-items: center; justify-content: center; width: 16px; height: 24px; margin-right: 2px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ink-faint); opacity: 0; }
-.panel-browser-tab:hover .panel-browser-tab-close,
-.panel-browser-tab.active .panel-browser-tab-close { opacity: 1; }
+.panel-browser-tab-body {
+  flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 6px;
+  padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2);
+}
+.panel-browser-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-font-size-sm); }
+.panel-browser-tab-icon { flex: none; width: 14px; height: 14px; border-radius: 3px; object-fit: contain; }
+.panel-browser-tab-glyph {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 3px; background: var(--fill-strong);
+  font-size: var(--dsh-font-size-xs); font-weight: 600; color: var(--ink-3);
+}
+/* 关闭叉：只在该标签被指向时出现，热区是整个右端（参考同一取舍） */
+.panel-browser-tab-close {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; margin-right: 5px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ink-3);
+  opacity: 0; transition: opacity var(--dur-fast) ease;
+}
+.panel-browser-tab:hover .panel-browser-tab-close { opacity: 1; }
 .panel-browser-tab-close:hover { background: var(--fill-strong); color: var(--ink); }
-.panel-browser-tab-new { flex: none; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--ink-3); }
+.panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; }
+.panel-browser-tab-new {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px;
+  background: transparent; color: var(--ink-3);
+}
 .panel-browser-tab-new:hover { background: var(--fill); color: var(--ink); }
+/* 行尾那一组：贴着右端（参考的 Metrics.helm） */
+.panel-browser-chrome-end { flex: none; display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.panel-browser-chrome-field { flex: 1; min-width: 0; display: flex; padding-right: 6px; }
+
+/* ---------- 地址框 + 补全（参考 Omnibox 的 field + list） ---------- */
+.panel-browser-field { position: relative; flex: 1; min-width: 0; }
+.panel-browser-field-box { display: flex; align-items: center; position: relative; }
+.panel-browser-field-input {
+  width: 100%; height: 28px; padding: 0 30px 0 10px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--fill-soft); color: var(--ink); font-size: var(--dsh-font-size-sm);
+}
+.panel-browser-field-input:focus { border-color: var(--line-focus); background: var(--fill); }
+.panel-browser-field-input.unknown { color: var(--ink-3); font-style: italic; }
+.panel-browser-field-note {
+  position: absolute; right: 30px; font-size: var(--dsh-font-size-xs);
+  color: var(--ink-faint); pointer-events: none;
+}
+/* 空白标签页那款：560 宽、圆角 14、带阴影（参考 Metrics.fieldWidth） */
+.panel-browser-field.big { flex: none; width: 560px; max-width: 100%; z-index: 61; }
+.panel-browser-field.big .panel-browser-field-input {
+  height: 50px; padding: 0 22px; border-radius: 14px;
+  background: var(--surface-raised); box-shadow: var(--shadow-pop);
+  font-size: var(--dsh-font-size-lg);
+}
+/* 补全列表：挂在框正下方（不遮页面、不浮到页面正中） */
+.panel-browser-offers {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
+  display: flex; flex-direction: column; padding: 6px;
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--card-gradient); box-shadow: var(--shadow-pop); overflow: hidden;
+}
+.panel-browser-offer {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border: 0; border-radius: 8px; background: transparent; text-align: left;
+}
+.panel-browser-offer.active, .panel-browser-offer:hover { background: var(--fill); }
+.panel-browser-offer.refused { color: var(--dsh-signal-danger); font-size: var(--dsh-font-size-sm); }
+.panel-browser-offer-mark { flex: none; color: var(--ink-3); }
+.panel-browser-offer-key {
+  flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink); font-size: var(--dsh-font-size-sm);
+}
+.panel-browser-offer-title {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink-3); font-size: var(--dsh-font-size-xs);
+}
+
+/* ---------- 空白标签页：整屏空白 + 居中那块大框 ---------- */
+.panel-browser-blank {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: var(--surface);
+  /* 抬一点：正中看起来偏低（参考 Omnibox 的 padding(.bottom, 60) 同一取舍） */
+  padding-bottom: 60px;
+}
+.panel-browser-blank-note { color: var(--ink-faint); font-size: var(--dsh-font-size-sm); }
+
+/* ---------- 行尾工具组 ---------- */
+.panel-browser-helm { flex: none; display: flex; align-items: center; gap: 2px; }
+.panel-browser-tool.on { color: var(--ink); background: var(--fill); }
+
 /* 拾取模式的那行提示：浮在网页之上做不到（原生视图恒在 SPA 之上），所以它贴在工具栏下沿 */
 .panel-browser-hint {
   position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
@@ -4492,39 +4585,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 /* 唤醒期间铺的停帧图：压在上面的原生视图一有像素就盖住它（壳给 4s 撤退时限） */
 .panel-browser-cover { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
-
-.panel-browser-toolbar { flex: none; display: flex; align-items: center; gap: 3px; padding: 5px 6px; border-bottom: 1px solid var(--line); }
-.panel-browser-tool {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--dsh-radius-keycap);
-  color: var(--ink-3);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
-}
-.panel-browser-tool:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
-.panel-browser-tool:disabled { opacity: .4; }
-.panel-browser-tool.off { color: var(--dsh-signal-danger); }
-.panel-browser-address-box { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; }
-.panel-browser-address {
-  width: 100%;
-  height: 24px;
-  padding: 0 26px 0 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-control);
-  background: var(--fill-soft);
-  color: var(--ink);
-  font-size: var(--dsh-font-size-sm);
-}
-.panel-browser-address:focus { border-color: var(--line-focus); }
-.panel-browser-address.unknown { color: var(--ink-3); font-style: italic; }
-.panel-browser-changed { position: absolute; right: 28px; font-size: var(--dsh-font-size-xs); color: var(--ink-faint); pointer-events: none; }
-.panel-browser-address-box .panel-browser-tool { position: absolute; right: 2px; }
-.panel-browser-note { flex: none; font-size: var(--dsh-font-size-xs); }
-.panel-browser-note.bad { color: var(--dsh-signal-danger); }
 
 /* ---------- 面板里的会话设置 ---------- */
 .panel-settings { display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
@@ -4677,44 +4737,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .panel-chat-btn:hover { border-color: var(--line-strong); }
 
-/* ── 地址栏补全 / 页内查找 / 「浏览器」设置页用到的零碎 ───────────────────── */
-.panel-browser-address-box { position: relative; }
-/* 补全列表：贴地址栏下沿，宽度跟地址栏，最多 6 条 */
-.panel-browser-suggest {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--dsh-radius-control, 10px);
-  background: var(--card-gradient);
-  box-shadow: var(--shadow-pop);
-}
-.panel-browser-suggest-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 10px;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font-size: var(--dsh-font-size-sm);
-  text-align: left;
-  cursor: pointer;
-}
-.panel-browser-suggest-item.active,
-.panel-browser-suggest-item:hover { background: var(--fill-soft); }
-.panel-browser-suggest-url {
-  overflow: hidden;
-  color: var(--dsh-text-tertiary);
-  font-size: var(--dsh-font-size-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* ── 页内查找 / 「浏览器」设置页用到的零碎 ───────────────────── */
 /* 查找条：工具栏之下的窄条，与工具栏同一行高 */
 .panel-browser-find {
   display: flex;

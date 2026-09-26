@@ -16,7 +16,9 @@ import { BrowserEmpty, IframeCarrier, NativeCarrier, browserCarrierKind } from "
 import { BrowserFindBar } from "./BrowserFindBar";
 import { BrowserTabStrip } from "./BrowserTabStrip";
 import { BrowserToolbar } from "./BrowserToolbar";
-import type { PaneFace } from "./BrowserToolbar";
+import { BrowserBlankPage } from "./BrowserBlankPage";
+import { AddressField } from "./BrowserAddressField";
+import type { PaneFace } from "./useIframeBrowser";
 
 /** 缩略图下面那行说明（图 2 的 "<名字>'s screen"）。 */
 function ScreenCaption({ text }: { text: string }) {
@@ -76,28 +78,32 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
     setFindQuery("");
     browser.find("");   // 空串 = 取消查找并清选区
   };
+  const external = browser.frame.address === "unknown" ? undefined : browser.frame.target?.url;
   return (
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
       {expanded && (
         <BrowserTabStrip
+          face={face}
           tabs={browser.tabs}
           activeId={browser.activeTabId}
           onSelect={browser.selectTab}
           onClose={browser.closeTab}
           onNew={browser.newTab}
-        />
-      )}
-      {expanded && (
-        <BrowserToolbar
-          face={face}
-          onChat={onChat}
-          zoom={{ value: browser.zoom, zoomIn: browser.zoomIn, zoomOut: browser.zoomOut, zoomReset: browser.zoomReset }}
-          shield={{ paused: browser.shieldPaused, toggle: browser.toggleShield }}
-          reader={{ on: browser.reader, toggle: browser.toggleReader }}
-          hidden={{ count: browser.hiddenCount, picking: browser.picking, togglePick: browser.togglePicking, restore: browser.restoreHidden }}
-          bookmark={{ on: browser.bookmarked, toggle: browser.toggleBookmark }}
-          onFind={() => { setFindOpen(true); setFindTick((t) => t + 1); }}
-          intent={intent}
+          onPick={(url) => browser.navigate(url)}
+          focusTick={intent.kind === "address" ? intent.id : 0}
+          trailing={(
+            <BrowserToolbar
+              face={face}
+              external={external}
+              onChat={onChat}
+              zoom={{ value: browser.zoom, zoomIn: browser.zoomIn, zoomOut: browser.zoomOut, zoomReset: browser.zoomReset }}
+              shield={{ paused: browser.shieldPaused, toggle: browser.toggleShield }}
+              reader={{ on: browser.reader, toggle: browser.toggleReader }}
+              hidden={{ count: browser.hiddenCount, picking: browser.picking, togglePick: browser.togglePicking, restore: browser.restoreHidden }}
+              bookmark={{ on: browser.bookmarked, toggle: browser.toggleBookmark }}
+              onFind={() => { setFindOpen(true); setFindTick((t) => t + 1); }}
+            />
+          )}
         />
       )}
       {expanded && findOpen && (
@@ -120,6 +126,10 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
             )}
             {/* 拾取模式：提示人点哪个（页面里那圈高亮由壳注入的脚本画） */}
             {browser.picking && <div className="panel-browser-hint">{t("点页面上的元素把它从此站隐藏（Esc 取消）")}</div>}
+            {/* 空白标签页：整屏空白 + 居中那块大输入框（参考 Omnibox 站在空标签上的样子） */}
+            {empty && (
+              <BrowserBlankPage face={face} onPick={(url) => browser.navigate(url)} />
+            )}
             <NativeCarrier interactive>{null}</NativeCarrier>
           </>
         ) : (
@@ -155,7 +165,19 @@ function IframeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
   const target = browser.frame.target;
   return (
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
-      {expanded && <BrowserToolbar face={face} onChat={onChat} sandbox={{ enabled: sandboxed, toggle: () => setSandboxed((v) => !v) }} />}
+      {/* iframe 载体（纯浏览器那一支）没有标签模型：它只画行尾那组工具，不画标签行 */}
+      {expanded && (
+        <div className="panel-browser-chrome">
+          <div className="panel-browser-chrome-field">
+            <AddressField face={face} onPick={(url) => { face.setDraft(url); face.submit(); }} />
+          </div>
+          <BrowserToolbar
+            face={face}
+            onChat={onChat}
+            sandbox={{ enabled: sandboxed, toggle: () => setSandboxed((v) => !v) }}
+          />
+        </div>
+      )}
       <div className="panel-browser-body">
         {target === undefined
           ? <BrowserEmpty />

@@ -5,7 +5,6 @@
 // 全由应用自己记（browserNavigation），首帧之后再有一次 load 就说明页面自己跳走了 →
 // 地址转 unknown、后退前进置灰。壳里的原生载体不走这套（WKWebView 有真历史），
 // 两条路最终都产出同一个 BrowserFrameState 给工具栏。
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseBrowserAddress, type BrowserAddressFailure, type BrowserTarget } from "./browserUrl";
 import {
@@ -24,6 +23,20 @@ export interface BrowserFrameState {
   /** 载体报的加载失败。 */
   error: boolean;
 }
+/** 浏览器那一行的脸（地址框、三键、菜单都用它）：由各载体把自己的状态与动作拼出来。
+ *  放这里是因为它是**两种载体共用**的形状，不是工具栏私有的。 */
+export interface PaneFace extends BrowserFrameState {
+  draft: string;
+  setDraft: (v: string) => void;
+  failure: BrowserAddressFailure | undefined;
+  submit: () => void;
+  /** 直接去一个地址：原生载体给得出（顺带收掉地址栏的编辑态），iframe 载体没有这回事 */
+  navigate?: (url: string) => void;
+  goBack: () => void;
+  goForward: () => void;
+  doReload: () => void;
+}
+
 
 /** iframe 的固定沙箱（官方常量原文）：不给 top-navigation、不给下载，弹窗可逃逸。 */
 export const WEB_BROWSER_SANDBOX = "allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox";

@@ -119,9 +119,24 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "browserTabs") {
       const data = payload as { tabs?: BrowserTabFace[]; activeId?: string } | undefined;
-      activeTabRef.current = typeof data?.activeId === "string" ? data.activeId : "";
-      setTabs(Array.isArray(data?.tabs) ? data.tabs : []);
-      setActiveTabId(activeTabRef.current);
+      const nextId = typeof data?.activeId === "string" ? data.activeId : "";
+      const switching = activeTabRef.current !== "" && activeTabRef.current !== nextId;
+      activeTabRef.current = nextId;
+      const list = Array.isArray(data?.tabs) ? data.tabs : [];
+      setTabs(list);
+      setActiveTabId(nextId);
+      // 换了标签就把观察换成**新标签**的那一份（清单是权威的）：不清的话，新标签的观察
+      // 还没到之前，屏幕上留着上一个标签的地址——空白标签会看起来"显示着上一个页面"
+      if (switching) {
+        const next = list.find((tab) => tab.id === nextId);
+        setObserved({ ...EMPTY, url: next?.url ?? "", title: next?.title ?? "" });
+        // draft 也要跟着换：镜像效应在 url==="" 时不动手（编辑保护），空白标签会把
+        // 上一页的 URL 残留在地址框与空白页大框里；编辑态一并丢弃（草稿不属于新标签）
+        editing.current = false;
+        setFailure(undefined);
+        setDraft(next?.url ?? "");
+        setCover("");
+      }
       return;
     }
     if (cmd === "browserState") {
