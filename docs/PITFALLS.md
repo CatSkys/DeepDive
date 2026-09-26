@@ -329,6 +329,31 @@
   教训：**伪壳必须照真实分派逐通道复刻**（按 `message.name` 分流），否则它验的是"我以为的
   契约"而不是"壳的契约"；能用真机日志（`handleNativeSlot` 打点）就先上真机。
 
+### 4.22 WKWebView 的默认 UA 没有任何浏览器身份：按 UA 认浏览器的站点直接把我们弹走（2026-09-26 用户报"为什么会被显示版本过低"）
+
+- 症状：在内置浏览器打开 B 站首页，被跳到 `bilibili.com/blackboard/fe/activity-….html`
+  的"您的浏览器版本过低哦"。**同一个 URL 直接打开时连 Chrome 也看到同一段文案**——那张页面
+  本身就是"提示页"（title「浏览器下载建议」），谁直接访问都是它。**别拿它当判据**：判据要看
+  首页会不会被跳过去（`location.href` 是否还停在 `www.bilibili.com/`）。
+- 根因：`WKWebView` 的默认 UA 是
+  `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)`
+  —— **只有引擎与系统，没有 `Version/x.y`、没有 `Safari/605.1.15`**（App 内嵌 WebView 的
+  默认形态）。按 UA 判浏览器的站点于是归到"未知/过旧"。实测矩阵（同一 URL、只换 UA）：
+  默认 UA → 被弹走；补 `Version/18.0 Safari/605.1.15` / `Version/26.0 …` / `Version/17.0 …`
+  → 三条全部正常；Chrome UA → 正常。也就是说站点要的是**身份标记**，不是某个版本阈值。
+- 处置：`BrowserHost.init` 里给配置加 `applicationNameForUserAgent = BrowserHost.safariIdentity`
+  （`Version/<本机 Safari 真实版本> Safari/605.1.15`）。**只补身份尾巴**：引擎与系统版本仍由
+  WebKit 自己报，不伪造引擎。版本号读 `/Applications/Safari.app/Contents/Info.plist` 的
+  `CFBundleShortVersionString`（读不到退回系统大版本）——**不要写死**：Safari 版本号与 macOS
+  版本号并不总是同号（本机 27.0 同号，历史上 macOS 15 对应 Safari 18）。
+- 复核方式（不需要点界面）：`BrowserControl` 的 token 在 MCP server 进程的环境里，
+  `ps eww -p <browser-use-server pid>` 拿到 `DEEPDIVE_BROWSER_TOKEN` 后直接
+  `curl -X POST http://127.0.0.1:<bridge>/browser-control -H "authorization: Bearer $TOKEN"`，
+  `method: evaluate` 读 `navigator.userAgent`、`method: navigate` 换页——用户报"某个站点打不开"
+  时这是最快的第一现场。修后实测：`location.href` 停在 `https://www.bilibili.com/`、标题是
+  真首页、`navigator.userAgent` 末段为 `Version/27.0 Safari/605.1.15`。
+
+
 ---
 
 ## 5. 版本角标 / 交付自检

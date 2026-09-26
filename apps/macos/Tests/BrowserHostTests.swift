@@ -63,6 +63,20 @@ final class BrowserHostTests: XCTestCase {
         XCTAssertEqual(seen?.url, "")
     }
 
+    // MARK: - UA 身份尾巴（按 UA 认浏览器的站点）
+
+    func testSafariIdentityCarriesBothTokens() {
+        // WKWebView 默认 UA 只有引擎与系统，缺 `Version/x.y` 与 `Safari/x` 两个身份标记
+        // ——B 站首页据此把我们判成"未知/过旧浏览器"并跳到提示页（实测）。这里钉住"两个
+        // 标记都在"，且版本号不是空串（取本机 Safari 的真实版本或系统大版本）。
+        let identity = BrowserUserAgent.safariIdentity
+        XCTAssertTrue(identity.hasPrefix("Version/"), identity)
+        XCTAssertTrue(identity.hasSuffix(" Safari/605.1.15"), identity)
+        let version = identity.dropFirst("Version/".count).split(separator: " ").first.map(String.init) ?? ""
+        XCTAssertFalse(version.isEmpty)
+        XCTAssertNotEqual(version, "0")
+    }
+
     // MARK: - 组合行（app 自有 overlay 里的内置 MCP server）
 
     func testPatchRowPinsPathsAndSecretReferences() {

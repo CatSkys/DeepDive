@@ -73,6 +73,7 @@ final class BrowserHost: NSObject {
         config.websiteDataStore = .nonPersistent()
         config.userContentController = WKUserContentController()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
+        config.applicationNameForUserAgent = BrowserUserAgent.safariIdentity
         view = BrowserHostView(frame: Self.idleViewport, configuration: config)
         super.init()
         view.navigationDelegate = self
