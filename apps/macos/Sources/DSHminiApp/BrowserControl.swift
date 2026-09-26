@@ -1,9 +1,9 @@
 // 侧栏浏览器的 agent 控制面：MCP server（随包分发的 Node 脚本，暴露单个 `js` 工具）把
-// 命令 POST 到桥的 /browser-control，这里落到壳里的同一个 BrowserHost。
+// 命令 POST 到桥的 /browser-control，这里落到壳里的 BrowserTabs（按 tabId 找标签，缺省当前标签）。
 //
 // 分层照 ZCode：**高层语义（快照/ref/点击/输入）在 JS 侧**（随包的 browser-client SDK
-// 拼页面脚本），壳只提供原语——导航、观察、截图、执行 JS、轮询等待。所以壳不认识 ref、
-// 不认识选择器，也不会因为 SDK 换代而改。
+// 拼页面脚本），壳只提供原语——导航、观察、截图、执行 JS、轮询等待、以及标签的增删选。
+// 所以壳不认识 ref、不认识选择器，也不会因为 SDK 换代而改。
 //
 // 鉴权：boot 级随机 token（EngineSupervisor 随 env 交给 MCP server），Authorization 头带它。
 // 桥的 Origin 全等闸不动——回环上的非浏览器客户端本就不带 Origin。
@@ -14,9 +14,9 @@ enum BrowserControl {
     /// 本次 boot 的控制 token（进程内随机，不落盘）。
     static let token = UUID().uuidString.replacingOccurrences(of: "-", with: "")
 
-    /// 取当前窗口的浏览器宿主：桥是单例、窗口控制器不是，所以由窗口控制器装这个口子
+    /// 取当前窗口的标签集合：桥是单例、窗口控制器不是，所以由窗口控制器装这个口子
     /// （弱捕获，窗口没了就回 nil）。
-    static var hostProvider: (() -> BrowserHost?)?
+    static var tabsProvider: (() -> BrowserTabs?)?
 
     /// 轮询等待的硬上限：SDK 会给 timeoutMs，这里再兜一层，免得一个坏请求把线程占住。
     private static let maxWaitMs = 30_000
@@ -33,7 +33,7 @@ enum BrowserControl {
         let semaphore = DispatchSemaphore(value: 0)
         var result: [String: Any] = ["ok": false, "error": "no browser"]
         DispatchQueue.main.async {
-            result = execute(method: method, command: command, host: hostProvider?())
+            result = execute(method: method, command: command, tabs: tabsProvider?())
             semaphore.signal()
         }
         // 等待必须在主线程之外（execute 自己也在主线程跑），否则死锁
@@ -44,19 +44,45 @@ enum BrowserControl {
     }
 
     /// 主线程上的命令分发。
-    private static func execute(method: String, command: [String: Any], host: BrowserHost?) -> [String: Any] {
-        guard let host else { return ["ok": false, "error": "no browser host"] }
+    private static func execute(method: String, command: [String: Any], tabs: BrowserTabs?) -> [String: Any] {
+        guard let tabs else { return ["ok": false, "error": "no browser"] }
+        switch method {
+        case "list_tabs":
+            return ["ok": true, "activeTabId": tabs.activeId, "tabs": tabs.listPayload()]
+        case "new_tab":
+            // 带地址的新标签先过协议闸（同 navigate），别把坏地址变成一条错误页
+            if let url = command["url"] as? String, let parsed = URL(string: url), !BrowserHost.allowed(parsed) {
+                return ["ok": false, "error": "navigation_blocked: only http/https/about:blank are allowed"]
+            }
+            let tab = tabs.newTab(url: command["url"] as? String ?? "")
+            return ["ok": true, "tabId": tab.id]
+        case "select_tab", "close_tab":
+            guard let id = command["tabId"] as? String, tabs.tab(id: id) != nil else {
+                return ["ok": false, "error": "unknown tab: \(command["tabId"] as? String ?? "?")"]
+            }
+            if method == "select_tab" { tabs.select(id: id) } else { tabs.close(id: id) }
+            return ["ok": true, "tabId": id]
+        default:
+            break
+        }
+        // 其余命令都落在某个标签上：指名就按指名找（找不到就报错，不要悄悄换一个标签干活），
+        // 缺省是当前标签。`awake()` 让睡着的标签先醒——休眠因此不会把 agent 打死。
+        guard let tab = target(tabs, command) else {
+            return ["ok": false, "error": "unknown tab: \(command["tabId"] as? String ?? "?")"]
+        }
+        tab.touch()
+        let host = tab.awake()
         switch method {
         case "navigate":
             guard let url = command["url"] as? String, let parsed = URL(string: url), BrowserHost.allowed(parsed) else {
                 return ["ok": false, "error": "navigation_blocked: only http/https/about:blank are allowed"]
             }
             host.load(url)
-            return ["ok": true]
+            return ["ok": true, "tabId": tab.id]
         case "back": host.goBack(); return ["ok": true]
         case "forward": host.goForward(); return ["ok": true]
         case "reload": host.reload(); return ["ok": true]
-        case "get_state": return state(host)
+        case "get_state": return state(tab, host)
         case "screenshot":
             var out: [String: Any] = ["ok": false, "error": "snapshot failed"]
             host.screenshot { base64 in
@@ -84,13 +110,21 @@ enum BrowserControl {
         }
     }
 
-    private static func state(_ host: BrowserHost) -> [String: Any] {
+    /// 命令落到哪个标签。
+    private static func target(_ tabs: BrowserTabs, _ command: [String: Any]) -> BrowserTab? {
+        guard let id = command["tabId"] as? String else { return tabs.active }
+        return tabs.tab(id: id)
+    }
+
+    /// 一个标签的状态。宿刚醒时 `view.url` 还答不出来，用标签镜像兜（同 SPA 那一条）。
+    private static func state(_ tab: BrowserTab, _ host: BrowserHost) -> [String: Any] {
         let view = host.view
         return [
             "ok": true,
+            "tabId": tab.id,
             "state": [
-                "url": view.url?.absoluteString ?? "",
-                "title": view.title ?? "",
+                "url": view.url?.absoluteString ?? tab.url,
+                "title": view.title ?? tab.title,
                 "loading": view.isLoading,
                 "canGoBack": view.canGoBack,
                 "canGoForward": view.canGoForward,

@@ -20,15 +20,15 @@ const PROTOCOL_FALLBACK = "2025-06-18";
 
 const JS_TOOL_DESCRIPTION = `Run JavaScript that drives DeepDive's in-app browser.
 
-The kernel is fresh on every call: nothing persists except the browser page itself.
-The browser SDK is preinstalled — do not import it. Start with:
+The kernel is fresh on every call: nothing persists except the browser and its
+tabs. The browser SDK is preinstalled — do not import it. Start with:
 
     const browser = await agent.browsers.getDefault();
     nodeRepl.write(await browser.documentation());   // the full API guide, read once
 
 Then recover the page and read it before acting:
 
-    const tab = await browser.tabs.new();            // single tab in this runtime
+    const tab = await browser.tabs.new();            // or tabs.selected()/list()/get(id)
     await tab.goto("https://example.com");
     await tab.playwright.waitForLoadState();
     const snapshot = await tab.playwright.domSnapshot();

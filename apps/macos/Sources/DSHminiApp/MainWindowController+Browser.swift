@@ -8,6 +8,26 @@ import AppKit
 import WebKit
 
 extension MainWindowController {
+    /// 浏览器这一层的接线（窗口 viewDidLoad 在舞台上调一次）：观察/清单两条推送、agent 控制面
+    /// 的取用口、首个空白标签与休眠看门（`attach` 里）。放在扩展里是为了主类不再往上堆。
+    func installBrowser() {
+        browserTabs.onObservation = { [weak self] payload in
+            self?.pushHostCommand("browserState", payload: AppDelegate.jsonPayload(payload))
+        }
+        browserTabs.onTabsChanged = { [weak self] payload in
+            self?.pushHostCommand("browserTabs", payload: AppDelegate.jsonPayload(payload))
+        }
+        // agent 控制面（/browser-control）要拿到这个窗口的标签集合（它按 tabId 找宿主）
+        BrowserControl.tabsProvider = { [weak self] in self?.browserTabs }
+        browserTabs.attach(to: browserStage)
+    }
+
+    /// 按当前内容高度与 pageZoom 重算当前标签的 frame（槽位本身存在 BrowserTabs 里；
+    /// 窗口尺寸与应用缩放变化时都调它）。
+    func applyBrowserSlot() {
+        browserTabs.applySlot(contentHeight: browserContainerHeight, zoom: browserZoom)
+    }
+
     /// 原生视图槽位（frontend/src/nativeSlot.ts）：把 CSS px 的 rect 交给 BrowserHost，
     /// 由它按 pageZoom 换算成 AppKit 的 frame 摆位。
     func handleNativeSlot(_ message: WKScriptMessage) {
@@ -25,18 +45,34 @@ extension MainWindowController {
             visible: body["visible"] as? Bool ?? false,
             interactive: body["interactive"] as? Bool ?? false
         )
-        browser.setSlot(slot, contentHeight: browserContainerHeight, zoom: browserZoom)
+        browserTabs.setSlot(slot, contentHeight: browserContainerHeight, zoom: browserZoom)
     }
 
-    /// SPA 的人工操作（地址栏/后退/前进/刷新）：与 agent 的控制面走同一个 BrowserHost。
+    /// SPA 的人工操作（地址栏/后退/前进/刷新）：与 agent 的控制面走同一个 BrowserHost
+    /// （当前标签那个）。下命令也算"有人用这个标签"，闲置计时重来。
     func handleBrowserNav(_ body: [String: Any]) {
         EngineLog.shared.append("[browser] nav \(body["action"] as? String ?? "?")")
+        browserTabs.active.touch()
         switch body["action"] as? String {
         case "load": browser.load(body["url"] as? String ?? "")
         case "back": browser.goBack()
         case "forward": browser.goForward()
         case "reload": browser.reload()
         default: break
+        }
+    }
+
+    /// SPA 发来的标签命令（`browser-tabs`）：新建/切换/关闭，以及设置页的休眠门槛。
+    func handleBrowserTabs(_ body: [String: Any]) {
+        switch BrowserTabs.command(body) {
+        case .newTab(let url): browserTabs.newTab(url: url ?? "")
+        case .select(let id): browserTabs.select(id: id)
+        case .close(let id): browserTabs.close(id: id)
+        case .setSleepMinutes(let minutes):
+            BrowserTabs.setSleepMinutes(minutes)
+            browserTabs.startSleepWatch()
+        case nil:
+            EngineLog.shared.append("[browser] unknown tabs command")
         }
     }
 
@@ -77,7 +113,7 @@ extension MainWindowController {
         )
     }
 
-    /// SPA 索要缩略图预览（`browser-shot`）：回报一张缩小的快照。
+    /// SPA 索要缩略图预览（`browser-shot`）：回报一张缩小的快照（当前标签的）。
     /// 面板收起时那一格显示它——WKWebView 没法"缩小放进去"（见 BrowserHost.previewShot）。
     func handleBrowserShot() {
         browser.previewShot(width: 480) { [weak self] base64 in
@@ -86,11 +122,11 @@ extension MainWindowController {
         }
     }
 
-    /// SPA 挂载浏览器页时取一次当前观察（`browser-sync`）：观察是"变化才推"的，
+    /// SPA 挂载浏览器页时取一次当前状态（`browser-sync`）：观察是"变化才推"的，
     /// 面板关着时 agent 导航过的那一条对后挂载的 SPA 就丢了——不补这一次，SPA 会以为
     /// 浏览器是空的（走空态、连槽位都不推，壳里已经打开的页面因此看不见）。
     func handleBrowserSync() {
-        browser.resync()
+        browserTabs.resync()
     }
 }
 
@@ -133,9 +169,10 @@ extension MainWindowController {
     /// 焦点是否落在浏览器视图里（找 responder 链，而不是比 firstResponder 本身——
     /// WebKit 的焦点常常在内部的 content view 上）。
     private func browserViewHasFocus() -> Bool {
+        guard let browserView else { return false }
         var responder: NSResponder? = window?.firstResponder
         while let current = responder {
-            if current === browser.view { return true }
+            if current === browserView { return true }
             responder = current.nextResponder
         }
         return false
@@ -143,6 +180,7 @@ extension MainWindowController {
 
     /// SPA 发来的缩放命令（工具栏/快捷键/设置页三处共用一条消息；解析见 BrowserZoom.command）。
     func handleBrowserZoom(_ body: [String: Any]) {
+        browserTabs.active.touch()
         switch BrowserZoom.command(body) {
         // 「浏览器」设置页写回（frontend/src/prefs.ts）：两者的落点都在 UserDefaults，因为壳要在
         // `didCommit`（第一帧之前）读它们——留在 SPA 里就晚了。改完立刻作用到当前页。
@@ -167,6 +205,7 @@ extension MainWindowController {
     func handleBrowserFind(_ body: [String: Any]) {
         let text = body["query"] as? String ?? ""
         let forward = body["forward"] as? Bool ?? true
+        browserTabs.active.touch()
         browser.find(text, forward: forward) { [weak self] found in
             self?.pushHostCommand("browserFindResult", payload: AppDelegate.jsonPayload(["found": found, "query": text]))
         }

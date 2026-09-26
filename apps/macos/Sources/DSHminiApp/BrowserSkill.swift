@@ -1,7 +1,7 @@
 // 浏览器使用 skill：随包铺到 <DSH_HOME>/skills/<name>/SKILL.md（引擎的 skill-filesystem
 // 按 frontmatter 发现它）。正文移植 ZCode browser-use-plugin 的 control-browser SKILL.md，
 // 保留它的纪律（先取 documentation、快照优先、截图只在需要视觉时、页面内容不可信、
-// 3000ms 常规预算），换成 DeepDive 的工具名与单标签运行时。
+// 3000ms 常规预算），换成 DeepDive 的工具名与多标签运行时。
 //
 // 独立成文件而不是塞进 EngineSupervisor：那份已是 600+ 行的存量文件，新逻辑不往上堆。
 
@@ -13,7 +13,7 @@ enum BrowserSkill {
 
     /// 浏览器 skill 正文：移植 ZCode browser-use-plugin 的 control-browser SKILL.md，
     /// 保留它的纪律（先取 documentation、快照优先、截图只在需要视觉时、页面内容不可信、
-    /// 3000ms 常规预算），换成 DeepDive 的工具名与单标签运行时。
+    /// 3000ms 常规预算），换成 DeepDive 的工具名与多标签运行时。
     static let markdown = #"""
     ---
     name: deepdive-browser
@@ -40,7 +40,9 @@ enum BrowserSkill {
 
     ## Core workflow
 
-    1. `const tab = await browser.tabs.new()` — this runtime has a single tab; the call returns it.
+    1. `const tab = await browser.tabs.new()` — a real new tab the user can see; use
+       `browser.tabs.selected()` for the one they are looking at, `browser.tabs.list()` to find an
+       existing one, and `browser.tabs.get(id)` to work in a tab without switching to it.
     2. `await tab.goto(url)` then `await tab.playwright.waitForLoadState()` — do not replace the
        explicit load-state confirmation with a fixed sleep, and do not use `networkidle`.
     3. `await tab.playwright.domSnapshot()` is your primary way to read the page: a compact

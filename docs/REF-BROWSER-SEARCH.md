@@ -85,15 +85,17 @@ VERSION 1.0.3）。本文只做**参考梳理**：它分成哪些块、每块假
 
 ## 4. 与我们现状的差距（按块看我们还缺什么）
 
-- **B 标签页**：我们只有单页（一个 WKWebView、一个槽位）；多标签要先定"标签状态放壳还是放 SPA"。
-- **C 标签栏**：无。
-- **D 地址栏**：有输入与基本校验（`browserUrl.ts`），无补全、无站点图标、无 freetext→搜索。
-- **E 查找**：无。
+- **B 标签页**：已落地（`BrowserTabs`/`BrowserTab`）；标签状态的事实在壳里，SPA 只渲染与发命令。
+- **C 标签栏**：已落地（`BrowserTabStrip.tsx`：site icon + 关闭 + new tab）。
+- **D 地址栏**：已落地（补全 + "搜索 xxx" + 站点图标）。
+- **E 查找**：已落地（`WKFindConfiguration`，⌘F/⌘G/⇧⌘G/Esc）。
 - **F 隐私**：无拦截、无按站权限记忆；`WKUIDelegate` 只接了必要部分。
 - **G 阅读/清理**：无。
 - **L 书签/历史**：无（我们有会话产物列表，与"浏览历史"是两件事）。
-- **M 休眠**：无（面板关着时靠 `alpha 0` 保活）。
-- **R 自动化**：有 `/browser-control`（navigate/back/forward/reload/get_state/screenshot/evaluate/wait_for）；
+- **M 休眠**：已落地（闲置/内存压力触发，`interactionState` + 停帧封面 + "未保存输入"询问；
+  面板关着时仍靠 `alpha 0` 保活供 agent 截图，两者并存）。
+- **R 自动化**：有 `/browser-control`（navigate/back/forward/reload/get_state/screenshot/evaluate/wait_for
+  + list_tabs/new_tab/select_tab/close_tab，命令按 `tabId` 寻址）；
   对照它的命令表，我们缺 **click / key / 等待条件的种类**（我们只有 wait_for 一种）。
 
 ## 5. 落地顺序（2026-09-26 用户确认，定稿条文在 `SPEC-BROWSER-USE.md §3.5`）
@@ -101,9 +103,9 @@ VERSION 1.0.3）。本文只做**参考梳理**：它分成哪些块、每块假
 用户确认按下面顺序逐块做，并补了三条定稿：标签栏**横向 + site icon 式 + new tab、不做竖向**；
 **cookie / 密码导入很重要**（agent 被登录墙拦）；**浏览器设置项统一进设置页，新增「浏览器」设置页**。
 
-1. **地址栏与补全 + 按站缩放记忆 + 查找**（D/E，小件、纯逻辑、立刻提升"人能用"）
-2. **标签页模型 + 标签栏 + 休眠**（B/C/M，最大一块，先切分 `Browser.swift` 的窗口状态）
-3. **隐私与拦截 + 按站权限**（F）
+1. **地址栏与补全 + 按站缩放记忆 + 查找**（D/E）——已落地
+2. **标签页模型 + 标签栏 + 休眠**（B/C/M）——已落地
+3. **隐私与拦截 + 按站权限**（F）——下一步
 4. **阅读模式与按站隐藏**（G，对 agent 读页面也有用）
 5. **历史与书签**（L）
 6. 以后：视频浮窗（H）、密码/钥匙串（J）、设置项补全（N 的部分）

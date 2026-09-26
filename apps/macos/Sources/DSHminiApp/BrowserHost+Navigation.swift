@@ -48,13 +48,13 @@ extension BrowserHost: WKNavigationDelegate {
 }
 
 extension BrowserHost: WKUIDelegate {
-    /// 弹窗不开原生窗口：白名单内的在同一个视图里加载（官方 Desktop 是开成侧栏新页，
-    /// 本仓只有一个浏览器视图，等价做法是就地导航）。
+    /// 弹窗不开原生窗口，也不占掉当前这一页：白名单内的地址交给标签集合开成**新标签**
+    /// （参考实现同一取舍：`target=_blank` 的链接不该把手上这页顶掉）。
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction,
                  windowFeatures: WKWindowFeatures) -> WKWebView? {
         if let url = navigationAction.request.url, BrowserHost.allowed(url) {
-            webView.load(URLRequest(url: url))
+            onPopup?(url.absoluteString)
         }
         return nil
     }

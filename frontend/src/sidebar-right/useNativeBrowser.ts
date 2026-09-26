@@ -23,6 +23,18 @@ interface NativeBrowserState {
   zoom: number;
 }
 
+/** 标签栏清单里的一项（`browserTabs` 指令的载荷；壳是标签状态的事实源）。 */
+export interface BrowserTabFace {
+  id: string;
+  title: string;
+  url: string;
+  /** 站点图标：页面自己声明的那个地址；空 = 没声明，标签栏退回首字母 */
+  icon: string;
+  /** 睡着 = 宿主已被壳回收（内存），点它先唤醒 */
+  asleep: boolean;
+  active: boolean;
+}
+
 const EMPTY: NativeBrowserState = { url: "", title: "", loading: false, canGoBack: false, canGoForward: false, error: false, zoom: 1 };
 
 /** 壳在网页里截到的浏览器快捷键（`browserKey`）：网页是另一个 WKWebView，焦点在它身上时
@@ -33,6 +45,14 @@ export type BrowserKeyCommand =
 
 export interface NativeBrowser {
   frame: BrowserFrameState;
+  /** 标签栏清单与当前标签（壳推的 `browserTabs`；壳是标签状态的事实源） */
+  tabs: BrowserTabFace[];
+  activeTabId: string;
+  newTab: () => void;
+  closeTab: (id: string) => void;
+  selectTab: (id: string) => void;
+  /** 唤醒期间铺在页面上的停帧图（data:image/png;base64 的裸串）；空 = 没有 */
+  cover: string;
   /** 当前缩放（壳回报） */
   zoom: number;
   zoomIn: () => void;
@@ -58,16 +78,33 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
   const [observed, setObserved] = useState<NativeBrowserState>(EMPTY);
   const [shot, setShot] = useState<string | null>(null);
   const [findResult, setFindResult] = useState<{ query: string; found: boolean } | null>(null);
+  const [tabs, setTabs] = useState<BrowserTabFace[]>([]);
+  const [activeTabId, setActiveTabId] = useState("");
+  const [cover, setCover] = useState("");
   // 回调放 ref：壳事件订阅只装一次，不因每次渲染的新函数反复解绑
   const keyHandler = useRef(onKey);
   keyHandler.current = onKey;
+  // 当前标签也要一份 ref：订阅闭包里读不到最新的 state，而观察的取舍要看它
+  const activeTabRef = useRef("");
   const [draft, setDraft] = useState("");
   const [failure, setFailure] = useState<BrowserAddressFailure | undefined>(undefined);
   const editing = useRef(false);
 
   useEffect(() => onHostEvent((cmd, payload) => {
+    if (cmd === "browserTabs") {
+      const data = payload as { tabs?: BrowserTabFace[]; activeId?: string } | undefined;
+      activeTabRef.current = typeof data?.activeId === "string" ? data.activeId : "";
+      setTabs(Array.isArray(data?.tabs) ? data.tabs : []);
+      setActiveTabId(activeTabRef.current);
+      return;
+    }
     if (cmd === "browserState") {
-      setObserved({ ...EMPTY, ...(payload as Partial<NativeBrowserState> | undefined) });
+      const data = payload as (Partial<NativeBrowserState> & { tabId?: string; cover?: string }) | undefined;
+      // 迟到的旧标签观察丢掉：换标签时壳先推清单（那份是权威），旧标签的观察可能后到
+      if (typeof data?.tabId === "string" && activeTabRef.current !== "" && data.tabId !== activeTabRef.current) return;
+      const { url, title, loading, canGoBack, canGoForward, error, zoom } = { ...EMPTY, ...data };
+      setObserved({ url, title, loading, canGoBack, canGoForward, error, zoom });
+      setCover(typeof data?.cover === "string" ? data.cover : "");
       return;
     }
     if (cmd === "browserShot") {
@@ -147,6 +184,12 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
 
   return {
     frame,
+    tabs,
+    activeTabId,
+    newTab: () => sendToShell({ type: "browser-tabs", action: "new" }),
+    closeTab: (id: string) => sendToShell({ type: "browser-tabs", action: "close", id }),
+    selectTab: (id: string) => sendToShell({ type: "browser-tabs", action: "select", id }),
+    cover,
     zoom: observed.zoom,
     zoomIn: () => sendToShell({ type: "browser-zoom", action: "in" }),
     zoomOut: () => sendToShell({ type: "browser-zoom", action: "out" }),

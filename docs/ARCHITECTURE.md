@@ -44,8 +44,10 @@
 | 文件 | 职责 |
 |---|---|
 | `AppDelegate.swift` | 生命周期、host 指令路由、设置/外观/通知接线 |
-| `BrowserHost.swift` | 侧栏浏览器的壳侧宿主：窗口里的第二个 WKWebView（独立 `nonPersistent` 数据存储、自己的导航/UI delegate、协议白名单、截图/执行 JS/导航原语）。加在 SPA webview 之后 = 最上层；缩略图态由 `hitTest` 让位（见 `SPEC-BROWSER-USE.md §3`） |
-| `BrowserControl.swift` | 浏览器控制面：桥的 `POST /browser-control`（boot token 鉴权）→ 落到同一个 `BrowserHost`。只提供原语（导航/观察/截图/执行 JS/轮询等待），高层语义在 JS 侧 SDK 里 |
+| `BrowserHost.swift`（+`+Navigation`/`+ZoomFind`） | 一个标签的壳侧宿主：一个 WKWebView（导航/UI delegate、协议白名单、截图/执行 JS/导航/唤醒原语）。当前标签的那个挂在舞台上；缩略图态由 `hitTest` 让位（见 `SPEC-BROWSER-USE.md §3`） |
+| `BrowserTab.swift` | 一个标签：身份 + 壳侧镜像（标题/地址/站点图标）+ **惰性**宿主 + 睡着时留的三样（`interactionState` 回去的路、停帧封面、镜像） |
+| `BrowserTabs.swift`（+`+Sleep`） | 标签集合：增删选与"永远留一个空白标签"、舞台换视图、观察扇出（`browserState`/`browserTabs`）、槽位；休眠策略与内存压力在 `+Sleep`。一个窗口一个 `WKWebsiteDataStore`（cookie 跨标签共享） |
+| `BrowserControl.swift` | 浏览器控制面：桥的 `POST /browser-control`（boot token 鉴权）→ 落到 `BrowserTabs` 里的某个标签（命令带 `tabId`，缺省当前标签）。只提供原语（导航/观察/截图/执行 JS/轮询等待/标签增删选），高层语义在 JS 侧 SDK 里 |
 | `BrowserUseInstaller.swift` | 把随包的 `BrowserUse/`（MCP server + 浏览器 SDK）装进 `<support>/browser-use/`（幂等），并给出引擎 spawn 要注入的控制面 URL 与 token；组合行由 `EngineSupervisor.enginePatchBody` 写 |
 | `MainWindowController.swift` | 玻璃主窗 + 透明 WKWebView + 显隐防闪烁 + 标题栏拖拽 rect 表 + 空 NSToolbar（Tahoe 大圆角档，勿删，`PITFALLS §4.7`）+ 视图菜单的页面缩放 |
 | `MainMenu.swift` | 主菜单结构（文件/编辑/视图/窗口/帮助）：只连选择器，动作实现在 AppDelegate/MainWindowController。**可改键位不写死**——应用内快捷键（⌘N/⌘K/⌘B/⌘D/⌘⇧E/⌘,）的事实源是前端键位注册表，菜单项不占这些键，否则改键失效（文件头有完整说明） |

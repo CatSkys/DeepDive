@@ -82,5 +82,6 @@
   - `scripts/browser-client.mjs` + `docs/api.json` → `apps/macos/BrowserUse/browser-client.mjs`
   - `packages/shared/src/browser-use/commands.ts` 的命令族 → 壳侧 `/browser-control` 的原语集
   - 有意偏离：ZCode 的 `js` 工具跑在 node_repl 里、有 IAB/extension/cdp 三种后端；
-    本仓只有一种后端（壳内 WKWebView）、单标签，且内核取值要写 `return`（ZCode 是 REPL 完成值）。
+    本仓只有一种后端（壳内 WKWebView），标签是真的但命令按 `tabId` 寻址（不是 ZCode 的
+    三后端 `tabs.new/get/selected` 语义），且内核取值要写 `return`（ZCode 是 REPL 完成值）。
     理由与边界记在 `SPEC-BROWSER-USE.md §4`。

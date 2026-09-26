@@ -915,6 +915,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "home": AppPaths.harnessHome.path,
             "browserZoomDefault": Double(BrowserZoom.defaultZoom()),
             "browserZoomRememberSite": BrowserZoom.remembersPerSite(),
+            "browserTabSleepMinutes": BrowserTabs.sleepMinutes(),
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else { return }

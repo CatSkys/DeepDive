@@ -15,6 +15,7 @@ import { useIframeBrowser } from "./useIframeBrowser";
 import { useNativeBrowser } from "./useNativeBrowser";
 import { BrowserEmpty, IframeCarrier, NativeCarrier, browserCarrierKind } from "./BrowserCarrier";
 import { BrowserFindBar } from "./BrowserFindBar";
+import { BrowserTabStrip } from "./BrowserTabStrip";
 import { BrowserToolbar } from "./BrowserToolbar";
 import type { PaneFace } from "./BrowserToolbar";
 
@@ -85,6 +86,15 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
   return (
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
       {expanded && (
+        <BrowserTabStrip
+          tabs={browser.tabs}
+          activeId={browser.activeTabId}
+          onSelect={browser.selectTab}
+          onClose={browser.closeTab}
+          onNew={browser.newTab}
+        />
+      )}
+      {expanded && (
         <BrowserToolbar
           face={face}
           onChat={onChat}
@@ -105,7 +115,14 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
       )}
       <div className="panel-browser-body">
         {expanded ? (
-          <NativeCarrier interactive>{null}</NativeCarrier>
+          <>
+            {/* 唤醒期间铺的停帧图：页面一有像素，压在上面的原生视图就把它盖住了，
+                所以这里不需要"页面画好了"的回执，壳给时限撤图（BrowserTab.wake） */}
+            {browser.cover !== "" && (
+              <img className="panel-browser-cover" src={`data:image/png;base64,${browser.cover}`} alt="" />
+            )}
+            <NativeCarrier interactive>{null}</NativeCarrier>
+          </>
         ) : (
           <>
             {empty && <BrowserEmpty />}

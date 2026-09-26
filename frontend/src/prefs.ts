@@ -50,6 +50,12 @@ export function usePrefs() {
     setBrowserZoomRememberSiteState(on);
     sendToShell({ type: "browser-zoom", rememberSite: on });
   }, []);
+  // 标签休眠门槛（分钟；0 = 永不）——壳侧的看门计时器按它扫，所以也落 UserDefaults
+  const [browserTabSleepMinutes, setBrowserTabSleepMinutesState] = useState(30);
+  const setBrowserTabSleepMinutes = useCallback((minutes: number) => {
+    setBrowserTabSleepMinutesState(minutes);
+    sendToShell({ type: "browser-tabs", sleepMinutes: minutes });
+  }, []);
   const setAppearance = useCallback((m: "system" | "light" | "dark") => {
     setAppearanceState(m);
     sendToShell({ type: "set-pref", key: "appearance", value: m });
@@ -86,7 +92,7 @@ export function usePrefs() {
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
@@ -96,6 +102,7 @@ export function usePrefs() {
       if (typeof p.onboarding === "string") setOnboardingState(p.onboarding);
       if (typeof p.browserZoomDefault === "number") setBrowserZoomDefaultState(p.browserZoomDefault);
       if (typeof p.browserZoomRememberSite === "boolean") setBrowserZoomRememberSiteState(p.browserZoomRememberSite);
+      if (typeof p.browserTabSleepMinutes === "number") setBrowserTabSleepMinutesState(p.browserTabSleepMinutes);
     }
     if (cmd === "themeChanged") {
       const dark = (payload as { dark?: boolean } | undefined)?.dark;
@@ -115,6 +122,7 @@ export function usePrefs() {
     hotkeyOn, setHotkeyOn,
     browserZoomDefault, setBrowserZoomDefault,
     browserZoomRememberSite, setBrowserZoomRememberSite,
+    browserTabSleepMinutes, setBrowserTabSleepMinutes,
     onboarding, setOnboarding,
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,

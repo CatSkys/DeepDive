@@ -85,10 +85,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     private let tintView = NSView()
     private var themeEnabled: Bool
 
-    /// 侧栏浏览器的壳侧宿主（窗口里的第二个 WKWebView）。位置由前端推上来的槽位 rect
-    /// 决定（frontend/src/nativeSlot.ts → `native-slot` 消息），命令来自 SPA（browser-nav
-    /// 导航 / browser-sync 取当前观察）与 agent（/mcp）两侧。
-    let browser = BrowserHost()
+    /// 侧栏浏览器的标签集合（窗口里的第二组 WKWebView，同一时刻只有当前标签挂在舞台上）。
+    /// 位置由前端推上来的槽位 rect 决定（frontend/src/nativeSlot.ts → `native-slot` 消息），
+    /// 命令来自 SPA（browser-nav / browser-tabs / browser-sync）与 agent（/browser-control）两侧。
+    let browserTabs = BrowserTabs()
+    /// 浏览器视图的舞台：装 SPA webView 之后、聊天叠加层之前——换标签只换里面的视图，
+    /// 这一层在窗口里的上下位置不动（否则新标签的网页会盖住悬浮对话卡）。
+    let browserStage = NSView()
     /// 浏览器全屏时的**悬浮输入框**叠加层（透明 webview，见 ComposerOverlayHost）。
     let composerOverlay = ComposerOverlayHost()
     /// 浏览器页的键盘监视器（焦点在网页里时 SPA 收不到键，见 MainWindowController+Browser）。
@@ -97,16 +100,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     /// MainWindowController+Browser 用）。
     var browserContainerHeight: CGFloat { effectView.bounds.height }
     var browserZoom: CGFloat { webView.pageZoom }
+    /// 当前标签的宿主（沿用 `browser.` 这个名字：绝大多数命令的落点就是"人正在看的那个标签"）。
+    var browser: BrowserHost { browserTabs.activeHost }
+    /// 焦点判定用：当前标签已经建好的那个视图（**不建**新的——比焦点不该吵醒睡着的标签）。
+    var browserView: NSView? { browserTabs.active.awakeHost?.view }
     /// SPA 的源（scheme://host:port）：叠加层要用同一个源打开同一个包，才能共用
     /// localStorage（草稿按会话存在那儿）与同一套桥。
     var spaOrigin: String {
         guard let url = webView.url, let scheme = url.scheme, let host = url.host else { return "" }
         return url.port.map { "\(scheme)://\(host):\($0)" } ?? "\(scheme)://\(host)"
-    }
-
-    /// 按当前内容高度与 pageZoom 重算浏览器视图的 frame（槽位本身存在 BrowserHost 里）。
-    private func applyBrowserSlot() {
-        browser.applySlot(contentHeight: browserContainerHeight, zoom: browserZoom)
     }
 
     /// Frontend asks the shell to act (SPEC-NOTIFICATIONS §3.1 前端→外壳)，
@@ -221,15 +223,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         webView.autoresizingMask = [.width, .height]
         effectView.addSubview(webView)
 
-        // 浏览器宿主加在 webView **之后** = 最上层：它盖住 SPA 挖的那一格，点击归它自己
-        // （缩略图态由 hitTest 让位，见 BrowserHostView）。初始隐藏，等前端推槽位。
-        browser.onObservation = { [weak self] observation in
-            self?.pushHostCommand("browserState", payload: AppDelegate.jsonPayload(observation.payload))
-        }
-        // agent 控制面（/browser-control）要拿到这个窗口的浏览器宿主
-        BrowserControl.hostProvider = { [weak self] in self?.browser }
-        browser.place(rect: BrowserHost.idleViewport, visible: false, interactive: false)
-        effectView.addSubview(browser.view)
+        // 浏览器舞台加在 webView **之后** = 网页恒在 SPA 之上：当前标签的 WKWebView 盖住
+        // SPA 挖的那一格，点击归它自己（缩略图态由 hitTest 让位，见 BrowserHostView）。
+        // 初始不可见，等前端推槽位。舞台里的接线在 MainWindowController+Browser.swift。
+        browserStage.frame = effectView.bounds
+        browserStage.autoresizingMask = [.width, .height]
+        effectView.addSubview(browserStage)
+        installBrowser()
 
         // 悬浮输入框叠加层加在浏览器视图**之后**：网页之上才能浮得住（网页是原生视图，
         // 恒在 SPA 的 HTML 之上，HTML 浮不上去）。它只在自己那颗胶囊的矩形里收点击，
@@ -558,6 +558,10 @@ extension MainWindowController: WKScriptMessageHandler {
         // 浏览器命令由本窗口的扩展处理（宿主就在这儿），其余按原路交给 AppDelegate 的 case 表
         if type == "browser-nav" {
             handleBrowserNav(body)
+            return
+        }
+        if type == "browser-tabs" {
+            handleBrowserTabs(body)
             return
         }
         if type == "browser-sync" {

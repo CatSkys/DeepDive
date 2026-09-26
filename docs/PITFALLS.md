@@ -383,6 +383,22 @@
   `align-self: center`。
 
 
+### 4.24 页面脚本经 `evaluate` 回壳的形态：字符串是裸串，布尔/数字是 NSNumber 的 `String(describing:)`（2026-09-26 一天踩两次）
+
+- `BrowserHost.evaluate` 把页面结果转成字符串，只有三个分支：能当 JSON 顶层容器（数组/字典）走
+  `JSONSerialization`；`NSNull` 给 `"null"`；**其余一律 `String(describing:)`**。于是：
+  · `return "abc"` → `abc`（裸串：没有引号，也不是 JSON 文本）；
+  · `return true` → `1`（WebKit 把 JS 布尔交成 `NSNumber`，description 就是 1/0）；
+  · `return 3.5` → `3.5`。
+- 症状：把脚本写成回布尔、壳侧再按 `result == "true"` 比较——**永远不成立**；或者把裸串当 JSON 用
+  `JSONDecoder().decode(String.self,)`——**永远解不出来**。同一天里同一根因踩了两次：标签休眠前
+  "页面里有没有没发出去的输入"那一问（写成回布尔 → 判据不成立 → 半填的表单照样被睡掉，
+  人打了一半的字差点没了，实测复现），以及站点图标地址的提取（按 JSON 解 → 永远没有图标）。
+- 规矩：页面脚本要比真值就**回字符串**（`String(expr)` 或直接 `"true"`/`"false"`）——
+  `browser-page-scripts.mjs` 的 `READY_STATE = String(document.readyState !== 'loading')` 早就是
+  这条老规矩；要回结构化数据就回对象/数组（走 JSON 分支）。壳侧比较直接 `== "true"`、
+  解析直接用裸串，**别再套一层 JSON 解码**。
+
 ---
 
 ## 5. 版本角标 / 交付自检

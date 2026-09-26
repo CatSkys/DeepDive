@@ -1,0 +1,250 @@
+// 标签集合：一个窗口里所有标签的模型与舞台。四件事——
+//   · 增删选，外加一条不变式：**永远至少留一个空白标签**（关掉最后一个不是"没有浏览器"，
+//     是回到空白页；浏览器实体在面板生命周期里一直存在）；
+//   · 舞台：当前标签的 WKWebView 是窗口里唯一挂着的浏览器视图，换标签就换视图；
+//   · 观察扇出：每个标签的宿主都回报，当前标签那条推给 SPA（桥指令 `browserState`），
+//     标签栏清单另推一条（`browserTabs`）；
+//   · 槽位：SPA 推来的几何作用于当前标签；换标签/唤醒时用同一份几何把新宿主重新摆好
+//     （槽位状态因此从单个宿主搬到这里——宿主是会被回收的，几何不跟着它走）。
+//
+// 休眠策略（谁该睡、什么时候睡）在 BrowserTabs+Sleep.swift。进程池不用自己管：macOS 12 起
+// `WKProcessPool` 已废弃、"多个实例不再有任何效果"，WebKit 自己按应用共享内容进程；
+// 这里共享的是**数据存储**（`store`），cookie 因此跨标签可见。
+import AppKit
+import WebKit
+
+final class BrowserTabs {
+    /// 当前标签的观察（桥指令 `browserState`；载荷里带 `tabId` 与 `cover`）
+    var onObservation: (([String: Any]) -> Void)?
+    /// 标签栏清单（桥指令 `browserTabs`）
+    var onTabsChanged: (([String: Any]) -> Void)?
+
+    private(set) var tabs: [BrowserTab] = []
+    private(set) var activeId = ""
+    /// 浏览器视图的容器（窗口控制器在 viewDidLoad 交进来）：加在 SPA webView 之后、
+    /// 悬浮输入框之前——原生网页恒在 SPA 之上、恒在对话卡之下。
+    private weak var stage: NSView?
+    /// SPA 推来的槽位 + 换算要的两个实时值（换标签/唤醒时重新摆用）
+    private var slot: BrowserSlot?
+    private var contentHeight: CGFloat = 0
+    private var zoom: CGFloat = 1
+    /// 一个窗口一个存储：cookie/Web 存储跨标签共享（目前不落盘，重启即清）
+    private let store = WKWebsiteDataStore.nonPersistent()
+
+    // 休眠看门的几件状态。逻辑在 BrowserTabs+Sleep.swift；Swift 的扩展放不了存储属性，
+    // 所以它们留在类里（同 MainWindowController 的 browserKeyMonitor）。
+    var sleepTimer: Timer?
+    var pressureSource: DispatchSourceMemoryPressure?
+    /// 内存压力下临时压低的门槛（分钟）；nil = 没压力，用设置里的值
+    var pressured: Int?
+    /// 正在走休眠流程的标签（问页面、抓封面都是异步的，别进去两次）
+    var sleeping: Set<String> = []
+
+    /// 当前标签（不变式：非空）。
+    var active: BrowserTab { tabs.first { $0.id == activeId } ?? tabs[0] }
+    /// 当前标签的宿主。**取用即唤醒**——agent 的 screenshot/evaluate 只要图，不该被
+    /// "这个标签睡过"打死；人这边切标签本身也会先唤醒（见 activate）。
+    var activeHost: BrowserHost { active.awake() }
+
+    func tab(id: String) -> BrowserTab? { tabs.first { $0.id == id } }
+
+    /// 窗口没了就把看门的两支停掉（计时器是被 run loop 持有的，不停会一直空转）。
+    deinit {
+        sleepTimer?.invalidate()
+        pressureSource?.cancel()
+    }
+
+    // MARK: - 舞台与增删选
+
+    /// 装到窗口上：建首个空白标签、挂视图、开始看闲置。
+    func attach(to stage: NSView) {
+        self.stage = stage
+        let first = makeTab(url: "")
+        tabs = [first]
+        activate(first)
+        startSleepWatch()
+    }
+
+    /// 新建标签（url 空 = 空白页）并切过去。
+    @discardableResult
+    func newTab(url: String = "") -> BrowserTab {
+        let tab = makeTab(url: url)
+        tabs.append(tab)
+        activate(tab)
+        return tab
+    }
+
+    func select(id: String) {
+        guard let tab = tab(id: id) else { return }
+        activate(tab)
+    }
+
+    func close(id: String) {
+        guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
+        let closed = tabs[index]
+        closed.awakeHost?.view.removeFromSuperview()
+        tabs.remove(at: index)
+        guard !tabs.isEmpty else {
+            // 关掉最后一个：回到空白页
+            let fresh = makeTab(url: "")
+            tabs = [fresh]
+            activate(fresh)
+            return
+        }
+        // 关掉当前标签就接上它右边那个（没有右边就左边那个），其余情况只是清单变了
+        if closed.id == activeId {
+            activate(tabs[min(index, tabs.count - 1)])
+        } else {
+            pushTabs()
+        }
+    }
+
+    // MARK: - 槽位
+
+    func setSlot(_ slot: BrowserSlot, contentHeight: CGFloat, zoom: CGFloat) {
+        self.slot = slot
+        applySlot(contentHeight: contentHeight, zoom: zoom)
+    }
+
+    /// 按缓存的槽位与当前 bounds/pageZoom 重算当前标签的 frame（窗口尺寸/缩放变化时调）。
+    func applySlot(contentHeight: CGFloat, zoom: CGFloat) {
+        self.contentHeight = contentHeight
+        self.zoom = zoom
+        guard let slot, let host = active.awakeHost else { return }
+        host.setSlot(slot, contentHeight: contentHeight, zoom: zoom)
+    }
+
+    // MARK: - 观察与推送
+
+    /// 补推（SPA 挂载浏览器页 / 换标签）：标签栏清单 + 当前标签的观察。
+    func resync() {
+        pushTabs()
+        pushState(active, active.awakeHost?.observation() ?? BrowserObservation())
+    }
+
+    /// 一个标签有变化：清单总要更新（标题/图标/睡着），当前标签另推一条观察与图标。
+    func changed(_ tab: BrowserTab) {
+        pushTabs()
+        if tab.id == activeId, let host = tab.awakeHost {
+            pushState(tab, host.observation())
+        }
+        adoptIcon(tab)
+    }
+
+    /// 站点图标：问页面自己声明的那个（`link[rel~=icon]`），一次导航问一次。
+    /// 不替站点猜 `/favicon.ico`（多数站点没有，只会打一堆 404），也不下载缓存——
+    /// SPA 直接按这个地址取图，取不到退回首字母。
+    private func adoptIcon(_ tab: BrowserTab) {
+        guard let host = tab.awakeHost, !host.view.isLoading else { return }
+        guard !tab.url.isEmpty, tab.url != "about:blank", tab.iconAsked != tab.url else { return }
+        tab.iconAsked = tab.url
+        host.evaluate(Self.iconScript) { [weak self, weak tab] text in
+            guard let self, let tab else { return }
+            // evaluate 对字符串结果给的是**裸串**（见 BrowserHost.evaluate 的三个分支），
+            // 只有出错时才带 "Error:" 前缀——那时当"没声明图标"，别把错误文本当地址
+            let icon = text.hasPrefix("Error:") ? "" : text
+            guard icon != tab.icon else { return }
+            tab.icon = icon
+            self.pushTabs()
+        }
+    }
+
+    private func makeTab(url: String) -> BrowserTab {
+        let tab = BrowserTab(id: UUID().uuidString, store: store)
+        tab.onChange = { [weak self] tab in self?.changed(tab) }
+        // 页面的 target=_blank / window.open：开一个新标签（当前这页留着）。
+        // 挪到下一轮 runloop：这会儿还在 WKUIDelegate 的调用栈里，同步建新 webview 有再入风险。
+        tab.onPopup = { [weak self] url in
+            DispatchQueue.main.async { self?.newTab(url: url) }
+        }
+        if !url.isEmpty {
+            tab.url = url
+            tab.host.load(url)
+        }
+        return tab
+    }
+
+    /// 换舞台：旧标签的视图下场，新标签的视图挂上（睡着的先醒），槽位照旧摆好。
+    private func activate(_ tab: BrowserTab) {
+        if let previous = tabs.first(where: { $0.id == activeId }), previous !== tab {
+            previous.awakeHost?.view.removeFromSuperview()
+        }
+        activeId = tab.id
+        tab.touch()
+        let host = tab.awake()
+        stage?.addSubview(host.view)
+        if let slot {
+            host.setSlot(slot, contentHeight: contentHeight, zoom: zoom)
+        } else {
+            // SPA 还没推过槽位（面板关着）：给 agent 的默认视口、不可见（见 BrowserHost.place）
+            host.place(rect: BrowserHost.idleViewport, visible: false, interactive: false)
+        }
+        pushTabs()
+        host.resync()
+    }
+
+    /// 标签清单（桥指令 `browserTabs` 与 agent 控制面的 `list_tabs` 共用这一条形状）。
+    /// 读之前先把每个标签的镜像拉成它宿主此刻的事实——清单是"现在长什么样"，
+    /// 不能停在上一次观察事件那一刻（标题晚到的坑见 BrowserTab.refresh）。
+    func listPayload() -> [[String: Any]] {
+        for tab in tabs { tab.refresh() }
+        return tabs.map { tab in
+            [
+                "id": tab.id, "title": tab.title, "url": tab.url, "icon": tab.icon,
+                "asleep": tab.asleep, "active": tab.id == activeId,
+            ]
+        }
+    }
+
+    private func pushTabs() {
+        onTabsChanged?(["activeId": activeId, "tabs": listPayload()])
+    }
+
+    /// 当前标签的观察。宿刚刚醒来时它自己答不出地址（`view.url` 还是 nil 或 about:blank），
+    /// 这时以标签镜像为准——否则 SPA 退回空态、连槽位都不推，原生视图就没地方摆（白屏）。
+    private func pushState(_ tab: BrowserTab, _ observation: BrowserObservation) {
+        tab.refresh()
+        var payload = observation.payload
+        if observation.url.isEmpty { payload["url"] = tab.url }
+        payload["title"] = tab.title
+        payload["tabId"] = tab.id
+        payload["cover"] = tab.cover ?? ""
+        onObservation?(payload)
+    }
+
+    private static let iconScript = """
+    (function () {
+      var link = document.querySelector('link[rel~="icon" i], link[rel="apple-touch-icon" i]');
+      return link ? new URL(link.getAttribute('href'), location.href).href : "";
+    })()
+    """
+}
+
+// MARK: - 桥消息（SPA → 壳）
+
+extension BrowserTabs {
+    /// `browser-tabs` 桥消息的解析结果。
+    ///
+    /// 单拎出来是因为它是**跨端契约**：键名/取值由前端决定（`sidebar-right/BrowserTabStrip.tsx`
+    /// 的三个动作、`frontend/src/prefs.ts` 的休眠分钟数），拼错不报错、只会静默不生效——所以解析要能单测。
+    enum Command: Equatable {
+        case newTab(String?)
+        case select(String)
+        case close(String)
+        case setSleepMinutes(Int)
+    }
+
+    /// 解析一条 `browser-tabs`：设置页的休眠门槛优先，其次按动作分发；都不认识返回 nil。
+    ///
+    /// `sleepMinutes` 收 `as? Double`：桥把 JS number 交成 `NSNumber`（下拉里的 30 也是
+    /// 整数值的 NSNumber，`as? Int` 在这种形态下同样成立，但别赌——见 BrowserZoom.command 的同一注解）。
+    static func command(_ body: [String: Any]) -> Command? {
+        if let minutes = body["sleepMinutes"] as? Double { return .setSleepMinutes(Int(minutes)) }
+        switch body["action"] as? String {
+        case "new": return .newTab(body["url"] as? String)
+        case "select": return (body["id"] as? String).map(Command.select)
+        case "close": return (body["id"] as? String).map(Command.close)
+        default: return nil
+        }
+    }
+}

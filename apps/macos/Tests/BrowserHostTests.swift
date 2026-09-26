@@ -55,7 +55,7 @@ final class BrowserHostTests: XCTestCase {
     func testResyncPublishesAnObservation() {
         // 观察只在导航事件里推；resync 是"面板后挂载"补那一次的唯一入口。空白页面也要发
         // （url 为空是有效事实：SPA 据此走空态），不能静默什么都不做。
-        let host = BrowserHost()
+        let host = BrowserHost(configuration: BrowserHost.configuration(store: .nonPersistent()))
         var seen: BrowserObservation?
         host.onObservation = { seen = $0 }
         host.resync()

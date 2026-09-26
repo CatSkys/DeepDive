@@ -64,20 +64,30 @@ final class BrowserHost: NSObject {
     let view: BrowserHostView
     /// 观察变化回调（主线程）。
     var onObservation: ((BrowserObservation) -> Void)?
+    /// 页面要开新窗口/新标签（`target=_blank`、`window.open`）：把地址交出去，由标签集合开新标签。
+    /// 壳自己不开原生窗口（见 BrowserHost+Navigation 的 `createWebViewWith`）。
+    var onPopup: ((String) -> Void)?
 
     var lastError = false
     /// 最近一次槽位；窗口尺寸或 pageZoom 变化时按它重算（槽位状态放这里，主窗口控制器
     /// 就不必为它多一个存储属性）。
     private var slot: BrowserSlot?
 
-    override init() {
+    /// 新宿主的配置。数据存储由调用方给——**一个窗口的标签共用同一个 store**，cookie 才跨
+    /// 标签可见（每个标签一个 store 就是各登各的）。进程池不在这里管：macOS 12 起
+    /// `WKProcessPool` 已废弃（"Creating and using multiple instances of WKProcessPool no
+    /// longer has any effect."），WebKit 自己按应用共享内容进程。
+    static func configuration(store: WKWebsiteDataStore) -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
-        // 独立且不落盘：浏览器的 cookie/存储不与应用自身会话共享，重启即清
-        config.websiteDataStore = .nonPersistent()
+        config.websiteDataStore = store
         config.userContentController = WKUserContentController()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         config.applicationNameForUserAgent = BrowserUserAgent.safariIdentity
-        view = BrowserHostView(frame: Self.idleViewport, configuration: config)
+        return config
+    }
+
+    init(configuration: WKWebViewConfiguration) {
+        view = BrowserHostView(frame: Self.idleViewport, configuration: configuration)
         super.init()
         view.navigationDelegate = self
         view.uiDelegate = self
@@ -145,6 +155,12 @@ final class BrowserHost: NSObject {
         if view.url == nil { return }
         lastError = false
         view.reload()
+    }
+
+    /// 睡过的标签回来：`interactionState` 里是历史 + 当前位置 + 表单状态，赋值即由 WebKit
+    /// 把页面放回去（**不要再 load 一次**——那会把"回到原处"冲掉，参考实现同一条）。
+    func restore(interactionState: Any) {
+        view.interactionState = interactionState
     }
 
     /// 截图（MCP 的 browser_screenshot 用）：返回 PNG 的规范 base64。
@@ -231,8 +247,9 @@ final class BrowserHost: NSObject {
     /// 观察只在导航事件里发，面板关着时 agent 导航过的那一条没人收——重推是补那一次。
     func resync() { publish() }
 
-    func publish() {
-        let observation = BrowserObservation(
+    /// 当前观察（换标签/补推时取一次；宿刚醒时 url 可能还是空，由标签的镜像兜）。
+    func observation() -> BrowserObservation {
+        BrowserObservation(
             url: view.url?.absoluteString ?? "",
             title: view.title ?? "",
             loading: view.isLoading,
@@ -241,6 +258,7 @@ final class BrowserHost: NSObject {
             error: lastError,
             zoom: Double(view.pageZoom)
         )
-        onObservation?(observation)
     }
+
+    func publish() { onObservation?(observation()) }
 }

@@ -75,22 +75,38 @@
 - **浏览器设置归设置页**：「设置 → 浏览器」（`frontend/src/settings/BrowserSection.tsx`）。
   默认缩放与"按站点记住缩放"落壳侧 UserDefaults（`didCommit` 要读，留在 SPA 里就晚了）；
   搜索引擎与"把普通输入当搜索词"是纯交互偏好，落客户端 localStorage（`browserPrefs.ts`）。
+- **标签**：标签的事实源在壳里（`BrowserTabs.swift` + `BrowserTab.swift`），SPA 只画一条横向的
+  **site icon 式**标签栏（`BrowserTabStrip.tsx`：站点图标 + 关闭，没图标退回主机名首字母）与末尾那枚
+  new tab；不做竖向标签栏、不堆长标题（标题走提示与无障碍名）。**永远至少留一个空白标签**——关掉最后一个
+  是回到空白页，不是没有浏览器。标签不跨启动保留。
+- **站点图标**是页面自己声明的那个（`link[rel~=icon]`，在页面里解析成绝对地址），一次导航问一次；
+  不替站点猜 `/favicon.ico`（多数站点没有，只会打一堆 404），也不下载缓存——SPA 直接按这个地址取图。
+- **标签休眠**（`BrowserTabs+Sleep.swift`）：没人看的标签把宿主还给系统，只留三样东西——回去的路
+  （`interactionState`：历史 + 滚动位置 + 表单状态，唤醒时由 WebKit 放回原处）、一张停帧图（base64 PNG，
+  唤醒时铺在面板上，页面一有像素就被原生视图盖住，4s 后无论如何撤掉）、以及"页面里有没有没发出去的
+  输入"这一问（任何输入框的值与默认值不同即不睡）。当前标签永远不睡；空白页、正在加载的、已经睡着的
+  不睡。门槛 `deepdive.browser.tabs.sleepMinutes`（0 = 关，默认 30 分钟）由设置页写；内存压力来时压到
+  5 分钟、critical 立即扫。**唤醒是按需的**：人在标签栏点它、agent 按 tabId 找它，都会先把它叫醒——
+  休眠因此不会把 agent 的 screenshot/wait_for 打死。睡与醒各留一条 `[browser] sleep/wake` 诊断日志。
+- **标签栏与网页的层序**：当前标签的 `WKWebView` 挂在舞台上（`MainWindowController.browserStage`），
+  舞台在 SPA webView 之后、对话叠加层之前——换标签只换舞台里的视图，层序不动。
 - **独立数据存储**：原生载体的 `WKWebsiteDataStore` 是 `nonPersistent()`——cookie 与 Web 存储
-  不落盘、不与应用自身会话共享，重启即清。
-- 弹窗不开原生窗口：白名单内的在同一个视图里就地加载（官方 Desktop 是开成侧栏新页；
-  本仓只有一个浏览器视图，等价做法是就地导航）。下载不落地。
+  不落盘、不与应用自身会话共享，重启即清。**一个窗口的标签共用一个 store**（各标签一个 store 就是各登各的）。
+- 弹窗不开原生窗口：白名单内的交给标签集合开成**新标签**（`target=_blank` 的链接不该把手上
+  这一页顶掉），下载不落地。
 
 ## 3.5 这一格要变成"人和 agent 都用"的浏览器（2026-09-26 与用户定稿）
 
-现状是**单页**：一个 WKWebView、一个槽位、一个地址栏 + 前进后退刷新。用户确认要按参考
-（第三方 Search 浏览器，见 [REF-BROWSER-SEARCH.md](REF-BROWSER-SEARCH.md) 的 A–R 块清单）
-把它补成一个真浏览器——因为 agent 在用，人也在用。
+这一格按参考（第三方 Search 浏览器，见 [REF-BROWSER-SEARCH.md](REF-BROWSER-SEARCH.md) 的
+A–R 块清单）逐块做成一个真浏览器——因为 agent 在用，人也在用。地址栏/缩放/页内查找（§3）
+与标签页（§3 的标签条目）已经落地，还在路上的是下面这份清单。
 
 定稿四条：
 
 1. **标签页**：横向、**site icon 式**（标签本体是站点图标那一路极简样式，不堆长标题）、
    带 **new tab**；**不做竖向标签栏**。标签栏 UI 用 React 重画（参考那份是 SwiftUI，搬不过来），
-   模型语义参考 `Tab.swift`。
+   模型语义参考 `Tab.swift`。**标签状态的事实源定在壳里**（agent 控制面与 WKWebView 都在壳侧，
+   SPA 只渲染与发命令）——这条是先定的，标签栏才照着画。
 2. **导入 cookie 与密码**（用户点名"很重要"）：agent 现在常被登录墙拦下——没有登录态，
    同一个站点反复要重新登。所以要么导入浏览器的 cookie/密码，要么人手工登一次并留住。
    **前置改动**：浏览器视图现在用 `nonPersistent` 数据存储（重启即清），必须换成**持久且独立**
@@ -99,12 +115,14 @@
    拦截与按站权限、地址栏行为、标签页行为、导入、清数据），不散落在面板里。
 4. **不做**：竖向标签栏、多空间（Spaces）、Passkeys、扩展引擎、自建更新器——理由见参考文档。
 5. **性能与内存照它这几条做**（参考那份是同类 WebKit 应用里少见的、每条都带实测数字的）：
-   - **进程池共享/预热**（`WKProcessPool`）：新标签首帧 41–59ms → 9–10ms。多标签落地时先做这条。
+   - **进程池**：这条在 macOS 12+ 上**不用做**——`WKProcessPool` 自 macOS 12 起标记废弃
+     （"Creating and using multiple instances of WKProcessPool no longer has any effect."），
+     WebKit 自己按应用共享内容进程。标签之间真正要共享的是**数据存储**（cookie 跨标签可见）。
    - **惰性 WebView**：标签对象先建、`WKWebView` 首次访问才建——恢复 N 个标签只花 N 个对象。
-   - **标签休眠三件套**：`interactionState`（保住前进后退与滚动）+ JPEG 快照封面 + 「未保存输入」
-     询问；闲置或内存压力触发，唤醒时先铺封面再加载。**这是我们"面板关着仍 `alpha 0` 保活"
-     的替代方案**（保活是为了 agent 能截图），但休眠不能把 agent 的 screenshot/wait_for 打死——
-     被要图时要能自动唤醒，这条得在实现时一起设计。
+   - **标签休眠三件套**（已落地，见 §3 的休眠条目）：`interactionState`（实测唤醒后回到同一页、
+     同一滚动位置、连历史一条不少）+ 快照封面 + 「未保存输入」询问；闲置或内存压力触发，
+     唤醒时先铺封面再加载。**这是我们"面板关着仍 `alpha 0` 保活"的替代方案**（保活是为了 agent
+     能截图），而 agent 要图/要脚本时按 tabId 取宿主会先唤醒它。
    - **首帧前隐藏**：等到真有像素再淡入（0.12s），消除暗色窗口里的白闪。
    - **崩溃自愈**：进程终止后按"回读 url + 探 `document.readyState`"判定是否真的白了再重载。
    - **按站缩放写在 `didCommit`**：第一帧前生效；值为 1.0 时删键，不留脏数据。
@@ -115,11 +133,10 @@
 还没做的块（逐块做，每块自带它需要的设置项，不做空壳设置页；「浏览器」设置页已在，
 新块往里加分节）：
 
-1. 标签页模型 + 横向 site icon 标签栏 + new tab + 标签休眠
-2. cookie / 密码导入（含持久 store 切换）
-3. 隐私与拦截 + 按站权限记忆
-4. 阅读模式与按站隐藏
-5. 历史与书签；以后：视频浮窗、密码面板细化
+1. cookie / 密码导入（含持久 store 切换）
+2. 隐私与拦截 + 按站权限记忆
+3. 阅读模式与按站隐藏
+4. 历史与书签；以后：视频浮窗、密码面板细化
 
 
 ## 4. agent 驱动（browser use）
@@ -132,12 +149,18 @@
                     ▼
               POST /browser-control（桥的回环端点，boot token 鉴权）
                     ▼
-              BrowserHost（壳里的 WKWebView，与面板里人看的那个是同一个）
+              BrowserTabs（壳里的标签集合；当前标签那个 WKWebView 就是面板里人看的那个）
 ```
 
 分层与 ZCode 一致：**高层语义在 JS 侧**（快照/ref/定位器/坐标逃生口由 SDK 拼页面脚本），
 壳只提供原语——`navigate` / `back` / `forward` / `reload` / `get_state` / `screenshot` /
-`evaluate` / `wait_for`。所以壳不认识 ref、不认识选择器，SDK 换代不必改壳。
+`evaluate` / `wait_for`，外加标签的 `list_tabs` / `new_tab` / `select_tab` / `close_tab`。
+所以壳不认识 ref、不认识选择器，SDK 换代不必改壳。
+
+**命令一律按 `tabId` 寻址**（缺省当前标签；指名了却找不到就报错，不悄悄换一个标签干活），
+`new_tab` 会切过去（人看得见 agent 开的新页），`select_tab`/`close_tab` 只在指名时动标签。
+SDK 侧的 `browser.tabs.list/new/get/selected` 与 `tab.close()` 就是这几条原语的包装
+（`get` 不切标签——命令自带 id，后台标签也能干活）。
 
 - **注册**：`EngineSupervisor.enginePatchBody()` 每次启动写一行 `mcp-browser`
   （`@deepseek-ai/dsh-mcp-client`、stdio、`command` 是随包 Node、`args` 是装到
@@ -168,9 +191,11 @@
 ## 6. 已知边界（不藏）
 
 - **MCP 工具不受 DSH 权限预设约束**：引擎里没有任何按 MCP 身份分类的规则，`annotations`
-  也不被消费。闸门只能做在壳侧——协议白名单、单页、独立 nonPersistent 存储、boot token。
+  也不被消费。闸门只能做在壳侧——协议白名单、标签集合、独立 nonPersistent 存储、boot token。
 - **子智能体也能调 `js` 工具**：引擎没有按 scope 过滤 MCP 工具的面。
-- **单页**：没有多标签、没有录制、没有响应式视口、没有网络拦截（ZCode 有，本仓明确砍掉）。
+- **没有录制、没有响应式视口、没有网络拦截**（ZCode 有，本仓明确砍掉）。
+- **标签不跨启动保留**（没做会话恢复）；标签的键盘快捷键（⌘T/⌘W/⌘1-9）也还没绑——
+  新建/切换/关闭目前只在标签栏上。
 - 浏览器工具定义进每次请求（token 成本）；`js` 一个工具，可接受。
 - iframe 载体的固有边界（官方同样如此）：很多站点拒绝被 iframe 嵌入；HTTPS 页面会拦公网
   http（mixed content）；关掉沙箱会换来兼容性，代价是页面能导航顶层。

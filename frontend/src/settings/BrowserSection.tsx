@@ -23,6 +23,15 @@ const ZOOM_CHOICES = [
   { value: "2", label: "200%" },
 ];
 
+/** 休眠门槛候选（分钟；0 = 永不）。壳侧默认 30 分钟（BrowserTabs.defaultSleepMinutes）。 */
+const SLEEP_CHOICES = [
+  { minutes: 5, label: "5 分钟" },
+  { minutes: 15, label: "15 分钟" },
+  { minutes: 30, label: "30 分钟" },
+  { minutes: 60, label: "1 小时" },
+  { minutes: 0, label: "永不" },
+];
+
 export function BrowserSection() {
   const prefs = usePrefs();
   const [browser, setBrowser] = useBrowserPrefs();
@@ -56,6 +65,28 @@ export function BrowserSection() {
             </div>
             <div className={rowsCss.rowActions}>
               <Toggle on={prefs.browserZoomRememberSite} onChange={prefs.setBrowserZoomRememberSite} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={rowsCss.section}>
+        <div className={rowsCss.sectionTitle}>{t("标签页")}</div>
+        <div className={rowsCss.sectionIntro}>
+          {t("没人看的标签会被收起：页面进程还回系统，只留回去的路与一张停帧图，再点它按原处恢复。")}
+        </div>
+        <div className={rowsCss.rowGroup}>
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("闲置多久后休眠")}</div>
+              <div className={rowsCss.rowCaption}>{t("当前标签永远不睡；页面里握着没发出去的输入时也不睡。")}</div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <Dropdown
+                options={SLEEP_CHOICES.map((c) => ({ v: String(c.minutes), label: t(c.label) }))}
+                value={String(prefs.browserTabSleepMinutes)}
+                onChange={(v) => prefs.setBrowserTabSleepMinutes(Number(v))}
+              />
             </div>
           </div>
         </div>
