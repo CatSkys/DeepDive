@@ -4,8 +4,14 @@
 // **空白标签页中间那块大框**。补全列表挂在框正下方（不是覆盖），行内是"地址 + 标题"，
 // 搜索那条带放大镜与引擎名——这三样在参考里是同一份 `list`。
 //
+// **列表挂 body 上（fixed 按框摆位）**：标签行里那一枚的祖先 `.panel-browser-chrome-run`
+// 是横向滚动容器，而 overflow 的两轴不能一轴 `auto` 一轴 `visible`（另一轴会算成 auto），
+// 于是列表留在里面会被整条裁掉——既看不见也点不着，浏览器那一格还盖在上面。挪到 body 上
+// 与 `.ddMenu` 同一层（1100），摆位随框重算。
+//
 // 只管"输入 + 选一条"，进出地址栏的时机（谁聚焦、什么时候展开成框）归 BrowserChrome。
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
 import { t } from "../i18n";
 import { browserPrefs } from "./browserPrefs";
@@ -42,6 +48,8 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
+  /** 挂 body 的那条列表的摆位（fixed）：编辑态才有，编辑态起落、框动（滚动/缩放）都重算。 */
+  const [drop, setDrop] = useState<{ top: number; left: number; width: number } | null>(null);
   const [active, setActive] = useState(-1);
   const prefs = browserPrefs();
   // 壳推来新历史就重画一次补全（缓存是同步读的，不订阅只会等下一次敲键）
@@ -61,6 +69,33 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
     // 只在 tick 变化时触发一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusTick]);
+
+  // 列表摆位：编辑态才要，跟着框走。scroll 用捕获相——标签行自己横向滚时它也在动。
+  useLayoutEffect(() => {
+    if (!editing) {
+      setDrop(null);
+      return;
+    }
+    const place = () => {
+      // 量输入框本身（不是它那层盒子）：盒子是 flex 容器，量出来比输入框窄一截
+      const el = inputRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setDrop({ top: r.bottom + 6, left: r.left, width: r.width });
+    };
+    place();
+    // 框在动（胶囊展开有 .28s 的宽度过渡、标签行横向滚）都要跟着摆——只量一次会停在
+    // 展开前那个宽度上，列表与输入框对不齐
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(place) : null;
+    if (inputRef.current) ro?.observe(inputRef.current);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [editing]);
 
   const draft = face.draft;
   const recents = completeVisits(draft);
@@ -82,6 +117,8 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
   };
 
   const unknown = face.address === "unknown";
+  /** 两条列表（补全与地址不合法）共用这一个出口：挂 body、按框摆位（理由见文件头）。 */
+  const dropStyle = drop === null ? undefined : { top: drop.top, left: drop.left, width: drop.width };
   return (
     <div className={`panel-browser-field${big ? " big" : ""}`}>
       <div className="panel-browser-field-box">
@@ -114,8 +151,8 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
         />
         {unknown && !editing && <span className="panel-browser-field-note">{t("页面已跳转，地址未知")}</span>}
       </div>
-      {editing && suggestions.length > 0 && (
-        <div className="panel-browser-offers" role="listbox">
+      {drop !== null && suggestions.length > 0 && createPortal(
+        <div className="panel-browser-offers" role="listbox" style={dropStyle}>
           {suggestions.map((item, index) => (
             <button
               key={`${item.url}-${index}`}
@@ -130,10 +167,11 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
               {item.title !== "" && <span className="panel-browser-offer-title">{item.title}</span>}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
-      {face.failure !== undefined && editing && (
-        <div className="panel-browser-offers">
+      {drop !== null && face.failure !== undefined && createPortal(
+        <div className="panel-browser-offers" style={dropStyle}>
           <div className="panel-browser-offer refused">
             {face.failure === "empty" ? t("请输入地址")
               : face.failure === "protocol" ? t("只支持 http/https 地址")
@@ -141,7 +179,8 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
               : face.failure === "application-origin" ? t("不能打开 DeepDive 自己的地址")
               : t("地址无效")}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

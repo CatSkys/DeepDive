@@ -37,7 +37,32 @@ function readRect(el: Element): SlotBox | null {
   return { x: r.left, y: r.top, w: r.width, h: r.height };
 }
 
-/** 命中测试：槽位中心与两个内缩点处的最上层 DOM 元素是否都还在槽位内。
+/** 上沿那一排探针的步长。这一层压到槽位上的浮层最窄的一档也有 340px（补全列表）与
+ *  176px（「…」菜单），48px 一根谁都不漏，又把每轮 300ms 的命中测试压在 30 次上下。 */
+const PROBE_STEP = 48;
+
+/** 探针点：上沿密排一排 + 正中 + 两个下角。
+ *
+ *  为什么密排的是**上沿**而不是整格均匀铺：能压到槽位上的浮层只有两类——从顶条那排控件
+ *  挂下来的（补全列表就地探进页面、「…」菜单、tooltip）与落在正中的（命令面板、弹窗）。
+ *  整格铺满要 400+ 次命中测试，按这两类摆 30 次就够。
+ *
+ *  命中测试天然只对**能收指针**的浮层发声：`elementFromPoint` 跳过 `pointer-events:none`
+ *  的元素，于是 tooltip 与拾取提示不会把页面收起来——那两样本来就点不到，收起页面只会
+ *  把人正指着的东西弄没（拾取模式尤其致命：页面没了就没得点）。 */
+function probePoints(box: SlotBox, inset: number): Array<[number, number]> {
+  const points: Array<[number, number]> = [
+    [box.x + box.w / 2, box.y + box.h / 2],
+    [box.x + inset, box.y + box.h - inset],
+    [box.x + box.w - inset, box.y + box.h - inset],
+  ];
+  for (let x = box.x + inset; x <= box.x + box.w - inset; x += PROBE_STEP) {
+    points.push([x, box.y + inset]);
+  }
+  return points;
+}
+
+/** 命中测试：探针处的最上层 DOM 元素是否都还在槽位内。
  *
  *  内缩量**不能小于宿主容器的圆角**：圆角外的角区被父级 `overflow:hidden` 裁掉，探针
  *  落在那里命中的是父级本身，于是"自家圆角"会被误判成"被浮层盖住"（浏览器缩略图那格
@@ -45,12 +70,7 @@ function readRect(el: Element): SlotBox | null {
  *  （control 8 / card 14 / panel 18）都安全；槽位很小时按四分之一边长收窄。 */
 function unobstructed(el: Element, box: SlotBox): boolean {
   const inset = Math.max(1, Math.min(12, box.w / 4, box.h / 4));
-  const probes: Array<[number, number]> = [
-    [box.x + box.w / 2, box.y + box.h / 2],
-    [box.x + inset, box.y + inset],
-    [box.x + box.w - inset, box.y + box.h - inset],
-  ];
-  for (const [px, py] of probes) {
+  for (const [px, py] of probePoints(box, inset)) {
     const hit = document.elementFromPoint(px, py);
     if (hit === null || !el.contains(hit)) return false;
   }

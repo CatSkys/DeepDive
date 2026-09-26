@@ -4478,6 +4478,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
   flex: none; display: flex; align-items: center; gap: 2px;
   height: 40px; padding: 0 8px 0 6px;
   /* 没有分割线（参考的极简）：整行与页面同底色，选中标签靠那枚滑动的灰底说话 */
+  /* 整行抬到页面之上：补全列表从标签行探进页面那一格，而页面里的槽位是后画的兄弟
+     （原生视图恒在 SPA 之上），列表画不过它就既露不出来也点不到——命中测试同样只命中
+     更上面的槽位，原生视图便以为没被挡、继续盖着。 */
+  position: relative; z-index: 4;
 }
 /* 标签的滚动区：有多宽伸多宽（「+」紧贴最后一枚），放不下了才收缩、在自身边缘内横向滚
    （工具组在区外贴右端）；滚动条不占地方——40px 高的一行经不起再划一道 */
@@ -4603,9 +4607,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
   background: var(--surface-raised);
   font-size: var(--dsh-font-size-lg);
 }
-/* 补全列表：挂在框正下方（不遮页面、不浮到页面正中） */
+/* 补全列表：挂在框正下方（不遮页面、不浮到页面正中）。挂 body 上、fixed 按框摆位
+   （BrowserAddressField 文件头有理由），层序与 .ddMenu 同档。 */
 .panel-browser-offers {
-  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
+  position: fixed; z-index: 1100;
+  /* 摆位给的是输入框的**边框盒**宽（量出来的），所以这里要 border-box，否则列表比框宽出
+     一条 padding + 边框（12 + 2 = 14px）。全局没有 border-box 复位，逐条写。 */
+  box-sizing: border-box;
   display: flex; flex-direction: column; padding: 6px;
   border: 1px solid var(--line); border-radius: 12px;
   background: var(--surface-raised); box-shadow: var(--shadow-pop); overflow: hidden;
@@ -4642,7 +4650,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
   width: 26px; height: 26px; padding: 0;
   border: 0; border-radius: 8px; background: transparent; color: var(--ink-3);
 }
-.panel-browser-tool:hover { background: var(--fill-soft); color: var(--ink); }
+.panel-browser-tool:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
+/* 置灰态：后退/前进/刷新在做不到时是真 disabled（点下去壳也不执行），不置灰就还是一副
+   "能点"的样子，悬停还照样亮底——hover 必须先排掉 disabled，否则两套观感打架。 */
+.panel-browser-tool:disabled { opacity: .4; cursor: default; }
 .panel-browser-tool.on { color: var(--ink); background: var(--fill); }
 
 /* 拾取模式的那行提示：浮在网页之上做不到（原生视图恒在 SPA 之上），所以它贴在工具栏下沿 */
