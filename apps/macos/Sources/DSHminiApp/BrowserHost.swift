@@ -48,11 +48,14 @@ struct BrowserObservation {
     var canGoBack: Bool = false
     var canGoForward: Bool = false
     var error: Bool = false
+    /// 当前页面的缩放（pageZoom；SPA 的缩放控件与「浏览器」设置页读它）
+    var zoom: Double = 1
 
     var payload: [String: Any] {
         [
             "url": url, "title": title, "loading": loading,
             "canGoBack": canGoBack, "canGoForward": canGoForward, "error": error,
+            "zoom": zoom,
         ]
     }
 }
@@ -62,7 +65,7 @@ final class BrowserHost: NSObject {
     /// 观察变化回调（主线程）。
     var onObservation: ((BrowserObservation) -> Void)?
 
-    private var lastError = false
+    var lastError = false
     /// 最近一次槽位；窗口尺寸或 pageZoom 变化时按它重算（槽位状态放这里，主窗口控制器
     /// 就不必为它多一个存储属性）。
     private var slot: BrowserSlot?
@@ -228,66 +231,16 @@ final class BrowserHost: NSObject {
     /// 观察只在导航事件里发，面板关着时 agent 导航过的那一条没人收——重推是补那一次。
     func resync() { publish() }
 
-    private func publish() {
+    func publish() {
         let observation = BrowserObservation(
             url: view.url?.absoluteString ?? "",
             title: view.title ?? "",
             loading: view.isLoading,
             canGoBack: view.canGoBack,
             canGoForward: view.canGoForward,
-            error: lastError
+            error: lastError,
+            zoom: Double(view.pageZoom)
         )
         onObservation?(observation)
-    }
-}
-
-extension BrowserHost: WKNavigationDelegate {
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        lastError = false
-        publish()
-    }
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        publish()
-    }
-
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        lastError = true
-        publish()
-    }
-
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        lastError = true
-        publish()
-    }
-
-    /// 协议闸：白名单外一律取消（file:/data:/blob/javascript: 都不放行）。
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = navigationAction.request.url else {
-            decisionHandler(.cancel)
-            return
-        }
-        // about:blank 是 WebKit 自己的空白页，放行；其余按白名单
-        decisionHandler(BrowserHost.allowed(url) ? .allow : .cancel)
-    }
-
-    /// 下载：不落地、不弹存盘面板（官方 Desktop 同样 deny downloads）。
-    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
-                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        decisionHandler(navigationResponse.canShowMIMEType ? .allow : .cancel)
-    }
-}
-
-extension BrowserHost: WKUIDelegate {
-    /// 弹窗不开原生窗口：白名单内的在同一个视图里加载（官方 Desktop 是开成侧栏新页，
-    /// 本仓只有一个浏览器视图，等价做法是就地导航）。
-    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
-                 for navigationAction: WKNavigationAction,
-                 windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = navigationAction.request.url, BrowserHost.allowed(url) {
-            webView.load(URLRequest(url: url))
-        }
-        return nil
     }
 }

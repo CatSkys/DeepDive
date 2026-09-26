@@ -408,6 +408,16 @@
 - **三条死路别再试**（2026-09-24 各烧掉十几分钟）：① 无头 Chrome 开 bridge URL——没有壳就没有 vibrancy、渲染成**亮色草稿页**，深链也打不开会话（只对草稿页/纯布局改动有效）；② 发键盘或 `CGEvent` 合成滚轮——滚不动 `.flow`，且事件落在**当时最前的那个 App** 上（本日两次打进用户正在用的别的窗口，属事故级）；③ 手动 `embed-web` + `pkill` + `open` 当快路径（封签/路径击杀，见 §5.2）。
 - **成本纪律（同次复盘）**：单条 grep/read 占一轮 = 5–15s 模型时间 + 每轮约 5s 固定开销；查代码/查文档要**一轮并发发多条探针**。只改样式时中间用浏览器看（草稿页足够验布局与字号），**最后一次才 `make package`**——本日为一个 `clamp` 打了两次包（各约 2.5 min）。
 - 截图通道不可用时（Read 返回 CDN 回执而非像素）：如实说明"像素级目检未完成"，改用 DOM/computed-style 断言覆盖改动面（类存在性、token 变量解析值、原生 title= 归零等），绝不假装看过图。
+- **假壳桥配方（2026-09-26 实测，验 SPA 半场与 wire 契约用）**：本地起一个透传代理（把桥的 `127.0.0.1:<bridge port>` 原样代理到另一个端口）并在 `</head>` 前插一段
+  `window.webkit = { messageHandlers: { deepdiveHost: { postMessage }, deepdive: { postMessage } } }`，
+  再用 Playwright(WebKit) 或壳里的浏览器视图打开代理 URL——SPA 以为自己跑在壳里，于是渲染原生载体那一支，
+  发往壳的消息全部落进数组可供断言。两条必守：① **代理必须把 `Origin`/`Referer` 改回桥的
+  `http://127.0.0.1:<bridge port>`**（桥的 Origin 全等闸会 403 掉模块脚本，页面白屏且根节点空，容易被误读成"SPA 崩了"）；
+  ② **不要预先定义 `window.__deepDiveHost`**——它是 SPA 自己装的（`host.ts` 幂等 mount），抢着定义会把
+  壳→SPA 那条路整条断掉（表现为"设置页读不到壳下发的值"，看着像产品 bug）。要推壳消息就调 SPA 自己那个 `dispatch`。
+- **合成输入这条路是不通的**：System Events 读窗口矩形/发按键要辅助功能授权（本机实测 `不允许辅助访问` / `不允许发送按键`），
+  所以"点真按钮 → 真消息进壳"这一段没法自动跑——SPA 半场用上面的假壳桥验，壳半场用 XCTest 钉解析与状态，
+  剩下那条桥的投递按通用桥行为推证，并在汇报里写明未端到端跑过。
 
 ### 5.4 `xcodebuild | tail` 吞退出码：管线截尾必须落盘再截
 - 事故：test.sh 先修了（输出落盘 + `|| { tail; exit 1; }`），dev.sh 漏网——`xcodebuild … | tail -5` 的管线退出码是 tail 的 0，构建失败被洗白后 embed-web 把新 web 嵌进旧 .app、`open` 成功、脚本退出码 0，坏构建静默交付。
@@ -660,3 +670,10 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 ### 9.5 ATS 会拦内嵌浏览器的 http 站点
 - 现象：`Info.plist` 只有 `NSAllowsLocalNetworking` 时，侧栏浏览器加载 `http://` 公网站点被 ATS 直接拒绝，而引擎侧的 `web_fetch` 却正常——看着像浏览器坏了。
 - 处置：加 `NSAllowsArbitraryLoadsInWebContent`（只放宽 Web 内容，应用自身网络仍走默认策略）。`Info.plist` 与 `project.yml` 两处都要改（后者是生成源）。
+
+### 9.6 表单 onChange 里"先 setState 再读 state"：查到的是上一帧的串（2026-09-26 实测）
+- 事故：页内查找条 `onChange` 写成 `setQuery(e.currentTarget.value); onStep(true)`，而 `onStep` 读的是
+  渲染闭包里的 `query`——每次按键查的都是**少一个字**的串，最后一个字符永远没查过；粘贴/程序化填值
+  （一次 input 事件）更是整个查找都不发出去（实测 wire 上零条 `browser-find`，页面上却看不出异常）。
+- 处置：把新值显式沿参数交出去（`onStep(forward, next)`），别让回调去读刚 set 的那个 state。
+  凡是"事件里 setState 之后立刻要用新值"的地方，一律走参数或 ref，不留这种一帧延迟。

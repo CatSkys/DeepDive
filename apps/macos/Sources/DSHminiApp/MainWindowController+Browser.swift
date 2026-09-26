@@ -93,3 +93,82 @@ extension MainWindowController {
         browser.resync()
     }
 }
+
+// MARK: - 缩放 / 查找 / 浏览器键盘
+
+extension MainWindowController {
+    /// 浏览器页里的键盘：**页面优先**（参考实现的 `pageFirst`，`App.swift:782-793`）——
+    /// 只有我们真的要接的组合才吞掉，其余原样放给 WebKit（否则编辑器里打字会出系统提示音）。
+    ///
+    /// 为什么必须由壳监视：网页是另一个 WKWebView，焦点在它身上时 SPA 收不到键；而浏览器
+    /// 的 ⌘L/⌘F/⌘R/⌘[/⌘]/⌘± 是"人会用"的基本盘。
+    func installBrowserKeyMonitor() {
+        guard browserKeyMonitor == nil else { return }
+        browserKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.browserViewHasFocus() else { return event }
+            guard event.modifierFlags.contains(.command),
+                  !event.modifierFlags.contains(.control),
+                  !event.modifierFlags.contains(.option) else { return event }
+            let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+            let shift = event.modifierFlags.contains(.shift)
+            let command: String?
+            switch key {
+            case "l": command = "address"
+            case "f": command = "find"
+            case "g": command = shift ? "findPrevious" : "findNext"
+            case "r": command = "reload"
+            case "[": command = "back"
+            case "]": command = "forward"
+            case "=", "+": command = "zoomIn"
+            case "-", "_": command = "zoomOut"
+            case "0": command = "zoomReset"
+            default: command = nil
+            }
+            guard let command else { return event }
+            self.pushHostCommand("browserKey", payload: AppDelegate.jsonPayload(["key": command]))
+            return nil
+        }
+    }
+
+    /// 焦点是否落在浏览器视图里（找 responder 链，而不是比 firstResponder 本身——
+    /// WebKit 的焦点常常在内部的 content view 上）。
+    private func browserViewHasFocus() -> Bool {
+        var responder: NSResponder? = window?.firstResponder
+        while let current = responder {
+            if current === browser.view { return true }
+            responder = current.nextResponder
+        }
+        return false
+    }
+
+    /// SPA 发来的缩放命令（工具栏/快捷键/设置页三处共用一条消息；解析见 BrowserZoom.command）。
+    func handleBrowserZoom(_ body: [String: Any]) {
+        switch BrowserZoom.command(body) {
+        // 「浏览器」设置页写回（frontend/src/prefs.ts）：两者的落点都在 UserDefaults，因为壳要在
+        // `didCommit`（第一帧之前）读它们——留在 SPA 里就晚了。改完立刻作用到当前页。
+        case .setDefault(let value):
+            BrowserZoom.setDefaultZoom(value)
+            browser.applyRememberedZoom()
+        case .setRememberSite(let on):
+            BrowserZoom.setRemembersPerSite(on)
+            browser.applyRememberedZoom()
+        case .set(let value):
+            browser.setZoom(value)
+        case .step(let up):
+            browser.stepZoom(up: up)
+        case .reset:
+            browser.resetZoom()
+        case nil:
+            EngineLog.shared.append("[browser] unknown zoom command")
+        }
+    }
+
+    /// SPA 发来的页内查找（`browser-find`）：`forward` 缺省为 true，空 query 即取消。
+    func handleBrowserFind(_ body: [String: Any]) {
+        let text = body["query"] as? String ?? ""
+        let forward = body["forward"] as? Bool ?? true
+        browser.find(text, forward: forward) { [weak self] found in
+            self?.pushHostCommand("browserFindResult", payload: AppDelegate.jsonPayload(["found": found, "query": text]))
+        }
+    }
+}

@@ -913,6 +913,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
             "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
+            "browserZoomDefault": Double(BrowserZoom.defaultZoom()),
+            "browserZoomRememberSite": BrowserZoom.remembersPerSite(),
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else { return }

@@ -4648,3 +4648,62 @@ input:focus, textarea:focus, select:focus { outline: none; }
   cursor: pointer;
 }
 .panel-chat-btn:hover { border-color: var(--line-strong); }
+
+/* ── 地址栏补全 / 页内查找 / 「浏览器」设置页用到的零碎 ───────────────────── */
+.panel-browser-address-box { position: relative; }
+/* 补全列表：贴地址栏下沿，宽度跟地址栏，最多 6 条 */
+.panel-browser-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--dsh-radius-control, 10px);
+  background: var(--card-gradient);
+  box-shadow: var(--shadow-pop);
+}
+.panel-browser-suggest-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.panel-browser-suggest-item.active,
+.panel-browser-suggest-item:hover { background: var(--fill-soft); }
+.panel-browser-suggest-url {
+  overflow: hidden;
+  color: var(--dsh-text-tertiary);
+  font-size: var(--dsh-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 查找条：工具栏之下的窄条，与工具栏同一行高 */
+.panel-browser-find {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 6px;
+}
+.panel-browser-find-input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--fill-soft);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+}
+.panel-browser-find-miss { flex: none; color: var(--dsh-text-tertiary); font-size: var(--dsh-font-size-xs); }

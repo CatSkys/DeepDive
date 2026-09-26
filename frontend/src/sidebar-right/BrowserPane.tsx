@@ -1,108 +1,22 @@
-// 侧栏浏览器的页面本体（移植官方 sidebar-browser 的 client/view/BrowserBody.tsx）：
-// 工具栏五钮 + 地址栏 + 载体。两支载体各自成为一个组件，工具栏共用——这样不必在组件里
-// 条件调用 hook（壳内/纯浏览器不会中途切换，选择在渲染分支上做）。
+// 侧栏浏览器的页面本体（移植官方 sidebar-browser 的 client/view/BrowserBody.tsx）：载体 + 缩略图遮罩。
+// 工具栏/地址栏在 BrowserToolbar.tsx，查找条在 BrowserFindBar.tsx。
+// 两支载体各自成为一个组件（壳内/纯浏览器不会中途切换，选择在渲染分支上做），所以这里不条件调用 hook。
 //
 // 两种尺寸（官方是"面板里一个 tab"；本仓按用户定稿把它做成同一实例的两种呈现）：
 //   slot     —— 面板里的缩略图：只有载体，外加一层点击展开的遮罩（点它不操作网页）
 //   expanded —— 工具栏 + 占满面板的页面（人可以直接操作）
 // 两种尺寸共用同一个组件实例，所以切尺寸不会重挂载体、不会丢页面状态。
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, RotateCw, MessageSquare, ShieldOff, ShieldCheck, SquareArrowOutUpRight, Maximize2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Maximize2 } from "lucide-react";
 import { t } from "../i18n";
-import { RowMenu } from "../components/controls";
-import { openExternalUrl } from "../host";
-import type { BrowserAddressFailure } from "./browserUrl";
-import type { BrowserFrameState } from "./useIframeBrowser";
+import { rememberVisit } from "./browserRecents";
 import { useIframeBrowser } from "./useIframeBrowser";
 import { useNativeBrowser } from "./useNativeBrowser";
 import { BrowserEmpty, IframeCarrier, NativeCarrier, browserCarrierKind } from "./BrowserCarrier";
-
-/** 地址被拒的原因 → 用户可见文案（官方 error.* 一组）。 */
-function failureText(reason: BrowserAddressFailure): string {
-  if (reason === "empty") return t("请输入地址");
-  if (reason === "protocol") return t("只支持 http/https 地址");
-  if (reason === "credentials") return t("地址里不能带用户名或密码");
-  if (reason === "application-origin") return t("不能打开 DeepDive 自己的地址");
-  return t("地址无效");
-}
-
-interface PaneFace extends BrowserFrameState {
-  draft: string;
-  setDraft: (v: string) => void;
-  failure: BrowserAddressFailure | undefined;
-  submit: () => void;
-  goBack: () => void;
-  goForward: () => void;
-  doReload: () => void;
-}
-
-/** 工具栏 + 地址栏（官方 BrowserBody 的 form 部分）。 */
-function BrowserToolbar({ face, sandbox, onChat }: {
-  face: PaneFace;
-  /** 只有 iframe 载体给得出沙箱开关；原生载体由壳执行策略，不给这个按钮。 */
-  sandbox?: { enabled: boolean; toggle: () => void };
-  /** 叫出悬浮对话卡（壳侧叠加层）。 */
-  onChat: () => void;
-}) {
-  const unknown = face.address === "unknown";
-  const external = unknown ? undefined : face.target?.url;
-  return (
-    <form className="panel-browser-toolbar" onSubmit={(e) => { e.preventDefault(); face.submit(); }}>
-      <button type="button" className="panel-browser-tool" aria-label={t("后退")} data-tip={t("后退")}
-        disabled={!face.canGoBack} onClick={face.goBack}>
-        <ChevronLeft size={15} />
-      </button>
-      <button type="button" className="panel-browser-tool" aria-label={t("前进")} data-tip={t("前进")}
-        disabled={!face.canGoForward} onClick={face.goForward}>
-        <ChevronRight size={15} />
-      </button>
-      <button type="button" className="panel-browser-tool" aria-label={t("刷新")} data-tip={t("刷新")}
-        disabled={face.target === undefined} onClick={face.doReload}>
-        <RotateCw size={13} />
-      </button>
-      <div className="panel-browser-address-box">
-        <input
-          className={`panel-browser-address${unknown ? " unknown" : ""}`}
-          value={face.draft}
-          aria-label={t("地址")}
-          placeholder={t("输入地址")}
-          spellCheck={false}
-          onChange={(e) => face.setDraft(e.currentTarget.value)}
-        />
-        {unknown && <span className="panel-browser-changed">{t("页面已跳转，地址未知")}</span>}
-      </div>
-      {/* 没有可打开的页面（空白页/地址未知）时不出这个「…」：菜单只有这一项，
-          留一个点了没反应的入口不如不出 */}
-      {external !== undefined && (
-        <RowMenu
-          label={t("更多")}
-          items={[{ v: "external", label: t("在默认浏览器中打开"), icon: SquareArrowOutUpRight }]}
-          onSelect={() => openExternalUrl(external)}
-        />
-      )}
-      {/* 「对话」：把浮在网页之上的那座对话卡叫出来（原来占着面板标题栏那格） */}
-      <button type="button" className="panel-chat-btn" aria-label={t("对话")} data-tip={t("对话")} onClick={onChat}>
-        <MessageSquare size={14} />
-        <span>{t("对话")}</span>
-      </button>
-      {sandbox && (
-        <button
-          type="button"
-          className={`panel-browser-tool${sandbox.enabled ? "" : " off"}`}
-          aria-label={sandbox.enabled ? t("关闭沙箱") : t("开启沙箱")}
-          data-tip={sandbox.enabled ? t("关闭沙箱") : t("开启沙箱")}
-          aria-pressed={!sandbox.enabled}
-          onClick={sandbox.toggle}
-        >
-          {sandbox.enabled ? <ShieldCheck size={13} /> : <ShieldOff size={13} />}
-        </button>
-      )}
-      {face.failure !== undefined && <span className="panel-browser-note bad">{failureText(face.failure)}</span>}
-      {face.error && <span className="panel-browser-note bad">{t("页面加载失败")}</span>}
-    </form>
-  );
-}
+import { BrowserFindBar } from "./BrowserFindBar";
+import { BrowserToolbar } from "./BrowserToolbar";
+import type { PaneFace } from "./BrowserToolbar";
 
 /** 缩略图下面那行说明（图 2 的 "<名字>'s screen"）。 */
 function ScreenCaption({ text }: { text: string }) {
@@ -128,15 +42,67 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
   onChat: () => void;
   caption: string;
 }) {
-  const browser = useNativeBrowser(applicationOrigin);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [findTick, setFindTick] = useState(0);
+  const [intent, setIntent] = useState<{ kind: "address" | "find"; id: number }>({ kind: "address", id: 0 });
+  // 壳转来的浏览器快捷键（焦点在网页里时 SPA 收不到键）
+  const browser = useNativeBrowser(applicationOrigin, (key) => {
+    if (key === "address") setIntent((prev) => ({ kind: "address", id: prev.id + 1 }));
+    else if (key === "find") { setFindOpen(true); setFindTick((t) => t + 1); }
+    else if (key === "findNext") stepFind(true, findQuery);
+    else if (key === "findPrevious") stepFind(false, findQuery);
+    else if (key === "reload") browser.doReload();
+    else if (key === "back") browser.goBack();
+    else if (key === "forward") browser.goForward();
+    else if (key === "zoomIn") browser.zoomIn();
+    else if (key === "zoomOut") browser.zoomOut();
+    else if (key === "zoomReset") browser.zoomReset();
+  });
   const face: PaneFace = {
     ...browser.frame, draft: browser.draft, setDraft: browser.setDraft, failure: browser.failure,
     submit: browser.submit, goBack: browser.goBack, goForward: browser.goForward, doReload: browser.doReload,
   };
   const empty = browser.frame.address === "";
+
+  // 空串在这条链路上是"取消查找并清选区"（壳侧 find 的约定），所以清空输入要真的发出去，
+  // 否则页面上还留着上一次的高亮。
+  const stepFind = (forward: boolean, query: string) => {
+    browser.find(query.trim() === "" ? "" : query, forward);
+  };
+  const closeFind = () => {
+    setFindOpen(false);
+    setFindQuery("");
+    browser.find("");   // 空串 = 取消查找并清选区
+  };
+  // 访问记录（地址栏补全的来源）：地址或标题变了就记一条
+  const visitedUrl = browser.frame.address;
+  const visitedTitle = browser.title;
+  useEffect(() => {
+    if (visitedUrl !== "") rememberVisit(visitedUrl, visitedTitle);
+  }, [visitedUrl, visitedTitle]);
+
   return (
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
-      {expanded && <BrowserToolbar face={face} onChat={onChat} />}
+      {expanded && (
+        <BrowserToolbar
+          face={face}
+          onChat={onChat}
+          zoom={{ value: browser.zoom, zoomIn: browser.zoomIn, zoomOut: browser.zoomOut, zoomReset: browser.zoomReset }}
+          onFind={() => { setFindOpen(true); setFindTick((t) => t + 1); }}
+          intent={intent}
+        />
+      )}
+      {expanded && findOpen && (
+        <BrowserFindBar
+          query={findQuery}
+          setQuery={setFindQuery}
+          found={browser.findResult?.found ?? null}
+          onStep={stepFind}
+          onClose={closeFind}
+          focusTick={findTick}
+        />
+      )}
       <div className="panel-browser-body">
         {expanded ? (
           <NativeCarrier interactive>{null}</NativeCarrier>

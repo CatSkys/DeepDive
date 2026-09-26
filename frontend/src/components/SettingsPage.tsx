@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive, CalendarClock, ChartColumn, ChevronLeft, Cpu, Download, Folder, Keyboard, Moon,
-  Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldCheck,
-  Smartphone,
-  Sun,
-  Trash2,
-  Undo2,
+  Archive, CalendarClock, ChartColumn, ChevronLeft, Cpu, Download, Folder, Globe, Keyboard,
+  Moon, Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldCheck, Smartphone, Sun,
+  Trash2, Undo2,
 } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
+import { BrowserSection } from "../settings/BrowserSection";
 import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
 import { ImportSection } from "../settings/ImportSection";
@@ -43,6 +41,7 @@ export const SETTINGS_SECTIONS: Array<{ id: string; label: string; icon: typeof 
   { id: "models", label: "模型", icon: Cpu, group: "basic" },
   { id: "approval", label: "审批", icon: ShieldCheck, group: "basic" },
   { id: "hotkeys", label: "快捷键", icon: Keyboard, group: "basic" },
+  { id: "browser", label: "浏览器", icon: Globe, group: "basic" },
   { id: "automation", label: "自动化", icon: CalendarClock, group: "agent" },
   { id: "plugins", label: "插件", icon: Puzzle, group: "agent" },
   { id: "remote", label: "移动端远程控制", icon: Smartphone, group: "agent" },
@@ -164,6 +163,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
           {activeId === "import" && <ImportSection />}
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
+          {activeId === "browser" && <BrowserSection />}
           {activeId === "archived" && <ArchivedSection onBulk={setBulk} />}
           {activeId === "usage" && <UsageSection />}
         </div>

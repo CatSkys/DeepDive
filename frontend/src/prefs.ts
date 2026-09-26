@@ -39,6 +39,17 @@ export function usePrefs() {
   const [appearance, setAppearanceState] = useState<"system" | "light" | "dark">("dark");
   const [keybinds, setKeybindsState] = useState<KeybindOverrides>({});
   const [hotkeyOn, setHotkeyOnState] = useState(true);
+  // 浏览器缩放（壳侧读 UserDefaults：壳在 didCommit 时要按它排版）
+  const [browserZoomDefault, setBrowserZoomDefaultState] = useState(1);
+  const [browserZoomRememberSite, setBrowserZoomRememberSiteState] = useState(true);
+  const setBrowserZoomDefault = useCallback((value: number) => {
+    setBrowserZoomDefaultState(value);
+    sendToShell({ type: "browser-zoom", default: value });
+  }, []);
+  const setBrowserZoomRememberSite = useCallback((on: boolean) => {
+    setBrowserZoomRememberSiteState(on);
+    sendToShell({ type: "browser-zoom", rememberSite: on });
+  }, []);
   const setAppearance = useCallback((m: "system" | "light" | "dark") => {
     setAppearanceState(m);
     sendToShell({ type: "set-pref", key: "appearance", value: m });
@@ -75,7 +86,7 @@ export function usePrefs() {
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; onboarding?: string };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
@@ -83,6 +94,8 @@ export function usePrefs() {
       if (typeof p.keybinds === "string") setKeybindsState(parseKeybinds(p.keybinds));
       if (typeof p.hotkeyOn === "boolean") setHotkeyOnState(p.hotkeyOn);
       if (typeof p.onboarding === "string") setOnboardingState(p.onboarding);
+      if (typeof p.browserZoomDefault === "number") setBrowserZoomDefaultState(p.browserZoomDefault);
+      if (typeof p.browserZoomRememberSite === "boolean") setBrowserZoomRememberSiteState(p.browserZoomRememberSite);
     }
     if (cmd === "themeChanged") {
       const dark = (payload as { dark?: boolean } | undefined)?.dark;
@@ -100,6 +113,8 @@ export function usePrefs() {
     appearance, setAppearance,
     keybinds, setKeybinds,
     hotkeyOn, setHotkeyOn,
+    browserZoomDefault, setBrowserZoomDefault,
+    browserZoomRememberSite, setBrowserZoomRememberSite,
     onboarding, setOnboarding,
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,

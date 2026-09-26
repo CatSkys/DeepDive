@@ -91,6 +91,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     let browser = BrowserHost()
     /// 浏览器全屏时的**悬浮输入框**叠加层（透明 webview，见 ComposerOverlayHost）。
     let composerOverlay = ComposerOverlayHost()
+    /// 浏览器页的键盘监视器（焦点在网页里时 SPA 收不到键，见 MainWindowController+Browser）。
+    var browserKeyMonitor: Any?
     /// 槽位换算需要的两个实时值（effectView / webView 是私有的，只开这一对读数口给
     /// MainWindowController+Browser 用）。
     var browserContainerHeight: CGFloat { effectView.bounds.height }
@@ -239,6 +241,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         composerOverlay.view.navigationDelegate = self
         composerOverlay.view.uiDelegate = self
         effectView.addSubview(composerOverlay.view)
+        installBrowserKeyMonitor()
 
         webView.navigationDelegate = self
         // JS alert()/confirm()/prompt() need a WKUIDelegate; without one they
@@ -571,6 +574,14 @@ extension MainWindowController: WKScriptMessageHandler {
         }
         if type == "composer-pill" {
             handleComposerPill(body)
+            return
+        }
+        if type == "browser-zoom" {
+            handleBrowserZoom(body)
+            return
+        }
+        if type == "browser-find" {
+            handleBrowserFind(body)
             return
         }
         EngineLog.shared.append("[bridge] host message: \(type)")
