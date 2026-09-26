@@ -64,7 +64,8 @@ extension MainWindowController {
             "paused": BrowserShield.shared.pausedHosts(),
             "permissions": BrowserPermissions.rememberedCount(),
             // 规则没编译成功时设置页要能说出来（否则开关写着"开"、实际什么都没挡）
-            "trouble": BrowserShield.shared.trouble ?? "", 
+            "trouble": BrowserShield.shared.trouble ?? "",
+            "hidden": BrowserHidden.shared.totalCount(), 
         ]))
     }
 

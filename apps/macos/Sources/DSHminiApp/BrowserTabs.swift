@@ -20,6 +20,9 @@ final class BrowserTabs {
     var onTabsChanged: (([String: Any]) -> Void)?
     /// 页面在要摄像头/麦克风（窗口控制器把它推给 SPA 弹窗）
     var onPermissionAsk: ((String, String) -> Void)?
+    /// 按站隐藏的拾取回来了／被取消（窗口控制器据此记下并推给 SPA）
+    var onPicked: ((String, String) -> Void)?
+    var onPickCancelled: (() -> Void)?
 
     private(set) var tabs: [BrowserTab] = []
     private(set) var activeId = ""
@@ -166,6 +169,8 @@ final class BrowserTabs {
             DispatchQueue.main.async { self?.newTab(url: url) }
         }
         tab.onPermissionAsk = { [weak self] host, kind in self?.onPermissionAsk?(host, kind) }
+        tab.onPicked = { [weak self] selector, label in self?.onPicked?(selector, label) }
+        tab.onPickCancelled = { [weak self] in self?.onPickCancelled?() }
         if !url.isEmpty {
             tab.url = url
             tab.host.load(url)
@@ -219,7 +224,10 @@ final class BrowserTabs {
         payload["tabId"] = tab.id
         payload["cover"] = tab.cover ?? ""
         // 面板菜单要显示"本站暂停拦截 / 本站恢复拦截"，所以观察里带上这一站的拦截状态
-        payload["shieldPaused"] = BrowserShield.shared.isPaused(host: URL(string: tab.url)?.host)
+        let host = URL(string: tab.url)?.host
+        payload["shieldPaused"] = BrowserShield.shared.isPaused(host: host)
+        // 面板菜单要显示"恢复本站隐藏的 N 项"与"正在等点击"
+        payload["hiddenCount"] = host.map { BrowserHidden.shared.veils(host: $0).count } ?? 0
         onObservation?(payload)
     }
 

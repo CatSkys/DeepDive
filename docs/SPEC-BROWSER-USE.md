@@ -100,6 +100,22 @@
   （`requestMediaCapturePermissionFor`），壳按"站点 + 种类"记住；没记过就用应用自己的弹窗问一次
   （桥推给 SPA，走 `DialogHost`，壳不弹系统框），30s 没人答就拒绝（页面被 WebKit 挂着等这个决定）。
   一次只问一个：上一个没答完，新的直接拒（排队会让第二个页面莫名其妙地等）。
+- **阅读模式**（`BrowserReader.swift`，面板「…」菜单）：把页面**就地**换成只有正文的那一版——
+  判断正文用的是老办法（参考实现同一套）：谁的散文最多谁就是正文，且为里面的每个链接扣分
+  （导航条、相关阅读、评论区都是链接堆的）。图片在**原页面还站着的时候**解析成普通 `src`
+  （`currentSrc`，否则只会拿到懒加载占位图），正文里带链接的 `h1` 退回 `document.title`
+  （维基那种"标题 + 编辑"）。**退出 = 重新加载**：身体已经被换过，没有"原来的 DOM"可回；
+  找不到正文时弹窗说出来，不假装换好了。
+- **按站隐藏**（`BrowserHidden.swift`）：在面板「…」菜单里点"隐藏页面上的元素…"，页面上悬停高亮、
+  点一下就把那块从**这个站点**拿走，下次来还在。三部分：记忆（按 host 一组选择器，
+  `deepdive.browser.hidden` 里一份 JSON，键按参考实现那把尺子归一化——小写去 `www.`）；生效
+  （导航**开始之前**把 CSS 挂成 `WKUserScript`，文档一开始就注入，所以不会"先看见再消失"；改完
+  记忆也立刻对当前页面再注入一次）；拾取（见下条）。恢复：面板菜单里整站恢复，设置页「隐私」
+  里全局恢复（没有逐条列表——那是另一件事）。
+- **拾取回话是页面 → 壳的唯一一条通道**（`BrowserHost+Hidden.swift`）：页面上没有桥，要知道
+  "人点中了什么"只能靠一条 `WKScriptMessageHandler`。边界写在那个文件头上：只在拾取模式开着时认，
+  只接受 `{selector,label}` / `{cancel}` 两种形状，壳只能"记一条选择器"；handler 挂在**弱代理**上
+  （`WKUserContentController` 强持有 handler，挂宿主自己会成环，睡着的标签就回收不掉了）。
 - **标签栏与网页的层序**：当前标签的 `WKWebView` 挂在舞台上（`MainWindowController.browserStage`），
   舞台在 SPA webView 之后、对话叠加层之前——换标签只换舞台里的视图，层序不动。
 - **数据存储是持久且独立的**（`BrowserDataStore.swift`）：`WKWebsiteDataStore(forIdentifier:)` 给浏览器
@@ -164,8 +180,7 @@ A–R 块清单）逐块做成一个真浏览器——因为 agent 在用，人�
    密码没有顺着它做——`WKWebView` 的自动填充只吃系统钥匙串里 Safari 的那一份（要 Apple 的
    entitlement），要把浏览器里的密码用起来得先有自己的 vault（keychain）+ 填表 + 面板，规模是
    独立一块（参考实现也是这么分的：`Vault.swift` + `Passwords.swift`）。
-2. 阅读模式与按站隐藏
-3. 历史与书签；以后：视频浮窗、密码面板细化
+2. 历史与书签；以后：视频浮窗、密码面板细化、隐藏项的逐条列表
 
 
 ## 4. agent 驱动（browser use）
@@ -185,7 +200,8 @@ A–R 块清单）逐块做成一个真浏览器——因为 agent 在用，人�
 壳只提供原语——`navigate` / `back` / `forward` / `reload` / `get_state` / `screenshot` /
 `evaluate` / `wait_for`，外加标签的 `list_tabs` / `new_tab` / `select_tab` / `close_tab`，
 登录态的 `list_cookie_sources` / `import_cookies` / `import_cookies_status`，
-以及拦截的 `get_shield` / `set_shield`（`enabled` 或 `host`+`paused`，改完重载当前标签）。
+拦截的 `get_shield` / `set_shield`（`enabled` 或 `host`+`paused`，改完重载当前标签），
+以及页面改造的 `reader {on}` 与 `hidden` / `hide_element` / `restore_hidden`。
 所以壳不认识 ref、不认识选择器，SDK 换代不必改壳。
 
 **命令一律按 `tabId` 寻址**（缺省当前标签；指名了却找不到就报错，不悄悄换一个标签干活），
@@ -225,6 +241,9 @@ SDK 侧的 `browser.tabs.list/new/get/selected` 与 `tab.close()` 就是这几�
   也不被消费。闸门只能做在壳侧——协议白名单、标签集合、独立的数据存储、boot token。
 - **子智能体也能调 `js` 工具**：引擎没有按 scope 过滤 MCP 工具的面。
 - **没有录制、没有响应式视口**（ZCode 有，本仓明确砍掉）。
+- **阅读模式是启发式，不是可配置的抽取器**：没有字号/主题/按站开关（那是另一件事），
+  也救不了以图/视频为主的页面；正文判定失败时只有一句"没找到可读的正文"。
+- **按站隐藏没有逐条列表**：只能"恢复本站全部"或"全局恢复"（面板菜单 / 设置页各一条路）。
 - **拦截是 WebKit 的规则表，不是插件式广告拦截器**：没有元素级规则编辑、没有拦截计数、没有自定义
   清单；清单故意短（一张大方的 cosmetic 清单就是拦截器开始吃页面的开始）。**能按站记住的权限只有
   摄像头/麦克风**——定位/通知那几项 WebKit 在 macOS 上不由宿主应用决定（要 Apple 的 entitlement），

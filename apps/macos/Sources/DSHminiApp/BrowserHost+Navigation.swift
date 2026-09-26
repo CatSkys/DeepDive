@@ -12,6 +12,8 @@ extension BrowserHost: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         lastError = false
+        // 换页就是退出阅读模式（那一版是就地换过 DOM 的，新页面自然是原版）
+        readerOn = false
         publish()
     }
 
@@ -39,6 +41,8 @@ extension BrowserHost: WKNavigationDelegate {
         // 顺带按**目标站点**加减拦截规则：规则从加上的那一刻起对后续请求生效，所以必须在请求
         // 发出去之前（这里）做，而不是页面提交之后
         BrowserShield.shared.tune(view.configuration.userContentController, for: url.host)
+        // 按站隐藏：导航开始前把这一站要藏的 CSS 挂上（文档开始就注入）
+        if let host = url.host { armHiddenCSS(BrowserHidden.shared.css(host: host)) }
         // about:blank 是 WebKit 自己的空白页，放行；其余按白名单
         decisionHandler(BrowserHost.allowed(url) ? .allow : .cancel)
     }

@@ -23,6 +23,9 @@ extension MainWindowController {
         browserTabs.onPermissionAsk = { [weak self] host, kind in
             self?.pushHostCommand("browserPermissionAsk", payload: AppDelegate.jsonPayload(["host": host, "kind": kind]))
         }
+        // 按站隐藏的拾取：记下来、对当前页生效、把清单推给 SPA
+        browserTabs.onPicked = { [weak self] selector, label in self?.hiddenPicked(selector: selector, label: label) }
+        browserTabs.onPickCancelled = { [weak self] in self?.pushVeils() }
         BrowserShield.shared.compile()
         browserTabs.attach(to: browserStage)
     }
@@ -60,6 +63,8 @@ extension MainWindowController {
         case "browser-nav": handleBrowserNav(body)
         case "browser-tabs": handleBrowserTabs(body)
         case "browser-cookies": handleBrowserCookies(body)
+        case "browser-reader": handleBrowserReader(body)
+        case "browser-hidden": handleBrowserHidden(body)
         case "browser-shield": handleBrowserShield(body)
         case "browser-permission": handleBrowserPermission(body)
         case "browser-sync": handleBrowserSync()

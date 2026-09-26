@@ -4483,6 +4483,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-tab-close:hover { background: var(--fill-strong); color: var(--ink); }
 .panel-browser-tab-new { flex: none; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--ink-3); }
 .panel-browser-tab-new:hover { background: var(--fill); color: var(--ink); }
+/* 拾取模式的那行提示：浮在网页之上做不到（原生视图恒在 SPA 之上），所以它贴在工具栏下沿 */
+.panel-browser-hint {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
+  padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: 14px;
+  background: var(--surface-raised); color: var(--ink-2);
+  font-size: var(--dsh-font-size-xs); box-shadow: var(--shadow-pop); pointer-events: none;
+}
 /* 唤醒期间铺的停帧图：压在上面的原生视图一有像素就盖住它（壳给 4s 撤退时限） */
 .panel-browser-cover { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 

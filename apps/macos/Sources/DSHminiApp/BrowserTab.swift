@@ -32,6 +32,9 @@ final class BrowserTab {
     var onPopup: ((String) -> Void)?
     /// 页面在要摄像头/麦克风（集合据此推给 SPA 弹窗）
     var onPermissionAsk: ((String, String) -> Void)?
+    /// 按站隐藏的拾取回来了（选择器、名字）／被取消
+    var onPicked: ((String, String) -> Void)?
+    var onPickCancelled: (() -> Void)?
 
     private var built: BrowserHost?
     private let store: WKWebsiteDataStore
@@ -53,6 +56,8 @@ final class BrowserTab {
         // 页面要开新标签（`target=_blank`）：交给集合去开——宿主管不了标签集合
         host.onPopup = { [weak self] url in self?.onPopup?(url) }
         host.onPermissionAsk = { [weak self] host, kind in self?.onPermissionAsk?(host, kind) }
+        host.onPicked = { [weak self] selector, label in self?.onPicked?(selector, label) }
+        host.onPickCancelled = { [weak self] in self?.onPickCancelled?() }
         built = host
         return host
     }

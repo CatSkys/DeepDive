@@ -100,6 +100,8 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
           onChat={onChat}
           zoom={{ value: browser.zoom, zoomIn: browser.zoomIn, zoomOut: browser.zoomOut, zoomReset: browser.zoomReset }}
           shield={{ paused: browser.shieldPaused, toggle: browser.toggleShield }}
+          reader={{ on: browser.reader, toggle: browser.toggleReader }}
+          hidden={{ count: browser.hiddenCount, picking: browser.picking, togglePick: browser.togglePicking, restore: browser.restoreHidden }}
           onFind={() => { setFindOpen(true); setFindTick((t) => t + 1); }}
           intent={intent}
         />
@@ -122,6 +124,8 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
             {browser.cover !== "" && (
               <img className="panel-browser-cover" src={`data:image/png;base64,${browser.cover}`} alt="" />
             )}
+            {/* 拾取模式：提示人点哪个（页面里那圈高亮由壳注入的脚本画） */}
+            {browser.picking && <div className="panel-browser-hint">{t("点页面上的元素把它从此站隐藏（Esc 取消）")}</div>}
             <NativeCarrier interactive>{null}</NativeCarrier>
           </>
         ) : (

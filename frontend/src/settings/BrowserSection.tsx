@@ -220,6 +220,17 @@ export function BrowserSection() {
           </div>
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("页面隐藏")}</div>
+              <div className={rowsCss.rowCaption}>{t("在面板「…」菜单里藏起来的元素，按站点记着。")}</div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <button className={rowsCss.secondaryButton} disabled={shield.state.hidden === 0} onClick={shield.forgetHidden}>
+                {tt("全部恢复（{n}）", "Restore all ({n})", { n: shield.state.hidden })}
+              </button>
+            </div>
+          </div>
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("记住的摄像头/麦克风权限")}</div>
               <div className={rowsCss.rowCaption}>{t("网页要权限时问一次，答案按站点记住。")}</div>
             </div>

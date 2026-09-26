@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { onHostEvent, sendToShell } from "../host";
+import { t } from "../i18n";
+import { alertDialog } from "../components/DialogHost";
 import { looksLikeSearch, parseBrowserAddress, searchUrlFor, type BrowserAddressFailure, type BrowserTarget } from "./browserUrl";
 import { browserPrefs } from "./browserPrefs";
 import type { BrowserFrameState } from "./useIframeBrowser";
@@ -56,6 +58,15 @@ export interface NativeBrowser {
   /** 这一站是不是被暂停了拦截（面板菜单显示"暂停/恢复"用） */
   shieldPaused: boolean;
   toggleShield: () => void;
+  /** 这一页是不是"阅读模式"那一版（页面已经被换过，退出 = 重载） */
+  reader: boolean;
+  toggleReader: () => void;
+  /** 这一站藏了几项元素（按站隐藏） */
+  hiddenCount: number;
+  /** 正在等人在页面上点一个元素 */
+  picking: boolean;
+  togglePicking: () => void;
+  restoreHidden: () => void;
   /** 当前缩放（壳回报） */
   zoom: number;
   zoomIn: () => void;
@@ -85,6 +96,9 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
   const [activeTabId, setActiveTabId] = useState("");
   const [cover, setCover] = useState("");
   const [shieldPaused, setShieldPaused] = useState(false);
+  const [reader, setReader] = useState(false);
+  const [hiddenCount, setHiddenCount] = useState(0);
+  const [picking, setPicking] = useState(false);
   // 回调放 ref：壳事件订阅只装一次，不因每次渲染的新函数反复解绑
   const keyHandler = useRef(onKey);
   keyHandler.current = onKey;
@@ -110,6 +124,9 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
       setObserved({ url, title, loading, canGoBack, canGoForward, error, zoom });
       setCover(typeof data?.cover === "string" ? data.cover : "");
       setShieldPaused((data as { shieldPaused?: unknown } | undefined)?.shieldPaused === true);
+      setReader((data as { reader?: unknown } | undefined)?.reader === true);
+      setPicking((data as { picking?: unknown } | undefined)?.picking === true);
+      setHiddenCount(Number((data as { hiddenCount?: unknown } | undefined)?.hiddenCount ?? 0));
       return;
     }
     if (cmd === "browserShot") {
@@ -120,6 +137,11 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
     if (cmd === "browserKey") {
       const key = (payload as { key?: unknown } | undefined)?.key;
       if (typeof key === "string") keyHandler.current?.(key as BrowserKeyCommand);
+      return;
+    }
+    if (cmd === "browserReaderFailed") {
+      // 页面上找不到可读的正文：说出来，别让人以为点了没反应
+      void alertDialog({ message: t("这个页面没找到可读的正文。") });
       return;
     }
     if (cmd === "browserFindResult") {
@@ -196,6 +218,12 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
     selectTab: (id: string) => sendToShell({ type: "browser-tabs", action: "select", id }),
     cover,
     shieldPaused,
+    reader,
+    toggleReader: () => sendToShell({ type: "browser-reader", action: reader ? "exit" : "enter" }),
+    hiddenCount,
+    picking,
+    togglePicking: () => sendToShell({ type: "browser-hidden", action: picking ? "cancelPick" : "pick" }),
+    restoreHidden: () => sendToShell({ type: "browser-hidden", action: "restoreAll" }),
     // 本站暂停/恢复拦截：host 从当前地址里取（壳按 host 记；取不到就什么都不做）
     toggleShield: () => {
       let host: string;

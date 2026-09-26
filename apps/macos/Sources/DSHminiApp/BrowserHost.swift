@@ -50,12 +50,16 @@ struct BrowserObservation {
     var error: Bool = false
     /// 当前页面的缩放（pageZoom；SPA 的缩放控件与「浏览器」设置页读它）
     var zoom: Double = 1
+    /// 这一页是不是"阅读模式"那一版（页面已经被换过，只能靠重载退出）
+    var reader: Bool = false
+    /// 正在等人在页面上点一个元素（按站隐藏的拾取）
+    var picking: Bool = false
 
     var payload: [String: Any] {
         [
             "url": url, "title": title, "loading": loading,
             "canGoBack": canGoBack, "canGoForward": canGoForward, "error": error,
-            "zoom": zoom,
+            "zoom": zoom, "reader": reader, "picking": picking,
         ]
     }
 }
@@ -70,8 +74,17 @@ final class BrowserHost: NSObject {
     /// 页面申请摄像头/麦克风、而我们没记过这个站点：请人答一次（host、种类）。
     /// 决定权在 `BrowserPermissions`（记忆 + 超时），这里只是把问题传出去。
     var onPermissionAsk: ((String, String) -> Void)?
+    /// 按站隐藏的拾取回来了（选择器、它的名字）；取消是另一条
+    var onPicked: ((String, String) -> Void)?
+    var onPickCancelled: (() -> Void)?
+    /// 正在等人在页面上点一个元素（面板要显示提示）
+    var picking = false
+    /// 拾取回话的弱代理（见 BrowserHost+Hidden：不能把宿主自己注册成 handler，会成环）
+    let pickerProxy = BrowserPickerProxy()
 
     var lastError = false
+    /// 这一页正在"阅读模式"里（导航一开始就清掉：换页等于退出）
+    var readerOn = false
     /// 最近一次槽位；窗口尺寸或 pageZoom 变化时按它重算（槽位状态放这里，主窗口控制器
     /// 就不必为它多一个存储属性）。
     private var slot: BrowserSlot?
@@ -99,6 +112,9 @@ final class BrowserHost: NSObject {
         view.allowsMagnification = false
         view.isInspectable = true
         view.autoresizingMask = []
+        // 页面 → 壳的拾取回话（按站隐藏用；见 BrowserHost+Hidden 的安全边界）
+        pickerProxy.host = self
+        configuration.userContentController.add(pickerProxy, name: "deepdivePicker")
     }
 
     // MARK: - 位置与可见性
@@ -261,8 +277,22 @@ final class BrowserHost: NSObject {
             canGoBack: view.canGoBack,
             canGoForward: view.canGoForward,
             error: lastError,
-            zoom: Double(view.pageZoom)
+            zoom: Double(view.pageZoom),
+            reader: readerOn,
+            picking: picking
         )
+    }
+
+    /// 给下一次导航挂上按站隐藏的 CSS（`WKUserScript`，文档开始就注入：不会先看见再消失）。
+    ///
+    /// `WKUserContentController` 只能整批清（没有 removeUserScript:），而这个 controller 上
+    /// 本来就只有这一条 user script（脚本注入是我们的，页面别想有），所以整批清正好。
+    func armHiddenCSS(_ css: String) {
+        let controller = view.configuration.userContentController
+        controller.removeAllUserScripts()
+        guard !css.isEmpty else { return }
+        let script = WKUserScript(source: BrowserHidden.injectScript(css), injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        controller.addUserScript(script)
     }
 
     func publish() { onObservation?(observation()) }

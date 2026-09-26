@@ -53,6 +53,44 @@ enum BrowserControl {
         switch method {
         case "list_tabs":
             return ["ok": true, "activeTabId": tabs.activeId, "tabs": tabs.listPayload()]
+        case "reader":
+            // 阅读模式（页面里就地换一版）：agent 想"干净地读一篇"时用得上
+            guard let on = command["on"] as? Bool else { return ["ok": false, "error": "reader needs on"] }
+            let host = tabs.activeHost
+            if on {
+                var result: String?
+                BrowserReader.enter(host) { text in result = text }
+                pumpUntil(timeout: 10) { result != nil }
+                return ["ok": result == "read", "result": result ?? "timeout"]
+            }
+            BrowserReader.exit(host)
+            return ["ok": true]
+        case "hidden":
+            // 按站隐藏：这一站藏了哪些元素（agent 也可能想把自己读页面时碍事的块拿掉）
+            let hostName = URL(string: tabs.active.url)?.host ?? ""
+            return ["ok": true, "host": hostName,
+                    "veils": BrowserHidden.shared.veils(host: hostName).map { ["selector": $0.selector, "label": $0.label] },
+                    "total": BrowserHidden.shared.totalCount()]
+        case "hide_element":
+            guard let selector = command["selector"] as? String, !selector.isEmpty,
+                  let hostName = URL(string: tabs.active.url)?.host, !hostName.isEmpty else {
+                return ["ok": false, "error": "hide_element needs a selector and a loaded page"]
+            }
+            let label = command["label"] as? String ?? selector
+            BrowserHidden.shared.hide(selector: selector, label: label, host: hostName)
+            BrowserHidden.shared.apply(tabs.activeHost, for: hostName)
+            return ["ok": true, "host": hostName, "count": BrowserHidden.shared.veils(host: hostName).count]
+        case "restore_hidden":
+            guard let hostName = URL(string: tabs.active.url)?.host, !hostName.isEmpty else {
+                return ["ok": false, "error": "restore_hidden needs a loaded page"]
+            }
+            if let selector = command["selector"] as? String, !selector.isEmpty {
+                BrowserHidden.shared.restore(selector: selector, host: hostName)
+            } else {
+                BrowserHidden.shared.restoreAll(host: hostName)
+            }
+            BrowserHidden.shared.apply(tabs.activeHost, for: hostName)
+            return ["ok": true, "host": hostName, "count": BrowserHidden.shared.veils(host: hostName).count]
         case "get_shield":
             return ["ok": true,
                     "enabled": BrowserShield.shared.enabled(),

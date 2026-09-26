@@ -13,9 +13,11 @@ export interface BrowserShieldFace {
   permissions: number;
   /** 规则表编译失败的原因（空 = 正常）：开关写着"开"而这里非空，就是实际什么都没挡 */
   trouble: string;
+  /** 按站隐藏记住的元素总数（所有站点） */
+  hidden: number;
 }
 
-const EMPTY: BrowserShieldFace = { enabled: true, paused: [], permissions: 0, trouble: "" };
+const EMPTY: BrowserShieldFace = { enabled: true, paused: [], permissions: 0, trouble: "", hidden: 0 };
 
 export function useBrowserShield() {
   const [state, setState] = useState<BrowserShieldFace>(EMPTY);
@@ -28,6 +30,7 @@ export function useBrowserShield() {
       paused: Array.isArray(data?.paused) ? data.paused.filter((h): h is string => typeof h === "string") : [],
       permissions: Number(data?.permissions ?? 0),
       trouble: typeof data?.trouble === "string" ? data.trouble : "",
+      hidden: Number(data?.hidden ?? 0),
     });
   }), []);
 
@@ -35,6 +38,7 @@ export function useBrowserShield() {
   const setEnabled = useCallback((on: boolean) => sendToShell({ type: "browser-shield", enabled: on }), []);
   const forgetPaused = useCallback(() => sendToShell({ type: "browser-shield", action: "forgetPaused" }), []);
   const forgetPermissions = useCallback(() => sendToShell({ type: "browser-permission", action: "forgetAll" }), []);
+  const forgetHidden = useCallback(() => sendToShell({ type: "browser-hidden", action: "forgetAll" }), []);
 
-  return { state, sync, setEnabled, forgetPaused, forgetPermissions };
+  return { state, sync, setEnabled, forgetPaused, forgetPermissions, forgetHidden };
 }
