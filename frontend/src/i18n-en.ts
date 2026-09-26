@@ -106,7 +106,7 @@ export const EN: Record<string, string> = {
   "前进": "Forward",
   "地址": "Address",
   "输入地址": "Enter an address",
-  "在浏览器中打开": "Open in browser",
+  "在默认浏览器中打开": "Open in default browser",
   "页面已跳转，地址未知": "Page navigated; address unknown",
   "关闭沙箱": "Disable sandbox",
   "开启沙箱": "Enable sandbox",

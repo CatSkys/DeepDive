@@ -8,8 +8,9 @@
 // 两种尺寸共用同一个组件实例，所以切尺寸不会重挂载体、不会丢页面状态。
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, RotateCw, CornerUpRight, MessageSquare, ShieldOff, ShieldCheck, Maximize2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCw, MessageSquare, ShieldOff, ShieldCheck, SquareArrowOutUpRight, Maximize2 } from "lucide-react";
 import { t } from "../i18n";
+import { RowMenu } from "../components/controls";
 import { openExternalUrl } from "../host";
 import type { BrowserAddressFailure } from "./browserUrl";
 import type { BrowserFrameState } from "./useIframeBrowser";
@@ -71,10 +72,15 @@ function BrowserToolbar({ face, sandbox, onChat }: {
         />
         {unknown && <span className="panel-browser-changed">{t("页面已跳转，地址未知")}</span>}
       </div>
-      <button type="button" className="panel-browser-tool" aria-label={t("在浏览器中打开")} data-tip={t("在浏览器中打开")}
-        disabled={external === undefined} onClick={external === undefined ? undefined : () => openExternalUrl(external)}>
-        <CornerUpRight size={14} />
-      </button>
+      {/* 没有可打开的页面（空白页/地址未知）时不出这个「…」：菜单只有这一项，
+          留一个点了没反应的入口不如不出 */}
+      {external !== undefined && (
+        <RowMenu
+          label={t("更多")}
+          items={[{ v: "external", label: t("在默认浏览器中打开"), icon: SquareArrowOutUpRight }]}
+          onSelect={() => openExternalUrl(external)}
+        />
+      )}
       {/* 「对话」：把浮在网页之上的那座对话卡叫出来（原来占着面板标题栏那格） */}
       <button type="button" className="panel-chat-btn" aria-label={t("对话")} data-tip={t("对话")} onClick={onChat}>
         <MessageSquare size={14} />
