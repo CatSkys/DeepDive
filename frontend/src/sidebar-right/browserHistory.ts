@@ -34,10 +34,13 @@ interface LibraryState {
 }
 
 let state: LibraryState = { visits: [], total: 0, bookmarks: [] };
+/** 每次推送 +1：补全是在 render 里同步读缓存的，得有个东西让地址栏知道"缓存变了、重画"。 */
+let revision = 0;
 const listeners = new Set<() => void>();
 
 function emit(next: Partial<LibraryState>): void {
   state = { ...state, ...next };
+  revision += 1;
   for (const listener of listeners) listener();
 }
 
@@ -58,6 +61,11 @@ export function completeVisits(input: string): { url: string; title: string }[] 
     .filter((item) => item.url.toLowerCase().includes(text) || item.title.toLowerCase().includes(text))
     .slice(0, SUGGEST_LIMIT)
     .map((item) => ({ url: item.url, title: item.title }));
+}
+
+/** 让地址栏在壳推来新历史时重画一次（它读缓存是同步的，不订阅就只会等下一次敲键）。 */
+export function useVisitsRevision(): number {
+  return useSyncExternalStore(subscribe, () => revision, () => revision);
 }
 
 /** 页面挂了就注册一次：把壳推来的历史/书签收进缓存（App 根用）。 */
@@ -93,7 +101,11 @@ export function useBrowserHistory(): {
     visits: current.visits,
     total: current.total,
     bookmarks: current.bookmarks,
-    refresh: (limit = 200) => sendToShell({ type: "browser-history", action: "list", limit }),
+    // 历史与书签是两条命令：设置页一打开就要两份都问（书签只在增删时才被推过）
+    refresh: (limit = 200) => {
+      sendToShell({ type: "browser-history", action: "list", limit });
+      sendToShell({ type: "browser-bookmarks", action: "list" });
+    },
     remove: (url: string) => sendToShell({ type: "browser-history", action: "remove", url }),
     clear: () => sendToShell({ type: "browser-history", action: "clear" }),
     removeBookmark: (url: string) => sendToShell({ type: "browser-bookmarks", action: "remove", url }),

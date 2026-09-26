@@ -12,8 +12,10 @@ extension BrowserHost: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         lastError = false
-        // 换页就是退出阅读模式（那一版是就地换过 DOM 的，新页面自然是原版）
+        // 换页就是退出阅读模式（那一版是就地换过 DOM 的，新页面自然是原版）；
+        // 拾取也一起收——要点的那个元素已经不在页面上了
         readerOn = false
+        picking = false
         publish()
     }
 

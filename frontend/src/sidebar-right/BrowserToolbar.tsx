@@ -7,7 +7,7 @@ import { BookOpen, ChevronLeft, ChevronRight, EyeOff, RotateCw, MessageSquare, S
 import { t, tt } from "../i18n";
 import { RowMenu } from "../components/controls";
 import { browserPrefs } from "./browserPrefs";
-import { completeVisits } from "./browserHistory";
+import { completeVisits, useVisitsRevision } from "./browserHistory";
 import { looksLikeSearch, searchUrlFor } from "./browserUrl";
 import { openExternalUrl, sendToShell } from "../host";
 import type { BrowserAddressFailure } from "./browserUrl";
@@ -76,6 +76,8 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, reader, hi
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const prefs = browserPrefs();
+  // 壳推来新历史就重画一次补全（缓存是同步读的，不订阅只会等下一次敲键）
+  useVisitsRevision();
   const recents = suggestOpen ? completeVisits(face.draft) : [];
   const searchHint = suggestOpen && prefs.searchOnPlainText && looksLikeSearch(face.draft)
     ? searchUrlFor(face.draft, prefs.searchTemplate)
