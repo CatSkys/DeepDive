@@ -2,7 +2,8 @@
 //
 // 地址框不在这一份里——它就是选中标签那一枚（BrowserTabStrip），空白标签页那款在
 // BrowserBlankPage；两处共用同一份 BrowserAddressField。
-import { BookOpen, ChevronLeft, ChevronRight, EyeOff, RotateCw, MessageSquare, Search, ShieldOff, ShieldCheck, SquareArrowOutUpRight, Maximize2, Star, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, EyeOff, Minimize2, RotateCw, MessageSquare, Search, ShieldOff, ShieldCheck, SquareArrowOutUpRight, Maximize2, Star, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { dispatchAppEvent, DD_EVENTS } from "../events";
 import { t, tt } from "../i18n";
 import { RowMenu } from "../components/controls";
 import { openExternalUrl } from "../host";
@@ -13,10 +14,12 @@ import type { PaneFace } from "./useIframeBrowser";
  *  地址框不在这一份里——它是**选中标签那一枚**（见 BrowserTabStrip），空白标签页那款在
  *  BrowserBlankPage；这里只有三键与菜单，两处共用。
  */
-export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden, bookmark, onFind, face, sandbox }: {
+export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden, bookmark, onFind, face, sandbox, onExitFullscreen }: {
   /** 「…」菜单的"在默认浏览器打开"（地址未知时没有这一项） */
   external?: string;
   onChat: () => void;
+  /** 退出浏览器的整格视图，回到会话页（原 panel 头部那枚返回箭头的职责，两排并一排后搬进来） */
+  onExitFullscreen?: () => void;
   zoom?: { value: number; zoomIn: () => void; zoomOut: () => void; zoomReset: () => void };
   shield?: { paused: boolean; toggle: () => void };
   reader?: { on: boolean; toggle: () => void };
@@ -42,6 +45,10 @@ export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden,
     ...(bookmark ? [{ v: "bookmark", label: bookmark.on ? t("已加入书签") : t("加入书签"), icon: Star }] : []),
     ...(onFind ? [{ v: "find", label: t("页内查找"), icon: Search }] : []),
     ...(external !== undefined ? [{ v: "external", label: t("在默认浏览器中打开"), icon: SquareArrowOutUpRight }] : []),
+    // 设置入口不带 icon（用户定稿）：都落在「浏览器」设置页的对应分节
+    { v: "import", label: t("导入 cookie 和密码") },
+    { v: "downloads", label: t("下载") },
+    { v: "browserSettings", label: t("浏览器设置") },
   ];
   return (
     <div className="panel-browser-helm">
@@ -63,13 +70,15 @@ export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden,
         disabled={face.target === undefined} onClick={face.doReload}>
         <RotateCw size={13} />
       </button>
-      {bookmark && (
-        <button type="button" className={`panel-browser-tool${bookmark.on ? " on" : ""}`}
-          aria-label={bookmark.on ? t("已加入书签") : t("加入书签")}
-          data-tip={bookmark.on ? t("已加入书签") : t("加入书签")} onClick={bookmark.toggle}>
-          <Star size={14} />
+      {onExitFullscreen && (
+        <button type="button" className="panel-browser-tool" aria-label={t("退出全屏")} data-tip={t("退出全屏")}
+          onClick={onExitFullscreen}>
+          <Minimize2 size={14} />
         </button>
       )}
+      <button type="button" className="panel-browser-tool" aria-label={t("对话")} data-tip={t("对话")} onClick={onChat}>
+        <MessageSquare size={14} />
+      </button>
       {menuItems.length > 0 && (
         <RowMenu
           label={t("更多")}
@@ -85,12 +94,12 @@ export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden,
             else if (v === "bookmark") bookmark?.toggle();
             else if (v === "find") onFind?.();
             else if (v === "external" && external !== undefined) openExternalUrl(external);
+            else if (v === "import" || v === "downloads" || v === "browserSettings") {
+              dispatchAppEvent(DD_EVENTS.openSettings, { section: "browser" });
+            }
           }}
         />
       )}
-      <button type="button" className="panel-browser-tool" aria-label={t("对话")} data-tip={t("对话")} onClick={onChat}>
-        <MessageSquare size={14} />
-      </button>
     </div>
   );
 }

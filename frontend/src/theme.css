@@ -4382,6 +4382,12 @@ input:focus, textarea:focus, select:focus { outline: none; }
    （实测：标题压在页签上、代码块透过地址栏）。与文件预览全屏同一套
    ——visibility 而不是 display，滚动位置与事件状态都保住。 */
 .panel[data-fullscreen="true"] { position: absolute; inset: 0; width: auto; z-index: 45; }
+/* 浏览器页整格一体色（用户定稿）：卡片边框/圆角/渐变全撤——格内标签行、空白页、
+   页面同底色，与 .main 的圆角裁剪同心；不留任何"两层皮"的缝 */
+.panel[data-mode="browser"] {
+  background: var(--surface);
+  border: 0; border-radius: 0; box-shadow: none;
+}
 .session-row:has(> .panel[data-fullscreen="true"]) > .session { visibility: hidden; }
 
 .panel-head {
@@ -4535,7 +4541,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-tab-speaker:hover { background: var(--fill-strong); color: var(--ink); }
 /* 右端那一格，一格两职：加载中的转圈与指向时的关闭叉叠在同一格，不互相挤位 */
 .panel-browser-tab-end {
-  flex: none; position: relative; width: 18px; height: 18px; margin-right: 5px;
+  flex: none; position: relative; width: 30px; height: 28px; margin-right: 0;
 }
 /* 转圈：参考 Ring 的同一款——缺口圆环自己转 */
 .panel-browser-tab-ring {
@@ -4549,10 +4555,15 @@ input:focus, textarea:focus, select:focus { outline: none; }
    叠在转圈上面，指向时盖过它 */
 .panel-browser-tab-close {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px; padding: 0;
-  border: 0; border-radius: 50%; background: transparent; color: var(--ink-3);
+  padding: 0;
+  border: 0; border-radius: 0; background: transparent; color: var(--ink-3);
   opacity: 0; transition: opacity var(--dur-fast) ease;
 }
+.panel-browser-tab-close > svg {
+  width: 15px; height: 15px; padding: 2px;
+  border-radius: 50%; background: transparent;
+}
+.panel-browser-tab-close:hover > svg { background: var(--fill-strong); }
 .panel-browser-tab:hover .panel-browser-tab-close { opacity: 1; }
 .panel-browser-tab-close:hover { background: var(--fill-strong); color: var(--ink); }
 .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; }
@@ -4626,7 +4637,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 
 /* ---------- 行尾工具组 ---------- */
-.panel-browser-helm { flex: none; display: flex; align-items: center; gap: 4px; padding-left: 10px; }
+.panel-browser-helm { flex: none; display: flex; align-items: center; gap: 4px; padding-left: 8px; }
+.panel-browser-tool {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--ink-3);
+}
+.panel-browser-tool:hover { background: var(--fill-soft); color: var(--ink); }
 .panel-browser-tool.on { color: var(--ink); background: var(--fill); }
 
 /* 拾取模式的那行提示：浮在网页之上做不到（原生视图恒在 SPA 之上），所以它贴在工具栏下沿 */

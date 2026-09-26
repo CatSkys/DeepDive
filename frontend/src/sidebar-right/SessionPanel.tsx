@@ -50,6 +50,8 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
 
   return (
     <aside className="panel" data-fullscreen={surface.fullscreen ? "true" : undefined} data-mode={browserMode ? "browser" : "session"}>
+      {/* 浏览器页不放头部那排（用户定稿：两排并一排）：收起那枚变成「退出全屏」，进了标签行行尾 */}
+      {!browserMode && (
       <div className="panel-head">
         {(settingsOpen || browserMode) && (
           <button type="button" className="panel-icon-btn" aria-label={t("返回")} data-tip={t("返回")} onClick={back}>
@@ -72,6 +74,7 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
           </button>
         </div>
       </div>
+      )}
 
       <div className="panel-body">
         {settingsOpen ? (
@@ -88,6 +91,7 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
                 expanded={browserMode}
                 applicationOrigin={window.location.origin}
                 onExpand={() => panelActions.expandBrowser(sessionId)}
+                onExitFullscreen={() => { panelActions.setFullscreen(sessionId, false); panelActions.showSession(sessionId); }}
                 onChat={() => showChatFloat(sessionId)}
                 caption={tt("{name}的屏幕", "{name}'s screen", { name: title })}
               />

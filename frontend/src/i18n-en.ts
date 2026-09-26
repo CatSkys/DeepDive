@@ -121,6 +121,8 @@ export const EN: Record<string, string> = {
   "输入地址或搜索": "Enter an address or search",
   "沙箱": "Sandbox",
   "静音": "Mute tab",
+  "导入 cookie 和密码": "Import cookies & passwords",
+  "浏览器设置": "Browser settings",
   "取消静音": "Unmute tab",
   "加载中": "Loading",
   "没有匹配": "No match",

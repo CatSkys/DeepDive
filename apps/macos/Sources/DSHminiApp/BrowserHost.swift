@@ -70,6 +70,14 @@ final class BrowserHost: NSObject {
         super.init()
         view.navigationDelegate = self
         view.uiDelegate = self
+        // 空白/未加载时不画自己的底（透出底下 SPA 的空白页——与标签行同底色一体，
+        // 用户指出的"两层皮"缝就是这层原生底色）；有页面时页面自己画背景
+        view.setValue(false, forKey: "drawsBackground")
+        // 圆角与 .main 卡片同心（tokens.json radius.panel = 18，keep in sync）：原生视图
+        // 浮在 SPA 之上，.main 的 overflow 裁剪管不到它，直角会盖住卡片的圆角
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 18
+        view.layer?.masksToBounds = true
         view.allowsMagnification = false
         view.isInspectable = true
         view.autoresizingMask = []

@@ -21,7 +21,7 @@ beforeEach(() => { sent.length = 0; });
 describe("BrowserPane（壳载体）", () => {
   it("展开态把槽位挖给壳的原生视图，且那一格可点（interactive）", () => {
     const { container } = render(
-      <BrowserPane expanded applicationOrigin="http://127.0.0.1:1" onExpand={() => {}} onChat={() => {}} caption="X 的屏幕" />,
+      <BrowserPane expanded applicationOrigin="http://127.0.0.1:1" onExpand={() => {}} onChat={() => {}} onExitFullscreen={() => {}} caption="X 的屏幕" />,
     );
     const slot = container.querySelector('[data-native-slot="browser"]');
     expect(slot).not.toBeNull();
@@ -31,7 +31,7 @@ describe("BrowserPane（壳载体）", () => {
 
   it("收起态不挖槽位（不把缩小版的 WKWebView 摆进去），只等快照图", () => {
     const { container } = render(
-      <BrowserPane expanded={false} applicationOrigin="http://127.0.0.1:1" onExpand={() => {}} onChat={() => {}} caption="X 的屏幕" />,
+      <BrowserPane expanded={false} applicationOrigin="http://127.0.0.1:1" onExpand={() => {}} onChat={() => {}} onExitFullscreen={() => {}} caption="X 的屏幕" />,
     );
     expect(container.querySelector('[data-native-slot="browser"]')).toBeNull();
     expect(container.querySelector(".sr-browser-shot")).toBeNull();

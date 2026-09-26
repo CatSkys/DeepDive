@@ -304,7 +304,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   );
 
   return (
-    <aside className="sidebar" onWheel={onSidebarWheel}>
+        <aside className="sidebar" onWheel={onSidebarWheel}>
       {/* 搜索框非常驻：由顶部搜索钮 / ⌘F 打开（用户定稿——侧栏顶部让给会话列表，
           搜索收成一个按钮）。Esc 关闭并**清空**：否则输入框藏起来后列表还滤着，
           看着像会话丢了。 */}
