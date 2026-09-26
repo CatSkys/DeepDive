@@ -53,6 +53,26 @@ enum BrowserControl {
         switch method {
         case "list_tabs":
             return ["ok": true, "activeTabId": tabs.activeId, "tabs": tabs.listPayload()]
+        case "get_shield":
+            return ["ok": true,
+                    "enabled": BrowserShield.shared.enabled(),
+                    "paused": BrowserShield.shared.pausedHosts(),
+                    "trouble": BrowserShield.shared.trouble ?? ""]
+        case "set_shield":
+            // 两个可选项：全局开关（`enabled`）与"这一站暂停"（`host` + `paused`）。
+            // 改完重载当前标签——规则表在导航那一刻才算数（同面板菜单那条路）
+            if let on = command["enabled"] as? Bool {
+                BrowserShield.shared.setEnabled(on)
+                BrowserShield.shared.apply(to: tabs.controllers)
+                tabs.activeHost.reload()
+            }
+            if let host = command["host"] as? String, !host.isEmpty {
+                let paused = command["paused"] as? Bool ?? true
+                BrowserShield.shared.setPaused(paused, host: host)
+                BrowserShield.shared.tune(tabs.activeHost.view.configuration.userContentController, for: host)
+                tabs.activeHost.reload()
+            }
+            return ["ok": true, "enabled": BrowserShield.shared.enabled(), "paused": BrowserShield.shared.pausedHosts()]
         case "list_cookie_sources":
             return ["ok": true, "sources": BrowserCookies.entries(BrowserCookies.installed())]
         case "import_cookies":

@@ -30,6 +30,8 @@ final class BrowserTab {
     var onChange: ((BrowserTab) -> Void)?
     /// 页面要开新标签（`target=_blank` / `window.open`）——集合据此开一个，并把地址带过去
     var onPopup: ((String) -> Void)?
+    /// 页面在要摄像头/麦克风（集合据此推给 SPA 弹窗）
+    var onPermissionAsk: ((String, String) -> Void)?
 
     private var built: BrowserHost?
     private let store: WKWebsiteDataStore
@@ -50,6 +52,7 @@ final class BrowserTab {
         }
         // 页面要开新标签（`target=_blank`）：交给集合去开——宿主管不了标签集合
         host.onPopup = { [weak self] url in self?.onPopup?(url) }
+        host.onPermissionAsk = { [weak self] host, kind in self?.onPermissionAsk?(host, kind) }
         built = host
         return host
     }

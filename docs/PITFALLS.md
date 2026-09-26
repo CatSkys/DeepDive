@@ -421,6 +421,18 @@
   标 `blocked`、导入时报 `permission` 码。（Safari 那支是另一半：文件 stat 得到、读内容被拒，
   同一个 `permission` 码，但指向的是「完全磁盘访问权限」。）
 
+### 4.27 Swift 方法少写调用括号 → 值是个闭包 → JSONSerialization 抛异常 → 应用一启动就崩（2026-09-26 实测）
+
+- 症状：包一打开就退，`~/Library/Logs/DiagnosticReports` 里那一份的栈顶是
+  `AppDelegate.pushPrefs()` → `NSJSONSerialization.dataWithJSONObject` → `_writeJSONValue`
+  抛异常（不是崩溃信号，是 ObjC 异常）。
+- 根因：偏好快照里写了 `BrowserShield.shared.enabled`——`enabled` 是方法（`func enabled(_:)`），
+  少写 `()` 时它被当成**函数引用**塞进 `[String: Any]`；Swift 编译通过（`Any` 收得下闭包），
+  到序列化才炸。
+- 规矩：给前端的载荷（prefs / 桥消息）**只放 JSON 能写的类型**，方法一律带括号。
+  `pushPrefs` 的载荷因此拆成 `AppDelegate.prefsPayload()`，由 `BrowserShieldTests` 里
+  "prefs 必须 JSON 可写"那一条钉住（这类错编译期看不出来，只能靠测试或真机崩溃报告）。
+
 ---
 
 ## 5. 版本角标 / 交付自检

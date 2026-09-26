@@ -50,7 +50,8 @@ targets:
           NSAllowsLocalNetworking: true
           # 侧栏浏览器（第二个 WKWebView）要能加载 http:// 公网站点；只放宽 Web 内容
           NSAllowsArbitraryLoadsInWebContent: true
-        NSMicrophoneUsageDescription: "听写需要使用麦克风。"
+        NSMicrophoneUsageDescription: "听写与网页（音视频通话）需要使用麦克风。"
+        NSCameraUsageDescription: "网页（视频通话、拍照上传）需要使用摄像头。"
         NSSpeechRecognitionUsageDescription: "听写使用系统语音识别将你的语音转换为文字。"
   DSHminiAppTests:
     type: bundle.unit-test

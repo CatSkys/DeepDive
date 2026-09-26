@@ -20,6 +20,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { BootSkeleton } from "./components/BootSkeleton";
 import { OnboardingWizard } from "./onboarding/OnboardingWizard";
 import { useAutoArchive } from "./useAutoArchive";
+import { useBrowserPermissionAsk } from "./sidebar-right/useBrowserPermissionAsk";
 import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
 import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
@@ -49,6 +50,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   const store = useStore();
   const { t, tt } = useT();
   useAutoArchive();
+  // 网页要摄像头/麦克风：应用自己的弹窗问一次（面板关着也可能有页面在问）
+  useBrowserPermissionAsk();
   const active = store.activeSessionId;
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);

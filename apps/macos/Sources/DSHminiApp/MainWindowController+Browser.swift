@@ -19,6 +19,11 @@ extension MainWindowController {
         }
         // agent 控制面（/browser-control）要拿到这个窗口的标签集合（它按 tabId 找宿主）
         BrowserControl.tabsProvider = { [weak self] in self?.browserTabs }
+        // 页面要摄像头/麦克风：推给 SPA 用应用自己的弹窗问（壳不弹系统框）
+        browserTabs.onPermissionAsk = { [weak self] host, kind in
+            self?.pushHostCommand("browserPermissionAsk", payload: AppDelegate.jsonPayload(["host": host, "kind": kind]))
+        }
+        BrowserShield.shared.compile()
         browserTabs.attach(to: browserStage)
     }
 
@@ -55,6 +60,8 @@ extension MainWindowController {
         case "browser-nav": handleBrowserNav(body)
         case "browser-tabs": handleBrowserTabs(body)
         case "browser-cookies": handleBrowserCookies(body)
+        case "browser-shield": handleBrowserShield(body)
+        case "browser-permission": handleBrowserPermission(body)
         case "browser-sync": handleBrowserSync()
         case "browser-shot": handleBrowserShot()
         case "browser-zoom": handleBrowserZoom(body)
@@ -76,33 +83,6 @@ extension MainWindowController {
         case "forward": browser.goForward()
         case "reload": browser.reload()
         default: break
-        }
-    }
-
-    /// SPA 发来的 cookie 导入相关（`browser-cookies`）：列来源 / 导一个来源 / 清浏览数据。
-    /// 导入要读别的浏览器（Chromium 系会读 keychain、等人点头）+ 写 cookie store，都在别处做。
-    func handleBrowserCookies(_ body: [String: Any]) {
-        switch BrowserCookies.command(body) {
-        case .sources:
-            pushHostCommand("browserCookieSources", payload: AppDelegate.jsonPayload(BrowserCookies.payload(BrowserCookies.installed())))
-        case .importSource(let id):
-            guard let source = BrowserCookies.installed().first(where: { $0.id == id }) else {
-                pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(["source": id, "code": "missing", "total": 0, "imported": 0]))
-                return
-            }
-            EngineLog.shared.append("[browser] import cookies from \(id)")
-            BrowserCookieImport.run(source: source, store: browserTabs.store) { [weak self] payload in
-                self?.pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(payload))
-            }
-        case .clear:
-            BrowserDataStore.clear(browserTabs.store) { [weak self] in
-                guard let self else { return }
-                self.pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(["source": "", "code": "cleared", "total": 0, "imported": 0]))
-                // 页面上还留着已经失效的登录态：重载一次才看得见"退出来了"
-                self.browser.reload()
-            }
-        case nil:
-            EngineLog.shared.append("[browser] unknown cookies command")
         }
     }
 

@@ -34,7 +34,7 @@ export interface PaneFace extends BrowserFrameState {
 
 /** 工具栏 + 地址栏（官方 BrowserBody 的 form 部分）。
  *  地址栏带补全（自己的访问记录 + "搜索 xxx"）；缩放与"在默认浏览器打开"进「…」菜单。 */
-export function BrowserToolbar({ face, sandbox, onChat, zoom, onFind, intent }: {
+export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, onFind, intent }: {
   face: PaneFace;
   /** 只有 iframe 载体给得出沙箱开关；原生载体由壳执行策略，不给这个按钮。 */
   sandbox?: { enabled: boolean; toggle: () => void };
@@ -42,6 +42,8 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, onFind, intent }: 
   onChat: () => void;
   /** 缩放（只有原生载体给得出：壳侧的 pageZoom） */
   zoom?: { value: number; zoomIn: () => void; zoomOut: () => void; zoomReset: () => void };
+  /** 广告/跟踪拦截对本站的开关（原生载体；壳按 host 记） */
+  shield?: { paused: boolean; toggle: () => void };
   onFind?: () => void;
   /** 壳转来的键盘意图：地址栏聚焦 / 查找（id 变化即触发一次） */
   intent?: { kind: "address" | "find"; id: number };
@@ -54,6 +56,7 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, onFind, intent }: 
       { v: "zoomOut", label: t("缩小"), icon: ZoomOut },
       { v: "zoomReset", label: tt("重置缩放（{pct}%）", "Reset zoom ({pct}%)", { pct: Math.round(zoom.value * 100) }), icon: Maximize2 },
     ] : []),
+    ...(shield ? [{ v: "shield", label: shield.paused ? t("本站恢复拦截") : t("本站暂停拦截"), icon: ShieldOff }] : []),
     ...(onFind ? [{ v: "find", label: t("页内查找"), icon: Search }] : []),
     ...(external !== undefined ? [{ v: "external", label: t("在默认浏览器中打开"), icon: SquareArrowOutUpRight }] : []),
   ];
@@ -149,6 +152,7 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, onFind, intent }: 
             if (v === "zoomIn") zoom?.zoomIn();
             else if (v === "zoomOut") zoom?.zoomOut();
             else if (v === "zoomReset") zoom?.zoomReset();
+            else if (v === "shield") shield?.toggle();
             else if (v === "find") onFind?.();
             else if (v === "external" && external !== undefined) openExternalUrl(external);
           }}

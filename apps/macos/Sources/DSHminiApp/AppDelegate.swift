@@ -897,8 +897,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Preference + path snapshot for the settings page (推送于 host-ready
     /// 与 get-prefs;键值与 frontend/src/components/SettingsPage.tsx 约定)。
-    private func pushPrefs() {
-        let payload: [String: Any] = [
+    ///
+    /// **值必须是 JSON 能写的类型**：一个方法引用混进来，`JSONSerialization` 会在 host-ready
+    /// 那一刻抛异常——表现是"应用一启动就崩"（2026-09-26 实测：`BrowserShield.shared.enabled`
+    /// 少写了调用括号，把 Bool 写成了一个闭包）。所以这一段单独留出来给测试钉住。
+    func prefsPayload() -> [String: Any] {
+        [
             "notifyTurnEnd": DSHAppPrefs.notifyTurnEnd,
             "notifyAttention": DSHAppPrefs.notifyAttention,
             "menuBar": DSHAppPrefs.menuBar,
@@ -916,8 +920,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "browserZoomDefault": Double(BrowserZoom.defaultZoom()),
             "browserZoomRememberSite": BrowserZoom.remembersPerSite(),
             "browserTabSleepMinutes": BrowserTabs.sleepMinutes(),
+            "browserShieldEnabled": BrowserShield.shared.enabled(),
         ]
-        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+    }
+
+    private func pushPrefs() {
+        guard let data = try? JSONSerialization.data(withJSONObject: prefsPayload()),
               let json = String(data: data, encoding: .utf8) else { return }
         windowController.pushHostCommand("prefs", payload: json)
     }

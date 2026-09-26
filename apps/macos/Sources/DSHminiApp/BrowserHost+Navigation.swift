@@ -36,6 +36,9 @@ extension BrowserHost: WKNavigationDelegate {
             decisionHandler(.cancel)
             return
         }
+        // 顺带按**目标站点**加减拦截规则：规则从加上的那一刻起对后续请求生效，所以必须在请求
+        // 发出去之前（这里）做，而不是页面提交之后
+        BrowserShield.shared.tune(view.configuration.userContentController, for: url.host)
         // about:blank 是 WebKit 自己的空白页，放行；其余按白名单
         decisionHandler(BrowserHost.allowed(url) ? .allow : .cancel)
     }
@@ -48,6 +51,17 @@ extension BrowserHost: WKNavigationDelegate {
 }
 
 extension BrowserHost: WKUIDelegate {
+    /// 网页要摄像头/麦克风：按站记忆 + 没记过就问一次（WebKit 挂着页面等这个决定）。
+    func webView(_ webView: WKWebView,
+                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        BrowserPermissions.request(host: origin.host, type: type, ask: { [weak self] host, kind in
+            self?.onPermissionAsk?(host, kind)
+        }, handler: decisionHandler)
+    }
+
     /// 弹窗不开原生窗口，也不占掉当前这一页：白名单内的地址交给标签集合开成**新标签**
     /// （参考实现同一取舍：`target=_blank` 的链接不该把手上这页顶掉）。
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,

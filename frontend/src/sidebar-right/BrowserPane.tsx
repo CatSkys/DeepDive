@@ -99,6 +99,7 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
           face={face}
           onChat={onChat}
           zoom={{ value: browser.zoom, zoomIn: browser.zoomIn, zoomOut: browser.zoomOut, zoomReset: browser.zoomReset }}
+          shield={{ paused: browser.shieldPaused, toggle: browser.toggleShield }}
           onFind={() => { setFindOpen(true); setFindTick((t) => t + 1); }}
           intent={intent}
         />

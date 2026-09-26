@@ -53,6 +53,9 @@ export interface NativeBrowser {
   selectTab: (id: string) => void;
   /** 唤醒期间铺在页面上的停帧图（data:image/png;base64 的裸串）；空 = 没有 */
   cover: string;
+  /** 这一站是不是被暂停了拦截（面板菜单显示"暂停/恢复"用） */
+  shieldPaused: boolean;
+  toggleShield: () => void;
   /** 当前缩放（壳回报） */
   zoom: number;
   zoomIn: () => void;
@@ -81,6 +84,7 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
   const [tabs, setTabs] = useState<BrowserTabFace[]>([]);
   const [activeTabId, setActiveTabId] = useState("");
   const [cover, setCover] = useState("");
+  const [shieldPaused, setShieldPaused] = useState(false);
   // 回调放 ref：壳事件订阅只装一次，不因每次渲染的新函数反复解绑
   const keyHandler = useRef(onKey);
   keyHandler.current = onKey;
@@ -105,6 +109,7 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
       const { url, title, loading, canGoBack, canGoForward, error, zoom } = { ...EMPTY, ...data };
       setObserved({ url, title, loading, canGoBack, canGoForward, error, zoom });
       setCover(typeof data?.cover === "string" ? data.cover : "");
+      setShieldPaused((data as { shieldPaused?: unknown } | undefined)?.shieldPaused === true);
       return;
     }
     if (cmd === "browserShot") {
@@ -190,6 +195,14 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
     closeTab: (id: string) => sendToShell({ type: "browser-tabs", action: "close", id }),
     selectTab: (id: string) => sendToShell({ type: "browser-tabs", action: "select", id }),
     cover,
+    shieldPaused,
+    // 本站暂停/恢复拦截：host 从当前地址里取（壳按 host 记；取不到就什么都不做）
+    toggleShield: () => {
+      let host: string;
+      try { host = new URL(observed.url).hostname; } catch { return; }
+      if (host === "") return;
+      sendToShell({ type: "browser-shield", action: shieldPaused ? "resume" : "pause", host });
+    },
     zoom: observed.zoom,
     zoomIn: () => sendToShell({ type: "browser-zoom", action: "in" }),
     zoomOut: () => sendToShell({ type: "browser-zoom", action: "out" }),

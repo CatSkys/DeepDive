@@ -90,6 +90,16 @@
   不睡。门槛 `deepdive.browser.tabs.sleepMinutes`（0 = 关，默认 30 分钟）由设置页写；内存压力来时压到
   5 分钟、critical 立即扫。**唤醒是按需的**：人在标签栏点它、agent 按 tabId 找它，都会先把它叫醒——
   休眠因此不会把 agent 的 screenshot/wait_for 打死。睡与醒各留一条 `[browser] sleep/wake` 诊断日志。
+- **拦截与按站权限**：广告/跟踪拦截走 `WKContentRuleList`（`BrowserShield.swift`）——WebKit 在它自己的
+  网络层执行，请求还没发出去就被挡掉，不跑脚本；规则表照参考实现那份**故意短**的清单（第三方跟踪/
+  广告域名 + 几处一定是广告位），启动时编译一次，每个标签的 controller 在**导航那一刻**按站点加减。
+  全局开关 `deepdive.browser.shield.enabled`（默认开）+ **按站暂停**（`deepdive.browser.shield.paused`，
+  给"被拦坏了的站点"留的退路）：面板「…」菜单里那枚"本站暂停/恢复拦截"改的就是它，暂停后**重载当前
+  标签**（规则只在导航那一刻算数）。规则没编译成功时设置页会说出来（开关写着"开"而实际什么都没挡）。
+- **按站权限记忆**（`BrowserPermissions.swift`）：网页申请摄像头/麦克风时 WebKit 把决定权交给壳
+  （`requestMediaCapturePermissionFor`），壳按"站点 + 种类"记住；没记过就用应用自己的弹窗问一次
+  （桥推给 SPA，走 `DialogHost`，壳不弹系统框），30s 没人答就拒绝（页面被 WebKit 挂着等这个决定）。
+  一次只问一个：上一个没答完，新的直接拒（排队会让第二个页面莫名其妙地等）。
 - **标签栏与网页的层序**：当前标签的 `WKWebView` 挂在舞台上（`MainWindowController.browserStage`），
   舞台在 SPA webView 之后、对话叠加层之前——换标签只换舞台里的视图，层序不动。
 - **数据存储是持久且独立的**（`BrowserDataStore.swift`）：`WKWebsiteDataStore(forIdentifier:)` 给浏览器
@@ -154,9 +164,8 @@ A–R 块清单）逐块做成一个真浏览器——因为 agent 在用，人�
    密码没有顺着它做——`WKWebView` 的自动填充只吃系统钥匙串里 Safari 的那一份（要 Apple 的
    entitlement），要把浏览器里的密码用起来得先有自己的 vault（keychain）+ 填表 + 面板，规模是
    独立一块（参考实现也是这么分的：`Vault.swift` + `Passwords.swift`）。
-2. 隐私与拦截 + 按站权限记忆
-3. 阅读模式与按站隐藏
-4. 历史与书签；以后：视频浮窗、密码面板细化
+2. 阅读模式与按站隐藏
+3. 历史与书签；以后：视频浮窗、密码面板细化
 
 
 ## 4. agent 驱动（browser use）
@@ -175,7 +184,8 @@ A–R 块清单）逐块做成一个真浏览器——因为 agent 在用，人�
 分层与 ZCode 一致：**高层语义在 JS 侧**（快照/ref/定位器/坐标逃生口由 SDK 拼页面脚本），
 壳只提供原语——`navigate` / `back` / `forward` / `reload` / `get_state` / `screenshot` /
 `evaluate` / `wait_for`，外加标签的 `list_tabs` / `new_tab` / `select_tab` / `close_tab`，
-以及登录态的 `list_cookie_sources` / `import_cookies` / `import_cookies_status`。
+登录态的 `list_cookie_sources` / `import_cookies` / `import_cookies_status`，
+以及拦截的 `get_shield` / `set_shield`（`enabled` 或 `host`+`paused`，改完重载当前标签）。
 所以壳不认识 ref、不认识选择器，SDK 换代不必改壳。
 
 **命令一律按 `tabId` 寻址**（缺省当前标签；指名了却找不到就报错，不悄悄换一个标签干活），
@@ -214,7 +224,11 @@ SDK 侧的 `browser.tabs.list/new/get/selected` 与 `tab.close()` 就是这几�
 - **MCP 工具不受 DSH 权限预设约束**：引擎里没有任何按 MCP 身份分类的规则，`annotations`
   也不被消费。闸门只能做在壳侧——协议白名单、标签集合、独立的数据存储、boot token。
 - **子智能体也能调 `js` 工具**：引擎没有按 scope 过滤 MCP 工具的面。
-- **没有录制、没有响应式视口、没有网络拦截**（ZCode 有，本仓明确砍掉）。
+- **没有录制、没有响应式视口**（ZCode 有，本仓明确砍掉）。
+- **拦截是 WebKit 的规则表，不是插件式广告拦截器**：没有元素级规则编辑、没有拦截计数、没有自定义
+  清单；清单故意短（一张大方的 cosmetic 清单就是拦截器开始吃页面的开始）。**能按站记住的权限只有
+  摄像头/麦克风**——定位/通知那几项 WebKit 在 macOS 上不由宿主应用决定（要 Apple 的 entitlement），
+  所以这里没有"按站权限"的通用表。
 - **导入的三道系统门槛是别人的规矩**：① Chromium 系的 cookie 要用户批准一次 keychain 访问（要输
   登录密码，壳只能发起、不能代答）；② Safari 的 cookie 库要「完全磁盘访问权限」；③ 别的浏览器的
   数据目录本身可能被 macOS 的"App 数据"闸挡住（实测 Chrome / Edge / Brave 列不出来，Arc / Dia 能）。

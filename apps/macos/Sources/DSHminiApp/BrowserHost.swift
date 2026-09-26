@@ -67,6 +67,9 @@ final class BrowserHost: NSObject {
     /// 页面要开新窗口/新标签（`target=_blank`、`window.open`）：把地址交出去，由标签集合开新标签。
     /// 壳自己不开原生窗口（见 BrowserHost+Navigation 的 `createWebViewWith`）。
     var onPopup: ((String) -> Void)?
+    /// 页面申请摄像头/麦克风、而我们没记过这个站点：请人答一次（host、种类）。
+    /// 决定权在 `BrowserPermissions`（记忆 + 超时），这里只是把问题传出去。
+    var onPermissionAsk: ((String, String) -> Void)?
 
     var lastError = false
     /// 最近一次槽位；窗口尺寸或 pageZoom 变化时按它重算（槽位状态放这里，主窗口控制器
@@ -83,6 +86,8 @@ final class BrowserHost: NSObject {
         config.userContentController = WKUserContentController()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         config.applicationNameForUserAgent = BrowserUserAgent.safariIdentity
+        // 新 controller 先挂上拦截规则（还没编译好就排队，编译完补上）
+        BrowserShield.shared.protect(config.userContentController)
         return config
     }
 

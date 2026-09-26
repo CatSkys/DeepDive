@@ -14,6 +14,7 @@ import { Dropdown, Toggle } from "../components/controls";
 import { confirmDialog } from "../components/DialogHost";
 import { t, tt } from "../i18n";
 import { useBrowserCookies, type CookieResultFace } from "./useBrowserCookies";
+import { useBrowserShield } from "./useBrowserShield";
 import rowsCss from "./SettingsRows.module.css";
 
 /** 默认缩放候选（与壳侧 BrowserZoom.steps 同一量级，取人常用的几个）。 */
@@ -54,11 +55,14 @@ export function BrowserSection() {
   const prefs = usePrefs();
   const [browser, setBrowser] = useBrowserPrefs();
   const cookies = useBrowserCookies();
+  const shield = useBrowserShield();
   const templateId = BROWSER_SEARCH_TEMPLATES.find((item) => item.template === browser.searchTemplate)?.id ?? "custom";
 
   // 进这一页才问一次来源（壳只在被问的时候去扫磁盘上那几个目录）
   const refreshCookies = cookies.refresh;
   useEffect(() => { refreshCookies(); }, [refreshCookies]);
+  const syncShield = shield.sync;
+  useEffect(() => { syncShield(); }, [syncShield]);
 
   return (
     <>
@@ -173,6 +177,55 @@ export function BrowserSection() {
                 }}
               >
                 {cookies.busy === "clear" ? t("清除中…") : t("清除")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={rowsCss.section}>
+        <div className={rowsCss.sectionTitle}>{t("隐私")}</div>
+        <div className={rowsCss.sectionIntro}>
+          {t("拦截在 WebKit 的网络层执行：第三方跟踪与广告域名的请求还没发出去就被挡掉，不跑脚本、不吃页面性能。")}
+        </div>
+        {shield.state.trouble !== "" && (
+          <div className={rowsCss.sectionIntro}>{tt("拦截规则没编译成功（现在什么都没挡）：{m}", "The block list did not compile (nothing is being blocked): {m}", { m: shield.state.trouble })}</div>
+        )}
+        <div className={rowsCss.rowGroup}>
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("拦截跟踪与广告")}</div>
+              <div className={rowsCss.rowCaption}>
+                {shield.state.paused.length > 0
+                  ? tt("已对 {n} 个站点暂停（被拦坏了的站点可以单独放行）。", "Paused for {n} sites (handy when blocking breaks a site).", { n: shield.state.paused.length })
+                  : t("关掉后所有站点都按原样加载。")}
+              </div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <Toggle on={shield.state.enabled} onChange={shield.setEnabled} />
+            </div>
+          </div>
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("按站暂停的拦截")}</div>
+              <div className={rowsCss.rowCaption}>
+                {shield.state.paused.length > 0 ? shield.state.paused.join("、") : t("还没有暂停过的站点。")}
+              </div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <button className={rowsCss.secondaryButton} disabled={shield.state.paused.length === 0} onClick={shield.forgetPaused}>
+                {t("全部恢复")}
+              </button>
+            </div>
+          </div>
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("记住的摄像头/麦克风权限")}</div>
+              <div className={rowsCss.rowCaption}>{t("网页要权限时问一次，答案按站点记住。")}</div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <button className={rowsCss.secondaryButton} disabled={shield.state.permissions === 0} onClick={shield.forgetPermissions}>
+                {tt("忘记全部（{n}）", "Forget all ({n})", { n: shield.state.permissions })}
               </button>
             </div>
           </div>

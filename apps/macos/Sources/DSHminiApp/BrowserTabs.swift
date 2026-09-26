@@ -18,6 +18,8 @@ final class BrowserTabs {
     var onObservation: (([String: Any]) -> Void)?
     /// 标签栏清单（桥指令 `browserTabs`）
     var onTabsChanged: (([String: Any]) -> Void)?
+    /// 页面在要摄像头/麦克风（窗口控制器把它推给 SPA 弹窗）
+    var onPermissionAsk: ((String, String) -> Void)?
 
     private(set) var tabs: [BrowserTab] = []
     private(set) var activeId = ""
@@ -48,6 +50,11 @@ final class BrowserTabs {
     var activeHost: BrowserHost { active.awake() }
 
     func tab(id: String) -> BrowserTab? { tabs.first { $0.id == id } }
+
+    /// 已经建好宿主的那些标签的 `userContentController`（拦截开关改了要立刻作用到它们）。
+    var controllers: [WKUserContentController] {
+        tabs.compactMap { $0.awakeHost?.view.configuration.userContentController }
+    }
 
     /// 窗口没了就把看门的两支停掉（计时器是被 run loop 持有的，不停会一直空转）。
     deinit {
@@ -158,6 +165,7 @@ final class BrowserTabs {
         tab.onPopup = { [weak self] url in
             DispatchQueue.main.async { self?.newTab(url: url) }
         }
+        tab.onPermissionAsk = { [weak self] host, kind in self?.onPermissionAsk?(host, kind) }
         if !url.isEmpty {
             tab.url = url
             tab.host.load(url)
@@ -210,6 +218,8 @@ final class BrowserTabs {
         payload["title"] = tab.title
         payload["tabId"] = tab.id
         payload["cover"] = tab.cover ?? ""
+        // 面板菜单要显示"本站暂停拦截 / 本站恢复拦截"，所以观察里带上这一站的拦截状态
+        payload["shieldPaused"] = BrowserShield.shared.isPaused(host: URL(string: tab.url)?.host)
         onObservation?(payload)
     }
 

@@ -50,6 +50,8 @@
 | `BrowserDataStore.swift` | 浏览器的数据存储：`WKWebsiteDataStore(forIdentifier:)` 一份**持久且独立**的 store（与主 SPA 的 default 各一份），以及"清除浏览数据" |
 | `BrowserCookieSource.swift` + `BrowserCookieFiles.swift` + `ChromiumCookieCrypto.swift` + `BrowserCookieImport.swift` | cookie 导入：发现装了哪些浏览器、解析三种 cookie 库（Chromium 的 SQLite+`v10` AES / Firefox 明文 / Safari binarycookies）、写进浏览器 store 并回报结果码 |
 | `BrowserCookies.swift` | cookie 导入的桥契约（`browser-cookies` ↔ `browserCookieSources` / `browserCookieResult`）与来源清单 |
+| `BrowserShield.swift` | 广告/跟踪拦截：`WKContentRuleList` 的规则表（故意短的域名清单 + 几处广告位）、全局开关、按站暂停；导航那一刻按站点加减规则 |
+| `BrowserPermissions.swift` | 按站权限记忆：摄像头/麦克风的决定按"站点 + 种类"记住，没记过就推给 SPA 弹窗问（30s 超时拒绝、一次只问一个） |
 | `BrowserControl.swift` | 浏览器控制面：桥的 `POST /browser-control`（boot token 鉴权）→ 落到 `BrowserTabs` 里的某个标签（命令带 `tabId`，缺省当前标签）。只提供原语（导航/观察/截图/执行 JS/轮询等待/标签增删选），高层语义在 JS 侧 SDK 里 |
 | `BrowserUseInstaller.swift` | 把随包的 `BrowserUse/`（MCP server + 浏览器 SDK）装进 `<support>/browser-use/`（幂等），并给出引擎 spawn 要注入的控制面 URL 与 token；组合行由 `EngineSupervisor.enginePatchBody` 写 |
 | `MainWindowController.swift` | 玻璃主窗 + 透明 WKWebView + 显隐防闪烁 + 标题栏拖拽 rect 表 + 空 NSToolbar（Tahoe 大圆角档，勿删，`PITFALLS §4.7`）+ 视图菜单的页面缩放 |
