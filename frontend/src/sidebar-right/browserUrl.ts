@@ -86,3 +86,17 @@ export function looksLikeSearch(input: string): boolean {
   if (/^\d{1,3}(\.\d{1,3}){3}(:\d+)?(\/|$)/u.test(text)) return false;
   return !/^[^\s/]+\.[A-Za-z]{2,}(:\d+)?(\/|$)/u.test(text);
 }
+
+/** 补全列表里的**简写地址**：`https://search.bilibili.com/all?v=x` → `search.bilibili.com/all`。
+ *  去 scheme 与 www.、去结尾斜杠；查询串与锚点不带（那截是噪音，标题与全量地址兜着语义）。
+ *  解析不出（罕见：历史里只可能有解析过的地址）就原样返回。 */
+export function shortAddress(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const host = `${parsed.hostname.replace(/^www\./, "")}${parsed.port ? `:${parsed.port}` : ""}`;
+    const path = parsed.pathname.replace(/(\/$)/, "");
+    return `${host}${path}`;
+  } catch {
+    return url;
+  }
+}

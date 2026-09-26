@@ -159,6 +159,15 @@ final class BrowserTabs {
             pushState(tab, host.observation())
         }
         adoptIcon(tab)
+        armScroll(tab)
+    }
+
+    /// 滚动上报：每次页面落地后武装一次（阅读进度的事实来源；通道与脚本见 BrowserHost+Scroll）。
+    private func armScroll(_ tab: BrowserTab) {
+        guard let host = tab.awakeHost, !host.view.isLoading else { return }
+        guard !tab.url.isEmpty, tab.url != "about:blank", tab.scrollArmedUrl != tab.url else { return }
+        tab.scrollArmedUrl = tab.url
+        host.armScrollReport()
     }
 
     /// 站点图标：问页面自己声明的那个（`link[rel~=icon]`），一次导航问一次。
@@ -226,6 +235,9 @@ final class BrowserTabs {
             [
                 "id": tab.id, "title": tab.title, "url": tab.url, "icon": tab.icon,
                 "asleep": tab.asleep, "active": tab.id == activeId,
+                // 标签胶囊的四个活信号：转圈、灰底进度、喇叭（响着/被静音）
+                "loading": tab.loading, "reading": tab.reading,
+                "noisy": tab.noisy, "muted": tab.muted,
             ]
         }
     }
@@ -272,6 +284,7 @@ extension BrowserTabs {
         case newTab(String?)
         case select(String)
         case close(String)
+        case mute(String, Bool)
         case setSleepMinutes(Int)
     }
 
@@ -285,6 +298,10 @@ extension BrowserTabs {
         case "new": return .newTab(body["url"] as? String)
         case "select": return (body["id"] as? String).map(Command.select)
         case "close": return (body["id"] as? String).map(Command.close)
+        case "mute":
+            guard let id = body["id"] as? String else { return nil }
+            // muted 收 `as? Bool`：桥把 JS boolean 交成 NSNumber，这里 `as? Bool` 成立
+            return .mute(id, body["muted"] as? Bool ?? true)
         default: return nil
         }
     }

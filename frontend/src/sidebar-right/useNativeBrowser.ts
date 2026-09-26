@@ -36,6 +36,12 @@ export interface BrowserTabFace {
   /** 睡着 = 宿主已被壳回收（内存），点它先唤醒 */
   asleep: boolean;
   active: boolean;
+  /** 标签胶囊的活信号（旧壳不推就按缺省渲染）：加载中=右端那一格转圈、
+   *  阅读进度 0–1=选中胶囊的灰底、页面在响/被静音=可按的喇叭 */
+  loading?: boolean;
+  reading?: number;
+  noisy?: boolean;
+  muted?: boolean;
 }
 
 const EMPTY: NativeBrowserState = { url: "", title: "", loading: false, canGoBack: false, canGoForward: false, error: false, zoom: 1 };
@@ -54,6 +60,8 @@ export interface NativeBrowser {
   newTab: () => void;
   closeTab: (id: string) => void;
   selectTab: (id: string) => void;
+  /** 静音/恢复某个标签的页面声音（壳走 Safari 同款私有通道，旧壳没这条时按了没效果） */
+  toggleMute: (id: string, muted: boolean) => void;
   /** 唤醒期间铺在页面上的停帧图（data:image/png;base64 的裸串）；空 = 没有 */
   cover: string;
   /** 这一站是不是被暂停了拦截（面板菜单显示"暂停/恢复"用） */
@@ -246,6 +254,7 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
     newTab: () => sendToShell({ type: "browser-tabs", action: "new" }),
     closeTab: (id: string) => sendToShell({ type: "browser-tabs", action: "close", id }),
     selectTab: (id: string) => sendToShell({ type: "browser-tabs", action: "select", id }),
+    toggleMute: (id: string, muted: boolean) => sendToShell({ type: "browser-tabs", action: "mute", id, muted }),
     cover,
     shieldPaused,
     reader,

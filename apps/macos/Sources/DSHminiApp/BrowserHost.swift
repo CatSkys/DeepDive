@@ -35,6 +35,10 @@ final class BrowserHost: NSObject {
     var picking = false
     /// 拾取回话的弱代理（见 BrowserHost+Hidden：不能把宿主自己注册成 handler，会成环）
     let pickerProxy = BrowserPickerProxy()
+    /// 滚动回话的弱代理（阅读进度用；见 BrowserHost+Scroll）
+    let scrollProxy = BrowserScrollProxy()
+    /// 页面滚动回报（y, 还能滚多少）：标签集合据此记每个标签的阅读进度
+    var onScroll: ((Double, Double) -> Void)?
 
     var lastError = false
     /// 标题的 KVO（标题是**稍后**解析出来的：导航事件都发完了它才到，没有人推观察的话
@@ -71,6 +75,7 @@ final class BrowserHost: NSObject {
         view.autoresizingMask = []
         // 页面 → 壳的拾取回话（按站隐藏用；见 BrowserHost+Hidden 的安全边界）
         pickerProxy.host = self
+        scrollProxy.host = self
         configuration.userContentController.add(pickerProxy, name: "deepdivePicker")
         // 标题到了就推一次观察（KVO 是唯一能听见它的地方）
         titleObservation = view.observe(\.title, options: [.new]) { [weak self] _, _ in

@@ -91,6 +91,7 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
           onNew={browser.newTab}
           onPick={(url) => browser.navigate(url)}
           focusTick={intent.kind === "address" ? intent.id : 0}
+          onMute={browser.toggleMute}
           trailing={(
             <BrowserToolbar
               face={face}

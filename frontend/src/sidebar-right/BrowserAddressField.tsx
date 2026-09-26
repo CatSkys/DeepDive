@@ -10,7 +10,7 @@ import { Search } from "lucide-react";
 import { t } from "../i18n";
 import { browserPrefs } from "./browserPrefs";
 import { completeVisits, useVisitsRevision } from "./browserHistory";
-import { looksLikeSearch, searchUrlFor } from "./browserUrl";
+import { looksLikeSearch, searchUrlFor, shortAddress } from "./browserUrl";
 import type { PaneFace } from "./useIframeBrowser";
 
 /** 补全列表的一行：`url` 是要去的地方，`title` 是它的名字（空的就只显示地址）。 */
@@ -69,7 +69,7 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
     ...(searchHint !== null
       ? [{ url: searchHint, label: `${t("搜索")} “${draft.trim()}”`, title: engineName(prefs.searchTemplate), kind: "search" as const }]
       : []),
-    ...recents.map((item) => ({ url: item.url, label: item.url, title: item.title, kind: "visit" as const })),
+    ...recents.map((item) => ({ url: item.url, label: shortAddress(item.url), title: item.title, kind: "visit" as const })),
   ];
 
   const pick = (url: string) => {

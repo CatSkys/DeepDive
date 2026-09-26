@@ -97,12 +97,13 @@ extension MainWindowController {
         }
     }
 
-    /// SPA 发来的标签命令（`browser-tabs`）：新建/切换/关闭，以及设置页的休眠门槛。
+    /// SPA 发来的标签命令（`browser-tabs`）：新建/切换/关闭/静音，以及设置页的休眠门槛。
     func handleBrowserTabs(_ body: [String: Any]) {
         switch BrowserTabs.command(body) {
         case .newTab(let url): browserTabs.newTab(url: url ?? "")
         case .select(let id): browserTabs.select(id: id)
         case .close(let id): browserTabs.close(id: id)
+        case .mute(let id, let muted): browserTabs.tab(id: id)?.setMuted(muted)
         case .setSleepMinutes(let minutes):
             BrowserTabs.setSleepMinutes(minutes)
             browserTabs.startSleepWatch()

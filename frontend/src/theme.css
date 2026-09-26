@@ -4473,6 +4473,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
   height: 40px; padding: 0 8px 0 6px;
   border-bottom: 1px solid var(--line);
 }
+/* 标签的滚动区：放不下了在自身边缘内横向滚（「+」与工具组在区外，滚多远都在）；
+   滚动条不占地方——40px 高的一行经不起再划一道 */
+.panel-browser-chrome-run {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.panel-browser-chrome-run::-webkit-scrollbar { display: none; }
 /* 标签胶囊：图标 + 标题。参考的 186/80/36 三档在这里压成 168/96：面板比整窗窄 */
 .panel-browser-tab {
   flex: 0 1 168px; min-width: 96px; height: 28px;
@@ -4480,11 +4487,21 @@ input:focus, textarea:focus, select:focus { outline: none; }
   border-radius: 8px; background: var(--fill-soft);
 }
 .panel-browser-tab:hover { background: var(--fill); }
-/* 选中那枚：展开成地址框，所以它自己不带底色（底色在框上） */
-.panel-browser-tab.live { flex: 1 1 auto; min-width: 240px; gap: 6px; padding-left: 8px; }
-/* 选中那枚里的框就是标签本体：同高、同圆角、同底色档位（不是浮在上面的地址栏） */
-.panel-browser-tab.live .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; }
-.panel-browser-tab.live .panel-browser-field-input { background: var(--fill); border-color: var(--line); }
+/* 选中那枚：展开成地址框。宽度照参考 span 的口径封顶（min(340, room)），不把整行撑满——
+   多出来的地方空着，「+」紧跟在最后一枚后面。底色回到胶囊自己身上（阅读进度灰底要垫在它底下可见），
+   框平时透明——编辑（聚焦）时才亮出框的样子 */
+.panel-browser-tab.live {
+  flex: 0 1 340px; min-width: 96px; gap: 6px; padding-left: 8px;
+  overflow: hidden;
+}
+.panel-browser-tab.live .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; position: relative; }
+.panel-browser-tab.live .panel-browser-field-input { background: transparent; border-color: transparent; }
+.panel-browser-tab.live .panel-browser-field-input:focus { background: var(--fill); border-color: var(--line); }
+/* 阅读进度灰底：选中胶囊的底上从左往右填（0–1，壳推的 tab.reading），读到哪里填到哪里 */
+.panel-browser-tab-read {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--ink); opacity: .06; pointer-events: none;
+}
 /* 睡着：压暗一档——标签还在，只是页面进程收回去了（点它就醒） */
 .panel-browser-tab.asleep { opacity: .5; }
 .panel-browser-tab-body {
@@ -4498,10 +4515,30 @@ input:focus, textarea:focus, select:focus { outline: none; }
   width: 14px; height: 14px; border-radius: 3px; background: var(--fill-strong);
   font-size: var(--dsh-font-size-xs); font-weight: 600; color: var(--ink-3);
 }
-/* 关闭叉：只在该标签被指向时出现，热区是整个右端（参考同一取舍） */
-.panel-browser-tab-close {
+/* 喇叭：页面在响（可按静音）或被静音（划掉的样子，可按恢复）时，叉前面那一枚 */
+.panel-browser-tab-speaker {
   flex: none; display: flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px; margin-right: 5px; padding: 0;
+  width: 18px; height: 18px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ink-3);
+}
+.panel-browser-tab-speaker:hover { background: var(--fill-strong); color: var(--ink); }
+/* 右端那一格，一格两职：加载中的转圈与指向时的关闭叉叠在同一格，不互相挤位 */
+.panel-browser-tab-end {
+  flex: none; position: relative; width: 18px; height: 18px; margin-right: 5px;
+}
+/* 转圈：参考 Ring 的同一款——缺口圆环自己转 */
+.panel-browser-tab-ring {
+  position: absolute; inset: 0;
+  border: 1.4px solid var(--ink-3); border-radius: 50%;
+  border-right-color: transparent;
+  animation: panel-browser-ring-spin .85s linear infinite;
+}
+@keyframes panel-browser-ring-spin { to { transform: rotate(360deg); } }
+/* 关闭叉：只在该标签被指向时出现，热区是整个右端（参考同一取舍）；
+   叠在转圈上面，指向时盖过它 */
+.panel-browser-tab-close {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0;
   border: 0; border-radius: 50%; background: transparent; color: var(--ink-3);
   opacity: 0; transition: opacity var(--dur-fast) ease;
 }
@@ -4565,12 +4602,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* ---------- 空白标签页：整屏空白 + 居中那块大框 ---------- */
 .panel-browser-blank {
   position: absolute; inset: 0; z-index: 3;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: var(--surface);
   /* 抬一点：正中看起来偏低（参考 Omnibox 的 padding(.bottom, 60) 同一取舍） */
   padding-bottom: 60px;
 }
-.panel-browser-blank-note { color: var(--ink-faint); font-size: var(--dsh-font-size-sm); }
 
 /* ---------- 行尾工具组 ---------- */
 .panel-browser-helm { flex: none; display: flex; align-items: center; gap: 2px; }

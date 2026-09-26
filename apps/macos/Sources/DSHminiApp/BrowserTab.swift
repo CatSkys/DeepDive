@@ -17,8 +17,18 @@ final class BrowserTab {
     var icon = ""
     /// 问过图标的那个 url：一次导航问一次，不重复问
     var iconAsked = ""
+    /// 武装过滚动上报的那条 url（同文档不重复武装；导航一开始就作废）
+    var scrollArmedUrl = ""
     /// 记过历史的那条 url：一次导航只记一次（观察是"变化就推"的）
     var recordedUrl = ""
+    /// 正在加载（标签栏右端那一格据此在关闭叉与转圈之间换岗）
+    var loading = false
+    /// 阅读进度 0–1（页面滚动回报，参考实现 Tab.reading 同一口径：百分之一位就够）
+    var reading = 0.0
+    /// 页面在响（`_isPlayingAudio` KVO；标签栏据此亮喇叭）
+    var noisy = false
+    /// 页面被静音（`_setPageMuted:` 的回读；亮的是"划掉的喇叭"）
+    var muted = false
     /// 页面加载完成（集合据此记历史）
     var onLoaded: ((BrowserTab) -> Void)?
     /// 睡着 = 宿主已经还给系统（内存），`memory` 里留着回去的路
@@ -42,6 +52,8 @@ final class BrowserTab {
 
     private var built: BrowserHost?
     private let store: WKWebsiteDataStore
+    /// 页面在响的 KVO 监听（宿主换建时重挂；睡着时随宿主一起撤）
+    private let audioWatch = AudioWatch()
 
     init(id: String, store: WKWebsiteDataStore) {
         self.id = id
@@ -62,6 +74,14 @@ final class BrowserTab {
         host.onPermissionAsk = { [weak self] host, kind in self?.onPermissionAsk?(host, kind) }
         host.onPicked = { [weak self] selector, label in self?.onPicked?(selector, label) }
         host.onPickCancelled = { [weak self] in self?.onPickCancelled?() }
+        // 滚动 → 阅读进度；声音 → 喇叭。都是标签栏那一枚胶囊的字段
+        host.onScroll = { [weak self] y, ceiling in self?.scrolled(to: y, of: ceiling) }
+        audioWatch.watch(host.view) { [weak self] on in
+            guard let self else { return }
+            self.noisy = on
+            self.onChange?(self)
+        }
+        host.installScrollReport()
         built = host
         return host
     }
@@ -95,6 +115,8 @@ final class BrowserTab {
 
     /// 睡：宿主还给系统，留住回去的路与长相。
     func fallAsleep(memory: Any?, cover: String?) {
+        audioWatch.stop()
+        noisy = false
         built?.view.removeFromSuperview()
         built = nil
         self.memory = memory
@@ -136,7 +158,68 @@ final class BrowserTab {
         // 标题只在非空时替换（与 refresh 同一口径）：加载一开始那次观察标题是空的，
         // 照抄会让标签栏每次导航都闪成主机名，等标题到了再跳回来
         if !observation.title.isEmpty { title = observation.title }
+        loading = observation.loading
+        // 换页了：进度灰底从零开始（新的一页还没读），滚动上报也要重新武装
+        if observation.loading {
+            reading = 0
+            scrollArmedUrl = ""
+        }
         // 加载完成 = 记历史的时机（标题此刻也有了；didFinish 那条观察正是 loading 转 false 的那次）
         if !observation.loading, observation.url != "" { onLoaded?(self) }
+    }
+
+    /// 页面滚动回报（ScrollRelay 同款）：记成 0–1 的阅读进度，百分之一位变化才推——
+    /// 滚动一帧一次，不挡一下灰底会把 WebKit 的合成线程吵死（参考实测：三分之一核）。
+    private func scrolled(to y: Double, of ceiling: Double) {
+        let fraction = ceiling > 0 ? (min(1, max(0, y / ceiling)) * 100).rounded() / 100 : 0
+        guard fraction != reading else { return }
+        reading = fraction
+        onChange?(self)
+    }
+
+    /// 静音/取消静音本页（页面无感，参考实现 Muter 同一条私有通道）。
+    /// WebKit 没有公开的"只静音这一页"；这条是 Safari 标签自己用的私有键。
+    /// 键不存在（将来 WebKit 改名）就当没做——标签保持"听见"，不报错。
+    func setMuted(_ on: Bool) {
+        guard let web = awakeHost?.view else { return }
+        let get = NSSelectorFromString("_mediaMutedState")
+        let set = NSSelectorFromString("_setPageMuted:")
+        guard web.responds(to: get), web.responds(to: set) else { return }
+        typealias Read = @convention(c) (AnyObject, Selector) -> UInt
+        typealias Write = @convention(c) (AnyObject, Selector, UInt) -> Void
+        // 位掩码的低位是页面自己的声音，只动这一位（其余位是摄像头/麦克风，别人的）
+        let state = unsafeBitCast(web.method(for: get), to: Read.self)(web, get)
+        unsafeBitCast(web.method(for: set), to: Write.self)(web, set, on ? state | 1 : state & ~UInt(1))
+        muted = on
+        onChange?(self)
+    }
+}
+
+/// 页面在响吗（参考实现 AudioWatch 同一条路）：WebKit 只通过一个非公开键名说这件事，
+/// 先问它答不答这个名，答不上就静静没有喇叭——不为它倒下。
+private final class AudioWatch: NSObject {
+    private static let key = "_isPlayingAudio"
+    private weak var web: WKWebView?
+    private var tell: ((Bool) -> Void)?
+
+    func watch(_ web: WKWebView, _ tell: @escaping (Bool) -> Void) {
+        guard web.responds(to: NSSelectorFromString(Self.key)) else { return }
+        self.web = web
+        self.tell = tell
+        web.addObserver(self, forKeyPath: Self.key, options: [.new], context: nil)
+    }
+
+    func stop() {
+        guard let web, tell != nil else { return }
+        web.removeObserver(self, forKeyPath: Self.key)
+        tell = nil
+        self.web = nil
+    }
+
+    override func observeValue(forKeyPath path: String?, of object: Any?,
+                               change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        guard path == Self.key else { return }
+        let on = (change?[.newKey] as? Bool) ?? false
+        DispatchQueue.main.async { self.tell?(on) }
     }
 }
