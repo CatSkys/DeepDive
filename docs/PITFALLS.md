@@ -369,6 +369,10 @@
   写错不报错、只表现为"胶囊点不动/网页点不动"，所以 `BrowserHostTests` 里钉了一条。
 - 位置由主 SPA 算（它知道面板网页那一格的几何）后推 `composer-overlay`（含 rect）；会话为
   nil 即收起。同屏只允许一个活着的 composer：浏览器全屏时会话列自己那份不再渲染。
+- 又一条 CSS 坑：百分比 `max-height` 需要**确定高度的父**。悬浮卡片原来只写
+  `bottom: 0`（父高 auto），`max-height: calc(100% - 96px)` 被整条忽略——一条长回复把卡片
+  撑到 1681px、顶边跑到视口外 y=-1108。改成 `inset: 0`（高度确定）+ `justify-content:
+  flex-end` 贴底才对。
 - 顺带一条 CSS 坑：`Composer` 的根是 `.composer-wrap`（`flex: 1` 的弹性项）。把它放进
   `flex-direction: column; align-items: center` 的容器里，它会被缩成"内容宽"——实测 1110 宽的
   带子里胶囊只有 312px。容器要 `align-items: stretch`，再让需要收窄的浮条自己

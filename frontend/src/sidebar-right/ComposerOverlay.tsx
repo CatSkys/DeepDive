@@ -8,63 +8,34 @@
 //
 // 这一页只做三件事：透明背景、输入框上方一条「已工作 x」、下面原样的 Composer；并把
 // **可点区域**（那颗胶囊）的 rect 报给壳——胶囊之外要透传点击/滚轮给底下的网页。
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ContextData } from "../components/UsageMeter";
+import { useLayoutEffect, useRef } from "react";
 import { Composer } from "../components/Composer";
+import { TurnTail } from "./TurnTail";
 import { sendToShell } from "../host";
 import { inShell } from "../host";
-import { useStore, StoreProvider } from "../store";
-import { useT } from "../i18n";
-import { turnWorkLabel } from "../session/turnProcess";
-
-/** 「已工作 x」的显示：会话在跑时按引擎给的 lastPromptAt 起算，否则整条不出现。 */
-function ElapsedRow({ since }: { since: number | null }) {
-  const { tt } = useT();
-  const [, tick] = useState(0);
-  useEffect(() => {
-    if (since === null) return;
-    const timer = window.setInterval(() => tick((v) => v + 1), 1000);
-    return () => window.clearInterval(timer);
-  }, [since]);
-  if (since === null) return null;
-  return <div className="composer-float-elapsed">{turnWorkLabel(Date.now() - since, tt)}</div>;
-}
+import { StoreProvider } from "../store";
 
 function ComposerOverlayRoot({ sessionId }: { sessionId: string }) {
-  const store = useStore();
-  const summary = store.sessions.find((s) => s.sessionId === sessionId) ?? store.allSessions.find((s) => s.sessionId === sessionId);
-  const proj = (summary?.projections?.values ?? {}) as {
-    tokenUsage?: ContextData["usage"];
-    contextPressure?: { projectedTokens?: number; contextWindow?: number };
-    contextBreakdown?: ContextData["breakdown"];
-    sessionStats?: ContextData["stats"];
-    sessionListMetadata?: { lastPromptAt?: number };
-  };
-  const ctx: ContextData = {
-    projected: proj.contextPressure?.projectedTokens,
-    window: proj.contextPressure?.contextWindow,
-    usage: proj.tokenUsage,
-    stats: proj.sessionStats,
-    breakdown: proj.contextBreakdown,
-  };
-  const running = summary?.running === true;
-  const since = running ? (proj.sessionListMetadata?.lastPromptAt ?? null) : null;
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // 可点区域 = 这颗胶囊（含上方那条浮条）。壳按它做 hitTest：之外的点透传给网页，
+  // 可点区域 = 那张"最近一轮"卡片 + 输入框。壳按它做 hitTest：之外的点透传给网页，
   // 否则透明区会吞掉页面的点击与滚轮。
   useLayoutEffect(() => {
     if (!inShell()) return;
     const push = () => {
-      const el = rootRef.current?.querySelector(".composer") as HTMLElement | null;
-      const row = rootRef.current;
-      const target = el ?? row;
-      if (!target) return;
-      const r = target.getBoundingClientRect();
-      const full = row?.getBoundingClientRect();
-      // 以"浮条 + 胶囊"的整体为准（两者都要能点）
-      const top = Math.min(r.top, full?.top ?? r.top);
-      sendToShell({ type: "composer-pill", rect: { x: r.left, y: top, w: r.width, h: (r.bottom - top) + 8 } });
+      const box = rootRef.current;
+      if (!box) return;
+      // 只有"卡片 + 输入框"这块收事件：容器是整条透明带（inset:0），报整条会把网页
+      // 在带内的点击与滚轮全吞掉。
+      const parts = [".composer-float-tail", ".composer"]
+        .map((sel) => box.querySelector(sel)?.getBoundingClientRect())
+        .filter((r): r is DOMRect => !!r && r.width > 0 && r.height > 0);
+      if (parts.length === 0) return;
+      const left = Math.min(...parts.map((r) => r.left));
+      const right = Math.max(...parts.map((r) => r.right));
+      const top = Math.min(...parts.map((r) => r.top));
+      const bottom = Math.max(...parts.map((r) => r.bottom));
+      sendToShell({ type: "composer-pill", rect: { x: left, y: top, w: right - left, h: bottom - top } });
     };
     push();
     const timer = window.setInterval(push, 300);
@@ -74,8 +45,8 @@ function ComposerOverlayRoot({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="composer-float" ref={rootRef}>
-      <ElapsedRow since={since} />
-      <Composer sessionId={sessionId} ctx={ctx} />
+      <TurnTail sessionId={sessionId} />
+      <Composer sessionId={sessionId} />
     </div>
   );
 }

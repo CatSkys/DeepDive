@@ -9,8 +9,9 @@ import { useEffect } from "react";
 import { sendToShell } from "../host";
 import { usePanelSurface } from "./panelStore";
 
-/** 透明带高度（CSS px）：够放「已工作 x」+ 多行胶囊。 */
-const STRIP_HEIGHT = 320;
+/** 透明带占面板网页那一格的高度比例：卡片的生长上限，页面本身不被它遮住（卡与输入框
+    之外是透明的，点击照样透传）。 */
+const STRIP_RATIO = 0.7;
 
 /** 返回"浏览器是否正全屏"——调用方据此收起会话自己那份输入框。 */
 export function useComposerOverlay(sessionId: string): boolean {
@@ -26,10 +27,11 @@ export function useComposerOverlay(sessionId: string): boolean {
       const body = document.querySelector('.panel[data-fullscreen="true"] .panel-browser-body');
       const rect = body?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return;
+      const height = Math.round(rect.height * STRIP_RATIO);
       sendToShell({
         type: "composer-overlay",
         sessionId,
-        rect: { x: rect.left, y: rect.bottom - STRIP_HEIGHT, w: rect.width, h: STRIP_HEIGHT },
+        rect: { x: rect.left, y: rect.bottom - height, w: rect.width, h: height },
       });
     };
     push();

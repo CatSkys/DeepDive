@@ -18,6 +18,11 @@ beforeAll(() => {
       get length() { return map.size; },
     } as unknown as Storage;
   }
+  // jsdom 不做布局：所有 getBoundingClientRect 都是 0，而"上报可点矩形"必须是非零才会发。
+  // 给一个固定矩形，测的是"报了什么"而不是浏览器怎么排版。
+  Element.prototype.getBoundingClientRect = function () {
+    return { x: 100, y: 200, left: 100, top: 200, right: 700, bottom: 260, width: 600, height: 60, toJSON: () => ({}) } as DOMRect;
+  };
   // jsdom 也没有 ResizeObserver（Composer 量测折行要用）——空实现足够，量测本身不测
   if (!globalThis.ResizeObserver) {
     globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -53,9 +58,12 @@ describe("悬浮输入框叠加层", () => {
     // 复用会话输入框：它的根是 .composer-wrap（另做一份就会缺这个结构）
     expect(container.querySelector(".composer-wrap")).not.toBeNull();
     expect(container.querySelector(".composer-float")).not.toBeNull();
-    // 等一次 300ms 的心跳推 rect（首帧也要立刻推一次）
+    // 等一次 300ms 的心跳推 rect（首帧也要立刻推一次）：矩形是"卡片 + 输入框"的并集，
+    // 容器那条透明带本身不收事件（否则会把网页在带内的点击全吞掉）。
     await vi.waitFor(() => {
-      expect(sent.some((m) => m.type === "composer-pill")).toBe(true);
+      const pill = sent.find((m) => m.type === "composer-pill") as { rect?: { w: number; h: number } } | undefined;
+      expect(pill?.rect?.w).toBeGreaterThan(0);
+      expect(pill?.rect?.h).toBeGreaterThan(0);
     });
     void screen;
   });
