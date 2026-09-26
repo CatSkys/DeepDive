@@ -4582,7 +4582,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--line-strong);
-  border-radius: var(--dsh-radius-card);
+  /* 浮层圆角用 --dsh-radius-floating（tokens 里浮层那一档），不是卡片那一档：
+     用户报"圆角不符合规范，有点小"。 */
+  border-radius: var(--dsh-radius-floating);
   background: var(--card-gradient);
   box-shadow: var(--shadow-pop);
   color: var(--ink);
@@ -4593,8 +4595,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 6px 6px 12px;
-  border-bottom: 1px solid var(--line);
+  padding: 8px 8px 4px 14px;
   cursor: grab;
 }
 .chat-float-head:active { cursor: grabbing; }
@@ -4615,8 +4616,20 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .chat-float-close:hover { background: var(--fill-soft); color: var(--ink); }
 .chat-float-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 12px; }
 
-.chat-float-foot { flex: none; padding: 8px 10px 10px; border-top: 1px solid var(--line); }
+/* 头/体/脚之间**不画分割线**（用户定稿）：靠间距与留白分开 */
+.chat-float-foot { position: relative; flex: none; padding: 4px 10px 10px; }
 .chat-float-foot .composer { width: 100%; }
+/* 右下角缩放把手：拖它改卡片大小（位置一起夹住），大小与位置同样按会话记 */
+.chat-float-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 0 55%, var(--line-strong) 55% 62%, transparent 62% 74%, var(--line-strong) 74% 81%, transparent 81%);
+}
 /* 地址栏右侧那颗「对话」（图标 + 文字的胶囊，同参考图的 Chat）：把浮在网页之上的
    对话卡叫出来。原来它占的是面板标题栏"会话设置"那格，用户要求挪到地址栏右侧。 */
 .panel-chat-btn {

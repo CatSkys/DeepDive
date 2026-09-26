@@ -1,0 +1,123 @@
+// 会话流的**轮渲染**（唯一一份）：按轮分组吐 .turn-group 节点，轮内过程折叠（"已工作 x"
+// 披露条 + 收起过程项）也在这里。会话页与悬浮对话卡共用它——两边各写一套的结果是行为漂移
+// （实测用户报"对话卡里没有已工作的折叠"）。
+//
+// 只负责渲染：数据来自 useSessionEvents/renderModel，折叠开关由调用方持有（会话页那份要
+// 跨重渲染保留，对话卡各自一份）。
+import type { MutableRefObject } from "react";
+import type { RenderItem } from "./renderModel";
+import type { TurnGroup } from "../turnGroups";
+import { groupTools } from "./toolGroups";
+import { Item } from "./Item";
+import { ToolGroupRow } from "./ToolGroupRow";
+import { TurnProcessBar } from "./TurnProcessBar";
+import { computeTurnProcess } from "./turnProcess";
+
+export function TurnList({ keyIdx, groups, running, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onContinue }: {
+  /** 首个成员的 key → 索引（翻页锚点落点用） */
+  keyIdx: Map<string, number>;
+  groups: TurnGroup[];
+  running: boolean;
+  liveItem: RenderItem | undefined;
+  processOpen: ReadonlySet<number>;
+  /** 折叠开关由调用方持有（会话页那份要跨重渲染保留；对话卡各自一份） */
+  setProcessOpen: React.Dispatch<React.SetStateAction<ReadonlySet<number>>>;
+  sessionId: string;
+  wsPath?: string;
+  cwd?: string;
+  olderAnchorRef: MutableRefObject<HTMLElement | null>;
+  onBranch?: (forkSeq: number) => void;
+  onPreviewFile?: (path: string, line?: number) => void;
+  onContinue?: () => void;
+}) {
+  const nodes: React.ReactNode[] = [];
+  // DSH data-actions-reveal 的移植变体（用户定稿偏离官方）：官方是
+  // 图标常驻、时间标签 hover；这里统一为按钮+Meta 全部 hover 才显现，
+  // 作用域挂在轮容器 .turn-group 上——悬停轮内正文/工具/气泡即显现
+  // 本轮的 user chrome 与 turn-tail meta。
+  groups.forEach((g: TurnGroup, gi: number) => {
+    // 直播轮（会话在跑 且 是最后一轮）挂 .live 作用域：工具行等
+    // 流内元素挂载时播对焦动画；历史轮与已收尾的轮不播。
+    const isLiveGroup = running && gi === groups.length - 1;
+    // 轮内过程折叠：已闭合轮把最终回答之前的工具/中间消息收成披露条；
+    // 默认收起，点击展开。正在跑的轮（无 turn-tail）不折。
+    const proc = g.turn !== null ? computeTurnProcess(g.items) : null;
+    const procOpen = proc !== null && g.turn !== null && processOpen.has(g.turn);
+    const toggleProc = g.turn !== null
+      ? (open: boolean) => {
+          const turnNo = g.turn as number;
+          setProcessOpen((prev) => {
+            const next = new Set(prev);
+            if (open) next.add(turnNo);
+            else next.delete(turnNo);
+            return next;
+          });
+        }
+      : null;
+    const barAt = proc ? (proc.processIndices[0] ?? proc.answerIndex) : -1;
+    let procBarEmitted = false;
+    nodes.push(
+      <div key={`turn-${g.turn ?? "head"}-${gi}`} className={`turn-group${isLiveGroup ? " live" : ""}`} data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
+        {groupTools(g.items).map((unit) => {
+          // 连续的同类工具折成一个组（查阅/终端/更改）；其余原样
+          const members = unit.kind === "tool-group" ? unit.members : [unit.item];
+          const indices = unit.kind === "tool-group" ? unit.indices : [unit.index];
+          const key = unit.kind === "tool-group" ? unit.key : unit.item.key;
+          const first = indices[0]!;
+          const last = indices[indices.length - 1]!;
+          // 过程折叠按"整组"判：成员全在过程窗内才算过程项（组内不会只藏一半）
+          const isProcessMember = proc !== null
+            && indices.every((k) => k < proc.answerIndex && proc.processIndices.includes(k));
+          const hideItem = isProcessMember && !procOpen;
+          // 披露条挂在过程窗起点（首个过程项；无外部过程时挂最终回答前），
+          // 该起点项被收起时仍要吐出条子，否则折叠态无处点开。
+          const barHere = proc !== null && toggleProc !== null
+            && !procBarEmitted && first === barAt;
+          if (barHere) procBarEmitted = true;
+          const bar = barHere && proc && toggleProc ? (
+            <TurnProcessBar
+              info={proc}
+              open={procOpen}
+              onToggle={() => toggleProc(!procOpen)}
+            />
+          ) : null;
+          if (hideItem) return bar ? <span key={key} className="turn-process-slot">{bar}</span> : null;
+          // 锚点按首个成员的 key 查（组自身不在 keyIdx 里，直接用组 key 会丢掉落点）
+          const idx = keyIdx.get(members[0]!.key) ?? -1;
+          const isAnswer = proc !== null && last === proc.answerIndex;
+          // 组内每一行与单行走同一条渲染（同一份 props，避免两处拷贝）
+          const renderItem = (it: import("../session/renderModel").RenderItem) => (
+            <Item
+              item={it}
+              running={running && it === liveItem}
+              onBranch={onBranch}
+              sessionId={sessionId}
+              onPreviewFile={onPreviewFile}
+              wsPath={wsPath}
+              cwd={cwd}
+              hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
+              onContinue={onContinue}
+            />
+          );
+          return (
+            <div
+              key={key}
+              className="chat-anchor-row"
+              ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
+            >
+              {bar}
+              {unit.kind === "tool-group" ? (
+                <ToolGroupRow groupKind={unit.groupKind} members={unit.members}>
+                  {unit.members.map((m) => <div key={m.key}>{renderItem(m)}</div>)}
+                </ToolGroupRow>
+              ) : renderItem(unit.item)}
+            </div>
+          );
+        })}
+      </div>,
+    );
+  });
+  return nodes;
+
+  return <>{nodes}</>;
+}

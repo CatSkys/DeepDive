@@ -373,6 +373,10 @@
   `bottom: 0`（父高 auto），`max-height: calc(100% - 96px)` 被整条忽略——一条长回复把卡片
   撑到 1681px、顶边跑到视口外 y=-1108。改成 `inset: 0`（高度确定）+ `justify-content:
   flex-end` 贴底才对。
+- **别再写第二套会话流渲染**：悬浮卡最早自己挑 `Item` 拼了一份"只显示最后一轮"的渲染，
+  于是轮内过程折叠（"已工作 x" 披露条）在卡里没有、在会话页里有——用户一眼看出"两套"。
+  正确做法是把会话流的轮渲染抽成 `session/TurnList.tsx`（会话页与卡片共用，卡片只传
+  `groups={[最后一轮]}` 与自己的折叠开关），实测两边现在都是"1 条披露条 + 过程项收起 + 答案展开"。
 - 顺带一条 CSS 坑：`Composer` 的根是 `.composer-wrap`（`flex: 1` 的弹性项）。把它放进
   `flex-direction: column; align-items: center` 的容器里，它会被缩成"内容宽"——实测 1110 宽的
   带子里胶囊只有 312px。容器要 `align-items: stretch`，再让需要收窄的浮条自己

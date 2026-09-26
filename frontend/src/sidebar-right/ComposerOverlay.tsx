@@ -14,44 +14,74 @@ import { Composer } from "../components/Composer";
 import { TurnTail } from "./TurnTail";
 import { inShell, onHostEvent, sendToShell } from "../host";
 import { useT } from "../i18n";
-import { StoreProvider } from "../store";
+import { sessionTitle } from "../session/sessionTitle";
+import { StoreProvider, useStore } from "../store";
 
-const CARD_WIDTH = 380;
-const CARD_HEIGHT = 520;
+const CARD_WIDTH = 440;
+const CARD_HEIGHT = 620;
+const MIN_WIDTH = 320;
+const MIN_HEIGHT = 320;
 const MARGIN = 24;
 
 interface Point { x: number; y: number }
+interface Size { w: number; h: number }
+interface Layout { x: number; y: number; w: number; h: number }
 
-function posKey(sessionId: string): string { return `deepdive.chat-float.${sessionId}`; }
+function layoutKey(sessionId: string): string { return `deepdive.chat-float.${sessionId}`; }
 
-function clamp(p: Point, w: number, h: number): Point {
-  const maxX = Math.max(MARGIN, window.innerWidth - w - MARGIN);
-  const maxY = Math.max(MARGIN, window.innerHeight - h - MARGIN);
+function clampSize(size: Size): Size {
+  const maxW = Math.max(MIN_WIDTH, window.innerWidth - MARGIN * 2);
+  const maxH = Math.max(MIN_HEIGHT, window.innerHeight - MARGIN * 2);
+  return { w: Math.min(Math.max(MIN_WIDTH, size.w), maxW), h: Math.min(Math.max(MIN_HEIGHT, size.h), maxH) };
+}
+
+function clamp(p: Point, size: Size): Point {
+  const maxX = Math.max(MARGIN, window.innerWidth - size.w - MARGIN);
+  const maxY = Math.max(MARGIN, window.innerHeight - size.h - MARGIN);
   return { x: Math.min(Math.max(MARGIN, p.x), maxX), y: Math.min(Math.max(MARGIN, p.y), maxY) };
 }
 
 /** 右下角默认位（首次打开用；也用于夹住窗口变小后的旧位置）。 */
-function defaultPos(w: number, h: number): Point {
-  return clamp({ x: window.innerWidth - w - MARGIN, y: window.innerHeight - h - MARGIN }, w, h);
+function defaultPos(size: Size): Point {
+  return clamp({ x: window.innerWidth - size.w - MARGIN, y: window.innerHeight - size.h - MARGIN }, size);
 }
 
 function ChatFloatCard({ sessionId }: { sessionId: string }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const store = useStore();
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
-  const [pos, setPos] = useState<Point | null>(null);
+  const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [layout, setLayout] = useState<Layout | null>(null);
   const [closed, setClosed] = useState(false);
+  // 左上角是**会话标题**：走全项目唯一的标题回退（投影标题 → 新会话 → 任务 {id6}）
+  const summary = store.sessions.find((it) => it.sessionId === sessionId) ?? store.allSessions.find((it) => it.sessionId === sessionId);
+  const title = summary ? sessionTitle(summary, lang) : t("对话");
 
-  // 位置：先读上次的（按会话存），没有就右下角。读到的值也按当前可用空间夹一次——
-  // 窗口变小后旧位置可能已经出界。
+  // 位置与大小：先读上次的（按会话存），没有就右下角默认尺寸。读到的值也按当前可用空间
+  // 夹一次——窗口变小后旧值可能已经出界。
   useLayoutEffect(() => {
-    const raw = localStorage.getItem(posKey(sessionId));
-    let saved: Point | null = null;
+    const raw = localStorage.getItem(layoutKey(sessionId));
+    let saved: Partial<Layout> | null = null;
     if (raw) {
-      try { saved = JSON.parse(raw) as Point; } catch { /* 坏值/旧格式：当没存过，用默认位 */ }
+      try { saved = JSON.parse(raw) as Partial<Layout>; } catch { /* 坏值/旧格式：当没存过 */ }
     }
-    setPos(clamp(saved ?? defaultPos(CARD_WIDTH, CARD_HEIGHT), CARD_WIDTH, CARD_HEIGHT));
+    const size = clampSize({ w: saved?.w ?? CARD_WIDTH, h: saved?.h ?? CARD_HEIGHT });
+    const pos = clamp({ x: saved?.x ?? Number.NaN, y: saved?.y ?? Number.NaN }, size);
+    setLayout({
+      x: Number.isFinite(pos.x) ? pos.x : defaultPos(size).x,
+      y: Number.isFinite(pos.y) ? pos.y : defaultPos(size).y,
+      ...size,
+    });
   }, [sessionId]);
+
+  // 位置/大小落盘走 250ms 防抖（与会话草稿同一条写法）：拖动过程中每帧 setState，
+  // 收尾那次在 pointerup 里读到的还是上一帧的闭包值（实测存下来比实际小 2px）。
+  useEffect(() => {
+    if (layout === null) return;
+    const timer = window.setTimeout(() => localStorage.setItem(layoutKey(sessionId), JSON.stringify(layout)), 250);
+    return () => window.clearTimeout(timer);
+  }, [layout, sessionId]);
 
   // 壳说"把卡片叫出来"（浏览器顶栏那颗「对话」按钮）——关掉之后再点要能回来。
   useEffect(() => onHostEvent((cmd) => {
@@ -73,27 +103,47 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
     const timer = window.setInterval(report, 300);
     window.addEventListener("resize", report);
     return () => { window.clearInterval(timer); window.removeEventListener("resize", report); };
-  }, [report, pos]);
+  }, [report, layout]);
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     // 按在关闭钮上不算拖动：一旦 setPointerCapture 到标题栏，click 就落在标题栏上，
     // 关闭钮的 onClick 永远收不到（实测点了不关）。
     if ((e.target as HTMLElement).closest(".chat-float-close")) return;
-    if (!pos) return;
-    dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+    if (!layout) return;
+    dragRef.current = { dx: e.clientX - layout.x, dy: e.clientY - layout.y };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
-    if (!drag) return;
-    setPos(clamp({ x: e.clientX - drag.dx, y: e.clientY - drag.dy }, CARD_WIDTH, CARD_HEIGHT));
+    if (!drag || !layout) return;
+    const next = { ...layout, ...clamp({ x: e.clientX - drag.dx, y: e.clientY - drag.dy }, layout) };
+    setLayout(next);
     report();
   };
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;
     dragRef.current = null;
     e.currentTarget.releasePointerCapture(e.pointerId);
-    if (pos) localStorage.setItem(posKey(sessionId), JSON.stringify(pos));
+  };
+
+  // 右下角把手：拖动改大小，位置跟着夹一次（放大后可能超出可用空间）
+  const onResizeDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!layout) return;
+    resizeRef.current = { x: e.clientX, y: e.clientY, w: layout.w, h: layout.h };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  };
+  const onResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const from = resizeRef.current;
+    if (!from || !layout) return;
+    const size = clampSize({ w: from.w + (e.clientX - from.x), h: from.h + (e.clientY - from.y) });
+    setLayout({ ...clamp({ x: layout.x, y: layout.y }, size), ...size });
+    report();
+  };
+  const onResizeUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizeRef.current) return;
+    resizeRef.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
   const close = () => {
@@ -102,18 +152,18 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
     sendToShell({ type: "composer-overlay", sessionId: null });
   };
 
-  if (closed || pos === null) return <div className="chat-float-layer" ref={rootRef} />;
+  if (closed || layout === null) return <div className="chat-float-layer" ref={rootRef} />;
 
   return (
     <div className="chat-float-layer">
-      <div className="chat-float" ref={rootRef} style={{ left: pos.x, top: pos.y, width: CARD_WIDTH, height: CARD_HEIGHT }}>
+      <div className="chat-float" ref={rootRef} style={{ left: layout.x, top: layout.y, width: layout.w, height: layout.h }}>
         <div
           className="chat-float-head"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
         >
-          <span className="chat-float-title">{t("对话")}</span>
+          <span className="chat-float-title" title={title}>{title}</span>
           <button type="button" className="chat-float-close" aria-label={t("关闭")} onClick={close}>
             <X size={14} />
           </button>
@@ -123,6 +173,14 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
         </div>
         <div className="chat-float-foot">
           <Composer sessionId={sessionId} />
+          <div
+            className="chat-float-resize"
+            role="separator"
+            aria-label={t("调整大小")}
+            onPointerDown={onResizeDown}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeUp}
+          />
         </div>
       </div>
     </div>

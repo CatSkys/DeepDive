@@ -14,15 +14,11 @@ import { SessionPanel } from "../sidebar-right/SessionPanel";
 import { useComposerOverlay } from "../sidebar-right/useComposerOverlay";
 import { sessionArtifacts } from "../sidebar-right/sessionArtifacts";
 import type { PermissionSelect } from "../settings/permissionPreset";
-import { groupTurns, type TurnGroup } from "../turnGroups";
-import { groupTools } from "../session/toolGroups";
-import { ToolGroupRow } from "../session/ToolGroupRow";
-import { Item } from "../session/Item";
+import { groupTurns } from "../turnGroups";
 import { useSessionActions } from "../session/useSessionActions";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "./preview/FilePreviewWindow";
 import { useFilePreview } from "./preview/useFilePreview";
-import { computeTurnProcess } from "../session/turnProcess";
-import { TurnProcessBar } from "../session/TurnProcessBar";
+import { TurnList } from "../session/TurnList";
 import { SessionHeader } from "../session/SessionHeader";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
@@ -338,97 +334,21 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             {loadingOlder && (
               <div className="load-older" aria-live="polite">{t("加载中…")}</div>
             )}
-            {(() => {
-              // DSH data-actions-reveal 的移植变体（用户定稿偏离官方）：官方是
-              // 图标常驻、时间标签 hover；这里统一为按钮+Meta 全部 hover 才显现，
-              // 作用域挂在轮容器 .turn-group 上——悬停轮内正文/工具/气泡即显现
-              // 本轮的 user chrome 与 turn-tail meta。
-              const { keyIdx, groups } = layout;
-              const nodes: React.ReactNode[] = [];
-              groups.forEach((g: TurnGroup, gi: number) => {
-                // 直播轮（会话在跑 且 是最后一轮）挂 .live 作用域：工具行等
-                // 流内元素挂载时播对焦动画；历史轮与已收尾的轮不播。
-                const isLiveGroup = running && gi === groups.length - 1;
-                // 轮内过程折叠：已闭合轮把最终回答之前的工具/中间消息收成披露条；
-                // 默认收起，点击展开。正在跑的轮（无 turn-tail）不折。
-                const proc = g.turn !== null ? computeTurnProcess(g.items) : null;
-                const procOpen = proc !== null && g.turn !== null && processOpen.has(g.turn);
-                const toggleProc = g.turn !== null
-                  ? (open: boolean) => {
-                      const turnNo = g.turn as number;
-                      setProcessOpen((prev) => {
-                        const next = new Set(prev);
-                        if (open) next.add(turnNo);
-                        else next.delete(turnNo);
-                        return next;
-                      });
-                    }
-                  : null;
-                const barAt = proc ? (proc.processIndices[0] ?? proc.answerIndex) : -1;
-                let procBarEmitted = false;
-                nodes.push(
-                  <div key={`turn-${g.turn ?? "head"}-${gi}`} className={`turn-group${isLiveGroup ? " live" : ""}`} data-actions-reveal="hover" data-turn={g.turn ?? undefined}>
-                    {groupTools(g.items).map((unit) => {
-                      // 连续的同类工具折成一个组（查阅/终端/更改）；其余原样
-                      const members = unit.kind === "tool-group" ? unit.members : [unit.item];
-                      const indices = unit.kind === "tool-group" ? unit.indices : [unit.index];
-                      const key = unit.kind === "tool-group" ? unit.key : unit.item.key;
-                      const first = indices[0]!;
-                      const last = indices[indices.length - 1]!;
-                      // 过程折叠按"整组"判：成员全在过程窗内才算过程项（组内不会只藏一半）
-                      const isProcessMember = proc !== null
-                        && indices.every((k) => k < proc.answerIndex && proc.processIndices.includes(k));
-                      const hideItem = isProcessMember && !procOpen;
-                      // 披露条挂在过程窗起点（首个过程项；无外部过程时挂最终回答前），
-                      // 该起点项被收起时仍要吐出条子，否则折叠态无处点开。
-                      const barHere = proc !== null && toggleProc !== null
-                        && !procBarEmitted && first === barAt;
-                      if (barHere) procBarEmitted = true;
-                      const bar = barHere && proc && toggleProc ? (
-                        <TurnProcessBar
-                          info={proc}
-                          open={procOpen}
-                          onToggle={() => toggleProc(!procOpen)}
-                        />
-                      ) : null;
-                      if (hideItem) return bar ? <span key={key} className="turn-process-slot">{bar}</span> : null;
-                      // 锚点按首个成员的 key 查（组自身不在 keyIdx 里，直接用组 key 会丢掉落点）
-                      const idx = keyIdx.get(members[0]!.key) ?? -1;
-                      const isAnswer = proc !== null && last === proc.answerIndex;
-                      // 组内每一行与单行走同一条渲染（同一份 props，避免两处拷贝）
-                      const renderItem = (it: import("../session/renderModel").RenderItem) => (
-                        <Item
-                          item={it}
-                          running={running && it === liveItem}
-                          onBranch={branchFrom}
-                          sessionId={sessionId}
-                          onPreviewFile={openPreviewFile}
-                          wsPath={wsPath}
-                          cwd={summary?.cwd}
-                          hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}
-                          onContinue={continueTurn}
-                        />
-                      );
-                      return (
-                        <div
-                          key={key}
-                          className="chat-anchor-row"
-                          ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
-                        >
-                          {bar}
-                          {unit.kind === "tool-group" ? (
-                            <ToolGroupRow groupKind={unit.groupKind} members={unit.members}>
-                              {unit.members.map((m) => <div key={m.key}>{renderItem(m)}</div>)}
-                            </ToolGroupRow>
-                          ) : renderItem(unit.item)}
-                        </div>
-                      );
-                    })}
-                  </div>,
-                );
-              });
-              return nodes;
-            })()}
+            <TurnList
+              keyIdx={layout.keyIdx}
+              groups={layout.groups}
+              running={running}
+              liveItem={liveItem}
+              processOpen={processOpen}
+              setProcessOpen={setProcessOpen}
+              sessionId={sessionId}
+              wsPath={wsPath}
+              cwd={summary?.cwd}
+              olderAnchorRef={olderAnchorRef}
+              onBranch={branchFrom}
+              onPreviewFile={openPreviewFile}
+              onContinue={continueTurn}
+            />
             {pending.map((a) => (
               <ApprovalCard key={a.eventId} eventId={a.eventId} toolName={a.toolName} reason={a.reason} />
             ))}
