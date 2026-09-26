@@ -920,7 +920,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "browserZoomDefault": Double(BrowserZoom.defaultZoom()),
             "browserZoomRememberSite": BrowserZoom.remembersPerSite(),
             "browserTabSleepMinutes": BrowserTabs.sleepMinutes(),
-            "browserShieldEnabled": BrowserShield.shared.enabled(),
         ]
     }
 

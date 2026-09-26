@@ -42,9 +42,13 @@ extension BrowserHost: WKNavigationDelegate {
         }
         // 顺带按**目标站点**加减拦截规则：规则从加上的那一刻起对后续请求生效，所以必须在请求
         // 发出去之前（这里）做，而不是页面提交之后
-        BrowserShield.shared.tune(view.configuration.userContentController, for: url.host)
-        // 按站隐藏：导航开始前把这一站要藏的 CSS 挂上（文档开始就注入）
-        if let host = url.host { armHiddenCSS(BrowserHidden.shared.css(host: host)) }
+        // **只对主框架做**：这个回调子框架导航也会来（页面里的 iframe 到处都是），
+        // 照着 iframe 的 host 重挂会把主站点刚设好的"本站暂停拦截"翻回去、把按站隐藏整张换掉。
+        if navigationAction.targetFrame?.isMainFrame ?? true {
+            BrowserShield.shared.tune(view.configuration.userContentController, for: url.host)
+            // 按站隐藏：导航开始前把这一站要藏的脚本挂上（文档开始就注入）
+            if let host = url.host { armHiddenCSS(BrowserHidden.shared.script(host: host)) }
+        }
         // about:blank 是 WebKit 自己的空白页，放行；其余按白名单
         decisionHandler(BrowserHost.allowed(url) ? .allow : .cancel)
     }

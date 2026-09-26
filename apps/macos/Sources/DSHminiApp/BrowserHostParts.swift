@@ -7,6 +7,15 @@
 import AppKit
 import WebKit
 
+/// 站点键的归一化：**一处尺子**（小写、去掉 `www.`）。按站记忆（缩放/拦截/隐藏/权限）都该用它，
+/// 不然 `www.x.com` 与 `x.com` 会被当成两个站点。
+enum BrowserHosts {
+    static func normalize(_ host: String) -> String {
+        let lower = host.lowercased()
+        return lower.hasPrefix("www.") ? String(lower.dropFirst(4)) : lower
+    }
+}
+
 /// 收点击可控的浏览器视图：`acceptsInput == false` 时整格对鼠标透明。
 final class BrowserHostView: WKWebView {
     var acceptsInput = true

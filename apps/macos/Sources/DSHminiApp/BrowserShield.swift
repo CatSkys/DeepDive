@@ -49,11 +49,12 @@ final class BrowserShield {
 
     func isPaused(host: String?, _ defaults: UserDefaults = .standard) -> Bool {
         guard let host, !host.isEmpty else { return false }
-        return pausedHosts(defaults).contains(host)
+        return pausedHosts(defaults).contains(BrowserHosts.normalize(host))
     }
 
     func setPaused(_ paused: Bool, host: String, _ defaults: UserDefaults = .standard) {
         guard !host.isEmpty else { return }
+        let host = BrowserHosts.normalize(host)
         var hosts = pausedHosts(defaults)
         if paused {
             guard !hosts.contains(host) else { return }

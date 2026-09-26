@@ -54,8 +54,11 @@ final class BrowserCookieTests: XCTestCase {
         XCTAssertEqual(ChromiumCookieCrypto.unwrap(seal("hunter2", key: key), key: key), "hunter2")
         // 老档案没有 v10 前缀：本来就是明文
         XCTAssertEqual(ChromiumCookieCrypto.unwrap(Data("plain".utf8), key: key), "plain")
-        // 解不开的密文给 nil，不猜
+        // 解不开的密文给 nil，不猜。注意长度：AES 块是 16 字节，body 不足一块时 CCCrypt 直接
+        // 报错（这时必 nil）；body 刚好一块而填充又不合法时会解出垃圾，所以"不是合法填充"要用
+        // 两块来测——实测 "v10garbage"（8 字节）是走前面的错，换成 16 字节才真的考到填充检查。
         XCTAssertNil(ChromiumCookieCrypto.unwrap(Data("v10garbage".utf8), key: key))
+        XCTAssertNil(ChromiumCookieCrypto.unwrap(Data("v10not-a-real-cipher!!".utf8), key: key))
     }
 
     func testChromiumUnwrapDropsTheSiteHashPrefix() {

@@ -11,10 +11,12 @@ extension BrowserHost {
 
     /// 直接设定缩放（夹在 BrowserZoom.range）。这是**用户意图**的唯一入口（工具栏/⌘±／设置页），
     /// 所以"按站点记住"就写在这里——提交时再写会把每个访问过的站点钉死在当时的默认值上。
-    func setZoom(_ zoom: CGFloat) {
+    /// `remember` 只在**人真的改了缩放**时为真：⌘0 是"回到该站点的默认"，不是"把现在这个值
+    /// 记成这个站点的"（否则默认值一改，按过 ⌘0 的站点就永远钉在旧默认上）。
+    func setZoom(_ zoom: CGFloat, remember: Bool = true) {
         let value = BrowserZoom.clamp(zoom)
         if abs(view.pageZoom - value) > 0.001 { view.pageZoom = value }
-        BrowserZoom.remember(value, host: view.url?.host)
+        if remember { BrowserZoom.remember(value, host: view.url?.host) }
         publish()
     }
 
@@ -23,9 +25,9 @@ extension BrowserHost {
         setZoom(BrowserZoom.stepped(from: view.pageZoom, up: up))
     }
 
-    /// 回到该站点的默认缩放（⌘0）。
+    /// 回到该站点的默认缩放（⌘0）：只改这一页的缩放，不动记忆。
     func resetZoom() {
-        setZoom(BrowserZoom.forHost(view.url?.host))
+        setZoom(BrowserZoom.forHost(view.url?.host), remember: false)
     }
 
     /// 当前页面提交时上记忆：参考实现写在 `didCommit`（第一帧之前），

@@ -55,11 +55,8 @@ final class BrowserHidden {
 
     func forgetAll() { UserDefaults.standard.removeObject(forKey: Self.storeKey) }
 
-    /// 一个站点用哪个键：与参考实现同一把尺子（小写、去 www.）。
-    func normalize(_ host: String) -> String {
-        let lower = host.lowercased()
-        return lower.hasPrefix("www.") ? String(lower.dropFirst(4)) : lower
-    }
+    /// 一个站点用哪个键（尺子在 `BrowserHosts.normalize`：按站记忆共用一份）。
+    func normalize(_ host: String) -> String { BrowserHosts.normalize(host) }
 
     private func all() -> [String: [Veil]] {
         guard let text = UserDefaults.standard.string(forKey: Self.storeKey),
@@ -76,35 +73,75 @@ final class BrowserHidden {
     // MARK: - 生效
 
     /// 这一站要注入的 CSS（没隐藏过就是空串）。
+    /// 站内测试用：`BrowserHidden` 读 `.standard`，测试不便整份搬走时可以用这个钩子清干净。
+    func destore() { UserDefaults.standard.removeObject(forKey: Self.storeKey) }
+
     func css(host: String) -> String {
         let selectors = veils(host: host).map(\.selector)
         guard !selectors.isEmpty else { return "" }
         return selectors.joined(separator: ", ") + " { display: none !important; }"
     }
 
-    /// 给这个标签挂上下一次导航要用的 CSS，并**立刻**对当前页面生效一次。
+    /// 这一站要注入的那段脚本（CSS + 选择器；没隐藏过就是"什么都不藏、把上次的放回来"）。
+    func script(host: String) -> String {
+        Self.injectScript(css(host: host), selectors: veils(host: host).map(\.selector))
+    }
+
+    /// 给这个标签挂上下一次导航要用的脚本，并**立刻**对当前页面生效一次。
     ///
-    /// 空 CSS 也要跑一遍注入脚本：它负责把上一次注入的那张表撤掉——不然"放回来"要等下次
-    /// 导航才看得出来（实测过：恢复之后 display 还是 none）。
+    /// 空名单也要跑一遍：脚本负责把上一次注入的那张表与标记撤掉——不然"放回来"要等下次导航
+    /// 才看得出来（实测过：恢复之后 display 还是 none）。
     func apply(_ host: BrowserHost, for hostName: String) {
-        let css = css(host: hostName)
-        host.armHiddenCSS(css)
-        host.evaluate(Self.injectScript(css)) { _ in }
+        let script = script(host: hostName)
+        host.armHiddenCSS(script)
+        host.evaluate(script) { _ in }
     }
 
     /// 马上注入用的那段（`apply` 对当前页面用；`armHiddenCSS` 用同一份代码包成 user script）。
-    static func injectScript(_ css: String) -> String {
-        let quoted = String(data: try! JSONEncoder().encode(css), encoding: .utf8) ?? "\"\""
+    ///
+    /// 两条路一起走，因为**严格 CSP 会拦掉其中一条**（实测：`style-src 'self'` 的页面上注入的
+    /// `<style>` 元素在、规则不生效，`display` 还是 `block`；而脚本给元素写 CSSOM 不受它管）：
+    ///   · ① `<style>` 表：管住"以后才出现的元素"（能过 CSP 的站点上），
+    ///   · ② 直接改匹配元素的 CSSOM：过不去 CSP 的站点靠它，撤销时按自己打的标记清。
+    /// 标记用 `data-deepdive-veiled`——只动自己藏过的元素，不碰页面自己的 inline style。
+    static func injectScript(_ css: String, selectors: [String]) -> String {
+        // 编码 String / [String] 不会失败，`try?` 只是与文件里其余 JSON 路径同一口径
+        let quoted = (try? JSONEncoder().encode(css)).flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
+        let list = (try? JSONEncoder().encode(selectors)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
         return """
         (function () {
           var css = \(quoted);
+          var selectors = \(list);
           var old = document.getElementById('deepdive-veils');
           if (old) old.remove();
-          if (!css) return 'cleared';
-          var sheet = document.createElement('style');
-          sheet.id = 'deepdive-veils';
-          sheet.textContent = css;
-          (document.head || document.documentElement).appendChild(sheet);
+          if (css) {
+            var sheet = document.createElement('style');
+            sheet.id = 'deepdive-veils';
+            sheet.textContent = css;
+            (document.head || document.documentElement).appendChild(sheet);
+          }
+          function pass() {
+            var keep = [];
+            for (var i = 0; i < selectors.length; i++) {
+              var found;
+              try { found = document.querySelectorAll(selectors[i]); } catch (err) { continue; }
+              for (var j = 0; j < found.length; j++) {
+                found[j].style.setProperty('display', 'none', 'important');
+                found[j].setAttribute('data-deepdive-veiled', '');
+                keep.push(found[j]);
+              }
+            }
+            // 撤销：上次标记过、这次不在名单里的（不用知道当初的选择器）
+            var marked = document.querySelectorAll('[data-deepdive-veiled]');
+            for (var k = 0; k < marked.length; k++) {
+              if (keep.indexOf(marked[k]) >= 0) continue;
+              marked[k].style.removeProperty('display');
+              marked[k].removeAttribute('data-deepdive-veiled');
+            }
+          }
+          pass();
+          // 文档开始时元素还不存在（挂给下一次导航的那条路）：解析完再来一遍
+          if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pass);
           return 'ok';
         })()
         """

@@ -9,8 +9,11 @@ import AppKit
 
 extension MainWindowController {
     /// 记一次访问并推给 SPA（`BrowserTabs` 在页面加载完成时叫它）。
+    ///
+    /// 推的条数跟随 SPA 上一次的请求（`historyLimit`）：设置页拉的是 200 条，页面上随便一次
+    /// 加载都推 50 条的话，那张表会被悄悄砍短。
     func historyRecorded() {
-        pushHistory(limit: 50)
+        pushHistory(limit: historyLimit)
     }
 
     /// 推历史（`limit` 条新在前的记录 + 总数）。
@@ -32,14 +35,15 @@ extension MainWindowController {
     func handleBrowserHistory(_ body: [String: Any]) {
         switch body["action"] as? String {
         case "list":
-            pushHistory(limit: body["limit"] as? Int ?? 200)
+            historyLimit = body["limit"] as? Int ?? 200
+            pushHistory(limit: historyLimit)
         case "remove":
             guard let url = body["url"] as? String else { return }
             BrowserHistory.shared.remove(url: url)
-            pushHistory(limit: 200)
+            pushHistory(limit: historyLimit)
         case "clear":
             BrowserHistory.shared.clear()
-            pushHistory(limit: 200)
+            pushHistory(limit: historyLimit)
         default:
             EngineLog.shared.append("[browser] unknown history command")
         }
@@ -64,7 +68,7 @@ extension MainWindowController {
         default:
             EngineLog.shared.append("[browser] unknown bookmarks command")
         }
-        // 「…」菜单那枚的文案跟着观察走：重推一次当前标签的状态
-        browserTabs.resync()
+        // 「…」菜单那枚的文案跟着观察走：只有增删才需要重推状态（列表刷新不影响它）
+        if body["action"] as? String != "list" { browserTabs.resync() }
     }
 }

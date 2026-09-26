@@ -244,15 +244,16 @@ final class BrowserHost: NSObject {
         )
     }
 
-    /// 给下一次导航挂上按站隐藏的 CSS（`WKUserScript`，文档开始就注入：不会先看见再消失）。
+    /// 给下一次导航挂上按站隐藏的那段脚本（`WKUserScript`，文档开始就注入：不会先看见再消失）。
+    /// 传空串 = 撤掉（这一站没有要藏的，或刚被恢复）。
     ///
     /// `WKUserContentController` 只能整批清（没有 removeUserScript:），而这个 controller 上
     /// 本来就只有这一条 user script（脚本注入是我们的，页面别想有），所以整批清正好。
-    func armHiddenCSS(_ css: String) {
+    func armHiddenCSS(_ source: String) {
         let controller = view.configuration.userContentController
         controller.removeAllUserScripts()
-        guard !css.isEmpty else { return }
-        let script = WKUserScript(source: BrowserHidden.injectScript(css), injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        guard !source.isEmpty else { return }
+        let script = WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         controller.addUserScript(script)
     }
 

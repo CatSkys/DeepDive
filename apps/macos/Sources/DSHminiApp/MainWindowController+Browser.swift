@@ -27,9 +27,8 @@ extension MainWindowController {
         browserTabs.onPicked = { [weak self] selector, label in self?.hiddenPicked(selector: selector, label: label) }
         // 历史：页面加载完成就记一条（地址栏补全与设置页那张表都读壳里这一份）
         browserTabs.onHistoryChanged = { [weak self] in self?.historyRecorded() }
-        // 开机先推一份：地址栏补全读的是壳推来的缓存，不推的话"刚启动时补不出任何东西"
-        pushHistory(limit: 50)
-        pushBookmarks()
+        // 历史与书签**不在开机时推**：那时 SPA 页面还没加载，`pushHostCommand` 进的是单槽暂存
+        // （后到覆盖），两条会互相顶掉。由 SPA 在浏览器面板挂载时请求（见 useNativeBrowser）。
         browserTabs.onPickCancelled = { [weak self] in self?.pushVeils() }
         BrowserShield.shared.compile()
         browserTabs.attach(to: browserStage)

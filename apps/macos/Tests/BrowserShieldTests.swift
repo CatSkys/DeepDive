@@ -138,7 +138,7 @@ final class BrowserShieldTests: XCTestCase {
         let delegate = try XCTUnwrap(AppDelegate.shared, "测试宿主里 AppDelegate 应该在")
         let payload = delegate.prefsPayload()
         XCTAssertTrue(JSONSerialization.isValidJSONObject(payload), "prefs 里混进了 JSON 写不了的值")
-        XCTAssertTrue(payload["browserShieldEnabled"] is Bool)
+        XCTAssertTrue(payload["browserZoomRememberSite"] is Bool, "抽查一个：值要真是值，不是方法引用")
         XCTAssertTrue(JSONSerialization.isValidJSONObject(["enabled": BrowserShield.shared.enabled(), "paused": BrowserShield.shared.pausedHosts()]))
     }
 

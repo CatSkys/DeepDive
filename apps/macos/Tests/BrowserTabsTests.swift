@@ -148,6 +148,22 @@ final class BrowserTabsTests: XCTestCase {
         XCTAssertEqual(tab.url, "about:blank", "镜像留着，唤醒瞬间 SPA 不至于退回空态")
     }
 
+    func testSleepingReallyDeallocatesTheHost() {
+        // 宿主被视图、控制器、回调、KVO 围了一圈：只要有一条强引用成环，"睡着 = 省内存"就是句空话。
+        // 上面那条只断言"我们的引用置了 nil"，这一条断言的是**真的析构了**。
+        let tabs = BrowserTabs()
+        tabs.attach(to: NSView())
+        weak var weakHost: BrowserHost?
+        autoreleasepool {
+            weakHost = tabs.active.awakeHost
+        }
+        XCTAssertNotNil(weakHost)
+        tabs.active.fallAsleep(memory: nil, cover: nil)
+        // 排空一轮 run loop：WebKit 与 KVO 的释放可能是延迟的，等一拍再判
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        XCTAssertNil(weakHost, "睡着之后宿主必须真的析构（成环的话这里不为 nil）")
+    }
+
     func testListPayloadMarksActiveAndAsleep() {
         let tabs = BrowserTabs()
         tabs.attach(to: NSView())

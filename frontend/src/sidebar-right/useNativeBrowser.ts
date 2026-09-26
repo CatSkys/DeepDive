@@ -86,13 +86,16 @@ export interface NativeBrowser {
   setDraft: (v: string) => void;
   failure: BrowserAddressFailure | undefined;
   submit: () => void;
+  /** 直接去一个地址（补全项点击走它：顺带把地址栏的编辑态收掉） */
+  navigate: (url: string) => void;
   goBack: () => void;
   goForward: () => void;
   doReload: () => void;
 }
 
 /** 壳载体的浏览器状态：观察来自壳，命令发给壳。 */
-export function useNativeBrowser(applicationOrigin: string, onKey?: (key: BrowserKeyCommand) => void): NativeBrowser {
+export function useNativeBrowser(applicationOrigin: string, onKey?: (key: BrowserKeyCommand) => void,
+                                  thumbnail = false): NativeBrowser {
   const [observed, setObserved] = useState<NativeBrowserState>(EMPTY);
   const [shot, setShot] = useState<string | null>(null);
   const [findResult, setFindResult] = useState<{ query: string; found: boolean } | null>(null);
@@ -162,17 +165,23 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
   // 正常使用"）。同步后壳回一条 browserState。
   useEffect(() => {
     sendToShell({ type: "browser-sync" });
+    // 地址栏补全读的是壳推来的历史（那份缓存只在设置页里被请求过，所以这里也要一份；
+    // 开机时壳不能推——页面还没加载，命令会进单槽暂存、两条互相顶掉）
+    sendToShell({ type: "browser-history", action: "list", limit: 50 });
+    sendToShell({ type: "browser-bookmarks", action: "list" });
   }, []);
 
   // 缩略图预览：页面在壳里按整屏排版，那一格显示的是它的**快照**（不是缩小版的
   // WKWebView——壳侧没有"缩小放进去"这条路，见 BrowserHost.previewShot）。
   // 打开时取一张，之后每 4s 续一张（agent 会滚动/导航，预览要跟得上）。
   useEffect(() => {
-    if (observed.url === "") return;
+    // 只有缩略图那格要它（`unknown` = 页面自己跳走了、地址不可知 = 缩略图态）：
+    // 展开态页面就在眼前，每 4s 一张 takeSnapshot + PNG + base64 是白烧 CPU
+    if (observed.url === "" || !thumbnail) return;
     sendToShell({ type: "browser-shot" });
     const timer = window.setInterval(() => sendToShell({ type: "browser-shot" }), 4000);
     return () => window.clearInterval(timer);
-  }, [observed.url]);
+  }, [observed.url, thumbnail]);
 
   const load = useCallback((value: string) => {
     // 先按地址解析；解析不出、且看着像搜索词 → 交给搜索模板（参考实现 Address.url 的同一分工）
@@ -255,6 +264,8 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
     setDraft: (v) => { editing.current = true; setDraft(v); },
     failure,
     submit: () => { editing.current = false; load(draft); },
+    // 从补全里选一条：进地址栏、清 editing（否则地址栏从此不再镜像壳的 URL）
+    navigate: (url: string) => { editing.current = false; setDraft(url); sendToShell({ type: "browser-nav", action: "load", url }); },
     goBack: () => sendToShell({ type: "browser-nav", action: "back" }),
     goForward: () => sendToShell({ type: "browser-nav", action: "forward" }),
     doReload: () => sendToShell({ type: "browser-nav", action: "reload" }),

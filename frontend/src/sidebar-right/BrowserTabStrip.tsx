@@ -5,7 +5,7 @@
 // 壳回一条新的清单（`browserTabs`）。
 import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
-import { t } from "../i18n";
+import { t, tt } from "../i18n";
 import type { BrowserTabFace } from "./useNativeBrowser";
 
 /** 主机名（标签的降级字母与提示都用它）：去掉 www.，解析不出（about:blank/空串）就回空。 */
@@ -55,7 +55,7 @@ export function BrowserTabStrip({ tabs, activeId, onSelect, onClose, onNew }: {
               role="tab"
               aria-selected={tab.id === activeId}
               className="panel-browser-tab-body"
-              aria-label={tab.asleep ? `${name}（${t("已休眠")}）` : name}
+              aria-label={tab.asleep ? tt("{name}（已休眠）", "{name} (asleep)", { name }) : name}
               data-tip={name}
               onClick={() => onSelect(tab.id)}
             >

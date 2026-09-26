@@ -30,8 +30,8 @@ const ZOOM_CHOICES = [
 ];
 
 /** 一次导入/清除的结果 → 那一行下面的一句话。码由壳给（见 BrowserCookieImport.Code）。 */
-function resultText(result: CookieResultFace, sourceId: string): string {
-  if (result.source !== sourceId) return "";
+function resultText(result: CookieResultFace | null | undefined, sourceId: string): string {
+  if (result == null || result.source !== sourceId) return "";
   if (result.code === "ok") {
     return result.imported < result.total
       ? tt("已导入 {n} 条（{m} 条解不开，跳过）", "Imported {n} ({m} undecryptable, skipped)", { n: result.imported, m: result.total - result.imported })
@@ -145,7 +145,7 @@ export function BrowserSection() {
               <div className={rowsCss.rowIdentity}>
                 <div className={rowsCss.rowName}>{source.name}</div>
                 <div className={rowsCss.rowCaption}>
-                  {resultText(cookies.result ?? { source: "", code: "", total: 0, imported: 0 }, source.id)
+                  {resultText(cookies.result, source.id)
                     || (source.blocked
                       ? t("读不到它的数据目录：系统挡着「别的应用的数据」，到这个浏览器的数据上放行一次再导。")
                       : t("把它的登录态导进来，agent 就不用再被登录墙拦。"))}

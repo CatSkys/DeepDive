@@ -34,13 +34,24 @@ enum BrowserPermissions {
         }
         pending = (host, kind, handler)
         ask(host, kind)
-        expiry = Timer.scheduledTimer(withTimeInterval: 30, repeats: false) { _ in
-            // 没人回答（面板关着 / 用户走开了）：拒绝，并把 handler 放掉
-            resolve(host: host, kind: kind, allow: false, defaults)
+        expiry = Timer.scheduledTimer(withTimeInterval: 120, repeats: false) { _ in
+            // 没人回答（用户走开了）：拒绝并放掉 handler——页面被 WebKit 挂着等这个决定，
+            // 不能永远挂着。**这一条不写记忆**：超时不是"用户拒绝了这个站点"，记下来的话
+            // 这个站点以后连问都不问了（表现是"允许一次之后不再问"被反过来实现）。
+            expire(host: host, kind: kind)
         }
     }
 
     /// SPA 的回答（`browser-permission` 桥消息）。
+    /// 超时：拒绝但不记（对话框还留在屏幕上时用户再点允许，这里已经答过了，静默无效）。
+    static func expire(host: String, kind: String) {
+        guard let pending, pending.host == host, pending.kind == kind else { return }
+        self.pending = nil
+        expiry?.invalidate()
+        expiry = nil
+        pending.handler(.deny)
+    }
+
     static func resolve(host: String, kind: String, allow: Bool, _ defaults: UserDefaults = .standard) {
         guard let pending, pending.host == host, pending.kind == kind else { return }
         self.pending = nil

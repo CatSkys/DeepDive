@@ -58,10 +58,11 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
     else if (key === "zoomIn") browser.zoomIn();
     else if (key === "zoomOut") browser.zoomOut();
     else if (key === "zoomReset") browser.zoomReset();
-  });
+  }, !expanded);
   const face: PaneFace = {
     ...browser.frame, draft: browser.draft, setDraft: browser.setDraft, failure: browser.failure,
-    submit: browser.submit, goBack: browser.goBack, goForward: browser.goForward, doReload: browser.doReload,
+    submit: browser.submit, navigate: browser.navigate,
+    goBack: browser.goBack, goForward: browser.goForward, doReload: browser.doReload,
   };
   const empty = browser.frame.address === "";
 

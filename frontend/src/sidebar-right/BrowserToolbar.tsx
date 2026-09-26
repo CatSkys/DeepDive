@@ -27,6 +27,8 @@ export interface PaneFace extends BrowserFrameState {
   setDraft: (v: string) => void;
   failure: BrowserAddressFailure | undefined;
   submit: () => void;
+  /** 直接去一个地址：原生载体给得出（顺带收掉地址栏的编辑态），iframe 载体没有这回事 */
+  navigate?: (url: string) => void;
   goBack: () => void;
   goForward: () => void;
   doReload: () => void;
@@ -99,6 +101,10 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, reader, hi
   const pick = (url: string) => {
     setSuggestOpen(false);
     setActive(-1);
+    // 原生载体走 face.navigate：它顺带清掉地址栏的编辑态（否则选完之后地址栏一直显示你敲的
+    // 那串字符、不再镜像壳的 URL）。iframe 载体的地址由页面自己说了算，没有编辑态可清。
+    if (face.navigate) { face.navigate(url); return; }
+    face.setDraft(url);
     sendToShell({ type: "browser-nav", action: "load", url });
   };
 

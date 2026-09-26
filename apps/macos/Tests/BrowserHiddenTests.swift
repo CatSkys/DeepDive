@@ -69,7 +69,7 @@ final class BrowserHiddenTests: XCTestCase {
         await fulfillment(of: [ready], timeout: 10)
 
         var injected = false
-        host.evaluate(BrowserHidden.injectScript(".ad { display: none !important; }")) { _ in injected = true }
+        host.evaluate(BrowserHidden.injectScript(".ad { display: none !important; }", selectors: [".ad"])) { _ in injected = true }
         let done = expectation(description: "injected")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { done.fulfill() }
         await fulfillment(of: [done], timeout: 10)
@@ -83,6 +83,38 @@ final class BrowserHiddenTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { read.fulfill() }
         await fulfillment(of: [read], timeout: 10)
         XCTAssertEqual(result, "none|block|true")
+    }
+
+    @MainActor
+    func testHidingWorksUnderAStrictCSP() async throws {
+        // 严格 CSP（style-src 不给 unsafe-inline）会拦掉注入的 <style> 元素——实测真机也是这样，
+        // 所以脚本同时直接改匹配元素的 CSSOM（"脚本写 inline style"不受 style-src 管）。
+        let host = BrowserHost(configuration: BrowserHost.configuration(store: .nonPersistent()))
+        let ready = expectation(description: "loaded")
+        host.view.loadHTMLString("""
+        <html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'"></head>
+        <body><div class="ad">ad</div><div class="keep">keep</div></body></html>
+        """, baseURL: URL(string: "https://a.test/"))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { ready.fulfill() }
+        await fulfillment(of: [ready], timeout: 10)
+
+        let script = BrowserHidden.injectScript(".ad { display: none !important; }", selectors: [".ad"])
+        host.evaluate(script) { _ in }
+        var result = ""
+        host.evaluate("(function(){var ad=document.querySelector('.ad'),keep=document.querySelector('.keep');return getComputedStyle(ad).display+'|'+getComputedStyle(keep).display+'|'+ad.hasAttribute('data-deepdive-veiled');})()") { result = $0 }
+        let read = expectation(description: "read")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { read.fulfill() }
+        await fulfillment(of: [read], timeout: 10)
+        XCTAssertEqual(result, "none|block|true", "严格 CSP 下也得真藏住（靠 CSSOM 那条路）")
+
+        // 撤销：不再给任何选择器 → 按标记放回来
+        host.evaluate(BrowserHidden.injectScript("", selectors: [])) { _ in }
+        var restored = ""
+        host.evaluate("(function(){var ad=document.querySelector('.ad');return getComputedStyle(ad).display+'|'+ad.hasAttribute('data-deepdive-veiled');})()") { restored = $0 }
+        let done = expectation(description: "restored")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { done.fulfill() }
+        await fulfillment(of: [done], timeout: 10)
+        XCTAssertEqual(restored, "block|false")
     }
 
     // MARK: - 拾取那一路：脚本回话 → 弱代理 → 宿主回调

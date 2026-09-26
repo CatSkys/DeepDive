@@ -92,6 +92,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     /// 浏览器视图的舞台：装 SPA webView 之后、聊天叠加层之前——换标签只换里面的视图，
     /// 这一层在窗口里的上下位置不动（否则新标签的网页会盖住悬浮对话卡）。
     let browserStage = NSView()
+    /// SPA 上一次要的历史条数：列表刷新与增删按它推（设置页拉 200 条时别被增量推送砍短）。
+    var historyLimit = 50
     /// 浏览器全屏时的**悬浮输入框**叠加层（透明 webview，见 ComposerOverlayHost）。
     let composerOverlay = ComposerOverlayHost()
     /// 浏览器页的键盘监视器（焦点在网页里时 SPA 收不到键，见 MainWindowController+Browser）。

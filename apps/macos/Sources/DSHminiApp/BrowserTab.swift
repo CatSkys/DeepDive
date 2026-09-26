@@ -133,7 +133,9 @@ final class BrowserTab {
 
     private func mirror(_ observation: BrowserObservation) {
         if !observation.url.isEmpty { url = observation.url }
-        title = observation.title
+        // 标题只在非空时替换（与 refresh 同一口径）：加载一开始那次观察标题是空的，
+        // 照抄会让标签栏每次导航都闪成主机名，等标题到了再跳回来
+        if !observation.title.isEmpty { title = observation.title }
         // 加载完成 = 记历史的时机（标题此刻也有了；didFinish 那条观察正是 loading 转 false 的那次）
         if !observation.loading, observation.url != "" { onLoaded?(self) }
     }
