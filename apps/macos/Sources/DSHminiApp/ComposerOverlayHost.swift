@@ -55,10 +55,14 @@ final class ComposerOverlayHost: NSObject {
         }
         place(rect: rect, contentHeight: contentHeight, zoom: zoom)
         view.alphaValue = 1
+        // 页面可能还是"上次关掉"的状态：叫出来时通知它把卡片摆回来
+        view.evaluateJavaScript("window.__deepDiveHost && window.__deepDiveHost.dispatch('chatShow', {})", completionHandler: nil)
     }
 
     func hide() {
         view.alphaValue = 0
+        // 卡不在了就不该再收事件：留着旧矩形会让那一块网页点不动
+        view.interactiveRect = .zero
     }
 
     /// 页面报上来的胶囊矩形（本视图坐标）→ 换算成 AppKit 坐标供 hitTest 用。

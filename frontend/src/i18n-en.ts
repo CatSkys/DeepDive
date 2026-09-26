@@ -90,6 +90,10 @@ export const EN: Record<string, string> = {
   // 右侧边栏（会话面板）与会话设置
   "展开边栏": "Open side panel",
   "会话设置": "Chat settings",
+  // 浏览器页顶栏那颗按钮 + 悬浮对话卡（壳侧叠加层）
+  "对话": "Chat",
+  "展开这一轮": "Expand this turn",
+  "收起这一轮": "Collapse this turn",
   "跟随默认": "Follow default",
   "权限": "Permissions",
   "发送方式": "Send behaviour",

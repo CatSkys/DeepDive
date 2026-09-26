@@ -43,18 +43,18 @@ export function TurnTail({ sessionId }: { sessionId: string }) {
   const liveItem = liveRunning ? last.items[last.items.length - 1] : undefined;
 
   return (
-    <div className="composer-float-tail" data-open={open || undefined}>
+    <div className="chat-turn" data-open={open || undefined}>
       <button
         type="button"
-        className="composer-float-head"
+        className="chat-turn-head"
         aria-expanded={open}
         aria-label={open ? tt("收起这一轮", "Collapse this turn") : tt("展开这一轮", "Expand this turn")}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="composer-float-head-label">
+        <span className="chat-turn-head-label">
           {durationMs === null ? tt("本轮", "This turn") : turnWorkLabel(durationMs, tt)}
         </span>
-        <ChevronDown size={14} className="composer-float-chevron" />
+        <ChevronDown size={14} className="chat-turn-chevron" />
       </button>
       {open && last.items.map((item) => (
         <Item

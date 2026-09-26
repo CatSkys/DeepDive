@@ -13,10 +13,11 @@
 // WKWebView，而 iframe 载体重挂会丢页面状态。官方对应的是 Electron 载体的 keepMounted。
 
 import { useState } from "react";
-import { ChevronLeft, Settings2, X } from "lucide-react";
+import { ChevronLeft, MessageSquare, Settings2, X } from "lucide-react";
 import { t, tt } from "../i18n";
 import { dispatchAppEvent, DD_EVENTS } from "../events";
 import { usePanelSurface, panelActions } from "./panelStore";
+import { showChatFloat } from "./useComposerOverlay";
 import { BrowserPane } from "./BrowserPane";
 import { StatusSections } from "./StatusSections";
 import { SessionSettings } from "./SessionSettings";
@@ -42,6 +43,7 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
   if (!surface.open) return null;
 
   const browserMode = surface.mode === "browser";
+  const openChatFloat = () => showChatFloat(sessionId);
   const back = () => {
     if (settingsOpen) setSettingsOpen(false);
     else panelActions.showSession(sessionId);
@@ -57,7 +59,15 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
         )}
         {settingsOpen && <span className="panel-head-title">{t("会话设置")}</span>}
         <div className="panel-controls">
-          {!settingsOpen && (
+          {/* 浏览器页（含全屏）不放"会话设置"：那一页要看的是网页，设置页会把整格换掉；
+            这里改成「对话」——把浮在网页之上的那座对话框叫出来。 */}
+          {browserMode ? (
+            <button type="button" className="panel-chat-btn" aria-label={t("对话")} data-tip={t("对话")}
+              onClick={openChatFloat}>
+              <MessageSquare size={14} />
+              <span>{t("对话")}</span>
+            </button>
+          ) : !settingsOpen && (
             <button type="button" className="panel-icon-btn" aria-label={t("会话设置")} data-tip={t("会话设置")}
               onClick={() => setSettingsOpen(true)}>
               <Settings2 size={15} />

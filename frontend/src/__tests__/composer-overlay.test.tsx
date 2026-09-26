@@ -1,5 +1,5 @@
-// 浏览器全屏时的悬浮输入框（叠加层那一页）：整页透明、原样复用同一个 Composer，
-// 并把自己的**可点矩形**报给壳——胶囊之外要透传点击给底下的网页（壳按它做 hitTest）。
+// 浏览器页上的悬浮对话卡（叠加层那一页）：整页透明、一张可拖动的卡（标题栏 + 本轮内容 +
+// 原样复用的 Composer），并把**卡片矩形**报给壳——卡外要透传点击给底下的网页。
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,14 +52,17 @@ import { ComposerOverlayApp } from "../sidebar-right/ComposerOverlay";
 afterEach(cleanup);
 beforeEach(() => { sent.length = 0; });
 
-describe("悬浮输入框叠加层", () => {
-  it("渲染的是同一个 Composer（不是另做的精简版），并把胶囊矩形报给壳", async () => {
+describe("悬浮对话卡叠加层", () => {
+  it("渲染的是同一个 Composer（不是另做的精简版），并把卡片矩形报给壳", async () => {
     const { container } = render(<ComposerOverlayApp sessionId="sess-1" />);
     // 复用会话输入框：它的根是 .composer-wrap（另做一份就会缺这个结构）
     expect(container.querySelector(".composer-wrap")).not.toBeNull();
-    expect(container.querySelector(".composer-float")).not.toBeNull();
-    // 等一次 300ms 的心跳推 rect（首帧也要立刻推一次）：矩形是"卡片 + 输入框"的并集，
-    // 容器那条透明带本身不收事件（否则会把网页在带内的点击全吞掉）。
+    expect(container.querySelector(".chat-float")).not.toBeNull();
+    // 顶栏（拖动 + 右上关闭）与"本轮内容"槽位
+    expect(container.querySelector(".chat-float-head")).not.toBeNull();
+    expect(container.querySelector(".chat-float-close")).not.toBeNull();
+    // 等一次 300ms 的心跳推 rect（首帧也要立刻推一次）：报的是**卡片**矩形，
+    // 整条透明层本身不收事件（否则会把网页的点击与滚轮全吞掉）。
     await vi.waitFor(() => {
       const pill = sent.find((m) => m.type === "composer-pill") as { rect?: { w: number; h: number } } | undefined;
       expect(pill?.rect?.w).toBeGreaterThan(0);
