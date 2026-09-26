@@ -153,6 +153,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         window.title = "DeepDive"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        // webview 里的 CSS :hover 依赖 mouseMoved 投递（标签行/侧栏的悬停态）
+        window.acceptsMouseMovedEvents = true
         // Tahoe large-corner class (see EmptyToolbarDelegate): an empty,
         // visible, transparent toolbar. Verified side effect on 26.5 — the
         // traffic lights' default center line moves 16 → 26pt, exactly our

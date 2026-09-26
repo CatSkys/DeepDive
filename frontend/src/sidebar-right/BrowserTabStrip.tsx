@@ -173,7 +173,9 @@ export function BrowserTabStrip({ face, tabs, activeId, onSelect, onClose, onNew
   }, [activeId, tabs, editing]);
 
   return (
-    <div className="panel-browser-chrome" role="tablist" aria-label={t("标签页")}>
+    // data-strip-interactive：整行计入顶条控件 rect 表（titlebar.ts 契约）——标签行压在
+    // 52pt 拖拽条里，不标记的话行内空白=拖窗、SPA 收不到 mouseMoved，hover 全灭
+    <div className="panel-browser-chrome" role="tablist" aria-label={t("标签页")} data-strip-interactive>
       {/* 滚动区只装标签（「+」在区外贴着尾巴，滚多远它都在）。
           **按 tabs 原位顺序渲染**（参考 ForEach(browser.tabs) 的同一条铁律）：选中的那枚
           只是被高亮、就地展开，不挪窝——挪窝就是用户看到的"标签跑来跑去"。
