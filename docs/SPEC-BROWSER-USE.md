@@ -72,9 +72,11 @@
   查找词每次都显式交给壳——同一帧里读 state 会查到"少一个字"的串。
 - **「对话」**占地址栏右侧那一格，唤出浮在网页之上的那座对话卡（`ComposerOverlay.tsx` +
   壳侧 `ComposerOverlayHost.swift`）；面板标题栏不放它。
-- **浏览器设置归设置页**：「设置 → 浏览器」（`frontend/src/settings/BrowserSection.tsx`）。
-  默认缩放与"按站点记住缩放"落壳侧 UserDefaults（`didCommit` 要读，留在 SPA 里就晚了）；
-  搜索引擎与"把普通输入当搜索词"是纯交互偏好，落客户端 localStorage（`browserPrefs.ts`）。
+- **浏览器设置归设置页**：「设置 → 浏览器」（`frontend/src/settings/BrowserSection.tsx`），四节：
+  缩放 / 标签页 / 登录态 / 地址栏（外加一节快捷键说明）。默认缩放、按站点记忆、标签休眠门槛落壳侧
+  UserDefaults（壳在 `didCommit`、看门计时器里要读，留在 SPA 里就晚了）；搜索引擎与"把普通输入当
+  搜索词"是纯交互偏好，落客户端 localStorage（`browserPrefs.ts`）；登录态那一节的来源清单与导入结果
+  来自壳（`browser-cookies` ↔ `browserCookieSources` / `browserCookieResult`）。
 - **标签**：标签的事实源在壳里（`BrowserTabs.swift` + `BrowserTab.swift`），SPA 只画一条横向的
   **site icon 式**标签栏（`BrowserTabStrip.tsx`：站点图标 + 关闭，没图标退回主机名首字母）与末尾那枚
   new tab；不做竖向标签栏、不堆长标题（标题走提示与无障碍名）。**永远至少留一个空白标签**——关掉最后一个
@@ -90,8 +92,24 @@
   休眠因此不会把 agent 的 screenshot/wait_for 打死。睡与醒各留一条 `[browser] sleep/wake` 诊断日志。
 - **标签栏与网页的层序**：当前标签的 `WKWebView` 挂在舞台上（`MainWindowController.browserStage`），
   舞台在 SPA webView 之后、对话叠加层之前——换标签只换舞台里的视图，层序不动。
-- **独立数据存储**：原生载体的 `WKWebsiteDataStore` 是 `nonPersistent()`——cookie 与 Web 存储
-  不落盘、不与应用自身会话共享，重启即清。**一个窗口的标签共用一个 store**（各标签一个 store 就是各登各的）。
+- **数据存储是持久且独立的**（`BrowserDataStore.swift`）：`WKWebsiteDataStore(forIdentifier:)` 给浏览器
+  自己一份带固定标识的 store——cookie 与站点存储留在这台机器上（重启仍在），又与主 SPA 的 `default`
+  各一份（浏览器的登录态不会漏进应用自身会话）。**一个窗口的标签共用这一个 store**（各标签一个 store
+  就是各登各的）。会话 cookie（没有到期时间的那种）重启仍然不留——这是浏览器本来的规矩，
+  别把它当 store 的毛病。设置页的「清除浏览数据」把 cookie 与站点存储一起清掉，清完重载当前标签——页面上
+  那份已经过期的登录态才看得出来退了。
+- **登录态可以从别的浏览器导进来**（「设置 → 浏览器 → 登录态」；`BrowserCookieSource` 发现来源、
+  `BrowserCookieFiles` 解析三种格式、`BrowserCookieImport` 写进 store）：Chromium 系
+  （Chrome / Edge / Arc / Brave / Dia / Vivaldi / Chromium）的 `Cookies` 是 SQLite + `v10` AES，
+  密钥在各自 keychain 的“<名字> Safe Storage”项里——macOS 会先问用户一次（要输登录密码），
+  这是导入唯一必须人点头的地方；Firefox 的 `cookies.sqlite` 是明文；Safari 的
+  `Cookies.binarycookies` 在它自己的容器里，要「完全磁盘访问权限」。读文件一律**先拷一份再读**
+  （浏览器多半正开着），`HttpOnly` 靠 `NSHTTPCookie` 的自定义属性键保住。结果只回**码**给 SPA
+  （ok / no-key / permission / missing / empty），文案在词典里。清单里的 `blocked` 表示"数据目录
+  列不出来"（macOS 14 起"别的应用的数据"是独立一道 TCC 闸，实测 Chrome / Edge / Brave 就是这样，
+  而 Arc / Dia 能读）——先说清楚，别等人点了导入才报错。控制面另有 `list_cookie_sources` /
+  `import_cookies` + `import_cookies_status`（agent 被登录墙拦下时可以自己拉一次；起活与取状态
+  分成两条，理由见 PITFALLS §4.25），SDK 侧是 `browser.cookies.sources()/import(source)`。
 - 弹窗不开原生窗口：白名单内的交给标签集合开成**新标签**（`target=_blank` 的链接不该把手上
   这一页顶掉），下载不落地。
 
@@ -107,10 +125,9 @@ A–R 块清单）逐块做成一个真浏览器——因为 agent 在用，人�
    带 **new tab**；**不做竖向标签栏**。标签栏 UI 用 React 重画（参考那份是 SwiftUI，搬不过来），
    模型语义参考 `Tab.swift`。**标签状态的事实源定在壳里**（agent 控制面与 WKWebView 都在壳侧，
    SPA 只渲染与发命令）——这条是先定的，标签栏才照着画。
-2. **导入 cookie 与密码**（用户点名"很重要"）：agent 现在常被登录墙拦下——没有登录态，
-   同一个站点反复要重新登。所以要么导入浏览器的 cookie/密码，要么人手工登一次并留住。
-   **前置改动**：浏览器视图现在用 `nonPersistent` 数据存储（重启即清），必须换成**持久且独立**
-   的 store，否则导进来的登录态留不住。
+2. **导入 cookie 与密码**（用户点名"很重要"）：agent 常被登录墙拦下——没有登录态，同一个站点
+   反复要重新登。所以要么导入浏览器的 cookie/密码，要么人手工登一次并留住。cookie 那半与
+   "持久且独立"的存储都落在这块（见 §3）；密码那半见下面的清单。
 3. **设置项统一进设置页**：新增「浏览器」设置页，浏览器相关的开关/值都放那儿（缩放与按站记忆、
    拦截与按站权限、地址栏行为、标签页行为、导入、清数据），不散落在面板里。
 4. **不做**：竖向标签栏、多空间（Spaces）、Passkeys、扩展引擎、自建更新器——理由见参考文档。
@@ -133,7 +150,10 @@ A–R 块清单）逐块做成一个真浏览器——因为 agent 在用，人�
 还没做的块（逐块做，每块自带它需要的设置项，不做空壳设置页；「浏览器」设置页已在，
 新块往里加分节）：
 
-1. cookie / 密码导入（含持久 store 切换）
+1. **密码库与自动填充**（定稿第 2 条里"密码"那一半）：cookie 与持久 store 已落地（§3），
+   密码没有顺着它做——`WKWebView` 的自动填充只吃系统钥匙串里 Safari 的那一份（要 Apple 的
+   entitlement），要把浏览器里的密码用起来得先有自己的 vault（keychain）+ 填表 + 面板，规模是
+   独立一块（参考实现也是这么分的：`Vault.swift` + `Passwords.swift`）。
 2. 隐私与拦截 + 按站权限记忆
 3. 阅读模式与按站隐藏
 4. 历史与书签；以后：视频浮窗、密码面板细化
@@ -154,7 +174,8 @@ A–R 块清单）逐块做成一个真浏览器——因为 agent 在用，人�
 
 分层与 ZCode 一致：**高层语义在 JS 侧**（快照/ref/定位器/坐标逃生口由 SDK 拼页面脚本），
 壳只提供原语——`navigate` / `back` / `forward` / `reload` / `get_state` / `screenshot` /
-`evaluate` / `wait_for`，外加标签的 `list_tabs` / `new_tab` / `select_tab` / `close_tab`。
+`evaluate` / `wait_for`，外加标签的 `list_tabs` / `new_tab` / `select_tab` / `close_tab`，
+以及登录态的 `list_cookie_sources` / `import_cookies` / `import_cookies_status`。
 所以壳不认识 ref、不认识选择器，SDK 换代不必改壳。
 
 **命令一律按 `tabId` 寻址**（缺省当前标签；指名了却找不到就报错，不悄悄换一个标签干活），
@@ -191,9 +212,13 @@ SDK 侧的 `browser.tabs.list/new/get/selected` 与 `tab.close()` 就是这几�
 ## 6. 已知边界（不藏）
 
 - **MCP 工具不受 DSH 权限预设约束**：引擎里没有任何按 MCP 身份分类的规则，`annotations`
-  也不被消费。闸门只能做在壳侧——协议白名单、标签集合、独立 nonPersistent 存储、boot token。
+  也不被消费。闸门只能做在壳侧——协议白名单、标签集合、独立的数据存储、boot token。
 - **子智能体也能调 `js` 工具**：引擎没有按 scope 过滤 MCP 工具的面。
 - **没有录制、没有响应式视口、没有网络拦截**（ZCode 有，本仓明确砍掉）。
+- **导入的三道系统门槛是别人的规矩**：① Chromium 系的 cookie 要用户批准一次 keychain 访问（要输
+  登录密码，壳只能发起、不能代答）；② Safari 的 cookie 库要「完全磁盘访问权限」；③ 别的浏览器的
+  数据目录本身可能被 macOS 的"App 数据"闸挡住（实测 Chrome / Edge / Brave 列不出来，Arc / Dia 能）。
+  三者都不通时导入给的是一个码（`no-key` / `permission`），设置页照码说话、清单里先标 `blocked`。
 - **标签不跨启动保留**（没做会话恢复）；标签的键盘快捷键（⌘T/⌘W/⌘1-9）也还没绑——
   新建/切换/关闭目前只在标签栏上。
 - 浏览器工具定义进每次请求（token 成本）；`js` 一个工具，可接受。

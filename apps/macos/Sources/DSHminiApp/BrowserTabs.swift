@@ -28,8 +28,9 @@ final class BrowserTabs {
     private var slot: BrowserSlot?
     private var contentHeight: CGFloat = 0
     private var zoom: CGFloat = 1
-    /// 一个窗口一个存储：cookie/Web 存储跨标签共享（目前不落盘，重启即清）
-    private let store = WKWebsiteDataStore.nonPersistent()
+    /// 一个窗口一个存储：cookie/Web 存储跨标签共享，**持久且独立**（重启仍在；
+    /// 与主 SPA 的 default store 各一份，见 BrowserDataStore）。导入 cookie 也写进它。
+    let store = BrowserDataStore.make()
 
     // 休眠看门的几件状态。逻辑在 BrowserTabs+Sleep.swift；Swift 的扩展放不了存储属性，
     // 所以它们留在类里（同 MainWindowController 的 browserKeyMonitor）。

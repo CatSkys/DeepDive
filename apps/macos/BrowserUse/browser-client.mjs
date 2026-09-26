@@ -176,6 +176,26 @@ class Browser {
       selected: async () => browser.#tab((await control("list_tabs")).activeTabId),
     };
   }
+  /** 登录态：从本机其它浏览器把 cookie 导进来（agent 被登录墙拦下时用）。 */
+  get cookies() {
+    return {
+      /** 能导的来源（这台机器上装了、且有 cookie 库的）。 */
+      sources: async () => (await control("list_cookie_sources")).sources,
+      /**
+       * 导一个来源并等它落地。写要在壳的主线程上跑，所以壳是"起活 + 取状态"两条命令；
+       * Chromium 系会弹一次系统钥匙串询问，要用户本人点头（壳只能发起）。
+       */
+      import: async (source) => {
+        await control("import_cookies", { source });
+        for (let i = 0; i < 240; i++) {
+          const status = await control("import_cookies_status");
+          if (status.status !== "running") return status;
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        throw new Error("cookie import did not finish in time");
+      },
+    };
+  }
   async documentation() { return DOCUMENTATION; }
 }
 
@@ -221,6 +241,15 @@ Tabs live in the app, not in the kernel, and the app is the source of truth.
 - \`await tab.close()\` → close that tab. Closing the last one leaves a blank page.
 A tab that has been idle for a while is put to sleep (its page process is
 reclaimed); any command on it wakes it up first, so nothing here has to care.
+
+## Sign-ins
+The browser keeps its own persistent store, so a sign-in done by hand stays. When a site
+walls you off, the user's own browser may already hold the cookies:
+\`await browser.cookies.sources()\` lists what can be imported (Chrome / Edge / Arc / Brave /
+Dia / Firefox / Safari), and \`await browser.cookies.import("chrome")\` pulls one of them in.
+The result is \`{ code, total, imported }\` with \`code\` one of \`ok\`, \`no-key\` (the user has
+to approve the keychain prompt), \`permission\` (Full Disk Access needed) or \`empty\`.
+Importing asks the user to approve once — never report success when the code is not \`ok\`.
 
 ## Read the page first
 \`await tab.playwright.domSnapshot()\` returns the compact accessibility tree with a

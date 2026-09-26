@@ -48,6 +48,23 @@ extension MainWindowController {
         browserTabs.setSlot(slot, contentHeight: browserContainerHeight, zoom: browserZoom)
     }
 
+    /// 浏览器这一族的桥消息分发（`browser-` 与 `composer-` 前缀）。逐一列出来而不是
+    /// 用字典：新增一条消息时这里就是唯一的清单，漏了会在默认分支留下一条日志。
+    func handleBrowserMessage(_ body: [String: Any]) {
+        switch body["type"] as? String {
+        case "browser-nav": handleBrowserNav(body)
+        case "browser-tabs": handleBrowserTabs(body)
+        case "browser-cookies": handleBrowserCookies(body)
+        case "browser-sync": handleBrowserSync()
+        case "browser-shot": handleBrowserShot()
+        case "browser-zoom": handleBrowserZoom(body)
+        case "browser-find": handleBrowserFind(body)
+        case "composer-overlay": handleComposerOverlay(body)
+        case "composer-pill": handleComposerPill(body)
+        default: EngineLog.shared.append("[bridge] unknown browser message")
+        }
+    }
+
     /// SPA 的人工操作（地址栏/后退/前进/刷新）：与 agent 的控制面走同一个 BrowserHost
     /// （当前标签那个）。下命令也算"有人用这个标签"，闲置计时重来。
     func handleBrowserNav(_ body: [String: Any]) {
@@ -59,6 +76,33 @@ extension MainWindowController {
         case "forward": browser.goForward()
         case "reload": browser.reload()
         default: break
+        }
+    }
+
+    /// SPA 发来的 cookie 导入相关（`browser-cookies`）：列来源 / 导一个来源 / 清浏览数据。
+    /// 导入要读别的浏览器（Chromium 系会读 keychain、等人点头）+ 写 cookie store，都在别处做。
+    func handleBrowserCookies(_ body: [String: Any]) {
+        switch BrowserCookies.command(body) {
+        case .sources:
+            pushHostCommand("browserCookieSources", payload: AppDelegate.jsonPayload(BrowserCookies.payload(BrowserCookies.installed())))
+        case .importSource(let id):
+            guard let source = BrowserCookies.installed().first(where: { $0.id == id }) else {
+                pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(["source": id, "code": "missing", "total": 0, "imported": 0]))
+                return
+            }
+            EngineLog.shared.append("[browser] import cookies from \(id)")
+            BrowserCookieImport.run(source: source, store: browserTabs.store) { [weak self] payload in
+                self?.pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(payload))
+            }
+        case .clear:
+            BrowserDataStore.clear(browserTabs.store) { [weak self] in
+                guard let self else { return }
+                self.pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(["source": "", "code": "cleared", "total": 0, "imported": 0]))
+                // 页面上还留着已经失效的登录态：重载一次才看得见"退出来了"
+                self.browser.reload()
+            }
+        case nil:
+            EngineLog.shared.append("[browser] unknown cookies command")
         }
     }
 

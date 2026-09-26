@@ -6,10 +6,14 @@
 //     因为壳在 `didCommit` 时要用它们；
 //   · **客户端**（搜索引擎模板、纯文本当搜索）是纯交互偏好，落 localStorage（browserPrefs）；
 //   · 以后的块（拦截、权限、导入、历史）各自加到本页，**不预先留空分区**。
+import { useEffect } from "react";
+import { Download, RefreshCw } from "lucide-react";
 import { usePrefs } from "../prefs";
 import { useBrowserPrefs, BROWSER_SEARCH_TEMPLATES } from "../sidebar-right/browserPrefs";
 import { Dropdown, Toggle } from "../components/controls";
-import { t } from "../i18n";
+import { confirmDialog } from "../components/DialogHost";
+import { t, tt } from "../i18n";
+import { useBrowserCookies, type CookieResultFace } from "./useBrowserCookies";
 import rowsCss from "./SettingsRows.module.css";
 
 /** 默认缩放候选（与壳侧 BrowserZoom.steps 同一量级，取人常用的几个）。 */
@@ -23,6 +27,20 @@ const ZOOM_CHOICES = [
   { value: "2", label: "200%" },
 ];
 
+/** 一次导入/清除的结果 → 那一行下面的一句话。码由壳给（见 BrowserCookieImport.Code）。 */
+function resultText(result: CookieResultFace, sourceId: string): string {
+  if (result.source !== sourceId) return "";
+  if (result.code === "ok") {
+    return result.imported < result.total
+      ? tt("已导入 {n} 条（{m} 条解不开，跳过）", "Imported {n} ({m} undecryptable, skipped)", { n: result.imported, m: result.total - result.imported })
+      : tt("已导入 {n} 条", "Imported {n}", { n: result.imported });
+  }
+  if (result.code === "no-key") return t("需要在系统弹窗里批准它访问钥匙串，再导一次。");
+  if (result.code === "permission") return t("读不到它的 cookie 库：要在「系统设置 → 隐私与安全性 → 完全磁盘访问权限」里允许 DeepDive。");
+  if (result.code === "missing") return t("找不到它的 cookie 库了（浏览器可能已经卸载）。");
+  return t("没有可导入的 cookie。");
+}
+
 /** 休眠门槛候选（分钟；0 = 永不）。壳侧默认 30 分钟（BrowserTabs.defaultSleepMinutes）。 */
 const SLEEP_CHOICES = [
   { minutes: 5, label: "5 分钟" },
@@ -35,7 +53,12 @@ const SLEEP_CHOICES = [
 export function BrowserSection() {
   const prefs = usePrefs();
   const [browser, setBrowser] = useBrowserPrefs();
+  const cookies = useBrowserCookies();
   const templateId = BROWSER_SEARCH_TEMPLATES.find((item) => item.template === browser.searchTemplate)?.id ?? "custom";
+
+  // 进这一页才问一次来源（壳只在被问的时候去扫磁盘上那几个目录）
+  const refreshCookies = cookies.refresh;
+  useEffect(() => { refreshCookies(); }, [refreshCookies]);
 
   return (
     <>
@@ -87,6 +110,70 @@ export function BrowserSection() {
                 value={String(prefs.browserTabSleepMinutes)}
                 onChange={(v) => prefs.setBrowserTabSleepMinutes(Number(v))}
               />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={rowsCss.section}>
+        <div className={rowsCss.sectionTitle}>{t("登录态")}</div>
+        <div className={rowsCss.sectionIntro}>
+          {t("浏览器有自己的一份持久存储：在这儿登一次就留着（重启也在，与应用自身的会话隔离）。也可以从本机其它浏览器把 cookie 导进来。")}
+        </div>
+        <div className={rowsCss.rowGroup}>
+          {cookies.sources.length === 0 && (
+            <div className={rowsCss.rowCard}>
+              <div className={rowsCss.rowIdentity}>
+                <div className={rowsCss.rowName}>{t("没检测到可导入的浏览器")}</div>
+                <div className={rowsCss.rowCaption}>{t("Chrome、Edge、Arc、Brave、Firefox、Safari 的 cookie 都能导。")}</div>
+              </div>
+              <div className={rowsCss.rowActions}>
+                <button className={rowsCss.secondaryButton} onClick={cookies.refresh}>
+                  <RefreshCw size={13} />
+                  {t("重新检测")}
+                </button>
+              </div>
+            </div>
+          )}
+          {cookies.sources.map((source) => (
+            <div className={rowsCss.rowCard} key={source.id}>
+              <div className={rowsCss.rowIdentity}>
+                <div className={rowsCss.rowName}>{source.name}</div>
+                <div className={rowsCss.rowCaption}>
+                  {resultText(cookies.result ?? { source: "", code: "", total: 0, imported: 0 }, source.id)
+                    || (source.blocked
+                      ? t("读不到它的数据目录：系统挡着「别的应用的数据」，到这个浏览器的数据上放行一次再导。")
+                      : t("把它的登录态导进来，agent 就不用再被登录墙拦。"))}
+                </div>
+              </div>
+              <div className={rowsCss.rowActions}>
+                <button className={rowsCss.primaryButton} disabled={cookies.busy !== ""} onClick={() => cookies.importFrom(source.id)}>
+                  <Download size={13} />
+                  {cookies.busy === source.id ? t("导入中…") : t("导入")}
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>{t("清除浏览数据")}</div>
+              <div className={rowsCss.rowCaption}>
+                {cookies.result?.code === "cleared"
+                  ? t("已清除：所有站点都退出了登录。")
+                  : t("cookie 与站点存储一起清掉，所有站点都会退出登录。")}
+              </div>
+            </div>
+            <div className={rowsCss.rowActions}>
+              <button
+                className={rowsCss.secondaryButton}
+                disabled={cookies.busy !== ""}
+                onClick={() => {
+                  void confirmDialog({ message: t("清除浏览器 cookie 与站点存储？所有站点都会退出登录。"), danger: true })
+                    .then((ok) => { if (ok) cookies.clear(); });
+                }}
+              >
+                {cookies.busy === "clear" ? t("清除中…") : t("清除")}
+              </button>
             </div>
           </div>
         </div>

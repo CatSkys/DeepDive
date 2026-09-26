@@ -21,6 +21,10 @@ enum BrowserControl {
     /// 轮询等待的硬上限：SDK 会给 timeoutMs，这里再兜一层，免得一个坏请求把线程占住。
     private static let maxWaitMs = 30_000
 
+    /// 最近一次 cookie 导入的状态（`import_cookies` 起活、`import_cookies_status` 取结果）。
+    /// 只在主线程读写（execute 就在主线程上跑）。
+    private static var cookieImport: [String: Any] = ["ok": true, "status": "idle"]
+
     /// 处理一次控制请求（同步；MiniHTTPServer 每个连接一个线程）。
     static func handle(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Response {
         guard request.headers["authorization"] == "Bearer \(token)" else {
@@ -49,6 +53,23 @@ enum BrowserControl {
         switch method {
         case "list_tabs":
             return ["ok": true, "activeTabId": tabs.activeId, "tabs": tabs.listPayload()]
+        case "list_cookie_sources":
+            return ["ok": true, "sources": BrowserCookies.entries(BrowserCookies.installed())]
+        case "import_cookies":
+            // **起活不等人**：导入的写落在主线程（WKHTTPCookieStore 是 UI actor 的），而这条命令
+            // 本身就跑在主线程上——把主线程堵在"等它写完"上会死锁（实测：泵 runloop 60s，
+            // 读完了但一条都没写进去）。所以这里只起活，结果由 import_cookies_status 取。
+            let wanted = command["source"] as? String ?? ""
+            guard let source = BrowserCookies.installed().first(where: { $0.id == wanted }) else {
+                return ["ok": false, "error": "unknown cookie source: \(wanted)"]
+            }
+            cookieImport = ["ok": true, "status": "running", "source": source.id]
+            BrowserCookieImport.run(source: source, store: tabs.store) { payload in
+                cookieImport = ["ok": true, "status": "done"].merging(payload) { _, new in new }
+            }
+            return cookieImport
+        case "import_cookies_status":
+            return cookieImport
         case "new_tab":
             // 带地址的新标签先过协议闸（同 navigate），别把坏地址变成一条错误页
             if let url = command["url"] as? String, let parsed = URL(string: url), !BrowserHost.allowed(parsed) {

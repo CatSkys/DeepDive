@@ -33,10 +33,10 @@
       "detail": "303 lines > 300"
     },
     {
-      "id": "7ee947586c82f45f",
+      "id": "2fe34ed1c12d549f",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
-      "detail": "635 lines > 300"
+      "detail": "608 lines > 300"
     },
     {
       "id": "0a512c83dc5be250",
@@ -105,10 +105,10 @@
       "detail": "667 lines > 300"
     },
     {
-      "id": "adeb2160c575805f",
+      "id": "a93dd4c17728ac74",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "897 lines > 300"
+      "detail": "914 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",

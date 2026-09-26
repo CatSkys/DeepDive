@@ -555,37 +555,10 @@ extension MainWindowController: WKScriptMessageHandler {
     private func handleHostMessage(_ message: WKScriptMessage) {
         guard let body = message.body as? [String: Any],
               let type = body["type"] as? String else { return }
-        // 浏览器命令由本窗口的扩展处理（宿主就在这儿），其余按原路交给 AppDelegate 的 case 表
-        if type == "browser-nav" {
-            handleBrowserNav(body)
-            return
-        }
-        if type == "browser-tabs" {
-            handleBrowserTabs(body)
-            return
-        }
-        if type == "browser-sync" {
-            handleBrowserSync()
-            return
-        }
-        if type == "browser-shot" {
-            handleBrowserShot()
-            return
-        }
-        if type == "composer-overlay" {
-            handleComposerOverlay(body)
-            return
-        }
-        if type == "composer-pill" {
-            handleComposerPill(body)
-            return
-        }
-        if type == "browser-zoom" {
-            handleBrowserZoom(body)
-            return
-        }
-        if type == "browser-find" {
-            handleBrowserFind(body)
+        // 浏览器这一族（`browser-` 前缀）由本窗口的扩展分发（宿主就在这儿），
+        // 悬浮输入框那两条也归它；其余按原路交给 AppDelegate 的 case 表
+        if type.hasPrefix("browser-") || type.hasPrefix("composer-") {
+            handleBrowserMessage(body)
             return
         }
         EngineLog.shared.append("[bridge] host message: \(type)")

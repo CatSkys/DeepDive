@@ -399,6 +399,28 @@
   这条老规矩；要回结构化数据就回对象/数组（走 JSON 分支）。壳侧比较直接 `== "true"`、
   解析直接用裸串，**别再套一层 JSON 解码**。
 
+### 4.25 控制面里"把主线程堵在等 WebKit 写 cookie"上会死锁（2026-09-26 实测）
+
+- 症状：`import_cookies` 这条控制面命令把读到的 cookie 交给 `WKHTTPCookieStore.setCookie` 之后
+  一条也写不进去——日志里"读到了 2 条"清清楚楚，`setCookie` 的完成回调永远不来，60s 后命令超时。
+- 根因：控制面的 `execute` 本来就跑在主线程上（桥的读线程用信号量等它），而导入的**写**也必须在
+  主线程（`WKHTTPCookieStore` 是 UI actor 的）。于是在主线程里"泵 runloop 等它写完"= 让 WebKit
+  回不到主队列同步自己的状态。同一条路在 XCTest 里是通的（那里用的是 `wait(for:)`，主线程没有被
+  我们自己的循环占着），所以这个坑只在真机上现形。
+- 走通的路：**起活与取状态分成两条命令**——`import_cookies` 起一次就返回 `{status:"running"}`，
+  写完由 `import_cookies_status` 报 `{status:"done", code, total, imported}`（SDK 的
+  `browser.cookies.import()` 负责轮询）。不要把"异步 + 必须回主线程"的活在同步命令里硬等。
+
+### 4.26 macOS 14 起"别的应用的数据"是独立一道 TCC 闸：列不出目录 ≠ 没装（2026-09-26 实测）
+
+- 实测：同一个 `~/Library/Application Support/Google/Chrome`，终端里的 python 列得出来，签名过的
+  DeepDive 里 `contentsOfDirectory` 回 "Operation not permitted"；Edge / Brave 同样，而 Arc / Dia 能读。
+- 后果：把"列不出来"当成"没装"，设置页就会在 Chrome 明明装着的时候说"没检测到可导入的浏览器"——
+  用户按这句话去排查只会更糊涂。
+- 规矩：**目录不在（ENOENT）= 没装；列不出来（EPERM）= 装了但被系统挡着**。后者照样列出来、
+  标 `blocked`、导入时报 `permission` 码。（Safari 那支是另一半：文件 stat 得到、读内容被拒，
+  同一个 `permission` 码，但指向的是「完全磁盘访问权限」。）
+
 ---
 
 ## 5. 版本角标 / 交付自检

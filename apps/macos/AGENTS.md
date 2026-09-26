@@ -18,6 +18,9 @@ Swift + AppKit 原生壳（XcodeGen）。根规则见 [../../AGENTS.md](../../AG
 - **版本门（V3 单行道）**：bundled 残缺拒启（不回落系统 dsh）；无 bundled 时的系统/PATH 入口版本必须与随包 pin（`Resources/dsh-runtime-version.txt`，由 project.yml 从引脚文件原样拷入，未嵌引擎的构建也读得到）逐字一致（`EngineVersion`）。`DSHMINI_DSH_ENTRY` 允许异版本但仅告警，对照实验请配 `DSHMINI_SUPPORT_DIR`。
 - **embed 必须在实例停止后执行**：覆盖运行中的 node/引擎文件会被 SIGKILL（自检/启动全 137，PITFALLS §7.1）。
 - 第二实例被 main.swift 单实例锁拦掉（exit 0 无声）：调试新构建先退运行中实例，或 `DSHMINI_SUPPORT_DIR=<dir>` 隔离（PITFALLS §7.2）。
+- `DSHMINI_BROWSER_IMPORT_ROOT=<dir>` 覆盖 cookie 导入的来源根（该目录下按同样的相对路径摆
+  `Application Support/…` 与 `Library/…`）：真机上验导入要么读别人 keychain、要么要完全磁盘
+  访问权限，只能靠假档案走通全链（`BrowserCookies.installed()` 读它）。
 - 缺 `.credentials.yaml` 会静默空回复：启动断言凭据，缺失走恢复屏冷启动闭环（PITFALLS §4.1）。
 
 ## 桥与标识符
