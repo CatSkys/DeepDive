@@ -96,7 +96,10 @@ VERSION 1.0.3）。本文只做**参考梳理**：它分成哪些块、每块假
 - **R 自动化**：有 `/browser-control`（navigate/back/forward/reload/get_state/screenshot/evaluate/wait_for）；
   对照它的命令表，我们缺 **click / key / 等待条件的种类**（我们只有 wait_for 一种）。
 
-## 5. 落地顺序建议（供确认后再排）
+## 5. 落地顺序（2026-09-26 用户确认，定稿条文在 `SPEC-BROWSER-USE.md §3.5`）
+
+用户确认按下面顺序逐块做，并补了三条定稿：标签栏**横向 + site icon 式 + new tab、不做竖向**；
+**cookie / 密码导入很重要**（agent 被登录墙拦）；**浏览器设置项统一进设置页，新增「浏览器」设置页**。
 
 1. **地址栏与补全 + 按站缩放记忆 + 查找**（D/E，小件、纯逻辑、立刻提升"人能用"）
 2. **标签页模型 + 标签栏 + 休眠**（B/C/M，最大一块，先切分 `Browser.swift` 的窗口状态）
