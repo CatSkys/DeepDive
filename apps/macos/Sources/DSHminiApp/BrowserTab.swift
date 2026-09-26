@@ -17,6 +17,10 @@ final class BrowserTab {
     var icon = ""
     /// 问过图标的那个 url：一次导航问一次，不重复问
     var iconAsked = ""
+    /// 记过历史的那条 url：一次导航只记一次（观察是"变化就推"的）
+    var recordedUrl = ""
+    /// 页面加载完成（集合据此记历史）
+    var onLoaded: ((BrowserTab) -> Void)?
     /// 睡着 = 宿主已经还给系统（内存），`memory` 里留着回去的路
     private(set) var asleep = false
     /// 睡着/唤醒期间铺在面板上的停帧图（base64 PNG）。页面画出来时原生视图本来就压着它，
@@ -130,5 +134,7 @@ final class BrowserTab {
     private func mirror(_ observation: BrowserObservation) {
         if !observation.url.isEmpty { url = observation.url }
         title = observation.title
+        // 加载完成 = 记历史的时机（标题此刻也有了；didFinish 那条观察正是 loading 转 false 的那次）
+        if !observation.loading, observation.url != "" { onLoaded?(self) }
     }
 }

@@ -15,6 +15,7 @@ import { confirmDialog } from "../components/DialogHost";
 import { t, tt } from "../i18n";
 import { useBrowserCookies, type CookieResultFace } from "./useBrowserCookies";
 import { useBrowserShield } from "./useBrowserShield";
+import { BrowserLibrary } from "./BrowserLibrary";
 import rowsCss from "./SettingsRows.module.css";
 
 /** 默认缩放候选（与壳侧 BrowserZoom.steps 同一量级，取人常用的几个）。 */
@@ -182,6 +183,8 @@ export function BrowserSection() {
           </div>
         </div>
       </div>
+
+      <BrowserLibrary />
 
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("隐私")}</div>

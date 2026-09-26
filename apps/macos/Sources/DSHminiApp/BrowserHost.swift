@@ -10,59 +10,11 @@
 // 缩略图态要让点击落到 SPA（点它是"展开面板"而非操作网页）：那由 hitTest 直接返回 nil 完成
 // ——原生视图恒在 SPA 之上，不收点击必须由壳让位。
 
+// 槽位（`BrowserSlot`）、给 SPA 的观察（`BrowserObservation`）与那个能"不收点击"的视图
+// （`BrowserHostView`）在 BrowserHostParts.swift：它们是被推来推去的**数据/零件**，宿主只管接线。
+
 import AppKit
 import WebKit
-
-/// 收点击可控的浏览器视图：`acceptsInput == false` 时整格对鼠标透明。
-final class BrowserHostView: WKWebView {
-    var acceptsInput = true
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        acceptsInput ? super.hitTest(point) : nil
-    }
-}
-
-/// 前端推上来的槽位：CSS px 的 rect + 可见/收点击标志。
-struct BrowserSlot {
-    var rect: NSRect
-    var visible: Bool
-    var interactive: Bool
-
-    /// 换算成 AppKit 的 frame：横向与尺寸乘 pageZoom（CSS px → point），y 轴翻转用
-    /// **当前**内容高度（不缓存高度，窗口尺寸变化就不会过期）。
-    func frame(contentHeight: CGFloat, zoom: CGFloat) -> NSRect {
-        NSRect(
-            x: rect.minX * zoom,
-            y: contentHeight - (rect.minY + rect.height) * zoom,
-            width: rect.width * zoom,
-            height: rect.height * zoom
-        )
-    }
-}
-
-/// 推给 SPA 的浏览器观察（前端 useNativeBrowser 的 NativeBrowserState 同形）。
-struct BrowserObservation {
-    var url: String = ""
-    var title: String = ""
-    var loading: Bool = false
-    var canGoBack: Bool = false
-    var canGoForward: Bool = false
-    var error: Bool = false
-    /// 当前页面的缩放（pageZoom；SPA 的缩放控件与「浏览器」设置页读它）
-    var zoom: Double = 1
-    /// 这一页是不是"阅读模式"那一版（页面已经被换过，只能靠重载退出）
-    var reader: Bool = false
-    /// 正在等人在页面上点一个元素（按站隐藏的拾取）
-    var picking: Bool = false
-
-    var payload: [String: Any] {
-        [
-            "url": url, "title": title, "loading": loading,
-            "canGoBack": canGoBack, "canGoForward": canGoForward, "error": error,
-            "zoom": zoom, "reader": reader, "picking": picking,
-        ]
-    }
-}
 
 final class BrowserHost: NSObject {
     let view: BrowserHostView
@@ -83,6 +35,9 @@ final class BrowserHost: NSObject {
     let pickerProxy = BrowserPickerProxy()
 
     var lastError = false
+    /// 标题的 KVO（标题是**稍后**解析出来的：导航事件都发完了它才到，没有人推观察的话
+    /// 标签栏、地址栏与历史里的标题就永远停在那一刻的空值上）
+    private var titleObservation: NSKeyValueObservation?
     /// 这一页正在"阅读模式"里（导航一开始就清掉：换页等于退出）
     var readerOn = false
     /// 最近一次槽位；窗口尺寸或 pageZoom 变化时按它重算（槽位状态放这里，主窗口控制器
@@ -115,6 +70,10 @@ final class BrowserHost: NSObject {
         // 页面 → 壳的拾取回话（按站隐藏用；见 BrowserHost+Hidden 的安全边界）
         pickerProxy.host = self
         configuration.userContentController.add(pickerProxy, name: "deepdivePicker")
+        // 标题到了就推一次观察（KVO 是唯一能听见它的地方）
+        titleObservation = view.observe(\.title, options: [.new]) { [weak self] _, _ in
+            self?.publish()
+        }
     }
 
     // MARK: - 位置与可见性

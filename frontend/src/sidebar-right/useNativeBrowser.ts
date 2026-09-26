@@ -11,6 +11,7 @@ import { t } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
 import { looksLikeSearch, parseBrowserAddress, searchUrlFor, type BrowserAddressFailure, type BrowserTarget } from "./browserUrl";
 import { browserPrefs } from "./browserPrefs";
+import { addBookmark, removeBookmark } from "./browserHistory";
 import type { BrowserFrameState } from "./useIframeBrowser";
 
 /** 壳推上来的浏览器观察（`browserState` 指令的载荷）。 */
@@ -61,6 +62,9 @@ export interface NativeBrowser {
   /** 这一页是不是"阅读模式"那一版（页面已经被换过，退出 = 重载） */
   reader: boolean;
   toggleReader: () => void;
+  /** 这一页收藏了没有（面板菜单那枚文案用） */
+  bookmarked: boolean;
+  toggleBookmark: () => void;
   /** 这一站藏了几项元素（按站隐藏） */
   hiddenCount: number;
   /** 正在等人在页面上点一个元素 */
@@ -98,6 +102,7 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
   const [shieldPaused, setShieldPaused] = useState(false);
   const [reader, setReader] = useState(false);
   const [hiddenCount, setHiddenCount] = useState(0);
+  const [bookmarked, setBookmarked] = useState(false);
   const [picking, setPicking] = useState(false);
   // 回调放 ref：壳事件订阅只装一次，不因每次渲染的新函数反复解绑
   const keyHandler = useRef(onKey);
@@ -127,6 +132,7 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
       setReader((data as { reader?: unknown } | undefined)?.reader === true);
       setPicking((data as { picking?: unknown } | undefined)?.picking === true);
       setHiddenCount(Number((data as { hiddenCount?: unknown } | undefined)?.hiddenCount ?? 0));
+      setBookmarked((data as { bookmarked?: unknown } | undefined)?.bookmarked === true);
       return;
     }
     if (cmd === "browserShot") {
@@ -220,6 +226,12 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
     shieldPaused,
     reader,
     toggleReader: () => sendToShell({ type: "browser-reader", action: reader ? "exit" : "enter" }),
+    bookmarked,
+    toggleBookmark: () => {
+      if (observed.url === "") return;
+      if (bookmarked) removeBookmark(observed.url);
+      else addBookmark(observed.url, observed.title);
+    },
     hiddenCount,
     picking,
     togglePicking: () => sendToShell({ type: "browser-hidden", action: picking ? "cancelPick" : "pick" }),

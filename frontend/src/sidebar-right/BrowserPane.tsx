@@ -7,10 +7,9 @@
 //   expanded —— 工具栏 + 占满面板的页面（人可以直接操作）
 // 两种尺寸共用同一个组件实例，所以切尺寸不会重挂载体、不会丢页面状态。
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Maximize2 } from "lucide-react";
 import { t } from "../i18n";
-import { rememberVisit } from "./browserRecents";
 import { useIframeBrowser } from "./useIframeBrowser";
 import { useNativeBrowser } from "./useNativeBrowser";
 import { BrowserEmpty, IframeCarrier, NativeCarrier, browserCarrierKind } from "./BrowserCarrier";
@@ -76,13 +75,6 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
     setFindQuery("");
     browser.find("");   // 空串 = 取消查找并清选区
   };
-  // 访问记录（地址栏补全的来源）：地址或标题变了就记一条
-  const visitedUrl = browser.frame.address;
-  const visitedTitle = browser.title;
-  useEffect(() => {
-    if (visitedUrl !== "") rememberVisit(visitedUrl, visitedTitle);
-  }, [visitedUrl, visitedTitle]);
-
   return (
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
       {expanded && (
@@ -102,6 +94,7 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
           shield={{ paused: browser.shieldPaused, toggle: browser.toggleShield }}
           reader={{ on: browser.reader, toggle: browser.toggleReader }}
           hidden={{ count: browser.hiddenCount, picking: browser.picking, togglePick: browser.togglePicking, restore: browser.restoreHidden }}
+          bookmark={{ on: browser.bookmarked, toggle: browser.toggleBookmark }}
           onFind={() => { setFindOpen(true); setFindTick((t) => t + 1); }}
           intent={intent}
         />

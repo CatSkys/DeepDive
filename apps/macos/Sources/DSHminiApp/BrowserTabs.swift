@@ -23,6 +23,8 @@ final class BrowserTabs {
     /// 按站隐藏的拾取回来了／被取消（窗口控制器据此记下并推给 SPA）
     var onPicked: ((String, String) -> Void)?
     var onPickCancelled: (() -> Void)?
+    /// 记了一条浏览历史（窗口控制器据此把最近的那份推给 SPA 做补全）
+    var onHistoryChanged: (() -> Void)?
 
     private(set) var tabs: [BrowserTab] = []
     private(set) var activeId = ""
@@ -133,8 +135,25 @@ final class BrowserTabs {
         pushState(active, active.awakeHost?.observation() ?? BrowserObservation())
     }
 
+    /// 页面加载完成：记一条浏览历史（同一个 url 只在**换过页之后**记一次——观察是"变化就推"的，
+    /// 不挡一下会把同一页记成好几次）。
+    private func recordVisit(_ tab: BrowserTab) {
+        guard !tab.url.isEmpty, tab.url != "about:blank", tab.recordedUrl != tab.url else { return }
+        tab.recordedUrl = tab.url
+        guard BrowserHistory.shared.record(url: tab.url, title: tab.title) else { return }
+        onHistoryChanged?()
+    }
+
+    /// 标题是稍后解析出来的（`didFinish` 那一刻常常还没有）：历史里那条当时只能先写地址，
+    /// 等真标题到了再补一次，别让"历史"这一栏永远是一串 URL。
+    private func settleVisitTitle(_ tab: BrowserTab) {
+        guard !tab.recordedUrl.isEmpty, tab.recordedUrl == tab.url, !tab.title.isEmpty else { return }
+        if BrowserHistory.shared.updateTitle(url: tab.url, title: tab.title) { onHistoryChanged?() }
+    }
+
     /// 一个标签有变化：清单总要更新（标题/图标/睡着），当前标签另推一条观察与图标。
     func changed(_ tab: BrowserTab) {
+        settleVisitTitle(tab)
         pushTabs()
         if tab.id == activeId, let host = tab.awakeHost {
             pushState(tab, host.observation())
@@ -171,6 +190,7 @@ final class BrowserTabs {
         tab.onPermissionAsk = { [weak self] host, kind in self?.onPermissionAsk?(host, kind) }
         tab.onPicked = { [weak self] selector, label in self?.onPicked?(selector, label) }
         tab.onPickCancelled = { [weak self] in self?.onPickCancelled?() }
+        tab.onLoaded = { [weak self] tab in self?.recordVisit(tab) }
         if !url.isEmpty {
             tab.url = url
             tab.host.load(url)
@@ -228,6 +248,8 @@ final class BrowserTabs {
         payload["shieldPaused"] = BrowserShield.shared.isPaused(host: host)
         // 面板菜单要显示"恢复本站隐藏的 N 项"与"正在等点击"
         payload["hiddenCount"] = host.map { BrowserHidden.shared.veils(host: $0).count } ?? 0
+        // 「…」菜单那枚书签按钮的文案：这一页收藏了没有
+        payload["bookmarked"] = !tab.url.isEmpty && BrowserBookmarks.shared.contains(url: tab.url)
         onObservation?(payload)
     }
 

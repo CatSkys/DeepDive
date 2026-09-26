@@ -657,3 +657,18 @@
 }
 .pickMeta { flex: none; font-size: var(--dsh-font-size-xs); color: var(--ink-3); }
 
+
+/* 历史/书签那两张表：过滤输入、可滚动的列表、每行"标题 + 地址"的主按钮 */
+.listFilter {
+  flex: 1; min-width: 120px; height: 26px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 13px;
+  background: var(--fill-soft); color: var(--ink); font-size: var(--dsh-font-size-sm);
+}
+.listScroll { max-height: 260px; overflow-y: auto; }
+.listMain {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  max-width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: default;
+}
+.listTitle { color: var(--ink); font-size: var(--dsh-font-size-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.listUrl { color: var(--ink-3); font-size: var(--dsh-font-size-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.listMain:hover .listTitle { color: var(--ink-bright); text-decoration: underline; }

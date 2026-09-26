@@ -50,6 +50,7 @@
 | `BrowserDataStore.swift` | 浏览器的数据存储：`WKWebsiteDataStore(forIdentifier:)` 一份**持久且独立**的 store（与主 SPA 的 default 各一份），以及"清除浏览数据" |
 | `BrowserCookieSource.swift` + `BrowserCookieFiles.swift` + `ChromiumCookieCrypto.swift` + `BrowserCookieImport.swift` | cookie 导入：发现装了哪些浏览器、解析三种 cookie 库（Chromium 的 SQLite+`v10` AES / Firefox 明文 / Safari binarycookies）、写进浏览器 store 并回报结果码 |
 | `BrowserCookies.swift` | cookie 导入的桥契约（`browser-cookies` ↔ `browserCookieSources` / `browserCookieResult`）与来源清单 |
+| `BrowserHistory.swift` + `BrowserBookmarks.swift` | 浏览历史与书签：落 UserDefaults 的一份 JSON + 进程内缓存（历史按 url 去重、上限 500；书签按 url 去重），地址栏补全与设置页都读它 |
 | `BrowserReader.swift` | 阅读模式：把页面就地换成只有正文的那一版（散文打分 + 链接扣分找正文，图片先解析成普通 src） |
 | `BrowserHidden.swift` + `BrowserHost+Hidden.swift` | 按站隐藏：按 host 记一组选择器、导航前挂 CSS（`WKUserScript`）、页面上的拾取脚本与回话弱代理 |
 | `BrowserShield.swift` | 广告/跟踪拦截：`WKContentRuleList` 的规则表（故意短的域名清单 + 几处广告位）、全局开关、按站暂停；导航那一刻按站点加减规则 |

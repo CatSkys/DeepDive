@@ -3,11 +3,11 @@
 //
 // 拆出 BrowserPane.tsx 的理由：面板本体只负责"哪支载体、哪种尺寸"，工具栏是另一件事。
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, ChevronLeft, ChevronRight, EyeOff, RotateCw, MessageSquare, Search, ShieldOff, ShieldCheck, SquareArrowOutUpRight, Maximize2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, EyeOff, RotateCw, MessageSquare, Search, ShieldOff, ShieldCheck, SquareArrowOutUpRight, Maximize2, Star, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { t, tt } from "../i18n";
 import { RowMenu } from "../components/controls";
 import { browserPrefs } from "./browserPrefs";
-import { completeRecents } from "./browserRecents";
+import { completeVisits } from "./browserHistory";
 import { looksLikeSearch, searchUrlFor } from "./browserUrl";
 import { openExternalUrl, sendToShell } from "../host";
 import type { BrowserAddressFailure } from "./browserUrl";
@@ -34,7 +34,7 @@ export interface PaneFace extends BrowserFrameState {
 
 /** 工具栏 + 地址栏（官方 BrowserBody 的 form 部分）。
  *  地址栏带补全（自己的访问记录 + "搜索 xxx"）；缩放与"在默认浏览器打开"进「…」菜单。 */
-export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, reader, hidden, onFind, intent }: {
+export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, reader, hidden, bookmark, onFind, intent }: {
   face: PaneFace;
   /** 只有 iframe 载体给得出沙箱开关；原生载体由壳执行策略，不给这个按钮。 */
   sandbox?: { enabled: boolean; toggle: () => void };
@@ -48,6 +48,8 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, reader, hi
   reader?: { on: boolean; toggle: () => void };
   /** 按站隐藏（原生载体）：进拾取模式，以及把本站藏过的都放回来 */
   hidden?: { count: number; picking: boolean; togglePick: () => void; restore: () => void };
+  /** 收藏当前页（原生载体；壳按 url 记） */
+  bookmark?: { on: boolean; toggle: () => void };
   onFind?: () => void;
   /** 壳转来的键盘意图：地址栏聚焦 / 查找（id 变化即触发一次） */
   intent?: { kind: "address" | "find"; id: number };
@@ -66,6 +68,7 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, reader, hi
       ? [{ v: "restoreHidden", label: tt("恢复本站隐藏的 {n} 项", "Restore the {n} hidden here", { n: hidden.count }), icon: Undo2 }]
       : []),
     ...(shield ? [{ v: "shield", label: shield.paused ? t("本站恢复拦截") : t("本站暂停拦截"), icon: ShieldOff }] : []),
+    ...(bookmark ? [{ v: "bookmark", label: bookmark.on ? t("已加入书签") : t("加入书签"), icon: Star }] : []),
     ...(onFind ? [{ v: "find", label: t("页内查找"), icon: Search }] : []),
     ...(external !== undefined ? [{ v: "external", label: t("在默认浏览器中打开"), icon: SquareArrowOutUpRight }] : []),
   ];
@@ -73,7 +76,7 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, reader, hi
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const prefs = browserPrefs();
-  const recents = suggestOpen ? completeRecents(face.draft) : [];
+  const recents = suggestOpen ? completeVisits(face.draft) : [];
   const searchHint = suggestOpen && prefs.searchOnPlainText && looksLikeSearch(face.draft)
     ? searchUrlFor(face.draft, prefs.searchTemplate)
     : null;
@@ -165,6 +168,7 @@ export function BrowserToolbar({ face, sandbox, onChat, zoom, shield, reader, hi
             else if (v === "hide") hidden?.togglePick();
             else if (v === "restoreHidden") hidden?.restore();
             else if (v === "shield") shield?.toggle();
+            else if (v === "bookmark") bookmark?.toggle();
             else if (v === "find") onFind?.();
             else if (v === "external" && external !== undefined) openExternalUrl(external);
           }}

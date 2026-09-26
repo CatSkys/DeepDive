@@ -25,6 +25,8 @@ extension MainWindowController {
         }
         // 按站隐藏的拾取：记下来、对当前页生效、把清单推给 SPA
         browserTabs.onPicked = { [weak self] selector, label in self?.hiddenPicked(selector: selector, label: label) }
+        // 历史：页面加载完成就记一条（地址栏补全与设置页那张表都读壳里这一份）
+        browserTabs.onHistoryChanged = { [weak self] in self?.historyRecorded() }
         browserTabs.onPickCancelled = { [weak self] in self?.pushVeils() }
         BrowserShield.shared.compile()
         browserTabs.attach(to: browserStage)
@@ -65,6 +67,8 @@ extension MainWindowController {
         case "browser-cookies": handleBrowserCookies(body)
         case "browser-reader": handleBrowserReader(body)
         case "browser-hidden": handleBrowserHidden(body)
+        case "browser-history": handleBrowserHistory(body)
+        case "browser-bookmarks": handleBrowserBookmarks(body)
         case "browser-shield": handleBrowserShield(body)
         case "browser-permission": handleBrowserPermission(body)
         case "browser-sync": handleBrowserSync()
