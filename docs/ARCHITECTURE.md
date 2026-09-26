@@ -5,6 +5,9 @@
 
 ---
 
+> 侧栏浏览器的功能块参考梳理（第三方 Search 浏览器取/不取哪块）见
+> [REF-BROWSER-SEARCH.md](REF-BROWSER-SEARCH.md)。
+
 ## 1. 总览：三层混合架构
 
 ```
