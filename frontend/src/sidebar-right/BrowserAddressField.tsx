@@ -28,13 +28,15 @@ function engineName(template: string): string {
 }
 
 /** 框 + 补全列表。`big` = 空白标签页那款（560 宽、圆角 14、带阴影），否则是标签行里的那款。 */
-export function AddressField({ face, big = false, focusTick = 0, onEditingChange, onPick }: {
+export function AddressField({ face, big = false, focusTick = 0, onEditingChange, onCancel, onPick }: {
   face: PaneFace;
   big?: boolean;
   /** 变化即聚焦一次（壳转来的 ⌘L / 面板点标签） */
   focusTick?: number;
   /** 进出编辑态（标签行那款据此"就地展开成地址框"） */
   onEditingChange?: (editing: boolean) => void;
+  /** Esc：不提交，草稿作废（标签行那款据此收回胶囊） */
+  onCancel?: () => void;
   /** 选定了要去的地方（原生载体走 face.navigate，顺带收掉编辑态） */
   onPick: (url: string) => void;
 }) {
@@ -73,8 +75,10 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
   ];
 
   const pick = (url: string) => {
-    setMode(false);
+    // 先交出去再收编辑态：标签行那款的宿主在 onPick 里就地把胶囊收回（组件随之卸载），
+    // 顺序反了会让"失焦提交"先跑一遍、onPick 再跑一遍，同一段地址走两次
     onPick(url);
+    setMode(false);
   };
 
   const unknown = face.address === "unknown";
@@ -93,11 +97,19 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
           onBlur={() => window.setTimeout(() => setMode(false), 120)}
           onChange={(e) => { face.setDraft(e.currentTarget.value); setActive(-1); }}
           onKeyDown={(e) => {
-            if (e.key === "Escape") { setMode(false); e.currentTarget.blur(); return; }
+            if (e.key === "Escape") { setMode(false); e.currentTarget.blur(); onCancel?.(); return; }
+            // Return = 提交：有高亮补全选它；没有就把敲进去的当地址/搜索词（参考 commitTabEdit
+            // 的同一口径）；空着等于收回，不是导航
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (active >= 0) pick(suggestions[active]!.url);
+              else if (draft.trim() !== "") pick(draft);
+              else onCancel?.();
+              return;
+            }
             if (suggestions.length === 0) return;
             if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => (i + 1) % suggestions.length); return; }
             if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => (i <= 0 ? suggestions.length - 1 : i - 1)); return; }
-            if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(suggestions[active]!.url); }
           }}
         />
         {unknown && !editing && <span className="panel-browser-field-note">{t("页面已跳转，地址未知")}</span>}

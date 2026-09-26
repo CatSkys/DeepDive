@@ -4471,42 +4471,53 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-chrome {
   flex: none; display: flex; align-items: center; gap: 2px;
   height: 40px; padding: 0 8px 0 6px;
-  border-bottom: 1px solid var(--line);
+  /* 没有分割线（参考的极简）：整行与页面同底色，选中标签靠那枚滑动的灰底说话 */
 }
-/* 标签的滚动区：放不下了在自身边缘内横向滚（「+」与工具组在区外，滚多远都在）；
-   滚动条不占地方——40px 高的一行经不起再划一道 */
+/* 标签的滚动区：有多宽伸多宽（「+」紧贴最后一枚），放不下了才收缩、在自身边缘内横向滚
+   （工具组在区外贴右端）；滚动条不占地方——40px 高的一行经不起再划一道 */
 .panel-browser-chrome-run {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px;
+  flex: 0 1 auto; min-width: 0; position: relative; display: flex; align-items: center; gap: 2px;
   overflow-x: auto; scrollbar-width: none;
 }
 .panel-browser-chrome-run::-webkit-scrollbar { display: none; }
 /* 标签胶囊：图标 + 标题。参考的 186/80/36 三档在这里压成 168/96：面板比整窗窄 */
+/* 胶囊本体不带底色：未选中的与跑道融为一体（参考的极简——没有选框，hover 才有一层浅灰，
+   选中那枚的灰底是外面那枚会滑的公共底）。宽度三档照参考 Metrics：186 / 80 / 36 */
 .panel-browser-tab {
-  flex: 0 1 168px; min-width: 96px; height: 28px;
+  flex: 0 1 186px; min-width: 36px; height: 28px;
   display: flex; align-items: center; position: relative;
-  border-radius: 8px; background: var(--fill-soft);
+  border-radius: 8px; background: transparent; color: var(--ink-3);
 }
-.panel-browser-tab:hover { background: var(--fill); }
-/* 选中那枚：展开成地址框。宽度照参考 span 的口径封顶（min(340, room)），不把整行撑满——
-   多出来的地方空着，「+」紧跟在最后一枚后面。底色回到胶囊自己身上（阅读进度灰底要垫在它底下可见），
-   框平时透明——编辑（聚焦）时才亮出框的样子 */
-.panel-browser-tab.live {
-  flex: 0 1 340px; min-width: 96px; gap: 6px; padding-left: 8px;
-  overflow: hidden;
+.panel-browser-tab:hover { background: var(--fill-soft); color: var(--ink-2); }
+/* 选中那枚：底色在会滑的公共底上；标题用正色。编辑档照参考 span = min(340, room) */
+.panel-browser-tab.live { color: var(--ink); }
+.panel-browser-tab.live.editing { flex: 0 1 340px; min-width: 240px; }
+/* 紧凑档（胶囊 < 80，参考 tabTitled 同一门槛）：只留图标，标题与喇叭撤掉 */
+.panel-browser-chrome-run.compact .panel-browser-tab-title,
+.panel-browser-chrome-run.compact .panel-browser-tab-speaker { display: none; }
+.panel-browser-chrome-run.compact .panel-browser-tab-body { padding: 0 8px; justify-content: center; }
+/* 会滑的灰底：切换标签时从旧的那枚滑到新的（参考 matchedGeometryEffect 同一观感），
+   阅读进度灰底垫在它里面，跟着一起走 */
+.panel-browser-chrome-glide {
+  position: absolute; top: 0; height: 28px; z-index: 0;
+  border-radius: 8px; background: var(--fill);
+  transition: left .28s cubic-bezier(.25, .8, .25, 1), width .28s cubic-bezier(.25, .8, .25, 1);
 }
+.panel-browser-tab, .panel-browser-tab-body, .panel-browser-tab-live-field { z-index: 1; }
 .panel-browser-tab.live .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; position: relative; }
 .panel-browser-tab.live .panel-browser-field-input { background: transparent; border-color: transparent; }
-.panel-browser-tab.live .panel-browser-field-input:focus { background: var(--fill); border-color: var(--line); }
+.panel-browser-tab.live .panel-browser-field-input:focus { background: transparent; border-color: transparent; }
 /* 阅读进度灰底：选中胶囊的底上从左往右填（0–1，壳推的 tab.reading），读到哪里填到哪里 */
 .panel-browser-tab-read {
   position: absolute; left: 0; top: 0; bottom: 0;
   background: var(--ink); opacity: .06; pointer-events: none;
+  transition: width .15s ease-out;
 }
 /* 睡着：压暗一档——标签还在，只是页面进程收回去了（点它就醒） */
 .panel-browser-tab.asleep { opacity: .5; }
 .panel-browser-tab-body {
   flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 6px;
-  padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2);
+  padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: inherit;
 }
 .panel-browser-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-font-size-sm); }
 .panel-browser-tab-icon { flex: none; width: 14px; height: 14px; border-radius: 3px; object-fit: contain; }
@@ -4549,6 +4560,12 @@ input:focus, textarea:focus, select:focus { outline: none; }
   flex: none; display: flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px;
   background: transparent; color: var(--ink-3);
+  opacity: 0; transform: scale(.7); transform-origin: left center; pointer-events: none;
+  transition: opacity var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+.panel-browser-chrome:hover .panel-browser-tab-new,
+.panel-browser-chrome:focus-within .panel-browser-tab-new {
+  opacity: 1; transform: none; pointer-events: auto;
 }
 .panel-browser-tab-new:hover { background: var(--fill); color: var(--ink); }
 /* 行尾那一组：贴着右端（参考的 Metrics.helm） */
@@ -4580,8 +4597,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-offers {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
   display: flex; flex-direction: column; padding: 6px;
-  border: 1px solid var(--line-strong); border-radius: 12px;
-  background: var(--card-gradient); box-shadow: var(--shadow-pop); overflow: hidden;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface-raised); box-shadow: var(--shadow-pop); overflow: hidden;
 }
 .panel-browser-offer {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px;
@@ -4609,7 +4626,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 
 /* ---------- 行尾工具组 ---------- */
-.panel-browser-helm { flex: none; display: flex; align-items: center; gap: 2px; }
+.panel-browser-helm { flex: none; display: flex; align-items: center; gap: 4px; padding-left: 10px; }
 .panel-browser-tool.on { color: var(--ink); background: var(--fill); }
 
 /* 拾取模式的那行提示：浮在网页之上做不到（原生视图恒在 SPA 之上），所以它贴在工具栏下沿 */

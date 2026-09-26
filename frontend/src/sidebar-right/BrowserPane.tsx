@@ -63,7 +63,7 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
   }, !expanded);
   const face: PaneFace = {
     ...browser.frame, draft: browser.draft, setDraft: browser.setDraft, failure: browser.failure,
-    submit: browser.submit, navigate: browser.navigate,
+    submit: browser.submit, navigate: browser.navigate, cancel: browser.cancel,
     goBack: browser.goBack, goForward: browser.goForward, doReload: browser.doReload,
   };
   const empty = browser.frame.address === "";
@@ -89,7 +89,6 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
           onSelect={browser.selectTab}
           onClose={browser.closeTab}
           onNew={browser.newTab}
-          onPick={(url) => browser.navigate(url)}
           focusTick={intent.kind === "address" ? intent.id : 0}
           onMute={browser.toggleMute}
           trailing={(
@@ -161,7 +160,8 @@ function IframeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
   const [sandboxed, setSandboxed] = useState(true);
   const face: PaneFace = {
     ...browser.frame, draft: browser.draft, setDraft: browser.setDraft, failure: browser.failure,
-    submit: browser.submit, goBack: browser.goBack, goForward: browser.goForward, doReload: browser.doReload,
+    submit: browser.submit, cancel: browser.cancel,
+    goBack: browser.goBack, goForward: browser.goForward, doReload: browser.doReload,
   };
   const target = browser.frame.target;
   return (

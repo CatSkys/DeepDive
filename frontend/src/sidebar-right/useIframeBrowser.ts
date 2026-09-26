@@ -32,6 +32,8 @@ export interface PaneFace extends BrowserFrameState {
   submit: () => void;
   /** 直接去一个地址：原生载体给得出（顺带收掉地址栏的编辑态），iframe 载体没有这回事 */
   navigate?: (url: string) => void;
+  /** 收掉地址栏的编辑、把草稿退回当前地址的镜像（Esc / 点开地址框时用） */
+  cancel: () => void;
   goBack: () => void;
   goForward: () => void;
   doReload: () => void;
@@ -49,6 +51,7 @@ export interface IframeBrowser {
   setDraft: (v: string) => void;
   failure: BrowserAddressFailure | undefined;
   submit: () => void;
+  cancel: () => void;
   goBack: () => void;
   goForward: () => void;
   doReload: () => void;
@@ -102,6 +105,7 @@ export function useIframeBrowser(applicationOrigin: string): IframeBrowser {
     setDraft: (v) => { editing.current = true; setDraft(v); },
     failure,
     submit: () => { editing.current = false; load(draft); },
+    cancel: () => { editing.current = false; setDraft(target?.url ?? ""); },
     goBack: () => setState((s) => back(s) ?? s),
     goForward: () => setState((s) => forward(s) ?? s),
     doReload: () => setState((s) => reload(s) ?? s),

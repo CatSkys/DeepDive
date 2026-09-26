@@ -96,6 +96,8 @@ export interface NativeBrowser {
   submit: () => void;
   /** 直接去一个地址（补全项点击走它：顺带把地址栏的编辑态收掉） */
   navigate: (url: string) => void;
+  /** 收掉地址栏的编辑、草稿退回当前地址的镜像（Esc / 点开标签地址框不提交时用） */
+  cancel: () => void;
   goBack: () => void;
   goForward: () => void;
   doReload: () => void;
@@ -138,11 +140,9 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
       if (switching) {
         const next = list.find((tab) => tab.id === nextId);
         setObserved({ ...EMPTY, url: next?.url ?? "", title: next?.title ?? "" });
-        // draft 也要跟着换：镜像效应在 url==="" 时不动手（编辑保护），空白标签会把
-        // 上一页的 URL 残留在地址框与空白页大框里；编辑态一并丢弃（草稿不属于新标签）
-        editing.current = false;
-        setFailure(undefined);
-        setDraft(next?.url ?? "");
+        // draft 也要跟着换：镜像效应在 url==="" 时不动手（编辑保护），空白标签会残留
+        // 上一页的 URL；编辑态一并丢弃（草稿与失败提示都不属于新标签）
+        editing.current = false; setFailure(undefined); setDraft(next?.url ?? "");
         setCover("");
       }
       return;
@@ -290,6 +290,7 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
     submit: () => { editing.current = false; load(draft); },
     // 从补全里选一条：进地址栏、清 editing（否则地址栏从此不再镜像壳的 URL）
     navigate: (url: string) => { editing.current = false; setDraft(url); sendToShell({ type: "browser-nav", action: "load", url }); },
+    cancel: () => { editing.current = false; setDraft(observed.url); },
     goBack: () => sendToShell({ type: "browser-nav", action: "back" }),
     goForward: () => sendToShell({ type: "browser-nav", action: "forward" }),
     doReload: () => sendToShell({ type: "browser-nav", action: "reload" }),
