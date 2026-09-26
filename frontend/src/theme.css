@@ -4608,5 +4608,25 @@ input:focus, textarea:focus, select:focus { outline: none; }
   font-size: var(--dsh-font-size-base);
 }
 .composer-float-tail:empty { display: none; }
+/* 卡片的头一行（收起态就是它）：左"已工作 x"、右展开箭头；展开时箭头朝下。
+   与参考图两态一致——收起是一行，展开是整轮内容。 */
+.composer-float-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--dsh-radius-control, 8px);
+  background: none;
+  color: var(--dsh-text-tertiary);
+  font-size: var(--dsh-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.composer-float-head:hover { background: var(--fill-soft); color: var(--ink); }
+.composer-float-chevron { transition: transform 120ms ease; }
+.composer-float-tail[data-open] .composer-float-chevron { transform: rotate(180deg); }
 /* 与正文列同宽同轴（会话里那条 --reading-col 的规矩在叠加层里同样成立） */
 .composer-float > .composer-wrap { width: 100%; max-width: var(--reading-col); margin: 0 auto; }
