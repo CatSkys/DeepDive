@@ -80,13 +80,25 @@ final class BrowserHostTests: XCTestCase {
 
     // MARK: - 悬浮输入框叠加层（浏览器全屏时浮在网页之上）
 
-    func testPillRectFlipsIntoAppKitCoordinates() {
-        // 页面坐标是 CSS（左上原点、y 向下），AppKit 是左下原点 —— 这层翻转写错了
-        // 不会报错，只会"胶囊那块点不动 / 透明处把网页点击吞掉"，所以钉住它。
+    func testPillRectMapsIntoSupersuperCoordinatesAndHitTests() {
+        // hitTest 收到的点是**父视图坐标**：漏掉视图自身 frame 的位移、或 Y 翻错方向，
+        // 都不会报错，只表现为"卡片点不动、别的某块反而吃掉网页点击"——实测用户报
+        // "关闭键没用"。这里把换算结果与 hitTest 的真行为一起钉住。
         let host = ComposerOverlayHost()
-        host.view.frame = NSRect(x: 0, y: 0, width: 800, height: 320)
-        host.setPill(cssRect: NSRect(x: 200, y: 240, width: 300, height: 60), zoom: 1)
-        XCTAssertEqual(host.view.interactiveRect, NSRect(x: 200, y: 20, width: 300, height: 60))
+        let parent = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+        parent.addSubview(host.view)
+        host.view.frame = NSRect(x: 100, y: 400, width: 600, height: 300)   // 面板那一格
+        // 页面里卡片在 (20,100) 100x50（左上原点、y 向下）
+        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1)
+
+        // 父坐标 = 视图位移 + 视图高度翻转：y = 400 + 300 - (100+50) = 550
+        XCTAssertEqual(host.view.interactiveRect, NSRect(x: 120, y: 550, width: 100, height: 50))
+        // 卡片中心点命中自己；卡片外（含原来会被镜像命中的位置）必须穿透给网页
+        XCTAssertNotNil(host.view.hitTest(NSPoint(x: 170, y: 575)))
+        XCTAssertNil(host.view.hitTest(NSPoint(x: 170, y: 425)))
+        // 隐藏后不该再吃任何点击（卡不在了，旧矩形会让那块网页点不动）
+        host.hide()
+        XCTAssertNil(host.view.hitTest(NSPoint(x: 170, y: 575)))
     }
 
     func testOverlayIsTransparentAndStartsHidden() {

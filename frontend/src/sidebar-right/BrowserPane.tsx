@@ -8,7 +8,7 @@
 // 两种尺寸共用同一个组件实例，所以切尺寸不会重挂载体、不会丢页面状态。
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, RotateCw, CornerUpRight, ShieldOff, ShieldCheck, Maximize2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCw, CornerUpRight, MessageSquare, ShieldOff, ShieldCheck, Maximize2 } from "lucide-react";
 import { t } from "../i18n";
 import { openExternalUrl } from "../host";
 import type { BrowserAddressFailure } from "./browserUrl";
@@ -37,10 +37,12 @@ interface PaneFace extends BrowserFrameState {
 }
 
 /** 工具栏 + 地址栏（官方 BrowserBody 的 form 部分）。 */
-function BrowserToolbar({ face, sandbox }: {
+function BrowserToolbar({ face, sandbox, onChat }: {
   face: PaneFace;
   /** 只有 iframe 载体给得出沙箱开关；原生载体由壳执行策略，不给这个按钮。 */
   sandbox?: { enabled: boolean; toggle: () => void };
+  /** 叫出悬浮对话卡（壳侧叠加层）。 */
+  onChat: () => void;
 }) {
   const unknown = face.address === "unknown";
   const external = unknown ? undefined : face.target?.url;
@@ -68,13 +70,15 @@ function BrowserToolbar({ face, sandbox }: {
           onChange={(e) => face.setDraft(e.currentTarget.value)}
         />
         {unknown && <span className="panel-browser-changed">{t("页面已跳转，地址未知")}</span>}
-        <button type="submit" className="panel-browser-tool" aria-label={t("打开")} data-tip={t("打开")}>
-          <CornerUpRight size={14} />
-        </button>
       </div>
       <button type="button" className="panel-browser-tool" aria-label={t("在浏览器中打开")} data-tip={t("在浏览器中打开")}
         disabled={external === undefined} onClick={external === undefined ? undefined : () => openExternalUrl(external)}>
         <CornerUpRight size={14} />
+      </button>
+      {/* 「对话」：把浮在网页之上的那座对话卡叫出来（原来占着面板标题栏那格） */}
+      <button type="button" className="panel-chat-btn" aria-label={t("对话")} data-tip={t("对话")} onClick={onChat}>
+        <MessageSquare size={14} />
+        <span>{t("对话")}</span>
       </button>
       {sandbox && (
         <button
@@ -111,10 +115,11 @@ function SlotOverlay({ label, onExpand }: { label: string; onExpand: () => void 
 /** 壳载体：页面由壳里的 WKWebView 承载。展开态把槽位挖给壳的原生视图（人在这里操作）；
  *  缩略图态显示壳给的**快照图**——WKWebView 没法"缩小放进去"（pageZoom 是重新排版，
  *  见 BrowserHost.previewShot），缩略图要的是整屏的等比缩小。 */
-function NativeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
+function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
+  onChat: () => void;
   caption: string;
 }) {
   const browser = useNativeBrowser(applicationOrigin);
@@ -125,7 +130,7 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
   const empty = browser.frame.address === "";
   return (
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
-      {expanded && <BrowserToolbar face={face} />}
+      {expanded && <BrowserToolbar face={face} onChat={onChat} />}
       <div className="panel-browser-body">
         {expanded ? (
           <NativeCarrier interactive>{null}</NativeCarrier>
@@ -146,10 +151,11 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
 }
 
 /** iframe 载体：跨域读不到地址，所以自带"应用自有历史 + 未知地址"状态机。 */
-function IframeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
+function IframeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
+  onChat: () => void;
   caption: string;
 }) {
   const browser = useIframeBrowser(applicationOrigin);
@@ -161,7 +167,7 @@ function IframeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
   const target = browser.frame.target;
   return (
     <div className={`panel-browser${expanded ? " expanded" : " slot"}`}>
-      {expanded && <BrowserToolbar face={face} sandbox={{ enabled: sandboxed, toggle: () => setSandboxed((v) => !v) }} />}
+      {expanded && <BrowserToolbar face={face} onChat={onChat} sandbox={{ enabled: sandboxed, toggle: () => setSandboxed((v) => !v) }} />}
       <div className="panel-browser-body">
         {target === undefined
           ? <BrowserEmpty />
@@ -180,13 +186,14 @@ function IframeBrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
 }
 
 /** 侧栏浏览器（对外入口）：按载体选一支，两种尺寸由调用方给。 */
-export function BrowserPane({ expanded, applicationOrigin, onExpand, caption }: {
+export function BrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
+  onChat: () => void;
   caption: string;
 }) {
   return browserCarrierKind() === "native"
-    ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} caption={caption} />
-    : <IframeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} caption={caption} />;
+    ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} caption={caption} />
+    : <IframeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} caption={caption} />;
 }

@@ -58,9 +58,10 @@ describe("悬浮对话卡叠加层", () => {
     // 复用会话输入框：它的根是 .composer-wrap（另做一份就会缺这个结构）
     expect(container.querySelector(".composer-wrap")).not.toBeNull();
     expect(container.querySelector(".chat-float")).not.toBeNull();
-    // 顶栏（拖动 + 右上关闭）与"本轮内容"槽位
+    // 顶栏（拖动 + 右上关闭）；卡里直接是本轮内容，没有"收起/展开"那一行
     expect(container.querySelector(".chat-float-head")).not.toBeNull();
     expect(container.querySelector(".chat-float-close")).not.toBeNull();
+    expect(container.querySelector(".chat-float-body")).not.toBeNull();
     // 等一次 300ms 的心跳推 rect（首帧也要立刻推一次）：报的是**卡片**矩形，
     // 整条透明层本身不收事件（否则会把网页的点击与滚轮全吞掉）。
     await vi.waitFor(() => {

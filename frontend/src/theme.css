@@ -4614,28 +4614,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .chat-float-close:hover { background: var(--fill-soft); color: var(--ink); }
 .chat-float-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 12px; }
-/* 卡内那张"最近一轮"：收起态只有一行（左"已工作 x"、右展开箭头），点它摊开整轮。 */
-.chat-turn-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: var(--dsh-radius-control, 8px);
-  background: none;
-  color: var(--dsh-text-tertiary);
-  font-size: var(--dsh-font-size-sm);
-  text-align: left;
-  cursor: pointer;
-}
-.chat-turn-head:hover { background: var(--fill-soft); color: var(--ink); }
-.chat-turn-chevron { transition: transform 120ms ease; }
-.chat-turn[data-open] .chat-turn-chevron { transform: rotate(180deg); }
+
 .chat-float-foot { flex: none; padding: 8px 10px 10px; border-top: 1px solid var(--line); }
 .chat-float-foot .composer { width: 100%; }
-/* 顶栏那颗「对话」（浏览器页取代"会话设置"的位置）：图标 + 文字的胶囊 */
+/* 地址栏右侧那颗「对话」（图标 + 文字的胶囊，同参考图的 Chat）：把浮在网页之上的
+   对话卡叫出来。原来它占的是面板标题栏"会话设置"那格，用户要求挪到地址栏右侧。 */
 .panel-chat-btn {
   display: flex;
   align-items: center;

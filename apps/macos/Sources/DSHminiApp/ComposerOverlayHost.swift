@@ -65,12 +65,16 @@ final class ComposerOverlayHost: NSObject {
         view.interactiveRect = .zero
     }
 
-    /// 页面报上来的胶囊矩形（本视图坐标）→ 换算成 AppKit 坐标供 hitTest 用。
+    /// 页面报上来的卡片矩形（CSS px、本视图内坐标）→ **父视图坐标**的可点矩形。
+    ///
+    /// `hitTest(_:)` 收到的是**父视图坐标系**里的点，所以这里必须把视图自身的 frame 位移
+    /// 算进去、并按视图高度翻转 Y（页面是左上原点、y 向下）。漏了位移或翻错方向都不会报错，
+    /// 只表现为"卡片点不动、别的某一块反而把网页点击吃掉"——实测用户报"关闭键没用"就是这个。
     func setPill(cssRect: NSRect, zoom: CGFloat) {
-        let h = view.bounds.height
+        let frame = view.frame
         view.interactiveRect = NSRect(
-            x: cssRect.minX * zoom,
-            y: h - (cssRect.minY + cssRect.height) * zoom,
+            x: frame.minX + cssRect.minX * zoom,
+            y: frame.minY + frame.height - (cssRect.minY + cssRect.height) * zoom,
             width: cssRect.width * zoom,
             height: cssRect.height * zoom
         )
