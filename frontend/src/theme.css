@@ -4614,7 +4614,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
   cursor: pointer;
 }
 .chat-float-close:hover { background: var(--fill-soft); color: var(--ink); }
-.chat-float-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 12px; }
+.chat-float-body { display: flex; flex: 1; min-height: 0; overflow: hidden; padding: 8px 12px; }
+/* 会话流本体：卡片里这一段自己滚（TurnList 的 scrollRef 挂在它上面，跟着最新一条） */
+.chat-float-body > .chat-turn { flex: 1; min-width: 0; overflow-y: auto; }
 
 /* 头/体/脚之间**不画分割线**（用户定稿）：靠间距与留白分开 */
 .chat-float-foot { position: relative; flex: none; padding: 4px 10px 10px; }
