@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { t } from "../i18n";
 import { openPath, revealPath } from "../host";
@@ -13,8 +13,9 @@ import { DD_EVENTS } from "../events";
 // portal 到 body + fixed 定位：flow 内层叠上下文密集（isolation/动画），
 // 贴身定位会被吞（.model-menu 同款教训）。
 
-interface FloatState { x: number; y: number; text: string }
-interface FileState { x: number; y: number; path: string }
+/** 锚点：x=横向中心，above=浮条上沿该放哪（选区顶/光标点），below=放不下时翻到哪。 */
+interface FloatState { x: number; above: number; below: number; text: string }
+interface FileState { x: number; above: number; below: number; path: string }
 
 /** 非折叠且落在消息流内的选区文字；无则 null。 */
 function selectionInFlow(): string | null {
@@ -32,14 +33,40 @@ export function SelectionActions() {
   const [popup, setPopup] = useState<FloatState | null>(null);
   const [menu, setMenu] = useState<FloatState | null>(null);
   const [file, setFile] = useState<FileState | null>(null);
+  /** 落点（按实测尺寸钳过一遍的结果）；锚点变了先置 null，等量完再摆。 */
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
 
   // 收起全部浮层。必须是组件级：渲染体里的按钮回调也只能用它——
   // 早先它只存在于 effect 内，那些 close() 其实调到全局 window.close()
   // （浮条点「复制」后不收起）。
-  const close = useCallback(() => { setPopup(null); setMenu(null); setFile(null); }, []);
+  const close = useCallback(() => { setPopup(null); setMenu(null); setFile(null); setPos(null); }, []);
+
+  // 落点钳位（用户报"浮条跑到卡外、又被裁掉"）：按浮条**实测**宽高落位，横向优先
+  // 钳在消息流卡的内容区内（卡片 overflow 会裁掉越界的部分），锚点在卡外时才退回
+  // 窗口；选区上方放不下就翻到下方。
+  const anchor = popup ?? menu ?? file;
+  useLayoutEffect(() => {
+    const el = barRef.current;
+    if (!anchor || !el) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    // 钳位基准取 .flow（滚动视口，位置固定在视口里）；不是 .flow-inner——
+    // 那是滚动内容，内容滚出去时它的矩形也跟着跑到视口外，钳不住。
+    const flow = (document.querySelector(".flow") ?? document.querySelector(".flow-inner"))?.getBoundingClientRect() ?? null;
+    const anchorInFlow = flow != null && anchor.x >= flow.left && anchor.x <= flow.right;
+    const box = anchorInFlow
+      ? { left: flow!.left + 4, right: flow!.right - 4, top: flow!.top + 4, bottom: flow!.bottom - 4 }
+      : { left: 8, right: window.innerWidth - 8, top: 8, bottom: window.innerHeight - 8 };
+    const half = w / 2;
+    const GAP = 8;
+    const x = Math.min(Math.max(anchor.x, box.left + half), Math.max(box.left + half, box.right - half));
+    let y = anchor.above - h - GAP;
+    if (y < box.top) y = Math.min(anchor.below + GAP, box.bottom - h);
+    setPos({ x, y: Math.max(box.top, Math.min(y, box.bottom - h)) });
+  }, [anchor?.x, anchor?.above, anchor?.below, anchor != null]);
 
   useEffect(() => {
-    const BAR = 40; // 浮条估高 + 间距：定位在其选区上方
     const insideSelf = (e: MouseEvent) =>
       (e.target as Element | null)?.closest?.(".sel-actions") != null;
 
@@ -49,10 +76,9 @@ export function SelectionActions() {
       if (!text) { setPopup(null); return; }
       const sel = window.getSelection()!;
       const r = sel.getRangeAt(0).getBoundingClientRect();
-      // 选区中点上方，左右钳进视口（浮条 ~190px 宽，取半宽 95）
-      const x = Math.min(Math.max(r.left + r.width / 2, 104), window.innerWidth - 104);
       setMenu(null);
-      setPopup({ x, y: Math.max(8, r.top - BAR), text });
+      // 只给锚点，落点交给钳位 effect 按实测尺寸算
+      setPopup({ x: r.left + r.width / 2, above: r.top, below: r.bottom, text });
     };
     const onSelectionChange = () => {
       if (window.getSelection()?.isCollapsed) setPopup(null);
@@ -71,9 +97,9 @@ export function SelectionActions() {
       close();
       // 产物文件 chip：文件动作优先（光标就在 chip 上，选区语义让位）
       const chip = target?.closest?.("[data-file-ctx]")?.getAttribute("data-file-ctx");
-      if (chip) { setFile({ x: e.clientX, y: e.clientY, path: chip }); return; }
+      if (chip) { setFile({ x: e.clientX, above: e.clientY, below: e.clientY, path: chip }); return; }
       const text = selectionInFlow();
-      if (text) setMenu({ x: e.clientX, y: e.clientY, text });
+      if (text) setMenu({ x: e.clientX, above: e.clientY, below: e.clientY, text });
     };
 
     document.addEventListener("mouseup", onMouseUp);
@@ -104,16 +130,16 @@ export function SelectionActions() {
   };
 
   // 三个浮层共用一套浮条样式，按钮集不同；右键菜单按锚点分文件动作 / 复制
-  const bar = (s: { x: number; y: number }, buttons: React.ReactNode) =>
+  const bar = (buttons: React.ReactNode) =>
     createPortal(
-      <div className="sel-actions" style={{ left: s.x, top: s.y }}>
+      <div ref={barRef} className="sel-actions" style={{ left: pos?.x ?? -9999, top: pos?.y ?? -9999 }}>
         {buttons}
       </div>,
       document.body,
     );
 
   if (popup) {
-    return bar(popup, (
+    return bar((
       <>
         <button onClick={() => appendToComposer(popup.text)}>{t("添加到当前任务")}</button>
         <button onClick={() => void copy(popup.text)}>{t("复制")}</button>
@@ -121,7 +147,7 @@ export function SelectionActions() {
     ));
   }
   if (file) {
-    return bar(file, (
+    return bar((
       <>
         <button onClick={() => { openPath(file.path); close(); }}>{t("默认应用打开")}</button>
         <button onClick={() => { revealPath(file.path); close(); }}>{t("在 Finder 中显示")}</button>
@@ -129,7 +155,7 @@ export function SelectionActions() {
     ));
   }
   if (menu) {
-    return bar(menu, <button onClick={() => void copy(menu.text)}>{t("复制")}</button>);
+    return bar(<button onClick={() => void copy(menu.text)}>{t("复制")}</button>);
   }
   return null;
 }
