@@ -1,7 +1,7 @@
 // 浏览器页上的悬浮对话卡（叠加层那一页）：整页透明、一张可拖动的卡（标题栏 + 本轮内容 +
 // 原样复用的 Composer），并把**卡片矩形**报给壳——卡外要透传点击给底下的网页。
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // jsdom（本仓没配 vitest environmentOptions）里 `localStorage` 这个裸全局不存在，
@@ -40,17 +40,59 @@ beforeAll(() => {
 
 const sent: Array<Record<string, unknown>> = [];
 
-vi.mock("../host", () => ({
-  inShell: () => true,
-  sendToShell: (m: Record<string, unknown>) => { sent.push(m); },
-  onHostEvent: () => () => { /* 叠加层不订阅壳事件 */ },
-  openExternalUrl: () => { /* 未走到 */ },
+// 卡的会话流走 useSessionEvents（真钩子要引擎连接，jsdom 里取不到数）：这里钉住它的
+// 三个返回值，`h.running` 控摘要侧的 running 投影（用户报障"刚发出、turn/start 还没到"
+// 那段窗口里卡片没有 loader），`h.items` 控流式增长（同一处报障：发完消息不自己滚到底）。
+const h = vi.hoisted(() => ({ running: false, items: [] as unknown[] }));
+vi.mock("../api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api")>();
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      sessions: vi.fn(async () => ({
+        items: h.running ? [{ sessionId: "sess-1", updatedAt: 1, running: true, blank: false }] : [],
+      })),
+    },
+  };
+});
+vi.mock("../session/useSessionEvents", () => ({
+  useSessionEvents: () => ({
+    items: h.items,
+    liveRunning: false,
+    runningSince: undefined,
+  }),
 }));
 
 import { ComposerOverlayApp } from "../sidebar-right/ComposerOverlay";
 
+// jsdom 不排版：滚动尺寸与 scrollTop 全是 0，贴底与否测不出来。在原型上装一套
+// 可写可观测的滚动度量，测的是"谁写了 scrollTop"，不是浏览器怎么滚。
+const scroll = { height: 500, top: 0, client: 200 };
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "scrollHeight", { get: () => scroll.height, configurable: true });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", { get: () => scroll.client, configurable: true });
+  Object.defineProperty(HTMLElement.prototype, "scrollTop", {
+    get: () => scroll.top,
+    set: (v: number) => { scroll.top = v; },
+    configurable: true,
+  });
+});
+
 afterEach(cleanup);
-beforeEach(() => { sent.length = 0; });
+beforeEach(() => {
+  sent.length = 0;
+  h.running = false;
+  h.items = [{
+    key: "u1",
+    kind: "user",
+    event: { type: "user/message", seq: 1, time: 1, data: { role: "user", id: "u1", content: [{ type: "text", text: "hi" }], source: { kind: "user" } } },
+  }];
+  scroll.height = 500;
+  scroll.top = 0;
+  delete window.__deepDiveHost;
+  window.webkit = { messageHandlers: { deepdiveHost: { postMessage: (m) => sent.push(m as Record<string, unknown>) } } };
+});
 
 describe("悬浮对话卡叠加层", () => {
   it("渲染的是同一个 Composer（不是另做的精简版），并把卡片矩形报给壳", async () => {
@@ -69,6 +111,56 @@ describe("悬浮对话卡叠加层", () => {
       expect(pill?.rect?.w).toBeGreaterThan(0);
       expect(pill?.rect?.h).toBeGreaterThan(0);
     });
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(container.querySelector(".chat-float-close")!);
+      expect(container.querySelector(".chat-float")).toBeNull();
+      act(() => window.__deepDiveHost!.dispatch("chatShow", {}));
+      expect(container.querySelector(".chat-float")).not.toBeNull();
+    }
     void screen;
+  });
+
+  it("会话在跑时卡里出 loader（运行中指示器由 TurnList 挂在流末，两处共用同一份）", async () => {
+    const idle = render(<ComposerOverlayApp sessionId="sess-1" />);
+    // 空闲：只有那一轮用户气泡，没有 loader
+    await waitFor(() => expect(idle.container.querySelector(".msg-block.user")).not.toBeNull());
+    expect(idle.container.querySelector(".loading-state")).toBeNull();
+    idle.unmount();
+
+    // 摘要投影说会话在跑（事件侧 liveRunning 还没跟上）——loader 必须在，
+    // 这正是"刚按下发送、卡里一片死寂"的那段窗口。摘要是 store 轮询来的，
+    // 所以按"开着卡时它就在跑"来构造。
+    h.running = true;
+    const busy = render(<ComposerOverlayApp sessionId="sess-1" />);
+    await waitFor(() => {
+      expect(busy.container.querySelector(".loading-state")).not.toBeNull();
+    });
+  });
+
+  it("流式长高时自己滚到底；用户上滑之后不再抢滚动", async () => {
+    const { container, rerender } = render(<ComposerOverlayApp sessionId="sess-1" />);
+    // 打开就贴底
+    expect(scroll.top).toBe(scroll.height);
+
+    // 回复逐段到达 → 内容变高，视图仍钉在底部（用户报障：发完消息要自己拉）
+    scroll.height = 900;
+    h.items = [...h.items, { key: "a1", kind: "assistant", event: { type: "assistant/message", seq: 2, time: 2, data: { role: "assistant", content: [{ type: "text", text: "在的" }] } } }];
+    rerender(<ComposerOverlayApp sessionId="sess-1" />);
+    expect(scroll.top).toBe(900);
+
+    // 用户上滑看历史 → 交还控制权，后续增长不把人拽回底部
+    scroll.top = 100;
+    fireEvent.scroll(container.querySelector(".chat-turn")!);
+    scroll.height = 1400;
+    h.items = [...h.items, { key: "a2", kind: "assistant", event: { type: "assistant/message", seq: 3, time: 3, data: { role: "assistant", content: [{ type: "text", text: "还有一段" }] } } }];
+    rerender(<ComposerOverlayApp sessionId="sess-1" />);
+    expect(scroll.top).toBe(100);
+
+    // 自己滚回底部 → 恢复跟随
+    scroll.top = 1400;
+    fireEvent.scroll(container.querySelector(".chat-turn")!);
+    h.items = [...h.items, { key: "a3", kind: "assistant", event: { type: "assistant/message", seq: 4, time: 4, data: { role: "assistant", content: [{ type: "text", text: "到底了" }] } } }];
+    rerender(<ComposerOverlayApp sessionId="sess-1" />);
+    expect(scroll.top).toBe(1400);
   });
 });

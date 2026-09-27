@@ -408,7 +408,7 @@ export function pickAttachments(): Promise<PickedAttachment[] | null> {
   );
 }
 
-export function installHostBridge(handlers: {
+export function installHostBridge(handlers: Partial<{
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;
   themeChanged: (dark: boolean) => void;
@@ -421,40 +421,40 @@ export function installHostBridge(handlers: {
   newSession: () => void;
   /** 菜单「帮助 → 新手引导」：把引导卡再请出来（与首启那张同一份）。 */
   openOnboarding: () => void;
-}): void {
+}> = {}): void {
   if (window.__deepDiveHost) return; // idempotent mount (StrictMode/reloads)
   window.__deepDiveHost = {
     dispatch(cmd: string, payload?: unknown) {
       switch (cmd) {
         case "navigateToSession": {
           const sessionId = (payload as { sessionId?: string } | undefined)?.sessionId;
-          if (typeof sessionId === "string" && sessionId) handlers.navigateToSession(sessionId);
+          if (typeof sessionId === "string" && sessionId) handlers.navigateToSession?.(sessionId);
           break;
         }
         case "navigateToSettings": {
-          handlers.navigateToSettings();
+          handlers.navigateToSettings?.();
           break;
         }
         case "themeChanged": {
           const dark = (payload as { dark?: boolean } | undefined)?.dark ?? true;
-          handlers.themeChanged(dark);
+          handlers.themeChanged?.(dark);
           break;
         }
         case "workspacePicked": {
           const path = (payload as { path?: string } | undefined)?.path;
-          if (typeof path === "string" && path) handlers.workspacePicked(path);
+          if (typeof path === "string" && path) handlers.workspacePicked?.(path);
           break;
         }
         case "systemWake": {
-          handlers.systemWake();
+          handlers.systemWake?.();
           break;
         }
         case "newSession": {
-          handlers.newSession();
+          handlers.newSession?.();
           break;
         }
         case "openOnboarding": {
-          handlers.openOnboarding();
+          handlers.openOnboarding?.();
           break;
         }
         default:

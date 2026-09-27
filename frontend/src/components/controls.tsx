@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Check, MoreHorizontal } from "lucide-react";
+import { useBrowserPopup } from "../sidebar-right/useBrowserPopup";
 import rowsCss from "../settings/SettingsRows.module.css";
 
 /** Global shared controls (settings sections + hero preset picker): monochrome
@@ -146,12 +147,14 @@ const ROW_MENU_WIDTH = 176;
 
 /** 行内「…」动作菜单：触发钮是图标，菜单从它右下方展开、右对齐（靠右的行不会溢出）。
  *  样式复用 Dropdown 的 `.ddMenu` / `.ddItem`（同一套菜单观感）。 */
-export function RowMenu({ items, onSelect, label }: {
+export function RowMenu({ items, onSelect, label, nativePopup = false }: {
   items: RowMenuItem[];
   onSelect: (v: string) => void;
   label: string;
+  nativePopup?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const popupTarget = useBrowserPopup(nativePopup && open, () => setOpen(false));
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -192,7 +195,7 @@ export function RowMenu({ items, onSelect, label }: {
       <button ref={triggerRef} type="button" className={rowsCss.ddIconTrigger} aria-label={label} onClick={toggle}>
         <MoreHorizontal size={15} />
       </button>
-      {open && pos && createPortal(
+      {open && pos && (!nativePopup || popupTarget) && createPortal(
         <div
           ref={menuRef}
           className={rowsCss.ddMenu}
@@ -225,7 +228,7 @@ export function RowMenu({ items, onSelect, label }: {
             );
           })}
         </div>,
-        document.body,
+        nativePopup ? popupTarget! : document.body,
       )}
     </div>
   );

@@ -60,10 +60,24 @@ extension MainWindowController {
         browserTabs.setSlot(slot, contentHeight: browserContainerHeight, zoom: browserZoom)
     }
 
+    /// 槽位消息里那组 `{x,y,w,h}`（CSS px，窗口坐标）。
+    private static func cssRects(_ value: Any?) -> [NSRect] {
+        guard let items = value as? [[String: Any]] else { return [] }
+        return items.map {
+            NSRect(
+                x: $0["x"] as? Double ?? 0,
+                y: $0["y"] as? Double ?? 0,
+                width: $0["w"] as? Double ?? 0,
+                height: $0["h"] as? Double ?? 0
+            )
+        }
+    }
+
     /// 浏览器这一族的桥消息分发（`browser-` 与 `composer-` 前缀）。逐一列出来而不是
     /// 用字典：新增一条消息时这里就是唯一的清单，漏了会在默认分支留下一条日志。
     func handleBrowserMessage(_ body: [String: Any]) {
         switch body["type"] as? String {
+        case "browser-popup-rects": browserPopup?.setRects(Self.cssRects(body["rects"]))
         case "browser-nav": handleBrowserNav(body)
         case "browser-tabs": handleBrowserTabs(body)
         case "browser-cookies": handleBrowserCookies(body)

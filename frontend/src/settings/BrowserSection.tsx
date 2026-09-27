@@ -69,14 +69,10 @@ export function BrowserSection() {
     <>
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("缩放")}</div>
-        <div className={rowsCss.sectionIntro}>
-          {t("缩放是让页面按新尺寸重新排版（不是放大镜），所以它同时影响排版与清晰度。")}
-        </div>
         <div className={rowsCss.rowGroup}>
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("默认缩放")}</div>
-              <div className={rowsCss.rowCaption}>{t("新打开的站点没记住过缩放时用这个值。")}</div>
             </div>
             <div className={rowsCss.rowActions}>
               <Dropdown
@@ -89,7 +85,6 @@ export function BrowserSection() {
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("按站点记住缩放")}</div>
-              <div className={rowsCss.rowCaption}>{t("关掉后所有站点都用默认缩放。")}</div>
             </div>
             <div className={rowsCss.rowActions}>
               <Toggle on={prefs.browserZoomRememberSite} onChange={prefs.setBrowserZoomRememberSite} />
@@ -100,14 +95,10 @@ export function BrowserSection() {
 
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("标签页")}</div>
-        <div className={rowsCss.sectionIntro}>
-          {t("没人看的标签会被收起：页面进程还回系统，只留回去的路与一张停帧图，再点它按原处恢复。")}
-        </div>
         <div className={rowsCss.rowGroup}>
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("闲置多久后休眠")}</div>
-              <div className={rowsCss.rowCaption}>{t("当前标签永远不睡；页面里握着没发出去的输入时也不睡。")}</div>
             </div>
             <div className={rowsCss.rowActions}>
               <Dropdown
@@ -122,15 +113,11 @@ export function BrowserSection() {
 
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("登录态")}</div>
-        <div className={rowsCss.sectionIntro}>
-          {t("浏览器有自己的一份持久存储：在这儿登一次就留着（重启也在，与应用自身的会话隔离）。也可以从本机其它浏览器把 cookie 导进来。")}
-        </div>
         <div className={rowsCss.rowGroup}>
           {cookies.sources.length === 0 && (
             <div className={rowsCss.rowCard}>
               <div className={rowsCss.rowIdentity}>
                 <div className={rowsCss.rowName}>{t("没检测到可导入的浏览器")}</div>
-                <div className={rowsCss.rowCaption}>{t("Chrome、Edge、Arc、Brave、Firefox、Safari 的 cookie 都能导。")}</div>
               </div>
               <div className={rowsCss.rowActions}>
                 <button className={rowsCss.secondaryButton} onClick={cookies.refresh}>
@@ -144,12 +131,12 @@ export function BrowserSection() {
             <div className={rowsCss.rowCard} key={source.id}>
               <div className={rowsCss.rowIdentity}>
                 <div className={rowsCss.rowName}>{source.name}</div>
-                <div className={rowsCss.rowCaption}>
-                  {resultText(cookies.result, source.id)
-                    || (source.blocked
-                      ? t("读不到它的数据目录：系统挡着「别的应用的数据」，到这个浏览器的数据上放行一次再导。")
-                      : t("把它的登录态导进来，agent 就不用再被登录墙拦。"))}
-                </div>
+                {(resultText(cookies.result, source.id) || source.blocked) && (
+                  <div className={rowsCss.rowCaption}>
+                    {resultText(cookies.result, source.id)
+                      || t("读不到它的数据目录：系统挡着「别的应用的数据」，到这个浏览器的数据上放行一次再导。")}
+                  </div>
+                )}
               </div>
               <div className={rowsCss.rowActions}>
                 <button className={rowsCss.primaryButton} disabled={cookies.busy !== ""} onClick={() => cookies.importFrom(source.id)}>
@@ -162,11 +149,9 @@ export function BrowserSection() {
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("清除浏览数据")}</div>
-              <div className={rowsCss.rowCaption}>
-                {cookies.result?.code === "cleared"
-                  ? t("已清除：所有站点都退出了登录。")
-                  : t("cookie 与站点存储一起清掉，所有站点都会退出登录。")}
-              </div>
+              {cookies.result?.code === "cleared" && (
+                <div className={rowsCss.rowCaption}>{t("已清除：所有站点都退出了登录。")}</div>
+              )}
             </div>
             <div className={rowsCss.rowActions}>
               <button
@@ -188,9 +173,6 @@ export function BrowserSection() {
 
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("隐私")}</div>
-        <div className={rowsCss.sectionIntro}>
-          {t("拦截在 WebKit 的网络层执行：第三方跟踪与广告域名的请求还没发出去就被挡掉，不跑脚本、不吃页面性能。")}
-        </div>
         {shield.state.trouble !== "" && (
           <div className={rowsCss.sectionIntro}>{tt("拦截规则没编译成功（现在什么都没挡）：{m}", "The block list did not compile (nothing is being blocked): {m}", { m: shield.state.trouble })}</div>
         )}
@@ -198,11 +180,11 @@ export function BrowserSection() {
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("拦截跟踪与广告")}</div>
-              <div className={rowsCss.rowCaption}>
-                {shield.state.paused.length > 0
-                  ? tt("已对 {n} 个站点暂停（被拦坏了的站点可以单独放行）。", "Paused for {n} sites (handy when blocking breaks a site).", { n: shield.state.paused.length })
-                  : t("关掉后所有站点都按原样加载。")}
-              </div>
+              {shield.state.paused.length > 0 && (
+                <div className={rowsCss.rowCaption}>
+                  {tt("已对 {n} 个站点暂停", "Paused for {n} sites", { n: shield.state.paused.length })}
+                </div>
+              )}
             </div>
             <div className={rowsCss.rowActions}>
               <Toggle on={shield.state.enabled} onChange={shield.setEnabled} />
@@ -211,9 +193,9 @@ export function BrowserSection() {
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("按站暂停的拦截")}</div>
-              <div className={rowsCss.rowCaption}>
-                {shield.state.paused.length > 0 ? shield.state.paused.join("、") : t("还没有暂停过的站点。")}
-              </div>
+              {shield.state.paused.length > 0 && (
+                <div className={rowsCss.rowCaption}>{shield.state.paused.join("、")}</div>
+              )}
             </div>
             <div className={rowsCss.rowActions}>
               <button className={rowsCss.secondaryButton} disabled={shield.state.paused.length === 0} onClick={shield.forgetPaused}>
@@ -224,7 +206,6 @@ export function BrowserSection() {
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("页面隐藏")}</div>
-              <div className={rowsCss.rowCaption}>{t("在面板「…」菜单里藏起来的元素，按站点记着。")}</div>
             </div>
             <div className={rowsCss.rowActions}>
               <button className={rowsCss.secondaryButton} disabled={shield.state.hidden === 0} onClick={shield.forgetHidden}>
@@ -235,7 +216,6 @@ export function BrowserSection() {
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("记住的摄像头/麦克风权限")}</div>
-              <div className={rowsCss.rowCaption}>{t("网页要权限时问一次，答案按站点记住。")}</div>
             </div>
             <div className={rowsCss.rowActions}>
               <button className={rowsCss.secondaryButton} disabled={shield.state.permissions === 0} onClick={shield.forgetPermissions}>
@@ -248,12 +228,10 @@ export function BrowserSection() {
 
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("地址栏")}</div>
-        <div className={rowsCss.sectionIntro}>{t("输入的既可能是地址也可能是要找的东西。")}</div>
         <div className={rowsCss.rowGroup}>
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("搜索引擎")}</div>
-              <div className={rowsCss.rowCaption}>{t("判不出是地址的输入走这里。")}</div>
             </div>
             <div className={rowsCss.rowActions}>
               <Dropdown
@@ -269,7 +247,6 @@ export function BrowserSection() {
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName}>{t("把普通输入当搜索词")}</div>
-              <div className={rowsCss.rowCaption}>{t("关掉后只有写了协议或域名的才当地址。")}</div>
             </div>
             <div className={rowsCss.rowActions}>
               <Toggle on={browser.searchOnPlainText} onChange={(v) => setBrowser({ searchOnPlainText: v })} />
@@ -280,9 +257,6 @@ export function BrowserSection() {
 
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("快捷键")}</div>
-        <div className={rowsCss.sectionIntro}>
-          {t("焦点在网页里时由壳接管这些组合（否则页面会先吃掉它们）。")}
-        </div>
         <div className={rowsCss.rowGroup}>
           <div className={rowsCss.rowCard}>
             <div className={rowsCss.rowIdentity}>

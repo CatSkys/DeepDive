@@ -182,6 +182,7 @@ final class BrowserTabs {
             // evaluate 对字符串结果给的是**裸串**（见 BrowserHost.evaluate 的三个分支），
             // 只有出错时才带 "Error:" 前缀——那时当"没声明图标"，别把错误文本当地址
             let icon = text.hasPrefix("Error:") ? "" : text
+            EngineLog.shared.append("[browser] icon asked url=\(tab.url) → [\(text)]")
             guard icon != tab.icon else { return }
             tab.icon = icon
             self.pushTabs()

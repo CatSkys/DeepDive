@@ -5,7 +5,6 @@ import { useStore } from "../store";
 import { t, useT } from "../i18n";
 import { Composer } from "./Composer";
 import { HeroBrand } from "./HeroBrand";
-import { LoadingState } from "./LoadingState";
 import { planReviewOf } from "../planReview";
 import { PlanReviewCard } from "./PlanReviewCard";
 import { SubagentReadOnlyNotice } from "../session/SubagentReadOnlyNotice";
@@ -19,6 +18,7 @@ import { useSessionActions } from "../session/useSessionActions";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "./preview/FilePreviewWindow";
 import { useFilePreview } from "./preview/useFilePreview";
 import { TurnList } from "../session/TurnList";
+import { useFollowTail } from "../session/useFollowTail";
 import { SessionHeader } from "../session/SessionHeader";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
@@ -40,7 +40,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 切会话时 SessionView 以 sessionId 重挂，Set 随之清空。
   const [processOpen, setProcessOpen] = useState<ReadonlySet<number>>(new Set());
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [follow, setFollow] = useState(true);
   // 渐隐边缘信号（超限标准 UI，样式走 .flow 上的 .fade-y）：不用
   // useEdgeFade——底部要跟 follow（jump-down 同源、32px 容差、ref 镜像
   // 供 syncBottomPad 同步读）保持一个事实源，拆两套监听会算出两个贴底。
@@ -48,6 +47,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const olderAnchorRef = useRef<HTMLElement | null>(null);
   const { items, liveRunning, runningSince, plan, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
+  // 贴底跟随与悬浮对话卡共用一份（那边同样要自己滚到底）
+  const { follow, followRef, onScroll: followScroll } = useFollowTail(scrollRef, items);
   const summary = sessions.find((s) => s.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("会话");
   // 文件预览窗口（产物/文件 chip 打开）：little 浮窗与全屏两态
@@ -69,10 +70,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const padObserver = useRef<ResizeObserver | null>(null);
   const observedBottom = useRef<Element | null>(null);
   const scrollAnim = useRef<number | null>(null);
-  // follow 的渲染期镜像：syncBottomPad 需要同步读「用户是否处于贴底跟随」，
-  // onScroll 里的 setFollow 是异步的，直接读 state 拿到的是旧值。
-  const followRef = useRef(true);
-  followRef.current = follow;
   // padding 无变化时绝不碰滚动位置——贴底强拉只允许发生在「悬浮区确实
   // 长高/变矮且用户处于跟随态」时；无条件的 wasAtBottom 强拉会和用户上滑
   // 对抗（底部鬼畜事故：内联 ref 每渲染重挂 → 本函数被渲染节奏反复调用 →
@@ -92,7 +89,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     if (flow.style.paddingBottom === next) return;
     flow.style.paddingBottom = next;
     if (followRef.current) flow.scrollTop = flow.scrollHeight;
-  }, []);
+  }, [followRef]);
   useEffect(() => {
     const t = setInterval(syncBottomPad, 1000);
     return () => {
@@ -175,16 +172,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     };
     scrollAnim.current = requestAnimationFrame(step);
   };
-
-
-
-
-  useEffect(() => {
-    if (follow && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [items, follow]);
-
 
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
   const sessionQuestions = [...questions.values()].filter((q) => q.sessionId === sessionId);
@@ -314,7 +301,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           data-fade-end={!follow ? "" : undefined}
           onScroll={(e) => {
             const el = e.currentTarget;
-            setFollow(el.scrollTop + el.clientHeight >= el.scrollHeight - 32);
+            followScroll(el);
             setScrolled(el.scrollTop > 2);
             syncFadeRamp(el.scrollTop);
             // 滚到顶自动向前翻页（替代手点「载入更早」）：靠近顶部即拉一页；
@@ -338,6 +325,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               keyIdx={layout.keyIdx}
               groups={layout.groups}
               running={running}
+              runningSince={runningSince}
               liveItem={liveItem}
               processOpen={processOpen}
               setProcessOpen={setProcessOpen}
@@ -360,7 +348,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               }
               return <QuestionCard key={q.eventId} eventId={q.eventId} questions={q.questions} />;
             })}
-            {running && <LoadingState label="Deep diving..." since={runningSince} />}
           </div>
         </div>
         {!follow && (

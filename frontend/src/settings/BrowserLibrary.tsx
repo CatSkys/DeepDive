@@ -39,9 +39,6 @@ export function BrowserLibrary() {
     <>
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("历史与书签")}</div>
-        <div className={rowsCss.sectionIntro}>
-          {tt("浏览器去过哪儿、收藏了什么，都记在这台机器上（最近 {n} 条）。", "Where the browser has been and what it saved, kept on this Mac (latest {n}).", { n: library.total })}
-        </div>
         <div className={rowsCss.blockCard}>
           <div className={rowsCss.blockHead}>
             <div className={rowsCss.blockTitle}>
@@ -100,7 +97,7 @@ export function BrowserLibrary() {
               </button>
             </div>
           </div>
-          {library.bookmarks.length === 0 && <div className={rowsCss.blockDesc}>{t("还没有书签。在面板「…」菜单里收藏当前页。")}</div>}
+          {library.bookmarks.length === 0 && <div className={rowsCss.blockDesc}>{t("还没有书签。")}</div>}
           {library.bookmarks.map((mark) => (
             <div className={rowsCss.blockRow} key={mark.url}>
               <div className={rowsCss.rowIdentity}>

@@ -4744,6 +4744,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 :root[data-overlay] body { background: transparent; }
 /* 透明层：卡外一律透传。它铺满整个网页那一格，所以卡片能拖到任何位置。 */
 .chat-float-layer { position: absolute; inset: 0; }
+/* 对话卡在独立透明 WKWebView 中，不能依赖 backdrop-filter 读取下面另一个 WKWebView；
+   使用稳定的浮层表面，避免网页底色透成灰块。 */
 .chat-float {
   position: absolute;
   display: flex;
@@ -4753,7 +4755,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   /* 浮层圆角用 --dsh-radius-floating（tokens 里浮层那一档），不是卡片那一档：
      用户报"圆角不符合规范，有点小"。 */
   border-radius: var(--dsh-radius-floating);
-  background: var(--card-gradient);
+  background: var(--panel-strong);
   box-shadow: var(--shadow-pop);
   color: var(--ink);
 }

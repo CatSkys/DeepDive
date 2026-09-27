@@ -4,10 +4,8 @@
 // **空白标签页中间那块大框**。补全列表挂在框正下方（不是覆盖），行内是"地址 + 标题"，
 // 搜索那条带放大镜与引擎名——这三样在参考里是同一份 `list`。
 //
-// **列表挂 body 上（fixed 按框摆位）**：标签行里那一枚的祖先 `.panel-browser-chrome-run`
-// 是横向滚动容器，而 overflow 的两轴不能一轴 `auto` 一轴 `visible`（另一轴会算成 auto），
-// 于是列表留在里面会被整条裁掉——既看不见也点不着，浏览器那一格还盖在上面。挪到 body 上
-// 与 `.ddMenu` 同一层（1100），摆位随框重算。
+// 补全列表通过 portal 脱离滚动裁切：壳内挂同源透明原生浮层，浏览器环境挂 body。
+// 位置按主文档输入框矩形计算，事件与状态保留在原 React 树中。
 //
 // 只管"输入 + 选一条"，进出地址栏的时机（谁聚焦、什么时候展开成框）归 BrowserChrome。
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -17,6 +15,7 @@ import { t } from "../i18n";
 import { browserPrefs } from "./browserPrefs";
 import { completeVisits, useVisitsRevision } from "./browserHistory";
 import { looksLikeSearch, searchUrlFor, shortAddress } from "./browserUrl";
+import { useBrowserPopup } from "./useBrowserPopup";
 import type { PaneFace } from "./useIframeBrowser";
 
 /** 补全列表的一行：`url` 是要去的地方，`title` 是它的名字（空的就只显示地址）。 */
@@ -109,6 +108,8 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
     ...recents.map((item) => ({ url: item.url, label: shortAddress(item.url), title: item.title, kind: "visit" as const })),
   ];
 
+  const popupTarget = useBrowserPopup(drop !== null && (suggestions.length > 0 || face.failure !== undefined), () => setMode(false));
+
   const pick = (url: string) => {
     // 先交出去再收编辑态：标签行那款的宿主在 onPick 里就地把胶囊收回（组件随之卸载），
     // 顺序反了会让"失焦提交"先跑一遍、onPick 再跑一遍，同一段地址走两次
@@ -151,7 +152,7 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
         />
         {unknown && !editing && <span className="panel-browser-field-note">{t("页面已跳转，地址未知")}</span>}
       </div>
-      {drop !== null && suggestions.length > 0 && createPortal(
+      {drop !== null && popupTarget && suggestions.length > 0 && createPortal(
         <div className="panel-browser-offers" role="listbox" style={dropStyle}>
           {suggestions.map((item, index) => (
             <button
@@ -168,9 +169,9 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
             </button>
           ))}
         </div>,
-        document.body,
+        popupTarget,
       )}
-      {drop !== null && face.failure !== undefined && createPortal(
+      {drop !== null && popupTarget && face.failure !== undefined && createPortal(
         <div className="panel-browser-offers" style={dropStyle}>
           <div className="panel-browser-offer refused">
             {face.failure === "empty" ? t("请输入地址")
@@ -180,7 +181,7 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
               : t("地址无效")}
           </div>
         </div>,
-        document.body,
+        popupTarget,
       )}
     </div>
   );

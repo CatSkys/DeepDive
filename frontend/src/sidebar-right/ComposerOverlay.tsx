@@ -1,18 +1,13 @@
-// 浏览器页之上那颗**悬浮对话卡**（壳侧透明叠加层里渲染的那一页）。
+// 浏览器页之上那颗**悬浮对话卡**（壳侧透明叠加层里那一页）。
 //
-// 为什么是"壳里再叠一个 webview"而不是把 HTML 浮上去：浏览器页是壳的原生 WKWebView，
-// **恒画在 SPA 的 HTML 之上**（缩略图蒙层看不见就是这个原因），HTML 浮不到它上面。壳在浏览器
-// 视图之上再叠一层**透明** WKWebView，那一层里跑的仍是这份 SPA（同一入口、同一个 Composer
-// 组件），所以输入能力与配色不会出现第二份实现。
-//
-// 这一页只有一张卡：标题栏（可拖动 + 右上关闭）／本轮内容（同一个 TurnTail）／输入框
-// （同一个 Composer）。卡片位置按会话存在 localStorage；拖动时把新矩形报给壳——壳按
-// "卡片矩形"做 hitTest，卡外一律透传给底下的网页。
+// 浏览器页是壳的原生 WKWebView，HTML 不能浮到它上面；壳在浏览器视图之上再叠一层
+// 透明 WKWebView。这一层只负责合成位置和命中测试，卡片自身使用高遮盖率的浮层表面，
+// 不依赖跨 WKWebView 的 backdrop-filter 读取网页背景。
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Composer } from "../components/Composer";
 import { TurnTail } from "./TurnTail";
-import { inShell, onHostEvent, sendToShell } from "../host";
+import { inShell, installHostBridge, onHostEvent, sendToShell } from "../host";
 import { useT } from "../i18n";
 import { sessionTitle } from "../session/sessionTitle";
 import { StoreProvider, useStore } from "../store";
@@ -189,6 +184,7 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
 
 /** 叠加层入口（main.tsx 在 `?composer=<sid>` 时只挂这一支）。 */
 export function ComposerOverlayApp({ sessionId }: { sessionId: string }) {
+  useEffect(() => installHostBridge(), []);
   return (
     <StoreProvider>
       <ChatFloatCard sessionId={sessionId} />

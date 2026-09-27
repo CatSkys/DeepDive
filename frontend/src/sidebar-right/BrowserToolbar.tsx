@@ -81,6 +81,7 @@ export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden,
       </button>
       {menuItems.length > 0 && (
         <RowMenu
+          nativePopup
           label={t("更多")}
           items={menuItems}
           onSelect={(v) => {

@@ -1,6 +1,6 @@
 // 会话流的**轮渲染**（唯一一份）：按轮分组吐 .turn-group 节点，轮内过程折叠（"已工作 x"
-// 披露条 + 收起过程项）也在这里。会话页与悬浮对话卡共用它——两边各写一套的结果是行为漂移
-// （实测用户报"对话卡里没有已工作的折叠"）。
+// 披露条 + 收起过程项）与流末的运行中 loader 也在这里。会话页与悬浮对话卡共用它——两边各写
+// 一套的结果是行为漂移（实测用户报"对话卡里没有已工作的折叠""对话卡里没有 loader"）。
 //
 // 只负责渲染：数据来自 useSessionEvents/renderModel，折叠开关由调用方持有（会话页那份要
 // 跨重渲染保留，对话卡各自一份）。
@@ -12,12 +12,15 @@ import { Item } from "./Item";
 import { ToolGroupRow } from "./ToolGroupRow";
 import { TurnProcessBar } from "./TurnProcessBar";
 import { computeTurnProcess } from "./turnProcess";
+import { LoadingState } from "../components/LoadingState";
 
-export function TurnList({ keyIdx, groups, running, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onContinue }: {
+export function TurnList({ keyIdx, groups, running, runningSince, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onContinue }: {
   /** 首个成员的 key → 索引（翻页锚点落点用） */
   keyIdx: Map<string, number>;
   groups: TurnGroup[];
   running: boolean;
+  /** 运行中计时器的起点（epoch ms）；缺则 loader 从挂载起算。 */
+  runningSince?: number;
   liveItem: RenderItem | undefined;
   processOpen: ReadonlySet<number>;
   /** 折叠开关由调用方持有（会话页那份要跨重渲染保留；对话卡各自一份） */
@@ -117,7 +120,12 @@ export function TurnList({ keyIdx, groups, running, liveItem, processOpen, setPr
       </div>,
     );
   });
-  return nodes;
-
-  return <>{nodes}</>;
+  // loader 挂在流末（两处调用方的顺序都靠它：会话页它紧邻审批/提问卡之前，对话卡里它是
+  // 滚动容器最后一行）——"正在干活但还没有新内容"这段窗口只有它能表达。
+  return (
+    <>
+      {nodes}
+      {running && <LoadingState label="Deep diving..." since={runningSince} />}
+    </>
+  );
 }

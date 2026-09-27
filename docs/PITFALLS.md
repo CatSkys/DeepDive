@@ -513,9 +513,25 @@
 - 关键性质（别改坏）：`elementFromPoint` **跳过 `pointer-events: none` 的元素**，所以 tooltip
   与拾取模式的提示行天然不参与判定。收页面的前提是"有个能收指针的东西挡住了它"——这两样
   本来就点不到，收起页面只会把人正指着的东西弄没（拾取模式尤其致命：页面没了就没得点）。
+- 浏览器菜单和地址补全使用同源子文档的 React portal，由 `BrowserPopupHost` 把透明 WKWebView 放到网页之上；样式与回调仍归原组件。不要在网页上裁矩形来露出底层菜单：阴影和圆角外必然露出 App 灰底，而非网页。浮层只在组件矩形内命中，点外部、Esc 或窗口尺寸变化关闭。
 - 同一次事故的另一半在 §1.16：补全列表还被自己的横向滚动祖先裁掉了。**浮层被原生视图盖住**
   要分清两种死法（量 rect / 比 `scrollHeight`），只修一种会以为修完了。
 - 顺带一条层序规矩：标签行 `.panel-browser-chrome` 要显式 `position: relative; z-index: 4`
+
+### 4.33 浏览器设置页扫描 cookie 来源：主线程同步遍历 9 个浏览器 × 多个 profile = 卡死（2026-09-27 用户报"设置页打开就卡死"）
+
+- 症状：打开「设置 → 浏览器」，整个应用卡死不响应（鼠标转圈、窗口灰掉）。
+- 根因：`BrowserCookies.installed()` 在**主线程同步执行**（`MainWindowController+BrowserPrivacy.swift:77`），
+  而它要遍历 **9 个浏览器**（Chrome / Edge / Arc / Brave / Dia / Vivaldi / Chromium / Firefox / Safari）
+  × 每个浏览器的多个 profile（Chromium 系扫 `Default` / `Profile *` / `Guest Profile`，Firefox 扫
+  `Profiles/` 下所有目录），每个都要 `contentsOfDirectory` 列目录 + `fileExists` 检查文件——
+  几十次文件系统调用堆在主线程上。叠加 **macOS 14+ 的 TCC 权限检查**（"别的应用的数据"）：
+  首次访问 Chrome / Edge / Brave 的数据目录时系统会做权限判定（可能触发弹窗），这是**同步阻塞**的。
+- 处置：`handleBrowserCookies` 的 `.sources` / `.importSource` 两条分支都改成
+  `DispatchQueue.global(qos: .userInitiated).async` 扫描，结果回主线程推送。清除数据（`.clear`）
+  本来就是异步回调，不动。
+- 教训：**凡是要遍历用户磁盘上"别的应用的目录"的操作，一律后台线程**——TCC 权限检查 + 多目录扫描
+  在主线程上就是卡死；设置页一打开就触发的 `useEffect(() => { refresh() })` 尤其致命。
   抬到槽位之上。原生视图恒在 SPA 之上，DOM 里 z-index 再大也画不过它；浮层能从标签行探进
   页面那一格，就靠这条层序。
 

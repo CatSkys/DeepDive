@@ -92,7 +92,7 @@ private final class EmptyToolbarDelegate: NSObject, NSToolbarDelegate {
 }
 
 final class MainWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
-    private let webView: WKWebView
+    let webView: WKWebView
     private let effectView = NSVisualEffectView()
     /// 暗色玻璃上叠的暗色 tint；亮色外观下随 applyAppearanceMode 换成浅 tint。
     private let tintView = NSView()
@@ -100,6 +100,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     /// 侧栏浏览器的标签集合（窗口里的第二组 WKWebView，同一时刻只有当前标签挂在舞台上）。
     /// 位置由前端推上来的槽位 rect 决定（frontend/src/nativeSlot.ts → `native-slot` 消息），
+    var browserPopup: BrowserPopupHost?
+
     /// 命令来自 SPA（browser-nav / browser-tabs / browser-sync）与 agent（/browser-control）两侧。
     let browserTabs = BrowserTabs()
     /// 浏览器视图的舞台：装 SPA webView 之后、聊天叠加层之前——换标签只换里面的视图，
@@ -207,6 +209,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         overlay.layer?.backgroundColor = Self.darkTint.cgColor
 
         let config = WKWebViewConfiguration()
+        config.preferences.javaScriptCanOpenWindowsAutomatically = true
         config.userContentController = WKUserContentController()
         let wv = TitlebarAwareWebView(frame: .zero, configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
@@ -580,45 +583,5 @@ extension MainWindowController: WKScriptMessageHandler {
         }
         EngineLog.shared.append("[bridge] host message: \(type)")
         onHostMessage?(body)
-    }
-}
-
-// MARK: - WKUIDelegate（JS 原生弹窗：不弹系统窗，只落诊断）
-
-/// 应用内**不允许出现系统弹窗**（用户定稿；前端的唯一弹窗入口是
-/// `frontend/src/components/DialogHost.tsx`，报错面走引擎横幅/内置弹窗）。
-/// 所以 JS 的 alert/confirm/prompt 一律不弹原生面板，只留一条诊断日志：
-/// 静默 no-op 会让调用点看起来"点了没反应"（ctx-menu 重命名就这么死过一次），
-/// 日志能把违反约定的调用点直接点名。confirm/prompt 按"取消"返回。
-extension MainWindowController: WKUIDelegate {
-    func webView(
-        _ webView: WKWebView,
-        runJavaScriptAlertPanelWithMessage message: String,
-        initiatedByFrame frame: WKFrameInfo,
-        completionHandler: @escaping () -> Void
-    ) {
-        EngineLog.shared.append("[web] alert() ignored — use DialogHost: \(message.prefix(200))")
-        completionHandler()
-    }
-
-    func webView(
-        _ webView: WKWebView,
-        runJavaScriptConfirmPanelWithMessage message: String,
-        initiatedByFrame frame: WKFrameInfo,
-        completionHandler: @escaping (Bool) -> Void
-    ) {
-        EngineLog.shared.append("[web] confirm() ignored (returns false) — use DialogHost: \(message.prefix(200))")
-        completionHandler(false)
-    }
-
-    func webView(
-        _ webView: WKWebView,
-        runJavaScriptTextInputPanelWithPrompt prompt: String,
-        defaultText: String?,
-        initiatedByFrame frame: WKFrameInfo,
-        completionHandler: @escaping (String?) -> Void
-    ) {
-        EngineLog.shared.append("[web] prompt() ignored (returns nil) — use DialogHost: \(prompt.prefix(200))")
-        completionHandler(nil)
     }
 }

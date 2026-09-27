@@ -74,15 +74,31 @@ extension MainWindowController {
     func handleBrowserCookies(_ body: [String: Any]) {
         switch BrowserCookies.command(body) {
         case .sources:
-            pushHostCommand("browserCookieSources", payload: AppDelegate.jsonPayload(BrowserCookies.payload(BrowserCookies.installed())))
-        case .importSource(let id):
-            guard let source = BrowserCookies.installed().first(where: { $0.id == id }) else {
-                pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(["source": id, "code": "missing", "total": 0, "imported": 0]))
-                return
+            // 扫描浏览器目录 + TCC 权限检查可能阻塞（9 个浏览器 × 多个 profile）：放后台线程，
+            // 避免卡死主线程（用户报"设置页打开就卡死"的根因）
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let sources = BrowserCookies.installed()
+                let payload = AppDelegate.jsonPayload(BrowserCookies.payload(sources))
+                DispatchQueue.main.async {
+                    self?.pushHostCommand("browserCookieSources", payload: payload)
+                }
             }
-            EngineLog.shared.append("[browser] import cookies from \(id)")
-            BrowserCookieImport.run(source: source, store: browserTabs.store) { [weak self] payload in
-                self?.pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(payload))
+        case .importSource(let id):
+            // 同理：找来源也要扫一遍目录，放后台
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let source = BrowserCookies.installed().first(where: { $0.id == id }) else {
+                    DispatchQueue.main.async {
+                        self?.pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(["source": id, "code": "missing", "total": 0, "imported": 0]))
+                    }
+                    return
+                }
+                DispatchQueue.main.async {
+                    EngineLog.shared.append("[browser] import cookies from \(id)")
+                    guard let self else { return }
+                    BrowserCookieImport.run(source: source, store: self.browserTabs.store) { [weak self] payload in
+                        self?.pushHostCommand("browserCookieResult", payload: AppDelegate.jsonPayload(payload))
+                    }
+                }
             }
         case .clear:
             BrowserDataStore.clear(browserTabs.store) { [weak self] in

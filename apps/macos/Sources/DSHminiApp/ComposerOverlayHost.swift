@@ -1,23 +1,12 @@
-// 浏览器全屏时的**悬浮输入框**：叠在浏览器 WKWebView 之上的一层透明 WKWebView。
-//
-// 为什么需要它：浏览器页是壳的原生视图，**恒画在 SPA 之上**（缩略图蒙层看不见就是这个
-// 原因），HTML 浮不到页面上。壳在它上面再叠一层透明 webview，里面跑的仍是同一份 SPA
-// （`?composer=<sid>`），渲染同一个 `Composer` 组件——能力与配色因此没有第二份实现。
-//
-// 三条要点：
-//   · **透明**：壳侧关掉网页底色（`drawsBackground`，与主 SPA 那个 webview 同一配方），
-//     页面自身（`[data-overlay]`）也不画底色，网页才能从胶囊四周透出来；
-//   · **只吃胶囊那一块的点击**：整层是一块透明矩形，若不拦，透明处会把网页的点击与滚轮
-//     全吞掉。所以页面把胶囊（含上方浮条）的 rect 报上来（`composer-pill`），`hitTest`
-//     只在那块返回自己，其余返回 nil 让位给底下的网页；
-//   · 位置由主 SPA 推（`composer-overlay`，含 rect）：它知道面板网页那一格的几何。
+// 透明 WKWebView 只提供网页之上的合成层；卡片表面由前端使用稳定的浮层底色绘制，
+// 不依赖跨 WKWebView 的 backdrop-filter。
 
 import AppKit
 import WebKit
 
 /// 只在自己那块"可点矩形"里收事件的透明 webview：其余地方对鼠标透明。
 final class ComposerOverlayView: WKWebView {
-    /// CSS px、本视图坐标里的可点矩形；空 = 整层都不收点击（还没量到胶囊时）。
+    /// 父视图 point 坐标里的可点矩形；空时整层不收点击。
     var interactiveRect: NSRect = .zero
 
     override func hitTest(_ point: NSPoint) -> NSView? {
