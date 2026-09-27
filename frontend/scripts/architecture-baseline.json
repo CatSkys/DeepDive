@@ -51,10 +51,10 @@
       "detail": "714 lines > 300"
     },
     {
-      "id": "8b2f21d4a0f9cc24",
+      "id": "5fe512b14177f4c0",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "411 lines > 300"
+      "detail": "412 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -81,10 +81,10 @@
       "detail": "364 lines > 300"
     },
     {
-      "id": "d05a03b67c57ae5c",
+      "id": "68756ab88ffc42cc",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
-      "detail": "396 lines > 300"
+      "detail": "397 lines > 300"
     },
     {
       "id": "fad5d8c1900c1ce9",

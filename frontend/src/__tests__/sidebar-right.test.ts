@@ -9,7 +9,7 @@ import {
   navigate, reload,
 } from "../sidebar-right/browserNavigation";
 import {
-  collapse, emptySurface, expand, expandBrowser, setFullscreen, setMode, showSession, toggleExpanded,
+  collapse, emptySurface, expand, expandBrowser, setFullscreen, setMode, setSettings, showSession, toggleExpanded,
 } from "../sidebar-right/panelState";
 import { mergeArtifacts, sessionArtifacts } from "../sidebar-right/sessionArtifacts";
 import type { RenderItem } from "../session/renderModel";
@@ -149,6 +149,23 @@ describe("面板状态（官方 ui-sidebar-right 的规则）", () => {
     expect(s.mode).toBe("session");
     expect(s.fullscreen).toBe(false);
     expect(s.open).toBe(true);
+  });
+
+  it("会话设置视图：开 = 展开面板并退回默认页；关 = 只摘设置视图", () => {
+    const opened = setSettings(emptySurface(), true);
+    expect(opened.open).toBe(true);
+    expect(opened.settings).toBe(true);
+    expect(opened.mode).toBe("session");
+    expect(opened.fullscreen).toBe(false);
+    // 从浏览器全屏点标题进来：设置视图属于默认页，浏览器呈现一并退掉
+    const fromBrowser = setSettings(expandBrowser(emptySurface()), true);
+    expect(fromBrowser.settings).toBe(true);
+    expect(fromBrowser.mode).toBe("session");
+    expect(fromBrowser.fullscreen).toBe(false);
+    expect(setSettings(opened, false).settings).toBe(false);
+    expect(setSettings(opened, false).open).toBe(true);
+    // 收起连设置视图一起收
+    expect(collapse(setSettings(opened, true)).settings).toBe(false);
   });
 
   it("单独切全屏不改页", () => {

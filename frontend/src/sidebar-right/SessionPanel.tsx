@@ -12,7 +12,6 @@
 // 浏览器那一层**始终挂载**（切页只换尺寸）：载体只允许有一个实例——壳里只有一个
 // WKWebView，而 iframe 载体重挂会丢页面状态。官方对应的是 Electron 载体的 keepMounted。
 
-import { useState } from "react";
 import { ChevronLeft, Settings2, X } from "lucide-react";
 import { t, tt } from "../i18n";
 import { dispatchAppEvent, DD_EVENTS } from "../events";
@@ -38,13 +37,13 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
   onPreview?: (path: string) => void;
 }) {
   const surface = usePanelSurface(sessionId);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const data = useCapsuleData(sessionId, scheduleRecords, surface.open && !settingsOpen);
+  const data = useCapsuleData(sessionId, scheduleRecords, surface.open && !surface.settings);
   if (!surface.open) return null;
 
+  const settingsOpen = surface.settings;
   const browserMode = surface.mode === "browser";
   const back = () => {
-    if (settingsOpen) setSettingsOpen(false);
+    if (settingsOpen) panelActions.setSettings(sessionId, false);
     else panelActions.showSession(sessionId);
   };
 
@@ -64,7 +63,7 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
             「对话」不在这儿——它在地址栏右侧（见 BrowserToolbar）。 */}
           {!browserMode && !settingsOpen && (
             <button type="button" className="panel-icon-btn" aria-label={t("会话设置")} data-tip={t("会话设置")}
-              onClick={() => setSettingsOpen(true)}>
+              onClick={() => panelActions.setSettings(sessionId, true)}>
               <Settings2 size={15} />
             </button>
           )}

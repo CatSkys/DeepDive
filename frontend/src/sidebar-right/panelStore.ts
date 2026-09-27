@@ -7,7 +7,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import {
-  collapse, emptySurface, expand, expandBrowser, setFullscreen, setMode, showSession,
+  collapse, emptySurface, expand, expandBrowser, setFullscreen, setMode, setSettings, showSession,
   type PanelMode, type SurfaceState,
 } from "./panelState";
 
@@ -57,6 +57,10 @@ export const panelActions = {
   },
   setMode(sessionId: string, mode: PanelMode): void {
     commit(sessionId, setMode(surfaceOf(sessionId), mode));
+  },
+  /** 会话设置视图（会话标题/齿轮的入口）：开 = 展开面板并落在设置视图。 */
+  setSettings(sessionId: string, on: boolean): void {
+    commit(sessionId, setSettings(surfaceOf(sessionId), on));
   },
   /** 点屏幕缩略图：换到浏览器页并进全屏呈现。 */
   expandBrowser(sessionId: string): void {

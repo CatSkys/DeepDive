@@ -337,8 +337,9 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
             <HeroPanelTrigger open={heroPanelOpen} onToggle={() => setHeroPanelOpen((v) => !v)} />
             <div className="hero-top">
               {/* 草稿选择（draftModel）派生头部模型与思考档位显示——档位元
-                  数据来自 models 里的 efforts（modelOptions 透传）。 */}
-              <SessionHeader title={t("新会话")} face={heroFace} />
+                  数据来自 models 里的 efforts（modelOptions 透传）。标题点击 =
+                  弹出右侧的会话设置卡（与会话页标题同一条规则）。 */}
+              <SessionHeader title={t("新会话")} face={heroFace} onTitleClick={() => setHeroPanelOpen(true)} />
             </div>
             <HeroBrand />
             <div className="hero-composer">

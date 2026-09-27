@@ -20,6 +20,7 @@ import { useFilePreview } from "./preview/useFilePreview";
 import { TurnList } from "../session/TurnList";
 import { useFollowTail } from "../session/useFollowTail";
 import { SessionHeader } from "../session/SessionHeader";
+import { panelActions } from "../sidebar-right/panelStore";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
@@ -267,8 +268,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       {previewFull ? <PreviewPageHeader preview={preview} /> : (
       <div className="session-header">
         {/* key=会话：切会话时标题行整体重挂播 header-in 入场（标题更新/流式
-            改名不换 key，不重播）。 */}
-        <SessionHeader key={sessionId} title={title} face={modelFace} />
+            改名不换 key，不重播）。标题点击 = 弹出右侧面板的会话设置（用户定稿）。 */}
+        <SessionHeader key={sessionId} title={title} face={modelFace} onTitleClick={() => panelActions.setSettings(sessionId, true)} />
         {plan?.active && !plan?.pending && (
           <span className="plan-wrap">
             <button

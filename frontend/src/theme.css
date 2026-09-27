@@ -592,12 +592,6 @@ button {
 .ws-pill svg { flex: none; color: var(--ink-2); }
 .ws-pill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app.collapsed .ws-pill { display: inline-flex; }
-/* 模式胶囊：默认透明常驻（占位不显），hover 会话标题行淡入（用户定稿，给
-   标题让位）；opacity 过渡而非 display 切换——布局零位移，不会"动一下"。
-   侧栏收起态保持常显（与项目胶囊同一紧凑头部语法）。无描边，同底色 */
-.preset-pill { display: inline-flex; opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
-.session-header .title-row:hover .preset-pill,
-.app.collapsed .preset-pill { opacity: 1; pointer-events: auto; }
 
 /* ---------- content / hero ---------- */
 
@@ -1641,7 +1635,8 @@ button {
    （曾把菜单钉在窗口左上角盖住侧栏）。与 .hero-top .left 同款。 */
 .session-header .left { flex: 1; min-width: 0; position: relative; }
 .title-anchor { position: relative; }
-/* 侧栏收起态：标题即项目切换入口（弹出 .ws-menu）；展开态项目名在侧栏 */
+/* 标题即右侧面板「会话设置」的入口（onTitleClick，用户定稿；hover 亮字给
+   可点暗示）。收起态的项目切换走 WorkspacePill，不走标题。 */
 .title.title-switch:hover { color: var(--ink-bright); }
 .session-header .title {
   font-size: var(--dsh-font-size-base);
