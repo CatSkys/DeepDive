@@ -26,7 +26,8 @@ enum BrowserControl {
     private static var cookieImport: [String: Any] = ["ok": true, "status": "idle"]
 
     /// 处理一次控制请求（同步；MiniHTTPServer 每个连接一个线程）。
-    static func handle(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Response {
+    static func handle(_ request: MiniHTTPServer.Request,
+                       installedSources: () -> [BrowserCookieSource] = BrowserCookies.installed) -> MiniHTTPServer.Response {
         guard request.headers["authorization"] == "Bearer \(token)" else {
             return .init(status: 403, body: Data("forbidden".utf8))
         }
@@ -34,10 +35,13 @@ enum BrowserControl {
               let method = command["method"] as? String else {
             return json(["ok": false, "error": "malformed command"])
         }
+        // 列来源和找待导入来源都要扫别的浏览器目录；TCC/磁盘访问不可占住主线程。
+        let sources = (method == "list_cookie_sources" || method == "import_cookies") ? installedSources() : []
+        let entries = method == "list_cookie_sources" ? BrowserCookies.entries(sources) : []
         let semaphore = DispatchSemaphore(value: 0)
         var result: [String: Any] = ["ok": false, "error": "no browser"]
         DispatchQueue.main.async {
-            result = execute(method: method, command: command, tabs: tabsProvider?())
+            result = execute(method: method, command: command, tabs: tabsProvider?(), sources: sources, entries: entries)
             semaphore.signal()
         }
         // 等待必须在主线程之外（execute 自己也在主线程跑），否则死锁
@@ -47,8 +51,9 @@ enum BrowserControl {
         return json(result)
     }
 
-    /// 主线程上的命令分发。
-    private static func execute(method: String, command: [String: Any], tabs: BrowserTabs?) -> [String: Any] {
+    /// 主线程上的命令分发；cookie 来源已由 handle 在连接线程上扫描完成。
+    private static func execute(method: String, command: [String: Any], tabs: BrowserTabs?,
+                                sources: [BrowserCookieSource], entries: [[String: Any]]) -> [String: Any] {
         guard let tabs else { return ["ok": false, "error": "no browser"] }
         switch method {
         case "list_tabs":
@@ -112,13 +117,13 @@ enum BrowserControl {
             }
             return ["ok": true, "enabled": BrowserShield.shared.enabled(), "paused": BrowserShield.shared.pausedHosts()]
         case "list_cookie_sources":
-            return ["ok": true, "sources": BrowserCookies.entries(BrowserCookies.installed())]
+            return ["ok": true, "sources": entries]
         case "import_cookies":
             // **起活不等人**：导入的写落在主线程（WKHTTPCookieStore 是 UI actor 的），而这条命令
             // 本身就跑在主线程上——把主线程堵在"等它写完"上会死锁（实测：泵 runloop 60s，
             // 读完了但一条都没写进去）。所以这里只起活，结果由 import_cookies_status 取。
             let wanted = command["source"] as? String ?? ""
-            guard let source = BrowserCookies.installed().first(where: { $0.id == wanted }) else {
+            guard let source = sources.first(where: { $0.id == wanted }) else {
                 return ["ok": false, "error": "unknown cookie source: \(wanted)"]
             }
             cookieImport = ["ok": true, "status": "running", "source": source.id]

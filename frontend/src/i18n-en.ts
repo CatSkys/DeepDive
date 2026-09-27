@@ -121,7 +121,7 @@ export const EN: Record<string, string> = {
   "输入地址或搜索": "Enter an address or search",
   "沙箱": "Sandbox",
   "静音": "Mute tab",
-  "导入 cookie 和密码": "Import cookies & passwords",
+  "导入 cookie": "Import cookies",
   "浏览器设置": "Browser settings",
   "取消静音": "Unmute tab",
   "加载中": "Loading",
@@ -129,12 +129,16 @@ export const EN: Record<string, string> = {
   "上一个": "Previous",
   "下一个": "Next",
   // 「浏览器」设置页（SettingsPage 的 browser 分区）
+  "常用": "General",
+  "管理": "Manage",
+  "查看、搜索和清理浏览记录": "View, search and clear browsing history",
+  "登录数据": "Sign-in data",
+  "按需从其他浏览器导入 cookie": "Import cookies from another browser when needed",
+  "隐私与权限": "Privacy & permissions",
+  "拦截、站点权限和页面隐藏": "Blocking, site permissions and hidden elements",
   "缩放": "Zoom",
-  "缩放是让页面按新尺寸重新排版（不是放大镜），所以它同时影响排版与清晰度。": "Zooming lays the page out again at the new size — it is not a magnifying glass, so it affects both layout and sharpness.",
   "默认缩放": "Default zoom",
-  "新打开的站点没记住过缩放时用这个值。": "Used for sites with no remembered zoom.",
   "按站点记住缩放": "Remember zoom per site",
-  "关掉后所有站点都用默认缩放。": "When off, every site uses the default zoom.",
   // 标签页（标签栏 + 「浏览器」设置页的标签分节）
   "标签页": "Tabs",
   "新建标签": "New tab",
@@ -143,11 +147,14 @@ export const EN: Record<string, string> = {
   "已休眠": "Asleep",
   "没人看的标签会被收起：页面进程还回系统，只留回去的路与一张停帧图，再点它按原处恢复。": "Tabs nobody is looking at are put away: the page process goes back to the system, only the way back and a still frame are kept, and tapping the tab restores it where it was.",
   "闲置多久后休眠": "Sleep after",
-  "当前标签永远不睡；页面里握着没发出去的输入时也不睡。": "The active tab never sleeps, and neither does a page holding unsent input.",
-  "5 分钟": "5 minutes",
-  // 「浏览器」设置页的「登录态」分节（cookie 导入 + 清数据）
-  "登录态": "Sign-ins",
-  "浏览器有自己的一份持久存储：在这儿登一次就留着（重启也在，与应用自身的会话隔离）。也可以从本机其它浏览器把 cookie 导进来。": "The browser keeps its own persistent store: signing in here stays signed in, across restarts and separate from the app's own session. You can also import cookies from another browser on this Mac.",
+  "只导入 cookie，不会读取或导入密码。": "Only cookies are imported; passwords are never read or imported.",
+  "其他浏览器": "Other browsers",
+  "按需扫描本机上可导入的浏览器数据": "Scan this Mac for importable browser data when needed",
+  "检测中…": "Checking…",
+  "扫描": "Scan",
+  "读不到它的 cookie 库：请在系统设置中允许 DeepDive 访问。": "Its cookie store cannot be read: allow DeepDive in System Settings.",
+  "找不到它的 cookie 库了。": "Its cookie store could not be found.",
+  "读不到它的数据目录，请在系统设置中放行后重试。": "Its data folder cannot be read. Allow access in System Settings and try again.",
   "没检测到可导入的浏览器": "No importable browser found",
   "Chrome、Edge、Arc、Brave、Firefox、Safari 的 cookie 都能导。": "Cookies can be imported from Chrome, Edge, Arc, Brave, Firefox and Safari.",
   "重新检测": "Scan again",
@@ -163,7 +170,10 @@ export const EN: Record<string, string> = {
   "按站暂停的拦截": "Paused sites",
   "还没有暂停过的站点。": "No site has been paused.",
   "全部恢复": "Restore all",
-  "记住的摄像头/麦克风权限": "Remembered camera/microphone choices",
+  "恢复所有站点的拦截？": "Restore blocking for all sites?",
+  "恢复所有隐藏的页面元素？": "Restore all hidden page elements?",
+  "记住的摄像头/麦克风权限": "Remembered camera/microphone permissions",
+  "忘记所有摄像头和麦克风权限？": "Forget all camera and microphone permissions?",
   "网页要权限时问一次，答案按站点记住。": "A page asks once; the answer is remembered per site.",
   "忘记全部（{n}）": "Forget all ({n})",
   "本站暂停拦截": "Pause blocking on this site",
@@ -192,6 +202,8 @@ export const EN: Record<string, string> = {
   "加入书签": "Bookmark this page",
   "已加入书签": "Bookmarked — click to remove",
   "清空全部浏览历史？": "Clear all browsing history?",
+  "清空全部书签？": "Clear all bookmarks?",
+  "还没有书签。": "No bookmarks yet.",
   "本站恢复拦截": "Resume blocking on this site",
   "摄像头": "camera",
   "麦克风": "microphone",
@@ -550,7 +562,6 @@ export const EN: Record<string, string> = {
   "本引擎装载的扩展模块。": "Extension modules loaded by this engine.",
   "已启用": "Enabled",
   "已停用": "Disabled",
-  // settings — appearance(旧引擎行)
   "界面设置": "Interface",
   "引擎界面明暗": "Engine UI theme",
   "繁忙时 Enter 键行为": "Enter while the agent is busy",
@@ -617,7 +628,6 @@ export const EN: Record<string, string> = {
   "已导入": "imported",
   "{n} 条消息": "{n} messages",
   "导入 {n} 个会话": "Import {n} chats",
-
   // 自动化页面 / 定时任务
   "自动化": "Automations",
   "按计划运行任务，或在需要时随时执行。": "Run tasks on a schedule, or whenever you need them.",
@@ -667,26 +677,19 @@ export const EN: Record<string, string> = {
   "文档同步检查": "Docs sync check",
   "对照最近 7 天的代码、配置、接口与文档变更，识别已改变公开行为但文档尚未同步的高危差异。": "Compare the last 7 days of code, config, API, and doc changes to find behavior that changed without a matching docs update.",
   "对照最近 7 天的代码、配置、接口与文档变更，找出已改变公开行为但文档尚未同步的高危差异，附文件路径与原文位置。只读分析。": "Compare the last 7 days of code, config, API, and doc changes and list the gaps where public behavior changed but the docs did not, with file paths. Read-only.",
-
   // 会话里创建自动化（automation 协议）
   "定时任务建议": "Scheduled task proposal",
   "每次新建会话": "New chat every run",
   "复用同一会话": "Reuse one chat",
   "（未匹配到工作空间）": " (workspace not matched)",
-
   // 轮内过程折叠摘要的工具族名
   "读取": "read",
   "技能": "skill",
   "其他": "other",
-
-
-
-
   // 设置导航的分组标签
   "基础设置": "Basics",
   "Agent 能力": "Agent capabilities",
   "数据与统计": "Data & usage",
-
   // 移动端远程控制
   "移动端远程控制": "Mobile Remote",
   "手机扫码连接": "Connect by QR Code",
@@ -706,7 +709,6 @@ export const EN: Record<string, string> = {
   "配对时间 {time}": "Paired {time}",
   "解绑": "Unpair",
   "浏览器": "Browser",
-
   // Bot Channel（IM 机器人）
   "使用 Bot Channel": "Use Bot Channels",
   "连接聊天 Bot，适合更长时间的移动端访问。": "Connect a chat bot for longer mobile sessions.",
@@ -957,6 +959,4 @@ export const EN: Record<string, string> = {
   "自定义提供方…": "Custom provider…",
   "选中即设为默认模型": "Selecting sets the default model",
   "已设为默认模型": "Set as the default model",
-
 };
-

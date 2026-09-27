@@ -27,11 +27,15 @@ export function useBrowserCookies() {
   const [result, setResult] = useState<CookieResultFace | null>(null);
   /** 正在跑的活：某个来源 id，或 "clear"；空串 = 没有 */
   const [busy, setBusy] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
 
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "browserCookieSources") {
       const list = (payload as { sources?: CookieSourceFace[] } | undefined)?.sources;
       setSources(Array.isArray(list) ? list : []);
+      setLoading(false);
+      setHasScanned(true);
       return;
     }
     if (cmd === "browserCookieResult") {
@@ -46,7 +50,11 @@ export function useBrowserCookies() {
     }
   }), []);
 
-  const refresh = useCallback(() => sendToShell({ type: "browser-cookies", action: "sources" }), []);
+  const scan = useCallback(() => {
+    setLoading(true);
+    sendToShell({ type: "browser-cookies", action: "sources" });
+  }, []);
+  const refresh = scan;
   const importFrom = useCallback((id: string) => {
     setBusy(id);
     setResult(null);
@@ -58,5 +66,5 @@ export function useBrowserCookies() {
     sendToShell({ type: "browser-cookies", action: "clear" });
   }, []);
 
-  return { sources, result, busy, refresh, importFrom, clear };
+  return { sources, result, busy, loading, hasScanned, scan, refresh, importFrom, clear };
 }

@@ -46,7 +46,7 @@ export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden,
     ...(onFind ? [{ v: "find", label: t("页内查找"), icon: Search }] : []),
     ...(external !== undefined ? [{ v: "external", label: t("在默认浏览器中打开"), icon: SquareArrowOutUpRight }] : []),
     // 设置入口不带 icon（用户定稿）：都落在「浏览器」设置页的对应分节
-    { v: "import", label: t("导入 cookie 和密码") },
+    { v: "import", label: t("导入 cookie") },
     { v: "downloads", label: t("下载") },
     { v: "browserSettings", label: t("浏览器设置") },
   ];

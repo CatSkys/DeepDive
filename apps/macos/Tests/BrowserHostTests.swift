@@ -171,6 +171,67 @@ final class BrowserHostTests: XCTestCase {
         )
     }
 
+    func testCookieControlScansOffMainAndPreservesResponses() {
+        let tabs = BrowserTabs()
+        tabs.attach(to: NSView())
+        BrowserControl.tabsProvider = { tabs }
+        defer { BrowserControl.tabsProvider = nil }
+
+        let source = BrowserCookieSource(id: "safari", name: "Safari", kind: .safari,
+                                         root: URL(fileURLWithPath: "/nonexistent-deepdive-cookie-test"))
+        var scanCount = 0
+        func send(_ method: String, sourceID: String? = nil) -> [String: Any] {
+            let finished = expectation(description: method)
+            var payload: [String: Any] = [:]
+            DispatchQueue.global(qos: .userInitiated).async {
+                var command: [String: Any] = ["method": method]
+                if let sourceID { command["source"] = sourceID }
+                let body = try! JSONSerialization.data(withJSONObject: command)
+                let request = self.controlRequest(token: BrowserControl.token, body: String(decoding: body, as: UTF8.self))
+                let response = BrowserControl.handle(request) {
+                    XCTAssertFalse(Thread.isMainThread, "cookie source discovery must not block the UI")
+                    scanCount += 1
+                    return [source]
+                }
+                payload = (try? JSONSerialization.jsonObject(with: response.body)) as? [String: Any] ?? [:]
+                finished.fulfill()
+            }
+            wait(for: [finished], timeout: 5)
+            return payload
+        }
+
+        let listed = send("list_cookie_sources")
+        XCTAssertEqual(listed["ok"] as? Bool, true)
+        let entries = listed["sources"] as? [[String: Any]]
+        XCTAssertEqual(entries?.first?["id"] as? String, "safari")
+        XCTAssertEqual(entries?.first?["name"] as? String, "Safari")
+        XCTAssertEqual(send("import_cookies", sourceID: "unknown")["error"] as? String,
+                       "unknown cookie source: unknown")
+        let started = send("import_cookies", sourceID: "safari")
+        XCTAssertEqual(started["status"] as? String, "running")
+        XCTAssertEqual(started["source"] as? String, "safari")
+        XCTAssertEqual(scanCount, 3)
+
+        let finished = expectation(description: "cookie import status")
+        DispatchQueue.global(qos: .userInitiated).async {
+            for _ in 0..<100 {
+                let status = send("import_cookies_status")
+                if status["status"] as? String == "done" {
+                    XCTAssertEqual(status["code"] as? String, "missing")
+                    XCTAssertEqual(status["total"] as? Int, 0)
+                    XCTAssertEqual(status["imported"] as? Int, 0)
+                    finished.fulfill()
+                    return
+                }
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+            finished.fulfill()
+            XCTFail("cookie import did not complete")
+        }
+        wait(for: [finished], timeout: 5)
+        XCTAssertEqual(scanCount, 3, "status requests must not rescan browser directories")
+    }
+
     func testControlRejectsMissingOrWrongToken() {
         XCTAssertEqual(BrowserControl.handle(controlRequest(token: nil, body: "{}")).status, 403)
         XCTAssertEqual(BrowserControl.handle(controlRequest(token: "nope", body: "{}")).status, 403)

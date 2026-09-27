@@ -173,6 +173,7 @@
   gap: 12px;
   padding: 12px 14px;
 }
+.entryButton { width: 100%; text-align: left; }
 /* 行间分隔线：两边留空、与文本内容对齐（不用全宽横线） */
 .rowCard + .rowCard::before {
   content: "";
@@ -184,9 +185,16 @@
   background: var(--line);
 }
 .rowIdentity { flex: 1; min-width: 0; }
-.rowName { font-size: var(--dsh-font-size-base); color: var(--ink); }
-.rowCaption { font-size: var(--dsh-font-size-sm); color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
+.rowName { display: block; font-size: var(--dsh-font-size-base); color: var(--ink); }
+.rowCaption { display: block; font-size: var(--dsh-font-size-sm); color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
 .rowActions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+.backButton { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 16px; color: var(--ink-3); font-size: var(--dsh-font-size-sm); }
+.backButton:hover { color: var(--ink); }
+.tabBar { display: inline-flex; gap: 3px; padding: 3px; margin-bottom: 12px; border-radius: 999px; background: var(--fill); }
+.tab, .tabActive { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
+.tab:hover { color: var(--ink); }
+.tabActive { background: var(--ink); color: var(--panel-bg); }
 
 /* ── 按钮 ── */
 .primaryButton, .secondaryButton {
@@ -659,12 +667,20 @@
 
 
 /* 历史/书签那两张表：过滤输入、可滚动的列表、每行"标题 + 地址"的主按钮 */
+/* 卡片头行：左（过滤框/标题）右（清空）两端对齐——blockHead 是导入页的纵向标题+说明，勿混用 */
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 8px;
+}
 .listFilter {
   flex: 1; min-width: 120px; height: 26px; padding: 0 10px;
   border: 1px solid var(--line); border-radius: 13px;
   background: var(--fill-soft); color: var(--ink); font-size: var(--dsh-font-size-sm);
 }
-.listScroll { max-height: 260px; overflow-y: auto; }
+.listScroll { overflow-y: auto; }
 .listMain {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   max-width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: default;

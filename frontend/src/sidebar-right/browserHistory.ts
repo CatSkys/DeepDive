@@ -5,7 +5,7 @@
 //
 // 为什么不在 localStorage 里自己记一份：一件事只能有一个家。以前的 `browserRecents` 是 SPA 自己
 // 记的 20 条，与壳里的历史各说各话——现在统一成"壳记、SPA 读"。
-import { useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { onHostEvent, sendToShell } from "../host";
 
 export interface HistoryVisit {
@@ -91,6 +91,8 @@ export function useBrowserHistory(): {
   total: number;
   bookmarks: BookmarkFace[];
   refresh: (limit?: number) => void;
+  refreshHistory: (limit?: number) => void;
+  refreshBookmarks: () => void;
   remove: (url: string) => void;
   clear: () => void;
   removeBookmark: (url: string) => void;
@@ -102,15 +104,16 @@ export function useBrowserHistory(): {
     visits: current.visits,
     total: current.total,
     bookmarks: current.bookmarks,
-    // 历史与书签是两条命令：设置页一打开就要两份都问（书签只在增删时才被推过）
-    refresh: (limit = 200) => {
+    refresh: useCallback((limit = 200) => {
       sendToShell({ type: "browser-history", action: "list", limit });
       sendToShell({ type: "browser-bookmarks", action: "list" });
-    },
-    remove: (url: string) => sendToShell({ type: "browser-history", action: "remove", url }),
-    clear: () => sendToShell({ type: "browser-history", action: "clear" }),
-    removeBookmark: (url: string) => sendToShell({ type: "browser-bookmarks", action: "remove", url }),
-    clearBookmarks: () => sendToShell({ type: "browser-bookmarks", action: "clear" }),
+    }, []),
+    refreshHistory: useCallback((limit = 200) => sendToShell({ type: "browser-history", action: "list", limit }), []),
+    refreshBookmarks: useCallback(() => sendToShell({ type: "browser-bookmarks", action: "list" }), []),
+    remove: useCallback((url: string) => sendToShell({ type: "browser-history", action: "remove", url }), []),
+    clear: useCallback(() => sendToShell({ type: "browser-history", action: "clear" }), []),
+    removeBookmark: useCallback((url: string) => sendToShell({ type: "browser-bookmarks", action: "remove", url }), []),
+    clearBookmarks: useCallback(() => sendToShell({ type: "browser-bookmarks", action: "clear" }), []),
   };
 }
 
