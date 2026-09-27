@@ -1346,7 +1346,11 @@ button {
 .preview-loading { padding: 16px; color: var(--ink-3); font-size: var(--dsh-font-size-sm); }
 .preview-fallback { padding: 16px; color: var(--ink-3); font-size: var(--dsh-font-size-sm); display: flex; flex-direction: column; gap: 4px; }
 .preview-fallback-detail { color: var(--ink-3); opacity: .7; word-break: break-all; }
-.preview-md { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; font-size: var(--dsh-font-size-base); }
+.preview-md { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; font-size: var(--dsh-font-size-base);
+  /* 铺代码卡同款实底：窗体是玻璃配方（--panel-glass），markdown 密排文字透出
+     背后的会话，读不了（用户定稿"跟其他代码一样"）；代码预览是 .cb 卡自己
+     有底，这里对齐同一 token */
+  background: var(--cb-bg); }
 .preview-md .md-img { max-width: 100%; }
 /* PDF：逐页 canvas 栈（官方 canvas 自绘移植）。页与页留缝、居中、可双向滚动；
    未渲染完的页用等高占位撑住滚动位置。 */
