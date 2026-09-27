@@ -9,15 +9,17 @@ import { useEffect } from "react";
 import { sendToShell } from "../host";
 import { usePanelSurface } from "./panelStore";
 
-/** 电脑上那颗「对话」按钮的入口：把叠加层叫出来（卡片位置由叠加层自己记）。
-    顶栏按钮与"进全屏自动叫一次"共用它，避免两处各写一套消息。 */
-export function showChatFloat(sessionId: string): void {
+/** 电脑上那颗「对话」按钮的开关入口：显隐的事实源在壳（卡片自己的 × 也归它收），
+    SPA 不留第二份可见状态——会跟卡上的 × 失同步。这边只带 rect，壳按自己记的
+    可见性翻转；卡片位置由叠加层自己记。 */
+export function toggleChatFloat(sessionId: string): void {
   const body = document.querySelector('.panel[data-fullscreen="true"] .panel-browser-body') ?? document.querySelector(".panel-browser-body");
   const rect = body?.getBoundingClientRect();
   if (!rect || rect.width <= 0 || rect.height <= 0) return;
   sendToShell({
     type: "composer-overlay",
     sessionId,
+    toggle: true,
     rect: { x: rect.left, y: rect.top, w: rect.width, h: rect.height },
   });
 }

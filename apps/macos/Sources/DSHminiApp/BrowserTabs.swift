@@ -98,10 +98,11 @@ final class BrowserTabs {
         closed.awakeHost?.view.removeFromSuperview()
         tabs.remove(at: index)
         guard !tabs.isEmpty else {
-            // 关掉最后一个：回到空白页
+            // 关掉最后一个：回到空白页，并告知 SPA 这次是自动补的（用户报：
+            // 页面全关了就该把浏览器页收回去，别停在一张空白页上）
             let fresh = makeTab(url: "")
             tabs = [fresh]
-            activate(fresh)
+            activate(fresh, respawned: true)
             return
         }
         // 关掉当前标签就接上它右边那个（没有右边就左边那个），其余情况只是清单变了
@@ -209,7 +210,7 @@ final class BrowserTabs {
     }
 
     /// 换舞台：旧标签的视图下场，新标签的视图挂上（睡着的先醒），槽位照旧摆好。
-    private func activate(_ tab: BrowserTab) {
+    private func activate(_ tab: BrowserTab, respawned: Bool = false) {
         if let previous = tabs.first(where: { $0.id == activeId }), previous !== tab {
             previous.awakeHost?.view.removeFromSuperview()
         }
@@ -223,7 +224,7 @@ final class BrowserTabs {
             // SPA 还没推过槽位（面板关着）：给 agent 的默认视口、不可见（见 BrowserHost.place）
             host.place(rect: BrowserHost.idleViewport, visible: false, interactive: false)
         }
-        pushTabs()
+        pushTabs(respawned: respawned)
         host.resync()
     }
 
@@ -243,8 +244,11 @@ final class BrowserTabs {
         }
     }
 
-    private func pushTabs() {
-        onTabsChanged?(["activeId": activeId, "tabs": listPayload()])
+    private func pushTabs(respawned: Bool = false) {
+        var payload: [String: Any] = ["activeId": activeId, "tabs": listPayload()]
+        // respawned = 关掉最后一个标签后自动补的那张空白页；SPA 据此收起浏览器页
+        if respawned { payload["respawned"] = true }
+        onTabsChanged?(payload)
     }
 
     /// 当前标签的观察。宿刚刚醒来时它自己答不出地址（`view.url` 还是 nil 或 about:blank），

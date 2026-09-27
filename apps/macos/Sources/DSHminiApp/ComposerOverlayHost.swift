@@ -21,6 +21,10 @@ final class ComposerOverlayHost: NSObject {
     private var origin: NSPoint = .zero
     private var loadedSession: String?
 
+    /// 叠加层当前是否可见：「对话」按钮 toggle 的翻转依据。卡片自己的 × 走
+    /// hide()，状态只在这一个地方记，SPA 不留第二份（会失同步）。
+    private(set) var isVisible = false
+
     override init() {
         let config = WKWebViewConfiguration()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
@@ -46,12 +50,24 @@ final class ComposerOverlayHost: NSObject {
         view.alphaValue = 1
         // 页面可能还是"上次关掉"的状态：叫出来时通知它把卡片摆回来
         view.evaluateJavaScript("window.__deepDiveHost && window.__deepDiveHost.dispatch('chatShow', {})", completionHandler: nil)
+        isVisible = true
     }
 
     func hide() {
         view.alphaValue = 0
         // 卡不在了就不该再收事件：留着旧矩形会让那一块网页点不动
         view.interactiveRect = .zero
+        isVisible = false
+    }
+
+    /// 「对话」按钮的开关：按壳自己记的可见性翻转——卡片被 × 关过的话下一次
+    /// 点击仍是"叫出来"，不会吃掉一次。
+    func toggle(sessionId: String, rect: NSRect, contentHeight: CGFloat, zoom: CGFloat, origin host: String) {
+        if isVisible {
+            hide()
+        } else {
+            show(sessionId: sessionId, rect: rect, contentHeight: contentHeight, zoom: zoom, origin: host)
+        }
     }
 
     /// 页面报上来的卡片矩形（CSS px、本视图内坐标）→ **父视图坐标**的可点矩形。

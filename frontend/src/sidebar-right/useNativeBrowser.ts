@@ -105,7 +105,7 @@ export interface NativeBrowser {
 
 /** 壳载体的浏览器状态：观察来自壳，命令发给壳。 */
 export function useNativeBrowser(applicationOrigin: string, onKey?: (key: BrowserKeyCommand) => void,
-                                  thumbnail = false): NativeBrowser {
+                                  thumbnail = false, onTabsRespawned?: () => void): NativeBrowser {
   const [observed, setObserved] = useState<NativeBrowserState>(EMPTY);
   const [shot, setShot] = useState<string | null>(null);
   const [findResult, setFindResult] = useState<{ query: string; found: boolean } | null>(null);
@@ -120,6 +120,8 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
   // 回调放 ref：壳事件订阅只装一次，不因每次渲染的新函数反复解绑
   const keyHandler = useRef(onKey);
   keyHandler.current = onKey;
+  const respawnHandler = useRef(onTabsRespawned);
+  respawnHandler.current = onTabsRespawned;
   // 当前标签也要一份 ref：订阅闭包里读不到最新的 state，而观察的取舍要看它
   const activeTabRef = useRef("");
   const [draft, setDraft] = useState("");
@@ -128,13 +130,15 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
 
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "browserTabs") {
-      const data = payload as { tabs?: BrowserTabFace[]; activeId?: string } | undefined;
+      const data = payload as { tabs?: BrowserTabFace[]; activeId?: string; respawned?: boolean } | undefined;
       const nextId = typeof data?.activeId === "string" ? data.activeId : "";
       const switching = activeTabRef.current !== "" && activeTabRef.current !== nextId;
       activeTabRef.current = nextId;
       const list = Array.isArray(data?.tabs) ? data.tabs : [];
       setTabs(list);
       setActiveTabId(nextId);
+      // respawned = 壳自动补的空白标签（最后一个被关掉）：调用方据此收起浏览器页，与手开新标签区分
+      if (data?.respawned === true) respawnHandler.current?.();
       // 换了标签就把观察换成**新标签**的那一份（清单是权威的）：不清的话，新标签的观察
       // 还没到之前，屏幕上留着上一个标签的地址——空白标签会看起来"显示着上一个页面"
       if (switching) {
@@ -182,14 +186,11 @@ export function useNativeBrowser(applicationOrigin: string, onKey?: (key: Browse
     }
   }), []);
 
-  // 挂载即主动要一次当前状态：壳的观察是**变化才推**的，而面板关着时 agent 也在用
-  // 同一个浏览器（它导航完就推过了）。后挂载的 SPA 收不到那一帧，地址会一直是空的
-  // → 走空态、连槽位都不渲染 → 壳里已经打开的页面看不见（用户报"浏览器显示好像没有
-  // 正常使用"）。同步后壳回一条 browserState。
+  // 挂载即主动要一次当前状态：壳的观察变化才推，而面板关着时 agent 也在用同一个浏览器
+  // （它导航完就推过了）——后挂载的 SPA 收不到那一帧，地址会一直空走态（用户报过）。
   useEffect(() => {
     sendToShell({ type: "browser-sync" });
-    // 地址栏补全读的是壳推来的历史（那份缓存只在设置页里被请求过，所以这里也要一份；
-    // 开机时壳不能推——页面还没加载，命令会进单槽暂存、两条互相顶掉）
+    // 地址栏补全要历史（开机壳不能推——页面没加载，命令会进单槽暂存、两条互相顶掉）
     sendToShell({ type: "browser-history", action: "list", limit: 50 });
     sendToShell({ type: "browser-bookmarks", action: "list" });
   }, []);

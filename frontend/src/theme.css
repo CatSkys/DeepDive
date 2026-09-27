@@ -4423,7 +4423,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .panel-content { flex: 1; min-height: 0; overflow-y: auto; }
 
-/* 头部角落座位的展开按钮（官方 ExpandButton：左栏收起图标的镜像） */
+/* 头部角落座位的展开按钮（官方 ExpandButton：左栏收起图标的镜像）。
+   无底色无描边（用户定稿：图标骑在卡面上，hover 才给反馈） */
 .panel-expand-btn {
   flex: none;
   width: 26px;
@@ -4433,8 +4434,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
   align-items: center;
   justify-content: center;
   border-radius: var(--dsh-radius-keycap);
-  border: 1px solid var(--line);
-  background: var(--fill-soft);
   color: var(--ink-2);
   animation: fadein var(--dur-fast) ease both;
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;

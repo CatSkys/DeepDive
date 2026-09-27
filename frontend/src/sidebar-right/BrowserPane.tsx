@@ -37,13 +37,14 @@ function SlotOverlay({ label, onExpand }: { label: string; onExpand: () => void 
 /** 壳载体：页面由壳里的 WKWebView 承载。展开态把槽位挖给壳的原生视图（人在这里操作）；
  *  缩略图态显示壳给的**快照图**——WKWebView 没法"缩小放进去"（pageZoom 是重新排版，
  *  见 BrowserHost.previewShot），缩略图要的是整屏的等比缩小。 */
-function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption, onExitFullscreen }: {
+function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption, onExitFullscreen, onTabsRespawned }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
   onChat: () => void;
   caption: string;
   onExitFullscreen: () => void;
+  onTabsRespawned: () => void;
 }) {
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
@@ -61,7 +62,7 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
     else if (key === "zoomIn") browser.zoomIn();
     else if (key === "zoomOut") browser.zoomOut();
     else if (key === "zoomReset") browser.zoomReset();
-  }, !expanded);
+  }, !expanded, onTabsRespawned);
   const face: PaneFace = {
     ...browser.frame, draft: browser.draft, setDraft: browser.setDraft, failure: browser.failure,
     submit: browser.submit, navigate: browser.navigate, cancel: browser.cancel,
@@ -198,16 +199,19 @@ function IframeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
   );
 }
 
-/** 侧栏浏览器（对外入口）：按载体选一支，两种尺寸由调用方给。 */
-export function BrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption, onExitFullscreen }: {
+/** 侧栏浏览器（对外入口）：按载体选一支，两种尺寸由调用方给。
+ *  onTabsRespawned：壳自动补空白标签（= 最后一个标签被关掉）时触发，调用方
+ *  据此收起浏览器页——iframe 载体没有标签模型，用不到。 */
+export function BrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption, onExitFullscreen, onTabsRespawned }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
   onChat: () => void;
   caption: string;
   onExitFullscreen: () => void;
+  onTabsRespawned: () => void;
 }) {
   return browserCarrierKind() === "native"
-    ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} caption={caption} onExitFullscreen={onExitFullscreen} />
+    ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} caption={caption} onExitFullscreen={onExitFullscreen} onTabsRespawned={onTabsRespawned} />
     : <IframeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} caption={caption} />;
 }

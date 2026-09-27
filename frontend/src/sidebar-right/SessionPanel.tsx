@@ -18,7 +18,7 @@ import { t, tt } from "../i18n";
 import { dispatchAppEvent, DD_EVENTS } from "../events";
 import { usePanelSurface, panelActions } from "./panelStore";
 import { BrowserPane } from "./BrowserPane";
-import { showChatFloat } from "./useComposerOverlay";
+import { toggleChatFloat } from "./useComposerOverlay";
 import { StatusSections } from "./StatusSections";
 import { SessionSettings } from "./SessionSettings";
 import { useCapsuleData } from "./useCapsuleData";
@@ -92,7 +92,8 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
                 applicationOrigin={window.location.origin}
                 onExpand={() => panelActions.expandBrowser(sessionId)}
                 onExitFullscreen={() => { panelActions.setFullscreen(sessionId, false); panelActions.showSession(sessionId); }}
-                onChat={() => showChatFloat(sessionId)}
+                onChat={() => toggleChatFloat(sessionId)}
+                onTabsRespawned={() => { if (surface.mode === "browser") panelActions.showSession(sessionId); }}
                 caption={tt("{name}的屏幕", "{name}'s screen", { name: title })}
               />
             </div>
