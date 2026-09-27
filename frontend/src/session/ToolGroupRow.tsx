@@ -28,7 +28,7 @@ export function ToolGroupRow({ groupKind, members, children }: {
         <span className="tool-group-label">{tt(...GROUP_LABEL[groupKind])}</span>
         <span className="tool-group-sep" aria-hidden="true">·</span>
         <span className="tool-group-summary">{summary}</span>
-        <ChevronDown size={13} className="tool-group-chevron" style={open ? undefined : { transform: "rotate(-90deg)" }} />
+        <ChevronDown size={14} className="tool-group-chevron" style={open ? undefined : { transform: "rotate(-90deg)" }} />
       </button>
       {open && <div className="tool-group-body">{children}</div>}
     </div>

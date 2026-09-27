@@ -82,7 +82,7 @@ export function ThinkingState({
         <svg
           width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--tk-ink-3)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
           className="thinking-chevron"
-          style={{ transform: expanded ? "rotate(180deg)" : "rotate(0)" }}
+          style={{ transform: expanded ? "rotate(0)" : "rotate(-90deg)" }}
         >
           <path d="M6 9l6 6 6-6" />
         </svg>

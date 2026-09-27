@@ -61,6 +61,13 @@ const TOOL_TITLE_ZH: Record<string, string> = {
 };
 
 
+/** MCP 工具的展示名：`mcp__<服务器>__<工具>` → "<服务器> · <工具>"（用户定稿：
+    别把 wire 名整条摆出来）。拆不出来回 null（走原名）。 */
+function mcpDisplayName(toolName: string): string | null {
+  const m = /^mcp__(.+?)__(.+)$/.exec(toolName);
+  return m ? `${m[1]} · ${m[2]}` : null;
+}
+
 /// One-line tool row — DSH ToolRow port: icon + name · summary + chevron,
 /// expandable to reveal terminal output or raw arguments.
 export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd }: {
@@ -86,7 +93,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   const filePath = derivePath(toolName, args);
   const isBash = toolName === "bash" || toolName === "terminal-bash";
   const state = failed ? "error" : output !== undefined ? "done" : "running";
-  const title = isTodo ? t("任务") : isAsk && state === "running" ? t("等待回答") : state === "running" ? t("正在执行") : t(TOOL_TITLE_ZH[toolName] ?? toolName);
+  const title = isTodo ? t("任务") : isAsk && state === "running" ? t("等待回答") : state === "running" ? t("正在执行") : t(TOOL_TITLE_ZH[toolName] ?? mcpDisplayName(toolName) ?? toolName);
   const expandable = (output !== undefined && output !== "") || args !== "" || isTodo || (!!diffs && diffs.length > 0);
   return (
     <div className={`tool-row${state === "error" ? " bad" : ""}`} data-state={state} data-tool={toolName}>

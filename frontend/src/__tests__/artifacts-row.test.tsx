@@ -3,7 +3,7 @@
 // @vitest-environment jsdom
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { ArtifactsRow } from "../session/ToolRow";
+import { ArtifactsRow, ToolRow } from "../session/ToolRow";
 
 afterEach(cleanup);
 
@@ -38,5 +38,22 @@ describe("ArtifactsRow 产物/交付合并行", () => {
       <ArtifactsRow produced={[]} presented={[{ path: "shots/a.png", description: "跑分截图" }]} root="/w" />,
     );
     expect(container.querySelector("img.delivered-thumb")).not.toBeNull();
+  });
+});
+
+// 工具行标题：MCP 工具不再摆整条 wire 名（用户定稿：mcp__<服务器>__<工具>
+// → "<服务器> · <工具>"，图标走 mcp 族）。
+describe("ToolRow 标题", () => {
+  const row = (toolName: string) => render(
+    <ToolRow toolName={toolName} args='{"code":"1+1"}' output="ok" sessionId="s" />,
+  );
+  it("MCP 工具：标题是「服务器 · 工具」，行带 mcp 数据标记", () => {
+    const { container } = row("mcp__deepdive-browser__js");
+    expect(container.querySelector(".tool-title")?.textContent).toBe("deepdive-browser · js");
+    expect(container.querySelector(".tool-row")?.getAttribute("data-tool")).toBe("mcp__deepdive-browser__js");
+  });
+  it("未收录的普通工具仍显原名", () => {
+    const { container } = row("weird_tool");
+    expect(container.querySelector(".tool-title")?.textContent).toBe("weird_tool");
   });
 });

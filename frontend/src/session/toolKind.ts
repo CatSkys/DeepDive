@@ -1,13 +1,13 @@
 // 工具名 → 语义族（命令 / 编辑 / 读取 / 搜索 / 代码 / 技能 / 提问 / 子智能体 /
-// 目标 / 提醒 / 后台任务 / 其他）。
+// 目标 / 提醒 / 后台任务 / MCP / 其他）。
 // 只有这一份映射：ToolIcon 按族选 glyph（族表骨架来自官方 tool-call-model 的
-// TOOL_VARIANTS；agent/goal/schedule/job 是本仓应用级工具，官方表没有——图标
-// 跟右侧面板同语义区对齐：Bot/Flag/CalendarClock/SquareTerminal。表里没有的
-// 名字回 other）。
+// TOOL_VARIANTS；agent/goal/schedule/job/mcp 是本仓应用级工具，官方表没有
+// ——图标与右侧面板同语义区对齐：Bot/Flag/CalendarClock/SquareTerminal/MCP 插头）。
+// 表里没有的名字回 other。
 
 export type ToolVariant =
   | "read" | "edit" | "shell" | "search" | "code" | "skill" | "question"
-  | "agent" | "goal" | "schedule" | "job" | "other";
+  | "agent" | "goal" | "schedule" | "job" | "mcp" | "other";
 
 export function toolVariant(name: string): ToolVariant {
   switch (name) {
@@ -65,6 +65,7 @@ export function toolVariant(name: string): ToolVariant {
     case "job_kill":
       return "job";
     default:
-      return "other";
+      // MCP 工具（mcp__<服务器>__<工具>）：官方也归 others，本仓给独立族（用户定稿）
+      return name.startsWith("mcp__") ? "mcp" : "other";
   }
 }

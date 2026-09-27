@@ -37,9 +37,9 @@ describe("toolVariant：工具名 → 语义族", () => {
   });
 
   it.each(["mcp__github__create_issue", "mcp__filesystem__read_file", "mcp__x__y"])(
-    "%s → other（官方口径：MCP 没有专属行）",
+    "%s → mcp（用户定稿：MCP 工具给独立族，官方原口径是并入 others）",
     (name) => {
-      expect(toolVariant(name)).toBe("other");
+      expect(toolVariant(name)).toBe("mcp");
     },
   );
 

@@ -2164,10 +2164,14 @@ button {
   flex: none;
   display: inline-flex;
   align-items: center;
-  margin-left: 8px;
+  /* 一律钉在行右端（用户定稿：箭头位置统一成一条竖线） */
+  margin-left: auto;
+  padding-left: 8px;
 }
-.tool-chevron svg { transition: transform var(--dur-med) var(--ease-out); }
-.tool-chevron[data-open="true"] svg { transform: rotate(180deg); }
+/* 行级展开箭头统一一种语言（用户定稿：流里的箭头乱七八糟）：收 = 旋 -90° 指向
+   右、展 = 0° 指下，位置一律在行右端；思考块的头同此。 */
+.tool-chevron svg { transition: transform var(--dur-med) var(--ease-out); transform: rotate(-90deg); }
+.tool-chevron[data-open="true"] svg { transform: rotate(0); }
 .tool-row.bad .tool-title { color: var(--ink-soft); }
 .tool-body {
   padding: 8px 0 12px;
@@ -2282,8 +2286,9 @@ button {
   width: fit-content;
   align-items: center;
   gap: 8px;
+  width: 100%;
   margin: 0 -6px;
-  padding: 4px 6px;
+  padding: 0 6px;
   border: none;
   border-radius: var(--dsh-radius-control);
   background: transparent;
@@ -2314,7 +2319,11 @@ button {
   color: var(--tk-ink-2);
   animation: fade-in 350ms ease-out both;
 }
-.thinking-chevron { flex: none; color: var(--tk-ink-3); transition: transform 300ms ease; }
+.thinking-chevron {
+  flex: none; color: var(--tk-ink-3); transition: transform 300ms ease;
+  /* 钉行右端（与工具行箭头同一条竖线，用户定稿） */
+  margin-left: auto;
+}
 .thinking-collapse {
   display: grid;
   transition: grid-template-rows 400ms cubic-bezier(0.23,1,0.32,1), opacity 400ms cubic-bezier(0.23,1,0.32,1);
@@ -3416,7 +3425,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 
 /* ── 阶段 2：命令卡 / 菜单行次文本 / 拖放高亮 ── */
 
-.command-card { margin: 2px 0; }
+.command-card { margin: 0; }
 .command-main {
   display: flex;
   align-items: center;
@@ -3765,7 +3774,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   gap: 6px;
   width: 100%;
   min-height: 24px;
-  padding: 2px 0;
+  padding: 0;
   text-align: left;
   color: var(--ink-2);
 }
@@ -3783,7 +3792,11 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   font-size: var(--dsh-font-size-base);
   line-height: 24px;
 }
-.tool-group-chevron { flex: none; color: var(--ink-3); transition: transform var(--dur-fast) ease; }
+.tool-group-chevron {
+  flex: none; color: var(--ink-3); transition: transform var(--dur-fast) ease;
+  /* 与工具行箭头同位：钉右端 */
+  margin-left: auto; padding-left: 8px;
+}
 /* 展开体：缩进 + 左分隔线（他们 ml-2 border-l pl-3.5 的同款） */
 .tool-group-body { margin-left: 8px; padding-left: 14px; border-left: 1px solid var(--line); }
 
@@ -3948,8 +3961,10 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  /* 行横向内距 8 = ZCode 活动行的 px-2；区头标题的左缘与之对齐（见 .capsule-sec 注释） */
-  padding: 4px 8px;
+  /* 横向内距 0：前导图标与区标题落在同一条竖线上（用户定稿：标题与行内容
+     对齐）。行内可点底色由各自的对称负边距拉满（见 .capsule-row-click /
+     .capsule-git-row），上下留白照旧 */
+  padding: 4px 0;
   font-size: var(--dsh-font-size-base);
   line-height: 18px;
   color: var(--ink-2);
@@ -3980,7 +3995,9 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   gap: 8px;
   width: 100%;
   height: 32px;
+  /* 底色拉满、图标回到标题那条线（同 .capsule-row 的理由） */
   padding: 0 8px;
+  margin: 0 -8px;
   border-radius: var(--dsh-radius-control);
   text-align: left;
   font-size: var(--dsh-font-size-base);
@@ -4022,7 +4039,8 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 .capsule-row-go { margin-left: auto; color: var(--ink-3); flex: none; transition: transform var(--dur-fast) ease; }
 .capsule-row-meta { margin-left: auto; font-size: var(--dsh-font-size-sm); color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
 /* 行内的整行可点区（子智能体行用；活动行的时间线用 .capsule-row-main 的两行变体，
-   见上）。两者同名不同形——子智能体那行是"点标题开子会话"，横向排布。 */
+   见上）。两者同名不同形——子智能体那行是"点标题开子会话"，横向排布。
+   底色用对称负边距拉满（行本身横向内距 0，图标才与标题齐平）。 */
 .capsule-row-click {
   display: flex;
   align-items: center;
@@ -4030,8 +4048,8 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   flex: 1;
   min-width: 0;
   text-align: left;
-  padding: 2px 4px;
-  margin: -2px -4px;
+  padding: 2px 8px;
+  margin: -2px -8px;
   border-radius: var(--dsh-radius-keycap);
 }
 .capsule-row-click:hover { background: var(--fill); }
@@ -4043,7 +4061,8 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   gap: 5px;
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
-  padding: 3px 4px;
+  /* 折叠头与区标题、其余行同一条左缘（用户定稿） */
+  padding: 3px 4px 3px 0;
   border-radius: var(--dsh-radius-keycap);
 }
 .capsule-sec-toggle:hover { color: var(--ink); background: var(--fill); }
