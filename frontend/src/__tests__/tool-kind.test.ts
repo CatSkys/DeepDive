@@ -44,8 +44,28 @@ describe("toolVariant：工具名 → 语义族", () => {
   );
 
   it("未收录的名字一律回 other", () => {
-    for (const name of ["todo_write", "subagent", "jobs", "goal", "完全不存在的工具"]) {
+    // jobs/goal 是包名不是工具名（工具名是 job_list/get_goal 这批）；见 toolKind 表
+    for (const name of ["todo_write", "jobs", "goal", "完全不存在的工具"]) {
       expect(toolVariant(name)).toBe("other");
     }
+  });
+
+  it.each([
+    ["subagent", "agent"],
+    ["send_message", "agent"],
+    ["interrupt_agent", "agent"],
+    ["list_agents", "agent"],
+    ["wait_agent", "agent"],
+    ["get_goal", "goal"],
+    ["create_goal", "goal"],
+    ["update_goal", "goal"],
+    ["schedule_create", "schedule"],
+    ["schedule_list", "schedule"],
+    ["schedule_delete", "schedule"],
+    ["job_list", "job"],
+    ["job_output", "job"],
+    ["job_kill", "job"],
+  ])("%s → %s（本仓应用级工具，名字对照引擎注册源）", (name, variant) => {
+    expect(toolVariant(name)).toBe(variant);
   });
 });

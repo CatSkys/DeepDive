@@ -137,7 +137,9 @@ export function StatusSections({ sessionId, data, scheduleRecords, artifacts, on
       )}
       {data.children.length > 0 && (
         <CapsuleSection
-          title={t("子智能体")}
+          /* 区标题走 tt 内联（Subagents 复数），词典里的「子智能体」是工具行标题
+             （Subagent 单数）——一词两面，不在词典里挤同一个键 */
+          title={tt("子智能体", "Subagents")}
           open={agentOpen}
           onOpenChange={setAgentOpen}
           trailing={

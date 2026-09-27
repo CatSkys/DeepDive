@@ -97,9 +97,15 @@ export function CapsuleGoalSection({ goal, sessionId, onChange }: {
           ? <CircleCheck size={13} className="capsule-check" aria-hidden="true" />
           : <Flag size={13} aria-hidden="true" />}
         <span className="capsule-row-text">{goal.objective}</span>
-        <span className="capsule-row-meta" data-tip={goal.phase === "blocked" ? goal.blockedReason?.message : undefined}>{phaseLabel}</span>
       </div>
+      {/* 阶段词（进行中/受阻…）与动作钮同行：词贴左、钮贴右（用户定稿） */}
       <div className="capsule-goal-actions">
+        <span
+          className="capsule-row-meta capsule-goal-phase"
+          data-tip={goal.phase === "blocked" ? goal.blockedReason?.message : undefined}
+        >
+          {phaseLabel}
+        </span>
         {goal.phase === "active" && (
           <button type="button" className="capsule-icon-btn" data-tip={t("暂停目标")} disabled={pending} onClick={() => void run(() => api.goalPause({ sessionId, ref: cas() }))}>
             <Pause size={13} />

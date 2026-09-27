@@ -27,10 +27,8 @@ export function CapsuleSubagentSection({ children, runningIds, diag, busy, onOpe
         {/* 与摘要胶囊「运行中」同款 Bot 图标（用户定稿：子智能体不用终端图标） */}
         <Bot size={16} className="capsule-row-icon" aria-hidden="true" />
         <span className="capsule-row-text">{c.label ?? c.id.slice(0, 8)}</span>
-        <span className="capsule-row-meta">
-          {c.mode === "continuable" ? t("可续") : t("一次性")}
-          {isLive ? ` · ${t("运行中")}` : ""}
-        </span>
+        {/* 可续/一次性表述去掉（用户定稿）：模式只管 Stop 钮的 guard，不再上文字 */}
+        <span className="capsule-row-meta">{isLive ? t("运行中") : ""}</span>
       </button>
       {/* Stop 只在"还在跑且可续"时给（ZCode 对子智能体同样带 guard） */}
       {isLive && c.mode === "continuable" && (

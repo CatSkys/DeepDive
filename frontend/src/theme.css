@@ -3781,9 +3781,10 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 
 /* ── 阶段 5：Goal 条 / 谱系 / 后台任务与提醒 / 工作流卡 / 子会话只读 ── */
 /* 目标区的动作行（图标钮）与就地编辑输入：原先的独立目标条（GoalBar）并进面板后
-   搬过来的那几件。图标钮与收起钮共用同一套（.capsule-icon-btn）；动作组靠右
-   （用户定稿）——容器是块级，auto 外边距推不动，用 flex-end。 */
-.capsule-goal-actions { display: flex; justify-content: flex-end; gap: 2px; padding: 2px 0; }
+   搬过来的那几件。图标钮与收起钮共用同一套（.capsule-icon-btn）；阶段词贴左、
+   动作钮贴右（用户定稿）——阶段词 margin-right:auto 把钮推到右端。 */
+.capsule-goal-actions { display: flex; align-items: center; gap: 2px; padding: 2px 0; }
+.capsule-goal-actions .capsule-goal-phase { margin-right: auto; }
 /* 卡片里的搜索行（分支搜索）：图标 + 输入，与卡片内距对齐 */
 .capsule-card-search {
   display: flex;
