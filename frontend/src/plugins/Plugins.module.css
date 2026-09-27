@@ -1,4 +1,4 @@
-/* 插件页独有元素的样式：页内 tab 胶囊、搜索框、插件图标方块。
+/* 插件页独有元素的样式：页内 tab 胶囊、搜索框。
    卡片/行/按钮/徽章一律复用 SettingsRows.module.css（与设置页其他分区同一套观感），
    颜色全走主题语义变量（--ink / --line / --fill，见 theme.css :root）。 */
 
@@ -56,22 +56,6 @@
   color: var(--ink);
 }
 .searchInput::placeholder { color: var(--ink-3); }
-
-/* ── 插件图标方块：一插件一色相，取自模块名字符和（参考图的彩色图标位）。 ── */
-.glyph {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  color: #FFFFFF;
-  font-size: var(--dsh-font-size-base);
-  font-weight: 600;
-  text-transform: uppercase;
-  user-select: none;
-}
 
 /* ── 区块标题（参考图「已安装」「服务器」）── */
 .groupLabel {

@@ -25,8 +25,8 @@ import { useT } from "../i18n";
 import rs from "../settings/SettingsRows.module.css";
 import css from "./Plugins.module.css";
 import {
-  isBundledModule, matchesQuery, pluginState, pluginTogglable, rowIdOf,
-  shortModuleName, sortPluginRows, type PluginRowLike, type PluginState,
+  isBundledModule, matchesQuery, pluginDisplayName, pluginState, pluginTogglable, rowIdOf,
+  sortPluginRows, type PluginRowLike, type PluginState,
 } from "./model";
 
 const STATE_KEY: Record<PluginState, string> = {
@@ -38,23 +38,6 @@ const STATE_KEY: Record<PluginState, string> = {
   conditional: "按条件启用",
   offByUser: "已关闭",
 };
-
-/** 一插件一色相（参考图的彩色图标位）：模块名字符和取模，同一插件恒同色。 */
-const GLYPH_COLORS = ["#3B82F6", "#EF4444", "#22C55E", "#F59E0B", "#A855F7", "#6366F1", "#EC4899"];
-
-function glyphColor(key: string): string {
-  let hash = 0;
-  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-  return GLYPH_COLORS[hash % GLYPH_COLORS.length];
-}
-
-function PluginGlyph({ moduleName }: { moduleName: string }) {
-  return (
-    <span className={css.glyph} style={{ background: glyphColor(moduleName) }} aria-hidden="true">
-      {shortModuleName(moduleName).slice(0, 1)}
-    </span>
-  );
-}
 
 /** 状态徽章：颜色只分两档（可操作 / 其它），文字才是信息。 */
 function StateBadge({ state }: { state: PluginState }) {
@@ -123,7 +106,7 @@ export function PluginsTab({ query, onTryPlugin }: {
       message: tt(
         "卸载插件「{name}」？会从 profile 里摘掉它并重启引擎（期间几秒不可用）。要装回来用 dsh plugin add。",
         "Uninstall “{name}”? It is removed from the profile and the engine restarts (a few seconds offline). Reinstall with dsh plugin add.",
-        { name: entry.moduleName },
+        { name: t(pluginDisplayName(entry.moduleName)) },
       ),
       confirmLabel: t("卸载"),
       cancelLabel: t("取消"),
@@ -152,9 +135,8 @@ export function PluginsTab({ query, onTryPlugin }: {
         className={`${rs.blockRow}${state === "offByUser" ? ` ${css.rowOff}` : ""}`}
         title={rowId ?? undefined}
       >
-        <PluginGlyph moduleName={entry.moduleName} />
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div className={rs.rowName}>{shortModuleName(entry.moduleName)}</div>
+          <div className={rs.rowName}>{t(pluginDisplayName(entry.moduleName))}</div>
           <div className={css.rowMeta}>{entry.moduleName}</div>
         </div>
         <RowMenu

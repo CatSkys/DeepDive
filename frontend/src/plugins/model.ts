@@ -1,4 +1,4 @@
-// 插件与技能分区的纯逻辑：状态判定、命名短化、排序、汇总——视图之外的一切判断都在这儿。
+// 插件与技能分区的纯逻辑：状态判定、命名（短名/产品名）、排序、汇总——视图之外的一切判断都在这儿。
 //
 // 一条实测事实决定状态模型（2026-09-17 对引脚引擎实机核对，`pluginInventory/list` 160 行）：
 // Loader 层有 27 行 `enabled:false`——而它们是 `tool-bash` / `tool-fs` / `skill-filesystem`
@@ -65,6 +65,21 @@ export function shortModuleName(moduleName: string): string {
     .replace(/^dsh-(?:host-|client-)?/, "");
 }
 
+/** 已知插件的对外产品名：键是模块名，值是中文产品名（英文走 i18n 词典）。
+    包名剥出来的短名太工程（plugin / im / chat-import），对外一律用功能名；
+    名字按各插件 package.json 的描述定（功能为准）。新插件进来在这里补一条，
+    没收录的回退短名——不为未知插件编名字。 */
+const PLUGIN_NAMES: Record<string, string> = {
+  "@everos-ai/dsh-plugin": "跨会话记忆",
+  "@xmanrui/dsh-im": "IM 接入",
+  "dsh-chat-import": "会话导入",
+};
+
+/** 列表标题用的对外名字：收录的走产品名（经 t() 出英文），没收录的回退短名。 */
+export function pluginDisplayName(moduleName: string): string {
+  return PLUGIN_NAMES[moduleName] ?? shortModuleName(moduleName);
+}
+
 /** 一行能否给出有效开关。
     只有「已挂载」与「用户关掉的」两种态可拨：对 `unmounted` 行拨开关是空操作
     （工具类挂在 preset 组合里，本层那行不是它的真身），对 `conditional` 行无从判断。 */
@@ -82,10 +97,10 @@ export function isBundledModule(moduleName: string): boolean {
   return moduleName.startsWith("@deepseek-ai/") || moduleName.startsWith("cordis:");
 }
 
-/** 一行是否命中搜索词（模块名、行 id、短名任一命中）。 */
+/** 一行是否命中搜索词（模块名、产品名、行 id、短名任一命中）。 */
 export function matchesQuery(moduleName: string, entryId: string | null, query: string): boolean {
   const needle = query.trim().toLocaleLowerCase();
   if (needle.length === 0) return true;
-  const haystack = [moduleName, shortModuleName(moduleName), rowIdOf(entryId) ?? ""];
+  const haystack = [moduleName, shortModuleName(moduleName), PLUGIN_NAMES[moduleName] ?? "", rowIdOf(entryId) ?? ""];
   return haystack.some((value) => value.toLocaleLowerCase().includes(needle));
 }

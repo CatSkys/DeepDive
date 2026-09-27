@@ -770,6 +770,10 @@ export const EN: Record<string, string> = {
   "插件": "Plugins",
   "已安装": "Installed",
   "已关闭": "Turned off",
+  // 已知插件的对外产品名（plugins/model.ts 的 PLUGIN_NAMES；英文与各插件描述对齐）
+  "会话导入": "Chat Import",
+  "IM 接入": "IM Connect",
+  "跨会话记忆": "Cross-Session Memory",
   "搜索插件": "Search plugins",
   "搜索技能": "Search skills",
   "没有匹配的技能。": "No matching skills.",

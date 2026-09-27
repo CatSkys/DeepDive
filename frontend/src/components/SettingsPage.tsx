@@ -12,7 +12,7 @@ import { ImportSection } from "../settings/ImportSection";
 import { UsageSection } from "../stats/UsageSection";
 import { AutomationSection } from "../automation/AutomationSection";
 import { PluginsSection } from "../plugins/PluginsSection";
-import { shortModuleName } from "../plugins/model";
+import { pluginDisplayName } from "../plugins/model";
 import { draftKeyOf, writeDraft } from "../components/composer/useComposerDraft";
 import { RemoteControlSection } from "../mobile/RemoteControlSection";
 import type { AutomationProposal } from "../automation/protocol";
@@ -145,7 +145,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
                 // 草稿写在 hero 键上：关掉设置页后 Composer 重新挂载会读回它。
                 writeDraft(
                   draftKeyOf(null, store.activeWorkspaceId),
-                  tt("{name} 是什么？用它演示一下", "What is {name}? Show me what it does", { name: shortModuleName(moduleName) }),
+                  tt("{name} 是什么？用它演示一下", "What is {name}? Show me what it does", { name: t(pluginDisplayName(moduleName)) }),
                 );
                 store.openSession(null);
                 onClose();
