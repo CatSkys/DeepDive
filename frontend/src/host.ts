@@ -385,6 +385,26 @@ export function prepareWorkspace(payload: { name: string; path?: string; instruc
   );
 }
 
+/* ── 编辑项目：覆写 <项目>/AGENTS.md。引擎的 /api/file 只读，写只能壳做；
+   与 prepare-workspace 的区别是编辑是用户显式改，覆写而不是"已存在不改动"。 ── */
+
+export interface AgentsWriteResult {
+  ok: boolean;
+  error?: string;
+}
+
+export function writeProjectAgents(payload: { path: string; instructions: string }): Promise<AgentsWriteResult> {
+  return bridgeRequest(
+    "agentsWritten",
+    { ok: false, error: "bridge unavailable" },
+    (p) => {
+      const r = p as { ok?: boolean; error?: string } | undefined;
+      return { ok: !!r?.ok, ...(r?.error ? { error: r.error } : {}) };
+    },
+    (reqId) => sendToShell({ type: "write-agents", reqId, ...payload }),
+  );
+}
+
 export interface PickedAttachment {
   path: string;
   name: string;

@@ -27,6 +27,7 @@ import { heroModelFace } from "./draftModel";
 import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
 import { NewProjectDialogHost } from "./components/NewProjectDialog";
+import { EditProjectDialogHost } from "./components/EditProjectDialog";
 import { IconPickerHost } from "./components/IconPicker";
 import { CommandPaletteHost, openCommandPalette, toggleCommandPalette } from "./components/CommandPalette";
 import { routeWorkspacePicked } from "./components/workspacePicker";
@@ -263,6 +264,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       <TooltipHost />
       <DialogHost />
       <NewProjectDialogHost />
+      <EditProjectDialogHost />
       <IconPickerHost />
       <CommandPaletteHost />
       {/* 断线横幅：连上后掉线时出现（启动期引擎未起不算），重连即消失。

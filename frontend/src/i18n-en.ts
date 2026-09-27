@@ -83,6 +83,10 @@ export const EN: Record<string, string> = {
   "已踩": "Disliked",
   "保存": "Save",
   "取消": "Cancel",
+  // 编辑项目弹窗（项目 ⋯ 菜单唤出，复用新建项目表单）
+  "编辑项目": "Edit Project",
+  "保存后写入项目的 AGENTS.md，覆盖原内容。": "On save, written to the project's AGENTS.md, replacing its content.",
+  "保存项目指令失败。": "Failed to save project instructions.",
   "退出码 非 0": "exit ≠ 0",
   "{n} 行": "{n} lines",
   "… 其余 {n} 行": "… {n} more lines",

@@ -87,7 +87,7 @@ export function useProjectForm(): ProjectForm {
   };
 }
 
-export function ProjectFormFields({ form }: { form: ProjectForm }) {
+export function ProjectFormFields({ form, fixedPath }: { form: ProjectForm; /** 编辑态：文件夹是项目身份不可改，只展示现路径 */ fixedPath?: string }) {
   const { t } = useT();
   const hasShell = inShell();
   const { permission } = form;
@@ -124,35 +124,47 @@ export function ProjectFormFields({ form }: { form: ProjectForm }) {
         <div className={rowsCss.rowCard}>
           <span className={css.groupLabel}>{t("工作区文件夹")}</span>
           <div className={css.groupControl}>
-            <button
-              type="button"
-              data-tip={hasShell ? t("留空则按名称自动创建。") : undefined}
-              className={`${css.dirBtn}${form.pickedPath || form.typedPath ? ` ${css.filled}` : ""}`}
-              onClick={() => {
-                if (hasShell) {
-                  // 壳原生目录选择器：结果经 workspacePicked 回到这里
-                  beginWorkspacePick((p) => form.setPickedPath(p));
-                } else {
-                  // 浏览器降级：无壳桥建不了目录，弹输入框手输绝对路径
-                  void promptDialog({
-                    title: t("输入要添加为工作空间的文件夹绝对路径："),
-                    initialValue: form.typedPath,
-                  }).then((p) => { if (p && p.trim()) form.setTypedPath(p.trim()); });
-                }
-              }}
-            >
-              {form.pickedPath || form.typedPath ? <FolderOpen size={14} /> : <Plus size={14} />}
-              <span className={css.dirText}>
-                {form.pickedPath || form.typedPath || t("选择目录…")}
-              </span>
-            </button>
+            {fixedPath !== undefined ? (
+              <div className={`${css.dirBtn} ${css.filled} ${css.dirBtnFixed}`}>
+                <FolderOpen size={14} />
+                <span className={css.dirText}>{fixedPath}</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                data-tip={hasShell ? t("留空则按名称自动创建。") : undefined}
+                className={`${css.dirBtn}${form.pickedPath || form.typedPath ? ` ${css.filled}` : ""}`}
+                onClick={() => {
+                  if (hasShell) {
+                    // 壳原生目录选择器：结果经 workspacePicked 回到这里
+                    beginWorkspacePick((p) => form.setPickedPath(p));
+                  } else {
+                    // 浏览器降级：无壳桥建不了目录，弹输入框手输绝对路径
+                    void promptDialog({
+                      title: t("输入要添加为工作空间的文件夹绝对路径："),
+                      initialValue: form.typedPath,
+                    }).then((p) => { if (p && p.trim()) form.setTypedPath(p.trim()); });
+                  }
+                }}
+              >
+                {form.pickedPath || form.typedPath ? <FolderOpen size={14} /> : <Plus size={14} />}
+                <span className={css.dirText}>
+                  {form.pickedPath || form.typedPath || t("选择目录…")}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>
       <div>
         <div className={css.dlgLabelRow}>
           <span className={rowsCss.fieldLabel}>{t("项目指令")}</span>
-          <span className={css.infoIcon} data-tip={t("指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。")}>
+          <span
+            className={css.infoIcon}
+            data-tip={fixedPath !== undefined
+              ? t("保存后写入项目的 AGENTS.md，覆盖原内容。")
+              : t("指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。")}
+          >
             <Info size={14} />
           </span>
         </div>

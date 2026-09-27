@@ -6,6 +6,7 @@ import { api } from "../api";
 import { useStore } from "../store";
 import { clearWsIcon, getWsIcon, setWsIcon } from "../wsIcons";
 import { openIconPickerAt } from "./IconPicker";
+import { openEditProjectDialog } from "./EditProjectDialog";
 import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { useT } from "../i18n";
 
@@ -68,6 +69,10 @@ export function WorkspaceMenuItems({ ws, onDone }: { ws: WorkspaceView; onDone: 
         {t("复制路径")}
       </div>
       <div className="ctx-sep" />
+      {/* 编辑项目：唤出编辑弹窗（复用新建项目表单，改名称/图标/项目指令） */}
+      <div className="ctx-item" onClick={() => { openEditProjectDialog(ws); onDone(); }}>
+        {t("编辑项目")}
+      </div>
       <div className="ctx-item" onClick={rename}>
         {t("重命名")}
       </div>
@@ -105,7 +110,7 @@ export function WorkspaceMenu({ ws, x, y, onClose }: { ws: WorkspaceView; x: num
     return () => document.removeEventListener("mousedown", close);
   }, [onClose]);
 
-  const estimatedH = 204; // 六个菜单项 + 分隔线 + 内边距
+  const estimatedH = 240; // 七个菜单项 + 分隔线 + 内边距
   const flip = y + estimatedH > window.innerHeight - 8;
 
   return createPortal(

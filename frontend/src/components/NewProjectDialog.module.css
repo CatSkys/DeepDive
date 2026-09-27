@@ -77,13 +77,17 @@
 }
 .dirBtn:hover { background: var(--fill-strong); color: var(--ink); }
 .dirBtn.filled { justify-content: flex-start; color: var(--ink); }
+/* 编辑态的文件夹行：只展示现路径，不响应悬停/点击 */
+.dirBtnFixed { cursor: default; }
+.dirBtnFixed:hover { background: var(--fill); color: var(--ink); }
 .dirText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 项目指令 textarea：textField 同规格，仅高度自适应 */
+/* 项目指令 textarea：textField 同规格，仅高度自适应（128 ≈ 两倍初高，用户定稿：
+   项目指令往往整段写，64px 只露两三行） */
 .textArea {
   box-sizing: border-box;
   width: 100%;
-  min-height: 64px;
+  min-height: 128px;
   padding: 7px 10px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-control);

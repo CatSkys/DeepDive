@@ -367,6 +367,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 name: body["name"] as? String ?? "",
                 instructions: body["instructions"] as? String ?? "",
             )
+        case "write-agents":
+            writeAgents(
+                reqId: body["reqId"] as? String ?? "",
+                path: body["path"] as? String ?? "",
+                instructions: body["instructions"] as? String ?? "",
+            )
         case "pick-attachments":
             pickAttachments(reqId: body["reqId"] as? String ?? "")
         case "list-dir":
@@ -581,6 +587,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
             DispatchQueue.main.async { reply(["path": target, "agentsFile": agentsFile]) }
+        }
+    }
+
+    /// 编辑项目弹窗的落盘：覆写 <项目>/AGENTS.md（与 prepare-workspace 的
+    /// 「已存在不改动」相反——编辑是用户显式改，覆盖原内容）。磁盘操作走
+    /// 后台队列（对齐 prepareWorkspace 的线程纪律），主线程只回推 payload。
+    private func writeAgents(reqId: String, path: String, instructions: String) {
+        func reply(_ fields: [String: Any]) {
+            var all = fields
+            all["reqId"] = reqId
+            windowController.pushHostCommand("agentsWritten", payload: AppDelegate.jsonPayload(all))
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let agents = URL(fileURLWithPath: path).appendingPathComponent("AGENTS.md")
+            do {
+                try instructions.write(to: agents, atomically: true, encoding: .utf8)
+                DispatchQueue.main.async { reply(["ok": true]) }
+            } catch {
+                DispatchQueue.main.async { reply(["ok": false, "error": error.localizedDescription]) }
+            }
         }
     }
 
