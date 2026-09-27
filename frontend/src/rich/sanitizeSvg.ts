@@ -10,6 +10,13 @@
 //     下继承，且改不到影子树的宿主。
 //
 // style 属性（元素自带的 fill/stroke）本来就保留——只作用于自身元素。
+//
+// 例外：mermaid 11 的形状默认把节点底色/描边以**行内 `!important`** 形式烘在 rect 上
+//（经典 look 的浅蓝 `#e8eef7` + 蓝边 `#4a6fa5`），它们压过主题的类规则（`.node rect`
+// 里的 fill/stroke），结果是图永远长成 mermaid 的浅色调色板——深色界面里白字压浅底，
+// 完全读不了（2026-09-27 用户报"没跟着外观颜色自适应"）。故把行内样式里带
+// `!important` 的颜色声明摘掉：配色交回主题（themeVariables 已按应用明暗合成，
+// 见 mermaidRender.ts），其余声明（尺寸/变换/描边宽度）原样保留。
 
 import DOMPurify from "dompurify";
 
@@ -20,10 +27,19 @@ export function sanitizeSvg(source: string): string | null {
     FORBID_TAGS: ["script", "foreignObject"],
   });
   if (!/<svg([^>]*)>/i.test(clean)) return null;
-  return clean.replace(
-    /<style([^>]*)>([\s\S]*?)<\/style>/gi,
-    (_all, styleAttrs: string, css: string) => `<style${styleAttrs}>${scopedCss(css)}</style>`,
-  );
+  return clean
+    .replace(
+      /<style([^>]*)>([\s\S]*?)<\/style>/gi,
+      (_all, styleAttrs: string, css: string) => `<style${styleAttrs}>${scopedCss(css)}</style>`,
+    )
+    .replace(/ style="([^"]*)"/gi, (all, decls: string) => {
+      const kept = decls
+        .split(";")
+        .filter((d) => d.trim() !== "" && !/^(fill|stroke|color)\s*:[^;]*!important$/i.test(d.trim()));
+      return kept.length === decls.split(";").filter((d) => d.trim() !== "").length
+        ? all
+        : ` style="${kept.join(";")}"`;
+    });
 }
 
 /** 摘掉 @import（外部样式表＝外发请求，在影子树里本来也无效）与 @charset，再把 `:root`

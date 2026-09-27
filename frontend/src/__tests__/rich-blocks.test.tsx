@@ -112,6 +112,17 @@ describe("内联 SVG 围栏", () => {
     expect(container.querySelector(".md-rich-note")?.textContent).toContain("SVG 渲染失败");
   });
 
+  it("行内 !important 颜色声明被摘掉（mermaid 形状默认的浅蓝调色板压过主题，2026-09-27 用户报）", () => {
+    const out = sanitizeSvg(
+      '<svg viewBox="0 0 10 10"><rect style="fill:#e8eef7 !important;stroke:#4a6fa5 !important;stroke-width:2px !important" x="0" y="0" width="4" height="4"/>' +
+      '<rect style="fill:#123456" x="5" y="5" width="2" height="2"/></svg>',
+    ) ?? "";
+    expect(out).not.toContain("#e8eef7");
+    expect(out).not.toContain("#4a6fa5");
+    expect(out).toContain("stroke-width:2px"); // 非颜色声明保留
+    expect(out).toContain("#123456"); // 没有 !important 的行内色照旧保留
+  });
+
   it("sanitizeSvg 直接判定：非 SVG 一律 null", () => {
     expect(sanitizeSvg("<div>hi</div>")).toBeNull();
     expect(sanitizeSvg('<svg viewBox="0 0 1 1"><path d="M0 0"/></svg>')).toContain("viewBox");
