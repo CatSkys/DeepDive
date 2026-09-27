@@ -478,9 +478,19 @@ button {
 .ws-row .ws-act:hover { background: var(--fill-strong); color: var(--ink); }
 
 /* 空间横滑（§2.1）：key 重挂载驱动，fwd=自右滑入 / back=自左滑入。
-   ws-row 与会话列表两块同 key 同节奏，视觉上是一整片内容在滑动。 */
-.ws-view { animation: ws-in-fwd var(--dur-med) var(--ease-out) both; }
+   ws-row 与会话列表两块同 key 同节奏，视觉上是一整片内容在滑动。
+   入场用 backwards 而非 both：动画结束后要把 transform 还给 --ws-drag
+   （手势拖动中内容的位置就是它，both 的 fill 会把拖动冻在动画终态）。 */
+.ws-view { animation: ws-in-fwd var(--dur-med) var(--ease-out) backwards; transform: translateX(var(--ws-drag, 0px)); }
 .ws-view[data-dir="back"] { animation-name: ws-in-back; }
+/* 手势横滑（useWorkspaceSwipe）：拖动中 1:1 跟手（无过渡），结算时开过渡
+   回弹/吸附；手势切过去的空间从松手处（--ws-enter）接着滑入。 */
+.ws-view[data-settling="true"] { transition: transform var(--dur-med) var(--ease-out); }
+.ws-view[data-gesture="in"] { animation-name: ws-in-gesture; }
+@keyframes ws-in-gesture {
+  from { opacity: .4; transform: translateX(var(--ws-enter, 0px)); }
+  to { opacity: 1; transform: none; }
+}
 .ws-view.grow {
   flex: 1;
   min-height: 0;

@@ -15,6 +15,7 @@ import { useWsIcon } from "../wsIcons";
 import { longPressHandlers } from "../longPress";
 import { WorkspaceMenuItems } from "./WorkspaceMenu";
 import { WsSwitcher } from "./WsSwitcher";
+import { useWorkspaceSwipe } from "./useWorkspaceSwipe";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import type { SessionSummary } from "../types";
 import { sessionTitle } from "../session/sessionTitle";
@@ -152,25 +153,14 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     prevWs.current = store.activeWorkspaceId;
   }
 
-  // 触控板双指横滑切空间：横向分量占优时累计 deltaX，过阈值切上一个/下一个
-  // （左滑=下一个，与轮播方向一致），到头不回绕；冷却防一次长滑连切。
-  // 纵向滚动（|Y|≥|X|）不劫持，会话列表照常滚。无需 preventDefault——
-  // 侧栏本无横向溢出，浏览器对纯横向 wheel 无默认行为。
-  const swipeAcc = useRef({ acc: 0, coolUntil: 0 });
-  const onSidebarWheel = (e: React.WheelEvent) => {
-    if (store.workspaces.length < 2) return;
-    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
-    const now = performance.now();
-    const st = swipeAcc.current;
-    if (now < st.coolUntil) return;
-    st.acc += e.deltaX;
-    if (Math.abs(st.acc) < 60) return;
-    const idx = store.workspaces.findIndex((w) => w.workspaceId === store.activeWorkspaceId);
-    const target = store.workspaces[idx + (st.acc > 0 ? 1 : -1)];
-    st.acc = 0;
-    st.coolUntil = now + 700;
-    if (target) store.switchWorkspace(target.workspaceId);
-  };
+  // 工作区手势横滑（用户定稿：动画跟手，触控板双指或鼠标拖动推动内容，过阈值
+  // 松手吸附；到头不回绕，冷却防一次长滑连切）。实现见 useWorkspaceSwipe。
+  const wsIndex = store.workspaces.findIndex((w) => w.workspaceId === store.activeWorkspaceId);
+  const swipe = useWorkspaceSwipe({
+    index: wsIndex,
+    count: store.workspaces.length,
+    onCommit: (next) => { const w = store.workspaces[next]; if (w) store.switchWorkspace(w.workspaceId); },
+  });
 
   // 当前空间视图：时间分组。blank 会话不滤——新建的会话要以 "New Chat"
   // 出现在侧栏顶部（§2.2）。置顶会话独立成组浮在分组之前。subagent 派生
@@ -304,7 +294,14 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   );
 
   return (
-        <aside className="sidebar" onWheel={onSidebarWheel}>
+        <aside
+          className="sidebar"
+          style={{ "--ws-drag": swipe.drag === 0 ? undefined : `${swipe.drag}px`, "--ws-enter": swipe.enterFrom === null ? undefined : `${swipe.enterFrom}px` } as React.CSSProperties}
+          onWheel={swipe.wheel}
+          onPointerDown={swipe.pointerDown}
+          onPointerMove={swipe.pointerMove}
+          onPointerUp={swipe.pointerUp}
+        >
       {/* 搜索框非常驻：由顶部搜索钮 / ⌘F 打开（用户定稿——侧栏顶部让给会话列表，
           搜索收成一个按钮）。Esc 关闭并**清空**：否则输入框藏起来后列表还滤着，
           看着像会话丢了。 */}
@@ -339,7 +336,13 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         )}
       </button>
       {activeWs && (
-        <div className="ws-view" key={`head-${activeWs.workspaceId}`} data-dir={slideDir.current}>
+        <div
+          className="ws-view"
+          key={`head-${activeWs.workspaceId}`}
+          data-dir={slideDir.current}
+          data-settling={swipe.settling || undefined}
+          data-gesture={swipe.enterFrom === null ? undefined : "in"}
+        >
           {/* 官方 ProjectRowItem 同款交互：点行折叠/展开会话；hover 显出
               chevron（替代项目图标，折叠时转 -90°）与 ⋯/＋ 行尾按钮。
               行首槽位只显示弹窗里选的项目 glyph（wsIcons）；没选留空。 */}
@@ -383,6 +386,8 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         className="ws-view grow"
         key={`list-${activeWs?.workspaceId ?? "all"}`}
         data-dir={slideDir.current}
+        data-settling={swipe.settling || undefined}
+        data-gesture={swipe.enterFrom === null ? undefined : "in"}
         /* visibility 而非 display:none：这个容器是侧栏 flex 的 flex:1 撑高
            元素，折叠时必须保留占位，否则底部设置行会滑上来顶到项目行 */
         style={{ visibility: !query && wsCollapsed ? "hidden" : undefined }}
