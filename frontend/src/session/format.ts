@@ -71,13 +71,15 @@ export function formatLatencySeconds(ms: number): string {
 }
 
 /** 经过时长（StatusCapsule/LoadingState 的 elapsed 收敛目的地，AUD-047）：
- *  <60s → "{n}s"；<60m → "{n}m"；否则 "{h}h {m}m"（均向下取整）。 */
+ *  <60s → "{n}s"；<60m → "{m}m {s}s"；否则 "{h}h {m}m {s}s"（均向下取整）。
+ *  秒恒在（用户定稿：分钟后没秒就是"1m"地停着不走，看不出在动；小时同理）。 */
 export function formatElapsed(ms: number): string {
   const s = Math.floor(ms / 1000);
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
+  const sec = s % 60;
+  if (m < 60) return `${m}m ${sec}s`;
+  return `${Math.floor(m / 60)}h ${m % 60}m ${sec}s`;
 }
 export function truncate(s: string, n = 400): string {
   if (s.length <= n) return s;

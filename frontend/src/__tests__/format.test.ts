@@ -24,18 +24,18 @@ describe("formatElapsed", () => {
     expect(formatElapsed(59900)).toBe("59s"); // 59.9s 向下取整
   });
   it("秒→分边界：60s 进分档", () => {
-    expect(formatElapsed(60000)).toBe("1m");
-    expect(formatElapsed(119000)).toBe("1m"); // 1m59s → "1m"
+    expect(formatElapsed(60000)).toBe("1m 0s");
+    expect(formatElapsed(119000)).toBe("1m 59s");
   });
-  it("分档：<60m 输出整分（丢弃秒）", () => {
-    expect(formatElapsed(3599000)).toBe("59m"); // 59m59s → "59m"
+  it("分档：秒恒在（用户定稿：分钟后没秒看不出在走）", () => {
+    expect(formatElapsed(3599000)).toBe("59m 59s");
   });
   it("分→时边界：整 1h 进时分档", () => {
-    expect(formatElapsed(3600000)).toBe("1h 0m");
+    expect(formatElapsed(3600000)).toBe("1h 0m 0s");
   });
-  it("时分档：跨档进位（1h1m / 多小时）", () => {
-    expect(formatElapsed(3660000)).toBe("1h 1m");
-    expect(formatElapsed(7199000)).toBe("1h 59m"); // 1h59m59s
-    expect(formatElapsed(2 * 3600000 + 5 * 60000)).toBe("2h 5m");
+  it("时分档：跨档进位（秒恒在）", () => {
+    expect(formatElapsed(3660000)).toBe("1h 1m 0s");
+    expect(formatElapsed(7199000)).toBe("1h 59m 59s"); // 1h59m59s
+    expect(formatElapsed(2 * 3600000 + 5 * 60000 + 9000)).toBe("2h 5m 9s");
   });
 });
