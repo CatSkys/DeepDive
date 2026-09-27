@@ -9,6 +9,7 @@ import { mux } from "./mux";
 import { usePrefs } from "./prefs";
 import { useSidebarLayout } from "./useSidebarLayout";
 import type { KeybindOverrides } from "./keybinds";
+import { readDraftModel, writeDraftModel, type DraftModel } from "./draftModel";
 import type { ApprovalPending, QuestionItem, QuestionPending, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
 
 // Minimal store: engine lists + the live event stream (0.1.2: $events 转发流 +
@@ -99,9 +100,10 @@ interface Store {
    *  成功才切，失败时草稿与附件留在原地可重试）。 */
   createSession: (opts?: { activate?: boolean }) => Promise<string | null>;
   /** 草稿模型：新会话页（hero）上选的模型。此时会话尚未真正创建，先暂存；
-   *  首条消息触发 createSession 时随新会话 selectModel 一次性带走并清空。 */
-  draftModel: { provider: string; model: string; reasoningEffort?: string } | null;
-  setDraftModel: (m: { provider: string; model: string; reasoningEffort?: string } | null) => void;
+   *  首条消息触发 createSession 时随新会话 selectModel 带走，且**不清空**——
+   *  它是持久化的「上次选择」（draftModel.ts），下次新建会话继续继承。 */
+  draftModel: DraftModel | null;
+  setDraftModel: (m: DraftModel | null) => void;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   /** 侧栏宽（px，200–320，token sidebarMin/Max）。初始值经壳 prefs 推送
@@ -610,10 +612,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setActiveSessionId(target?.sessionId ?? null);
   }, []);
 
-  // 草稿模型（见 Store 接口注释）；ref 镜像供 createSession 闭包读取。
-  const [draftModel, setDraftModel] = useState<{ provider: string; model: string; reasoningEffort?: string } | null>(null);
+  // 草稿模型（见 Store 接口注释）：初值读档，写入即落 localStorage；ref 镜像供
+  // createSession 闭包读取。
+  const [draftModel, setDraftModelState] = useState<DraftModel | null>(() => readDraftModel());
   const draftModelRef = useRef(draftModel);
   draftModelRef.current = draftModel;
+  const setDraftModel = useCallback((m: DraftModel | null) => {
+    writeDraftModel(m);
+    setDraftModelState(m);
+  }, []);
 
   // 模式不在这里传：引擎按 `agent-presets` 设置命名空间的 default 决定
   // （通用设置里的「默认会话模式」卡片），会话创建即 pin。
@@ -628,8 +635,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.createSession({ workspaceId: wsId });
       const dm = draftModelRef.current;
+      // 草稿带走但不清空：它是「上次选择」（持久化），下个新会话继续继承。
       if (dm) {
-        setDraftModel(null);
         try {
           await api.selectModel({ sessionId: res.sessionId, ...dm });
         } catch { /* engine may be busy */ }
@@ -749,7 +756,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

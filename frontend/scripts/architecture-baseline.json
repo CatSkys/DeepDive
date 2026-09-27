@@ -51,10 +51,10 @@
       "detail": "714 lines > 300"
     },
     {
-      "id": "c81d264bb1cc1003",
+      "id": "8b2f21d4a0f9cc24",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "401 lines > 300"
+      "detail": "411 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -159,10 +159,10 @@
       "detail": "418 lines > 300"
     },
     {
-      "id": "1f856f4cc61c68ef",
+      "id": "0156e5a49aff5879",
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
-      "detail": "757 lines > 300"
+      "detail": "764 lines > 300"
     },
     {
       "id": "b5a2dc790aada236",

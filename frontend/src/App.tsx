@@ -23,6 +23,7 @@ import { useAutoArchive } from "./useAutoArchive";
 import { useBrowserPermissionAsk } from "./sidebar-right/useBrowserPermissionAsk";
 import { useBrowserLibraryBridge } from "./sidebar-right/browserHistory";
 import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
+import { heroModelFace } from "./draftModel";
 import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
 import { NewProjectDialogHost } from "./components/NewProjectDialog";
@@ -58,6 +59,9 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   const active = store.activeSessionId;
   const [modelName, setModelName] = useState("DeepSeek");
   const [models, setModels] = useState<ModelOption[]>([]);
+  // 引擎默认模型（modelCatalog 的 default）：草稿无选择/草稿失效时 hero 头部
+  // 的显示口径——真会话走 modelSelection 投影（next ?? lastUsed），hero 与它对齐。
+  const [engineDefault, setEngineDefault] = useState<{ provider: string; model: string } | undefined>(undefined);
   const [showModels, setShowModels] = useState(false);
   /** 草稿页的右侧边栏卡（只有会话设置，无会话可读所以没有状态分区）。 */
   const [heroPanelOpen, setHeroPanelOpen] = useState(false);
@@ -127,6 +131,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     const { options, default: def } = await api.modelOptions()
       .catch(() => ({ options: [] as ModelOption[], default: undefined }));
     setModels(options);
+    setEngineDefault(def);
     const want = store.draftModel ?? def;
     if (want) {
       const hit = options.find((m) => m.provider === want.provider && m.model === want.model);
@@ -134,6 +139,11 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     } else if (options[0]) setModelName(options[0].label);
   }, [store.draftModel]);
   useEffect(() => { void loadModels(); }, [loadModels]);
+  // 冷启动挂载时常撞引擎 503（上方降级路径留空）：engineUp 翻真后补拉一次，
+  // hero 头部的模型名/思考档位不必等用户开菜单才纠正（重启后显示默认模型）。
+  useEffect(() => {
+    if (store.engineUp) void loadModels();
+  }, [store.engineUp, loadModels]);
   useEffect(() => {
     if (showModels) void loadModels();
   }, [showModels, loadModels]);
@@ -142,9 +152,9 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   // （i18n.ts 的 t/tt 缓存注释记过同型事故）。
   const reloadModels = useCallback(() => void loadModels(), [loadModels]);
 
-  // 草稿选择与其目录元数据（思考强度档位）——hero 头部显示与菜单共用
-  const draft = store.draftModel;
-  const draftOption = draft ? models.find((m) => m.provider === draft.provider && m.model === draft.model) : undefined;
+  // 草稿页生效模型（草稿 ?? 引擎默认的口径在 draftModel.ts）：hero 头部显示
+  // 与菜单共用，档位元数据来自目录里的 efforts（modelCatalog 透传）。
+  const heroModel = heroModelFace(models, store.draftModel, engineDefault);
 
   const pickModel = async (m: ModelOption, reasoningEffort?: string) => {
     setModelName(m.label);
@@ -165,10 +175,10 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   // 两处各写一遍字面量会漂移——其中一处改了 modelName 另一处就不跟着）。
   const heroFace: ModelFace = {
     showModels, setShowModels, modelName, models,
-    currentModel: draft ? { provider: draft.provider, model: draft.model } : undefined,
-    effortLevels: draftOption?.efforts ?? [],
-    effort: draft?.reasoningEffort,
-    effortLabel: (id) => effortDisplayName(id, draftOption?.efforts ?? []),
+    currentModel: heroModel.currentModel,
+    effortLevels: heroModel.efforts,
+    effort: heroModel.effort,
+    effortLabel: (id) => effortDisplayName(id, heroModel.efforts),
     pickModel, applyModelEffort: pickModel,
   };
   // 应用内快捷键：window 捕获段匹配键位注册表（快捷键页可改/可停用）。

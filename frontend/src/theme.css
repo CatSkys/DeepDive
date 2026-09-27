@@ -234,8 +234,8 @@ button {
 .app.collapsed .sidebar { margin-left: calc(-1 * var(--dsh-sidebar-w, 240px)); opacity: 0; pointer-events: none; }
 .session-header, .hero-top { transition: padding-left 220ms cubic-bezier(.2,0,0,1); }
 .app.collapsed .session-header { padding-left: 176px; }
-/* hero 自带 24px 横向 padding：补 152 = 会话头同位（176），两页空隙一致 */
-.app.collapsed .hero-top { padding-left: 152px; }
+/* hero-top 的负边距已抵掉 .hero 的横向 padding：与会话头同款 176（同位让位） */
+.app.collapsed .hero-top { padding-left: 176px; }
 
 /* 启动过渡的舞台：把「侧栏 + 主卡」这对兄弟包进一个自己就是 flex row 的容器，
    几何与 .app 直接持有它们时一致（同样 flex:1 + min-width:0 + 同样的子元素），
@@ -625,7 +625,10 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 24px;
+  /* 横向 padding 是卡内 composer/brand 的公共缩进；hero-top 要跟会话页单层
+     对齐，按这个变量负边距抵掉——改值两处联动，别写死两份 */
+  --hero-pad-x: 24px;
+  padding: 0 var(--hero-pad-x);
 }
 /* 品牌组垂直居中：hero 里只允许这里两份 auto 外边距（上下均分自由空间）。
    .hero-composer 若再挂 margin-top:auto 会变成三份均分，标题掉到 1/3 高度偏上。 */
@@ -648,10 +651,13 @@ button {
 .hero-top {
   display: flex;
   align-items: flex-start;
-  /* 与 .session-header 同款 padding-top：空态标题也落在 26px 中心线 */
+  /* 与 .session-header 同款 padding：空态标题也落在 26px 中心线。横向 16/24
+     是卡内**单层**值——负边距抵掉 .hero 自带的横向 padding，落点才跟会话页
+     对齐（双层叠加曾多缩 24px；收起态同理由 .app.collapsed 补回同款 176） */
   padding: 8px 16px 0 24px;
-  width: 100%;
-  /* 收起态的 176px 让位 padding 必须算进盒内：hero 是 align-items:center
+  margin: 0 calc(-1 * var(--hero-pad-x));
+  width: calc(100% + 2 * var(--hero-pad-x));
+  /* 收起态的让位 padding 必须算进盒内：hero 是 align-items:center
      的 flex，content-box 下 100%+padding 会双向溢出被居中，左缘压到
      window-top 按钮（2026-09-04） */
   box-sizing: border-box;
@@ -674,13 +680,15 @@ button {
 /* 右边栏入口与会话头那颗**同位**：会话头是 padding 8/16 的绝对定位条，
    这里同样按卡片定 8/16——不跟着 .hero 自己的 24px 横向 padding 走，
    否则比会话页往里缩 24px（用户报"按钮位置不一致"）。 */
-.hero-panel-btn { position: absolute; top: 8px; right: 16px; }
+/* 卡上浮层：hero-top 拓宽到整卡后，其后代 .left（position:relative、DOM 靠后）
+   会整片盖住本钮的点击区——浮层必须显式提层才可点 */
+.hero-panel-btn { position: absolute; top: 8px; right: 16px; z-index: 1; }
 .hero-top .model {
   position: relative;
   display: block;
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
-  margin-top: 3px;
+  margin-top: 2px;
   padding: 2px 6px;
   margin-left: -6px;
   border-radius: var(--dsh-radius-keycap);
@@ -2848,7 +2856,7 @@ button {
    同一断点内优先）；这里只处理内容列的自适应。 */
 @media (max-width: 860px) {
   .msg-block.user { max-width: 78%; }
-  .hero { padding: 0 20px; }
+  .hero { --hero-pad-x: 20px; }
 }
 /* 手机（≤760px，与 store 的侧栏自动收起同一断点）：侧栏改浮层。
    这里是 flex 兄弟时会挤掉主卡，且它自己盖住了顶部那颗「收起侧栏」钮——
@@ -2890,7 +2898,7 @@ button {
   .window-top { top: 4px; }
   .window-top-btn { width: 44px; height: 44px; }
   .app.collapsed .session-header { padding-left: 190px; }
-  .app.collapsed .hero-top { padding-left: 166px; }
+  .app.collapsed .hero-top { padding-left: 190px; }
   .task-row, .session-back, .snav-item, .ctx-item { height: 44px; }
   .composer-send, .composer-icon, .composer-mic { width: 38px; height: 38px; }
   /* 审批/提问卡是手机上最需要"点得准"的地方（放行一次命令） */
@@ -2899,8 +2907,7 @@ button {
 }
 @media (max-width: 720px) {
   .msg-block.user { max-width: 88%; }
-  .hero { padding: 0 14px; }
-  .hero-top { padding: 8px 14px 0; }
+  .hero { --hero-pad-x: 14px; }
 }
 
 /* ---- 非壳（手机远程 / 桌面浏览器直开）：没有窗口 chrome ----
@@ -2909,8 +2916,7 @@ button {
    屏宽（390px 屏上头部正文只剩 215px）。按 <html data-shell> 分支覆盖。 */
 html:not([data-shell]) .window-top { left: 12px; }
 html:not([data-shell]) .app.collapsed .session-header { padding-left: 118px; }
-/* hero 自带 24px 横向 padding：减掉才是同一条视觉线 */
-html:not([data-shell]) .app.collapsed .hero-top { padding-left: 94px; }
+html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 
 /* ─────────────────────────────────────────────────────────
    MOTION LAYER — 全局动效（Liner/Raycast 式：短、轻、precise）
