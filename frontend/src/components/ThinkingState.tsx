@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n";
 import { useFocusStream } from "../session/useFocusStream";
+import { IconThinkOutline14 } from "./Icons";
 
 /* ─────────────────────────────────────────────────────────
  * THINKING — expandable agent reasoning trace
@@ -69,9 +70,8 @@ export function ThinkingState({
         onClick={() => setManual((current) => !(current ?? running))}
         className="thinking-head"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" className="thinking-spark" fill={running ? "var(--tk-ink-2)" : "var(--tk-ink-3)"}>
-          <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
-        </svg>
+        {/* 前导图标：官方思考图标（ui-conversation ReasoningRow 同款） */}
+        <IconThinkOutline14 size={14} className="thinking-spark" />
         <span role="status" className="thinking-label-wrap">
           {running ? (
             <span className="thinking-active">{t("思考中")}</span>

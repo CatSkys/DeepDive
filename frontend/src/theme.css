@@ -2307,8 +2307,10 @@ button {
   text-align: left;
   transition: background-color 100ms ease;
 }
-.thinking-head:hover { background: var(--fill); }
-.thinking-spark { flex: none; }
+/* hover 与流内其他行同语言：只提亮标题，不铺整条底色（官方 DisclosureRow 的 row
+   也没有 hover 背景——整条灰带是本仓自己加的，也是"只有思考这样"的由来） */
+.thinking-head:hover .thinking-done { color: var(--ink); }
+.thinking-spark { flex: none; color: var(--tk-ink-3); }
 .thinking-label-wrap { display: inline-flex; }
 .thinking-active {
   font-size: var(--dsh-font-size-base);
