@@ -49,7 +49,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
   /** 子会话（continuable）形态：发送路由 subagents/prompt（父会话身份）。 */
   variant?: { kind: "subagent"; parentSessionId: string };
   /** 排队发送后登记 rpcId（QueueDock 显示「发送中」直到快照观察到）。 */
-  registerSending?: (rpcId: string) => void;
+  registerSending?: (rpcId: string, text: string) => void;
 }) {
   const [dismissed, setDismissed] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -283,6 +283,10 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
 
   // ---------- 发送 / 排队 / 插话 ----------
 
+  /** 排队/插话气泡用的纯文本（文件部件不上气泡，真实消息进流时带全）。 */
+  const steeringText = (parts: PromptContentPart[]): string =>
+    parts.filter((p): p is Extract<PromptContentPart, { type: "text" }> => p.type === "text").map((p) => p.text).join("\n");
+
   const submit = async (modeOverride?: "queue" | "steer") => {
     if (content.length === 0 || busy) return;
     if (!filesReady) {
@@ -406,7 +410,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       : api.prompt({ requestId: rpcId, sessionId: sid, mode, content: parts }));
     try {
       await send(sendContent);
-      if (running || mode === "queue") registerSending?.(rpcId);
+      if (running || mode === "queue") registerSending?.(rpcId, steeringText(sendContent));
     } catch (err) {
       // 引擎对「模型条目没声明图片能力」的会话会在准入处拒 inline 图片部件。用户定稿：
       // 附件与内容必须发出去，跟模型无关——所以不丢附件、不弹拒绝，改把这批图片按通用
@@ -421,7 +425,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       }
       try {
         await send(delivered);
-        if (running || mode === "queue") registerSending?.(rpcId);
+        if (running || mode === "queue") registerSending?.(rpcId, steeringText(delivered));
       } catch (err2) {
         void alertDialog({ message: failureText(err2, tt("发送失败，请重试", "Send failed; please retry")) });
         setBusy(false);

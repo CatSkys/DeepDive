@@ -24,6 +24,8 @@ import { panelActions } from "../sidebar-right/panelStore";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
+import { SteeringMessages } from "../session/SteeringMessages";
+import { textOf } from "../session/eventText";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
 
@@ -176,20 +178,27 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
   const sessionQuestions = [...questions.values()].filter((q) => q.sessionId === sessionId);
-  // 排队消息（placement=queued 才可操作；steering/context 正在处理）
-  // 排队 + 插话中（0.1.5：steering 也呈现）；本端刚发出未观察到的走「发送中」。
+  // 排队消息分两处呈现（用户定稿，对照 zcode）：placement=queued 走 QueueDock 的
+  // 条（立即/编辑/删除）；steering 与本端刚发出未观察到的走流内用户气泡+「排队中」
+  //（SteeringMessages）。
   const sessionQueue = queues.get(sessionId) ?? [];
-  const queuedItems = sessionQueue.filter((i) => i.placement === "queued" || i.placement === "steering");
-  const [sendingRpcIds, setSendingRpcIds] = useState<ReadonlySet<string>>(new Set());
-  const registerSending = (rpcId: string) => {
-    setSendingRpcIds((prev) => new Set(prev).add(rpcId));
+  const queuedItems = sessionQueue.filter((i) => i.placement === "queued");
+  const steeringItems = sessionQueue.filter((i) => i.placement === "steering");
+  const [sendingTexts, setSendingTexts] = useState<ReadonlyMap<string, string>>(new Map());
+  const registerSending = (rpcId: string, text: string) => {
+    setSendingTexts((prev) => new Map(prev).set(rpcId, text));
     // 快照观察到该消息（rpcId 出现）或 10s 兜底后自动退场
-    const stop = () => setSendingRpcIds((prev) => { const n = new Set(prev); n.delete(rpcId); return n; });
+    const stop = () => setSendingTexts((prev) => { const n = new Map(prev); n.delete(rpcId); return n; });
     const iv = setInterval(() => {
       if (!(queues.get(sessionId) ?? []).some((i) => i.rpcId === rpcId)) { clearInterval(iv); stop(); }
     }, 500);
     setTimeout(() => { clearInterval(iv); stop(); }, 10000);
   };
+  // 流内已有用户消息的文本：steering 气泡与真实消息同文时不重复画
+  const flowUserTexts = useMemo(
+    () => new Set(items.filter((it) => it.kind === "user").map((it) => textOf(it.event))),
+    [items],
+  );
 
   const isBlank = summary ? !!summary.blank : items.length === 0;
   const running = liveRunning || !!summary?.running;
@@ -338,6 +347,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               onPreviewFile={openPreviewFile}
               onContinue={continueTurn}
             />
+            <SteeringMessages items={steeringItems} sendingTexts={sendingTexts} flowUserTexts={flowUserTexts} />
             {pending.map((a) => (
               <ApprovalCard key={a.eventId} eventId={a.eventId} toolName={a.toolName} reason={a.reason} />
             ))}
@@ -366,7 +376,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         >
           {queuedItems.length > 0 && (
             <div className="queue-dock-wrap">
-              <QueueDock sessionId={sessionId} items={queuedItems} sendingRpcIds={sendingRpcIds} />
+              <QueueDock sessionId={sessionId} items={queuedItems} />
             </div>
           )}
           {summary?.origin === "subagent" && (subagentMode !== "continuable" || !summary.parentSessionId) ? (

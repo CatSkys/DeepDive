@@ -297,6 +297,7 @@ export const EN: Record<string, string> = {
   "正在执行": "Running",
   "已完成": "Done",
   "进行中": "In progress",
+  "排队中": "Queued",
   "待处理": "Pending",
   "{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理": "{done}/{total} done · {active} in progress · {pending} pending",
   "{first} 等 {n} 题": "{first} +{n} more",

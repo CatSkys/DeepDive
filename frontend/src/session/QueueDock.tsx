@@ -1,9 +1,8 @@
 // 排队消息卡（官方 QueueDock 式，R-007 从 SessionView 搬出）：挂在会话框上方，
 // 行内 立即/编辑/删除；数据来自 store.queues（session/queue 帧），操作走
 // session.updateQueue，引擎应用后广播新快照，卡片随之刷新。
-// 0.1.5：steering（插话中）消息同卡呈现（只读徽标，无操作——已递给模型）；
-// 本端刚发出、尚未被队列快照观察到的消息显示「发送中」并锁操作
-// （sendingRpcIds 由 Composer 经 store 登记到快照出现为止）。
+// 只摆 placement=queued 的项——立即发送/插话中的消息按用户定稿走流内用户气泡
+//（SteeringMessages），不在这里占一条「发送中」。
 
 import { useState } from "react";
 import { ArrowUp, Pencil, Trash2, X } from "lucide-react";
@@ -14,7 +13,7 @@ import { useCompositionGuard } from "../useCompositionGuard";
 import { IconCheckOutline16 } from "../components/Icons";
 import type { SessionQueuedItem } from "../types";
 import { queueText } from "./format";
-export function QueueDock({ sessionId, items, sendingRpcIds }: { sessionId: string; items: SessionQueuedItem[]; sendingRpcIds?: ReadonlySet<string> }) {
+export function QueueDock({ sessionId, items }: { sessionId: string; items: SessionQueuedItem[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const ime = useCompositionGuard();
@@ -35,9 +34,8 @@ export function QueueDock({ sessionId, items, sendingRpcIds }: { sessionId: stri
       {items.map((item) => {
         const text = queueText(item);
         const editing = editingId === item.id;
-        const sending = item.placement === "steering" || (sendingRpcIds?.has(item.rpcId ?? "") ?? false);
         return (
-          <div className="queue-row" key={item.id} data-sending={sending || undefined}>
+          <div className="queue-row" key={item.id}>
             {editing ? (
               <>
                 <input
@@ -61,11 +59,6 @@ export function QueueDock({ sessionId, items, sendingRpcIds }: { sessionId: stri
                     <X size={14} />
                   </button>
                 </div>
-              </>
-            ) : sending ? (
-              <>
-                <span className="queue-text" data-tip={text}>{text}</span>
-                <span className="queue-sending">{t("发送中…")}</span>
               </>
             ) : (
               <>

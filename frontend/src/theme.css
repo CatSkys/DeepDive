@@ -2536,6 +2536,10 @@ button {
 }
 .msg-block.user .meta-clock { padding-right: 12px; }
 
+/* steering/排队气泡的「排队中」标记（用户定稿：立即发送=流内用户消息+排队中，
+   对照 zcode）；真实消息进流、快照撤项后气泡退场 */
+.steering-meta { margin-top: 3px; text-align: right; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+
 /* ---- state dot（DSH StateDot 语义映射） ---- */
 .state-dot {
   width: 8px;
