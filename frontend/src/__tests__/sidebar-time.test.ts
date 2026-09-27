@@ -1,7 +1,7 @@
-// Sidebar 会话时间工具（R-001 网眼）：相对时间 fmtTime 与分组标签
+// 侧栏会话时间工具（R-001 网眼）：相对时间 fmtTime 与分组标签
 // bucketLabel。假时钟钉死 now，边界可复现。
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bucketLabel, fmtTime } from "../components/Sidebar";
+import { bucketLabel, fmtTime } from "../session/sessionTime";
 
 const NOW = new Date("2026-09-14T12:00:00").getTime();
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;

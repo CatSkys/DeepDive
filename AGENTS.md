@@ -52,7 +52,7 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 - `cd frontend && npm run build` 通过，且 `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` 零错误。
 - `cd frontend && npm run test` 与 `npm run lint` 零失败；改过壳侧 Swift 则 XCTest 全绿。
 - `make test` 里的两道门零失败：架构约束（`check-architecture.mjs`，新增违规为零）与引擎组合漂移（`check-engine-composition.sh`）。
-- 改前端/UI 的提交走完交付链并截图自查（铁律 2）。
+- 改前端/UI 的提交走完交付链到"应用已重启、用户可直接看"为止；**验收归用户，不自行截图/做视觉验收**（铁律 2）。
 - 无死代码残留：删除功能时代码、样式、文案、文档引用一并删干净；禁止留下注释掉的代码。
 
 ## 工程铁律
@@ -60,7 +60,7 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 每条 1-3 行；事故与细节在链接的家，勿在此展开。
 
 1. **改前先读 PITFALLS 对应条目**；用户报告"没生效/不对"时先读源码与构建产物实证，绝不拿"旧实例/没重启"打发（WORKING-AGREEMENTS §1，PITFALLS §5.1）。
-2. **交付链固定**：前端 build → package → pkill 旧进程 → open 最新包 → 日志确认 → 截图亲自看图后再回复（WORKING-AGREEMENTS §2/§4；PITFALLS §5.2/§5.3）。改前端/UI 必须走全链；看真实会话的配方、三条死路与成本纪律（一轮并发多条探针、只改样式时最后一次才 package）在 §5.3。
+2. **交付链固定**：前端 build → package → pkill 旧进程 → open 最新包 → 日志确认，到此为止（WORKING-AGREEMENTS §2/§4；PITFALLS §5.2/§5.3）。**验收归用户**：不自行截图、不自行做视觉或端到端测试，用户明确要求时才做（WORKING-AGREEMENTS §2）。样式/布局问题仍要用可量化的坐标或 computed style 自证。
 3. **单一事实源**：token=`tokens.json`、样式=`theme.css`、引擎版本=`scripts/dsh-runtime-version.txt`。易变值（版本号、端口、状态）**不内联**进文档正文与代码注释，指向事实源。
 4. **wire 契约勿猜**：新 RPC 方法先查引擎源码 `UNARY_ROUTES`（PITFALLS §4.6）；版本敏感面用 `probeMethod` 能力探测降级，缺则隐藏不崩溃。
 5. **空 catch 必须写明吞掉了什么**（`/* engine may be busy */` 式）；降级与静默必须是显式决定，外部输入只在边界处校验（wire/解析/持久化），同进程信任类型。

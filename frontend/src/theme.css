@@ -477,26 +477,39 @@ button {
 .ws-row-actions svg { color: currentColor; }
 .ws-row .ws-act:hover { background: var(--fill-strong); color: var(--ink); }
 
-/* 空间横滑（§2.1）：key 重挂载驱动，fwd=自右滑入 / back=自左滑入。
-   ws-row 与会话列表两块同 key 同节奏，视觉上是一整片内容在滑动。
-   入场用 backwards 而非 both：动画结束后要把 transform 还给 --ws-drag
-   （手势拖动中内容的位置就是它，both 的 fill 会把拖动冻在动画终态）。 */
-.ws-view { animation: ws-in-fwd var(--dur-med) var(--ease-out) backwards; transform: translateX(var(--ws-drag, 0px)); }
-.ws-view[data-dir="back"] { animation-name: ws-in-back; }
-/* 手势横滑（useWorkspaceSwipe）：拖动中 1:1 跟手（无过渡），结算时开过渡
-   回弹/吸附；手势切过去的空间从松手处（--ws-enter）接着滑入。 */
-.ws-view[data-settling="true"] { transition: transform var(--dur-med) var(--ease-out); }
-.ws-view[data-gesture="in"] { animation-name: ws-in-gesture; }
-@keyframes ws-in-gesture {
-  from { opacity: .4; transform: translateX(var(--ws-enter, 0px)); }
-  to { opacity: 1; transform: none; }
+/* 空间横滑（§2.1）：内容条 .ws-strip 里并排放"当前空间 + 拖动方向上的相邻
+   空间"两片 .ws-pane，整条一起平移 —— 滑动过程里下一空间就在眼前，不靠切换
+   完再补一段滑入（用户定稿：无缝衔接）。
+   平移量 --ws-drag 写在 .sidebar 上（手势期间实时写），拖动中无过渡＝1:1 跟手；
+   结算时开过渡，data-commit 决定滑到哪一侧边缘（贴满＝吸附），动画走完才换
+   空间（useWorkspaceSwipe 的 COMMIT_MS），换的瞬间整条归零而顶上来的那片正好
+   在原位，视觉无跳变。 */
+.ws-strip {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  transform: translateX(var(--ws-drag, 0px));
 }
-.ws-view.grow {
+/* 每片占满一条的宽度（100% 而非 flex:1——两片要等宽，flex 会按内容分配）。
+   overflow 交给 .sidebar（那里已有），这里不裁，好让相邻片完整露出。 */
+.ws-pane {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: ws-in-fwd var(--dur-med) var(--ease-out) backwards;
+}
+.ws-pane[data-dir="back"] { animation-name: ws-in-back; }
+.ws-pane-list {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
+.ws-strip[data-settling="true"] { transition: transform var(--dur-med) var(--ease-out); }
+.ws-strip[data-commit="next"] { transform: translateX(-100%); }
+.ws-strip[data-commit="prev"] { transform: translateX(100%); }
 @keyframes ws-in-fwd {
   from { opacity: 0; transform: translateX(28px); }
   to { opacity: 1; transform: none; }
@@ -2293,19 +2306,18 @@ button {
 }
 .thinking-head {
   display: flex;
-  width: fit-content;
   align-items: center;
   gap: 8px;
+  /* 满宽 + 零边距：箭头 margin-left:auto 才能钉在与工具行同一条右缘竖线上。
+     原来的 margin:0 -6px + padding:0 6px 是给早先那圈 hover 底色出血用的，底色
+     撤掉后它没跟着走——负边距配 width:100% 只是把整条左移 6px，右侧 padding 又
+     把箭头内缩 6px，箭头比工具行短 12px（实测 1150 vs 1162）。 */
   width: 100%;
-  margin: 0 -6px;
-  padding: 0 6px;
   border: none;
-  border-radius: var(--dsh-radius-control);
   background: transparent;
   cursor: pointer;
   font: inherit;
   text-align: left;
-  transition: background-color 100ms ease;
 }
 /* hover 与流内其他行同语言：只提亮标题，不铺整条底色（官方 DisclosureRow 的 row
    也没有 hover 背景——整条灰带是本仓自己加的，也是"只有思考这样"的由来） */
@@ -3017,7 +3029,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   .msg-block, .tool-row, .turn-tail, .approval-card,
   .model-menu, .model-menu-view, .ws-menu, .tool-collapse, .tool-collapse > .tool-body > *,
   .hero-title, .hero-composer, .model.trigger > svg,
-  .ws-view, .ws-cell, .main, .sidebar {
+  .ws-strip, .ws-pane, .ws-cell, .main, .sidebar {
     animation: none !important;
     transition: none !important;
   }
