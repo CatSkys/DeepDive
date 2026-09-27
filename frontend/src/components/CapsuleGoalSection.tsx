@@ -6,7 +6,7 @@
 // 重置编辑态，防止误写新目标。已完成的目标只留「清除」——旧 bar 在 complete 时整条
 // 隐藏，那个目标反而清不掉。
 import { useEffect, useRef, useState } from "react";
-import { Check, Flag, Pause, Pencil, Play, Trash2, X } from "lucide-react";
+import { Check, CircleCheck, Flag, Pause, Pencil, Play, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
 import { useCompositionGuard } from "../useCompositionGuard";
@@ -91,7 +91,11 @@ export function CapsuleGoalSection({ goal, sessionId, onChange }: {
   return (
     <>
       <div className="capsule-row">
-        <span className={`state-dot ${goal.phase === "active" ? "running" : complete ? "ok" : "warning"}`} aria-hidden="true" />
+        {/* 前导图标与摘要胶囊的目标位同款（完成 CircleCheck，否则 Flag）；
+            原来的 state-dot 是裸 span，行内被 flex 压成一条竖线 */}
+        {complete
+          ? <CircleCheck size={13} className="capsule-check" aria-hidden="true" />
+          : <Flag size={13} aria-hidden="true" />}
         <span className="capsule-row-text">{goal.objective}</span>
         <span className="capsule-row-meta" data-tip={goal.phase === "blocked" ? goal.blockedReason?.message : undefined}>{phaseLabel}</span>
       </div>

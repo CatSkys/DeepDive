@@ -2,7 +2,7 @@
 // 已结束的折成一行**——他们给已结束的另配一个目录页（侧栏），本仓没有那个页，
 // 等价的落点就是就地展开（与后台任务区同一套处理）。
 import { useState } from "react";
-import { ChevronDown, Square, SquareTerminal } from "lucide-react";
+import { Bot, ChevronDown, Square } from "lucide-react";
 import { t, tt } from "../i18n";
 import type { SubagentListEntry } from "../types";
 
@@ -24,7 +24,8 @@ export function CapsuleSubagentSection({ children, runningIds, diag, busy, onOpe
   const renderRow = (c: ChildEntry, isLive: boolean) => (
     <div key={c.id} className="capsule-row">
       <button type="button" className="capsule-row-click" onClick={() => onOpen(c.id)}>
-        <SquareTerminal size={16} className="capsule-row-icon" aria-hidden="true" />
+        {/* 与摘要胶囊「运行中」同款 Bot 图标（用户定稿：子智能体不用终端图标） */}
+        <Bot size={16} className="capsule-row-icon" aria-hidden="true" />
         <span className="capsule-row-text">{c.label ?? c.id.slice(0, 8)}</span>
         <span className="capsule-row-meta">
           {c.mode === "continuable" ? t("可续") : t("一次性")}
