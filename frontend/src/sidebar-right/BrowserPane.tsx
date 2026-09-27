@@ -20,11 +20,6 @@ import { BrowserBlankPage } from "./BrowserBlankPage";
 import { AddressField } from "./BrowserAddressField";
 import type { PaneFace } from "./useIframeBrowser";
 
-/** 缩略图下面那行说明（图 2 的 "<名字>'s screen"）。 */
-function ScreenCaption({ text }: { text: string }) {
-  return <div className="panel-browser-caption">{text}</div>;
-}
-
 /** 缩略图态的遮罩：点它展开，不把点击透给网页。 */
 function SlotOverlay({ label, onExpand }: { label: string; onExpand: () => void }) {
   return (
@@ -37,12 +32,11 @@ function SlotOverlay({ label, onExpand }: { label: string; onExpand: () => void 
 /** 壳载体：页面由壳里的 WKWebView 承载。展开态把槽位挖给壳的原生视图（人在这里操作）；
  *  缩略图态显示壳给的**快照图**——WKWebView 没法"缩小放进去"（pageZoom 是重新排版，
  *  见 BrowserHost.previewShot），缩略图要的是整屏的等比缩小。 */
-function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption, onExitFullscreen, onTabsRespawned }: {
+function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, onExitFullscreen, onTabsRespawned }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
   onChat: () => void;
-  caption: string;
   onExitFullscreen: () => void;
   onTabsRespawned: () => void;
 }) {
@@ -139,25 +133,23 @@ function NativeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
           <>
             {empty && <BrowserEmpty />}
             {!empty && browser.shot !== null && (
-              <img className="sr-browser-shot" src={`data:image/png;base64,${browser.shot}`} alt={browser.title || caption} />
+              <img className="sr-browser-shot" src={`data:image/png;base64,${browser.shot}`} alt={browser.title} />
             )}
             {/* 遮罩装在槽位外面：缩略图态这格是快照图（不是原生视图），遮罩要盖在图上 */}
             <SlotOverlay label={t("展开浏览器")} onExpand={onExpand} />
           </>
         )}
       </div>
-      {!expanded && <ScreenCaption text={caption} />}
     </div>
   );
 }
 
 /** iframe 载体：跨域读不到地址，所以自带"应用自有历史 + 未知地址"状态机。 */
-function IframeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption }: {
+function IframeBrowserPane({ expanded, applicationOrigin, onExpand, onChat }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
   onChat: () => void;
-  caption: string;
 }) {
   const browser = useIframeBrowser(applicationOrigin);
   const [sandboxed, setSandboxed] = useState(true);
@@ -194,7 +186,6 @@ function IframeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
             />}
         {!expanded && <SlotOverlay label={t("展开浏览器")} onExpand={onExpand} />}
       </div>
-      {!expanded && <ScreenCaption text={caption} />}
     </div>
   );
 }
@@ -202,16 +193,15 @@ function IframeBrowserPane({ expanded, applicationOrigin, onExpand, onChat, capt
 /** 侧栏浏览器（对外入口）：按载体选一支，两种尺寸由调用方给。
  *  onTabsRespawned：壳自动补空白标签（= 最后一个标签被关掉）时触发，调用方
  *  据此收起浏览器页——iframe 载体没有标签模型，用不到。 */
-export function BrowserPane({ expanded, applicationOrigin, onExpand, onChat, caption, onExitFullscreen, onTabsRespawned }: {
+export function BrowserPane({ expanded, applicationOrigin, onExpand, onChat, onExitFullscreen, onTabsRespawned }: {
   expanded: boolean;
   applicationOrigin: string;
   onExpand: () => void;
   onChat: () => void;
-  caption: string;
   onExitFullscreen: () => void;
   onTabsRespawned: () => void;
 }) {
   return browserCarrierKind() === "native"
-    ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} caption={caption} onExitFullscreen={onExitFullscreen} onTabsRespawned={onTabsRespawned} />
-    : <IframeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} caption={caption} />;
+    ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} onExitFullscreen={onExitFullscreen} onTabsRespawned={onTabsRespawned} />
+    : <IframeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} />;
 }

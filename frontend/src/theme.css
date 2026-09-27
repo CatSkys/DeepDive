@@ -4450,7 +4450,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser.expanded { flex: 1; min-height: 0; }
 .panel-browser-body { position: relative; display: flex; flex: 1; min-height: 0; border-radius: var(--dsh-radius-card); overflow: hidden; background: var(--fill-soft); }
 .panel-browser.slot .panel-browser-body { border: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); }
-.panel-browser-caption { flex: none; text-align: center; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 /* 缩略图态的遮罩：点它展开（原生视图在这一格不收点击，见 BrowserHost.setInteractive） */
 .panel-browser-veil {
   position: absolute;

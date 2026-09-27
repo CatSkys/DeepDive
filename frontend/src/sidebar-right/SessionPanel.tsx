@@ -1,8 +1,8 @@
 // 会话右侧边栏的面板本体（移植官方 ui-sidebar-right 的 client/shell/SidebarRight.tsx +
 // RightbarRoot.tsx 的产品绑定部分）。
 //
-// 形状按用户定稿与参考图：**右上角只有齿轮与关闭**，下面是带圆角的屏幕缩略图 + 一行
-// 居中说明，再下面才是能力分区。点缩略图 → 浏览器页（工具栏 + 整页）并进全屏呈现；
+// 形状按用户定稿与参考图：**右上角只有齿轮与关闭**，下面是带圆角的屏幕缩略图，
+// 再下面才是能力分区。点缩略图 → 浏览器页（工具栏 + 整页）并进全屏呈现；
 // 齿轮 → 面板内切到会话设置。
 //
 // 官方规则逐条保留：没有标题行（控件骑在顶条最右端）、每会话一份内存态、无会话则无面板、
@@ -13,7 +13,7 @@
 // WKWebView，而 iframe 载体重挂会丢页面状态。官方对应的是 Electron 载体的 keepMounted。
 
 import { ChevronLeft, Settings2, X } from "lucide-react";
-import { t, tt } from "../i18n";
+import { t } from "../i18n";
 import { dispatchAppEvent, DD_EVENTS } from "../events";
 import { usePanelSurface, panelActions } from "./panelStore";
 import { BrowserPane } from "./BrowserPane";
@@ -26,10 +26,8 @@ import type { PermissionSelect } from "../settings/permissionPreset";
 import type { ModelFace } from "../session/SessionHeader";
 import type { ScheduleRecord } from "../types";
 
-export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, face, permissions, onPreview }: {
+export function SessionPanel({ sessionId, scheduleRecords, artifacts, face, permissions, onPreview }: {
   sessionId: string;
-  /** 会话标题：屏幕缩略图的说明行用它（"<标题> 的屏幕"）。 */
-  title: string;
   scheduleRecords: ScheduleRecord[];
   artifacts: ArtifactItem[];
   face: ModelFace;
@@ -93,7 +91,6 @@ export function SessionPanel({ sessionId, title, scheduleRecords, artifacts, fac
                 onExitFullscreen={() => { panelActions.setFullscreen(sessionId, false); panelActions.showSession(sessionId); }}
                 onChat={() => toggleChatFloat(sessionId)}
                 onTabsRespawned={() => { if (surface.mode === "browser") panelActions.showSession(sessionId); }}
-                caption={tt("{name}的屏幕", "{name}'s screen", { name: title })}
               />
             </div>
             {!browserMode && (

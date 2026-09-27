@@ -384,7 +384,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     </div>
     <SessionPanel
       sessionId={sessionId}
-      title={title}
       scheduleRecords={scheduleRecords}
       artifacts={artifacts}
       face={modelFace}
