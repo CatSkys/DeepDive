@@ -562,18 +562,6 @@ export const api = {
       payload.signal?.addEventListener("abort", () => { xhr.abort(); reject(new DOMException("upload aborted", "AbortError")); });
       xhr.send(payload.file);
     }),
-  /** 可继续子会话发消息（0.1.5 subagents/prompt）：content 只收文本/图片
-   *  （子会话无文件通道）；delivery=queue|steer。 */
-  subagentPrompt: (payload: {
-    requestId: string; parentSessionId: string; childSessionId: string;
-    delivery: "queue" | "steer"; content: PromptContentPart[];
-  }) =>
-    unary<{ messageId: string }>("subagents/prompt", {
-      request: {
-        requestId: payload.requestId, parentSessionId: payload.parentSessionId, childSessionId: payload.childSessionId,
-        mode: "continuable", delivery: payload.delivery, content: payload.content,
-      },
-    }),
   selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
     unary("session/selectModel", { request: payload }),
   sessionModelCatalog: () => unary<{

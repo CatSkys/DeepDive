@@ -45,26 +45,30 @@ export function SelectionActions() {
   // 落点钳位（用户报"浮条跑到卡外、又被裁掉"）：按浮条**实测**宽高落位，横向优先
   // 钳在消息流卡的内容区内（卡片 overflow 会裁掉越界的部分），锚点在卡外时才退回
   // 窗口；选区上方放不下就翻到下方。
-  const anchor = popup ?? menu ?? file;
+  // 三个锚点量摊成标量再进依赖：浮层对象每次 setState 都是新身份，依赖它会让这个
+  // effect 每次渲染都重跑，而它 setPos 又引发下一次渲染。
+  const anchorX = popup?.x ?? menu?.x ?? file?.x ?? null;
+  const anchorAbove = popup?.above ?? menu?.above ?? file?.above ?? null;
+  const anchorBelow = popup?.below ?? menu?.below ?? file?.below ?? null;
   useLayoutEffect(() => {
     const el = barRef.current;
-    if (!anchor || !el) return;
+    if (anchorX === null || anchorAbove === null || anchorBelow === null || !el) return;
     const w = el.offsetWidth;
     const h = el.offsetHeight;
     // 钳位基准取 .flow（滚动视口，位置固定在视口里）；不是 .flow-inner——
     // 那是滚动内容，内容滚出去时它的矩形也跟着跑到视口外，钳不住。
     const flow = (document.querySelector(".flow") ?? document.querySelector(".flow-inner"))?.getBoundingClientRect() ?? null;
-    const anchorInFlow = flow != null && anchor.x >= flow.left && anchor.x <= flow.right;
+    const anchorInFlow = flow != null && anchorX >= flow.left && anchorX <= flow.right;
     const box = anchorInFlow
       ? { left: flow!.left + 4, right: flow!.right - 4, top: flow!.top + 4, bottom: flow!.bottom - 4 }
       : { left: 8, right: window.innerWidth - 8, top: 8, bottom: window.innerHeight - 8 };
     const half = w / 2;
     const GAP = 8;
-    const x = Math.min(Math.max(anchor.x, box.left + half), Math.max(box.left + half, box.right - half));
-    let y = anchor.above - h - GAP;
-    if (y < box.top) y = Math.min(anchor.below + GAP, box.bottom - h);
+    const x = Math.min(Math.max(anchorX, box.left + half), Math.max(box.left + half, box.right - half));
+    let y = anchorAbove - h - GAP;
+    if (y < box.top) y = Math.min(anchorBelow + GAP, box.bottom - h);
     setPos({ x, y: Math.max(box.top, Math.min(y, box.bottom - h)) });
-  }, [anchor?.x, anchor?.above, anchor?.below, anchor != null]);
+  }, [anchorX, anchorAbove, anchorBelow]);
 
   useEffect(() => {
     const insideSelf = (e: MouseEvent) =>

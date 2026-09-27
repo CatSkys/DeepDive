@@ -7,7 +7,7 @@ import { Composer } from "./Composer";
 import { HeroBrand } from "./HeroBrand";
 import { planReviewOf } from "../planReview";
 import { PlanReviewCard } from "./PlanReviewCard";
-import { SubagentReadOnlyNotice } from "../session/SubagentReadOnlyNotice";
+import { SubagentPageHeader } from "../session/SubagentPageHeader";
 import { PanelTrigger } from "../sidebar-right/PanelTrigger";
 import { SessionPanel } from "../sidebar-right/SessionPanel";
 import { useComposerOverlay } from "../sidebar-right/useComposerOverlay";
@@ -200,6 +200,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     [items],
   );
 
+  // 子会话（origin==='subagent'）是**只读预览页**：形态照全屏产物预览——返回
+  // 父会话 + 标题，内容铺满，不挂输入框（continuable 子会话续话那条路随之撤掉）。
+  const isSubagent = summary?.origin === "subagent";
   const isBlank = summary ? !!summary.blank : items.length === 0;
   const running = liveRunning || !!summary?.running;
   // 直播项（流式 chunk/思考）只可能是列表最后一项。思考块用它判定「这一条思考
@@ -207,8 +210,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // running 的话，同轮后面的工具/答案都已出现、会话还在跑时，早已结束的思考会
   // 一直摊着「思考中」不收起（用户报障）。
   const liveItem = items.length > 0 ? items[items.length - 1] : undefined;
-  // 子会话身份投影（0.1.5）：continuable 可继续对话，one-shot 只读。
-  const subagentMode = (summary?.projections?.values as { subagent?: { mode?: string } } | undefined)?.subagent?.mode;
   // 用量/占用投影（3.1）：空值时 Composer 内的容量圈不渲染
   const projVals = (summary?.projections?.values ?? {}) as {
     tokenUsage?: { uncachedInputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
@@ -247,15 +248,21 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   if (isBlank) {
     return (
       <>
-        <div className="session-header">
-          <SessionHeader title={title} face={modelFace} />
-        </div>
-        <div className="hero">
-          <HeroBrand />
-          <div className="hero-composer">
-            <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
-          </div>
-        </div>
+        {isSubagent ? (
+          <SubagentPageHeader title={title} parentSessionId={summary?.parentSessionId} />
+        ) : (
+          <>
+            <div className="session-header">
+              <SessionHeader title={title} face={modelFace} />
+            </div>
+            <div className="hero">
+              <HeroBrand />
+              <div className="hero-composer">
+                <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
+              </div>
+            </div>
+          </>
+        )}
       </>
     );
   }
@@ -272,9 +279,12 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           <i /><i /><i /><i /><i /><i />
         </div>
       )}
-      {/* 全屏预览 = 打开成的新页面：页头换成「返回 + 文件名 + 打开方式」，
-          会话自己的标题/模型/胶囊整体让位（不再是"会话界面顶着文件"）。 */}
-      {previewFull ? <PreviewPageHeader preview={preview} /> : (
+      {/* 页头三态：全屏预览（文件）与子会话都是"打开成的另一个页面"——页头换成
+          各自的返回钮 + 标题，会话自己的标题/模型/胶囊整体让位（不再是"会话界面
+          顶着文件/子会话"）。 */}
+      {previewFull ? <PreviewPageHeader preview={preview} /> : isSubagent ? (
+      <SubagentPageHeader title={title} parentSessionId={summary?.parentSessionId} />
+      ) : (
       <div className="session-header">
         {/* key=会话：切会话时标题行整体重挂播 header-in 入场（标题更新/流式
             改名不换 key，不重播）。标题点击 = 弹出右侧面板的会话设置（用户定稿）。 */}
@@ -295,10 +305,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           </span>
         )}
-        {/* 子会话视图不挂右侧边栏入口：过程查看经只读说明条返回父会话 */}
-        {summary?.origin !== "subagent" && (
-          <PanelTrigger sessionId={sessionId} scheduleRecords={scheduleRecords} />
-        )}
+        <PanelTrigger sessionId={sessionId} scheduleRecords={scheduleRecords} />
       </div>
       )}
       {/* 会话体：消息流 + 悬浮输入区 + （全屏预览时）盖在其上的预览面。
@@ -370,6 +377,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <ArrowDown size={16} />
           </button>
         )}
+        {/* 悬浮输入区：子会话不挂（只读预览页），其余按浏览器全屏让位。 */}
+        {!isSubagent && (
         <div
           className="session-bottom"
           ref={attachBottom}
@@ -379,15 +388,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <QueueDock sessionId={sessionId} items={queuedItems} />
             </div>
           )}
-          {summary?.origin === "subagent" && (subagentMode !== "continuable" || !summary.parentSessionId) ? (
-            <SubagentReadOnlyNotice parentSessionId={summary.parentSessionId} />
-          ) : summary?.origin === "subagent" ? (
-            // continuable 子会话（0.1.5）：subagents/prompt 经父会话投递
-            <Composer sessionId={sessionId} ctx={ctxData} variant={{ kind: "subagent", parentSessionId: summary.parentSessionId! }} registerSending={registerSending} />
-          ) : browserFullscreen ? null : (
+          {browserFullscreen ? null : (
             <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
           )}
         </div>
+        )}
       {previewFull && <FilePreviewSurface preview={preview} />}
       </div>
       {preview.tabs.length > 0 && !previewFull && <FilePreviewOverlay preview={preview} />}

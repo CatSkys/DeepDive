@@ -143,8 +143,9 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
   seq, prompt≤50, response≤120}]`（seq 是该轮 turn/start 的事件 seq）——引擎照推，
   客户端当前没有消费者（轮次大纲轨已按用户口径撤下，见 `docs/TODO.md`）。`inbox` = `{next-turn:[], next-step:[]}`（排队
   消息全量投影，control queue 帧即由它派生）。`subagent`（子会话身上）=
-  `{mode:'continuable'|'one-shot', label?, seq}`——continuable 判据，SPA
-  以此解锁子会话 Composer；`subagentCatalog`（父会话身上）= 子会话目录。
+  `{mode:'continuable'|'one-shot', label?, seq}`——mode 只用于冷读地址（follow/page
+  按 continuable 直试），子会话视图是只读预览、不挂 Composer；`subagentCatalog`
+  （父会话身上）= 子会话目录。
 
 ## 5. 会话操作契约（要点）
 
@@ -162,7 +163,8 @@ next——通知-only 客户端（壳观察者）恒回 next，SPA 是唯一决�
   `updateQueue` 可直接传**子会话 id**（须 continuable 且自家日志描述符），
   edit 仍仅文本；子会话发消息走 `subagents/prompt {request:{requestId,
   parentSessionId, childSessionId, mode:'continuable', delivery:'queue'|'steer',
-  content}}`（content 只收文本/图片，无文件部件）；停止用
+  content}}`（content 只收文本/图片，无文件部件；引擎侧能力，SPA 子会话为只读
+  预览、不调用）；停止用
   `subagents/interruptByParent {childSessionId, parentSessionId, mode:
   'continuable'}`。
 - **通用文件上传（0.1.5）**：`fileUploads/upload {agentId, request:{data:

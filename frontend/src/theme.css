@@ -4171,36 +4171,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .workflow-phase { font-size: var(--dsh-font-size-xs); color: var(--ink-3); }
 .workflow-outcome { font-size: var(--dsh-font-size-xs); color: var(--ink-3); flex: none; }
 
-/* 子会话只读说明：悬浮在 session-bottom，叠在消息流上——走弹出面板
-   统一磨砂配方（半透 + blur），禁止无底/实底。 */
-.subagent-readonly {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-start;
-  margin: 0 auto 8px;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--dsh-radius-card);
-  background: var(--panel-glass);
-  /* 前缀顺序勿倒：-webkit- 在前 */
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: var(--shadow-pop);
-  color: var(--ink-2);
-  font-size: var(--dsh-font-size-base);
-}
-.subagent-readonly strong { color: var(--ink); font-size: var(--dsh-font-size-base); }
-.subagent-parent-link {
-  padding: 3px 12px;
-  border-radius: 18px;
-  border: 1px solid var(--line-strong);
-  color: var(--ink-2);
-  font-size: var(--dsh-font-size-sm);
-  margin-top: 2px;
-}
-.subagent-parent-link:hover { background: var(--fill); color: var(--ink); }
-
 /* ── 补齐：用户消息图片缩略图 / 行内与块级公式 ── */
 
 /* 轮内过程折叠披露条（官方 TurnProcessNodeView）：流内披露行，不是浮层——

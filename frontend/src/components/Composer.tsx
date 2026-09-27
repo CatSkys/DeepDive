@@ -42,12 +42,10 @@ function autoGrow(el: HTMLTextAreaElement) {
   el.style.height = Math.min(el.scrollHeight, 160) + "px";
 }
 
-export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
+export function Composer({ sessionId, onSent, ctx, registerSending }: {
   sessionId: string | null;
   onSent?: () => void;
   ctx?: ContextData;
-  /** 子会话（continuable）形态：发送路由 subagents/prompt（父会话身份）。 */
-  variant?: { kind: "subagent"; parentSessionId: string };
   /** 排队发送后登记 rpcId（QueueDock 显示「发送中」直到快照观察到）。 */
   registerSending?: (rpcId: string, text: string) => void;
 }) {
@@ -392,24 +390,9 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
       }
       sendContent = [...content, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
     }
-    // 子会话（continuable）走 subagents/prompt：content 只收文本/图片。
-    const subagent = variant?.kind === "subagent" ? variant : undefined;
-    if (subagent && attachments.some((a) => a.kind === "file")) {
-      void alertDialog({ message: tt("子会话不支持文件附件", "File attachments are not supported in subagent sessions") });
-      setBusy(false); return;
-    }
     const rpcId = uuid();
-    const send = (parts: PromptContentPart[]) => (subagent
-      ? api.subagentPrompt({
-        requestId: rpcId,
-        parentSessionId: subagent.parentSessionId,
-        childSessionId: sid,
-        delivery: running ? mode : "queue",
-        content: parts,
-      })
-      : api.prompt({ requestId: rpcId, sessionId: sid, mode, content: parts }));
     try {
-      await send(sendContent);
+      await api.prompt({ requestId: rpcId, sessionId: sid, mode, content: sendContent });
       if (running || mode === "queue") registerSending?.(rpcId, steeringText(sendContent));
     } catch (err) {
       // 引擎对「模型条目没声明图片能力」的会话会在准入处拒 inline 图片部件。用户定稿：
@@ -424,7 +407,7 @@ export function Composer({ sessionId, onSent, ctx, variant, registerSending }: {
         return;
       }
       try {
-        await send(delivered);
+        await api.prompt({ requestId: rpcId, sessionId: sid, mode, content: delivered });
         if (running || mode === "queue") registerSending?.(rpcId, steeringText(delivered));
       } catch (err2) {
         void alertDialog({ message: failureText(err2, tt("发送失败，请重试", "Send failed; please retry")) });

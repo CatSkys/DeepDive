@@ -45,10 +45,10 @@
       "detail": "335 lines > 300"
     },
     {
-      "id": "e4ad1bf1d934c90b",
+      "id": "f7dc7ce4ff53e479",
       "rule": "file-lines",
       "file": "frontend/src/api.ts",
-      "detail": "714 lines > 300"
+      "detail": "702 lines > 300"
     },
     {
       "id": "5ac7edc77cb28c72",
@@ -63,10 +63,10 @@
       "detail": "338 lines > 300"
     },
     {
-      "id": "8f26d19669e9abfd",
+      "id": "9720a2488502bdad",
       "rule": "file-lines",
       "file": "frontend/src/components/Composer.tsx",
-      "detail": "594 lines > 300"
+      "detail": "581 lines > 300"
     },
     {
       "id": "a048c32abe5dcbfe",
@@ -81,10 +81,10 @@
       "detail": "364 lines > 300"
     },
     {
-      "id": "d05a03b67c57ae5c",
+      "id": "310d52ce130b8c1a",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
-      "detail": "396 lines > 300"
+      "detail": "411 lines > 300"
     },
     {
       "id": "fad5d8c1900c1ce9",
@@ -93,10 +93,10 @@
       "detail": "709 lines > 300"
     },
     {
-      "id": "ec9f3aa9b70274b3",
+      "id": "17d6ade5b21fc121",
       "rule": "file-lines",
       "file": "frontend/src/components/Sidebar.tsx",
-      "detail": "524 lines > 300"
+      "detail": "529 lines > 300"
     },
     {
       "id": "c24ed6ab74965ba9",
@@ -105,10 +105,10 @@
       "detail": "687 lines > 300"
     },
     {
-      "id": "61b3140baffbaca7",
+      "id": "a279299f29870423",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "984 lines > 300"
+      "detail": "985 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",
@@ -135,10 +135,10 @@
       "detail": "559 lines > 300"
     },
     {
-      "id": "e325b82d9cac6a9a",
+      "id": "83aac6c71e03fdfb",
       "rule": "file-lines",
       "file": "frontend/src/session/ToolRow.tsx",
-      "detail": "348 lines > 300"
+      "detail": "315 lines > 300"
     },
     {
       "id": "e9b86ac6d376cc83",
