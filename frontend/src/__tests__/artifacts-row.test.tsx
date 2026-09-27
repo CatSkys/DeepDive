@@ -47,10 +47,14 @@ describe("ToolRow 标题", () => {
   const row = (toolName: string) => render(
     <ToolRow toolName={toolName} args='{"code":"1+1"}' output="ok" sessionId="s" />,
   );
-  it("MCP 工具：标题是「服务器 · 工具」，行带 mcp 数据标记", () => {
+  it("MCP 工具：其他服务器标题是「服务器 · 工具」，行带 mcp 数据标记", () => {
+    const { container } = row("mcp__linear__create_issue");
+    expect(container.querySelector(".tool-title")?.textContent).toBe("linear · create_issue");
+    expect(container.querySelector(".tool-row")?.getAttribute("data-tool")).toBe("mcp__linear__create_issue");
+  });
+  it("本仓浏览器控制 MCP：标题是产品名「浏览器控制」，不摆半截内名", () => {
     const { container } = row("mcp__deepdive-browser__js");
-    expect(container.querySelector(".tool-title")?.textContent).toBe("deepdive-browser · js");
-    expect(container.querySelector(".tool-row")?.getAttribute("data-tool")).toBe("mcp__deepdive-browser__js");
+    expect(container.querySelector(".tool-title")?.textContent).toBe("浏览器控制");
   });
   it("未收录的普通工具仍显原名", () => {
     const { container } = row("weird_tool");

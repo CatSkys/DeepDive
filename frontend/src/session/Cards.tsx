@@ -8,6 +8,7 @@ import { api } from "../api";
 import { t } from "../i18n";
 import { useStore } from "../store";
 import { useCompositionGuard } from "../useCompositionGuard";
+import { toolDisplayName } from "./toolKind";
 export function ApprovalCard({ eventId, toolName, reason }: { eventId: string; toolName: string; reason?: string }) {
   const [pending, setPending] = useState(false);
   const { settleEvent } = useStore();
@@ -27,7 +28,7 @@ export function ApprovalCard({ eventId, toolName, reason }: { eventId: string; t
       <div className="q-top">
         <span className="q-badge"><ShieldCheck size={12} /> {t("请求授权")}</span>
       </div>
-      <div className="cmd">{reason || toolName}</div>
+      <div className="cmd">{reason || toolDisplayName(toolName, t)}</div>
       <div className="actions">
         <button className="btn-plain" disabled={pending} onClick={() => void answer("rejected")}>
           <X size={13} style={{ verticalAlign: -2 }} /> {t("拒绝")}

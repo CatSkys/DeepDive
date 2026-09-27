@@ -381,6 +381,7 @@ export const EN: Record<string, string> = {
   "刷新": "Refresh",
   "运行中": "Running",
   "会话权限": "Session permissions",
+  "浏览器控制": "Browser Control",
   "部分子会话状态不可读": "Some children unreadable",
   "这是子智能体会话": "This is a subagent session",
   "目录寻址的子会话在此只读；继续对话请回到父会话。": "Catalog-addressed child sessions are read-only here; continue in the parent session.",

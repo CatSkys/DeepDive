@@ -7,7 +7,7 @@
 
 export type ToolVariant =
   | "read" | "edit" | "shell" | "search" | "code" | "skill" | "question"
-  | "agent" | "goal" | "schedule" | "job" | "mcp" | "other";
+  | "agent" | "goal" | "schedule" | "job" | "mcp" | "browser" | "other";
 
 export function toolVariant(name: string): ToolVariant {
   switch (name) {
@@ -65,7 +65,73 @@ export function toolVariant(name: string): ToolVariant {
     case "job_kill":
       return "job";
     default:
-      // MCP 工具（mcp__<服务器>__<工具>）：官方也归 others，本仓给独立族（用户定稿）
+      // MCP 工具：官方也归 others，本仓给独立族（用户定稿）——本仓自带的浏览器
+      // 控制另立一族（图标=官方地球，与应用里「浏览器」这件东西同一个记号）
+      if (name.startsWith("mcp__deepdive-browser__")) return "browser";
       return name.startsWith("mcp__") ? "mcp" : "other";
   }
+}
+
+/* ── 工具对外名（正式产品名）──
+   引擎只给内名（write / subagent / mcp__deepdive-browser__js…），对外一律说人话。
+   名字逐个对照引擎工具注册源核实（tool-goal / tool-jobs / schedule /
+   tool-subagent / tool-subagent-control 与通用工具族）；英文经 i18n 词典。
+   入口只有这一个：工具行（ToolRow）与审批卡（ApprovalCard）共用，避免两处各说一套。 */
+const TOOL_TITLE_ZH: Record<string, string> = {
+  ask_user_question: "提问",
+  todo_write: "任务",
+  todos: "任务",
+  bash: "终端",
+  "terminal-bash": "终端",
+  pwsh: "终端",
+  read: "读取文件",
+  read_file: "读取文件",
+  file_read: "读取文件",
+  read_image: "读取图片",
+  write: "写入文件",
+  edit: "编辑文件",
+  str_replace_editor: "编辑",
+  multiedit: "批量编辑",
+  apply_patch: "应用补丁",
+  patch: "应用补丁",
+  glob: "查找文件",
+  grep: "搜索内容",
+  web_search: "联网搜索",
+  web_fetch: "抓取网页",
+  fetch: "抓取网页",
+  list_files: "列出文件",
+  run_code: "运行代码",
+  skill: "技能",
+  compact: "压缩上下文",
+  present: "交付",
+  subagent: "子智能体",
+  send_message: "子智能体消息",
+  interrupt_agent: "中断子智能体",
+  list_agents: "列出子智能体",
+  wait_agent: "等待子智能体",
+  get_goal: "查看目标",
+  create_goal: "创建目标",
+  update_goal: "更新目标",
+  schedule_create: "新建提醒",
+  schedule_list: "查看提醒",
+  schedule_delete: "删除提醒",
+  job_list: "查看后台任务",
+  job_output: "后台任务输出",
+  job_kill: "终止后台任务",
+};
+
+/** 本仓自带的浏览器控制 MCP（随包安装的 browser-use server）——对外一个产品名，
+    不摆 `deepdive-browser · js` 这种半截内名（用户定稿）。 */
+const BROWSER_MCP = "mcp__deepdive-browser__";
+
+export function toolDisplayName(toolName: string, t: (s: string) => string): string {
+  const known = TOOL_TITLE_ZH[toolName];
+  if (known) return t(known);
+  if (toolName.startsWith(BROWSER_MCP)) return t("浏览器控制");
+  if (toolName.startsWith("mcp__")) {
+    // 其他 MCP 服务器：服务器是专有名词不翻，工具段拼在后面
+    const m = /^mcp__(.+?)__(.+)$/.exec(toolName);
+    return m ? `${m[1]} · ${m[2]}` : toolName;
+  }
+  return toolName;
 }

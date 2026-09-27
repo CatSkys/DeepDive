@@ -8,14 +8,15 @@
 /// agent/goal/schedule/job/mcp 是本仓应用级工具（官方表没有，原落 sparkle）——图标
 /// 与右侧面板同语义区对齐（用户定稿「icon 取 zcode 或官方」：官方表无此族、
 /// zcode 是终端无图标体系，故取面板已定稿的视觉语言 + MCP 的插头语义）：
-/// Bot / Flag / CalendarClock / SquareTerminal / Plug，取 lucide 同款。
+/// Bot / Flag / CalendarClock / SquareTerminal / Plug（浏览器控制走官方地球图标）。
 /// 表按族穷举（与官方同形）：新增族漏写是类型错误，不会静默落到别的分支。
 
 import type { ReactNode } from "react";
 import { Bot, CalendarClock, Flag, Plug, SquareTerminal } from "lucide-react";
 import {
   IconApiOutline14, IconBrowseOutline16, IconCodeOutline16, IconEditOutline16,
-  IconQuestionOutline14, IconSearchOutline16, IconSkillOutline16, IconSparkle16,
+  IconGlobeOutline14, IconQuestionOutline14, IconSearchOutline16, IconSkillOutline16,
+  IconSparkle16,
 } from "../components/Icons";
 import { toolVariant, type ToolVariant } from "./toolKind";
 
@@ -32,6 +33,7 @@ const VARIANT_ICONS: Record<ToolVariant, ReactNode> = {
   schedule: <CalendarClock size={14} />,
   job: <SquareTerminal size={14} />,
   mcp: <Plug size={14} />,
+  browser: <IconGlobeOutline14 size={14} />,
   other: <IconSparkle16 size={14} />,
 };
 

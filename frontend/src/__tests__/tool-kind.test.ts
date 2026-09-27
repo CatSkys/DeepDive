@@ -4,7 +4,7 @@
 // （cordis_* 三兄弟）与 ui-skill（skill），mcp-client 不注册。所以 mcp__* 落 other
 // 是官方口径而非缺口：不要为它加族，除非官方先加。
 import { describe, expect, it } from "vitest";
-import { toolVariant } from "../session/toolKind";
+import { toolDisplayName, toolVariant } from "../session/toolKind";
 import type { ToolVariant } from "../session/toolKind";
 
 describe("toolVariant：工具名 → 语义族", () => {
@@ -42,6 +42,19 @@ describe("toolVariant：工具名 → 语义族", () => {
       expect(toolVariant(name)).toBe("mcp");
     },
   );
+
+  it("本仓浏览器控制 MCP 另立一族（地球图标）", () => {
+    expect(toolVariant("mcp__deepdive-browser__js")).toBe("browser");
+  });
+
+  it("工具对外名：内名翻产品名、MCP 按服务器分流、未收录退回原名", () => {
+    const t = (s: string) => s;
+    expect(toolDisplayName("subagent", t)).toBe("子智能体");
+    expect(toolDisplayName("create_goal", t)).toBe("创建目标");
+    expect(toolDisplayName("mcp__deepdive-browser__js", t)).toBe("浏览器控制");
+    expect(toolDisplayName("mcp__linear__create_issue", t)).toBe("linear · create_issue");
+    expect(toolDisplayName("some_unknown_tool", t)).toBe("some_unknown_tool");
+  });
 
   it("未收录的名字一律回 other", () => {
     // jobs/goal 是包名不是工具名（工具名是 job_list/get_goal 这批）；见 toolKind 表
