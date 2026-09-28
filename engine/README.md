@@ -50,6 +50,14 @@ bash scripts/build-engine.sh       # 双面构建 → 原生 flock 编译 → �
 
 ## 与上游的已知偏差
 
+- `vitest.config.ts`：上游那套 harness（root 配置 + 各 lane 配置 + coverage 分区脚本）
+  **没有**随 `sync-engine-fork.mjs` 进本仓，本仓只有一份最小配置，够跑包级 spec。
+  没有它，带 `@Remote` 的 spec 一条用例都跑不起来——Vite/esbuild 不降级标准装饰器，
+  装饰器原样进 V8 就是 `SyntaxError`（症状是「0 test / Failed Suites 1」，看着像加载
+  失败而不是断言失败）。用法：`cd engine && node node_modules/vitest/vitest.mjs run <spec>`。
+  `vitest.shared.ts` 是上游逐字副本，已列进同步脚本的文件清单，勿手工编辑。
+  上游的 coverage 门与平台排除表没带进来：fork 自己的合入判据仍是上面三道闸门，
+  这批 spec 是写代码时的自检工具。
 - `tsconfig.host.json` / `tsconfig.client.json`：由
   `scripts/gen-engine-host-include.mjs` / `gen-engine-client-config.mjs` 从上游
   原件生成——**逐条保留、只删本 fork 不存在的路径**（apps/desktop、apps/web 源码、

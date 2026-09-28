@@ -100,6 +100,10 @@ for (const f of [
   "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsdown.config.ts",
   "tsconfig.json", "tsconfig.host.json", "tsconfig.client.json",
   "tsconfig.base.json", "tsconfig.base.client.json", "LICENSE",
+  // The decorator pre-transform the fork's own vitest.config.ts reuses: the
+  // upstream vitest harness does not come across, but source specs with
+  // `@Remote` methods cannot be loaded without it.
+  "vitest.shared.ts",
 ]) {
   if (existsSync(join(HS, f))) cpSync(join(HS, f), join(OUT, f));
 }
