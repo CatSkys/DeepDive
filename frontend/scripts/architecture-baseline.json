@@ -99,10 +99,10 @@
       "detail": "613 lines > 300"
     },
     {
-      "id": "163c2edc06d8a41a",
+      "id": "a7b5e3805b490f95",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "991 lines > 300"
+      "detail": "992 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",

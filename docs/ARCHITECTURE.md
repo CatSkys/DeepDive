@@ -25,7 +25,7 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-职责边界：**壳**只做 OS 级能力、进程监督，外加**会话数据的受控维护**（仅「取消归档 / 删除会话」两处——引擎 wire 面没有这两个方法，实现见 `SessionAdmin.swift`：立即删日志目录 + 覆盖集登记，引擎状态文件在**下次启动的空窗期**落账，全程不重启引擎）；**SPA** 只做渲染与交互，把用户动作路由为引擎 RPC；**引擎**持有全部业务状态，其余业务数据不经过壳。
+职责边界：**壳**只做 OS 级能力（窗口/热键/通知/选目录 sheet…）、进程监督，与**应用分发**（把随包的 profile、AGENTS.md 托管块、随应用发布的技能与插件装进 harness home）；**SPA** 只做渲染与交互，把用户动作路由为引擎 RPC；**引擎**持有全部业务状态——含设置面（技能清单/新建/删除/从目录安装走 `skills/admin*`，插件启停落账走 `pluginInventory/patch*`）。唯一的例外是**会话的取消归档 / 删除**：引擎 wire 面还没有这两个方法，暂由壳登记覆盖集、在停机空窗期落账（`SessionAdmin.swift`），迁移方案见 `docs/TODO.md §18`。
 
 ## 2. 通信矩阵（现实现）
 
@@ -68,9 +68,8 @@
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
 | `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`agentRun` |
-| `SkillAdmin.swift` | 技能管理面（设置→插件→技能）：读 `<DSH_HOME>/skills/<id>/SKILL.md` 的清单（frontmatter 解析、缺键标注、随应用发布的三个技能标 managed）、新建（写骨架 SKILL.md）、删除一层技能目录（拒穿越）。技能没有 wire 面，读盘/写盘/删盘只能由壳做 |
-| `ManagedPatchBlock.swift` | home 级 patch 层（`<DSH_HOME>/cordis.patch.yml`）里「托管块」的读写原语：按标记对切/换/取行，段外内容逐字保留、不解析 YAML。两个消费者：`PluginPatchAdmin`、`McpServerAdmin` |
-| `PluginPatchAdmin.swift` | 插件启停的落账：写 home 级 patch 层的托管块（`- id: <行id>` + `disabled:`）。profile 是 `patchReload: live` → **热生效、不重启**（实测 ≤4s 翻转，PITFALLS §7.6） |
+| `AppSkills.swift` | 随应用发布的技能（应用分发那一半）：`published` 是「这个应用带哪几个技能、正文是什么」的唯一事实源（automation 协议 + 浏览器使用），每次启动写回 `<DSH_HOME>/skills/<name>/SKILL.md` 并清掉停发的（`removeRetired`）；壳只经 `app-skill-names` 把这几个名字告诉前端（据此不给删除入口）。技能**清单/新建/删除/安装**归引擎（`skills/admin*`） |
+| `ManagedPatchBlock.swift` | home 级 patch 层（`<DSH_HOME>/cordis.patch.yml`）的路径与「托管块」读写原语：按标记对切/换/取行，段外内容逐字保留、不解析 YAML。写这份文件的壳侧消费者只剩 `McpServerAdmin`；插件开关块由引擎写（标记与格式逐字节钉在 `packages/host/plugin-inventory/src/patch-admin.ts`） |
 | `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |
 | `McpServerAdmin.swift` | MCP server 行：`- insert:` 一行一 server（`@deepseek-ai/dsh-mcp-client` + `config` 用 JSON 写进 YAML），同一份 home patch 层的第二块托管段；行上的 `disabled` 管启停，同样热生效 |
 | `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC 且把会话列表缓存在内存 → ①立即删 `sessions/<bucket>/<id>/`；②覆盖集登记到 UserDefaults，下次启动空窗期落账 `storages/workspace.json` 归档集 + `storages/session_projcache.json`；纯函数 + 原子写，结构不符拒绝落盘） |
@@ -92,7 +91,7 @@
 | `components/Markdown.tsx` / `ThinkingState.tsx` / `LoadingState.tsx` / `Icons.tsx` / `ProviderIcon.tsx` / `HoverScrollText.tsx` / `HeroBrand.tsx` | 呈现组件（`Markdown` 见下行 `rich/` 的围栏分流） |
 | `rich/` | 正文富输出围栏（`mermaid` / `svg` / `widget`，词表在 `fences.ts`）：`mermaidRender` 按需 import mermaid（独立分块）并从 CSS 语义变量读色烘图、明暗切换靠块自订阅（**不赌父组件重渲**，误诊后果=图示配色停在上一个主题）；`sanitizeSvg` 用 DOMPurify 的 svg profile 消毒内联 SVG（禁 `script`/`foreignObject`），成品图连带作者自带的 `<style>` 一起进 shadow root（`ScopedSvg`；`@scope (#id)` 会静默废掉 `#<svg-id> …` 这类选择器让整张图变黑，`PITFALLS §3.8`）；`WidgetBlock` 用 `sandbox="allow-scripts"`（无 same-origin）跑交互组件；围栏未闭合（流式）显示「正在读取…」且不发起渲染；渲染不出来（语法错/超限）一律退回代码块显示源码（`PITFALLS §3.7`） |
 | `session/backgroundSession.ts` | 后台会话的判据与命名（唯一事实源）：读投影标题而非应用侧 id 台账（MiMo 形态）——自动化运行会话不进用户列表（该任务的运行历史仍可打开；已删的「自进化」留下的 `自进化·` 机器会话按同一条规则继续隐藏）；fail-open：读不到标题当用户会话。生产者（自动化运行）建会话时按同一份常量命名 |
-| `plugins/` | 插件页（设置→插件）：`model`（插件行状态/排序/汇总/短名/行 id 纯函数：`enabled:false` 分「用户关掉」与「本层未挂载」两态，见 `PITFALLS §7.6`）、`PluginsSection`（tab 容器：插件/MCP/技能 + 搜索）、`PluginsTab`（只列用户装进来的插件：引擎自带的内部模块根本不出现；逐行启停开关 + 行菜单「立即试用/卸载」）、`McpTab`（MCP server 列表/启停/增删改）、`SkillsTab`（技能清单/新建/删除）。开关写壳的 patch 托管块，热生效 |
+| `plugins/` | 插件页（设置→插件）：`model`（插件行状态/排序/汇总/短名/行 id 纯函数：`enabled:false` 分「用户关掉」与「本层未挂载」两态，见 `PITFALLS §7.6`）、`PluginsSection`（tab 容器：插件/MCP/技能 + 搜索）、`PluginsTab`（只列用户装进来的插件：引擎自带的内部模块根本不出现；逐行启停开关 + 行菜单「立即试用/卸载」）、`McpTab`（MCP server 列表/启停/增删改）、`SkillsTab`（技能清单/新建/删除/从目录安装）。清单与开关落账都直读引擎（`skills/admin*`、`pluginInventory/patch*`），只有选目录 sheet 与「随应用发布的技能名」走壳 |
 | `mobile/` | 移动端远程控制（设置→移动端远程控制）：`RemoteControlSection`（扫码连接卡片 + 二维码 + 已配对设备台账）；远程状态与配对全在壳侧，前端只渲染快照（`host.ts` 的 remoteStatus/remoteStart/remoteStop/remoteRefresh/remoteRevoke/remoteCopyLink/qrEncode）。语义与安全边界见 `SPEC-MOBILE-REMOTE.md` |
 | `bots/` | Bot Channel（设置→移动端远程控制 右栏）：`BotChannelCard`（渠道列表 + 真实状态）、`BotManageDialog`（机器人台账 + 扫码新建 + 移除）、`im.ts`（渠道目录与状态纯函数）。wire 走 `api.ts` 的 `api.im`（插件的 `POST /api/dsh-im/<渠道>`，不是引擎 typert 网关）；契约见 `SPEC-MOBILE-REMOTE.md §5` |
 | `automation/` | 自动化（定时任务）：`model`（计划类型 + 次回触发/文案纯函数）、`templates`（四张模板卡）、`storage`（localStorage 持久化，读取即边界校验）、`runner`（到点执行：建会话→选模型→`/permission`→发指令）、`useAutomation`（App 级 Provider：任务/历史状态 + 30s 调度 tick + 运行对账 + 保持唤醒信号）、`protocol`（会话里创建自动化的围栏块协议：解析 + 形状校验）、`AutomationProposalCard`（消息流里的建议卡，点创建→预填表单）、`AutomationSection`（设置页「自动化」分区：列表↔编辑器两态路由）+ `TaskListPage`/`TaskCard`/`TaskEditorPage`/`ScheduleRow`/`RunHistory`（视图）。**调度在客户端**：引擎没有定时任务 RPC（`dsh-schedule` 只是会话内提醒工具），代价与应用语义见 `SPEC-AUTOMATION.md` |

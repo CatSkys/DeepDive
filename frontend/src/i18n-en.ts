@@ -825,6 +825,7 @@ export const EN: Record<string, string> = {
   "只能删除技能根下的一层目录": "Only top-level folders under the skill root can be deleted",
   "它已经在技能根里了": "It is already inside the skill root",
   "读不到引擎的技能根（引擎没有受监督的 DSH_HOME）": "Cannot reach the engine's skill root (the engine has no supervised DSH_HOME)",
+  "引擎未连接，或这个版本的引擎没有技能管理接口（技能面归自有引擎）。": "The engine is not connected, or this engine version has no skill-admin surface (skills are owned by DeepDive's own engine).",
   "名字（也是目录名与 /调用名）": "Name (also the directory and the /invocation)",
   "描述（模型据此决定何时加载）": "Description (the model picks when to load it)",
   "还没有自建技能。新建一个，或直接在技能根里放 <名字>/SKILL.md（字段：name、description）。": "No authored skill yet. Create one here, or drop <name>/SKILL.md into the skill root (fields: name, description).",

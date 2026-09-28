@@ -209,6 +209,7 @@
 - **HTTP unary 面没有删**：`POST /api/<点号方法>`（`/api/session.list`）+ envelope `method` 必须与路径派生名一致（点号），payload 为**扁平参数**（`session.prompt` = `{sessionId,mode,content}`；`session.history` 的翻页锚叫 **`beforeSeq`** 不是 `atSeq`）。曾把点号转斜杠探测 → 404 → **误判 "HTTP 面已删"** → 整个前端切到 `/api/remote.mux` —— 而该引擎**根本没注册这个升级路由**（只有 `/api/events.mux`、`/api/events.host`，未注册路径直接 destroy socket）→ 所有 RPC 静默失败（表现为"发消息没反应"）。
 - **信任闸里没有 cookie/token**：`isTrustedApiRequest` 只查 Host 回环 + `sec-fetch-site` + Origin==Host。alpha.2 的 `dsh web:` 打印 URL **不带 token**（`localWebUrl` 就是裸回环地址），EngineAuth 的 cookie 交换无害但非必需。
 - 判定接口面一律查引擎源码，不要靠猜：`UNARY_ROUTES` 已随包消亡（现行契约见 `docs/DSH-WIRE.md` 与 §7.1）；权威参数清单 = 生成客户端各包 `lib/typert.remote-client.js` 的 `parameters[].wire`。
+- **单对象形参要包在具名 `request` 里，不是摊平在 `args` 上**（2026-09-28 实测，四个写口一起中招）：typert 网关按**形参名**取字段——`patchSet(request: PluginPatchSetRequest, signal)` 的载荷是 `{args:{request:{rowId,disabled}}}`，摊平会得到 `gateway/arguments-invalid: missing "request"; unexpected "rowId", "disabled"`。本仓既有写口（`session/create`、`workspace/rename`、`workspace/delete`…）都是这个形状；无参方法就是 `{}`（`session/list` 那个 `_request` 是它的形参本名）。照签名猜形状的代价是**写口全挂而读口全通**——最像"后端没实现"的那种假象。`frontend/src/__tests__/api.test.ts` 的信封钉子钉着这几个口的形状。
 
 ### 4.7 主窗口大圆角来自「可见的空 NSToolbar」（删掉/隐藏即退回小圆角档）
 - macOS 26 (Tahoe) 窗口圆角分两档（本机 26.5 截图实测，2x 拟合）：纯标题栏窗口 ≈16pt；**带可见 toolbar 的窗口 ≈26pt**（连续曲率，WindowServer 裁切，与 Finder/Notes 同款）。`toolbar.isVisible = false` 也会退回小档。

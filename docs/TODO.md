@@ -1,6 +1,6 @@
 # DeepDive 路线待办
 
-> 产品路线的唯一事实源：一项一节，只写「要做什么 + 已查明的路径」；完成即删节（沿革归 git）。2026-09-11 重排：0.1.5-rc.1 对齐批（产物三动作/预览 Dock+分栏全屏/上传流式+进度取消/子代理交互/命令原生化/插件市场 v1/统计两摘要/persona 入口）已全部落地并删除；剩余项均带明确前置（§1 热加载实测、§2 鉴权设计稿、§3 公证凭据+依赖批准、§4 用户澄清范围）。2026-09-16 与 MiMoCode 对照后补 §7-§12：三块客户端面缺口（MCP / 记忆 / 富输出）＋ 四组「引擎有包未接」＋ 三项待补 ＋ 五项待拍板。2026-09-16 富输出第一批（富输出围栏 mermaid/svg/widget，§9）落地并删除；跨会话协作、worktree 隔离、技能·插件管理三项经用户拍板转入施工（口径见 `docs/ARCHITECTURE.md` 与各 SPEC）。**技能与插件管理面、工作树管理面已落地并删节**；**会话协作分区已按用户口径移除**（2026-09-19：协作改走 @ 引用会话 + 会话互发，见 §13）；**「记忆」与「自进化」两个分区已按用户口径移除**（2026-09-24：当期不好用，整条能力连壳侧脚本/技能/插件一并撤掉，「自进化」「记忆面补齐」两节随之删除）；**轮次大纲轨已按用户口径撤下**（2026-09-24，见 §5）**；技能与插件管理面**（设置→技能与插件：技能清单/删除走壳读盘，插件两层只读清单——实测后确认不做开关，理由见 `PITFALLS §7.6`）。
+> 产品路线的唯一事实源：一项一节，只写「要做什么 + 已查明的路径」；完成即删节（沿革归 git）。2026-09-11 重排：0.1.5-rc.1 对齐批（产物三动作/预览 Dock+分栏全屏/上传流式+进度取消/子代理交互/命令原生化/插件市场 v1/统计两摘要/persona 入口）已全部落地并删除；剩余项均带明确前置（§1 热加载实测、§2 鉴权设计稿、§3 公证凭据+依赖批准、§4 用户澄清范围）。2026-09-16 与 MiMoCode 对照后补 §7-§12：三块客户端面缺口（MCP / 记忆 / 富输出）＋ 四组「引擎有包未接」＋ 三项待补 ＋ 五项待拍板。2026-09-16 富输出第一批（富输出围栏 mermaid/svg/widget，§9）落地并删除；跨会话协作、worktree 隔离、技能·插件管理三项经用户拍板转入施工（口径见 `docs/ARCHITECTURE.md` 与各 SPEC）。**技能与插件管理面、工作树管理面已落地并删节**；**会话协作分区已按用户口径移除**（2026-09-19：协作改走 @ 引用会话 + 会话互发，见 §13）；**「记忆」与「自进化」两个分区已按用户口径移除**（2026-09-24：当期不好用，整条能力连壳侧脚本/技能/插件一并撤掉，「自进化」「记忆面补齐」两节随之删除）；**轮次大纲轨已按用户口径撤下**（2026-09-24，见 §5）**；技能与插件管理面**（设置→技能与插件：技能清单/删除走壳读盘，插件两层只读清单——实测后确认不做开关，理由见 `PITFALLS §7.6`）。2026-09-28 补 §17 审查面板（预览面板升级为 `文件 / 审查` 双模式，v1 只做未暂存、只读、不引新依赖）。
 
 ## 1. 自定义指令（Persona）—— 已按用户要求移除（2026-09-12）
 
@@ -164,6 +164,34 @@ backdrop-filter 渐隐带**——`theme.css:1535-1575`（`--session-fade-blur: 1
 **处置候选**（都没做，等取证结果再定）：渐隐带降到单层固定半径；`--session-fade-ramp`
 改为静止后算一次而不是连续写；减少同时可见的 blur 层数；或给模糊层加 `contain`/隔离
 合成层。**别在没取证前先动**——改了也没法验证，等于把随机现象埋掉。
+
+## 17. 审查面板（2026-09-28 定方案，未开工）
+
+文件预览面板升级为 `文件 / 审查` 双模式，逻辑对标 zcode 的 `GitPane`。四项口径已由用户拍板：只做**未暂存**一档、面板**只读**、**不引入新依赖**、复用现成 chrome。
+
+**已查明的关键路径**：引擎无 git 能力，git 全走壳桥（`SPEC-GIT-COMMIT-MESSAGE.md:13`）；`CapsuleGitSection.tsx:104` 的「更改」行现在是硬禁用态、注释写明「本仓没有审阅页」，正是本项预留的入口；`gitRun` 输出只留 4000 字符**尾部**（`AppDelegate.swift:677`），diff 传不过来且截尾会切出解析错误的 patch，故**必须新增两条专用桥消息**；`git-run` 无子命令白名单、无超时（`review-2026-09-22.md:65` 记为 P1），新消息一律走 `ProcessRunner.run(…, timeout:)`，**本项不修 `gitRun` 本身**；前端已有 `diffModel.ts` / `DiffBlock.tsx` / `CodeLines.tsx`（逐行 hljs + 缓存）/ `previewModel.languageOf` / `theme.css` 的 `.diff-*` 绿红配色，只在其上补「按文件列 + hunk 展开 + 未改动行折叠」一层。
+
+**取数**：壳侧 `rev-parse` + `status --porcelain=v2 -z` + `diff --numstat -z --find-renames`；只收 `Y` 位非 `.` 或未跟踪的条目（纯暂存的不收）。`+N −M` 全部由后端出（`numstat`；未跟踪无条目，壳侧读文件数换行，上限 1 MiB、遇 NUL 判 binary），前端不做行数统计。作用域与现有胶囊一致（整仓、不带 pathspec），保证两处数字同一把尺子。
+
+**折叠照 zcode 数值**：`collapsedContextThreshold=1`（≥2 行未改动才折）、`expansionLineCount=100`、文案 `{n} 行未改动 / {n} unmodified lines`；行号槽 `del`/`ctx` 取旧号、`add` 取新号。`@pierre/diffs` 不引入（依赖 Shiki + web worker + TanStack virtual，与本仓 hljs 体系并行会变成第二套高亮栈）。
+
+**v1 边界**：不做已暂存/分支对比/上一轮三档、不做暂存与丢弃等写操作、不做内联词级 diff、不做文件列表虚拟化。面板的 `+N −M` 是未暂存档，胶囊的是整仓未提交合计——本就不是一个问题，不对齐。
+
+## 18. 会话的取消归档 / 删除搬回引擎（2026-09-29 定方案，未开工）
+
+技能与插件开关已经搬完（`skills/admin*`、`pluginInventory/patch*`），设置面只剩这一处壳还在替引擎写状态：`SessionAdmin.swift` + `AppDelegate` 的 `session-admin-sync`/`session-delete` 两条分发 + 前端那一整套本地覆盖层。
+
+**现状与代价**（为什么要搬）：引擎 wire 面只有单向的 `workspace/archiveSession`，没有取消归档也没有删除；而引擎把归档集与会话列表缓存在内存（运行期改文件会被内存状态覆写）。于是现在的设计是三层绕行——前端持 `deepdive.unarchived`/`deepdive.removed` 两个 localStorage 覆盖集即时生效（`sessionOverrides.ts` 的 `visibleArchived`/`converged`），壳立刻删日志目录、再把覆盖集登记进 UserDefaults，等**下次启动的空窗期**落账到 `storages/workspace.json` 与投影缓存。跨应用重启才真正收敛。
+
+**要做什么**：引擎加 `workspace/unarchiveSessions`、`workspace/deleteSessions`（复数、一次一批），落点在 `packages/api/workspace-controller`（挂载点是常驻的 `workspace-controller` 行）+ `packages/workspace/workspace` 的注册表（照 `deleteKnown(id)` 的形状：幂等、先更新 durable 序再删表项）+ 投影缓存文档与日志目录的删除。
+
+**已查明的路径**：
+- 归档集 = 注册表的 `archivedSessionIds`（`archiveSession` 只加不删；取消归档 = 从集合里摘掉，会话的 workspace 记账槽位本来就不动，位置自然恢复）。
+- 日志删除要新写一条 `deleteStored`（持久化层契约 `SessionPersistence` 只有 create/open/stat/list/flush，没有删）：jsonl 后端在 `packages/session/session-persistence-jsonl/src/storage.ts` 的 `JsonlBackendTracker`（`openHandles`/`writers`/`pending`），删之前要把 tracker 里的登记与持有的 lease 一起收掉。
+- **打开中/运行中的会话必须由引擎侧挡**（现在由前端 `store.tsx` 的 `removeSession` 挡，读的是本地 `running` 标志）——搬过去才有唯一的事实源，且手机端也受保护。
+- 前端可以整套删掉覆盖层：`sessionOverrides.ts`、store 的 `unarchived`/`removedLocal` 两个 state 与 `converged` effect、`deepdive.unarchived`/`deepdive.removed` 两个 localStorage 键、`host.ts` 的 `sessionAdminSync`/`sessionDeleteDirs`；`SettingsPage.tsx` 的批量删除改调 RPC。
+
+**前置（需用户拍板）**：这条迁移与已完成的技能/插件开关一样，只在**自有引擎**（`DEEPDIVE_ENGINE_SOURCE=fork`）下可用——npm 闭包轨没有这些 RPC。要不要把自有引擎改成默认嵌入源是产品决定，见 `SPEC-ENGINE-RUNTIME §3.3`。
 
 ## 期间不做
 

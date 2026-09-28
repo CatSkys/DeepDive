@@ -68,14 +68,15 @@ export function SkillsTab({ query }: { query: string }) {
   const [skills, setSkills] = useState<SkillAdminEntry[]>([]);
   const [published, setPublished] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [creating, setCreating] = useState(false);
   const shell = inShell();
 
   const refresh = useCallback(() => {
     void api.skillsAdmin.list()
       .then((r) => { setSkills(r.skills); setLoaded(true); })
-      // 引擎未就绪时保持空清单：动作会各自弹错，这里不冒充"没有技能"
-      .catch(() => { setLoaded(true); });
+      // 引擎未就绪、或这个引擎没有这组方法（技能面归自有引擎）：说清楚，不冒充"没有技能"
+      .catch(() => { setUnavailable(true); setLoaded(true); });
   }, []);
   useEffect(refresh, [refresh]);
 
@@ -138,20 +139,25 @@ export function SkillsTab({ query }: { query: string }) {
         <div className={css.groupLabel}>
           {loaded ? tt("已安装（{n}）", "Installed ({n})", { n: String(skills.length) }) : t("已安装")}
         </div>
-        <button className={rs.secondaryButton} onClick={() => { void install(); }} disabled={!shell}>
+        <button className={rs.secondaryButton} onClick={() => { void install(); }} disabled={!shell || unavailable}>
           <FolderInput size={12} /> {t("从目录安装")}
         </button>
-        <button className={rs.secondaryButton} onClick={() => setCreating(true)}>
+        <button className={rs.secondaryButton} onClick={() => setCreating(true)} disabled={unavailable}>
           <Plus size={12} /> {t("新建")}
         </button>
       </div>
       <div className={rs.blockCard}>
-        {loaded && skills.length === 0 && (
+        {unavailable && (
+          <div className={rs.blockRow}>
+            <span className={rs.muted}>{t("引擎未连接，或这个版本的引擎没有技能管理接口（技能面归自有引擎）。")}</span>
+          </div>
+        )}
+        {!unavailable && loaded && skills.length === 0 && (
           <div className={rs.blockRow}>
             <span className={rs.muted}>{t("还没有自建技能。新建一个，或直接在技能根里放 <名字>/SKILL.md（字段：name、description）。")}</span>
           </div>
         )}
-        {loaded && skills.length > 0 && visible.length === 0 && (
+        {!unavailable && loaded && skills.length > 0 && visible.length === 0 && (
           <div className={rs.blockRow}>
             <span className={rs.muted}>{t("没有匹配的技能。")}</span>
           </div>

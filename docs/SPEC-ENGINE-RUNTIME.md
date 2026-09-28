@@ -53,6 +53,11 @@
   `validate_runtime`，下游 prune / 组合自检 / 启动冒烟全部原样生效。两道对等闸门
   （真实启动 + 组合与 `composition.expected.txt` 零差异）与 fork 的范围、偏差、
   改动纪律见 `engine/README.md`（唯一事实源）。
+  - **设置面的新 RPC 只存在于自有引擎**（`skills/admin*`、`pluginInventory/patch*`，以及
+    `docs/TODO.md §18` 待做的会话删除/取消归档）：技能与插件开关的读写已从壳搬进引擎，
+    npm 闭包轨没有这些方法 → 该轨下「设置→插件/技能」不可用。要发布带这些面的应用，
+    构建时须 `DEEPDIVE_ENGINE_SOURCE=fork`；是否把自有引擎改成默认嵌入源是待拍板的产品
+    决定（`docs/TODO.md §18` 前置）。
 
 ### 3.4 入口解析与 spawn 形状（`EngineSupervisor`）
 - **入口形状改变**：bundled 场景不再是"单一 `dsh` 可执行直启"，而是 **bundled node + 入口脚本**——`executableURL = <bundle>/Contents/Resources/Runtime/node`，`arguments = [<bundle>/Contents/Resources/Runtime/dsh/lib/bin.js, "--profile", "web", "--no-open", "--port", "0"]`。**子命令形状以实测为准**：现状系统 dsh 用 `--profile web` 标志式，参考项目 bin.js 用 `web` 子命令式（`bin.js web --host 127.0.0.1 --port 0 --no-open`）——两者应等价，验收标准是能输出 `dsh web:` URL 行。`DSH_HOME` 仍指向应用数据目录（隔离）；环境 `PATH` 前置 bundled node 所在目录（runtime 内子进程需要，对齐参考项目）。
