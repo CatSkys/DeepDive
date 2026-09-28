@@ -333,9 +333,12 @@ final class BridgeServer {
         }.resume()
         // AUD-037b：引擎挂起时 dataTask 可能永不出回调，无限 wait 会把这条
         // 桥线程永久钉死——超时按 502 网关错误返回。
-        // 例外：导入面板的扫描是**聚合长任务**（首次全源扫描实测 30s+，436 条会话），
-        // 用通用的 30s 会把它判成网关错误——前端只能看到"没有会话"而不知道是被掐断的。
-        let timeout: TimeInterval = request.path.hasPrefix("/api-import/") ? 180 : 30
+        // 例外：引擎 API 里存在**同步等慢活的 unary RPC**——/api-import 的聚合扫描
+        // （首次全源实测 30s+，436 条会话）和 commands/execute 的 /compact（同步等
+        // 压缩摘要的 LLM 调用，8 万 token 实测超 30s；超时只会让前端弹"命令发送
+        // 失败"而压缩在引擎侧照常完成）。/api 全族统一 180s：RPC 语义要求等到底，
+        // 挂起的引擎由 engineState 面另案呈现，不靠这里提前 502。
+        let timeout: TimeInterval = request.path.hasPrefix("/api") ? 180 : 30
         if semaphore.wait(timeout: .now() + timeout) == .timedOut {
             return .init(status: 502)
         }
