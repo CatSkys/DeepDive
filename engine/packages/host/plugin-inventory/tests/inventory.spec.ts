@@ -40,6 +40,8 @@ describe('PluginInventoryGateway', () => {
     })
     expect(remoteMethods(inventory)).toEqual([
       { method: 'list', invocation: { kind: 'direct' } },
+      { method: 'patchList', invocation: { kind: 'direct' } },
+      { method: 'patchSet', invocation: { kind: 'direct' } },
     ])
   })
 

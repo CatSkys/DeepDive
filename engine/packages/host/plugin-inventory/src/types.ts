@@ -68,3 +68,35 @@ export interface PluginInventorySnapshot {
    */
   readonly agentPresets?: readonly AgentPresetPluginGroup[]
 }
+
+/** One user-set plugin switch in the home patch's managed block. */
+export interface PluginPatchToggle {
+  /** The composition ROW id (`hmr`), not the inventory entryId (`include:hmr`). */
+  readonly rowId: string
+  /** `false` is recorded explicitly: bundle-default-disabled rows can only be
+   *  re-enabled through this override. */
+  readonly disabled: boolean
+}
+
+/** The managed plugin-switch block's current entries, sorted by row id. */
+export interface PluginPatchListValue {
+  readonly toggles: readonly PluginPatchToggle[]
+}
+
+export interface PluginPatchSetRequest {
+  readonly rowId: string
+  readonly disabled: boolean
+}
+
+export interface PluginPatchSetOk {
+  readonly ok: true
+}
+
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface RemoteErrorDetailsMap {
+    /** No supervised `$DSH_HOME` to resolve the home patch from. */
+    'plugin-patch/unavailable': {}
+    /** The row id cannot be written as one patch line (empty or multi-line). */
+    'plugin-patch/invalid-row': { readonly rowId: string }
+  }
+}

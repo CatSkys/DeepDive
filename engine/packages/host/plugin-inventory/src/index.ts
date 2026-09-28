@@ -1,4 +1,4 @@
-/** Read-only projection of the current Cordis Loader plugin entries. */
+/** Read the current Cordis Loader plugin entries and carry the switch ledger. */
 
 import type { Context, FiberState } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
@@ -13,7 +13,11 @@ import type {
   PluginFiberPhase,
   PluginInventoryEntry,
   PluginInventorySnapshot,
+  PluginPatchListValue,
+  PluginPatchSetOk,
+  PluginPatchSetRequest,
 } from './types.ts'
+import { pluginPatchFile, readPluginPatch, unavailable, writePluginPatch } from './patch-admin.ts'
 
 export type * from './types.ts'
 
@@ -86,6 +90,38 @@ export class PluginInventoryGateway extends TypertRemoteService {
       }),
     )
     return { entries, agentPresets }
+  }
+
+  // ── plugin switch ledger ──────────────────────────────────────────────────
+  // The home patch's managed block is the user preference layer the live
+  // watcher reloads; these methods replace the shell's PluginPatchAdmin.
+  // The home comes from $DSH_HOME directly (the canonical resolver lives in
+  // @deepseek-ai/dsh-home-paths; importing it here would add a peer + lockfile
+  // delta to an upstream package). Supervised engines always export it.
+
+  /** The switch ledger file, or the failure when no supervised home exists. */
+  private patchFile(): string {
+    const home = process.env.DSH_HOME
+    if (home === undefined || home.trim().length === 0) throw unavailable()
+    return pluginPatchFile(home)
+  }
+
+  /** Current user plugin switches (the managed block's ledger). */
+  @Remote('patchList')
+  async patchList(signal: AbortSignal): Promise<PluginPatchListValue> {
+    void signal
+    return readPluginPatch(this.patchFile())
+  }
+
+  /**
+   * Upsert one user switch. `disabled: false` is recorded explicitly so
+   * bundle-default-disabled rows can be re-enabled; the write hot-reloads
+   * through the engine's live patch watcher without a restart.
+   */
+  @Remote('patchSet')
+  async patchSet(request: PluginPatchSetRequest, signal: AbortSignal): Promise<PluginPatchSetOk> {
+    void signal
+    return writePluginPatch(this.patchFile(), request)
   }
 }
 
