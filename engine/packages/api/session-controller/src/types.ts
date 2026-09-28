@@ -213,6 +213,18 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
       readonly childSessionId: SessionId
       readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
     }
+    /** The requested skill name is empty, path-shaped, or dot-prefixed. */
+    'skills-admin/invalid-name': {}
+    /** A skill directory with that name is already present. */
+    'skills-admin/exists': { readonly id: string }
+    /** The target directory holds no SKILL.md, so it is not an installable skill layer. */
+    'skills-admin/missing-manifest': {}
+    /** Removal only reaches one-level directories under the skills root. */
+    'skills-admin/not-one-level': {}
+    /** The install source is the skills root itself or a directory directly inside it. */
+    'skills-admin/inside-root': {}
+    /** No supervised `$DSH_HOME` to resolve the skills root from. */
+    'skills-admin/unavailable': {}
   }
 }
 
@@ -236,6 +248,46 @@ export interface SkillEntry {
 /** Human-invocable skills visible through one Session's composition. */
 export interface SkillListValue {
   readonly skills: readonly SkillEntry[]
+}
+
+// ── skills admin (settings → 插件 → 技能) ────────────────────────────────────
+
+/** One administrable skill directory: directory name = discovery unit = delete target. */
+export interface SkillAdminEntry {
+  /** Directory name under the skills root; also the wire target for removal. */
+  readonly id: string
+  /** Frontmatter `name` (the model-facing name); falls back to the directory name. */
+  readonly title: string
+  /** Frontmatter `description`; empty when missing. */
+  readonly detail: string
+  /** Absolute SKILL.md path (for Finder reveal). */
+  readonly manifest: string
+  /** Absolute skill directory path. */
+  readonly directory: string
+  /** Required frontmatter keys that are missing; non-empty = the engine ignores this skill. */
+  readonly missing: readonly string[]
+}
+
+export interface SkillAdminListValue {
+  readonly skills: readonly SkillAdminEntry[]
+}
+
+export interface SkillAdminCreateRequest {
+  readonly name: string
+  readonly description: string
+}
+
+export interface SkillAdminRemoveRequest {
+  readonly id: string
+}
+
+export interface SkillAdminInstallRequest {
+  /** Absolute path of the picked directory; the shell opens the sheet. */
+  readonly sourceDirectory: string
+}
+
+export interface SkillAdminOk {
+  readonly ok: true
 }
 
 /** Session list request. */

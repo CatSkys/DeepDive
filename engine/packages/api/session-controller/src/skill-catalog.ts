@@ -7,7 +7,16 @@ import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
 import { isUserInvocable } from '@deepseek-ai/dsh-skill'
 import type { ScopeKey } from '@deepseek-ai/dsh-scope'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type { SkillListRequest, SkillListValue } from './types.ts'
+import type {
+  SkillAdminCreateRequest,
+  SkillAdminInstallRequest,
+  SkillAdminListValue,
+  SkillAdminOk,
+  SkillAdminRemoveRequest,
+  SkillListRequest,
+  SkillListValue,
+} from './types.ts'
+import { createSkillAdmin, installSkillAdmin, listSkillAdmin, removeSkillAdmin, skillAdminRoot } from './skill-admin.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -103,6 +112,55 @@ export class SessionSkillCatalog extends TypertRemoteService {
       // An unknown or unusable recorded preset falls back to the global registry.
       return undefined
     }
+  }
+
+  // ── skills admin ──────────────────────────────────────────────────────────
+  // The `<dshHome>/skills` root CRUD behind the settings tab. The filesystem
+  // provider watches these roots, so writes take effect without restart. The
+  // admin surfaces a raw listing (including entries the engine would ignore)
+  // while `list` above stays the model-facing view.
+  //
+  // The home comes from $DSH_HOME directly: the canonical resolver lives in
+  // @deepseek-ai/dsh-home-paths, and importing it here would add a peer +
+  // lockfile delta to an upstream package. Every supervised engine (the shell
+  // launcher) exports DSH_HOME; headless contexts without it degrade with an
+  // explicit error instead of guessing a fallback.
+
+  /** The admin root, or the failure callers see when no supervised home exists. */
+  private adminRoot(): string {
+    const home = process.env.DSH_HOME
+    if (home === undefined || home.trim().length === 0) {
+      throw new RemoteError('skills-admin/unavailable', 'no supervised DSH_HOME is set', {})
+    }
+    return skillAdminRoot(home)
+  }
+
+  /** List administrable skill directories under `<dshHome>/skills`. */
+  @Remote('adminList')
+  async adminList(signal: AbortSignal): Promise<SkillAdminListValue> {
+    void signal
+    return listSkillAdmin(this.adminRoot())
+  }
+
+  /** Create one skill directory with a minimal SKILL.md skeleton. */
+  @Remote('adminCreate')
+  async adminCreate(request: SkillAdminCreateRequest, signal: AbortSignal): Promise<SkillAdminOk> {
+    void signal
+    return createSkillAdmin(this.adminRoot(), request)
+  }
+
+  /** Remove one skill directory; the whole directory goes. */
+  @Remote('adminRemove')
+  async adminRemove(request: SkillAdminRemoveRequest, signal: AbortSignal): Promise<SkillAdminOk> {
+    void signal
+    return removeSkillAdmin(this.adminRoot(), request)
+  }
+
+  /** Install one skill by copying a picked SKILL.md layer into the skills root. */
+  @Remote('adminInstall')
+  async adminInstall(request: SkillAdminInstallRequest, signal: AbortSignal): Promise<SkillAdminOk> {
+    void signal
+    return installSkillAdmin(this.adminRoot(), request)
   }
 }
 
