@@ -41,7 +41,19 @@ ACTUAL_NODE_VERSION="$("$NODE" -p 'process.versions.node')"
 # The vendored reference source must match the runtime pin before we embed it.
 bash "$ROOT/scripts/check-dsh-source.sh"
 
-if [[ -z "$RUNTIME_SOURCE" ]]; then
+# 引擎来源开关：`DEEPDIVE_ENGINE_SOURCE=fork` 嵌入本仓构建的引擎
+# （scripts/build-engine.sh 的产物），默认仍走 npm 闭包——随时可一键回退。
+# 两条路径过同一道 validate_runtime 门，产物形状完全一致。
+if [[ "${DEEPDIVE_ENGINE_SOURCE:-}" == "fork" ]]; then
+  PIN="$(tr -d '[:space:]' < "$ROOT/scripts/dsh-runtime-version.txt")"
+  RUNTIME_SOURCE="$ROOT/dist/.dsh-engine-build/$PIN"
+  [[ -f "$RUNTIME_SOURCE/lib/bin.js" ]] || {
+    echo "fork engine not built yet: $RUNTIME_SOURCE" >&2
+    echo "run scripts/build-engine.sh (or pnpm --dir engine build) first." >&2
+    exit 1
+  }
+  echo "engine source: fork build ($RUNTIME_SOURCE)"
+elif [[ -z "$RUNTIME_SOURCE" ]]; then
   RUNTIME_SOURCE="$(bash "$ROOT/scripts/prepare-dsh-runtime.sh")"
 else
   # 外部传入的 runtime 也过仓内同一校验（版本 + lib/bin.js + 嵌套依赖），

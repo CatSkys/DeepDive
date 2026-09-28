@@ -47,6 +47,12 @@
 - 步骤**有序且不得乱调**：拷 node/闭包 → 模型目录覆盖 → **`prune-dsh-runtime.sh`（裁掉自有组合不装载的包）** → 拷 `EngineProfile` + 组合自检（`--dump-config`）→ **`sign-app.sh` 重封**（必须在所有文件改动之后）→ 许可 → `bin.js --version` → **`smoke-engine-boot.sh`**（用随包 node 真起一次引擎等 `dsh web:` 就绪行）。
   最后一步不是可选项：`--version` 根本不装载插件、`--dump-config` 只解析补丁层，两者都发现不了"某个包被裁掉但某行还依赖它"——那正是裁剪唯一会犯的错，只有真实启动能判。
 - 记录/声明运行时许可（Node LICENSE、DSH runtime THIRD_PARTY_NOTICES）。
+- **引擎来源双轨（2026-09-28 起）**：默认嵌 npm 闭包（上述流程不变）；`DEEPDIVE_ENGINE_SOURCE=fork`
+  改嵌本仓构建的自有引擎——`engine/`（dsh 内核的 MIT fork）经 `scripts/build-engine.sh`
+  构建出**同一形状**的产物（`package.json` + `lib/bin.js` + 扁平闭包），过同一道
+  `validate_runtime`，下游 prune / 组合自检 / 启动冒烟全部原样生效。两道对等闸门
+  （真实启动 + 组合与 `composition.expected.txt` 零差异）与 fork 的范围、偏差、
+  改动纪律见 `engine/README.md`（唯一事实源）。
 
 ### 3.4 入口解析与 spawn 形状（`EngineSupervisor`）
 - **入口形状改变**：bundled 场景不再是"单一 `dsh` 可执行直启"，而是 **bundled node + 入口脚本**——`executableURL = <bundle>/Contents/Resources/Runtime/node`，`arguments = [<bundle>/Contents/Resources/Runtime/dsh/lib/bin.js, "--profile", "web", "--no-open", "--port", "0"]`。**子命令形状以实测为准**：现状系统 dsh 用 `--profile web` 标志式，参考项目 bin.js 用 `web` 子命令式（`bin.js web --host 127.0.0.1 --port 0 --no-open`）——两者应等价，验收标准是能输出 `dsh web:` URL 行。`DSH_HOME` 仍指向应用数据目录（隔离）；环境 `PATH` 前置 bundled node 所在目录（runtime 内子进程需要，对齐参考项目）。

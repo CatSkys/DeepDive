@@ -15,3 +15,6 @@ frontend/packages/design/generated/
 
 # ZCode 会话产物
 .zcode/
+
+# engine/ fork 的构建产物（上游同样忽略 lib/）；dist 由 build-engine.sh 生成
+engine/**/lib/

@@ -102,6 +102,11 @@
 
 ## 5. 引擎运行时（SPEC-ENGINE-RUNTIME）
 
+- **引擎来源（双轨）**：默认嵌 npm 闭包（`prepare-dsh-runtime.sh`）；`DEEPDIVE_ENGINE_SOURCE=fork`
+  改嵌**本仓构建的自有引擎**——`engine/` 下的 dsh 内核 fork（MIT，逐字复制未改名，
+  `scripts/sync-engine-fork.mjs` 物化）经 `scripts/build-engine.sh` 双面构建出与 npm 闭包
+  同形状的产物。两条轨过同一道 `validate_runtime` 与启动/组合闸门，随时可回退；
+  fork 的范围、偏差与纪律见 `engine/README.md`。
 - **组合归本仓**：引擎装载哪些插件由 `engine/profile/` 定义（`cordis.patch.yml` 是唯一事实源），
   上游的 `@deepseek-ai/dsh-base` / `dsh-web-app` **不作为层参与组合**；壳在引擎启动前经
   `ProfileComposer` 把它装进 harness home 的 web profile 并收敛 `dsh.profile.bundles`
