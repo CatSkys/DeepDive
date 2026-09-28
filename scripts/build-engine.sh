@@ -75,6 +75,14 @@ fi
 if [[ "$DO_BUILD" == "1" ]]; then
   echo "==> pnpm run build:lib:host"
   "$PNPM" run build:lib:host
+  # The host flock addon is compiled from vendored C sources into
+  # native/system/packages/<host>/bin/; without it the npm-tarball's bin/ has no
+  # counterpart in the fork and session-persistence's lease fails silently
+  # (sent prompts never reach the session — 2026-09-28 acceptance failure).
+  # PATH prefix pins both the compiler run and Node-header discovery
+  # (build.ts resolves headers next to process.execPath) to the pinned node.
+  echo "==> pnpm run build:native-system"
+  PATH="$(dirname "$NODE"):$PATH" "$PNPM" run build:native-system
 fi
 
 # ── collect the runtime closure ──
@@ -110,5 +118,9 @@ cp -R "$ENGINE_DIR/apps/cli/lib/." "$OUT/lib/"
 # versions + undici. Failing here means the artifact is unusable, so fail here
 # rather than inside embed-engine.sh.
 bash "$ROOT/scripts/prepare-dsh-runtime.sh" --validate "$OUT"
+
+# Readiness proves nothing about message delivery (the 2026-09-28 flock
+# regression was readiness-green); assert a prompt actually round-trips.
+bash "$ROOT/scripts/smoke-engine-prompt.sh" "$OUT" "$ENGINE_DIR/profile"
 
 echo "OK: engine built at $OUT"

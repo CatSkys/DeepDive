@@ -26,7 +26,7 @@ scripts/             collect-engine-closure.mjs（闭包收集，DeepDive 侧脚
 
 ```sh
 pnpm --dir engine install          # 首次；之后增量
-bash scripts/build-engine.sh       # 双面构建 → 闭包收集 → validate_runtime
+bash scripts/build-engine.sh       # 双面构建 → 原生 flock 编译 → 闭包收集 → validate_runtime → prompt 冒烟
 ```
 
 产物 `dist/.dsh-engine-build/<pin>/`，形状与 npm 闭包完全一致
@@ -35,13 +35,17 @@ bash scripts/build-engine.sh       # 双面构建 → 闭包收集 → validate_
 原样可用。嵌入应用：`DEEPDIVE_ENGINE_SOURCE=fork bash scripts/build-release.sh`
 （默认仍嵌 npm 闭包，随时可回退）。
 
-## 两道对等闸门
+## 三道对等闸门
 
-每次改动引擎源码或同步上游后必须全绿：
+每次改动引擎源码或同步上游后必须全绿（后两道已接入 `build-engine.sh` 尾部，构建即验）：
 
 1. **启动**：`scripts/smoke-engine-boot.sh dist/.dsh-engine-build/<pin> engine/profile`
    ——真起一次到 `dsh web:` 就绪行。
-2. **组合等价**：`scripts/dump-engine-composition.sh --runtime <产物> …` 与
+2. **消息可落**：`scripts/smoke-engine-prompt.sh <产物> engine/profile`
+   ——create + prompt + 断言提交文本回录进 turnOutline。readiness 不证明消息能落：
+   2026-09-28 闭包缺 flock 原生产物时 boot 全绿但发消息全空（PITFALLS §4.34）。
+3. **组合等价**：`scripts/dump-engine-composition.sh --runtime <产物> --local-bundle
+   engine/profile --bundles deepdive-engine-profile` 与
    `engine/profile/composition.expected.txt` 逐字节 diff 为零。
 
 ## 与上游的已知偏差
@@ -58,6 +62,9 @@ bash scripts/build-engine.sh       # 双面构建 → 闭包收集 → validate_
   的 `docs.ts`。
 - `pnpm install`（engine/ 内）的 lefthook postinstall 会在 **git 根**落一份全注释的
   `lefthook.yml` 示例（上游脚本的副作用，无活动钩子）——出现即删，别提交。
+- 第三方依赖版本与 npm 发布闭包**有意不同**（fork 快照按 vendored lockfile 冻结解析，
+  与发布那一刻的 resolution 存在约 74 个包的漂移；引擎自有代码两侧逐字节一致）。等价性
+  不靠版本号一致保证，靠上面三道闸门保证——升级引脚后若闸门红，按闸门报错裁决。
 
 ## 本仓对引擎的改动纪律
 

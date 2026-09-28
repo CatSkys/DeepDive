@@ -66,6 +66,22 @@ const copyPackage = (srcReal) => {
   const manifest = readManifest(srcReal);
   const name = manifest?.name;
   if (!name) return;
+  // npm/pnpm skip optional platform packages whose os/cpu don't match the
+  // install host; copying them would ship source dirs no runtime can load.
+  if (manifest.os?.length && !manifest.os.includes(process.platform)) return;
+  if (manifest.cpu?.length && !manifest.cpu.includes(process.arch)) return;
+  // A workspace source dir standing in for a published native package ships
+  // without its binary. Platform packages (os/cpu declared) must carry bin/ —
+  // the npm tarball always does (2026-09-28: node-addon-system-darwin-arm64
+  // copied without bin/ because build:native-system hadn't run; the engine's
+  // flock lease then failed silently and sent prompts never reached the
+  // session). Fail here, not at runtime.
+  if (manifest.files?.includes("bin/") && !existsSync(join(srcReal, "bin"))) {
+    throw new Error(
+      `closure: native package ${name} has no bin/ at ${srcReal} — ` +
+      `its build step did not run (see scripts/build-engine.sh)`,
+    );
+  }
   const dest = join(OUT, "node_modules", name);
   // When OUT lives inside the workspace (a --out under engine/, or the app
   // bundle staged next to it), a package already copied there resolves to

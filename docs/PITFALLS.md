@@ -535,6 +535,27 @@
   抬到槽位之上。原生视图恒在 SPA 之上，DOM 里 z-index 再大也画不过它；浮层能从标签行探进
   页面那一格，就靠这条层序。
 
+### 4.34 fork 引擎闭包缺原生产物：会话租约静默失败，prompt 文本被吞（2026-09-28 验收事故）
+
+- 症状：fork 引擎构建（Stage 0）交付后，**发消息对话区全空**——用户消息和回复都不出现；引擎照常
+  ready、cookie/mux 握手全绿、无任何错误事件。壳与前端零改动。
+- 根因链：`collect-engine-closure.mjs` 沿 pnpm 符号链接拷「真实目录」，把
+  `native/system/packages/darwin-arm64` 的**工作区源码目录**当作已发布包拷进了闭包，而
+  `build:native-system` 从没跑过 → 闭包里 `@deepseek-ai/node-addon-system-darwin-arm64`
+  **没有 bin/**（npm tarball 一定带）。`session-persistence-jsonl` 的文件租约用该包的 flock
+  FFI：锁拿不到 → 用户消息**静默不进会话日志**。可观测特征：`session/list` 的 turnOutline
+  有 turn 行但 `prompt:""`、`sessionStats.turns:0`、`tokenUsage` 全 0、会话不落盘、全程无错。
+- 处置（三件套，缺一不可）：① `build-engine.sh` 增加 `build:native-system` 步骤（PATH 钉
+  pinned node——build.ts 靠 `process.execPath` 找 Node-API 头文件）；② 收集器按 os/cpu 过滤
+  非本机平台包（对齐 npm optional-deps 语义）+ **平台包缺 bin/ 构建期 fail-loud**；
+  ③ 新增 `scripts/smoke-engine-prompt.sh`（真起引擎 → create + prompt + 断言文本回录
+  turnOutline）接进构建链——**boot 冒烟全绿不证明消息能落**，readiness 只是组合装载证明。
+- 排查路径存档（同类问题照走）：排除壳/前端 → 活体探针（对运行中引擎直接发 RPC 看
+  turnOutline）→ 同 profile 双沙箱 A/B（fork 闭包 vs npm 闭包，逐字节 diff 引擎自有代码
+  全一致，锁定第三方）→ 混合闭包（fork 结构 + npm 包覆盖）二分到单一包。
+- 教训：闭包完整性必须**构建期验证**（声明的产物存在才算数），不能指望运行时静默降级兜底；
+  「引擎健康」的判据是**真实 prompt 回录**，不是 readiness 行。
+
 ---
 
 ## 5. 版本角标 / 交付自检
