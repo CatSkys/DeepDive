@@ -56,6 +56,8 @@ bash scripts/build-engine.sh       # 双面构建 → 闭包收集 → validate_
 - 仓库级 gate 脚本（`scripts/`）随上游复制但不在 host 类型检查内
   （`gen-engine-host-include.mjs` 的 FORCE_DROP 清单）；website/ 仅保留被 import
   的 `docs.ts`。
+- `pnpm install`（engine/ 内）的 lefthook postinstall 会在 **git 根**落一份全注释的
+  `lefthook.yml` 示例（上游脚本的副作用，无活动钩子）——出现即删，别提交。
 
 ## 本仓对引擎的改动纪律
 
