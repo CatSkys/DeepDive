@@ -418,3 +418,8 @@
   name: '@deepseek-ai/dsh-agent-presets'
   config:
     default: standard
+    includeShippedRoot: false
+    roots:
+      - path: !!js >-
+          dshHomePath('profiles/web/node_modules/deepdive-engine-profile/presets')
+        trust: system

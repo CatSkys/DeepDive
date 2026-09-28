@@ -34,6 +34,26 @@ bundles（按 dsh.profile.bundles 顺序）→ profiles/<name>/cordis.patch.yml
 本包**不声明 dependencies**：行里引用的插件名（`@deepseek-ai/dsh-tools` 等）从 dsh 安装
 闭包解析，实测启动正常。
 
+**版本标记是内容寻址的**：`embed-engine.sh` 在构建期把 Resources 副本的
+package.json version 盖成 `<原版本>+<内容哈希>`——本目录任何文件变化都必然触发
+ProfileComposer 重装，不会出现"组合改了、用户机器还跑着旧 bundle"的静默陈旧。
+仓内 `package.json` 的 version 保持手写干净值，只在有意义的发布节点改它。
+
+## 预设（agent 平面）也在本目录
+
+`presets/` 下是四个 agent 预设（`standard`/`ptc`/`minimal`/`cordis`），逐字复制自
+`engine/packages/preset/agent-presets/presets/`。`cordis.patch.yml` 的 agent-presets 行
+用 `includeShippedRoot: false` 关掉包内预设根、`roots` 指向本 bundle 的安装位置
+（`!!js dshHomePath('profiles/web/node_modules/deepdive-engine-profile/presets')`，
+机器无关——dump 快照按 `!!js` 标签原样记录）。`trust: system` 与 shipped 一致（只读）；
+`includeUserRoot` 保持默认 true，`$DSH_HOME/.agent-presets` 用户扩展点保留且排在我们
+之后、不能覆盖我们的 id。
+
+预设是**每会话 agent 平面的事实源**：宿主组合里的 `disabled: true` 对预设行不可达
+（预设经 standing scope 独立挂载），所以"模型看得见哪些工具"由这里裁决——
+宿主行只管宿主层。改预设与改组合同纪律：沙箱实跑、`pluginInventory/list` 对比
+预设组合清单、prompt 冒烟过门。
+
 ## 怎么改
 
 改 `cordis.patch.yml` → 跑 `scripts/dump-engine-composition.sh` 对比改动前后的组合清单 →
@@ -67,6 +87,14 @@ diff /tmp/upstream-composition.txt /tmp/ours-composition.txt
 ```sh
 scripts/dump-engine-composition.sh --bundles deepdive-engine-profile \
   --local-bundle engine/profile --out engine/profile/composition.expected.txt
+```
+
+**预设文件同样要查漂移**：上游升引脚若动过 `engine/packages/preset/agent-presets/presets/`，
+diff 会告诉我们上游改了什么预设内容——逐字复制是默认，除非我们有意的裁剪行被上游
+改了（那时重新裁决再落）：
+
+```sh
+diff -r engine/packages/preset/agent-presets/presets engine/profile/presets
 ```
 
 这就是「整棵树归本仓」的代价，用这条流程把它变成机械动作。

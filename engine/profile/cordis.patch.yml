@@ -477,3 +477,12 @@
       name: '@deepseek-ai/dsh-agent-presets'
       config:
         default: standard
+        includeShippedRoot: false
+        # 预设归本仓：roots 指向本 bundle 在 harness home 的安装位置
+        # （ProfileComposer 逐字部署 engine/profile，刷新判据见 embed-engine.sh
+        # 的内容寻址版本戳）。trust: system → 只读，与 shipped 预设一致；
+        # includeUserRoot 保持默认 true（$DSH_HOME/.agent-presets 用户扩展点，
+        # 排序在我们之后，不能覆盖我们的 id）。
+        roots:
+          - path: !!js dshHomePath('profiles/web/node_modules/deepdive-engine-profile/presets')
+            trust: system

@@ -147,6 +147,20 @@ for required in package.json cordis.patch.yml; do
   }
 done
 
+# 内容寻址版本戳：ProfileComposer 以 package.json 的 version 字符串判"装没装过"，
+# 仓内的手写版本号不会随内容变化——组合一改而版本没 bump，用户机器上就会静默
+# 留着旧 bundle。构建期把 Resources 副本的 version 盖成 <原版本>+<内容哈希>，
+# 任何文件变化都必然触发重装；仓内文件保持干净（此改动只存在于构建产物）。
+STAMP_HASH="$(find "$STAGE/Resources/EngineProfile" -type f ! -name package.json -print0 | sort -z | xargs -0 shasum | shasum | cut -c1-8)"
+node -e '
+const fs = require("node:fs");
+const file = process.argv[1], hash = process.argv[2];
+const m = JSON.parse(fs.readFileSync(file, "utf8"));
+const base = String(m.version || "0.0.0").split("+")[0];
+m.version = base + "+" + hash;
+fs.writeFileSync(file, JSON.stringify(m, null, 2) + "\n");
+' "$STAGE/Resources/EngineProfile/package.json" "$STAMP_HASH"
+
 # 组合自检：让**包里这份**组合与**包里这份**运行时真的组合一次。--dump-config
 # 不装载插件、只解析补丁层，所以这条很快；它能挡住"补丁 YAML 写坏/行结构不对"
 # 这类会让用户启动即崩的错。注意它证明的是组合成立，不是插件都能解析——后者
