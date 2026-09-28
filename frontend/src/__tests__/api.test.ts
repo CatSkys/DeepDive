@@ -53,6 +53,31 @@ describe("unary 信封", () => {
     });
   });
 
+  it("设置面写操作：单对象参数必须包在具名 request 里，不是摊平在 args 上", async () => {
+    // 引擎的 typert 网关按**形参名**取字段（实测 pluginInventory/patchSet 摊平会报
+    // missing "request" / unexpected "rowId"），这里把四个写口与一个读口的形状钉死。
+    vi.stubGlobal("fetch", vi.fn(respond({ ok: true })));
+    const argsOf = () => (lastCall().envelope.payload as { args: unknown }).args;
+
+    await api.pluginPatchSet("hmr", true);
+    expect(lastCall().url).toBe("/api/pluginInventory/patchSet");
+    expect(argsOf()).toEqual({ request: { rowId: "hmr", disabled: true } });
+
+    await api.skillsAdmin.create("n", "d");
+    expect(lastCall().url).toBe("/api/skills/adminCreate");
+    expect(argsOf()).toEqual({ request: { name: "n", description: "d" } });
+
+    await api.skillsAdmin.remove("n");
+    expect(argsOf()).toEqual({ request: { id: "n" } });
+
+    await api.skillsAdmin.install("/tmp/x");
+    expect(argsOf()).toEqual({ request: { sourceDirectory: "/tmp/x" } });
+
+    await api.skillsAdmin.list();
+    expect(lastCall().url).toBe("/api/skills/adminList");
+    expect(argsOf()).toEqual({});
+  });
+
   it("result.ok=false 抛 code: message；HTTP 非 2xx 抛 transport 错", async () => {
     vi.stubGlobal("fetch", vi.fn(failWith(200, "bad-request", "invalid client-request message")));
     await expect(api.cancel({ sessionId: "s" })).rejects.toThrow("bad-request: invalid client-request message");

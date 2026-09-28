@@ -509,18 +509,18 @@ export const api = {
   /** 拨一行；落盘成功即返回（引擎 `patchReload: live` 另行热重载，调用方等一拍再刷新清单）。
    *  `disabled: false` 也会显式落账：bundle 默认关的行只能靠这条覆盖重新打开。 */
   pluginPatchSet: (rowId: string, disabled: boolean) =>
-    unary<{ ok: true }>("pluginInventory/patchSet", { rowId, disabled }),
+    unary<{ ok: true }>("pluginInventory/patchSet", { request: { rowId, disabled } }),
   /** 技能管理面（设置 → 插件 → 技能）：技能根 `<DSH_HOME>/skills` 是引擎的状态，
    *  清单/新建/删除/安装都由引擎读写（`skills/admin*`），写完引擎自带的
    *  chokidar 发现立刻生效，不用重启。失败给稳定错误码，见 `skillsAdminError`。 */
   skillsAdmin: {
     list: () => unary<{ skills: SkillAdminEntry[] }>("skills/adminList", {}),
     create: (name: string, description: string) =>
-      unary<{ ok: true }>("skills/adminCreate", { name, description }),
-    remove: (id: string) => unary<{ ok: true }>("skills/adminRemove", { id }),
+      unary<{ ok: true }>("skills/adminCreate", { request: { name, description } }),
+    remove: (id: string) => unary<{ ok: true }>("skills/adminRemove", { request: { id } }),
     /** 从目录安装：目录由壳的选目录 sheet 挑（`skillPickDirectory`）。 */
     install: (sourceDirectory: string) =>
-      unary<{ ok: true }>("skills/adminInstall", { sourceDirectory }),
+      unary<{ ok: true }>("skills/adminInstall", { request: { sourceDirectory } }),
   },
   /** @ 文件候选（0.1.2 fileReferences/list，扁平 {agentId, query}）：cwd 亲和
    *  整库递归索引排序；含 / 的查询退化为该目录列举。路径相对 agent cwd。 */
