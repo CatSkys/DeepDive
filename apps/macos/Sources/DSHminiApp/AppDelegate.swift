@@ -385,26 +385,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             gitRun(reqId: body["reqId"] as? String ?? "",
                    path: body["path"] as? String ?? "",
                    args: body["args"] as? [String] ?? [])
-        case "skill-list":
-            skillList(reqId: body["reqId"] as? String ?? "")
-        case "skill-remove":
-            skillRemove(reqId: body["reqId"] as? String ?? "", directory: body["directory"] as? String ?? "")
-        case "skill-create":
-            skillCreate(
-                reqId: body["reqId"] as? String ?? "",
-                name: body["name"] as? String ?? "",
-                description: body["description"] as? String ?? "",
-            )
-        case "skill-install":
-            skillInstall(reqId: body["reqId"] as? String ?? "")
-        case "plugin-patch-list":
-            pluginPatchList(reqId: body["reqId"] as? String ?? "")
-        case "plugin-patch-set":
-            pluginPatchSet(
-                reqId: body["reqId"] as? String ?? "",
-                rowId: body["rowId"] as? String ?? "",
-                disabled: body["disabled"] as? Bool ?? false,
-            )
+        case "app-skill-names":
+            appSkillNames(reqId: body["reqId"] as? String ?? "")
+        case "skill-pick-directory":
+            skillPickDirectory(reqId: body["reqId"] as? String ?? "")
         case "plugin-admin-info":
             pluginAdminInfo(reqId: body["reqId"] as? String ?? "")
         case "plugin-uninstall":
@@ -689,44 +673,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func skillList(reqId: String) {
-        let skills = SkillAdmin.list(in: AppPaths.harnessHome)
-        let rows: [[String: Any]] = skills.map { skill in
-            [
-                "id": skill.id,
-                "title": skill.title,
-                "detail": skill.detail,
-                "manifest": skill.manifest,
-                "directory": skill.directory,
-                "missing": skill.missing,
-                "managed": SkillAdmin.managedNames.contains(skill.id),
-            ]
-        }
-        windowController.pushHostCommand("skillFiles", payload: AppDelegate.jsonPayload(["reqId": reqId, "skills": rows]))
+    /// 随应用发布、每次启动被壳写回技能根的技能名（前端据此不给删除入口）。
+    /// 技能清单本身走引擎（`skills/adminList`）——技能根是引擎的状态。
+    private func appSkillNames(reqId: String) {
+        let names = AppSkills.publishedNames.sorted()
+        windowController.pushHostCommand("appSkillNames", payload: AppDelegate.jsonPayload(["reqId": reqId, "names": names]))
     }
 
-    /// 删除一个技能目录（前端已在列表里确认过一次；路径穿越由 SkillAdmin 挡）。
-    private func skillRemove(reqId: String, directory: String) {
-        let error = SkillAdmin.remove(directory: directory, home: AppPaths.harnessHome)
-        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil]
-        if let error { fields["error"] = error }
-        windowController.pushHostCommand("skillRemoved", payload: AppDelegate.jsonPayload(fields))
-    }
-
-    /// 新建一个技能（写 SKILL.md 骨架）；引擎 chokidar 热发现，不用重启。
-    private func skillCreate(reqId: String, name: String, description: String) {
-        let error = SkillAdmin.create(name: name, description: description, home: AppPaths.harnessHome)
-        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil]
-        if let error { fields["error"] = error }
-        windowController.pushHostCommand("skillCreated", payload: AppDelegate.jsonPayload(fields))
-    }
-
-    /// 从目录安装技能：开一个选目录的 sheet，选完把那一层拷进技能根（引擎 chokidar 热发现）。
+    /// 开一个选目录 sheet，只回挑中的目录；拷贝由引擎做（技能根归引擎）。
     /// 用户取消时回 cancelled（不是错误），前端据此不弹报错框。
-    private func skillInstall(reqId: String) {
+    private func skillPickDirectory(reqId: String) {
         guard let window = windowController.window else {
-            windowController.pushHostCommand("skillInstalled", payload: AppDelegate.jsonPayload(
-                ["reqId": reqId, "ok": false, "error": "没有可用窗口"]))
+            windowController.pushHostCommand("skillPickedDirectory", payload: AppDelegate.jsonPayload(
+                ["reqId": reqId, "cancelled": true]))
             return
         }
         let panel = NSOpenPanel()
@@ -739,36 +698,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             var fields: [String: Any] = ["reqId": reqId]
             if response == .OK, let url = panel.url {
-                let error = SkillAdmin.install(sourceDirectory: url.path, home: AppPaths.harnessHome)
-                fields["ok"] = error == nil
-                if let error { fields["error"] = error }
+                fields["path"] = url.path
+                fields["cancelled"] = false
             } else {
-                fields["ok"] = false
                 fields["cancelled"] = true
             }
-            self.windowController.pushHostCommand("skillInstalled", payload: AppDelegate.jsonPayload(fields))
+            self.windowController.pushHostCommand("skillPickedDirectory", payload: AppDelegate.jsonPayload(fields))
         }
-    }
-
-    /// 插件开关的当前落账（设置 → 插件）：托管段里被显式设置过的行。
-    /// 前端据此把"用户关掉的"与"本层本来就没挂载"分开——两者在 inventory 里
-    /// 都是 enabled:false，混在一起会让开关看起来点了没反应（PITFALLS §7.6）。
-    private func pluginPatchList(reqId: String) {
-        let toggles = PluginPatchAdmin.toggles(in: AppPaths.harnessHome)
-        let rows: [[String: Any]] = toggles.map { ["rowId": $0.rowId, "disabled": $0.disabled] }
-        windowController.pushHostCommand("pluginPatches", payload: AppDelegate.jsonPayload(["reqId": reqId, "toggles": rows]))
-    }
-
-    /// 拨一个插件开关：写 home 级 patch 层，引擎 patchReload:live 热重载生效（无需重启）。
-    private func pluginPatchSet(reqId: String, rowId: String, disabled: Bool) {
-        guard !rowId.isEmpty else {
-            windowController.pushHostCommand("pluginPatchSet", payload: AppDelegate.jsonPayload(["reqId": reqId, "ok": false, "error": "缺少行 id"]))
-            return
-        }
-        let error = PluginPatchAdmin.set(rowId: rowId, disabled: disabled, in: AppPaths.harnessHome)
-        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil, "rowId": rowId, "disabled": disabled]
-        if let error { fields["error"] = error }
-        windowController.pushHostCommand("pluginPatchSet", payload: AppDelegate.jsonPayload(fields))
     }
 
     /// 随包发布、不给卸载的插件名：前端据此决定行菜单里显不显示「卸载」。

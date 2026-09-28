@@ -486,114 +486,40 @@ export function installHostBridge(handlers: Partial<{
   sendToShell({ type: "host-ready" });
 }
 
-/* ── 技能文件（设置 → 技能与插件）：技能是 <DSH_HOME>/skills/<id>/SKILL.md 的
-   普通文件，引擎 wire 上没有 skill 方法，清单与删除都走壳（SkillAdmin）。 ── */
+/* ── 技能（设置 → 插件 → 技能）：技能根 `<DSH_HOME>/skills` 由引擎读写
+   （`api.skillsAdmin`），壳只剩两件它才会做的事——开选目录 sheet、报出随应用
+   发布的那几个技能名。 ── */
 
-export interface SkillFile {
-  /** 目录名 = 技能的发现单位，也是删除目标。 */
-  id: string;
-  /** frontmatter 的 name；缺失时壳回退目录名。 */
-  title: string;
-  detail: string;
-  /** SKILL.md 绝对路径（Finder 定位）。 */
-  manifest: string;
-  /** 技能目录绝对路径（删除）。 */
-  directory: string;
-  /** frontmatter 缺的必填键；非空 = 引擎会静默忽略这个技能。 */
-  missing: string[];
-  /** 随应用发布、每次启动重写：删了也会回来，所以列表里不给删除。 */
-  managed: boolean;
+/** 让壳开一次选目录 sheet，只回挑中的目录；拷贝由引擎做（它才是技能根的主人）。 */
+export function skillPickDirectory(): Promise<{ path?: string; cancelled: boolean }> {
+  return bridgeRequest<{ path?: string; cancelled: boolean }>(
+    "skillPickedDirectory",
+    { cancelled: true },
+    (p) => {
+      const r = p as { path?: string; cancelled?: boolean } | undefined;
+      return { path: r?.path, cancelled: r?.cancelled !== false };
+    },
+    (reqId) => sendToShell({ type: "skill-pick-directory", reqId }),
+  );
 }
 
-export function skillList(): Promise<SkillFile[]> {
+/** 随应用发布、每次启动由壳幂等写回技能根的技能名：删了下次启动会回来，所以列表里
+   不给删除入口。纯浏览器环境拿不到（桥不在），退化为一律可删。 */
+export function appSkillNames(): Promise<string[]> {
   return bridgeRequest(
-    "skillFiles",
+    "appSkillNames",
     [],
     (p) => {
-      const r = p as { skills?: SkillFile[] };
-      return Array.isArray(r?.skills) ? r.skills : [];
+      const r = p as { names?: string[] };
+      return Array.isArray(r?.names) ? r.names : [];
     },
-    (reqId) => sendToShell({ type: "skill-list", reqId }),
+    (reqId) => sendToShell({ type: "app-skill-names", reqId }),
   );
 }
 
-/** 删除一个技能目录；失败回原因（只允许技能根下带 SKILL.md 的一层）。 */
-export function skillRemove(directory: string): Promise<{ ok: boolean; error?: string }> {
-  return bridgeRequest<{ ok: boolean; error?: string }>(
-    "skillRemoved",
-    { ok: false },
-    (p) => {
-      const r = p as { ok?: boolean; error?: string } | undefined;
-      return { ok: r?.ok === true, error: r?.error };
-    },
-    (reqId) => sendToShell({ type: "skill-remove", reqId, directory }),
-  );
-}
-
-/** 新建一个技能（写 SKILL.md 骨架）；引擎 chokidar 热发现，不用重启。 */
-export function skillCreate(name: string, description: string): Promise<{ ok: boolean; error?: string }> {
-  return bridgeRequest<{ ok: boolean; error?: string }>(
-    "skillCreated",
-    { ok: false },
-    (p) => {
-      const r = p as { ok?: boolean; error?: string } | undefined;
-      return { ok: r?.ok === true, error: r?.error };
-    },
-    (reqId) => sendToShell({ type: "skill-create", reqId, name, description }),
-  );
-}
-
-/** 从目录安装技能：壳开选目录 sheet，选完把那一层拷进技能根。
-    用户取消时 `cancelled` 为真——那不是错误，调用方不该弹报错框。 */
-export function skillInstall(): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> {
-  return bridgeRequest<{ ok: boolean; error?: string; cancelled?: boolean }>(
-    "skillInstalled",
-    { ok: false },
-    (p) => {
-      const r = p as { ok?: boolean; error?: string; cancelled?: boolean } | undefined;
-      return { ok: r?.ok === true, error: r?.error, cancelled: r?.cancelled === true };
-    },
-    (reqId) => sendToShell({ type: "skill-install", reqId }),
-  );
-}
-
-/* ── 插件开关（设置 → 插件）：落账写 home 级 patch 层 `<DSH_HOME>/cordis.patch.yml`，
-   引擎 `patchReload: live` 热重载（写入后数秒内生效，不重启引擎）。引擎没有任何
-   插件写 RPC，所以这一半在壳（PluginPatchAdmin）。 ── */
-
-/** 一行被显式设置过的开关。 */
-export interface PluginPatchToggle {
-  /** patch 的目标是**行 id**（`hmr`），不是 inventory 的 entryId（`include:hmr`）。 */
-  rowId: string;
-  disabled: boolean;
-}
-
-/** 落账全量。「关掉」与「本层本来就没挂载」在 inventory 里都是 enabled:false，
-    靠这份落账才分得开（混在一起会让开关看着点了没反应）。 */
-export function pluginPatchList(): Promise<PluginPatchToggle[]> {
-  return bridgeRequest(
-    "pluginPatches",
-    [],
-    (p) => {
-      const r = p as { toggles?: PluginPatchToggle[] };
-      return Array.isArray(r?.toggles) ? r.toggles : [];
-    },
-    (reqId) => sendToShell({ type: "plugin-patch-list", reqId }),
-  );
-}
-
-/** 拨一行；落盘成功即返回（引擎热重载另行发生，调用方自己等一拍再刷新清单）。 */
-export function pluginPatchSet(rowId: string, disabled: boolean): Promise<{ ok: boolean; error?: string }> {
-  return bridgeRequest<{ ok: boolean; error?: string }>(
-    "pluginPatchSet",
-    { ok: false },
-    (p) => {
-      const r = p as { ok?: boolean; error?: string } | undefined;
-      return { ok: r?.ok === true, error: r?.error };
-    },
-    (reqId) => sendToShell({ type: "plugin-patch-set", reqId, rowId, disabled }),
-  );
-}
+/* ── 插件（设置 → 插件）：清单与开关落账都在引擎侧（`api.pluginInventory` /
+   `api.pluginPatchList` / `api.pluginPatchSet`）。壳只剩「哪些插件随应用发布」——
+   那是应用分发的事实，不是引擎的状态。 ── */
 
 /** 随应用发布、每次启动被壳幂等装回来的插件名：这些删了也会回来，不给卸载入口。 */
 export function pluginBundledNames(): Promise<string[]> {

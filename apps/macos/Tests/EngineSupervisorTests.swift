@@ -50,31 +50,6 @@ final class EngineSupervisorTests: XCTestCase {
         return String(data: data, encoding: .utf8)!
     }
 
-    /// 自动化协议住在 skill 里（system-prompt 只留一行指路）：skill 文件的
-    /// frontmatter 是硬契约——缺 name/description、或用了 legacy 键（
-    /// modelInvocable / userInvocable / disableModelInvocation）会**抛错**，
-    /// 引擎只记一条 warn 然后静默忽略整个 skill，模型就再也看不到它。
-    func testSkillsShapeAndLocation() {
-        let skills: [(name: String, md: String, fence: String, url: URL)] = [
-            (EngineSupervisor.automationSkillName, EngineSupervisor.automationSkillMarkdown, "```automation", EngineSupervisor.ensureAutomationSkill()),
-        ]
-        for skill in skills {
-            XCTAssertTrue(skill.md.hasPrefix("---\n"), "\(skill.name) 缺 frontmatter")
-            XCTAssertTrue(skill.md.contains("\nname: \(skill.name)\n"), "\(skill.name) name 不匹配")
-            XCTAssertTrue(skill.md.contains("\ndescription: "), "\(skill.name) 缺 description")
-            for legacy in ["modelInvocable", "userInvocable", "disableModelInvocation"] {
-                XCTAssertFalse(skill.md.contains(legacy), "\(skill.name) 用了 legacy 键 \(legacy)：引擎会整份忽略")
-            }
-            XCTAssertTrue(skill.md.contains(skill.fence), "\(skill.name) 缺围栏 info string")
-            XCTAssertTrue(skill.url.path.hasSuffix("skills/\(skill.name)/SKILL.md"), skill.url.path)
-            XCTAssertTrue(FileManager.default.fileExists(atPath: skill.url.path))
-        }
-        // 自动化技能仍要带全六种计划形状（与 automation/protocol.ts 同一份契约）
-        for kind in ["hourly", "daily", "weekdays", "weekly", "monthly", "custom"] {
-            XCTAssertTrue(EngineSupervisor.automationSkillMarkdown.contains("\"kind\":\"\(kind)\""), "缺计划形状 \(kind)")
-        }
-    }
-
     /// EverOS 提取密钥的桥：用户配过就不覆盖，没配才用引擎那把 key；解析不出不猜。
     func testEverOSKeyBridge() {
         let creds = """

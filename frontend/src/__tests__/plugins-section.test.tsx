@@ -6,26 +6,31 @@
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { pluginInventory, pluginPatchList, pluginPatchSet, skillList } = vi.hoisted(() => ({
+const { pluginInventory, pluginPatchList, pluginPatchSet, skillsAdminList } = vi.hoisted(() => ({
   pluginInventory: vi.fn(),
   pluginPatchList: vi.fn(),
   pluginPatchSet: vi.fn(),
-  skillList: vi.fn(),
+  skillsAdminList: vi.fn(),
 }));
-vi.mock("../api", () => ({ api: { pluginInventory } }));
-// 开关的落账与技能清单都走壳桥；inShell() 为真表示在桌面应用里跑。
+// 清单、落账、技能读写全在引擎侧（`pluginInventory/*`、`skills/admin*`），只有
+// "哪些插件随应用发布"与选目录 sheet 留在壳上。
+vi.mock("../api", () => ({
+  api: {
+    pluginInventory,
+    pluginPatchList,
+    pluginPatchSet,
+    skillsAdmin: { list: skillsAdminList },
+  },
+}));
 vi.mock("../host", () => ({
   inShell: () => true,
-  pluginPatchList,
-  pluginPatchSet,
-  skillList,
-  skillCreate: vi.fn(),
   pluginBundledNames: () => Promise.resolve(["dsh-chat-import"]),
   pluginUninstall: vi.fn(),
   mcpServersList: () => Promise.resolve({ servers: [], configured: {} }),
   mcpServersSave: vi.fn(),
   restartEngine: vi.fn(),
-  skillRemove: vi.fn(),
+  appSkillNames: () => Promise.resolve([]),
+  skillPickDirectory: vi.fn(),
   revealPath: vi.fn(),
 }));
 // i18n 的 useT 走 store（这里没有 provider）：注入一个只做 {var} 替换的最小实现，
@@ -48,9 +53,9 @@ afterEach(cleanup);
 
 beforeEach(() => {
   onTryPlugin.mockClear();
-  pluginPatchList.mockResolvedValue([]);
+  pluginPatchList.mockResolvedValue({ toggles: [] });
   pluginPatchSet.mockResolvedValue({ ok: true });
-  skillList.mockResolvedValue([]);
+  skillsAdminList.mockResolvedValue({ skills: [] });
 });
 
 // 一个用户装的插件（活跃）、一个用户装但本层未挂载的（随应用发布）、两个引擎自带模块。
@@ -103,7 +108,7 @@ describe("插件页", () => {
 
   it("落账里已关掉的行开关呈关闭态（与「本层未挂载」分开：它仍可拨回去）", async () => {
     pluginInventory.mockResolvedValue(fixture());
-    pluginPatchList.mockResolvedValue([{ rowId: "everos", disabled: true }]);
+    pluginPatchList.mockResolvedValue({ toggles: [{ rowId: "everos", disabled: true }] });
     const { container, getByRole } = render(<PluginsSection onTryPlugin={onTryPlugin} />);
     await waitFor(() => expect(getByRole("switch").getAttribute("aria-checked")).toBe("false"));
     expect(container.textContent).toContain("@everos-ai/dsh-plugin");

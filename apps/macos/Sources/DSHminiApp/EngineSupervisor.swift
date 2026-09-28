@@ -340,8 +340,8 @@ final class EngineSupervisor {
         let cwd = workspace.path
 
         let process = Process()
-        Self.ensureSkills()
-        let retired = SkillAdmin.removeRetired(in: home)
+        AppSkills.install(in: home)
+        let retired = AppSkills.removeRetired(in: home)
         if !retired.isEmpty { log.append("[engine] dropped retired skills: \(retired.joined(separator: ", "))") }
         let patchArg = Self.ensureEnginePatchFile()
         // 部署提示词落 AGENTS.md（不是 overlay 的 personaPrefix——那条路被 agent preset
@@ -454,91 +454,6 @@ final class EngineSupervisor {
         - insert:
         \(rows)
         """
-    }
-
-    /// The skill that carries the conversation-side automation protocol. Written on
-    /// every launch into the engine's user skill root (<DSH_HOME>/skills/<name>/
-    /// SKILL.md, discovered by @deepseek-ai/dsh-skill-filesystem); frontmatter must
-    /// stay valid — a malformed file is only a warning in the engine log and the
-    /// skill silently disappears (name + description are mandatory).
-    static let automationSkillName = "deepdive-automation"
-
-    static let automationSkillMarkdown = #"""
-    ---
-    name: deepdive-automation
-    description: Propose or update a DeepDive scheduled task (a recurring automation that runs on its own schedule; each run opens a fresh chat unless the task reuses one). Use when the user asks for something that should run every day / every weekday / every N hours / at a fixed time, or asks to change or pause such a task. Not for one-off reminders inside this conversation — those use the schedule tools.
-    ---
-
-    # DeepDive scheduled tasks
-
-    The DeepDive app keeps its own task list (Settings → Automation). You cannot write it:
-    you propose a task, the app renders your proposal as a card, and the user confirms it
-    in a form. Never claim a task was created or is already running.
-
-    ## How to propose
-
-    Reply with a fenced code block whose info string is `automation` and whose body is
-    exactly one JSON object (no other text inside the fence):
-
-    ````text
-    ```automation
-    {"title":"提交与风险扫描","instruction":"<what the agent does on each run>","schedule":{"kind":"weekdays","hour":9,"minute":0},"workspace":"<workspace folder name, optional>","permission":"read-only"}
-    ```
-    ````
-
-    Fields:
-
-    - `title` (required) — short name shown on the card.
-    - `instruction` (required) — the prompt sent on each run. Write it self-contained: a task
-      that opens a fresh chat has no memory of this conversation. Say explicitly whether the
-      run may write (`只读分析：不要修改文件`) or not.
-    - `schedule` (required) — one of the shapes below. Times are the user's local time.
-    - `workspace` (optional) — the workspace **folder name** (e.g. `DSHmini`). Omit to use the
-      workspace the user is in.
-    - `permission` (optional) — a permission preset key: `read-only`, `workspace-write`, or
-      `danger-full-access`. Prefer `read-only` for analysis-only tasks.
-
-    ## Schedules
-
-    - `{"kind":"hourly","minute":0}` — every hour at :00
-    - `{"kind":"daily","hour":9,"minute":0}` — every day at 09:00
-    - `{"kind":"weekdays","hour":9,"minute":0}` — every weekday at 09:00
-    - `{"kind":"weekly","weekday":1,"hour":9,"minute":0}` — weekly, 0=Sunday … 6=Saturday
-    - `{"kind":"monthly","day":1,"hour":9,"minute":0}` — monthly on a day of month
-    - `{"kind":"custom","everyDays":3,"hour":9,"minute":0}` — every N days at a time
-
-    ## Rules
-
-    - One JSON object per fence; several tasks means several fences.
-    - Keep the block machine-readable: no comments, no trailing commas, no text inside the fence.
-    - Changing an existing task means proposing the whole new version and saying what changed;
-      you cannot edit or pause a task yourself.
-    - "Remind me in 10 minutes" / "report to me here every 30 minutes" is not a scheduled task —
-      that is a reminder inside this conversation: use the schedule tools.
-
-    """#
-
-    /// 铺 skill 到引擎的用户技能根（每次都重写：升级以应用内为准）。
-    @discardableResult
-    static func ensureAutomationSkill() -> URL {
-        writeSkill(name: automationSkillName, markdown: automationSkillMarkdown)
-    }
-
-    /// 铺两个 skill（自动化 + 浏览器），每次启动重写：升级以应用内为准。
-    static func ensureSkills() {
-        ensureAutomationSkill()
-        writeSkill(name: BrowserSkill.name, markdown: BrowserSkill.markdown)
-    }
-
-
-    private static func writeSkill(name: String, markdown: String) -> URL {
-        let dir = AppPaths.harnessHome
-            .appendingPathComponent("skills", isDirectory: true)
-            .appendingPathComponent(name, isDirectory: true)
-        let url = dir.appendingPathComponent("SKILL.md")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? markdown.write(to: url, atomically: true, encoding: .utf8)
-        return url
     }
 
     /// Failure copy follows the entry source (SPEC-ENGINE-RUNTIME §3.4):

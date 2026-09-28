@@ -5,22 +5,20 @@
 // 也没有意义（工具类挂在 agent preset 组合里，见 model.ts 顶部那段实测事实）。
 // 判据与分组归 `model.ts` 的 `isBundledModule`。
 //
-// 数据两处合起来才是真相：`pluginInventory/list`（引擎只读投影，直读）说明每行的
-// 挂载与运行状态；壳的 `pluginPatchList()` 说明**哪些行是用户关掉的**——两者在
-// inventory 里都是 `enabled:false`，混在一起会让开关看着"点了没反应"（PITFALLS §7.6）。
+// 数据两处合起来才是真相：`pluginInventory/list`（引擎只读投影）说明每行的挂载与
+// 运行状态；`pluginInventory/patchList`（引擎落账）说明**哪些行是用户关掉的**——两者
+// 在 inventory 里都是 `enabled:false`，混在一起会让开关看着"点了没反应"（PITFALLS §7.6）。
+// 两者都是引擎的 RPC（落账写的是 home 级 patch 层，本来就是引擎的偏好状态）。
 //
 // 开关落盘后由引擎 `patchReload: live` 热重载，不重启进程；实测数秒内翻转，
 // 所以拨完延迟一拍重拉清单，并留一个手动刷新入口兜底。
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, Sparkles, Trash2 } from "lucide-react";
-import { api, type PluginInventoryEntry } from "../api";
+import { api, type PluginInventoryEntry, type PluginPatchToggle } from "../api";
 import { RowMenu, Toggle, type RowMenuItem } from "../components/controls";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
-import {
-  inShell, pluginBundledNames, pluginPatchList, pluginPatchSet, pluginUninstall,
-  restartEngine, type PluginPatchToggle,
-} from "../host";
+import { inShell, pluginBundledNames, pluginUninstall, restartEngine } from "../host";
 import { useT } from "../i18n";
 import rs from "../settings/SettingsRows.module.css";
 import css from "./Plugins.module.css";
@@ -67,8 +65,12 @@ export function PluginsTab({ query, onTryPlugin }: {
     api.pluginInventory()
       .then((snapshot) => { setEntries(snapshot.entries); setError(false); })
       .catch(() => { setEntries([]); setError(true); });
+    api.pluginPatchList()
+      .then((r) => setPatches(r.toggles))
+      // 引擎未就绪时按"没有落账"渲染：状态全按 inventory 说，不假装用户关过
+      .catch(() => setPatches([]));
     if (shell) {
-      void pluginPatchList().then(setPatches);
+      // 哪些插件随应用发布是应用分发的事实，只有壳知道
       void pluginBundledNames().then(setBundledNames);
     }
   }, [shell]);
@@ -91,8 +93,10 @@ export function PluginsTab({ query, onTryPlugin }: {
     const rowId = rowIdOf(row.entryId);
     if (rowId === null) return;
     setBusy(row.entryId);
-    const result = await pluginPatchSet(rowId, !next);
-    if (!result.ok) {
+    try {
+      await api.pluginPatchSet(rowId, !next);
+    } catch {
+      // 落账没写成：保持原状并让用户自己重拨，不假装拨成功了
       setBusy(null);
       return;
     }

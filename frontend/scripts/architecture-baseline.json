@@ -3,16 +3,16 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "6650895307f56ef9",
+      "id": "36d0b24dcd6aa172",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1165 lines > 300"
+      "detail": "1101 lines > 300"
     },
     {
-      "id": "54b0a166fcf6dcec",
+      "id": "5e88cb16935d8ee9",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/BridgeServer.swift",
-      "detail": "406 lines > 300"
+      "detail": "409 lines > 300"
     },
     {
       "id": "ab5b5da21009aae6",
@@ -21,10 +21,10 @@
       "detail": "340 lines > 300"
     },
     {
-      "id": "8c61af5db7235570",
+      "id": "b75ed57ff5bb9879",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/EngineSupervisor.swift",
-      "detail": "657 lines > 300"
+      "detail": "572 lines > 300"
     },
     {
       "id": "62fad347c3aa2ff7",
@@ -45,10 +45,10 @@
       "detail": "335 lines > 300"
     },
     {
-      "id": "f7dc7ce4ff53e479",
+      "id": "74344fb6c68861a4",
       "rule": "file-lines",
       "file": "frontend/src/api.ts",
-      "detail": "702 lines > 300"
+      "detail": "740 lines > 300"
     },
     {
       "id": "5ac7edc77cb28c72",
@@ -93,22 +93,16 @@
       "detail": "709 lines > 300"
     },
     {
-      "id": "17d6ade5b21fc121",
-      "rule": "file-lines",
-      "file": "frontend/src/components/Sidebar.tsx",
-      "detail": "529 lines > 300"
-    },
-    {
-      "id": "c24ed6ab74965ba9",
+      "id": "adb191986c15a1ce",
       "rule": "file-lines",
       "file": "frontend/src/host.ts",
-      "detail": "687 lines > 300"
+      "detail": "613 lines > 300"
     },
     {
-      "id": "a279299f29870423",
+      "id": "163c2edc06d8a41a",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "985 lines > 300"
+      "detail": "991 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",

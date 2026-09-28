@@ -3,8 +3,9 @@
 // 这份文件属于用户（引擎的机器本地偏好层），DeepDive 只拥有带标记的那几段：
 // **段外内容逐字保留** —— 纯字符串切分，不解析 YAML（别拿手搓解析器去碰用户的文件）。
 //
-// 两个消费者：PluginPatchAdmin（插件启停，写 `- id/disabled`）、
-// McpServerAdmin（MCP server 行，写 `- insert`）。两者各占一对标记。
+// 谁在这份文件里写块：引擎写插件开关块（`- id/disabled`，标记与写入格式逐字节钉在
+// packages/host/plugin-inventory/src/patch-admin.ts），壳写 MCP server 行
+// （`- insert`，McpServerAdmin）。两边各占一对标记，互不覆盖。
 
 import Foundation
 
@@ -13,6 +14,11 @@ enum ManagedPatchBlock {
     struct Marker {
         let begin: String
         let end: String
+    }
+
+    /// home 级 patch 层路径（引擎 `patchReload: live` 监视的两层之一）。
+    static func homePatchURL(home: URL) -> URL {
+        home.appendingPathComponent("cordis.patch.yml")
     }
 
     /// 块内行（不含标记本身）；没有块、或只有半个标记时为空。

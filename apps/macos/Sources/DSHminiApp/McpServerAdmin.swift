@@ -75,7 +75,7 @@ enum McpServerAdmin {
         } catch {
             return error.localizedDescription
         }
-        let patchURL = PluginPatchAdmin.fileURL(home: harnessHome)
+        let patchURL = ManagedPatchBlock.homePatchURL(home: harnessHome)
         let existing = (try? String(contentsOf: patchURL, encoding: .utf8)) ?? ""
         do {
             try compose(existing: existing, servers: store.servers).write(to: patchURL, atomically: true, encoding: .utf8)

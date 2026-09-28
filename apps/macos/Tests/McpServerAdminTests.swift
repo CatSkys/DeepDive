@@ -60,15 +60,22 @@ final class McpServerAdminTests: XCTestCase {
         XCTAssertEqual(stripped, "- id: my-own\n  config:\n    port: 1")
     }
 
-    /// 两个托管块同住一份文件：写 MCP 不能碰坏插件开关块，反之亦然。
-    func testCoexistsWithPluginSwitchBlock() {
-        let withSwitches = PluginPatchAdmin.compose(existing: "", toggles: [.init(rowId: "hmr", disabled: true)])
-        let withBoth = McpServerAdmin.compose(existing: withSwitches, servers: [stdio("alpha")])
-        XCTAssertEqual(PluginPatchAdmin.parseManaged(withBoth), [.init(rowId: "hmr", disabled: true)])
+    /// 两个托管块同住一份文件：写 MCP 不能碰坏**引擎写的**插件开关块，反之亦然。
+    /// 开关块的字节形状由引擎侧钉死（packages/host/plugin-inventory/src/patch-admin.ts
+    /// 的 patch-admin.spec.ts），这里用它的成品当夹具——壳只保证逐字不碰。
+    func testCoexistsWithEnginePluginSwitchBlock() {
+        let switches = """
+        # >>> DeepDive managed — plugin switches (do not edit) >>>
+        - id: "hmr"
+          disabled: true
+        # <<< DeepDive managed <<<
+        """
+        let withBoth = McpServerAdmin.compose(existing: switches, servers: [stdio("alpha")])
+        XCTAssertTrue(withBoth.contains(switches), "写 MCP 把开关块改坏了：\(withBoth)")
         XCTAssertTrue(withBoth.contains("mcp-alpha"))
-        let after = PluginPatchAdmin.compose(existing: withBoth, toggles: [.init(rowId: "hmr", disabled: false)])
-        XCTAssertTrue(after.contains("mcp-alpha"))
-        XCTAssertEqual(PluginPatchAdmin.parseManaged(after), [.init(rowId: "hmr", disabled: false)])
+
+        let stripped = McpServerAdmin.compose(existing: withBoth, servers: [])
+        XCTAssertEqual(stripped, switches)
     }
 
     // MARK: - 源文件与密钥
@@ -84,7 +91,7 @@ final class McpServerAdminTests: XCTestCase {
         let perms = try FileManager.default.attributesOfItem(atPath: McpServerAdmin.storeURL(in: support).path)[.posixPermissions] as? NSNumber
         XCTAssertEqual(perms?.int16Value, 0o600)
         // patch 文件里不能出现密钥的值
-        let patch = try String(contentsOf: PluginPatchAdmin.fileURL(home: home), encoding: .utf8)
+        let patch = try String(contentsOf: ManagedPatchBlock.homePatchURL(home: home), encoding: .utf8)
         XCTAssertFalse(patch.contains("ghp_secret"))
     }
 

@@ -500,11 +500,28 @@ export const api = {
     mux.answerEvent(eventId, { kind: "rejected", error: { name: "Error", message: "cancelled by user", code: "cancelled" } }),
   agentPresets: () => unary<{ presets: AgentPreset[]; authorable?: boolean }>("agentPresets/list", {}),
   /** 插件清单（`pluginInventory/list`，只读投影）：Loader 的非 group entry。
-   *  引擎**没有任何改动插件的 RPC**——启停与卸载由壳写 patch /
-   *  改 profile 落账（host.ts 的 pluginPatch、pluginUninstall、mcpServers 系列），口径与实测见
-   *  frontend/src/plugins/model.ts 与 docs/PITFALLS.md §7.6。响应里另带 `agentPresets`
-   *  （每个 Agent 预设的组合行），客户端不使用。 */
+   *  响应里另带 `agentPresets`（每个 Agent 预设的组合行），客户端不使用。 */
   pluginInventory: () => unary<{ entries: PluginInventoryEntry[] }>("pluginInventory/list", {}),
+  /** 插件启停的落账（`pluginInventory/patchList`）：托管块里被用户显式设置过的行。
+   *  「用户关掉的」与「本层本来就没挂载」在 inventory 里都是 enabled:false，靠这份
+   *  落账才分得开（混在一起会让开关看着"点了没反应"，PITFALLS §7.6）。 */
+  pluginPatchList: () => unary<{ toggles: PluginPatchToggle[] }>("pluginInventory/patchList", {}),
+  /** 拨一行；落盘成功即返回（引擎 `patchReload: live` 另行热重载，调用方等一拍再刷新清单）。
+   *  `disabled: false` 也会显式落账：bundle 默认关的行只能靠这条覆盖重新打开。 */
+  pluginPatchSet: (rowId: string, disabled: boolean) =>
+    unary<{ ok: true }>("pluginInventory/patchSet", { rowId, disabled }),
+  /** 技能管理面（设置 → 插件 → 技能）：技能根 `<DSH_HOME>/skills` 是引擎的状态，
+   *  清单/新建/删除/安装都由引擎读写（`skills/admin*`），写完引擎自带的
+   *  chokidar 发现立刻生效，不用重启。失败给稳定错误码，见 `skillsAdminError`。 */
+  skillsAdmin: {
+    list: () => unary<{ skills: SkillAdminEntry[] }>("skills/adminList", {}),
+    create: (name: string, description: string) =>
+      unary<{ ok: true }>("skills/adminCreate", { name, description }),
+    remove: (id: string) => unary<{ ok: true }>("skills/adminRemove", { id }),
+    /** 从目录安装：目录由壳的选目录 sheet 挑（`skillPickDirectory`）。 */
+    install: (sourceDirectory: string) =>
+      unary<{ ok: true }>("skills/adminInstall", { sourceDirectory }),
+  },
   /** @ 文件候选（0.1.2 fileReferences/list，扁平 {agentId, query}）：cwd 亲和
    *  整库递归索引排序；含 / 的查询退化为该目录列举。路径相对 agent cwd。 */
   fileCandidates: (agentId: string, query: string) =>
@@ -672,6 +689,27 @@ export interface PluginInventoryEntry {
 }
 
 export type PluginFiberPhase = "pending" | "loading" | "active" | "failed" | "unloading" | null;
+
+/** 一行被用户显式设置过的插件开关（`pluginInventory/patchList` 的条目）。 */
+export interface PluginPatchToggle {
+  /** 目标是**组合行 id**（`hmr`），不是 inventory 的 entryId（`include:hmr`）。 */
+  rowId: string;
+  disabled: boolean;
+}
+
+/** skills/adminList 的一行：技能根下的一层技能目录。目录名 = 发现单位 = 删除目标；
+ *  `missing` 非空表示 frontmatter 缺必填键，引擎会**静默忽略**这个技能（所以列表里
+ *  照样显示，并标出缺了什么，不替它补默认值）。 */
+export interface SkillAdminEntry {
+  id: string;
+  title: string;
+  detail: string;
+  /** SKILL.md 绝对路径（Finder 定位）。 */
+  manifest: string;
+  /** 技能目录绝对路径（确认框里展示）。 */
+  directory: string;
+  missing: string[];
+}
 
 /** agentPresets/list 行（trust 只来自引擎目录归属；name 为引擎侧原样文本，
  *  内建预设展示层自行本地化（AgentMode）。 */
