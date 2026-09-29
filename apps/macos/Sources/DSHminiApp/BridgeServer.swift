@@ -67,6 +67,7 @@ final class BridgeServer {
         if preferred == 0 {
             DSHAppPrefs.setBridgePort(server.port)
         }
+        UiProbe.publishEndpoint(port: UInt16(clamping: server.port))
         EngineLog.shared.append("[bridge] listening on 127.0.0.1:\(server.port)")
         return true
     }
@@ -149,6 +150,13 @@ final class BridgeServer {
             let body = String(data: request.body, encoding: .utf8) ?? ""
             EngineLog.shared.append("[web] " + body)
             return .response(.init(status: 204))
+        }
+
+        // 量化探针（TODO §19）：样式/布局自证的取数口，boot 级 token 闸（见 UiProbe）。
+        // 与 /__deepdive_error 同样放在静态兜底与 engineBase 闸之前——引擎挂掉期间
+        // 恰恰最需要看界面。
+        if request.method == "POST", request.path == "/__probe" {
+            return .response(UiProbe.handle(request))
         }
 
         // 侧栏浏览器的 agent 控制面（随包的 MCP server → 壳里的 WKWebView）。必须放在
