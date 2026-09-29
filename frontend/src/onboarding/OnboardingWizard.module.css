@@ -78,7 +78,7 @@
 
 .title {
   font-size: var(--dsh-font-size-hero);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   margin-top: 12px;
 }
@@ -281,7 +281,7 @@
 
 /* ── 步骤内部 ── */
 .step { display: flex; flex-direction: column; gap: 8px; }
-.stepTitle { font-size: var(--dsh-font-size-lg); font-weight: 700; color: var(--ink-bright); }
+.stepTitle { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink-bright); }
 .stepLead { font-size: var(--dsh-font-size-base); line-height: 1.6; color: var(--ink-2); }
 
 .groupLabel {

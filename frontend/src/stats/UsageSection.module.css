@@ -27,7 +27,7 @@
 .summaryCell + .summaryCell { border-left: 1px solid var(--line); }
 .summaryValue {
   font-size: var(--dsh-font-size-xl);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -100,7 +100,7 @@
   justify-content: center;
   pointer-events: none;
 }
-.donutCenterValue { font-size: var(--dsh-font-size-xl); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.donutCenterValue { font-size: var(--dsh-font-size-xl); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .donutCenterUnit { font-size: var(--dsh-font-size-sm); color: var(--ink-3); margin-top: 2px; }
 .donutLegend { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .legendRow { display: flex; align-items: flex-start; gap: 8px; padding: 9px 2px; }

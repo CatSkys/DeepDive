@@ -14,7 +14,7 @@
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sub { font-size: var(--dsh-font-size-base); color: var(--ink-3); }
 /* 编辑器页标题（分区名在设置页头，这里是页内一级标题，不重复） */
-.h1 { font-size: var(--dsh-font-size-hero); font-weight: 700; color: var(--ink); }
+.h1 { font-size: var(--dsh-font-size-hero); font-weight: 600; color: var(--ink); }
 
 /* ── 按钮（.btn 次级填充 / .btnPrimary 主操作实底，与设置页同款语义）── */
 .btn {

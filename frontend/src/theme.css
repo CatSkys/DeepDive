@@ -1524,8 +1524,8 @@ button {
 .md { font-size: var(--dsh-font-size-base); line-height: 21px; color: var(--ink); user-select: text; background: transparent !important; }
 .md * { background: transparent; }
 .md strong { background: transparent; }
-.md h1 { font-size: var(--dsh-font-size-xl); font-weight: 700; color: var(--ink-bright); margin: 14px 0 6px; line-height: 24px; }
-.md h2 { font-size: var(--dsh-font-size-lg); font-weight: 700; color: var(--ink-bright); margin: 12px 0 5px; line-height: 22px; }
+.md h1 { font-size: var(--dsh-font-size-xl); font-weight: 600; color: var(--ink-bright); margin: 14px 0 6px; line-height: 24px; }
+.md h2 { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink-bright); margin: 12px 0 5px; line-height: 22px; }
 .md h3 { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); margin: 10px 0 4px; }
 .md p { margin: 0 0 9px; white-space: pre-wrap; word-break: break-word; }
 /* 消息末尾不留段距：行与行的间隔统一由 flow 的 12px 节奏负责。 */
@@ -3232,7 +3232,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   justify-content: space-between;
   margin-bottom: 16px;
 }
-.settings-title { font-size: var(--dsh-font-size-lg); font-weight: 700; color: var(--ink); }
+.settings-title { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
 /* 页头右侧留给分区批量动作（原关闭叉位）：动作自带样式，这里只保证靠右 */
 .settings-head > :last-child:not(.settings-title) { margin-left: auto; flex: none; }
 
@@ -3254,7 +3254,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   border-radius: 5px;
   border: 1px solid var(--line-strong);
   color: var(--ink-2);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -4386,7 +4386,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
   animation: pop-in var(--dur-fast) var(--ease-out);
 }
-.dialog-title { font-size: var(--dsh-font-size-lg); font-weight: 700; color: var(--ink); }
+.dialog-title { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
 .dialog-msg { font-size: var(--dsh-font-size-base); color: var(--ink-2); line-height: 1.55; white-space: pre-line; }
 .dialog-title + .dialog-msg { margin-top: 8px; }
 .dialog-input {
