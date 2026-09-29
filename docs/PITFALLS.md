@@ -687,7 +687,8 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 根因有两层，缺一都会再犯：
   1. **四个随包 preset 的 persona 都没提产品名**（`You are a coding agent powered by the {{model}} model.`），加上宿主 `system-prompt` 行默认还挂着上游那句 `You are an AI agent powered by DeepSeek Harness.`（Harness 是引擎名不是产品名），模型只能在两个都不是产品名的名字里挑。处置：四个 preset + 宿主默认 persona 一律写 `You are DeepDive (深潜)…running inside the DeepDive macOS app…`，并把宿主行的 `includeHarnessIdentity` 关掉（身份只说一次）。
   2. **`minimal` preset 的 `complete: true` 让它的 persona 成为整个系统提示词**——global identity、运行时上下文、以及经 `agent-instructions` 进来的 **`<DSH_HOME>/AGENTS.md` 部署提示词**（自动化协议、富输出围栏、产物点名）**全部被抑制**。这是该 preset 的设计（固定提示词的单工具 Agent），但它是**用户可选的默认模式**，一旦选它，产品协议就到不了模型（实测用户当时的全部会话都是 minimal）。
-- 纪律：**改动或排查"模型为什么不照协议做"时，先读会话日志的 `system/message` 看它到底收到什么**，别按配置层猜；`--dump-config` 只反映补丁层，看不到组装结果。默认模式该是 `standard`（profile base 已是），`minimal` 只作专家档。
+- 纪律：**改动或排查"模型为什么不照协议做"时，先读会话日志看它到底收到什么**，别按配置层猜；`--dump-config` 只反映补丁层，看不到组装结果。默认模式该是 `standard`（profile base 已是），`minimal` 只作专家档。
+- **两处都要看，别只看 system/message**（本轮差点误诊）：产品身份、工具指引走 **`system/message`**（组装后的系统提示词）；而 `<DSH_HOME>/AGENTS.md` 的部署提示词与项目 `AGENTS.md` 走**注入的 `user/message`**——`source.kind === 'agent-instructions'`，正文是 `<system-reminder>…Instructions from: $DSH_HOME/AGENTS.md…`。只看 system/message 会得出"部署提示词没到模型"的错误结论（我这一轮就差点这么报）。`standard`/`ptc`/`cordis` 三个 preset 挂 `agent-instructions`，所以它们的会话两处都有；`minimal` 不挂，所以那里只有 persona 那一句。
 
 ### 7.6 插件清单的 entryId 不是 patch 的 id；「未挂载」不等于「被关掉」（2026-09-16 实测）
 
