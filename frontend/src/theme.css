@@ -232,8 +232,9 @@ button {
   box-sizing: border-box;
   border: 1px solid var(--line);
   border-left: none;
-  /* 背景层提亮（叠白）：边栏/边铬比悬浮卡浅一档，主卡沉下去 */
-  background: linear-gradient(180deg, var(--fill-strong), var(--fill) 40%, var(--fill-strong));
+  /* 背景层不铺任何底色：边栏/边铬的观感全部来自壳侧原生 vibrancy + tint
+     （窗口已非不透明，材质真的采样桌面；见 PITFALLS §4.27）。此处叠白纱会把
+     材质透上来的颜色洗成灰——边栏那点"比主卡浅"的层次由材质本身给，不靠叠白。 */
 }
 /* Collapse: slide the sidebar out of layout (main flex-grows smoothly), no
    intermediate sizing frames. 顶部钮仍在顶部，会话头让位（同旧版机制）。 */
