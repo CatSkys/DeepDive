@@ -45,16 +45,16 @@
       "detail": "335 lines > 300"
     },
     {
-      "id": "9656cd9350209fca",
+      "id": "8ce44107c27ce6c9",
       "rule": "file-lines",
       "file": "frontend/src/api.ts",
-      "detail": "776 lines > 300"
+      "detail": "772 lines > 300"
     },
     {
-      "id": "5ac7edc77cb28c72",
+      "id": "f77a4bd1bf744779",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "414 lines > 300"
+      "detail": "413 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -99,10 +99,10 @@
       "detail": "542 lines > 300"
     },
     {
-      "id": "088f191bec60bd12",
+      "id": "e1e83f295d464752",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1010 lines > 300"
+      "detail": "1006 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",
