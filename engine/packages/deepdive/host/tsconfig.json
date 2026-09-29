@@ -25,6 +25,15 @@
     },
     {
       "path": "../../host/webserver"
+    },
+    {
+      "path": "../../session/session-projection"
+    },
+    {
+      "path": "../../core/session"
+    },
+    {
+      "path": "../../compaction/compaction"
     }
   ]
 }

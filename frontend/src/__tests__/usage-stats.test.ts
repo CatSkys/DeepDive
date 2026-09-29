@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays, dayKeyOf, foldSessionEvents, formatDays, formatDuration, formatTokensShort,
-  lastNDayKeys, makeUsageFold, mergeSessionUsage, modelOrderOf, statsFromFold,
+  lastNDayKeys, makeUsageFold, mergeSessionUsage, modelOrderOf, statsFromFold, usageOfProjection,
 } from "../stats/usageStats";
 import { arcPath, smoothPath } from "../stats/chartMath";
 import type { SessionEvent } from "../types";
@@ -79,6 +79,29 @@ describe("foldSessionEvents", () => {
     const stats = statsFromFold(fold, NOW);
     expect(stats.longestChatMs).toBe(60000);
     expect(stats.totalTokens).toBe(39);
+  });
+});
+
+describe("usageOfProjection（引擎投影优先于回放）", () => {
+  it("把投影的 days 表折成与本地折叠同形的 UsageDay[]，activeMs 即聊天时长", () => {
+    const session = {
+      sessionId: "s1", updatedAt: 1, running: false, blank: false,
+      projections: { asOfSeq: 9, values: { usage: {
+        days: { "2026-09-03": { tokens: 120, turns: 2, byModel: { "deepseek-v4.1-flash": 120 } } },
+        activeMs: 1500,
+      } } },
+    } as unknown as Parameters<typeof usageOfProjection>[0];
+    expect(usageOfProjection(session)).toEqual({
+      days: [{ day: "2026-09-03", tokens: 120, turns: 2, byModel: { "deepseek-v4.1-flash": 120 } }],
+      activeMs: 1500,
+    });
+  });
+
+  it("没有投影（旧缓存行/未 checkpoint）回 undefined，调用方回落到重放", () => {
+    const bare = { sessionId: "s2", updatedAt: 1, running: false, blank: false } as unknown as Parameters<typeof usageOfProjection>[0];
+    expect(usageOfProjection(bare)).toBeUndefined();
+    const other = { ...bare, projections: { asOfSeq: 1, values: { sessionListMetadata: { blank: false, lastPromptAt: null } } } } as unknown as Parameters<typeof usageOfProjection>[0];
+    expect(usageOfProjection(other)).toBeUndefined();
   });
 });
 

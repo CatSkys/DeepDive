@@ -1,5 +1,8 @@
-// 使用统计数据层：引擎没有 usage RPC（UNARY_ROUTES 已核对，PITFALLS §4.6），
-// 用量从 session/list × session/follow+page 的持久事件前端折叠而来。
+// 使用统计数据层：用量**优先读引擎的 `usage` 投影**（`@deepdive/engine-host` 注册的
+// 投影单元，随 session/list 的 `projections.values` 一起来，零额外 IO）；只有会话列表里
+// 没有该投影的会话（升级前的旧缓存行、或未 checkpoint 的会话）才回落到
+// session/follow+page 的前端折叠。引擎没有 usage RPC（UNARY_ROUTES 已核对，PITFALLS §4.6），
+// 这条投影是 2026-09-29 加的：原先每次统计都要逐会话重放（159 会话 ~17s，PITFALLS §4.16）。
 // 口径（与参考稿对齐的本地定义）：
 //   tokens = inputTokens + outputTokens（cacheRead/reasoning 引换单列，不计入）；
 //   轮次   = user/message（source.kind==="user"）条数；
@@ -358,6 +361,24 @@ function collectSessionEvents(sessionId: string): Promise<SessionEvent[]> {
   });
 }
 
+/**
+ * 引擎投影里这一会话的用量（没有则 undefined）。形状与本地折叠一致：
+ * `days` 是本地日 → {tokens, turns, byModel}，`activeMs` 即 longestChatMs 的来源。
+ */
+export function usageOfProjection(session: SessionSummary): { days: UsageDay[]; activeMs: number } | undefined {
+  const raw = session.projections?.values?.usage as
+    | { days?: Record<string, { tokens?: number; turns?: number; byModel?: Record<string, number> }>; activeMs?: number }
+    | undefined;
+  if (raw?.days === undefined) return undefined;
+  const days: UsageDay[] = Object.entries(raw.days).map(([day, v]) => ({
+    day,
+    tokens: v.tokens ?? 0,
+    turns: v.turns ?? 0,
+    byModel: v.byModel ?? {},
+  }));
+  return { days, activeMs: raw.activeMs ?? 0 };
+}
+
 /** 拉全部顶级会话（子会话 usage 折进父会话会重复计——origin=subagent 不取；
  *  blank 会话无事件，跳过省一次往返）。 */
 /** 给单会话读取加超时：超时/失败都算 null（不写缓存，下轮重试）。 */
@@ -389,11 +410,21 @@ export async function collectUsageStats(chats: readonly SessionSummary[], onProg
   // ① 缓存里已有的全部先入账（含已归档/已删除会话的历史——它们不再出现在会话列表里，
   //    但用过的量照算）
   for (const entry of Object.values(cached)) mergeSessionUsage(fold, entry.days, entry.longestChatMs);
-  // ② 只对"变过的"会话做后台补差
-  const pending = chats.filter((s) => cached[s.sessionId]?.updatedAt !== s.updatedAt);
+  // ② 引擎投影优先：会话列表里带 `usage` 的直接入账（零 IO，含本轮新写的行）；
+  //    只有拿不到投影、且相对缓存"变过"的会话才回落到重放
+  const fresh: Record<string, SessionUsage> = {};
+  const pending: SessionSummary[] = [];
+  for (const session of chats) {
+    const projected = usageOfProjection(session);
+    if (projected !== undefined) {
+      fresh[session.sessionId] = { updatedAt: session.updatedAt, days: projected.days, longestChatMs: projected.activeMs };
+      mergeSessionUsage(fold, projected.days, projected.activeMs);
+      continue;
+    }
+    if (cached[session.sessionId]?.updatedAt !== session.updatedAt) pending.push(session);
+  }
   let done = 0;
   onProgress?.({ stats: statsFromFold(fold, Date.now()), done, total: pending.length });
-  const fresh: Record<string, SessionUsage> = {};
   for (let i = 0; i < pending.length; i += FETCH_POOL) {
     const batch = pending.slice(i, i + FETCH_POOL);
     // 单会话拉取失败/超时只损失该会话，不拖垮整页——且**不写缓存**，

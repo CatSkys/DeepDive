@@ -69,7 +69,8 @@
 ## 5. 效率——Agent 与 harness 本身
 
 1. **能力集下沉到 preset**（已有雏形，继续）：宿主行最小化，工具面按模式开。工具越多，每次请求的 schema token 越多；MCP 每个 server 的工具定义都会给**每次**请求加 token（`TODO §7` 已记），这条同理适用。
-2. **统计/用量走投影，不走重放**：统计页现在逐会话 `session/follow` + `session/page` 重放历史（159 会话 ~17s，见 `PITFALLS §4.16`）。按会话日志那条"模型可见即已记录"的同族做法，把用量折成一个投影单元，客户端读 `stateOf()`。判据：统计页首帧出数、耗时回到亚秒级。
+2. **统计/用量走投影，不走重放 —— 已完成（2026-09-29）**：引擎注册 `usage` 投影单元（`@deepdive/engine-host` 的 `usage-projection.ts`，语义逐条照抄客户端的折叠，数字不变：tokens = input+output、轮次 = 用户 `user/message`、活跃时长 = `step/start→assistant/message` + `tool/call→tool/result`），客户端优先读 `session/list` 里随行而来的 `projections.values.usage`（零额外 IO），拿不到该键的会话才回落到重放。
+   **已知边界（有意）**：投影值来自引擎的**投影缓存行**，而旧会话的行是在这个单元存在之前写的（行里没有 `usage` 键）——所以它们要等下次被**使用**（创建/轮末/卸载时才 checkpoint）才带上；在那之前客户端走重放兜底，行为与今天一致、无回归。新装或新会话从一开始就带（实测：新建会话的投影键里已有 `usage`）。要给存量会话立刻补上，得让冷读也回写投影行——那是上游 `projectionsFor` 的有意取舍（"cache rows are never materialized here"），改它等于给每次历史读加写放大，不在本项范围内。
 3. **启动与分发**：现在每次启动把 `EngineProfile` 装进 harness home（一次拷贝）；可评估只读引用或预装进 bundle。判据：冷启动时间与 `make app` 产物体积。
 
 ## 6. 落地顺序（下一步）

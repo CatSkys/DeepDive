@@ -12,7 +12,10 @@
  *     into `<DSH_HOME>/skills` on every launch),
  *   · the web runtime: the `/` seat, the `dsh web:` readiness line and the `/api`
  *     trust snapshot (were the official `web-app` row's, which also served 4.6 MB
- *     of a page DeepDive never loads).
+ *     of a page DeepDive never loads),
+ *   · the `usage` projection unit: per-session token/turn/active-time totals, so
+ *     the stats page reads one value off the session list instead of replaying
+ *     every log (PITFALLS §4.16).
  *
  * Registration discipline copied from the upstream halves: contribute only when
  * the owning service is composed, never invent a default for a missing host
@@ -28,6 +31,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-skill'
 import { CONVERSATION_SETTINGS_NAMESPACE, ConversationSettingsSchema } from './conversation-settings.ts'
 import { PUBLISHED_SKILLS, RETIRED_SKILL_NAMES } from './published-skills.ts'
+import { registerUsageProjection } from './usage-projection.ts'
 import { applyWebRuntime } from './web-runtime.ts'
 
 export {
@@ -37,6 +41,10 @@ export {
 } from './conversation-settings.ts'
 export { PUBLISHED_SKILLS, RETIRED_SKILL_NAMES } from './published-skills.ts'
 export { applyWebRuntime, resolveLanTrust, type WebRuntimeValues } from './web-runtime.ts'
+export {
+  applyUsageEvent, localDayKey, registerUsageProjection, usageInit, usageValueOf,
+  type UsageDayState, type UsageState, type UsageValue,
+} from './usage-projection.ts'
 
 /**
  * Register DeepDive's own contributions.
@@ -54,6 +62,7 @@ export function apply(ctx: Context): void {
       skillsCtx.effect(() => skillsCtx.skills.register(skill), `deepdive-host: skill ${skill.name}`)
     }
   })
+  registerUsageProjection(ctx)
   applyWebRuntime(ctx)
   dropRetiredSkills()
 }

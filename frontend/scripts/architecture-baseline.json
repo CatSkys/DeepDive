@@ -147,10 +147,10 @@
       "detail": "495 lines > 300"
     },
     {
-      "id": "4c1dab9e1f0de87e",
+      "id": "782f5f04df2432b0",
       "rule": "file-lines",
       "file": "frontend/src/stats/usageStats.ts",
-      "detail": "418 lines > 300"
+      "detail": "449 lines > 300"
     },
     {
       "id": "bb1834e54e11cb99",
