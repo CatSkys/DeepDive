@@ -23,9 +23,10 @@ final class WindowGlassView: NSView {
     /// 退回分支：叠在 vibrancy 材质上的近黑 tint。
     private static let darkTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.62)
     private static let lightTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.72)
-    /// 液态玻璃分支：玻璃自带亮度，tint 只往近黑拉一档。**调边栏深浅就动这里的 alpha。**
-    private static let darkGlassTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.35)
-    private static let lightGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.30)
+    /// 液态玻璃分支：玻璃自带亮度，tint 只往近黑拉。**调边栏深浅就动这里的 alpha**
+    /// （0.35 → 0.50：用户 2026-09-29 两轮"还是有点透"，加了一档）。
+    private static let darkGlassTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.50)
+    private static let lightGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.45)
 
     override init(frame frameRect: NSRect) {
         if #available(macOS 26.0, *) {
