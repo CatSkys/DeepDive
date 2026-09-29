@@ -52,6 +52,12 @@
      --on-ink 不是表面：它是**反色面（--ink）上的前景色**——白底黑字按钮里的字、
      开关旋钮、选中标签的字，12 处全是这个用法（曾叫 --panel-bg，名字骗人，已改）。 */
   --on-ink: rgba(22,23,26,.78);
+  /* 状态点的"白"是**亮度极点**、不是固定白色：暗色下最亮的是白，亮色下最跳的
+     是墨。写死 rgba(255,255,255,·) 在亮色主题里白压白、直接消失（2026-09-30
+     走查发现）。两套主题各给一份面与环；暗色这组的值与原字面量相同，观感不变。 */
+  --dot-face: rgba(255,255,255,.85);
+  --dot-ring: rgba(255,255,255,.25);
+  --dot-hole: rgba(0,0,0,.6);   /* error 的挖孔：亮色下反过来，透出卡面 */
   /* 大弹层（居中 dialog）：毛玻璃但比菜单浮层更实——.55/.78 都压不住弹层正后的文字 */
   --panel-strong: rgba(24,24,27,.92);
   /* 明显毛玻璃档（composer @// 菜单）：backdrop-root 修复后模糊真正生效，
@@ -112,6 +118,9 @@
     --fill-heavy: rgba(0,0,0,.15);
     --selection: rgba(0,0,0,.16);
     --on-ink: rgba(250,250,251,.86);
+    --dot-face: rgba(22,23,26,.85);
+    --dot-ring: rgba(22,23,26,.25);
+    --dot-hole: rgba(255,255,255,.75);
     --panel-strong: rgba(250,250,251,.94);
     /* 明显毛玻璃档（同 dark 注释）：浅色白底 .45，下方内容透出且保持雾感 */
     --panel-glass: rgba(250,250,251,.55);
@@ -2621,8 +2630,8 @@ button {
   border-radius: 50%;
   display: inline-block;
 }
-.state-dot.running { background: rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(255,255,255,.25); animation: pulse var(--loop-breathe) ease-in-out infinite; }
-.state-dot.error { background: rgba(255,255,255,.95); box-shadow: inset 0 0 0 1px rgba(0,0,0,.6); }
+.state-dot.running { background: var(--dot-face); box-shadow: 0 0 0 1px var(--dot-ring); animation: pulse var(--loop-breathe) ease-in-out infinite; }
+.state-dot.error { background: var(--dot-face); box-shadow: inset 0 0 0 1px var(--dot-hole); }
 .state-dot.warning { background: var(--ink-2); }
 .state-dot.ok { background: var(--ink-3); }
 

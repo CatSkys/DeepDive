@@ -151,6 +151,7 @@
   width: 208px;
   height: 208px;
   border-radius: var(--dsh-radius-control);
+  /* 白底不随主题走：二维码的"白底黑模块"是格式要求，扫描端按这个读 */
   background: #fff;
   /* 二维码是 1px 模块的位图，缩放交给浏览器会糊；按整数倍放大渲染 */
   image-rendering: pixelated;
