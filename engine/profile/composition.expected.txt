@@ -402,18 +402,8 @@
   name: '@deepseek-ai/dsh-client-file-upload'
 - id: api-remotes
   name: '@deepseek-ai/dsh-api-remotes'
-- id: ui-theme
-  name: '@deepseek-ai/dsh-client-ui-theme'
-- id: locale
-  name: '@deepseek-ai/dsh-client-locale'
-- id: ui-settings-general
-  name: '@deepseek-ai/dsh-client-ui-settings-general'
 - id: ui-conversation
   name: '@deepseek-ai/dsh-client-ui-conversation'
-- id: ui-chat
-  name: '@deepseek-ai/dsh-client-ui-chat'
-- id: ui-deliverables
-  name: '@deepseek-ai/dsh-client-ui-deliverables'
 - id: agent-presets
   name: '@deepseek-ai/dsh-agent-presets'
   config:

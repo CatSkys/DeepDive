@@ -34,7 +34,7 @@
 
 ## 3. 方向二：精简——把不消费的层剪掉
 
-### 3.1 第一刀：官方 Web UI 那条线（最大一块）
+### 3.1 第一刀：官方 Web UI 那条线（第一轮已落，2026-09-29）
 
 - **事实**：DeepDive 的 SPA 是唯一前端，但随包里还带着官方 Web UI 的宿主与浏览器模块：
   `dsh-web-frontend` 4.6 MB、`ui-conversation` 4.4 MB、`ui-chat` 3.6 MB、`ui-theme` 0.7 MB、
@@ -43,14 +43,20 @@
 - **为什么不能直接删**：profile 的有意移除清单已经写明，`ui-chat` / `ui-conversation` / `ui-theme` /
   `ui-deliverables` / `ui-settings-general` / `locale` **注册了真实的 host 状态**（system-prompt 段、设置命名空间）——
   删行等于删掉模型可见的提示词段或设置面。`DeploymentPrompt`（把部署提示词落进 `AGENTS.md` 托管块）已经是"把官方那层做的事换成我们自己的"先例。
-- **做什么**：逐包判定「host 状态搬去哪」→ 搬完删行 → 删包 → 进 `prune-dsh-runtime.sh` 清单 → 更新 `composition.expected.txt`。
-- **判据**：`--dump-config` 行数下降；一次真实会话的 `request/context` 里模型可见提示词与工具表**逐字不变**；`smoke-engine-prompt.sh` 与组合漂移门全绿。
+- **已落地的五个行**（`ui-theme` / `locale` / `ui-settings-general` / `ui-chat` / `ui-deliverables`，共约 11 MB）：每个都按"它注册的 host 状态我们读不读"逐个核过 `frontend/src`——四个设置命名空间（`ui-theme` / `locale` / `ui-onboarding` / `ui-chat`）**零读者**；`ui-deliverables` 的两条 `/api/present.*` 路由也没人用，它那段 system-prompt 里**有行为价值的那半句搬进了部署提示词**（`DeploymentPrompt.swift` 的 AGENTS.md 托管块），"以便在 Web 里点开"那半句删掉（我们的 SPA 不把行内代码渲染成可点链接）。
+- **已查明但不能剪的一块**：`dsh-web-frontend`（4.6 MB，官方页面资产）看着像死重——我们的页面由桥托管，引擎的 `/` 从不被浏览。但它**是活的**：壳的 `EngineAuth` 用"请求 `/` → 303 + Set-Cookie"换会话 cookie（`EngineAuth.swift`），而 `/` 由 `web-app` 行在**请求时**解析 `@deepseek-ai/dsh-web-frontend/dist/index.html`，包不在就直接抛错——剪掉等于让应用连不上引擎。要剪它得先让引擎的 `/` 由一个 DeepDive 自己的极简 static owner 应答（那是"自有引擎"该走的一步），不是删包。
+- **仍然保留一行**：`ui-conversation`。它的浏览器半同样是死重（4.4 MB），但**我们的 SPA 读它的设置命名空间**（`ui-conversation.busyEnter`，发送方式 queue/steer，设置页/Composer/侧栏三处）。要剪它得先有一个 DeepDive 自己的宿主包来注册这个命名空间——那是"我们自己的引擎"该走的一步，不该把用户可见设置悄悄换家。
+- **判据**：组合 dump 与 `composition.expected.txt` 的 diff **只有这五行**（证明没有连带丢配置）；`smoke-engine-boot.sh` + `smoke-engine-prompt.sh` 全绿。
 
-### 3.2 第二刀：未接的能力（要么接、要么删）
+### 3.2 第二刀：未接的能力（已处置，2026-09-29）
 
-- **事实**：`TODO §10` 记着四组"引擎有包未接"——持久终端 / LSP / hooks 桥 / ACP·SDK；另有 9 个 `experimental/*` 包、agent-team、以及 `tool-cordis`（1.9 MB 的自省目录，把 Cordis API 喂给模型）。这些包**在分发里、不在组合里**，属于"既不删也不接"的中间态。
-- **做什么**：逐组二选一——接（挂载 + 渲染位 + 默认开关）或删（包、行、prune 清单一起删）。判定依据是产品面是否需要，不是"删起来麻烦"。
-- **判据**：每一组在 `TODO §10` 里都有结论（接了删掉该节，删了记进 profile 的移除清单）；随包包数下降。
+- **结论**（逐组核过，`TODO §10` 已随之删节）：
+  - **持久终端**：不是"未接"——`dsh-terminal` / `dsh-terminal-bash` 由 agent preset 启用（`tool-bash-persistent` / `tool-pwsh-persistent` 要用），**已是现役**。原 TODO 那句"现役 shell 是逐调用新 shell"是旧观察。
+  - **`tool-cordis`**（1.9 MB 自省目录）：同样由 `cordis` preset 启用，**保留**。
+  - **LSP / SDK**：**根本没随包**（闭包里没有），所以没有"剪"的问题；要接就得先把包带回来。
+  - **hooks 桥（claude-code / codex）与 ACP**：未接、无行、无 preset 引用，只由 `apps/cli` 的依赖树拉进闭包 → **已从分发剪掉**（`scripts/prune-dsh-runtime.sh`，判据是真实启动冒烟）。
+  - **`experimental/*` 与 agent-team**：本就不在闭包里（未装载），不占分发体积。
+- **判据**：`prune-dsh-runtime.sh` 的 `OK: pruned N package trees` 与 boot/prompt 冒烟全绿。
 
 ### 3.3 第三刀：组合行与工具面
 

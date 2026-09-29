@@ -84,9 +84,25 @@ REMOVE=(
   @deepseek-ai/dsh-client-hmr
   @deepseek-ai/dsh-cordis-client-runner
   @deepseek-ai/dsh-client-resources
+  # 2026-09-29: five official-GUI client rows whose host halves our SPA does not
+  # consume (their namespaces are gone from the profile; the system-prompt section
+  # ui-deliverables registered moved into the deployment prompt).
+  @deepseek-ai/dsh-client-ui-theme
+  @deepseek-ai/dsh-client-locale
+  @deepseek-ai/dsh-client-ui-settings-general
+  @deepseek-ai/dsh-client-ui-chat
+  @deepseek-ai/dsh-client-ui-deliverables
   # A GitHub webhook surface no composition of ours mounts. Kept out of the
   # patch-file list (it never had a row); removed here so the tree goes with it.
   @deepseek-ai/dsh-webhook-github
+  # 2026-09-29: the two never-wired groups from docs/PLAN-NATIVE-ENGINE.md §3.2,
+  # judged here rather than kept as dead weight. Both reach the closure only
+  # through apps/cli's dependency list (they serve its `acp` profile and the
+  # external-CLI hooks bridge); no profile row and no agent preset names them.
+  # LSP and the SDK are not shipped at all, so there is nothing to prune there.
+  @deepseek-ai/dsh-hooks-claude-code
+  @deepseek-ai/dsh-hooks-codex
+  @deepseek-ai/dsh-acp
   # The feedback channel, all three faces (see the rationale in
   # engine/profile/cordis.patch.yml): DeepDive has no feedback UI, so the OTLP
   # transport can never fire, and the two feedback packages import each other.

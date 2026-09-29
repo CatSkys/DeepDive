@@ -28,10 +28,7 @@
 #     (clientModules bundle route, browser rebuild chain) and cordis-client-runner
 #     (empty stub). `connection` and `file-upload` are NOT here despite the
 #     `dsh-client-` prefix: they carry the host-side /api transport and the
-#     upload route. Neither is `ui-deliverables`, `ui-theme`, `ui-chat`,
-#     `ui-conversation`, `ui-settings-general` or `locale` — each registers real
-#     host state (a system-prompt section or a settings namespace), so removing
-#     them is a product decision, not a cleanup: see PITFALLS §7.7.
+#     upload route.
 #   The feedback channel, all three faces of it: message-feedback (unused
 #     messageFeedback/* RPCs), command-feedback (the global `/feedback` command)
 #     and session-telemetry-otel (the OTLP transport, ~34 MB with @opentelemetry).
@@ -43,6 +40,26 @@
 #     feature deliberately removed. The two feedback packages go together —
 #     dsh-message-feedback imports FEEDBACK_CATEGORIES from dsh-command-feedback,
 #     so removing either one alone breaks the other's import.
+#   Five more official-GUI client rows whose host halves our SPA does not consume
+#     (2026-09-29, each verified by grepping frontend/src for the namespace it
+#     registers — zero readers):
+#       ui-theme            registers the `ui-theme` settings namespace + a
+#                           `webserver/index-inject` boot script for the official
+#                           page (our SPA is served by the app's bridge, not the
+#                           engine's webserver, and owns its own appearance prefs).
+#       locale              registers the `locale` namespace; the SPA has its own
+#                           i18n and language preference.
+#       ui-settings-general registers the `ui-onboarding` namespace (welcome-notice
+#                           ack); the SPA has its own onboarding state.
+#       ui-chat             registers the `ui-chat` namespace (transcriptView).
+#       ui-deliverables     registers a system-prompt section (file-reference
+#                           guidance) + the two `/api/present.*` routes. The routes
+#                           are unused (the shell does reveal/open through its own
+#                           bridge); the prompt guidance MOVED into the deployment
+#                           prompt (`DeploymentPrompt.swift`, the AGENTS.md managed
+#                           block) so the model behavior survives the row's removal.
+#     ui-conversation is NOT in this list even though its browser half is equally
+#     dead: the SPA reads its settings namespace (busyEnter), see the row's comment.
 #
 # The upstream pair's layering is collapsed into this one insert, so the three
 # rules the engine enforces have to be honoured by hand:
@@ -461,18 +478,12 @@
       name: '@deepseek-ai/dsh-client-file-upload'
     - id: api-remotes
       name: '@deepseek-ai/dsh-api-remotes'
-    - id: ui-theme
-      name: '@deepseek-ai/dsh-client-ui-theme'
-    - id: locale
-      name: '@deepseek-ai/dsh-client-locale'
-    - id: ui-settings-general
-      name: '@deepseek-ai/dsh-client-ui-settings-general'
+    # KEPT on purpose: our SPA reads this row's settings namespace
+    # (`ui-conversation.busyEnter` — 发送方式 queue/steer，设置页/Composer/侧栏三处）。
+    # Its browser half (the official conversation shell) is dead weight we still ship;
+    # dropping the row needs a DeepDive-owned host package registering that namespace.
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'
-    - id: ui-chat
-      name: '@deepseek-ai/dsh-client-ui-chat'
-    - id: ui-deliverables
-      name: '@deepseek-ai/dsh-client-ui-deliverables'
     - id: agent-presets
       name: '@deepseek-ai/dsh-agent-presets'
       config:

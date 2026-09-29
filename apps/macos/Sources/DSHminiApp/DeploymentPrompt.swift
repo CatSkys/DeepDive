@@ -24,7 +24,7 @@ enum DeploymentPrompt {
     /// 块内行（纯函数，单测钉子）。每段提示词是一行（源码里用行连续符拼的），
     /// 段间留空行以便阅读。
     static func body() -> [String] {
-        let parts = [automationProtocolPrompt, richOutputProtocolPrompt]
+        let parts = [automationProtocolPrompt, richOutputProtocolPrompt, deliverableMentionPrompt]
         var lines = [""]
         for part in parts {
             lines.append(part)
@@ -72,6 +72,18 @@ enum DeploymentPrompt {
     rendered sandboxed). The app draws those as figures and shows the code verbatim only when \
     one cannot be rendered. Write or return a file only when the user asked for a file or a \
     deliverable — "draw me a diagram" means the inline fence, not an .svg file on disk.
+    """
+
+    /// Outputs: name the files a turn produced, as inline code.
+    ///
+    /// 这段原来住在引擎的 `ui-deliverables` 行里（官方客户端那条线）。2026-09-29 剪包
+    /// 时把它搬到这里——同一段模型可见行为，换成我们自己的家（AGENTS.md 托管块）。
+    /// 原句里"以便在 Web 里点开"那半句删掉了：我们的 SPA 不把行内代码渲染成可点链接，
+    /// 留着它等于教模型做一件界面不支持的事。
+    static let deliverableMentionPrompt = """
+    DeepDive outputs: when you create or modify files, name the primary ones in your final \
+    response as Markdown inline code using the exact file path (or a basename when it is \
+    unique among the files changed in that turn).
     """
 
     /// Deployment system prompt: one pointer, nothing more — the protocol itself

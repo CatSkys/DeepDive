@@ -31,6 +31,14 @@ final class DeploymentPromptTests: XCTestCase {
         XCTAssertTrue(body.contains(DeploymentPrompt.marker.end))
         XCTAssertTrue(body.contains("deepdive-automation"))
         XCTAssertTrue(body.contains("mermaid"))
+        // 2026-09-29 从引擎的 ui-deliverables 行搬来的那段（剪包后模型行为不变）
+        XCTAssertTrue(body.contains("name the primary ones in your final"))
+    }
+
+    /// 搬来的那段不许留"在 Web 里点开"那半句：我们的 SPA 不把行内代码渲染成可点链接。
+    func testDeliverableMentionPromptDropsTheWebClickabilityClaim() {
+        XCTAssertFalse(DeploymentPrompt.deliverableMentionPrompt.contains("clickable"))
+        XCTAssertTrue(DeploymentPrompt.body().contains(DeploymentPrompt.deliverableMentionPrompt))
     }
 
     /// 段外内容逐字保留——用户自己写的规则就住在这个文件里，抹掉等于删他的知识。
