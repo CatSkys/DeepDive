@@ -44,7 +44,11 @@
   `ui-deliverables` / `ui-settings-general` / `locale` **注册了真实的 host 状态**（system-prompt 段、设置命名空间）——
   删行等于删掉模型可见的提示词段或设置面。`DeploymentPrompt`（把部署提示词落进 `AGENTS.md` 托管块）已经是"把官方那层做的事换成我们自己的"先例。
 - **已落地的五个行**（`ui-theme` / `locale` / `ui-settings-general` / `ui-chat` / `ui-deliverables`，共约 11 MB）：每个都按"它注册的 host 状态我们读不读"逐个核过 `frontend/src`——四个设置命名空间（`ui-theme` / `locale` / `ui-onboarding` / `ui-chat`）**零读者**；`ui-deliverables` 的两条 `/api/present.*` 路由也没人用，它那段 system-prompt 里**有行为价值的那半句搬进了部署提示词**（`DeploymentPrompt.swift` 的 AGENTS.md 托管块），"以便在 Web 里点开"那半句删掉（我们的 SPA 不把行内代码渲染成可点链接）。
-- **已查明但不能剪的一块**：`dsh-web-frontend`（4.6 MB，官方页面资产）看着像死重——我们的页面由桥托管，引擎的 `/` 从不被浏览。但它**是活的**：壳的 `EngineAuth` 用"请求 `/` → 303 + Set-Cookie"换会话 cookie（`EngineAuth.swift`），而 `/` 由 `web-app` 行在**请求时**解析 `@deepseek-ai/dsh-web-frontend/dist/index.html`，包不在就直接抛错——剪掉等于让应用连不上引擎。要剪它得先让引擎的 `/` 由一个 DeepDive 自己的极简 static owner 应答（那是"自有引擎"该走的一步），不是删包。
+- **已查明但不能只靠"剪"的一块**：`dsh-web-frontend`（4.6 MB，官方页面资产）+ 它的宿主 `web-app`（id `web-runtime`）。看着像死重——我们的页面由桥托管——但它们**是活的**，而且这不是删包而是**接管整个 web runtime**：
+  - 壳的 `EngineAuth` 用"请求 `/` → 303 + Set-Cookie → 带 cookie 再取 `/` → 200"换会话 cookie；303 由 `connection` 的 `authorizeIndex` 发，**200 的正文由 `frontend-static` 兜底座位提供**，而那个座位的 `distIndex` 是 `web-app` 在挂载时经 `resolveDistIndex()` 解析的——包不在，挂载即抛错。
+  - `connection` 的 `trustedHosts` 来自 `webRuntime` 服务（组合里的 `!!js ctx.webRuntime.trustedHosts`），而 `webRuntime` 正是 `web-app` 提供的。
+  - `dsh web: <url>` 那行（**壳靠它拿端口**）也是 `web-app` 打的（`printUrl`）——格式是壳侧的硬契约。
+  所以要剪它，得由我们自己的包提供 `webRuntime` + 打印同格式的就绪行 + 注册 `/` 的授权应答（`ctx.connection.authorizeIndex`）。这是**功能级接管**（改动落在应用启动与鉴权路径上），不是清理；判据是壳日志里 `[auth] engine cookie exchange ok` 与 `[engine] ready:` 都在。
 - **仍然保留一行**：`ui-conversation`。它的浏览器半同样是死重（4.4 MB），但**我们的 SPA 读它的设置命名空间**（`ui-conversation.busyEnter`，发送方式 queue/steer，设置页/Composer/侧栏三处）。要剪它得先有一个 DeepDive 自己的宿主包来注册这个命名空间——那是"我们自己的引擎"该走的一步，不该把用户可见设置悄悄换家。
 - **判据**：组合 dump 与 `composition.expected.txt` 的 diff **只有这五行**（证明没有连带丢配置）；`smoke-engine-boot.sh` + `smoke-engine-prompt.sh` 全绿。
 
