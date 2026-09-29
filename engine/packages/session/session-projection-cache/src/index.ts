@@ -384,6 +384,19 @@ export class SessionProjectionCache extends Service {
     await this.requireTable().put(id, { identity, rows: detached as CheckpointRecord['rows'] })
   }
 
+  /**
+   * Drop one session's cached row — deletion's counterpart to {@link write}.
+   * A row whose log is gone is a phantom: it would seed the next cold read of
+   * that id, and its document would linger under `storages/`. Fail-loud like
+   * `write`, so a caller deleting a session never reports success while the
+   * cache still describes it.
+   * @param id - the deleted session.
+   * @returns true when a row existed and is gone now.
+   */
+  async evict(id: SessionId): Promise<boolean> {
+    return this.requireTable().delete(id)
+  }
+
   private requireTable(): KvTable<SessionId, CheckpointRecord> {
     /* v8 ignore next -- Service.init assigns the table before the service becomes injectable */
     if (this.table === undefined) throw new Error('session projection cache is not initialized')

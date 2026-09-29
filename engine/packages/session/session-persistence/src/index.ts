@@ -8,6 +8,7 @@
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SessionEvent, SessionHeader, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
+import { SessionDeleteUnsupportedError } from './errors.ts'
 import type { SessionHandle, SessionAccess } from './handle.ts'
 import type { SessionPersistenceRevision } from './revision.ts'
 
@@ -25,6 +26,7 @@ export type {
 export {
   SessionAlreadyExistsError,
   SessionAlreadyOwnedError,
+  SessionDeleteUnsupportedError,
   SessionFormatUnsupportedError,
   SessionHandleClosedError,
   SessionOwnershipLostError,
@@ -103,6 +105,12 @@ export interface SessionPersistenceStatOptions {
 /** Options for {@link SessionPersistence.list}. */
 export interface SessionPersistenceListOptions {
   /** Optional cancellation for backend listing work. */
+  readonly signal?: AbortSignal
+}
+
+/** Options for {@link SessionPersistence.delete}. */
+export interface SessionPersistenceDeleteOptions {
+  /** Optional cancellation for backend deletion work. */
   readonly signal?: AbortSignal
 }
 
@@ -196,6 +204,33 @@ export abstract class SessionPersistence extends Service {
    * @returns one snapshot per stored session.
    */
   abstract list(options?: SessionPersistenceListOptions): Promise<readonly SessionPersistenceSnapshot[]>
+
+  /**
+   * Delete one stored session's durable log.
+   *
+   * Deletion is a capability, not a universal guarantee: this default refuses
+   * with {@link SessionDeleteUnsupportedError} so a backend without a deletion
+   * path never silently reports success. The shipped JSONL backend overrides it
+   * and removes the session's whole directory.
+   *
+   * Refusing is also the right answer while a write handle owns the session: its
+   * owner can still append (re-creating what was just removed), and on POSIX
+   * unlinking a directory whose `flock` is held forfeits the exclusion the lease
+   * exists to provide. "Is this session busy in the product sense" is the
+   * caller's question, not this method's — it only knows open handles.
+   * @param id - the stored session to remove.
+   * @param options - optional cancellation.
+   * @returns `true` when this backend knew the session and it is gone now
+   *   (durable artifact removed, or a created-but-unmaterialized registration
+   *   dropped); `false` when it had nothing stored for that id.
+   * @throws {SessionDeleteUnsupportedError} from a backend with no deletion path.
+   * @throws {SessionAlreadyOwnedError} while an active write handle owns the id.
+   */
+  delete(id: SessionId, options?: SessionPersistenceDeleteOptions): Promise<boolean> {
+    void id
+    void options
+    return Promise.reject(new SessionDeleteUnsupportedError(this.name))
+  }
 }
 
 export default SessionPersistence

@@ -250,6 +250,32 @@ export interface SkillListValue {
   readonly skills: readonly SkillEntry[]
 }
 
+// ── session deletion (设置 → 会话：删除) ───────────────────────────────────
+
+/** Sessions requested for deletion (batch). */
+export interface SessionDeleteSessionsRequest {
+  readonly sessionIds: readonly SessionId[]
+}
+
+/** One refused deletion, with the reason a caller renders in its own words. */
+export interface SessionDeleteRefusal {
+  readonly sessionId: SessionId
+  /**
+   * `busy` — live or running, so its log is still being written;
+   * `missing` — nothing durable for that id and no live session;
+   * `failed` — storage refused and the log is still there.
+   */
+  readonly reason: 'busy' | 'missing' | 'failed'
+  /** Storage's own message, present for `failed`. */
+  readonly detail?: string
+}
+
+/** Outcome of a delete batch: what is gone, and what was refused and why. */
+export interface SessionDeleteSessionsValue {
+  readonly deleted: readonly SessionId[]
+  readonly refused: readonly SessionDeleteRefusal[]
+}
+
 // ── skills admin (settings → 插件 → 技能) ────────────────────────────────────
 
 /** One administrable skill directory: directory name = discovery unit = delete target. */

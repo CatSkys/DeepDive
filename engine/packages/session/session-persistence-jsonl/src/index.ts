@@ -21,11 +21,12 @@ import { randomBytes } from 'node:crypto'
 import {
   SessionPersistence, SessionPersistenceRevision, SessionFormatUnsupportedError,
   SessionPersistenceCorruptionError,
-  SessionAlreadyExistsError, SessionPersistenceNotFoundError,
+  SessionAlreadyExistsError, SessionAlreadyOwnedError, SessionPersistenceNotFoundError,
   assertStoredId, materializeCreateHeader, sessionFormatVersionRefusal, validateStoredEvents,
   type SessionAccess, type SessionHandle,
   type SessionHandleReadResult,
   type SessionLocation, type SessionPersistenceCreateOptions,
+  type SessionPersistenceDeleteOptions,
   type SessionPersistenceListOptions, type SessionPersistenceOpenOptions,
   type SessionPersistenceSnapshot, type SessionPersistenceStatOptions,
   type SessionPersistenceRevision as PersistenceRevision,
@@ -487,6 +488,56 @@ class JsonlSessionPersistence extends SessionPersistence {
     }
     signal?.throwIfAborted()
     return snapshots
+  }
+
+  /**
+   * Delete one stored session: every project directory holding its session
+   * directory, so all generations, the `session.lock` file, and any leftover
+   * temp artifact go together.
+   *
+   * The id is scanned across project directories rather than derived from a
+   * cwd: the bucket name is a lossy slug, so a caller-supplied cwd is not the
+   * authority on where the log landed (a session is unique across buckets —
+   * `findLog` refuses duplicates).
+   *
+   * Refused while a write handle owns the id: that owner can still append and
+   * would re-create what was just unlinked, and on POSIX unlinking a directory
+   * whose `flock` is held forfeits the exclusion the lease provides. Read
+   * handles are not refused — their next read fails with
+   * `SessionPersistenceNotFoundError`, which is the honest answer once the log
+   * is gone.
+   * @param id - stored session to remove.
+   * @param options - optional cancellation.
+   * @returns true when this backend knew the session and it is gone now.
+   * @throws {SessionAlreadyOwnedError} while an active write handle owns the id.
+   */
+  override async delete(id: SessionId, options?: SessionPersistenceDeleteOptions): Promise<boolean> {
+    const signal = options?.signal
+    signal?.throwIfAborted()
+    await this.ensureRootEncoding()
+    signal?.throwIfAborted()
+    if (this.tracker.holdsWrite(id)) throw new SessionAlreadyOwnedError(id)
+    // In-flight decode/migration work for this id must not publish afterwards.
+    this.migrationPreparations.get(id)?.controller.abort()
+    this.migrationPreparations.delete(id)
+    this.coldLogMemo.delete(id)
+    const known = this.tracker.pendingOf(id) !== undefined
+    let removed = false
+    for (const project of await this.listProjectDirs(signal)) {
+      signal?.throwIfAborted()
+      const directory = join(project, encodeSegment(id))
+      try {
+        // No `force`: an absent directory must stay distinguishable from a
+        // removed one, because that difference is this method's return value.
+        await rm(directory, { recursive: true })
+        removed = true
+      } catch (error: unknown) {
+        signal?.throwIfAborted()
+        if (!isENOENT(error)) throw error
+      }
+    }
+    this.tracker.forget(id)
+    return removed || known
   }
 
   // --- handle-facing storage internals (package-private via the handle class below) ---

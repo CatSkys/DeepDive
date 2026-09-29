@@ -903,6 +903,68 @@ describe('workspace mutation and status', () => {
   })
 })
 
+describe('session unarchive and forget', () => {
+  it('unarchives durably and idempotently, leaving accounting untouched', async () => {
+    const dir = await makeDir('unarchive-home')
+    const result = await harness({ sessions: [header('a', dir, 100), header('b', dir, 200)] })
+    const workspace = result.registry.list()[0]!
+    await result.registry.archiveSession(SessionId('a'))
+    await result.registry.archiveSession(SessionId('b'))
+    expect(result.registry.archivedSessionIds).toEqual(['a', 'b'])
+
+    await result.registry.unarchiveSessions([SessionId('a')])
+    expect(result.registry.archivedSessionIds).toEqual(['b'])
+    expect(storedState(result.pool).archivedSessionIds).toEqual(['b'])
+    // Unarchiving is a display-set write: the account keeps the id, so the
+    // session returns to its recorded position.
+    // Accounting keeps both ids in activity order (newest first).
+    expect(workspace.sessionIds).toEqual(['b', 'a'])
+
+    const writesBefore = result.changes.length
+    await result.registry.unarchiveSessions([SessionId('a')])
+    expect(result.changes.length).toBe(writesBefore)
+  })
+
+  it('unarchives an id whose log is already gone (no existence check)', async () => {
+    const dir = await makeDir('unarchive-ghost')
+    const result = await harness({ sessions: [header('ghost', dir, 100)] })
+    await result.registry.archiveSession(SessionId('ghost'))
+    // The log disappears (deleted elsewhere): the stale archive entry must
+    // still be clearable, or a deleted id stays on the archive surface forever.
+    result.list.mockResolvedValue([])
+    await result.registry.unarchiveSessions([SessionId('ghost')])
+    expect(result.registry.archivedSessionIds).toEqual([])
+  })
+
+  it('forgets a deleted session from the archive set and every account', async () => {
+    const dir = await makeDir('forget-home')
+    const result = await harness({ sessions: [header('gone', dir, 100), header('kept', dir, 200)] })
+    const workspace = result.registry.list()[0]!
+    expect(workspace.sessionIds).toEqual(['kept', 'gone'])
+    await result.registry.archiveSession(SessionId('gone'))
+
+    await result.registry.forgetSessions([SessionId('gone')])
+
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(storedState(result.pool).archivedSessionIds).toEqual([])
+    expect(workspace.sessionIds).toEqual(['kept'])
+    // Accounting is durable: a restarted registry over the same medium must not
+    // bring the deleted session back.
+    await result.fiber.dispose()
+    const restarted = await harness({ pool: result.pool, sessions: [header('kept', dir, 200)] })
+    expect(restarted.registry.list()[0]!.sessionIds).toEqual(['kept'])
+  })
+
+  it('forgetting an empty batch writes nothing', async () => {
+    const dir = await makeDir('forget-empty')
+    const result = await harness({ sessions: [header('kept', dir, 100)] })
+    const writesBefore = result.changes.length
+    await result.registry.forgetSessions([])
+    await result.registry.unarchiveSessions([])
+    expect(result.changes.length).toBe(writesBefore)
+  })
+})
+
 describe('registry-global session archive', () => {
   it('archives durably in order, idempotently skips repeats, and leaves accounting untouched', async () => {
     const dir = await makeDir('archive-home')

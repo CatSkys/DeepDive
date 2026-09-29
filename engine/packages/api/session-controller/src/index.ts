@@ -16,6 +16,7 @@ import {
   type ApiSessionAgentResult,
 } from './agent.ts'
 import { SessionCommandController } from './commands.ts'
+import { SessionDeleteController } from './delete.ts'
 import { SessionControlController } from './control.ts'
 import { SessionHistoryController } from './history.ts'
 import { SessionFileReferences } from './file-references.ts'
@@ -33,6 +34,8 @@ import type {
   SessionControlFrame,
   SessionCreateRequest,
   SessionCreateValue,
+  SessionDeleteSessionsRequest,
+  SessionDeleteSessionsValue,
   SessionFollowFrame,
   SessionFollowRequest,
   SessionForkRequest,
@@ -104,6 +107,7 @@ export class SessionController extends TypertRemoteService {
 
   private readonly agents: ApiSessionAgentController
   private readonly commands: SessionCommandController
+  private readonly deletion: SessionDeleteController
   private readonly controlState: SessionControlController
   private readonly history: SessionHistoryController
   private readonly listState: ApiSessionList
@@ -122,6 +126,7 @@ export class SessionController extends TypertRemoteService {
     installModelSelectionProjection(ctx)
     this.agents = new ApiSessionAgentController(ctx)
     this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
+    this.deletion = new SessionDeleteController(ctx)
     ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
       const result = await this.agents.resolveAgent(sessionId)
       if ('error' in result) throw result.error
@@ -324,6 +329,18 @@ export class SessionController extends TypertRemoteService {
   @Remote('rename')
   rename(request: SessionRenameRequest): Promise<SessionRenameValue> {
     return this.commands.rename(request)
+  }
+
+  /**
+   * Delete Sessions outright: stored log, projection-cache row, archive entry,
+   * and workspace accounting. Partial by design — refusals come back with a
+   * reason so the caller can say which ids survived.
+   * @param request - Session identities to delete.
+   * @returns what was deleted, and every refusal with its reason.
+   */
+  @Remote('deleteSessions')
+  deleteSessions(request: SessionDeleteSessionsRequest): Promise<SessionDeleteSessionsValue> {
+    return this.deletion.deleteSessions(request)
   }
 
   /**

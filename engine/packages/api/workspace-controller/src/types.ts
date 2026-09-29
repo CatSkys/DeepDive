@@ -109,6 +109,16 @@ export interface WorkspaceArchiveValue {
   readonly archivedSessionIds: readonly SessionId[]
 }
 
+/** Sessions requested for removal from the archive set (batch, idempotent). */
+export interface WorkspaceUnarchiveSessionsRequest {
+  readonly sessionIds: readonly SessionId[]
+}
+
+/** Complete archived Session set after unarchiving. */
+export interface WorkspaceUnarchiveValue {
+  readonly archivedSessionIds: readonly SessionId[]
+}
+
 /** Complete reconnect baseline for Workspace browser state. */
 export interface WorkspaceBaseline {
   readonly items: readonly WorkspaceView[]

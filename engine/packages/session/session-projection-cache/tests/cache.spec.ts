@@ -278,6 +278,18 @@ describe('SessionProjectionCache write policy', () => {
     await expect(ctx.sessionProjectionCache.write(clean)).rejects.toThrow('not losslessly JSON-serializable')
   })
 
+  it('evict() drops the stored row and its document, and reports a missing row', async () => {
+    const { ctx, root, cache } = await harness()
+    const session = ctx.sessions.create(SessionId('evicted'))
+    await cache.write(session)
+    expect(await storedRows(root, session.id)).toBeDefined()
+
+    expect(await cache.evict(session.id)).toBe(true)
+    expect(await storedRows(root, session.id)).toBeUndefined()
+    // Nothing left to evict: false, not an error.
+    expect(await cache.evict(session.id)).toBe(false)
+  })
+
   it('plugin disposal clears armed interval timers and leaves cleaned sessions alone', async () => {
     vi.useFakeTimers()
     const { ctx, root, fiber } = await harness({ config: { writeEveryEvents: 100, writeIntervalMs: 5000 } })

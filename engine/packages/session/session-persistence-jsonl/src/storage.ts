@@ -440,6 +440,29 @@ export class JsonlBackendTracker {
   }
 
   /**
+   * Whether an active write handle (or an in-flight claim) owns this session.
+   * Storage must not be removed under a live write owner: it can still append,
+   * re-creating the artifact, and its lease exclusion dies with the unlinked
+   * directory.
+   * @param id - the session to test.
+   * @returns true while a write owner exists.
+   */
+  holdsWrite(id: SessionId): boolean {
+    return this.writers.has(id)
+  }
+
+  /**
+   * Drop every in-process registration for one id. Used by deletion, where the
+   * session is gone for good: a surviving `writers` claim or `pending` entry
+   * would make the id look owned (or listed) after its storage vanished.
+   * @param id - the deleted session.
+   */
+  forget(id: SessionId): void {
+    this.writers.delete(id)
+    this.pending.delete(id)
+  }
+
+  /**
    * The pending entry for a created-but-unmaterialized session, if any.
    * @param id - the session to look up.
    * @returns the pending header and in-memory revision.

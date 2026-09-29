@@ -77,6 +77,20 @@ export class SessionHandleClosedError extends Error {
 }
 
 /**
+ * A backend was asked to delete a stored session and keeps no deletion path.
+ * Deletion is a backend capability, not a universal guarantee: the shipped
+ * JSONL backend removes the session's whole directory, and a backend that
+ * cannot must refuse loudly instead of pretending the log is gone.
+ */
+export class SessionDeleteUnsupportedError extends Error {
+  /** @param backend - the refusing backend's label. */
+  constructor(readonly backend: string) {
+    super(`${backend}: this backend cannot delete stored sessions`)
+    this.name = 'SessionDeleteUnsupportedError'
+  }
+}
+
+/**
  * A backend-resolved, per-session local artifact location. Carried only by
  * refusal diagnostics ({@link SessionFormatUnsupportedError}) so a user can
  * find the raw log a build refused to interpret; it is not a consumer-facing

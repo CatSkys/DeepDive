@@ -254,6 +254,58 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
+   * Remove sessions from the registry-global archive set. Idempotent, and
+   * deliberately without an existence check: an archive entry for a session
+   * whose log is already gone must still be clearable, or the stale entry would
+   * keep a deleted id on the archive surface forever.
+   * @param sessionIds - sessions to unarchive.
+   * @returns resolution after durability.
+   */
+  unarchiveSessions(sessionIds: readonly SessionId[]): Promise<void> {
+    return this.enqueueOperation(async () => {
+      const ids = new Set(sessionIds)
+      if (ids.size === 0) return
+      const state = this.requireState()
+      const archived = state.archivedSessionIds.filter(id => !ids.has(id))
+      if (archived.length === state.archivedSessionIds.length) return
+      await this.setState({ ...state, archivedSessionIds: archived })
+    })
+  }
+
+  /**
+   * Forget sessions that no longer exist: drop them from the archive set, from
+   * every workspace's durable accounting, and from the header index that backs
+   * workspace views and `sessionKnown`.
+   *
+   * Durability first, index second: the archive set and the workspace rows are
+   * written before the in-memory index forgets the id, so a crash in between
+   * leaves a session that is still listed but no longer accounted — the
+   * harmless direction. The reverse order would let a deleted session come back
+   * through the header index after a restart.
+   * @param sessionIds - the deleted sessions.
+   * @returns resolution after durability.
+   */
+  forgetSessions(sessionIds: readonly SessionId[]): Promise<void> {
+    return this.enqueueOperation(async () => {
+      const ids = new Set(sessionIds)
+      if (ids.size === 0) return
+      const state = this.requireState()
+      const archived = state.archivedSessionIds.filter(id => !ids.has(id))
+      if (archived.length !== state.archivedSessionIds.length) {
+        await this.setState({ ...state, archivedSessionIds: archived })
+      }
+      for (const entity of this.entities.values()) {
+        for (const id of ids) await entity.detachSession(id)
+      }
+      for (const id of ids) {
+        this.headers.delete(id)
+        this.sessionPaths.delete(id)
+        this.invalidSessionPaths.delete(id)
+      }
+    })
+  }
+
+  /**
    * Whether a session is live, header-indexed, or present in a fresh
    * persistence listing. Only a definite miss returns false — a failing
    * `sessionPersistence.list()` propagates so storage faults never
