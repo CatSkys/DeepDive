@@ -223,7 +223,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // Host-command channel (§3.1): frontend posts open-settings/host-ready.
         webView.configuration.userContentController.add(self, name: "deepdiveHost")
 
-        UiProbe.measureProvider = { [weak self] s, p in self?.probeMeasure(selectors: s, props: p) }  // 见 +Probe
+        UiProbe.measureProvider = { [weak self] s, p, done in self?.probeMeasure(selectors: s, props: p, completion: done) }  // 见 +Probe
 
         window.contentView = glass
         // Full-bleed handle UNDER the webview: it only receives events the

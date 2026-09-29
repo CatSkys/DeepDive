@@ -14,24 +14,21 @@ import WebKit
 extension MainWindowController {
     /// 一次探针取数：原生层事实（JS 量不到的那半边）＋ webview 里的节点矩形与
     /// computed style。整体在主线程跑（webView 只能在主线程动），由 UiProbe.handle
-    /// 在连接线程上等信号量——等待绝不能发生在主线程，否则与派发互锁。
-    func probeMeasure(selectors: [String], props: [String]) -> String? {
-        guard let script = UiProbe.script(selectors: selectors, props: props) else { return nil }
-        var nodes: String?
-        let done = DispatchSemaphore(value: 0)
+    func probeMeasure(selectors: [String], props: [String], completion: @escaping (String?) -> Void) {
+        guard let script = UiProbe.script(selectors: selectors, props: props) else { return completion(nil) }
+        // evaluateJavaScript 不阻塞，回调在主线程——所以这里直接续上，不等它。
         webView.evaluateJavaScript(script) { result, _ in
-            nodes = result as? String
-            done.signal()
+            let nodes = (result as? String)
+                .flatMap { $0.data(using: .utf8) }
+                .flatMap { try? JSONSerialization.jsonObject(with: $0) }
+            let payload: [String: Any] = [
+                "ok": true,
+                "native": self.nativeFacts(),
+                "nodes": nodes ?? [],
+            ]
+            guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return completion(nil) }
+            completion(String(data: data, encoding: .utf8))
         }
-        guard done.wait(timeout: .now() + .milliseconds(4_000)) != .timedOut else { return nil }
-        let nodesList = nodes.flatMap { $0.data(using: .utf8) }.flatMap { try? JSONSerialization.jsonObject(with: $0) }
-        let payload: [String: Any] = [
-            "ok": true,
-            "native": nativeFacts(),
-            "nodes": nodesList ?? [],
-        ]
-        guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return nil }
-        return String(data: data, encoding: .utf8)
     }
 
     /// 原生层事实：窗口与两块 webview 的真实几何、外观、缩放。窗口坐标（不是屏幕

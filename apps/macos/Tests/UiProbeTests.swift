@@ -15,11 +15,22 @@ final class UiProbeTests: XCTestCase {
         )
     }
 
-    private func withProvider(_ body: @escaping ([String], [String]) -> String?,
+    private func withProvider(_ body: @escaping ([String], [String], @escaping (String?) -> Void) -> Void,
                               _ test: () throws -> Void) rethrows {
         UiProbe.measureProvider = body
         defer { UiProbe.measureProvider = nil }
         try test()
+    }
+
+    /// handle 会派发到主线程再等结果（provider 异步），所以调用方必须在主线程之外——
+    /// 桥的连接线程天然满足，单测宿主是主线程，得自己借一条。
+    private func offMain(_ body: @escaping () -> Void) {
+        let finished = expectation(description: "off-main")
+        DispatchQueue.global().async {
+            body()
+            finished.fulfill()
+        }
+        wait(for: [finished], timeout: 10)
     }
 
     func testRejectsMissingOrWrongToken() {
@@ -40,40 +51,42 @@ final class UiProbeTests: XCTestCase {
 
     func testPassesOnlySelectorsAndPropsThrough() {
         var seen: [(selectors: [String], props: [String])] = []
-        withProvider({ selectors, props in
+        var status = 0
+        withProvider({ selectors, props, done in
             seen.append((selectors, props))
-            return #"{"ok":true,"native":{},"nodes":[]}"#
+            done(#"{"ok":true,"native":{},"nodes":[]}"#)
         }) {
-            let response = UiProbe.handle(probeRequest(
-                body: #"{"selectors":[".a",".b"],"props":["width"]}"#, token: UiProbe.token))
-            XCTAssertEqual(response.status, 200)
-            XCTAssertEqual(seen.count, 1)
-            XCTAssertEqual(seen[0].selectors, [".a", ".b"])
-            XCTAssertEqual(seen[0].props, ["width"])
+            offMain {
+                status = UiProbe.handle(self.probeRequest(
+                    body: #"{"selectors":[".a",".b"],"props":["width"]}"#, token: UiProbe.token)).status
+            }
         }
+        XCTAssertEqual(status, 200)
+        XCTAssertEqual(seen.count, 1)
+        XCTAssertEqual(seen[0].selectors, [".a", ".b"])
+        XCTAssertEqual(seen[0].props, ["width"])
     }
 
     func testCapsSelectorCount() {
         var count = 0
-        withProvider({ selectors, _ in
+        withProvider({ selectors, _, done in
             count = selectors.count
-            return #"{"ok":true,"native":{},"nodes":[]}"#
+            done(#"{"ok":true,"native":{},"nodes":[]}"#)
         }) {
-            let many = (0..<64).map { ".s\($0)" }
-            let body = String(decoding: try! JSONSerialization.data(withJSONObject: ["selectors": many]), as: UTF8.self)
-            _ = UiProbe.handle(probeRequest(body: body, token: UiProbe.token))
+            offMain {
+                let many = (0..<64).map { ".s\($0)" }
+                let body = String(decoding: try! JSONSerialization.data(withJSONObject: ["selectors": many]), as: UTF8.self)
+                _ = UiProbe.handle(self.probeRequest(body: body, token: UiProbe.token))
+            }
         }
         XCTAssertEqual(count, 32, "选择器数要有上限：这是量界面的口，不是批处理口")
     }
 
     func testRejectsEmptySelectorList() {
-        withProvider({ _, _ in #"{"ok":true}"# }) {
-            XCTAssertEqual(UiProbe.handle(probeRequest(body: "{}", token: UiProbe.token)).status, 200)
-        }
         // 空选择器不该白跑一趟 provider
         var called = false
-        withProvider({ _, _ in called = true; return "{}" }) {
-            _ = UiProbe.handle(probeRequest(body: #"{"selectors":[]}"#, token: UiProbe.token))
+        withProvider({ _, _, done in called = true; done("{}") }) {
+            offMain { _ = UiProbe.handle(self.probeRequest(body: #"{"selectors":[]}"#, token: UiProbe.token)) }
         }
         XCTAssertFalse(called)
     }

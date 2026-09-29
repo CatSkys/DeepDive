@@ -23,9 +23,13 @@ enum UiProbe {
     static let token = UUID().uuidString.replacingOccurrences(of: "-", with: "")
 
     /// 由窗口控制器装：桥是单例、窗口控制器不是（与 BrowserControl.tabsProvider 同理）。
-    /// 参数是（选择器数组, 属性名数组），返回一段 JSON 文本（原生事实 + 节点列表）；
-    /// 返回 nil = 取不到（窗口没了、脚本拼不出来、webview 不应答），按失败回。
-    static var measureProvider: ((_ selectors: [String], _ props: [String]) -> String?)?
+    /// 参数是（选择器数组, 属性名数组, 完成回调），**异步**回调一段 JSON 文本
+    /// （原生事实 + 节点列表）；回调 nil = 取不到（窗口没了、脚本拼不出来、
+    /// webview 不应答），按失败回。
+    ///
+    /// 必须是异步的：WKWebView 的 evaluateJavaScript 回调只在主线程跑，而量界面
+    /// 本身也得在主线程——在主线程上等它就是自锁（曾如此，每请求恒定超时）。
+    static var measureProvider: ((_ selectors: [String], _ props: [String], _ done: @escaping (String?) -> Void) -> Void)?
 
     /// 单次请求的选择器上限：这是量界面的口，不是批处理口。
     private static let maxSelectors = 32
@@ -72,24 +76,21 @@ enum UiProbe {
         guard !selectors.isEmpty else {
             return json(["ok": false, "error": "no selectors"])
         }
-        // 必须在主线程量（webView 只能在主线程动），但等待绝不能发生在主线程——
-        // 那会与派发互锁，只能等满超时白跑一趟。桥的连接线程天然满足；主线程直接
-        // 调进来时（单测宿主就是这样）就地同步量，不派发。
+        // 主线程发起量测、连接线程等结果：等待绝不能发生在主线程。provider 自身
+        // 是异步的（见其注释），所以派发块立刻就返回，主线程不会被占住。
+        // 桥的每个连接一个线程，这里等满 timeout 也不会拖累界面。
         var payload: String?
-        if Thread.isMainThread {
-            payload = measure(Array(selectors), props)
-        } else {
-            let done = DispatchSemaphore(value: 0)
-            DispatchQueue.main.async {
-                payload = measure(Array(selectors), props)
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async {
+            measure(Array(selectors), props) { text in
+                payload = text
                 done.signal()
             }
-            // 超时按失败回：宁可报超时，也不把一个挂死的 webview 变成永久占住的连接。
-            guard done.wait(timeout: .now() + .milliseconds(timeoutMs)) != .timedOut else {
-                return json(["ok": false, "error": "timeout"])
-            }
         }
-        guard let text = payload, let data = text.data(using: .utf8) else {
+        // 超时按失败回：宁可报超时，也不把一个挂死的 webview 变成永久占住的连接。
+        guard done.wait(timeout: .now() + .milliseconds(timeoutMs)) != .timedOut,
+              let text = payload,
+              let data = text.data(using: .utf8) else {
             return json(["ok": false, "error": "timeout"])
         }
         return .init(status: 200, body: data)

@@ -880,3 +880,15 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   （一次 input 事件）更是整个查找都不发出去（实测 wire 上零条 `browser-find`，页面上却看不出异常）。
 - 处置：把新值显式沿参数交出去（`onStep(forward, next)`），别让回调去读刚 set 的那个 state。
   凡是"事件里 setState 之后立刻要用新值"的地方，一律走参数或 ref，不留这种一帧延迟。
+
+### 9.7 主线程上等 `evaluateJavaScript` 的回调 = 必然超时（2026-09-30 实测）
+- 事故：量化探针（`UiProbe`）第一版在主线程里 `webView.evaluateJavaScript(script) { … done.signal() }`
+  之后立刻 `semaphore.wait()`。而 WKWebView 的回调**只在主线程跑**——主线程正卡在 wait 上，
+  回调永远不来，于是每个请求都等满超时回 `{"ok":false,"error":"timeout"}`（app 本身完全正常，
+  界面、日志都看不出问题）。单测当时还是绿的：测试宿主在主线程上同步注入假 provider，
+  绕过了真路径。
+- 处置：凡"派发到主线程 + 等结果"的组合，**等的那一步绝不能发生在主线程**。跨线程等（连接线程等
+  信号量）是常态；主线程上只能发起、不能等。`UiProbe` 因此把 provider 定成异步
+  （`done` 回调），主线程只负责发起 `evaluateJavaScript`，连接线程等它。
+- 教训：这类壳侧通道要**在真机跑一次**才算数——单测验证不了线程模型，而"UI 正常、只有新通道超时"
+  这种症状最容易误判成环境问题。
