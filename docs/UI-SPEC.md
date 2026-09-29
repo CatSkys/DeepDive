@@ -41,7 +41,6 @@
 | `surface.inverted` | `#FFFFFF` | `#2A2A2E` | 反色强调（标题底下衬、激活项） |
 | `border.default` | `rgba(0,0,0,.11)` | `rgba(255,255,255,.09)` | 分隔线、通用描边 |
 | `border.strong` | `rgba(0,0,0,.22)` | `rgba(255,255,255,.18)` | 输入框/浮层描边 |
-| `border.gloss` | `rgba(255,255,255,.55)` | `rgba(255,255,255,.16)` | 玻璃顶部 1px 高光 |
 | `focus` | `#000000` | `#FFFFFF` | 键盘焦点环（黑白主题） |
 | `status.running` | `#8A8A8E` | `#D8D8DC` | 运行中（白点呼吸） |
 | `status.waiting` | `#1A1A1A` | `#F2F2F3` | 等待你 ⚠（白点 + 加粗 + 整行高亮） |
@@ -100,7 +99,7 @@
 | `radius.bubble` | 24px | 聊天气泡软胶囊 |
 | `radius.keycap` | 6px | 键帽 |
 | `border.width` | 1px `border.default` | 通用描边 |
-| `border.gloss` | 顶部 1px `gloss` | 玻璃边缘光（浮层/面板） |
+| 边缘高光 | 不用独立 token | 顶部高光由 §1.4 三档投影里的 `inset 0 1px 0` 层承担；亮色改用 1px 底缘接地线 |
 | 窗口阴影 | 系统提供 | 原生窗口/面板 |
 
 **投影只有三档**（数值在 `theme.css` 的 `:root`，两套主题各一份配方）：
@@ -121,7 +120,7 @@
 - **窗口必须 `isOpaque = false` + `backgroundColor = .clear`**：底板采样的是窗口背后的桌面，不透明的窗口只能退化成"窗内混合"的平灰（AppKit 不会因为 contentView 是玻璃视图就自动改，见 `PITFALLS §4.27`）。
 - tint 只定基调，玻璃观感归玻璃：两条分支的档位见 `WindowGlassView`（退回分支以 `surface.panel` 为准；液态玻璃自带亮度，tint 只往近黑拉一档）。压到近实色（≥.8）等于把玻璃盖死。
 - Web 侧表面色用 1.1 半透明值透出材质；**内容区例外**：`.main`/会话卡/右侧面板卡（`--card-gradient`）取近实色——底下是用户壁纸时正文才读得清。
-- 玻璃细节：`surface.raised` ≥62% + `border.gloss` 顶部高光 + `shadow.floating`。
+- 玻璃细节：`surface.raised` ≥62% + 顶部高光（投影档的 inset 层）+ 对应投影档。
 
 ### 1.6 图标（组件库已锁定：Lucide）
 
@@ -224,7 +223,7 @@
 | **ProgressLine** | 1px | 黑白进度；不转圈 |
 | **MarkdownContainer** | — | 正文 13/18；代码块 `terminal.bg` 圆角 10+复制；引用 2px 左条；链接（`[标签](url)`、加粗里的 URL、正文裸 URL 三种写法）点击一律经壳 `open-url` 用默认浏览器打开，不在 SPA 内跳转 |
 | **EmptyState** | — | 32px 图标 + **一句** |
-| **FloatingCard** | — | 圆角 20 + `surface.raised` + `border.gloss` + `shadow.floating` + scrim（浮层唯一样式） |
+| **FloatingCard** | — | 圆角 20 + `surface.raised` + 顶部高光（投影档 inset 层）+ `--shadow-pop` + scrim（浮层唯一样式） |
 | **FadeEdge** | `fade-x / fade-y` | **超限标准 UI（2026-09 定稿）**：滚动容器有内容被藏住、未滚到该边缘时，那一侧 24px mask 渐隐提示「后面还有」，滚到边自动消失，替代生硬裁切线与裸滚动条。实现：`useEdgeFade`（信号）+ theme.css 末尾 `.fade-x/.fade-y`（样式）；现役：会话流、边栏会话列表、底部空间切换条。**会话流的顶部例外**（2026-09-14 用户定稿）：范围按 `--session-fade-top` 拉长（数值以 theme.css 的 `:root` 为准），且会话头部**悬浮**在其上（`.session > .session-header` 绝对定位）、内容上沿顶到界面顶部从头部下面滑过——那一段另叠 `.session-fade`（渐变模糊：叠六层 `backdrop-filter`，半径按几何级数逐层减半、每层用 mask 只在自己那一段波段显形——progressive blur 标准做法）做「渐隐 + 模糊」；雾的强度与内容渐隐长度都随滚动深度**连续**渐变（深度 0 即无雾无渐隐；渐显走模糊半径，**不可用 opacity**——opacity<1 会让磨砂失效；渐隐长度走 `--flow-fade-live`，不可用布尔开关——固定长度会在越过阈值那一刻把顶部内容整片压暗，而模糊尚未开始），常数与层结构在 theme.css（`:root` 变量 + `.session-fade > i` 的六层 mask 规则） |
 
 ### 2.2 消息规范（两类，严格独立——用户定稿，2026-09）
