@@ -2,6 +2,7 @@
 // 设置分区统一搜索，回车直达。OpenHost 挂 App 根部，openCommandPalette() /
 // toggleCommandPalette() 供键位与其它入口调用。无全屏遮罩：浮层挂 top-center，
 // 点外部 / Esc 关闭。
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
@@ -203,6 +204,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
                   type="button"
                   data-idx={idx}
                   className={`${css.row}${idx === active ? ` ${css.active}` : ""}`}
+                  style={{ "--i": idx } as CSSProperties}
                   onMouseEnter={() => setActive(idx)}
                   onClick={() => runRow(row)}
                 >

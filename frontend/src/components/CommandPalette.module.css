@@ -43,7 +43,11 @@
 .list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
 .sep { height: 1px; background: var(--line); margin: 6px 10px; }
 
+/* 逐行错落入场：步进 10ms、封顶 8 步（列表再长也不至于"下完雨"）。index 由 TSX
+   以 --i 传入；全 app 只此一处用错落入场，别把它变成通例。 */
 .row {
+  animation: cp-row-in var(--dur-fast) var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 8) * 10ms);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -64,3 +68,11 @@
 .check { color: var(--ink); flex: none; }
 
 .empty { padding: 14px 12px; font-size: var(--dsh-font-size-base); color: var(--ink-3); }
+
+@keyframes cp-row-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row { animation: none; }
+}

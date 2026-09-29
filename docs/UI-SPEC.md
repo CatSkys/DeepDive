@@ -221,7 +221,7 @@
 | **Tooltip** | — | P1 Web 内 120ms；**P2 原生** |
 | **ToastBar** | 信息/错误 | 面板底部：左一句 右动作+键帽；3s |
 | **ProgressLine** | 1px | 黑白进度；不转圈 |
-| **MarkdownContainer** | — | 正文 13/18；代码块 `terminal.bg` 圆角 10+复制；引用 2px 左条；链接（`[标签](url)`、加粗里的 URL、正文裸 URL 三种写法）点击一律经壳 `open-url` 用默认浏览器打开，不在 SPA 内跳转 |
+| **MarkdownContainer** | — | 正文 14/23（中文阅读通道 1.64，1.5 偏紧）；代码块 `terminal.bg` 圆角 10+复制；引用 2px 左条；链接（`[标签](url)`、加粗里的 URL、正文裸 URL 三种写法）点击一律经壳 `open-url` 用默认浏览器打开，不在 SPA 内跳转 |
 | **EmptyState** | — | 32px 图标 + **一句** |
 | **FloatingCard** | — | 圆角 20 + `surface.raised` + 顶部高光（投影档 inset 层）+ `--shadow-pop` + scrim（浮层唯一样式） |
 | **FadeEdge** | `fade-x / fade-y` | **超限标准 UI（2026-09 定稿）**：滚动容器有内容被藏住、未滚到该边缘时，那一侧 24px mask 渐隐提示「后面还有」，滚到边自动消失，替代生硬裁切线与裸滚动条。实现：`useEdgeFade`（信号）+ theme.css 末尾 `.fade-x/.fade-y`（样式）；现役：会话流、边栏会话列表、底部空间切换条。**会话流的顶部例外**（2026-09-14 用户定稿）：范围按 `--session-fade-top` 拉长（数值以 theme.css 的 `:root` 为准），且会话头部**悬浮**在其上（`.session > .session-header` 绝对定位）、内容上沿顶到界面顶部从头部下面滑过——那一段另叠 `.session-fade`（渐变模糊：叠六层 `backdrop-filter`，半径按几何级数逐层减半、每层用 mask 只在自己那一段波段显形——progressive blur 标准做法）做「渐隐 + 模糊」；雾的强度与内容渐隐长度都随滚动深度**连续**渐变（深度 0 即无雾无渐隐；渐显走模糊半径，**不可用 opacity**——opacity<1 会让磨砂失效；渐隐长度走 `--flow-fade-live`，不可用布尔开关——固定长度会在越过阈值那一刻把顶部内容整片压暗，而模糊尚未开始），常数与层结构在 theme.css（`:root` 变量 + `.session-fade > i` 的六层 mask 规则） |
@@ -232,7 +232,7 @@
 
 | | 用户消息 `user-bubble` | Agent 回复 `agent-message` |
 |---|---|---|
-| 形态 | **降量显示**的气泡（克制、弱层）：小字号 `base`、半透 α .07、弱边框/弱内高光、圆角 14、61% 最大宽、右对齐 | **无气泡、无任何元素背景**：纯文字（`base`/21 白 93%）+ Markdown 层级 |
+| 形态 | **降量显示**的气泡（克制、弱层）：小字号 `base`、半透 α .07、弱边框/弱内高光、圆角 14、61% 最大宽、右对齐 | **无气泡、无任何元素背景**：纯文字（`base`/23 白 93%）+ Markdown 层级 |
 | 定位 | 弱于正文（不抢戏） | 主视觉通道 |
 | 背景 | 半透明单层（无模糊） | `background: transparent`（元素与全部伪元素强制透明） |
 
