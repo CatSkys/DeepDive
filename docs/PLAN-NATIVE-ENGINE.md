@@ -72,6 +72,28 @@
 | 引擎目录体积 | 276 MB | ~200 MB | `du -sh $APP/Contents/Resources/Runtime/dsh` |
 | 冷启动 | boot smoke 就绪 | 不退化 | `scripts/smoke-engine-boot.sh` 计时 |
 
+### 3.5 下一刀的前置：一个 DeepDive 自己的宿主包（`packages/deepdive/*`）
+
+上面剩下的每一块都撞在同一件事上，所以它才是下一个真正的施工单元，而不是"再删几行"：
+
+| 要剪/要做的 | 为什么需要我们自己的包 |
+|---|---|
+| 剪 `ui-conversation`（4.4 MB） | 它的设置命名空间 `ui-conversation.busyEnter` 被 SPA 读，得有人接着注册 |
+| 剪 `dsh-web-frontend`（4.6 MB） | 引擎的 `/`（`EngineAuth` 换 cookie 用）得有个我们自己的极简 static owner 应答 |
+| §4 融合表：随应用发布的技能正文 | 需要一个随引擎装载的 bundled skill root |
+| §4 融合表：MCP 行与密钥 | 需要引擎自己的配置源（凭据面已在组合里） |
+| §5 效率：统计走投影 | 若做成宿主侧投影单元，家也在那儿 |
+
+**三个集成点已查明**（不查清就动手会把引擎构建打坏）：
+1. **`pnpm-lock.yaml` 有逐包的 importer 条目**（267 条），而 `build-engine.sh` 用
+   `pnpm install --frozen-lockfile` —— 新增工作区包必须同步更新 lockfile，否则构建直接失败。
+2. **`engine/tsconfig.host.json` 是生成的**（`gen-engine-host-include.mjs`，从上游 include
+   清单派生、只删不增，且带 `--check` 门）——新包不进这个 program 就不会被编译/打包，
+   而手改生成物会被 `--check` 判为陈旧。所以生成器要学会带上我们自己的包。
+3. **闭包收集器按组合快照播种**（`collect-engine-closure.mjs` 从
+   `composition.expected.txt` 解析包名、在 `packages/` 下按名解析）——只要 profile 有一行
+   且快照已更新，新包自然进闭包；这一步反而是免费的。
+
 ## 4. 方向三：融合——app↔engine 的边界再收
 
 **已完成（2026-09-29）**：技能目录读写、插件启停落账、会话取消归档与删除都搬回引擎（`skills/admin*`、`pluginInventory/patch*`、`workspace/unarchiveSessions`、`session/deleteSessions`）；壳不再替引擎写任何状态文件，前端那套本地覆盖层整体删除。**壳现在只剩 OS 能力 + 进程监督 + 应用分发。**
