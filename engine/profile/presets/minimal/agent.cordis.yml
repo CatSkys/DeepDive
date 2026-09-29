@@ -5,10 +5,18 @@
 # THIS LINE the product's only chance to tell the model who it is: it names
 # DeepDive and the app window, because with a generic "software engineer
 # assistant" the model inferred its identity from runtime paths and introduced
-# itself as a command-line tool (2026-09-29). Runtime
-# context snapshots are suppressed for this preset, and the model receives only
-# the persistent shell (`bash` on POSIX, `pwsh` on win32). Context compaction is
-# absent.
+# itself as a command-line tool (2026-09-29). Runtime context snapshots are
+# suppressed for this preset, and the model receives only the persistent shell
+# (`bash` on POSIX, `pwsh` on win32). Context compaction is absent.
+#
+# `agent-instructions` IS mounted (2026-09-29): instructions are not prompt
+# sections — they arrive as an injected `user/message` (`source.kind ===
+# 'agent-instructions'`) carrying the project's own `AGENTS.md` chain plus the
+# user-global `$DSH_HOME/AGENTS.md`, which is where this app keeps its deployment
+# prompt (automation proposals, rich-output fences, deliverable mentions). Without
+# this row a session in this mode ignores the repository's rules and cannot use
+# those protocols at all — the fixed-prompt design is about *sections*, not about
+# being uninformed.
 
 - id: persona
   name: '@deepseek-ai/dsh-persona'
@@ -16,6 +24,14 @@
     prefix: You are DeepDive (深潜), a coding agent running inside the DeepDive macOS app, where the user chats with you in the app's window rather than a terminal.
     complete: true
     includeRuntimeContext: false
+
+# Workspace instructions (project `AGENTS.md` chain + the user-global one). See the
+# header note: these arrive as an injected message, not as prompt text, so they do
+# not defeat the fixed-prompt design.
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
 
 # The PTY registry is an agent-owned service, so it lives in an entry-local
 # realm. The backend still consumes the host sandbox policy and subprocess
