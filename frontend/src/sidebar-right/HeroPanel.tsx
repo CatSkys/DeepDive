@@ -81,7 +81,8 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
     }
   };
 
-  if (!open) return null;
+  // 与 SessionPanel 同一形状：卡片常驻、只切收起态，开合是 CSS transition（见 theme.css .panel）。
+  if (!open) return <aside className="panel hero-panel" data-mode="settings" data-closed="true" />;
 
   return (
     <aside className="panel hero-panel" data-mode="settings">

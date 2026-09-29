@@ -38,7 +38,9 @@ export function SessionPanel({ sessionId, scheduleRecords, artifacts, face, perm
 }) {
   const surface = usePanelSurface(sessionId);
   const data = useCapsuleData(sessionId, scheduleRecords, surface.open && !surface.settings);
-  if (!surface.open) return null;
+  // 卡片常驻、只切收起态（data-closed）：开合是 CSS transition，与左边栏同一语言；
+  // 收起时正文不挂——浏览器那层是壳按 rect 摆的原生 WKWebView 槽位，挂不挂仍由开合决定。
+  if (!surface.open) return <aside className="panel" data-closed="true" />;
 
   const settingsOpen = surface.settings;
   const browserMode = surface.mode === "browser";

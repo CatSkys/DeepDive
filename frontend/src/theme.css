@@ -3034,7 +3034,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   .msg-block, .tool-row, .turn-tail, .approval-card,
   .model-menu, .model-menu-view, .ws-menu, .tool-collapse, .tool-collapse > .tool-body > *,
   .hero-title, .hero-composer, .model.trigger > svg,
-  .ws-strip, .ws-pane, .ws-cell, .main, .sidebar {
+  .ws-strip, .ws-pane, .ws-cell, .main, .sidebar, .panel {
     animation: none !important;
     transition: none !important;
   }
@@ -4475,15 +4475,29 @@ input:focus, textarea:focus, select:focus { outline: none; }
   background: var(--card-gradient);
   box-shadow: var(--shadow-card);
   overflow: hidden;
-  animation: panel-in var(--dur-med) var(--ease-out) both;
+  /* 开合＝推让，与左边栏同一语言：卡片常驻 DOM，开合走 transition（进场与退场是同一对值，
+     transition 两头都跑），不是"挂载时淡入"。
+     旧写法（animation: panel-in，只淡入 + 8px 位移，而卡片随开合挂载/卸载）的问题是两种
+     运动打架：面板还在淡入，会话列已经被瞬时挤窄 328px（2026-09-30 用户报"与左边栏完全
+     不一致"）。现在占位随 width 连续变化，推让是一件事。
+     时长取自左边栏同一对：位移 --dur-med/--ease-out、淡出 --dur-fast（.sidebar 的
+     "margin-left 220ms + opacity 200ms"；见 TODO §18b 动效词汇收敛）。 */
+  transition: width var(--dur-med) var(--ease-out),
+              margin-right var(--dur-med) var(--ease-out),
+              opacity var(--dur-fast) ease;
 }
-@keyframes panel-in { from { opacity: 0; transform: translateX(8px); } }
 /* fullscreen 呈现：盖住整张会话卡（会话让位由覆盖完成，不参与宽度计算）——
    它就是那一格里唯一的一张卡。
    底下的会话列要**停绘制**：两张卡同色，不盖住的话会话正文会从面板里透出来
    （实测：标题压在页签上、代码块透过地址栏）。与文件预览全屏同一套
    ——visibility 而不是 display，滚动位置与事件状态都保住。 */
 .panel[data-fullscreen="true"] { position: absolute; inset: 0; width: auto; z-index: 45; }
+/* 收起态：宽度滑到 0、右边距 -8 抵掉 .session-row 的 flex gap —— 净占位 0，会话列回到
+   全宽；宽/右边距一起滑，所以推让过程连续（开态右边距 0：卡外沿仍贴着卡内右缘，逐像素
+   与"面板一直是 320 宽"时相同）。
+   放在 fullscreen 规则**之后**：全屏呈现下收起时这条也要赢，否则 inset:0 的 width:auto
+   会盖掉 width:0，剩一个 320 宽的透明壳占着位。 */
+.panel[data-closed="true"] { width: 0; margin-right: -8px; opacity: 0; pointer-events: none; }
 /* 浏览器页整格一体色（用户定稿）：卡片边框/圆角/渐变全撤——格内标签行、空白页、
    页面同底色，与 .main 的圆角裁剪同心；不留任何"两层皮"的缝 */
 .panel[data-mode="browser"] {
