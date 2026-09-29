@@ -41,10 +41,11 @@ ACTUAL_NODE_VERSION="$("$NODE" -p 'process.versions.node')"
 # The vendored reference source must match the runtime pin before we embed it.
 bash "$ROOT/scripts/check-dsh-source.sh"
 
-# 引擎来源开关：`DEEPDIVE_ENGINE_SOURCE=fork` 嵌入本仓构建的引擎
-# （scripts/build-engine.sh 的产物），默认仍走 npm 闭包——随时可一键回退。
-# 两条路径过同一道 validate_runtime 门，产物形状完全一致。
-if [[ "${DEEPDIVE_ENGINE_SOURCE:-}" == "fork" ]]; then
+# 引擎来源：**默认嵌本仓构建的自有引擎**（engine/ 的产物，scripts/build-engine.sh）。
+# `DEEPDIVE_ENGINE_SOURCE=npm` 回退到 npm 闭包轨（对照/回退用）——产品面（设置→插件/技能、
+# 会话删除/取消归档）的 RPC 只在自有引擎里，npm 轨下那些面不可用，见
+# docs/PLAN-NATIVE-ENGINE.md §2。两条路径过同一道 validate_runtime 门，产物形状完全一致。
+if [[ "${DEEPDIVE_ENGINE_SOURCE:-fork}" != "npm" ]]; then
   PIN="$(tr -d '[:space:]' < "$ROOT/scripts/dsh-runtime-version.txt")"
   RUNTIME_SOURCE="$ROOT/dist/.dsh-engine-build/$PIN"
   [[ -f "$RUNTIME_SOURCE/lib/bin.js" ]] || {

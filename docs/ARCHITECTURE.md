@@ -25,7 +25,7 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-职责边界：**壳**只做 OS 级能力（窗口/热键/通知/选目录 sheet…）、进程监督，与**应用分发**（把随包的 profile、AGENTS.md 托管块、随应用发布的技能与插件装进 harness home）；**SPA** 只做渲染与交互，把用户动作路由为引擎 RPC；**引擎**持有全部业务状态——含设置面（技能清单/新建/删除/从目录安装走 `skills/admin*`，插件启停落账走 `pluginInventory/patch*`）。唯一的例外是**会话的取消归档 / 删除**：引擎 wire 面还没有这两个方法，暂由壳登记覆盖集、在停机空窗期落账（`SessionAdmin.swift`），迁移方案见 `docs/TODO.md §18`。
+职责边界：**壳**只做 OS 级能力（窗口/热键/通知/选目录 sheet…）、进程监督，与**应用分发**（把随包的 profile、AGENTS.md 托管块、随应用发布的技能与插件装进 harness home）；**SPA** 只做渲染与交互，把用户动作路由为引擎 RPC；**引擎**持有全部业务状态——设置面（技能清单/新建/删除/从目录安装走 `skills/admin*`，插件启停落账走 `pluginInventory/patch*`）与会话数据（取消归档走 `workspace/unarchiveSessions`，删除走 `session/deleteSessions`）都在引擎侧，壳不再替引擎写任何状态文件。
 
 ## 2. 通信矩阵（现实现）
 
@@ -59,7 +59,7 @@
 | `BrowserUseInstaller.swift` | 把随包的 `BrowserUse/`（MCP server + 浏览器 SDK）装进 `<support>/browser-use/`（幂等），并给出引擎 spawn 要注入的控制面 URL 与 token；组合行由 `EngineSupervisor.enginePatchBody` 写 |
 | `MainWindowController.swift` | 玻璃主窗 + 透明 WKWebView + 显隐防闪烁 + 标题栏拖拽 rect 表 + 空 NSToolbar（Tahoe 大圆角档，勿删，`PITFALLS §4.7`）+ 视图菜单的页面缩放 |
 | `MainMenu.swift` | 主菜单结构（文件/编辑/视图/窗口/帮助）：只连选择器，动作实现在 AppDelegate/MainWindowController。**可改键位不写死**——应用内快捷键（⌘N/⌘K/⌘B/⌘D/⌘⇧E/⌘,）的事实源是前端键位注册表，菜单项不占这些键，否则改键失效（文件头有完整说明） |
-| `BridgeServer.swift` + `MiniHTTPServer.swift` | 同源托管：SPA 静态文件 + `/api` 反代 + WS 盲中继（Origin 全等校验）。**监听端口固定**（`DSHAppPrefs.bridgePort` 记住，被占才退回内核分配）：端口即网页 origin，换了 origin 前端的 localStorage（会话覆盖集/用量缓存/自动化任务）就等于清零（PITFALLS §4.17）。移动端远程面复用同一套分发与中继，只是监听在 `0.0.0.0` 且先过配对闸 |
+| `BridgeServer.swift` + `MiniHTTPServer.swift` | 同源托管：SPA 静态文件 + `/api` 反代 + WS 盲中继（Origin 全等校验）。**监听端口固定**（`DSHAppPrefs.bridgePort` 记住，被占才退回内核分配）：端口即网页 origin，换了 origin 前端的 localStorage（用量缓存/自动化任务/置顶未读）就等于清零（PITFALLS §4.17）。移动端远程面复用同一套分发与中继，只是监听在 `0.0.0.0` 且先过配对闸 |
 | `RemoteAccess.swift` + `QRCode.swift` | 移动端远程访问：配对令牌（落地即轮换）、设备台账（逐台解绑）、局域网地址探测、CoreImage 生成二维码。只管「谁被允许进来」，HTTP 面复用 BridgeServer；安全边界见 `SPEC-MOBILE-REMOTE.md` |
 | `BotChannelPlugin.swift` | IM 渠道插件（`@xmanrui/dsh-im`，社区包 MIT，引脚 `scripts/dsh-im-version.txt`）安装器：把随包的整棵依赖闭包铺进 `profiles/web` 并登记 profile bundles，引擎启动后挂上 `POST /api/dsh-im/<渠道>`（Bot Channel 与机器人管理走这条）。幂等 + 失败不阻塞引擎（与 `ChatImportPlugin` 同款纪律） |
 | `EngineSupervisor.swift` / `EngineVersion.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、入口版本门（随包引脚 vs 外部 dsh）、网关调用、token→cookie 交换、事件观察、日志 |
@@ -72,7 +72,6 @@
 | `ManagedPatchBlock.swift` | home 级 patch 层（`<DSH_HOME>/cordis.patch.yml`）的路径与「托管块」读写原语：按标记对切/换/取行，段外内容逐字保留、不解析 YAML。写这份文件的壳侧消费者只剩 `McpServerAdmin`；插件开关块由引擎写（标记与格式逐字节钉在 `packages/host/plugin-inventory/src/patch-admin.ts`） |
 | `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |
 | `McpServerAdmin.swift` | MCP server 行：`- insert:` 一行一 server（`@deepseek-ai/dsh-mcp-client` + `config` 用 JSON 写进 YAML），同一份 home patch 层的第二块托管段；行上的 `disabled` 管启停，同样热生效 |
-| `SessionAdmin.swift` | 会话数据维护：取消归档 / 删除（引擎无对应 RPC 且把会话列表缓存在内存 → ①立即删 `sessions/<bucket>/<id>/`；②覆盖集登记到 UserDefaults，下次启动空窗期落账 `storages/workspace.json` 归档集 + `storages/session_projcache.json`；纯函数 + 原子写，结构不符拒绝落盘） |
 | `StatusItemController.swift` | 菜单栏状态点与菜单（引擎状态以图标呈现；失败的具体原因在 SPA 的引擎横幅里，见 §3 事件表） |
 | `WebViewTheme.swift` / `DSHAppPrefs.swift` / `AppPaths.swift` / `JSONValue.swift` | html/body 透明注入（勿加样式）、偏好、数据目录、设置面动态 JSON 树 |
 | `EngineSupervisor.ensureAutomationSkill` | 启动时把随应用发的技能铺进引擎用户技能根（`<DSH_HOME>/skills/deepdive-automation/SKILL.md`）：会话里提议定时任务；`system-prompt` 前缀只剩一行指路 |
@@ -101,11 +100,11 @@
 
 ## 5. 引擎运行时（SPEC-ENGINE-RUNTIME）
 
-- **引擎来源（双轨）**：默认嵌 npm 闭包（`prepare-dsh-runtime.sh`）；`DEEPDIVE_ENGINE_SOURCE=fork`
-  改嵌**本仓构建的自有引擎**——`engine/` 下的 dsh 内核 fork（MIT，逐字复制未改名，
-  `scripts/sync-engine-fork.mjs` 物化）经 `scripts/build-engine.sh` 双面构建出与 npm 闭包
-  同形状的产物。两条轨过同一道 `validate_runtime` 与启动/组合闸门，随时可回退；
-  fork 的范围、偏差与纪律见 `engine/README.md`。
+- **引擎来源**：默认嵌**本仓构建的自有引擎**——`engine/` 下的 dsh 内核 fork（MIT，逐字复制
+  未改名，`scripts/sync-engine-fork.mjs` 物化）经 `scripts/build-engine.sh` 双面构建出与 npm
+  闭包同形状的产物；`DEEPDIVE_ENGINE_SOURCE=npm` 回退到上游 npm 闭包轨（对照/回退用，产品面
+  的部分 RPC 不在那条轨上，见 `PLAN-NATIVE-ENGINE.md §2`）。两条轨过同一道 `validate_runtime`
+  与启动/组合闸门；fork 的范围、偏差与纪律见 `engine/README.md`。
 - **组合归本仓**：引擎装载哪些插件由 `engine/profile/` 定义（`cordis.patch.yml` 是唯一事实源），
   上游的 `@deepseek-ai/dsh-base` / `dsh-web-app` **不作为层参与组合**；壳在引擎启动前经
   `ProfileComposer` 把它装进 harness home 的 web profile 并收敛 `dsh.profile.bundles`

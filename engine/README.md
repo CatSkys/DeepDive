@@ -32,7 +32,7 @@ bash scripts/build-engine.sh       # 双面构建 → 原生 flock 编译 → �
 产物 `dist/.dsh-engine-build/<pin>/`，形状与 npm 闭包完全一致
 （`package.json` + `lib/bin.js` + 扁平 `node_modules`），因此
 `prepare-dsh-runtime.sh --validate`、`smoke-engine-boot.sh`、`embed-engine.sh`
-原样可用。嵌入应用：`DEEPDIVE_ENGINE_SOURCE=fork bash scripts/build-release.sh`
+原样可用。嵌入应用：`bash scripts/build-release.sh`（默认嵌自有引擎；`DEEPDIVE_ENGINE_SOURCE=npm` 回退闭包轨）
 （默认仍嵌 npm 闭包，随时可回退）。
 
 ## 三道对等闸门
@@ -77,5 +77,5 @@ bash scripts/build-engine.sh       # 双面构建 → 原生 flock 编译 → �
 ## 本仓对引擎的改动纪律
 
 改引擎代码 = 改本目录源码 + `bash scripts/build-engine.sh` + 两道闸门 + 
-`DEEPDIVE_ENGINE_SOURCE=fork` 走完整交付链。组合改动仍走 `engine/profile/`
+默认嵌自有引擎，走完整交付链。组合改动仍走 `engine/profile/`
 （README 见该目录），组合闸门不变。

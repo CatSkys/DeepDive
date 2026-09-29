@@ -245,17 +245,24 @@
 - 处置：`EngineSupervisor.resolveLaunchWorkspace` 三级解析——显式 `launchWorkspace` 配置 → harness 存储 `storages/workspace.json` 首个注册空间（`global.workspaceIds[0]`，与侧栏同序）→ 新用户兜底 `~/DeepDive`（不存在则建；**不放进 `~/Documents`**：那是受保护目录，首启在那里建目录会弹「文稿」授权框，而弹框出现在主窗口之前、主线程上——用户忽略就卡住整个启动，点了拒绝引擎连 cwd 都进不去，见 §4.8/§7.1.2）。侧栏空间仍是项目单位，多项目经空间注册/切换，不受影响。
 - 排查实录（勿重复走弯路）：引擎 AI 工具调用与子代理命令全部只在项目目录内（逐条核对 tool/call 事件），`@` 索引才是家目录扫描源；lsof 抓不到瞬态访问，tccd 统一日志私有不可读，结论靠引擎源码 + workspace 注册表 + 事件日志三角钉死。
 
-### 4.15 引擎把归档集与会话列表缓存在内存：改状态文件只能在停机时，UI 侧走本地覆盖
-- 背景（2026-09-12）：引脚的 0.1.5-rc.1 wire 面只有 `workspace/archiveSession`（单向），**没有取消归档、也没有删除会话**（官方 `ui-workspace/README.md` 明写 "No Session deletion or unarchive control"；`workspace/delete` 删的是**工作区注册**、明确不删会话）。归档页的「取消归档 / 删除」因此由壳配合实现。
-- **实测（本轮踩到的第一版设计错在哪）**：`session/list` 来自引擎**内存缓存**——运行中删掉 `sessions/<bucket>/<id>/` 目录后，`session/list` 照样列它。所以"改完文件指望引擎自己发现"不成立；而运行期改 `storages/*.json` 又会被内存状态在下次 `setState` 时整份覆写。**结论：引擎状态文件只能在停机时（启动空窗期）写**。第一版做法是"停引擎 → 改 → 起引擎"，实测体验很差（几秒断连横幅 + 重启期的 `session/list` 502 报错弹窗），已废弃。
-- 现设计（用户定稿）：**UI 即时生效 + 延迟落账**——① 前端持本地覆盖集（`deepdive.unarchived` / `deepdive.removed`，`sessionOverrides.ts` 纯函数过滤，导出层统一口径，轮询**存原始列表**）；② 删除时壳立刻删日志目录（毫秒级、不需引擎配合）；③ 覆盖集同步给壳登记在 UserDefaults，**下次启动的空窗期**（`applicationDidFinishLaunching` 里、`supervisor.start()` 之前）一次落账，成功后清登记（失败留到下轮重试）；④ 覆盖项在引擎不再报告它已归档 / 不再列出时自动收敛，避免无限增长。
-- 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache/sessions/<sessionId>.json`（**per-record 布局**：一个会话一份文档，见引擎 `session-projection-cache/src/spec.ts` 的 `layout: 'per-record'`。同目录下那个同名的整文件 `session_projcache.json` 是旧布局，只在「新树里一个文档都没有」时做 bootstrap，引擎此后**永不读写**——别去改它）；会话日志 = `sessions/<转义 cwd>/<sessionId>/`（**目录名就是 sessionId**，别复刻引擎的 cwd 转义规则——扫一层同名目录即可）。写盘一律临时文件 + `replaceItemAt`，结构不符拒绝写入并报错。
+### 4.15 归档集在引擎内存里；会话列表是新鲜列目录——但活会话恒在（2026-09-29 更正）
+- 背景（2026-09-12）：引脚的 0.1.5-rc.1 wire 面只有 `workspace/archiveSession`（单向），**没有取消归档、也没有删除会话**（官方 `ui-workspace/README.md` 明写 "No Session deletion or unarchive control"；`workspace/delete` 删的是**工作区注册**、明确不删会话）。当时的结论是"引擎状态文件只能在停机时写"，于是有了三层绕行（本地覆盖集 + 壳删目录 + 下次启动空窗期落账）。
+- **更正（2026-09-29 读源码 + 实机核过）**：当时那句"`session/list` 来自引擎内存缓存"只说对了一半，而这一半被记成了全部——
+  - **归档集**确实在内存（注册表 state），运行期改 `storages/workspace.json` 会被下次 `setState` 整份覆写：这条成立；
+  - **会话列表不是缓存**：`session/list` 每次走 `sessionQuery.listSessions` → 持久化的**新鲜列目录**（`SessionPersistence.list` 扫盘）。删掉日志目录后它立刻不再列出该会话——前提是**它不活**：corpus 会把 `ctx.sessions.list()` 里的活会话无条件补回列表（`live: true`）。所以"删了还列着"的真实原因是"删的是活会话"，不是缓存。
+  - 推论：**要删除/取消归档，正确做法是让引擎自己动手**（改内存状态 + 删盘），而不是绕到停机窗口。绕行版已整体删除。
+- 现设计（引擎侧 RPC，一次调用当场生效）：`workspace/unarchiveSessions`（纯归档集写入，故意不做存在性检查——日志已删的残条也要能清掉）+ `session/deleteSessions`（日志、投影缓存、归档集、工作区记账一起删）。三条不变量：
+  - **活会话不许删**：`ctx.sessions.get(id) !== undefined` 或 `ctx.agents.get(id)?.status === 'running'` 一律拒（`busy`）——它的日志还在写，POSIX 下 unlink 掉正持 `flock` 的目录等于放弃租约互斥；这条护栏必须在引擎侧，前端那层只挡得住桌面端。
+  - **顺序：先删盘、后改引擎状态**：崩在中间只留下"仍记账但已无日志"（无害且重删幂等）；反序会让删掉的会话从 header 索引里复活。
+  - 批次是部分的：`busy` / `missing`（没有日志）/ `failed`（存储拒绝）逐 id 回原因，一个失败不拖垮整批。
+- 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache/sessions/<sessionId>.json`（**per-record 布局**：一个会话一份文档，见引擎 `session-projection-cache/src/spec.ts` 的 `layout: 'per-record'`。同目录下那个同名的整文件 `session_projcache.json` 是旧布局，只在「新树里一个文档都没有」时做 bootstrap，引擎此后**永不读写**——别去改它）；会话日志 = `sessions/<slug>/<sessionId>/`（目录名就是 sessionId；桶名是有损 slug，**别按 cwd 推桶名**——删除按 id 扫桶）。
+- 另外：本仓**故意删掉**了前端那两个 localStorage 覆盖集（`deepdive.unarchived` / `deepdive.removed`）——引擎成为唯一事实源后它们是第二份真相。
 
 ### 4.18 清理验收痕迹只能按显式 id：用"最近更新的会话"挑，会误删用户会话（2026-09-13 事故）
 - 事故：做完一次验收后清理测试会话，脚本按 **mtime 取最近两个**当作"我的痕迹"，结果第一个是刚建的验收会话、第二个是**用户自己的「帮我实现 Deepdive 构建」**（更新于前一天 13:14）——`rmtree` + 覆盖集登记后，会话目录、归档集、投影缓存三处同时被清，**不可恢复**（本机无 APFS 本地快照）。
 - 根因不是命令，是**选择器**：验收痕迹的正确来源是"本轮我自己创建的那些 id"（建会话时记下来），而不是"看上去最新的"。任何"推断式选择器"（最近 N 个 / 最近 N 分钟）在用户数据上都可能误伤。
-- 处置（纪律）：清理只允许**显式 id 列表**，且删前逐个打印 id、标题与创建时间让人看清；删除动作与登记覆盖集同批执行，不做"先删后想"。**删会话类操作一旦执行不可逆——宁可留着问用户，也不要推断。**
-- 附带事实：删目录 + 登记覆盖集之后，该会话的投影文档（`storages/session_projcache/sessions/<id>.json`）也随删（立即删除时同步删，落账时补删），所以「从投影缓存里恢复标题/摘要」这条路也断了。
+- 处置（纪律）：清理只允许**显式 id 列表**，且删前逐个打印 id、标题与创建时间让人看清；删除动作一次交给引擎（`session/deleteSessions`），不做"先删后想"。**删会话类操作一旦执行不可逆——宁可留着问用户，也不要推断。**
+- 附带事实：删除会连带该会话的投影文档（`storages/session_projcache/sessions/<id>.json`，引擎侧 `evict`），所以「从投影缓存里恢复标题/摘要」这条路也断了。
 
 ### 4.16 逐会话读历史很贵：统计类页面必须"记录在前、打开直接展示"
 - 实测（2026-09-12，用户报"使用统计加载非常慢"）：引擎没有 history RPC，读一条会话的历史要 `session/follow` 开窗 + `session/page` 回翻，**且必须逐会话开流**——本机 159 个会话、并发 24 也要 ~17s（加大并发无用：引擎侧读取基本串行）。另有悬挂面：本地已删除但引擎仍列出的会话，follow 流既不开也不报错，promise 永不 settle → 整轮收集永不完成（页面靠渐进上报看着不慢，但缓存写不进去、刷新钮一直转）。
