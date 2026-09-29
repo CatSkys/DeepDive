@@ -1,6 +1,6 @@
 // 侧栏的工作区横滑内容条：并排渲染"当前空间 + 拖动方向上的相邻空间"两片，
 // 整条一起平移（.ws-strip / .ws-pane，见 theme.css 与 useWorkspaceSwipe）。
-// 每片内部＝项目行 + 该空间的会话列表；分组规则（置顶/时间桶/搜索合并）也在这，
+// 每片内部＝项目行 + 该空间的会话列表；分组规则（置顶/时间桶）也在这，
 // 因为相邻片要出自己的一份内容——横滑要无缝，就不能只让当前空间有列表。
 // 不管手势与菜单开关：那些由 Sidebar 决定后当 props 传进来。
 import { useMemo } from "react";
@@ -15,14 +15,16 @@ import { longPressHandlers } from "../longPress";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import { bucketLabel, fmtTime } from "../session/sessionTime";
 import { sessionTitle } from "../session/sessionTitle";
-import { searchGroups, type SessionGroup } from "../session/searchGroups";
 import { alertDialog, confirmDialog } from "./DialogHost";
 import type { SessionSummary } from "../types";
 
+/** 一组会话：label 为分组标题（"" = 不出标题行）。 */
+interface SessionGroup {
+  label: string;
+  items: SessionSummary[];
+}
+
 export function SidebarSessionList({
-  query,
-  contentHits,
-  hitsTruncated,
   neighborId,
   collapsed,
   onToggleCollapsed,
@@ -31,13 +33,7 @@ export function SidebarSessionList({
   onNewSession,
   slideDir,
 }: {
-  /** 原始搜索串（未 trim）：空串＝不在搜索。 */
-  query: string;
-  /** 全文命中片段（sessionId → snippet）：标题命中之外的补充，去重合并。 */
-  contentHits: Map<string, string>;
-  /** 引擎把全文结果截断了（session/search 上限 20 条）——得说一声。 */
-  hitsTruncated: boolean;
-  /** 拖动方向上的相邻空间：并排渲染才无缝。搜索态传 undefined（不挂相邻片）。 */
+  /** 拖动方向上的相邻空间：并排渲染才无缝。 */
   neighborId?: string;
   /** 程序化切换（点切换器/菜单）的滑入方向：fwd=自右 / back=自左。
    *  只给当前片——相邻片是手势拖出来的，不该再叠一段入场动画。 */
@@ -51,7 +47,6 @@ export function SidebarSessionList({
 }) {
   const store = useStore();
   const { t, tt, lang } = useT();
-  const searching = query.trim().length > 0;
   const activeWs = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
   const hasWs = store.workspaces.length > 0;
   // 会话 → 空间归属：不在任何空间的会话按惯例归第一个空间；引擎没有工作
@@ -64,7 +59,6 @@ export function SidebarSessionList({
   // 独立成组浮在分组之前。subagent 派生会话不进会话栏（引擎自动创建的工作单元，
   // 入口在状态胶囊/父会话）。
   const groupsOf = useMemo(() => {
-    if (searching) return () => [];
     return (wsId: string | undefined): SessionGroup[] => {
       const list = store.sidebarSessions.filter((s) => !hasWs || wsOf(s) === wsId);
       const pinnedList = list.filter((s) => store.pinned.has(s.sessionId));
@@ -81,28 +75,15 @@ export function SidebarSessionList({
     };
     // wsOf 是每渲染函数包装（仅读 wsOfSession，已入表）——入表即每渲染重算，显式排除
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searching, store.sidebarSessions, store.workspaces, store.wsOfSession, store.pinned, lang, hasWs, t]);
+  }, [store.sidebarSessions, store.workspaces, store.wsOfSession, store.pinned, lang, hasWs, t]);
 
-  // 搜索视图：全空间结果，按来源项目分组（整形见 session/searchGroups）。
-  const searchView = useMemo<SessionGroup[]>(() => searchGroups({
-    query,
-    lang,
-    sessions: store.allSessions,
-    workspaces: store.workspaces,
-    wsOfSession: store.wsOfSession,
-    contentHits,
-  }), [query, store.allSessions, store.workspaces, store.wsOfSession, contentHits, lang]);
-
-  // 判定"是否在搜索"必须用 trim 后的值：搜索框残留一个空格时原始 query 为真值、
-  // 而 trim 后的空串会命中全部会话 —— 曾把跨空间搜索视图退化成"所有工作空间的内容
-  // 混铺一屏"（用户报告的混屏根因）。
-  const view = searching ? searchView : groupsOf(activeWs?.workspaceId);
+  const view = groupsOf(activeWs?.workspaceId);
   // 会话列表溢出渐隐（超限标准 UI）
   const sessionsFade = useEdgeFade();
 
   // 行首槽位：运行/未读状态优先；都没有时给「置顶」钮（hover 显现，已置顶常驻）
   // ——置顶的会话不受自动归档限制（设置·通用）
-  const renderRow = (s: SessionSummary, snippet?: string, archived = false) => (
+  const renderRow = (s: SessionSummary) => (
     <button
       key={s.sessionId}
       className={`task-row${s.sessionId === store.activeSessionId ? " selected" : ""}${s.running ? " running" : ""}${store.unread.has(s.sessionId) ? " unread" : ""}`}
@@ -133,12 +114,9 @@ export function SidebarSessionList({
         )}
       </span>
       <span className="row-main">
-        {/* 后台运行会话已被 store 过滤，不会走到这里；剩下的标识只有「已归档」 */}
         <span className="row-title-line">
-          {archived && <span className="row-auto-badge">{t("已归档")}</span>}
           <HoverScrollText className="title">{sessionTitle(s, lang)}</HoverScrollText>
         </span>
-        {snippet && <span className="row-snippet">{snippet}</span>}
       </span>
       <span className="row-actions"
         onClick={(e) => e.stopPropagation()}
@@ -180,8 +158,7 @@ export function SidebarSessionList({
     <>
       {panes.map((ws) => {
         const isNeighbor = ws.workspaceId !== activeWs?.workspaceId;
-        // 当前片走 view（搜索态是跨空间结果），相邻片走自己的分组——滑过去看到的是
-        // 隔壁那一片的真内容，这是无缝的关键。
+        // 相邻片出自己的一份分组——滑过去看到的是"隔壁那一片"的真内容，这是无缝的关键。
         const paneGroups = isNeighbor ? groupsOf(ws.workspaceId) : view;
         return (
           <div
@@ -199,28 +176,17 @@ export function SidebarSessionList({
               onNewSession={onNewSession}
             />
             {/* visibility 而非 display:none：.ws-pane-list 是 flex:1 撑高元素，折叠时
-                必须保留占位，否则底部设置行会滑上来顶到项目行。搜索时永不折叠。 */}
-            <div className="ws-pane-list" style={{ visibility: !searching && collapsed ? "hidden" : undefined }}>
+                必须保留占位，否则底部设置行会滑上来顶到项目行。 */}
+            <div className="ws-pane-list" style={{ visibility: collapsed ? "hidden" : undefined }}>
               <div className="sessions fade-y" ref={sessionsFade.ref} {...fadeAttrs(sessionsFade.fade)}>
                 {paneGroups.map(({ label, items }) => (
                   <div key={label}>
                     {label && <div className="section-label">{label}</div>}
-                    {items.map((s) => renderRow(
-                      s,
-                      searching ? contentHits.get(s.sessionId) : undefined,
-                      searching ? store.archived.has(s.sessionId) : false,
-                    ))}
+                    {items.map((s) => renderRow(s))}
                   </div>
                 ))}
-                {/* 空态与搜索提示只出在当前片：相邻片空着是滑动途中的正常态 */}
                 {!isNeighbor && view.length === 0 && (
-                  <div className="empty-state">{query ? t("无结果") : t("暂无会话")}</div>
-                )}
-                {!isNeighbor && query.trim().length === 1 && (
-                  <div className="search-hint">{t("只按标题匹配；输入 2 个字以上可搜全文内容")}</div>
-                )}
-                {!isNeighbor && hitsTruncated && (
-                  <div className="search-hint">{t("全文结果较多，只显示前 20 条——再输入几个字缩小范围")}</div>
+                  <div className="empty-state">{t("暂无会话")}</div>
                 )}
               </div>
             </div>

@@ -870,7 +870,6 @@ export const EN: Record<string, string> = {
   "修改图标": "Change icon",
   // 搜索面板（CommandPalette）
   "搜索操作、项目、会话、设置…": "Search actions, projects, sessions, settings…",
-  "搜索会话全文": "Search sessions (full text)",
   "添加附件": "Add attachment…",
   "重命名当前会话": "Rename current chat",
   "归档当前会话": "Archive current chat",
@@ -915,9 +914,6 @@ export const EN: Record<string, string> = {
   "正在运行或正开着的会话不能删除——先停掉它或切到别的会话": "A running or currently-open chat cannot be deleted — stop it or switch to another chat first",
   "这个会话正在运行。归档只把它移出任务列表，任务会继续跑；要停请先在会话里点停止。": "This chat is running. Archiving only removes it from the task list — the run continues; use Stop inside the chat to end it.",
   "调度在本机进行：应用没在运行时不会触发；错过的班次不补跑（超过 5 分钟就顺延到下一班）。": "Scheduling is local: nothing fires while the app is closed, and missed runs are skipped (later than 5 minutes simply rolls to the next slot).",
-  "只按标题匹配；输入 2 个字以上可搜全文内容": "Matching titles only — type 2+ characters to search message text",
-  "全文结果较多，只显示前 20 条——再输入几个字缩小范围": "Many matches; showing the first 20 — type more to narrow it down",
-  "已归档": "Archived",
   "重命名": "Rename",
   "这个名字以后台会话的保留前缀开头（自动化·／自进化·），改完这个会话会从列表里消失。确定吗？": "This name starts with a reserved background-session prefix (自动化· / 自进化·); renaming hides the chat from the list. Continue?",
   "引擎启动失败：{m}": "Engine failed to start: {m}",

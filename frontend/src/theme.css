@@ -305,27 +305,6 @@ button {
   gap: 6px;
 }
 
-.search-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 11px;
-  border-radius: var(--dsh-radius-control);
-  background: var(--fill);
-  /* 不描边（用户定稿，同 .main）：磨砂底色自己分层，窗口变暗后这条白线太跳 */
-  color: var(--ink-3);
-}
-.search-row input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  outline: none;
-  color: var(--dsh-text-primary);
-  font-size: var(--dsh-font-size-base);
-}
-.search-row input::placeholder { color: var(--dsh-text-tertiary); }
-
 .sessions { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; }
 
 .section-label {
@@ -3878,37 +3857,9 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   flex: none;
 }
 
-/* 搜索内容命中行：标题下 snippet 摘要（引擎 ≤240 字符） */
 .row-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-/* 标题行：自动标识（整理类后台会话）与标题同行，标题仍可省略号截断 */
+/* 标题行：标题省略号截断 */
 .row-title-line { display: flex; align-items: center; gap: 5px; min-width: 0; }
-/* 搜索结果里的说明行（全文被截断 / 只按标题匹配）：结果少了要说清为什么 */
-.search-hint {
-  padding: 8px 10px;
-  font-size: var(--dsh-font-size-sm);
-  line-height: 1.45;
-  color: var(--ink-3);
-}
-
-.row-auto-badge {
-  flex: none;
-  font-size: var(--dsh-font-size-xs);
-  line-height: 1;
-  padding: 2px 4px;
-  border-radius: 3px;
-  border: 1px solid var(--line-strong);
-  color: var(--ink-3);
-}
-.row-snippet {
-  font-size: var(--dsh-font-size-base);
-  line-height: 1.4;
-  color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
 
 /* ── 工具执行合并（查阅 / 终端 / 更改 三组）───────────────────────
    连续的同类工具折成一行摘要，展开是缩进的子行。

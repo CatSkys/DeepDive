@@ -455,10 +455,6 @@ export const api = {
   /** 从轮收尾 seq 分叉出子会话（官方 forkAt 同款），返回子会话 id。 */
   fork: (payload: { sessionId: string; atSeq: number }) =>
     unary<{ sessionId: string }>("session/fork", { request: payload }),
-  /** 全文搜索（标题∪正文，≤20 条 snippet≤240）；session-query 自 0.1.2 起
-   *  随 base bundle 常开，不再依赖 --patch overlay。 */
-  search: (payload: { query: string }) =>
-    unary<{ items: Array<{ sessionId: string; snippet: string }>; hasMore: boolean }>("session/search", { request: payload }),
   /** 取一条图片附件的字节（base64，渲染用户消息图片用）。 */
   attachment: (payload: { sessionId: string; attachmentId: string }) =>
     unary<{ attachment: { attachmentId: string; mediaType: string; name?: string }; data: string }>("session/attachment", { request: payload }),

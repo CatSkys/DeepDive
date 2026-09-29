@@ -3,8 +3,6 @@
 // 搜 "dd:" 才能发现对端。
 
 export const DD_EVENTS = {
-  /** 聚焦侧栏搜索框（快捷键 ⌘F）。收发：App → Sidebar。 */
-  focusSearch: "dd:focus-search",
   /** 开/关听写（⌘D）。收发：App → composer/useComposerDictation。 */
   dictationToggle: "dd:dictation-toggle",
   /** 循环思考强度档位（⌘⇧E）。收发：App → SessionHeader。 */

@@ -292,9 +292,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         </div>
       ) : null}
       {/* 顶部两钮（⊞收起 / 🔍搜索）：红绿灯旁横排，收起/展开都在顶部。
-          搜索钮打开搜索面板（与 ⌘K 同一条链路）——面板里的「搜索会话全文」才发 focusSearch 事件展开侧栏搜索框
-          并聚焦，侧栏收起时先展开；「新会话」按钮已按用户要求去掉（用得少，
-          草稿页走侧栏会话列的入口即可）。设置页不显示——返回/关闭导航由
+          搜索钮打开命令面板（与 ⌘K 同一条链路）；「新会话」按钮已按用户要求去掉
+          （用得少，草稿页走侧栏会话列的入口即可）。设置页不显示——返回/关闭导航由
           SettingsPage 自带。tooltip 键帽随快捷键页的改键实时同步。 */}
       {!settingsOpen && (
         <div className="window-top">
