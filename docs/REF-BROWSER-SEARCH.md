@@ -115,3 +115,35 @@ VERSION 1.0.3）。本文只做**参考梳理**：它分成哪些块、每块假
 6. 以后：视频浮窗（H）、密码/钥匙串（J）、设置项补全（N 的部分）
 
 **没有搬、也不要搬**：A 应用壳形状、I 空间、K Passkeys、O 扩展、Q SwiftUI 设计系统、N 的更新器。
+
+## 6. 设计风格与工程纪律（2026-09-29 补：第二类参考——不是功能块，是"怎么把东西做高级"）
+
+素材：`Sources/Search/Design.swift`（247 行，全 app 唯一设计文件）、根目录 `bench`（Python CLI）+
+`Bench.swift`（1626 行）、`CONTRIBUTING.md`、`NOTES.md`。可执行的衍生项在 `TODO.md §18-§20`。
+
+- **颜色：单文件、成对、自动解析**。全部颜色只有 `Design.swift:13-55` 一处，每个颜色是一对
+  light/dark 值，用 `NSColor(name:)` 动态提供器随窗口 appearance 自动解析（`pair()`/`tint()`，
+  41-53 行）——"代码里没有任何其他地方知道当前是什么模式"。全盘灰阶，仅两个非灰语义色
+  （safe/unsafe，21-24 行）。对照我们：壳侧颜色手写在 `WindowGlassView.swift:24-29` 两对 tint、
+  靠 `applyAppearance` 手动换档（54-59 行）、数值与 tokens.json 靠人眼对齐——它的 pair() 是现成
+  答案（→ TODO §20）。
+- **外观切换必须 async 到下一轮 runloop**（`Look.apply()`，89-95 行）：在动画/面板过渡中途给所有
+  窗口换肤，会得到一个能点击却什么都不显示的 layer。我们的坑，先记判据：做壳侧外观切换时先读这条。
+- **Metrics：measured, not guessed**（98-141 行）：每个布局常量带实测出处——`lights = 100` 注明
+  "红绿灯实测占 19–79，这是量的不是猜的"；`sideLights = 72` 把"边栏自带 10pt 内边距要扣掉"写进
+  推导。这是铁律 2"量化自证"在代码注释里的落法：测出的值连同推导一起留档，下一个 agent 不用重猜。
+- **动效：只有两个命名弹簧 + 一个 quick**（143-150 行）：glide（在两处之间移动）/ settle（出现或
+  消失）/ quick（0.14s easeOut），注释原话："到处用同两个弹簧，是它感觉像一件软件而不是一堆视图的
+  主要原因"。我们规范 120/200/160（UI-SPEC §1.7）实际散着 100–520ms 六七种手写值（→ TODO §18b）。
+- **bench：测试 socket 的成熟范式**：Unix socket + JSON 协议，应用运行中 `probe`（窗口状态）/
+  `hit X Y`（落点与可拖性）/`ui look dark`（切主题）/`film`（逐帧截动画）/`picture`（整窗 PNG）。
+  两条纪律最值钱：**测试标签绝不替用户选中、不进会话与历史**（README 96-108 行）；**Settings 显式
+  闸门 + `SEARCH_PROBE` 世界彻底隔离**（独立数据目录，隔离失败曾丢真实用户数据，`Store.swift:17-77`）。
+  对我们的意义：铁律 2 要求量化自证而工具缺位，这种"只回数据"的探针通道长在纪律之内（→ TODO §19）。
+- **产品纪律（CONTRIBUTING 9-16 行）**：新功能三连——**minimal**（能干活的最小版）/ **optional 且
+  默认关** / **findable**（Settings 有开关）。README 专设 "What it doesn't do — on purpose"（35-42
+  行），把"故意不做"与"还没做"分开；NOTES.md 是散文体发布说明（一段一版）。对照我们：UI-SPEC §4
+  验收清单只有黑白/少字检查，没区分"故意不做"与"未做"；新功能三连是否入协作约定——候选，未拍板。
+- **不取**：极端单色（与我们黑白主题同构，无需动）；文件命名（Vault/Shield/Curtain/Loot 要 README
+  才能解码，违背"目录即地图"，我们的规则更好）；无单测、全靠 bench 手工驱动（我们有 vitest+XCTest+
+  架构门，更严）；巨型文件（Browser.swift 2304 行）。
