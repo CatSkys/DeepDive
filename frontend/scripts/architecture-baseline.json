@@ -33,10 +33,10 @@
       "detail": "303 lines > 300"
     },
     {
-      "id": "00f42dae25155ee0",
+      "id": "ae78e965a98c4450",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
-      "detail": "588 lines > 300"
+      "detail": "595 lines > 300"
     },
     {
       "id": "0a512c83dc5be250",

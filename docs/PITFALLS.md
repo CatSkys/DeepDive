@@ -565,12 +565,15 @@
 - 教训：闭包完整性必须**构建期验证**（声明的产物存在才算数），不能指望运行时静默降级兜底；
   「引擎健康」的判据是**真实 prompt 回录**，不是 readiness 行。
 
-### 4.27 原生玻璃的 tint 压到近实色 = 把 vibrancy 盖死（边栏"质感不行"的真因）
-- 症状（2026-09-29 用户报告）："边栏的液态玻璃是苹果推荐的参数吗？我怎么觉得质感不行"。实况是**玻璃感≈0**，窗口底就是一块平的深色板，用户直觉准确。
-- 根因两处叠加：① 整窗 `NSVisualEffectView` 之上压了一层 alpha **0.85** 的深色 tint（亮色 0.88）——vibrancy 的全部观感来自"透过来的"桌面/其他窗口，遮到 85% 就只剩 12–15% 可见，材质等于不存在；② 材质用了 `.hudWindow`，按 `NSVisualEffectView.h` 它是"浮在其他窗口之上的 HUD 面板"档案，不是窗口底/侧栏（头文件明写要选**语义材质**）。
-- 处置：材质改 `.sidebar`（语义正确，且随 `window.appearance` 自动明暗切换，壳侧那套手工分档随之删掉）；tint 不透明度对齐 `tokens.json color.surface.panel`（"面板/侧栏/窗口"的事实源，dark .62 / light .72）。
-- 铁律：**tint 只定基调，玻璃观感归材质**。想要更黑要改 token（一处生效），不要在材质之上加不透明度——压过 ~.8 就退化成平色板，而且会和自家 token 打架（旧值 .85 比设计自己的面板 .62 还不透明）。
+### 4.27 主窗从没设 `isOpaque=false`：vibrancy 一直退化成"窗内混合"的平灰
+- 症状（2026-09-29 用户报告）："边栏的液态玻璃是苹果推荐的参数吗？我怎么觉得质感不行"；按 token 调完 tint 不透明度后用户复报"好像没什么区别，还是有点灰灰的"。两次都准确——**那时根本没有桌面可采样**。
+- 根因①（主因，静默）：`NSWindow` 默认 `isOpaque=true` + 不透明 `windowBackgroundColor`，而 `.behindWindow` 混合要采样的是**窗口背后的桌面**。窗口不透明 → 材质只能退化成"窗内混合"，渲染成一块平的深灰，与背后是什么完全无关。**把 `NSVisualEffectView` 设为 `contentView` 并不会让 AppKit 自动改这两项**（实测探针：`.sidebar`/`.hudWindow` 两种材质下 `isOpaque` 都停在 `true`）。同仓 `FloatingBubble.swift` 的透明窗口一直写着 `isOpaque=false` + `backgroundColor=.clear`——主窗漏了这一份，属"平行值的未解释不对称"。
+  - 为什么把它诊断成 tint 问题：因为 tint 变化**肉眼无差别**（0.85→0.62 的合成差约 6/255，被 web 侧 11% 白纱的 ~28 点抬升淹没）。窗口不透明时，调 tint 等于在一个不透明的底上刷色。
+- 根因②（次因）：tint 压到近实色 alpha 0.85（亮色 0.88），把已经拿到的材质又遮掉大半；且旧值比自家 `tokens.json color.surface.panel`（用途栏写明"面板/侧栏/窗口"）的 .62 还不透明。已按 token 值收回。
+- 根因③：材质用了 `.hudWindow`。`NSVisualEffectView.h` 写明它是"浮在其他窗口之上的 HUD 面板"档案，不是"窗口的底"；头文件要求选**语义材质**。已改 `.sidebar`（随 `window.appearance` 自动明暗，壳侧手工分档随之删掉）。
+- 铁律：**tint 只定基调，玻璃观感归材质**。想要更黑要改 token（一处生效），不要在材质之上加不透明度。
 - 另一条别试：`NSGlassEffectView`（macOS 26+）**不用于整窗底色**——它的语义是把 `contentView` 嵌进一块玻璃，面向浮在内容之上的玻璃件（自定义工具栏/悬浮控件）；窗口/侧栏底色仍归 `NSVisualEffectView`。
+- 诊断锚点：改玻璃参数"看不出区别"时，**先怀疑窗口是不是不透明的**，别继续调色值——写个几行的 AppKit 探针打印 `window.isOpaque` / `backgroundColor` 即可定案（比截图快且不打扰用户）。
 
 ---
 

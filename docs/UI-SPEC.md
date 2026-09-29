@@ -106,6 +106,7 @@
 ### 1.5 材质与 Vibrancy（近黑玻璃）
 
 - 面板窗口：`NSVisualEffectView`（material **`.sidebar`**，Blending `.behindWindow`）＋ 透明 `WKWebView`。材质取语义名而非 `.hudWindow`——后者是"浮在其他窗口之上的 HUD 面板"档案，语义与"窗口的底"不符；`.sidebar` 随 `window.appearance` 自动明暗切换，壳侧不再手动分档。
+- **窗口必须 `isOpaque = false` + `backgroundColor = .clear`**：`.behindWindow` 采样的是窗口背后的桌面，不透明的窗口会让材质退化成"窗内混合"的平灰（AppKit 不会因为 contentView 是 `NSVisualEffectView` 就自动改，见 `PITFALLS §4.27`）。
 - 原生材质之上叠一层近黑 tint（不透明度以 `surface.panel` 为准）：**tint 只定基调，玻璃观感归材质**。压到近实色（≥.8）等于把 vibrancy 盖死，窗口底退化成一块平色板。
 - Web 侧表面色用 1.1 半透明值透出材质；不得写不透明色板。
 - 玻璃细节：`surface.raised` ≥62% + `border.gloss` 顶部高光 + `shadow.floating`。
