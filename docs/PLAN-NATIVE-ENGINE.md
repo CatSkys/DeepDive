@@ -111,15 +111,13 @@
 
 **已完成（2026-09-29）**：技能目录读写、插件启停落账、会话取消归档与删除都搬回引擎（`skills/admin*`、`pluginInventory/patch*`、`workspace/unarchiveSessions`、`session/deleteSessions`）；壳不再替引擎写任何状态文件，前端那套本地覆盖层整体删除。**壳现在只剩 OS 能力 + 进程监督 + 应用分发。**
 
-**还剩的，以及各自的方向**：
+**还剩的三件，处置口径已定**：
 
-| 壳现在做的 | 方向 |
+| 壳现在做的 | 口径 |
 |---|---|
-| ~~把随应用发布的技能正文写进 `<DSH_HOME>/skills/`~~ | **已完成（2026-09-29）**：两个技能改由 `@deepdive/engine-host` **运行时注册**（`ctx.skills.register`），不落文件；旧版留下的同名目录由同一个包在启动时清掉。壳连"发布技能"都不做 |
-| MCP server 行（写 patch）+ 密钥（注入引擎 env） | 引擎自带凭据面（`ctx.credentials` 已在组合里）+ 自己的配置源；壳只做 UI |
-| 插件卸载（改 profile 依赖） | profile 自持（引擎管自己的依赖树），或明确归"应用分发"并写清 |
-| `write-agents`（项目 AGENTS.md） | 留壳：一次性文件写，OS 能力 |
-| git（审查面板） | 留壳：引擎无 git 面，且是工作区能力 |
+| MCP server 行（写 patch）+ 密钥（注入引擎 env） | **待做（功能）**：行与密钥都搬进引擎——我们的宿主包写自己的 home patch 块，密钥进引擎的凭据面（`ctx.credentials` 已在组合里），壳只留设置 UI。判据：patch 里不出现密钥值（现有单测）、引擎重启后 server 仍挂载。 |
+| 插件卸载（改 profile 依赖 + 重启引擎） | **有意留在壳侧**：它改的是**应用自己的 profile 安装**（`dsh plugin` 的落点是 `<home>/profiles/<name>/package.json` 与 `node_modules`），且 bundle 成员有启动边界（改完必须重启引擎）——这是"应用分发 + 重启语义"，不是引擎运行期状态。已在 §1 的壳职责里写明。 |
+| `write-agents`（项目 AGENTS.md）/ git（审查面板） | **有意留在壳侧**：OS/工作区能力，引擎没有对应面。 |
 
 **判据**：壳的 host 指令集里"写引擎状态文件"的调用点归零；应用分发那几处进白名单并在 `ARCHITECTURE.md` 写清。
 
