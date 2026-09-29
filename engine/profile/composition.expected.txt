@@ -383,15 +383,6 @@
     compression: gzip
     compressionLevel: 1
     compressionThresholdBytes: 1024
-- id: web-runtime
-  name: '@deepseek-ai/dsh-web-app'
-  inject:
-    - webStartup
-  config:
-    openBrowser: !!js ctx.webStartup.openBrowser
-    printUrl: true
-    surfaceContext: true
-    trustedHosts: !!js ctx.webStartup.trustedHosts
 - id: connection
   name: '@deepseek-ai/dsh-client-connection'
   inject:

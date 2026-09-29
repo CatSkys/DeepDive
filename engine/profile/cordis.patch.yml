@@ -40,6 +40,13 @@
 #     feature deliberately removed. The two feedback packages go together —
 #     dsh-message-feedback imports FEEDBACK_CATEGORIES from dsh-command-feedback,
 #     so removing either one alone breaks the other's import.
+#   `web-runtime` (@deepseek-ai/dsh-web-app's host half) is gone too: its four jobs
+#     are now `@deepdive/engine-host`'s (provide `webRuntime` trust, own the `/` seat
+#     the shell's cookie exchange verifies against, print the `dsh web:` readiness
+#     line) except the one we do not want — a system-prompt section claiming the user
+#     is looking at the official Web GUI. Its `startup` subpath keeps the row
+#     `web-startup` (the `--host/--port/--no-open/--trusted-host` flag family), so
+#     the package stays; only the page it served (`dsh-web-frontend`) is pruned.
 #   Five more official-GUI client rows whose host halves our SPA does not consume
 #     (2026-09-29, each verified by grepping frontend/src for the namespace it
 #     registers — zero readers):
@@ -462,15 +469,6 @@
         compression: gzip
         compressionLevel: 1
         compressionThresholdBytes: 1024
-    - id: web-runtime
-      name: '@deepseek-ai/dsh-web-app'
-      inject:
-        - webStartup
-      config:
-        openBrowser: !!js ctx.webStartup.openBrowser
-        printUrl: true
-        surfaceContext: true
-        trustedHosts: !!js ctx.webStartup.trustedHosts
     - id: connection
       name: '@deepseek-ai/dsh-client-connection'
       inject:

@@ -19,6 +19,12 @@
     },
     {
       "path": "../../skill/skill"
+    },
+    {
+      "path": "../../client/connection/tsconfig.host.json"
+    },
+    {
+      "path": "../../host/webserver"
     }
   ]
 }

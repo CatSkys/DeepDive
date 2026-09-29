@@ -95,6 +95,11 @@ REMOVE=(
   # 2026-09-29 (second round): the SPA's busyEnter namespace is registered by
   # @deepdive/engine-host now, so the official conversation shell goes too.
   @deepseek-ai/dsh-client-ui-conversation
+  # 2026-09-29 (third round): the official page itself. Nothing serves it any more
+  # — @deepdive/engine-host owns the `/` seat (see engine/profile/cordis.patch.yml)
+  # — and the app UI comes from the bridge. `dsh-web-app` STAYS: its `/startup`
+  # subpath is the `web-startup` row that parses the web flag family.
+  @deepseek-ai/dsh-web-frontend
   # A GitHub webhook surface no composition of ours mounts. Kept out of the
   # patch-file list (it never had a row); removed here so the tree goes with it.
   @deepseek-ai/dsh-webhook-github

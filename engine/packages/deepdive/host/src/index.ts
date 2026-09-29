@@ -9,7 +9,10 @@
  * Two contributions so far, both about state the shell used to own:
  *   · the conversation settings namespace the SPA reads (was `ui-conversation`),
  *   · the published skills, as runtime registrations (were files the shell wrote
- *     into `<DSH_HOME>/skills` on every launch).
+ *     into `<DSH_HOME>/skills` on every launch),
+ *   · the web runtime: the `/` seat, the `dsh web:` readiness line and the `/api`
+ *     trust snapshot (were the official `web-app` row's, which also served 4.6 MB
+ *     of a page DeepDive never loads).
  *
  * Registration discipline copied from the upstream halves: contribute only when
  * the owning service is composed, never invent a default for a missing host
@@ -25,6 +28,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-skill'
 import { CONVERSATION_SETTINGS_NAMESPACE, ConversationSettingsSchema } from './conversation-settings.ts'
 import { PUBLISHED_SKILLS, RETIRED_SKILL_NAMES } from './published-skills.ts'
+import { applyWebRuntime } from './web-runtime.ts'
 
 export {
   BUSY_ENTER_BEHAVIORS, BUSY_ENTER_FIELD, CONVERSATION_SETTINGS_NAMESPACE,
@@ -32,6 +36,7 @@ export {
   type BusyEnterBehavior, type ConversationSettings,
 } from './conversation-settings.ts'
 export { PUBLISHED_SKILLS, RETIRED_SKILL_NAMES } from './published-skills.ts'
+export { applyWebRuntime, resolveLanTrust, type WebRuntimeValues } from './web-runtime.ts'
 
 /**
  * Register DeepDive's own contributions.
@@ -49,6 +54,7 @@ export function apply(ctx: Context): void {
       skillsCtx.effect(() => skillsCtx.skills.register(skill), `deepdive-host: skill ${skill.name}`)
     }
   })
+  applyWebRuntime(ctx)
   dropRetiredSkills()
 }
 

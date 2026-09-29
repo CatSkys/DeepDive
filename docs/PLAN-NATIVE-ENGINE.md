@@ -44,68 +44,13 @@
   `ui-deliverables` / `ui-settings-general` / `locale` **注册了真实的 host 状态**（system-prompt 段、设置命名空间）——
   删行等于删掉模型可见的提示词段或设置面。`DeploymentPrompt`（把部署提示词落进 `AGENTS.md` 托管块）已经是"把官方那层做的事换成我们自己的"先例。
 - **已落地的五个行**（`ui-theme` / `locale` / `ui-settings-general` / `ui-chat` / `ui-deliverables`，共约 11 MB）：每个都按"它注册的 host 状态我们读不读"逐个核过 `frontend/src`——四个设置命名空间（`ui-theme` / `locale` / `ui-onboarding` / `ui-chat`）**零读者**；`ui-deliverables` 的两条 `/api/present.*` 路由也没人用，它那段 system-prompt 里**有行为价值的那半句搬进了部署提示词**（`DeploymentPrompt.swift` 的 AGENTS.md 托管块），"以便在 Web 里点开"那半句删掉（我们的 SPA 不把行内代码渲染成可点链接）。
-- **已查明但不能只靠"剪"的一块**：`dsh-web-frontend`（4.6 MB，官方页面资产）+ 它的宿主 `web-app`（id `web-runtime`）。看着像死重——我们的页面由桥托管——但它们**是活的**，而且这不是删包而是**接管整个 web runtime**：
-  - 壳的 `EngineAuth` 用"请求 `/` → 303 + Set-Cookie → 带 cookie 再取 `/` → 200"换会话 cookie；303 由 `connection` 的 `authorizeIndex` 发，**200 的正文由 `frontend-static` 兜底座位提供**，而那个座位的 `distIndex` 是 `web-app` 在挂载时经 `resolveDistIndex()` 解析的——包不在，挂载即抛错。
-  - `connection` 的 `trustedHosts` 来自 `webRuntime` 服务（组合里的 `!!js ctx.webRuntime.trustedHosts`），而 `webRuntime` 正是 `web-app` 提供的。
-  - `dsh web: <url>` 那行（**壳靠它拿端口**）也是 `web-app` 打的（`printUrl`）——格式是壳侧的硬契约。
-  所以要剪它，得由我们自己的包提供 `webRuntime` + 打印同格式的就绪行 + 注册 `/` 的授权应答（`ctx.connection.authorizeIndex`）。这是**功能级接管**（改动落在应用启动与鉴权路径上），不是清理；判据是壳日志里 `[auth] engine cookie exchange ok` 与 `[engine] ready:` 都在。
-- **仍然保留一行**：`ui-conversation`。它的浏览器半同样是死重（4.4 MB），但**我们的 SPA 读它的设置命名空间**（`ui-conversation.busyEnter`，发送方式 queue/steer，设置页/Composer/侧栏三处）。要剪它得先有一个 DeepDive 自己的宿主包来注册这个命名空间——那是"我们自己的引擎"该走的一步，不该把用户可见设置悄悄换家。
-- **判据**：组合 dump 与 `composition.expected.txt` 的 diff **只有这五行**（证明没有连带丢配置）；`smoke-engine-boot.sh` + `smoke-engine-prompt.sh` 全绿。
-
-### 3.2 第二刀：未接的能力（已处置，2026-09-29）
-
-- **结论**（逐组核过，`TODO §10` 已随之删节）：
-  - **持久终端**：不是"未接"——`dsh-terminal` / `dsh-terminal-bash` 由 agent preset 启用（`tool-bash-persistent` / `tool-pwsh-persistent` 要用），**已是现役**。原 TODO 那句"现役 shell 是逐调用新 shell"是旧观察。
-  - **`tool-cordis`**（1.9 MB 自省目录）：同样由 `cordis` preset 启用，**保留**。
-  - **LSP / SDK**：**根本没随包**（闭包里没有），所以没有"剪"的问题；要接就得先把包带回来。
-  - **hooks 桥（claude-code / codex）与 ACP**：未接、无行、无 preset 引用，只由 `apps/cli` 的依赖树拉进闭包 → **已从分发剪掉**（`scripts/prune-dsh-runtime.sh`，判据是真实启动冒烟）。
-  - **`experimental/*` 与 agent-team**：本就不在闭包里（未装载），不占分发体积。
-- **判据**：`prune-dsh-runtime.sh` 的 `OK: pruned N package trees` 与 boot/prompt 冒烟全绿。
-
-### 3.3 第三刀：组合行与工具面
-
-- **事实**：111 行里 25 行宿主禁用。这是"宿主保持最小、能力按 preset 开"的正确形态。
-- **做什么**：① 把每条 `disabled: true` 的**理由**写进 profile 注释（哪些是"由 preset 打开"、哪些是"产品不用"）；② 继续把模型可见面收敛到 preset（宿主只留基础行）；③ 组合表按「core / 工具 / 客户端宿主 / 未接」四档分组注释，让"剪哪一行"一眼可判。
-- **判据**：`--dump-config` 的 disabled 行与理由一一对应；单次请求的工具 schema token 数（可从 `request/context` 事件量）不上升。
-
-### 3.4 目标口径
-
-| 指标 | 现在 | 目标 | 怎么量 |
-|---|---|---|---|
-| 随包 `@deepseek-ai` 包数 | 198 | ~150 | `ls $APP/Contents/Resources/Runtime/dsh/node_modules/@deepseek-ai \| wc -l` |
-| 引擎目录体积 | 276 MB | ~200 MB | `du -sh $APP/Contents/Resources/Runtime/dsh` |
-| 冷启动 | boot smoke 就绪 | 不退化 | `scripts/smoke-engine-boot.sh` 计时 |
-
-### 3.5 DeepDive 自己的宿主包 `@deepdive/engine-host`（2026-09-29 落地）
-
-上面剩下的每一块都撞在同一件事上，所以它才是下一个真正的施工单元，而不是"再删几行"：
-
-| 要剪/要做的 | 为什么需要我们自己的包 |
-|---|---|
-| 剪 `ui-conversation`（4.4 MB） | 它的设置命名空间 `ui-conversation.busyEnter` 被 SPA 读，得有人接着注册 |
-| 剪 `dsh-web-frontend`（4.6 MB） | 引擎的 `/`（`EngineAuth` 换 cookie 用）得有个我们自己的极简 static owner 应答 |
-| §4 融合表：随应用发布的技能正文 | 需要一个随引擎装载的 bundled skill root |
-| §4 融合表：MCP 行与密钥 | 需要引擎自己的配置源（凭据面已在组合里） |
-| §5 效率：统计走投影 | 若做成宿主侧投影单元，家也在那儿 |
-
-**已落地**：包在 `engine/packages/deepdive/host`，v1 承担一件事——注册 SPA 要的设置命名空间
-（`conversation.busyEnter`，接管自 `ui-conversation` 并把命名空间改成我们自己的名字）。于是
-`ui-conversation` 行连同它 4.4 MB 的浏览器半一起从组合与分发里消失，SPA 的发送方式设置
-照常工作（实机核过 `settings/describe` 里有 `conversation` 命名空间）。
-
-**三个集成点已查明并解决**（不查清就动手会把引擎构建打坏）：
-1. **lockfile**：`build-engine.sh` 用 `pnpm install --frozen-lockfile`，新包必须进
-   `pnpm-lock.yaml`（顺带让 pnpm 把 fork 不再携带的上游 importer 条目清掉：3537 行）；
-   同步脚本里记了这一步。
-2. **`engine/tsconfig.host.json` 是生成的**（`gen-engine-host-include.mjs`，从上游 include
-   清单派生、只删不增，且带 `--check` 门）——生成器里加了显式的 `OUR_PACKAGE_DIRS`，
-   新包才进编译/打包 program。
-3. **`apps/cli` 必须声明它**（这一条最隐蔽，试了四种假设才钉住）：引擎启动时按**安装锚点
-   （apps/cli）的依赖图**把包软链进 `<home>/profiles/node_modules`
-   （`packages/boot/app-boot/src/profile.ts` 的 `resolveModuleFallbackEntries`），Loader 再从
-   那里解析组合行。不在那张图里的包在开发工作区跑得动、在交付产物里必然
-   `ERR_MODULE_NOT_FOUND`。同步脚本会在每次同步后补回这条依赖。
-   判据：`smoke-engine-prompt.sh` 绿 + 产物里 `settings/describe` 有 `conversation`。
+- **`dsh-web-frontend` + `web-runtime` 行：已完成（2026-09-29 第三轮）**。查清它们"剪不掉"的三处硬依赖后，由我们自己的包接管了全部三处：
+  - 壳的 cookie 交换要 `/` 回 200 → 我们注册 `/` 座位（`authorizeIndex` 先发 303 + Set-Cookie，回 true 时我们给一个标记页 200）；
+  - `connection` 的 `trustedHosts` 来自 `webRuntime` → 我们 `ctx.provide('webRuntime', …)`（LAN 信任的算法与上游逐字相同）；
+  - 壳拿端口用的 `dsh web: <url>` 就绪行 → 我们在 Loader settlement 之后打同一格式（含 token）。
+  顺带丢掉一个**对 DeepDive 本来就是错的**东西：上游那行还注册一段 system-prompt，说"用户正看着官方 Web GUI（含 HMR 契约）"——我们的界面是应用窗口，那段话是假的。
+  判据（都实测过）：壳日志 `[dsh] dsh web:` → `[engine] ready:` → `[auth] engine cookie exchange ok` 三行齐；boot/prompt 冒烟绿；`dsh-web-frontend` 不在随包。
+  注：`dsh-web-app` 包**保留**（260 KB）——它的 `/startup` 子路径是 `web-startup` 行（解析 `--host/--port/--no-open/--trusted-host`），与页面无关。
 
 ## 4. 方向三：融合——app↔engine 的边界再收
 
