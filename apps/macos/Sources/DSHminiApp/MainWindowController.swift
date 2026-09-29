@@ -152,9 +152,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     /// Observes effectiveAppearance so appearance=system follows the OS live.
     private var appearanceObservation: NSKeyValueObservation?
 
-    /// 暗色玻璃的 HUD 底 tint（恒暗）；亮色换成近白浅灰（主界面偏白）。
-    private static let darkTint = NSColor(srgbRed: 16/255, green: 17/255, blue: 19/255, alpha: 0.85)
-    private static let lightTint = NSColor(srgbRed: 244/255, green: 244/255, blue: 246/255, alpha: 0.88)
+    /// 叠在原生材质上的近黑 tint：不透明度对齐 tokens.json `color.surface.panel`
+    /// （面板/侧栏/窗口的事实源）。tint 只定基调，玻璃观感归材质（PITFALLS §4.27）。
+    private static let darkTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.62)
+    private static let lightTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.72)
 
     init(themeEnabled: Bool) {
         self.themeEnabled = themeEnabled
@@ -200,8 +201,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         }
         window.appearance = themeEnabled ? NSAppearance(named: .darkAqua) : nil
 
-        // Semi-transparent dark glass: vibrancy + dark overlay (~85% opaque).
-        effectView.material = .hudWindow
+        // 窗口玻璃：语义材质 `.sidebar`（随 window.appearance 自动明暗）＋ 半透明 tint。
+        effectView.material = .sidebar
         effectView.blendingMode = .behindWindow
         effectView.state = .active
         let overlay = tintView
@@ -344,12 +345,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     /// appearance (inherits the OS) and the KVO below re-pushes on change.
     func applyAppearanceMode() {
         let mode = DSHAppPrefs.appearance
-        // 跟随系统时看"生效外观"决定材质/tint（hudWindow 恒暗，亮系统必须换浅材质）
+        // 材质 `.sidebar` 跟随外观自动切换，这里只需换 tint 的明暗两档。
         let light = mode == "light" || (mode == "system" && NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua)
         let appearance: NSAppearance? = mode == "system" ? nil : NSAppearance(named: light ? .aqua : .darkAqua)
         window?.appearance = appearance
         webView.appearance = appearance
-        effectView.material = light ? .sidebar : .hudWindow
         tintView.layer?.backgroundColor = (light ? Self.lightTint : Self.darkTint).cgColor
         pushScheme()
         if appearanceObservation == nil {

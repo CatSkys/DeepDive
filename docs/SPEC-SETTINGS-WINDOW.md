@@ -20,7 +20,7 @@
   - **A. WKWebView 渲染设置入口 SPA**（复用 React 设计系统；黑白 token 直接复用）。
   - **B. 原生 AppKit/SwiftUI 控件**（对齐 `UI-SPEC §5`“原生侧仅系统控件 + NSVisualEffectView”）。
   - 推荐：**原生窗口 + 原生控件（B）** 为主，符合 spec；引擎动态数据（模型/凭据/命名空间）经设置 RPC 读取。若某分区复杂度高（模型目录、provider 增删）再考虑 WKWebView 局部渲染。
-- 窗口外观：`NSVisualEffectView`（material `.sidebar`/`.hudWindow`，`.behindWindow`）透明玻璃；黑白。
+- 窗口外观：`NSVisualEffectView` 透明玻璃（材质与 tint 口径归 `UI-SPEC §1.5`，此处不重述）；黑白。
 
 ## 2. 左导航分区（UI-SPEC 6 分区全做）
 

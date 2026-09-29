@@ -105,10 +105,11 @@
 
 ### 1.5 材质与 Vibrancy（近黑玻璃）
 
-- 面板窗口：`NSVisualEffectView`（material `.sidebar`/`.hudWindow`，Blending `.behindWindow`）＋ 透明 `WKWebView`。
+- 面板窗口：`NSVisualEffectView`（material **`.sidebar`**，Blending `.behindWindow`）＋ 透明 `WKWebView`。材质取语义名而非 `.hudWindow`——后者是"浮在其他窗口之上的 HUD 面板"档案，语义与"窗口的底"不符；`.sidebar` 随 `window.appearance` 自动明暗切换，壳侧不再手动分档。
+- 原生材质之上叠一层近黑 tint（不透明度以 `surface.panel` 为准）：**tint 只定基调，玻璃观感归材质**。压到近实色（≥.8）等于把 vibrancy 盖死，窗口底退化成一块平色板。
 - Web 侧表面色用 1.1 半透明值透出材质；不得写不透明色板。
 - 玻璃细节：`surface.raised` ≥62% + `border.gloss` 顶部高光 + `shadow.floating`。
-- macOS Tahoe：跟随系统 Liquid Glass；只组合系统属性。
+- macOS Tahoe：跟随系统 Liquid Glass；只组合系统属性。自定义玻璃表面用 `NSGlassEffectView`（macOS 26+）；**整窗底色不用它**——那是给浮在内容之上的玻璃件（自定义工具栏/悬浮控件）准备的，窗口/侧栏底色仍归 `NSVisualEffectView`。
 
 ### 1.6 图标（组件库已锁定：Lucide）
 
