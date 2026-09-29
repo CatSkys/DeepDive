@@ -115,7 +115,7 @@
 
 | 壳现在做的 | 方向 |
 |---|---|
-| 把随应用发布的技能正文写进 `<DSH_HOME>/skills/` | 搬进 `engine/profile/skills/`，作为 bundled/custom skill root 随引擎装载——壳连"发布技能"都不做 |
+| ~~把随应用发布的技能正文写进 `<DSH_HOME>/skills/`~~ | **已完成（2026-09-29）**：两个技能改由 `@deepdive/engine-host` **运行时注册**（`ctx.skills.register`），不落文件；旧版留下的同名目录由同一个包在启动时清掉。壳连"发布技能"都不做 |
 | MCP server 行（写 patch）+ 密钥（注入引擎 env） | 引擎自带凭据面（`ctx.credentials` 已在组合里）+ 自己的配置源；壳只做 UI |
 | 插件卸载（改 profile 依赖） | profile 自持（引擎管自己的依赖树），或明确归"应用分发"并写清 |
 | `write-agents`（项目 AGENTS.md） | 留壳：一次性文件写，OS 能力 |

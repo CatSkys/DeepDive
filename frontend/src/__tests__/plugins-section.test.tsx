@@ -29,7 +29,6 @@ vi.mock("../host", () => ({
   mcpServersList: () => Promise.resolve({ servers: [], configured: {} }),
   mcpServersSave: vi.fn(),
   restartEngine: vi.fn(),
-  appSkillNames: () => Promise.resolve([]),
   skillPickDirectory: vi.fn(),
   revealPath: vi.fn(),
 }));

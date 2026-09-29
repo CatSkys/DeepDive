@@ -25,7 +25,7 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-职责边界：**壳**只做 OS 级能力（窗口/热键/通知/选目录 sheet…）、进程监督，与**应用分发**（把随包的 profile、AGENTS.md 托管块、随应用发布的技能与插件装进 harness home）；**SPA** 只做渲染与交互，把用户动作路由为引擎 RPC；**引擎**持有全部业务状态——设置面（技能清单/新建/删除/从目录安装走 `skills/admin*`，插件启停落账走 `pluginInventory/patch*`）与会话数据（取消归档走 `workspace/unarchiveSessions`，删除走 `session/deleteSessions`）都在引擎侧，壳不再替引擎写任何状态文件。
+职责边界：**壳**只做 OS 级能力（窗口/热键/通知/选目录 sheet…）、进程监督，与**应用分发**（把随包的 profile、AGENTS.md 托管块、随应用发布的插件装进 harness home；随应用发布的技能不落文件——由引擎自己的 `@deepdive/engine-host` 运行时注册）；**SPA** 只做渲染与交互，把用户动作路由为引擎 RPC；**引擎**持有全部业务状态——设置面（技能清单/新建/删除/从目录安装走 `skills/admin*`，插件启停落账走 `pluginInventory/patch*`）与会话数据（取消归档走 `workspace/unarchiveSessions`，删除走 `session/deleteSessions`）都在引擎侧，壳不再替引擎写任何状态文件。
 
 ## 2. 通信矩阵（现实现）
 
@@ -68,8 +68,6 @@
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
 | `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`agentRun` |
-| `AppSkills.swift` | 随应用发布的技能（应用分发那一半）：`published` 是「这个应用带哪几个技能、正文是什么」的唯一事实源（automation 协议 + 浏览器使用），每次启动写回 `<DSH_HOME>/skills/<name>/SKILL.md` 并清掉停发的（`removeRetired`）；壳只经 `app-skill-names` 把这几个名字告诉前端（据此不给删除入口）。技能**清单/新建/删除/安装**归引擎（`skills/admin*`） |
-| `ManagedPatchBlock.swift` | home 级 patch 层（`<DSH_HOME>/cordis.patch.yml`）的路径与「托管块」读写原语：按标记对切/换/取行，段外内容逐字保留、不解析 YAML。写这份文件的壳侧消费者只剩 `McpServerAdmin`；插件开关块由引擎写（标记与格式逐字节钉在 `packages/host/plugin-inventory/src/patch-admin.ts`） |
 | `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |
 | `McpServerAdmin.swift` | MCP server 行：`- insert:` 一行一 server（`@deepseek-ai/dsh-mcp-client` + `config` 用 JSON 写进 YAML），同一份 home patch 层的第二块托管段；行上的 `disabled` 管启停，同样热生效 |
 | `StatusItemController.swift` | 菜单栏状态点与菜单（引擎状态以图标呈现；失败的具体原因在 SPA 的引擎横幅里，见 §3 事件表） |

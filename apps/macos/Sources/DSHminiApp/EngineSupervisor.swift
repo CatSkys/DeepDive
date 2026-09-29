@@ -340,9 +340,8 @@ final class EngineSupervisor {
         let cwd = workspace.path
 
         let process = Process()
-        AppSkills.install(in: home)
-        let retired = AppSkills.removeRetired(in: home)
-        if !retired.isEmpty { log.append("[engine] dropped retired skills: \(retired.joined(separator: ", "))") }
+        // 技能（自动化协议 + 浏览器使用）由引擎自己注册（@deepdive/engine-host 的
+        // 运行时贡献），退役技能目录的清理也在那里——壳不再写引擎状态文件。
         let patchArg = Self.ensureEnginePatchFile()
         // 部署提示词落 AGENTS.md（不是 overlay 的 personaPrefix——那条路被 agent preset
         // 遮蔽，见 DeploymentPrompt 的头注与 PITFALLS §7.7）。

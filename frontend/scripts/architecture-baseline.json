@@ -3,10 +3,10 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "f8898edb107d28f1",
+      "id": "a1b4d07225808836",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1078 lines > 300"
+      "detail": "1069 lines > 300"
     },
     {
       "id": "5e88cb16935d8ee9",
@@ -21,10 +21,10 @@
       "detail": "340 lines > 300"
     },
     {
-      "id": "b75ed57ff5bb9879",
+      "id": "d21033b45bc7b2be",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/EngineSupervisor.swift",
-      "detail": "572 lines > 300"
+      "detail": "571 lines > 300"
     },
     {
       "id": "62fad347c3aa2ff7",
@@ -93,16 +93,16 @@
       "detail": "719 lines > 300"
     },
     {
-      "id": "1a9314a40cda02c0",
+      "id": "f465d5d67c7ec946",
       "rule": "file-lines",
       "file": "frontend/src/host.ts",
-      "detail": "585 lines > 300"
+      "detail": "571 lines > 300"
     },
     {
-      "id": "b110d10b9c1e2c0b",
+      "id": "1c4ebbbec1942959",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "996 lines > 300"
+      "detail": "995 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",

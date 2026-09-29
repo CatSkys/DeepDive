@@ -838,7 +838,6 @@ export const EN: Record<string, string> = {
   "启动中": "Starting",
   "未运行": "Not running",
   "还没有自建技能。新建 <技能根>/<名字>/SKILL.md 即可（字段：name、description）。": "No authored skill yet. Create <skill root>/<name>/SKILL.md (fields: name, description).",
-  "随应用发布": "shipped with the app",
   "在 Finder 中显示": "Reveal in Finder",
   "本层未挂载": "Not mounted here",
   "按条件启用": "Conditional",

@@ -1,9 +1,10 @@
 // 插件页「技能」tab：`<DSH_HOME>/skills/<id>/SKILL.md` 的清单与新建、删除、从目录安装。
 //
 // 技能目录是**引擎的状态**，读写都走引擎（`api.skillsAdmin`，见 session-controller 的
-// skill-catalog）：引擎自带 chokidar 发现，写完立刻生效、不用重启。壳只剩两件它才会做
-// 的事——开选目录 sheet（`skillPickDirectory`）、报出随应用发布的那几个技能名
-// （`appSkillNames`：壳每次启动把它们写回技能根，删了会回来，所以不给删除入口）。
+// skill-catalog）：引擎自带 chokidar 发现，写完立刻生效、不用重启。壳只剩它才会做的一件
+// 事——开选目录 sheet（`skillPickDirectory`）。
+// 随应用发布的那两个技能（自动化协议、浏览器使用）不在这个清单里：它们是引擎的**运行时
+// 注册**（`@deepdive/engine-host`），没有目录可删，所以这里列的全是用户自己的技能。
 // frontmatter 缺 name/description 的技能引擎会**静默忽略**，所以缺键的照样列出来并
 // 标明缺什么。
 
@@ -11,7 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FileCode2, Folder, FolderInput, Plus, Trash2 } from "lucide-react";
 import { api, type SkillAdminEntry } from "../api";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
-import { appSkillNames, inShell, revealPath, skillPickDirectory } from "../host";
+import { inShell, revealPath, skillPickDirectory } from "../host";
 import { useT } from "../i18n";
 import rs from "../settings/SettingsRows.module.css";
 import css from "./Plugins.module.css";
@@ -66,7 +67,6 @@ function SkillDialog({ onCancel, onSave }: {
 export function SkillsTab({ query }: { query: string }) {
   const { t, tt } = useT();
   const [skills, setSkills] = useState<SkillAdminEntry[]>([]);
-  const [published, setPublished] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -79,10 +79,6 @@ export function SkillsTab({ query }: { query: string }) {
       .catch(() => { setUnavailable(true); setLoaded(true); });
   }, []);
   useEffect(refresh, [refresh]);
-
-  useEffect(() => {
-    void appSkillNames().then(setPublished);
-  }, []);
 
   const create = async (name: string, description: string) => {
     try {
@@ -162,35 +158,27 @@ export function SkillsTab({ query }: { query: string }) {
             <span className={rs.muted}>{t("没有匹配的技能。")}</span>
           </div>
         )}
-        {visible.map((skill) => {
-          const managed = published.includes(skill.id);
-          return (
-            <div key={skill.id} className={rs.blockRow}>
-              <FileCode2 size={13} />
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className={rs.rowName}>
-                  {skill.title}
-                  {managed && <span className={rs.presetBadge}>{t("随应用发布")}</span>}
-                </div>
-                <div className={rs.rowCaption}>
-                  {skill.missing.length > 0
-                    ? tt("缺 frontmatter 字段：{keys} —— 引擎会忽略这个技能", "Missing frontmatter keys: {keys} — the engine ignores this skill", { keys: skill.missing.join("、") })
-                    : skill.detail || skill.id}
-                </div>
-              </div>
-              <div className={rs.rowActions}>
-                <button className={rs.secondaryButton} onClick={() => revealPath(skill.manifest)}>
-                  <Folder size={12} /> {t("在 Finder 中显示")}
-                </button>
-                {!managed && (
-                  <button className={rs.dangerButton} onClick={() => void removeSkill(skill)}>
-                    <Trash2 size={12} /> {t("删除")}
-                  </button>
-                )}
+        {visible.map((skill) => (
+          <div key={skill.id} className={rs.blockRow}>
+            <FileCode2 size={13} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className={rs.rowName}>{skill.title}</div>
+              <div className={rs.rowCaption}>
+                {skill.missing.length > 0
+                  ? tt("缺 frontmatter 字段：{keys} —— 引擎会忽略这个技能", "Missing frontmatter keys: {keys} — the engine ignores this skill", { keys: skill.missing.join("、") })
+                  : skill.detail || skill.id}
               </div>
             </div>
-          );
-        })}
+            <div className={rs.rowActions}>
+              <button className={rs.secondaryButton} onClick={() => revealPath(skill.manifest)}>
+                <Folder size={12} /> {t("在 Finder 中显示")}
+              </button>
+              <button className={rs.dangerButton} onClick={() => void removeSkill(skill)}>
+                <Trash2 size={12} /> {t("删除")}
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {creating && <SkillDialog onCancel={() => setCreating(false)} onSave={(n, d) => { void create(n, d); }} />}

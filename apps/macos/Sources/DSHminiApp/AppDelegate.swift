@@ -362,8 +362,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             gitRun(reqId: body["reqId"] as? String ?? "",
                    path: body["path"] as? String ?? "",
                    args: body["args"] as? [String] ?? [])
-        case "app-skill-names":
-            appSkillNames(reqId: body["reqId"] as? String ?? "")
         case "skill-pick-directory":
             skillPickDirectory(reqId: body["reqId"] as? String ?? "")
         case "plugin-admin-info":
@@ -648,13 +646,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let result = ProcessRunner.run(executable: "/usr/bin/git", arguments: args, workingDirectory: path)
             DispatchQueue.main.async { reply(result.status == 0, result.output) }
         }
-    }
-
-    /// 随应用发布、每次启动被壳写回技能根的技能名（前端据此不给删除入口）。
-    /// 技能清单本身走引擎（`skills/adminList`）——技能根是引擎的状态。
-    private func appSkillNames(reqId: String) {
-        let names = AppSkills.publishedNames.sorted()
-        windowController.pushHostCommand("appSkillNames", payload: AppDelegate.jsonPayload(["reqId": reqId, "names": names]))
     }
 
     /// 开一个选目录 sheet，只回挑中的目录；拷贝由引擎做（技能根归引擎）。

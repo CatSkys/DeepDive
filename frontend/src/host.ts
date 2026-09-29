@@ -459,8 +459,8 @@ export function installHostBridge(handlers: Partial<{
 }
 
 /* ── 技能（设置 → 插件 → 技能）：技能根 `<DSH_HOME>/skills` 由引擎读写
-   （`api.skillsAdmin`），壳只剩两件它才会做的事——开选目录 sheet、报出随应用
-   发布的那几个技能名。 ── */
+   （`api.skillsAdmin`），随应用发布的那两个技能由引擎**运行时注册**（不是文件，
+   所以也不出现在清单里）。壳只剩它才会做的一件事：开选目录 sheet。 ── */
 
 /** 让壳开一次选目录 sheet，只回挑中的目录；拷贝由引擎做（它才是技能根的主人）。 */
 export function skillPickDirectory(): Promise<{ path?: string; cancelled: boolean }> {
@@ -472,20 +472,6 @@ export function skillPickDirectory(): Promise<{ path?: string; cancelled: boolea
       return { path: r?.path, cancelled: r?.cancelled !== false };
     },
     (reqId) => sendToShell({ type: "skill-pick-directory", reqId }),
-  );
-}
-
-/** 随应用发布、每次启动由壳幂等写回技能根的技能名：删了下次启动会回来，所以列表里
-   不给删除入口。纯浏览器环境拿不到（桥不在），退化为一律可删。 */
-export function appSkillNames(): Promise<string[]> {
-  return bridgeRequest(
-    "appSkillNames",
-    [],
-    (p) => {
-      const r = p as { names?: string[] };
-      return Array.isArray(r?.names) ? r.names : [];
-    },
-    (reqId) => sendToShell({ type: "app-skill-names", reqId }),
   );
 }
 
