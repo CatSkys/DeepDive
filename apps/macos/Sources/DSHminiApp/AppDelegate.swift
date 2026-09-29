@@ -368,14 +368,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pluginAdminInfo(reqId: body["reqId"] as? String ?? "")
         case "plugin-uninstall":
             pluginUninstall(reqId: body["reqId"] as? String ?? "", moduleName: body["moduleName"] as? String ?? "")
-        case "mcp-servers-list":
-            mcpServersList(reqId: body["reqId"] as? String ?? "")
-        case "mcp-servers-save":
-            mcpServersSave(
-                reqId: body["reqId"] as? String ?? "",
-                rows: body["servers"] as? [[String: Any]] ?? [],
-                newSecrets: (body["secrets"] as? [String: [String: String]]) ?? [:],
-            )
         case "remote-status":
             remoteStatus(reqId: body["reqId"] as? String ?? "")
         case "remote-start":
@@ -689,60 +681,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var fields: [String: Any] = ["reqId": reqId, "ok": error == nil, "moduleName": moduleName]
         if let error { fields["error"] = error }
         windowController.pushHostCommand("pluginUninstalled", payload: AppDelegate.jsonPayload(fields))
-    }
-
-    /// MCP server 清单（设置 → 插件 → MCP）：配置源是 app 自己的 JSON，
-    /// patch 块由 McpServerAdmin 生成。密钥**只回"哪些 key 已配置"**（不回值）——
-    /// 与模型 Key 同一条惯例（`credentials/describe` 也不回值）。
-    private func mcpServersList(reqId: String) {
-        let store = McpServerAdmin.load(in: AppPaths.supportDir)
-        let rows: [[String: Any]] = store.servers.map {
-            [
-                "rowId": $0.rowId, "name": $0.name, "transport": $0.transport,
-                "command": $0.command, "args": $0.args, "url": $0.url,
-                "env": $0.env, "headers": $0.headers, "enabled": $0.enabled,
-            ]
-        }
-        let configured = store.secrets.mapValues { Array($0.keys).sorted() }
-        windowController.pushHostCommand("mcpServers", payload: AppDelegate.jsonPayload([
-            "reqId": reqId, "servers": rows, "configured": configured,
-        ]))
-    }
-
-    /// 保存 MCP server（增删改都走它）。密钥合并规则：用户填了值就覆盖；不再被该
-    /// server 的 env/headers 引用的 key 丢掉（用户在弹窗里删了引用即等于删密钥）。
-    private func mcpServersSave(reqId: String, rows: [[String: Any]], newSecrets: [String: [String: String]]) {
-        let previous = McpServerAdmin.load(in: AppPaths.supportDir)
-        let servers = rows.map { row in
-            let name = row["name"] as? String ?? ""
-            return McpServerAdmin.Server(
-                rowId: (row["rowId"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? McpServerAdmin.rowId(of: name),
-                name: name,
-                transport: row["transport"] as? String ?? "stdio",
-                command: row["command"] as? String ?? "",
-                args: row["args"] as? [String] ?? [],
-                url: row["url"] as? String ?? "",
-                env: row["env"] as? [String] ?? [],
-                headers: row["headers"] as? [String] ?? [],
-                enabled: row["enabled"] as? Bool ?? true,
-            )
-        }
-        var secrets: [String: [String: String]] = [:]
-        for server in servers {
-            let referenced = Set(server.env + server.headers)
-            var keys = (previous.secrets[server.name] ?? [:]).filter { referenced.contains($0.key) }
-            for key in referenced {
-                if let fresh = newSecrets[server.name]?[key], !fresh.isEmpty { keys[key] = fresh }
-            }
-            if !keys.isEmpty { secrets[server.name] = keys }
-        }
-        let error = McpServerAdmin.save(
-            McpServerAdmin.Store(servers: servers, secrets: secrets),
-            in: AppPaths.supportDir, harnessHome: AppPaths.harnessHome,
-        )
-        var fields: [String: Any] = ["reqId": reqId, "ok": error == nil]
-        if let error { fields["error"] = error }
-        windowController.pushHostCommand("mcpServersSaved", payload: AppDelegate.jsonPayload(fields))
     }
 
     /// 移动端远程访问的状态回推：开关、局域网链接、二维码 data URL、设备台账。

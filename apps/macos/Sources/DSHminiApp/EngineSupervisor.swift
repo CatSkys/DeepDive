@@ -354,12 +354,9 @@ final class EngineSupervisor {
             process.executableURL = url
             process.arguments = ["--profile", "web", "--patch", patchArg.path, "--no-open", "--port", "0"]
         }
-        // MCP server 的密钥经环境变量交给引擎：patch 里只写
-        // `!!js process.env.MCP_<SERVER>_<KEY>` 这个引用，值本身不落 patch 文件
-        // （MCP client 的挂载形状即如此，见 McpServerAdmin.environment）。
-        for (key, value) in McpServerAdmin.environment(in: AppPaths.supportDir) {
-            environment[key] = value
-        }
+        // MCP server 的密钥由引擎自己从它的 0600 store 展平成 MCP_<SERVER>_<KEY>
+        // （pluginInventory 的 mcp-admin，见 docs/PLAN-NATIVE-ENGINE.md §4）——壳不再经
+        // spawn 环境注入，patch 里也只有变量名这个引用。
         // 浏览器控制面：地址（桥的回环 URL）+ boot token。组合行里只写这两个变量名。
         for (key, value) in BrowserUseInstaller.environment(bridgeURL: BridgeServer.shared.url) {
             environment[key] = value

@@ -39,7 +39,7 @@ export function pluginPatchFile(dshHome: string): string {
 }
 
 /** Block-inner lines (markers excluded); empty without a block or half a marker. */
-function linesOf(text: string, marker: ManagedMarker): string[] {
+export function linesOf(text: string, marker: ManagedMarker): string[] {
   const all = text.replace(/\r\n/g, '\n').split('\n')
   const begin = all.indexOf(marker.begin)
   if (begin === -1) return []
@@ -49,7 +49,7 @@ function linesOf(text: string, marker: ManagedMarker): string[] {
 }
 
 /** Remove the block (with one adjacent blank line), keeping everything else. */
-function stripBlock(text: string, marker: ManagedMarker): string {
+export function stripBlock(text: string, marker: ManagedMarker): string {
   const all = text.replace(/\r\n/g, '\n').split('\n')
   const begin = all.indexOf(marker.begin)
   if (begin === -1) return all.join('\n')
@@ -58,8 +58,8 @@ function stripBlock(text: string, marker: ManagedMarker): string {
   return [...all.slice(0, begin), ...all.slice(end + 1)].join('\n')
 }
 
-/** Replace the block body; an empty body removes the block. */
-function replaceBlock(text: string, marker: ManagedMarker, body: string[]): string {
+/** Replace the block body; an empty body removes the block. Shared by both managed blocks. */
+export function replaceBlock(text: string, marker: ManagedMarker, body: string[]): string {
   let kept = stripBlock(text, marker)
   while (kept.endsWith('\n\n')) kept = kept.slice(0, -1)
   if (body.length === 0) return kept.trim()
@@ -69,7 +69,7 @@ function replaceBlock(text: string, marker: ManagedMarker, body: string[]): stri
 }
 
 /** YAML scalar after `key`, paired double quotes stripped; null when unmatched. */
-function scalar(line: string, key: string): string | null {
+export function scalar(line: string, key: string): string | null {
   const trimmed = line.trim()
   if (!trimmed.startsWith(key)) return null
   let value = trimmed.slice(key.length).trim()
@@ -78,7 +78,7 @@ function scalar(line: string, key: string): string | null {
 }
 
 /** JSON string literal as a YAML double-quoted scalar; JS never escapes `/`. */
-function yamlString(value: string): string {
+export function yamlString(value: string): string {
   return JSON.stringify(value)
 }
 

@@ -13,10 +13,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Settings, Trash2 } from "lucide-react";
-import { api } from "../api";
 import { Toggle } from "../components/controls";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
-import { inShell, mcpServersList, mcpServersSave, type McpServerRow } from "../host";
+import { api, type McpServerRow } from "../api";
 import { useT } from "../i18n";
 import rs from "../settings/SettingsRows.module.css";
 import css from "./Plugins.module.css";
@@ -150,11 +149,13 @@ export function McpTab({ query }: { query: string }) {
   const [configured, setConfigured] = useState<Record<string, string[]>>({});
   const [phases, setPhases] = useState<Record<string, string | null>>({});
   const [editing, setEditing] = useState<{ row: McpServerRow; isNew: boolean } | null>(null);
-  const shell = inShell();
+  const [unavailable, setUnavailable] = useState(false);
 
   const load = useCallback(() => {
-    if (!shell) { setServers([]); return; }
-    void mcpServersList().then((store) => { setServers(store.servers); setConfigured(store.configured); });
+    // 配置源与密钥都在引擎里（`pluginInventory/mcpList`），浏览器访问同样可用
+    void api.mcpList().then((store) => { setServers(store.servers); setConfigured(store.configured); })
+      // 引擎未就绪、或这个引擎没有这组方法：说清楚，不冒充"没有服务器"
+      .catch(() => { setUnavailable(true); setServers([]); setConfigured({}); });
     // 每行是独立插件（`include:mcp-<名字>`），它的 fiberPhase 就是该 server 的挂载成败
     void api.pluginInventory()
       .then((snap) => {
@@ -167,13 +168,16 @@ export function McpTab({ query }: { query: string }) {
         setPhases(map);
       })
       .catch(() => setPhases({}));
-  }, [shell]);
+  }, []);
   useEffect(load, [load]);
 
   const persist = async (next: McpServerRow[], secrets: Record<string, Record<string, string>>): Promise<boolean> => {
-    const result = await mcpServersSave(next, secrets);
-    if (!result.ok) {
-      await alertDialog({ message: result.error ?? t("保存失败") });
+    try {
+      await api.mcpSave(next, secrets);
+    } catch (error: unknown) {
+      // 引擎的拒绝码（mcp/invalid）与存储故障都带原因，直接说给用户
+      const message = (error as { engineMessage?: string }).engineMessage ?? (error as Error).message;
+      await alertDialog({ message });
       return false;
     }
     setServers(next);
@@ -224,22 +228,22 @@ export function McpTab({ query }: { query: string }) {
     <>
       <div className={css.groupHead}>
         <div className={css.groupLabel}>{t("服务器")}</div>
-        <button className={rs.secondaryButton} onClick={() => setEditing({ row: blankServer(), isNew: true })} disabled={!shell}>
+        <button className={rs.secondaryButton} onClick={() => setEditing({ row: blankServer(), isNew: true })} disabled={unavailable}>
           <Plus size={12} /> {t("添加")}
         </button>
       </div>
       <div className={rs.blockCard}>
-        {!shell && (
+        {unavailable && (
           <div className={rs.blockRow}>
-            <span className={rs.muted}>{t("MCP 服务器配在本机文件里，只有桌面应用能读写——当前是浏览器访问。")}</span>
+            <span className={rs.muted}>{t("引擎未连接，或这个版本的引擎没有 MCP 接口（配置与密钥都在引擎侧）。")}</span>
           </div>
         )}
-        {shell && servers !== null && servers.length === 0 && (
+        {!unavailable && servers !== null && servers.length === 0 && (
           <div className={rs.blockRow}>
             <span className={rs.muted}>{t("还没有 MCP 服务器。添加一个，它的工具会以 mcp__<名字>__<工具> 出现在模型手里。")}</span>
           </div>
         )}
-        {shell && servers !== null && servers.length > 0 && visible.length === 0 && (
+        {!unavailable && servers !== null && servers.length > 0 && visible.length === 0 && (
           <div className={rs.blockRow}>
             <span className={rs.muted}>{t("没有匹配的服务器。")}</span>
           </div>

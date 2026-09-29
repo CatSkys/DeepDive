@@ -806,7 +806,7 @@ export const EN: Record<string, string> = {
   "环境变量与请求头（密钥）本轮未接：密钥要走凭据面，不能落进明文的 patch 文件。": "Environment variables and headers (secrets) are not wired yet: secrets belong in the credential store, not in this plaintext patch file.",
   "保存失败": "Save failed",
   "配置": "Configure",
-  "MCP 服务器配在本机文件里，只有桌面应用能读写——当前是浏览器访问。": "MCP servers live in a local file that only the desktop app can read and write — you are in a browser.",
+  "引擎未连接，或这个版本的引擎没有 MCP 接口（配置与密钥都在引擎侧）。": "The engine is not connected, or this engine version has no MCP surface (configuration and secrets live in the engine).",
   "还没有 MCP 服务器。添加一个，它的工具会以 mcp__<名字>__<工具> 出现在模型手里。": "No MCP server yet. Add one and its tools appear to the model as mcp__<name>__<tool>.",
   "没有匹配的服务器。": "No matching server.",
   "请求头名（逗号分隔）": "Header names (comma separated)",

@@ -98,5 +98,51 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'plugin-patch/unavailable': {}
     /** The row id cannot be written as one patch line (empty or multi-line). */
     'plugin-patch/invalid-row': { readonly rowId: string }
+    /** The MCP server table was refused (name shape, duplicate, missing endpoint). */
+    'mcp/invalid': { readonly reason: string }
   }
+}
+
+// ── MCP servers (settings → plugins → MCP) ─────────────────────────────────
+
+/** One MCP server row. Secret VALUES are never part of it, so it is safe to send. */
+export interface McpServerRow {
+  /** Row id (`mcp-<name>`): the switch ledger's patch target. */
+  readonly rowId: string
+  /** serverName; the model-side tool name is `mcp__<name>__<tool>`. */
+  readonly name: string
+  /** `stdio` | `streamable-http` (the engine's values, not `http`). */
+  readonly transport: string
+  readonly command: string
+  readonly args: readonly string[]
+  readonly url: string
+  /** stdio: environment variable NAMES to inject (values live in the secrets). */
+  readonly env: readonly string[]
+  /** streamable-http: request header NAMES to inject (values live in the secrets). */
+  readonly headers: readonly string[]
+  readonly enabled: boolean
+}
+
+/** The store document: configuration plus secrets, in one 0600 file. */
+export interface McpStore {
+  readonly servers: readonly McpServerRow[]
+  /** serverName → key → value. Never leaves the engine. */
+  readonly secrets: Readonly<Record<string, Readonly<Record<string, string>>>>
+}
+
+/** What the settings page may see: the rows plus which keys are configured. */
+export interface McpListValue {
+  readonly servers: readonly McpServerRow[]
+  /** serverName → configured key NAMES (values are never returned). */
+  readonly configured: Readonly<Record<string, readonly string[]>>
+}
+
+export interface McpSaveRequest {
+  readonly servers: readonly McpServerRow[]
+  /** Only the secrets the user typed this round; stored values are merged in. */
+  readonly secrets: Readonly<Record<string, Readonly<Record<string, string>>>>
+}
+
+export interface McpSaveOk {
+  readonly ok: true
 }

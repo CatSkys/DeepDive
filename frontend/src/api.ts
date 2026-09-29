@@ -506,6 +506,13 @@ export const api = {
    *  「用户关掉的」与「本层本来就没挂载」在 inventory 里都是 enabled:false，靠这份
    *  落账才分得开（混在一起会让开关看着"点了没反应"，PITFALLS §7.6）。 */
   pluginPatchList: () => unary<{ toggles: PluginPatchToggle[] }>("pluginInventory/patchList", {}),
+  /** MCP server 表（`pluginInventory/mcpList`）：行 + 每个 server 已配置的密钥 **名**。
+   *  配置源与 0600 密钥文件都在引擎里（`mcp-admin.ts`），密钥值从不回前端。 */
+  mcpList: () => unary<{ servers: McpServerRow[]; configured: Record<string, string[]> }>("pluginInventory/mcpList", {}),
+  /** 全量保存 MCP 表（增删改都走它）。`secrets` 只带用户这次填了值的密钥，
+   *  引擎与已存值合并；名字/必填项不过回 `mcp/invalid`。 */
+  mcpSave: (servers: McpServerRow[], secrets: Record<string, Record<string, string>>) =>
+    unary<{ ok: true }>("pluginInventory/mcpSave", { request: { servers, secrets } }),
   /** 拨一行；落盘成功即返回（引擎 `patchReload: live` 另行热重载，调用方等一拍再刷新清单）。
    *  `disabled: false` 也会显式落账：bundle 默认关的行只能靠这条覆盖重新打开。 */
   pluginPatchSet: (rowId: string, disabled: boolean) =>
@@ -700,6 +707,24 @@ export interface PluginInventoryEntry {
 }
 
 export type PluginFiberPhase = "pending" | "loading" | "active" | "failed" | "unloading" | null;
+
+/** 一个 MCP server 行（`pluginInventory/mcpList`）：密钥的**值**不在其中。 */
+export interface McpServerRow {
+  /** 行 id（`mcp-<名字>`）：启停开关的 patch 目标。 */
+  rowId: string;
+  /** serverName；模型侧工具名是 `mcp__<名字>__<工具>`。 */
+  name: string;
+  /** 引擎的取值是 `streamable-http`，不是 `http`。 */
+  transport: "stdio" | "streamable-http";
+  command: string;
+  args: string[];
+  url: string;
+  /** stdio：要注入的**环境变量名**（值在引擎的密钥表里，patch 只留引用）。 */
+  env: string[];
+  /** streamable-http：要注入的**请求头名**（值同上）。 */
+  headers: string[];
+  enabled: boolean;
+}
 
 /** 一行被用户显式设置过的插件开关（`pluginInventory/patchList` 的条目）。 */
 export interface PluginPatchToggle {
