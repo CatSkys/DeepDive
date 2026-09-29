@@ -1,4 +1,4 @@
-/* 设置页样式 —— 全部走主界面语义变量（--ink/--line/--fill/--panel-bg），
+/* 设置页样式 —— 全部走主界面语义变量（--ink/--line/--fill/--on-ink/--panel-strong），
    与主界面同一套观感；不再使用官方 dsw-alias 别名 token 体系。 */
 
 /* ── 快速添加（模型页）：主流厂商一键带出「填 Key」流程 ──
@@ -49,7 +49,7 @@
   transition: transform var(--dur-fast) var(--ease-out);
 }
 .toggle.on { background: var(--ink); }
-.toggle.on::after { transform: translateX(16px); background: var(--panel-bg); }
+.toggle.on::after { transform: translateX(16px); background: var(--on-ink); }
 
 /* ── 下拉触发器 ── */
 .dd {
@@ -191,7 +191,7 @@
 .tabBar { display: inline-flex; gap: 3px; padding: 3px; margin-bottom: 12px; border-radius: 999px; background: var(--fill); }
 .tab, .tabActive { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .tab:hover { color: var(--ink); }
-.tabActive { background: var(--ink); color: var(--panel-bg); }
+.tabActive { background: var(--ink); color: var(--on-ink); }
 
 /* ── 按钮 ── */
 .primaryButton, .secondaryButton {
@@ -206,7 +206,7 @@
   font-weight: 500;
   transition: background-color var(--dur-fast) ease, opacity var(--dur-fast) ease;
 }
-.primaryButton { background: var(--ink); color: var(--panel-bg); }
+.primaryButton { background: var(--ink); color: var(--on-ink); }
 .primaryButton:hover { opacity: .85; }
 .secondaryButton { background: var(--fill); color: var(--ink); border: 1px solid var(--line); }
 .secondaryButton:hover { background: var(--fill-strong); }
@@ -248,7 +248,7 @@
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .appearanceCard:hover { background: var(--fill-strong); color: var(--ink); }
-.appearanceCard.active { background: var(--ink); color: var(--panel-bg); }
+.appearanceCard.active { background: var(--ink); color: var(--on-ink); }
 
 .presetBadge {
   font-size: var(--dsh-font-size-xs);
@@ -257,7 +257,7 @@
   border: 1px solid var(--line-strong);
   color: var(--ink-2);
 }
-.presetBadge.current { background: var(--ink); color: var(--panel-bg); border-color: var(--ink); font-weight: 600; }
+.presetBadge.current { background: var(--ink); color: var(--on-ink); border-color: var(--ink); font-weight: 600; }
 
 /* ── 归档行 ── */
 .badge {

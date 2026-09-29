@@ -45,8 +45,14 @@
   --diff-del-bg: rgba(255,69,58,.13);
   --diff-add-ink: rgba(120,220,140,.95);
   --diff-del-ink: rgba(255,120,110,.95);
-  --panel-bg: rgba(22,23,26,.78);
-  /* 大弹层（居中 dialog）：毛玻璃但比 --panel-bg 更实——.78 压不住弹层正后的文字 */
+  /* 表面海拔（自下而上）：窗口玻璃在壳侧（不在本文件）→ 内容卡 --card-gradient
+     （近实色，正文要读得清）→ 菜单浮层 --panel-glass → 弹层/对话框 --panel-strong。
+     这三档的 alpha 各自来自一次实机反馈（见各条注释），**不要为了"档位更少"而并**：
+     .55 是"下方内容要透出来"，.92 是"弹层正后的文字要压得住"。
+     --on-ink 不是表面：它是**反色面（--ink）上的前景色**——白底黑字按钮里的字、
+     开关旋钮、选中标签的字，12 处全是这个用法（曾叫 --panel-bg，名字骗人，已改）。 */
+  --on-ink: rgba(22,23,26,.78);
+  /* 大弹层（居中 dialog）：毛玻璃但比菜单浮层更实——.55/.78 都压不住弹层正后的文字 */
   --panel-strong: rgba(24,24,27,.92);
   /* 明显毛玻璃档（composer @// 菜单）：backdrop-root 修复后模糊真正生效，
      底色 .45 让下方内容透出来；要求弹层背后是消息流等有意义的内容。
@@ -59,7 +65,6 @@
      .composer-menu 注释）。要更分明靠浮窗自己的描边 + 大柔阴影，不靠蒙版。 */
   --veil: rgba(0,0,0,.15);
   --composer-bg: rgba(64,66,72,.32);
-  --btn-float-bg: rgba(0,0,0,.55);
   --mark-inset: rgba(20,20,22,.9);
   --chrome-gradient: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.09) 40%, rgba(255,255,255,.10));
   /* 内容区（.main / 会话卡 / 右侧面板卡）：**近实色**，不跟着窗口吃玻璃。
@@ -106,14 +111,13 @@
     --fill-strong: rgba(0,0,0,.09);
     --fill-heavy: rgba(0,0,0,.15);
     --selection: rgba(0,0,0,.16);
-    --panel-bg: rgba(250,250,251,.86);
+    --on-ink: rgba(250,250,251,.86);
     --panel-strong: rgba(250,250,251,.94);
     /* 明显毛玻璃档（同 dark 注释）：浅色白底 .45，下方内容透出且保持雾感 */
     --panel-glass: rgba(250,250,251,.55);
     /* 预览浮窗蒙版（同 dark 注释）：亮色界面压太狠会把背景压没 */
     --veil: rgba(0,0,0,.12);
     --composer-bg: rgba(0,0,0,.05);
-    --btn-float-bg: rgba(255,255,255,.85);
     --mark-inset: rgba(255,255,255,.95);
     /* 侧栏偏灰（深 tint 压在原生浅底上），会话卡偏白（白 overlay 抬亮） */
     --chrome-gradient: linear-gradient(180deg, rgba(0,0,0,.11), rgba(0,0,0,.075) 40%, rgba(0,0,0,.09));
@@ -4447,7 +4451,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   transition: background-color var(--dur-fast) ease;
 }
 .dialog-btn:hover { background: var(--fill-strong); }
-.dialog-btn.primary { border: none; background: var(--ink); color: var(--panel-bg); font-weight: 600; }
+.dialog-btn.primary { border: none; background: var(--ink); color: var(--on-ink); font-weight: 600; }
 .dialog-btn.primary:hover { opacity: 0.85; background: var(--ink); }
 .dialog-btn.primary.danger { background: var(--dsh-signal-danger); color: #fff; }
 @media (prefers-reduced-motion: reduce) {

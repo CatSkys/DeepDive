@@ -140,7 +140,7 @@
   font-size: var(--dsh-font-size-xs);
   color: var(--ink-2);
 }
-.stepDone { background: var(--ink); color: var(--panel-bg); border-color: transparent; }
+.stepDone { background: var(--ink); color: var(--on-ink); border-color: transparent; }
 
 .stepLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -266,7 +266,7 @@
 .native:checked + .box {
   background: var(--ink);
   border-color: transparent;
-  color: var(--panel-bg);
+  color: var(--on-ink);
 }
 .native:checked + .dot { border-color: var(--ink); }
 .native:checked + .dot::after {
@@ -390,7 +390,7 @@
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .chip:hover { background: var(--fill-strong); color: var(--ink); }
-.chipOn { background: var(--ink); color: var(--panel-bg); border-color: transparent; font-weight: 600; }
+.chipOn { background: var(--ink); color: var(--on-ink); border-color: transparent; font-weight: 600; }
 .chipGhost { border-style: dashed; color: var(--ink-3); }
 
 .fieldLabel { margin-top: 6px; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
@@ -440,7 +440,7 @@
   cursor: pointer;
   transition: opacity var(--dur-fast) ease, background-color var(--dur-fast) ease;
 }
-.primary { border: none; background: var(--ink); color: var(--panel-bg); }
+.primary { border: none; background: var(--ink); color: var(--on-ink); }
 .primary:hover { opacity: 0.85; }
 .primary:disabled { opacity: 0.45; cursor: default; }
 .secondary { background: var(--fill); color: var(--ink); border: 1px solid var(--line); font-weight: 500; }

@@ -31,7 +31,7 @@
 }
 .tab:hover { color: var(--ink); }
 /* 两个类一起写：`--ink` 实底要压过 `.tab:hover` 的 2 特异度，且必须定义在其后 */
-.tab.tabActive { background: var(--ink); color: var(--panel-bg); font-weight: 600; }
+.tab.tabActive { background: var(--ink); color: var(--on-ink); font-weight: 600; }
 
 /* ── 搜索框（参考图：整宽、放大镜在左、无重描边）── */
 .search {

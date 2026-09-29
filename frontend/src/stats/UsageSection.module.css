@@ -53,7 +53,7 @@
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .segItem:hover { color: var(--ink); }
-.segItem.active { background: var(--ink); color: var(--panel-bg); font-weight: 600; }
+.segItem.active { background: var(--ink); color: var(--on-ink); font-weight: 600; }
 
 /* ── 热力图 ── */
 .heatBody { display: flex; align-items: stretch; gap: 12px; }
