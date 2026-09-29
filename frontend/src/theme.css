@@ -313,7 +313,7 @@ button {
   padding: 0 11px;
   border-radius: var(--dsh-radius-control);
   background: var(--fill);
-  border: 1px solid var(--line);
+  /* 不描边（用户定稿，同 .main）：磨砂底色自己分层，窗口变暗后这条白线太跳 */
   color: var(--ink-3);
 }
 .search-row input {
@@ -642,7 +642,9 @@ button {
   margin: 8px;
   /* 18 = --dsh-radius-window(26) − margin 8：与窗口角同心（HIG concentricity） */
   border-radius: var(--dsh-radius-panel);
-  border: 1px solid var(--line);
+  /* 内容卡不描边（用户定稿）：卡与玻璃靠颜色就能分界。窗口玻璃化后界面整体变暗，
+     这条 10% 白线成了卡周圈最亮的东西，看着像多了一圈白描边——分界交给明度差与
+     --shadow-card。别的描边（输入框/分隔线/窗口外圈）不在此列，照旧。 */
   background: var(--card-gradient);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -699,7 +701,7 @@ button {
   position: relative;   /* 边栏入口（.hero-panel-btn）的定位祖先 */
   box-sizing: border-box;
   border-radius: var(--dsh-radius-panel);
-  border: 1px solid var(--line);
+  /* 内容卡不描边，理由见 .main（用户定稿） */
   background: var(--card-gradient);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -4501,7 +4503,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .session-row > .session {
   box-sizing: border-box;
   border-radius: var(--dsh-radius-panel);
-  border: 1px solid var(--line);
+  /* 内容卡不描边，理由见 .main（用户定稿） */
   background: var(--card-gradient);
   box-shadow: var(--shadow-card);
   /* 卡片自裁：全屏预览面/面板的圆角不再由 .main 代裁 */
@@ -4510,15 +4512,15 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 .panel {
   flex: none;
-  /* border-box：卡宽 = 320 就是卡的外沿宽（内容框 318），窄屏 width:100% 也不会
-     被两条 1px 描边顶出主区（.main 在会话页是 overflow:visible，顶出去就是溢出） */
+  /* border-box：卡宽 = 320 就是卡的外沿宽（也是内容框宽），窄屏 width:100% 也不会
+     顶出主区（.main 在会话页是 overflow:visible，顶出去就是溢出） */
   box-sizing: border-box;
   width: 320px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   border-radius: var(--dsh-radius-panel);
-  border: 1px solid var(--line);
+  /* 内容卡不描边，理由见 .main（用户定稿） */
   background: var(--card-gradient);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -4526,7 +4528,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 @keyframes panel-in { from { opacity: 0; transform: translateX(8px); } }
 /* fullscreen 呈现：盖住整张会话卡（会话让位由覆盖完成，不参与宽度计算）——
-   它就是那一格里唯一的一张卡，四边描边照常描。
+   它就是那一格里唯一的一张卡。
    底下的会话列要**停绘制**：两张卡同色，不盖住的话会话正文会从面板里透出来
    （实测：标题压在页签上、代码块透过地址栏）。与文件预览全屏同一套
    ——visibility 而不是 display，滚动位置与事件状态都保住。 */
