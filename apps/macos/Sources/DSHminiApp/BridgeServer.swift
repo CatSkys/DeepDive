@@ -152,12 +152,7 @@ final class BridgeServer {
             return .response(.init(status: 204))
         }
 
-        // 量化探针（TODO §19）：样式/布局自证的取数口，boot 级 token 闸（见 UiProbe）。
-        // 与 /__deepdive_error 同样放在静态兜底与 engineBase 闸之前——引擎挂掉期间
-        // 恰恰最需要看界面。
-        if request.method == "POST", request.path == "/__probe" {
-            return .response(UiProbe.handle(request))
-        }
+        if let probed = UiProbe.responds(to: request) { return .response(probed) }  // 量化探针
 
         // 侧栏浏览器的 agent 控制面（随包的 MCP server → 壳里的 WKWebView）。必须放在
         // 静态兜底之前：/browser-control 不以 /api 开头，否则会被当成静态资源 404。

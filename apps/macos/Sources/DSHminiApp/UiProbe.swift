@@ -48,6 +48,13 @@ enum UiProbe {
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
+    /// 是不是探针请求？是就把处理结果一并给出（桥那边只留一行钩子）。
+    /// 放在静态兜底与 engineBase 闸之前——引擎挂掉期间恰恰最需要看界面。
+    static func responds(to request: MiniHTTPServer.Request) -> MiniHTTPServer.Response? {
+        guard request.method == "POST", request.path == "/__probe" else { return nil }
+        return handle(request)
+    }
+
     /// 处理一次探针请求（同步：MiniHTTPServer 一个连接一个线程）。
     /// 形状与 BrowserControl.handle 一致，便于对照。
     static func handle(_ request: MiniHTTPServer.Request) -> MiniHTTPServer.Response {

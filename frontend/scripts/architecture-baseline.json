@@ -9,10 +9,10 @@
       "detail": "1058 lines > 300"
     },
     {
-      "id": "5e88cb16935d8ee9",
+      "id": "81fe5c5d6c7a7050",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/BridgeServer.swift",
-      "detail": "409 lines > 300"
+      "detail": "412 lines > 300"
     },
     {
       "id": "ab5b5da21009aae6",
@@ -33,10 +33,10 @@
       "detail": "303 lines > 300"
     },
     {
-      "id": "9846f8a8daf873cb",
+      "id": "7aa13bab2310b5d7",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
-      "detail": "579 lines > 300"
+      "detail": "581 lines > 300"
     },
     {
       "id": "0a512c83dc5be250",

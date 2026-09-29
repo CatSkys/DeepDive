@@ -94,7 +94,7 @@ private final class EmptyToolbarDelegate: NSObject, NSToolbarDelegate {
 final class MainWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
     let webView: WKWebView
     /// 窗口的底（= window.contentView）：液态玻璃 / vibrancy 材质两形态封在它自己文件里。
-    private let glass = WindowGlassView()
+    let glass = WindowGlassView()  // 窗口内容根视图；量化探针要报它的几何（见 +Probe）
     private var themeEnabled: Bool
 
     /// 侧栏浏览器的标签集合（窗口里的第二组 WKWebView，同一时刻只有当前标签挂在舞台上）。
@@ -223,8 +223,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // Host-command channel (§3.1): frontend posts open-settings/host-ready.
         webView.configuration.userContentController.add(self, name: "deepdiveHost")
 
-        // 量化探针的取数口（UiProbe）：桥是单例、窗口控制器不是，所以由这里装。
-        UiProbe.measureProvider = { [weak self] selectors, props in self?.probeMeasure(selectors: selectors, props: props) }
+        UiProbe.measureProvider = { [weak self] s, p in self?.probeMeasure(selectors: s, props: p) }  // 见 +Probe
 
         window.contentView = glass
         // Full-bleed handle UNDER the webview: it only receives events the
@@ -577,50 +576,5 @@ extension MainWindowController: WKScriptMessageHandler {
         }
         EngineLog.shared.append("[bridge] host message: \(type)")
         onHostMessage?(body)
-    }
-}
-
-// MARK: - 量化探针取数（UiProbe 的窗口侧实现）
-
-extension MainWindowController {
-    /// 一次探针取数：原生层事实（JS 量不到的那半边）＋ webview 里的节点矩形与
-    /// computed style。整体在主线程跑（webView 只能在主线程动），由 UiProbe.handle
-    /// 在连接线程上等信号量——等待绝不能发生在主线程，否则与派发互锁。
-    func probeMeasure(selectors: [String], props: [String]) -> String? {
-        guard let script = UiProbe.script(selectors: selectors, props: props) else { return nil }
-        var nodes: String?
-        let done = DispatchSemaphore(value: 0)
-        webView.evaluateJavaScript(script) { result, _ in
-            nodes = result as? String
-            done.signal()
-        }
-        guard done.wait(timeout: .now() + .milliseconds(4_000)) != .timedOut else { return nil }
-        let nodesList = nodes.flatMap { $0.data(using: .utf8) }.flatMap { try? JSONSerialization.jsonObject(with: $0) }
-        let payload: [String: Any] = [
-            "ok": true,
-            "native": nativeFacts(),
-            "nodes": nodesList ?? [],
-        ]
-        guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    /// 原生层事实：窗口与两块 webview 的真实几何、外观、缩放。窗口坐标（不是屏幕
-    /// 坐标）——页面里量到的 rect 也是窗口坐标，两边可直接相减对位。
-    private func nativeFacts() -> [String: Any] {
-        func frame(_ view: NSView?) -> [String: Any]? {
-            guard let view else { return nil }
-            let r = view.convert(view.bounds, to: nil)
-            return ["x": Double(r.origin.x), "y": Double(r.origin.y),
-                    "w": Double(r.size.width), "h": Double(r.size.height)]
-        }
-        var facts: [String: Any] = [
-            "appearance": window?.effectiveAppearance.name.rawValue ?? "",
-            "pageZoom": Double(webView.pageZoom),
-        ]
-        for (key, view) in [("glass", glass as NSView?), ("webview", webView as NSView?), ("browserWebview", browserView)] {
-            if let f = frame(view) { facts[key] = f }
-        }
-        return facts
     }
 }
