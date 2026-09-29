@@ -362,6 +362,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             gitRun(reqId: body["reqId"] as? String ?? "",
                    path: body["path"] as? String ?? "",
                    args: body["args"] as? [String] ?? [])
+        case "git-changes":
+            gitChanges(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
+        case "git-diff":
+            gitDiff(reqId: body["reqId"] as? String ?? "",
+                    path: body["path"] as? String ?? "",
+                    file: body["file"] as? String ?? "")
         case "skill-pick-directory":
             skillPickDirectory(reqId: body["reqId"] as? String ?? "")
         case "plugin-admin-info":
@@ -637,6 +643,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             let result = ProcessRunner.run(executable: "/usr/bin/git", arguments: args, workingDirectory: path)
             DispatchQueue.main.async { reply(result.status == 0, result.output) }
+        }
+    }
+
+    /// 审查面板的改动清单（git-changes → gitChangesResult）。与 runGit 同源但更细：
+    /// 按文件拆出 kind 与逐文件增删，前端不自己数行。repo=false 覆盖非仓库 / git
+    /// 不可用 / 超时（前端按"没有 git 数据"处理，不报错）。
+    private func gitChanges(reqId: String, path: String) {
+        func reply(_ set: GitChanges.ChangeSet?) {
+            let files: [[String: Any]] = set?.files.map { change in
+                [
+                    "path": change.path,
+                    "originalPath": change.originalPath as Any,
+                    "kind": change.kind.rawValue,
+                    "added": change.added,
+                    "removed": change.removed,
+                    "binary": change.binary,
+                ]
+            } ?? []
+            windowController.pushHostCommand("gitChangesResult", payload: AppDelegate.jsonPayload([
+                "reqId": reqId, "repo": set != nil, "branch": set?.branch as Any, "files": files,
+            ]))
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let set = GitChanges.fetchChanges(at: path)
+            DispatchQueue.main.async { reply(set) }
+        }
+    }
+
+    /// 审查面板的单文件 diff（git-diff → gitDiffResult）。与 gitRun 的截尾相反：
+    /// patch 要么整份给，要么回报 truncated/binary——半截 patch 解析出来是错的。
+    private func gitDiff(reqId: String, path: String, file: String) {
+        func reply(_ diff: GitChanges.FileDiff) {
+            windowController.pushHostCommand("gitDiffResult", payload: AppDelegate.jsonPayload([
+                "reqId": reqId, "kind": diff.kind.rawValue,
+                "patch": diff.patch as Any, "content": diff.content as Any,
+            ]))
+        }
+        let unavailable = GitChanges.FileDiff(kind: .unavailable, patch: nil, content: nil)
+        guard !file.isEmpty, FileManager.default.fileExists(atPath: path) else {
+            reply(unavailable)
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let diff = GitChanges.fetchDiff(at: path, file: file)
+            DispatchQueue.main.async { reply(diff) }
         }
     }
 

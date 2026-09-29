@@ -77,12 +77,13 @@ function ArtifactRow({ item, onPreview }: { item: ArtifactItem; onPreview?: (pat
 }
 
 /** 会话状态分区组（面板正文）。 */
-export function StatusSections({ sessionId, data, scheduleRecords, artifacts, onPreview }: {
+export function StatusSections({ sessionId, data, scheduleRecords, artifacts, onPreview, onOpenReview }: {
   sessionId: string;
   data: CapsuleData;
   scheduleRecords: ScheduleRecord[];
   artifacts: ArtifactItem[];
   onPreview?: (path: string) => void;
+  onOpenReview?: () => void;
 }) {
   const [showEndedJobs, setShowEndedJobs] = useState(false);
   // 产物清单的展开态：收起时只给前几条 + 「查看全部」（参考图口径）。
@@ -166,7 +167,7 @@ export function StatusSections({ sessionId, data, scheduleRecords, artifacts, on
             <span><b className="capsule-add">+{git.additions}</b> <b className="capsule-del">−{git.deletions}</b></span>
           ))}
         >
-          <CapsuleGitSection wsPath={wsPath} git={git} onRefresh={data.reloadGit} />
+          <CapsuleGitSection wsPath={wsPath} git={git} onRefresh={data.reloadGit} onOpenReview={onOpenReview} />
         </CapsuleSection>
       )}
       {scheduleRecords.length > 0 && (

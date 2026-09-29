@@ -1,4 +1,6 @@
 import { uuid } from "./uuid";
+import { narrowReviewChanges, narrowReviewDiff } from "./review/gitChangesModel";
+import type { ReviewChanges, ReviewDiff } from "./review/types";
 // Shell↔frontend bridge mount (SPEC-NOTIFICATIONS-FLOATING-BALL §3.1).
 //
 // The native shell pushes instructions via WKWebView evaluateJavaScript on
@@ -204,6 +206,32 @@ export function gitRun(path: string, args: string[]): Promise<{ ok: boolean; out
       return { ok: !!r.ok, output: r.output ?? "" };
     },
     (reqId) => sendToShell({ type: "git-run", reqId, path, args }),
+  );
+}
+
+/* ── 审查面板（GitChanges）──────────────────────────────────────────
+   另开两条通道而不复用 git-run：那条给动作用的，输出只留 4000 字符**尾部**供人
+   读，diff patch 传不过来（截尾还会切出解析错误的 patch）。git 参数全写死在壳侧，
+   前端不透传任意 args。── */
+
+/** 未暂存改动清单。纯浏览器环境 resolve 空表（repo=false），调用方按"没有 git
+ *  数据"处理，不报错。 */
+export function gitChanges(path: string): Promise<ReviewChanges> {
+  return bridgeRequest(
+    "gitChangesResult",
+    { repo: false, branch: "", files: [] },
+    narrowReviewChanges,
+    (reqId) => sendToShell({ type: "git-changes", reqId, path }),
+  );
+}
+
+/** 单文件 diff。kind 交给调用方分流：patch 走解析器，其余各是一句说明。 */
+export function gitDiff(path: string, file: string): Promise<ReviewDiff> {
+  return bridgeRequest(
+    "gitDiffResult",
+    { kind: "unavailable" as const, patch: "", content: "" },
+    narrowReviewDiff,
+    (reqId) => sendToShell({ type: "git-diff", reqId, path, file }),
   );
 }
 

@@ -682,6 +682,13 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 
 ---
 
+### 7.8 极简模式的 persona 就是全部系统提示词：产品身份与部署提示词都会静默消失（2026-09-29 实测）
+- 现象（用户截图）：模型自我介绍成"我是 dsh，一个跑在命令行里的 AI 编程助手"。查会话日志的 `system/message`（**唯一权威**：模型可见即已记录）发现它收到的全部提示词只有一句 `You are a helpful software engineer assistant.`——身份是模型自己从运行时路径/env 猜的。
+- 根因有两层，缺一都会再犯：
+  1. **四个随包 preset 的 persona 都没提产品名**（`You are a coding agent powered by the {{model}} model.`），加上宿主 `system-prompt` 行默认还挂着上游那句 `You are an AI agent powered by DeepSeek Harness.`（Harness 是引擎名不是产品名），模型只能在两个都不是产品名的名字里挑。处置：四个 preset + 宿主默认 persona 一律写 `You are DeepDive (深潜)…running inside the DeepDive macOS app…`，并把宿主行的 `includeHarnessIdentity` 关掉（身份只说一次）。
+  2. **`minimal` preset 的 `complete: true` 让它的 persona 成为整个系统提示词**——global identity、运行时上下文、以及经 `agent-instructions` 进来的 **`<DSH_HOME>/AGENTS.md` 部署提示词**（自动化协议、富输出围栏、产物点名）**全部被抑制**。这是该 preset 的设计（固定提示词的单工具 Agent），但它是**用户可选的默认模式**，一旦选它，产品协议就到不了模型（实测用户当时的全部会话都是 minimal）。
+- 纪律：**改动或排查"模型为什么不照协议做"时，先读会话日志的 `system/message` 看它到底收到什么**，别按配置层猜；`--dump-config` 只反映补丁层，看不到组装结果。默认模式该是 `standard`（profile base 已是），`minimal` 只作专家档。
+
 ### 7.6 插件清单的 entryId 不是 patch 的 id；「未挂载」不等于「被关掉」（2026-09-16 实测）
 
 - **patch 的 id 是「行 id」**（如 `hmr`、`session-log-deepseek`），而 `pluginInventory/list`
@@ -736,7 +743,8 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   `session/prompt` → 用 `Decompress` 解 `sessions/<bucket>/<id>/session.v3.jsonl.zstd`
   （多帧 zstd，一次性解只出第一帧，§1.15），读其中的 `system/message`（组装好的系统提示词）。
   四个探针串的结果：overlay 注入的 `personaPrefix` **不在**；preset 的
-  `You are a coding agent powered by` 与 `Your working directory is` **都在**。
+  `You are … powered by the {{model}} model`（2026-09-29 起开头改成 `You are DeepDive (深潜)…`，
+  见 §7.8）与 `Your working directory is` **都在**。
   → 壳当时那条 `systemPromptPrefix`（自动化协议、富输出围栏词表）在当前链路上
   **到不了模型**。
 - **这条已在发货产品里造成过假修复**：2026-09-16 用户报"画个 svg 结果模型交付了 .svg 文件、

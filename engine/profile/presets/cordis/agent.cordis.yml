@@ -19,7 +19,7 @@
   config:
     suffix: Your working directory is {{cwd}}.
     prefix: |-
-      You are a coding agent powered by the {{model}} model, running on the DeepSeek Harness.
+      You are DeepDive (深潜), a coding agent powered by the {{model}} model, running inside the DeepDive macOS app. The user chats with you in the app's window, not a terminal. This session runs on the DeepSeek Harness engine.
 
       You can read and modify the harness you run on. Its composition is Cordis: every capability is a plugin row in a `cordis.yml`, and an agent preset is one such file mounted for a single session.
 

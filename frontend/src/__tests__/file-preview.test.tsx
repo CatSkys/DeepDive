@@ -25,6 +25,7 @@ function fake(over: Partial<FilePreview> = {}): FilePreview {
     tabs: [{ path: "/w/a.txt", name: "a.txt" }],
     activePath: "/w/a.txt",
     fullscreen: false,
+    mode: "file",
     open: vi.fn(),
     close: vi.fn(),
     closeAll: vi.fn(),
@@ -33,6 +34,8 @@ function fake(over: Partial<FilePreview> = {}): FilePreview {
     setRenderer: vi.fn(),
     toggleWrap: vi.fn(),
     setPage: vi.fn(),
+    setMode: vi.fn(),
+    openReview: vi.fn(),
     ...over,
   };
 }
@@ -46,13 +49,13 @@ const renderPage = (p: FilePreview) =>
   render(
     <>
       <PreviewPageHeader preview={p} />
-      <FilePreviewSurface preview={p} />
+      <FilePreviewSurface preview={p} wsPath="/w" />
     </>,
   );
 
 describe("little 浮窗", () => {
   it("挂蒙版 + 浮窗，控制簇四颗（关闭/全屏/默认应用打开/Finder），标签条给出文件名", () => {
-    render(<FilePreviewOverlay preview={fake()} />);
+    render(<FilePreviewOverlay preview={fake()} wsPath="/w" />);
     expect(document.querySelector(".preview-veil")).not.toBeNull();
     expect(document.querySelector(".preview-window")).not.toBeNull();
     expect(screen.getByRole("tab").textContent).toContain("a.txt");
@@ -63,7 +66,7 @@ describe("little 浮窗", () => {
 
   it("关闭钮与蒙版空白处都关掉预览；浮窗内的按下不误关", () => {
     const p = fake();
-    render(<FilePreviewOverlay preview={p} />);
+    render(<FilePreviewOverlay preview={p} wsPath="/w" />);
     (document.querySelector(".preview-control") as HTMLElement).click();
     expect(p.closeAll).toHaveBeenCalledTimes(1);
     // 空白处（target === 蒙版自身）关闭
@@ -77,7 +80,7 @@ describe("little 浮窗", () => {
 
   it("标签的 × 关单个标签，不触发整窗关闭", () => {
     const p = fake();
-    render(<FilePreviewOverlay preview={p} />);
+    render(<FilePreviewOverlay preview={p} wsPath="/w" />);
     (document.querySelector(".preview-tab-x") as HTMLElement).click();
     expect(p.close).toHaveBeenCalledWith("/w/a.txt");
     expect(p.closeAll).not.toHaveBeenCalled();
@@ -88,7 +91,7 @@ describe("little 浮窗", () => {
       tabs: [{ path: "/w/a.txt", name: "a.txt" }, { path: "/w/b.txt", name: "b.txt" }],
       activePath: "/w/a.txt",
     });
-    render(<FilePreviewOverlay preview={p} />);
+    render(<FilePreviewOverlay preview={p} wsPath="/w" />);
     expect(document.querySelectorAll(".preview-tab")).toHaveLength(2);
     screen.getAllByRole("tab")[1].click();
     expect(p.setActive).toHaveBeenCalledWith("/w/b.txt");
@@ -98,7 +101,7 @@ describe("little 浮窗", () => {
 describe("渲染器与换行", () => {
   it("代码文件默认走代码渲染器：行号 + 语言标签 + hljs 高亮", async () => {
     const p = fake({ tabs: [{ path: "/w/a.ts", name: "a.ts" }], activePath: "/w/a.ts" });
-    render(<FilePreviewSurface preview={p} />);
+    render(<FilePreviewSurface preview={p} wsPath="/w" />);
     await waitFor(() => expect(document.querySelector(".cb.preview-code")).not.toBeNull());
     expect(document.querySelectorAll(".cbRow")).toHaveLength(2);
     expect(document.querySelector(".cbLang")?.textContent).toBe("typescript");
@@ -110,7 +113,7 @@ describe("渲染器与换行", () => {
       tabs: [{ path: "/w/a.ts", name: "a.ts", renderer: "text", wrap: true }],
       activePath: "/w/a.ts",
     });
-    render(<FilePreviewSurface preview={p} />);
+    render(<FilePreviewSurface preview={p} wsPath="/w" />);
     await waitFor(() => expect(document.querySelector(".preview-text")).not.toBeNull());
     expect(document.querySelector(".preview-text")?.hasAttribute("data-wrap")).toBe(true);
     expect(document.querySelectorAll(".preview-text .cbRow")).toHaveLength(2);
@@ -121,7 +124,7 @@ describe("渲染器与换行", () => {
       tabs: [{ path: "/w/a.ts", name: "a.ts", renderer: "text", line: 2 }],
       activePath: "/w/a.ts",
     });
-    render(<FilePreviewSurface preview={p} />);
+    render(<FilePreviewSurface preview={p} wsPath="/w" />);
     await waitFor(() => expect(document.querySelector(".cbRow[data-target]")).not.toBeNull());
     expect(document.querySelectorAll(".cbRow[data-target]")).toHaveLength(1);
   });
@@ -231,5 +234,64 @@ describe("打开方式（分离按钮）", () => {
     fireEvent.click(document.querySelector<HTMLElement>(".open-with-item:nth-child(2)")!);
     expect(post).toHaveBeenCalledWith({ type: "open-path-with", path: "/w/a.txt", app: "/Applications/Xcode.app" });
     expect(screen.getByRole("button", { name: "用 Xcode 打开" })).not.toBeNull();
+  });
+});
+
+describe("审查面", () => {
+  const withShell = () => {
+    const post = vi.fn();
+    (window as unknown as { webkit?: unknown }).webkit = { messageHandlers: { deepdiveHost: { postMessage: post } } };
+    installHostBridge({
+      navigateToSession: () => {}, navigateToSettings: () => {}, themeChanged: () => {},
+      workspacePicked: () => {}, systemWake: () => {}, newSession: () => {}, openOnboarding: () => {},
+    });
+    return post;
+  };
+  const replyChanges = async (post: ReturnType<typeof vi.fn>, files: unknown[]) => {
+    const call = post.mock.calls.map(([m]) => m as { type: string; reqId: string }).find((m) => m.type === "git-changes")!;
+    await act(async () => {
+      window.__deepDiveHost!.dispatch("gitChangesResult", { reqId: call.reqId, repo: true, branch: "main", files });
+    });
+  };
+
+  afterEach(() => {
+    delete (window as unknown as { webkit?: unknown }).webkit;
+    delete (window as unknown as { __deepDiveHost?: unknown }).__deepDiveHost;
+  });
+
+  it("审查面不出文件页签，列出改动并给出 +N −M", async () => {
+    const post = withShell();
+    const p = fake({ mode: "review", tabs: [], activePath: null });
+    render(<FilePreviewOverlay preview={p} wsPath="/w" />);
+    await replyChanges(post, [{ path: "src/a.ts", kind: "modified", added: 20, removed: 4 }]);
+
+    expect(document.querySelector(".preview-tabs")).toBeNull();
+    expect(document.querySelector(".rv-file-name")!.textContent).toBe("a.ts");
+    expect(document.querySelector(".rv-add")!.textContent).toBe("+20");
+    expect(document.querySelector(".rv-del")!.textContent).toBe("−4");
+  });
+
+  it("审查面没有活动标签：控制簇只剩关闭与全屏", async () => {
+    const post = withShell();
+    render(<FilePreviewOverlay preview={fake({ mode: "review", tabs: [], activePath: null })} wsPath="/w" />);
+    await replyChanges(post, []);
+    expect(controlLabels()).toEqual(["关闭预览", "全屏预览"]);
+  });
+
+  it("文件面顶栏左端是切到审查面的钮，点了走 setMode", async () => {
+    const p = fake();
+    render(<FilePreviewOverlay preview={p} wsPath="/w" />);
+    fireEvent.click(screen.getByRole("button", { name: "审查改动" }));
+    expect(p.setMode).toHaveBeenCalledWith("review");
+  });
+
+  it("非 git 仓库给一句陈述，不是错误", async () => {
+    const post = withShell();
+    render(<FilePreviewOverlay preview={fake({ mode: "review", tabs: [], activePath: null })} wsPath="/w" />);
+    const call = post.mock.calls.map(([m]) => m as { type: string; reqId: string }).find((m) => m.type === "git-changes")!;
+    await act(async () => {
+      window.__deepDiveHost!.dispatch("gitChangesResult", { reqId: call.reqId, repo: false, files: [] });
+    });
+    expect(document.querySelector(".rv-empty")!.textContent).toContain("不在 Git 仓库里");
   });
 });

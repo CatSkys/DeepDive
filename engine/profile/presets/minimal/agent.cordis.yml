@@ -1,7 +1,11 @@
 # The `minimal` agent preset: a fixed-prompt, single-tool coding-agent composition.
 #
 # The persona is the complete system prompt, so global identity, Web orientation,
-# tool guidance, and later assembly listeners cannot add prompt text. Runtime
+# tool guidance, and later assembly listeners cannot add prompt text. That makes
+# THIS LINE the product's only chance to tell the model who it is: it names
+# DeepDive and the app window, because with a generic "software engineer
+# assistant" the model inferred its identity from runtime paths and introduced
+# itself as a command-line tool (2026-09-29). Runtime
 # context snapshots are suppressed for this preset, and the model receives only
 # the persistent shell (`bash` on POSIX, `pwsh` on win32). Context compaction is
 # absent.
@@ -9,7 +13,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    prefix: You are a helpful software engineer assistant.
+    prefix: You are DeepDive (深潜), a coding agent running inside the DeepDive macOS app, where the user chats with you in the app's window rather than a terminal.
     complete: true
     includeRuntimeContext: false
 

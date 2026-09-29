@@ -411,8 +411,17 @@
     - id: system-prompt
       name: '@deepseek-ai/dsh-system-prompt'
       config:
+        # 这行的 persona 只对"没自己 persona 的 preset"（用户自建的那种）生效——
+        # 随包的四个 preset 都会遮蔽它（PITFALLS §7.7）。所以它也必须报产品名。
         personaSuffix: Your working directory is {{cwd}}.
-        personaPrefix: You are a coding agent powered by the {{model}} model.
+        personaPrefix: >-
+          You are DeepDive (深潜), a coding agent powered by the {{model}} model, running
+          inside the DeepDive macOS app. The user chats with you in the app's window,
+          not a terminal.
+        # 上游那句 "You are an AI agent powered by DeepSeek Harness." 关掉：Harness 是
+        # 引擎的名字，不是产品的名字，两句并排会让模型在自我介绍时二选一（实测它选了
+        # 引擎名并把自己说成命令行工具）。身份只由上面的 persona 说一次。
+        includeHarnessIdentity: false
     - id: agent-loop
       name: '@deepseek-ai/dsh-agent-loop'
       config:

@@ -67,7 +67,7 @@
 | `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
 | `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
-| `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`agentRun` |
+| `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`GitChanges`（审查面板的未暂存改动与单文件 diff）、`agentRun` |
 | `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |
 | `McpServerAdmin.swift` | MCP server 行：`- insert:` 一行一 server（`@deepseek-ai/dsh-mcp-client` + `config` 用 JSON 写进 YAML），同一份 home patch 层的第二块托管段；行上的 `disabled` 管启停，同样热生效 |
 | `StatusItemController.swift` | 菜单栏状态点与菜单（引擎状态以图标呈现；失败的具体原因在 SPA 的引擎横幅里，见 §3 事件表） |
@@ -92,7 +92,8 @@
 | `mobile/` | 移动端远程控制（设置→移动端远程控制）：`RemoteControlSection`（扫码连接卡片 + 二维码 + 已配对设备台账）；远程状态与配对全在壳侧，前端只渲染快照（`host.ts` 的 remoteStatus/remoteStart/remoteStop/remoteRefresh/remoteRevoke/remoteCopyLink/qrEncode）。语义与安全边界见 `SPEC-MOBILE-REMOTE.md` |
 | `bots/` | Bot Channel（设置→移动端远程控制 右栏）：`BotChannelCard`（渠道列表 + 真实状态）、`BotManageDialog`（机器人台账 + 扫码新建 + 移除）、`im.ts`（渠道目录与状态纯函数）。wire 走 `api.ts` 的 `api.im`（插件的 `POST /api/dsh-im/<渠道>`，不是引擎 typert 网关）；契约见 `SPEC-MOBILE-REMOTE.md §5` |
 | `automation/` | 自动化（定时任务）：`model`（计划类型 + 次回触发/文案纯函数）、`templates`（四张模板卡）、`storage`（localStorage 持久化，读取即边界校验）、`runner`（到点执行：建会话→选模型→`/permission`→发指令）、`useAutomation`（App 级 Provider：任务/历史状态 + 30s 调度 tick + 运行对账 + 保持唤醒信号）、`protocol`（会话里创建自动化的围栏块协议：解析 + 形状校验）、`AutomationProposalCard`（消息流里的建议卡，点创建→预填表单）、`AutomationSection`（设置页「自动化」分区：列表↔编辑器两态路由）+ `TaskListPage`/`TaskCard`/`TaskEditorPage`/`ScheduleRow`/`RunHistory`（视图）。**调度在客户端**：引擎没有定时任务 RPC（`dsh-schedule` 只是会话内提醒工具），代价与应用语义见 `SPEC-AUTOMATION.md` |
-| `components/preview/` | 产物/文件预览：`useFilePreview`（标签+全屏+每标签视图偏好）、`FilePreviewWindow`（little 浮窗 + 全屏页头 + 内容装配 + 渲染器/折行控件）、`PreviewBody`（按渲染器分流）、`PdfPreview`（pdf.js 逐页 canvas 自绘，按需 import）、`OpenWithMenu`（右上「打开方式」）、`previewModel`（渲染器候选/语言/换行 纯函数）+ `components/CodeLines.tsx`（行号高亮体，与消息流代码卡共用）。pdfjs 的 worker 走 `?url` 资产、cMaps/标准字体/wasm 由 `frontend/scripts/copy-pdfjs-assets.mjs` 在 build 末尾拷进 `dist/pdfjs/`（同源、离线可用，不走 CDN） |
+| `components/preview/` | 产物/文件预览：`useFilePreview`（标签+全屏+每标签视图偏好+面板模式 file/review）、`FilePreviewWindow`（little 浮窗 + 全屏页头 + 内容装配 + 渲染器/折行控件）、`PreviewBody`（按渲染器分流）、`PdfPreview`（pdf.js 逐页 canvas 自绘，按需 import）、`OpenWithMenu`（右上「打开方式」）、`previewModel`（渲染器候选/语言/换行 纯函数）+ `components/CodeLines.tsx`（行号高亮体，与消息流代码卡共用）。pdfjs 的 worker 走 `?url` 资产、cMaps/标准字体/wasm 由 `frontend/scripts/copy-pdfjs-assets.mjs` 在 build 末尾拷进 `dist/pdfjs/`（同源、离线可用，不走 CDN） |
+| `review/` | 审查面板（预览面板的审查面，工作区未暂存改动，只读）：`patchModel`（unified patch 解析 + 折叠段计算，纯函数）、`gitChangesModel`（wire 边界收窄）、`useReviewChanges`（清单一次拉全 + 单文件 diff 懒取，刷新按 revision 整份换缓存）、`ReviewBody`/`ReviewFileRow`/`DiffRow`（呈现）。git 在壳侧（`GitChanges.swift`，桥消息 `git-changes`/`git-diff`），引擎不参与 |
 | `store.tsx`（列表/审批/排队等业务状态） + `prefs.ts`（壳偏好 hook） / `api.ts` / `types.ts` / `host.ts`（壳桥请求统一超时包装） / `titlebar.ts` / `i18n.ts` + `i18n-en.ts`（词典数据） / `events.ts`（应用内事件名） / `useEdgeFade.ts`（溢出渐隐边缘信号，UI-SPEC「FadeEdge」标准） | React Context 手写 store（轮询签名去抖）、same-origin RPC 客户端、事件可辨识联合、壳桥挂载、标题栏 rect 推送、中英词典 |
 | `theme.css` | 全部样式（唯一事实源，含亮/暗语义变量）；tokens 变量来自 `packages/design/generated/tokens.css` |
 

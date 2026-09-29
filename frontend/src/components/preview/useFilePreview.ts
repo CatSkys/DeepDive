@@ -1,9 +1,13 @@
 // 文件预览的状态：多标签 + 活动标签 + 全屏 + 每标签的视图偏好（渲染器/换行/
-// 跳行落点）。全屏 = 预览取代会话界面（SessionView 据此让消息流/输入框让位
-// 并给页头加返回钮）。只管状态，不碰渲染——呈现归 FilePreviewWindow。
+// 跳行落点）+ 面板模式（文件 / 审查）。全屏 = 预览取代会话界面（SessionView
+// 据此让消息流/输入框让位并给页头加返回钮）。只管状态，不碰渲染——呈现归
+// FilePreviewWindow。
 
 import { useCallback, useState } from "react";
 import { renderersOf, supportsWrap, type PreviewRenderer } from "./previewModel";
+
+/** 面板的两面。审查面（工作区未暂存改动）与文件面共用同一套 chrome。 */
+export type PreviewMode = "file" | "review";
 
 export interface PreviewTab {
   path: string;
@@ -22,10 +26,12 @@ interface PreviewState {
   tabs: PreviewTab[];
   activePath: string | null;
   fullscreen: boolean;
+  mode: PreviewMode;
 }
 
 export interface FilePreview extends PreviewState {
-  /** 打开一个文件（已开则切到它）；line 指定跳行落点。 */
+  /** 打开一个文件（已开则切到它）；line 指定跳行落点。点文件就是看文件，
+   *  所以顺带回到文件面，免得从审查面点进来落不回列表。 */
   open: (path: string, line?: number) => void;
   close: (path: string) => void;
   closeAll: () => void;
@@ -37,10 +43,19 @@ export interface FilePreview extends PreviewState {
   toggleWrap: () => void;
   /** 记当前标签的 PDF 可见页。 */
   setPage: (page: number) => void;
+  /** 切面板模式。 */
+  setMode: (mode: PreviewMode) => void;
+  /** 打开审查面（胶囊的「更改」行走这里）。 */
+  openReview: () => void;
 }
 
-/** 空态即「预览已关闭」；关掉最后一个标签回到它（全屏态一并复位，不留空壳）。 */
-const CLOSED: PreviewState = { tabs: [], activePath: null, fullscreen: false };
+/** 空态即「预览已关闭」；关掉最后一个标签回到它（全屏态与模式一并复位，不留空壳）。 */
+const CLOSED: PreviewState = { tabs: [], activePath: null, fullscreen: false, mode: "file" };
+
+/** 面板是否该出现：文件面要非空标签，审查面自己就是内容。 */
+export function previewOpen(state: PreviewState): boolean {
+  return state.mode === "review" || state.tabs.length > 0;
+}
 
 /** 当前标签的渲染器（候选表默认 = 第一个）。 */
 export function rendererOf(tab: PreviewTab): PreviewRenderer {
@@ -61,6 +76,7 @@ export function useFilePreview(): FilePreview {
       const hit = prev.tabs.some((x) => x.path === path);
       return {
         ...prev,
+        mode: "file" as const,
         tabs: hit
           ? prev.tabs.map((x) => (x.path === path ? { ...x, line } : x))
           : [...prev.tabs, { path, name: path.split("/").pop() ?? path, line }],
@@ -77,6 +93,7 @@ export function useFilePreview(): FilePreview {
         tabs,
         activePath: prev.activePath === path ? tabs[tabs.length - 1].path : prev.activePath,
         fullscreen: prev.fullscreen,
+        mode: prev.mode,
       };
     });
   }, []);
@@ -108,5 +125,8 @@ export function useFilePreview(): FilePreview {
     patchActive((tab) => (tab.page === page ? tab : { ...tab, page }));
   }, [patchActive]);
 
-  return { ...state, open, close, closeAll, setActive, setFullscreen, setRenderer, toggleWrap, setPage };
+  const setMode = useCallback((mode: PreviewMode) => setState((prev) => ({ ...prev, mode })), []);
+  const openReview = useCallback(() => setState((prev) => ({ ...prev, mode: "review" as const })), []);
+
+  return { ...state, open, close, closeAll, setActive, setFullscreen, setRenderer, toggleWrap, setPage, setMode, openReview };
 }

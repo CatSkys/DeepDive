@@ -22,6 +22,21 @@ export const EN: Record<string, string> = {
   "新建项目": "New project",
   "没有匹配的项目": "No matching projects",
   "无结果": "No results",
+
+  // 审查面板（预览面板的审查面）
+  "审查": "Review",
+  "未暂存": "Unstaged",
+  "没有未暂存的改动": "No unstaged changes",
+  "此工作区不在 Git 仓库里": "This workspace is not a Git repository",
+  "审查改动": "Review changes",
+  "回到文件预览": "Back to file preview",
+  "{n} 行未改动": "{n} unmodified lines",
+  "无结尾换行": "No newline at end of file",
+  "无内容差异": "No content changes",
+  "二进制文件，未展开": "Binary file, not expanded",
+  "文件过大，未展开": "File too large, not expanded",
+  "改动过大，未展开": "Change too large, not expanded",
+  "取不到这份改动": "Could not load this change",
   "暂无会话": "No sessions yet",
   // sidebar rows / ctx menu
   "删除工作区": "Delete Workspace",

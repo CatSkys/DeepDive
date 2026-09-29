@@ -326,7 +326,11 @@
   name: '@deepseek-ai/dsh-system-prompt'
   config:
     personaSuffix: Your working directory is {{cwd}}.
-    personaPrefix: You are a coding agent powered by the {{model}} model.
+    personaPrefix: >-
+      You are DeepDive (深潜), a coding agent powered by the {{model}} model,
+      running inside the DeepDive macOS app. The user chats with you in the
+      app's window, not a terminal.
+    includeHarnessIdentity: false
 - id: agent-loop
   name: '@deepseek-ai/dsh-agent-loop'
   config:

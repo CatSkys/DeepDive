@@ -39,6 +39,12 @@
   --fill-strong: rgba(255,255,255,.11);
   --fill-heavy: rgba(255,255,255,.20);
   --selection: rgba(255,255,255,.20);
+  /* Diff 增删色：消息流的 diff 卡与审查面板的 diff 行同源，别处不再写字面量
+     （原是 .diff-line.del/add 上的 rgba，这里提出来是为了不出现第二份）。 */
+  --diff-add-bg: rgba(48,209,88,.13);
+  --diff-del-bg: rgba(255,69,58,.13);
+  --diff-add-ink: rgba(120,220,140,.95);
+  --diff-del-ink: rgba(255,120,110,.95);
   --panel-bg: rgba(22,23,26,.78);
   /* 大弹层（居中 dialog）：毛玻璃但比 --panel-bg 更实——.78 压不住弹层正后的文字 */
   --panel-strong: rgba(24,24,27,.92);
@@ -1297,6 +1303,18 @@ button {
   scrollbar-width: none;
 }
 .preview-tabs::-webkit-scrollbar { display: none; }
+.preview-review-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0 2px 0 0;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+  flex: none;
+}
+.preview-review-btn:hover { background: var(--fill); color: var(--ink); }
 .preview-tab {
   display: inline-flex;
   align-items: center;
@@ -3299,8 +3317,8 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 .diff-line { padding: 0 10px; white-space: pre; user-select: text; }
 .diff-line.path { color: var(--ink-3); font-family: -apple-system, system-ui, sans-serif; padding-top: 2px; }
 .diff-line.gap { color: var(--ink-faint); text-align: center; }
-.diff-line.del { background: rgba(255,69,58,.13); color: rgba(255,120,110,.95); }
-.diff-line.add { background: rgba(48,209,88,.13); color: rgba(120,220,140,.95); }
+.diff-line.del { background: var(--diff-del-bg); color: var(--diff-del-ink); }
+.diff-line.add { background: var(--diff-add-bg); color: var(--diff-add-ink); }
 .diff-expand {
   display: block;
   width: 100%;
@@ -3310,6 +3328,101 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   color: var(--ink-3);
 }
 .diff-expand:hover { background: var(--fill); color: var(--ink); }
+
+/* ── 审查面板（预览面板的审查面）────────────────────────────────────────
+   增删底色与前景色取上面的 --diff-* 变量，与消息流 diff 卡同一份，不另写配色。
+   行号槽取 add=新号 / ctx·del=旧号（GitHub unified 惯例）。 ── */
+.rv-root { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.rv-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.rv-mode, .rv-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+  flex: none;
+}
+.rv-mode:hover, .rv-refresh:hover { background: var(--fill); color: var(--ink); }
+.rv-scope {
+  flex: 1;
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-2);
+}
+.rv-refresh[data-busy] svg { animation: rv-spin 900ms linear infinite; }
+@keyframes rv-spin { to { transform: rotate(360deg); } }
+.rv-list { flex: 1; min-height: 0; overflow-y: auto; }
+.rv-empty, .rv-note {
+  padding: 14px 12px;
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-3);
+}
+.rv-file { border-bottom: 1px solid var(--line); }
+.rv-file-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 10px;
+  text-align: left;
+}
+.rv-file-head:hover { background: var(--fill); }
+.rv-file-name { font-size: var(--dsh-font-size-sm); color: var(--ink); flex: none; }
+.rv-file-dir {
+  font-size: var(--dsh-font-size-xs);
+  color: var(--ink-faint);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rv-file-count { margin-left: auto; font-size: var(--dsh-font-size-xs); white-space: nowrap; }
+.rv-add { color: var(--diff-add-ink); margin-right: 6px; }
+.rv-del { color: var(--diff-del-ink); }
+.rv-file-caret { color: var(--ink-faint); flex: none; transition: transform var(--dur-fast) ease; }
+.rv-file[data-open] .rv-file-caret { transform: rotate(180deg); }
+.rv-file-body { padding-bottom: 6px; }
+.rv-lines {
+  font-family: var(--dsh-font-mono-family);
+  font-size: var(--dsh-font-size-sm);
+  line-height: 1.55;
+  overflow-x: auto;
+}
+.rv-line { display: flex; align-items: baseline; white-space: pre; }
+.rv-num {
+  flex: none;
+  width: 44px;
+  padding-right: 8px;
+  text-align: right;
+  color: var(--ink-faint);
+  user-select: none;
+}
+.rv-code { flex: 1; padding-right: 10px; min-width: 0; }
+.rv-nonewline { flex: none; color: var(--ink-faint); font-size: var(--dsh-font-size-xs); padding-left: 8px; }
+.rv-line[data-kind="add"] { background: var(--diff-add-bg); color: var(--diff-add-ink); }
+.rv-line[data-kind="del"] { background: var(--diff-del-bg); color: var(--diff-del-ink); }
+.rv-line[data-kind="ctx"] { color: var(--ink-2); }
+.rv-fold-bar {
+  display: block;
+  width: 100%;
+  padding: 4px 0;
+  margin: 2px 0;
+  text-align: center;
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-3);
+  background: var(--fill-soft);
+}
+button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
+.rv-fold-bar[data-static] { cursor: default; }
 
 /* Plan 审查卡：question-card 同族（同底同框），头部 tinted 条 + 计划正文
    markdown 滚动区 + 右对齐三动作。 */

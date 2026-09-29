@@ -133,7 +133,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     /// host-ready / restart-engine / rebind-hotkey / set-pref / set-theme /
     /// get-prefs / reveal-home / reveal-path / copy-log-path / open-host-doc /
     /// pick-workspace / pick-attachments / list-dir / read-workspace-icon /
-    /// run-git / git-run / open-url / dictation-start / dictation-stop /
+    /// run-git / git-run / git-changes / git-diff / open-url / dictation-start / dictation-stop /
     /// skill-list / skill-remove / plugin-patch-list / plugin-patch-set /
     /// plugin-admin-info / plugin-uninstall.
     var onHostMessage: (([String: Any]) -> Void)?

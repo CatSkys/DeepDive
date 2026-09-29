@@ -3,6 +3,7 @@
 // lang 为空即纯文本（不着色）；target 指定要高亮的行号（预览跳行用）。
 // 逐行同步高亮：多行语法（块注释/多行字符串）的续行不着色，但任何输入下结构
 // 安全（同 Markdown 的既有取舍）。
+// 审查面板的 diff 行也从这里取高亮（review/DiffRow.tsx）：缓存与降级只此一份。
 
 import hljs from "highlight.js/lib/common";
 
@@ -13,7 +14,7 @@ const hlCache = new Map<string, string | null>();
 const HL_CACHE_MAX = 2000;
 
 /** 单行高亮；无该语言/输入不可解析时回 null（调用方渲染纯文本）。 */
-function highlightLine(line: string, lang: string): string | null {
+export function highlightLine(line: string, lang: string): string | null {
   const key = `${lang}\u0000${line}`;
   const hit = hlCache.get(key);
   if (hit !== undefined) return hit;

@@ -4,11 +4,9 @@
 // 或对话框（他们点「提交或推送」开的是提交对话框，行本身只占一行）。
 // 动作全部经壳层 git-run 通道（参数数组直传 Process，不经 shell）。
 //
-// 与他们不同、且如实记下的两处：
-//  ① 他们的「更改」行可点，开的是 Git review 页；本仓没有审阅页，故按他们"无回调"
-//     的降级走禁用态（他们代码里正是这么降级的：disabled + 半透明）。
-//  ② 他们的提交与推送是两个对话框 + 一个动作菜单（GitActionMenu 1,404 行）；本仓
-//     复用现有 promptDialog/confirmDialog，三个动作收在一个随行展开的小菜单里。
+// 与他们不同、且如实记下的一处：他们的提交与推送是两个对话框 + 一个动作菜单
+// （GitActionMenu 1,404 行）；本仓复用现有 promptDialog/confirmDialog，
+// 三个动作收在一个随行展开的小菜单里。
 import { useRef, useState } from "react";
 import { Check, ChevronDown, CloudUpload, FileDiff, GitBranch, GitCommitHorizontal, Search } from "lucide-react";
 import { gitRun } from "../host";
@@ -18,10 +16,13 @@ import type { GitStatus } from "../types";
 
 type Busy = "checkout" | "commit" | "push" | null;
 
-export function CapsuleGitSection({ wsPath, git, onRefresh }: {
+export function CapsuleGitSection({ wsPath, git, onRefresh, onOpenReview }: {
   wsPath?: string;
   git: GitStatus;
   onRefresh: () => void;
+  /** 开审查面板（预览面板的审查面）。无壳桥时为 undefined，按他们的"无回调"
+   *  降级走禁用态。 */
+  onOpenReview?: () => void;
 }) {
   const [branchOpen, setBranchOpen] = useState(false);
   const [branches, setBranches] = useState<string[] | null>(null);
@@ -101,8 +102,9 @@ export function CapsuleGitSection({ wsPath, git, onRefresh }: {
 
   return (
     <>
-      {/* 他们的「更改」行可点（开审阅页）；本仓没有审阅页，按他们无回调时的降级渲染 */}
-      <button type="button" className="capsule-git-row" disabled>
+      {/* 「更改」行开审查面板（预览面板的审查面，只读）。无壳桥时 onOpenReview
+          为空，按 zcode "无回调" 的降级走禁用态。 */}
+      <button type="button" className="capsule-git-row" disabled={!onOpenReview} onClick={onOpenReview}>
         <FileDiff size={16} />
         <span className="capsule-git-label">{tt("更改", "Changes")}</span>
         <span className="capsule-row-meta"><b className="capsule-add">+{git.additions}</b> <b className="capsule-del">−{git.deletions}</b></span>

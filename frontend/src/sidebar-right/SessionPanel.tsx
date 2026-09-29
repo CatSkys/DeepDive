@@ -26,13 +26,15 @@ import type { PermissionSelect } from "../settings/permissionPreset";
 import type { ModelFace } from "../session/SessionHeader";
 import type { ScheduleRecord } from "../types";
 
-export function SessionPanel({ sessionId, scheduleRecords, artifacts, face, permissions, onPreview }: {
+export function SessionPanel({ sessionId, scheduleRecords, artifacts, face, permissions, onPreview, onOpenReview }: {
   sessionId: string;
   scheduleRecords: ScheduleRecord[];
   artifacts: ArtifactItem[];
   face: ModelFace;
   permissions: PermissionSelect | null;
   onPreview?: (path: string) => void;
+  /** 开审查面板（状态胶囊 Git 区的「更改」行走这里）。 */
+  onOpenReview?: () => void;
 }) {
   const surface = usePanelSurface(sessionId);
   const data = useCapsuleData(sessionId, scheduleRecords, surface.open && !surface.settings);
@@ -101,6 +103,7 @@ export function SessionPanel({ sessionId, scheduleRecords, artifacts, face, perm
                   scheduleRecords={scheduleRecords}
                   artifacts={artifacts}
                   onPreview={onPreview}
+                  onOpenReview={onOpenReview}
                 />
               </div>
             )}

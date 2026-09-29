@@ -16,7 +16,7 @@ import type { PermissionSelect } from "../settings/permissionPreset";
 import { groupTurns } from "../turnGroups";
 import { useSessionActions } from "../session/useSessionActions";
 import { FilePreviewOverlay, FilePreviewSurface, PreviewPageHeader } from "./preview/FilePreviewWindow";
-import { useFilePreview } from "./preview/useFilePreview";
+import { previewOpen, useFilePreview } from "./preview/useFilePreview";
 import { TurnList } from "../session/TurnList";
 import { useFollowTail } from "../session/useFollowTail";
 import { SessionHeader } from "../session/SessionHeader";
@@ -56,7 +56,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const title = summary ? sessionTitle(summary, lang) : t("会话");
   // 文件预览窗口（产物/文件 chip 打开）：little 浮窗与全屏两态
   const preview = useFilePreview();
-  const previewFull = preview.tabs.length > 0 && preview.fullscreen;
+  const previewFull = previewOpen(preview) && preview.fullscreen;
   // 产物/预览路径解析：模型常写 cwd 相对路径，/api/file 与壳动作都要绝对路径
   const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
   // 会话动作回调（打开预览 / 分叉 / 继续）：三者都要引用稳定，契约与出处见该 hook。
@@ -393,9 +393,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           )}
         </div>
         )}
-      {previewFull && <FilePreviewSurface preview={preview} />}
+      {previewFull && <FilePreviewSurface preview={preview} wsPath={wsPath} />}
       </div>
-      {preview.tabs.length > 0 && !previewFull && <FilePreviewOverlay preview={preview} />}
+      {previewOpen(preview) && !previewFull && <FilePreviewOverlay preview={preview} wsPath={wsPath} />}
     </div>
     <SessionPanel
       sessionId={sessionId}
@@ -404,6 +404,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       face={modelFace}
       permissions={permissions}
       onPreview={openPreviewFile}
+      onOpenReview={preview.openReview}
     />
     </div>
   );
