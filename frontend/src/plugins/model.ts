@@ -7,7 +7,7 @@
 // 所以 `enabled:false` 只能读成「本层没挂载它」，绝不能读成「用户关掉了」。
 //
 // 「用户关掉的」另有出处：home 级 patch 层 `<DSH_HOME>/cordis.patch.yml` 的托管段
-// （壳的 PluginPatchAdmin 读写，引擎 `patchReload: live` 热重载）。两者在 inventory 里
+// （引擎 `pluginInventory/patchList` 读写，`patchReload: live` 热重载）。两者在 inventory 里
 // 都是 `enabled:false`，混在一起会让开关看着「点了没反应」——所以这里显式分成
 // `offByUser` 与 `unmounted` 两态，只有前者给开关。
 

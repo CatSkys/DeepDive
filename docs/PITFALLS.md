@@ -256,6 +256,7 @@
   - **顺序：先删盘、后改引擎状态**：崩在中间只留下"仍记账但已无日志"（无害且重删幂等）；反序会让删掉的会话从 header 索引里复活。
   - 批次是部分的：`busy` / `missing`（没有日志）/ `failed`（存储拒绝）逐 id 回原因，一个失败不拖垮整批。
 - 落盘事实（改前必读）：归档集 = `DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`（带 `unit:{name,version}`，写前校验）；投影缓存 = `storages/session_projcache/sessions/<sessionId>.json`（**per-record 布局**：一个会话一份文档，见引擎 `session-projection-cache/src/spec.ts` 的 `layout: 'per-record'`。同目录下那个同名的整文件 `session_projcache.json` 是旧布局，只在「新树里一个文档都没有」时做 bootstrap，引擎此后**永不读写**——别去改它）；会话日志 = `sessions/<slug>/<sessionId>/`（目录名就是 sessionId；桶名是有损 slug，**别按 cwd 推桶名**——删除按 id 扫桶）。
+- 派生存储怎么跟上删除（都核过，不用再猜）：**投影缓存**由删除显式 `evict`（残留的行是幽灵：会给下一次冷读播种）；**搜索索引**（`session-query-sqlite`）不用管——`searchSessions`/`searchEvents` 每次先跑 `_reconcile`，拿持久化的新鲜列表比对索引行并删掉消失的（`_deleteSession('persisted', …)`），所以删完第一次搜索就自愈，不会命中已删会话；**会话列表**本来就不缓存（见上）。
 - 另外：本仓**故意删掉**了前端那两个 localStorage 覆盖集（`deepdive.unarchived` / `deepdive.removed`）——引擎成为唯一事实源后它们是第二份真相。
 
 ### 4.18 清理验收痕迹只能按显式 id：用"最近更新的会话"挑，会误删用户会话（2026-09-13 事故）
