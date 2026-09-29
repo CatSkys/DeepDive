@@ -339,7 +339,8 @@ button {
   gap: 6px;
 }
 
-.sessions { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; }
+/* position: relative：选中滑移底片的定位祖先（底片在滚动内容里，随列表一起滚） */
+.sessions { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; }
 
 .section-label {
   font-size: var(--dsh-font-size-base);
@@ -368,8 +369,10 @@ button {
   overflow: hidden;
 }
 .task-row:hover { background: var(--fill); }
+/* 选中行悬停时不再叠一层 fill——底片已经在下面，否则滑过去的底会被冲淡 */
+.task-row.selected:hover { background: transparent; }
 .task-row.running .title { color: var(--ink-bright); }
-.task-row.selected { background: var(--fill-strong); color: var(--ink-bright); }
+.task-row.selected { color: var(--ink-bright); }  /* 底色交给滑移底片 */
 .task-row .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .sidebar-foot {
@@ -558,9 +561,11 @@ button {
   scrollbar-width: none; /* Firefox：隐藏滚动条 */
 }
 .ws-switcher::-webkit-scrollbar { display: none; } /* WKWebView/Chromium：隐藏滚动条 */
-.ws-switcher-cells { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
+/* position: relative：空间条滑移底片的定位祖先 */
+.ws-switcher-cells { position: relative; display: flex; align-items: center; gap: 6px; margin: 0 auto; }
 .ws-cell {
   flex: none;
+  position: relative; /* 与 .task-row 同理：压过滑移底片（静态内容会画在定位元素之下） */
   width: 28px;
   height: 28px;
   border-radius: var(--dsh-radius-control);
@@ -578,11 +583,10 @@ button {
 /* 项目图标缩略图（icon.png/logo.* 读盘），无图标回落首字母 */
 .ws-cell-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
 .ws-cell:hover { background: var(--fill); color: var(--ink); }
-.ws-cell.active {
-  background: var(--fill-strong);
-  border-color: var(--line-strong);
-  color: var(--ink-bright);
-}
+/* 选中态：底色与描边交给滑移底片（.glide-ws），自身透明——否则这层 fill-strong
+   会盖住底片那圈 line-strong 描边。文字亮度仍由这里给。 */
+.ws-cell.active { background: transparent; border-color: transparent; color: var(--ink-bright); }
+.ws-cell.active:hover { background: transparent; }
 
 /* 底行右侧：新建空间入口（图标钮，本期占位，点击无行为）。 */
 .sidebar-foot .ws-add {
@@ -2855,6 +2859,20 @@ button {
 
 
 /* ---- 任务行:悬停操作区(归档/时间/置顶)+ 右键菜单 ---- */
+/* 选中态滑移的底片（useSelectionGlide 驱动，三处共用）：绝对定位在定位祖先里，
+   只跟着选中项改 top/left/width/height，位移走 --dur-med/--ease-out。观感同浏览器
+   标签条的 .panel-browser-chrome-glide——"选中"从一处滑到另一处，而不是每一项
+   各自闪一下背景。配色的 class 由各处自己叠（下面三个）。 */
+.sel-glide {
+  position: absolute; z-index: 0; pointer-events: none;
+  transition: top var(--dur-med) var(--ease-out), left var(--dur-med) var(--ease-out),
+              width var(--dur-med) var(--ease-out), height var(--dur-med) var(--ease-out);
+}
+.glide-row { background: var(--fill-strong); border-radius: 16px; }  /* 与 .task-row 同半径（PITFALLS §1.1） */
+.glide-seg { background: var(--ink); border-radius: 8px; }           /* 统计分段：ink 实底 */
+.glide-ws  { background: var(--fill-strong); border: 1px solid var(--line-strong);
+             border-radius: var(--dsh-radius-control); }
+
 .task-row { position: relative; }
 .task-row .row-actions {
   display: flex;
@@ -3069,7 +3087,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   .msg-block, .tool-row, .turn-tail, .approval-card,
   .model-menu, .model-menu-view, .ws-menu, .tool-collapse, .tool-collapse > .tool-body > *,
   .hero-title, .hero-composer, .model.trigger > svg,
-  .ws-strip, .ws-pane, .ws-cell, .main, .sidebar, .panel {
+  .ws-strip, .ws-pane, .ws-cell, .main, .sidebar, .panel, .sel-glide {
     animation: none !important;
     transition: none !important;
   }

@@ -13,6 +13,7 @@ import { wsGlyphIcon } from "./IconPicker";
 import { useWsIcon } from "../wsIcons";
 import { longPressHandlers } from "../longPress";
 import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
+import { useSelectionGlide } from "./useSelectionGlide";
 import { bucketLabel, fmtTime } from "../session/sessionTime";
 import { sessionTitle } from "../session/sessionTitle";
 import { alertDialog, confirmDialog } from "./DialogHost";
@@ -80,6 +81,8 @@ export function SidebarSessionList({
   const view = groupsOf(activeWs?.workspaceId);
   // 会话列表溢出渐隐（超限标准 UI）
   const sessionsFade = useEdgeFade();
+  // 选中态滑移（底片 .glide-row 在 .sessions 里，跨分组移动也连续）
+  const glide = useSelectionGlide<HTMLDivElement>(store.activeSessionId ? ".task-row[data-sel]" : null);
 
   // 行首槽位：运行/未读状态优先；都没有时给「置顶」钮（hover 显现，已置顶常驻）
   // ——置顶的会话不受自动归档限制（设置·通用）
@@ -87,6 +90,7 @@ export function SidebarSessionList({
     <button
       key={s.sessionId}
       className={`task-row${s.sessionId === store.activeSessionId ? " selected" : ""}${s.running ? " running" : ""}${store.unread.has(s.sessionId) ? " unread" : ""}`}
+      {...(s.sessionId === store.activeSessionId ? { "data-sel": "" } : {})}
       onClick={() => store.openSession(s.sessionId)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -151,6 +155,13 @@ export function SidebarSessionList({
     </button>
   );
 
+  // 当前片的 .sessions 同时是渐隐测量目标与滑移底片的定位祖先；相邻片不参与
+  // （底片在本容器内 querySelector，跨容器找不到选中行，自然不渲染）
+  const setSessionsRef = (el: HTMLDivElement | null) => {
+    sessionsFade.ref(el);
+    glide.setContainer(el);
+  };
+
   const neighborWs = neighborId ? store.workspaces.find((w) => w.workspaceId === neighborId) : undefined;
   const panes = [activeWs, neighborWs].filter((w): w is NonNullable<typeof w> => Boolean(w));
 
@@ -178,7 +189,8 @@ export function SidebarSessionList({
             {/* visibility 而非 display:none：.ws-pane-list 是 flex:1 撑高元素，折叠时
                 必须保留占位，否则底部设置行会滑上来顶到项目行。 */}
             <div className="ws-pane-list" style={{ visibility: collapsed ? "hidden" : undefined }}>
-              <div className="sessions fade-y" ref={sessionsFade.ref} {...fadeAttrs(sessionsFade.fade)}>
+              <div className="sessions fade-y" ref={isNeighbor ? sessionsFade.ref : setSessionsRef} {...fadeAttrs(sessionsFade.fade)}>
+                {!isNeighbor && glide.box && <div className="sel-glide glide-row" style={glide.glideStyle} />}
                 {paneGroups.map(({ label, items }) => (
                   <div key={label}>
                     {label && <div className="section-label">{label}</div>}

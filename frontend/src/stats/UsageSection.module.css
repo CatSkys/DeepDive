@@ -35,7 +35,9 @@
 .summaryLabel { font-size: var(--dsh-font-size-sm); color: var(--ink-3); margin-top: 6px; white-space: nowrap; }
 
 /* ── 分段控件（每日/每周/累计 · 近7日/近30日）：激活项 ink 实底 ── */
+/* position: relative：分段选中滑移底片的定位祖先 */
 .seg {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -44,6 +46,7 @@
   background: var(--fill);
 }
 .segItem {
+  position: relative; /* 压过滑移底片 */
   height: 24px;
   padding: 0 12px;
   border-radius: 8px;
@@ -53,7 +56,7 @@
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .segItem:hover { color: var(--ink); }
-.segItem.active { background: var(--ink); color: var(--on-ink); font-weight: 600; }
+.segItem.active { background: transparent; color: var(--on-ink); font-weight: 600; }  /* 底色交给滑移底片 */
 
 /* ── 热力图 ── */
 .heatBody { display: flex; align-items: stretch; gap: 12px; }

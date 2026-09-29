@@ -5,6 +5,7 @@ import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import { useWsIcon } from "../wsIcons";
 import { WsInitial, wsGlyphIcon } from "./IconPicker";
 import { WorkspaceMenu } from "./WorkspaceMenu";
+import { useSelectionGlide } from "./useSelectionGlide";
 import type { WorkspaceView } from "../types";
 
 // 底部空间切换条：一格一空间，当前高亮。只管条内滚动体验——溢出时隐藏
@@ -46,6 +47,7 @@ function WorkspaceCell({ ws, hotkey, active, onSwitch, onContext }: {
   return (
     <button
       className={`ws-cell${active ? " active" : ""}`}
+      {...(active ? { "data-sel": "" } : {})}
       data-tip={ws.title}
       {...(hotkey ? { "data-tip-keys": hotkey } : {})}
       onClick={onSwitch}
@@ -65,6 +67,7 @@ export function WsSwitcher() {
   const fade = useEdgeFade();
   const [strip, setStrip] = useState<HTMLDivElement | null>(null);
   const [ctx, setCtx] = useState<{ ws: WorkspaceView; x: number; y: number } | null>(null);
+  const glide = useSelectionGlide<HTMLDivElement>(".ws-cell[data-sel]");
 
   // 滚轮就地消费：条子有横向溢出时，纵横滚轮都只滚条子本身。
   // preventDefault 挡浏览器默认的滚动链接（否则纵滚轮会链去上方会话
@@ -84,7 +87,7 @@ export function WsSwitcher() {
     return () => el.removeEventListener("wheel", onWheel);
   }, [strip]);
 
-  // wheel 效果与渐隐测量各持一个引用，ref 回调里聚合到同一元素
+  // wheel 效果、渐隐测量与滑移底片各持一份引用，ref 回调里聚合到同一元素
   const setRefs = (el: HTMLDivElement | null) => {
     setStrip(el);
     fade.ref(el);
@@ -98,7 +101,8 @@ export function WsSwitcher() {
     >
       {/* 内包一层 auto margin 居中：justify-content: center 在溢出时会把
           首端格子挤出可滚范围（flex 数据丢失），auto margin 溢出时归零 */}
-      <div className="ws-switcher-cells">
+      <div className="ws-switcher-cells" ref={glide.setContainer}>
+        {glide.box && <div className="sel-glide glide-ws" style={glide.glideStyle} />}
         {store.workspaces.map((w, i) => (
           <WorkspaceCell
             key={w.workspaceId}
