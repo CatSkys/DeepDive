@@ -1074,7 +1074,6 @@ button {
   background: transparent;
 }
 .composer-icon:hover { color: var(--ink); background: var(--fill); }
-.composer-icon:active { transform: scale(.94); }
 .composer-mic {
   color: var(--ink-2);
   background: transparent;
@@ -1088,7 +1087,6 @@ button {
   color: var(--ink);
 }
 .composer-send:hover { background: var(--fill-strong); }
-.composer-send:active { transform: scale(.94); }
 .composer-send.stop { background: var(--fill-strong); }
 /* 听写中的均衡器（reference eq-bounce） */
 .eq { display: flex; align-items: center; gap: 2.5px; height: 14px; }
@@ -2142,7 +2140,6 @@ button {
 }
 .btn-primary { background: var(--dsh-text-primary); color: var(--dsh-surface-inverted); }
 .btn-plain { background: var(--line); color: var(--dsh-text-primary); border: 1px solid var(--dsh-border-default); }
-.btn-primary:active, .btn-plain:active { opacity: .8; }
 
 /* pulse 关键帧供 .state-dot 复用 */
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
@@ -5007,3 +5004,32 @@ input:focus, textarea:focus, select:focus { outline: none; }
   font-size: var(--dsh-font-size-sm);
 }
 .panel-browser-find-miss { flex: none; color: var(--dsh-text-tertiary); font-size: var(--dsh-font-size-xs); }
+
+/* ── 按下态（PRESS）：全 app 一套语言，两种器件各一条 ───────────────────────
+   实心/描边按钮：变暗（opacity .8）。方形图标钮：缩小（scale .94）。
+   为什么按器件分两种：缩小是"手指把物理按钮按下去"的直觉，变暗是"这层被压住"
+   的直觉；同一类器件内部混用会立刻显得拼凑。
+   此前只有 composer 两枚图标钮与 primary/plain 两枚按钮有按下反馈，其余可点面
+   按下去毫无反应（2026-09-30 走查）。**新按钮加进对应那一组**，别再单写一条。
+   不参与按压的：列表行（可点，但有长按与拖拽语义）、菜单项（靠 hover 选中）、
+   开关（有自己的轨道动效）。
+   顺带把 transition 收成一份超集：悬停/按下引起的底色、字色、透明度与缩放都在
+   --dur-fast 内走完（此前每个按钮各写一份列表、长短不一）。这一段放在文件末尾，
+   是为了让这份 transition 覆盖前面各处为同一批选择器写的短列表。 */
+.btn-primary, .btn-plain, .dialog-btn, .queue-btn, .turn-issue-btn,
+.engine-banner-action, .preview-review-btn, .preview-view-btn, .panel-chat-btn,
+.composer-icon, .composer-send, .panel-icon-btn, .panel-expand-btn, .ws-act,
+.task-row .row-pin-btn, .row-archive, .window-top-btn, .capsule-icon-btn,
+.meta-action, .hero-panel-btn, .q-pager-btn, .lightbox-close, .panel-artifact-more {
+  transition: background var(--dur-fast) ease, background-color var(--dur-fast) ease,
+              color var(--dur-fast) ease, opacity var(--dur-fast) ease,
+              transform var(--dur-fast) var(--ease-out);
+}
+.btn-primary:active, .btn-plain:active, .dialog-btn:active, .queue-btn:active,
+.turn-issue-btn:active, .engine-banner-action:active, .preview-review-btn:active,
+.preview-view-btn:active, .panel-chat-btn:active { opacity: .8; }
+.composer-icon:active, .composer-send:active, .panel-icon-btn:active,
+.panel-expand-btn:active, .ws-act:active, .task-row .row-pin-btn:active,
+.row-archive:active, .window-top-btn:active, .capsule-icon-btn:active,
+.meta-action:active, .hero-panel-btn:active, .q-pager-btn:active,
+.lightbox-close:active, .panel-artifact-more:active { transform: scale(.94); }
