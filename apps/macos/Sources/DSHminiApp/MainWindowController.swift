@@ -93,9 +93,8 @@ private final class EmptyToolbarDelegate: NSObject, NSToolbarDelegate {
 
 final class MainWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
     let webView: WKWebView
-    private let effectView = NSVisualEffectView()
-    /// 暗色玻璃上叠的暗色 tint；亮色外观下随 applyAppearanceMode 换成浅 tint。
-    private let tintView = NSView()
+    /// 窗口的底（= window.contentView）：液态玻璃 / vibrancy 材质两形态封在它自己文件里。
+    private let glass = WindowGlassView()
     private var themeEnabled: Bool
 
     /// 侧栏浏览器的标签集合（窗口里的第二组 WKWebView，同一时刻只有当前标签挂在舞台上）。
@@ -113,9 +112,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     let composerOverlay = ComposerOverlayHost()
     /// 浏览器页的键盘监视器（焦点在网页里时 SPA 收不到键，见 MainWindowController+Browser）。
     var browserKeyMonitor: Any?
-    /// 槽位换算需要的两个实时值（effectView / webView 是私有的，只开这一对读数口给
+    /// 槽位换算需要的两个实时值（glass / webView 是私有的，只开这一对读数口给
     /// MainWindowController+Browser 用）。
-    var browserContainerHeight: CGFloat { effectView.bounds.height }
+    var browserContainerHeight: CGFloat { glass.bounds.height }
     var browserZoom: CGFloat { webView.pageZoom }
     /// 当前标签的宿主（沿用 `browser.` 这个名字：绝大多数命令的落点就是"人正在看的那个标签"）。
     var browser: BrowserHost { browserTabs.activeHost }
@@ -151,11 +150,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     private let emptyToolbarDelegate = EmptyToolbarDelegate()
     /// Observes effectiveAppearance so appearance=system follows the OS live.
     private var appearanceObservation: NSKeyValueObservation?
-
-    /// 叠在原生材质上的近黑 tint：不透明度对齐 tokens.json `color.surface.panel`
-    /// （面板/侧栏/窗口的事实源）。tint 只定基调，玻璃观感归材质（PITFALLS §4.27）。
-    private static let darkTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.62)
-    private static let lightTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.72)
 
     init(themeEnabled: Bool) {
         self.themeEnabled = themeEnabled
@@ -208,14 +202,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         window.isOpaque = false
         window.backgroundColor = .clear
 
-        // 窗口玻璃：语义材质 `.sidebar`（随 window.appearance 自动明暗）＋ 半透明 tint。
-        effectView.material = .sidebar
-        effectView.blendingMode = .behindWindow
-        effectView.state = .active
-        let overlay = tintView
-        overlay.wantsLayer = true
-        overlay.layer?.backgroundColor = Self.darkTint.cgColor
-
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
         config.userContentController = WKUserContentController()
@@ -237,26 +223,23 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // Host-command channel (§3.1): frontend posts open-settings/host-ready.
         webView.configuration.userContentController.add(self, name: "deepdiveHost")
 
-        window.contentView = effectView
-        overlay.frame = effectView.bounds
-        overlay.autoresizingMask = [.width, .height]
-        effectView.addSubview(overlay)
+        window.contentView = glass
         // Full-bleed handle UNDER the webview: it only receives events the
         // webview lets fall through (blank strip space).
         let dragView = TitlebarDragView()
-        dragView.frame = effectView.bounds
+        dragView.frame = glass.bounds
         dragView.autoresizingMask = [.width, .height]
-        effectView.addSubview(dragView)
-        webView.frame = effectView.bounds
+        glass.addSubview(dragView)
+        webView.frame = glass.bounds
         webView.autoresizingMask = [.width, .height]
-        effectView.addSubview(webView)
+        glass.addSubview(webView)
 
         // 浏览器舞台加在 webView **之后** = 网页恒在 SPA 之上：当前标签的 WKWebView 盖住
         // SPA 挖的那一格，点击归它自己（缩略图态由 hitTest 让位，见 BrowserHostView）。
         // 初始不可见，等前端推槽位。舞台里的接线在 MainWindowController+Browser.swift。
-        browserStage.frame = effectView.bounds
+        browserStage.frame = glass.bounds
         browserStage.autoresizingMask = [.width, .height]
-        effectView.addSubview(browserStage)
+        glass.addSubview(browserStage)
         installBrowser()
 
         // 悬浮输入框叠加层加在浏览器视图**之后**：网页之上才能浮得住（网页是原生视图，
@@ -268,7 +251,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         overlayController.add(self, name: "deepdive")
         composerOverlay.view.navigationDelegate = self
         composerOverlay.view.uiDelegate = self
-        effectView.addSubview(composerOverlay.view)
+        glass.addSubview(composerOverlay.view)
         installBrowserKeyMonitor()
 
         webView.navigationDelegate = self
@@ -352,12 +335,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     /// appearance (inherits the OS) and the KVO below re-pushes on change.
     func applyAppearanceMode() {
         let mode = DSHAppPrefs.appearance
-        // 材质 `.sidebar` 跟随外观自动切换，这里只需换 tint 的明暗两档。
+        // 窗口外观定了，底板玻璃也随之（材质/液态玻璃都靠 appearance 自适应，
+        // 只有退回分支的 tint 需要按明暗换档——见 WindowGlassView.applyAppearance）。
         let light = mode == "light" || (mode == "system" && NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua)
         let appearance: NSAppearance? = mode == "system" ? nil : NSAppearance(named: light ? .aqua : .darkAqua)
         window?.appearance = appearance
         webView.appearance = appearance
-        tintView.layer?.backgroundColor = (light ? Self.lightTint : Self.darkTint).cgColor
+        glass.applyAppearance(light: light)
         pushScheme()
         if appearanceObservation == nil {
             appearanceObservation = window?.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in

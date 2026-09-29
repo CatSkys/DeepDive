@@ -62,7 +62,11 @@
   --btn-float-bg: rgba(0,0,0,.55);
   --mark-inset: rgba(20,20,22,.9);
   --chrome-gradient: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.09) 40%, rgba(255,255,255,.10));
-  --card-gradient: linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.46) 35%, rgba(0,0,0,.42));
+  /* 内容区（.main / 会话卡 / 右侧面板卡）：**近实色**，不跟着窗口吃玻璃。
+     卡片底下是原生液态玻璃 + 用户的壁纸，半透明会把正文压花、没法读。原来的
+     .34–.46 是"窗口底本来就接近不透明"时代的配方，窗口玻璃化之后必须收回。
+     要调透明度只改这里的 alpha——别再往卡片上叠第二层底色。 */
+  --card-gradient: linear-gradient(180deg, rgba(20,20,23,.96), rgba(15,15,18,.97) 35%, rgba(18,18,21,.96));
   /* 动效时长/缓动档（120/200/400ms 与 cubic-bezier(.2,0,0,1) 为本仓动效约定；
      tokens.json 的 motion 组已删——它从未被生成器输出过（AUD-054 死数据），
      时长数值以此为家。缺定义时引用处整条 invalid-at-computed-value-time
@@ -107,7 +111,8 @@
     --mark-inset: rgba(255,255,255,.95);
     /* 侧栏偏灰（深 tint 压在原生浅底上），会话卡偏白（白 overlay 抬亮） */
     --chrome-gradient: linear-gradient(180deg, rgba(0,0,0,.11), rgba(0,0,0,.075) 40%, rgba(0,0,0,.09));
-    --card-gradient: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.5) 35%, rgba(255,255,255,.55));
+    /* 内容区近实色（同 dark 注释）：亮色的内容卡是近白，同样不跟着窗口吃玻璃 */
+    --card-gradient: linear-gradient(180deg, rgba(252,252,253,.96), rgba(246,246,248,.97) 35%, rgba(250,250,251,.96));
 }
 :root {
   color-scheme: light dark;

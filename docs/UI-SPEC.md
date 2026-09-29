@@ -103,14 +103,15 @@
 | `shadow.floating` | `0 16px 48px rgba(0,0,0,.35)`（dark .5） | 浮层 |
 | 窗口阴影 | 系统提供 | 原生窗口/面板 |
 
-### 1.5 材质与 Vibrancy（近黑玻璃）
+### 1.5 材质与 Vibrancy（玻璃窗口）
 
-- 面板窗口：`NSVisualEffectView`（material **`.sidebar`**，Blending `.behindWindow`）＋ 透明 `WKWebView`。材质取语义名而非 `.hudWindow`——后者是"浮在其他窗口之上的 HUD 面板"档案，语义与"窗口的底"不符；`.sidebar` 随 `window.appearance` 自动明暗切换，壳侧不再手动分档。
-- **窗口必须 `isOpaque = false` + `backgroundColor = .clear`**：`.behindWindow` 采样的是窗口背后的桌面，不透明的窗口会让材质退化成"窗内混合"的平灰（AppKit 不会因为 contentView 是 `NSVisualEffectView` 就自动改，见 `PITFALLS §4.27`）。
-- 原生材质之上叠一层近黑 tint（不透明度以 `surface.panel` 为准）：**tint 只定基调，玻璃观感归材质**。压到近实色（≥.8）等于把 vibrancy 盖死，窗口底退化成一块平色板。
-- Web 侧表面色用 1.1 半透明值透出材质；不得写不透明色板。
+- 窗口底板（`WindowGlassView`，坐在所有内容之下）：**macOS 26+ 用 Liquid Glass**（`NSGlassEffectView`，style `.regular`）；更早的系统退回 `NSVisualEffectView`（material `.sidebar`，Blending `.behindWindow`）＋ 近黑 tint。两形态职责相同、观感不同。
+  - 为什么必须显式创建：整个界面画在透明 `WKWebView` 里、不是标准 AppKit 控件，拿不到系统对标准控件自动发放的液态玻璃；CSS 也补不上——`backdrop-filter` 只采样 webview 内的网页内容，采不到下面的原生层。
+  - 材质取语义名而非 `.hudWindow`——后者是"浮在其他窗口之上的 HUD 面板"档案，与"窗口的底"不符。
+- **窗口必须 `isOpaque = false` + `backgroundColor = .clear`**：底板采样的是窗口背后的桌面，不透明的窗口只能退化成"窗内混合"的平灰（AppKit 不会因为 contentView 是玻璃视图就自动改，见 `PITFALLS §4.27`）。
+- tint 只定基调，玻璃观感归玻璃：两条分支的档位见 `WindowGlassView`（退回分支以 `surface.panel` 为准；液态玻璃自带亮度，tint 只往近黑拉一档）。压到近实色（≥.8）等于把玻璃盖死。
+- Web 侧表面色用 1.1 半透明值透出材质；**内容区例外**：`.main`/会话卡/右侧面板卡（`--card-gradient`）取近实色——底下是用户壁纸时正文才读得清。
 - 玻璃细节：`surface.raised` ≥62% + `border.gloss` 顶部高光 + `shadow.floating`。
-- macOS Tahoe：跟随系统 Liquid Glass；只组合系统属性。自定义玻璃表面用 `NSGlassEffectView`（macOS 26+）；**整窗底色不用它**——那是给浮在内容之上的玻璃件（自定义工具栏/悬浮控件）准备的，窗口/侧栏底色仍归 `NSVisualEffectView`。
 
 ### 1.6 图标（组件库已锁定：Lucide）
 
