@@ -8,7 +8,7 @@
 //   模型   —— store.draftModel（首条消息建会话时随 selectModel 带走）
 //   权限   —— 引擎 permission 命名空间的 defaultPreset（新会话的初始权限；
 //             草稿页还没有会话，`/permission` 那条会话级写路在这里没有对象）
-//   发送方式 —— ui-conversation.busyEnter（本来就是全局设置，与设置页同源）
+//   发送方式 —— conversation.busyEnter（本来就是全局设置，与设置页同源）
 import { useEffect, useRef, useState } from "react";
 import { PanelRight, X } from "lucide-react";
 import { t } from "../i18n";
@@ -33,7 +33,7 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
   const [permission, setPermission] = useState<PermissionSettingsView | null>(null);
   /** 模型菜单的定位锚（弹层按它的 rect 摆，且点它不算"点外部"）。 */
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const { describe: describeUiNs, update: updateUiNs } = useSettingNamespace("ui-conversation");
+  const { describe: describeUiNs, update: updateUiNs } = useSettingNamespace("conversation");
   const { describe: describePermNs, update: updatePermNs } = useSettingNamespace("permission");
 
   useEffect(() => {

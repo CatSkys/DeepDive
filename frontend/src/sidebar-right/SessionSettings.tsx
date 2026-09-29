@@ -4,7 +4,7 @@
 //   权限   —— 引擎已经把会话权限投影成下拉视图（permissions: {options, currentValue}），
 //             写入只有 /permission <preset> 一条路（引擎注释原话：the one write path a web client uses）
 //   插件   —— plugins/PluginsTab 原样内嵌
-//   发送方式 —— 引擎 ui-conversation.busyEnter（全局设置，与设置→通用同源；引擎没有会话级开关）
+//   发送方式 —— 引擎 conversation.busyEnter（全局设置，与设置→通用同源；引擎没有会话级开关）
 //
 // 三个选择器（含模型那一行）同一形态：占满栏宽的一行，左值右箭头——与设置页/新建
 // 项目表单的审批下拉同一套（presetDropdownOptions + Dropdown）。
@@ -32,7 +32,7 @@ export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }:
   const [showModels, setShowModels] = useState(false);
   const [busy, setBusy] = useState("");
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const { describe: describeUiNs, update: updateUiNs } = useSettingNamespace("ui-conversation");
+  const { describe: describeUiNs, update: updateUiNs } = useSettingNamespace("conversation");
 
   // 本地乐观值只用于点击后立刻反映；投影推进后以投影为准
   const currentValue = current ?? permissions?.currentValue ?? "";

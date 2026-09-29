@@ -58,8 +58,11 @@
 #                           bridge); the prompt guidance MOVED into the deployment
 #                           prompt (`DeploymentPrompt.swift`, the AGENTS.md managed
 #                           block) so the model behavior survives the row's removal.
-#     ui-conversation is NOT in this list even though its browser half is equally
-#     dead: the SPA reads its settings namespace (busyEnter), see the row's comment.
+#       ui-conversation     registers the `ui-conversation` settings namespace,
+#                           which the SPA DOES read (busyEnter). Its registration
+#                           moved to our own host plugin (`@deepdive/engine-host`,
+#                           namespace renamed to `conversation`), so the row and
+#                           its 4.4 MB browser bundle are gone too.
 #
 # The upstream pair's layering is collapsed into this one insert, so the three
 # rules the engine enforces have to be honoured by hand:
@@ -478,12 +481,12 @@
       name: '@deepseek-ai/dsh-client-file-upload'
     - id: api-remotes
       name: '@deepseek-ai/dsh-api-remotes'
-    # KEPT on purpose: our SPA reads this row's settings namespace
-    # (`ui-conversation.busyEnter` — 发送方式 queue/steer，设置页/Composer/侧栏三处）。
-    # Its browser half (the official conversation shell) is dead weight we still ship;
-    # dropping the row needs a DeepDive-owned host package registering that namespace.
-    - id: ui-conversation
-      name: '@deepseek-ai/dsh-client-ui-conversation'
+    # DeepDive's own engine host plugins (engine/packages/deepdive/host). It
+    # registers the settings namespaces this app reads, which is what let the
+    # official client rows above leave the composition — see
+    # docs/PLAN-NATIVE-ENGINE.md §3.5.
+    - id: deepdive-host
+      name: '@deepdive/engine-host'
     - id: agent-presets
       name: '@deepseek-ai/dsh-agent-presets'
       config:

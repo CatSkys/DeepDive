@@ -1,0 +1,22 @@
+{
+  "name": "@deepdive/engine-host",
+  "description": "DeepDive's own engine host plugins: the settings namespaces this app reads, and (next) the surfaces the official client used to provide.",
+  "version": "0.1.5-rc.1",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/dsh-settings": "workspace:^"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "workspace:^"
+  },
+  "license": "MIT"
+}

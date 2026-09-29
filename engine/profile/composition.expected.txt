@@ -402,8 +402,8 @@
   name: '@deepseek-ai/dsh-client-file-upload'
 - id: api-remotes
   name: '@deepseek-ai/dsh-api-remotes'
-- id: ui-conversation
-  name: '@deepseek-ai/dsh-client-ui-conversation'
+- id: deepdive-host
+  name: '@deepdive/engine-host'
 - id: agent-presets
   name: '@deepseek-ai/dsh-agent-presets'
   config:

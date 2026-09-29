@@ -57,7 +57,7 @@ export function Composer({ sessionId, onSent, ctx, registerSending }: {
   const [multiline, setMultiline] = useState(false);
   /** 量测件宽度变化的计数（只用来重跑上面那条 useLayoutEffect） */
   const [widthTick, setWidthTick] = useState(0);
-  // 繁忙时 Enter 行为（settings ui-conversation ns，设置页同款；默认排队）
+  // 繁忙时 Enter 行为（settings conversation ns，设置页同款；默认排队）
   const [busyEnter, setBusyEnter] = useState<"queue" | "steer">("queue");
   const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.deepdiveHost);
   // 附件 chip 点击预览（Lightbox；仅图片 chip）
@@ -256,7 +256,7 @@ export function Composer({ sessionId, onSent, ctx, registerSending }: {
   useEffect(() => {
     if (!store.engineUp) return;
     api.settingsDescribe().then((d) => {
-      const ns = (d.namespaces ?? []).find((n) => n.ns === "ui-conversation");
+      const ns = (d.namespaces ?? []).find((n) => n.ns === "conversation");
       const v = (ns?.value as { busyEnter?: string } | null)?.busyEnter;
       if (v === "steer" || v === "queue") setBusyEnter(v);
     }).catch(() => void 0); // engine booting: keep default

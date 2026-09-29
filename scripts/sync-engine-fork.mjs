@@ -80,6 +80,23 @@ for (const app of readdirSync(join(HS, "apps"))) {
 }
 console.log("copied apps/cli/");
 
+// Our own host plugins must be reachable from the INSTALL ANCHOR (apps/cli): the
+// engine links `<home>/profiles/node_modules` from that manifest's dependency
+// graph (packages/boot/app-boot/src/profile.ts), and the Loader resolves a
+// composed row from there. A package the graph cannot reach loads fine in a dev
+// workspace and dies with ERR_MODULE_NOT_FOUND in a shipped build — so this is
+// re-applied after every sync, not a one-off edit.
+{
+  const cliManifest = join(OUT, "apps/cli/package.json");
+  const cli = JSON.parse(readFileSync(cliManifest, "utf8"));
+  cli.dependencies = Object.fromEntries(Object.entries({
+    ...cli.dependencies,
+    "@deepdive/engine-host": "workspace:^",
+  }).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  writeFileSync(cliManifest, JSON.stringify(cli, null, 2) + "\n");
+  console.log("re-declared our packages in apps/cli dependencies");
+}
+
 // ── build scaffolding ──
 // The root-level config files, not just the tsconfig family: tsdown.config.ts
 // is what loads the typert generator plugin, and without it the bundle step
@@ -152,5 +169,13 @@ console.log("narrowed pnpm-workspace.yaml");
   writeFileSync(join(OUT, ".upstream-host-include.json"), JSON.stringify(entries, null, 2) + "\n");
   console.log(`extracted upstream include baseline: ${entries.length} entries`);
 }
+
+// The lockfile is copied verbatim from upstream, so it does not know about the
+// packages this fork adds — and `build-engine.sh` installs with
+// `--frozen-lockfile`, which fails on a lockfile that disagrees with the
+// manifests. Regenerate it here (this also drops upstream importers for projects
+// the fork does not carry). Run it by hand when pnpm is unavailable:
+//   cd engine && pnpm install --lockfile-only
+console.log("note: run `pnpm --dir engine install --lockfile-only` so the lockfile records the fork's own packages");
 
 console.log("done");

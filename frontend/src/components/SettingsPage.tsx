@@ -197,7 +197,7 @@ function GeneralSection() {
     sendToShell({ type: "set-pref", key, value });
   };
 
-  const { describe: describeUiNs, update: updateUiNs } = useSettingNamespace("ui-conversation");
+  const { describe: describeUiNs, update: updateUiNs } = useSettingNamespace("conversation");
 
   useEffect(() => {
     void (async () => {

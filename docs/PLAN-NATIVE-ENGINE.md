@@ -72,7 +72,7 @@
 | 引擎目录体积 | 276 MB | ~200 MB | `du -sh $APP/Contents/Resources/Runtime/dsh` |
 | 冷启动 | boot smoke 就绪 | 不退化 | `scripts/smoke-engine-boot.sh` 计时 |
 
-### 3.5 下一刀的前置：一个 DeepDive 自己的宿主包（`packages/deepdive/*`）
+### 3.5 DeepDive 自己的宿主包 `@deepdive/engine-host`（2026-09-29 落地）
 
 上面剩下的每一块都撞在同一件事上，所以它才是下一个真正的施工单元，而不是"再删几行"：
 
@@ -84,15 +84,24 @@
 | §4 融合表：MCP 行与密钥 | 需要引擎自己的配置源（凭据面已在组合里） |
 | §5 效率：统计走投影 | 若做成宿主侧投影单元，家也在那儿 |
 
-**三个集成点已查明**（不查清就动手会把引擎构建打坏）：
-1. **`pnpm-lock.yaml` 有逐包的 importer 条目**（267 条），而 `build-engine.sh` 用
-   `pnpm install --frozen-lockfile` —— 新增工作区包必须同步更新 lockfile，否则构建直接失败。
+**已落地**：包在 `engine/packages/deepdive/host`，v1 承担一件事——注册 SPA 要的设置命名空间
+（`conversation.busyEnter`，接管自 `ui-conversation` 并把命名空间改成我们自己的名字）。于是
+`ui-conversation` 行连同它 4.4 MB 的浏览器半一起从组合与分发里消失，SPA 的发送方式设置
+照常工作（实机核过 `settings/describe` 里有 `conversation` 命名空间）。
+
+**三个集成点已查明并解决**（不查清就动手会把引擎构建打坏）：
+1. **lockfile**：`build-engine.sh` 用 `pnpm install --frozen-lockfile`，新包必须进
+   `pnpm-lock.yaml`（顺带让 pnpm 把 fork 不再携带的上游 importer 条目清掉：3537 行）；
+   同步脚本里记了这一步。
 2. **`engine/tsconfig.host.json` 是生成的**（`gen-engine-host-include.mjs`，从上游 include
-   清单派生、只删不增，且带 `--check` 门）——新包不进这个 program 就不会被编译/打包，
-   而手改生成物会被 `--check` 判为陈旧。所以生成器要学会带上我们自己的包。
-3. **闭包收集器按组合快照播种**（`collect-engine-closure.mjs` 从
-   `composition.expected.txt` 解析包名、在 `packages/` 下按名解析）——只要 profile 有一行
-   且快照已更新，新包自然进闭包；这一步反而是免费的。
+   清单派生、只删不增，且带 `--check` 门）——生成器里加了显式的 `OUR_PACKAGE_DIRS`，
+   新包才进编译/打包 program。
+3. **`apps/cli` 必须声明它**（这一条最隐蔽，试了四种假设才钉住）：引擎启动时按**安装锚点
+   （apps/cli）的依赖图**把包软链进 `<home>/profiles/node_modules`
+   （`packages/boot/app-boot/src/profile.ts` 的 `resolveModuleFallbackEntries`），Loader 再从
+   那里解析组合行。不在那张图里的包在开发工作区跑得动、在交付产物里必然
+   `ERR_MODULE_NOT_FOUND`。同步脚本会在每次同步后补回这条依赖。
+   判据：`smoke-engine-prompt.sh` 绿 + 产物里 `settings/describe` 有 `conversation`。
 
 ## 4. 方向三：融合——app↔engine 的边界再收
 

@@ -92,6 +92,9 @@ REMOVE=(
   @deepseek-ai/dsh-client-ui-settings-general
   @deepseek-ai/dsh-client-ui-chat
   @deepseek-ai/dsh-client-ui-deliverables
+  # 2026-09-29 (second round): the SPA's busyEnter namespace is registered by
+  # @deepdive/engine-host now, so the official conversation shell goes too.
+  @deepseek-ai/dsh-client-ui-conversation
   # A GitHub webhook surface no composition of ours mounts. Kept out of the
   # patch-file list (it never had a row); removed here so the tree goes with it.
   @deepseek-ai/dsh-webhook-github

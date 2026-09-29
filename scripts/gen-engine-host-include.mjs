@@ -143,6 +143,20 @@ if (droppedRefs.length) {
   if (droppedRefs.length > 6) console.log(`  … ${droppedRefs.length - 6} more`);
 }
 
+// ── our own packages ──
+// Upstream's list cannot know about packages this fork adds, and regenerating
+// the whole list from the tree is exactly what the header warns against — so
+// ours are appended explicitly, in the directory-reference form upstream uses
+// for a package that carries its own tsconfig.json (which resolves that file,
+// including its `include`). Add a package here when it joins engine/packages/
+// under the deepdive/ group; forgetting to means it is never type-checked nor
+// bundled, and the composition row then fails at boot with ERR_MODULE_NOT_FOUND.
+const OUR_PACKAGE_DIRS = ["packages/deepdive/host"];
+for (const dir of OUR_PACKAGE_DIRS) {
+  const ref = `./${dir}`;
+  if (!refs.includes(ref)) refs.push(ref);
+}
+
 let next = writeArray(raw, "include", include, (e) => JSON.stringify(e));
 next = writeArray(next, "references", refs, (e) => `{ "path": ${JSON.stringify(e)} }`);
 
