@@ -68,7 +68,7 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
   const goForward = async () => {
     if (primary) { await primary.run(); return; }
     if (last) {
-      // 卡片退场与礼花同时开始：卡片 380ms 淡出缩放（--ease-spring 收尾），
+      // 卡片退场与礼花同时开始：卡片 --dur-med 淡出缩放（--ease-spring 收尾），
       // 礼花继续撒到落屏外（最多 3.2s），撒完再真正卸载。
       setLeaving(true);
       setCelebrating(true);

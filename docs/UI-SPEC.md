@@ -152,13 +152,30 @@
 
 ### 1.7 动效
 
-| 场景 | 时长/曲线 |
+**词汇就这些**：数值在 `theme.css` 的 `:root`（唯一数值来源），场景对应在下表。**新写动效只引变量，不手写字面量**——散落的 `100/140/160/180/260/320/350/380/500ms` 与六条曲线已于 2026-09-30 全部收回（TODO §18b）。
+
+| 变量 | 用途 |
 |---|---|
-| 控件态 | 120ms `cubic-bezier(.2,0,0,1)` |
-| 面板显隐 | 200ms：alpha ＋ scale .98→1 ＋ translateY 8→0；隐 120ms 逆序 |
-| 浮层 | 160ms：scale .96→1 ＋ alpha；遮罩 160ms |
-| 流式文本 | 无逐字动画；上插淡入 ≤120ms |
-| 状态点 running/waiting | 呼吸 1.2s；`prefers-reduced-motion` 全静止 |
+| `--dur-fast` | 控件态：hover/按下/淡入淡出/小位移 |
+| `--dur-med` | 结构位移与显隐：左右边栏推让、浮层与菜单、面板开合 |
+| `--dur-slow` | 大件展开收起（思考过程折叠、行高与网格过渡） |
+| `--dur-slowest` | **全 app 唯一一处**：启动交叉淡入（骨架屏 → 界面） |
+| `--loop-breathe` | 常驻循环：状态点呼吸（running/waiting） |
+| `--loop-spin` | 常驻循环：转圈类加载 |
+| `--ease-out` | 唯一曲线（进场与位移都用它） |
+| `--ease-spring` | 带回弹，**只给入场**：引导卡、侧栏项目名让位 |
+
+| 场景 | 配方 |
+|---|---|
+| 控件态 | `--dur-fast` + `--ease-out` |
+| 结构推让（左右边栏） | 位移 `--dur-med` + `--ease-out`，淡出 `--dur-fast`；**进退同一对值**（transition 两头都跑，不做"进场有、收场没有"） |
+| 浮层 / 菜单 | `--dur-med`：alpha ＋ scale .96→1 ＋ translateY 8→0 |
+| 大件展开收起 | `--dur-slow` + `--ease-out` |
+| 流式文本 | 无逐字动画；上插淡入 `--dur-fast` |
+| 状态点 running/waiting | `var(--loop-breathe)` 呼吸；`prefers-reduced-motion` 全静止 |
+
+- **延迟是编排量**：`animation-delay` / `transition-delay`（错落入场的步进）按场景就地写，不进词汇。
+- **常驻循环的质感动画**（微光 shimmer、骨架脉冲、eq 跳动、文件旋转）各有自己的周期，就地写——它们不是交互延迟；但别再新增第五种交互时长。
 
 ### 1.8 键帽（KeyboardHint）
 

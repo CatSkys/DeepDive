@@ -196,9 +196,9 @@
 /* 条目错落入场：给列表项加 .rowIn + 内联 animation-delay（步进 20ms 上下）。 */
 .rowIn { animation: row-in-soft var(--dur-med) var(--ease-out) both; }
 
-/* 退场：卡片先淡出 + 轻微缩小/下沉（380ms，spring 收尾），礼花此时还在撒。 */
-.overlayLeaving { animation: none; transition: opacity 380ms var(--ease-spring); opacity: 0; }
-.cardLeaving { animation: none; transition: opacity 380ms var(--ease-spring), transform 380ms var(--ease-spring); opacity: 0; transform: scale(.965) translateY(8px); }
+/* 退场：卡片先淡出 + 轻微缩小/下沉（--dur-med，spring 收尾），礼花此时还在撒。 */
+.overlayLeaving { animation: none; transition: opacity var(--dur-med) var(--ease-spring); opacity: 0; }
+.cardLeaving { animation: none; transition: opacity var(--dur-med) var(--ease-spring), transform var(--dur-med) var(--ease-spring); opacity: 0; transform: scale(.965) translateY(8px); }
 
 @keyframes wizard-veil { from { opacity: 0; } to { opacity: 1; } }
 @keyframes wizard-in {
@@ -453,7 +453,7 @@
 .scanning { display: flex; align-items: center; gap: 8px; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
 
 @keyframes onboarding-spin { to { transform: rotate(360deg); } }
-.spin { animation: onboarding-spin 1s linear infinite; }
+.spin { animation: onboarding-spin var(--loop-spin) linear infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .spin { animation: none; }

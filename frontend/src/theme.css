@@ -67,10 +67,13 @@
      .34–.46 是"窗口底本来就接近不透明"时代的配方，窗口玻璃化之后必须收回。
      要调透明度只改这里的 alpha——别再往卡片上叠第二层底色。 */
   --card-gradient: linear-gradient(180deg, rgba(20,20,23,.96), rgba(15,15,18,.97) 35%, rgba(18,18,21,.96));
-  /* 动效时长/缓动档（120/200/400ms 与 cubic-bezier(.2,0,0,1) 为本仓动效约定；
+  /* 动效词汇（唯一一处定义，场景对应关系见 UI-SPEC §1.7）：
+     四档过渡时长 + 两条常驻循环周期 + 两条曲线，就这么些。
      tokens.json 的 motion 组已删——它从未被生成器输出过（AUD-054 死数据），
-     时长数值以此为家。缺定义时引用处整条 invalid-at-computed-value-time
-     静默失效（AUD-002）。 */
+     数值以此为家。缺定义时引用处整条 invalid-at-computed-value-time 静默失效
+     （AUD-002），所以新写动效只引这里的变量，别再手写字面量。
+     过渡一律 var(--dur-*) + var(--ease-out)；animation-delay（错落入场的步进）
+     是编排量，按场景就地写。 */
   --dur-fast: 120ms;
   --dur-med: 200ms;
   --dur-slow: 300ms;
@@ -78,9 +81,12 @@
      收尾，慢一点才丝滑（用户定稿）。用它的地方：App 的启动交叉淡入 + 
      BootSkeleton 的整层淡出（时长只此一处，两边都引这个变量）。 */
   --dur-slowest: 520ms;
+  /* 常驻循环（不是交互延迟，另立两档）：状态点呼吸、转圈加载。 */
+  --loop-breathe: 1.2s;
+  --loop-spin: 1s;
   --ease-out: cubic-bezier(.2, 0, 0, 1);
-  /* 带一点回弹的缓动：**只给"入场"用**（引导卡的卡面/步骤切换——用户要"明显且优雅"的
-     进场）。持续位移/悬停仍用 --ease-out，回弹在反复交互里会显得毛躁。 */
+  /* 带一点回弹的缓动：**只给"入场"用**（引导卡的卡面/步骤切换、侧栏项目名让位）。
+     持续位移/悬停仍用 --ease-out，回弹在反复交互里会显得毛躁。 */
   --ease-spring: cubic-bezier(.22, .9, .24, 1.04);
 }
 :root[data-theme="light"] {
@@ -244,7 +250,7 @@ button {
 /* Collapse: slide the sidebar out of layout (main flex-grows smoothly), no
    intermediate sizing frames. 顶部钮仍在顶部，会话头让位（同旧版机制）。 */
 .app.collapsed .sidebar { margin-left: calc(-1 * var(--dsh-sidebar-w, 240px)); opacity: 0; pointer-events: none; }
-.session-header, .hero-top { transition: padding-left 220ms cubic-bezier(.2,0,0,1); }
+.session-header, .hero-top { transition: padding-left var(--dur-med) var(--ease-out); }
 .app.collapsed .session-header { padding-left: 176px; }
 /* hero-top 的负边距已抵掉 .hero 的横向 padding：与会话头同款 176（同位让位） */
 .app.collapsed .hero-top { padding-left: 176px; }
@@ -295,7 +301,7 @@ button {
      min/max 是 token 兜底（sidebarMin/Max 200/320）。 */
   box-sizing: border-box;
   margin-left: 0;
-  transition: margin-left 220ms cubic-bezier(.2,0,0,1), opacity 200ms ease;
+  transition: margin-left var(--dur-med) var(--ease-out), opacity var(--dur-med) ease;
   overflow: hidden;
   min-width: 200px;
   max-width: 320px;
@@ -427,7 +433,7 @@ button {
 .ws-lead .ws-folder-ic {
   position: absolute;
   inset: 0;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-fast) ease;
 }
 /* 折叠箭头：行内绝对定位在图标列（左内距 10px），不参与布局——静止时项目名首字与
    上方图标同列（用户定稿）。悬停/折叠时它在这格弹入（缩放 + 弹性缓动，60ms 起步：
@@ -439,9 +445,9 @@ button {
   top: 9.5px;
   opacity: 0;
   transform: scale(.8);
-  transition: opacity 160ms ease, transform 260ms cubic-bezier(.34, 1.56, .64, 1);
+  transition: opacity var(--dur-fast) ease, transform var(--dur-med) var(--ease-spring);
 }
-.ws-name { transition: margin-left 220ms cubic-bezier(.34, 1.4, .64, 1); }
+.ws-name { transition: margin-left var(--dur-med) var(--ease-spring); }
 .ws-row:hover .ws-chevron-ic, .ws-row.collapsed .ws-chevron-ic { opacity: 1; transition-delay: 60ms; }
 .ws-row:hover .ws-chevron-ic { transform: none; }
 .ws-row.collapsed .ws-chevron-ic { transform: rotate(-90deg); }
@@ -627,7 +633,7 @@ button {
   background: var(--card-gradient);
   box-shadow: var(--shadow-card);
   overflow: hidden;
-  transition: margin 220ms cubic-bezier(.2,0,0,1);
+  transition: margin var(--dur-med) var(--ease-out);
 }
 
 .hero {
@@ -1029,7 +1035,7 @@ button {
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-fast) ease;
 }
 .composer-icon {
   color: var(--ink-2);
@@ -1438,7 +1444,7 @@ button {
   border-radius: var(--dsh-radius-card);
   border: 1px solid var(--line);
   /* 材质（玻璃底/模糊/投影）来自配方组；面板自身不得再挂 backdrop-filter */
-  animation: pop-in 160ms cubic-bezier(0.23,1,0.32,1) both;
+  animation: pop-in var(--dur-fast) var(--ease-out) both;
   transform-origin: bottom;
 }
 .menu-noise {
@@ -1465,9 +1471,9 @@ button {
   background: var(--fill);
   pointer-events: none;
   transition:
-    top 180ms cubic-bezier(0.23,1,0.32,1),
-    height 180ms cubic-bezier(0.23,1,0.32,1),
-    opacity 120ms ease;
+    top var(--dur-fast) var(--ease-out),
+    height var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) ease;
 }
 .menu-section + .menu-section { margin-top: 4px; }
 .menu-section-name {
@@ -1728,7 +1734,7 @@ button {
   border: 1px solid var(--line-strong);
   color: var(--ink);
   z-index: 31;
-  animation: fadein 160ms ease;
+  animation: fadein var(--dur-fast) ease;
 }
 .jump-down:hover { background: var(--fill-heavy); }
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
@@ -1748,7 +1754,7 @@ button {
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   backdrop-filter: blur(12px) saturate(180%);
   box-shadow: var(--shadow-pop);
-  animation: pop-in 140ms cubic-bezier(0.23,1,0.32,1) both;
+  animation: pop-in var(--dur-fast) var(--ease-out) both;
   transform: translateX(-50%);
   user-select: none;
 }
@@ -1793,7 +1799,7 @@ button {
    fill 必须 backwards 而非 both：transform 动画 fill 后仍保持堆叠上下文，
    会把 .left 里的 ModelMenu(z50) 困在其内、被 .flow（isolation，DOM 靠后）
    整体盖住——菜单被消息流穿透遮挡（实测事故，勿改回）。 */
-.flow-inner { animation: session-enter 380ms cubic-bezier(0.23,1,0.32,1) backwards; }
+.flow-inner { animation: session-enter var(--dur-med) var(--ease-out) backwards; }
 @keyframes session-enter { from { opacity: 0; transform: translateY(12px); } }
 /* 切会话时标题行随内容一起入场（SessionView 以 sessionId 为 key 重挂）。
    动画只上 .title-row、不上 .left：ModelMenu 挂在 .left 内，transform 动画
@@ -1864,7 +1870,7 @@ button {
   backdrop-filter: blur(12px) saturate(180%);
   box-shadow: var(--shadow-pop);
   padding: 4px 8px;
-  animation: pop-in 200ms cubic-bezier(0.16,1,0.3,1) both;
+  animation: pop-in var(--dur-med) var(--ease-out) both;
 }
 .queue-row {
   display: flex;
@@ -1957,7 +1963,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  animation: pop-in 200ms cubic-bezier(0.16,1,0.3,1) both;
+  animation: pop-in var(--dur-med) var(--ease-out) both;
 }
 .question-card .q-top {
   display: flex;
@@ -2346,16 +2352,16 @@ button {
   font-weight: 500;
   white-space: nowrap;
   color: var(--tk-ink-2);
-  animation: fade-in 350ms ease-out both;
+  animation: fade-in var(--dur-med) var(--ease-out) both;
 }
 .thinking-chevron {
-  flex: none; color: var(--tk-ink-3); transition: transform 300ms ease;
+  flex: none; color: var(--tk-ink-3); transition: transform var(--dur-slow) ease;
   /* 钉行右端（与工具行箭头同一条竖线，用户定稿） */
   margin-left: auto;
 }
 .thinking-collapse {
   display: grid;
-  transition: grid-template-rows 400ms cubic-bezier(0.23,1,0.32,1), opacity 400ms cubic-bezier(0.23,1,0.32,1);
+  transition: grid-template-rows var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
 }
 .thinking-clip { overflow: hidden; }
 .thinking-trace { position: relative; margin-top: 4px; margin-left: 5px; padding-left: 16px; }
@@ -2365,7 +2371,7 @@ button {
   top: -8px;
   width: 1px;
   background: var(--tk-line);
-  transition: height 500ms cubic-bezier(0.23,1,0.32,1);
+  transition: height var(--dur-slow) var(--ease-out);
 }
 .thinking-rows {
   display: flex;
@@ -2390,7 +2396,7 @@ button {
   white-space: pre-wrap;
   word-break: break-word;
   user-select: text;
-  animation: fade-up 320ms cubic-bezier(0.23,1,0.32,1) both;
+  animation: fade-up var(--dur-med) var(--ease-out) both;
 }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -2424,15 +2430,15 @@ button {
 .streaming .agent-message .md blockquote p,
 .streaming .agent-message .md li,
 .streaming .agent-message .md .cbRow {
-  animation: md-focus-in 400ms var(--ease-out, ease-out) both;
+  animation: md-focus-in var(--dur-slow) var(--ease-out) both;
 }
 /* 直播轮内的工具行/压缩卡/重试行：挂载即对焦（此前瞬间闪现无任何动画） */
 .turn-group.live :is(.tool-row, .compaction-card, .retry-row) {
-  animation: md-focus-in 400ms var(--ease-out, ease-out) both;
+  animation: md-focus-in var(--dur-slow) var(--ease-out) both;
 }
 /* 推理流：思考行与正文同款对焦（thinking-live 作用域随 running 挂/摘） */
 .thinking-live .thinking-row {
-  animation: md-focus-in 400ms var(--ease-out, ease-out) both;
+  animation: md-focus-in var(--dur-slow) var(--ease-out) both;
 }
 /* assistant 块内部（思考轨迹 + 正文）沿用全局 12px 行距节奏，
    不再让思考行贴着正文。 */
@@ -2473,7 +2479,7 @@ button {
   color: var(--ink-3);
   font-size: var(--dsh-font-size-base);
   user-select: none;
-  transition: opacity 80ms ease;
+  transition: opacity var(--dur-fast) ease;
 }
 @media (hover: hover) {
   [data-actions-reveal="hover"] .meta-actions {
@@ -2585,7 +2591,7 @@ button {
   border-radius: 50%;
   display: inline-block;
 }
-.state-dot.running { background: rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(255,255,255,.25); animation: pulse 1.2s ease-in-out infinite; }
+.state-dot.running { background: rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(255,255,255,.25); animation: pulse var(--loop-breathe) ease-in-out infinite; }
 .state-dot.error { background: rgba(255,255,255,.95); box-shadow: inset 0 0 0 1px rgba(0,0,0,.6); }
 .state-dot.warning { background: var(--ink-2); }
 .state-dot.ok { background: var(--ink-3); }
@@ -2624,7 +2630,7 @@ button {
   margin: 0;
   padding: 0 8px;
   overflow: hidden;
-  transition: background 120ms ease;
+  transition: background var(--dur-fast) ease;
 }
 .produced-file:hover { background: var(--fill-strong); color: var(--ink); }
 .produced-more { white-space: nowrap; color: var(--ink-3); flex: none; }
@@ -2646,7 +2652,7 @@ button {
   font: inherit;
   cursor: pointer;
   overflow: hidden;
-  transition: background 120ms ease;
+  transition: background var(--dur-fast) ease;
 }
 .delivered-card:hover { background: var(--fill-strong); color: var(--ink); }
 .delivered-image { padding: 0; background: transparent; }
@@ -2919,7 +2925,7 @@ button {
     z-index: 40;
     width: min(280px, 82vw);
     max-width: none;
-    transition: transform 220ms cubic-bezier(.2,0,0,1), opacity 200ms ease;
+    transition: transform var(--dur-med) var(--ease-out), opacity var(--dur-med) ease;
     /* 浮起来就得自己有底：宽屏时它是"窗口的底"（不透明靠 .app），浮在主卡
        之上再没有那层底——用弹层的玻璃配方 + 右描边，与全站弹出件同观感。 */
     background: var(--panel-strong);
@@ -3344,7 +3350,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
 }
-.rv-refresh[data-busy] svg { animation: rv-spin 900ms linear infinite; }
+.rv-refresh[data-busy] svg { animation: rv-spin var(--loop-spin) linear infinite; }
 @keyframes rv-spin { to { transform: rotate(360deg); } }
 .rv-list { flex: 1; min-height: 0; overflow-y: auto; }
 .rv-empty, .rv-note {
@@ -3513,7 +3519,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   font-size: var(--dsh-font-size-base);
   white-space: nowrap;
 }
-.engine-banner-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dsh-signal-warn); animation: pulse 1.2s ease-in-out infinite; }
+.engine-banner-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dsh-signal-warn); animation: pulse var(--loop-breathe) ease-in-out infinite; }
 /* 已放弃重试：不再闪（没有"正在重试"这回事了），并给一个就地重试的钮 */
 .engine-banner[data-phase="failed"] .engine-banner-dot { background: var(--dsh-signal-danger); animation: none; }
 .engine-banner-text { max-width: 46ch; overflow: hidden; text-overflow: ellipsis; }
@@ -3590,7 +3596,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  animation: drop-in 120ms ease;
+  animation: drop-in var(--dur-fast) ease;
 }
 .drop-frame {
   position: absolute;
@@ -3651,7 +3657,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .ctx-cap-total { font-size: var(--dsh-font-size-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* 低高度进度条用半高圆角（PITFALLS §1.1 禁 999px） */
 .ctx-cap-bar { height: 5px; border-radius: 2.5px; background: var(--fill-strong); overflow: hidden; }
-.ctx-cap-bar > span { display: block; height: 100%; border-radius: 2.5px; background: var(--ink); transition: width 200ms ease; }
+.ctx-cap-bar > span { display: block; height: 100%; border-radius: 2.5px; background: var(--ink); transition: width var(--dur-med) ease; }
 .ctx-cap-bar > span[data-hot="true"] { background: var(--dsh-signal-warn); }
 .ctx-cap-row { display: flex; align-items: center; gap: 8px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .ctx-cap-row b { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
@@ -3702,7 +3708,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   align-items: center;
   justify-content: center;
   cursor: zoom-out;
-  animation: lightbox-in 160ms cubic-bezier(.2,0,0,1);
+  animation: lightbox-in var(--dur-fast) var(--ease-out);
 }
 /* 图片容器：铺满遮罩、可滚动（放大后平移用）；margin:auto 让图居中且两端都滚得到 */
 .lightbox-body {
@@ -3726,7 +3732,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   margin: auto;
   border-radius: var(--dsh-radius-card);
   box-shadow: 0 24px 64px rgba(0,0,0,.4);
-  animation: lightbox-zoom 160ms cubic-bezier(.2,0,0,1);
+  animation: lightbox-zoom var(--dur-fast) var(--ease-out);
   -webkit-user-drag: none;
 }
 .lightbox img[data-zoomed] { max-width: none; max-height: none; }
@@ -3948,7 +3954,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   animation: fadein var(--dur-fast) ease both;
 }
 .capsule-trigger:hover, .capsule-trigger[data-open="true"] { background: var(--fill); color: var(--ink); }
-.capsule-live { width: 6px; height: 6px; border-radius: 50%; background: var(--dsh-signal-live); animation: pulse 1.2s ease-in-out infinite; flex: none; }
+.capsule-live { width: 6px; height: 6px; border-radius: 50%; background: var(--dsh-signal-live); animation: pulse var(--loop-breathe) ease-in-out infinite; flex: none; }
 .capsule-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capsule-pill-meta { color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
 .capsule-add { color: rgba(120,220,140,.95); font-weight: 600; }
@@ -4033,7 +4039,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 }
 .capsule-sec-trigger:hover { color: var(--ink); }
 .capsule-sec-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.capsule-sec-chevron { flex: none; color: var(--ink-3); opacity: 0; transition: opacity .12s ease; }
+.capsule-sec-chevron { flex: none; color: var(--ink-3); opacity: 0; transition: opacity var(--dur-fast) ease; }
 .capsule-sec-trigger:hover .capsule-sec-chevron,
 .capsule-sec-trigger:focus-visible .capsule-sec-chevron { opacity: 1; }
 .capsule-sec-trail {
@@ -4290,7 +4296,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   margin-left: 6px;
   color: var(--ink-3);
   transform: rotate(-90deg);
-  transition: transform 100ms ease;
+  transition: transform var(--dur-fast) ease;
 }
 .turn-process-row:hover .turn-process-chevron { color: var(--ink-2); }
 .turn-process-row[data-open] .turn-process-chevron { transform: rotate(0deg); }
@@ -4310,7 +4316,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   cursor: zoom-in;
 }
 .user-attachment-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.user-attachment-loading { width: 100%; height: 100%; background: var(--fill); animation: pulse 1.2s ease-in-out infinite; }
+.user-attachment-loading { width: 100%; height: 100%; background: var(--fill); animation: pulse var(--loop-breathe) ease-in-out infinite; }
 
 .md .md-math .katex { font-size: 1.02em; }
 .md-math-block { margin: 6px 0; overflow-x: auto; }
@@ -4480,8 +4486,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
      旧写法（animation: panel-in，只淡入 + 8px 位移，而卡片随开合挂载/卸载）的问题是两种
      运动打架：面板还在淡入，会话列已经被瞬时挤窄 328px（2026-09-30 用户报"与左边栏完全
      不一致"）。现在占位随 width 连续变化，推让是一件事。
-     时长取自左边栏同一对：位移 --dur-med/--ease-out、淡出 --dur-fast（.sidebar 的
-     "margin-left 220ms + opacity 200ms"；见 TODO §18b 动效词汇收敛）。 */
+     时长取自动效词汇（UI-SPEC §1.7）：位移 --dur-med/--ease-out、淡出 --dur-fast，
+     与 .sidebar 的收起是同一对值。 */
   transition: width var(--dur-med) var(--ease-out),
               margin-right var(--dur-med) var(--ease-out),
               opacity var(--dur-fast) ease;
@@ -4624,10 +4630,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-chrome-glide {
   position: absolute; top: 0; height: 28px; z-index: 0;
   border-radius: 8px; background: var(--fill);
-  transition: left .28s cubic-bezier(.25, .8, .25, 1), width .28s cubic-bezier(.25, .8, .25, 1);
+  transition: left var(--dur-med) var(--ease-out), width var(--dur-med) var(--ease-out);
 }
 .panel-browser-tab, .panel-browser-tab-body, .panel-browser-tab-live-field { z-index: 1; }
-.panel-browser-tab { transition: width .28s cubic-bezier(.25, .8, .25, 1); }
+.panel-browser-tab { transition: width var(--dur-med) var(--ease-out); }
 .panel-browser-tab.live .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; position: relative; }
 .panel-browser-tab.live .panel-browser-field-input { background: transparent; border-color: transparent; }
 .panel-browser-tab.live .panel-browser-field-input:focus { background: transparent; border-color: transparent; }
@@ -4635,7 +4641,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-tab-read {
   position: absolute; left: 0; top: 0; bottom: 0;
   background: var(--ink); opacity: .06; pointer-events: none;
-  transition: width .15s ease-out;
+  transition: width var(--dur-fast) var(--ease-out);
 }
 /* 睡着：压暗一档——标签还在，只是页面进程收回去了（点它就醒） */
 .panel-browser-tab.asleep { opacity: .5; }
