@@ -33,7 +33,6 @@ export function useAutoArchive(): void {
         if (!alive) return;
         try {
           await api.workspaceArchiveSession({ sessionId });
-          s.clearUnarchiveOverride(sessionId);
           archived += 1;
         } catch { /* 引擎忙/网络抖动：留给下一轮扫描重试 */ }
       }

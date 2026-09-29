@@ -873,6 +873,10 @@ export const EN: Record<string, string> = {
   "创建": "Create",
   "创建失败": "Create failed",
   "删除失败": "Delete failed",
+  // 会话删除（引擎侧判定，逐 id 回原因）
+  "没有可删的会话（{n} 个已经不存在了）": "Nothing to delete ({n} were already gone)",
+  "已跳过 {busy} 个正在运行或正开着的会话，其余 {deleted} 个已删除": "Skipped {busy} running or currently-open chats; deleted the other {deleted}",
+  "{n} 个会话的记录没能删掉：{m}": "{n} transcripts could not be deleted: {m}",
   // 预览窗（FilePreviewWindow / previewModel / OpenWithMenu）
   "全屏预览": "Full-screen preview",
   "退出全屏": "Exit full screen",

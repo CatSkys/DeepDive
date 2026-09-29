@@ -111,42 +111,14 @@ export function openWith(path: string, app: string): void {
   sendToShell({ type: "open-path-with", path, app });
 }
 
-/* ── 会话维护（取消归档 / 删除）：引擎 wire 面没有这两个方法（官方亦然），
-   而引擎把会话列表缓存在内存（实测：运行中删日志目录，session/list 照样列它）
-   ——所以 UI 走本地覆盖集即时生效，壳只做两件事：① 立刻删掉被删会话的日志目录；
-   ② 把覆盖集登记下来，在**下次启动的空窗期**（引擎还没起）落到引擎状态文件
-   （SessionAdmin.applyPending）。全程不重启引擎。 ── */
+/* ── 会话维护：取消归档 / 删除都在引擎侧（`api.workspaceUnarchiveSessions` /
+   `api.sessionDeleteSessions`，见 docs/TODO.md §18 的收口记录）。壳这里只剩
+   通知侧的"别打扰"：哪些会话是机器会话，壳不该替它弹通知。 ── */
 
-export interface SessionAdminResult {
-  removed: string[];
-  error?: string;
-}
-
-/** 登记本地覆盖集（unarchived/removed）并同步删掉 removed 的日志目录；
- *  无壳桥时静默（纯浏览器）。壳在下次启动空窗期把引擎状态改到位。 */
 /** 告诉壳哪些会话不该打扰用户（后台会话的"完成"不弹通知、不点亮悬浮球）。
  *  判据的唯一事实源在前端（session/backgroundSession），壳只照做。 */
 export function setQuietSessions(ids: string[]): void {
   sendToShell({ type: "quiet-sessions", ids });
-}
-
-export function sessionAdminSync(payload: { unarchived: string[]; removed: string[] }): void {
-  sendToShell({ type: "session-admin-sync", ...payload });
-}
-
-/** 删掉这些会话的日志目录（连同覆盖集一起同步）。只删目录、不重启引擎，
- *  所以是毫秒级；失败（目录被占/权限）时回包带 error。 */
-export function sessionDeleteDirs(payload: { sessionIds: string[]; unarchived: string[]; removed: string[] }): Promise<SessionAdminResult> {
-  return bridgeRequest(
-    "sessionAdmin",
-    { removed: [] },
-    (p) => {
-      const res = p as { removed?: string[]; error?: string } | undefined;
-      return { removed: res?.removed ?? [], ...(res?.error ? { error: res.error } : {}) };
-    },
-    (reqId) => sendToShell({ type: "session-delete", reqId, ...payload }),
-    20_000,
-  );
 }
 
 /** 保持唤醒（自动化页的开关）：on = 按住空闲休眠断言，让到点的任务不至于

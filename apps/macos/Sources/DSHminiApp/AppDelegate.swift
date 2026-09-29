@@ -109,11 +109,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 bundledDir: runtime.appendingPathComponent("Runtime/dsh-im", isDirectory: true)
             )
         }
-        // 上次运行登记过的取消归档 / 删除：趁引擎还没起，把引擎状态文件落到位
-        // （运行期改会被内存状态覆写——PITFALLS §4.15）
-        if let applied = SessionAdmin.applyPending(home: AppPaths.harnessHome) {
-            EngineLog.shared.append("[session-admin] applied pending: removed \(applied.removed.count)\(applied.error.map { " error: \($0)" } ?? "")")
-        }
         // 老 dsh CLI（~/.dsh）的凭据一次性接过来——引擎只认 DSH_HOME 下那一份。
         // 原挂载点是恢复窗的按钮，恢复窗删除后改在启动期自动走（.already/.missing
         // 是常态、静默；.imported/.failed 由 LegacyCredentials 自己落日志）。
@@ -321,24 +316,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 withApplicationAt: URL(fileURLWithPath: app),
                 configuration: NSWorkspace.OpenConfiguration(),
             )
-        case "session-admin-sync":
-            // 登记本地覆盖集（取消归档/删除）：不碰引擎，留到下次启动空窗期落账
-            SessionAdmin.remember(
-                unarchived: body["unarchived"] as? [String] ?? [],
-                removed: body["removed"] as? [String] ?? [],
-            )
-        case "session-delete":
-            // 立刻删日志目录（毫秒级、不需要引擎配合）；状态侧落账同上去登记
-            SessionAdmin.remember(
-                unarchived: body["unarchived"] as? [String] ?? [],
-                removed: body["removed"] as? [String] ?? [],
-            )
-            let result = SessionAdmin.deleteDirectories(
-                sessionIds: body["sessionIds"] as? [String] ?? [], home: AppPaths.harnessHome,
-            )
-            var fields: [String: Any] = ["reqId": body["reqId"] as? String ?? "", "removed": result.removed]
-            if let error = result.error { fields["error"] = error }
-            windowController.pushHostCommand("sessionAdmin", payload: AppDelegate.jsonPayload(fields))
         case "copy-log-path":
             let pb = NSPasteboard.general
             pb.clearContents()

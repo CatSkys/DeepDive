@@ -1,9 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import type { ArchiveRetention } from "./autoArchive";
-import { converged, visibleArchived, visibleSessions } from "./sessionOverrides";
 import { isHiddenSession, isSidebarSession } from "./session/backgroundSession";
-import { onHostEvent, sendToShell, sessionAdminSync, setQuietSessions } from "./host";
+import { onHostEvent, sendToShell, setQuietSessions } from "./host";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
 import { usePrefs } from "./prefs";
@@ -132,19 +131,18 @@ interface Store {
   archiveRetention: ArchiveRetention;
   setArchiveRetention: (v: ArchiveRetention) => void;
   /** 引擎原始会话列表（**含已归档**）：仅使用统计这类"全量历史"视图用，
-   *  常规列表请用 `sessions`（已按归档与本地删除过滤）。 */
+   *  常规列表请用 `sessions`（已按归档过滤）。 */
   allSessions: SessionSummary[];
-  /** 本地取消归档 / 本地删除的会话（视图即时生效；引擎状态在下次启动空窗期收敛）。 */
-  unarchived: Set<string>;
-  removed: Set<string>;
-  unarchiveSession: (id: string) => void;
-  /** 删除会话（不可逆）：只接受既没在跑、也不是当前打开的那个。
-   *  拒绝原因回给调用方去说人话（store 不碰 UI 文案）。 */
-  removeSession: (id: string) => { ok: true } | { ok: false; reason: "running" | "active" };
-  /** 引擎侧归档落地时清掉本地"已取消归档"覆盖。 */
-  clearUnarchiveOverride: (id: string) => void;
-  /** 归档会话（侧栏行/右键/命令面板唯一入口）：引擎落账 + 清掉本地"已取消
-   *  归档"覆盖 + 刷新。失败回引擎错误文本（调用方弹窗），成功回 null。 */
+  /** 取消归档（引擎落账 + 刷新）。失败回引擎错误文本（调用方弹窗），成功回 null。 */
+  unarchiveSession: (id: string) => Promise<string | null>;
+  /** 删除会话（不可逆）：一次一批交给引擎，回它自己的判定——
+   *  哪些真删了、哪些被拒（在跑/正开着/没有日志/存储拒绝）。 */
+  removeSessions: (ids: string[]) => Promise<{
+    deleted: string[];
+    refused: Array<{ sessionId: string; reason: "busy" | "missing" | "failed"; detail?: string }>;
+  }>;
+  /** 归档会话（侧栏行/右键/命令面板唯一入口）：引擎落账 + 刷新。失败回引擎
+   *  错误文本（调用方弹窗），成功回 null。 */
   archiveSession: (id: string) => Promise<string | null>;
   pinned: Set<string>;
   unread: Set<string>;
@@ -230,82 +228,40 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,
   } = prefs;
-  const [unarchived, setUnarchived] = useState<Set<string>>(() => readIdSet("deepdive.unarchived"));
-  const [removedLocal, setRemovedLocal] = useState<Set<string>>(() => readIdSet("deepdive.removed"));
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
   const [unread, setUnread] = useState<Set<string>>(() => readIdSet("deepdive.unread"));
 
-  /** 覆盖集变动：落盘 + 同步壳（壳只在引擎未起的空窗期落到引擎状态文件）。
-   *  副作用全部在调用处完成，setState 只收快照（PITFALLS §8.3）。 */
-  const overridesRef = useRef({ unarchived, removed: removedLocal });
-  overridesRef.current = { unarchived, removed: removedLocal };
-  const applyOverrides = useCallback((nextUnarchived: Set<string>, nextRemoved: Set<string>) => {
-    setUnarchived(nextUnarchived);
-    setRemovedLocal(nextRemoved);
-    persistIdSet("deepdive.unarchived", nextUnarchived);
-    persistIdSet("deepdive.removed", nextRemoved);
-    sessionAdminSync({ unarchived: [...nextUnarchived], removed: [...nextRemoved] });
+  /** 取消归档：引擎落账 + 刷新（归档集在引擎里，调用返回即生效）。
+   *  失败回引擎错误文本，调用方弹窗。 */
+  const unarchiveSession = useCallback(async (id: string) => {
+    try {
+      await api.workspaceUnarchiveSessions([id]);
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+    await forceRefreshSessionsRef.current();
+    return null;
   }, []);
-  /** 取消归档：本地即时生效（引擎状态在下次启动空窗期收敛）。 */
-  const unarchiveSession = useCallback((id: string) => {
-    const cur = overridesRef.current;
-    applyOverrides(new Set(cur.unarchived).add(id), cur.removed);
-  }, [applyOverrides]);
-  /** 删除：本地即时摘掉（日志目录由壳同步删除，见 bridge 调用方）。
-   *  不可逆，所以只认"既没在跑、也没正开着"的会话——运行中删日志目录，引擎
-   *  会继续往一个已删的会话里写；删掉正开着的那个，用户就对着空气打字了。 */
-  const removeSession = useCallback((id: string) => {
-    if (id === activeIdRef.current) return { ok: false as const, reason: "active" as const };
-    if (sessionsRef.current.some((s) => s.sessionId === id && s.running)) return { ok: false as const, reason: "running" as const };
-    const cur = overridesRef.current;
-    const nextUnarchived = new Set(cur.unarchived);
-    nextUnarchived.delete(id);
-    applyOverrides(nextUnarchived, new Set(cur.removed).add(id));
-    return { ok: true as const };
-  }, [applyOverrides]);
-  /** 引擎侧归档落地时，清掉本地的"已取消归档"覆盖（同一会话不能再被本地视图放出来）。 */
-  const clearUnarchiveOverride = useCallback((id: string) => {
-    const cur = overridesRef.current;
-    if (!cur.unarchived.has(id)) return;
-    const next = new Set(cur.unarchived);
-    next.delete(id);
-    applyOverrides(next, cur.removed);
-  }, [applyOverrides]);
+
+  /** 删除：交给引擎一次判定（在跑/正开着的由**引擎侧**挡，手机端同样受保护）。
+   *  成功即刷新，被拒的逐 id 回原因，由调用方说人话。 */
+  const removeSessions = useCallback(async (ids: string[]) => {
+    const result = await api.sessionDeleteSessions(ids);
+    if (result.deleted.length > 0) await forceRefreshSessionsRef.current();
+    return result;
+  }, []);
+
   /** 归档：三个入口（侧栏行 / 右键菜单 / 命令面板）共用——旧写法各抄一遍，
-   *  漏了清覆盖集的那两处看起来像"归档点了没反应"。 */
+   *  漏刷新的那两处看起来像"归档点了没反应"。 */
   const archiveSession = useCallback(async (id: string) => {
     try {
       await api.workspaceArchiveSession({ sessionId: id });
     } catch (err) {
       return err instanceof Error ? err.message : String(err);
     }
-    clearUnarchiveOverride(id);
     await forceRefreshSessionsRef.current();
     return null;
-  }, [clearUnarchiveOverride]);
-  // 覆盖项收敛：引擎（下次启动后）不再报告某会话已归档 / 不再列出某会话时，
-  // 本地覆盖就没用了——丢掉它，避免覆盖集无限增长。
-  /** 收敛的前提是"真值到了"：归档集要等 workspace follow 的基线、会话列表要
-   *  等首次刷新。缺了这道门，挂载瞬间（archived/removed 覆盖集已从 localStorage
-   *  读回、archived 与 sessions 还是空集）会把**所有**覆盖项判成"引擎已不报告"
-   *  而整批抹掉——连壳里待落账的登记一起（2026-09 修的：取消归档活不过一次
-   *  应用内引擎重启）。 */
-  const truthArrivedRef = useRef({ archived: false, sessions: false });
-  useEffect(() => {
-    if (unarchived.size === 0 && removedLocal.size === 0) return;
-    if (!truthArrivedRef.current.archived || !truthArrivedRef.current.sessions) return;
-    const liveArchive = archivedRef.current;
-    const liveIds = new Set(sessions.map((s) => s.sessionId));
-    const gone = converged(liveArchive, liveIds, unarchived, removedLocal);
-    if (gone.unarchived.length === 0 && gone.removed.length === 0) return;
-    const nextU = new Set(unarchived);
-    for (const id of gone.unarchived) nextU.delete(id);
-    const nextR = new Set(removedLocal);
-    for (const id of gone.removed) nextR.delete(id);
-    applyOverrides(nextU, nextR);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [archived, sessions, unarchived, removedLocal]);
-
+  }, []);
   const togglePin = useCallback((id: string) => setPinned((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -377,7 +333,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         workspacesRef.current = frame.value.items;
         setWorkspaces(frame.value.items);
         syncArchived(frame.value.archivedSessionIds ?? []);
-        truthArrivedRef.current.archived = true;
         resolveActiveWs(frame.value.items);
         return;
       }
@@ -400,9 +355,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     });
   }, []);
-
-  /** 视图侧的归档集：摘掉本地取消归档与已删除（轮询过滤与导出共用同一口径）。 */
-  const archivedVisible = () => visibleArchived(archivedRef.current, overridesRef.current.unarchived, overridesRef.current.removed);
 
   const forceRefreshSessions = async () => {
     try {
@@ -443,9 +395,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const ss = await api.sessions();
       const sorted = ss.items.slice().sort((a, b) => b.updatedAt - a.updatedAt);
-      // 归档过滤不在写入时做：本列表是**引擎原始列表**，归档/删除的本地覆盖在
-      // 导出层过滤（否则取消归档后会话不在内存里，要等下一次轮询才回侧栏）。
-      const sig = visibleSessions(sorted.filter((s) => !archivedVisible().has(s.sessionId)), overridesRef.current.removed)
+      // 归档过滤不在写入时做：本列表是**引擎原始列表**（含已归档），视图层再筛。
+      const sig = sorted
         .map((s) => `${s.sessionId}:${s.updatedAt}:${s.running ? 1 : 0}:${(s.projections?.values as { title?: string } | undefined)?.title ?? ""}`)
         .join("|");
       if (sig !== sessionsSigRef.current) {
@@ -462,7 +413,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       setEngineUp(true);
       setEverConnected(true);
-      truthArrivedRef.current.sessions = true;
       resolveActiveWs(workspacesRef.current);
       // 会话→空间归属：用本 tick 的数据现算（wsOfSession 的 memo 镜像要等
       // 重渲染才更新，boot 策略等不得），并同步回 ref 供即时读取。
@@ -666,13 +616,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [switchWorkspace]);
 
-  /** 视图层（已按归档与本地删除过滤）：Store.sessions 与 sidebarSessions 共用
-   *  这一份，别再各 filter 一遍。 */
-  const visibleList = useMemo(() => visibleSessions(
-    sessions.filter((s) => !isHiddenSession(s)
-      && !visibleArchived(archived, unarchived, removedLocal).has(s.sessionId)),
-    removedLocal,
-  ), [sessions, archived, unarchived, removedLocal]);
+  /** 视图层（已按归档过滤）：Store.sessions 与 sidebarSessions 共用这一份，
+   *  别再各 filter 一遍。删除不必再过一遍——引擎的列表里已经没有了。 */
+  const visibleList = useMemo(
+    () => sessions.filter((s) => !isHiddenSession(s) && !archived.has(s.sessionId)),
+    [sessions, archived],
+  );
   /** 用户列表层（见 Store.sidebarSessions）。留 ref 供 switchWorkspace 同步挑落点。 */
   const sidebarSessions = useMemo(() => visibleList.filter(isSidebarSession), [visibleList]);
   const sidebarSessionsRef = useRef(sidebarSessions);
@@ -690,7 +639,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<Store>(
     () => ({
       workspaces,
-      archived: visibleArchived(archived, unarchived, removedLocal),
+      archived,
       activeWorkspaceId,
       wsOfSession,
       allSessions: sessions,
@@ -734,12 +683,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setAutoArchive,
       archiveRetention,
       setArchiveRetention,
-      unarchived,
-      removed: removedLocal,
+
       unarchiveSession,
-      removeSession,
+      removeSessions,
       archiveSession,
-      clearUnarchiveOverride,
       pinned,
       unread,
       togglePin,
@@ -756,7 +703,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchived, removedLocal, unarchiveSession, removeSession, archiveSession, clearUnarchiveOverride, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

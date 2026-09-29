@@ -88,11 +88,10 @@ export function SidebarSessionList({
     query,
     lang,
     sessions: store.allSessions,
-    removed: store.removed,
     workspaces: store.workspaces,
     wsOfSession: store.wsOfSession,
     contentHits,
-  }), [query, store.allSessions, store.removed, store.workspaces, store.wsOfSession, contentHits, lang]);
+  }), [query, store.allSessions, store.workspaces, store.wsOfSession, contentHits, lang]);
 
   // 判定"是否在搜索"必须用 trim 后的值：搜索框残留一个空格时原始 query 为真值、
   // 而 trim 后的空串会命中全部会话 —— 曾把跨空间搜索视图退化成"所有工作空间的内容

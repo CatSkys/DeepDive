@@ -3,10 +3,10 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "36d0b24dcd6aa172",
+      "id": "f8898edb107d28f1",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1101 lines > 300"
+      "detail": "1078 lines > 300"
     },
     {
       "id": "5e88cb16935d8ee9",
@@ -45,10 +45,10 @@
       "detail": "335 lines > 300"
     },
     {
-      "id": "74344fb6c68861a4",
+      "id": "899ac32ad5ea97aa",
       "rule": "file-lines",
       "file": "frontend/src/api.ts",
-      "detail": "740 lines > 300"
+      "detail": "751 lines > 300"
     },
     {
       "id": "5ac7edc77cb28c72",
@@ -87,22 +87,22 @@
       "detail": "411 lines > 300"
     },
     {
-      "id": "fad5d8c1900c1ce9",
+      "id": "95dd2f406462f346",
       "rule": "file-lines",
       "file": "frontend/src/components/SettingsPage.tsx",
-      "detail": "709 lines > 300"
+      "detail": "719 lines > 300"
     },
     {
-      "id": "adb191986c15a1ce",
+      "id": "1a9314a40cda02c0",
       "rule": "file-lines",
       "file": "frontend/src/host.ts",
-      "detail": "613 lines > 300"
+      "detail": "585 lines > 300"
     },
     {
-      "id": "a7b5e3805b490f95",
+      "id": "b110d10b9c1e2c0b",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "992 lines > 300"
+      "detail": "996 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",
@@ -153,10 +153,10 @@
       "detail": "418 lines > 300"
     },
     {
-      "id": "0156e5a49aff5879",
+      "id": "bb1834e54e11cb99",
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
-      "detail": "764 lines > 300"
+      "detail": "711 lines > 300"
     },
     {
       "id": "b5a2dc790aada236",

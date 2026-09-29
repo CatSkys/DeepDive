@@ -31,11 +31,11 @@ const EMPTY_DAY = (day: string): UsageDay => ({ day, tokens: 0, turns: 0, byMode
 export function UsageSection() {
   const { t, tt, lang } = useT();
   const store = useStore();
-  // 口径＝全部本地历史（含已归档）：用引擎原始列表，只滤掉子会话/空会话与
-  // **本地已删除**的（后者引擎仍列着但日志已删，流既不开也不报错会悬挂）。
+  // 口径＝全部本地历史（含已归档）：用引擎原始列表，只滤掉子会话与空会话
+  //（删除的会话引擎已经不再列出，不必在这里再滤一遍）。
   const chats = useMemo(
-    () => store.allSessions.filter((s) => s.origin !== "subagent" && !s.blank && !store.removed.has(s.sessionId)),
-    [store.allSessions, store.removed],
+    () => store.allSessions.filter((s) => s.origin !== "subagent" && !s.blank),
+    [store.allSessions],
   );
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");

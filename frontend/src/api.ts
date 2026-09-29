@@ -612,6 +612,17 @@ export const api = {
     unary("session/rename", { request: { sessionId: payload.sessionId, title: payload.title } }),
   workspaceArchiveSession: (payload: { sessionId: string }) =>
     unary("workspace/archiveSession", { request: { sessionId: payload.sessionId } }),
+  /** 取消归档（`workspace/unarchiveSessions`，幂等）：归档集在引擎里，调用后即生效。 */
+  workspaceUnarchiveSessions: (sessionIds: string[]) =>
+    unary<{ archivedSessionIds: string[] }>("workspace/unarchiveSessions", { request: { sessionIds } }),
+  /** 删除会话（`session/deleteSessions`）：日志、投影缓存、归档集、工作区记账一起删。
+   *  批次是部分的——`refused` 逐 id 给原因（busy 在跑/正开着、missing 没有日志、
+   *  failed 存储拒绝），调用方据码说人话。 */
+  sessionDeleteSessions: (sessionIds: string[]) =>
+    unary<{ deleted: string[]; refused: Array<{ sessionId: string; reason: "busy" | "missing" | "failed"; detail?: string }> }>(
+      "session/deleteSessions",
+      { request: { sessionIds } },
+    ),
   /** 注册一个已存在的目录为工作空间（官方 DSH「添加项目」同款路由）。
    *  已注册过则幂等返回 created:false。 */
   workspaceCreate: (payload: { path: string }) =>

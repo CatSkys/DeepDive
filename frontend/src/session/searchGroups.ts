@@ -15,7 +15,6 @@ export function searchGroups({
   query,
   lang,
   sessions,
-  removed,
   workspaces,
   wsOfSession,
   contentHits,
@@ -24,7 +23,6 @@ export function searchGroups({
   lang: "zh" | "en";
   /** 搜索域：store.allSessions（已含归档）。 */
   sessions: SessionSummary[];
-  removed: Set<string>;
   workspaces: WorkspaceView[];
   /** 会话 → 空间归属（store 建的索引；未命中的按惯例归第一个空间）。 */
   wsOfSession: Map<string, string>;
@@ -33,7 +31,7 @@ export function searchGroups({
 }): SessionGroup[] {
   if (!query) return [];
   const q = query.trim().toLowerCase();
-  const visible = sessions.filter((s) => isSidebarSession(s) && !removed.has(s.sessionId));
+  const visible = sessions.filter((s) => isSidebarSession(s));
   const hits = visible.filter((s) => sessionTitle(s, lang).toLowerCase().includes(q));
   const hitIds = new Set(hits.map((s) => s.sessionId));
   const contentOnly = visible.filter((s) => !hitIds.has(s.sessionId) && contentHits.has(s.sessionId));

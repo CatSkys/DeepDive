@@ -28,7 +28,6 @@ import { sessionTitle } from "../session/sessionTitle";
 import { buildArchivedGroups, filterArchivedGroups, UNGROUPED, type ArchivedGroup } from "../settings/archivedGroups";
 import { useT } from "../i18n";
 import { alertDialog, confirmDialog } from "./DialogHost";
-import { sessionDeleteDirs } from "../host";
 
 // 设置页 —— 与主界面同一套设计体系：主界面语义变量 + 统一弹出配方 +
 // 复用 Dropdown/Toggle 组件；不再使用官方 dsh settings 面板的独立
@@ -566,31 +565,42 @@ export function ArchivedSection({ onBulk }: { onBulk?: (bulk: { count: number; o
     void load().catch(() => setGroups([]));
   }, [load]);
 
-  /** 取消归档：本地覆盖即时生效（引擎状态在下次启动空窗期收敛），无需确认。 */
-  const restore = (sessionId: string) => store.unarchiveSession(sessionId);
+  /** 取消归档：引擎落账后即生效，无需确认。 */
+  const restore = (sessionId: string) => { void store.unarchiveSession(sessionId); };
 
-  /** 删除：本地即时摘掉 + 请壳立刻删日志目录（毫秒级，不重启引擎）。
-   *  运行中 / 正开着的会话由 store 拒绝（不可逆动作不能误伤），被拒的说明白。 */
+  /** 删除：一次交给引擎（日志、投影缓存、归档集、工作区记账一起删）。
+   *  在跑/正开着的会话由**引擎侧**挡——所以手机端同样受保护；被拒的逐条说清楚。 */
   const remove = async (sessionIds: string[]) => {
     if (sessionIds.length === 0) return;
-    const accepted: string[] = [];
-    let refused = 0;
-    for (const sessionId of sessionIds) {
-      if (store.removeSession(sessionId).ok) accepted.push(sessionId);
-      else refused += 1;
-    }
-    if (accepted.length === 0) {
-      void alertDialog({ message: t("正在运行或正开着的会话不能删除——先停掉它或切到别的会话") });
+    let result: Awaited<ReturnType<typeof store.removeSessions>>;
+    try {
+      result = await store.removeSessions(sessionIds);
+    } catch (err) {
+      void alertDialog({ message: tt("删除失败：{m}", "Delete failed: {m}", { m: (err as Error).message }) });
       return;
     }
-    if (refused > 0) {
-      void alertDialog({ message: tt(`已跳过 ${refused} 个正在运行或正开着的会话，其余 ${accepted.length} 个在删`, `Skipped ${refused} running or currently-open chats; deleting the other ${accepted.length}`) });
+    const busy = result.refused.filter((r) => r.reason === "busy").length;
+    const missing = result.refused.filter((r) => r.reason === "missing").length;
+    const failed = result.refused.filter((r) => r.reason === "failed");
+    if (result.deleted.length === 0) {
+      void alertDialog({
+        message: busy > 0
+          ? t("正在运行或正开着的会话不能删除——先停掉它或切到别的会话")
+          : tt("没有可删的会话（{n} 个已经不存在了）", "Nothing to delete ({n} were already gone)", { n: String(missing) }),
+      });
+      return;
     }
-    const unarchived = [...store.unarchived];
-    const removed = [...store.removed, ...accepted];
-    const result = await sessionDeleteDirs({ sessionIds: accepted, unarchived, removed });
-    if (result.error) {
-      void alertDialog({ message: tt("部分聊天记录未能删除：{m}", "Some transcripts could not be deleted: {m}", { m: result.error }) });
+    if (busy > 0) {
+      void alertDialog({ message: tt(`已跳过 ${busy} 个正在运行或正开着的会话，其余 ${result.deleted.length} 个已删除`, `Skipped ${busy} running or currently-open chats; deleted the other ${result.deleted.length}`) });
+    }
+    if (failed.length > 0) {
+      void alertDialog({
+        message: tt(
+          "{n} 个会话的记录没能删掉：{m}",
+          "{n} transcripts could not be deleted: {m}",
+          { n: String(failed.length), m: failed[0]?.detail ?? "" },
+        ),
+      });
     }
   };
 
