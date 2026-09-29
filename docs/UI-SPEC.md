@@ -94,15 +94,24 @@
 | Token | 值 | 用途 |
 |---|---|---|
 | `radius.control` | 10px | 按钮、chips |
-| `radius.input` | 14px | 输入框 |
-| `radius.card` | 14px | 工具卡、diff 卡 |
-| `radius.floating` | 20px | 浮层：Agent 选择器、Memory 卡、命令面板 |
-| `radius.panel` | 16px | 面板窗口 |
+| `radius.card` | 14px | 工具卡、diff 卡、输入框、紧凑菜单、对话框（输入档已并入 control/card） |
+| `radius.floating` | 20px | 浮层：Agent 选择器、Memory 卡、模型菜单、命令面板 |
+| `radius.panel` | 18px | 面板与主卡（= window 26 − 8 缝，HIG 同心规则） |
+| `radius.bubble` | 24px | 聊天气泡软胶囊 |
 | `radius.keycap` | 6px | 键帽 |
 | `border.width` | 1px `border.default` | 通用描边 |
 | `border.gloss` | 顶部 1px `gloss` | 玻璃边缘光（浮层/面板） |
-| `shadow.floating` | `0 16px 48px rgba(0,0,0,.35)`（dark .5） | 浮层 |
 | 窗口阴影 | 系统提供 | 原生窗口/面板 |
+
+**投影只有三档**（数值在 `theme.css` 的 `:root`，两套主题各一份配方）：
+
+| 变量 | 落点 |
+|---|---|
+| `--shadow-card` | 贴地卡：主卡 / 会话卡 / 右侧面板卡 / 代码块铬件 |
+| `--shadow-pop` | 浮在内容之上：菜单类浮层、右键菜单、命令面板、流内卡（工具/审批/提问） |
+| `--shadow-modal` | 对话框与灯箱（更深一档；落点是近实色 `--panel-strong`，不吃"重投影描黑低透明边界"那条约束） |
+
+亮色另立配方（1px 底缘接地线 + 更浅更远的环境投影）——暗色那套的顶部白内高光在亮色下等于没有，黑 .20 落在近白卡上会发闷。**不属于档位、就地写的**：键帽底缘微投影、PDF 纸页、内高光、描边环。新表面选一档，别再就地写第四套。
 
 ### 1.5 材质与 Vibrancy（玻璃窗口）
 
@@ -230,13 +239,14 @@
 
 > 此前的错误：两者共用 `.msg` 体系、气泡参数与 emoji/信息混调——已按"独立两套"重构并清空 `.msg` 残留。
 
-### 2.2bis 悬浮层统一规范（FloatingPanel）
+### 2.2bis 浮层材质（FloatingLayer）
 
-所有浮动层（ActionMenu、ModelMenu、未来的任何浮层）**统一**：
-- 圆角 22 · 背景 `rgba(22,23,26,.55)`（真半透）· `blur(40px) saturate(160%)`（**必须同时带 `-webkit-` 前缀**，WebKit 需要）
-- 折射渐变边（165°，亮上左→暗下右，mask-composite 切出）· 顶部 1px 内高光 · 大柔阴影（0 30px 70px）
-- 行高 38-40 / 圆角 10-11 / 激活行 `rgba(255,255,255,.10)`；底部"搜索…"输入行 + 分隔线
-- 任何浮层若与此不一致 = 设计违规。
+浮层分两族，**数值以 `theme.css` / 各 module 为家**——新浮层加入对应材质组即得，别另写材质：
+
+- **菜单族**（模型菜单 / @ 附件 / / 命令 / 右键 / 工作区 / 胶囊面板 / 提示 / 文件预览浮窗）：`theme.css` 的浮层材质组＝底 `--panel-glass`（真半透 .55）＋ `blur(12px) saturate(180%)` ＋ `--shadow-pop`；圆角按体量取 `radius.floating`（模型菜单）或 `radius.card`（紧凑菜单）。模型菜单与工作区菜单另有一圈**折射渐变边**（165°，`::before` + `mask-composite: exclude`）——这两处的加强，不设成通例。
+- **对话框族**（模型弹窗 / 新建项目 / 设置类弹窗）：`SettingsRows.module.css` 的 `.modal`＝底 `--panel-strong`（.92）＋ `blur(40px) saturate(160%)` ＋ `--shadow-modal` ＋ 圆角 `radius.card`。
+- 行高 38-40 / 行圆角 10-11 / 激活行 `rgba(255,255,255,.10)`；带搜索的菜单底部有"搜索…"输入行 + 分隔线。
+- 纪律：`blur` 必须**同时带 `-webkit-` 前缀**且挂在面板自身（`PITFALLS §1.8`）；不得恢复全局 `backdrop-filter` 禁用；投影只用 §1.4 的三档。
 
 ### 2.2 复合组件
 

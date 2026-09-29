@@ -121,10 +121,7 @@
   border-radius: var(--dsh-radius-card);
   background: var(--panel-strong);
   backdrop-filter: blur(40px) saturate(160%) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.08),
-    0 16px 40px rgba(0,0,0,.45),
-    0 4px 12px rgba(0,0,0,.25);
+  box-shadow: var(--shadow-pop);
 }
 .ddItem {
   display: flex;
@@ -310,7 +307,7 @@
   border-radius: 14px;
   background: var(--panel-strong);
   backdrop-filter: blur(40px) saturate(160%);
-  box-shadow: 0 24px 64px rgba(0,0,0,.4);
+  box-shadow: var(--shadow-modal);
 }
 .modalHead { display: flex; align-items: center; gap: 10px; padding: 16px 18px 10px; }
 .modalTitle { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }

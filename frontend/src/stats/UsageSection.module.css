@@ -124,7 +124,7 @@
   background: var(--panel-strong);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: 0 12px 32px rgba(0,0,0,.4);
+  box-shadow: var(--shadow-pop);
   font-size: var(--dsh-font-size-sm);
   color: var(--ink);
 }

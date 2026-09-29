@@ -219,6 +219,30 @@ button {
   --shadow-card:
     inset 0 1px 0 rgba(255,255,255,.06),
     0 4px 14px rgba(0,0,0,.20);
+  /* 对话框与灯箱（唯一比浮层更深的一档）：落点是近实色的 --panel-strong，
+     边界不靠低透明面板那套"描边"逻辑，所以深投影在这里不吃 §④ 那条约束。 */
+  --shadow-modal:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 24px 64px rgba(0,0,0,.4);
+}
+/* 投影就这三档（--shadow-card 贴地卡 / --shadow-pop 浮在内容之上 / --shadow-modal 对话框），
+   新表面选一档，别再就地写第四套。
+   不属于档位的就地写，因为它们不是"高度"：键帽底缘微投影（.tip-key）、PDF 纸页
+   （.pdf-page）、内高光（用户气泡）、描边环（状态点）。 */
+:root[data-theme="light"] {
+  /* 亮色另立配方（不是把暗色数值调淡就完事）：
+     暗色那套的"顶部白色内高光"在亮色下等于没有（白压白），而黑 .20 落在近白卡上
+     会发闷、把卡与底糊在一起。亮色改成 macOS 惯例——1px 底缘接地线 + 更浅更远的
+     环境投影，边缘交给接地线而不是白高光。 */
+  --shadow-card:
+    0 1px 0 rgba(0,0,0,.05),
+    0 4px 12px rgba(0,0,0,.10);
+  --shadow-pop:
+    0 1px 0 rgba(0,0,0,.04),
+    0 12px 28px rgba(0,0,0,.11);
+  --shadow-modal:
+    0 1px 0 rgba(0,0,0,.06),
+    0 24px 64px rgba(0,0,0,.17);
 }
 .model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .preview-window {
   background: var(--panel-glass);
@@ -1398,6 +1422,7 @@ button {
   align-items: center;
   gap: 12px;
 }
+/* 纸页不是"高度"：投影在这里的作用是让白纸浮在深色阅读器底上，与三档无关，就地写。 */
 .pdf-page { position: relative; flex: none; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
 .pdf-canvas { display: block; background: #fff; }
 .pdf-page-hold { width: 560px; height: 720px; background: var(--fill-soft); }
@@ -1841,7 +1866,7 @@ button {
   border-radius: var(--dsh-radius-card);
   background: linear-gradient(135deg, var(--fill), var(--fill-soft));
   backdrop-filter: blur(24px) saturate(150%);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.14), 0 12px 36px rgba(0,0,0,.30);
+  box-shadow: var(--shadow-pop);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -1958,7 +1983,7 @@ button {
   border-radius: var(--dsh-radius-card);
   background: linear-gradient(135deg, var(--fill), var(--fill-soft));
   backdrop-filter: blur(24px) saturate(150%);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.14), 0 12px 36px rgba(0,0,0,.30);
+  box-shadow: var(--shadow-pop);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -3079,7 +3104,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   border-radius: var(--dsh-radius-card);
   background: var(--cb-bg) !important;
   border: 0.5px solid var(--cb-ring);
-  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 .cbHead {
@@ -3424,7 +3449,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   border-radius: var(--dsh-radius-card);
   background: linear-gradient(135deg, var(--fill), var(--fill-soft));
   backdrop-filter: blur(24px) saturate(150%);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.14), 0 12px 36px rgba(0,0,0,.30);
+  box-shadow: var(--shadow-pop);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -3449,7 +3474,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   border-radius: var(--dsh-radius-card);
   background: linear-gradient(135deg, var(--fill), var(--fill-soft));
   backdrop-filter: blur(24px) saturate(150%);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.14), 0 12px 36px rgba(0,0,0,.30);
+  box-shadow: var(--shadow-pop);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -3731,7 +3756,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   flex: none;
   margin: auto;
   border-radius: var(--dsh-radius-card);
-  box-shadow: 0 24px 64px rgba(0,0,0,.4);
+  box-shadow: var(--shadow-modal);
   animation: lightbox-zoom var(--dur-fast) var(--ease-out);
   -webkit-user-drag: none;
 }
@@ -4389,7 +4414,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   background: var(--panel-strong);
   -webkit-backdrop-filter: blur(40px) saturate(160%);
   backdrop-filter: blur(40px) saturate(160%);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-modal);
   animation: pop-in var(--dur-fast) var(--ease-out);
 }
 .dialog-title { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
