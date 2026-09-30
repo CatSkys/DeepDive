@@ -1,37 +1,59 @@
 // 侧栏工作区的手势横滑。
 //
-// 交互模型（2026-09-30 按用户反馈定稿，前前后后换了三版才对上）：
-//   · **内容全程跟手**：横向位移 1:1 直写 transform（不进 React state——每个
-//     pointermove 都 setState 会重渲整份会话列表，手势会被拖成幻灯片）；
-//     整片宽以内 1:1，超出后是渐强橡皮筋。上一空间在左、下一空间在右。
-//   · **拖动中就把相邻空间渲染出来**，两片并排、整条一起平移（无缝衔接）。
-//   · **到位即换**：内容走到 0.85 片宽（= 基本已经滑过去）就换空间，**不等松手、
-//     不等触控板惯性尾巴**。实测惯性尾巴要发 1.4s，等它就是用户感受到的"卡住"。
-//     换完之后继续跟手——内容已经到位，视觉上毫无断点。
-//   · **换完不再回头**：换空间不可撤销（store 层面就没有"换回去"这回事），所以
-//     越过提交点后不再理会反向意图。
-//   · **手势停了才收尾**：把行内 transform 隔帧撤掉，交给 CSS 过渡弹回静止位；
-//     收尾期间"换之前那个空间"继续挂在左侧，随条子一起滑出视野。
-//   · **结算动画期间输入不接管**：否则触控板惯性尾巴会把动画打断在半路、重新
-//     触发一遍（用户报"松手后动画还要再跑一遍"）。
+// ── 坐标（本文件唯一需要记住的事）──────────────────────────────────────────
+// 横滑条是 flex 行，第 i 片占据 [i·W, (i+1)·W)（W = 条宽 = 一片宽）。整条的
+// translateX(t) 平移一切，于是"第 i 片在屏幕上的位置 = i·W + t"。我们盯的只有一个
+// 数：**t**。
+//
+//   往下一个（手指左划）：布局 [当前, 下一]，静止 t = 0；拖到 t = -W 时下一片满位。
+//   往上一个（手指右划）：布局 [上一, 当前]，静止 t = -W；拖到 t = 0 时上一片满位。
+//
+// 切换发生的瞬间，两片的 **DOM 顺序必须保持不变**（角色互换而已：A 从"当前"变成
+// "邻居"，B 反之），于是没有任何东西会横移；随后把 t 补到切换后的静止位：
+//   往下一个 → t = -W（新片在 index 1）；往上一个 → t = 0（新片在 index 0）。
+// 剩下的这段就是松手后的收尾动画，短而连续。**这就是"不跳"的全部秘密**——
+// 早先几版在切换瞬间改静止位，让整条瞬移了一整片宽（224px），手感直接崩掉。
+//
+// ── 其余规则 ─────────────────────────────────────────────────────────────
+//   · 内容全程 1:1 跟手（整片宽内无阻尼；超出后渐强橡皮筋），位移直写 transform
+//     而不进 React state——每个 pointermove 都 setState 会重渲整份会话列表。
+//   · 过半片宽就换空间，不等松手、不等触控板惯性尾巴（实测尾巴要发 1.4s）。
+//     换完继续跟手：内容已经过去，视觉无断点。切换不可撤销，不看反向意图。
+//   · 收尾动画期间输入不接管，否则惯性尾巴会把动画打断重跑。
 //   · 到头不回绕；冷却防一次长滑连切。
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WheelEvent, PointerEvent as ReactPointerEvent } from "react";
 
-/** 过这条线就 arm 住目标（松手时确认切换的判据之一）。 */
+/** arm 住目标所需的位移（松手确认时的辅助判据）。 */
 const ARM_PX = 60;
-/** **提交点**：横向走到片宽的这个比例就换空间，不等手势结束。 */
-const COMMIT_AT = 0.85;
+/** 过半片宽即换空间（余下的路程交给收尾动画补齐）。 */
+const COMMIT_AT = 0.5;
 /** 手势停这么久就收尾（触控板惯性尾巴的判据）。 */
 const SETTLE_MS = 110;
 /** 切过一次后的冷却，防一次长滑连切。 */
 const COOLDOWN_MS = 700;
-/** 收尾过渡时长（须 ≥ CSS 的 --dur-med），到点撤邻居片。 */
-const SETTLE_MS_TOTAL = 240;
+/** 收尾过渡时长（须 ≥ CSS 的 --dur-med），到点撤邻居片、回静止态。 */
+const SETTLE_TOTAL_MS = 240;
+
+// ── 坐标决策（纯函数，单测盯着它们）────────────────────────────────────────
+/** 切换**前**的静止位：下一片在右时 0（当前片在 index 0）；上一片在左时 -W。 */
+export function restBefore(dir: number, w: number): number {
+  return dir > 0 ? 0 : -w;
+}
+/** 切换**后**的静止位：新片成了 index 0 或 index 1，对应 t=0 或 t=-W——
+ *  也就是"新片正好居中"。切换瞬间不改这个值（见文件头），所以不跳。 */
+export function restAfterSwap(dir: number, w: number): number {
+  return dir > 0 ? -w : 0;
+}
+/** 一片在屏幕上的 x：第 i 片 = i·W + t。i 由"邻居在左/右"与角色决定。 */
+export function paneX(role: "active" | "neighbor", neighborLeft: boolean, t: number, w: number): number {
+  const i = role === "active" ? (neighborLeft ? 1 : 0) : (neighborLeft ? 0 : 1);
+  return i * w + t;
+}
 
 /** 跟手阻尼：**整片宽以内 1:1**，超出后渐强橡皮筋（斜率 0.15、封顶 1.2 片）。
- *  导出供单测：钉住"整片宽以内必须 1:1"这条不变量——早先截在 160px（一片 224px），
- *  用户推到上限内容就不动了，看着像卡死。 */
+ *  导出供单测：钉住"整片宽以内必须 1:1"——早先截在 160px（一片 224px），用户推到
+ *  上限内容就不动了，看着像卡死。 */
 export function damp(dx: number, pane: number): number {
   const a = Math.abs(dx);
   if (a <= pane) return dx;
@@ -41,12 +63,12 @@ export function damp(dx: number, pane: number): number {
 export interface WorkspaceSwipe {
   /** 绑到 .ws-strip：手势期间本钩子直写它的 transform。 */
   stripRef: (el: HTMLDivElement | null) => void;
-  /** 收尾中（弹回静止位的过渡态）：这段时间开 CSS 过渡，且输入不接管。 */
+  /** 收尾中：这段时间开 CSS 过渡，且输入不接管。 */
   settling: boolean;
   /** 并排渲染的相邻空间下标（-1 = 没有）。拖动中=拖动方向上的邻居；换过之后
    *  = 换之前那个（收尾时它要跟着滑出视野）。 */
   neighbor: number;
-  /** 相邻片是否排在当前片**左侧**。 */
+  /** 相邻片是否排在当前片**左侧**（决定两片的渲染顺序）。 */
   neighborBefore: boolean;
   /** 手势进行中：给 CSS 关掉邻居片的入场动画（它会和 1:1 跟手形成双重运动）。 */
   dragging: boolean;
@@ -60,8 +82,7 @@ export interface WorkspaceSwipe {
 let t0 = 0;
 const marks: string[] = [];
 function mark(what: string) {
-  const now = performance.now();
-  marks.push(`${what}@${(now - t0).toFixed(0)}`);
+  marks.push(`${what}@${(performance.now() - t0).toFixed(0)}`);
   if (marks.length > 20) marks.shift();
   try { void fetch("/__deepdive_error", { method: "POST", body: `[swipe] ${marks.join(" ")}` }); }
   catch { /* 取证通道，失败无所谓 */ }
@@ -69,23 +90,26 @@ function mark(what: string) {
 function resetMarks() { t0 = performance.now(); marks.length = 0; mark("start"); }
 
 export function useWorkspaceSwipe({ index, count, onCommit }: {
+  /** 当前空间下标（-1 = 无）。 */
   index: number;
   count: number;
   onCommit: (nextIndex: number) => void;
 }): WorkspaceSwipe {
   const [settling, setSettling] = useState(false);
   const [dragging, setDragging] = useState(false);
-  /** 拖动方向（+1 = 下一空间在右侧 / -1 = 在左侧）。收尾全程保留。 */
+  /** 拖动方向：+1 = 下一个在右侧，-1 = 上一个在左侧。收尾全程保留。 */
   const [dir, setDir] = useState(0);
-  /** 本次手势中途已经换过空间：布局固定成"换之前的在左、新的在右"。 */
+  /** 本次手势中途已换过空间。 */
   const [swapped, setSwapped] = useState(false);
   const settlingRef = useRef(false);
-  const st = useRef({ armed: 0, acc: 0, coolUntil: 0, settleTimer: 0, endTimer: 0, dir: 0, swapped: false });
+  /** 手势进行中的全部状态（事件回调里读，不走 state）。 */
+  const st = useRef({
+    dir: 0, dragPx: 0, base: 0, switched: false,
+    acc: 0, armed: 0, coolUntil: 0, settleTimer: 0, endTimer: 0,
+  });
   const live = useRef({ startX: 0, startY: 0, locked: false, pointerId: -1 });
   const strip = useRef<HTMLDivElement | null>(null);
-  const dragPx = useRef(0);
   const frame = useRef(0);
-  const releaseFrame = useRef(0);
   const switchFrame = useRef(0);
 
   const enterSettling = useCallback((on: boolean) => {
@@ -95,41 +119,34 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
 
   const clearTimers = useCallback(() => {
     const s = st.current;
-    for (const k of ["settleTimer", "endTimer"] as const) { if (s[k]) { clearTimeout(s[k]); s[k] = 0; } }
+    if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
+    if (s.endTimer) { clearTimeout(s.endTimer); s.endTimer = 0; }
   }, []);
   useEffect(() => clearTimers, [clearTimers]);
   useEffect(() => () => {
     if (frame.current) cancelAnimationFrame(frame.current);
-    if (releaseFrame.current) cancelAnimationFrame(releaseFrame.current);
     if (switchFrame.current) cancelAnimationFrame(switchFrame.current);
   }, []);
 
-  /** 静止位：布局是"旧的在左"时（收尾中 / 往回拖）整条停在 -100%。 */
-  const restShift = useCallback((negative: boolean) => (negative ? "-100%" : "0px"), []);
+  const stripRef = useCallback((el: HTMLDivElement | null) => { strip.current = el; }, []);
+  const paneWidth = useCallback(() => strip.current?.clientWidth ?? 240, []);
+
+  const restAfter = restAfterSwap;
 
   const paint = useCallback(() => {
     frame.current = 0;
     const el = strip.current;
     if (!el) return;
-    const rest = restShift(st.current.dir < 0 || st.current.swapped);
-    el.style.transform = rest === "0px"
-      ? `translateX(${dragPx.current}px)`
-      : `translateX(${rest}) translateX(${dragPx.current}px)`;
-  }, [restShift]);
+    el.style.transform = `translateX(${st.current.base + st.current.dragPx}px)`;
+  }, []);
 
   const schedulePaint = useCallback(() => {
     if (frame.current) return;
     frame.current = requestAnimationFrame(paint);
   }, [paint]);
 
-  const stripRef = useCallback((el: HTMLDivElement | null) => {
-    strip.current = el;
-  }, []);
-
-  const paneWidth = useCallback(() => strip.current?.clientWidth ?? 240, []);
-
-  /** 换空间：延到"这一帧上屏之后"再发，让侧栏先落在最终样子上
-   *  （主区那下是重活：整份会话视图卸载 + 新会话挂载）。不可撤销，也不可取消。 */
+  /** 换空间：延到"这一帧上屏之后"再发。主区那下是重活（整份会话视图卸载 + 新会话
+   *  挂载），与拖动帧挤在一起会把手势卡住；延后一帧，此时内容已在位、无动画可卡。 */
   const fireSwitch = useCallback((target: number) => {
     if (switchFrame.current) return;
     switchFrame.current = requestAnimationFrame(() => {
@@ -138,8 +155,8 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     });
   }, [onCommit]);
 
-  /** 收尾：撤掉行内 transform（隔一帧，见文件尾），条子弹回静止位；
-   *  过渡走完再撤邻居片。切不切换早就定了（到位即换），这里只管把界面收干净。 */
+  /** 收尾：把 t 补到静止位（撤邻居片与行内 transform 都在过渡走完之后做，
+   *  两者同帧发生、内容不产生位移）。 */
   const endGesture = useCallback(() => {
     if (settlingRef.current) return;
     mark("end");
@@ -149,53 +166,64 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     s.armed = 0;
     setDragging(false);
     if (frame.current) { cancelAnimationFrame(frame.current); frame.current = 0; }
-    if (releaseFrame.current) cancelAnimationFrame(releaseFrame.current);
-    releaseFrame.current = requestAnimationFrame(() => {
-      releaseFrame.current = 0;
-      if (strip.current) strip.current.style.transform = "";
-      dragPx.current = 0;
-    });
+    if (s.switched) s.base = restAfter(s.dir, paneWidth());
+    // 目标值与当前值相同就是"已在位"（一路拖到满位再松手），这时直接收，
+    // 不必空跑一段 240ms 的过渡。
+    const done = Math.abs(s.base + s.dragPx - s.base) < 1;
+    s.dragPx = 0;
+    if (done) {
+      if (strip.current) strip.current.style.transform = `translateX(${s.base}px)`;
+      finish();
+      return;
+    }
+    if (strip.current) strip.current.style.transform = `translateX(${s.base}px)`;
     enterSettling(true);
     clearTimers();
-    s.endTimer = window.setTimeout(() => {
+    s.endTimer = window.setTimeout(finish, SETTLE_TOTAL_MS);
+
+    function finish() {
       s.endTimer = 0;
       s.dir = 0;
-      s.swapped = false;
+      s.switched = false;
+      s.base = 0;
+      s.dragPx = 0;
       setDir(0);
       setSwapped(false);
       enterSettling(false);
-    }, SETTLE_MS_TOTAL);
-  }, [clearTimers, enterSettling]);
+      // 邻居片撤掉后只剩当前片，它在 index 0，行内 transform 也就该归零——
+      // 与撤邻居同帧发生，屏幕上不会有任何位移。
+      if (strip.current) strip.current.style.transform = "";
+    }
+  }, [clearTimers, enterSettling, paneWidth, restAfter]);
 
-  /** 跟手途中刷新位移与方向，并在到位时换空间。 */
+  /** 跟手途中刷新位移；过半片宽即换空间。 */
   const applyDrag = useCallback((dx: number) => {
     // **收尾动画期间输入不接管**（用户 2026-09-30 定："动画要独立完整"）。
     if (settlingRef.current) return;
     const s = st.current;
     if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
     s.acc = dx;
-    // 内容左移（dx<0）露出右侧的下一个 → dir=+1。wheel 与 pointer 同一口径。
-    if (Math.abs(dx) >= 4 && s.dir !== Math.sign(dx) * -1 && !s.swapped) {
+    if (Math.abs(dx) >= 4 && s.dir !== Math.sign(dx) * -1) {
       s.dir = Math.sign(dx) * -1;
-      setDir(s.dir);
+      // 布局随方向定：下一片在右（[当前, 下一]、base 0），上一片在左
+      // （[上一, 当前]、base -W）。顺序一换，静止位也要跟着换。
+      s.base = restBefore(s.dir, paneWidth());
+      if (!s.switched) setDir(s.dir);
       mark("dir");
     }
     if (Math.abs(dx) >= ARM_PX) s.armed = Math.sign(dx) * -1;
-    dragPx.current = damp(dx, paneWidth());
+    s.dragPx = damp(dx, paneWidth());
     setDragging(true);
     schedulePaint();
     if (marks.length < 2) mark("drag");
 
-    // **到位即换**（不等松手/惯性尾巴）。换过之后继续跟手：内容已经基本到位，
-    // 视觉上不断点；换空间不可撤销，所以也不再看反向意图。
-    if (!s.swapped && Math.abs(dragPx.current) >= paneWidth() * COMMIT_AT) {
+    if (!s.switched && Math.abs(s.dragPx) >= paneWidth() * COMMIT_AT) {
       const target = index + s.dir;
       if (s.dir !== 0 && target >= 0 && target < count && performance.now() >= s.coolUntil) {
-        s.swapped = true;
+        s.switched = true;
         s.coolUntil = performance.now() + COOLDOWN_MS;
         setSwapped(true);
         mark(`swap->${target}`);
-        schedulePaint();          // 布局要换成"旧的在左"，静止位随之变成 -100%
         fireSwitch(target);
       }
     }
@@ -251,7 +279,7 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
 
   return {
     stripRef, settling, neighbor,
-    neighborBefore: swapped || dir < 0,
+    neighborBefore: swapped ? dir > 0 : dir < 0,
     dragging, wheel, pointerDown, pointerMove, pointerUp,
   };
 }

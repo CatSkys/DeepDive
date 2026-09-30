@@ -531,15 +531,14 @@ button {
 /* 空间横滑（§2.1）：内容条 .ws-strip 里并排放"当前空间 + 拖动方向上的相邻
    空间"两片 .ws-pane，整条一起平移 —— 滑动过程里下一空间就在眼前，不靠切换
    完再补一段滑入（用户定稿：无缝衔接）。
-   平移量 --ws-drag 写在 .sidebar 上（手势期间实时写），拖动中无过渡＝1:1 跟手；
-   结算时开过渡，data-commit 决定滑到哪一侧边缘（贴满＝吸附），动画走完才换
-   空间（useWorkspaceSwipe 的 COMMIT_MS），换的瞬间整条归零而顶上来的那片正好
-   在原位，视觉无跳变。 */
+   **平移量由 useWorkspaceSwipe 直写行内 transform**（拖动中无过渡＝1:1 跟手，收尾
+   时补到静止位）；CSS 这边只管两件事：手势期提一层合成、收尾期开过渡。
+   这里曾经还有一条 --ws-drag 规则与 JS 各算各的，切换瞬间两边不一致，整条内容瞬移
+   一整片宽（224px）——2026-09-30 用户报"无法形容地烂"。坐标只有一个事实源。 */
 .ws-strip {
   flex: 1;
   min-height: 0;
   display: flex;
-  transform: translateX(var(--ws-drag, 0px));
 }
 /* 每片占满一条的宽度（100% 而非 flex:1——两片要等宽，flex 会按内容分配）。
    overflow 交给 .sidebar（那里已有），这里不裁，好让相邻片完整露出。 */
@@ -562,9 +561,8 @@ button {
   display: flex;
   flex-direction: column;
 }
+.ws-strip[data-dragging] { will-change: transform; }
 .ws-strip[data-settling="true"] { transition: transform var(--dur-med) var(--ease-out); }
-.ws-strip[data-commit="next"] { transform: translateX(-100%); }
-.ws-strip[data-commit="prev"] { transform: translateX(100%); }
 @keyframes ws-in-fwd {
   from { opacity: 0; transform: translateX(28px); }
   to { opacity: 1; transform: none; }
