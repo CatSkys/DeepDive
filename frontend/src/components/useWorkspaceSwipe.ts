@@ -23,8 +23,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WheelEvent, PointerEvent as ReactPointerEvent } from "react";
 
-/** 与原实现同阈：横向累计过这个位移就 arm 住目标。 */
+/** arm 住目标所需的位移（够松手时确认切换用）。 */
 const ARM_PX = 60;
+/** **提交点**：横向走过片宽的这个比例就立即提交，不等松手、不等惯性停。
+ *  实测（2026-09-30，TEMP 取证）：触控板滑完后惯性还要发 1.4s，而内容被橡皮筋
+ *  钉在上限（269px）不动——用户看到的就是"卡住"。改成走过 55% 即提交，切换
+ *  立刻发生，惯性尾巴被 settling 挡在门外。 */
+const COMMIT_AT = 0.55;
 /** 手势停这么久就结算（触控板惯性尾巴的判据）。 */
 const SETTLE_MS = 140;
 /** 切过一次后的冷却，防一次长滑连切。 */
@@ -114,8 +119,6 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
   const releaseFrame = useRef(0);
   /** 已 arm、等着"吸附动画结束就换"的目标下标；null=没有待换的。 */
   const pendingSwap = useRef<number | null>(null);
-  /** 主区切换的延后帧：侧栏画完之后才放行。 */
-  const commitFrame = useRef(0);
 
   const clearTimers = useCallback(() => {
     const s = st.current;
@@ -124,7 +127,6 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
   }, []);
   useEffect(() => clearTimers, [clearTimers]);
   useEffect(() => () => {
-    if (commitFrame.current) cancelAnimationFrame(commitFrame.current);
     if (releaseFrame.current) cancelAnimationFrame(releaseFrame.current);
   }, []);
 
@@ -169,8 +171,6 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     if (settlingRef.current) return;
     // 手势重新开始：把上一轮待撤的帧撤掉，否则它会在拖动中途把行内值抹掉。
     if (releaseFrame.current) { cancelAnimationFrame(releaseFrame.current); releaseFrame.current = 0; }
-    // 同理：还没放行的主区切换也不能在这时才生效（会切到一个用户已经放弃的空间）。
-    if (commitFrame.current) { cancelAnimationFrame(commitFrame.current); commitFrame.current = 0; }
     if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
     if (pendingSwap.current !== null || commit !== null) setCommit(null);
     pendingSwap.current = null;
@@ -187,21 +187,31 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     setDragging(true);
     schedulePaint();
     if (marks.length < 2) mark("dragging");
+    // 走到提交点就地结算：不等松手。settle 会先把当前位移画完一帧再交给过渡，
+    // 所以这一帧的位置是连贯的，动画从手指离开的地方接着走。
+    if (Math.abs(dragPx.current) >= paneWidth() * COMMIT_AT) {
+      mark(`reach-commit ${Math.round(dragPx.current)}`);
+      settleRef.current();
+    }
   }, [commit, paneWidth, schedulePaint]);
+
+  /** settle 的 ref 自引用：applyDrag 越过提交点时要能就地结算。 */
+  const settleRef = useRef<() => void>(() => {});
 
   /** 结算：arm 住且冷却已过 → 先把整条滑到边缘，动画走完再换空间（无缝）；
    *  否则回弹。轮盘路径由停驻定时器调、拖拽路径由松手直接调——两条都要能进来。
    *  进入结算就把行内 transform 撤掉，交给 CSS 的 data-commit + 过渡接手
    *  （行内样式优先级高于样式表，不撤就永远看不到吸附动画）。 */
-  /** 换空间本体，**分两拍**（用户 2026-09-30 定）：
-   *   ① 侧栏自己收尾（便宜）：撤结算态、撤邻居片。视觉上此时已经到位——吸附动画
-   *      的终点就是"邻居片在眼前"，换 active 只是把它从邻居变成当前片；
-   *   ② 主区切换另起一拍：它是重活（整份会话视图卸载 + 新会话挂载），和侧栏
-   *      收尾挤在同一个 React 批次里时，它会把动画卡在半空、等它结束再闪一下
-   *      （用户报"切换那一瞬间完全不可用"）。等侧栏这一帧真的上屏了再放行，
-   *      冻结就只发生在"已经静止"的界面上，而不是动画中途。
-   *  transitionend 与兜底定时器都走这里（早先两处各写一份，漏改过一次）。 */
+  /** 换空间本体，**幂等**（用户 2026-09-30 实测：原实现那条 rAF+setTimeout 链
+   *  从没真正跑起来——onCommit 一次都没被调用，侧栏就停在边缘不动，用户看到的是
+   *  "卡在半路"。这里改成：transitionend 与兜底定时器都汇到 finishSwap，谁先到
+   *  谁执行，另一条自动作废；执行路径里没有任何可被输入取消的中间环节）。
+   *
+   *  侧栏收尾（撤结算态、撤邻居片）与主区切换仍分两拍：前者便宜、且此时视觉上
+   *  已经到位（吸附动画的终点本就是"邻居片在眼前"）；主区那下是重活，让它排到
+   *  这一帧之后，冻结就不会落在动画中途。 */
   const swapTo = useCallback((target: number) => {
+    if (pendingSwap.current === null) return;   // 幂等：另一条路径已经换过了
     const s = st.current;
     if (s.swapTimer) { clearTimeout(s.swapTimer); s.swapTimer = 0; }
     s.dir = 0;
@@ -209,12 +219,15 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     setCommit(null);
     setLastDir(0);
     enterSettling(false);
-    if (commitFrame.current) cancelAnimationFrame(commitFrame.current);
-    commitFrame.current = requestAnimationFrame(() => {
-      commitFrame.current = 0;
-      // 再排一个 task：rAF 回调在绘制**之前**跑，setTimeout 才保证这一帧已经上屏。
-      window.setTimeout(() => onCommit(target), 0);
-    });
+    mark("swap");
+    // setTimeout 而不是 rAF+setTimeout：定时器不依赖"下一帧有没有来"，也不会被
+    // 任何输入路径 cancelAnimationFrame 掉——实测那条链就是这么丢的。
+    window.setTimeout(() => {
+      mark("onCommit");
+      onCommit(target);
+      // 换完顺手量一下主区这次重活占了多久（两帧后的时间差）。
+      requestAnimationFrame(() => requestAnimationFrame(() => mark("after-switch")));
+    }, 0);
   }, [enterSettling, onCommit]);
 
   const swapRef = useRef(swapTo);
@@ -280,6 +293,8 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
         // 滑到边缘再换：换的瞬间整条归零，而顶上来的那片正好在原位，视觉无跳变。
         clearTimers();
         pendingSwap.current = target;
+        // 兜底：过渡没跑（剩余路程为 0、或用户开了减弱动态效果）也要换空间，
+        // 否则侧栏停在边缘不换——那正是"卡在半路"最坏的一种。
         s.swapTimer = window.setTimeout(() => swapTo(target), COMMIT_MS);
         return;
       }
@@ -294,6 +309,9 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
       enterSettling(false);
     }, 260);
   }, [clearTimers, count, enterSettling, index, paneWidth, swapTo]);
+  // 渲染期挂上：applyDrag 越过提交点时要能就地结算（写在回调体内会等到第一次
+  // 调用 settle 才赋值，那一次"走到提交点"就调了个空函数）。
+  settleRef.current = settle;
 
   const wheel = useCallback((e: WheelEvent) => {
     if (count < 2) return;
