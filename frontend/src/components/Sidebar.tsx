@@ -112,14 +112,13 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       <div
         className="ws-strip"
         ref={swipe.stripRef}
-        data-order={swipe.dir < 0 ? "prev" : undefined}
+        data-order={swipe.neighborBefore ? "prev" : undefined}
         data-dragging={swipe.dragging || undefined}
-        data-commit={swipe.commit ?? undefined}
         data-settling={swipe.settling || undefined}
       >
         <SidebarSessionList
           neighborId={neighborWs?.workspaceId}
-          neighborBefore={swipe.dir < 0}
+          neighborBefore={swipe.neighborBefore}
           collapsed={wsCollapsed}
           onToggleCollapsed={() => setWsCollapsed((v) => !v)}
           onOpenRowMenu={openRowMenu}
