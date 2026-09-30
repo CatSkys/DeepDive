@@ -62,7 +62,17 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   return (
     <aside className="sidebar">
-      {/* 侧栏首行「新会话」入口（§3.2 New Chat 式）：切草稿页，首条消息才建会话。
+      {/* 当前空间的会话列表；切换空间时整片换 key 重挂载。 */}
+      <SidebarSessionList
+        collapsed={wsCollapsed}
+        onToggleCollapsed={() => setWsCollapsed((v) => !v)}
+        onOpenRowMenu={openRowMenu}
+        onOpenWorkspaceMenu={(x, y) => { setRowMenu(null); setWsMenu({ x, y }); }}
+        onNewSession={() => store.openSession(null)}
+        slideDir={slideDir.current}
+      />
+      {/* 「新会话」入口（Safari New tab 式）：常驻所有会话最下方、设置行之上
+          （.ws-pane flex:1 把它顶到底）。切草稿页，首条消息才建会话。
           行内已有文字与快捷键，不再挂 data-tip——提示只给没有文字的按钮用。 */}
       <button
         className="new-session-entry"
@@ -74,15 +84,6 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           <span className="ns-keys">{comboFor("new-session", store.keybinds)}</span>
         )}
       </button>
-      {/* 当前空间的会话列表；切换空间时整片换 key 重挂载。 */}
-      <SidebarSessionList
-        collapsed={wsCollapsed}
-        onToggleCollapsed={() => setWsCollapsed((v) => !v)}
-        onOpenRowMenu={openRowMenu}
-        onOpenWorkspaceMenu={(x, y) => { setRowMenu(null); setWsMenu({ x, y }); }}
-        onNewSession={() => store.openSession(null)}
-        slideDir={slideDir.current}
-      />
       <div className="sidebar-foot">
         <button
           className="settings-entry"

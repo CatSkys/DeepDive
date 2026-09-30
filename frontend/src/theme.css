@@ -449,7 +449,7 @@ button {
 }
 .ws-row:hover { background: var(--fill); }
 .ws-row svg { color: var(--ink-3); flex: none; }
-/* 侧栏首行「新会话」入口（§3.2 New Chat 式，参考官方新建任务行） */
+/* 侧栏末行「新会话」入口（Safari New tab 式，常驻所有会话最下方） */
 .new-session-entry {
   display: flex;
   align-items: center;
