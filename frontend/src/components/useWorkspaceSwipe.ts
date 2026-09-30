@@ -25,15 +25,13 @@ import type { WheelEvent, PointerEvent as ReactPointerEvent } from "react";
 
 /** 与原实现同阈：横向累计过这个位移就 arm 住目标。 */
 const ARM_PX = 60;
-/** 跟手上限：再推也不让内容飞出面板太远（阻尼区从 ARM_PX 开始）。 */
-const MAX_PX = 160;
 /** 手势停这么久就结算（触控板惯性尾巴的判据）。 */
 const SETTLE_MS = 140;
 /** 切过一次后的冷却，防一次长滑连切。 */
 const COOLDOWN_MS = 700;
-/** 吸附到底（把整条滑到边缘）再换空间。必须 ≥ CSS 的 --dur-med，否则 swap
- *  在动画走完前发生，strip 提前归零而新片还没到位——中间那一帧会跳。 */
-const COMMIT_MS = 210;
+/** 吸附到位的兜底时长：正常由 transitionend 触发换空间，这个只防"过渡没跑"
+ *  （比如剩余路程为 0、或 prefers-reduced-motion 关掉了过渡）。 */
+const COMMIT_MS = 320;
 
 /** 结算落点：next=滑到左边缘（下一空间顶上），prev=滑到右边缘。 */
 export type SwipeCommit = "next" | "prev" | null;
@@ -57,12 +55,20 @@ export interface WorkspaceSwipe {
   pointerUp: (e: ReactPointerEvent) => void;
 }
 
-/** 阻尼：ARM_PX 之前线性，之后按 0.45 斜率到 MAX_PX——推过头阻力变大，像真的橡皮筋。 */
-function damp(dx: number): number {
-  const s = Math.sign(dx);
+/** 跟手上限：整片宽 + 一点橡皮筋余量。**不能小于一片宽**——早先截在 160px
+ *  （一片 224px），推到上限内容就不动了，用户看着像卡死（2026-09-30 用户报）。 */
+const MAX_PX = 420;
+/** 超出整片宽之后的橡皮筋斜率。 */
+const RUBBER = 0.3;
+
+/** 跟手阻尼：**整片宽以内 1:1**（一片一片地推出去，推满即整片换到眼前），
+ *  超出才加阻力并封顶——像真的橡皮筋，而不是"推不动了"。
+ *  导出供单测：上限早先截在 160px（一片 224px），推到上限内容就停住，用户看着
+ *  像卡死——这条正是要钉住的不变量。 */
+export function damp(dx: number, pane: number): number {
   const a = Math.abs(dx);
-  if (a <= ARM_PX) return dx;
-  return s * Math.min(MAX_PX, ARM_PX + (a - ARM_PX) * 0.45);
+  if (a <= pane) return dx;
+  return Math.sign(dx) * (pane + Math.min(pane * 0.2, (a - pane) * RUBBER));
 }
 
 export function useWorkspaceSwipe({ index, count, onCommit }: {
@@ -86,6 +92,8 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
   const frame = useRef(0);
   /** 结算时"撤掉行内 transform"的待执行帧：必须隔一帧，不能同步撤。 */
   const releaseFrame = useRef(0);
+  /** 已 arm、等着"吸附动画结束就换"的目标下标；null=没有待换的。 */
+  const pendingSwap = useRef<number | null>(null);
 
   const clearTimers = useCallback(() => {
     const s = st.current;
@@ -107,15 +115,14 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
       : `translateX(${rest}) translateX(${dragPx.current}px)`;
   }, []);
 
+  /** 一片有多宽：跟手要按它 1:1 走满，所以每次都量当前值（侧栏可拖宽）。 */
+  const paneWidth = useCallback(() => strip.current?.clientWidth ?? 240, []);
+
   /** 一帧只写一次：触控板事件比帧还密。 */
   const schedulePaint = useCallback(() => {
     if (frame.current) return;
     frame.current = requestAnimationFrame(paint);
   }, [paint]);
-
-  const stripRef = useCallback((el: HTMLDivElement | null) => {
-    strip.current = el;
-  }, []);
 
   /** 方向（下一空间在右侧=+1）→ 邻居下标，越界或没方向就没有（-1）。 */
   const neighbor = (() => {
@@ -140,14 +147,49 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
       setLastDir(s.dir);
     }
     if (Math.abs(dx) >= ARM_PX) s.armed = Math.sign(dx) * -1;
-    dragPx.current = damp(dx);
+    dragPx.current = damp(dx, paneWidth());
     setDragging(true);
     schedulePaint();
-  }, [schedulePaint]);
+  }, [paneWidth, schedulePaint]);
 
   /** 结算：arm 住且冷却已过 → 先把整条滑到边缘，动画走完再换空间（无缝）；
    *  否则回弹。轮盘路径由停驻定时器调、拖拽路径由松手直接调——两条都要能进来。
    *  进入结算就把行内 transform 撤掉，交给 CSS 的 data-commit + 过渡接手
+   *  （行内样式优先级高于样式表，不撤就永远看不到吸附动画）。 */
+  /** 换空间本体：撤掉结算态、换 active。抽出来是为了 transitionend 与兜底定时器
+   *  走同一条路（早先两处各写一份，漏改过一次）。 */
+  const swapTo = useCallback((target: number) => {
+    const s = st.current;
+    if (s.swapTimer) { clearTimeout(s.swapTimer); s.swapTimer = 0; }
+    s.dir = 0;
+    pendingSwap.current = null;
+    setCommit(null);
+    setLastDir(0);
+    setSettling(false);
+    onCommit(target);
+  }, [onCommit]);
+
+  const swapRef = useRef(swapTo);
+  swapRef.current = swapTo;
+
+  /** 吸附动画一结束就换空间——不等固定时长。定时器只在过渡没触发时兜底
+   *  （推满整片时剩余路程为 0，过渡根本不会开始）。 */
+  const onTransitionEnd = useCallback((e: TransitionEvent) => {
+    if (e.target !== strip.current || e.propertyName !== "transform") return;
+    const target = pendingSwap.current;
+    if (target === null) return;
+    swapRef.current(target);
+  }, []);
+
+  const stripRef = useCallback((el: HTMLDivElement | null) => {
+    strip.current?.removeEventListener("transitionend", onTransitionEnd);
+    strip.current = el;
+    el?.addEventListener("transitionend", onTransitionEnd);
+  }, [onTransitionEnd]);
+
+  /** 结算：arm 住且冷却已过 → 先把整条滑到边缘，动画走完（或推满即止）再换空间；
+   *  否则回弹。轮盘路径由停驻定时器调、拖拽路径由松手直接调——两条都要能进来。
+   *  进入结算就把行内 transform 隔帧撤掉，交给 CSS 的 data-commit + 过渡接手
    *  （行内样式优先级高于样式表，不撤就永远看不到吸附动画）。 */
   const settle = useCallback(() => {
     const s = st.current;
@@ -155,35 +197,37 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     live.current.pointerId = -1;
     const now = performance.now();
     const dir = s.armed;
+    const held = Math.abs(dragPx.current);
     s.armed = 0;
     s.acc = 0;
     setDragging(false);
     if (frame.current) { cancelAnimationFrame(frame.current); frame.current = 0; }
+    dragPx.current = 0;
     // **隔一帧再撤行内 transform**：同步撤的话，条子会先从拖到的位置弹回静止位
-    // （跟着手的 160px 一跳）才开始吸附动画。隔一帧，浏览器先把行内值记成过渡的
-    // 起点（此时 data-settling 的 transition 已生效），撤掉后从拖到的位置平滑滑到落点。
+    // （整片宽的一跳）才开始吸附动画。隔一帧，浏览器先把行内值记成过渡的起点
+    //（此时 data-settling 的 transition 已生效），撤掉后从拖到的位置平滑滑到落点。
     if (releaseFrame.current) cancelAnimationFrame(releaseFrame.current);
     releaseFrame.current = requestAnimationFrame(() => {
       releaseFrame.current = 0;
       if (strip.current) strip.current.style.transform = "";
     });
-    dragPx.current = 0;
     if (dir !== 0 && count > 1 && now >= s.coolUntil) {
       const target = index + dir;
       if (target >= 0 && target < count) {
         s.coolUntil = now + COOLDOWN_MS;
+        // 正好推满整片：邻居片已在眼前，没什么可滑的——直接换，别让"吸附动画"
+        // 变成一段没有内容可动的等待（用户报"滑到尽头卡好一会"）。推过头（橡皮筋
+        // 余量）不行：那截得先平滑收回去，不能硬拉。
+        if (Math.abs(held - paneWidth()) < 2) {
+          swapTo(target);
+          return;
+        }
         setCommit(dir > 0 ? "next" : "prev");
         setSettling(true);
         // 滑到边缘再换：换的瞬间整条归零，而顶上来的那片正好在原位，视觉无跳变。
         clearTimers();
-        s.swapTimer = window.setTimeout(() => {
-          s.swapTimer = 0;
-          s.dir = 0;
-          setCommit(null);
-          setLastDir(0);
-          setSettling(false);
-          onCommit(target);
-        }, COMMIT_MS);
+        pendingSwap.current = target;
+        s.swapTimer = window.setTimeout(() => swapTo(target), COMMIT_MS);
         return;
       }
     }
@@ -196,14 +240,14 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
       setLastDir(0);
       setSettling(false);
     }, 260);
-  }, [clearTimers, count, index, onCommit]);
+  }, [clearTimers, count, index, paneWidth, swapTo]);
 
   const wheel = useCallback((e: WheelEvent) => {
     if (count < 2) return;
     // 纵向占优 = 用户在滚会话列表，放行
     if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
     const s = st.current;
-    const next = Math.max(-MAX_PX * 2, Math.min(MAX_PX * 2, s.acc + e.deltaX));
+    const next = Math.max(-MAX_PX, Math.min(MAX_PX, s.acc + e.deltaX));
     applyDrag(next);
     s.settleTimer = window.setTimeout(settle, SETTLE_MS);
   }, [applyDrag, count, settle]);
