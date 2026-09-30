@@ -25,11 +25,13 @@ import type { WheelEvent, PointerEvent as ReactPointerEvent } from "react";
 
 /** arm 住目标所需的位移（够松手时确认切换用）。 */
 const ARM_PX = 60;
-/** **提交点**：横向走过片宽的这个比例就立即提交，不等松手、不等惯性停。
- *  实测（2026-09-30，TEMP 取证）：触控板滑完后惯性还要发 1.4s，而内容被橡皮筋
- *  钉在上限（269px）不动——用户看到的就是"卡住"。改成走过 55% 即提交，切换
- *  立刻发生，惯性尾巴被 settling 挡在门外。 */
+/** **提交点**：横向走过片宽的这个比例就认定"这次会切"（意图），但**不立刻结算**
+ *  ——内容继续跟手，等手势真的停（松手 / 惯性尾巴结束）才吸附换空间。
+ *  实测（2026-09-30，TEMP 取证）：触控板惯性尾巴要发 1.4s，早先内容被橡皮筋钉在
+ *  269px 不动，那 1.4s 全是"卡住"；而一过线就结算，条子又立刻脱离手指变成"很跳"。 */
 const COMMIT_AT = 0.55;
+/** 撤销意图的阈值（迟滞）：低于 45% 才算反悔。 */
+const COMMIT_RELEASE = 0.45;
 /** 手势停这么久就结算（触控板惯性尾巴的判据）。 */
 const SETTLE_MS = 140;
 /** 切过一次后的冷却，防一次长滑连切。 */
@@ -60,20 +62,14 @@ export interface WorkspaceSwipe {
   pointerUp: (e: ReactPointerEvent) => void;
 }
 
-/** 跟手上限：整片宽 + 一点橡皮筋余量。**不能小于一片宽**——早先截在 160px
- *  （一片 224px），推到上限内容就不动了，用户看着像卡死（2026-09-30 用户报）。 */
-const MAX_PX = 420;
-/** 超出整片宽之后的橡皮筋斜率。 */
-const RUBBER = 0.3;
-
 /** 跟手阻尼：**整片宽以内 1:1**（一片一片地推出去，推满即整片换到眼前），
- *  超出才加阻力并封顶——像真的橡皮筋，而不是"推不动了"。
- *  导出供单测：上限早先截在 160px（一片 224px），推到上限内容就停住，用户看着
- *  像卡死——这条正是要钉住的不变量。 */
+ *  超出后是渐强橡皮筋：斜率 0.2、封顶 1.25 片。斜率刻意压低——早先 0.3 + 1.2 片
+ *  封顶时实测每次滑动都顶死在 269px，那一下像撞墙（2026-09-30 用户报）。
+ *  导出供单测：钉住"整片宽以内必须 1:1"这条不变量。 */
 export function damp(dx: number, pane: number): number {
   const a = Math.abs(dx);
   if (a <= pane) return dx;
-  return Math.sign(dx) * (pane + Math.min(pane * 0.2, (a - pane) * RUBBER));
+  return Math.sign(dx) * (pane + Math.min(pane * 0.25, (a - pane) * 0.2));
 }
 
 // TEMP（取证用，量完删）：把横滑各阶段的时间点写进 engine.log，供壳侧读取。
@@ -108,7 +104,7 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
   /** 拖动方向（+1 = 下一空间在右侧 / -1 = 上一空间在左侧）。**结算全程保留**：
    *  归零之后那一瞬若把邻居撤掉，边缘会闪一下——它得跟着一路滑出视野。 */
   const [lastDir, setLastDir] = useState(0);
-  const st = useRef({ armed: 0, acc: 0, coolUntil: 0, settleTimer: 0, swapTimer: 0, dir: 0 });
+  const st = useRef({ armed: 0, intent: 0, acc: 0, coolUntil: 0, settleTimer: 0, swapTimer: 0, dir: 0 });
   // 手势进行中的实时值（事件回调里读，不走 state）：起点与轴锁定
   const live = useRef({ startX: 0, startY: 0, locked: false, pointerId: -1 });
   // 跟手位移：直写 transform，不进 state（见文件头）
@@ -187,12 +183,13 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     setDragging(true);
     schedulePaint();
     if (marks.length < 2) mark("dragging");
-    // 走到提交点就地结算：不等松手。settle 会先把当前位移画完一帧再交给过渡，
-    // 所以这一帧的位置是连贯的，动画从手指离开的地方接着走。
-    if (Math.abs(dragPx.current) >= paneWidth() * COMMIT_AT) {
-      mark(`reach-commit ${Math.round(dragPx.current)}`);
-      settleRef.current();
-    }
+    // 过提交点**只记意图，不结算**：内容继续跟手（含触控板惯性尾巴），手势真的
+    // 停了才结算。早先一过线就 settle，条子立刻脱离手指自己跑动画——手指还在惯性
+    // 里走、内容却不再跟手，用户报"很跳、很快"（2026-09-30）。
+    // 45% 处才撤销（迟滞），免得在阈值附近来回抖。
+    const reach = Math.abs(dragPx.current);
+    if (reach >= paneWidth() * COMMIT_AT) s.intent = Math.sign(dragPx.current) * -1;
+    else if (reach < paneWidth() * COMMIT_RELEASE) s.intent = 0;
   }, [commit, paneWidth, schedulePaint]);
 
   /** settle 的 ref 自引用：applyDrag 越过提交点时要能就地结算。 */
@@ -261,9 +258,12 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
     live.current.pointerId = -1;
     const now = performance.now();
-    const dir = s.armed;
+    // 判据取"意图"（走过 55%），不是松手时的累计位移：惯性尾巴会把累计值顶得很大，
+    // 而用户在推回去一点之后仍然期望切过去。intent 由 applyDrag 维护。
+    const dir = s.intent || s.armed;
     const held = Math.abs(dragPx.current);
     s.armed = 0;
+    s.intent = 0;
     s.acc = 0;
     setDragging(false);
     if (frame.current) { cancelAnimationFrame(frame.current); frame.current = 0; }
@@ -320,10 +320,11 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     if (settlingRef.current) return;
     const s = st.current;
     if (!s.acc) resetMarks();
-    const next = Math.max(-MAX_PX, Math.min(MAX_PX, s.acc + e.deltaX));
+    const cap = paneWidth() * 3;
+    const next = Math.max(-cap, Math.min(cap, s.acc + e.deltaX));
     applyDrag(next);
     s.settleTimer = window.setTimeout(settle, SETTLE_MS);
-  }, [applyDrag, count, settle]);
+  }, [applyDrag, count, paneWidth, settle]);
 
   const pointerDown = useCallback((e: ReactPointerEvent) => {
     if (count < 2 || e.button !== 0) return;
