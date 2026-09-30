@@ -54,7 +54,7 @@ export function ComposerMenu({ menu, query, rows, active, setActive, onPick }: {
 }) {
   const { tt } = useT();
   // 候选超限高时上下两端按 FadeEdge 标准渐隐（有内容被藏住才出现）
-  const fade = useEdgeFade();
+  const fade = useEdgeFade("y");
   /** 激活行盒（glide 条定位）；鼠标移出菜单即隐藏。 */
   const [rowBox, setRowBox] = useState<{ top: number; height: number } | null>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);

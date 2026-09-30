@@ -64,7 +64,7 @@ function WorkspaceCell({ ws, hotkey, active, onSwitch, onContext }: {
 
 export function WsSwitcher() {
   const store = useStore();
-  const fade = useEdgeFade();
+  const fade = useEdgeFade("x");
   const [strip, setStrip] = useState<HTMLDivElement | null>(null);
   const [ctx, setCtx] = useState<{ ws: WorkspaceView; x: number; y: number } | null>(null);
   const glide = useSelectionGlide<HTMLDivElement>(".ws-cell[data-sel]", store.activeWorkspaceId);

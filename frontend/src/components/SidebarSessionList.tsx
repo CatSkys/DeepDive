@@ -75,7 +75,7 @@ export function SidebarSessionList({
 
   const view = groupsOf(activeWs?.workspaceId);
   // 会话列表溢出渐隐（超限标准 UI）
-  const sessionsFade = useEdgeFade();
+  const sessionsFade = useEdgeFade("y");
   // 选中态滑移（底片 .glide-row 在 .sessions 里，跨分组移动也连续）
   const glide = useSelectionGlide<HTMLDivElement>(
     store.activeSessionId ? ".task-row[data-sel]" : null, store.activeSessionId);

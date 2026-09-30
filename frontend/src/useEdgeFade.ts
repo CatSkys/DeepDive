@@ -20,11 +20,15 @@ export function fadeAttrs(fade: EdgeFadeState): {
 }
 
 /** 横竖滚动容器通用：没有溢出的一轴两项恒 false。四路触发：scroll、
- *  ResizeObserver（容器自身尺寸）、MutationObserver（子树增删——会话行/
- *  格子增减不改容器尺寸，RO 看不见；只听 childList，轮询改时间戳这类
- *  文字变更不触发）、元素重造（callback ref 换新即重挂）。1px 容差抗亚
- *  像素抖动；值不变时回传原引用避免滚动中的多余渲染。 */
-export function useEdgeFade<E extends HTMLElement = HTMLDivElement>(): {
+ *  ResizeObserver（容器自身尺寸）、MutationObserver（子树 childList + style/class
+ *  属性——会话行/格子增删、滑移底片这类绝对定位子元素挪位，都不改容器尺寸，
+ *  RO 看不见；只听 style/class，轮询改时间戳这类文字变更不触发）、元素重造
+ *  （callback ref 换新即重挂）。1px 容差抗亚像素抖动；值不变时回传原引用避免
+ *  滚动中的多余渲染。
+ *
+ *  axis 必填：渐隐信号只看本轴的溢出——fade-y 容器普遍 overflow-x: hidden，
+ *  横向放不下的东西（nowrap 长标题等）不该点亮纵向的底部渐隐；反之亦然。 */
+export function useEdgeFade<E extends HTMLElement = HTMLDivElement>(axis: "x" | "y"): {
   ref: (el: E | null) => void;
   fade: EdgeFadeState;
 } {
@@ -33,11 +37,15 @@ export function useEdgeFade<E extends HTMLElement = HTMLDivElement>(): {
   useLayoutEffect(() => {
     if (!el) return;
     const measure = () => {
-      const next = {
-        start: el.scrollTop > 1 || el.scrollLeft > 1,
-        end: el.scrollHeight - el.scrollTop - el.clientHeight > 1
-          || el.scrollWidth - el.scrollLeft - el.clientWidth > 1,
-      };
+      const next = axis === "x"
+        ? {
+            start: el.scrollLeft > 1,
+            end: el.scrollWidth - el.scrollLeft - el.clientWidth > 1,
+          }
+        : {
+            start: el.scrollTop > 1,
+            end: el.scrollHeight - el.scrollTop - el.clientHeight > 1,
+          };
       setFade((p) => (p.start === next.start && p.end === next.end ? p : next));
     };
     measure();
@@ -45,12 +53,12 @@ export function useEdgeFade<E extends HTMLElement = HTMLDivElement>(): {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     const mo = new MutationObserver(measure);
-    mo.observe(el, { childList: true, subtree: true });
+    mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
     return () => {
       el.removeEventListener("scroll", measure);
       ro.disconnect();
       mo.disconnect();
     };
-  }, [el]);
+  }, [el, axis]);
   return { ref: setEl, fade };
 }
