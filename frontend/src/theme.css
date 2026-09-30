@@ -358,8 +358,11 @@ button {
   gap: 6px;
 }
 
-/* position: relative：选中滑移底片的定位祖先（底片在滚动内容里，随列表一起滚） */
-.sessions { position: relative; flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; }
+/* position: relative：选中滑移底片的定位祖先（底片在滚动内容里，随列表一起滚）。
+   flex: 0 1 auto（内容多高就多高、min-height:0 允许收缩）：列表短时贴合内容，
+   「新会话」入口行紧随其后贴着最后一行；会话多到超出时列表收缩成滚动区，
+   入口被顶到下面常驻（= 设置行上面那行）。撑满剩余高度的职责不在这里。 */
+.sessions { position: relative; flex: 0 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; }
 
 /* 分组标签（Pinned / Recent / 上周 / AI Agents）：小字 + 微量 tracking——小标签在
    深浅底上都比正文轻一档，tracking 让它在弱色（--ink-3）下不至于散掉。规范 §2.1
@@ -449,8 +452,9 @@ button {
 }
 .ws-row:hover { background: var(--fill); }
 .ws-row svg { color: var(--ink-3); flex: none; }
-/* 「新会话」入口（Safari New tab 式）：会话列表的最后一行，贴着最后一条会话
-   随内容滚动；整行置灰（--ink-3）弱化，不与任务行抢视觉。 */
+/* 「新会话」入口（Safari New tab 式）：紧跟 .sessions 滚动列表之后——列表短时
+   贴着最后一行，会话多到要滚时被顶到底部常驻（设置行上面那行）；
+   整行置灰（--ink-3）弱化，不与任务行抢视觉。 */
 .new-session-entry {
   display: flex;
   align-items: center;
@@ -458,6 +462,7 @@ button {
   gap: 8px;
   width: 100%;
   height: 32px;
+  margin-top: 3px; /* 补回原在 .sessions gap 里的行距 */
   padding: 0 10px;
   border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
   color: var(--ink-3);

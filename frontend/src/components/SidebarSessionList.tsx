@@ -184,14 +184,15 @@ export function SidebarSessionList({
                 </div>
               ))}
               {view.length === 0 && <div className="empty-state">{t("暂无会话")}</div>}
-              {/* 「新会话」入口（Safari New tab 式）：列表最后一行，贴着最后一条
-                  会话随内容滚动，不是钉底。切草稿页，首条消息才建会话。
-                  行内有文字，不挂 data-tip——提示只给没有文字的按钮用。 */}
-              <button className="new-session-entry" onClick={onNewSession}>
-                <Plus size={14} />
-                <span className="ns-label">{t("新会话")}</span>
-              </button>
             </div>
+            {/* 「新会话」入口（Safari New tab 式）：紧跟滚动列表之后——列表短时
+                贴着最后一行（.sessions 收缩为内容高），会话多到要滚时被顶到底部
+                常驻（设置行上面那行）。切草稿页，首条消息才建会话。
+                行内有文字，不挂 data-tip——提示只给没有文字的按钮用。 */}
+            <button className="new-session-entry" onClick={onNewSession}>
+              <Plus size={14} />
+              <span className="ns-label">{t("新会话")}</span>
+            </button>
           </div>
         </div>
       )}
