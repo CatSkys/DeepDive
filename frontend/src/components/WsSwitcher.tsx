@@ -67,7 +67,7 @@ export function WsSwitcher() {
   const fade = useEdgeFade();
   const [strip, setStrip] = useState<HTMLDivElement | null>(null);
   const [ctx, setCtx] = useState<{ ws: WorkspaceView; x: number; y: number } | null>(null);
-  const glide = useSelectionGlide<HTMLDivElement>(".ws-cell[data-sel]");
+  const glide = useSelectionGlide<HTMLDivElement>(".ws-cell[data-sel]", store.activeWorkspaceId);
 
   // 滚轮就地消费：条子有横向溢出时，纵横滚轮都只滚条子本身。
   // preventDefault 挡浏览器默认的滚动链接（否则纵滚轮会链去上方会话

@@ -27,6 +27,7 @@ interface SessionGroup {
 
 export function SidebarSessionList({
   neighborId,
+  neighborBefore,
   collapsed,
   onToggleCollapsed,
   onOpenRowMenu,
@@ -36,6 +37,8 @@ export function SidebarSessionList({
 }: {
   /** 拖动方向上的相邻空间：并排渲染才无缝。 */
   neighborId?: string;
+  /** 邻居片排在当前片**左侧**（往回切）：由 useWorkspaceSwipe 的方向给。 */
+  neighborBefore?: boolean;
   /** 程序化切换（点切换器/菜单）的滑入方向：fwd=自右 / back=自左。
    *  只给当前片——相邻片是手势拖出来的，不该再叠一段入场动画。 */
   slideDir?: "fwd" | "back";
@@ -82,7 +85,8 @@ export function SidebarSessionList({
   // 会话列表溢出渐隐（超限标准 UI）
   const sessionsFade = useEdgeFade();
   // 选中态滑移（底片 .glide-row 在 .sessions 里，跨分组移动也连续）
-  const glide = useSelectionGlide<HTMLDivElement>(store.activeSessionId ? ".task-row[data-sel]" : null);
+  const glide = useSelectionGlide<HTMLDivElement>(
+    store.activeSessionId ? ".task-row[data-sel]" : null, store.activeSessionId);
 
   // 行首槽位：运行/未读状态优先；都没有时给「置顶」钮（hover 显现，已置顶常驻）
   // ——置顶的会话不受自动归档限制（设置·通用）
@@ -163,7 +167,12 @@ export function SidebarSessionList({
   };
 
   const neighborWs = neighborId ? store.workspaces.find((w) => w.workspaceId === neighborId) : undefined;
-  const panes = [activeWs, neighborWs].filter((w): w is NonNullable<typeof w> => Boolean(w));
+  // 上一空间排在**左**、下一空间排在右（neighborBefore 由手势方向给）：两片都排在
+  // 右边时，往回切看到的"上一个"其实在右侧，动画方向与手指相反（2026-09-30 用户报）。
+  const ordered = neighborBefore
+    ? [neighborWs, activeWs]
+    : [activeWs, neighborWs];
+  const panes = ordered.filter((w): w is NonNullable<typeof w> => Boolean(w));
 
   return (
     <>

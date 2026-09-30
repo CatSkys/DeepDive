@@ -8,7 +8,18 @@
 //     否则回弹；
 //   · **拖动中就把相邻空间渲染出来**（neighbor），两片并排、整条一起平移——滑动
 //     过程中下一空间就在眼前，不靠"切完再滑入"补戏（用户定稿：无缝衔接）；
+//   · **上一空间在左、下一空间在右**（`data-order`）：早先两片都排在右边，于是
+//     往回切时"上一个"其实在右侧——无论往哪滑动画方向都一样，看着像方向反了
+//     （2026-09-30 用户报）。方向由 lastDir 决定渲染顺序与静止位。
 //   · 到头不回绕；COOLDOWN_MS 冷却防一次长滑连切。
+//
+// **位移不进 React state**：每个 pointermove 都 setState 会重渲整份会话列表，
+// 手势直接被拖成幻灯片（2026-09-30 用户报"整体不那么丝滑"）。整条的 transform
+// 由手势直写元素（rAF 合并，一帧一次），React 只管低频的结算态与邻居渲染。
+//
+// **行内 transform 不能同步撤**：结算时行内值优先级高于样式表，撤掉才轮得到
+// data-commit 的吸附动画；但同步撤会让条子先弹回静止位再滑过去。隔一帧撤，
+// 浏览器才认得下过渡的起点。
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WheelEvent, PointerEvent as ReactPointerEvent } from "react";
 
@@ -28,14 +39,18 @@ const COMMIT_MS = 210;
 export type SwipeCommit = "next" | "prev" | null;
 
 export interface WorkspaceSwipe {
-  /** 当前拖动位移（px）：写进侧栏的 --ws-drag，拖动中 1:1 跟手。 */
-  drag: number;
+  /** 绑到 .ws-strip：手势期间本钩子直写它的 transform。 */
+  stripRef: (el: HTMLDivElement | null) => void;
   /** 结算中（回弹/吸附的过渡态）：这段时间开 CSS 过渡。 */
   settling: boolean;
   /** 结算落点；null=不在结算。CSS 据此把整条滑到边缘。 */
   commit: SwipeCommit;
   /** 拖动方向上的相邻空间下标（-1 = 没有：方向朝外或没在拖）。渲染它才能无缝。 */
   neighbor: number;
+  /** 拖动方向（+1 = 下一空间在右侧 / -1 = 上一空间在左侧）。决定两片的渲染顺序。 */
+  dir: number;
+  /** 手势进行中：给 CSS 关掉邻居片的入场动画（它会和 1:1 跟手形成双重运动）。 */
+  dragging: boolean;
   wheel: (e: WheelEvent) => void;
   pointerDown: (e: ReactPointerEvent) => void;
   pointerMove: (e: ReactPointerEvent) => void;
@@ -56,15 +71,21 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
   count: number;
   onCommit: (nextIndex: number) => void;
 }): WorkspaceSwipe {
-  const [drag, setDrag] = useState(0);
   const [settling, setSettling] = useState(false);
   const [commit, setCommit] = useState<SwipeCommit>(null);
+  const [dragging, setDragging] = useState(false);
   /** 拖动方向（+1 = 下一空间在右侧 / -1 = 上一空间在左侧）。**结算全程保留**：
    *  归零之后那一瞬若把邻居撤掉，边缘会闪一下——它得跟着一路滑出视野。 */
   const [lastDir, setLastDir] = useState(0);
   const st = useRef({ armed: 0, acc: 0, coolUntil: 0, settleTimer: 0, swapTimer: 0, dir: 0 });
   // 手势进行中的实时值（事件回调里读，不走 state）：起点与轴锁定
   const live = useRef({ startX: 0, startY: 0, locked: false, pointerId: -1 });
+  // 跟手位移：直写 transform，不进 state（见文件头）
+  const strip = useRef<HTMLDivElement | null>(null);
+  const dragPx = useRef(0);
+  const frame = useRef(0);
+  /** 结算时"撤掉行内 transform"的待执行帧：必须隔一帧，不能同步撤。 */
+  const releaseFrame = useRef(0);
 
   const clearTimers = useCallback(() => {
     const s = st.current;
@@ -72,6 +93,29 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     if (s.swapTimer) { clearTimeout(s.swapTimer); s.swapTimer = 0; }
   }, []);
   useEffect(() => clearTimers, [clearTimers]);
+
+  /** 静止位：上一空间在左侧时整条停在 -100%（当前片在右、邻居在左）。 */
+  const restShift = (d: number) => (d < 0 ? "-100%" : "0px");
+
+  const paint = useCallback(() => {
+    frame.current = 0;
+    const el = strip.current;
+    if (!el) return;
+    const rest = restShift(st.current.dir);
+    el.style.transform = rest === "0px"
+      ? `translateX(${dragPx.current}px)`
+      : `translateX(${rest}) translateX(${dragPx.current}px)`;
+  }, []);
+
+  /** 一帧只写一次：触控板事件比帧还密。 */
+  const schedulePaint = useCallback(() => {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(paint);
+  }, [paint]);
+
+  const stripRef = useCallback((el: HTMLDivElement | null) => {
+    strip.current = el;
+  }, []);
 
   /** 方向（下一空间在右侧=+1）→ 邻居下标，越界或没方向就没有（-1）。 */
   const neighbor = (() => {
@@ -84,6 +128,8 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
    *  方向保留到结算结束（否则边缘会闪）。 */
   const applyDrag = useCallback((dx: number) => {
     const s = st.current;
+    // 手势重新开始：把上一轮待撤的帧撤掉，否则它会在拖动中途把行内值抹掉。
+    if (releaseFrame.current) { cancelAnimationFrame(releaseFrame.current); releaseFrame.current = 0; }
     if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
     setSettling(false);
     s.acc = dx;
@@ -94,11 +140,15 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
       setLastDir(s.dir);
     }
     if (Math.abs(dx) >= ARM_PX) s.armed = Math.sign(dx) * -1;
-    setDrag(damp(dx));
-  }, []);
+    dragPx.current = damp(dx);
+    setDragging(true);
+    schedulePaint();
+  }, [schedulePaint]);
 
   /** 结算：arm 住且冷却已过 → 先把整条滑到边缘，动画走完再换空间（无缝）；
-   *  否则回弹。轮盘路径由停驻定时器调、拖拽路径由松手直接调——两条都要能进来。 */
+   *  否则回弹。轮盘路径由停驻定时器调、拖拽路径由松手直接调——两条都要能进来。
+   *  进入结算就把行内 transform 撤掉，交给 CSS 的 data-commit + 过渡接手
+   *  （行内样式优先级高于样式表，不撤就永远看不到吸附动画）。 */
   const settle = useCallback(() => {
     const s = st.current;
     if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
@@ -107,6 +157,17 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     const dir = s.armed;
     s.armed = 0;
     s.acc = 0;
+    setDragging(false);
+    if (frame.current) { cancelAnimationFrame(frame.current); frame.current = 0; }
+    // **隔一帧再撤行内 transform**：同步撤的话，条子会先从拖到的位置弹回静止位
+    // （跟着手的 160px 一跳）才开始吸附动画。隔一帧，浏览器先把行内值记成过渡的
+    // 起点（此时 data-settling 的 transition 已生效），撤掉后从拖到的位置平滑滑到落点。
+    if (releaseFrame.current) cancelAnimationFrame(releaseFrame.current);
+    releaseFrame.current = requestAnimationFrame(() => {
+      releaseFrame.current = 0;
+      if (strip.current) strip.current.style.transform = "";
+    });
+    dragPx.current = 0;
     if (dir !== 0 && count > 1 && now >= s.coolUntil) {
       const target = index + dir;
       if (target >= 0 && target < count) {
@@ -119,7 +180,6 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
           s.swapTimer = 0;
           s.dir = 0;
           setCommit(null);
-          setDrag(0);
           setLastDir(0);
           setSettling(false);
           onCommit(target);
@@ -133,7 +193,6 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     s.swapTimer = window.setTimeout(() => {
       s.swapTimer = 0;
       s.dir = 0;
-      setDrag(0);
       setLastDir(0);
       setSettling(false);
     }, 260);
@@ -180,5 +239,5 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     settle();
   }, [settle]);
 
-  return { drag, settling, commit, neighbor, wheel, pointerDown, pointerMove, pointerUp };
+  return { stripRef, settling, commit, neighbor, dir: lastDir, dragging, wheel, pointerDown, pointerMove, pointerUp };
 }

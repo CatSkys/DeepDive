@@ -75,7 +75,6 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <aside
       className="sidebar"
-      style={{ "--ws-drag": swipe.drag === 0 ? undefined : `${swipe.drag}px` } as React.CSSProperties}
       onWheel={swipe.wheel}
       onPointerDown={swipe.pointerDown}
       onPointerMove={swipe.pointerMove}
@@ -96,13 +95,20 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       {/* 空间横滑的内容条：当前空间 + （拖动中的）相邻空间并排，整条一起平移。
           两片都用 .ws-pane 装，行高/分组/折叠状态完全一致——滑动时看到的是
           "隔壁那一片"，不是切换完才补一段滑入动画。 */}
+      {/* 静止位与两片顺序都由 swipe.dir 决定：上一空间在左（data-order="prev"）、
+          下一空间在右。位移由手势直写 transform（stripRef），不经过这里的渲染——
+          经 state 会让每个 pointermove 重渲整份会话列表。 */}
       <div
         className="ws-strip"
+        ref={swipe.stripRef}
+        data-order={swipe.dir < 0 ? "prev" : undefined}
+        data-dragging={swipe.dragging || undefined}
         data-commit={swipe.commit ?? undefined}
         data-settling={swipe.settling || undefined}
       >
         <SidebarSessionList
           neighborId={neighborWs?.workspaceId}
+          neighborBefore={swipe.dir < 0}
           collapsed={wsCollapsed}
           onToggleCollapsed={() => setWsCollapsed((v) => !v)}
           onOpenRowMenu={openRowMenu}

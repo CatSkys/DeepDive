@@ -551,6 +551,10 @@ button {
   gap: 6px;
   animation: ws-in-fwd var(--dur-med) var(--ease-out) backwards;
 }
+/* 邻居片不播入场滑入：它是在手势中途挂载的、正被手指推着走，再叠一段 28px 的
+   滑入就成了双重运动（用户报"整体不那么丝滑"）。入场动画只留给程序化切换
+   （底部空间格 / ⌥数字）后的当前片。 */
+.ws-pane[data-neighbor] { animation: none; }
 .ws-pane[data-dir="back"] { animation-name: ws-in-back; }
 .ws-pane-list {
   flex: 1;

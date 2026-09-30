@@ -11,7 +11,7 @@ export function Seg<T extends string | number>({ value, options, onChange }: {
   onChange: (v: T) => void;
 }) {
   const { t } = useT();
-  const glide = useSelectionGlide<HTMLDivElement>(`.${css.segItem}[data-sel]`);
+  const glide = useSelectionGlide<HTMLDivElement>(`.${css.segItem}[data-sel]`, value);
   return (
     <div className={css.seg} ref={glide.setContainer}>
       {glide.box && <div className="sel-glide glide-seg" style={glide.glideStyle} />}
