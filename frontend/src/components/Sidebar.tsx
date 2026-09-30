@@ -46,8 +46,14 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   // 动画不会重放。首帧（prevWs 为 null）不算方向。
   const prevWs = useRef<string | null>(null);
   const slideDir = useRef<"fwd" | "back" | undefined>(undefined);
+  // 手势换的空间：吸附动画已经把人带到新空间了，**不补入场滑入**（用户 2026-09-30
+  // 定"无缝衔接"）。不区分的话，换完空间当前片会再自右滑 28px 一下——切换那一瞬
+  // 多一段运动，看着就像又卡了一次。
+  const gestureSwitch = useRef(false);
   if (store.activeWorkspaceId !== prevWs.current) {
-    if (prevWs.current != null && store.activeWorkspaceId != null) {
+    if (gestureSwitch.current) {
+      gestureSwitch.current = false;
+    } else if (prevWs.current != null && store.activeWorkspaceId != null) {
       const idx = store.workspaces.findIndex((w) => w.workspaceId === store.activeWorkspaceId);
       const prev = store.workspaces.findIndex((w) => w.workspaceId === prevWs.current);
       slideDir.current = idx >= 0 && prev >= 0 && idx < prev ? "back" : "fwd";
@@ -61,7 +67,12 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const swipe = useWorkspaceSwipe({
     index: wsIndex,
     count: store.workspaces.length,
-    onCommit: (next) => { const w = store.workspaces[next]; if (w) store.switchWorkspace(w.workspaceId); },
+    onCommit: (next) => {
+      const w = store.workspaces[next];
+      if (!w) return;
+      gestureSwitch.current = true;
+      store.switchWorkspace(w.workspaceId);
+    },
   });
   // 拖动方向上的相邻空间：它与当前空间并排渲染，滑动过程里就在眼前（无缝衔接）。
   const neighborWs = swipe.neighbor >= 0 ? store.workspaces[swipe.neighbor] : undefined;

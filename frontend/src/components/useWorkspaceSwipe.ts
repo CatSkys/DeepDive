@@ -71,6 +71,20 @@ export function damp(dx: number, pane: number): number {
   return Math.sign(dx) * (pane + Math.min(pane * 0.2, (a - pane) * RUBBER));
 }
 
+// TEMP（取证用，量完删）：把横滑各阶段的时间点写进 engine.log，供壳侧读取。
+// 走壳侧既有的 /__deepdive_error 通道（BridgeServer 把它 append 成 "[web] …"）。
+let t0 = 0;
+const marks: string[] = [];
+function mark(what: string) {
+  const now = performance.now();
+  marks.push(`${what}@${(now - t0).toFixed(1)}`);
+  if (marks.length > 24) marks.shift();
+  try {
+    void fetch("/__deepdive_error", { method: "POST", body: `[swipe] ${marks.join(" ")}` });
+  } catch { /* 取证通道，失败无所谓 */ }
+}
+function resetMarks() { t0 = performance.now(); marks.length = 0; mark("start"); }
+
 export function useWorkspaceSwipe({ index, count, onCommit }: {
   /** 当前空间在 store.workspaces 里的下标（-1 = 无）。 */
   index: number;
@@ -78,6 +92,12 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
   onCommit: (nextIndex: number) => void;
 }): WorkspaceSwipe {
   const [settling, setSettling] = useState(false);
+  /** 结算态的同步镜像：事件回调里读的是它（state 闭包在这一刻还是旧的）。 */
+  const settlingRef = useRef(false);
+  const enterSettling = useCallback((on: boolean) => {
+    settlingRef.current = on;
+    setSettling(on);
+  }, []);
   const [commit, setCommit] = useState<SwipeCommit>(null);
   const [dragging, setDragging] = useState(false);
   /** 拖动方向（+1 = 下一空间在右侧 / -1 = 上一空间在左侧）。**结算全程保留**：
@@ -141,24 +161,33 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
    *  方向保留到结算结束（否则边缘会闪）。 */
   const applyDrag = useCallback((dx: number) => {
     const s = st.current;
+    // **结算中一律不接管输入**（用户 2026-09-30 定："动画要独立完整"）。
+    // 吸附/回弹动画一旦开始，这一刻起的事件（触控板滑完的惯性尾巴、松手后鼠标
+    // 还在动的那几个 move）只当没发生：早先它们会把行内 transform 写回手指位置、
+    // 关掉 data-settling、撤掉 commit —— 动画被打断在半路、重新 arm、重新 settle，
+    // 用户看到的就是"松手后卡住、动画还要再跑一遍"。
+    if (settlingRef.current) return;
     // 手势重新开始：把上一轮待撤的帧撤掉，否则它会在拖动中途把行内值抹掉。
     if (releaseFrame.current) { cancelAnimationFrame(releaseFrame.current); releaseFrame.current = 0; }
     // 同理：还没放行的主区切换也不能在这时才生效（会切到一个用户已经放弃的空间）。
     if (commitFrame.current) { cancelAnimationFrame(commitFrame.current); commitFrame.current = 0; }
     if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
-    setSettling(false);
+    if (pendingSwap.current !== null || commit !== null) setCommit(null);
+    pendingSwap.current = null;
     s.acc = dx;
     // 内容左移（dx<0）露出右侧的下一个 → dir=+1。wheel 与 pointer 同一口径：
     // 早先两条路径一个取 +1 一个取 -1，触控板与鼠标往相反方向切，是 bug。
     if (Math.abs(dx) >= 4 && s.dir !== Math.sign(dx) * -1) {
       s.dir = Math.sign(dx) * -1;
       setLastDir(s.dir);
+      mark("dir-flip");
     }
     if (Math.abs(dx) >= ARM_PX) s.armed = Math.sign(dx) * -1;
     dragPx.current = damp(dx, paneWidth());
     setDragging(true);
     schedulePaint();
-  }, [paneWidth, schedulePaint]);
+    if (marks.length < 2) mark("dragging");
+  }, [commit, paneWidth, schedulePaint]);
 
   /** 结算：arm 住且冷却已过 → 先把整条滑到边缘，动画走完再换空间（无缝）；
    *  否则回弹。轮盘路径由停驻定时器调、拖拽路径由松手直接调——两条都要能进来。
@@ -179,14 +208,14 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     pendingSwap.current = null;
     setCommit(null);
     setLastDir(0);
-    setSettling(false);
+    enterSettling(false);
     if (commitFrame.current) cancelAnimationFrame(commitFrame.current);
     commitFrame.current = requestAnimationFrame(() => {
       commitFrame.current = 0;
       // 再排一个 task：rAF 回调在绘制**之前**跑，setTimeout 才保证这一帧已经上屏。
       window.setTimeout(() => onCommit(target), 0);
     });
-  }, [onCommit]);
+  }, [enterSettling, onCommit]);
 
   const swapRef = useRef(swapTo);
   swapRef.current = swapTo;
@@ -197,6 +226,7 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     if (e.target !== strip.current || e.propertyName !== "transform") return;
     const target = pendingSwap.current;
     if (target === null) return;
+    mark("transitionend");
     swapRef.current(target);
   }, []);
 
@@ -211,6 +241,9 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
    *  进入结算就把行内 transform 隔帧撤掉，交给 CSS 的 data-commit + 过渡接手
    *  （行内样式优先级高于样式表，不撤就永远看不到吸附动画）。 */
   const settle = useCallback(() => {
+    // 已在结算（动画在跑）就不再重入：否则会连开两段过渡互相打断。
+    if (settlingRef.current) return;
+    mark("settle");
     const s = st.current;
     if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
     live.current.pointerId = -1;
@@ -221,7 +254,6 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     s.acc = 0;
     setDragging(false);
     if (frame.current) { cancelAnimationFrame(frame.current); frame.current = 0; }
-    dragPx.current = 0;
     // **隔一帧再撤行内 transform**：同步撤的话，条子会先从拖到的位置弹回静止位
     // （整片宽的一跳）才开始吸附动画。隔一帧，浏览器先把行内值记成过渡的起点
     //（此时 data-settling 的 transition 已生效），撤掉后从拖到的位置平滑滑到落点。
@@ -229,10 +261,12 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     releaseFrame.current = requestAnimationFrame(() => {
       releaseFrame.current = 0;
       if (strip.current) strip.current.style.transform = "";
+      dragPx.current = 0;
     });
     if (dir !== 0 && count > 1 && now >= s.coolUntil) {
       const target = index + dir;
       if (target >= 0 && target < count) {
+        mark(`commit:${dir > 0 ? "next" : "prev"} held=${Math.round(held)}`);
         s.coolUntil = now + COOLDOWN_MS;
         // 正好推满整片：邻居片已在眼前，没什么可滑的——直接换，别让"吸附动画"
         // 变成一段没有内容可动的等待（用户报"滑到尽头卡好一会"）。推过头（橡皮筋
@@ -242,7 +276,7 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
           return;
         }
         setCommit(dir > 0 ? "next" : "prev");
-        setSettling(true);
+        enterSettling(true);
         // 滑到边缘再换：换的瞬间整条归零，而顶上来的那片正好在原位，视觉无跳变。
         clearTimers();
         pendingSwap.current = target;
@@ -251,21 +285,23 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
       }
     }
     // 回弹：开一段过渡归零，邻居跟着滑出视野
-    setSettling(true);
+    enterSettling(true);
     clearTimers();
     s.swapTimer = window.setTimeout(() => {
       s.swapTimer = 0;
       s.dir = 0;
       setLastDir(0);
-      setSettling(false);
+      enterSettling(false);
     }, 260);
-  }, [clearTimers, count, index, paneWidth, swapTo]);
+  }, [clearTimers, count, enterSettling, index, paneWidth, swapTo]);
 
   const wheel = useCallback((e: WheelEvent) => {
     if (count < 2) return;
     // 纵向占优 = 用户在滚会话列表，放行
     if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+    if (settlingRef.current) return;
     const s = st.current;
+    if (!s.acc) resetMarks();
     const next = Math.max(-MAX_PX, Math.min(MAX_PX, s.acc + e.deltaX));
     applyDrag(next);
     s.settleTimer = window.setTimeout(settle, SETTLE_MS);
@@ -276,6 +312,7 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     // 不按落点元素过滤：会话行本身就是 button，而会话列表恰是最大的可拖区域——
     // 点按与拖动由轴锁定区分（没横移就是点按，行照常点开），按落点拒手势会让
     // 用户在列表上怎么划都没反应。
+    resetMarks();
     live.current = { startX: e.clientX, startY: e.clientY, locked: false, pointerId: e.pointerId };
   }, [count]);
 
