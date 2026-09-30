@@ -464,11 +464,9 @@ button {
   font-size: var(--dsh-font-size-base);
   text-align: left;
 }
-.new-session-entry:hover { background: var(--fill); }
+.new-session-entry:hover { background: var(--fill); color: var(--ink); }
 .new-session-entry svg { flex: none; } /* 颜色随行置灰（currentColor），只保住不压缩 */
 .new-session-entry .ns-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 键帽字符间留字距（⌘N 别贴成一块），末字符字距用负边距收回 */
-.new-session-entry .ns-keys { flex: none; font-size: var(--dsh-font-size-xs); color: var(--ink-3); letter-spacing: 2px; margin-right: -2px; }
 
 .ws-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 项目图标位的首字母回落（没有任何 glyph/图标文件时的末档，见 wsIcons.ts 头部

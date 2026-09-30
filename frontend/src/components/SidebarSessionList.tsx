@@ -5,7 +5,6 @@ import { useMemo } from "react";
 import { Archive, ChevronDown, Ellipsis, Pin, Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
-import { comboFor, isOff } from "../keybinds";
 import { InlineLoader } from "./LoadingState";
 import { HoverScrollText } from "./HoverScrollText";
 import { wsGlyphIcon } from "./IconPicker";
@@ -187,13 +186,10 @@ export function SidebarSessionList({
               {view.length === 0 && <div className="empty-state">{t("暂无会话")}</div>}
               {/* 「新会话」入口（Safari New tab 式）：列表最后一行，贴着最后一条
                   会话随内容滚动，不是钉底。切草稿页，首条消息才建会话。
-                  行内已有文字与快捷键，不再挂 data-tip——提示只给没有文字的按钮用。 */}
+                  行内有文字，不挂 data-tip——提示只给没有文字的按钮用。 */}
               <button className="new-session-entry" onClick={onNewSession}>
                 <Plus size={14} />
                 <span className="ns-label">{t("新会话")}</span>
-                {!isOff("new-session", store.keybinds) && (
-                  <span className="ns-keys">{comboFor("new-session", store.keybinds)}</span>
-                )}
               </button>
             </div>
           </div>
