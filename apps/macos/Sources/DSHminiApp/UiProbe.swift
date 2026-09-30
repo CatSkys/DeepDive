@@ -29,7 +29,7 @@ enum UiProbe {
     ///
     /// 必须是异步的：WKWebView 的 evaluateJavaScript 回调只在主线程跑，而量界面
     /// 本身也得在主线程——在主线程上等它就是自锁（曾如此，每请求恒定超时）。
-    static var measureProvider: ((_ selectors: [String], _ props: [String], _ done: @escaping (String?) -> Void) -> Void)?
+    static var measureProvider: ((_ selectors: [String], _ props: [String], _ points: [[Double]], _ done: @escaping (String?) -> Void) -> Void)?
 
     /// 单次请求的选择器上限：这是量界面的口，不是批处理口。
     private static let maxSelectors = 32
@@ -73,7 +73,8 @@ enum UiProbe {
         }
         let selectors = (body["selectors"] as? [String] ?? []).prefix(maxSelectors).map { $0 }
         let props = body["props"] as? [String] ?? defaultProps
-        guard !selectors.isEmpty else {
+        let points = (body["points"] as? [[Double]] ?? []).prefix(maxSelectors).map { $0 }
+        guard !selectors.isEmpty || !points.isEmpty else {
             return json(["ok": false, "error": "no selectors"])
         }
         // 主线程发起量测、连接线程等结果：等待绝不能发生在主线程。provider 自身
@@ -82,7 +83,7 @@ enum UiProbe {
         var payload: String?
         let done = DispatchSemaphore(value: 0)
         DispatchQueue.main.async {
-            measure(Array(selectors), props) { text in
+            measure(Array(selectors), props, Array(points)) { text in
                 payload = text
                 done.signal()
             }
@@ -105,8 +106,8 @@ enum UiProbe {
     /// 写死的取数脚本：只量不改——除 rect 与 computed style 外不取任何东西，
     /// 也不碰 DOM（没有赋值、没有点击、没有导航）。
     /// 选择器与属性名以 JSON 字面量内联（JSONSerialization 已转义引号与反斜杠）。
-    static func script(selectors: [String], props: [String]) -> String? {
-        guard let sel = jsonLiteral(selectors), let pr = jsonLiteral(props) else { return nil }
+    static func script(selectors: [String], props: [String], points: [[Double]] = []) -> String? {
+        guard let sel = jsonLiteral(selectors), let pr = jsonLiteral(props), let pts = jsonLiteral(points) else { return nil }
         return """
         (function () {
           var sels = \(sel), props = \(pr), out = [];
@@ -115,11 +116,26 @@ enum UiProbe {
             if (!el) { out.push({ selector: sels[i], missing: true }); continue; }
             var r = el.getBoundingClientRect(), cs = getComputedStyle(el), st = {};
             for (var j = 0; j < props.length; j++) st[props[j]] = cs.getPropertyValue(props[j]);
+            st.scrollWidth = el.scrollWidth; st.scrollHeight = el.scrollHeight;
+            st.clientWidth = el.clientWidth; st.clientHeight = el.clientHeight;
+            st.scrollTop = el.scrollTop; st.scrollLeft = el.scrollLeft;
+            st.childElementCount = el.childElementCount;
             out.push({
               selector: sels[i],
               rect: { x: +r.x.toFixed(2), y: +r.y.toFixed(2), w: +r.width.toFixed(2), h: +r.height.toFixed(2) },
               styles: st,
             });
+          }
+          var pts = \(pts);
+          for (var k = 0; k < pts.length; k++) {
+            var hits = [], el = document.elementFromPoint(pts[k][0], pts[k][1]);
+            for (var d = 0; el && d < 8; d++) {
+              var r = el.getBoundingClientRect();
+              hits.push({ tag: el.tagName, cls: String(el.className && el.className.baseVal !== undefined ? "" : el.className || ""),
+                          id: el.id || "", rect: { x: +r.x.toFixed(1), y: +r.y.toFixed(1), w: +r.width.toFixed(1), h: +r.height.toFixed(1) } });
+              el = el.parentElement;
+            }
+            out.push({ point: pts[k], hits: hits });
           }
           return JSON.stringify(out);
         })()
@@ -127,6 +143,12 @@ enum UiProbe {
     }
 
     private static func jsonLiteral(_ values: [String]) -> String? {
+        guard let data = try? JSONSerialization.data(withJSONObject: values),
+              let text = String(data: data, encoding: .utf8) else { return nil }
+        return text
+    }
+
+    private static func jsonLiteral(_ values: [[Double]]) -> String? {
         guard let data = try? JSONSerialization.data(withJSONObject: values),
               let text = String(data: data, encoding: .utf8) else { return nil }
         return text

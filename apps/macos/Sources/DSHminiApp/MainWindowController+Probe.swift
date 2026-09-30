@@ -14,8 +14,8 @@ import WebKit
 extension MainWindowController {
     /// 一次探针取数：原生层事实（JS 量不到的那半边）＋ webview 里的节点矩形与
     /// computed style。整体在主线程跑（webView 只能在主线程动），由 UiProbe.handle
-    func probeMeasure(selectors: [String], props: [String], completion: @escaping (String?) -> Void) {
-        guard let script = UiProbe.script(selectors: selectors, props: props) else { return completion(nil) }
+    func probeMeasure(selectors: [String], props: [String], points: [[Double]], completion: @escaping (String?) -> Void) {
+        guard let script = UiProbe.script(selectors: selectors, props: props, points: points) else { return completion(nil) }
         // evaluateJavaScript 不阻塞，回调在主线程——所以这里直接续上，不等它。
         webView.evaluateJavaScript(script) { result, _ in
             let nodes = (result as? String)

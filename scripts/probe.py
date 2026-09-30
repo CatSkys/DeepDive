@@ -96,6 +96,28 @@ def main(argv):
         show_native(call([".app"])["native"])
         return 0
 
+    if verb == "at":
+        # elementFromPoint：问"这个坐标上是谁"——返回该点元素及其祖先链
+        # （tag/class/rect），定位"这片区域画的是什么"用。坐标是页面 CSS px。
+        if len(rest) < 2:
+            sys.exit("用法：scripts/probe.py at <x> <y> [更多成对坐标…]")
+        xs = [float(v) for v in rest[:2]]
+        url, token = endpoint()
+        body = json.dumps({"selectors": [], "points": [xs]}).encode()
+        req = urllib.request.Request(url, data=body, method="POST", headers={
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            out = json.loads(resp.read().decode())
+        for n in out.get("nodes", []):
+            print("point %s" % (n.get("point"),))
+            for h in n.get("hits", []):
+                r = h["rect"]
+                print("    %-6s %-40s x=%-7s y=%-7s w=%-7s h=%s" % (
+                    h["tag"], (h["cls"] or h["id"])[:40], r["x"], r["y"], r["w"], r["h"]))
+        return 0
+
     if verb == "raw":
         selectors = [rest[0]] if rest else []
         props = json.loads(rest[1]).get("props") if len(rest) > 1 else None
