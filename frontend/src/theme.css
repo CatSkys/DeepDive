@@ -590,17 +590,15 @@ button {
   font-size: var(--dsh-font-size-base);
   font-weight: 600;
   color: var(--ink-2);
-  background: var(--fill);
-  border: 1px solid var(--line);
   overflow: hidden;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 /* 项目图标缩略图（icon.png/logo.* 读盘），无图标回落首字母 */
 .ws-cell-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
 .ws-cell:hover { background: var(--fill); color: var(--ink); }
-/* 选中态：底色与描边交给滑移底片（.glide-ws），自身透明——否则这层 fill-strong
-   会盖住底片那圈 line-strong 描边。文字亮度仍由这里给。 */
-.ws-cell.active { background: transparent; border-color: transparent; color: var(--ink-bright); }
+/* 选中态：底色由滑移底片（.glide-ws）给，自身裸图标——文字亮度仍由这里给。
+   hover 透明：悬停那层 fill 会把滑过来的底冲淡。 */
+.ws-cell.active { color: var(--ink-bright); }
 .ws-cell.active:hover { background: transparent; }
 
 /* 底行右侧：新建空间入口（图标钮，本期占位，点击无行为）。 */
@@ -2885,8 +2883,7 @@ button {
 }
 .glide-row { background: var(--fill-strong); border-radius: 16px; }  /* 与 .task-row 同半径（PITFALLS §1.1） */
 .glide-seg { background: var(--ink); border-radius: 8px; }           /* 统计分段：ink 实底 */
-.glide-ws  { background: var(--fill-strong); border: 1px solid var(--line-strong);
-             border-radius: var(--dsh-radius-control); }
+.glide-ws  { background: var(--fill-strong); border-radius: var(--dsh-radius-control); }
 
 .task-row { position: relative; }
 .task-row .row-actions {
