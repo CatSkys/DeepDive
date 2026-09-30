@@ -27,7 +27,7 @@
   font-size: var(--dsh-font-size-base);
   color: var(--ink-2);
   white-space: nowrap;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .tab:hover { color: var(--ink); }
 /* 两个类一起写：`--ink` 实底要压过 `.tab:hover` 的 2 特异度，且必须定义在其后 */

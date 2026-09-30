@@ -95,7 +95,7 @@
   background: transparent;
   color: var(--ink-3);
   cursor: default;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .infoCorner:hover { background: var(--fill); color: var(--ink-2); }
 
@@ -123,7 +123,7 @@
   font-size: var(--dsh-font-size-base);
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .stepRow:hover { background: var(--fill); color: var(--ink); }
 .stepCurrent { background: var(--fill); color: var(--ink); font-weight: 600; }
@@ -260,7 +260,7 @@
   border-radius: 5px;
   background: transparent;
   color: transparent;
-  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .dot { border-radius: 50%; }
 .native:checked + .box {
@@ -312,7 +312,7 @@
   text-align: left;
   cursor: pointer;
 }
-.groupRow { border-radius: 10px; transition: background-color var(--dur-fast) ease; }
+.groupRow { border-radius: 10px; transition: background-color var(--dur-fast) var(--ease-out); }
 .groupRow:hover { background: var(--fill); }
 .headPick { display: inline-flex; align-items: center; padding: 0 2px 0 8px; cursor: pointer; }
 .pickMeta { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 4px; }
@@ -387,7 +387,7 @@
   color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
   cursor: pointer;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .chip:hover { background: var(--fill-strong); color: var(--ink); }
 .chipOn { background: var(--ink); color: var(--on-ink); border-color: transparent; font-weight: 600; }
@@ -438,7 +438,7 @@
   font-size: var(--dsh-font-size-base);
   font-weight: 600;
   cursor: pointer;
-  transition: opacity var(--dur-fast) ease, background-color var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 .primary { border: none; background: var(--ink); color: var(--on-ink); }
 .primary:hover { opacity: 0.85; }

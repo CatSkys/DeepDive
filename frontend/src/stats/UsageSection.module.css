@@ -53,7 +53,7 @@
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
   white-space: nowrap;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .segItem:hover { color: var(--ink); }
 .segItem.active { background: transparent; color: var(--on-ink); font-weight: 600; }  /* 底色交给滑移底片 */

@@ -348,7 +348,7 @@ button {
      min/max 是 token 兜底（sidebarMin/Max 200/320）。 */
   box-sizing: border-box;
   margin-left: 0;
-  transition: margin-left var(--dur-med) var(--ease-out), opacity var(--dur-med) ease;
+  transition: margin-left var(--dur-med) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
   overflow: hidden;
   min-width: 200px;
   max-width: 320px;
@@ -424,7 +424,7 @@ button {
   height: 28px;
   border-radius: var(--dsh-radius-control);
   color: var(--ink-2);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .sidebar-foot .settings-entry:hover { background: var(--fill); color: var(--ink); }
 .sidebar-foot .settings-entry:focus-visible {
@@ -491,7 +491,7 @@ button {
 .ws-lead .ws-folder-ic {
   position: absolute;
   inset: 0;
-  transition: opacity var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 /* 折叠箭头：行内绝对定位在图标列（左内距 10px），不参与布局——静止时项目名首字与
    上方图标同列（用户定稿）。悬停/折叠时它在这格弹入（缩放 + 弹性缓动，60ms 起步：
@@ -503,7 +503,7 @@ button {
   top: 9.5px;
   opacity: 0;
   transform: scale(.8);
-  transition: opacity var(--dur-fast) ease, transform var(--dur-med) var(--ease-spring);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-med) var(--ease-spring);
 }
 .ws-name { transition: margin-left var(--dur-med) var(--ease-spring); }
 .ws-row:hover .ws-chevron-ic, .ws-row.collapsed .ws-chevron-ic { opacity: 1; transition-delay: 60ms; }
@@ -593,7 +593,7 @@ button {
   background: var(--fill);
   border: 1px solid var(--line);
   overflow: hidden;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 /* 项目图标缩略图（icon.png/logo.* 读盘），无图标回落首字母 */
 .ws-cell-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
@@ -613,7 +613,7 @@ button {
   height: 28px;
   border-radius: var(--dsh-radius-control);
   color: var(--ink-3);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .sidebar-foot .ws-add:hover { background: var(--fill); color: var(--ink); }
 
@@ -640,7 +640,7 @@ button {
   border: none;
   border-radius: var(--dsh-radius-keycap);
   color: var(--ink-2);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .session-back:hover { background: var(--fill); color: var(--ink); }
 .ws-pill {
@@ -892,7 +892,7 @@ button {
   text-decoration-color: var(--ink-3);
   text-decoration-thickness: 2px;
   text-underline-offset: 6px;
-  transition: text-decoration-color var(--dur-fast) ease;
+  transition: text-decoration-color var(--dur-fast) var(--ease-out);
 }
 .hero-ws:hover { text-decoration-color: var(--ink-2); }
 
@@ -1085,7 +1085,7 @@ button {
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  transition: background var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-fast) ease;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 .composer-icon {
   color: var(--ink-2);
@@ -1272,7 +1272,7 @@ button {
   align-items: center;
   height: 100%;
   color: inherit;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .open-with-main { padding: 0 6px 0 7px; }
 .open-with-main img { display: block; }
@@ -1312,7 +1312,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .preview-control:hover { background: rgba(0, 0, 0, .78); }
 
@@ -1327,7 +1327,7 @@ button {
   border-radius: var(--dsh-radius-keycap);
   color: var(--ink-3);
   font-size: var(--dsh-font-size-xs);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .preview-view-btn:hover { background: var(--fill); color: var(--ink); }
 .preview-view-btn[data-on] { color: var(--ink); background: var(--fill); }
@@ -1522,7 +1522,7 @@ button {
   transition:
     top var(--dur-fast) var(--ease-out),
     height var(--dur-fast) var(--ease-out),
-    opacity var(--dur-fast) ease;
+    opacity var(--dur-fast) var(--ease-out);
 }
 .menu-section + .menu-section { margin-top: 4px; }
 .menu-section-name {
@@ -1783,7 +1783,7 @@ button {
   border: 1px solid var(--line-strong);
   color: var(--ink);
   z-index: 31;
-  animation: fadein var(--dur-fast) ease;
+  animation: fadein var(--dur-fast) var(--ease-out);
 }
 .jump-down:hover { background: var(--fill-heavy); }
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
@@ -1815,7 +1815,7 @@ button {
   padding: 4px 10px;
   border-radius: 12px;
   white-space: nowrap;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .sel-actions button:hover { background: var(--fill); color: var(--ink); }
 
@@ -1969,7 +1969,7 @@ button {
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
   font-weight: 500;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .queue-now:hover { background: var(--fill-strong); color: var(--ink-bright); }
 .queue-btn {
@@ -1980,7 +1980,7 @@ button {
   align-items: center;
   justify-content: center;
   color: var(--ink-2);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .queue-btn:hover { background: var(--fill); color: var(--ink); }
 .queue-edit {
@@ -2403,7 +2403,7 @@ button {
   animation: fade-in var(--dur-med) var(--ease-out) both;
 }
 .thinking-chevron {
-  flex: none; color: var(--tk-ink-3); transition: transform var(--dur-slow) ease;
+  flex: none; color: var(--tk-ink-3); transition: transform var(--dur-slow) var(--ease-out);
   /* 钉行右端（与工具行箭头同一条竖线，用户定稿） */
   margin-left: auto;
 }
@@ -2527,7 +2527,7 @@ button {
   color: var(--ink-3);
   font-size: var(--dsh-font-size-base);
   user-select: none;
-  transition: opacity var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 @media (hover: hover) {
   [data-actions-reveal="hover"] .meta-actions {
@@ -2678,7 +2678,7 @@ button {
   margin: 0;
   padding: 0 8px;
   overflow: hidden;
-  transition: background var(--dur-fast) ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .produced-file:hover { background: var(--fill-strong); color: var(--ink); }
 .produced-more { white-space: nowrap; color: var(--ink-3); flex: none; }
@@ -2700,7 +2700,7 @@ button {
   font: inherit;
   cursor: pointer;
   overflow: hidden;
-  transition: background var(--dur-fast) ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .delivered-card:hover { background: var(--fill-strong); color: var(--ink); }
 .delivered-image { padding: 0; background: transparent; }
@@ -2987,7 +2987,7 @@ button {
     z-index: 40;
     width: min(280px, 82vw);
     max-width: none;
-    transition: transform var(--dur-med) var(--ease-out), opacity var(--dur-med) ease;
+    transition: transform var(--dur-med) var(--ease-out), opacity var(--dur-med) var(--ease-out);
     /* 浮起来就得自己有底：宽屏时它是"窗口的底"（不透明靠 .app），浮在主卡
        之上再没有那层底——用弹层的玻璃配方 + 右描边，与全站弹出件同观感。 */
     background: var(--panel-strong);
@@ -3095,7 +3095,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 .tool-row-main, .task-row, .q-option, .model-menu-row,
 .model-menu-back, .produced-file, .todo-item, .ctx-item,
 .ws-menu-row {
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3172,7 +3172,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   border: 0;
   padding: 3px 8px;
   border-radius: var(--dsh-radius-keycap);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .cbCopy:hover { color: var(--cb-copy-hover-fg) !important; background: var(--cb-copy-hover-bg) !important; }
 .cbBody {
@@ -3257,7 +3257,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   color: var(--ink-2);
   font-size: var(--dsh-font-size-base);
   text-align: left;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .snav-back:hover { background: var(--fill); color: var(--ink); }
 .snav-item {
@@ -3275,7 +3275,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   color: var(--ink-soft);
   font-size: var(--dsh-font-size-base);
   text-align: left;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 /* 行间留一点气口：连排高亮块贴在一起像一块整板，分不出是两行 */
 .snav-item + .snav-item { margin-top: 3px; }
@@ -3443,7 +3443,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 .rv-file-count { margin-left: auto; font-size: var(--dsh-font-size-xs); white-space: nowrap; }
 .rv-add { color: var(--diff-add-ink); margin-right: 6px; }
 .rv-del { color: var(--diff-del-ink); }
-.rv-file-caret { color: var(--ink-faint); flex: none; transition: transform var(--dur-fast) ease; }
+.rv-file-caret { color: var(--ink-faint); flex: none; transition: transform var(--dur-fast) var(--ease-out); }
 .rv-file[data-open] .rv-file-caret { transform: rotate(180deg); }
 .rv-file-body { padding-bottom: 6px; }
 .rv-lines {
@@ -3493,7 +3493,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   gap: 10px;
   animation: pop-in var(--dur-med) var(--ease-out) both;
 }
-.plan-review-card .plan-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: pulse 1.6s ease-in-out infinite; }
+.plan-review-card .plan-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: pulse var(--loop-breathe) ease-in-out infinite; }
 .plan-review-card .plan-body {
   max-height: 260px;
   overflow-y: auto;
@@ -3609,7 +3609,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   background: transparent;
   color: var(--ink-3);
   opacity: 0;
-  transition: opacity var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .task-row:hover .row-pin-btn { opacity: 1; }
 .task-row .row-pin-btn[data-pinned] { opacity: 1; color: var(--ink-2); }
@@ -3658,7 +3658,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  animation: drop-in var(--dur-fast) ease;
+  animation: drop-in var(--dur-fast) var(--ease-out);
 }
 .drop-frame {
   position: absolute;
@@ -3719,7 +3719,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .ctx-cap-total { font-size: var(--dsh-font-size-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* 低高度进度条用半高圆角（PITFALLS §1.1 禁 999px） */
 .ctx-cap-bar { height: 5px; border-radius: 2.5px; background: var(--fill-strong); overflow: hidden; }
-.ctx-cap-bar > span { display: block; height: 100%; border-radius: 2.5px; background: var(--ink); transition: width var(--dur-med) ease; }
+.ctx-cap-bar > span { display: block; height: 100%; border-radius: 2.5px; background: var(--ink); transition: width var(--dur-med) var(--ease-out); }
 .ctx-cap-bar > span[data-hot="true"] { background: var(--dsh-signal-warn); }
 .ctx-cap-row { display: flex; align-items: center; gap: 8px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .ctx-cap-row b { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
@@ -3957,7 +3957,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   line-height: 24px;
 }
 .tool-group-chevron {
-  flex: none; color: var(--ink-3); transition: transform var(--dur-fast) ease;
+  flex: none; color: var(--ink-3); transition: transform var(--dur-fast) var(--ease-out);
   /* 与工具行箭头同位：钉右端 */
   margin-left: auto; padding-left: 8px;
 }
@@ -4012,8 +4012,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   background: var(--fill-soft);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
-  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
-  animation: fadein var(--dur-fast) ease both;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  animation: fadein var(--dur-fast) var(--ease-out) both;
 }
 .capsule-trigger:hover, .capsule-trigger[data-open="true"] { background: var(--fill); color: var(--ink); }
 .capsule-live { width: 6px; height: 6px; border-radius: 50%; background: var(--dsh-signal-live); animation: pulse var(--loop-breathe) ease-in-out infinite; flex: none; }
@@ -4061,9 +4061,9 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
-.capsule-pill-expand { position: absolute; inset: 0; margin: auto; opacity: 0; transition: opacity var(--dur-fast) ease; }
+.capsule-pill-expand { position: absolute; inset: 0; margin: auto; opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
 .capsule-trigger:hover .capsule-pill-icon > span,
 .capsule-trigger:focus-visible .capsule-pill-icon > span { opacity: 0; }
 .capsule-trigger:hover .capsule-pill-expand,
@@ -4101,7 +4101,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 }
 .capsule-sec-trigger:hover { color: var(--ink); }
 .capsule-sec-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.capsule-sec-chevron { flex: none; color: var(--ink-3); opacity: 0; transition: opacity var(--dur-fast) ease; }
+.capsule-sec-chevron { flex: none; color: var(--ink-3); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
 .capsule-sec-trigger:hover .capsule-sec-chevron,
 .capsule-sec-trigger:focus-visible .capsule-sec-chevron { opacity: 1; }
 .capsule-sec-trail {
@@ -4181,7 +4181,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   padding: 4px;
   border-radius: var(--dsh-radius-card);
   background: var(--fill);
-  animation: fadein var(--dur-fast) ease both;
+  animation: fadein var(--dur-fast) var(--ease-out) both;
 }
 .capsule-card-item {
   display: flex;
@@ -4200,7 +4200,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .capsule-card-item:disabled:not([aria-current]) { opacity: .5; }
 .capsule-card-item > svg { flex: none; }
 .capsule-card-check { margin-left: auto; flex: none; }
-.capsule-row-go { margin-left: auto; color: var(--ink-3); flex: none; transition: transform var(--dur-fast) ease; }
+.capsule-row-go { margin-left: auto; color: var(--ink-3); flex: none; transition: transform var(--dur-fast) var(--ease-out); }
 .capsule-row-meta { margin-left: auto; font-size: var(--dsh-font-size-sm); color: var(--ink-3); flex: none; font-variant-numeric: tabular-nums; }
 /* 行内的整行可点区（子智能体行用；活动行的时间线用 .capsule-row-main 的两行变体，
    见上）。两者同名不同形——子智能体那行是"点标题开子会话"，横向排布。
@@ -4286,7 +4286,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 
 .capsule-git-row, .capsule-card-item, .capsule-icon-btn, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {
-  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4358,7 +4358,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   margin-left: 6px;
   color: var(--ink-3);
   transform: rotate(-90deg);
-  transition: transform var(--dur-fast) ease;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .turn-process-row:hover .turn-process-chevron { color: var(--ink-2); }
 .turn-process-row[data-open] .turn-process-chevron { transform: rotate(0deg); }
@@ -4481,7 +4481,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
   cursor: pointer;
-  transition: background-color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .dialog-btn:hover { background: var(--fill-strong); }
 .dialog-btn.primary { border: none; background: var(--ink); color: var(--on-ink); font-weight: 600; }
@@ -4552,7 +4552,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
      与 .sidebar 的收起是同一对值。 */
   transition: width var(--dur-med) var(--ease-out),
               margin-right var(--dur-med) var(--ease-out),
-              opacity var(--dur-fast) ease;
+              opacity var(--dur-fast) var(--ease-out);
 }
 /* fullscreen 呈现：盖住整张会话卡（会话让位由覆盖完成，不参与宽度计算）——
    它就是那一格里唯一的一张卡。
@@ -4594,7 +4594,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   justify-content: center;
   border-radius: var(--dsh-radius-keycap);
   color: var(--ink-3);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .panel-icon-btn:hover { background: var(--fill); color: var(--ink); }
 
@@ -4613,8 +4613,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
   justify-content: center;
   border-radius: var(--dsh-radius-keycap);
   color: var(--ink-2);
-  animation: fadein var(--dur-fast) ease both;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  animation: fadein var(--dur-fast) var(--ease-out) both;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .panel-expand-btn:hover { background: var(--fill); color: var(--ink); }
 
@@ -4642,7 +4642,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.42));
   color: #fff;
   opacity: 0;
-  transition: opacity var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .panel-browser.slot:hover .panel-browser-veil { opacity: 1; }
 .sr-browser-slot { position: absolute; inset: 0; }
@@ -4735,7 +4735,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   width: 12px; height: 12px;
   border: 1.4px solid var(--ink-3); border-radius: 50%;
   border-right-color: transparent;
-  animation: panel-browser-ring-spin .85s linear infinite;
+  animation: panel-browser-ring-spin var(--loop-spin) linear infinite;
 }
 @keyframes panel-browser-ring-spin { to { transform: rotate(360deg); } }
 /* 关闭叉：只在该标签被指向时出现，热区是整个右端（参考同一取舍）；
@@ -4744,7 +4744,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   padding: 0;
   border: 0; border-radius: 0; background: transparent; color: var(--ink-3);
-  opacity: 0; transition: opacity var(--dur-fast) ease;
+  opacity: 0; transition: opacity var(--dur-fast) var(--ease-out);
 }
 .panel-browser-tab-close > svg {
   width: 10px; height: 10px; padding: 2px;
@@ -4757,7 +4757,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px;
   background: transparent; color: var(--ink-3);
   opacity: 0; transform: scale(.7); transform-origin: left center; pointer-events: none;
-  transition: opacity var(--dur-fast) ease, transform var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 .panel-browser-chrome:hover .panel-browser-tab-new,
 .panel-browser-chrome:focus-within .panel-browser-tab-new {
@@ -4887,7 +4887,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   text-align: left;
   color: var(--ink-soft);
   font-size: var(--dsh-font-size-base);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .panel-artifact:hover { background: var(--fill); color: var(--ink); }
 .panel-artifact-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -4903,7 +4903,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   text-align: left;
   color: var(--ink-3);
   font-size: var(--dsh-font-size-base);
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .panel-artifact-more:hover { background: var(--fill); color: var(--ink); }
 .panel-artifact-more > svg { flex: none; }
@@ -5039,8 +5039,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .composer-icon, .composer-send, .panel-icon-btn, .panel-expand-btn, .ws-act,
 .task-row .row-pin-btn, .row-archive, .window-top-btn, .capsule-icon-btn,
 .meta-action, .hero-panel-btn, .q-pager-btn, .lightbox-close, .panel-artifact-more {
-  transition: background var(--dur-fast) ease, background-color var(--dur-fast) ease,
-              color var(--dur-fast) ease, opacity var(--dur-fast) ease,
+  transition: background var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out),
               transform var(--dur-fast) var(--ease-out);
 }
 .btn-primary:active, .btn-plain:active, .dialog-btn:active, .queue-btn:active,
