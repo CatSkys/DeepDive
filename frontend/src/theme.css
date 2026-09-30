@@ -530,7 +530,11 @@ button {
 
 /* 空间内容片：当前空间的那一格。切换空间时整片换 key 重挂载，入场方向由
    data-dir 给（Sidebar 按 workspaces 下标算出 fwd/back）。 */
+/* flex: 1 —— 这一片就是侧栏里"吃掉剩余高度"的那一格，底部设置行（.sidebar-foot）
+   靠它被顶到窗口下缘。早先这里裹在 .ws-strip 壳里、由壳撑高；壳删掉后撑高职责
+   落到本片上，漏了这条设置行就会跟着列表缩到上面去（2026-09-30 用户截图报）。 */
 .ws-pane {
+  flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
