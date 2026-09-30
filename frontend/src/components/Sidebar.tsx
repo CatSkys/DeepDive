@@ -1,11 +1,10 @@
-// 侧栏外壳：「新会话」入口、项目行与会话列表、底部设置行、菜单落点。
-// 会话列表本身在 SidebarSessionList（项目行 + 分组 + 行渲染），菜单在
+// 侧栏外壳：项目行与会话列表（「新会话」末行入口在列表内）、底部设置行、菜单落点。
+// 会话列表本身在 SidebarSessionList（项目行 + 分组 + 行渲染 + 末行入口），菜单在
 // SidebarContextMenus，调宽热区在 SidebarResizer——这里只管"哪片内容、摊在哪"。
 import { useRef, useState } from "react";
-import { CirclePlus, Folder, Settings } from "lucide-react";
+import { Folder, Settings } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { useStore } from "../store";
-import { comboFor, isOff } from "../keybinds";
 import { useT } from "../i18n";
 import { openNewProjectDialog } from "./NewProjectDialog";
 import { WsSwitcher } from "./WsSwitcher";
@@ -71,19 +70,6 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         onNewSession={() => store.openSession(null)}
         slideDir={slideDir.current}
       />
-      {/* 「新会话」入口（Safari New tab 式）：常驻所有会话最下方、设置行之上
-          （.ws-pane flex:1 把它顶到底）。切草稿页，首条消息才建会话。
-          行内已有文字与快捷键，不再挂 data-tip——提示只给没有文字的按钮用。 */}
-      <button
-        className="new-session-entry"
-        onClick={() => store.openSession(null)}
-      >
-        <CirclePlus size={14} />
-        <span className="ns-label">{t("新会话")}</span>
-        {!isOff("new-session", store.keybinds) && (
-          <span className="ns-keys">{comboFor("new-session", store.keybinds)}</span>
-        )}
-      </button>
       <div className="sidebar-foot">
         <button
           className="settings-entry"

@@ -449,7 +449,8 @@ button {
 }
 .ws-row:hover { background: var(--fill); }
 .ws-row svg { color: var(--ink-3); flex: none; }
-/* 侧栏末行「新会话」入口（Safari New tab 式，常驻所有会话最下方） */
+/* 「新会话」入口（Safari New tab 式）：会话列表的最后一行，贴着最后一条会话
+   随内容滚动；整行置灰（--ink-3）弱化，不与任务行抢视觉。 */
 .new-session-entry {
   display: flex;
   align-items: center;
@@ -459,12 +460,12 @@ button {
   height: 32px;
   padding: 0 10px;
   border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
-  color: var(--ink);
+  color: var(--ink-3);
   font-size: var(--dsh-font-size-base);
   text-align: left;
 }
 .new-session-entry:hover { background: var(--fill); }
-.new-session-entry svg { color: var(--ink-3); flex: none; }
+.new-session-entry svg { flex: none; } /* 颜色随行置灰（currentColor），只保住不压缩 */
 .new-session-entry .ns-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 键帽字符间留字距（⌘N 别贴成一块），末字符字距用负边距收回 */
 .new-session-entry .ns-keys { flex: none; font-size: var(--dsh-font-size-xs); color: var(--ink-3); letter-spacing: 2px; margin-right: -2px; }
