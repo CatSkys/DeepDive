@@ -94,6 +94,8 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
   const releaseFrame = useRef(0);
   /** 已 arm、等着"吸附动画结束就换"的目标下标；null=没有待换的。 */
   const pendingSwap = useRef<number | null>(null);
+  /** 主区切换的延后帧：侧栏画完之后才放行。 */
+  const commitFrame = useRef(0);
 
   const clearTimers = useCallback(() => {
     const s = st.current;
@@ -101,6 +103,10 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     if (s.swapTimer) { clearTimeout(s.swapTimer); s.swapTimer = 0; }
   }, []);
   useEffect(() => clearTimers, [clearTimers]);
+  useEffect(() => () => {
+    if (commitFrame.current) cancelAnimationFrame(commitFrame.current);
+    if (releaseFrame.current) cancelAnimationFrame(releaseFrame.current);
+  }, []);
 
   /** 静止位：上一空间在左侧时整条停在 -100%（当前片在右、邻居在左）。 */
   const restShift = (d: number) => (d < 0 ? "-100%" : "0px");
@@ -137,6 +143,8 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     const s = st.current;
     // 手势重新开始：把上一轮待撤的帧撤掉，否则它会在拖动中途把行内值抹掉。
     if (releaseFrame.current) { cancelAnimationFrame(releaseFrame.current); releaseFrame.current = 0; }
+    // 同理：还没放行的主区切换也不能在这时才生效（会切到一个用户已经放弃的空间）。
+    if (commitFrame.current) { cancelAnimationFrame(commitFrame.current); commitFrame.current = 0; }
     if (s.settleTimer) { clearTimeout(s.settleTimer); s.settleTimer = 0; }
     setSettling(false);
     s.acc = dx;
@@ -156,8 +164,14 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
    *  否则回弹。轮盘路径由停驻定时器调、拖拽路径由松手直接调——两条都要能进来。
    *  进入结算就把行内 transform 撤掉，交给 CSS 的 data-commit + 过渡接手
    *  （行内样式优先级高于样式表，不撤就永远看不到吸附动画）。 */
-  /** 换空间本体：撤掉结算态、换 active。抽出来是为了 transitionend 与兜底定时器
-   *  走同一条路（早先两处各写一份，漏改过一次）。 */
+  /** 换空间本体，**分两拍**（用户 2026-09-30 定）：
+   *   ① 侧栏自己收尾（便宜）：撤结算态、撤邻居片。视觉上此时已经到位——吸附动画
+   *      的终点就是"邻居片在眼前"，换 active 只是把它从邻居变成当前片；
+   *   ② 主区切换另起一拍：它是重活（整份会话视图卸载 + 新会话挂载），和侧栏
+   *      收尾挤在同一个 React 批次里时，它会把动画卡在半空、等它结束再闪一下
+   *      （用户报"切换那一瞬间完全不可用"）。等侧栏这一帧真的上屏了再放行，
+   *      冻结就只发生在"已经静止"的界面上，而不是动画中途。
+   *  transitionend 与兜底定时器都走这里（早先两处各写一份，漏改过一次）。 */
   const swapTo = useCallback((target: number) => {
     const s = st.current;
     if (s.swapTimer) { clearTimeout(s.swapTimer); s.swapTimer = 0; }
@@ -166,7 +180,12 @@ export function useWorkspaceSwipe({ index, count, onCommit }: {
     setCommit(null);
     setLastDir(0);
     setSettling(false);
-    onCommit(target);
+    if (commitFrame.current) cancelAnimationFrame(commitFrame.current);
+    commitFrame.current = requestAnimationFrame(() => {
+      commitFrame.current = 0;
+      // 再排一个 task：rAF 回调在绘制**之前**跑，setTimeout 才保证这一帧已经上屏。
+      window.setTimeout(() => onCommit(target), 0);
+    });
   }, [onCommit]);
 
   const swapRef = useRef(swapTo);
