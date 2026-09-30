@@ -10,7 +10,7 @@ import type { WorkspaceView } from "../types";
 
 // 底部空间切换条：一格一空间，当前高亮。只管条内滚动体验——溢出时隐藏
 // 滚动条、两端渐隐提示还有更多、滚轮就地消费不外链；不管空间增删入口
-// （ws-add 在 Sidebar）与横滑切空间手势（侧栏级，Sidebar.onSidebarWheel）。
+// （ws-add 在 Sidebar）。
 
 // 空间格图标缓存（用户需求：优先项目内 icon/logo，无则首字母）：壳每次都
 // 读盘，按路径模块级缓存；工作空间集合在会话内基本不变，不做失效机制。
@@ -72,7 +72,7 @@ export function WsSwitcher() {
   // 滚轮就地消费：条子有横向溢出时，纵横滚轮都只滚条子本身。
   // preventDefault 挡浏览器默认的滚动链接（否则纵滚轮会链去上方会话
   // 列表——用户报告的"这边滚、上面跟着动"）；stopPropagation 挡侧栏级
-  // 横滑切空间（正在滚的就是空间条本身，两个行为叠加互相打架）。
+  // 侧栏若另有横滑手势会与之打架（正在滚的就是空间条本身）。
   // React onWheel 是 passive 监听，preventDefault 无效，必须原生挂。
   useEffect(() => {
     if (!strip) return;

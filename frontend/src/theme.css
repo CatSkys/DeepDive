@@ -431,7 +431,7 @@ button {
 
 /* ---- 工作空间（侧栏 = 一个项目空间） ---- */
 
-/* 项目名行：在搜索框与会话列表之间。随空间切换横滑。
+/* 项目名行：在搜索框与会话列表之间。随空间切换更换。
    官方 ProjectRowItem 同款交互：行可点（折叠/展开会话），hover 时
    文件夹图标换成 chevron、行尾显出 ⋯（菜单）/＋（新建会话）。 */
 .ws-row {
@@ -528,32 +528,16 @@ button {
 .ws-row-actions svg { color: currentColor; }
 .ws-row .ws-act:hover { background: var(--fill-strong); color: var(--ink); }
 
-/* 空间横滑（§2.1）：内容条 .ws-strip 里并排放"当前空间 + 拖动方向上的相邻
-   空间"两片 .ws-pane，整条一起平移 —— 滑动过程里下一空间就在眼前，不靠切换
-   完再补一段滑入（用户定稿：无缝衔接）。
-   **平移量由 useWorkspaceSwipe 直写行内 transform**（拖动中无过渡＝1:1 跟手，收尾
-   时补到静止位）；CSS 这边只管两件事：手势期提一层合成、收尾期开过渡。
-   这里曾经还有一条 --ws-drag 规则与 JS 各算各的，切换瞬间两边不一致，整条内容瞬移
-   一整片宽（224px）——2026-09-30 用户报"无法形容地烂"。坐标只有一个事实源。 */
-.ws-strip {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-}
-/* 每片占满一条的宽度（100% 而非 flex:1——两片要等宽，flex 会按内容分配）。
-   overflow 交给 .sidebar（那里已有），这里不裁，好让相邻片完整露出。 */
+/* 空间内容片：当前空间的那一格。切换空间时整片换 key 重挂载，入场方向由
+   data-dir 给（Sidebar 按 workspaces 下标算出 fwd/back）。 */
 .ws-pane {
-  flex: 0 0 100%;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
   animation: ws-in-fwd var(--dur-med) var(--ease-out) backwards;
 }
-/* 邻居片不播入场滑入：它是在手势中途挂载的、正被手指推着走，再叠一段 28px 的
-   滑入就成了双重运动（用户报"整体不那么丝滑"）。入场动画只留给程序化切换
-   （底部空间格 / ⌥数字）后的当前片。 */
-.ws-pane[data-neighbor] { animation: none; }
 .ws-pane[data-dir="back"] { animation-name: ws-in-back; }
 .ws-pane-list {
   flex: 1;
@@ -561,8 +545,6 @@ button {
   display: flex;
   flex-direction: column;
 }
-.ws-strip[data-dragging] { will-change: transform; }
-.ws-strip[data-settling="true"] { transition: transform var(--dur-med) var(--ease-out); }
 @keyframes ws-in-fwd {
   from { opacity: 0; transform: translateX(28px); }
   to { opacity: 1; transform: none; }
@@ -3112,7 +3094,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   .msg-block, .tool-row, .turn-tail, .approval-card,
   .model-menu, .model-menu-view, .ws-menu, .tool-collapse, .tool-collapse > .tool-body > *,
   .hero-title, .hero-composer, .model.trigger > svg,
-  .ws-strip, .ws-pane, .ws-cell, .main, .sidebar, .panel, .sel-glide {
+  .ws-pane, .ws-cell, .main, .sidebar, .panel, .sel-glide {
     animation: none !important;
     transition: none !important;
   }

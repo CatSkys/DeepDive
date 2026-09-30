@@ -1,4 +1,4 @@
-// 侧栏外壳：「新会话」入口、横滑手势、底部设置行、菜单落点。
+// 侧栏外壳：「新会话」入口、项目行与会话列表、底部设置行、菜单落点。
 // 会话列表本身在 SidebarSessionList（项目行 + 分组 + 行渲染），菜单在
 // SidebarContextMenus，调宽热区在 SidebarResizer——这里只管"哪片内容、摊在哪"。
 import { useRef, useState } from "react";
@@ -9,7 +9,6 @@ import { comboFor, isOff } from "../keybinds";
 import { useT } from "../i18n";
 import { openNewProjectDialog } from "./NewProjectDialog";
 import { WsSwitcher } from "./WsSwitcher";
-import { useWorkspaceSwipe } from "./useWorkspaceSwipe";
 import { SidebarSessionList } from "./SidebarSessionList";
 import { SidebarContextMenus, rowMenuAt, type RowMenuState } from "./SidebarContextMenus";
 import { SidebarResizer } from "./SidebarResizer";
@@ -41,41 +40,19 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { t, lang } = useT();
   const hasWs = store.workspaces.length > 0;
 
-  // 横滑方向（§2.1）：目标格子在后 → 内容自右滑入（fwd）；在前 → 自左（back）。
+  // 切换方向：目标在后面 → 内容自右滑入（fwd）；在前面 → 自左（back）。
   // 只在 activeWorkspaceId 变化的那次渲染里算：key 相同则 .ws-pane 不重挂载，
   // 动画不会重放。首帧（prevWs 为 null）不算方向。
   const prevWs = useRef<string | null>(null);
   const slideDir = useRef<"fwd" | "back" | undefined>(undefined);
-  // 手势换的空间：吸附动画已经把人带到新空间了，**不补入场滑入**（用户 2026-09-30
-  // 定"无缝衔接"）。不区分的话，换完空间当前片会再自右滑 28px 一下——切换那一瞬
-  // 多一段运动，看着就像又卡了一次。
-  const gestureSwitch = useRef(false);
   if (store.activeWorkspaceId !== prevWs.current) {
-    if (gestureSwitch.current) {
-      gestureSwitch.current = false;
-    } else if (prevWs.current != null && store.activeWorkspaceId != null) {
+    if (prevWs.current != null && store.activeWorkspaceId != null) {
       const idx = store.workspaces.findIndex((w) => w.workspaceId === store.activeWorkspaceId);
       const prev = store.workspaces.findIndex((w) => w.workspaceId === prevWs.current);
       slideDir.current = idx >= 0 && prev >= 0 && idx < prev ? "back" : "fwd";
     }
     prevWs.current = store.activeWorkspaceId;
   }
-
-  // 工作区手势横滑（用户定稿：动画跟手，触控板双指或鼠标拖动推动内容，过阈值
-  // 松手吸附；到头不回绕，冷却防一次长滑连切）。实现见 useWorkspaceSwipe。
-  const wsIndex = store.workspaces.findIndex((w) => w.workspaceId === store.activeWorkspaceId);
-  const swipe = useWorkspaceSwipe({
-    index: wsIndex,
-    count: store.workspaces.length,
-    onCommit: (next) => {
-      const w = store.workspaces[next];
-      if (!w) return;
-      gestureSwitch.current = true;
-      store.switchWorkspace(w.workspaceId);
-    },
-  });
-  // 拖动方向上的相邻空间：它与当前空间并排渲染，滑动过程里就在眼前（无缝衔接）。
-  const neighborWs = swipe.neighbor >= 0 ? store.workspaces[swipe.neighbor] : undefined;
 
   const closeMenus = () => { setRowMenu(null); setWsMenu(null); };
   const openRowMenu = (s: SessionSummary, x: number, y: number) => {
@@ -84,13 +61,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   };
 
   return (
-    <aside
-      className="sidebar"
-      onWheel={swipe.wheel}
-      onPointerDown={swipe.pointerDown}
-      onPointerMove={swipe.pointerMove}
-      onPointerUp={swipe.pointerUp}
-    >
+    <aside className="sidebar">
       {/* 侧栏首行「新会话」入口（§3.2 New Chat 式）：切草稿页，首条消息才建会话。
           行内已有文字与快捷键，不再挂 data-tip——提示只给没有文字的按钮用。 */}
       <button
@@ -103,29 +74,15 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           <span className="ns-keys">{comboFor("new-session", store.keybinds)}</span>
         )}
       </button>
-      {/* 空间横滑的内容条：当前空间 + （拖动中的）相邻空间并排，整条一起平移。
-          两片都用 .ws-pane 装，行高/分组/折叠状态完全一致——滑动时看到的是
-          "隔壁那一片"，不是切换完才补一段滑入动画。 */}
-      {/* 两片的顺序由 swipe.neighborBefore 决定；位移由手势直写 transform
-          （stripRef），不经过这里的渲染——经 state 会让每个 pointermove 重渲
-          整份会话列表。 */}
-      <div
-        className="ws-strip"
-        ref={swipe.stripRef}
-        data-dragging={swipe.dragging || undefined}
-        data-settling={swipe.settling || undefined}
-      >
-        <SidebarSessionList
-          neighborId={neighborWs?.workspaceId}
-          neighborBefore={swipe.neighborBefore}
-          collapsed={wsCollapsed}
-          onToggleCollapsed={() => setWsCollapsed((v) => !v)}
-          onOpenRowMenu={openRowMenu}
-          onOpenWorkspaceMenu={(x, y) => { setRowMenu(null); setWsMenu({ x, y }); }}
-          onNewSession={() => store.openSession(null)}
-          slideDir={slideDir.current}
-        />
-      </div>
+      {/* 当前空间的会话列表；切换空间时整片换 key 重挂载。 */}
+      <SidebarSessionList
+        collapsed={wsCollapsed}
+        onToggleCollapsed={() => setWsCollapsed((v) => !v)}
+        onOpenRowMenu={openRowMenu}
+        onOpenWorkspaceMenu={(x, y) => { setRowMenu(null); setWsMenu({ x, y }); }}
+        onNewSession={() => store.openSession(null)}
+        slideDir={slideDir.current}
+      />
       <div className="sidebar-foot">
         <button
           className="settings-entry"

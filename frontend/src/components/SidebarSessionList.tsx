@@ -1,8 +1,6 @@
-// 侧栏的工作区横滑内容条：并排渲染"当前空间 + 拖动方向上的相邻空间"两片，
-// 整条一起平移（.ws-strip / .ws-pane，见 theme.css 与 useWorkspaceSwipe）。
-// 每片内部＝项目行 + 该空间的会话列表；分组规则（置顶/时间桶）也在这，
-// 因为相邻片要出自己的一份内容——横滑要无缝，就不能只让当前空间有列表。
-// 不管手势与菜单开关：那些由 Sidebar 决定后当 props 传进来。
+// 侧栏的会话列表：当前空间的项目行（折叠/⋯ 菜单/新建）+ 分组 + 行渲染。
+// 菜单落点在 SidebarContextMenus，调宽热区在 SidebarResizer。
+// 只管渲染，不管手势与菜单开关：那些由 Sidebar 决定后当 props 传进来。
 import { useMemo } from "react";
 import { Archive, ChevronDown, Ellipsis, Pin, Plus } from "lucide-react";
 import { useT } from "../i18n";
@@ -26,8 +24,6 @@ interface SessionGroup {
 }
 
 export function SidebarSessionList({
-  neighborId,
-  neighborBefore,
   collapsed,
   onToggleCollapsed,
   onOpenRowMenu,
@@ -35,12 +31,8 @@ export function SidebarSessionList({
   onNewSession,
   slideDir,
 }: {
-  /** 拖动方向上的相邻空间：并排渲染才无缝。 */
-  neighborId?: string;
-  /** 邻居片排在当前片**左侧**（往回切）：由 useWorkspaceSwipe 的方向给。 */
-  neighborBefore?: boolean;
   /** 程序化切换（点切换器/菜单）的滑入方向：fwd=自右 / back=自左。
-   *  只给当前片——相邻片是手势拖出来的，不该再叠一段入场动画。 */
+   *  程序化切换（点空间格 / ⌥数字）后的入场方向。 */
   slideDir?: "fwd" | "back";
   /** 项目行折叠态：两片共用（折叠是当前空间的观感，横滑中不该各折各的）。 */
   collapsed: boolean;
@@ -166,54 +158,36 @@ export function SidebarSessionList({
     glide.setContainer(el);
   };
 
-  const neighborWs = neighborId ? store.workspaces.find((w) => w.workspaceId === neighborId) : undefined;
-  // 上一空间排在**左**、下一空间排在右（neighborBefore 由手势方向给）：两片都排在
-  // 右边时，往回切看到的"上一个"其实在右侧，动画方向与手指相反（2026-09-30 用户报）。
-  const ordered = neighborBefore
-    ? [neighborWs, activeWs]
-    : [activeWs, neighborWs];
-  const panes = ordered.filter((w): w is NonNullable<typeof w> => Boolean(w));
+  const ws = activeWs;
 
   return (
     <>
-      {panes.map((ws) => {
-        const isNeighbor = ws.workspaceId !== activeWs?.workspaceId;
-        // 相邻片出自己的一份分组——滑过去看到的是"隔壁那一片"的真内容，这是无缝的关键。
-        const paneGroups = isNeighbor ? groupsOf(ws.workspaceId) : view;
-        return (
-          <div
-            className="ws-pane"
-            key={ws.workspaceId}
-            data-neighbor={isNeighbor ? "" : undefined}
-            data-dir={isNeighbor ? undefined : slideDir}
-          >
-            <WorkspaceRow
-              wsId={ws.workspaceId}
-              title={ws.title}
-              collapsed={collapsed}
-              onToggle={onToggleCollapsed}
-              onOpenMenu={onOpenWorkspaceMenu}
-              onNewSession={onNewSession}
-            />
-            {/* visibility 而非 display:none：.ws-pane-list 是 flex:1 撑高元素，折叠时
-                必须保留占位，否则底部设置行会滑上来顶到项目行。 */}
-            <div className="ws-pane-list" style={{ visibility: collapsed ? "hidden" : undefined }}>
-              <div className="sessions fade-y" ref={isNeighbor ? sessionsFade.ref : setSessionsRef} {...fadeAttrs(sessionsFade.fade)}>
-                {!isNeighbor && glide.box && <div className="sel-glide glide-row" style={glide.glideStyle} />}
-                {paneGroups.map(({ label, items }) => (
-                  <div key={label}>
-                    {label && <div className="section-label">{label}</div>}
-                    {items.map((s) => renderRow(s))}
-                  </div>
-                ))}
-                {!isNeighbor && view.length === 0 && (
-                  <div className="empty-state">{t("暂无会话")}</div>
-                )}
-              </div>
+      {ws && (
+        <div className="ws-pane" data-dir={slideDir}>
+          <WorkspaceRow
+            wsId={ws.workspaceId}
+            title={ws.title}
+            collapsed={collapsed}
+            onToggle={onToggleCollapsed}
+            onOpenMenu={onOpenWorkspaceMenu}
+            onNewSession={onNewSession}
+          />
+          {/* visibility 而非 display:none：.ws-pane-list 是 flex:1 撑高元素，折叠时
+              必须保留占位，否则底部设置行会滑上来顶到项目行。 */}
+          <div className="ws-pane-list" style={{ visibility: collapsed ? "hidden" : undefined }}>
+            <div className="sessions fade-y" ref={setSessionsRef} {...fadeAttrs(sessionsFade.fade)}>
+              {glide.box && <div className="sel-glide glide-row" style={glide.glideStyle} />}
+              {view.map(({ label, items }) => (
+                <div key={label}>
+                  {label && <div className="section-label">{label}</div>}
+                  {items.map((s) => renderRow(s))}
+                </div>
+              ))}
+              {view.length === 0 && <div className="empty-state">{t("暂无会话")}</div>}
             </div>
           </div>
-        );
-      })}
+        </div>
+      )}
     </>
   );
 }
