@@ -4640,7 +4640,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser.slot .panel-browser-body { aspect-ratio: 16 / 9; flex: none; }
 .panel-browser.expanded { flex: 1; min-height: 0; }
 .panel-browser-body { position: relative; display: flex; flex: 1; min-height: 0; border-radius: var(--dsh-radius-card); overflow: hidden; background: var(--fill-soft); }
-.panel-browser.slot .panel-browser-body { border: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); }
+/* 缩略图态那块"屏幕"的分界：描边与投影二选一（用户 2026-10-01 定），留投影。
+   与 .main / .session / .panel 同一套语言——内容卡不描边，分界交给明度差与
+   --shadow-pop；且 shadow-pop 的注释明写"重投影会把低透明面板边界重新描黑"，
+   描边叠投影等于自己把那条黑边又描一遍。 */
+.panel-browser.slot .panel-browser-body { box-shadow: var(--shadow-pop); }
 /* 缩略图态的遮罩：点它展开（原生视图在这一格不收点击，见 BrowserHost.setInteractive） */
 .panel-browser-veil {
   position: absolute;
