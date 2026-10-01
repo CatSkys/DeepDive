@@ -3250,7 +3250,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   padding: 0 8px;
   margin-bottom: 4px;
   border: none;
-  border-radius: var(--dsh-radius-control);
+  border-radius: 999px; /* 同下方 .snav-item：胶囊语法（用户 2026-10-01 定） */
   background: transparent;
   color: var(--ink-2);
   font-size: var(--dsh-font-size-base);
