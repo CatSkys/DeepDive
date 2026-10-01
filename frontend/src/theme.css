@@ -4565,9 +4565,15 @@ input:focus, textarea:focus, select:focus { outline: none; }
    会盖掉 width:0，剩一个 320 宽的透明壳占着位。 */
 .panel[data-closed="true"] { width: 0; margin-right: -8px; opacity: 0; pointer-events: none; }
 /* 浏览器页整格一体色（用户定稿）：卡片边框/圆角/渐变全撤——格内标签行、空白页、
-   页面同底色，与 .main 的圆角裁剪同心；不留任何"两层皮"的缝 */
+   页面同底色，与 .main 的圆角裁剪同心；不留任何"两层皮"的缝。
+   底色用 --card-gradient（与会话卡/草稿页 .main 同一份近实色）：原先写的
+   var(--surface) 在本仓并不存在（tokens 事实源 surface 组只有 panel/raised/
+   input/selected/inverted 五档，生成出来是 --dsh-surface-*），整条声明
+   invalid-at-computed-value-time → 面板全透明，叠上原生 WKWebView 的
+   drawsBackground=false（网页自己不画底），壁纸直接透上来（用户 2026-10-01
+   报"太透了"）。同因的失效见下方 --surface-raised 三处。 */
 .panel[data-mode="browser"] {
-  background: var(--surface);
+  background: var(--card-gradient);
   border: 0; border-radius: 0; box-shadow: none;
 }
 .session-row:has(> .panel[data-fullscreen="true"]) > .session { visibility: hidden; }
@@ -4784,7 +4790,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-field.big { flex: none; width: 560px; max-width: 100%; z-index: 61; }
 .panel-browser-field.big .panel-browser-field-input {
   height: 50px; padding: 0 22px; border-radius: 14px;
-  background: var(--surface-raised);
+  background: var(--dsh-surface-raised);
   font-size: var(--dsh-font-size-lg);
 }
 /* 补全列表：挂在框正下方（不遮页面、不浮到页面正中）。挂 body 上、fixed 按框摆位
@@ -4796,7 +4802,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   box-sizing: border-box;
   display: flex; flex-direction: column; padding: 6px;
   border: 1px solid var(--line); border-radius: 12px;
-  background: var(--surface-raised); box-shadow: var(--shadow-pop); overflow: hidden;
+  background: var(--dsh-surface-raised); box-shadow: var(--shadow-pop); overflow: hidden;
 }
 .panel-browser-offer {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px;
@@ -4818,7 +4824,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-blank {
   position: absolute; inset: 0; z-index: 3;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: var(--surface);
+  /* 与面板同色（原来写的 var(--surface) 同样是不存在的变量，整条失效见
+     .panel[data-mode="browser"] 的注释）：空白页是"还没打开网页"的内容区，
+     不是浮层，底色跟会话卡走同一份 --card-gradient。 */
+  background: var(--card-gradient);
   /* 抬一点：正中看起来偏低（参考 Omnibox 的 padding(.bottom, 60) 同一取舍） */
   padding-bottom: 60px;
 }
@@ -4840,7 +4849,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-hint {
   position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
   padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: 14px;
-  background: var(--surface-raised); color: var(--ink-2);
+  background: var(--dsh-surface-raised); color: var(--ink-2);
   font-size: var(--dsh-font-size-xs); box-shadow: var(--shadow-pop); pointer-events: none;
 }
 /* 唤醒期间铺的停帧图：压在上面的原生视图一有像素就盖住它（壳给 4s 撤退时限） */
