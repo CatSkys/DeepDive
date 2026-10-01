@@ -4564,17 +4564,22 @@ input:focus, textarea:focus, select:focus { outline: none; }
    放在 fullscreen 规则**之后**：全屏呈现下收起时这条也要赢，否则 inset:0 的 width:auto
    会盖掉 width:0，剩一个 320 宽的透明壳占着位。 */
 .panel[data-closed="true"] { width: 0; margin-right: -8px; opacity: 0; pointer-events: none; }
-/* 浏览器页整格一体色（用户定稿）：卡片边框/圆角/渐变全撤——格内标签行、空白页、
-   页面同底色，与 .main 的圆角裁剪同心；不留任何"两层皮"的缝。
+/* 浏览器页整格一体色（用户定稿）：卡片边框/投影全撤，格内标签行、空白页、页面
+   同底色，不留任何"两层皮"的缝。
    底色用 --card-gradient（与会话卡/草稿页 .main 同一份近实色）：原先写的
    var(--surface) 在本仓并不存在（tokens 事实源 surface 组只有 panel/raised/
    input/selected/inverted 五档，生成出来是 --dsh-surface-*），整条声明
    invalid-at-computed-value-time → 面板全透明，叠上原生 WKWebView 的
    drawsBackground=false（网页自己不画底），壁纸直接透上来（用户 2026-10-01
-   报"太透了"）。同因的失效见下方 --surface-raised 三处。 */
+   报"太透了"）。同因的失效见下方 --surface-raised 三处。
+   圆角要留着：面板透明时 border-radius:0 看不出来，填上底色后就成了方角
+   直怼玻璃（用户 2026-10-01 报"圆角没了"）。会话页的 .main 有 .session-row
+   时是 overflow:visible（容器不当卡裁圆角），圆角职责在子卡自身——这里
+   恢复 --dsh-radius-panel，与原生网页视图自带的 18px 同心（BrowserHost.swift
+   keep in sync），底色裁进圆角里，不再露方角。 */
 .panel[data-mode="browser"] {
   background: var(--card-gradient);
-  border: 0; border-radius: 0; box-shadow: none;
+  border: 0; border-radius: var(--dsh-radius-panel); box-shadow: none;
 }
 .session-row:has(> .panel[data-fullscreen="true"]) > .session { visibility: hidden; }
 
