@@ -1342,13 +1342,14 @@ button {
   scrollbar-width: none;
 }
 .preview-tabs::-webkit-scrollbar { display: none; }
+/* 右端簇之首：auto margin 顶住标签条右缘（标签溢出横向滚动时归零，簇随条走） */
 .preview-review-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 24px;
   height: 24px;
-  margin: 0 2px 0 0;
+  margin-left: auto;
   border-radius: var(--dsh-radius-keycap);
   color: var(--ink-3);
   flex: none;

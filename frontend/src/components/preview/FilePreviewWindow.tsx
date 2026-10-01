@@ -111,7 +111,6 @@ function PreviewContent({ preview, wsPath, withTabs = true }: {
     <>
       {withTabs && (
         <div className="preview-tabs" role="tablist">
-          <ReviewModeButton onReview={() => preview.setMode("review")} />
           {tabs.map((tab) => (
             <button
               key={tab.path}
@@ -134,6 +133,9 @@ function PreviewContent({ preview, wsPath, withTabs = true }: {
               </span>
             </button>
           ))}
+          {/* 右端簇：审查钮 + 视图控制（渲染器/折行）。审查钮带 margin-left:auto
+              顶住右缘，标签溢出时该 margin 归零，簇整体随条滚动。 */}
+          <ReviewModeButton onReview={() => preview.setMode("review")} />
           {active && <ViewControls preview={preview} active={active} />}
         </div>
       )}
