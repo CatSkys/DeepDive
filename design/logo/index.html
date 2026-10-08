@@ -2,9 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>DeepDive Logo — 设计稿 v3</title>
+<title>DeepDive — Logo 生成器（实心 D · 右侧渐变模糊）</title>
 <style>
-  :root { --bg:#17181b; --ink:#e9e7e1; --dim:#98958d; }
+  :root { --bg:#17181b; --ink:#e9e7e1; --dim:#98958d; --line:#37393f; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 -apple-system,"PingFang SC",system-ui,sans-serif; }
   .wrap { max-width:1560px; margin:0 auto; padding:40px 32px 90px; }
@@ -12,108 +12,250 @@
   .sub { color:var(--dim); font-size:13px; margin-bottom:24px; }
   h2 { font-size:15px; font-weight:600; margin:44px 0 14px; }
   .tools { display:flex; gap:12px; margin:0 0 26px; }
-  button { background:#24262b; color:var(--ink); border:1px solid #37393f; border-radius:8px; padding:7px 14px; font:inherit; font-size:13px; cursor:pointer; }
+  button { background:#24262b; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 14px; font:inherit; font-size:13px; cursor:pointer; }
   button:hover { background:#2d2f35; }
   .row { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-end; }
-  .board canvas.main { display:block; width:452px; height:452px; border-radius:14px; }
+  .board canvas { display:block; border-radius:14px; box-shadow:0 0 0 1px var(--line); }
+  .board.checker canvas { background:repeating-conic-gradient(#2a2c31 0 25%, #202226 0 50%) 0 0/16px 16px; }
   .cap { margin-top:10px; color:var(--dim); font-size:12.5px; max-width:452px; }
   .cap b { color:var(--ink); font-weight:600; }
   .ladder { display:flex; gap:20px; align-items:flex-end; }
   .ladder .cell { text-align:center; }
-  .ladder canvas { display:block; border-radius:4px; }
+  .ladder canvas { display:block; border-radius:4px; box-shadow:0 0 0 1px var(--line); }
   .ladder .lb { margin-top:8px; color:var(--dim); font-size:11.5px; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>DeepDive — Logo 设计稿 v3</h1>
-  <div class="sub">黑底反白鲸鱼 · 纯矢量渲染（确定性，无随机种子） · 白鲸 <span style="color:#fff">#FFFFFF</span> · 黑底 <span style="color:#0b0b0c">#0b0b0c</span></div>
+<div class="wrap" id="wrap">
+  <h1>DeepDive — Logo 生成器</h1>
+  <div class="sub">实心 D + 右侧渐变模糊 · 白底 <span style="color:#fff">#FFFFFF</span> · 墨 <span style="color:#c8c6c0">#0b0b0c</span> · 逐像素连续 σ 场 + 8×8 拜耳抖动（确定性）</div>
   <div class="tools">
     <button onclick="exportAll()">⬇ 导出全部 PNG</button>
   </div>
 
-  <h2 style="margin-top:0">主 Logo（黑底方版，导出资产即此）</h2>
-  <div class="row" id="mainRow"></div>
+  <h2 style="margin-top:0">主 Logo（白底方版，导出资产即此）</h2>
+  <div class="row" id="markRow"></div>
 
-  <h2>图标容器（黑色 squircle，AppIcon 母版形态）</h2>
+  <h2>图标（AppIcon 母版 / 小尺寸剪影版）</h2>
   <div class="row" id="iconRow"></div>
 
-  <h2>尺寸阶梯（同一配方重渲染）</h2>
+  <h2>尺寸阶梯（主 Logo，同配方重渲染）</h2>
   <div class="ladder" id="ladderRow"></div>
 </div>
 
 <script>
 'use strict';
 
-/* 官方 DeepSeek whale path（viewBox 0 0 50 50，取自 deepseek-harness favicon.svg） */
-const WHALE_PATH = new Path2D("M48.8354 10.0479C48.3232 9.79199 48.1025 10.2798 47.8032 10.5278C47.7007 10.6079 47.6143 10.7119 47.5273 10.8076C46.7793 11.624 45.9048 12.1597 44.7622 12.0957C43.0923 12 41.666 12.5356 40.4058 13.8398C40.1377 12.2319 39.2476 11.272 37.8926 10.6558C37.1836 10.3359 36.4668 10.0156 35.9702 9.31982C35.6235 8.82373 35.5293 8.27197 35.356 7.72754C35.2456 7.3999 35.1353 7.06396 34.7651 7.00781C34.3633 6.94385 34.2056 7.2876 34.0479 7.57568C33.418 8.75195 33.1733 10.0479 33.1973 11.3599C33.2524 14.312 34.4736 16.6641 36.8999 18.3359C37.1758 18.5278 37.2466 18.7197 37.1597 19C36.9946 19.5757 36.7974 20.1357 36.624 20.7119C36.5137 21.0801 36.3486 21.1597 35.9624 21C34.6309 20.4321 33.481 19.5918 32.4644 18.5757C30.7393 16.8721 29.1792 14.9917 27.2334 13.52C26.7764 13.1758 26.3193 12.856 25.8467 12.5518C23.8618 10.584 26.1069 8.96777 26.627 8.77588C27.1704 8.57568 26.8159 7.8877 25.0591 7.896C23.3022 7.90381 21.6953 8.50391 19.647 9.30371C19.3477 9.42383 19.0322 9.51172 18.7095 9.58398C16.8501 9.22363 14.9199 9.14355 12.9033 9.37598C9.10596 9.80762 6.07275 11.6396 3.84326 14.7681C1.16455 18.5278 0.53418 22.7998 1.30664 27.2559C2.11768 31.9521 4.46582 35.8398 8.07373 38.8799C11.8159 42.0322 16.1255 43.5762 21.041 43.2803C24.0269 43.104 27.3516 42.6963 31.1016 39.4561C32.0469 39.936 33.0396 40.1279 34.686 40.272C35.9546 40.3921 37.1758 40.208 38.1211 40.0078C39.6021 39.688 39.4995 38.2881 38.9639 38.0322C34.623 35.9678 35.5762 36.8081 34.71 36.1279C36.9155 33.4639 40.2402 30.6958 41.54 21.728C41.6426 21.0161 41.5557 20.5679 41.54 19.9917C41.5322 19.6396 41.6108 19.5039 42.0049 19.4639C43.0923 19.3359 44.1479 19.0317 45.1167 18.4878C47.9292 16.9199 49.064 14.3438 49.3315 11.2559C49.3711 10.7837 49.3237 10.2959 48.8354 10.0479ZM24.3262 37.8398C20.1196 34.4639 18.0791 33.3521 17.2358 33.3999C16.4482 33.4482 16.5898 34.3682 16.7632 34.9678C16.9443 35.5601 17.1812 35.9683 17.5117 36.4878C17.7402 36.832 17.8979 37.3442 17.2832 37.728C15.9282 38.584 13.5728 37.4399 13.4624 37.3838C10.7207 35.7358 8.42822 33.5601 6.81348 30.584C5.25342 27.7197 4.34766 24.6479 4.19775 21.3677C4.1582 20.5757 4.38672 20.2959 5.15869 20.1519C6.17529 19.96 7.22314 19.9199 8.23926 20.0718C12.5327 20.7119 16.1885 22.6719 19.2529 25.7759C21.002 27.5439 22.3252 29.6558 23.6885 31.7202C25.1377 33.9121 26.6978 36 28.6831 37.7119C29.3843 38.312 29.9434 38.7681 30.479 39.104C28.8643 39.2881 26.1699 39.3281 24.3262 37.8398ZM26.3433 24.6001C26.3433 24.248 26.6191 23.9678 26.9658 23.9678C27.0444 23.9678 27.1152 23.9839 27.1782 24.0078C27.2651 24.04 27.3438 24.0879 27.4067 24.1602C27.5171 24.272 27.5801 24.4321 27.5801 24.6001C27.5801 24.9521 27.3042 25.2319 26.9575 25.2319C26.6108 25.2319 26.3433 24.9521 26.3433 24.6001ZM32.6064 27.8799C32.2046 28.0479 31.8027 28.1919 31.4165 28.208C30.8179 28.2397 30.1641 27.9922 29.8096 27.688C29.2583 27.2158 28.8643 26.9521 28.6987 26.1279C28.6279 25.7759 28.6675 25.2319 28.7305 24.9199C28.8721 24.248 28.7144 23.8159 28.2495 23.4238C27.8716 23.104 27.3911 23.0161 26.8633 23.0161C26.666 23.0161 26.4849 22.9277 26.3511 22.856C26.1304 22.7441 25.9492 22.4639 26.1226 22.1201C26.1777 22.0078 26.4458 21.7358 26.5088 21.688C27.2256 21.272 28.0527 21.4077 28.8169 21.7197C29.5259 22.0161 30.0615 22.5601 30.834 23.3281C31.6216 24.2559 31.7632 24.5117 32.2124 25.208C32.5669 25.752 32.8901 26.312 33.1104 26.9521C33.2446 27.3521 33.0713 27.6802 32.6064 27.8799Z");
+/* 逐像素渲染连续 σ 场：不用 SVG 滤镜叠加近似——分级 σ 在级间与 8-bit 量化上都
+   出伪影（条带接缝 + 等墨度色带）。墨量 = Φ(−到 D 的符号距离 / σ(x))。 */
+const CANVAS = 1024;
+const INK_GRAY = 11;         // #0b0b0c
 
-/* ---------------- 配方 ----------------
-   黑底 #0b0b0c（原 ASCII 定稿墨色反用），白鲸 #FFFFFF 实心剪影；
-   鲸鱼 fit：最长边 = 画布 72%，光学中心 y = 48.5%（v2 既有参数，保持观感连续）。 */
-const BG = '#0b0b0c';
-const FG = '#ffffff';
-const FIT = 0.72;
-const CENTER_Y = 0.485;
+/* ---------------- 配方常量：改这里即改全部产物 ---------------- */
+const FIT = 0.72;            // D 高 = 画布 72%
+const W_OVER_H = 0.977;      // 宽/高：柄 0.477 +（半径 = 高/2 的）右半圆
+const CORNER_R = 0.10;       // 左侧两角圆角 = 高 10%
+const EYE_SIGMA = 1.5;       // 定位：视觉外框右界 = 实心右缘 + 1.5σ
+const RAMP_TO = 1.05;        // σ 涨到 σmax 处（实心宽度归一），其外 σ 恒为 σmax
+const TILE_R = 0.2237;       // 图标砖圆角（全幅 squircle 档）
+const GRID = { inset: 100, art: 824, r: 185.4, blur: 45, dy: 15, alpha: 0.30 };  // Apple 网格母版
+const TOKEN = { canvas: 1024, side: 758, fit: 0.66 };   // 图标里标记的画布边长 / D 高占比
+const LADDER = [512, 256, 128, 64, 32, 16];
+const PREVIEW = 452;
 
-function drawWhale(ctx, size, color) {
-  const c = document.createElement('canvas'); c.width = c.height = 256;
-  const x = c.getContext('2d');
-  x.fillStyle = '#fff'; x.fill(WHALE_PATH);
-  const d = x.getImageData(0, 0, 256, 256).data;
-  let minX = 256, minY = 256, maxX = 0, maxY = 0;
-  for (let py = 0; py < 256; py++) for (let px = 0; px < 256; px++) {
-    if (d[(py * 256 + px) * 4 + 3] > 40) {
-      if (px < minX) minX = px; if (px > maxX) maxX = px;
-      if (py < minY) minY = py; if (py > maxY) maxY = py;
+/* 模糊强度：sigmaEdge = 实心右缘（u=1）处的 σ / 高，from = 起模糊处 / 实心宽度 */
+const MARK = { sigmaEdge: 0.055, from: 0.42 };
+
+function geom(v, S = CANVAS) {
+  const h = S * FIT, w = h * W_OVER_H;
+  const sigmaEdge = v.sigmaEdge * h;
+  const sigmaMax = sigmaEdge * (RAMP_TO - v.from) / (1 - v.from);
+  const xL = (S - (w + EYE_SIGMA * sigmaEdge)) / 2;
+  const yT = (S - h) / 2;
+  return { S, xL, yT, yB: yT + h, w, h, rad: h / 2, r: h * CORNER_R,
+    cx: xL + w - h / 2, cy: yT + h / 2, sigmaMax, from: v.from };
+}
+
+function dSeg(x, y, x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const t = Math.max(0, Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(x - (x0 + t * dx), y - (y0 + t * dy));
+}
+
+/* 圆弧段距离：仅当点在弧的角度范围内取 |到圆心距离 − 半径|，否则取到两端点距离。
+   必须按段算——整圆的 |…−半径| 会让圆的下半/左半穿进实心内部，刻出虚线圈。 */
+function dArcSeg(x, y, cx0, cy0, rad, a0, a1) {
+  const ang = Math.atan2(y - cy0, x - cx0);
+  if (ang >= a0 && ang <= a1) return Math.abs(Math.hypot(x - cx0, y - cy0) - rad);
+  return Math.min(
+    Math.hypot(x - (cx0 + rad * Math.cos(a0)), y - (cy0 + rad * Math.sin(a0))),
+    Math.hypot(x - (cx0 + rad * Math.cos(a1)), y - (cy0 + rad * Math.sin(a1))),
+  );
+}
+
+function inD(x, y, g) {
+  if (y <= g.yT || y >= g.yB || x <= g.xL) return false;
+  if (x >= g.cx) return Math.hypot(x - g.cx, y - g.cy) <= g.rad;
+  if (x < g.xL + g.r) {
+    if (y < g.yT + g.r && Math.hypot(x - g.xL - g.r, y - g.yT - g.r) > g.r) return false;
+    if (y > g.yB - g.r && Math.hypot(x - g.xL - g.r, y - g.yB + g.r) > g.r) return false;
+  }
+  return true;
+}
+
+/* D 的符号距离（负在内）：六段边界取最近——左竖边、平顶、平底、左上/左下圆角弧、右大弧 */
+function sdD(x, y, g) {
+  const dist = Math.min(
+    dSeg(x, y, g.xL, g.yT + g.r, g.xL, g.yB - g.r),
+    dSeg(x, y, g.xL + g.r, g.yT, g.cx, g.yT),
+    dSeg(x, y, g.xL + g.r, g.yB, g.cx, g.yB),
+    dArcSeg(x, y, g.xL + g.r, g.yT + g.r, g.r, -Math.PI, -Math.PI / 2),
+    dArcSeg(x, y, g.xL + g.r, g.yB - g.r, g.r, Math.PI / 2, Math.PI),
+    dArcSeg(x, y, g.cx, g.cy, g.rad, -Math.PI / 2, Math.PI / 2),
+  );
+  return inD(x, y, g) ? -dist : dist;
+}
+
+/* N(0,1) CDF，经 erfc 的 A&S 7.1.26 有理近似（|ε| < 1.5e-7） */
+function cdf(z) {
+  const x = Math.abs(z) * Math.SQRT1_2;
+  if (x >= 3.9) return z > 0 ? 1 : 0;
+  const t = 1 / (1 + 0.3275911 * x);
+  const e = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741
+    + t * (-1.453152027 + t * 1.061405429)))) * Math.exp(-x * x);
+  return z > 0 ? 1 - e / 2 : e / 2;
+}
+
+/* 8×8 拜耳有序抖动：±0.5 级灰度，消 8-bit 等值色带；固定矩阵，无随机种子 */
+const BAYER = [
+  0, 32, 8, 40, 2, 34, 10, 42,
+  48, 16, 56, 24, 50, 18, 58, 26,
+  12, 44, 4, 36, 14, 46, 6, 38,
+  60, 28, 52, 20, 62, 30, 54, 22,
+  3, 35, 11, 43, 1, 33, 9, 41,
+  51, 19, 57, 25, 49, 17, 59, 27,
+  15, 47, 7, 39, 13, 45, 5, 37,
+  63, 31, 55, 23, 61, 29, 53, 21,
+];
+
+const r2 = (n) => Math.round(n * 100) / 100;
+const newCanvas = (S) => {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  return cv;
+};
+
+/* 标记墨量逐像素合成到画布上。map: 画布坐标 → 设计坐标（canvas = design·k + o）。
+   crisp=true 走清晰剪影（小尺寸/模板图用），否则走连续 σ 场。 */
+function paintInk(cv, g, map, crisp) {
+  const S = cv.width, ctx = cv.getContext('2d');
+  const img = ctx.getImageData(0, 0, S, S), data = img.data;
+  for (let j = 0; j < S; j++) {
+    for (let i = 0; i < S; i++) {
+      const x = (i + 0.5 - map.ox) / map.k, y = (j + 0.5 - map.oy) / map.k;
+      const d = sdD(x, y, g);
+      let s = 0;
+      if (!crisp) {
+        const u = (x - g.xL) / g.w;
+        s = u <= g.from ? 0 : g.sigmaMax * Math.min(1, (u - g.from) / (RAMP_TO - g.from));
+      }
+      /* σ=0（剪影区）用线性覆盖度做 1px 抗锯齿 */
+      const a = s < 1e-9 ? Math.max(0, Math.min(1, 0.5 - d * map.k)) : cdf(-d / s);
+      if (a <= 0) continue;
+      const k4 = (j * S + i) * 4;
+      const ba = data[k4 + 3] / 255, bg = data[k4];
+      const a2 = a + ba * (1 - a);
+      const gray = (bg * ba * (1 - a) + INK_GRAY * a) / a2;
+      const q = Math.max(0, Math.min(255, Math.round(gray + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - 0.5))));
+      data[k4] = q; data[k4 + 1] = q; data[k4 + 2] = q;
+      data[k4 + 3] = Math.round(a2 * 255);
     }
   }
-  const bw = maxX - minX, bh = maxY - minY;
-  const scale = (size * FIT) / Math.max(bw, bh);
-  ctx.save();
-  ctx.translate(size / 2 - (minX + bw / 2) * scale, size * CENTER_Y - (minY + bh / 2) * scale);
-  ctx.scale(scale, scale);
-  ctx.fillStyle = color;
-  ctx.fill(WHALE_PATH);
-  ctx.restore();
-}
-
-/* 主 Logo：全幅黑底方版 */
-function renderLogo(size) {
-  const cv = document.createElement('canvas'); cv.width = cv.height = size;
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = BG;
-  ctx.fillRect(0, 0, size, size);
-  drawWhale(ctx, size, FG);
-  cv._export = { name: `deepdive-logo-white-on-black-${size}.png` };
+  ctx.putImageData(img, 0, 0);
   return cv;
 }
 
-/* 图标容器：22.37% 圆角黑 squircle（AppIcon 母版同形态，无 Apple 网格投影——
-   投影在壳侧切档时按官方网格烘焙） */
-function renderIconSquircle(size) {
-  const cv = document.createElement('canvas'); cv.width = cv.height = size;
-  const ctx = cv.getContext('2d');
-  const rad = size * 0.2237;
+function fillRoundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
-  ctx.moveTo(rad, 0); ctx.arcTo(size, 0, size, size, rad); ctx.arcTo(size, size, 0, size, rad);
-  ctx.arcTo(0, size, 0, 0, rad); ctx.arcTo(0, 0, size, 0, rad);
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
-  ctx.fillStyle = BG;
   ctx.fill();
-  drawWhale(ctx, size, FG);
-  cv._export = { name: 'deepdive-icon-black-1024-squircle.png' };
-  return cv;
 }
 
-/* ---------------- 页面组装与导出 ---------------- */
-const boards = [];
+/* 主 Logo：白底方版（含右侧渐变） */
+function logoCanvas(S) {
+  const g = geom(MARK, CANVAS);
+  const cv = newCanvas(S);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, S, S);
+  return paintInk(cv, g, { k: S / CANVAS, ox: 0, oy: 0 }, false);
+}
 
-function addBoard(parent, canvas, caption) {
+/* 图标：master = Apple 网格母版（824 艺术区 / 185.4 圆角 / 烘焙投影，标记带渐变）；
+   small = 全幅 squircle、无投影、清晰剪影（小尺寸用，渐变在此尺寸糊成一块） */
+function iconCanvas(kind, S) {
+  const g = geom(MARK, CANVAS);
+  const cv = newCanvas(S);
+  const ctx = cv.getContext('2d');
+  if (kind === 'master') {
+    ctx.save();
+    ctx.shadowColor = `rgba(0,0,0,${GRID.alpha})`;
+    ctx.shadowBlur = GRID.blur;
+    ctx.shadowOffsetY = GRID.dy;
+    ctx.fillStyle = '#fff';
+    fillRoundRect(ctx, GRID.inset, GRID.inset, GRID.art, GRID.art, GRID.r);
+    ctx.restore();
+    const k = TOKEN.side / CANVAS;
+    return paintInk(cv, g, { k, ox: (CANVAS - TOKEN.side) / 2, oy: (CANVAS - TOKEN.side) / 2 }, false);
+  }
+  ctx.fillStyle = '#fff';
+  fillRoundRect(ctx, 0, 0, S, S, S * TILE_R);
+  const k = (TOKEN.fit * S) / g.h;
+  return paintInk(cv, g, { k, ox: S / 2 - (g.xL + g.w / 2) * k, oy: S / 2 - (g.yT + g.h / 2) * k }, true);
+}
+
+/* 壳侧用的剪影路径（平移到墨迹左上角，viewBox 0 0 w h）——悬浮球与菜单栏模板图。
+   dx 用于补成正方形盒：壳侧按正方形 rect 绘制，非方形 viewBox 会被拉伸 2% */
+function markPath(g, dx = 0) {
+  const x = (v) => r2(v + dx), rr = r2(g.r), rad = r2(g.rad), h = r2(g.h);
+  return `M ${x(g.r)} 0 L ${x(g.w - g.rad)} 0 A ${rad} ${rad} 0 0 1 ${x(g.w - g.rad)} ${h}`
+    + ` L ${x(g.r)} ${h} A ${rr} ${rr} 0 0 1 ${x(0)} ${r2(g.h - g.r)}`
+    + ` L ${x(0)} ${rr} A ${rr} ${rr} 0 0 1 ${x(g.r)} 0 Z`;
+}
+
+/* ---------------- 导出 ---------------- */
+function download(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function exportAll() {
+  let i = 0;
+  for (const s of [CANVAS, ...LADDER]) {
+    const cv = logoCanvas(s);
+    setTimeout(() => cv.toBlob((b) => download(b, `deepdive-logo-${s}.png`), 'image/png'), 150 * i++);
+  }
+  for (const [kind, s] of [['master', CANVAS], ['small', 64], ['small', 32], ['small', 16]]) {
+    const cv = iconCanvas(kind, s);
+    setTimeout(() => cv.toBlob((b) => download(b, `deepdive-icon-${kind}-${s}.png`), 'image/png'), 150 * i++);
+  }
+}
+
+/* ---------------- 页面组装 ---------------- */
+function tile(parent, cv, caption, checker) {
   const d = document.createElement('div');
-  d.className = 'board';
-  canvas.classList.add('main');
-  d.appendChild(canvas);
+  d.className = checker ? 'board checker' : 'board';
+  cv.style.width = PREVIEW + 'px';
+  cv.style.height = PREVIEW + 'px';
+  d.appendChild(cv);
   const c = document.createElement('div');
   c.className = 'cap';
   c.innerHTML = caption;
@@ -121,50 +263,69 @@ function addBoard(parent, canvas, caption) {
   parent.appendChild(d);
 }
 
-function renderAll() {
-  for (const id of ['mainRow', 'iconRow', 'ladderRow']) document.getElementById(id).innerHTML = '';
-  boards.length = 0;
+function renderBoard() {
+  tile(document.getElementById('markRow'), logoCanvas(PREVIEW),
+    `<b>主 Logo</b> — 白底方版，D 高 72% 画布，右侧 σ 由 0（0.42W）线性涨到 0.055H（实心右缘）`);
 
-  const logo = renderLogo(1024);
-  boards.push(logo);
-  addBoard(document.getElementById('mainRow'), logo,
-    '<b>主 Logo</b> — 黑底方版反白鲸鱼，6 档尺寸（1024…32）导出即此');
+  const iconRow = document.getElementById('iconRow');
+  tile(iconRow, iconCanvas('master', PREVIEW),
+    '<b>AppIcon 母版</b> — Apple 网格：1024 画布 / 824 艺术区 / 185.4 圆角 / 烘焙投影，标记带渐变', true);
+  for (const s of [64, 32, 16]) {
+    const d = document.createElement('div');
+    d.className = 'board checker';
+    const cv = iconCanvas('small', s * 4);
+    cv.style.width = s * 4 + 'px';
+    cv.style.height = s * 4 + 'px';
+    cv.style.imageRendering = 'pixelated';
+    d.appendChild(cv);
+    const c = document.createElement('div');
+    c.className = 'cap';
+    c.innerHTML = `<b>小尺寸剪影</b> — ${s}px 直渲（无渐变，清晰剪影）放大 ${4}×`;
+    d.appendChild(c);
+    iconRow.appendChild(d);
+  }
 
-  const icon = renderIconSquircle(1024);
-  boards.push(icon);
-  addBoard(document.getElementById('iconRow'), icon,
-    '<b>macOS 图标容器</b> — 22.37% 圆角黑 squircle，白鲸居中；AppIcon 由此按 Apple 网格切档');
-
-  const ladder = document.getElementById('ladderRow');
-  for (const s of [512, 256, 128, 64, 32]) {
+  const ladderRow = document.getElementById('ladderRow');
+  for (const s of LADDER) {
     const cell = document.createElement('div');
     cell.className = 'cell';
-    const layer = renderLogo(s);
-    boards.push(layer);
-    layer.style.width = layer.style.height = s + 'px';
-    cell.appendChild(layer);
+    cell.appendChild(logoCanvas(s));
     const lb = document.createElement('div');
     lb.className = 'lb';
     lb.textContent = s + 'px';
     cell.appendChild(lb);
-    ladder.appendChild(cell);
+    ladderRow.appendChild(cell);
   }
 }
 
-function exportAll() {
-  for (const cv of boards) {
-    if (!cv._export) continue;
-    cv.toBlob((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = cv._export.name;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    }, 'image/png');
+/* 单标模式（无头渲染用）：
+   ?logo=<边长>            白底方版主 Logo；截图即产物
+   ?icon=master            1024 图标母版；?icon=small&size=<n> 全幅剪影图标
+   ?path=1                 输出壳侧用剪影路径（viewBox 与其后的 d） */
+const q = new URLSearchParams(location.search);
+const iconKind = q.get('icon');
+let mode = 'board';
+if (q.get('path') === '1') mode = 'path';
+else if (iconKind === 'master' || iconKind === 'small') mode = 'icon';
+else if (q.has('logo')) mode = 'logo';
+
+if (mode === 'board') {
+  renderBoard();
+} else {
+  document.getElementById('wrap').remove();
+  document.body.style.margin = '0';
+  document.body.style.background = 'transparent';   // 图标砖的四角要留透明
+  if (mode === 'path') {
+    const g = geom(MARK, CANVAS);
+    document.body.textContent = `viewBox="0 0 ${r2(g.h)} ${r2(g.h)}" d="${markPath(g, (g.h - g.w) / 2)}"`;
+  } else {
+    const cv = mode === 'icon'
+      ? iconCanvas(iconKind, iconKind === 'master' ? CANVAS : (Number(q.get('size')) || 32))
+      : logoCanvas(Number(q.get('logo')));
+    cv.style.display = 'block';
+    document.body.appendChild(cv);
   }
 }
-
-renderAll();
 </script>
 </body>
 </html>

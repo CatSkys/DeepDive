@@ -1,36 +1,66 @@
-# DeepDive Logo 设计稿 v3
+# design/logo — DeepDive Logo 生成器与产物（唯一事实源）
 
-> **品牌名：DeepDive（中文配对「深潜」；前身工程代号 DSHmini，工程改名收口见 `docs/BRANDING.md` §5）。** 本稿为黑底反白鲸鱼 logo 的唯一事实源。
-> **状态：已定稿（2026-09-05，用户指定黑底反白方向）。** 改动前先备份 exports/。
+## 是什么
 
-**官方 DeepSeek 鲸鱼实心剪影 · 白鲸 `#FFFFFF` · 黑底 `#0b0b0c`。** 纯矢量确定性渲染，无随机种子、无字符纹理。
+DeepDive 的正式 logo（用户 2026-10-08 定稿）：**白底 + 实心 D + 右侧横向渐变模糊**。纯几何、原创，不派生任何第三方图形。
 
-v1（实心黑鲸 + 玻璃深底）与 v2（ASCII 字符鲸，黑墨透明底）按用户方向变更废弃；v2 的鲸鱼 fit 参数（最长边 72%、光学中心 y 48.5%）沿用为 v3 配方。
+| 文件 | 作用 |
+|---|---|
+| `index.html` | **唯一事实源**：几何/模糊配方 + 设计稿板 + 导出（自包含，双击即开，无需服务器） |
+| `exports/` | 产物：主 Logo 阶梯（1024…16）、AppIcon 母版与小尺寸剪影版、壳侧剪影路径 |
+| `exports/deepdive-mark-path.txt` | 壳侧 `BrandMark.markPath` 的**逐字来源**（`?path=1` 输出，正方形 viewBox）——改配方后重取并粘回 Swift |
 
-## 文件
+## 配方
 
-- `index.html` — 设计稿 + 生成器（自包含，可直接双击打开，无需服务器）
-- `exports/` — 全部渲染产物
+画布 1024（viewBox），白 `#FFFFFF` 铺底，D 取 `#0b0b0c`（与品牌黑同值）。改 `index.html` 顶部常量即改全部产物。
 
-| 文件 | 说明 |
-| --- | --- |
-| `deepdive-logo-white-on-black-{1024…32}.png` | 主资产：黑底方版 PNG，白色实心鲸鱼，6 档尺寸 |
-| `deepdive-icon-black-1024-squircle.png` | 图标容器：22.37% 圆角黑 squircle + 白鲸（透明画布，无投影） |
+**实心 D 轮廓**：左侧圆角矩形柄 + 右侧半圆（半径 = 高/2），无字腔；高 = 72% 画布（737.28px），宽/高 = 0.977（柄 0.477 + 半圆 0.5 → 宽 720.32px），左侧两角圆角 = 高 10%（73.73px）。1024 画布里落位：左缘 x 121.43、上缘 y 143.36、实心右缘 x 841.75。
 
-`index.html` 页面上有「导出全部 PNG」；主 Logo 区展示黑底方版，图标区展示 squircle 容器，尺寸阶梯为同配方重渲染。
+**右侧渐变模糊**：σ 沿 x 从 0（0.42W 处）线性涨到 0.055H（实心右缘），1.05W 处到 σmax = 0.0602H，其外恒定。
 
-## 生成配方
+**渲染工艺**（三条都不是可选项，换掉就出伪影）：
 
-1. **鲸鱼 path**：官方 favicon.svg（50×50 viewBox，vendored 副本 `deepseek-harness/apps/web/public/favicon.svg`），与壳侧 `FloatingBubble.WhaleAsset` 同源
-2. **fit**：鲸鱼包围盒（256px 位图扫 alpha 量测）最长边 = 画布 72%，光学中心 y = 48.5%（水平居中）
-3. **主资产**：全幅 `#0b0b0c` 方底 + `#FFFFFF` 实心鲸
-4. **图标容器**：22.37% 圆角黑 squircle + 白鲸；AppIcon 由壳侧按 Apple 官方网格切档（见下）
+1. **逐像素求连续 σ 场**：墨量 = `Φ(−sd(x,y)/σ(x))`，`sd` 是到 D 的符号距离（六段边界取最近：左竖边、平顶、平底、左上/左下圆角弧、右大弧）。**不要**用 SVG 滤镜叠层近似——分级 σ 在级间会沿轮廓鼓起可见接缝。
+2. **8-bit 量化前加 ±0.5 级 8×8 拜耳抖动**（固定矩阵，无随机种子）。平缓渐变的等墨度线会被整数码阶摞成一层层可见色带（提亮视图里像同心弧），抖动把它打散。
+3. σ=0 的实心区用线性覆盖度做 1px 抗锯齿（否则圆角弧出锯齿）；圆弧距离必须按**弧段**算，整圆会让圆的另一半穿进实心内部刻出虚线圈。
 
-## AppIcon 落地
+## 图标
 
-`apps/macos/Assets.xcassets/AppIcon.appiconset/` 全部 10 档 = 同一黑底反白设计：
+| 产物 | 配方 |
+|---|---|
+| `deepdive-icon-master-1024.png` | Apple 网格母版：1024 画布 / 824 艺术区 / 185.4 圆角 / 烘焙投影（0 15 45，α 0.30）；标记取渐变版，画布 758 居中 |
+| `deepdive-icon-small-{64,32,16}.png` | 全幅 squircle（22.37% 圆角）无投影 + **清晰剪影**（按墨迹居中，D 高 66%）——小尺寸上渐变会糊成一块 |
 
-- 128×128 及以上 6 档：Apple 官方网格母版（1024 画布 / 824 艺术区 / 185.4 圆角 / 黑 30% 模糊 45px 下移 15px 烘焙投影）缩档
-- 16/32 槽位（16/32/64px）：全幅 squircle 直渲、无投影（小尺寸不吃网格，鲸鱼保持 72% 占比）
-- 生成：NSImage 原生 SVG 渲染的一次性脚本（未入库，改配色/比例时重写成本极低）；`project.yml` 挂 Assets.xcassets + `ASSETCATALOG_COMPILER_APPICON_NAME`，`LSUIElement` false（进 Dock + ⌘⇥）
-- 小尺寸可读性：实心剪影 16px 仍可辨（ASCII 字符版 128px 起失认）
+≥128 各档由母版 LANCZOS 缩档；16/32 槽位用 small。落地：`apps/macos/Assets.xcassets/AppIcon.appiconset/` 十档；DMG 卷图标由 `scripts/package-macos.sh` 复制 `AppIcon.icns`，随资产自动跟随。
+
+## 落点（改 logo 时四处一起改）
+
+| 表面 | 落点 |
+|---|---|
+| AppIcon（Dock/⌘⇥/访达/DMG 卷） | `apps/macos/Assets.xcassets/AppIcon.appiconset/` 十档 |
+| 菜单栏状态图 | `FloatingBubble.swift` → `BrandMark.statusIcon`（模板图：剪影 + 状态点） |
+| 悬浮球中央图形 | `FloatingBubble.swift` → `BrandMark.image`（同一剪影，白色填充） |
+| 新手引导卡 | `frontend/src/assets/deepdive-logo-256.png`（= `exports/deepdive-logo-256.png`，CSS 切 22.37% squircle） |
+
+## 重渲染
+
+浏览器打开 `index.html`：`⬇ 导出全部 PNG`。定尺寸产物用无头 Chrome 直出（单标模式：整页只有该产物，截图尺寸即产物尺寸）：
+
+```sh
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CHROME" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
+  --window-size=1024,1024 --default-background-color=00000000 \
+  --screenshot=exports/deepdive-logo-1024.png "file://$PWD/index.html?logo=1024"
+
+"$CHROME" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
+  --window-size=1024,1024 --default-background-color=00000000 \
+  --screenshot=exports/deepdive-icon-master-1024.png "file://$PWD/index.html?icon=master"
+
+"$CHROME" --headless --disable-gpu --dump-dom "file://$PWD/index.html?path=1"   # 壳侧剪影路径
+```
+
+参数：`?logo=<边长>` 主 Logo；`?icon=master` 图标母版；`?icon=small&size=<边长>` 小尺寸剪影图标；`?path=1` 壳侧路径。AppIcon 十档由母版缩档后写入 `Assets.xcassets`（16/32 槽位改用 small 直渲版）。
+
+## 尺寸可读性（实测）
+
+32px 起清晰剪影仍能读作实心 D；16px 收敛为圆角块（形状本身在极小尺寸下的极限，非渲染问题）。带渐变的版本只用于 ≥64 的使用场景；菜单栏与小图标一律走清晰剪影。
