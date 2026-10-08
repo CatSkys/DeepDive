@@ -55,6 +55,23 @@ describe("CapsuleSubagentSection", () => {
     expect(bare.container.querySelectorAll(".capsule-sub-line")).toHaveLength(0);
   });
 
+  it("已结束的行前导用对勾（在跑才是 Bot）", () => {
+    expect(mount().container.querySelector(".lucide-circle-check")).toBeTruthy();
+    cleanup();
+    const live = render(
+      <CapsuleSubagentSection
+        children={[child("child-1", "Find frontend and docs")]}
+        runningIds={new Set(["child-1"])}
+        diag={false}
+        busy={false}
+        onOpen={() => {}}
+        onInterrupt={() => {}}
+      />,
+    );
+    expect(live.container.querySelector(".lucide-circle-check")).toBeNull();
+    expect(live.container.querySelector(".lucide-bot")).toBeTruthy();
+  });
+
   it("右侧是「已结束 · 时长」，取投影 subagentTiming.settledMs；投影缺字段只给状态", () => {
     expect(mount().getByText("已结束 · 1 小时")).toBeTruthy();
     cleanup();
