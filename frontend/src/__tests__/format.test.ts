@@ -1,7 +1,7 @@
 // formatElapsed（AUD-047 收敛目的地）的档位边界：秒/分/时分三档与跨档进位。
 // relativizePath：工具行摘要的项目内路径相对化（用户定稿）。
 import { describe, expect, it } from "vitest";
-import { formatElapsed, relativizePath } from "../session/format";
+import { compactElapsed, formatElapsed, relativizePath } from "../session/format";
 
 describe("relativizePath", () => {
   const cwd = "/Users/me/DSHmini";
@@ -37,5 +37,16 @@ describe("formatElapsed", () => {
     expect(formatElapsed(3660000)).toBe("1h 1m 0s");
     expect(formatElapsed(7199000)).toBe("1h 59m 59s"); // 1h59m59s
     expect(formatElapsed(2 * 3600000 + 5 * 60000 + 9000)).toBe("2h 5m 9s");
+  });
+});
+
+describe("compactElapsed 紧凑时长（子智能体行右侧）", () => {
+  it("小时 / 分 / 秒三档，且负值与不足一秒都钳到 0 秒", () => {
+    expect(compactElapsed(3_600_000)).toBe("1 小时");
+    expect(compactElapsed(2 * 3600_000)).toBe("2 小时");
+    expect(compactElapsed(90_000)).toBe("1 分");
+    expect(compactElapsed(42_000)).toBe("42 秒");
+    expect(compactElapsed(400)).toBe("0 秒");
+    expect(compactElapsed(-5)).toBe("0 秒");
   });
 });

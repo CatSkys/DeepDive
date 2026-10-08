@@ -395,6 +395,7 @@ export const EN: Record<string, string> = {
   "清除目标": "Clear goal",
   "刷新": "Refresh",
   "运行中": "Running",
+  "已结束": "Ended",
   "会话权限": "Session permissions",
   "浏览器控制": "Browser Control",
   "部分子会话状态不可读": "Some children unreadable",

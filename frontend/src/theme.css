@@ -4254,6 +4254,15 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   border-radius: var(--dsh-radius-keycap);
 }
 .capsule-row-click:hover { background: var(--fill); }
+/* 子智能体行：两行（标签 + 副行）——行顶端对齐，图标与右侧「状态 · 时长」都钉在
+   标签那一行（ZCode 的 agents 行同款）。副行是子会话自己的标题，与标签重复时不渲染。 */
+.capsule-sub-click { align-items: flex-start; }
+.capsule-sub-main { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
+.capsule-sub-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.capsule-sub-line {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--dsh-font-size-sm); color: var(--ink-3);
+}
 .capsule-stop { color: var(--ink-3); padding: 3px; border-radius: 4px; flex: none; align-self: center; }
 .capsule-stop:hover:not(:disabled) { color: var(--dsh-signal-warn); background: var(--fill); }
 .capsule-sec-toggle {

@@ -81,6 +81,18 @@ export function formatElapsed(ms: number): string {
   if (m < 60) return `${m}m ${sec}s`;
   return `${Math.floor(m / 60)}h ${m % 60}m ${sec}s`;
 }
+/** 时长的紧凑说法（子智能体行右侧那种「1 小时」）：小时 → 「N 小时」，分钟 → 「N 分」，
+ *  不到一分钟 → 「N 秒」。与 fmtTime 用同一套单位词（读起来是一种语言），
+ *  但语义是**时长**不是"多久以前"；也不与披露条的「已工作 X」混用（那是句子）。 */
+export function compactElapsed(ms: number): string {
+  const total = Math.floor(Math.max(0, ms) / 1000);
+  const h = Math.floor(total / 3600);
+  if (h > 0) return tt("{h} 小时", "{h}h", { h });
+  const m = Math.floor(total / 60);
+  if (m > 0) return tt("{m} 分", "{m}m", { m });
+  return tt("{s} 秒", "{s}s", { s: total });
+}
+
 export function truncate(s: string, n = 400): string {
   if (s.length <= n) return s;
   return s.slice(0, n) + "…";
