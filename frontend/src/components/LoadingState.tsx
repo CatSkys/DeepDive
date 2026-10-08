@@ -2,65 +2,56 @@ import { useEffect, useState } from "react";
 import { formatElapsed } from "../session/format";
 
 /* ─────────────────────────────────────────────────────────
- * LOADING STATE — pixel-grid loader for long-running work
+ * LOADING — 两种在跑指示
  *
- * Variants:
- *   Drive  — square cells, chevron wavefront driving right;
- *            the 650ms cycle is shorter than the sweep, so
- *            two fronts are always in flight
- *   Dots   — same wavefront, circular cells
- *   Orbit  — a comet lapping the grid perimeter
- *
- * Paired with a shimmering label and a live elapsed timer
- * in mono tabular figures. Reduced motion freezes the grid
- * to its dim state; the timer still ticks.
+ *   LoadingState — 会话流末那一行：只有文字（微光扫过的标签 +
+ *                  走等宽表格数字的计时）
+ *   Spinner      — 行内转圈：DashRing 那一款（淡轨道 + 一段会伸缩
+ *                  的弧）。边栏任务行槽位与浏览器标签的加载中共用
+ *                  一枚；配色/线宽在 theme.css 的 .spin-ring
  * ───────────────────────────────────────────────────────── */
 
-const chevron = Array.from({ length: 9 }, (_, i) => {
-  const r = Math.floor(i / 3), c = i % 3;
-  return (c + Math.abs(r - 1)) * 90;
-});
+/* 转圈几何：半径 5.3（线宽 1.4 的一半正好贴满 12 的框）。弧长按周长算——和
+   UsageMeter 同一做法，dasharray 落的是绝对用户单位，改 r 只改这一处；不引 SVG 的
+   pathLength 归一（那条在本宿主的 WKWebView 上没验过，不想让"圈有没有缺口"押在它身上）。 */
+const RING_R = 5.3;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R;
+const ringDash = (fraction: number) => (RING_CIRCUMFERENCE * fraction).toFixed(2);
+const RING_GAP = RING_CIRCUMFERENCE.toFixed(2);
+/** 弧长在周长的 10%–70% 之间来回（参考 DashRing：短—长—短，没有满圈那一刻）。 */
+const ARC_SHORT = ringDash(0.1);
+const ARC_LONG = ringDash(0.7);
 
-const ORBIT_ORDER = [0, 1, 2, 5, 8, 7, 6, 3];
-const orbit = Array.from({ length: 9 }, (_, i) => {
-  const k = ORBIT_ORDER.indexOf(i);
-  return k === -1 ? null : k * 110;
-});
-
-const PATTERNS = {
-  Drive: { delays: chevron, dur: 650, round: false },
-  Dots: { delays: chevron, dur: 650, round: true },
-  Orbit: { delays: orbit, dur: 950, round: false },
-};
-
-function LoaderGrid({
-  delays,
-  dur,
-  round,
-}: {
-  delays: (number | null)[];
-  dur: number;
-  round: boolean;
-}) {
+/** 行内转圈：淡轨道 + 会伸缩的弧，弧边转边长（DashRing 那一款——"streaming" 的观感，
+   比固定缺口的圈更像"一直在跑"）。**dash 长度的补间只有 SMIL 能表达**（CSS 里动画
+   stroke-dasharray 各浏览器不保证），所以伸缩走 <animate>；旋转仍归 CSS 的 --loop-spin，
+   两者周期不同拍，转起来不呆板。`label` 给了才进无障碍树——边栏槽位里那枚是行标题的
+   附注，装饰性（aria-hidden）。 */
+export function Spinner({ className, label }: { className?: string; label?: string }) {
   return (
-    <span aria-hidden className="loader-grid">
-      {delays.map((delay, index) => (
-        <span
-          key={index}
-          className={`loader-cell${round ? " round" : ""}`}
-          style={{
-            opacity: delay === null ? 0.07 : 0.15,
-            animation: delay === null ? "none" : `pixel-on ${dur}ms ease-in-out ${delay}ms infinite`,
-          }}
+    <svg
+      className={className ? `spin-ring ${className}` : "spin-ring"}
+      viewBox="0 0 12 12"
+      width="12"
+      height="12"
+      role={label ? "img" : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      <circle className="spin-ring-track" cx="6" cy="6" r={RING_R} />
+      <circle className="spin-ring-arc" cx="6" cy="6" r={RING_R} strokeDasharray={`${ARC_SHORT} ${RING_GAP}`}>
+        <animate
+          attributeName="stroke-dasharray"
+          dur="1.6s"
+          repeatCount="indefinite"
+          calcMode="spline"
+          values={`${ARC_SHORT} ${RING_GAP};${ARC_LONG} ${RING_GAP};${ARC_SHORT} ${RING_GAP}`}
+          keyTimes="0;0.5;1"
+          keySplines="0.4 0 0.2 1;0.4 0 0.2 1"
         />
-      ))}
-    </span>
+      </circle>
+    </svg>
   );
-}
-
-/** 行内复用的 Drive 网格（不带标签/计时）：边栏任务行"运行中"槽位等小尺寸场景。 */
-export function InlineLoader() {
-  return <LoaderGrid {...PATTERNS.Drive} />;
 }
 
 /**
@@ -84,21 +75,17 @@ function useElapsed(since?: number) {
 
 export function LoadingState({
   label,
-  variant = "Drive",
   /** anchor the elapsed timer to a real start time (epoch ms) */
   since,
 }: {
-  label?: string;
-  variant?: keyof typeof PATTERNS;
+  label: string;
   since?: number;
 }) {
   const elapsed = useElapsed(since);
-  const { delays, dur, round } = PATTERNS[variant];
 
   return (
     <div role="status" className="loading-state">
-      <LoaderGrid delays={delays} dur={dur} round={round} />
-      <span className="loading-label">{label ?? "Churning"}</span>
+      <span className="loading-label">{label}</span>
       <span className="loading-elapsed">{elapsed}</span>
     </div>
   );

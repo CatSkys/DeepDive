@@ -16,7 +16,7 @@
      keycap 6  迷你图标钮/小标签
      bubble 24  聊天气泡软胶囊；pill 999 / 圆 50% 为语义形状
    例外：≤16px 的微型元素（滚动条 thumb、
-   loader-cell、tool-sep 圆点）允许按比例小圆角。 */
+   unread-dot、tool-sep 圆点）允许按比例小圆角。 */
 @import "../packages/design/generated/tokens.css";
 
 /* ── 语义颜色变量（暗色 = 现值；亮色经 media query 覆盖）───────────────
@@ -2768,7 +2768,7 @@ button {
   color: var(--ink-3);
 }
 
-/* ---- loading state（pixel-grid loader，LoadingState.tsx） ---- */
+/* ---- loading state（LoadingState.tsx：会话流末那一行文字 + 计时） ---- */
 /* Tailwind 版设计移植：--ink/--ink-3 映射为本应用的玻璃白阶。 */
 .loading-state {
   --ls-ink: var(--ink);
@@ -2782,19 +2782,20 @@ button {
 }
 .loading-state-row { display: flex; align-items: center; gap: 10px; }
 
-.loader-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 4px);
-  gap: 1.5px;
-  flex-shrink: 0;
+/* 转圈（行内加载指示，DashRing 那一款）：淡轨道 + 一段会伸缩的弧，弧边转边长。
+   轨道与弧的配色/线宽在这里，形状与伸缩（SMIL）在 Spinner 里；旋转取常驻循环档
+   --loop-spin（与状态点呼吸同族）。弧取 --ink-2 而不是轨道那种淡档：这一枚在边栏
+   行首、紧挨转白的标题，同槽位的未读点又是纯白，太淡会显得是破圈。全 app 一份配方：
+   边栏任务行槽位与浏览器标签的加载中共用，两处只负责摆放。 */
+.spin-ring {
+  display: block; flex: none;
+  width: 12px; height: 12px;
+  animation: spin-ring var(--loop-spin) linear infinite;
 }
-.loader-cell {
-  width: 4px;
-  height: 4px;
-  background: var(--ls-ink);
-  border-radius: 1px;
-}
-.loader-cell.round { border-radius: 999px; }
+.spin-ring circle { fill: none; stroke-width: 1.4; stroke-linecap: round; }
+.spin-ring-track { stroke: var(--line-strong); }
+.spin-ring-arc { stroke: var(--ink-2); }
+@keyframes spin-ring { to { transform: rotate(360deg); } }
 
 .loading-label {
   font-size: var(--dsh-font-size-base);
@@ -2833,21 +2834,15 @@ button {
   color: var(--ink-3);
 }
 
-@keyframes pixel-on {
-  0% { opacity: .15; }
-  18% { opacity: 1; }
-  42% { opacity: .15; }
-  100% { opacity: .15; }
-}
 @keyframes shimmer-text { to { background-position: -200% 0; } }
 @keyframes pop-in {
   from { opacity: 0; transform: scale(.96); }
   to { opacity: 1; transform: none; }
 }
 
-/* 减弱动态效果：网格冻结在暗态（inline 基础 opacity 生效），计时器照常走。 */
+/* 减弱动态效果：微光停住（标签转为静态文字），计时器照常走。转圈不随此开关停——
+   它是"在跑"的指示本身（浏览器标签那枚同此）。 */
 @media (prefers-reduced-motion: reduce) {
-  .loader-cell { animation: none !important; }
   .loading-label { animation: none; }
 }
 
@@ -2939,10 +2934,7 @@ button {
   align-items: center;
   justify-content: center;
 }
-.task-row .row-slot .loader-grid {
-  --ls-ink: var(--ink);
-  transform: scale(.8);
-}
+/* 运行中：槽位里一枚 12px 的转圈（.spin-ring 的共享配方，这里不另加尺寸） */
 .task-row .unread-dot {
   width: 5px;
   height: 5px;
@@ -4470,7 +4462,19 @@ input:focus, textarea:focus, select:focus { outline: none; }
   animation: pop-in var(--dur-fast) var(--ease-out);
 }
 .dialog-title { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
-.dialog-msg { font-size: var(--dsh-font-size-base); color: var(--ink-2); line-height: 1.55; white-space: pre-line; }
+/* 正文：长错误串里全是不可断的路径（引擎的 dlopen 报错就是十几行绝对路径），
+   没有 overflow-wrap 时它会整段顶到卡片右缘被裁掉——报错反而看不全。上限一屏内
+   且自己滚，确保操作按钮永远在卡内可见。错误是要给人复制去查的，放开选择。 */
+.dialog-msg {
+  font-size: var(--dsh-font-size-base);
+  color: var(--ink-2);
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  user-select: text;
+}
 .dialog-title + .dialog-msg { margin-top: 8px; }
 .dialog-input {
   width: 100%;
@@ -4499,6 +4503,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 .dialog-btn:hover { background: var(--fill-strong); }
+/* 键盘焦点：本应用的黑白 2px 环（UI-SPEC §2）。不给的话按钮拿到焦点时是 WebKit
+   的默认蓝环——全 app 唯一一处彩色，弹窗上尤其扎眼。 */
+.dialog-btn:focus-visible { outline: 2px solid var(--line-focus); outline-offset: 1px; }
 .dialog-btn.primary { border: none; background: var(--ink); color: var(--on-ink); font-weight: 600; }
 .dialog-btn.primary:hover { opacity: 0.85; background: var(--ink); }
 .dialog-btn.primary.danger { background: var(--dsh-signal-danger); color: #fff; }
@@ -4759,15 +4766,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-tab-end {
   flex: none; position: relative; width: 30px; height: 28px; margin-right: 0;
 }
-/* 转圈：参考 Ring 的同一款——缺口圆环自己转 */
+/* 转圈：外观（缺口圆环/尺寸/转速）在 .spin-ring，这里只管把那一枚摆在格子里 */
 .panel-browser-tab-ring {
   position: absolute; inset: 0; margin: auto;
-  width: 12px; height: 12px;
-  border: 1.4px solid var(--ink-3); border-radius: 50%;
-  border-right-color: transparent;
-  animation: panel-browser-ring-spin var(--loop-spin) linear infinite;
 }
-@keyframes panel-browser-ring-spin { to { transform: rotate(360deg); } }
 /* 关闭叉：只在该标签被指向时出现，热区是整个右端（参考同一取舍）；
    叠在转圈上面，指向时盖过它 */
 .panel-browser-tab-close {

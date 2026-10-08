@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Volume2, VolumeX, X } from "lucide-react";
 import { t, tt } from "../i18n";
+import { Spinner } from "../components/LoadingState";
 import { AddressField } from "./BrowserAddressField";
 import { shortAddress } from "./browserUrl";
 import type { PaneFace } from "./useIframeBrowser";
@@ -67,7 +68,7 @@ function Speaker({ tab, onMute }: { tab: BrowserTabFace; onMute: (id: string, mu
 function EndSlot({ tab, onClose }: { tab: BrowserTabFace; onClose: () => void }) {
   return (
     <span className="panel-browser-tab-end">
-      {tab.loading && <span className="panel-browser-tab-ring" aria-label={t("加载中")} />}
+      {tab.loading && <Spinner className="panel-browser-tab-ring" label={t("加载中")} />}
       <button
         type="button"
         className="panel-browser-tab-close"

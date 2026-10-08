@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { Archive, ChevronDown, Ellipsis, Pin, Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
-import { InlineLoader } from "./LoadingState";
+import { Spinner } from "./LoadingState";
 import { HoverScrollText } from "./HoverScrollText";
 import { wsGlyphIcon } from "./IconPicker";
 import { useWsIcon } from "../wsIcons";
@@ -99,7 +99,7 @@ export function SidebarSessionList({
       {s.sessionId === store.activeSessionId && <span className="row-read" aria-hidden="true" />}
       <span className="row-slot">
         {s.running ? (
-          <InlineLoader />
+          <Spinner />
         ) : store.unread.has(s.sessionId) ? (
           <span className="unread-dot" />
         ) : (
