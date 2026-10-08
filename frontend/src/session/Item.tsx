@@ -46,7 +46,7 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
     const blocks = blocksOf(item.event);
     return (
       <div className="msg-block assistant">
-        {blocks.think && !hideThinking && <ThinkingState reasoning={blocks.think} running={false} />}
+        {blocks.think && !hideThinking && <ThinkingState reasoning={blocks.think} running={false} ms={item.thinkMs} />}
         <AgentMessage text={t} onOpenFile={onPreviewFile} />
       </div>
     );
@@ -58,7 +58,7 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
     // 思考、答案），它就不再是直播项，自动收起成「已思考」。
     const text = item.output ?? "";
     if (!text) return null;
-    return <ThinkingState reasoning={text} running={running} />;
+    return <ThinkingState reasoning={text} running={running} ms={item.thinkMs} />;
   }
   if (item.kind === "turn-tail") {
     // DSH turn-tail chrome: produced files + copy / branch / clock("end"),

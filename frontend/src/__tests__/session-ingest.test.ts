@@ -104,6 +104,36 @@ describe("ingest 黄金回放", () => {
     expect(out.filter((x) => x.kind === "assistant")).toHaveLength(2);
   });
 
+  it("思考时长＝推理首帧→末帧，裁切时交接给 assistant 项（「思考 · 持续了 N 秒」的数据）", () => {
+    const ctx2 = makeIngestCtx();
+    const items: RenderItem[] = [];
+    for (const [t, text] of [[1_000, "先"], [4_400, "想想"]] as const) {
+      ingest(items, {
+        event: {
+          type: "assistant/chunk", seq: t, time: t,
+          data: { turn: 9, step: 1, chunk: { type: "reasoning-delta", index: 0, text } },
+        } as SessionEvent,
+      }, ctx2);
+    }
+    ingest(items, {
+      event: {
+        type: "assistant/message", seq: 9_999, time: 5_000,
+        data: {
+          turn: 9, step: 1,
+          message: {
+            role: "assistant", id: "m9",
+            content: [{ type: "text", text: "答" }],
+            source: { kind: "model", provider: "", model: "" },
+          },
+        },
+      } as SessionEvent,
+    }, ctx2);
+    const a = items.find((x) => x.kind === "assistant");
+    // 3400 = 末帧(4400) − 首帧(1000)：**推理那一段**，不是"到消息为止"的 4000
+    expect(a?.thinkMs).toBe(3_400);
+    expect(items.some((x) => x.kind === "reasoning")).toBe(false);
+  });
+
   it("工具行按 callId O(1) 归并：result 回填 output 且不新增行", () => {
     const tool = out.find((x) => x.kind === "tool-call");
     expect(tool?.toolCallId).toBe("c1");

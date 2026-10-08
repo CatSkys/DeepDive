@@ -28,6 +28,9 @@ export interface RenderItem {
   failed?: boolean;
   time?: number;
   turn?: number;
+  /** 思考时长（ms）。reasoning 项＝首帧→末帧的时间戳之差；assistant 项＝被它取代的
+   *  那条 reasoning 的时长（内嵌推理只有文本、没有时间，时长在裁切时交接过来）。 */
+  thinkMs?: number;
   /** 命令卡：run/done 以 commandId 配对，done 到达时就地补状态与结果文本。 */
   commandId?: string;
   commandStatus?: "running" | "success" | "error";
@@ -287,8 +290,13 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       if (chunk.type === "reasoning-delta" && typeof chunk.text === "string" && chunk.text) {
         const turn = d.turn;
         const last = out[out.length - 1];
-        if (last && last.kind === "reasoning" && last.turn === turn) last.output = (last.output ?? "") + chunk.text;
-        else out.push({ ...base, key: `${base.key}:reasoning`, kind: "reasoning", output: chunk.text, turn });
+        if (last && last.kind === "reasoning" && last.turn === turn) {
+          last.output = (last.output ?? "") + chunk.text;
+          // 时长用**推理流自己的时间戳**（首帧 → 末帧），不用"到下一项为止"那种估法：
+          // 推理结束后模型还要写正文，那是另一段时间（用户定稿：参考 ZCode 的
+          // 「思考 · 持续了 18 秒」，秒数得是推理那一段的）。
+          last.thinkMs = Math.max(0, ev.time - (last.time ?? ev.time));
+        } else out.push({ ...base, key: `${base.key}:reasoning`, kind: "reasoning", output: chunk.text, turn, thinkMs: 0 });
       }
       break;
     }
@@ -301,9 +309,16 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       // fragments.
       let cut = out.length - 1;
       while (cut >= 0 && (out[cut].kind === "chunk" || out[cut].kind === "reasoning") && out[cut].turn === turn) cut -= 1;
+      // 这一步的思考时长**随身带走**再裁：下面会把那条直播 reasoning 项丢掉，而落到
+      // assistant 里的内嵌推理（blocks.think）只有文本——时长只能在这里交接（思考行
+      // 收起后要显示「思考 · 持续了 N 秒」）。
+      let thinkMs: number | undefined;
+      for (let i = cut + 1; i < out.length; i++) {
+        if (out[i].kind === "reasoning" && out[i].thinkMs !== undefined) thinkMs = out[i].thinkMs;
+      }
       out.length = cut + 1;
       // Track the accumulated tail payload.
-      if (text) out.push({ ...base, kind: "assistant", turn });
+      if (text) out.push({ ...base, kind: "assistant", turn, thinkMs });
       if (text) ctx.turnText.set(turn, text);
       if (d.usage) {
         // 多步轮按官方口径跨 step 求和（turn-metrics 的 fold 规则）

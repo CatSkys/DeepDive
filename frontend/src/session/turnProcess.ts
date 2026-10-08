@@ -79,11 +79,33 @@ export function turnWorkLabel(
   durationMs: number,
   tt: (zh: string, en: string, vars?: Record<string, string | number>) => string,
 ): string {
-  const total = Math.floor(durationMs / 1000);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
+  const { h, m, s } = elapsedParts(durationMs);
   if (h > 0) return tt("已工作 {h} 小时 {m} 分", "Worked {h}h {m}m", { h, m });
   if (m > 0) return tt("已工作 {m} 分 {s} 秒", "Worked {m}m {s}s", { m, s });
   return tt("已工作 {s} 秒", "Worked {s}s", { s });
+}
+
+/**
+ * 时长拆成时/分/秒（`turnWorkLabel` 与 `thinkingLabel` 共用这一把尺子）。
+ * @param ms - 毫秒；负值按 0 钳（时钟回拨/异常时间戳）。
+ */
+export function elapsedParts(ms: number): { h: number; m: number; s: number } {
+  const total = Math.floor(Math.max(0, ms) / 1000);
+  return { h: Math.floor(total / 3600), m: Math.floor((total % 3600) / 60), s: total % 60 };
+}
+
+/**
+ * 已结束的思考行标题（用户定稿，参考 ZCode 的「思考 · 持续了 18 秒」）：只给时长，
+ * 与披露条的「已工作 X」同一套分段（秒级只给秒；过小时分位为 0 也只给到分）。
+ * @param ms - thinkMs（推理首帧 → 末帧）。
+ * @param tt - i18n 双语插值。
+ */
+export function thinkingLabel(
+  ms: number,
+  tt: (zh: string, en: string, vars?: Record<string, string | number>) => string,
+): string {
+  const { h, m, s } = elapsedParts(ms);
+  if (h > 0) return tt("思考 · 持续了 {h} 小时 {m} 分", "Thought · {h}h {m}m", { h, m });
+  if (m > 0) return tt("思考 · 持续了 {m} 分 {s} 秒", "Thought · {m}m {s}s", { m, s });
+  return tt("思考 · 持续了 {s} 秒", "Thought · {s}s", { s });
 }

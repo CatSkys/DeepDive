@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n";
 import { useFocusStream } from "../session/useFocusStream";
+import { thinkingLabel } from "../session/turnProcess";
 import { IconThinkOutline14 } from "./Icons";
 
 /* ─────────────────────────────────────────────────────────
@@ -18,11 +19,15 @@ import { IconThinkOutline14 } from "./Icons";
 export function ThinkingState({
   reasoning,
   running = false,
+  ms,
 }: {
   reasoning: string;
   running?: boolean;
+  /** 思考时长（ms，见 renderModel 的 thinkMs）：已结束时显示「思考 · 持续了 N 秒」。
+   *  取不到（老数据/没有流帧）就退回「已思考」——不编一个数字出来。 */
+  ms?: number;
 }) {
-  const { t } = useT();
+  const { t, tt } = useT();
   const [manual, setManual] = useState<boolean | null>(null);
   const expanded = manual ?? running;
   // 推理流同正文一样走受控揭示（慢逐字/快逐行），替代 delta 整段闪现
@@ -76,7 +81,7 @@ export function ThinkingState({
           {running ? (
             <span className="thinking-active">{t("思考中")}</span>
           ) : (
-            <span className="thinking-done">{t("已思考")}</span>
+            <span className="thinking-done">{ms ? thinkingLabel(ms, tt) : t("已思考")}</span>
           )}
         </span>
         <svg

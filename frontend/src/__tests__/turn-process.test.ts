@@ -1,7 +1,7 @@
 // 轮内过程折叠纯函数钉子（官方 turn-process 边界语义 + 用户定稿的
 // 「已工作 X 分 X 秒」披露条标题）。
 import { describe, expect, it } from "vitest";
-import { computeTurnProcess, turnWorkLabel } from "../session/turnProcess";
+import { computeTurnProcess, thinkingLabel, turnWorkLabel } from "../session/turnProcess";
 import type { RenderItem } from "../session/renderModel";
 
 function user(key = "u"): RenderItem {
@@ -98,5 +98,13 @@ describe("turnWorkLabel", () => {
     const info = computeTurnProcess([user(), tool("c1"), assistant("a1"), tail()])!;
     expect(info.durationMs).toBe(0);
     expect(turnWorkLabel(info.durationMs, tt)).toBe("已工作 0 秒");
+  });
+
+  it("思考行标题带时长（用户定稿：参考 ZCode 的「思考 · 持续了 18 秒」）", () => {
+    expect(thinkingLabel(18_000, tt)).toBe("思考 · 持续了 18 秒");
+    expect(thinkingLabel(72_000, tt)).toBe("思考 · 持续了 1 分 12 秒");
+    expect(thinkingLabel(3_780_000, tt)).toBe("思考 · 持续了 1 小时 3 分");
+    expect(thinkingLabel(40, tt)).toBe("思考 · 持续了 0 秒"); // 不足 1 秒：与披露条同一把尺子
+    expect(thinkingLabel(-5, tt)).toBe("思考 · 持续了 0 秒"); // 时钟回拨钳 0
   });
 });
