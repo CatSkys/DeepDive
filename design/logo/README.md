@@ -24,16 +24,20 @@ DeepDive 的正式 logo（用户 2026-10-08 定稿）：**白底 + 实心 D + �
 2. **8-bit 量化前加 ±0.5 级 8×8 拜耳抖动**（固定矩阵，无随机种子）。平缓渐变的等墨度线会被整数码阶摞成一层层可见色带（提亮视图里像同心弧），抖动把它打散。
 3. σ=0 的实心区用线性覆盖度做 1px 抗锯齿（否则圆角弧出锯齿）；圆弧距离必须按**弧段**算，整圆会让圆的另一半穿进实心内部刻出虚线圈。
 
-## 图标
+## 图标（AppIcon）
 
-| 产物 | 配方 |
+事实源是 **Icon Composer 文档** `apps/macos/AppIcon.icon/`：
+
+| 文件 | 说明 |
 |---|---|
-| `deepdive-logo-{1024…128}.png` | **AppIcon ≥128 档直接用主 Logo**：满幅白底 + D |
-| `deepdive-icon-small-{64,32,16}.png` | 16/32 槽位：同样满幅，改用**清晰剪影**（按墨迹居中，D 高 66%）——小尺寸上渐变会糊成一块 |
+| `icon.json` | `fill` = 白底（背景交给它，不烘进图里）；`groups[0].layers[0]` = 标记层，`position` = scale 0.804 / translation-in-points [27, 0] |
+| `Assets/mark.png` | 标记图层：1024×1024 透明底 + D（由生成器 `?layer=1024` 出）——不带白底、不切圆角、不烘投影 |
 
-图标一律是**满幅图**：不切圆角、不留透明边、不烘投影。macOS 26 自己套壳切形；应用自切圆角或留透明边会被系统在背后垫一层底板，在 Dock/Finder 里读成「灰一圈 + 里面白砖」（白底方案尤其明显）。
+**为什么必须是 `.icon`**：macOS 26 只把带 `IconGroup` / `IconImageStack` 条目的图标当原生 Liquid Glass 图标；资产目录里只有老式 `Icon Image`（来自 `AppIcon.appiconset`）或只给 `.icns` 的，系统会把图缩小并垫一块系统底板（社区称 "squircle jail"，官方说法 *"Irregularly shaped icons receive a system-provided background"*）——白底图标上尤其明显，读成「灰一圈 + 里面白砖」。`actool` 把 `.icon` 与 `Assets.xcassets` 一起编译后，`Assets.car` 里出现 IconGroup 条目，底板消失（实测系统渲染剖面由「灰→白→黑」变为「白→黑」）。
 
-落地：`apps/macos/Assets.xcassets/AppIcon.appiconset/` 十档（≥128 取主 Logo 对应档，16/32 取 small 档）；DMG 卷图标由 `scripts/package-macos.sh` 复制 `AppIcon.icns`，随资产自动跟随。
+**尺寸（照系统渲染实测标定，参考同 Dock 里 Dia 的量级）**：D 高占砖 57.9%、墨心与砖心偏移 −5px（0.6%）。改完用 `NSWorkspace` 探针量一遍：砖 824/1024、四角透明、剖面 `....WWWWWKKKKK`（无灰）。
+
+旧的 `Assets.xcassets/AppIcon.appiconset/` 已删：`actool` 26.1+ 对同名 `.icon` 会忽略同名 appiconset，icns 回退由 `.icon` 生成（构建产物里 `AppIcon.icns` 仍在）。
 
 ## 落点（改 logo 时四处一起改）
 

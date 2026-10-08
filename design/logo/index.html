@@ -57,7 +57,12 @@ const W_OVER_H = 0.977;      // 宽/高：柄 0.477 +（半径 = 高/2 的）右
 const CORNER_R = 0.10;       // 左侧两角圆角 = 高 10%
 const EYE_SIGMA = 1.5;       // 定位：视觉外框右界 = 实心右缘 + 1.5σ
 const RAMP_TO = 1.05;        // σ 涨到 σmax 处（实心宽度归一），其外 σ 恒为 σmax
-const SMALL_FIT = 0.66;      // 小尺寸图标里 D 高 / 画布（16/32 槽位用，渐变在极小尺寸会糊）
+const SMALL_FIT = 0.66;      // 小尺寸图标里 D 高 / 砖宽（16/32 槽位用，渐变在极小尺寸会糊）
+/* 图标砖几何（照 macOS 26 上渲染正常的 App 实测）：1024 画布 / 824 圆角砖 / 185.4 圆角 /
+   四周透明。这是 Notes、Clash Verge、BetterDisplay 等原始图共同的几何——中线不透明占 80%、
+   四角 alpha=0。macOS 26 会把「不合规」的图标缩小并垫一块系统底板（社区称 squircle jail，
+   官方说法 "Irregularly shaped icons receive a system-provided background"）。 */
+const TILE = { inset: 100, art: 824, r: 185.4, side: 758 };
 const LADDER = [512, 256, 128, 64, 32, 16];
 const PREVIEW = 452;
 
@@ -183,17 +188,38 @@ function logoCanvas(S) {
   return paintInk(cv, g, { k: S / CANVAS, ox: 0, oy: 0 }, false);
 }
 
-/* 图标 = 满幅图（画布四边不留透明、不切圆角、不烘投影）：macOS 26 自己套壳切形，
-   应用自切圆角或留边会被系统垫一层底板，读成"灰一圈 + 里面白砖"。
-   ≥128 档直接用主 Logo 缩档；16/32 槽位用这个清晰剪影版（渐变在极小尺寸糊成一块）。 */
-function smallIconCanvas(S) {
+function fillRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/* 图标：824 圆角砖（见 TILE 注释）+ 标记。crisp=true 用清晰剪影（16/32 槽位，渐变在
+   极小尺寸会糊成一块），否则用带渐变的标记。不烘投影——砖自带白底，加投影会读成灰圈。 */
+function iconCanvas(S, crisp) {
   const g = geom(MARK, CANVAS);
   const cv = newCanvas(S);
   const ctx = cv.getContext('2d');
+  const u = S / CANVAS;                       // 1024 设计坐标 → 本尺寸
   ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, S, S);
-  const k = (SMALL_FIT * S) / g.h;
-  return paintInk(cv, g, { k, ox: S / 2 - (g.xL + g.w / 2) * k, oy: S / 2 - (g.yT + g.h / 2) * k }, true);
+  fillRoundRect(ctx, TILE.inset * u, TILE.inset * u, TILE.art * u, TILE.art * u, TILE.r * u);
+  if (crisp) {
+    const k = (SMALL_FIT * TILE.art * u) / g.h;
+    return paintInk(cv, g, { k, ox: S / 2 - (g.xL + g.w / 2) * k, oy: S / 2 - (g.yT + g.h / 2) * k }, true);
+  }
+  const k = TILE.side * u / CANVAS;
+  return paintInk(cv, g, { k, ox: (S - TILE.side * u) / 2, oy: (S - TILE.side * u) / 2 }, false);
+}
+
+/* Icon Composer 图层：透明底 + 标记（背景交给 .icon 的 fill，不烘进图里） */
+function layerCanvas(S) {
+  const g = geom(MARK, CANVAS);
+  return paintInk(newCanvas(S), g, { k: S / CANVAS, ox: 0, oy: 0 }, false);
 }
 
 /* 壳侧用的剪影路径（平移到墨迹左上角，viewBox 0 0 w h）——悬浮球与菜单栏模板图。
@@ -220,9 +246,9 @@ function exportAll() {
     const cv = logoCanvas(s);
     setTimeout(() => cv.toBlob((b) => download(b, `deepdive-logo-${s}.png`), 'image/png'), 150 * i++);
   }
-  for (const s of [64, 32, 16]) {
-    const cv = smallIconCanvas(s);
-    setTimeout(() => cv.toBlob((b) => download(b, `deepdive-icon-small-${s}.png`), 'image/png'), 150 * i++);
+  for (const [s, crisp] of [[1024, false], [512, false], [256, false], [128, false], [64, true], [32, true], [16, true]]) {
+    const cv = iconCanvas(s, crisp);
+    setTimeout(() => cv.toBlob((b) => download(b, `deepdive-icon-${s}.png`), 'image/png'), 150 * i++);
   }
 }
 
@@ -245,12 +271,12 @@ function renderBoard() {
     `<b>主 Logo</b> — 白底方版，D 高 72% 画布，右侧 σ 由 0（0.42W）线性涨到 0.055H（实心右缘）`);
 
   const iconRow = document.getElementById('iconRow');
-  tile(iconRow, logoCanvas(PREVIEW),
-    '<b>AppIcon 用的就是它</b> — 满幅白底 + D，圆角/外壳由 macOS 自己切（应用不切角、不留透明边）');
+  tile(iconRow, iconCanvas(PREVIEW, false),
+    '<b>AppIcon 形态</b> — 824 圆角砖 + 185.4 圆角 + 四周透明（与 Notes/Clash 等原始图同几何）', true);
   for (const s of [64, 32, 16]) {
     const d = document.createElement('div');
     d.className = 'board checker';
-    const cv = smallIconCanvas(s * 4);
+    const cv = iconCanvas(s * 4, true);
     cv.style.width = s * 4 + 'px';
     cv.style.height = s * 4 + 'px';
     cv.style.imageRendering = 'pixelated';
@@ -282,7 +308,8 @@ function renderBoard() {
 const q = new URLSearchParams(location.search);
 let mode = 'board';
 if (q.get('path') === '1') mode = 'path';
-else if (q.has('small')) mode = 'small';
+else if (q.has('icon')) mode = 'icon';
+else if (q.has('layer')) mode = 'layer';
 else if (q.has('logo')) mode = 'logo';
 
 if (mode === 'board') {
@@ -295,7 +322,9 @@ if (mode === 'board') {
     const g = geom(MARK, CANVAS);
     document.body.textContent = `viewBox="0 0 ${r2(g.h)} ${r2(g.h)}" d="${markPath(g, (g.h - g.w) / 2)}"`;
   } else {
-    const cv = mode === 'small' ? smallIconCanvas(Number(q.get('small'))) : logoCanvas(Number(q.get('logo')));
+    const cv = mode === 'icon' ? iconCanvas(Number(q.get('icon')), q.get('crisp') === '1')
+      : mode === 'layer' ? layerCanvas(Number(q.get('layer')))
+      : logoCanvas(Number(q.get('logo')));
     cv.style.display = 'block';
     document.body.appendChild(cv);
   }

@@ -19,6 +19,10 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
+      # Icon Composer 图标（macOS 26 Liquid Glass）：与 Assets.xcassets 同名 AppIcon，
+      # actool 会忽略同名 appiconset、由 .icon 生成 IconGroup/IconImageStack 条目
+      # （只有老式 Icon Image 条目时系统会把图标缩小并垫灰底板）。图层与配方见 design/logo/README。
+      - path: AppIcon.icon
       # 侧栏浏览器的 agent 控制面：MCP server（暴露单个 js 工具）+ 浏览器 SDK。
       # 纯 JS 资源，由 BrowserUseInstaller 装进 support 目录后交给引擎 spawn。
       # type: folder —— 必须是目录引用：普通资源会被拷到 Resources 根下摊平，
