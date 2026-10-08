@@ -51,26 +51,18 @@ const INK = '#0b0b0c';
 /* ---------------- 配方常量：改这里即改全部产物 ---------------- */
 const FIT = 0.72;            // D 高 = 画布 72%
 const W_OVER_H = 0.977;      // 宽/高：柄 0.477 +（半径 = 高/2 的）右半圆
+const CORNER_R = 0.10;       // 左侧两角圆角 = 高 10%
 const EYE_SIGMA = 1.5;       // 定位：视觉外框右界 = 实心右缘 + 1.5σ
-const BLUR_STEPS = [0.20, 0.45, 0.70, 1.00];                              // 各级 σ / σmax
-/* 各级蒙版区间（相对 from，按实心宽度归一）：依次淡入、用完淡出、互不叠加。
-   叠加会把边缘重新叠硬——每级在实心右缘都贡献 50%，合成后 1-0.5⁴≈0.94，
-   而参考图该处是 0.50；所以同一时刻只让一级（最强的那级）主导边缘。 */
-const LAYER_MASKS = [
-  { in: [-0.06, 0.02], out: [0.20, 0.32] },
-  { in: [0.12, 0.20], out: [0.42, 0.54] },
-  { in: [0.32, 0.40], out: [0.48, 0.56] },
-  { in: [0.44, 0.52], out: null },        // 最外一级留到最后，负责尾巴
-];
-const CRISP_FADE = [0.02, 0.16];          // 实心层淡出区间
+const STEPS = 64;            // 渐进级数：σ 由 0 涨到 σmax 分 64 档，每档一条横向条带
+const RAMP_TO = 1.05;        // σ 涨到 σmax 处（实心宽度归一）
 const LADDER = [512, 256, 128, 64, 32, 16];
 const PREVIEW = 452;
 
-/* 三档模糊强度：sigma = σmax / 高，from = 起模糊处 / 实心宽度 */
+/* 三档模糊强度：sigmaEdge = 实心右缘（u=1）处的 σ / 高，from = 起模糊处 / 实心宽度 */
 const VARIANTS = {
-  fade: { title: '基准 · 渐变模糊', note: '照参考图配方：σ 0.055H，0.42W 起糊', sigma: 0.055, from: 0.42 },
-  'fade-soft': { title: '柔 · 更宽模糊', note: 'σ 0.075H，0.34W 起糊，右缘化得更开', sigma: 0.075, from: 0.34 },
-  'fade-tight': { title: '紧 · 更收模糊', note: 'σ 0.032H，0.55W 起糊，D 读起来更硬', sigma: 0.032, from: 0.55 },
+  fade: { title: '基准 · 渐变模糊', note: '实心右缘 σ 0.055H，0.42W 起糊，64 级', sigmaEdge: 0.055, from: 0.42 },
+  'fade-soft': { title: '柔 · 更宽模糊', note: '实心右缘 σ 0.075H，0.34W 起糊，64 级', sigmaEdge: 0.075, from: 0.34 },
+  'fade-tight': { title: '紧 · 更收模糊', note: '实心右缘 σ 0.032H，0.55W 起糊，64 级', sigmaEdge: 0.032, from: 0.55 },
 };
 
 const r2 = (n) => Math.round(n * 100) / 100;
@@ -81,43 +73,42 @@ const el = (name, attrs) => {
   return e;
 };
 
-/* 实心 D：左边矩形柄 + 右侧半圆（半径 = 高/2），无字腔 */
-function dPath(xL, yT, w, h) {
-  const rad = h / 2, cx = xL + w - rad;
-  return `M ${r2(xL)} ${r2(yT)} L ${r2(cx)} ${r2(yT)}`
-    + ` A ${r2(rad)} ${r2(rad)} 0 0 1 ${r2(cx)} ${r2(yT + h)}`
-    + ` L ${r2(xL)} ${r2(yT + h)} Z`;
+/* 实心 D：左侧圆角矩形柄 + 右侧半圆（半径 = 高/2），无字腔 */
+function dPath(xL, yT, w, h, r) {
+  const rad = h / 2, cx = xL + w - rad, yB = yT + h;
+  return `M ${r2(xL + r)} ${r2(yT)}`
+    + ` L ${r2(cx)} ${r2(yT)}`
+    + ` A ${r2(rad)} ${r2(rad)} 0 0 1 ${r2(cx)} ${r2(yB)}`
+    + ` L ${r2(xL + r)} ${r2(yB)}`
+    + ` A ${r2(r)} ${r2(r)} 0 0 1 ${r2(xL)} ${r2(yB - r)}`
+    + ` L ${r2(xL)} ${r2(yT + r)}`
+    + ` A ${r2(r)} ${r2(r)} 0 0 1 ${r2(xL + r)} ${r2(yT)} Z`;
 }
 
 function geom(v) {
-  const h = CANVAS * FIT, w = h * W_OVER_H, sigma = v.sigma * h;
-  return { xL: (CANVAS - (w + EYE_SIGMA * sigma)) / 2, yT: (CANVAS - h) / 2, w, h, sigma };
+  const h = CANVAS * FIT, w = h * W_OVER_H;
+  const sigmaEdge = v.sigmaEdge * h;                              // 实心右缘（u=1）处的 σ
+  const sigmaMax = sigmaEdge * (RAMP_TO - v.from) / (1 - v.from); // σ 线性涨到 u=RAMP_TO
+  return { xL: (CANVAS - (w + EYE_SIGMA * sigmaEdge)) / 2, yT: (CANVAS - h) / 2, w, h, rad: h * CORNER_R, sigmaMax };
 }
 
 function markSVG(id, size) {
-  const v = VARIANTS[id], g = geom(v), d = dPath(g.xL, g.yT, g.w, g.h);
+  const v = VARIANTS[id], g = geom(v), d = dPath(g.xL, g.yT, g.w, g.h, g.rad);
   const svg = el('svg', { xmlns: SVGNS, width: size, height: size, viewBox: `0 0 ${CANVAS} ${CANVAS}` });
   const defs = el('defs');
   let n = 0;
 
-  /* 横向蒙版：按 [[u, opacity], …] 逐点插值（u 按实心宽度归一），两端按端点值延伸。
-     蒙版区域显式覆盖整幅画布——默认区域按元素 bbox 取，会把模糊外溢裁掉。 */
-  const maskOf = (points) => {
-    const gid = `g${++n}`, mid = `m${n}`;
-    const u0 = points[0][0], u1 = points[points.length - 1][0];
-    const grad = el('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse',
-      x1: r2(g.xL + u0 * g.w), y1: 0, x2: r2(g.xL + u1 * g.w), y2: 0 });
-    for (const [u, op] of points) {
-      grad.appendChild(el('stop', {
-        offset: r2((u - u0) / (u1 - u0)), 'stop-color': '#fff', 'stop-opacity': op,
-      }));
-    }
-    defs.appendChild(grad);
-    const mask = el('mask', { id: mid, maskUnits: 'userSpaceOnUse',
-      x: 0, y: 0, width: CANVAS, height: CANVAS });
-    mask.appendChild(el('rect', { x: 0, y: 0, width: CANVAS, height: CANVAS, fill: `url(#${gid})` }));
-    defs.appendChild(mask);
-    return mid;
+  /* 横向条带硬裁：条带内 σ 恒定。条带从画布顶贯到底，模糊的纵向外溢才不会被切掉。
+     条带之间不叠加——叠加会把边缘重新叠硬（每级在实心右缘各贡献 50%），
+     交接处鼓起一道沿形状边缘的脊，就是"模糊底下还剩一圈轮廓"。 */
+  const clipOf = (u1, u2) => {
+    const id = `c${++n}`;
+    const x1 = u1 === null ? 0 : r2(g.xL + u1 * g.w);
+    const x2 = u2 === null ? CANVAS : r2(g.xL + u2 * g.w);
+    const cp = el('clipPath', { id, clipPathUnits: 'userSpaceOnUse' });
+    cp.appendChild(el('rect', { x: x1, y: 0, width: r2(x2 - x1), height: CANVAS }));
+    defs.appendChild(cp);
+    return id;
   };
 
   /* 滤镜区域同样显式覆盖整幅画布，否则模糊外溢被 bbox 区域裁断 */
@@ -130,8 +121,8 @@ function markSVG(id, size) {
     return fid;
   };
 
-  const layer = (maskId, filterId) => {
-    const grp = el('g', { mask: `url(#${maskId})` });
+  const layer = (clipId, filterId) => {
+    const grp = el('g', { 'clip-path': `url(#${clipId})` });
     if (filterId) grp.setAttribute('filter', `url(#${filterId})`);
     grp.appendChild(el('path', { d, fill: INK }));
     return grp;
@@ -139,13 +130,13 @@ function markSVG(id, size) {
 
   svg.appendChild(el('rect', { x: 0, y: 0, width: CANVAS, height: CANVAS, fill: PAPER }));
   svg.appendChild(defs);
-  svg.appendChild(layer(maskOf([[v.from + CRISP_FADE[0], 1], [v.from + CRISP_FADE[1], 0]]), null));
-  BLUR_STEPS.forEach((k, i) => {
-    const m = LAYER_MASKS[i];
-    const stops = [[v.from + m.in[0], 0], [v.from + m.in[1], 1]];
-    if (m.out) stops.push([v.from + m.out[0], 1], [v.from + m.out[1], 0]);
-    svg.appendChild(layer(maskOf(stops), filterOf(g.sigma * k)));
-  });
+  svg.appendChild(layer(clipOf(null, v.from), null));      // 实心层：起模糊处左侧
+  const span = RAMP_TO - v.from;
+  for (let i = 0; i < STEPS; i++) {                        // σ 逐级 + σmax/64，最外一级兜住尾巴
+    const u1 = v.from + span * i / STEPS;
+    const u2 = i === STEPS - 1 ? null : v.from + span * (i + 1) / STEPS;
+    svg.appendChild(layer(clipOf(u1, u2), filterOf(g.sigmaMax * (i + 1) / STEPS)));
+  }
   return svg;
 }
 
