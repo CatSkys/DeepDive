@@ -57,9 +57,7 @@ const W_OVER_H = 0.977;      // 宽/高：柄 0.477 +（半径 = 高/2 的）右
 const CORNER_R = 0.10;       // 左侧两角圆角 = 高 10%
 const EYE_SIGMA = 1.5;       // 定位：视觉外框右界 = 实心右缘 + 1.5σ
 const RAMP_TO = 1.05;        // σ 涨到 σmax 处（实心宽度归一），其外 σ 恒为 σmax
-const TILE_R = 0.2237;       // 图标砖圆角（全幅 squircle 档）
-const GRID = { inset: 100, art: 824, r: 185.4 };   // Apple 网格母版——不烘焙投影：白砖带投影在 Dock 浅底上会读成一圈灰环
-const TOKEN = { canvas: 1024, side: 758, fit: 0.66 };   // 图标里标记的画布边长 / D 高占比
+const SMALL_FIT = 0.66;      // 小尺寸图标里 D 高 / 画布（16/32 槽位用，渐变在极小尺寸会糊）
 const LADDER = [512, 256, 128, 64, 32, 16];
 const PREVIEW = 452;
 
@@ -175,17 +173,6 @@ function paintInk(cv, g, map, crisp) {
   return cv;
 }
 
-function fillRoundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-  ctx.fill();
-}
-
 /* 主 Logo：白底方版（含右侧渐变） */
 function logoCanvas(S) {
   const g = geom(MARK, CANVAS);
@@ -196,21 +183,16 @@ function logoCanvas(S) {
   return paintInk(cv, g, { k: S / CANVAS, ox: 0, oy: 0 }, false);
 }
 
-/* 图标：master = Apple 网格母版（824 艺术区 / 185.4 圆角，标记带渐变）；
-   small = 全幅 squircle、无投影、清晰剪影（小尺寸用，渐变在此尺寸糊成一块） */
-function iconCanvas(kind, S) {
+/* 图标 = 满幅图（画布四边不留透明、不切圆角、不烘投影）：macOS 26 自己套壳切形，
+   应用自切圆角或留边会被系统垫一层底板，读成"灰一圈 + 里面白砖"。
+   ≥128 档直接用主 Logo 缩档；16/32 槽位用这个清晰剪影版（渐变在极小尺寸糊成一块）。 */
+function smallIconCanvas(S) {
   const g = geom(MARK, CANVAS);
   const cv = newCanvas(S);
   const ctx = cv.getContext('2d');
-  if (kind === 'master') {
-    ctx.fillStyle = '#fff';
-    fillRoundRect(ctx, GRID.inset, GRID.inset, GRID.art, GRID.art, GRID.r);
-    const k = TOKEN.side / CANVAS;
-    return paintInk(cv, g, { k, ox: (CANVAS - TOKEN.side) / 2, oy: (CANVAS - TOKEN.side) / 2 }, false);
-  }
   ctx.fillStyle = '#fff';
-  fillRoundRect(ctx, 0, 0, S, S, S * TILE_R);
-  const k = (TOKEN.fit * S) / g.h;
+  ctx.fillRect(0, 0, S, S);
+  const k = (SMALL_FIT * S) / g.h;
   return paintInk(cv, g, { k, ox: S / 2 - (g.xL + g.w / 2) * k, oy: S / 2 - (g.yT + g.h / 2) * k }, true);
 }
 
@@ -238,9 +220,9 @@ function exportAll() {
     const cv = logoCanvas(s);
     setTimeout(() => cv.toBlob((b) => download(b, `deepdive-logo-${s}.png`), 'image/png'), 150 * i++);
   }
-  for (const [kind, s] of [['master', CANVAS], ['small', 64], ['small', 32], ['small', 16]]) {
-    const cv = iconCanvas(kind, s);
-    setTimeout(() => cv.toBlob((b) => download(b, `deepdive-icon-${kind}-${s}.png`), 'image/png'), 150 * i++);
+  for (const s of [64, 32, 16]) {
+    const cv = smallIconCanvas(s);
+    setTimeout(() => cv.toBlob((b) => download(b, `deepdive-icon-small-${s}.png`), 'image/png'), 150 * i++);
   }
 }
 
@@ -263,12 +245,12 @@ function renderBoard() {
     `<b>主 Logo</b> — 白底方版，D 高 72% 画布，右侧 σ 由 0（0.42W）线性涨到 0.055H（实心右缘）`);
 
   const iconRow = document.getElementById('iconRow');
-  tile(iconRow, iconCanvas('master', PREVIEW),
-    '<b>AppIcon 母版</b> — Apple 网格：1024 画布 / 824 艺术区 / 185.4 圆角，标记带渐变', true);
+  tile(iconRow, logoCanvas(PREVIEW),
+    '<b>AppIcon 用的就是它</b> — 满幅白底 + D，圆角/外壳由 macOS 自己切（应用不切角、不留透明边）');
   for (const s of [64, 32, 16]) {
     const d = document.createElement('div');
     d.className = 'board checker';
-    const cv = iconCanvas('small', s * 4);
+    const cv = smallIconCanvas(s * 4);
     cv.style.width = s * 4 + 'px';
     cv.style.height = s * 4 + 'px';
     cv.style.imageRendering = 'pixelated';
@@ -298,10 +280,9 @@ function renderBoard() {
    ?icon=master            1024 图标母版；?icon=small&size=<n> 全幅剪影图标
    ?path=1                 输出壳侧用剪影路径（viewBox 与其后的 d） */
 const q = new URLSearchParams(location.search);
-const iconKind = q.get('icon');
 let mode = 'board';
 if (q.get('path') === '1') mode = 'path';
-else if (iconKind === 'master' || iconKind === 'small') mode = 'icon';
+else if (q.has('small')) mode = 'small';
 else if (q.has('logo')) mode = 'logo';
 
 if (mode === 'board') {
@@ -309,14 +290,12 @@ if (mode === 'board') {
 } else {
   document.getElementById('wrap').remove();
   document.body.style.margin = '0';
-  document.body.style.background = 'transparent';   // 图标砖的四角要留透明
+  document.body.style.background = 'transparent';
   if (mode === 'path') {
     const g = geom(MARK, CANVAS);
     document.body.textContent = `viewBox="0 0 ${r2(g.h)} ${r2(g.h)}" d="${markPath(g, (g.h - g.w) / 2)}"`;
   } else {
-    const cv = mode === 'icon'
-      ? iconCanvas(iconKind, iconKind === 'master' ? CANVAS : (Number(q.get('size')) || 32))
-      : logoCanvas(Number(q.get('logo')));
+    const cv = mode === 'small' ? smallIconCanvas(Number(q.get('small'))) : logoCanvas(Number(q.get('logo')));
     cv.style.display = 'block';
     document.body.appendChild(cv);
   }

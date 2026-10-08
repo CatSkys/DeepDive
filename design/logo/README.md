@@ -28,10 +28,12 @@ DeepDive 的正式 logo（用户 2026-10-08 定稿）：**白底 + 实心 D + �
 
 | 产物 | 配方 |
 |---|---|
-| `deepdive-icon-master-1024.png` | Apple 网格母版：1024 画布 / 824 艺术区 / 185.4 圆角；标记取渐变版，画布 758 居中。**不烘焙投影**——白砖带投影在 Dock 浅底上会读成一圈灰环 |
-| `deepdive-icon-small-{64,32,16}.png` | 全幅 squircle（22.37% 圆角）无投影 + **清晰剪影**（按墨迹居中，D 高 66%）——小尺寸上渐变会糊成一块 |
+| `deepdive-logo-{1024…128}.png` | **AppIcon ≥128 档直接用主 Logo**：满幅白底 + D |
+| `deepdive-icon-small-{64,32,16}.png` | 16/32 槽位：同样满幅，改用**清晰剪影**（按墨迹居中，D 高 66%）——小尺寸上渐变会糊成一块 |
 
-≥128 各档由母版 LANCZOS 缩档；16/32 槽位用 small。落地：`apps/macos/Assets.xcassets/AppIcon.appiconset/` 十档；DMG 卷图标由 `scripts/package-macos.sh` 复制 `AppIcon.icns`，随资产自动跟随。
+图标一律是**满幅图**：不切圆角、不留透明边、不烘投影。macOS 26 自己套壳切形；应用自切圆角或留透明边会被系统在背后垫一层底板，在 Dock/Finder 里读成「灰一圈 + 里面白砖」（白底方案尤其明显）。
+
+落地：`apps/macos/Assets.xcassets/AppIcon.appiconset/` 十档（≥128 取主 Logo 对应档，16/32 取 small 档）；DMG 卷图标由 `scripts/package-macos.sh` 复制 `AppIcon.icns`，随资产自动跟随。
 
 ## 落点（改 logo 时四处一起改）
 
@@ -53,13 +55,13 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
   --screenshot=exports/deepdive-logo-1024.png "file://$PWD/index.html?logo=1024"
 
 "$CHROME" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
-  --window-size=1024,1024 --default-background-color=00000000 \
-  --screenshot=exports/deepdive-icon-master-1024.png "file://$PWD/index.html?icon=master"
+  --window-size=64,64 --default-background-color=00000000 \
+  --screenshot=exports/deepdive-icon-small-64.png "file://$PWD/index.html?small=64"
 
 "$CHROME" --headless --disable-gpu --dump-dom "file://$PWD/index.html?path=1"   # 壳侧剪影路径
 ```
 
-参数：`?logo=<边长>` 主 Logo；`?icon=master` 图标母版；`?icon=small&size=<边长>` 小尺寸剪影图标；`?path=1` 壳侧路径。AppIcon 十档由母版缩档后写入 `Assets.xcassets`（16/32 槽位改用 small 直渲版）。
+参数：`?logo=<边长>` 主 Logo（也是 AppIcon ≥128 档的来源）；`?small=<边长>` 小尺寸剪影图标（16/32 槽位）；`?path=1` 壳侧剪影路径。AppIcon 十档写入 `Assets.xcassets` 后由 `make package` 编译。
 
 ## 尺寸可读性（实测）
 

@@ -20,7 +20,7 @@
 - 资产位置：`design/logo/`（生成器 `index.html` 自包含，确定性逐像素渲染，可复现导出；配方、图标工艺与产物清单见该目录 README）
 - 形态：**白 `#FFFFFF` 底上实心 D `#0b0b0c`**——左侧圆角矩形柄 + 右侧半圆，无字腔，D 高占画布 72%，左缘两角圆角 = 高 10%
 - 右侧渐变模糊：σ 沿 x 从 0（0.42W）线性涨到 0.055H（实心右缘）
-- 图标：Apple 官方网格母版（824 艺术区 / 185.4 圆角，无烘焙投影）承载渐变版标记；16/32 槽位改用全幅 squircle + 清晰剪影（小尺寸渐变会糊）
+- 图标：**满幅图**（不切圆角、不留透明边、不烘投影），由 macOS 自己套壳切形；16/32 槽位改用清晰剪影（小尺寸渐变会糊）
 - 出处：**纯几何原创**，不派生任何第三方图形
 
 ## 3. 资产清单与落地状态（2026-09-05 复核）
@@ -28,7 +28,7 @@
 | 资产/场景 | 状态 |
 | --- | --- |
 | 主 PNG（白底方版，1024…16） | ✅ `design/logo/exports/`（`deepdive-logo-*`） |
-| AppIcon | ✅ `apps/macos/Assets.xcassets/AppIcon.appiconset/` 全部 10 档（≥128 由 Apple 网格母版缩档；16/32 槽位全幅 squircle 清晰剪影直渲）；`project.yml` 已挂 + `LSUIElement` false（进 Dock + ⌘⇥） |
+| AppIcon | ✅ `apps/macos/Assets.xcassets/AppIcon.appiconset/` 全部 10 档（≥128 用主 Logo 满幅图；16/32 槽位清晰剪影满幅）；`project.yml` 已挂 + `LSUIElement` false（进 Dock + ⌘⇥） |
 | 悬浮球中央图形 | ✅ `FloatingBubble.swift` `BrandMark.image`（剪影 path，白色填充于黑圆上） |
 | 菜单栏状态点 | ✅ `BrandMark.statusIcon`：剪影模板图 + 状态环/点（模板图随明暗外观自动重着色） |
 | 新手引导卡左栏 | ✅ `frontend/src/assets/deepdive-logo-256.png`（CSS 切 22.37% squircle） |
