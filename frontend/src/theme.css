@@ -2245,6 +2245,18 @@ button {
   line-height: var(--flow-row);
   font-weight: 400;
 }
+/* 运行中的工具行：「正在执行」由**文字自己脉冲**（微光扫过，与思考行、流末加载行
+   同一手法），前导位不再摆闪烁的状态点——状态由文字承载，图标保持与落定行同款
+   （用户定稿）。渐变的亮端取 --ink（最亮档），暗端 --ink-3，与加载行同一配色。 */
+.tool-row[data-state="running"] .tool-title {
+  background-image: linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%);
+  background-size: 200% 100%;
+  background-position: 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-text 1.4s linear infinite;
+}
 .tool-sep {
   background: var(--ink-3);
   border-radius: 1px;
@@ -2478,7 +2490,8 @@ button {
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .thinking-active, .thinking-done, .thinking-row { animation: none !important; }
+  .thinking-active, .thinking-done, .thinking-row,
+  .tool-row[data-state="running"] .tool-title { animation: none !important; }
   .thinking-collapse, .thinking-line, .thinking-chevron, .thinking-head { transition: none !important; }
   .flow-inner, .session-header .title-row { animation: none !important; }
 }

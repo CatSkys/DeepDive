@@ -53,7 +53,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         aria-expanded={expandable ? open : undefined}
       >
         <span className="tool-leading">
-          {state === "error" ? <StateDot state="error" /> : state === "running" ? <StateDot state="running" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} />}
+          {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} />}
         </span>
         <span className="tool-title">{title}</span>
         {summary && (
