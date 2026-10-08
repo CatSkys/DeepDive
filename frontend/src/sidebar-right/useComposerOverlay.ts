@@ -25,15 +25,19 @@ export function toggleChatFloat(sessionId: string): void {
 }
 
 /** 返回"浏览器是否正全屏"——调用方据此收起会话自己那份输入框。
-    离开浏览器页时把叠加层收掉（对话框属于浏览器页）。 */
+    不在浏览器全屏时一律叫壳收起叠加层：那一层是**透明 webview，只在页面报上来的
+    胶囊矩形里收点击**，留着可见就有一个看不见的死区压在会话框右端（停止钮、排队行的
+    操作钮正好在那儿——用户报"网页能点、端上点不动"）。收起条件是"浏览器全屏"，
+    不是"面板开着浏览器页"：面板退回侧栏槽位时（仍开着浏览器页）本组件返回 false、
+    会话自己那份输入框会重新画出来，此时叠加层必须让位。 */
 export function useComposerOverlay(sessionId: string): boolean {
   const surface = usePanelSurface(sessionId);
-  const active = surface.open && surface.mode === "browser";
+  const browserFullscreen = surface.open && surface.fullscreen && surface.mode === "browser";
 
   useEffect(() => {
-    if (!active) sendToShell({ type: "composer-overlay", sessionId: null });
+    if (!browserFullscreen) sendToShell({ type: "composer-overlay", sessionId: null });
     return () => { sendToShell({ type: "composer-overlay", sessionId: null }); };
-  }, [active, sessionId]);
+  }, [browserFullscreen, sessionId]);
 
-  return surface.open && surface.fullscreen && surface.mode === "browser";
+  return browserFullscreen;
 }

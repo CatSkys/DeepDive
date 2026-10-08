@@ -47,6 +47,10 @@ final class ComposerOverlayHost: NSObject {
             view.load(URLRequest(url: url))
         }
         place(rect: rect, contentHeight: contentHeight, zoom: zoom)
+        // 页面报上可点矩形之前整层不收点击：这一层是透明 webview，留着上一轮（或上一个
+        // 会话）的旧矩形就是一个看不见的死区，压在会话框右端（停止钮/排队行操作钮）。
+        // 新页面挂载后 300ms 内会自己报回来（ComposerOverlay 的 report 轮询）。
+        view.interactiveRect = .zero
         view.alphaValue = 1
         // 页面可能还是"上次关掉"的状态：叫出来时通知它把卡片摆回来
         view.evaluateJavaScript("window.__deepDiveHost && window.__deepDiveHost.dispatch('chatShow', {})", completionHandler: nil)

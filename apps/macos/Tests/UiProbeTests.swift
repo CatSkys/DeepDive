@@ -15,7 +15,7 @@ final class UiProbeTests: XCTestCase {
         )
     }
 
-    private func withProvider(_ body: @escaping ([String], [String], @escaping (String?) -> Void) -> Void,
+    private func withProvider(_ body: @escaping ([String], [String], [[Double]], @escaping (String?) -> Void) -> Void,
                               _ test: () throws -> Void) rethrows {
         UiProbe.measureProvider = body
         defer { UiProbe.measureProvider = nil }
@@ -52,7 +52,7 @@ final class UiProbeTests: XCTestCase {
     func testPassesOnlySelectorsAndPropsThrough() {
         var seen: [(selectors: [String], props: [String])] = []
         var status = 0
-        withProvider({ selectors, props, done in
+        withProvider({ selectors, props, _, done in
             seen.append((selectors, props))
             done(#"{"ok":true,"native":{},"nodes":[]}"#)
         }) {
@@ -69,7 +69,7 @@ final class UiProbeTests: XCTestCase {
 
     func testCapsSelectorCount() {
         var count = 0
-        withProvider({ selectors, _, done in
+        withProvider({ selectors, _, _, done in
             count = selectors.count
             done(#"{"ok":true,"native":{},"nodes":[]}"#)
         }) {
@@ -85,7 +85,7 @@ final class UiProbeTests: XCTestCase {
     func testRejectsEmptySelectorList() {
         // 空选择器不该白跑一趟 provider
         var called = false
-        withProvider({ _, _, done in called = true; done("{}") }) {
+        withProvider({ _, _, _, done in called = true; done("{}") }) {
             offMain { _ = UiProbe.handle(self.probeRequest(body: #"{"selectors":[]}"#, token: UiProbe.token)) }
         }
         XCTAssertFalse(called)

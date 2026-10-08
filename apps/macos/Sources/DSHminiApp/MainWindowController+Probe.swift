@@ -33,6 +33,10 @@ extension MainWindowController {
 
     /// 原生层事实：窗口与两块 webview 的真实几何、外观、缩放。窗口坐标（不是屏幕
     /// 坐标）——页面里量到的 rect 也是窗口坐标，两边可直接相减对位。
+    ///
+    /// 另带 `overlay`：悬浮输入框那层透明 webview 的显隐与**可点矩形**。它是网页之上
+    /// 的合成层，可点矩形之外透传——矩形留着旧值就是一个看不见的死区（页面量不出来，
+    /// 只有这里能证），故把 isVisible/alpha/interactiveRect 一并报出。
     private func nativeFacts() -> [String: Any] {
         func frame(_ view: NSView?) -> [String: Any]? {
             guard let view else { return nil }
@@ -47,6 +51,16 @@ extension MainWindowController {
         for (key, view) in [("glass", glass as NSView?), ("webview", webView as NSView?), ("browserWebview", browserView)] {
             if let f = frame(view) { facts[key] = f }
         }
+        facts["overlay"] = [
+            "visible": composerOverlay.isVisible,
+            "alpha": Double(composerOverlay.view.alphaValue),
+            "hitRect": [
+                "x": Double(composerOverlay.view.interactiveRect.origin.x),
+                "y": Double(composerOverlay.view.interactiveRect.origin.y),
+                "w": Double(composerOverlay.view.interactiveRect.size.width),
+                "h": Double(composerOverlay.view.interactiveRect.size.height),
+            ],
+        ] as [String: Any]
         return facts
     }
 }

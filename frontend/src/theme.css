@@ -1007,15 +1007,10 @@ button {
   background: var(--composer-bg);
   /* 无描边（用户定稿）：只靠磨砂底色分层；外阴影已按要求减淡 */
   box-shadow: var(--composer-shadow);
-  /* 聚焦：叠一道极淡外晕（输入区是产品主角，聚焦该有材质上的回应，而不是只多
-     一圈黑白焦点环）。叠在 --composer-shadow 之上而不是覆盖它——覆盖会把内高光
-     与底缘一起抹掉，聚焦那一帧整个胶囊会"塌"一下。 */
-  transition: box-shadow var(--dur-fast) var(--ease-out);
   /* 悬浮后消息从胶囊背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
   -webkit-backdrop-filter: blur(24px) saturate(150%);
   backdrop-filter: blur(24px) saturate(150%);
 }
-.composer:focus-within { box-shadow: var(--composer-shadow), 0 0 0 4px var(--fill-soft); }
 
 /* 单行态落位一律显式写死（原来靠自动排布按 DOM 顺序找空格）：行数量测件与输入框
    共用第 2 列首行，自动排布会把它们互相挤到第 3 列/第 2 行去。 */
@@ -1914,83 +1909,90 @@ button {
 .approval-card .cmd { font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); color: var(--dsh-text-secondary); user-select: text; white-space: pre-wrap; }
 .approval-card .actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-/* ---- 排队消息卡（QueueDock）：贴在输入卡上方的 dock（官方 QueueDock 对齐） ----
-   数据源：session/control 的 queue 帧；操作走 session.updateQueue。
-   材质走弹出面板统一配方（UI-SPEC §1.5 半透明 + §2.4 磨砂）：悬浮区叠在
-   消息流上，必须 blur，禁止实底色板。 */
+/* ---- 排队区（QueueDock）：会话框上方一叠**胶囊** ----
+   数据源：session/control 的 queue 帧；操作走 session.updateQueue。一条挂起消息
+   一枚胶囊（排队 next-turn 与插话中 next-step 都摆，故两种都能编辑/删除）；平时
+   只有一行文本，hover 才浮出操作——所以常态下它是"一条消息"，不是"一张带按钮的卡"。
+   材质走弹出面板统一配方（UI-SPEC §1.5 半透明 + §2.4 磨砂）：悬浮区叠在消息流上，
+   必须 blur，禁止实底色板。 */
 .queue-dock-wrap {
-  margin: 0 auto;
+  margin: 0 auto 8px;
   width: 100%;
   box-sizing: border-box;
   padding: 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-.queue-dock {
+.queue-dock { display: flex; flex-direction: column; gap: 4px; }
+/* 胶囊高度 30、圆角取一半：**不能用 999px**（PITFALLS §1.1，WebKit 合成伪影）。 */
+.queue-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 6px 0 12px;
+  border-radius: 15px;
   border: 1px solid var(--line);
-  border-bottom: none;
-  border-radius: var(--dsh-radius-card) var(--dsh-radius-card) 0 0;
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前 */
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: var(--shadow-pop);
-  padding: 4px 8px;
   animation: pop-in var(--dur-med) var(--ease-out) both;
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
-.queue-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  /* 左内边距让排队文本与下方输入框的正文同列（输入框正文列 = 8 pill 内边距 + 28 加号列
-     + 4 栅格间距 + 2 textarea 自身的 UA 内边距 = 42；本卡左缘比会话输入区再缩 6，
-     卡内减去 1px 描边 + 8 卡片内边距 → 27）。此前这个位置由一个**不能拖**的抓手占着：
-     引擎的排队操作只有 edit / remove / steer，没有排序。 */
-  padding: 2px 8px 2px 27px;
+.queue-pill:hover, .queue-pill[data-editing] { border-color: var(--line-strong); }
+/* 状态词（排队中/插话中）：一行小字，说明这条挂在哪个队列上——「立即」只在
+   next-turn 有效，插话中的行没有那枚钮，靠这行字解释为什么。 */
+.queue-state {
+  flex: none;
+  font-size: var(--dsh-font-size-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
 }
-.queue-row + .queue-row { border-top: 1px solid var(--line); }
-/* 不可操作行（steering 已递给模型 / 本端刚发出、快照尚未观察到）：操作钮本就不渲染，
-   文本一并降一档亮度——状态表达靠亮度，不靠颜色（UI-SPEC §0.6）。 */
-.queue-row[data-sending] .queue-text { color: var(--ink-2); }
 .queue-text {
   flex: 1;
   min-width: 0;
-  font-size: var(--dsh-font-size-base);
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   user-select: text;
 }
-/* 「发送中…」是行内状态词、不参与文本截断。必须有字号与亮度：无规则时它继承到浏览器
-   默认 16px，比旁边的消息文本（13px）还大（用户报过）。 */
-.queue-sending {
+/* 操作钮：常态隐形（不占视觉重量），hover / 键盘焦点进入胶囊才浮出。 */
+.queue-actions {
   flex: none;
-  font-size: var(--dsh-font-size-sm);
-  color: var(--ink-2);
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
-.queue-actions { flex: none; display: flex; align-items: center; gap: 6px; }
-/* 行内控件高度取 28：与输入框的编辑态（.queue-edit 28）和下方输入框 pill 里的控件
-   同高（UI-SPEC §2.1 Button 28/32）——同一张卡里出现两种按钮高度是无意的。 */
+.queue-pill:hover .queue-actions,
+.queue-pill:focus-within .queue-actions,
+.queue-pill[data-editing] .queue-actions { opacity: 1; pointer-events: auto; }
 .queue-now {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: var(--dsh-radius-control);
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
   background: var(--fill-strong);
   border: 1px solid var(--line);
   color: var(--ink);
-  font-size: var(--dsh-font-size-sm);
+  font-size: var(--dsh-font-size-xs);
   font-weight: 500;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.queue-now:hover { background: var(--fill-strong); color: var(--ink-bright); }
+.queue-now:hover { color: var(--ink-bright); }
 .queue-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--dsh-radius-control);
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2001,16 +2003,16 @@ button {
 .queue-edit {
   flex: 1;
   min-width: 0;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: var(--dsh-radius-control);
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
   border: 1px solid var(--line-strong);
   background: var(--fill);
   /* 配色走语义变量（--ink*）：主题由 html[data-theme] 切，而 --dsh-* 那一套按
      prefers-color-scheme 切，两套在「应用暗 × 系统亮」（本机现状）下互相打架——
      用 --dsh-text-primary 会在暗色玻璃底上写出近黑字（编辑态看不见）。 */
   color: var(--ink);
-  font-size: var(--dsh-font-size-base);
+  font-size: var(--dsh-font-size-sm);
   font-family: inherit;
 }
 .queue-edit:focus { outline: none; border-color: var(--line-heavy); }
@@ -2654,10 +2656,6 @@ button {
   color: var(--ink-3);
 }
 .msg-block.user .meta-clock { padding-right: 12px; }
-
-/* steering/排队气泡的「排队中」标记（用户定稿：立即发送=流内用户消息+排队中，
-   对照 zcode）；真实消息进流、快照撤项后气泡退场 */
-.steering-meta { margin-top: 3px; text-align: right; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 
 /* ---- state dot（DSH StateDot 语义映射） ---- */
 .state-dot {

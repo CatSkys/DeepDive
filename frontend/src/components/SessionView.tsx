@@ -24,8 +24,6 @@ import { panelActions } from "../sidebar-right/panelStore";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
-import { SteeringMessages } from "../session/SteeringMessages";
-import { textOf } from "../session/eventText";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
 import { publishReadingProgress, readingProgressOf } from "../session/readingProgress";
@@ -183,27 +181,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
   const sessionQuestions = [...questions.values()].filter((q) => q.sessionId === sessionId);
-  // 排队消息分两处呈现（用户定稿，对照 zcode）：placement=queued 走 QueueDock 的
-  // 条（立即/编辑/删除）；steering 与本端刚发出未观察到的走流内用户气泡+「排队中」
-  //（SteeringMessages）。
+  // 还没被引擎领取的消息都在排队区（一叠胶囊）：排队（next-turn）与插话中
+  //（next-step）两种 placement 都摆，因此都能编辑/删除；context（注入的运行时
+  // 上下文，不是用户消息）不摆。队列快照本身即真相，本端不再另记"发送中"。
   const sessionQueue = queues.get(sessionId) ?? [];
-  const queuedItems = sessionQueue.filter((i) => i.placement === "queued");
-  const steeringItems = sessionQueue.filter((i) => i.placement === "steering");
-  const [sendingTexts, setSendingTexts] = useState<ReadonlyMap<string, string>>(new Map());
-  const registerSending = (rpcId: string, text: string) => {
-    setSendingTexts((prev) => new Map(prev).set(rpcId, text));
-    // 快照观察到该消息（rpcId 出现）或 10s 兜底后自动退场
-    const stop = () => setSendingTexts((prev) => { const n = new Map(prev); n.delete(rpcId); return n; });
-    const iv = setInterval(() => {
-      if (!(queues.get(sessionId) ?? []).some((i) => i.rpcId === rpcId)) { clearInterval(iv); stop(); }
-    }, 500);
-    setTimeout(() => { clearInterval(iv); stop(); }, 10000);
-  };
-  // 流内已有用户消息的文本：steering 气泡与真实消息同文时不重复画
-  const flowUserTexts = useMemo(
-    () => new Set(items.filter((it) => it.kind === "user").map((it) => textOf(it.event))),
-    [items],
-  );
+  const pendingItems = sessionQueue.filter((i) => i.placement !== "context");
 
   // 子会话（origin==='subagent'）是**只读预览页**：形态照全屏产物预览——返回
   // 父会话 + 标题，内容铺满，不挂输入框（continuable 子会话续话那条路随之撤掉）。
@@ -263,7 +245,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <div className="hero">
               <HeroBrand />
               <div className="hero-composer">
-                <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
+                <Composer sessionId={sessionId} ctx={ctxData} />
               </div>
             </div>
           </>
@@ -361,7 +343,6 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               onPreviewFile={openPreviewFile}
               onContinue={continueTurn}
             />
-            <SteeringMessages items={steeringItems} sendingTexts={sendingTexts} flowUserTexts={flowUserTexts} />
             {pending.map((a) => (
               <ApprovalCard key={a.eventId} eventId={a.eventId} toolName={a.toolName} reason={a.reason} />
             ))}
@@ -390,13 +371,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           className="session-bottom"
           ref={attachBottom}
         >
-          {queuedItems.length > 0 && (
+          {pendingItems.length > 0 && (
             <div className="queue-dock-wrap">
-              <QueueDock sessionId={sessionId} items={queuedItems} />
+              <QueueDock sessionId={sessionId} items={pendingItems} />
             </div>
           )}
           {browserFullscreen ? null : (
-            <Composer sessionId={sessionId} ctx={ctxData} registerSending={registerSending} />
+            <Composer sessionId={sessionId} ctx={ctxData} />
           )}
         </div>
         )}
