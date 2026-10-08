@@ -94,6 +94,9 @@ export function SidebarSessionList({
       }}
       {...longPressHandlers((x, y) => onOpenRowMenu(s, x, y))}
     >
+      {/* 阅读进度灰底：只有选中的那一行有（读数由会话页滚动时写，见
+          session/readingProgress.ts）。行内三段内容在 CSS 里抬它一层。 */}
+      {s.sessionId === store.activeSessionId && <span className="row-read" aria-hidden="true" />}
       <span className="row-slot">
         {s.running ? (
           <InlineLoader />

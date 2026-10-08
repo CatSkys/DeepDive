@@ -1821,6 +1821,10 @@ button {
 .flow {
   flex: 1;
   overflow-y: auto;
+  /* 滚动条仍是系统悬浮式：只换拇指颜色（把 WebKit 顶成常驻滚动条的是自定义
+     ::-webkit-scrollbar，见文件头），实测量过 clientWidth 仍等于边框盒宽。
+     深色下系统那条比正文还亮，故取最淡一档 token。 */
+  scrollbar-color: var(--ink-faintest) transparent;
   /* 横向永不滚动：overflow-y 非 visible 会把 overflow-x 提升为 auto，
      几像素的亚像素溢出就会挂出一条滚不动的横向滚动条。 */
   overflow-x: hidden;
@@ -2887,6 +2891,19 @@ button {
 .glide-ws  { background: var(--fill-strong); border-radius: var(--dsh-radius-control); }
 
 .task-row { position: relative; }
+/* 阅读进度灰底：选中行里从左往右填到"读到哪了"（0–1，会话页滚动时写根元素的
+   --session-read，见 session/readingProgress.ts；没读数时整条为 0，不可见）。
+   层序：垫在滑移底片（z0）之上、行内容（z2）之下——同一套层序见浏览器标签胶囊的
+   .panel-browser-chrome-glide / .panel-browser-tab-read。行高 32 由 .task-row 定，
+   圆角与裁切也归它（overflow: hidden），这里只负责填。 */
+.row-read {
+  position: absolute; left: 0; top: 0; bottom: 0; z-index: 1;
+  width: calc(var(--session-read, 0) * 100%);
+  background: var(--ink); opacity: .06; pointer-events: none;
+  transition: width var(--dur-fast) var(--ease-out);
+}
+/* 行内三段内容抬到灰底之上（灰底只当底，别冲淡标题与时间） */
+.task-row > .row-slot, .task-row > .row-main, .task-row > .row-actions { position: relative; z-index: 2; }
 .task-row .row-actions {
   display: flex;
   align-items: center;

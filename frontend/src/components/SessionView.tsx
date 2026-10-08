@@ -28,6 +28,7 @@ import { SteeringMessages } from "../session/SteeringMessages";
 import { textOf } from "../session/eventText";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
+import { publishReadingProgress, readingProgressOf } from "../session/readingProgress";
 
 /** 顶部模糊带满强度所需的滚动深度（px）：雾的渐显与内容渐隐共用这一个深度，
  *  两条边同步走完，不会各显各的。 */
@@ -108,6 +109,10 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     scrollRef.current = el;
     flowRef.current = el;
     syncBottomPad();
+    // 会话页整体重挂（SessionView 以 sessionId 为 key）：读数按新容器重算一次，
+    // 否则新选中的会话顶着上一个会话的灰底，要等它自己滚一下才纠正。挂载时流还
+    // 是空的（读数 0）；历史到达后贴底那一次滚动会自己补上。
+    if (el) publishReadingProgress(readingProgressOf(el));
   }, [syncBottomPad]);
   // 顶部模糊带强度 = 滚动深度，0→1 走 FADE_RAMP_PX（内容淡出段走完，雾正好到
   // 满强度）。写的是**模糊半径的倍率**而非整体 opacity：opacity<1 会让面板自建
@@ -321,6 +326,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             followScroll(el);
             setScrolled(el.scrollTop > 2);
             syncFadeRamp(el.scrollTop);
+            // 侧栏选中行的阅读进度灰底（见 session/readingProgress.ts）
+            publishReadingProgress(readingProgressOf(el));
             // 滚到顶自动向前翻页（替代手点「载入更早」）：靠近顶部即拉一页；
             // loadOlder 内部有 paging 互斥 + 锚点保位，连续触发安全。
             if (el.scrollTop < 48 && hasMore && !loadingOlder) void loadOlder();
