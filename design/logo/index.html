@@ -58,7 +58,7 @@ const CORNER_R = 0.10;       // 左侧两角圆角 = 高 10%
 const EYE_SIGMA = 1.5;       // 定位：视觉外框右界 = 实心右缘 + 1.5σ
 const RAMP_TO = 1.05;        // σ 涨到 σmax 处（实心宽度归一），其外 σ 恒为 σmax
 const TILE_R = 0.2237;       // 图标砖圆角（全幅 squircle 档）
-const GRID = { inset: 100, art: 824, r: 185.4, blur: 45, dy: 15, alpha: 0.30 };  // Apple 网格母版
+const GRID = { inset: 100, art: 824, r: 185.4 };   // Apple 网格母版——不烘焙投影：白砖带投影在 Dock 浅底上会读成一圈灰环
 const TOKEN = { canvas: 1024, side: 758, fit: 0.66 };   // 图标里标记的画布边长 / D 高占比
 const LADDER = [512, 256, 128, 64, 32, 16];
 const PREVIEW = 452;
@@ -196,20 +196,15 @@ function logoCanvas(S) {
   return paintInk(cv, g, { k: S / CANVAS, ox: 0, oy: 0 }, false);
 }
 
-/* 图标：master = Apple 网格母版（824 艺术区 / 185.4 圆角 / 烘焙投影，标记带渐变）；
+/* 图标：master = Apple 网格母版（824 艺术区 / 185.4 圆角，标记带渐变）；
    small = 全幅 squircle、无投影、清晰剪影（小尺寸用，渐变在此尺寸糊成一块） */
 function iconCanvas(kind, S) {
   const g = geom(MARK, CANVAS);
   const cv = newCanvas(S);
   const ctx = cv.getContext('2d');
   if (kind === 'master') {
-    ctx.save();
-    ctx.shadowColor = `rgba(0,0,0,${GRID.alpha})`;
-    ctx.shadowBlur = GRID.blur;
-    ctx.shadowOffsetY = GRID.dy;
     ctx.fillStyle = '#fff';
     fillRoundRect(ctx, GRID.inset, GRID.inset, GRID.art, GRID.art, GRID.r);
-    ctx.restore();
     const k = TOKEN.side / CANVAS;
     return paintInk(cv, g, { k, ox: (CANVAS - TOKEN.side) / 2, oy: (CANVAS - TOKEN.side) / 2 }, false);
   }
@@ -269,7 +264,7 @@ function renderBoard() {
 
   const iconRow = document.getElementById('iconRow');
   tile(iconRow, iconCanvas('master', PREVIEW),
-    '<b>AppIcon 母版</b> — Apple 网格：1024 画布 / 824 艺术区 / 185.4 圆角 / 烘焙投影，标记带渐变', true);
+    '<b>AppIcon 母版</b> — Apple 网格：1024 画布 / 824 艺术区 / 185.4 圆角，标记带渐变', true);
   for (const s of [64, 32, 16]) {
     const d = document.createElement('div');
     d.className = 'board checker';

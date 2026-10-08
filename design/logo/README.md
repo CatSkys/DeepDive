@@ -28,7 +28,7 @@ DeepDive 的正式 logo（用户 2026-10-08 定稿）：**白底 + 实心 D + �
 
 | 产物 | 配方 |
 |---|---|
-| `deepdive-icon-master-1024.png` | Apple 网格母版：1024 画布 / 824 艺术区 / 185.4 圆角 / 烘焙投影（0 15 45，α 0.30）；标记取渐变版，画布 758 居中 |
+| `deepdive-icon-master-1024.png` | Apple 网格母版：1024 画布 / 824 艺术区 / 185.4 圆角；标记取渐变版，画布 758 居中。**不烘焙投影**——白砖带投影在 Dock 浅底上会读成一圈灰环 |
 | `deepdive-icon-small-{64,32,16}.png` | 全幅 squircle（22.37% 圆角）无投影 + **清晰剪影**（按墨迹居中，D 高 66%）——小尺寸上渐变会糊成一块 |
 
 ≥128 各档由母版 LANCZOS 缩档；16/32 槽位用 small。落地：`apps/macos/Assets.xcassets/AppIcon.appiconset/` 十档；DMG 卷图标由 `scripts/package-macos.sh` 复制 `AppIcon.icns`，随资产自动跟随。
