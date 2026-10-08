@@ -1646,6 +1646,11 @@ button {
      有两处**不同的关系**各有其值，不归这条行奏：.md 里段与段（9px，一段正文内部）、
      披露体的头与体 / 思考头与轨迹（8/4px，同一个块的头与它自己的内容）。 */
   --flow-gap: 10px;
+  /* **流里单行行高的唯一值**（用户 2026-10-08："包括这个正文思考工具的这些行距，你要
+     全部统一"）：工具行 / 工具组头 / 思考头 / 轮内过程披露条——凡是流里"一行字 + 前导
+     图标"的行，高度与文字的 line-height 都引它。此前只有工具族是 24，思考头随字体行高
+     落成 ~17px、披露条是 20px 行高 + 4px 上下垫（29px），一行字在三种行高里跳。 */
+  --flow-row: 24px;
 }
 .session-header {
   display: flex;
@@ -2208,7 +2213,7 @@ button {
   display: flex;
   align-items: center;
   min-width: 0;
-  height: 24px;
+  height: var(--flow-row);
   position: relative;
   overflow: hidden;
   background: transparent;
@@ -2235,7 +2240,7 @@ button {
   color: var(--ink-2);
   flex: none;
   font-size: var(--dsh-font-size-base);
-  line-height: 24px;
+  line-height: var(--flow-row);
   font-weight: 400;
 }
 .tool-sep {
@@ -2253,7 +2258,7 @@ button {
   color: var(--ink-3);
   flex: auto;
   font-size: var(--dsh-font-size-base);
-  line-height: 24px;
+  line-height: var(--flow-row);
   overflow: hidden;
 }
 .tool-chevron {
@@ -2269,6 +2274,8 @@ button {
    右、展 = 0° 指下，位置一律在行右端；思考块的头同此。 */
 .tool-chevron svg { transition: transform var(--dur-med) var(--ease-out); transform: rotate(-90deg); }
 .tool-chevron[data-open="true"] svg { transform: rotate(0); }
+/* 这一行没有可展内容：箭头藏起来但**留位**——右缘那条箭头竖线不能在这里断开 */
+.tool-chevron[data-empty] { visibility: hidden; }
 .tool-row.bad .tool-title { color: var(--ink-soft); }
 .tool-body {
   padding: 8px 0 12px;
@@ -2382,6 +2389,9 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* 与工具行同一行高（--flow-row）：思考行此前是字体自己的行高（~17px），
+     夹在 24px 的工具行中间，文字基线每隔一行就挪一次位。 */
+  min-height: var(--flow-row);
   /* 满宽 + 零边距：箭头 margin-left:auto 才能钉在与工具行同一条右缘竖线上。
      原来的 margin:0 -6px + padding:0 6px 是给早先那圈 hover 底色出血用的，底色
      撤掉后它没跟着走——负边距配 width:100% 只是把整条左移 6px，右侧 padding 又
@@ -2401,6 +2411,7 @@ button {
 .thinking-active {
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
+  line-height: var(--flow-row);
   white-space: nowrap;
   background-image: linear-gradient(90deg, var(--tk-ink-3) 35%, var(--tk-ink) 50%, var(--tk-ink-3) 65%);
   background-size: 200% 100%;
@@ -2413,6 +2424,7 @@ button {
 .thinking-done {
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
+  line-height: var(--flow-row);
   white-space: nowrap;
   color: var(--tk-ink-2);
   animation: fade-in var(--dur-med) var(--ease-out) both;
@@ -3089,6 +3101,10 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 .tool-collapse {
   display: grid;
   grid-template-rows: 0fr;
+  /* 收起态必须**真的零高**：里面 .tool-body 的上下内边距（8/12）不算内容，
+     不裁掉的话每个"有内容可展"的工具行都白高 20px，与无内容可展的行（24px）
+     差一头——同一列工具行忽高忽低就是它（2026-10-08 用户报"工具没有统一"）。 */
+  overflow: hidden;
   opacity: 0;
   transition: grid-template-rows var(--dur-slow) var(--ease-out), opacity var(--dur-med) var(--ease-out);
 }
@@ -3956,14 +3972,14 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   align-items: center;
   gap: 6px;
   width: 100%;
-  min-height: 24px;
+  min-height: var(--flow-row);
   padding: 0;
   text-align: left;
   color: var(--ink-2);
 }
 .tool-group-head:hover { color: var(--ink); }
 .tool-group-head > svg:first-child { flex: none; color: var(--ink-3); }
-.tool-group-label { flex: none; font-size: var(--dsh-font-size-base); line-height: 24px; }
+.tool-group-label { flex: none; font-size: var(--dsh-font-size-base); line-height: var(--flow-row); }
 .tool-group-sep { flex: none; color: var(--ink-3); }
 .tool-group-summary {
   flex: 1;
@@ -3973,7 +3989,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   white-space: nowrap;
   color: var(--ink-3);
   font-size: var(--dsh-font-size-base);
-  line-height: 24px;
+  line-height: var(--flow-row);
 }
 .tool-group-chevron {
   flex: none; color: var(--ink-3); transition: transform var(--dur-fast) var(--ease-out);
@@ -4357,7 +4373,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
   width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 4px 0;
+  /* 整行高 24（border-box：含底下那条 1px 线）——别的行都 24，披露条不能高一头 */
+  height: var(--flow-row);
+  padding: 0;
   border: none;
   border-bottom: 1px solid var(--line);
   background: none;
@@ -4370,7 +4388,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   min-width: 0;
   overflow: hidden;
   font-size: var(--dsh-font-size-base);
-  line-height: 20px;
+  line-height: var(--flow-row);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

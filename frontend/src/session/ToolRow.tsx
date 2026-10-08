@@ -50,7 +50,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
       <button
         className="tool-row-main"
         onClick={() => (expandable ? setOpen((v) => !v) : undefined)}
-        aria-expanded={open}
+        aria-expanded={expandable ? open : undefined}
       >
         <span className="tool-leading">
           {state === "error" ? <StateDot state="error" /> : state === "running" ? <StateDot state="running" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} />}
@@ -63,11 +63,17 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
             <span className="tool-summary">{summary}</span>
           </>
         )}
-        {expandable && (
-          <span className="tool-chevron" data-open={open ? "true" : "false"}>
-            <ChevronDown size={14} />
-          </span>
-        )}
+        {/* 箭头槽**常驻**：这一行没什么可展时只藏起来（visibility，仍占位）。缺了它的
+            后果是行右端那条箭头竖线在这里断掉——同一列里几行没有箭头，用户看到的
+            就是"没有对齐"（2026-10-08）。 */}
+        <span
+          className="tool-chevron"
+          data-open={open ? "true" : "false"}
+          data-empty={expandable ? undefined : ""}
+          aria-hidden={expandable ? undefined : true}
+        >
+          <ChevronDown size={14} />
+        </span>
       </button>
       {/* read_image 直出（0.1.5）：结果图片在折叠态即展示，点击 Lightbox 放大 */}
       {!!resultImages && resultImages.length > 0 && (

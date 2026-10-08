@@ -121,14 +121,31 @@ const FLOW_RHYTHM_RULES = [
   { selector: ".msg-block.assistant", prop: "gap" },
 ];
 
-function checkFlowRhythm() {
-  const file = "frontend/src/theme.css";
+// 单行行高同理（用户 2026-10-08："包括这个正文思考工具的这些行距，你要全部统一"）：
+// 工具行/组头/思考头/披露条的**高度**与它们文字的 line-height 必须是 --flow-row 一个值。
+// 曾经只有工具族是 24，思考头随字体行高落成 ~17px、披露条 20px 行高 + 上下垫（29px）。
+const FLOW_ROW_RULES = [
+  { selector: ".tool-row-main", prop: "height" },
+  { selector: ".tool-title", prop: "line-height" },
+  { selector: ".tool-summary", prop: "line-height" },
+  { selector: ".tool-group-head", prop: "min-height" },
+  { selector: ".tool-group-label", prop: "line-height" },
+  { selector: ".tool-group-summary", prop: "line-height" },
+  { selector: ".thinking-head", prop: "min-height" },
+  { selector: ".thinking-active", prop: "line-height" },
+  { selector: ".thinking-done", prop: "line-height" },
+  { selector: ".turn-process-row", prop: "height" },
+  { selector: ".turn-process-label", prop: "line-height" },
+];
+
+/** 这几条规则里凡声明该属性，值都必须是 var(--token)。 */
+function checkFlowValues(file, rules, token, label) {
   // 注释按"保留换行"的方式抹掉：多行注释整段变空白后，选择器仍落在自己那一行的行首
   // （直接换成空格会把注释里的换行也吃掉，选择器就跑到上一行尾巴上，匹配不到）。
   const css = readFileSync(join(ROOT, file), "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
   const violations = [];
-  for (const { selector, prop } of FLOW_RHYTHM_RULES) {
+  for (const { selector, prop } of rules) {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
     // 只看"该选择器独立成组"的规则体：`.sel[data-open] { … }` 这类追加态不参与
     const bodies = [...css.matchAll(new RegExp(`^\\s*${escaped}\\s*\\{([^}]*)\\}`, "gm"))]
@@ -137,15 +154,23 @@ function checkFlowRhythm() {
       .map((body) => new RegExp(`(?:^|;)\\s*${prop}\\s*:([^;]+)`).exec(body))
       .filter(Boolean);
     if (declared.length === 0) {
-      violations.push({ rule: "flow-rhythm", file, detail: `${selector} 没声明 ${prop}（行奏的接线断了？）` });
+      violations.push({ rule: "flow-rhythm", file, detail: `${selector} 没声明 ${prop}（${label}的接线断了？）` });
       continue;
     }
     for (const d of declared) {
-      if (d[1].includes("var(--flow-gap)")) continue;
-      violations.push({ rule: "flow-rhythm", file, detail: `${selector} 的 ${prop} 不是 var(--flow-gap)：${d[1].trim()}` });
+      if (d[1].includes(`var(${token})`)) continue;
+      violations.push({ rule: "flow-rhythm", file, detail: `${selector} 的 ${prop} 不是 var(${token})：${d[1].trim()}` });
     }
   }
   return violations;
+}
+
+function checkFlowRhythm() {
+  const file = "frontend/src/theme.css";
+  return [
+    ...checkFlowValues(file, FLOW_RHYTHM_RULES, "--flow-gap", "行奏"),
+    ...checkFlowValues(file, FLOW_ROW_RULES, "--flow-row", "行高"),
+  ];
 }
 
 // ── 主流程 ───────────────────────────────────────────────────────────────────
