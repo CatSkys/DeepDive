@@ -66,7 +66,12 @@ fi
 MACHO_LIST="$(find "$APP" -type f -print0 | xargs -0 file -F $'\t' 2>/dev/null \
   | awk -F'\t' '$2 ~ /Mach-O/ {print $1}' \
   | sed -E 's/ \(for architecture [^)]*\):?$//' \
-  | sort -u)"
+  | sort -u)" || {
+  # 扫描中途有文件被改/删（并行构建、边签边嵌）→ xargs/awk 非零，pipefail 下这里就退。
+  # 必须自己报一句：默认是**静默**退出，日志停在上一行，看着像"步骤没跑"（2026-10-08 实踩）。
+  echo "FAIL: Mach-O 扫描失败——包里有文件在扫描途中被改或删（并行构建？）重跑一次" >&2
+  exit 1
+}
 
 sign_macho() {
   case "$1" in
