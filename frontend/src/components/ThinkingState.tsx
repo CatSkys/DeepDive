@@ -88,11 +88,14 @@ export function ThinkingState({
         </svg>
       </button>
 
-      {/* expandable trace: grid-rows 0fr→1fr keeps the height animated */}
+      {/* expandable trace: grid-rows 0fr→1fr keeps the height animated。
+          minmax(0, …)：裸 `0fr` 的最小尺寸是 auto（取内容的 min-content 贡献，
+          内边距/外边距都算），收起态会白占一截——工具行的折叠体就是这么长出
+          20px 的（见 theme.css 的 .tool-collapse）。 */}
       <div
         className="thinking-collapse"
         style={{
-          gridTemplateRows: expanded ? "1fr" : "0fr",
+          gridTemplateRows: expanded ? "minmax(0, 1fr)" : "minmax(0, 0fr)",
           opacity: expanded ? 1 : 0,
         }}
       >

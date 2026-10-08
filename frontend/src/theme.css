@@ -3100,15 +3100,17 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
    由 data-open 驱动而非条件挂载。 */
 .tool-collapse {
   display: grid;
-  grid-template-rows: 0fr;
-  /* 收起态必须**真的零高**：里面 .tool-body 的上下内边距（8/12）不算内容，
-     不裁掉的话每个"有内容可展"的工具行都白高 20px，与无内容可展的行（24px）
-     差一头——同一列工具行忽高忽低就是它（2026-10-08 用户报"工具没有统一"）。 */
+  /* **必须是 minmax(0, …)**：`0fr` 是 `minmax(auto, 0fr)`，auto 那道最小尺寸取的是
+     内容的 min-content 贡献——里面 .tool-body 的上下内边距（8+12=20px）就是它，
+     于是"收起"的折叠体仍然占 20px（实测 computed grid-template-rows: 20px），
+     有内容可展的工具行 44px、没有的 24px，同一列忽高忽低（用户报"工具没有统一"）。
+     加 overflow: hidden 挡的是那 20px 的溢出（透明盒子会盖住下一行的点击区）。 */
+  grid-template-rows: minmax(0, 0fr);
   overflow: hidden;
   opacity: 0;
   transition: grid-template-rows var(--dur-slow) var(--ease-out), opacity var(--dur-med) var(--ease-out);
 }
-.tool-collapse[data-open="true"] { grid-template-rows: 1fr; opacity: 1; }
+.tool-collapse[data-open="true"] { grid-template-rows: minmax(0, 1fr); opacity: 1; }
 .tool-collapse > .tool-body { overflow: hidden; min-height: 0; }
 /* 展开体内的一级内容轻微延迟浮现，衔接高度过渡。 */
 .tool-collapse[data-open="true"] > .tool-body > * {

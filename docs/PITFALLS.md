@@ -88,6 +88,20 @@
   窄一截），并挂 `ResizeObserver` 跟着框动。本仓**没有全局 `box-sizing: border-box` 复位**，
   摆位给的是边框盒宽，列表侧要自己写 `box-sizing: border-box`，否则宽出 padding + 边框 14px。
 
+### 1.17 `grid-template-rows: 0fr` 的"收起"不真零高：fr 轨道的最小尺寸是 auto（吃内容的内边距）
+- 事故（2026-10-08 用户第三次报"工具没有统一/行距还是不一致"）：工具行的展开体用
+  `grid-template-rows: 0fr`（收起）→ `1fr`（展开）做高度过渡。收起时**折叠体仍然占 20px**：
+  实测 `getComputedStyle(collapse).gridTemplateRows === "20px"`。于是"有内容可展"的工具行
+  44px、"没什么可展"的 24px，同一列里忽高忽低。
+- 根因：`0fr` 是 `minmax(auto, 0fr)` 的简写，那条 `auto` 最小尺寸取的是内容的
+  **min-content 贡献**——里面 `.tool-body` 的上下内边距（8+12=20px）就是它（内容本身能缩到
+  0，内边距不能）。给内层加 `min-height: 0` 不管用（内边距不算在内容盒里）；给折叠体加
+  `overflow: hidden` 也不管用（轨道本身就是 20px，没有东西可裁）。
+- 处置：写 `grid-template-rows: minmax(0, 0fr)` / `minmax(0, 1fr)`——**裸 `0fr`/`1fr` 一律
+  不要**（本仓另一处同样手法在 `ThinkingState` 的内联 style 里，一并改了）。`overflow: hidden`
+  仍要留：轨道归零后那 20px 会以透明盒子的形式盖住下一行的点击区。
+- 判据：`getComputedStyle(el).gridTemplateRows` 读出来是像素值而不是 `0px`，就是它。
+
 ---
 
 ## 2. 引擎事件载荷（反复踩）
