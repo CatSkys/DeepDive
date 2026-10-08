@@ -14,6 +14,14 @@ export function fmtTime(updatedAt: number, lang: "zh" | "en"): string {
   return `${Math.floor(d / 7)}${lang === "zh" ? " 周" : "w"}`;
 }
 
+/** 月份分组的标签。中文用数字月（"8 月"，惯用短式）；英文用**月名**——裸数字看不出
+ *  是月份（用户 2026-10-08 指着侧栏那个 "9" 问"是九月的意思吗"）。月名交给 Intl 而不是
+ *  手写 12 个字符串：拼写归运行时的语言数据，不会与系统语言漂移。 */
+function monthLabel(d: Date, lang: "zh" | "en"): string {
+  if (lang === "zh") return `${d.getMonth() + 1} 月`;
+  return new Intl.DateTimeFormat("en", { month: "long" }).format(d);
+}
+
 export function bucketLabel(updatedAt: number, lang: "zh" | "en"): string {
   const now = Date.now();
   const day = 24 * 3600 * 1000;
@@ -24,6 +32,5 @@ export function bucketLabel(updatedAt: number, lang: "zh" | "en"): string {
     return d.getDate() === t.getDate() ? (lang === "zh" ? "今天" : "Today") : (lang === "zh" ? "昨天" : "Yesterday");
   }
   if (diff < 7 * day) return lang === "zh" ? "上周" : "This week";
-  const d = new Date(updatedAt);
-  return `${d.getMonth() + 1}${lang === "zh" ? " 月" : ""}`;
+  return monthLabel(new Date(updatedAt), lang);
 }

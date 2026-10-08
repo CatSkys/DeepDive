@@ -34,11 +34,13 @@ describe("bucketLabel 分组标签", () => {
     expect(bucketLabel(NOW - 23 * HOUR, "en")).toBe("Yesterday");
   });
 
-  it("7 天内 → 上周；更早 → 月份（en 现状为裸数字）", () => {
+  it("7 天内 → 上周；更早 → 月份（中文数字月，英文月名）", () => {
     expect(bucketLabel(NOW - 3 * DAY, "zh")).toBe("上周");
     expect(bucketLabel(NOW - 3 * DAY, "en")).toBe("This week");
     // 30 天前 = 8 月 15 日
     expect(bucketLabel(NOW - 30 * DAY, "zh")).toBe("8 月");
-    expect(bucketLabel(NOW - 30 * DAY, "en")).toBe("8"); // 现状：en 无单位后缀
+    // 英文走月名：裸数字看不出是月份（用户 2026-10-08 指着侧栏那个 "9" 问过）
+    expect(bucketLabel(NOW - 30 * DAY, "en")).toBe("August");
+    expect(bucketLabel(new Date(2026, 0, 5, 9).getTime(), "en")).toBe("January");
   });
 });
