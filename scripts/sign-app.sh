@@ -67,22 +67,48 @@ MACHO_LIST="$(find "$APP" -type f -print0 | xargs -0 file -F $'\t' 2>/dev/null \
   | awk -F'\t' '$2 ~ /Mach-O/ {print $1}' \
   | sed -E 's/ \(for architecture [^)]*\):?$//' \
   | sort -u)"
-while IFS= read -r bin; do
-  [[ -n "$bin" ]] || continue
-  case "$bin" in
+
+sign_macho() {
+  case "$1" in
     */Resources/Runtime/node)
       # node 带 JIT entitlements：hardened runtime 默认禁可执行内存，
       # V8/koffi 没有它运行即崩（scripts/node-entitlements.plist 内有注释）。
       codesign --force -s "$IDENTITY" --options runtime --timestamp \
-        --entitlements "$ROOT/scripts/node-entitlements.plist" "$bin" \
-        || { echo "FAIL: codesign $bin"; exit 1; }
+        --entitlements "$ROOT/scripts/node-entitlements.plist" "$1" \
+        || { echo "FAIL: codesign $1"; exit 1; }
       ;;
     *)
-      codesign --force -s "$IDENTITY" --options runtime --timestamp "$bin" \
-        || { echo "FAIL: codesign $bin"; exit 1; }
+      codesign --force -s "$IDENTITY" --options runtime --timestamp "$1" \
+        || { echo "FAIL: codesign $1"; exit 1; }
       ;;
   esac
+}
+
+# **先库、后可执行文件（顺序是硬要求，2026-10-08 事故）**：hardened runtime 开着
+# 库校验，进程（Runtime/node）只能映射同团队签名的库。若中途被打断（Ctrl-C、
+# 并行打包互相 pkill——`make package` 跑两分钟，很容易在 walk 途中被叫停），
+# 已签名的那一侧就成了"hardened 的 node + 还是上游签名的 .node 插件"，此时用户
+# 打开 .build/release 里的包即复现「gateway/internal: resume failed … mapping
+# process and mapped file (non-platform) have different Team IDs」。库先签完，
+# 打断也只会停在"node 还没换上 runtime 档"这一侧——那时库校验没开，加载照常。
+# 主可执行文件（本包 Contents/MacOS/<名>）同理最后签，node 紧随库之后。
+MAIN_EXEC="$APP/Contents/MacOS/$(basename "$APP" .app)"
+LIBS=""; EXECS=""
+while IFS= read -r bin; do
+  [[ -n "$bin" ]] || continue
+  case "$bin" in
+    "$MAIN_EXEC"|*/Resources/Runtime/node) EXECS="$EXECS$bin"$'\n' ;;
+    *) LIBS="$LIBS$bin"$'\n' ;;
+  esac
 done <<< "$MACHO_LIST"
+while IFS= read -r bin; do
+  [[ -n "$bin" ]] || continue
+  sign_macho "$bin"
+done <<< "$LIBS"
+while IFS= read -r bin; do
+  [[ -n "$bin" ]] || continue
+  sign_macho "$bin"
+done <<< "$EXECS"
 codesign --force -s "$IDENTITY" --options runtime --timestamp "$APP" \
   || { echo "FAIL: codesign $APP"; exit 1; }
-echo "signed (distribution): 逐个 Mach-O + secure timestamp（公证要求）"
+echo "signed (distribution): 逐个 Mach-O（库在前、可执行在后）+ secure timestamp（公证要求）"

@@ -668,6 +668,14 @@
   时间戳要新于你最后一次源码改动；`make app` 日志里的 `OK: embedded web` 只说"拷过去了"，
   不说"拷的是新的"。
 
+### 5.12 签名 walk 被打断 = 半个签名的包：hardened 的 node 加载不了还没签的 .node 插件
+- 事故（2026-10-08，用户报"为什么会有这个报错"）：会话恢复失败，弹窗里是引擎原文
+  `gateway/internal: resume failed for session … Error: dlopen(…/Runtime/dsh/node_modules/@deepseek-ai/node-addon-system-darwin-arm64/bin/system.node …) not valid for use in process: mapping process and mapped file (non-platform) have different Team IDs`；包路径 `.build/release/…/DeepDive.app`。
+- 根因：**分发档签名是逐个 Mach-O 走一遍**（§5.7），被打断（Ctrl-C、并行会话互相 pkill，§5.5）就停在 walk 中间。按路径序轮到 `Resources/Runtime/node` 时它已换成 hardened + 本团队，而 `node_modules/**/*.node` 还是**上游/linker adhoc 签名**——hardened 的 node 开着库校验（§5.8），内核拒载这个无团队的插件。**在那一窗口里打开 `.build/release` 的包即复现**，而交付链恰好就是"打包 → open 这个路径"。
+- 判别式（三条命令）：`codesign -dv --verbose=4` 看 `<app>` / `Contents/Resources/Runtime/node` / 那个 `.node` 的 TeamIdentifier 与 flags——`0x0(none)` 是开发档、`0x10000(runtime)` 才是 hardened；插件那侧 `adhoc, linker-signed` + `TeamIdentifier=not set` 即漏签。
+- 处置：`sign-app.sh --distribution` 改成**先签库（.node/.dylib 等）、后签可执行文件（node、Contents/MacOS/<名>）**——打断只停在"node 还没换 hardened 档"那一侧，那时库校验没开、插件照常加载；开发档本就不带 runtime（§5.10），不受影响。
+- 教训：**同一棵包的多步签名，顺序要按"打断后依然自洽"排**，别按路径字典序；这类报错别去读引擎代码——签名三件套一比就知道。
+
 ## 6. 调试技巧
 
 ### 6.1 抓真实事件流
