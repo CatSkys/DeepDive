@@ -84,10 +84,10 @@ final class StatusItemController: NSObject {
     }
 
     private func render() {
-        // Idle glyph = the dsh whale, unified with the floating bubble
+        // Idle glyph = the DeepDive mark, unified with the floating bubble
         // (user decision); engine failure/launching keep the distinct system
         // glyphs so a broken engine reads at a glance. Activity rides as a
-        // marker on the whale: attention dot wins, then running ring.
+        // marker on the mark: attention dot wins, then running ring.
         let image: NSImage?
         switch engineState {
         case .failed:
@@ -95,7 +95,7 @@ final class StatusItemController: NSObject {
         case .launching, .restarting:
             image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "DeepDive 引擎")
         case .idle, .ready:
-            image = WhaleAsset.statusIcon(running: activityRunning, attention: activityAttention)
+            image = BrandMark.statusIcon(running: activityRunning, attention: activityAttention)
         }
         image?.isTemplate = true
         item?.button?.image = image
