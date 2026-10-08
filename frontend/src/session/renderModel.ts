@@ -17,6 +17,43 @@ export interface WorkflowMember {
   outcome?: "completed" | "failed" | "cancelled";
 }
 
+/** 从持久化的消息流帧（`data.stream`）里读**推理那一段**的时长。
+ *  帧的真实形状（实测 log，`assistant/message` → `data.stream`）：
+ *    {type:'chunk', time, chunk:{type:'block-start'|'block-end', index, blockType:'reasoning'|…}}
+ *    {type:'reasoning-chunks', time0, index, dt:[每两段之间的毫秒差], texts:[…]}
+ *  —— 推理块的首末两个 chunk 帧给出区间；批（reasoning-chunks）是持久化的压缩形式，
+ *  `time0 + Σdt` 即该批末帧时间。两种都认，取最早起点与最晚终点。
+ *  不猜字段：拿不到就返回 undefined（调用方退回「已思考」）。 */
+function streamThinkMs(stream: unknown): number | undefined {
+  if (!Array.isArray(stream)) return undefined;
+  let start: number | undefined;
+  let end: number | undefined;
+  for (const raw of stream) {
+    if (typeof raw !== "object" || raw === null) continue;
+    const frame = raw as {
+      type?: string;
+      time?: number;
+      time0?: number;
+      dt?: unknown;
+      chunk?: { type?: string; blockType?: string };
+    };
+    const isReasoningBlock = frame.chunk?.blockType === "reasoning";
+    if (frame.type === "chunk" && isReasoningBlock && typeof frame.time === "number") {
+      if (frame.chunk?.type === "block-start") start = start === undefined ? frame.time : Math.min(start, frame.time);
+      else if (frame.chunk?.type === "block-end") end = end === undefined ? frame.time : Math.max(end, frame.time);
+      continue;
+    }
+    if (frame.type === "reasoning-chunks" && typeof frame.time0 === "number") {
+      const dt = Array.isArray(frame.dt) ? frame.dt.filter((x): x is number => typeof x === "number") : [];
+      const last = frame.time0 + dt.reduce((sum, d) => sum + d, 0);
+      start = start === undefined ? frame.time0 : Math.min(start, frame.time0);
+      end = end === undefined ? last : Math.max(end, last);
+    }
+  }
+  if (start === undefined || end === undefined) return undefined;
+  return Math.max(0, end - start);
+}
+
 export interface RenderItem {
   key: string;
   kind: "user" | "assistant" | "tool-call" | "chunk" | "reasoning" | "turn-tail" | "command" | "compaction" | "retry" | "workflow";
@@ -292,9 +329,9 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         const last = out[out.length - 1];
         if (last && last.kind === "reasoning" && last.turn === turn) {
           last.output = (last.output ?? "") + chunk.text;
-          // 时长用**推理流自己的时间戳**（首帧 → 末帧），不用"到下一项为止"那种估法：
-          // 推理结束后模型还要写正文，那是另一段时间（用户定稿：参考 ZCode 的
-          // 「思考 · 持续了 18 秒」，秒数得是推理那一段的）。
+          // 直播路径的时长记账（首帧 → 末帧）。持久化那份走消息自带的 stream（见
+          // streamThinkMs）：引擎把 delta 压成批次后写日志，直播事件里没有那个 stream，
+          // 所以两条路都要算——同一把尺子，两个数据来源。
           last.thinkMs = Math.max(0, ev.time - (last.time ?? ev.time));
         } else out.push({ ...base, key: `${base.key}:reasoning`, kind: "reasoning", output: chunk.text, turn, thinkMs: 0 });
       }
@@ -309,12 +346,14 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       // fragments.
       let cut = out.length - 1;
       while (cut >= 0 && (out[cut].kind === "chunk" || out[cut].kind === "reasoning") && out[cut].turn === turn) cut -= 1;
-      // 这一步的思考时长**随身带走**再裁：下面会把那条直播 reasoning 项丢掉，而落到
-      // assistant 里的内嵌推理（blocks.think）只有文本——时长只能在这里交接（思考行
-      // 收起后要显示「思考 · 持续了 N 秒」）。
-      let thinkMs: number | undefined;
-      for (let i = cut + 1; i < out.length; i++) {
-        if (out[i].kind === "reasoning" && out[i].thinkMs !== undefined) thinkMs = out[i].thinkMs;
+      // 这一步的思考时长：从**消息自带的流帧**（`data.stream`）里算——它是持久化的，
+      // 重载后仍在（直播的 delta 帧不进日志，实测 log 里没有 assistant/chunk，之前用
+      // delta 记账算出来的时长一重载就没了，用户报"这个时间会莫名消失"）。
+      let thinkMs = streamThinkMs((ev.data as { stream?: unknown }).stream);
+      if (thinkMs === undefined) {
+        for (let i = cut + 1; i < out.length; i++) {
+          if (out[i].kind === "reasoning" && out[i].thinkMs !== undefined) thinkMs = out[i].thinkMs;
+        }
       }
       out.length = cut + 1;
       // Track the accumulated tail payload.

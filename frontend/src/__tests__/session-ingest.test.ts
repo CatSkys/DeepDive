@@ -104,7 +104,35 @@ describe("ingest 黄金回放", () => {
     expect(out.filter((x) => x.kind === "assistant")).toHaveLength(2);
   });
 
-  it("思考时长＝推理首帧→末帧，裁切时交接给 assistant 项（「思考 · 持续了 N 秒」的数据）", () => {
+  it("思考时长：重载路径从消息自带的 stream 算（delta 帧不进日志，靠它才不丢）", () => {
+    const ctx2 = makeIngestCtx();
+    const items: RenderItem[] = [];
+    // 只投递消息本体（模拟重载：日志里根本没有 assistant/chunk 流帧事件），
+    // 时长来自 data.stream，形状照实测 log：推理块首末 chunk 帧 + 批次 dt 压缩形式。
+    ingest(items, {
+      event: {
+        type: "assistant/message", seq: 9_999, time: 5_000,
+        data: {
+          turn: 9, step: 1,
+          message: {
+            role: "assistant", id: "m9",
+            content: [{ type: "reasoning", text: "想" }, { type: "text", text: "答" }],
+            source: { kind: "model", provider: "", model: "" },
+          },
+          stream: [
+            { type: "chunk", time: 1_000, chunk: { type: "block-start", index: 0, blockType: "reasoning" } },
+            { type: "reasoning-chunks", time0: 1_000, index: 0, dt: [3_000, 400], texts: ["想", "想好", "想好了"] },
+            { type: "chunk", time: 4_400, chunk: { type: "block-end", index: 0, blockType: "reasoning" } },
+          ],
+        },
+      } as SessionEvent,
+    }, ctx2);
+    // 3400 = 推理块末帧(4400) − 首帧(1000)：与直播那条断言同一个数——两条路同一把尺子
+    //（批次 time0 + Σdt = 1000 + 3400 也是 4400）
+    expect(items.find((x) => x.kind === "assistant")?.thinkMs).toBe(3_400);
+  });
+
+  it("思考时长：直播路径从 delta 帧算（首帧 → 末帧，不是「到消息为止」）", () => {
     const ctx2 = makeIngestCtx();
     const items: RenderItem[] = [];
     for (const [t, text] of [[1_000, "先"], [4_400, "想想"]] as const) {
@@ -129,7 +157,7 @@ describe("ingest 黄金回放", () => {
       } as SessionEvent,
     }, ctx2);
     const a = items.find((x) => x.kind === "assistant");
-    // 3400 = 末帧(4400) − 首帧(1000)：**推理那一段**，不是"到消息为止"的 4000
+    // 3400 = 末帧(4400) − 首帧(1000)：**推理那一段**，不是「到消息为止」的 4000
     expect(a?.thinkMs).toBe(3_400);
     expect(items.some((x) => x.kind === "reasoning")).toBe(false);
   });

@@ -104,7 +104,11 @@ describe("turnWorkLabel", () => {
     expect(thinkingLabel(18_000, tt)).toBe("思考 · 持续了 18 秒");
     expect(thinkingLabel(72_000, tt)).toBe("思考 · 持续了 1 分 12 秒");
     expect(thinkingLabel(3_780_000, tt)).toBe("思考 · 持续了 1 小时 3 分");
-    expect(thinkingLabel(40, tt)).toBe("思考 · 持续了 0 秒"); // 不足 1 秒：与披露条同一把尺子
-    expect(thinkingLabel(-5, tt)).toBe("思考 · 持续了 0 秒"); // 时钟回拨钳 0
+    // 十秒以下是「几秒」：个位数秒没有信息量，毫秒级还会算成「0 秒」（用户 2026-10-08）
+    expect(thinkingLabel(9_999, tt)).toBe("思考 · 持续了几秒");
+    expect(thinkingLabel(10_000, tt)).toBe("思考 · 持续了 10 秒");
+    expect(thinkingLabel(40, tt)).toBe("思考 · 持续了几秒");
+    expect(thinkingLabel(0, tt)).toBe("思考 · 持续了几秒");
+    expect(thinkingLabel(-5, tt)).toBe("思考 · 持续了几秒"); // 时钟回拨钳 0
   });
 });

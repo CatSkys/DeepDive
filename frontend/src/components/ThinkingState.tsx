@@ -81,7 +81,7 @@ export function ThinkingState({
           {running ? (
             <span className="thinking-active">{t("思考中")}</span>
           ) : (
-            <span className="thinking-done">{ms ? thinkingLabel(ms, tt) : t("已思考")}</span>
+            <span className="thinking-done">{ms !== undefined ? thinkingLabel(ms, tt) : t("已思考")}</span>
           )}
         </span>
         <svg

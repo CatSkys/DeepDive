@@ -105,6 +105,10 @@ export function thinkingLabel(
   tt: (zh: string, en: string, vars?: Record<string, string | number>) => string,
 ): string {
   const { h, m, s } = elapsedParts(ms);
+  // 十秒以下不给数字（用户 2026-10-08："比较短的情况下…现在会显示零秒，很奇怪"，
+  // 参考 ZCode 的「思考 · 持续了几秒」）：个位数的秒既没有信息量，那个精度也是假的
+  // ——毫秒级的思考会算成「0 秒」。
+  if (h === 0 && m === 0 && s < 10) return tt("思考 · 持续了几秒", "Thought · a few seconds");
   if (h > 0) return tt("思考 · 持续了 {h} 小时 {m} 分", "Thought · {h}h {m}m", { h, m });
   if (m > 0) return tt("思考 · 持续了 {m} 分 {s} 秒", "Thought · {m}m {s}s", { m, s });
   return tt("思考 · 持续了 {s} 秒", "Thought · {s}s", { s });

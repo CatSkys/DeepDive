@@ -117,10 +117,10 @@
       "detail": "439 lines > 300"
     },
     {
-      "id": "8b377b2ae7510d66",
+      "id": "3d3f90b8c2491539",
       "rule": "file-lines",
       "file": "frontend/src/session/renderModel.ts",
-      "detail": "574 lines > 300"
+      "detail": "613 lines > 300"
     },
     {
       "id": "f1ed9ce2409730c0",
