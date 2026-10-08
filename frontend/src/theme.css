@@ -1639,6 +1639,13 @@ button {
   --reading-col: 896px;
   /* .flow 的横向内边距：正文列右补偿要用同一份值，抽出来免得两处漂移 */
   --flow-pad-x: clamp(14px, 3vw, 28px);
+  /* **流里竖向行奏的唯一值**（用户两次报"行距没统一/贴的太近"）：轮与轮之间（消息距）、
+     轮内相邻行、assistant 块内部的思考↔正文、披露条与它下面那一行——同一段"行与行"的
+     关系，全部引这一个数。曾经是 10/12/8/4 四份各写各的，隔一层容器就换一次值，披露条
+     展开时更是只剩 4px（"贴的太近"就是这一档）。
+     有两处**不同的关系**各有其值，不归这条行奏：.md 里段与段（9px，一段正文内部）、
+     披露体的头与体 / 思考头与轨迹（8/4px，同一个块的头与它自己的内容）。 */
+  --flow-gap: 10px;
 }
 .session-header {
   display: flex;
@@ -1838,7 +1845,7 @@ button {
 .flow-inner {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--flow-gap);
   /* 正文列（--reading-col）：宽屏居中定宽，窄窗被 max-width 让成整宽。
      约束的是列本身而非滚动容器 .flow——滚动条与渐隐带仍贴主卡边缘。 */
   width: 100%;
@@ -2190,7 +2197,12 @@ button {
   position: relative;
   overflow: hidden;
   content-visibility: auto;
-  contain-intrinsic-size: auto 48px;
+  /* 屏外估高＝**收起态**的真实行高（.tool-row-main 的 24px），不是展开态的 48px：
+     估高只决定"还没渲染过的行占多大地"，估成 48 时往上翻历史会先空出一条 24px 的
+     假行距、滚到了才填上内容（用户看到的"行距不一致"有一半是它）。估得贴近真实，
+     PITFALLS §1.12 那种 scrollHeight 漂移也跟着变小。渲染过的行按记忆的真实高度算，
+     展开态因此不受影响。 */
+  contain-intrinsic-size: auto 24px;
 }
 .tool-row-main {
   display: flex;
@@ -2491,12 +2503,12 @@ button {
 .thinking-live .thinking-row {
   animation: md-focus-in var(--dur-slow) var(--ease-out) both;
 }
-/* assistant 块内部（思考轨迹 + 正文）沿用全局 12px 行距节奏，
-   不再让思考行贴着正文。 */
+/* assistant 块内部（思考轨迹 + 正文）与轮内行距同值（--flow-gap）：此前这里是
+   12px 而相邻行是 10px，同一个"行与行"隔一层容器就差 2px（用户报"行距不一致"）。 */
 .msg-block.assistant {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--flow-gap);
 }
 /* DSH userRow: right-aligned column (bubble + IconActions).
    The block is a flex column pinned right (align-self + margin-left:auto),
@@ -2619,9 +2631,9 @@ button {
    否则用户气泡退化为普通块级铺满整行。 */
 .chat-anchor-row { position: relative; display: flex; flex-direction: column; }
 /* 轮容器：包住一轮的 user/assistant/turn-tail，作为 data-actions-reveal 的
-   hover 作用域——悬停轮内正文即显现本轮 meta 行；gap 复刻 flow-inner 的
-   10px 行奏（包层会吃掉外层 gap）。 */
-.turn-group { display: flex; flex-direction: column; gap: 10px; }
+   hover 作用域——悬停轮内正文即显现本轮 meta 行；gap 与 flow-inner 同引
+   --flow-gap（包层会吃掉外层 gap，两处必须同一个值，否则轮内与轮间差一档）。 */
+.turn-group { display: flex; flex-direction: column; gap: var(--flow-gap); }
 .meta-clock {
   display: inline-flex;
   align-items: center;
@@ -4334,15 +4346,17 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 /* 轮内过程折叠披露条（官方 TurnProcessNodeView）：流内披露行，不是浮层——
    不进弹出配方（.flow * 禁 blur）。对比度按语义变量抬一档，避免主卡玻璃底
-   上 ink-3 糊成看不见。 */
-.turn-process-slot { display: contents; }
+   上 ink-3 糊成看不见。
+   它**自占一行**（行由 TurnList 发），与下面那一行的距离因此就是 .turn-group 的行奏
+   ——这里不再自己加下边距：加一份会与行奏叠成两份（收起态曾 20px），而 [data-open]
+   时又压到 4px。 */
 .turn-process-row {
   box-sizing: border-box;
   display: flex;
   align-items: center;
   width: 100%;
   min-width: 0;
-  margin: 0 0 8px;
+  margin: 0;
   padding: 4px 0;
   border: none;
   border-bottom: 1px solid var(--line);
@@ -4369,7 +4383,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .turn-process-row:hover .turn-process-chevron { color: var(--ink-2); }
 .turn-process-row[data-open] .turn-process-chevron { transform: rotate(0deg); }
-.turn-process-row[data-open] { margin-bottom: 4px; }
 
 .user-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; justify-content: flex-end; }
 .user-attachment-thumb {

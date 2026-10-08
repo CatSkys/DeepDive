@@ -109,11 +109,50 @@ function checkFileLines(file) {
   return [{ rule: "file-lines", file: rel(file), detail: `${lines} lines > ${MAX_FILE_LINES}` }];
 }
 
+// ── 规则 3：流的竖向行奏只能有一个值 ─────────────────────────────────────────
+// 用户两次报"行距没统一 / 贴的太近"：同一种"行与行"的关系曾经是 10/12/8/4 四份各写
+// 各的，隔一层容器就换一档——改一处、另一处不跟，不报错、测试不红，页面上只表现为
+// "看着不一致"。判据：这几个行容器里凡声明行距的地方都必须引 `--flow-gap`（值本身在
+// theme.css 的 :root，唯一事实源）；行内的披露条等自占一行的元素**不再自己加下边距**
+// （加了就与行奏叠成两份），所以不列在这张表里。
+const FLOW_RHYTHM_RULES = [
+  { selector: ".flow-inner", prop: "gap" },
+  { selector: ".turn-group", prop: "gap" },
+  { selector: ".msg-block.assistant", prop: "gap" },
+];
+
+function checkFlowRhythm() {
+  const file = "frontend/src/theme.css";
+  // 注释按"保留换行"的方式抹掉：多行注释整段变空白后，选择器仍落在自己那一行的行首
+  // （直接换成空格会把注释里的换行也吃掉，选择器就跑到上一行尾巴上，匹配不到）。
+  const css = readFileSync(join(ROOT, file), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+  const violations = [];
+  for (const { selector, prop } of FLOW_RHYTHM_RULES) {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+    // 只看"该选择器独立成组"的规则体：`.sel[data-open] { … }` 这类追加态不参与
+    const bodies = [...css.matchAll(new RegExp(`^\\s*${escaped}\\s*\\{([^}]*)\\}`, "gm"))]
+      .map((m) => m[1]);
+    const declared = bodies
+      .map((body) => new RegExp(`(?:^|;)\\s*${prop}\\s*:([^;]+)`).exec(body))
+      .filter(Boolean);
+    if (declared.length === 0) {
+      violations.push({ rule: "flow-rhythm", file, detail: `${selector} 没声明 ${prop}（行奏的接线断了？）` });
+      continue;
+    }
+    for (const d of declared) {
+      if (d[1].includes("var(--flow-gap)")) continue;
+      violations.push({ rule: "flow-rhythm", file, detail: `${selector} 的 ${prop} 不是 var(--flow-gap)：${d[1].trim()}` });
+    }
+  }
+  return violations;
+}
+
 // ── 主流程 ───────────────────────────────────────────────────────────────────
 
 function collect() {
   const files = SOURCE_ROOTS.flatMap((dir) => walk(dir)).filter((f) => !isTest(f));
-  const violations = [];
+  const violations = [...checkFlowRhythm()];
   for (const file of files) {
     if (file.endsWith(".ts") || file.endsWith(".tsx")) violations.push(...checkCssModuleClasses(file));
     violations.push(...checkFileLines(file));

@@ -4,7 +4,7 @@
 //
 // 只负责渲染：数据来自 useSessionEvents/renderModel，折叠开关由调用方持有（会话页那份要
 // 跨重渲染保留，对话卡各自一份）。
-import type { MutableRefObject } from "react";
+import { Fragment, type MutableRefObject } from "react";
 import type { RenderItem } from "./renderModel";
 import type { TurnGroup } from "../turnGroups";
 import { groupTools } from "./toolGroups";
@@ -84,7 +84,14 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
               onToggle={() => toggleProc(!procOpen)}
             />
           ) : null;
-          if (hideItem) return bar ? <span key={key} className="turn-process-slot">{bar}</span> : null;
+          // 披露条**自占一行**（不再拼进所在项那一行）：收起与展开两种状态下，它与下面
+          // 那一行的距离就只剩 .turn-group 的行奏一份（--flow-gap）。曾把条塞进所在项的
+          // 同一行里，于是展开态贴到 4px（用户报"贴的太近"）、收起态那条又叠上一份
+          // 行距变成 20px（同一个关系两个值，用户报"行距不一致"）。
+          const barRow = barHere && bar ? (
+            <div key={`bar-${key}`} className="chat-anchor-row">{bar}</div>
+          ) : null;
+          if (hideItem) return barRow;
           // 锚点按首个成员的 key 查（组自身不在 keyIdx 里，直接用组 key 会丢掉落点）
           const idx = keyIdx.get(members[0]!.key) ?? -1;
           const isAnswer = proc !== null && last === proc.answerIndex;
@@ -103,18 +110,19 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
             />
           );
           return (
-            <div
-              key={key}
-              className="chat-anchor-row"
-              ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
-            >
-              {bar}
-              {unit.kind === "tool-group" ? (
-                <ToolGroupRow groupKind={unit.groupKind} members={unit.members}>
-                  {unit.members.map((m) => <div key={m.key}>{renderItem(m)}</div>)}
-                </ToolGroupRow>
-              ) : renderItem(unit.item)}
-            </div>
+            <Fragment key={key}>
+              {barRow}
+              <div
+                className="chat-anchor-row"
+                ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
+              >
+                {unit.kind === "tool-group" ? (
+                  <ToolGroupRow groupKind={unit.groupKind} members={unit.members}>
+                    {unit.members.map((m) => <div key={m.key}>{renderItem(m)}</div>)}
+                  </ToolGroupRow>
+                ) : renderItem(unit.item)}
+              </div>
+            </Fragment>
           );
         })}
       </div>,

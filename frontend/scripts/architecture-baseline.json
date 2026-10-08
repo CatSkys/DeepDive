@@ -27,12 +27,6 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "62fad347c3aa2ff7",
-      "rule": "file-lines",
-      "file": "apps/macos/Sources/DSHminiApp/FloatingBubble.swift",
-      "detail": "303 lines > 300"
-    },
-    {
       "id": "7aa13bab2310b5d7",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
