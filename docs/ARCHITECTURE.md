@@ -139,7 +139,7 @@
 apps/macos/                Swift 壳（XcodeGen project.yml；xcodeproj/Info.plist 生成物已 ignore）
 frontend/                  自建 SPA（Vite 单入口）；packages/design = token 源 + 生成器
 engine/profile/            引擎组合：装载哪些插件的唯一事实源（bundle 包 + 期望快照 + README）
-design/logo/               DeepDive 黑底反白鲸鱼 logo 种子工程与导出（BRANDING.md）
+design/logo/               DeepDive logo 种子工程与导出（白底实心 D + 右侧渐变模糊；BRANDING.md）
 scripts/                   构建/打包/嵌入/运行时准备/裁剪/组合门脚本 + 版本引脚
 docs/                      本架构 + 规范（UI/SEMANTICS/三个 P2 SPEC）+ PITFALLS + WORKING-AGREEMENTS
 deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引脚，embed 时 check-dsh-source.sh 强校验）——资产/移植对照，勿当运行时

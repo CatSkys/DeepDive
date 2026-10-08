@@ -34,7 +34,7 @@
 - 存储 `UserDefaults`；设置「通用→通知」分区对应这些开关（回合完成 / 待审批待提问 / 菜单栏图标 / Dock 栏图标 / 悬浮球）。
 
 ### 1.4 菜单栏状态条（`NSStatusItem`，沿用 `StatusItemController` 增强）
-- 图标按状态：空闲=鲸鱼（`WhaleAsset.statusIcon`，与悬浮球同一 logo）；运行=鲸鱼+环；需注意=鲸鱼+点（需注意态优先，直到审批/提问被应答）；引擎失败/启动期用系统符号。
+- 图标按状态：空闲=品牌标记（`BrandMark.statusIcon`，与悬浮球同一 logo）；运行=标记+环；需注意=标记+点（需注意态优先，直到审批/提问被应答）；引擎失败/启动期用系统符号。
 - 图标整体显隐由 §1.3 `menuBar` 控制；`StatusItemController.setVisible` 只动 `isVisible`。
 - 菜单：显示主窗、设置…、刷新界面、重启引擎、切换工作区、退出。**对现状菜单的两处取舍**：「黑白主题」**删除**（明/暗移入设置-外观分区，避免双入口）；「刷新界面」**保留**（调试用）。
 
@@ -54,8 +54,8 @@
 
 ### 2.3 交互
 - 单击：激活 App + 主窗到前。**拖**：用 `isMovableByWindowBackground`，**不得加 SwiftUI 手势**（会吃 mouseDown，拖不动）。**hover**：用 `onHover`（不消费事件），缩放到 1.06；光标处理按 `UI-SPEC` 无 `pointer` 纪律（可不用 pointingHand，或仅悬浮球保留）。
-- **中央图形 = dsh 官方 logo（鲸鱼）**：资产取自**本仓库 vendored 的 dsh 源码副本**（版本恒等于 runtime 引脚）——`deepseek-harness/apps/web/public/favicon.svg` 的鲸鱼 path（viewBox 0 0 50 50），或 `deepseek-harness/packages/client/ui-primitives/src/FishLogo.tsx`（`FISH_LOGO_PATH`，viewBox 23.16×17.04，`fill="currentColor"`）。渲染 `currentColor` 单色，融入黑白。
-- 状态表达（**monochrome 移植**，不用红点/彩色海景）：在鲸鱼上做**环绕状态环/点**——运行=亮环（呼吸）、后台完成未读=白点（呼吸）/灰✓；语音/听写涟漪按需（P2）。中央鲸鱼本体保持黑白剪影。
+- **中央图形 = 品牌标记（实心 D 剪影）**：path 由 `design/logo/`（`?path=1`，正方形 viewBox 0 0 737.28 737.28）生成后逐字粘进 `FloatingBubble.swift` 的 `BrandMark.markPath`——改 logo 配方时两边同步。渲染单色剪影，融入黑白。
+- 状态表达（**monochrome 移植**，不用红点/彩色海景）：在标记上做**环绕状态环/点**——运行=亮环（呼吸）、后台完成未读=白点（呼吸）/灰✓；语音/听写涟漪按需（P2）。中央标记本体保持黑白剪影。
 
 ### 2.4 入口
 - 开关：设置「通用」分区。**悬浮球显隐不占全局热键**——全局键是稀缺资源，仅保留唤起面板一个（与 `SPEC-SETTINGS-WINDOW` 快捷键分区"全局热键 1 个"一致；v1 的 `⌥⌘Y` 设想撤销）。
