@@ -30,10 +30,12 @@ enum BrandMark {
     /// attention = filled dot (wins), running = hollow dot, idle = mark only.
     static func statusIcon(running: Bool, attention: Bool) -> NSImage {
         let side: CGFloat = 18
+        let glyph: CGFloat = 14      // 字形 14pt 居中：满 18pt 时实心 D 比旁边的线性图标显得重
         let img = NSImage(size: NSSize(width: side + 4, height: side))
         img.lockFocus()
-        let markRect = NSRect(x: 1, y: 1, width: side, height: side)
-        image.draw(in: markRect, from: .zero, operation: .sourceOver, fraction: 1)
+        let inset = 1 + (side - glyph) / 2
+        image.draw(in: NSRect(x: inset, y: inset, width: glyph, height: glyph),
+                   from: .zero, operation: .sourceOver, fraction: 1)
         let marker = NSBezierPath(ovalIn: NSRect(x: side - 1, y: side - 4, width: 5, height: 5))
         if attention {
             NSColor.black.setFill()

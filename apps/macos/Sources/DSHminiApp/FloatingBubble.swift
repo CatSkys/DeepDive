@@ -234,10 +234,11 @@ struct FloatingBubbleView: View {
                         .stroke(Color.white.opacity(0.35), lineWidth: 1)
                 )
                 .overlay(
+                    // 20pt：实心 D 在 44pt 圆里满 26pt 会显得压边（与菜单栏字形同步收一档）
                     Image(nsImage: BrandMark.image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 26, height: 26)
+                        .frame(width: 20, height: 20)
                         .colorMultiply(.white)
                 )
         }
