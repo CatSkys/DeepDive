@@ -57,10 +57,10 @@
       "detail": "338 lines > 300"
     },
     {
-      "id": "deecc6ea579ae11a",
+      "id": "178aa6cd5ea0c229",
       "rule": "file-lines",
       "file": "frontend/src/components/Composer.tsx",
-      "detail": "573 lines > 300"
+      "detail": "574 lines > 300"
     },
     {
       "id": "a048c32abe5dcbfe",

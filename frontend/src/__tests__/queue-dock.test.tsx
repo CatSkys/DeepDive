@@ -77,6 +77,11 @@ describe("QueueDock", () => {
     expect(await screen.findByText("报告.pdf")).toBeTruthy();
     expect(container.querySelector(".user-attachments .user-attachment-thumb")).toBeTruthy();
     expect(container.querySelector(".user-attachments .user-file-chip")).toBeTruthy();
+    // 文件 chip 出**按类型**的图标（FileIcon 的 .file-icon）：pdf 与 txt 的图标必须不同
+    const pdfIcon = container.querySelector(".user-file-chip .file-icon")?.innerHTML ?? "";
+    expect(pdfIcon).toContain("svg");
+    const txt = render(<QueueDock sessionId="s" items={[{ ...withFiles, id: "t", message: { id: "t", content: [{ type: "file", attachment: { attachmentId: "att-3", name: "笔记.txt", bytes: 10 } }] } }]} />);
+    expect(txt.container.querySelector(".user-file-chip .file-icon")?.innerHTML).not.toBe(pdfIcon);
     // 引擎的排队编辑只收文本（改一次就丢附件）：编辑钮禁用，立即/删除照旧
     const edit = await screen.findByLabelText("编辑排队消息");
     expect((edit as HTMLButtonElement).disabled).toBe(true);

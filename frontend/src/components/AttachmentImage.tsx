@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
 import { api } from "../api";
 import { Lightbox } from "./Lightbox";
+import { FileIcon } from "../session/FileIcon";
 import type { ContentBlock } from "../types";
 
 // 用户消息附件（3.2 收尾 + 0.1.5 通用文件）：attachment 引用块的渲染——
@@ -74,7 +74,8 @@ export function UserAttachments({ sessionId, content }: { sessionId: string; con
       ))}
       {files.map((f) => (
         <span key={f.attachmentId} className="user-file-chip" data-tip={f.name}>
-          <FileText size={14} />
+          {/* 按类型出图标（image/audio/video/pdf/word/table/zip…），不再一律通用文件图标 */}
+          <FileIcon file={f.name} size={16} />
           <span className="user-file-name">{f.name}</span>
           {f.bytes !== undefined && <span className="user-file-size">{sizeText(f.bytes)}</span>}
         </span>

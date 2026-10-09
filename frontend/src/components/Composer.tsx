@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, Square, Plus, Mic, FileText } from "lucide-react";
+import { ArrowUp, Square, Plus, Mic } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
@@ -20,6 +20,7 @@ import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
 import { useSlashCommands } from "./composer/useSlashCommands";
 import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
+import { FileIcon } from "../session/FileIcon";
 import { uuid } from "../uuid";
 
 /* ─────────────────────────────────────────────────────────
@@ -438,7 +439,7 @@ export function Composer({ sessionId, onSent, ctx }: {
               <span key={a.id} className="att-chip file" data-status={a.status} data-tip={a.error ?? a.name}>
                 {a.status === "uploading" || a.status === "pending"
                   ? <span className="att-file-progress" data-tip={a.progress !== undefined ? `${a.progress}%` : undefined}>{a.progress ?? undefined}%{a.progress === undefined && <span className="att-file-spin" aria-hidden="true" />}</span>
-                  : <FileText size={14} />}
+                  : <FileIcon file={a.name} size={16} />}
                 <span className="att-file-name">{a.name}</span>
                 {a.status === "uploading" && <button className="att-file-retry" aria-label={t("取消上传")} onClick={(e) => { e.stopPropagation(); cancelUpload(a.id); }}>{t("取消")}</button>}
                 {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId); else requeueFile(a.id); }}>{t("重试")}</button>}
