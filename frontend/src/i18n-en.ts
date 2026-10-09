@@ -911,7 +911,6 @@ export const EN: Record<string, string> = {
   "无法在应用内预览该文件": "This file can't be previewed in the app",
   "该文件类型不支持应用内预览": "This file type doesn't support in-app preview",
   // composer
-  "取消上传": "Cancel upload",
   "上传中": "Uploading",
   "待发送": "Pending",
   "上传失败": "Upload failed",

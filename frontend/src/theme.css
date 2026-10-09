@@ -1192,9 +1192,14 @@ button {
 .att-chip.file[data-status="pending"], .att-chip.file[data-status="uploading"] { opacity: .72; }
 .att-chip.file[data-status="error"] { border-color: var(--dsh-signal-danger); color: var(--ink); }
 .att-file-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 名字右边那一截：待发送 / 上传中 42% / 上传失败 / 大小（口径与消息里那颗文件 chip 一致）。
-   失败一档用信号色，其余是 muted——和官方的 meta 行同一套语义。 */
-.att-file-meta { flex: none; color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
+/* 名字右边那一截：待发送 / 上传中 42% / 失败原因 / 大小（口径与消息里那颗文件 chip 一致）。
+   失败一档用信号色，其余是 muted——和官方的 meta 行同一套语义。失败原因是任意长度的
+   原话，所以这里自己也截断：全文在 chip 的 tooltip 上，chip 不会被一句报错撑爆。 */
+.att-file-meta {
+  flex: none; max-width: 132px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink-3); font-size: var(--dsh-font-size-xs);
+}
 .att-file-meta.failed { color: var(--dsh-signal-danger); }
 .att-file-spin {
   width: 10px; height: 10px; flex: none;
@@ -1204,11 +1209,25 @@ button {
   animation: att-file-rotate .8s linear infinite;
 }
 @keyframes att-file-rotate { to { transform: rotate(360deg); } }
+/* 重试：chip 里的一颗文字钮，不划线（流内胶囊里没有下划线这种网页语言）。
+   **没有独立的「取消」钮**：同一颗 × 就是"取消并移除"；多一颗「取消」只会把上传中的
+   chip 变成一颗红的"已取消"错误态——既不是取消该有的样子，也和 × 重复。 */
 .att-file-retry {
   border: none; background: none; padding: 0 2px;
-  color: var(--ink-2); font-size: var(--dsh-font-size-sm); text-decoration: underline;
+  color: var(--ink-2); font-size: var(--dsh-font-size-sm);
 }
+.att-file-retry:hover { color: var(--ink); }
 .att-chip.file .att-chip-x { position: absolute; top: 5px; right: 4px; }
+/* 移除钮跟着指针现（与侧栏行内动作同一套 hover 语言；键盘聚焦时也给看）。定在
+   .composer-chips 上而不是单颗 chip：一行里图片与文件两种 chip 的移除入口必须长得
+   一样，只管一种就是分叉。 */
+:where(html[data-hover-armed]) .composer-chips .att-chip-x {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+:where(html[data-hover-armed]) .composer-chips .att-chip:hover .att-chip-x,
+:where(html[data-hover-armed]) .composer-chips .att-chip-x:hover,
+:where(html[data-hover-armed]) .composer-chips .att-chip-x:focus-visible { opacity: 1; }
 
 /* ---- 文件预览窗口（0.1.5 产物/文件预览）：little 浮窗 + 全屏两态 ----
    little 态 = 整窗蒙版（模糊 + 变暗）上的居中浮窗，控制钮挂在窗外右侧；

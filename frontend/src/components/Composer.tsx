@@ -13,7 +13,7 @@ import type { CommandSubmitAttachment, PromptContentPart } from "../types";
 import { classifyAttachmentRefusal, classifyAttachmentRefusalText, type AttachmentRefusalClass } from "../attachmentRefusal";
 import type { RpcErrorFacts } from "../api";
 import { useComposerDraft } from "./composer/useComposerDraft";
-import { useComposerAttachments, type FileAttachment, type ImageAttachment } from "./composer/useComposerAttachments";
+import { useComposerAttachments, type ImageAttachment } from "./composer/useComposerAttachments";
 import { DD_EVENTS } from "../events";
 import { useComposerDictation } from "./composer/useComposerDictation";
 import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
@@ -21,7 +21,7 @@ import { useSlashCommands } from "./composer/useSlashCommands";
 import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
 import { FileIcon } from "../session/FileIcon";
-import { sizeText } from "../session/format";
+import { fileMeta } from "./composer/fileMeta";
 import { uuid } from "../uuid";
 
 /* ─────────────────────────────────────────────────────────
@@ -424,15 +424,6 @@ export function Composer({ sessionId, onSent, ctx }: {
     taRef.current?.focus();
   };
 
-  /** chip 名字右边那一截：待发送/上传中（带百分比）/上传失败/大小（就绪或草稿页）。
-   *  与官方 FileCard 的 meta 同一套语义；大小用 sizeText——消息里那颗文件 chip 也是它。 */
-  const fileMeta = (f: FileAttachment): string => {
-    if (f.status === "error") return t("上传失败");
-    if (f.status === "uploading") return f.progress !== undefined ? `${t("上传中")} ${f.progress}%` : t("上传中");
-    if (f.status === "pending") return t("待发送");
-    return sizeText(f.bytes);
-  };
-
   const canSend = content.length > 0 && !busy && filesReady;
   const showCtx = hasContextData(ctx);
   return (
@@ -454,8 +445,7 @@ export function Composer({ sessionId, onSent, ctx }: {
                   ? <span className="att-file-spin" aria-hidden="true" />
                   : <FileIcon file={a.name} size={16} />}
                 <span className="att-file-name">{a.name}</span>
-                <span className={`att-file-meta${a.status === "error" ? " failed" : ""}`}>{fileMeta(a)}</span>
-                {a.status === "uploading" && <button className="att-file-retry" aria-label={t("取消上传")} onClick={(e) => { e.stopPropagation(); cancelUpload(a.id); }}>{t("取消")}</button>}
+                <span className={`att-file-meta${a.status === "error" ? " failed" : ""}`}>{fileMeta(a, t)}</span>
                 {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId); else requeueFile(a.id); }}>{t("重试")}</button>}
                 <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); if (a.status === "uploading") cancelUpload(a.id); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
               </span>

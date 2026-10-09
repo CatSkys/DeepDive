@@ -63,10 +63,10 @@
       "detail": "338 lines > 300"
     },
     {
-      "id": "b00bf6d32b0e579a",
+      "id": "674cc2060f967058",
       "rule": "file-lines",
       "file": "frontend/src/components/Composer.tsx",
-      "detail": "588 lines > 300"
+      "detail": "578 lines > 300"
     },
     {
       "id": "bd2e303cdad8f730",
@@ -99,10 +99,10 @@
       "detail": "571 lines > 300"
     },
     {
-      "id": "90cbce2efc76f1c0",
+      "id": "75fa2288b18311ee",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1018 lines > 300"
+      "detail": "1020 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",
