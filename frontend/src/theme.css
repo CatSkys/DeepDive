@@ -5138,7 +5138,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 工具栏行尾那颗「对话」（图标 + 文字的胶囊，同参考图的 Chat）：把浮在网页之上的
    对话卡叫出来。它自带**开关态**（`on` = 卡片正开着）：底色调深一档、字用亮色，气泡也从
    空心变实心（见 BrowserToolbar）。开/关的事实源在壳（见 useComposerOverlay 的镜像）。
-   胶囊**不描边**（用户定稿）：与旁边的工具钮一样只靠底色分档，轮廓交给圆角。 */
+   常态与旁边的工具钮**一个样**（用户定稿）：不描边、不铺底色，只有悬停/开着才亮底，
+   轮廓交给圆角——胶囊比它们宽，铺底会被读成"一直按着"。 */
 .panel-chat-btn {
   display: flex;
   align-items: center;
@@ -5147,12 +5148,14 @@ input:focus, textarea:focus, select:focus { outline: none; }
   padding: 0 10px;
   border: 0;
   border-radius: 13px;
-  background: var(--fill-soft);
+  background: transparent;
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
   cursor: pointer;
 }
-.panel-chat-btn:hover { background: var(--fill); }
+/* 悬停档与 `.panel-browser-tool:hover` 同一档（--fill-soft）；`.on` 声明在它之后，
+   开着悬停不会掉回浅档。 */
+.panel-chat-btn:hover { background: var(--fill-soft); }
 .panel-chat-btn.on {
   background: var(--fill-strong);
   color: var(--ink-bright);
