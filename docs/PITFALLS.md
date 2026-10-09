@@ -742,8 +742,23 @@
   `draggingPasteboard`（可执行文件与目录都在）挑出目录，经 `hostDroppedFolders` 推给 SPA 转
   `@` 引用，**其余原样交回 `super`**：文件与图片继续由 WebKit 投给页面（页面拿得到字节），
   这条路一点都不抢。纯浏览器没有壳 → 明说"拿不到路径"，不静默。
+- **补一刀（2026-10-09 用户报"文件夹为什么还是不行"）**：光在 `performDragOperation` 里读
+  拖放板不够——**AppKit 只把 drop 交给"认下了这一投"的视图**，而认不认由
+  `draggingEntered`/`draggingUpdated` 的返回值决定。页面对"目录"没有合法投递，WebKit 这两处
+  回的是**空操作**，于是 `performDragOperation` 一次都不会被调，那条读拖放板的路永远进不去。
+  症状因此是**有选择的**：文件与图片照收（WebKit 认文件投），只有目录这一种静默消失。
+  处置：这两处覆盖里先请 `super` 走一遍（DOM 的 dragenter/dragover 靠它派发，拖拽蒙版据此
+  亮），super 回空操作而拖放板里**有目录**时自己回 `.copy` 把这一投认下来。另：壳接手后 DOM
+  的 `drop` 可能不再来，蒙版要在 `hostDroppedFolders` 那条命令里自己收（否则挂一整块挡界面）。
+- **目录判据要问磁盘**：实测 Finder 给的目录 `file://` URL **`hasDirectoryPath` 是 `false`**
+  （`osascript` 置剪贴板后读 `NSPasteboard.general`：`public.file-url` 在、`stat.isDirectory`
+  为真、URL 尾巴却没有斜杠）。所以只认 `resourceValues(forKeys: [.isDirectoryKey])`，别用
+  `hasDirectoryPath` 去省那次 stat。
 - 一般化：**跨端别指望 DOM 拿到本机路径**。凡"拖入的东西要按路径处理"，一律在壳里读拖放板；
   `getAsString` 这类"看起来能给路径"的 API 在 WKWebView 里不可靠，用之前先在真引擎里量一次。
+- 一般化（第二条）：**原生拖放进不来时，先看"这一投有没有被认下来"**。`performDragOperation`
+  不会被调用不代表它写错了——`draggingEntered`/`draggingUpdated` 回空操作就等于把投递收回，
+  而且 AppKit 会因此去找别的目标（顺带解释了"有的类型能拖、有的类型没反应"）。
 - 同一轮的另一半：**大小上限不该把附件挡在门外**（用户："引擎没有就加啊…不应该有大小限制"）。
   上限的真正来源是我们自己的桥——`MiniHTTPServer` 把整个 body 读进内存，超 32MB 直接 413。
   改成：超过**缓冲**上限就落临时文件、由 `relayUnary` 用 `uploadTask(fromFile:)` 流式转发

@@ -432,13 +432,15 @@ export function Composer({ sessionId, onSent, ctx }: {
         <div className="composer-chips">
           {attachments.map((a, i) => (
             a.kind === "image" ? (
-              <span key={a.id} className="att-chip" onClick={() => setPreview(a)} data-tip={a.name}>
+              <span key={a.id} className="att-chip" onClick={() => setPreview(a)}>
                 <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} />
                 <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
               </span>
             ) : (
-              <span key={a.id} className="att-chip file" data-status={a.status} data-tip={a.error ?? a.name}>
-                {/* 图标位与官方 FileCard 同款：**上传中换成转圈**，其余时候就是文件类型图标
+              <span key={a.id} className="att-chip file" data-status={a.status} data-tip={a.error}>
+                {/* 名字不做悬浮注释（用户 2026-10-09 定稿：没必要）——chip 自己已经把名字
+                    截断摆着了；只有失败原因还留着 tooltip，那是 chip 展不开的原话。
+                    图标位与官方 FileCard 同款：**上传中换成转圈**，其余时候就是文件类型图标
                     （图标永远在，不会出现"前面那块不知道是什么"）；状态写在名字右边，
                     大小用与消息里那颗文件 chip 同一个 sizeText。 */}
                 {a.status === "uploading"

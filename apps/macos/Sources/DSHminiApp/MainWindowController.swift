@@ -56,13 +56,33 @@ private final class TitlebarAwareWebView: WKWebView {
     /// （页面拿得到字节），这条路一点都不抢。
     var onFoldersDropped: (([URL]) -> Void)?
 
+    /// 文件夹这一投要**自己认下来**：页面对"目录"没有合法投递，WebKit 的
+    /// `draggingEntered` 会回**空操作**；而 AppKit 只把 drop 交给"认下了这一投"的视图
+    /// ——回空操作它就不往下走，`performDragOperation` 一次也不会被调，下面那条读拖放板
+    /// 的路永远进不去（2026-10-09 用户报"文件夹拖入不显示"，文件/图片却是好的：WebKit
+    /// 认文件投、不认目录投，于是只有目录这一种静默消失）。
+    /// 顺序是先请 super 走一遍：DOM 的 dragenter/dragover 靠它派发（拖拽蒙版据此亮）。
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let op = super.draggingEntered(sender)
+        return op.isEmpty && !Self.droppedFolders(sender).isEmpty ? .copy : op
+    }
+
+    /// 同 draggingEntered：draggingUpdated 回空操作等于半路把投递收回去。
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let op = super.draggingUpdated(sender)
+        return op.isEmpty && !Self.droppedFolders(sender).isEmpty ? .copy : op
+    }
+
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let folders = Self.droppedFolders(sender)
+        // 这条路上没有任何别的痕迹（DOM 侧看不到文件夹路径），留一行读数好对账
+        EngineLog.shared.append("[drag] drop: folders=\(folders.count)")
         if !folders.isEmpty { onFoldersDropped?(folders) }
         return super.performDragOperation(sender)
     }
 
-    /// 拖放板上的**目录** URL（文件会被过滤掉，见上）。
+    /// 拖放板上的**目录** URL（文件会被过滤掉，见上）。判据是问磁盘（实测：Finder 给的
+    /// 目录 URL `hasDirectoryPath` 是 **false**，只看 URL 尾巴认不出来）。
     private static func droppedFolders(_ sender: NSDraggingInfo) -> [URL] {
         let urls = sender.draggingPasteboard.readObjects(
             forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []

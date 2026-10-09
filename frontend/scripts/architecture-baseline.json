@@ -27,10 +27,10 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "a6c645f01b67c6db",
+      "id": "e839046f3a85a190",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
-      "detail": "607 lines > 300"
+      "detail": "627 lines > 300"
     },
     {
       "id": "c0bcad14de65f07a",
@@ -63,16 +63,16 @@
       "detail": "338 lines > 300"
     },
     {
-      "id": "674cc2060f967058",
+      "id": "02c87bb9ffcaaff8",
       "rule": "file-lines",
       "file": "frontend/src/components/Composer.tsx",
-      "detail": "578 lines > 300"
+      "detail": "580 lines > 300"
     },
     {
-      "id": "bd2e303cdad8f730",
+      "id": "29173287b348c446",
       "rule": "file-lines",
       "file": "frontend/src/components/composer/useComposerAttachments.ts",
-      "detail": "417 lines > 300"
+      "detail": "425 lines > 300"
     },
     {
       "id": "e92bd9496830ebef",

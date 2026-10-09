@@ -310,15 +310,18 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
   // 命令面板「添加附件」与 composer ＋ 按钮同一条链路
   useEffect(() => onAppEvent(DD_EVENTS.composerAttach, () => addAttachments()), [addAttachments]);
 
-  // 壳推来的**拖入文件夹**（路径只有它拿得到）：转 @ 引用
+  const { dragOver, clearDragOver } = useWindowFileDrag({ addImageFile, addFileFile, hasShell });
+
+  // 壳推来的**拖入文件夹**（路径只有它拿得到）：转 @ 引用。壳接手这一投之后，DOM 的
+  // drop 可能压根不来（WebKit 没认下"目录投"，见 TitlebarAwareWebView.draggingEntered），
+  // 那条路径下唯一会到的就是这条命令——所以蒙版必须在这里收，否则它挂一整块挡着界面。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd !== "hostDroppedFolders") return;
+    clearDragOver();
     const items = (payload as { items?: Array<{ path: string }> } | undefined)?.items ?? [];
     const mentions = items.map((it) => mentionOf(it.path, true)).filter((m): m is string => m !== undefined);
     if (mentions.length > 0) appendMentionsTo(setText, mentions);
-  }), [setText]);
-
-  const dragOver = useWindowFileDrag({ addImageFile, addFileFile, hasShell });
+  }), [setText, clearDragOver]);
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -363,7 +366,12 @@ function useWindowFileDrag({ addImageFile, addFileFile, hasShell }: {
   const dragDepth = useRef(0);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 摄入函数按当前渲染闭包工作，与听写订阅同款
   useEffect(() => attachWindowFileDrag({ addImageFile, addFileFile, hasShell, dragDepth, setDragOver }), []);
-  return dragOver;
+  /** 手动收掉蒙版：壳接手这一投时 DOM 的 drop 可能不来（见 hook 里那条命令）。 */
+  const clearDragOver = useCallback(() => {
+    dragDepth.current = 0;
+    setDragOver(false);
+  }, []);
+  return { dragOver, clearDragOver };
 }
 
 /** 挂窗口级拖拽监听，返回卸载函数。 */

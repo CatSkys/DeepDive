@@ -1134,12 +1134,13 @@ button {
 
 .composer-chips {
   display: flex;
+  align-items: flex-end; /* 混排（图片缩略图 68 高 + 文件 chip 30 高）时矮的靠下站 */
   gap: 6px;
   margin-bottom: 8px;
   flex-wrap: wrap;
 }
 /* 图片附件：大缩略图即预览（92×68 对齐已发送侧 .user-attachment-thumb 规格，
-   无文字，悬停 data-tip 显名），点击 Lightbox；× 叠图右上角移除 */
+   无文字），点击 Lightbox；× 叠图右上角移除 */
 .att-chip {
   position: relative;
   display: inline-flex;
