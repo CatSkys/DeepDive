@@ -28,7 +28,7 @@ export function useAppKeybinds(store: Store, actions: { openSettings: () => void
       // ⌥1-9 切换第 N 个项目空间（固定键位，不入改键表）：输入框聚焦时放行
       // ——⌥数字在文本框里是 macOS 特殊字符输入，劫持会打断打字。
       // 这一段**必须在 comboOf 之前**：⌥2 的 e.key 是「™」不是「2」，comboOf 认不出它，
-      // 先算 combo 再 `if (!combo) return` 就把这条路整个吃掉了（PITFALLS §4.29）。
+      // 先算 combo 再 `if (!combo) return` 就把这条路整个吃掉了（PITFALLS §4.37）。
       const digit = typing ? undefined : workspaceDigitOf(e);
       if (digit !== undefined) {
         const ws = store.workspaces[digit - 1];

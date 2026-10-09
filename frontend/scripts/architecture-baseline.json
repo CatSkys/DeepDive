@@ -3,10 +3,10 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "a54f47f82bcaad5a",
+      "id": "c379ab479ed6b2cb",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1067 lines > 300"
+      "detail": "1058 lines > 300"
     },
     {
       "id": "81fe5c5d6c7a7050",
@@ -27,10 +27,16 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "7aa13bab2310b5d7",
+      "id": "9d4d41b9f22f4a7b",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
-      "detail": "581 lines > 300"
+      "detail": "625 lines > 300"
+    },
+    {
+      "id": "c0bcad14de65f07a",
+      "rule": "file-lines",
+      "file": "apps/macos/Sources/DSHminiApp/MainWindowController+Browser.swift",
+      "detail": "312 lines > 300"
     },
     {
       "id": "0a512c83dc5be250",
@@ -57,16 +63,10 @@
       "detail": "338 lines > 300"
     },
     {
-      "id": "178aa6cd5ea0c229",
+      "id": "0e86f440a6f12378",
       "rule": "file-lines",
       "file": "frontend/src/components/Composer.tsx",
-      "detail": "574 lines > 300"
-    },
-    {
-      "id": "67773846545a6191",
-      "rule": "file-lines",
-      "file": "frontend/src/components/composer/useComposerAttachments.ts",
-      "detail": "404 lines > 300"
+      "detail": "506 lines > 300"
     },
     {
       "id": "e92bd9496830ebef",
@@ -93,10 +93,10 @@
       "detail": "542 lines > 300"
     },
     {
-      "id": "90cbce2efc76f1c0",
+      "id": "b40876d7fa3b8283",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1018 lines > 300"
+      "detail": "1017 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",

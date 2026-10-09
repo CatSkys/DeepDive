@@ -50,6 +50,37 @@ private final class TitlebarAwareWebView: WKWebView {
     static let rectPadding: CGFloat = 6
     private var controlRects: [NSRect] = [] // CSS viewport coords (y-down)
 
+    /// 拖入的文件/文件夹：**壳侧读拖放板**。网页那侧拿不到路径——WebKit 只把
+    /// `["Files"]` 暴露给 DOM（实测），既没有 text/uri-list 也没有 public.file-url，
+    /// `getAsString` 对文件项根本不回调；而拖放板上每一条都有 file:// URL（文件夹也
+    /// 一样）。所以"拖进来变成 @ 引用"这件事只能在壳侧做。
+    /// 只在**前端报过武装**（composer 的窗口级拖拽提示亮着）时接手：设置页上拖文件
+    /// 不该悄悄塞进草稿，那种情况原样交回 super（走 WebKit 自己的处理）。
+    var dropArmed = false
+    var onFilesDropped: (([URL]) -> Void)?
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        // 必须请 super 走一遍：DOM 的 dragenter/dragover 由 WebKit 派发，前端的拖拽
+        // 提示与"武装"信号都靠它（自己吞掉就没有提示、也永远不会武装）。
+        super.draggingEntered(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = Self.droppedURLs(sender)
+        guard dropArmed, !urls.isEmpty else { return super.performDragOperation(sender) }
+        dropArmed = false // 一次性：下一次拖入由前端重新武装
+        onFilesDropped?(urls)
+        // 不调 super：这一投由壳接手，别让 DOM 再摄入一遍（前端收到 hostFilesDropped
+        // 会自己收掉拖拽提示）。
+        return true
+    }
+
+    /// 拖放板上的本地文件 URL（文件夹同样在列；.urlReadingFileURLsOnly 滤掉纯文本拖拽）。
+    private static func droppedURLs(_ sender: NSDraggingInfo) -> [URL] {
+        sender.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    }
+
     func setTitlebarControlRects(_ rects: [NSRect]) {
         if rects.count != controlRects.count {
             EngineLog.shared.append("[titlebar] control rects -> \(rects.count)")
@@ -93,6 +124,13 @@ private final class EmptyToolbarDelegate: NSObject, NSToolbarDelegate {
 
 final class MainWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
     let webView: WKWebView
+    /// 拖入的本地文件 URL（含文件夹）→ AppDelegate 组装成与选择器同一形状的载荷。
+    var onFilesDropped: (([URL]) -> Void)?
+
+    /// 前端的拖拽是否武装（见 TitlebarAwareWebView.dropArmed）。
+    func setDropArmed(_ armed: Bool) {
+        (webView as? TitlebarAwareWebView)?.dropArmed = armed
+    }
     /// 窗口的底（= window.contentView）：液态玻璃 / vibrancy 材质两形态封在它自己文件里。
     let glass = WindowGlassView()  // 窗口内容根视图；量化探针要报它的几何（见 +Probe）
     private var themeEnabled: Bool
@@ -222,6 +260,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         webView.configuration.userContentController.add(self, name: "deepdive")
         // Host-command channel (§3.1): frontend posts open-settings/host-ready.
         webView.configuration.userContentController.add(self, name: "deepdiveHost")
+
+        // 拖入的文件/文件夹由壳读拖放板交给 SPA（网页侧看不到路径，见 TitlebarAwareWebView）：
+        // 落到 AppDelegate 那条"选择器载荷 → hostFilesDropped"的同一根线上。
+        wv.onFilesDropped = { [weak self] urls in self?.onFilesDropped?(urls) }
 
         UiProbe.measureProvider = { [weak self] s, p, pts, done in self?.probeMeasure(selectors: s, props: p, points: pts, completion: done) }  // 见 +Probe
 

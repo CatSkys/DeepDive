@@ -352,6 +352,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         case "pick-attachments":
             pickAttachments(reqId: body["reqId"] as? String ?? "")
+        // 拖拽武装：composer 的窗口级拖拽提示亮着时才接手原生拖入（见 TitlebarAwareWebView）
+        case "file-drop-armed":
+            windowController.setDropArmed(body["armed"] as? Bool ?? false)
         case "list-dir":
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "read-workspace-icon":
@@ -780,26 +783,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             let urls = response == .OK ? panel.urls : []
             DispatchQueue.global(qos: .userInitiated).async {
-                var items: [[String: Any]] = []
-                for url in urls {
-                    var item: [String: Any] = [
-                        "path": url.path,
-                        "name": url.lastPathComponent,
-                        "isDir": (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false,
-                    ]
-                    // 0.1.5：图片附 base64（imageLimits 准入类型）；其余文件同样附
-                    // base64（fileUploads/upload 真上传）。两者共用同一个上限——桥
-                    // 单请求 32MB，超了必 413，先在选文件这一步就分开走（前端明说）。
-                    let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-                    if !isDir, let data = try? Data(contentsOf: url), data.count <= Self.maxPickFileBytes {
-                        if Self.imageExtensions.contains(url.pathExtension.lowercased()) {
-                            item["isImage"] = true
-                        }
-                        item["base64"] = data.base64EncodedString()
-                    }
-                    items.append(item)
-                }
-                let payload = Self.jsonPayload(["reqId": reqId, "items": items])
+                let payload = Self.jsonPayload(["reqId": reqId, "items": Self.attachmentItems(for: urls)])
                 DispatchQueue.main.async {
                     self.windowController.pushHostCommand("pickedAttachments", payload: payload)
                 }
@@ -807,12 +791,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 与引擎 imageLimits 准入的媒体类型对齐（png/jpeg/webp/gif）。
-    private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "webp", "gif"]
-    /// 选择器单文件字节上限：**等于桥的单请求上限**（`MiniHTTPServer.maxBodyBytes`，
-    /// 超了回 413）。图片与通用文件同一口径——上限只在选文件这一步分流，
-    /// 不在这里给用户一个注定 413 的 base64。
-    private static let maxPickFileBytes = 32 * 1024 * 1024
+    /// 拖入的本地文件/文件夹 → 与选择器**同一形状**的载荷，走 SPA 的摄入同一条路
+    /// （图片收字节 chip；文件与文件夹转 @ 引用）。载荷构造见 AppDelegate+Attachments。
+    private func deliverDroppedAttachments(_ urls: [URL]) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let payload = Self.jsonPayload(["items": Self.attachmentItems(for: urls)])
+            DispatchQueue.main.async {
+                self.windowController.pushHostCommand("hostFilesDropped", payload: payload)
+            }
+        }
+    }
 
     /// Preference + path snapshot for the settings page (推送于 host-ready
     /// 与 get-prefs;键值与 frontend/src/components/SettingsPage.tsx 约定)。
@@ -886,6 +875,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 主菜单（结构在 MainMenu.swift，这里只放动作实现）
 
     private func installMainMenu() {
+        // 拖入的文件/文件夹（壳读拖放板）交给 SPA：与 ＋ 选择器同一条摄入路
+        windowController.onFilesDropped = { [weak self] urls in self?.deliverDroppedAttachments(urls) }
         MainMenu.install(app: NSApp, target: self, window: windowController)
     }
 

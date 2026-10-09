@@ -20,7 +20,6 @@ import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
 import { useSlashCommands } from "./composer/useSlashCommands";
 import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
-import { FileIcon } from "../session/FileIcon";
 import { uuid } from "../uuid";
 
 /* ─────────────────────────────────────────────────────────
@@ -74,8 +73,8 @@ export function Composer({ sessionId, onSent, ctx }: {
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
   const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
-  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile } =
-    useComposerAttachments({ setText, hasShell, sessionId });
+  const { attachments, setAttachments, addAttachments, addImageFile, stageImageAsFile, dragOver, fileRef, onFile } =
+    useComposerAttachments({ setText, hasShell });
   // 听写 final 落稿后回焦（长高由 [text] 的 useLayoutEffect 统一负责）
   const refocusDraft = () => requestAnimationFrame(() => {
     taRef.current?.focus();
@@ -126,20 +125,13 @@ export function Composer({ sessionId, onSent, ctx }: {
     return parts.map((part): PromptContentPart => (part.type === "image" ? { type: "file", receiptId: receipts[next++]! } : part));
   };
 
-  /** 文件回执在引擎侧失效（FILE_NOT_STAGED）时重传拿新回执：排掉旧文件部件，
-   *  按重传顺序换成新的（字节一直留在 chip 上，见 useComposerAttachments）。 */
-  const refreshFileReceipts = async (sid: string): Promise<string[] | null> => uploadNow(sid, true);
-
-  /** 附件准入拒绝后的等效重投：判到图片类就把这批图片按通用文件原件投递（同一份
-   *  字节走文件回执），判到文件类就重传拿新回执；内容与顺序都不变，发送不被打断。 */
+  /** 附件准入拒绝后的等效重投：判到图片类/文件类都把这批图片按通用文件原件重投
+   *  （同一份字节走文件回执）——非图片不走上传了，`{type:'file'}` 部件只可能来自
+   *  这一步，所以两类其实是同一条重投。内容与顺序都不变，发送不被打断。 */
   const redeliver = async (sid: string, parts: PromptContentPart[], reason: string | undefined): Promise<PromptContentPart[] | null> => {
     const cls = classifyAttachmentRefusal(reason);
-    if (cls === "images") return restageImages(sid, parts);
-    if (cls !== "files") return null;
-    const receipts = await refreshFileReceipts(sid);
-    if (receipts === null || receipts.length === 0) return null;
-    let next = 0;
-    return parts.map((part): PromptContentPart => (part.type === "file" && next < receipts.length ? { type: "file", receiptId: receipts[next++]! } : part));
+    if (cls !== "images" && cls !== "files") return null;
+    return restageImages(sid, parts);
   };
 
   /** 命令载荷同理：重投被拒的那一类附件，其它部件不动（判类由调用方给——
@@ -147,12 +139,8 @@ export function Composer({ sessionId, onSent, ctx }: {
   const redeliverCommand = async (
     sid: string, parts: CommandSubmitAttachment[], cls: AttachmentRefusalClass | undefined,
   ): Promise<CommandSubmitAttachment[] | null> => {
-    if (cls === "images") return restageCommandImages(sid, parts);
-    if (cls !== "files") return null;
-    const receipts = await refreshFileReceipts(sid);
-    if (receipts === null || receipts.length === 0) return null;
-    let next = 0;
-    return parts.map((part): CommandSubmitAttachment => (part.type === "file" && next < receipts.length ? { type: "file", receiptId: receipts[next++]! } : part));
+    if (cls !== "images" && cls !== "files") return null;
+    return restageCommandImages(sid, parts);
   };
 
   /** 命令载荷：inline 图片部件换成文件回执，其它部件不动。 */
@@ -192,14 +180,6 @@ export function Composer({ sessionId, onSent, ctx }: {
       pendingSessionRef.current = null;
       store.openSession(sid);
     }
-  };
-  /** 附件没传成时的说明：带上 chip 上的原话（引擎/桥的错误文本）。 */
-  const uploadFailureText = () => {
-    const why = firstUploadError();
-    return tt(
-      `附件没能上传${why ? `：${why}` : ""}，消息没有发出——请重试或删掉该附件后重发`,
-      `Attachment upload failed${why ? `: ${why}` : ""}; nothing was sent — retry or remove the attachment`,
-    );
   };
   // 引擎命令目录（0.1.2 commands/list）：菜单与 Enter 裁决共用一份；草稿页没有
   // agent，拿的是前端内建兜底车道（useSlashCommands）。
@@ -264,33 +244,16 @@ export function Composer({ sessionId, onSent, ctx }: {
   // ---------- prompt assembly ----------
 
   const content = useMemo(() => {
-    const parts: PromptContentPart[] = [];
-    for (const a of attachments) {
-      if (a.kind === "image") parts.push({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name });
-      else if (a.status === "ready" && a.receiptId) parts.push({ type: "file", receiptId: a.receiptId });
-    }
+    const parts: PromptContentPart[] = attachments.map((a): PromptContentPart =>
+      ({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name }));
     if (text.trim()) parts.push({ type: "text", text: text.trim() });
     return parts;
   }, [attachments, text]);
-
-  /** 文件 chip 全部就绪才可发送（官方 sendSession 同款门槛）。草稿页的
-   *  pending 例外——无会话可传，发送时先建会话补传（uploadNow）。 */
-  const filesReady = attachments.every((a) =>
-    a.kind !== "file" || a.status === "ready" || (sessionId === null && a.status === "pending"));
 
   // ---------- 发送 / 排队 / 插话 ----------
 
   const submit = async (modeOverride?: "queue" | "steer") => {
     if (content.length === 0 || busy) return;
-    if (!filesReady) {
-      // 失败 chip 说真话：笼统的"还在上传中"会让一个永远不会完成的附件
-      // 看着像在等（原因就在 chip 的 error 上，带出来）。
-      const why = firstUploadError();
-      void alertDialog({ message: why
-        ? tt(`附件上传失败：${why}——重试或删除该附件后发送`, `Attachment upload failed: ${why} — retry or remove it, then send`)
-        : tt("文件还在上传中，稍候再发送", "Files are still uploading; try again shortly") });
-      return;
-    }
     // 整行斜杠命令裁决（官方 matchEnter）：已知命令 → commands/execute 直发
     //（自驱效果，不经 session/prompt——prompt 无命令槽，斜杠文本只会喂给模型）。
     const decision = adjudicateSlashLine(text, commands);
@@ -308,22 +271,12 @@ export function Composer({ sessionId, onSent, ctx }: {
       }
       setBusy(true);
       let sid = sessionId;
-      let submitted: CommandSubmitAttachment[] = [];
-      for (const a of attachments) {
-        if (a.kind === "image") submitted.push({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name });
-        else if (a.status === "ready" && a.receiptId) submitted.push({ type: "file", receiptId: a.receiptId });
-      }
+      const submitted: CommandSubmitAttachment[] = attachments.map((a) =>
+        ({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name }));
       if (sid === null) {
         const created = await ensureSession();
         if (created === null) { setBusy(false); return; }
         sid = created;
-        // 草稿页的 pending 文件此刻才有会话可落：补传后并入载荷（与 prompt 路径同法）
-        const receipts = await uploadNow(sid);
-        if (receipts === null) {
-          void alertDialog({ message: uploadFailureText() });
-          setBusy(false); return;
-        }
-        submitted = [...submitted, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
       }
       const runLine = (parts: CommandSubmitAttachment[]) => api.commandExecute({ agentId: sid, line: decision.line, attachments: parts });
       // 附件被准入拒时**引擎不抛错**：它把失败包成一次成功 RPC 的 error 结果
@@ -369,21 +322,12 @@ export function Composer({ sessionId, onSent, ctx }: {
       ? (modeOverride ?? busyEnter)
       : "queue";
     let sid = sessionId;
-    // 发送载荷：content 是本轮渲染的快照，草稿页补传产生的回执不在其中，
-    // 需显式并入（否则文件传了消息里却没有）。
-    let sendContent = content;
+    const sendContent = content;
     const fromDraft = sid === null;
     if (sid === null) {
       const created = await ensureSession();
       if (created === null) { setBusy(false); return; }
       sid = created;
-      // 草稿页的文件 chip 是 pending（无会话可传）：建好会话立即补传。
-      const receipts = await uploadNow(sid);
-      if (receipts === null) {
-        void alertDialog({ message: uploadFailureText() });
-        setBusy(false); return;
-      }
-      sendContent = [...content, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
     }
     const rpcId = uuid();
     try {
@@ -423,29 +367,17 @@ export function Composer({ sessionId, onSent, ctx }: {
     taRef.current?.focus();
   };
 
-  const canSend = content.length > 0 && !busy && filesReady;
+  const canSend = content.length > 0 && !busy;
   const showCtx = hasContextData(ctx);
   return (
     <div className="composer-wrap" ref={rootRef}>
       {attachments.length > 0 && (
         <div className="composer-chips">
           {attachments.map((a, i) => (
-            a.kind === "image" ? (
-              <span key={a.id} className="att-chip" onClick={() => setPreview(a)} data-tip={a.name}>
-                <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} />
-                <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
-              </span>
-            ) : (
-              <span key={a.id} className="att-chip file" data-status={a.status} data-tip={a.error ?? a.name}>
-                {a.status === "uploading" || a.status === "pending"
-                  ? <span className="att-file-progress" data-tip={a.progress !== undefined ? `${a.progress}%` : undefined}>{a.progress ?? undefined}%{a.progress === undefined && <span className="att-file-spin" aria-hidden="true" />}</span>
-                  : <FileIcon file={a.name} size={16} />}
-                <span className="att-file-name">{a.name}</span>
-                {a.status === "uploading" && <button className="att-file-retry" aria-label={t("取消上传")} onClick={(e) => { e.stopPropagation(); cancelUpload(a.id); }}>{t("取消")}</button>}
-                {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId); else requeueFile(a.id); }}>{t("重试")}</button>}
-                <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); if (a.status === "uploading") cancelUpload(a.id); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
-              </span>
-            )
+            <span key={a.id} className="att-chip" onClick={() => setPreview(a)} data-tip={a.name}>
+              <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} />
+              <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
+            </span>
           ))}
         </div>
       )}
