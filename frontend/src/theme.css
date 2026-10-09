@@ -2947,8 +2947,8 @@ button {
 .glide-ws  { background: var(--fill-strong); border-radius: var(--dsh-radius-control); }
 
 .task-row { position: relative; }
-/* 阅读进度灰底：选中行里从左往右填到"读到哪了"（0–1，会话页滚动时写根元素的
-   --session-read，见 session/readingProgress.ts；没读数时整条为 0，不可见）。
+/* 阅读进度灰底：选中行里从左往右填到"读到哪了"（0–1，会话页滚动时逐帧写在灰底自己
+   身上，见 session/readingProgress.ts；没读数时整条为 0，不可见）。
    层序：垫在滑移底片（z0）之上、行内容（z2）之下——同一套层序见浏览器标签胶囊的
    .panel-browser-chrome-glide / .panel-browser-tab-read。行高 32 由 .task-row 定，
    圆角与裁切也归它（overflow: hidden），这里只负责填。 */
@@ -2956,12 +2956,15 @@ button {
   position: absolute; left: 0; top: 0; bottom: 0; z-index: 1;
   /* 满宽铺好、用 transform 缩放进度（不是动画 width）：width 每帧触发排版，快速滚动
      时就是"卡卡的"（用户 2026-10-09 对比 Search："没有那么丝滑"）；transform 只走合成。
-     灰底是纯色空盒，等比拉伸没有任何观感代价。 */
+     灰底是纯色空盒，等比拉伸没有任何观感代价。
+     **没有 transition**：读数由 session/readingProgress.ts 逐帧逼近目标，值一帧一变；
+     再叠一条过渡就是"每帧重新起跑"，快速滚动时抖成一团（用户 2026-10-09 报"鬼畜抖动"）。
+     will-change 让它常驻合成层——这里只有选中的一行有这个元素，代价是一层。 */
   width: 100%;
   transform: scaleX(var(--session-read, 0));
   transform-origin: left center;
+  will-change: transform;
   background: var(--ink); opacity: .06; pointer-events: none;
-  transition: transform var(--dur-fast) var(--ease-out);
 }
 /* 行内三段内容抬到灰底之上（灰底只当底，别冲淡标题与时间） */
 .task-row > .row-slot, .task-row > .row-main, .task-row > .row-actions { position: relative; z-index: 2; }
@@ -4838,11 +4841,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-tab.live .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; position: relative; }
 .panel-browser-tab.live .panel-browser-field-input { background: transparent; border-color: transparent; }
 .panel-browser-tab.live .panel-browser-field-input:focus { background: transparent; border-color: transparent; }
-/* 阅读进度灰底：选中胶囊的底上从左往右填（0–1，壳推的 tab.reading），读到哪里填到哪里 */
+/* 阅读进度灰底：选中胶囊的底上从左往右填（0–1，壳推的 tab.reading），读到哪里填到哪里。
+   满宽铺好、用 transform 缩放：宽度每变一次就排一次版，且值由壳按百分之一位推来、一帧
+   可能一推，叠过渡就是"每帧重新起跑"（同 .row-read，用户 2026-10-09 报滚动快时抖动）。 */
 .panel-browser-tab-read {
-  position: absolute; left: 0; top: 0; bottom: 0;
+  position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
+  transform-origin: left center; will-change: transform;
   background: var(--ink); opacity: .06; pointer-events: none;
-  transition: width var(--dur-fast) var(--ease-out);
 }
 /* 睡着：压暗一档——标签还在，只是页面进程收回去了（点它就醒） */
 .panel-browser-tab.asleep { opacity: .5; }

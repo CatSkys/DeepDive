@@ -216,7 +216,7 @@ export function BrowserTabStrip({ face, tabs, activeId, onSelect, onClose, onNew
             {active && (
               <span
                 className="panel-browser-tab-read"
-                style={{ width: `${Math.round(Math.min(1, Math.max(0, active.reading ?? 0)) * 100)}%` }}
+                style={{ transform: `scaleX(${Math.min(1, Math.max(0, active.reading ?? 0))})` }}
               />
             )}
           </span>

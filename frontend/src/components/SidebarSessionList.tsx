@@ -15,7 +15,7 @@ import { useSelectionGlide } from "./useSelectionGlide";
 import { bucketLabel, fmtTime } from "../session/sessionTime";
 import { sessionTitle } from "../session/sessionTitle";
 import { alertDialog, confirmDialog } from "./DialogHost";
-import { setReadingTarget } from "../session/readingProgress";
+import { setReadingBar } from "../session/readingProgress";
 import type { SessionSummary } from "../types";
 
 /** 一组会话：label 为分组标题（"" = 不出标题行）。 */
@@ -95,9 +95,11 @@ export function SidebarSessionList({
       }}
       {...longPressHandlers((x, y) => onOpenRowMenu(s, x, y))}
     >
-      {/* 阅读进度灰底：只有选中的那一行有（读数由会话页滚动时写，见
-          session/readingProgress.ts）。行内三段内容在 CSS 里抬它一层。 */}
-      {s.sessionId === store.activeSessionId && <span className="row-read" aria-hidden="true" />}
+      {/* 阅读进度灰底：只有选中的那一行有（读数由会话页滚动时逐帧写在这枚 span 上，
+          见 session/readingProgress.ts）。行内三段内容在 CSS 里抬它一层。 */}
+      {s.sessionId === store.activeSessionId && (
+        <span className="row-read" aria-hidden="true" ref={setReadingBar} />
+      )}
       <span className="row-slot">
         {s.running ? (
           <Spinner />
@@ -160,8 +162,6 @@ export function SidebarSessionList({
   const setSessionsRef = (el: HTMLDivElement | null) => {
     sessionsFade.ref(el);
     glide.setContainer(el);
-    // 阅读进度写到这一层（不是根元素）：自定义属性一变的样式重算就锁在这几十行里
-    setReadingTarget(el);
   };
 
   const ws = activeWs;

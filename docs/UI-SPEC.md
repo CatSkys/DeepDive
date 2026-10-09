@@ -322,7 +322,7 @@
 
 | 组件 | 内容 | 要点 |
 |---|---|---|
-| **TaskRow**（侧栏） | StatusDot + 标题（一行） | **无 meta 小字**；waiting：标题加粗 + 整行亮度选中 + 白点呼吸（黑白高亮法）；选中行有**阅读进度灰底**（读到哪填到哪：宽 0–1 ×行宽、6% 墨色、120ms `--ease-out`，垫在滑移底片之上、行内容之下；读数由会话页滚动写根元素 `--session-read`，见 `session/readingProgress.ts`；源起参考 Search 的 TabBar 阅读进度灰底，见 `REF-BROWSER-SEARCH.md` §1 的 C 块） |
+| **TaskRow**（侧栏） | StatusDot + 标题（一行） | **无 meta 小字**；waiting：标题加粗 + 整行亮度选中 + 白点呼吸（黑白高亮法）；选中行有**阅读进度灰底**（读到哪填到哪：宽 0–1 ×行宽、6% 墨色，垫在滑移底片之上、行内容之下；读数由会话页滚动按帧逼近、写在灰底自己的 `--session-read` 上——**不走 CSS transition**，理由见 PITFALLS §1.18，实现见 `session/readingProgress.ts`；源起参考 Search 的 TabBar 阅读进度灰底，见 `REF-BROWSER-SEARCH.md` §1 的 C 块） |
 | **ToolCard** | 折叠：图标+名称+结果态；展开：输出/diff | **折叠+异常高亮（D3）**：失败=高亮行+✕（黑白）；耗时等细节在展开区；>50KB 折叠 |
 | **DiffView** | 文件头 + +/− 行 + 上下文 3 行 | 文件级切换；绿红仅限这里 |
 | **ApprovalDialog**（原生） | 标题「DSH 请求授权」+ 详情（命令/文件/sandbox）+ 策略选择 + [拒绝][批准] | **P1 即原生**（D5）；Esc=拒绝；主在右 |

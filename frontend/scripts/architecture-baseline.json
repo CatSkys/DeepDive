@@ -75,10 +75,10 @@
       "detail": "364 lines > 300"
     },
     {
-      "id": "f63c18552f50c89e",
+      "id": "8405b447e605b5b6",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
-      "detail": "400 lines > 300"
+      "detail": "401 lines > 300"
     },
     {
       "id": "95dd2f406462f346",

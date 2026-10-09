@@ -26,7 +26,7 @@ import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
-import { publishReadingProgress, readingProgressOf } from "../session/readingProgress";
+import { placeReadingProgress, publishReadingProgress, readingProgressOf } from "../session/readingProgress";
 
 /** 顶部模糊带满强度所需的滚动深度（px）：雾的渐显与内容渐隐共用这一个深度，
  *  两条边同步走完，不会各显各的。 */
@@ -109,8 +109,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     syncBottomPad();
     // 会话页整体重挂（SessionView 以 sessionId 为 key）：读数按新容器重算一次，
     // 否则新选中的会话顶着上一个会话的灰底，要等它自己滚一下才纠正。挂载时流还
-    // 是空的（读数 0）；历史到达后贴底那一次滚动会自己补上。
-    if (el) publishReadingProgress(readingProgressOf(el));
+    // 是空的（读数 0）；历史到达后贴底那一次滚动会自己补上。落位而非收敛：新会话
+    // 的灰底不该从上一个会话的读数扫过来。
+    if (el) placeReadingProgress(readingProgressOf(el));
   }, [syncBottomPad]);
   // 顶部模糊带强度 = 滚动深度，0→1 走 FADE_RAMP_PX（内容淡出段走完，雾正好到
   // 满强度）。写的是**模糊半径的倍率**而非整体 opacity：opacity<1 会让面板自建
