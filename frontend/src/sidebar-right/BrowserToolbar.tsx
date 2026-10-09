@@ -88,8 +88,9 @@ export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden,
         data-tip={t("对话")}
         onClick={onChat}
       >
-        {/* 实心气泡（参考图那一枚）：填充 + 去描边，与 .user-attachment-play 同一写法 */}
-        <MessageSquare size={14} fill="currentColor" strokeWidth={0} />
+        {/* 开关态一并长在气泡上：开着实心（填充 + 去描边，与 .user-attachment-play 同一写法），
+            关着空心（只留描边）。 */}
+        <MessageSquare size={14} fill={chatOpen ? "currentColor" : "none"} strokeWidth={chatOpen ? 0 : 2} />
         {t("对话")}
       </button>
       {menuItems.length > 0 && (

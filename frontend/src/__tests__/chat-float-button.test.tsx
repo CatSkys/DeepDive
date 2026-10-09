@@ -1,5 +1,5 @@
 // 工具栏行尾那颗「对话」胶囊（Chat）：形状是图标 + 文字，**带开关态**——卡片正开着时
-// 高亮。开/关的事实源在壳（卡片自己的 × 是在叠加层那一页里关的，主 SPA 收不到），
+// 高亮、气泡实心。开/关的事实源在壳（卡片自己的 × 是在叠加层那一页里关的，主 SPA 收不到），
 // 壳在每次显隐变化时推 `chatFloat` 下来，这里钉住这颗钮读的就是那一份。
 // @vitest-environment jsdom
 import { act, cleanup, render } from "@testing-library/react";
@@ -43,5 +43,17 @@ describe("Chat 胶囊的开关态", () => {
     act(() => window.__deepDiveHost!.dispatch("chatFloat", { open: false }));
     expect(pill().getAttribute("aria-pressed")).toBe("false");
     expect(pill().className).not.toContain("on");
+  });
+
+  it("气泡跟着开关态走：开着实心（填充、无描边），关着空心（只描边）", () => {
+    const { container } = renderPane();
+    const bubble = () => container.querySelector(".panel-chat-btn svg")!;
+    expect(bubble().getAttribute("fill")).toBe("none");
+    act(() => window.__deepDiveHost!.dispatch("chatFloat", { open: true }));
+    expect(bubble().getAttribute("fill")).toBe("currentColor");
+    expect(bubble().getAttribute("stroke-width")).toBe("0");
+    act(() => window.__deepDiveHost!.dispatch("chatFloat", { open: false }));
+    expect(bubble().getAttribute("fill")).toBe("none");
+    expect(bubble().getAttribute("stroke-width")).toBe("2");
   });
 });

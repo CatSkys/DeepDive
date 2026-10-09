@@ -5136,25 +5136,25 @@ input:focus, textarea:focus, select:focus { outline: none; }
     linear-gradient(135deg, transparent 0 55%, var(--line-strong) 55% 62%, transparent 62% 74%, var(--line-strong) 74% 81%, transparent 81%);
 }
 /* 工具栏行尾那颗「对话」（图标 + 文字的胶囊，同参考图的 Chat）：把浮在网页之上的
-   对话卡叫出来。它自带**开关态**（`on` = 卡片正开着），与其他工具钮的 `.on` 一个意思：
-   底色调深一档、字用亮色。开/关的事实源在壳（见 useComposerOverlay 的镜像）。 */
+   对话卡叫出来。它自带**开关态**（`on` = 卡片正开着）：底色调深一档、字用亮色，气泡也从
+   空心变实心（见 BrowserToolbar）。开/关的事实源在壳（见 useComposerOverlay 的镜像）。
+   胶囊**不描边**（用户定稿）：与旁边的工具钮一样只靠底色分档，轮廓交给圆角。 */
 .panel-chat-btn {
   display: flex;
   align-items: center;
   gap: 6px;
   height: 26px;
   padding: 0 10px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 13px;
   background: var(--fill-soft);
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
   cursor: pointer;
 }
-.panel-chat-btn:hover { border-color: var(--line-strong); }
+.panel-chat-btn:hover { background: var(--fill); }
 .panel-chat-btn.on {
   background: var(--fill-strong);
-  border-color: var(--line-strong);
   color: var(--ink-bright);
 }
 
