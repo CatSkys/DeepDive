@@ -43,7 +43,7 @@ function buildWsMap(workspaces: WorkspaceView[], sessions: SessionSummary[]): Ma
   return m;
 }
 
-interface Store {
+export interface Store {
   workspaces: WorkspaceView[];
   /** 归档会话全集（workspace follow 的 archivedSessionIds；归档唯一事实源）。 */
   archived: Set<string>;

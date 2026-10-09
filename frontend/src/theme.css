@@ -277,7 +277,8 @@ button {
     0 1px 0 rgba(0,0,0,.06),
     0 24px 64px rgba(0,0,0,.17);
 }
-.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .preview-window {
+/* 浮在会话流之上的一档材质（弹层/提示/回到底部钮/页内查找胶囊都吃这一条） */
+.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .preview-window, .find-capsule {
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
      别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
@@ -1633,6 +1634,7 @@ button {
    它们身上，display:none 会把 scrollTop 打回 0），全屏面盖在其上。 */
 .session-body[data-fullscreen] > .flow,
 .session-body[data-fullscreen] > .session-bottom,
+.session-body[data-fullscreen] > .find-capsule,
 .session-body[data-fullscreen] > .jump-down { visibility: hidden; }
 /* 头部顶到卡片上沿：标题行与红绿灯/顶部钮同一视线（官方对齐方式） */
 /* 会话流顶部渐隐模糊带（渐进模糊，算法见下方「模糊层」段）：
@@ -1800,6 +1802,39 @@ button {
   margin: 0 auto;
   padding-bottom: 12px;
 }
+/* 页内查找胶囊（⌘F）：贴在会话流右上角，材质与回到底部钮同一档（上面那条共用规则）。
+   按钮借 .capsule-icon-btn——同一档小幽灵钮，不再写第二份。 */
+.find-capsule {
+  position: absolute;
+  right: 26px;
+  top: 12px;
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 0 6px 0 2px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  animation: fadein var(--dur-fast) var(--ease-out);
+}
+.find-input {
+  width: 176px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--fill-soft);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+}
+.find-input::placeholder { color: var(--ink-3); }
+.find-miss { flex: none; padding: 0 6px; color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
+/* 命中两档：全部一处淡底，当前一处反色（黑白高亮法，与选中态同一套语言）。
+   ::highlight() 只认有限几个属性，颜色可以走语义变量。 */
+::highlight(find-hit) { background: var(--fill-heavy); }
+::highlight(find-active) { background: var(--ink); color: var(--on-ink); }
+
 .jump-down {
   position: absolute;
   right: 26px;
