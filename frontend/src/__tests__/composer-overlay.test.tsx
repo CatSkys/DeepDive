@@ -18,6 +18,10 @@ beforeAll(() => {
       get length() { return map.size; },
     } as unknown as Storage;
   }
+  // jsdom 不加载 theme.css，而卡片进出的时长是从 token（--dur-med）**现读**的：
+  // 这里把 token 补上，值取仓库真值（theme.css 的 :root）。不补的话读到 NaN，
+  // 退场会在一个 tick 内跑完，"有没有动画"就测不出来了。
+  document.documentElement.style.setProperty("--dur-med", "200ms");
   // jsdom 不做布局：所有 getBoundingClientRect 都是 0，而"上报可点矩形"必须是非零才会发。
   // 给一个固定矩形，测的是"报了什么"而不是浏览器怎么排版。
   Element.prototype.getBoundingClientRect = function () {
@@ -111,13 +115,48 @@ describe("悬浮对话卡叠加层", () => {
       expect(pill?.rect?.w).toBeGreaterThan(0);
       expect(pill?.rect?.h).toBeGreaterThan(0);
     });
-    for (let i = 0; i < 3; i++) {
-      fireEvent.click(container.querySelector(".chat-float-close")!);
-      expect(container.querySelector(".chat-float")).toBeNull();
-      act(() => window.__deepDiveHost!.dispatch("chatShow", {}));
-      expect(container.querySelector(".chat-float")).not.toBeNull();
-    }
     void screen;
+  });
+
+  it("矩形/圆角/时长都报给壳：磨砂块要按同一套几何与同一个时长淡进淡出", async () => {
+    render(<ComposerOverlayApp sessionId="sess-1" />);
+    // 圆角与时长都**从 CSS 现读**（事实源是 theme.css 的 token），不在 JS 里另写一份：
+    // 圆角取实际渲染值——jsdom 不排版，给不出 border-radius，这一条只能在浏览器里量；
+    // 时长能读，就钉住它确实来自 token 而不是硬编码。
+    await vi.waitFor(() => {
+      const pill = sent.filter((m) => m.type === "composer-pill").at(-1);
+      expect(pill?.durationMs).toBe(200);
+    });
+  });
+
+  it("关闭走退场：卡片停在页面上淡出，--dur-med 之后才卸载（壳同时把磨砂淡掉）", async () => {
+    const { container } = render(<ComposerOverlayApp sessionId="sess-1" />);
+    await vi.waitFor(() => expect(container.querySelector(".chat-float[data-shown]")).not.toBeNull());
+
+    fireEvent.click(container.querySelector(".chat-float-close")!);
+    // 立刻卸载就没有"消失动画"了：这一刻卡片还在，带退场态；同时已经开始通知壳收起
+    const closing = container.querySelector(".chat-float");
+    expect(closing).not.toBeNull();
+    expect(closing!.getAttribute("data-closing")).toBe("true");
+    expect(sent.at(-1)).toMatchObject({ type: "composer-overlay", sessionId: null });
+    // 淡出走完才真的卸掉
+    await vi.waitFor(() => expect(container.querySelector(".chat-float")).toBeNull(), { timeout: 2000 });
+
+    // 叫回来：入场态重走一遍（data-shown 重新翻上来），否则第二次打开是硬闪出来的
+    act(() => window.__deepDiveHost!.dispatch("chatShow", {}));
+    expect(container.querySelector(".chat-float")).not.toBeNull();
+    await vi.waitFor(() => expect(container.querySelector(".chat-float")!.getAttribute("data-shown")).toBe("true"));
+  });
+
+  it("退场途中又被叫出来：撤销那次卸载，卡片留下来", async () => {
+    const { container } = render(<ComposerOverlayApp sessionId="sess-1" />);
+    await vi.waitFor(() => expect(container.querySelector(".chat-float[data-shown]")).not.toBeNull());
+    fireEvent.click(container.querySelector(".chat-float-close")!);
+    act(() => window.__deepDiveHost!.dispatch("chatShow", {}));
+    // 越过那次退场的时长：不做撤销的话，它的定时器一到就把刚回来的卡片卸了
+    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    expect(container.querySelector(".chat-float")).not.toBeNull();
+    expect(container.querySelector(".chat-float")!.getAttribute("data-closing")).toBeNull();
   });
 
   it("会话在跑时卡里出 loader（运行中指示器由 TurnList 挂在流末，两处共用同一份）", async () => {

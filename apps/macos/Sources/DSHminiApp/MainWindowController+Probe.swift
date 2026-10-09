@@ -64,6 +64,7 @@ extension MainWindowController {
             ],
             "frost": [
                 "hidden": composerOverlay.frost.isHidden,
+                "alpha": Double(composerOverlay.frost.alphaValue),
                 "radius": Double(composerOverlay.frost.layer?.cornerRadius ?? 0),
                 "rect": frame(composerOverlay.frost) ?? [:],
             ] as [String: Any],

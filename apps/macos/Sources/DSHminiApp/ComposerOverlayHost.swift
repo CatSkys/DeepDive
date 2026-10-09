@@ -23,6 +23,9 @@ final class ComposerOverlayHost: NSObject {
 
     private var origin: NSPoint = .zero
     private var loadedSession: String?
+    /// 卡片进出场的时长（秒），由页面按 token（`--dur-med`）报来，壳里不写第二份。
+    /// 只在磨砂块正显示时有意义——它由 `setPill` 在淡入前一刻记下，`hide()` 接着用它淡出。
+    private var motion: TimeInterval = 0
 
     /// 叠加层当前是否可见：「对话」按钮 toggle 的翻转依据。卡片自己的 × 走
     /// hide()，状态只在这一个地方记，SPA 不留第二份（会失同步）。
@@ -73,13 +76,16 @@ final class ComposerOverlayHost: NSObject {
         view.alphaValue = 0
         // 卡不在了就不该再收事件：留着旧矩形会让那一块网页点不动
         view.interactiveRect = .zero
-        hideFrost()
+        // 磨砂跟着卡片一起淡掉（页面那边同时开始淡出卡片，两边同一时长）：立刻藏起来
+        // 会露出一块"没有磨砂的卡片"，反之卡片没了磨砂还留着——两种都看得出来。
+        frost.fadeOut(duration: motion)
         isVisible = false
     }
 
+    /// 新卡片要来了：把上一块**即时**清掉（不淡出）。它跟的是上一轮或上一个会话的
+    /// 位置，留在网页上就是一块贴错地方的假糊；新卡片的矩形要等页面重新报回来。
     private func hideFrost() {
-        frost.isHidden = true
-        frost.frame = .zero
+        frost.reset()
     }
 
     /// 「对话」按钮的开关：按壳自己记的可见性翻转——卡片被 × 关过的话下一次
@@ -101,12 +107,15 @@ final class ComposerOverlayHost: NSObject {
     /// 磨砂块用的是同一套换算结果（同一个矩形），所以它与"可点矩形"永远重合：卡片之外
     /// 的网页照旧点得动，磨砂也不会多出半块压住页面。
     ///
+    /// `durationMs` 是卡片进出的时长（页面按 token `--dur-med` 报来）：磨砂与卡片同拍淡入。
+    ///
     /// **收起的卡片一律不采纳上报**：壳侧收起（地址栏那颗「对话」按钮、退出全屏）只改了
     /// 壳自己的可见性，页面并不知道，它按 300ms 一条继续报——迟到的矩形会把磨砂重新摆回
     /// 网页上（用户报"关闭对话后背景还在"），也会把旧矩形变成一块看不见的死区。可见态是
     /// 壳说了算的事实：只有显示中的卡片才吃页面报上来的几何。
-    func setPill(cssRect: NSRect, zoom: CGFloat, radius: CGFloat) {
+    func setPill(cssRect: NSRect, zoom: CGFloat, radius: CGFloat, durationMs: Double) {
         guard isVisible else { return }
+        motion = durationMs / 1000
         let frame = view.frame
         view.interactiveRect = NSRect(
             x: frame.minX + cssRect.minX * zoom,
@@ -116,7 +125,7 @@ final class ComposerOverlayHost: NSObject {
         )
         frost.frame = view.interactiveRect
         frost.setRadius(radius * zoom)
-        frost.isHidden = view.interactiveRect.width <= 1 || view.interactiveRect.height <= 1
+        frost.fadeIn(duration: motion)
     }
 
     private func place(rect: NSRect, contentHeight: CGFloat, zoom: CGFloat) {

@@ -7,6 +7,7 @@ import { dispatchAppEvent, DD_EVENTS } from "../events";
 import { t, tt } from "../i18n";
 import { RowMenu } from "../components/controls";
 import { openExternalUrl } from "../host";
+import { useChatFloatOpen } from "./useComposerOverlay";
 import type { PaneFace } from "./useIframeBrowser";
 
 /** 面板那一行行尾的工具组（参考 `Metrics.helm` 的位置：标签之后的右端）。
@@ -30,6 +31,9 @@ export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden,
   /** 只有 iframe 载体给得出沙箱开关；原生载体由壳执行策略，不给这个按钮。 */
   sandbox?: { enabled: boolean; toggle: () => void };
 }) {
+  // 那张悬浮对话卡正开着没有：事实源在壳，这里只读镜像（见 useComposerOverlay）。
+  // 直接读而不是让调用方透传：同屏只有一张卡，这一份是全局的。
+  const chatOpen = useChatFloatOpen();
   const menuItems = [
     ...(zoom ? [
       { v: "zoomIn", label: t("放大"), icon: ZoomIn },
@@ -76,8 +80,17 @@ export function BrowserToolbar({ external, onChat, zoom, shield, reader, hidden,
           <Minimize2 size={14} />
         </button>
       )}
-      <button type="button" className="panel-browser-tool" aria-label={t("对话")} data-tip={t("对话")} onClick={onChat}>
-        <MessageSquare size={14} />
+      <button
+        type="button"
+        className={`panel-chat-btn${chatOpen ? " on" : ""}`}
+        aria-label={t("对话")}
+        aria-pressed={chatOpen}
+        data-tip={t("对话")}
+        onClick={onChat}
+      >
+        {/* 实心气泡（参考图那一枚）：填充 + 去描边，与 .user-attachment-play 同一写法 */}
+        <MessageSquare size={14} fill="currentColor" strokeWidth={0} />
+        {t("对话")}
       </button>
       {menuItems.length > 0 && (
         <RowMenu

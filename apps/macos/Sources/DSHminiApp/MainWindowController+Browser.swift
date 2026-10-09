@@ -129,9 +129,14 @@ extension MainWindowController {
     /// 浏览器全屏时的悬浮输入框（`composer-overlay`）：显示/收起那一层透明 webview。
     /// rect 由 SPA 算（它知道面板网页那一格的几何）；会话为 nil 表示收起；
     /// 带 `toggle` = 「对话」按钮的开关（显隐由壳的 isVisible 判定）。
+    ///
+    /// 每次显隐变化都把结果推回 SPA（`chatFloat`）：工具栏那颗 Chat 胶囊要显示开/关，
+    /// 而卡片自己的 × 是在叠加层那一页里关的，主 SPA 收不到——显隐的事实源在壳这里，
+    /// 由壳告诉它。
     func handleComposerOverlay(_ body: [String: Any]) {
         guard let sessionId = body["sessionId"] as? String else {
             composerOverlay.hide()
+            pushChatFloat(open: false)
             return
         }
         let d = (body["rect"] as? [String: Any]) ?? [:]
@@ -159,11 +164,19 @@ extension MainWindowController {
                 origin: spaOrigin
             )
         }
+        pushChatFloat(open: composerOverlay.isVisible)
+    }
+
+    /// 把对话卡的开关态推回 SPA（`chatFloat`）：工具栏那颗 Chat 胶囊据此显示开/关。
+    /// 读 `isVisible` 而不是自己推演——卡片自己的 × 也会改它（那次走 hide 分支）。
+    private func pushChatFloat(open: Bool) {
+        pushHostCommand("chatFloat", payload: AppDelegate.jsonPayload(["open": open]))
     }
 
     /// 叠加层页面报上来的"可点矩形"（`composer-pill`）：胶囊之外要透传点击给网页。
     /// 同一个矩形也是卡片那块原生磨砂的几何；`radius` 是页面按实际渲染的 border-radius
-    /// 报来的圆角（圆角的事实源在 tokens，壳里不写第二份）。
+    /// 报来的圆角、`durationMs` 是卡片进出的时长——两者的事实源都在 theme.css 的
+    /// token，壳里不写第二份。
     func handleComposerPill(_ body: [String: Any]) {
         let d = (body["rect"] as? [String: Any]) ?? [:]
         composerOverlay.setPill(
@@ -174,7 +187,8 @@ extension MainWindowController {
                 height: d["h"] as? Double ?? 0
             ),
             zoom: browserZoom,
-            radius: body["radius"] as? Double ?? 0
+            radius: body["radius"] as? Double ?? 0,
+            durationMs: body["durationMs"] as? Double ?? 0
         )
     }
 

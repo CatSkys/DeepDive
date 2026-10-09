@@ -25,6 +25,13 @@ interface Layout { x: number; y: number; w: number; h: number }
 
 function layoutKey(sessionId: string): string { return `deepdive.chat-float.${sessionId}`; }
 
+/** 卡片进出的时长：`--dur-med`（theme.css 的动效词汇，唯一数值来源）。**三处共用这一个值**——
+ *  卡片自己的 CSS 过渡、退场动画结束后卸载的定时器、以及壳侧那块原生磨砂的淡入淡出；
+ *  壳里因此不必写第二份时长。 */
+function motionMs(): number {
+  return Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--dur-med"));
+}
+
 function clampSize(size: Size): Size {
   const maxW = Math.max(MIN_WIDTH, window.innerWidth - MARGIN * 2);
   const maxH = Math.max(MIN_HEIGHT, window.innerHeight - MARGIN * 2);
@@ -50,6 +57,11 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
   const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
   const [closed, setClosed] = useState(false);
+  /** 退场中：卡片仍挂着，等淡出跑完再卸（只靠 `closed` 会瞬间消失，没有消失动画）。 */
+  const [closing, setClosing] = useState(false);
+  /** 入场态：挂载那一帧还是全透明，矩形报给壳之后再翻上来——卡片与壳侧的磨砂同一帧起跑。 */
+  const [shown, setShown] = useState(false);
+  const exitTimer = useRef<number | undefined>(undefined);
   // 左上角是**会话标题**：走全项目唯一的标题回退（投影标题 → 新会话 → 任务 {id6}）
   const summary = store.sessions.find((it) => it.sessionId === sessionId) ?? store.allSessions.find((it) => it.sessionId === sessionId);
   const title = summary ? sessionTitle(summary, lang) : t("对话");
@@ -80,13 +92,21 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
   }, [layout, sessionId]);
 
   // 壳说"把卡片叫出来"（浏览器顶栏那颗「对话」按钮）——关掉之后再点要能回来。
-  useEffect(() => onHostEvent((cmd) => {
-    if (cmd === "chatShow") setClosed(false);
-  }), []);
+  // 也含"退场动画途中又被叫出来"：撤销那次卸载，别让它在半路把自己关掉。
+  useEffect(() => {
+    const off = onHostEvent((cmd) => {
+      if (cmd !== "chatShow") return;
+      window.clearTimeout(exitTimer.current);
+      exitTimer.current = undefined;
+      setClosing(false);
+      setClosed(false);
+    });
+    return () => { off(); window.clearTimeout(exitTimer.current); };
+  }, []);
 
   // 卡片矩形报给壳：壳按它做 hitTest（卡外一律透传给网页），并按同一个矩形摆那块
-  // 原生磨砂。圆角一起报——磨砂块也要按同一个半径收角，值从实际渲染的 border-radius
-  // 现读（事实源是 tokens，壳里不写第二份）。拖动/窗口变化都要跟上。
+  // 原生磨砂。圆角与时长一起报——磨砂块要按同一个半径收角、按同一个时长淡进淡出，
+  // 值都从 token 现读（事实源在 theme.css，壳里不写第二份）。拖动/窗口变化都要跟上。
   const report = useCallback(() => {
     if (!inShell() || closed) return;
     const box = rootRef.current;
@@ -97,11 +117,20 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
       type: "composer-pill",
       rect: { x: r.left, y: r.top, w: r.width, h: r.height },
       radius: Number.parseFloat(getComputedStyle(box).borderTopLeftRadius) || 0,
+      durationMs: motionMs(),
     });
   }, [closed]);
 
+  // 入场与上报同一帧起跑：先把矩形报出去（壳据此摆好磨砂并淡入），下一帧才翻到"已显示"
+  // 让卡片的 CSS 过渡跑起来。两边同时开始，才像一块东西淡进来。
   useLayoutEffect(() => {
+    if (closed || layout === null) return;
     report();
+    const id = window.requestAnimationFrame(() => setShown(true));
+    return () => window.cancelAnimationFrame(id);
+  }, [closed, layout, report]);
+
+  useLayoutEffect(() => {
     const timer = window.setInterval(report, 300);
     window.addEventListener("resize", report);
     return () => { window.clearInterval(timer); window.removeEventListener("resize", report); };
@@ -149,16 +178,29 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
   };
 
   const close = () => {
-    setClosed(true);
-    // 收起整层：卡不在了就不该再吃点击（壳那边 hide 会把可点矩形清零）
+    setClosing(true);
+    // 收起整层：卡不在了就不该再吃点击（壳那边 hide 会把可点矩形清零）。
+    // **立刻发**，不等淡出跑完——壳据此与卡片同一时刻把磨砂淡掉，两边才是一块东西在消失。
     sendToShell({ type: "composer-overlay", sessionId: null });
+    exitTimer.current = window.setTimeout(() => {
+      exitTimer.current = undefined;
+      setShown(false);   // 复位：下次叫出来要重新淡入
+      setClosing(false);
+      setClosed(true);
+    }, motionMs());
   };
 
   if (closed || layout === null) return <div className="chat-float-layer" ref={rootRef} />;
 
   return (
     <div className="chat-float-layer">
-      <div className="chat-float" ref={rootRef} style={{ left: layout.x, top: layout.y, width: layout.w, height: layout.h }}>
+      <div
+        className="chat-float"
+        ref={rootRef}
+        data-shown={shown ? "true" : undefined}
+        data-closing={closing ? "true" : undefined}
+        style={{ left: layout.x, top: layout.y, width: layout.w, height: layout.h }}
+      >
         <div
           className="chat-float-head"
           onPointerDown={onPointerDown}

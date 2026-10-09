@@ -95,12 +95,17 @@ final class BrowserHostTests: XCTestCase {
     /// 页面里卡片在 (20,100) 100x50，圆角 20（CSS px，左上原点、y 向下）。
     private let cardPill = NSRect(x: 20, y: 100, width: 100, height: 50)
 
+    /// 上报一次（时长用 10ms 的短值：真值 `--dur-med` 是 200ms，测里等它白等）。
+    private func reportPill(_ host: ComposerOverlayHost, zoom: CGFloat = 1, durationMs: Double = 10) {
+        host.setPill(cssRect: cardPill, zoom: zoom, radius: 20, durationMs: durationMs)
+    }
+
     func testPillRectMapsIntoSupersuperCoordinatesAndHitTests() {
         // hitTest 收到的点是**父视图坐标**：漏掉视图自身 frame 的位移、或 Y 翻错方向，
         // 都不会报错，只表现为"卡片点不动、别的某块反而吃掉网页点击"——实测用户报
         // "关闭键没用"。这里把换算结果与 hitTest 的真行为一起钉住。
         let host = shownHost()
-        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)
+        reportPill(host)
 
         // 父坐标 = 视图位移 + 视图高度翻转：y = 400 + 300 - (100+50) = 550
         XCTAssertEqual(host.view.interactiveRect, NSRect(x: 120, y: 550, width: 100, height: 50))
@@ -117,19 +122,20 @@ final class BrowserHostTests: XCTestCase {
         // 网页上的磨砂，少一块就是卡片角上没磨砂），圆角也必须与卡片一致（不一致会把
         // 方角露在卡片圆角外）。两者都走同一套换算与同一个缩放。
         let host = shownHost()
-        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)
+        reportPill(host)
         XCTAssertEqual(host.frost.frame, host.view.interactiveRect)
         XCTAssertEqual(host.frost.layer?.cornerRadius, 20)
         XCTAssertFalse(host.frost.isHidden)
+        XCTAssertEqual(host.frost.alphaValue, 1)
 
         // 页面缩放跟着一起缩（圆角值来自页面，单位是 CSS px）
-        host.setPill(cssRect: cardPill, zoom: 1.5, radius: 20)
+        reportPill(host, zoom: 1.5)
         XCTAssertEqual(host.frost.frame, host.view.interactiveRect)
         XCTAssertEqual(host.frost.layer?.cornerRadius, 30)
 
-        // 收起：磨砂块跟着消失，否则网页上会留下一块盖着的磨砂
+        // 收起：磨砂跟着淡掉（不是当场消失，也不是留在网页上）
         host.hide()
-        XCTAssertTrue(host.frost.isHidden)
+        XCTAssertEqual(host.frost.alphaValue, 0)
     }
 
     func testFrostStaysHiddenUntilPageReportsCard() {
@@ -137,7 +143,7 @@ final class BrowserHostTests: XCTestCase {
         // 的磨砂——那就是一块贴在网页上的假糊。
         let host = shownHost()
         XCTAssertTrue(host.frost.isHidden)
-        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)
+        reportPill(host)
         XCTAssertFalse(host.frost.isHidden)
 
         // 换会话重新显示（等同于收起再叫出来）：又得等页面重新报
@@ -152,15 +158,46 @@ final class BrowserHostTests: XCTestCase {
         // 它按 300ms 一条继续报同一颗卡片的矩形。迟到的上报一旦被采纳，磨砂会重新贴在
         // 网页上不走（用户报"关闭对话后背景还在"），旧矩形还会变成一块看不见的死区。
         let host = shownHost()
-        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)
-        XCTAssertFalse(host.frost.isHidden)
+        reportPill(host)
+        XCTAssertEqual(host.frost.alphaValue, 1)
 
         host.hide()
-        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)   // 迟到的那一条
-        XCTAssertTrue(host.frost.isHidden)
-        XCTAssertEqual(host.frost.frame, .zero)
+        reportPill(host)   // 迟到的那一条：不能把磨砂再点亮
+        XCTAssertEqual(host.frost.alphaValue, 0)
         XCTAssertEqual(host.view.interactiveRect, .zero)
         XCTAssertNil(host.view.hitTest(NSPoint(x: 170, y: 575)))
+    }
+
+    func testFrostFadesOutThenHidesItself() {
+        // 淡出跑完才藏起来并归零矩形：归零早了会当场少一块（看不出是淡出），
+        // 不归零则网页上留着一块盖着的磨砂。
+        let host = shownHost()
+        reportPill(host, durationMs: 10)
+        let done = expectation(description: "淡出走完")
+        host.hide()
+        XCTAssertFalse(host.frost.isHidden, "淡出期间还得在，不然就是当场消失")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { done.fulfill() }
+        wait(for: [done], timeout: 2)
+        XCTAssertTrue(host.frost.isHidden)
+        XCTAssertEqual(host.frost.frame, .zero)
+    }
+
+    func testFrostReopenedDuringFadeOutStaysVisible() {
+        // 淡出还没跑完又被叫出来（连点两下「对话」）：那次淡出的收尾一到就会把刚淡进来的
+        // 磨砂又藏了、矩形还一起归零。收尾必须看当前是不是又要显示了，是就作废。
+        // 走真实路径：收起 → show() → 页面重新报（show 才会把可见态翻回来）。
+        let host = shownHost()
+        reportPill(host, durationMs: 10)
+        host.hide()
+        host.show(sessionId: "s1", rect: NSRect(x: 100, y: 100, width: 600, height: 300),
+                  contentHeight: 800, zoom: 1, origin: "http://127.0.0.1:1")
+        reportPill(host, durationMs: 10)
+        let done = expectation(description: "越过那次淡出的收尾")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { done.fulfill() }
+        wait(for: [done], timeout: 2)
+        XCTAssertFalse(host.frost.isHidden)
+        XCTAssertEqual(host.frost.alphaValue, 1)
+        XCTAssertEqual(host.frost.frame, host.view.interactiveRect)
     }
 
     func testOverlayIsTransparentAndStartsHidden() {

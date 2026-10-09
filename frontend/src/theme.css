@@ -5070,7 +5070,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 对话卡在独立透明 WKWebView 中：模糊由**壳侧原生磨砂**给（卡片正下方那块
    NSVisualEffectView，跟着卡片矩形与圆角摆），网页里的 backdrop-filter 采不到
    另一个 webview 的内容。所以这里只压一层浅色（毛玻璃档 --panel-glass），
-   让底下的模糊透出来——写近实色会把磨砂整个盖掉，等于回到"没有模糊"。 */
+   让底下的模糊透出来——写近实色会把磨砂整个盖掉，等于回到"没有模糊"。
+   进出场走"显隐"那一类的配方，但**只淡不缩**：卡片里装着 Composer 的 @ // 菜单
+   （自带 backdrop-filter），给它挂 transform 会让它成为那些弹层的 backdrop root，
+   菜单就只能采到卡片自身绘制（PITFALLS §1.10）。进退同一对值，只引动效词汇。 */
 .chat-float {
   position: absolute;
   display: flex;
@@ -5083,7 +5086,12 @@ input:focus, textarea:focus, select:focus { outline: none; }
   background: var(--panel-glass);
   box-shadow: var(--shadow-pop);
   color: var(--ink);
+  opacity: 0;
+  transition: opacity var(--dur-med) var(--ease-out);
 }
+.chat-float[data-shown] { opacity: 1; }
+/* 退场排在入场之后（同特异性，靠顺序取胜）；退场态由 JS 在 --dur-med 后卸载 */
+.chat-float[data-closing] { opacity: 0; }
 .chat-float-head {
   display: flex;
   flex: none;
@@ -5127,8 +5135,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
   background:
     linear-gradient(135deg, transparent 0 55%, var(--line-strong) 55% 62%, transparent 62% 74%, var(--line-strong) 74% 81%, transparent 81%);
 }
-/* 地址栏右侧那颗「对话」（图标 + 文字的胶囊，同参考图的 Chat）：把浮在网页之上的
-   对话卡叫出来。原来它占的是面板标题栏"会话设置"那格，用户要求挪到地址栏右侧。 */
+/* 工具栏行尾那颗「对话」（图标 + 文字的胶囊，同参考图的 Chat）：把浮在网页之上的
+   对话卡叫出来。它自带**开关态**（`on` = 卡片正开着），与其他工具钮的 `.on` 一个意思：
+   底色调深一档、字用亮色。开/关的事实源在壳（见 useComposerOverlay 的镜像）。 */
 .panel-chat-btn {
   display: flex;
   align-items: center;
@@ -5143,6 +5152,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
   cursor: pointer;
 }
 .panel-chat-btn:hover { border-color: var(--line-strong); }
+.panel-chat-btn.on {
+  background: var(--fill-strong);
+  border-color: var(--line-strong);
+  color: var(--ink-bright);
+}
 
 /* ── 页内查找 / 「浏览器」设置页用到的零碎 ───────────────────── */
 /* 查找条：工具栏之下的窄条，与工具栏同一行高 */
