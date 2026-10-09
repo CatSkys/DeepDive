@@ -72,6 +72,11 @@
 ### 1.12 content-visibility 估高让 scrollHeight 漂移：编程滚动落点必须二次校准
 - 现象：`.msg-block` 用 `content-visibility: auto`（离屏跳过排版），跳到底部后估高被真实高度替换、scrollHeight 变化，一次性 `scrollTop = scrollHeight` 的落点偏短，末条消息仍被悬浮输入框盖住。
 - 处置：编程滚动（回到底部等）落点后**当前帧 + 下一帧各校准一次** `scrollTop = scrollHeight`；动画中改用 rAF 缓动时，终点 settle 同样双校准。
+- 追加（2026-10-09，页内查找实测）：被跳过渲染的块里，**Range 的矩形是 0**（`getBoundingClientRect()` 全 0），
+  元素本身仍有估高盒（`offsetHeight` 有值）。所以要滚到块内某一处时，**滚那个元素、别滚 Range**：
+  滚 Range 等于没滚，滚元素才能把块唤醒；唤醒后高度替换又会漂，仍按上面"下一帧再校准"办。
+  另：`::highlight()` 的高亮**能**画在刚被唤醒的块上（同一实验里逐像素比对确认：上色前后同区域像素不同、
+  撤掉后复原），所以"命中在屏外"不是不能用 Custom Highlight 画的理由。
 
 ### 1.16 `overflow-x: auto` 会把 `overflow-y` 算成 `auto`：绝对定位的下拉在横向滚动容器里被整条裁掉
 - 事故（2026-09-26 用户报"浏览器地址栏的补全列表看不见也点不着"）：补全列表是

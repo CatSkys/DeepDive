@@ -43,13 +43,26 @@ export function FindInConversation({ rootRef }: { rootRef: React.RefObject<HTMLE
   // 卸载（换会话重挂）也要撤：Highlight 持有 DOM 节点，留着就是漏
   useEffect(() => clearHighlights, []);
 
+  /** 把当前命中滚进视野中央。**滚的是命中所在元素，不是 Range**：被 content-visibility
+   *  跳过渲染的块里 Range 的矩形是 0（WebKit 实测），滚 Range 等于没滚；元素本身有估高盒，
+   *  滚它才能把那块唤醒。唤醒后真实高度替换估高会让落点漂（PITFALLS §1.12），
+   *  所以下一帧再校准一次——第二次仍是 smooth，会把动画重定向到校正后的位置。 */
+  const scrollToActive = () => {
+    const range = matches.current[active.current];
+    const el = range?.startContainer.parentElement;
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    requestAnimationFrame(() => {
+      if (matches.current[active.current] !== range) return; // 中途换词/关窗：别再动滚动
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  };
+
   const paint = (scroll: boolean) => {
     if (matches.current.length === 0) { clearHighlights(); return; }
     CSS.highlights.set(HIT, new Highlight(...matches.current));
     CSS.highlights.set(ACTIVE, new Highlight(matches.current[active.current]));
-    if (!scroll) return;
-    const node = matches.current[active.current].startContainer;
-    node.parentElement?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (scroll) scrollToActive();
   };
 
   /** 重新取词（打字时）；forward 决定停在第一个还是最后一个命中上。 */
