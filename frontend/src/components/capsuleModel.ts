@@ -6,14 +6,18 @@ import type { GitStatus, GoalProjection, JobView, ScheduleRecord } from "../type
 //
 // 收起态 pill 是一条**优先级回落链**（对应 ZCode ConversationStatusPanel 的
 // StatusSummaryRow）：从上往下第一个非空者获胜。顺序与它一致——
-//   当前任务 → 活动中的目标 → 未提交改动 → 已完成的目标 → 最后一条已完成任务
-//   → 运行中计数 → 最近提醒 → 已结束计数
+//   agent 正在操控浏览器 → 当前任务 → agent 用过浏览器 → 活动中的目标 → 未提交改动
+//   → 已完成的目标 → 最后一条已完成任务 → 运行中计数 → 最近提醒 → 已结束计数
 // 三条排序理由也照抄：当前任务先于一切；"活动中的目标"与"已完成的目标"分列两级
 // （同一个标题会换级）；**live 活动只作兜底**（composer 自己已有活动入口，pill 不跟
 // 它重复），所以运行计数排在任务/目标/改动之后；最后的已结束计数与 ZCode 的
 // "已结束工作流"同级同位——它存在的意义是别让面板塌成空壳。
 // ZCode 链里还有一级"最近的会话计划"（ExitPlanMode 历史行），本仓引擎没有那类历史，
 // 故这一级缺省（不是遗漏，是数据面没有）。
+//
+// 浏览器那两级是本仓加的（用户 2026-10-09：agent 操控浏览器时界面上没有任何显示，
+// 人也不知道去哪儿看）：**正在操控时压过一切**（那是此刻正在发生的事，带活信号），
+// 用过之后常驻在当前任务之下——浏览器全应用只此一条入口，压太低等于没有。
 
 /** 目标状态：复用 types.ts 里 GoalProjection 的内层形状，不另立一份。 */
 export type CapsuleGoal = GoalProjection["goal"];
@@ -100,7 +104,8 @@ export type CapsulePill =
   | { kind: "todoDone"; text: string }
   | { kind: "running"; count: number }
   | { kind: "schedule"; prompt: string; when: string }
-  | { kind: "ended"; count: number };
+  | { kind: "ended"; count: number }
+  | { kind: "browser"; title: string; live: boolean };
 
 /** 收起态显示什么：优先级回落链，第一个非空者获胜；全空 → null（胶囊隐藏）。 */
 export function capsulePill(input: {
@@ -111,13 +116,23 @@ export function capsulePill(input: {
   endedCount: number;
   scheduleRecords: ScheduleRecord[];
   fmtScheduleWhen: (r: ScheduleRecord) => string;
+  /** agent 与浏览器的关系（本会话）：`live` = 此刻正在操控（工具调用在飞），
+   *  `used` = 操控过（含已结束），`title` = 当前页标题（拿不到给空串）。 */
+  browser?: { live: boolean; used: boolean; title: string };
 }): CapsulePill | null {
   const list = input.todos ?? [];
   const completed = list.filter((t) => t.status === "completed");
+  const browser = input.browser;
+  // ⓪ agent 正在操控浏览器：此刻正在发生的事压过一切（含当前任务）——用户报"agent
+  //    操控浏览器时界面上没有任何显示"就是这一格缺位（见文件头）。
+  if (browser?.live) return { kind: "browser", title: browser.title, live: true };
   // ① 当前任务：进行中优先，其次第一条待办（ZCode: inProgress ?? 第一条 pending）。
   //    只看 in_progress 的话，模型刚写完计划、还没开工时 pill 会整个空掉。
   const current = list.find((t) => t.status === "in_progress") ?? list.find((t) => t.status === "pending");
   if (current) return { kind: "todo", text: current.content, done: completed.length, total: list.length };
+  // ①′ agent 操控过浏览器（本会话）：入口常驻——它不盖过"当前任务"，但也不能被
+  //    目标/改动挤掉（浏览器只此一条入口）。
+  if (browser?.used) return { kind: "browser", title: browser.title, live: false };
   // ② 活动中的目标（本仓阶段：active / paused / blocked 都算"还没完"）
   const title = input.goal?.objective;
   const phase = input.goal?.phase;

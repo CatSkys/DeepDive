@@ -39,7 +39,9 @@ export interface CapsuleData {
   busy: boolean;
 }
 
-export function useCapsuleData(sessionId: string, scheduleRecords: ScheduleRecord[], live: boolean): CapsuleData {
+export function useCapsuleData(sessionId: string, scheduleRecords: ScheduleRecord[], live: boolean,
+                               /** agent 与浏览器的关系（本会话）+ 当前页标题：胶囊的浏览器入口用。 */
+                               browser: { used: boolean; live: boolean; title: string } = { used: false, live: false, title: "" }): CapsuleData {
   const { sessions, jobsBySession, wsOfSession, workspaces, activeWorkspaceId, subscribeControl } = useStore();
   // control 流实时帧优先（undefined=尚无帧，用 store 投影基线），照 SessionView goal 模式
   const [liveTodos, setLiveTodos] = useState<CapsuleTodo[] | null | undefined>(undefined);
@@ -122,7 +124,7 @@ export function useCapsuleData(sessionId: string, scheduleRecords: ScheduleRecor
     subagentEntryCount: children.length,
     runningCount,
   });
-  const pill = capsulePill({ todos, goal, git, runningCount, endedCount, scheduleRecords, fmtScheduleWhen });
+  const pill = capsulePill({ todos, goal, git, runningCount, endedCount, scheduleRecords, fmtScheduleWhen, browser });
 
   return {
     todos, goal, git, wsPath, jobs, jobSplit, children, diag,

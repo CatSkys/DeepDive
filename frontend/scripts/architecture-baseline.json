@@ -75,10 +75,10 @@
       "detail": "364 lines > 300"
     },
     {
-      "id": "8405b447e605b5b6",
+      "id": "294726cef4d62b76",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
-      "detail": "401 lines > 300"
+      "detail": "408 lines > 300"
     },
     {
       "id": "4818f35fb69487f7",
@@ -117,10 +117,10 @@
       "detail": "439 lines > 300"
     },
     {
-      "id": "3d3f90b8c2491539",
+      "id": "e905d8bb1fa6932c",
       "rule": "file-lines",
       "file": "frontend/src/session/renderModel.ts",
-      "detail": "613 lines > 300"
+      "detail": "618 lines > 300"
     },
     {
       "id": "f1ed9ce2409730c0",
@@ -129,10 +129,10 @@
       "detail": "321 lines > 300"
     },
     {
-      "id": "e9b86ac6d376cc83",
+      "id": "7119ab6a1be7c5cd",
       "rule": "file-lines",
       "file": "frontend/src/session/useSessionEvents.ts",
-      "detail": "344 lines > 300"
+      "detail": "349 lines > 300"
     },
     {
       "id": "6e60185ec857426a",

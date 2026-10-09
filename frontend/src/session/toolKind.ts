@@ -124,6 +124,13 @@ const TOOL_TITLE_ZH: Record<string, string> = {
     不摆 `deepdive-browser · js` 这种半截内名（用户定稿）。 */
 const BROWSER_MCP = "mcp__deepdive-browser__";
 
+/** 这条工具调用是不是"agent 在操控浏览器"。前缀只此一份（toolKind 的 browser 族、
+ *  工具行产品名、状态胶囊的浏览器入口都引它）：模型手里只有这一个 `js` 工具，
+ *  命中它就是 agent 动了浏览器。 */
+export function isBrowserTool(toolName: string | undefined): boolean {
+  return toolName !== undefined && toolName.startsWith(BROWSER_MCP);
+}
+
 export function toolDisplayName(toolName: string, t: (s: string) => string): string {
   const known = TOOL_TITLE_ZH[toolName];
   if (known) return t(known);

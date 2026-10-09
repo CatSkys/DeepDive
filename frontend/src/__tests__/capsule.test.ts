@@ -95,6 +95,30 @@ describe("nextScheduleRecord", () => {
 });
 
 describe("capsulePill 回落链（顺序与 ZCode StatusSummaryRow 一致）", () => {
+  it("⓪ agent 正在操控浏览器：压过一切（含当前任务），带活信号", () => {
+    expect(pill({ browser: { live: true, used: true, title: "示例页" }, todos: [t("在做", "in_progress")] }))
+      .toEqual({ kind: "browser", title: "示例页", live: true });
+    // 标题还没解析出来（空白标签/加载中）也要显示——那一级只给"浏览器"这个词
+    expect(pill({ browser: { live: true, used: true, title: "" } }))
+      .toEqual({ kind: "browser", title: "", live: true });
+  });
+
+  it("①′ agent 操控过浏览器：常驻在当前任务之下、目标/改动之上", () => {
+    const browser = { live: false, used: true, title: "示例页" };
+    // 当前任务仍然优先（那是最该动手的一件事）
+    expect(pill({ browser, todos: [t("在做", "in_progress")] }))
+      .toEqual({ kind: "todo", text: "在做", done: 0, total: 1 });
+    // 没有当前任务时压过活动目标、改动、运行计数（浏览器只此一条入口，压太低等于没有）
+    expect(pill({ browser, goal: goal("active") })).toEqual({ kind: "browser", title: "示例页", live: false });
+    expect(pill({ browser, git, runningCount: 2 })).toEqual({ kind: "browser", title: "示例页", live: false });
+  });
+
+  it("没用过浏览器时这一级不存在（链的顺序与旧口径一致）", () => {
+    expect(pill({ browser: { live: false, used: false, title: "" }, goal: goal("active") }))
+      .toEqual({ kind: "goal", title: "把导出做好", done: false });
+    expect(pill({ browser: { live: false, used: false, title: "" } })).toBeNull();
+  });
+
   it("① 当前任务：进行中优先，其次第一条待办", () => {
     expect(pill({ todos: [t("写完了", "completed"), t("在做", "in_progress"), t("待办", "pending")] }))
       .toEqual({ kind: "todo", text: "在做", done: 1, total: 3 });

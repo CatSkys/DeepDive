@@ -264,6 +264,29 @@ describe("ingest 流式累积", () => {
   });
 });
 
+describe("ingest 浏览器记账（状态胶囊的浏览器入口）", () => {
+  const call = (name: string, seq: number) => ({
+    type: "tool/call", seq, time: 1_500, data: { callId: `c${seq}`, name, arguments: {} },
+  }) as unknown as SessionEvent;
+
+  it("命中浏览器 MCP 工具即置位（前缀只此一份，见 toolKind.isBrowserTool）", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    expect(ctx.browserUsed).toBe(false);
+    ingest(out, { event: call("mcp__deepdive-browser__js", 1) }, ctx);
+    expect(ctx.browserUsed).toBe(true);
+  });
+
+  it("别的工具（含其他 MCP）不置位", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    for (const [i, name] of ["bash", "read", "mcp__other__do"].entries()) {
+      ingest(out, { event: call(name, i + 1) }, ctx);
+    }
+    expect(ctx.browserUsed).toBe(false);
+  });
+});
+
 describe("ingest 交付文件（deliverables/presented）", () => {
   const presented = (seq: number, files: unknown[]) => ({
     type: "deliverables/presented", seq, time: 1_800, data: { turn: 1, callId: "c9", files },

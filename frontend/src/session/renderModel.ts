@@ -8,6 +8,7 @@ import type {
 import { narrowDiffs } from "../diffModel";
 import { messageText, userText } from "./eventText";
 import { truncate, formatLatencySeconds } from "./format";
+import { isBrowserTool } from "./toolKind";
 
 export interface WorkflowMember {
   seq: number;
@@ -269,11 +270,14 @@ export interface IngestCtx {
    *  靠它给 user item 标注归属——否则一步失败、零 assistant 输出的轮没有
    *  tail 锚点，轮终错误（如 MISSING_CREDENTIAL）永远渲染不出来。 */
   currentTurn?: number;
+  /** 本会话的 agent 是否操控过浏览器（命中浏览器 MCP 工具即置位）。O(1) 记账：
+   *  状态胶囊的浏览器入口据此出现——流式热路径上不许整窗扫描（PITFALLS §3.3）。 */
+  browserUsed: boolean;
 }
 
 /** Fresh ingest context — history replay, live mux passes and tests share one shape. */
 export function makeIngestCtx(): IngestCtx {
-  return { timing: new Map(), outputs: new Map(), produced: new Map(), presented: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnText: new Map(), turnTime: new Map(), currentTurn: undefined };
+  return { timing: new Map(), outputs: new Map(), produced: new Map(), presented: new Map(), callIndex: new Map(), callPaths: new Map(), commandIndex: new Map(), retryIndex: new Map(), workflowIndex: new Map(), turnReason: new Map(), turnText: new Map(), turnTime: new Map(), currentTurn: undefined, browserUsed: false };
 }
 
 export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?: string }, ctx: IngestCtx) {
@@ -384,6 +388,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       const d = ev.data as ToolCallData;
       const callId = toolCallIdOf(d);
       const args = d.arguments !== undefined ? toolArgsString(d.arguments) : d.argsRaw ?? d.command ?? "";
+      if (isBrowserTool(d.name)) ctx.browserUsed = true;
       const prev = ctx.callIndex.get(callId);
       if (prev !== undefined) {
         out[prev].args = args || out[prev].args;

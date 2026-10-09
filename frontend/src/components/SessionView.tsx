@@ -25,6 +25,7 @@ import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
 import { useSessionEvents } from "../session/useSessionEvents";
+import { isBrowserTool } from "../session/toolKind";
 import { useSessionModels } from "../session/useSessionModels";
 import { placeReadingProgress, publishReadingProgress, readingProgressOf } from "../session/readingProgress";
 
@@ -47,7 +48,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 供 syncBottomPad 同步读）保持一个事实源，拆两套监听会算出两个贴底。
   const [scrolled, setScrolled] = useState(false);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
-  const { items, liveRunning, runningSince, plan, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry } =
+  const { items, liveRunning, runningSince, plan, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry, browserUsed } =
     useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
   // 贴底跟随与悬浮对话卡共用一份（那边同样要自己滚到底）
   const { follow, followRef, onScroll: followScroll } = useFollowTail(scrollRef, items);
@@ -293,7 +294,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           </span>
         )}
-        <PanelTrigger sessionId={sessionId} scheduleRecords={scheduleRecords} />
+        <PanelTrigger
+          sessionId={sessionId}
+          scheduleRecords={scheduleRecords}
+          /* agent 与浏览器的关系：用过 = ingest 记账（browserUsed，重载后仍算得出）；
+             正在操控 = 会话在跑且最后一项就是那条浏览器工具调用（此刻正在发生的事） */
+          browser={{ used: browserUsed, live: running && isBrowserTool(liveItem?.toolName) }}
+        />
       </div>
       )}
       {/* 会话体：消息流 + 悬浮输入区 + （全屏预览时）盖在其上的预览面。

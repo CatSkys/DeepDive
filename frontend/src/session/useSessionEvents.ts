@@ -46,6 +46,9 @@ export function useSessionEvents(
   const [liveRunning, setLiveRunning] = useState(false);
   const [runningSince, setRunningSince] = useState<number | undefined>(undefined);
   const [plan, setPlan] = useState<{ active: boolean; pending: boolean } | undefined>(undefined);
+  /** 本会话的 agent 操控过浏览器（ingest 记账，见 renderModel 的 browserUsed）——
+   *  会话头角落那颗胶囊据此给出浏览器入口；重载后由全量 rebuild 重新算出来。 */
+  const [browserUsed, setBrowserUsed] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   // 已加载窗口最早事件 seq（分页游标）：state 无渲染读者，ref 即事实源，
@@ -87,6 +90,7 @@ export function useSessionEvents(
       ingest(rendered, entry, ctx.current);
     }
     finalizeTurns(rendered, ctx.current);
+    setBrowserUsed(ctx.current.browserUsed);
     return rendered;
   }, []);
 
@@ -191,6 +195,7 @@ export function useSessionEvents(
           // handler 内完成，setState 只收快照（AUD-084：updater 必须纯函数）。
           log.push({ event: ev });
           ingest(itemsRef.current, { event: ev }, ctx.current);
+          if (ctx.current.browserUsed) setBrowserUsed(true);
           if (ev.type === "turn/end") finalizeTurns(itemsRef.current, ctx.current);
           setItems(itemsRef.current.slice());
           if (ev.type === "turn/start") {
@@ -336,7 +341,7 @@ export function useSessionEvents(
   };
 
   return {
-    items, liveRunning, runningSince, plan, goalProj, refreshGoal,
+    items, liveRunning, runningSince, plan, goalProj, refreshGoal, browserUsed,
     scheduleRecords, hasMore, loadingOlder, loadOlder,
     loadError, retry: () => setRetryKey((k) => k + 1),
   };
