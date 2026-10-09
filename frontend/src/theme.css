@@ -297,8 +297,12 @@ button {
 /* Collapse: slide the sidebar out of layout (main flex-grows smoothly), no
    intermediate sizing frames. 顶部钮仍在顶部，会话头让位（同旧版机制）。 */
 .app.collapsed .sidebar { margin-left: calc(-1 * var(--dsh-sidebar-w, 240px)); opacity: 0; pointer-events: none; }
-.session-header, .hero-top { transition: padding-left var(--dur-med) var(--ease-out); }
+.session-header, .hero-top, .panel-browser-chrome { transition: padding-left var(--dur-med) var(--ease-out); }
 .app.collapsed .session-header { padding-left: 176px; }
+/* 浏览器模式收起侧栏同理：浏览器面板顶到窗口左缘（x=8），它那一行最左是标签条
+   ——不让位就整条压在红绿灯和上面两枚按钮底下（用户 2026-10-09 截图："标题页"
+   被红绿灯盖住）。同一个 176＝红绿灯 78 + 两钮 74 + 缝。 */
+.app.collapsed .panel[data-mode="browser"] .panel-browser-chrome { padding-left: 176px; }
 /* hero-top 的负边距已抵掉 .hero 的横向 padding：与会话头同款 176（同位让位） */
 .app.collapsed .hero-top { padding-left: 176px; }
 
@@ -3087,6 +3091,7 @@ button {
   .window-top-btn { width: 44px; height: 44px; }
   .app.collapsed .session-header { padding-left: 190px; }
   .app.collapsed .hero-top { padding-left: 190px; }
+  .app.collapsed .panel[data-mode="browser"] .panel-browser-chrome { padding-left: 190px; }
   .task-row, .session-back, .snav-item, .ctx-item { height: 44px; }
   .composer-send, .composer-icon, .composer-mic { width: 38px; height: 38px; }
   /* 审批/提问卡是手机上最需要"点得准"的地方（放行一次命令） */
