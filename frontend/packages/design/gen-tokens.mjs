@@ -70,8 +70,6 @@ function emitFontScale(font) {
 
 walk(tokens.color);
 walk({ radius: tokens.radius });
-walk({ space: tokens.space });
-walk({ size: tokens.size });
 walk({ font: { ui: tokens.font.ui, mono: tokens.font.mono } });
 emitFontScale(tokens.font);
 

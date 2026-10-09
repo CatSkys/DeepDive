@@ -74,6 +74,10 @@
      blur 强度在 .composer-menu 单独降为 14px（40px 会把背景糊成无法
      辨认的浓雾，反而显得「没有模糊」） */
   --panel-glass: rgba(24,24,27,.55);
+  /* 命令面板（⌘K）的底：比菜单更浅也更实。它浮在应用自己的近黑铬件上——用
+     --panel-glass 那两个数会跟背景糊成一片（实测两者相差 1 级亮度），所以要往
+     亮处抬一档拉开隔离，同时把不透明度提到 .82 让背后的正文不再透上来。 */
+  --panel-palette: rgba(42,42,47,.82);
   /* 预览浮窗蒙版（little 态四周）：只做"轻微退后"，不是压掉背景——用户
      实机反馈"semi-transparent 遮罩+模糊"要的是看得见：底色压到 .15、
      blur 收到 6px（40px 会把暗色界面糊成一团黑，20px 仍嫌糊；同一条坑见
@@ -138,6 +142,8 @@
     --panel-strong: rgba(250,250,251,.94);
     /* 明显毛玻璃档（同 dark 注释）：浅色白底 .45，下方内容透出且保持雾感 */
     --panel-glass: rgba(250,250,251,.55);
+    /* 命令面板的底（同 dark 注释）：亮色下"更浅"是更白更实——纯白近实色浮在浅灰应用上 */
+    --panel-palette: rgba(252,252,253,.90);
     /* 预览浮窗蒙版（同 dark 注释）：亮色界面压太狠会把背景压没 */
     --veil: rgba(0,0,0,.12);
     --composer-bg: rgba(0,0,0,.05);
@@ -4343,6 +4349,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
   to { opacity: 1; transform: translate(0px, 0px); }
 }
 .tip-keys-row { display: flex; gap: 3px; flex: none; }
+/* 空心键帽（§1.8 的第二档）：行内热键提示用这一档——描边不填底，列表里不喧宾夺主；
+   有底的留给底栏/操作栏那类"正在按的键"。两档对应参考项目的 outline / filled。 */
+.tip-keys-row.outline .tip-key {
+  background: none;
+  box-shadow: none;
+  color: var(--ink-2);
+}
 .tip-key {
   display: inline-flex;
   align-items: center;

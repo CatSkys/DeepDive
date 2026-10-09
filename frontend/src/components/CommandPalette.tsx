@@ -1,14 +1,14 @@
 // 全局搜索面板（⌘K，版式照参考图 Search for actions）：操作 / 当前会话 / 项目 /
-// 会话 / 设置分区统一搜索，回车直达。OpenHost 挂 App 根部，openCommandPalette() /
-// toggleCommandPalette() 供键位与其它入口调用。无全屏遮罩：浮层挂 top-center，
-// 点外部 / Esc 关闭。分组标签复用 .section-label（§2.1 SectionLabel），不用全宽横线；
-// 列表两端渐隐走 FadeEdge（§2.1）；行 hover 走全站门控口径（§1.10）。
+// 会话 / 设置五类统一搜索，回车直达。OpenHost 挂 App 根部，openCommandPalette() /
+// toggleCommandPalette() 供键位与其它入口调用。无全屏遮罩：屏幕居中浮层，点外部 /
+// Esc 关闭。版式抄参考图（tinycast 调色板）：列表平铺、**每行尾部标种类**、行内热键
+// 用空心键帽紧随标题、头部浮在列表之上、头尾两条按滚动深度渐隐的雾带；行 hover 走
+// 全站门控口径（§1.10）。
 import type { CSSProperties, ReactNode } from "react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Archive, Check, Gauge, MessageSquare, Mic, PanelLeft, Pin, Plus, Search, Settings, SquarePen } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import { useStore } from "../store";
 import { getWsIcon, useWsIcon } from "../wsIcons";
 import { useT } from "../i18n";
@@ -58,11 +58,19 @@ interface Row {
   run: () => void;
 }
 
-/** 一个分区：标题（渲染成 .section-label）+ 行（idx 是全局行下标，键盘上下与滚动定位用它）。 */
-interface PaletteGroup {
-  title: string;
-  rows: Array<{ row: Row; idx: number }>;
+/** 一行结果：kind 是它的种类（参考图行尾那个 "Application"），渲染在行的最右。 */
+interface PaletteRow {
+  row: Row;
+  idx: number;
+  kind: string;
 }
+
+/** 雾带参数（抄参考图 EdgeDissolve）：上带 = 头部 54 + 32 溢入，下带 = 80；
+ *  地板值让滚到边的内容仍留一点影，不是硬淡。 */
+const FADE_TOP_PX = 86;
+const FADE_BOTTOM_PX = 80;
+const FADE_TOP_FLOOR = 0.15;
+const FADE_BOTTOM_FLOOR = 0.25;
 
 function CommandPalette({ onClose }: { onClose: () => void }) {
   const { t, tt, lang } = useT();
@@ -73,7 +81,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const fade = useEdgeFade("y");
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -83,7 +91,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [onClose]);
 
-  const groups = useMemo<PaletteGroup[]>(() => {
+  const groups = useMemo<Array<[string, Row[]]>>(() => {
     const q = query.trim().toLowerCase();
     const hit = (label: string) => !q || label.toLowerCase().includes(q);
     const actions: Row[] = [
@@ -162,31 +170,57 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         };
       });
 
-    // 分组顺序即参考图的分区顺序；空组不出现。行下标在这里一次编好（渲染时不再找下标）。
-    const candidates: Array<[string, Row[]]> = [
+    // 五类的顺序就是列表顺序；列表平铺，每行尾部标自己的种类（参考图的做法），
+    // 所以这里的分组只在建表时用来打 kind，渲染时不再有分组头。
+    return [
       [t("操作"), actions],
       [t("当前会话"), current],
       [t("项目"), projects],
       [t("会话"), sessions],
       [t("设置"), settings],
     ];
-    const out: PaletteGroup[] = [];
-    let n = 0;
-    for (const [title, rows] of candidates) {
-      if (rows.length === 0) continue;
-      out.push({ title, rows: rows.map((row) => ({ row, idx: n++ })) });
-    }
-    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, store.workspaces, store.sessions, store.activeWorkspaceId, store.activeSessionId, store.keybinds, store.pinned, lang, t]);
 
-  const flat = useMemo(() => groups.flatMap((g) => g.rows.map((r) => r.row)), [groups]);
+  const rows = useMemo<PaletteRow[]>(() => {
+    const out: PaletteRow[] = [];
+    for (const [kind, list] of groups) {
+      for (const row of list) out.push({ row, idx: out.length, kind });
+    }
+    return out;
+  }, [groups]);
+  const flat = useMemo(() => rows.map((r) => r.row), [rows]);
+
   // 过滤结果变化时把焦点收回首项
   useEffect(() => { setActive(0); }, [query]);
   useEffect(() => {
     const el = panelRef.current?.querySelector(`[data-idx="${active}"]`);
     el?.scrollIntoView({ block: "nearest" });
   }, [active]);
+
+  // 头尾雾带：按滚动深度写两个 alpha（离边缘越近越透，滚到头仍留地板值），
+  // 内容放得下时整条掩码撤下（data-fade="off"）。公式与参考图 EdgeDissolve 同源。
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const sync = () => {
+      const max = el.scrollHeight - el.clientHeight;
+      if (max <= 0) {
+        el.dataset.fade = "off";
+        return;
+      }
+      delete el.dataset.fade;
+      const top = Math.min(el.scrollTop / FADE_TOP_PX, 1);
+      const bottom = Math.min((max - el.scrollTop) / FADE_BOTTOM_PX, 1);
+      el.style.setProperty("--palette-fade-top", String(1 - (1 - FADE_TOP_FLOOR) * top));
+      el.style.setProperty("--palette-fade-bottom", String(1 - (1 - FADE_BOTTOM_FLOOR) * bottom));
+    };
+    sync();
+    el.addEventListener("scroll", sync, { passive: true });
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", sync); ro.disconnect(); };
+  }, [rows.length]);
 
   const runRow = (row: Row) => {
     onClose();
@@ -213,30 +247,28 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
           onKeyDown={onInputKeyDown}
         />
       </div>
-      <div className={`${css.list} fade-y`} ref={fade.ref} {...fadeAttrs(fade.fade)}>
-        {groups.map((group) => (
-          <Fragment key={group.title}>
-            <div className="section-label">{group.title}</div>
-            {group.rows.map(({ row, idx }) => (
-              <button
-                key={row.key}
-                type="button"
-                data-idx={idx}
-                className={`${css.row}${idx === active ? ` ${css.active}` : ""}`}
-                style={{ "--i": idx } as CSSProperties}
-                onClick={() => runRow(row)}
-              >
-                <span className={css.rowIcon}>{row.icon}</span>
-                <span className={css.rowLabel}>{row.label}</span>
-                {row.activeMark && <Check size={14} className={css.check} />}
-                {row.combo && (
-                  <span className="tip-keys-row">
-                    {[...row.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
-                  </span>
-                )}
-              </button>
-            ))}
-          </Fragment>
+      <div className={css.list} ref={listRef}>
+        {rows.map(({ row, idx, kind }) => (
+          <button
+            key={row.key}
+            type="button"
+            data-idx={idx}
+            className={`${css.row}${idx === active ? ` ${css.active}` : ""}`}
+            style={{ "--i": idx } as CSSProperties}
+            onClick={() => runRow(row)}
+          >
+            <span className={css.rowIcon}>{row.icon}</span>
+            <span className={css.rowLabel}>{row.label}</span>
+            {row.combo && (
+              <span className="tip-keys-row outline">
+                {[...row.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
+              </span>
+            )}
+            <span className={css.rowTrail}>
+              {row.activeMark && <Check size={14} className={css.check} />}
+              <span className={css.rowKind}>{kind}</span>
+            </span>
+          </button>
         ))}
         {flat.length === 0 && <div className={css.empty}>{t("无结果")}</div>}
       </div>
