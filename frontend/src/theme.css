@@ -1771,6 +1771,8 @@ button {
   padding-bottom: 12px;
 }
 /* 页内查找胶囊（⌘F）：贴在会话流右上角，材质与回到底部钮同一档（上面那条共用规则）。
+   **无描边**、**输入框与胶囊同一块面**（用户 2026-10-09 定稿：靠磨砂底色分层，
+   不在胶囊里再嵌一层不同颜色的框——那是"框里还有一框"）。
    按钮借 .capsule-icon-btn——同一档小幽灵钮，不再写第二份。 */
 .find-capsule {
   position: absolute;
@@ -1781,9 +1783,8 @@ button {
   align-items: center;
   gap: 2px;
   height: 34px;
-  padding: 0 6px 0 2px;
+  padding: 0 6px 0 4px;
   border-radius: 999px;
-  border: 1px solid var(--line-strong);
   animation: fadein var(--dur-fast) var(--ease-out);
 }
 .find-input {
@@ -1791,8 +1792,7 @@ button {
   height: 26px;
   padding: 0 10px;
   border: 0;
-  border-radius: 13px;
-  background: var(--fill-soft);
+  background: none;
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
 }
