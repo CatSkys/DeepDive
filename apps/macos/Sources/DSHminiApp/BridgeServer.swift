@@ -326,14 +326,21 @@ final class BridgeServer {
         }
         let semaphore = DispatchSemaphore(value: 0)
         var result = MiniHTTPServer.Response(status: 502)
-        session.dataTask(with: urlRequest) { data, response, _ in
+        // 超大 body（上传面）：body 已经落在临时文件里，交给 URLSession 自己按块读盘上传
+        // ——这条桥线程上不再出现第二份全量缓冲（内存与文件大小无关）。
+        let onResult: (Data?, URLResponse?, Error?) -> Void = { data, response, _ in
             defer { semaphore.signal() }
             guard let http = response as? HTTPURLResponse else { return }
             result.status = http.statusCode
             result.body = data ?? Data()
             let mime = http.value(forHTTPHeaderField: "Content-Type") ?? "application/json"
             result.headers["content-type"] = mime
-        }.resume()
+        }
+        if let bodyFile = request.bodyFile {
+            session.uploadTask(with: urlRequest, fromFile: bodyFile, completionHandler: onResult).resume()
+        } else {
+            session.dataTask(with: urlRequest, completionHandler: onResult).resume()
+        }
         // AUD-037b：引擎挂起时 dataTask 可能永不出回调，无限 wait 会把这条
         // 桥线程永久钉死——超时按 502 网关错误返回。
         // 例外：引擎 API 里存在**同步等慢活的 unary RPC**——/api-import 的聚合扫描

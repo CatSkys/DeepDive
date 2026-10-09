@@ -1,28 +1,43 @@
-// 附件摄入 hook：＋ 选择器 / 拖入 / 浏览器兜底三条入口。
+// 附件摄入 hook：＋ 选择器 / 窗口级拖拽 两条入口。只管摄入与 chip 集合；
+// chip 预览与发送时拼 PromptContentPart 由编排方做。
 //
-// 摄入规则（用户 2026-10-09 定稿，全线一条口径）：
-//   · **图片**收字节 chip——随 prompt 直传，模型才看得见图；
-//   · **其余一律转 @ 引用**——文件与文件夹一样。引用只是路径文本（DSH-WIRE §7：引擎
-//     不代读、模型要用自己去 read），所以**没有大小上限、没有上传等待**，读不读、
-//     要不要压缩由 agent 自己决定。以前非图片走 32MB 上传通道，一个 .mp4 就被挡在
-//     门外——那正是用户报"为什么会有大小限制"。
-// 摄入被拒（拿不到路径、图大到没法内联）必须当场说出来——用户定稿"附件不许静默丢"。
-//
-// **路径只能从壳里来**：拖放板上只有壳看得见 file:// URL（文件和文件夹都在），
-// DOM 那侧 WebKit 只给 `["Files"]`（实测），`getAsString` 对文件项根本不回调。
-// 判据（谁成 chip、谁成引用、说什么话）在 attachmentIngest.ts，这里只管接线。
+// 口径（用户心智：一律 chip）：
+//   · **图片** → 字节 chip（随 prompt 直传，模型才看得见图；超过内联上限就按普通文件办）
+//   · **普通文件** → 上传 chip（图标+名+进度，就绪才可发送）。**没有大小上限**：
+//     页面拿不到字节的那种（选择器挑的大文件）由壳按路径流式上传，页面有的走 XHR
+//     ——桥超过缓冲上限会落盘再转发，两条路都不吃内存（见 host.uploadAttachmentPath）。
+//   · **文件夹** → @ 引用（没有字节可传，只能给路径，引擎宿主读盘）
+// 摄入被拒（图太大、拿不到路径）必须当场说出来——用户定稿"附件不许静默丢"。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { onHostEvent, pickAttachments, sendToShell, type PickedAttachment } from "../../host";
+import { onHostEvent, pickAttachments, uploadAttachmentPath, type PickedAttachment } from "../../host";
+import { formatMention } from "../../atGrammar";
 import { tt } from "../../i18n";
 import { api } from "../../api";
+import { rememberUploadedMedia } from "../../session/localMedia";
 import { uuid } from "../../uuid";
 import { DD_EVENTS, onAppEvent } from "../../events";
 import { alertDialog } from "../DialogHost";
-import { MAX_INLINE_IMAGE_BYTES, noPathNote, planIngest, tooLargeImageNote } from "./attachmentIngest";
+
+/** **图片随消息内联**的字节上限＝桥的单请求缓冲上限（MiniHTTPServer.maxBodyBytes）。
+ *  超了不弹错、也不拦：按普通文件走上传 chip（壳侧流式，无上限），附件照样发得出去。 */
+const MAX_INLINE_IMAGE_BYTES = 32 * 1024 * 1024;
+
+/** 图片大到没法内联时的说明（它会作为文件附件发出去，不是被丢掉）。 */
+function tooLargeNote(name: string): string {
+  return tt(`「${name}」超过 32 MB，按文件附件发送`, `"${name}" exceeds 32 MB and will be sent as a file attachment`);
+}
+
+/** 上传失败的原话：引擎/桥的错误文本优先（413 明确说成"超过 32 MB"），
+ *  没有就回落通用一句——chip 的 tooltip 与发送失败的弹窗都读它。 */
+export function uploadErrorText(err: unknown): string {
+  const msg = err instanceof Error ? err.message : "";
+  if (/\b413\b/.test(msg)) return tt("超过 32 MB 上传上限", "Exceeds the 32 MB upload limit");
+  return msg || tt("上传失败", "Upload failed");
+}
 
 export interface ImageAttachment {
-  /** chip 的稳定 key，不进发送载荷。 */
+  /** chip 的稳定 key，摄入时生成；不进发送载荷。 */
   id: string;
   kind: "image";
   data: string; // base64 (no prefix)
@@ -30,32 +45,135 @@ export interface ImageAttachment {
   name: string;
 }
 
-/** 计划落在界面上：图片进 chip、引用进草稿（追加，已有内容且无尾随空白先补一个空格）、
- *  说明进弹窗。 */
-function applyPlan(
-  setAttachments: React.Dispatch<React.SetStateAction<ImageAttachment[]>>,
+/** 通用文件 chip（0.1.5 流式路由）：摄入即上传（草稿页无会话则 pending 到
+ *  发送时），带进度百分比与取消；回执就绪才能随 prompt 发送。 */
+export interface FileAttachment {
+  id: string;
+  kind: "file";
+  name: string;
+  bytes?: number;
+  /** pending=等会话（草稿页）；uploading/ready/error=已起上传。 */
+  status: "pending" | "uploading" | "ready" | "error";
+  receiptId?: string;
+  /** uploading：0-100。 */
+  progress?: number;
+  /** 字节来源二选一：页面手里的 `File`（拖入/粘贴）或壳侧的 `path`（选择器挑的
+   *  大文件，请壳按路径流式上传）。error/cancelled 态保留它供重试。 */
+  file?: File;
+  path?: string;
+  error?: string;
+}
+
+export type Attachment = ImageAttachment | FileAttachment;
+
+// rc.2 prompt 面只收图片字节附件（PromptContentPart = text|image，imageLimits
+// 准入）；其余文件/文件夹没有上传通道，走 @ 引用（引擎宿主侧读盘，
+// DSH-WIRE §5）——即原生的"传文件"方式，不造假上传入口。
+const IMAGE_MIME: Record<string, string> = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif",
+};
+
+/** 路径 → 自闭合的 @ 引用（目录带引号时 formatMention 保持开引用供续层，
+ *  选择器/拖拽插入的是完整引用，补收引号）。 */
+function mentionOf(path: string, isDir: boolean): string | undefined {
+  const m = formatMention({ path, kind: isDir ? "directory" : "file" }, false);
+  if (m === undefined) return undefined;
+  return m.startsWith(`@"`) && !m.endsWith(`"`) ? `${m}"` : m;
+}
+
+/** 引用串追加到草稿末尾（已有内容且无尾随空白时先补一个空格）。 */
+function appendMentionsTo(setText: React.Dispatch<React.SetStateAction<string>>, mentions: string[]) {
+  setText((cur) => (cur && !/\s$/.test(cur) ? `${cur} ` : cur) + `${mentions.join(" ")} `);
+}
+
+function isFileDrag(e: DragEvent): boolean {
+  return Array.from(e.dataTransfer?.types ?? []).includes("Files");
+}
+
+// 拖拽载荷分类：**不碰 `getAsString`**——WebKit 对文件项根本不回调它（实测：整个
+// 拖放只暴露 `["Files"]`），拿它求文件夹路径会让整批挂在 Promise.all 上、一个都不
+// 摄入，用户看到的就是"文件夹拖入不显示"（PITFALLS §4.38）。文件夹路径只有壳拿得到
+// （拖放板），所以这里只同步挑出"有没有文件夹"，路径由壳另推（hostDroppedFolders）。
+export function classifyDrop(dt: DataTransfer): { files: File[]; dirs: number } {
+  const items = Array.from(dt.items ?? []).filter((i) => i.kind === "file");
+  if (items.length === 0) {
+    // 无 items（旧环境）：dt.files 里只有文件（文件夹不出现在这里），直接收
+    return { files: Array.from(dt.files ?? []), dirs: 0 };
+  }
+  const files: File[] = [];
+  let dirs = 0;
+  for (const item of items) {
+    if (item.webkitGetAsEntry?.()?.isDirectory === true) {
+      dirs += 1;
+      continue;
+    }
+    const file = item.getAsFile();
+    if (file) files.push(file);
+  }
+  return { files, dirs };
+}
+
+/** drop 摄入：图片收字节 chip；其余文件走上传 chip；文件夹由壳推路径转 @ 引用。
+ *  分类是同步的，所以"同一投里有文件夹"不会连坐里面的文件——它们照收。 */
+function ingestDropped(
+  dt: DataTransfer,
+  addImageFile: (file: File) => void,
+  addFileFile: (file: File) => void,
+  hasShell: boolean,
+): void {
+  const { files, dirs } = classifyDrop(dt);
+  for (const file of files) {
+    if (file.type.startsWith("image/")) addImageFile(file);
+    else addFileFile(file);
+  }
+  // 壳在时文件夹路径由壳推；纯浏览器没有路径可引用，明说，不静默。
+  if (dirs > 0 && !hasShell) {
+    void alertDialog({
+      message: tt("拖入的文件夹拿不到路径，无法引用（请在桌面应用里拖入）",
+        "Dropped folders expose no path here; drag them in the desktop app instead"),
+    });
+  }
+}
+
+
+/** 壳选择器结果：图片→字节 chip（要内联给模型看）；其余文件→上传 chip（拿不到字节
+ *  的那批由壳按路径流式上传，**没有大小上限**）；文件夹→@ 引用（没有字节可传）。 */
+export function ingestPicked(
+  setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>,
+  addFilePath: (path: string, name: string, bytes?: number) => void,
   setText: React.Dispatch<React.SetStateAction<string>>,
   items: PickedAttachment[],
 ): void {
-  const plan = planIngest(items);
-  for (const img of plan.images) setAttachments((prev) => [...prev, { id: uuid(), kind: "image", ...img }]);
-  if (plan.mentions.length > 0) {
-    setText((cur) => (cur && !/\s$/.test(cur) ? `${cur} ` : cur) + `${plan.mentions.join(" ")} `);
+  const mentions: string[] = [];
+  for (const it of items) {
+    const mime = IMAGE_MIME[it.name.split(".").pop()?.toLowerCase() ?? ""];
+    if (it.isImage && it.base64 && mime) {
+      setAttachments((prev) => [...prev, { id: uuid(), kind: "image", data: it.base64!, mediaType: mime, name: it.name }]);
+    } else if (!it.isDir) {
+      addFilePath(it.path, it.name, it.bytes);
+    } else {
+      const m = mentionOf(it.path, true);
+      if (m) mentions.push(m);
+    }
   }
-  if (plan.notes.length > 0) void alertDialog({ message: plan.notes.join("；") });
+  if (mentions.length > 0) appendMentionsTo(setText, mentions);
 }
 
-export function useComposerAttachments({ setText, hasShell }: {
+export function useComposerAttachments({ setText, hasShell, sessionId }: {
   setText: React.Dispatch<React.SetStateAction<string>>;
   hasShell: boolean;
+  /** 上传目标会话；草稿页（null）文件 chip 挂 pending，发送时建会话再传。 */
+  sessionId: string | null;
 }) {
-  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  /** 进行中上传的中止器（chip × 触发）。 */
+  const cancels = useRef(new Map<string, () => void>());
 
   const addImageFile = (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > MAX_INLINE_IMAGE_BYTES) {
-      void alertDialog({ message: tooLargeImageNote(file.name) });
+      void alertDialog({ message: tooLargeNote(file.name) });
       return;
     }
     const reader = new FileReader();
@@ -68,10 +186,151 @@ export function useComposerAttachments({ setText, hasShell }: {
     reader.readAsDataURL(file);
   };
 
+  /** 拖入的普通文件：直接成上传 chip——**没有大小门槛**（页面有字节走 XHR；
+   *  桥超过缓冲上限会落盘再转发，见 MiniHTTPServer）。 */
+  const addFileFile = (file: File) => addFile(file);
+
+  /** 一次上传：progress 上报、中止器登记、chip 终态（成功留字节、失败留原因），
+   *  返回回执；失败/取消回 null。摄入即传（addFile/addFilePath）与发送前补传/重传
+   *  （uploadNow）共用这一份，别再写第二遍。
+   *  路径来源（壳侧流式）没有进度回调，也取消不了（文件已在壳那边读着了）——
+   *  chip 停在"上传中"直到回执，用户删掉 chip 只是不再要那个回执。 */
+  const uploadOne = useCallback((id: string, sid: string, source: { file: File } | { path: string; name: string }): Promise<string | null> => {
+    if ("path" in source) {
+      return uploadAttachmentPath(source.path, sid, source.name).then((r) => {
+        if (r === null) {
+          setAttachments((prev) => prev.map((a): Attachment =>
+            a.id === id && a.kind === "file" ? { ...a, status: "error", error: tt("上传失败", "Upload failed") } : a));
+          return null;
+        }
+        setAttachments((prev) => prev.map((a): Attachment =>
+          a.id === id && a.kind === "file" ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, error: undefined } : a));
+        return r.receiptId;
+      });
+    }
+    const file = source.file;
+    const ctl = new AbortController();
+    cancels.current.set(id, () => ctl.abort());
+    return api.uploadFileStreaming({
+      sessionId: sid, file, name: file.name, signal: ctl.signal,
+      onProgress: (loaded, total) => setAttachments((prev) => prev.map((a): Attachment =>
+        a.id === id && a.kind === "file" ? { ...a, progress: total > 0 ? Math.round((loaded / total) * 100) : 0 } : a)),
+    }).then(
+      (r) => {
+        cancels.current.delete(id);
+        // 视频留一份本地 blob URL：文件部件的字节引擎拿不回来，缩略图靠它（见 session/localMedia）
+        // 判名用回执里的 name（引擎净化过的），与排队/消息里渲染时的那个名字同源
+        rememberUploadedMedia(r.file.attachmentId, r.file.name, file);
+        setAttachments((prev) => prev.map((a): Attachment =>
+          a.id === id && a.kind === "file"
+            // file 字节留着不清：引擎侧回执失效（FILE_NOT_STAGED）时要重传同一份字节
+            // ——用户定稿附件必须发出去（见 uploadNow 的 force）
+            ? { ...a, status: "ready", receiptId: r.receiptId, bytes: r.file.bytes, error: undefined }
+            : a));
+        return r.receiptId;
+      },
+      (err: unknown) => {
+        cancels.current.delete(id);
+        const aborted = err instanceof DOMException && err.name === "AbortError";
+        setAttachments((prev) => prev.map((a): Attachment =>
+          a.id === id && a.kind === "file"
+            ? { ...a, status: "error", error: aborted ? tt("已取消", "Cancelled") : uploadErrorText(err) }
+            : a));
+        return null;
+      },
+    );
+  }, []);
+
+  const addFile = useCallback((file: File) => {
+    const id = uuid();
+    if (sessionId) {
+      setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "uploading", file, progress: 0 }]);
+      void uploadOne(id, sessionId, { file });
+    } else {
+      setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "pending", file }]);
+    }
+  }, [sessionId, uploadOne]);
+
+  /** 路径来源的上传 chip（选择器挑的文件）：上传时请壳按路径流式送给引擎。
+   *  草稿页没有会话可传 → pending，发送建会话时补传（与 addFile 同一套状态机）。 */
+  const addFilePath = useCallback((path: string, name: string, bytes?: number) => {
+    const id = uuid();
+    if (sessionId) {
+      setAttachments((prev) => [...prev, { id, kind: "file", name, bytes, status: "uploading", path }]);
+      void uploadOne(id, sessionId, { path, name });
+    } else {
+      setAttachments((prev) => [...prev, { id, kind: "file", name, bytes, status: "pending", path }]);
+    }
+  }, [sessionId, uploadOne]);
+
+  /** 取消一次进行中的上传（chip 上的 ×；已取消/失败可重试）。 */
+  const cancelUpload = (id: string) => {
+    cancels.current.get(id)?.();
+  };
+
+  /** 失败重试 / 草稿页 pending 在会话就绪后补传（编排方发送前调用）。
+   *  返回本次传就绪的 receiptId 列表——setAttachments 不影响调用方当轮
+   *  闭包里的 content，prompt 载荷必须据此补 {type:'file'} 部件；
+   *  任一文件失败/取消返回 null（chip 停在 error 供重试）。
+   *  force：连已就绪的也重传一遍（引擎回 FILE_NOT_STAGED = 旧回执在引擎侧已不可用，
+   *  用户定稿附件必须发出去，所以拿到新回执再重发一次；字节一直留到发送，别清）。 */
+  const uploadNow = async (sid: string, force = false): Promise<string[] | null> => {
+    const pendingFiles = attachments.filter((a): a is FileAttachment =>
+      a.kind === "file" && (force || a.status !== "ready"));
+    const receipts: string[] = [];
+    for (const f of pendingFiles) {
+      const source = f.file ? { file: f.file } : f.path ? { path: f.path, name: f.name } : null;
+      if (source === null) return null;
+      setAttachments((prev) => prev.map((a): Attachment => a.id === f.id && a.kind === "file" ? { ...a, status: "uploading", progress: 0 } : a));
+      const receiptId = await uploadOne(f.id, sid, source);
+      if (receiptId === null) return null;
+      receipts.push(receiptId);
+    }
+    return receipts;
+  };
+
+  /** 失败 chip 的失败原因（编排方在发送失败时把原话带给用户）。 */
+  const firstUploadError = (): string | null =>
+    attachments.find((a): a is FileAttachment => a.kind === "file" && a.status === "error")?.error ?? null;
+
+  /** 草稿页失败 chip 重试：回 pending（无会话可传，发送建会话时补传）。 */
+  const requeueFile = (id: string) => setAttachments((prev) => prev.map((a): Attachment =>
+    a.id === id && a.kind === "file" && a.status === "error" ? { ...a, status: "pending", error: undefined } : a));
+
+  /** ＋＝上传附件：壳内 NSOpenPanel（文件+文件夹多选）；纯浏览器降级为
+   *  文件选择 input（无路径可引用）。 */
+  const addAttachments = useCallback(() => {
+    if (hasShell) {
+      void pickAttachments().then((items) => { if (items) ingestPicked(setAttachments, addFilePath, setText, items); });
+    } else {
+      fileRef.current?.click();
+    }
+  }, [hasShell, addFilePath, setText]);
+
+  // 命令面板「添加附件」与 composer ＋ 按钮同一条链路
+  useEffect(() => onAppEvent(DD_EVENTS.composerAttach, () => addAttachments()), [addAttachments]);
+
+  // 壳推来的**拖入文件夹**（路径只有它拿得到）：转 @ 引用
+  useEffect(() => onHostEvent((cmd, payload) => {
+    if (cmd !== "hostDroppedFolders") return;
+    const items = (payload as { items?: Array<{ path: string }> } | undefined)?.items ?? [];
+    const mentions = items.map((it) => mentionOf(it.path, true)).filter((m): m is string => m !== undefined);
+    if (mentions.length > 0) appendMentionsTo(setText, mentions);
+  }), [setText]);
+
+  const dragOver = useWindowFileDrag({ addImageFile, addFileFile, hasShell });
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type.startsWith("image/")) addImageFile(file);
+    else addFileFile(file);
+    e.target.value = "";
+  };
+
   /** 图片按通用文件原件再传一份（返回文件回执）：引擎对「模型条目没声明图片能力」
    *  的会话会在准入处拒 inline 图片部件，编排方据此把同一份字节改走文件回执投递，
-   *  内容不减、发送不被打断（用户定稿：附件与内容必须发出去，跟模型无关）。
-   *  这是唯一还会上传字节的地方——非图片一律走 @ 引用，不再有上传。 */
+   *  内容不减、发送不被打断（用户定稿：附件与内容必须发出去，跟模型无关）。 */
   const stageImageAsFile = async (sid: string, a: ImageAttachment): Promise<string | null> => {
     const binary = atob(a.data);
     const bytes = new Uint8Array(binary.length);
@@ -88,110 +347,36 @@ export function useComposerAttachments({ setText, hasShell }: {
     }
   };
 
-  /** ＋＝添加附件：壳内 NSOpenPanel（文件+文件夹多选，真路径）；纯浏览器降级为
-   *  文件选择 input（没有路径可引用，只收图片）。 */
-  const addAttachments = useCallback(() => {
-    if (hasShell) {
-      void pickAttachments().then((items) => { if (items) applyPlan(setAttachments, setText, items); });
-    } else {
-      fileRef.current?.click();
-    }
-  }, [hasShell, setText]);
-
-  // 命令面板「添加附件」与 composer ＋ 按钮同一条链路
-  useEffect(() => onAppEvent(DD_EVENTS.composerAttach, () => addAttachments()), [addAttachments]);
-
-  // 拖拽武装：只有 composer 的窗口级拖拽提示亮着时，壳才接手原生拖入
-  //（设置页上拖文件不该悄悄塞进草稿）
-  const setArmed = useCallback((armed: boolean) => {
-    if (hasShell) sendToShell({ type: "file-drop-armed", armed });
-  }, [hasShell]);
-
-  const { dragOver, resetDrag } = useWindowFileDrag({ addImageFile, hasShell, setArmed });
-
-  // 拖入由壳读拖放板后推进来（网页侧看不到路径）：与 ＋ 同一条摄入路。
-  // 提示也在这里收：这一投由壳接手，DOM 的 drop/dragleave 不一定会来，不收提示会一直
-  // 挂着那条虚线框（收不到 dragleave 就没别的机会复位）。
-  useEffect(() => onHostEvent((cmd, payload) => {
-    if (cmd !== "hostFilesDropped") return;
-    resetDrag();
-    const items = (payload as { items?: PickedAttachment[] } | undefined)?.items;
-    if (items) applyPlan(setAttachments, setText, items);
-  }), [setText, resetDrag]);
-
-  /** 纯浏览器的文件选择（没有壳就没有路径可引用，只收图片）。 */
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.type.startsWith("image/")) addImageFile(file);
-    else void alertDialog({ message: noPathNote(file.name) });
-    e.target.value = "";
-  };
-
-  return { attachments, setAttachments, addAttachments, addImageFile, stageImageAsFile, dragOver, fileRef, onFile };
+  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile };
 }
 
-/** 拖拽：窗口级监听——会话界面任意处拖入文件都出虚线框提示。
- *  壳在时，落点由**壳**接手（只有它拿得到路径，见文件头），这里只管提示的显隐与"武装"；
- *  纯浏览器没有壳，退回 DOM 摄入：同步能判的都收下（图片），拿不到路径的明说，绝不静默。 */
-function useWindowFileDrag({ addImageFile, hasShell, setArmed }: {
+/** 拖拽：窗口级监听——会话界面任意处拖入文件都出虚线框提示。图片收字节 chip、
+ *  文件走上传 chip、文件夹由壳推路径（见 classifyDrop）。depth 计数对抗子元素
+ *  边界的 enter/leave 抖动。 */
+function useWindowFileDrag({ addImageFile, addFileFile, hasShell }: {
   addImageFile: (file: File) => void;
+  addFileFile: (file: File) => void;
   hasShell: boolean;
-  setArmed: (armed: boolean) => void;
 }) {
+  // 拖拽附件：窗口级监听（会话界面任意处），非 composer 局部
   const [dragOver, setDragOver] = useState(false);
   const dragDepth = useRef(0);
-  /** 复位提示与深度计数（壳接手那一投之后调一次：DOM 事件可能不来）。 */
-  const resetDrag = useCallback(() => {
-    dragDepth.current = 0;
-    setDragOver(false);
-    setArmed(false);
-  }, [setArmed]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 摄入函数按当前渲染闭包工作，与听写订阅同款
-  useEffect(() => attachWindowFileDrag({ addImageFile, hasShell, setArmed, dragDepth, setDragOver }), []);
-  return { dragOver, resetDrag };
-}
-
-function isFileDrag(e: DragEvent): boolean {
-  return Array.from(e.dataTransfer?.types ?? []).includes("Files");
-}
-
-/** 纯浏览器的兜底摄入：只认同步拿得到的东西。**不要碰 getAsString**——WebKit 对
- *  文件项根本不回调它（实测：整个拖放只暴露 `["Files"]`，没有 text/uri-list 也没有
- *  public.file-url），拿它求路径会让整批挂在 Promise.all 上，一个都不摄入。 */
-export function ingestBrowserDrop(dt: DataTransfer, addImageFile: (file: File) => void): void {
-  const items = Array.from(dt.items ?? []).filter((i) => i.kind === "file");
-  let dirs = 0;
-  const dropped: File[] = [];
-  for (const item of items) {
-    if (item.webkitGetAsEntry?.()?.isDirectory === true) {
-      dirs += 1;
-      continue;
-    }
-    const file = item.getAsFile();
-    if (file) dropped.push(file);
-  }
-  // 旧环境没有 items：dt.files 里只有文件（文件夹不出现在这里），直接收
-  if (items.length === 0) dropped.push(...Array.from(dt.files ?? []));
-  const refused: string[] = [];
-  for (const file of dropped) {
-    if (file.type.startsWith("image/")) addImageFile(file);
-    else refused.push(noPathNote(file.name));
-  }
-  if (dirs > 0) {
-    refused.push(tt("拖入的文件夹没有路径可引用（请在桌面应用里拖入）",
-      "Dropped folders expose no path here, so they cannot be referenced (drag them in the desktop app)"));
-  }
-  if (refused.length > 0) void alertDialog({ message: refused.join("；") });
+  useEffect(() => attachWindowFileDrag({ addImageFile, addFileFile, hasShell, dragDepth, setDragOver }), []);
+  return dragOver;
 }
 
 /** 挂窗口级拖拽监听，返回卸载函数。 */
 function attachWindowFileDrag({
-  addImageFile, hasShell, setArmed, dragDepth, setDragOver,
+  addImageFile,
+  addFileFile,
+  hasShell,
+  dragDepth,
+  setDragOver,
 }: {
   addImageFile: (file: File) => void;
+  addFileFile: (file: File) => void;
   hasShell: boolean;
-  setArmed: (armed: boolean) => void;
   dragDepth: { current: number };
   setDragOver: React.Dispatch<React.SetStateAction<boolean>>;
 }): () => void {
@@ -200,7 +385,6 @@ function attachWindowFileDrag({
     e.preventDefault();
     dragDepth.current += 1;
     setDragOver(true);
-    setArmed(true);
   };
   const onDragOver = (e: DragEvent) => {
     if (dragDepth.current > 0) e.preventDefault();
@@ -208,21 +392,16 @@ function attachWindowFileDrag({
   const onDragLeave = () => {
     if (dragDepth.current === 0) return;
     dragDepth.current -= 1;
-    if (dragDepth.current === 0) {
-      setDragOver(false);
-      setArmed(false);
-    }
+    if (dragDepth.current === 0) setDragOver(false);
   };
   const onDrop = (e: DragEvent) => {
     dragDepth.current = 0;
     setDragOver(false);
-    setArmed(false);
     if (!isFileDrag(e)) return;
     e.preventDefault();
-    // 壳在时这一投已经由壳接手（hostFilesDropped 会带着条目回来），这里只收提示：
-    // 再摄入一遍就是双份。
-    if (hasShell) return;
-    if (e.dataTransfer) ingestBrowserDrop(e.dataTransfer, addImageFile);
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    ingestDropped(dt, addImageFile, addFileFile, hasShell);
   };
   window.addEventListener("dragenter", onDragEnter);
   window.addEventListener("dragover", onDragOver);

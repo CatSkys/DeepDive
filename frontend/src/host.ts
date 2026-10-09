@@ -409,11 +409,13 @@ export interface PickedAttachment {
   path: string;
   name: string;
   isDir: boolean;
-  /** 图片：isImage=true 且带 base64（真字节上传）。其余文件同样带 base64
-   *  （≤壳的 maxPickFileBytes，与桥的单请求上限一致）；超限/读取失败与
-   *  文件夹一样只有路径，前端转 @ 引用（引擎宿主侧读盘）并当场说明。 */
+  /** **图片**才有 isImage + base64（要随 prompt 内联给模型看，≤壳的内联上限）。
+   *  其余一律只有路径：前端拿它请壳按路径流式上传（`uploadAttachmentPath`，
+   *  桥不参与、没有大小上限），文件夹则转 @ 引用。 */
   isImage?: boolean;
   base64?: string;
+  /** 文件字节数（非目录时都有）：chip 立刻显示大小，不用等上传回来。 */
+  bytes?: number;
 }
 
 /** 壳侧附件选择器（composer ＋）：NSOpenPanel 文件+文件夹多选，回推绝对
@@ -425,6 +427,33 @@ export function pickAttachments(): Promise<PickedAttachment[] | null> {
     null,
     (p) => (p as { items?: PickedAttachment[] }).items ?? [],
     (reqId) => sendToShell({ type: "pick-attachments", reqId }),
+  );
+}
+
+/** 上传回执（与 `api.uploadFileStreaming` 同形：壳那条 /api 路由的 `{ok,value}`）。 */
+export interface AttachmentUploadReceipt {
+  receiptId: string;
+  file: { attachmentId: string; name: string; bytes: number };
+}
+
+/** 请**壳**按路径上传一个附件（选择器挑中的文件走这条）。
+ *
+ *  为什么不让页面传字节：SPA 只有两种法子——整段塞进一次请求（桥按缓冲上限处理，
+ *  超过上限就得落盘再转发），或者把整个文件 base64 进一条桥消息（随大小线性吃内存）。
+ *  壳有路径，可以 `uploadTask(fromFile:)` 按块读盘**流式**送给引擎：内存与文件大小
+ *  无关，几百 MB 照样发得出去。
+ *  失败时 resolve null（壳回 ok:false 或超时），由 chip 显示失败原因并可重试。 */
+export function uploadAttachmentPath(path: string, sessionId: string, name: string): Promise<AttachmentUploadReceipt | null> {
+  return bridgeRequest(
+    "attachmentUploaded",
+    null,
+    (p) => {
+      const payload = p as { ok?: boolean; value?: AttachmentUploadReceipt };
+      return payload.ok && payload.value ? payload.value : null;
+    },
+    (reqId) => sendToShell({ type: "upload-path", reqId, path, sessionId, name }),
+    // 大文件要读完整个文件再送进引擎：给足时间（本地盘 + 本机引擎，仍很快）
+    120_000,
   );
 }
 

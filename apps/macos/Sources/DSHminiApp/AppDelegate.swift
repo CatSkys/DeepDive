@@ -352,9 +352,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         case "pick-attachments":
             pickAttachments(reqId: body["reqId"] as? String ?? "")
-        // 拖拽武装：composer 的窗口级拖拽提示亮着时才接手原生拖入（见 TitlebarAwareWebView）
-        case "file-drop-armed":
-            windowController.setDropArmed(body["armed"] as? Bool ?? false)
+        // 按路径上传附件（选择器挑中的文件走这条：SPA 那侧要么整段进一次请求，
+        // 要么把整个文件 base64 进消息——壳直接流式送给引擎，见 EngineGateway.uploadFile）
+        case "upload-path":
+            uploadAttachmentPath(
+                reqId: body["reqId"] as? String ?? "",
+                path: body["path"] as? String ?? "",
+                sessionId: body["sessionId"] as? String ?? "",
+                name: body["name"] as? String ?? "",
+            )
         case "list-dir":
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "read-workspace-icon":
@@ -783,7 +789,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             let urls = response == .OK ? panel.urls : []
             DispatchQueue.global(qos: .userInitiated).async {
-                let payload = Self.jsonPayload(["reqId": reqId, "items": Self.attachmentItems(for: urls)])
+                var items: [[String: Any]] = []
+                for url in urls {
+                    var item: [String: Any] = [
+                        "path": url.path,
+                        "name": url.lastPathComponent,
+                        "isDir": (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false,
+                    ]
+                    // 只有**图片**（且不超过内联上限）带 base64：它要随 prompt 直传，
+                    // 模型才看得见图。**其余一律不带字节**——前端拿着 path 请壳按路径
+                    // 流式上传（`upload-path`），桥不参与、没有上限，也不用把整个文件
+                    // base64 进一条桥消息（用户 2026-10-09："不应该有大小限制"）。
+                    let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                    // 大小随载荷带上：chip 立刻显示（与消息里那颗文件 chip 同一口径），
+                    // 不用等上传回来才知道多大
+                    if !isDir, let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                        item["bytes"] = size
+                    }
+                    if !isDir, Self.imageExtensions.contains(url.pathExtension.lowercased()),
+                       let data = try? Data(contentsOf: url), data.count <= Self.maxInlineImageBytes {
+                        item["isImage"] = true
+                        item["base64"] = data.base64EncodedString()
+                    }
+                    items.append(item)
+                }
+                let payload = Self.jsonPayload(["reqId": reqId, "items": items])
                 DispatchQueue.main.async {
                     self.windowController.pushHostCommand("pickedAttachments", payload: payload)
                 }
@@ -791,16 +821,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 拖入的本地文件/文件夹 → 与选择器**同一形状**的载荷，走 SPA 的摄入同一条路
-    /// （图片收字节 chip；文件与文件夹转 @ 引用）。载荷构造见 AppDelegate+Attachments。
-    private func deliverDroppedAttachments(_ urls: [URL]) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self else { return }
-            let payload = Self.jsonPayload(["items": Self.attachmentItems(for: urls)])
-            DispatchQueue.main.async {
-                self.windowController.pushHostCommand("hostFilesDropped", payload: payload)
+    /// 与引擎 imageLimits 准入的媒体类型对齐（png/jpeg/webp/gif）。
+    private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "webp", "gif"]
+    /// **图片**随消息直传的字节上限：等于桥的单请求缓冲上限（`MiniHTTPServer.maxBodyBytes`）。
+    /// 超了就不带字节，前端按普通文件处理——请壳按路径流式上传（没有大小上限），
+    /// 所以这里只影响"能不能内联给模型看"，不会让附件发不出去。
+    private static let maxInlineImageBytes = 32 * 1024 * 1024
+
+    /// 按路径上传一个附件（选择器挑的大文件）：壳直接流式送给引擎，桥不参与，
+    /// 于是没有那条单请求缓冲上限，也不用把文件 base64 进消息。
+    /// 结果经 `attachmentUploaded` 回前端（ok/value 或 error），chip 据此转终态。
+    private func uploadAttachmentPath(reqId: String, path: String, sessionId: String, name: String) {
+        Task { @MainActor in
+            do {
+                let value = try await EngineGateway.shared.uploadFile(
+                    at: URL(fileURLWithPath: path), sessionId: sessionId, name: name)
+                self.windowController.pushHostCommand(
+                    "attachmentUploaded",
+                    payload: Self.jsonPayload(["reqId": reqId, "ok": true, "value": value]))
+            } catch {
+                let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                self.windowController.pushHostCommand(
+                    "attachmentUploaded",
+                    payload: Self.jsonPayload(["reqId": reqId, "ok": false, "error": message]))
             }
         }
+    }
+
+    /// 拖入的**文件夹**（壳读拖放板得到真路径）→ 推给 SPA 转 @ 引用。
+    /// 同一投里的文件与图片不走这条：WebKit 会把它们照常投给页面（页面拿得到字节）。
+    private func deliverDroppedFolders(_ urls: [URL]) {
+        let items = urls.map { ["path": $0.path, "name": $0.lastPathComponent, "isDir": true] }
+        windowController.pushHostCommand("hostDroppedFolders", payload: Self.jsonPayload(["items": items]))
     }
 
     /// Preference + path snapshot for the settings page (推送于 host-ready
@@ -875,8 +927,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 主菜单（结构在 MainMenu.swift，这里只放动作实现）
 
     private func installMainMenu() {
-        // 拖入的文件/文件夹（壳读拖放板）交给 SPA：与 ＋ 选择器同一条摄入路
-        windowController.onFilesDropped = { [weak self] urls in self?.deliverDroppedAttachments(urls) }
+        // 拖入的文件夹（路径只有壳拿得到）交给 SPA 转 @ 引用
+        windowController.onFoldersDropped = { [weak self] urls in self?.deliverDroppedFolders(urls) }
         MainMenu.install(app: NSApp, target: self, window: windowController)
     }
 

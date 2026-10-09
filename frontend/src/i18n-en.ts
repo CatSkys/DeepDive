@@ -911,6 +911,10 @@ export const EN: Record<string, string> = {
   "无法在应用内预览该文件": "This file can't be previewed in the app",
   "该文件类型不支持应用内预览": "This file type doesn't support in-app preview",
   // composer
+  "取消上传": "Cancel upload",
+  "上传中": "Uploading",
+  "待发送": "Pending",
+  "上传失败": "Upload failed",
   "指令会在创建时写入项目 AGENTS.md，文件已存在则不改动。": "Instructions are written to the project's AGENTS.md on create — an existing file is left untouched.",
   "解码速度": "Decode speed",
   "平均首 token": "Avg. first token",

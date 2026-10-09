@@ -4,6 +4,7 @@ import { api } from "../api";
 import { Lightbox } from "./Lightbox";
 import { FileIcon } from "../session/FileIcon";
 import { resolveFileIconName } from "../session/fileIcons";
+import { sizeText } from "../session/format";
 import { localMediaUrl } from "../session/localMedia";
 import type { ContentBlock } from "../types";
 
@@ -33,13 +34,6 @@ function cacheBytes(id: string, url: string): void {
     if (oldest === undefined) break;
     bytesCache.delete(oldest);
   }
-}
-
-function sizeText(bytes?: number): string {
-  if (bytes === undefined) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 /** user/message 事件里的内容块（排队区手里只有队列快照的 content，没有事件本体）。 */

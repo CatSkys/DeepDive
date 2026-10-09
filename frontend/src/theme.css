@@ -1174,6 +1174,41 @@ button {
 }
 .att-chip-x:hover { background: rgba(0, 0, 0, .7); }
 
+/* 通用文件 chip（0.1.5 上传面）：图标+名+状态；uploading 自旋点、error 带重试。
+   data-status=pending/uploading 期间整体降不透明度示意「还不可发送」。
+   两端全圆（radius.bubble，见 .user-file-chip）：它与已发送侧那颗是同一套。 */
+.att-chip.file {
+  cursor: default;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 26px 0 10px;
+  border-radius: var(--dsh-radius-bubble);
+  border: 1px solid var(--line);
+  background: var(--fill-soft);
+  color: var(--ink-2);
+  font-size: var(--dsh-font-size-sm);
+}
+.att-chip.file[data-status="pending"], .att-chip.file[data-status="uploading"] { opacity: .72; }
+.att-chip.file[data-status="error"] { border-color: var(--dsh-signal-danger); color: var(--ink); }
+.att-file-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 名字右边那一截：待发送 / 上传中 42% / 上传失败 / 大小（口径与消息里那颗文件 chip 一致）。
+   失败一档用信号色，其余是 muted——和官方的 meta 行同一套语义。 */
+.att-file-meta { flex: none; color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
+.att-file-meta.failed { color: var(--dsh-signal-danger); }
+.att-file-spin {
+  width: 10px; height: 10px; flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--ink-3);
+  animation: att-file-rotate .8s linear infinite;
+}
+@keyframes att-file-rotate { to { transform: rotate(360deg); } }
+.att-file-retry {
+  border: none; background: none; padding: 0 2px;
+  color: var(--ink-2); font-size: var(--dsh-font-size-sm); text-decoration: underline;
+}
+.att-chip.file .att-chip-x { position: absolute; top: 5px; right: 4px; }
 
 /* ---- 文件预览窗口（0.1.5 产物/文件预览）：little 浮窗 + 全屏两态 ----
    little 态 = 整窗蒙版（模糊 + 变暗）上的居中浮窗，控制钮挂在窗外右侧；
@@ -1448,9 +1483,10 @@ button {
 .preview-frame[src*=".html"], .preview-frame[sandbox] { background: #fff; }
 
 /* 用户消息里的文件 chip（0.1.5 历史 file 块）与工具结果图片行 */
-/* 历史里的文件 chip（file 部件；现在新附件一律 @ 引用，这颗只出现在旧会话的转录里）：
-   30 高、--fill-soft 底、两端全圆的胶囊。胶囊用 radius.bubble(24)，30 高的盒子上被
-   裁成半高整圆端；别写 999px（§2.4 的胶囊口径：流内胶囊一律引 token）。 */
+/* 文件 chip：与输入框里那颗 .att-chip.file 同一套（30 高、--fill-soft 底、
+   两端全圆的胶囊）——同一段对话里两处文件看着是一套（图片附件早就是这个口径：
+   92×68 两边一致）。胶囊用 radius.bubble(24)，30 高的盒子上被裁成半高整圆端；
+   别写 999px（§2.4 的胶囊口径：流内胶囊一律引 token）。 */
 .user-file-chip {
   display: inline-flex; align-items: center; gap: 6px;
   height: 30px; padding: 0 10px;
@@ -1460,7 +1496,7 @@ button {
   color: var(--ink-2); font-size: var(--dsh-font-size-sm);
 }
 /* chip 用 gap 排版，图标自带的右边距在这里是多余的 */
-.user-file-chip .file-icon { margin-right: 0; }
+.user-file-chip .file-icon, .att-chip.file .file-icon { margin-right: 0; }
 .user-file-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-file-size { color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
 .tool-result-images { display: flex; gap: 8px; margin: 4px 0 2px 26px; }

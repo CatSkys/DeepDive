@@ -13,6 +13,9 @@ final class MiniHTTPServer {
         let query: String
         let headers: [String: String]
         let body: Data
+        /// 超过缓冲上限、已落到临时文件的 body（上传面）：转发方从文件流式送出，
+        /// 桥里不出现第二份全量缓冲。响应写完由服务器删掉这个文件。
+        var bodyFile: URL?
         /// 原始请求头块（含请求行，CRLF 结尾）。流式直通转发时原样重放。
         let rawHead: Data
         /// Content-Length 声明值（无头时 nil）。
@@ -104,22 +107,49 @@ final class MiniHTTPServer {
             return
         }
         let declared = headRequest.contentLength ?? partial.count
-        if declared > Self.maxBodyBytes {
-            // 显式上限：超大 body 不缓冲不转发，直接拒绝（413）。客户端可能
-            // 仍在发 body，响应先写后关，XHR 侧按 413/网络错误归到上传失败。
+        // 超过**缓冲**上限：上传面落临时文件（几百 MB 的文件整段进内存就是把内存吃光），
+        // 其余路径维持显式 413——那些面的 body 本来就小，超了说明客户端不对。
+        let spool = declared > Self.maxBodyBytes && Self.spoolsBody(path: headRequest.path)
+        if declared > Self.maxBodyBytes && !spool {
+            // 客户端可能仍在发 body，响应先写后关，XHR 侧按 413/网络错误归到上传失败。
             writeResponse(client, Response(status: 413))
             close(client)
             return
         }
-        var body = partial
-        var scratch = [UInt8](repeating: 0, count: 8192)
-        while body.count < declared {
+        var body = Data()
+        var bodyFile: URL?
+        var sink: FileHandle?
+        if spool {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("dsh-bridge-body-\(UUID().uuidString)")
+            guard FileManager.default.createFile(atPath: url.path, contents: nil),
+                  let handle = try? FileHandle(forWritingTo: url) else {
+                writeResponse(client, Response(status: 500))
+                close(client)
+                return
+            }
+            bodyFile = url
+            sink = handle
+        } else {
+            body = partial
+        }
+        try? sink?.write(contentsOf: partial)
+        var scratch = [UInt8](repeating: 0, count: 64 * 1024)
+        var read = partial.count
+        while read < declared {
             let n = recv(client, &scratch, scratch.count, 0)
             guard n > 0 else { break }
-            body.append(contentsOf: scratch[0..<n])
+            read += n
+            if let sink {
+                try? sink.write(contentsOf: Data(scratch[0..<n]))
+            } else {
+                body.append(contentsOf: scratch[0..<n])
+            }
         }
+        try? sink?.close()
         let request = Request(method: headRequest.method, path: headRequest.path, query: headRequest.query,
-                              headers: headRequest.headers, body: body, rawHead: headRequest.rawHead)
+                              headers: headRequest.headers, body: body, bodyFile: bodyFile,
+                              rawHead: headRequest.rawHead)
         switch callback(request) {
         case .response(let response):
             writeResponse(client, response)
@@ -130,6 +160,8 @@ final class MiniHTTPServer {
             upgradeHandler?(client, request)
             return
         }
+        // 落盘的 body 用完即删（转发是同步的，到这里已经送出去了）
+        if let url = bodyFile { try? FileManager.default.removeItem(at: url) }
     }
 
     /// 头优先读取：收齐请求头块即返回（首段 body 一并带回，剩余 body 由
@@ -173,9 +205,17 @@ final class MiniHTTPServer {
         return (request, partial)
     }
 
-    /// 单请求 body 上限（32MB）：通用文件上传（uploadFileBinary）与其余 /api
-    /// 全部整段缓冲后转发，上限拒绝内存放大；超出回 413。
+    /// 单请求 body 的**缓冲**上限（32MB）：小于它整段进内存转发；超过它只有上传面
+    /// （`spoolsBody`）落临时文件后流式转发——**这不是大小上限**，附件多大都发得出去
+    /// （用户 2026-10-09："引擎没有就加啊…不应该有大小限制"）。其余 /api 面的 body
+    /// 本来就小，超了照旧回 413（说明客户端不对，别悄悄缓冲）。
     private static let maxBodyBytes = 32 * 1024 * 1024
+
+    /// 允许"超上限落盘、流式转发"的路径：引擎的字节上传面（DSH-WIRE §5）。
+    /// 那个路由本来就是流式收字节的（`handleFileUploadHttp` 逐块落盘），是桥在整段缓冲。
+    private static func spoolsBody(path: String) -> Bool {
+        path == "/api/session/uploadFileBinary"
+    }
 
     private func writeResponse(_ client: Int32, _ response: Response) {
         var head = "HTTP/1.1 \(response.status) \(statusText(response.status))\r\n"

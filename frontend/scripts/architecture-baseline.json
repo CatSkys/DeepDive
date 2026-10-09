@@ -3,16 +3,16 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "c379ab479ed6b2cb",
+      "id": "2cb7a10129bf04ff",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1058 lines > 300"
+      "detail": "1110 lines > 300"
     },
     {
-      "id": "81fe5c5d6c7a7050",
+      "id": "3ebdfe081f0708e8",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/BridgeServer.swift",
-      "detail": "412 lines > 300"
+      "detail": "419 lines > 300"
     },
     {
       "id": "ab5b5da21009aae6",
@@ -27,10 +27,10 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "9d4d41b9f22f4a7b",
+      "id": "a6c645f01b67c6db",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/MainWindowController.swift",
-      "detail": "625 lines > 300"
+      "detail": "607 lines > 300"
     },
     {
       "id": "c0bcad14de65f07a",
@@ -63,10 +63,16 @@
       "detail": "338 lines > 300"
     },
     {
-      "id": "0e86f440a6f12378",
+      "id": "b00bf6d32b0e579a",
       "rule": "file-lines",
       "file": "frontend/src/components/Composer.tsx",
-      "detail": "506 lines > 300"
+      "detail": "588 lines > 300"
+    },
+    {
+      "id": "bd2e303cdad8f730",
+      "rule": "file-lines",
+      "file": "frontend/src/components/composer/useComposerAttachments.ts",
+      "detail": "417 lines > 300"
     },
     {
       "id": "e92bd9496830ebef",
@@ -87,16 +93,16 @@
       "detail": "591 lines > 300"
     },
     {
-      "id": "3cbe20737e2447b6",
+      "id": "f465d5d67c7ec946",
       "rule": "file-lines",
       "file": "frontend/src/host.ts",
-      "detail": "542 lines > 300"
+      "detail": "571 lines > 300"
     },
     {
-      "id": "b40876d7fa3b8283",
+      "id": "90cbce2efc76f1c0",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1017 lines > 300"
+      "detail": "1018 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",

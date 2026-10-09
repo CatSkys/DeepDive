@@ -82,6 +82,15 @@ export function formatElapsed(ms: number): string {
   if (m < 60) return `${m}m ${sec}s`;
   return `${Math.floor(m / 60)}h ${m % 60}m ${sec}s`;
 }
+/** 文件大小的说法（附件 chip 的名字右侧那一截）：B / KB / MB，一位小数。
+ *  chip 与消息里的文件是同一种东西，两处必须同一口径（用户定稿：看着是一套）。 */
+export function sizeText(bytes?: number): string {
+  if (bytes === undefined) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 /** 时长的紧凑说法（子智能体行右侧那种「1 小时」）：小时 → 「N 小时」，分钟 → 「N 分」，
  *  不到一分钟 → 「N 秒」。与 fmtTime 用同一套单位词（读起来是一种语言），
  *  但语义是**时长**不是"多久以前"；也不与披露条的「已工作 X」混用（那是句子）。 */

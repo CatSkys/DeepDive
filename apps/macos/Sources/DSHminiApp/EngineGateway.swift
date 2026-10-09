@@ -37,6 +37,13 @@ final class EngineGateway {
     }
 
     private let session = URLSession(configuration: .ephemeral)
+    /// 附件上传单独一条 session：走后台队列，别和网关那条共享状态（大文件慢慢传）。
+    private let uploadSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 600
+        config.timeoutIntervalForResource = 3600
+        return URLSession(configuration: config)
+    }()
     private let lock = NSLock()
     private var baseURL: URL?
     /// method → available? Cached for this engine session; reset on base change
@@ -104,6 +111,44 @@ final class EngineGateway {
         default:
             throw GatewayError.rpc(code: code, message: message)
         }
+    }
+
+    // MARK: - 附件：按路径流式上传（不走 SPA，也就没有桥的单请求缓冲上限）
+
+    /// 把本地文件**流式**送给引擎的字节上传面（`/api/session/uploadFileBinary`）。
+    ///
+    /// 为什么由壳来做：SPA 那侧要传字节，只能整段塞进一次请求（桥按缓冲上限处理），
+    /// 或者把整个文件 base64 进一条桥消息——两者都随文件大小线性吃内存。壳这里用
+    /// `uploadTask(fromFile:)`，URLSession 自己按块读盘，**内存与文件大小无关**，
+    /// 几百 MB 的附件照样发得出去（用户 2026-10-09："不应该有大小限制"）。
+    /// 返回引擎的回执（`{receiptId, file:{name,bytes,…}}`）。
+    func uploadFile(at url: URL, sessionId: String, name: String?) async throws -> [String: Any] {
+        guard let base = currentBase() else { throw GatewayError.noEngine }
+        var query = base.query ?? ""
+        let params = [("sessionId", sessionId), ("name", name ?? url.lastPathComponent)]
+            .map { "\($0.0)=\($0.1.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.1)" }
+            .joined(separator: "&")
+        query += query.isEmpty ? params : "&" + params
+        guard let target = URL(string: "api/session/uploadFileBinary?\(query)", relativeTo: base) else {
+            throw GatewayError.badURL
+        }
+        var request = URLRequest(url: target)
+        request.httpMethod = "POST"
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        if let cookie = EngineAuth.shared.currentCookieHeader {
+            request.setValue(cookie, forHTTPHeaderField: "Cookie")
+        }
+        let (data, response) = try await uploadSession.upload(for: request, fromFile: url)
+        guard let http = response as? HTTPURLResponse else { throw GatewayError.transport(-1) }
+        if http.statusCode == 413 { throw GatewayError.rpc(code: "too-large", message: "超过上传上限") }
+        guard http.statusCode == 200 else { throw GatewayError.transport(http.statusCode) }
+        guard let full = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GatewayError.transport(http.statusCode)
+        }
+        if full["ok"] as? Bool == true { return full["value"] as? [String: Any] ?? [:] }
+        let err = full["error"] as? [String: Any] ?? [:]
+        throw GatewayError.rpc(code: err["code"] as? String ?? "upload-failed",
+                              message: err["message"] as? String ?? "上传失败")
     }
 
     // MARK: - capability probing (§4.2)
