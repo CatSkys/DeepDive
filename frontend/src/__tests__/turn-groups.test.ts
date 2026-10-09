@@ -1,7 +1,8 @@
 // 轮分组（turnGroups）与 workflow/compaction 的 ingest 折叠纯函数钉子。
 import { describe, expect, it } from "vitest";
 import { groupTurns } from "../turnGroups";
-import { ingest, makeIngestCtx } from "../session/renderModel";
+import { ingest, makeIngestCtx, finalizeTurns } from "../session/renderModel";
+import { textOf } from "../session/eventText";
 import type { RenderItem } from "../session/renderModel";
 import type { SessionEvent } from "../types";
 
@@ -20,6 +21,35 @@ describe("groupTurns", () => {
     expect(g.map((x) => x.turn)).toEqual([1, 2]);
     expect(g[0].items.map((x) => x.key)).toEqual(["u1", "a1", "t1"]);
     expect(g[1].items.map((x) => x.key)).toEqual(["u2", "a2"]);
+  });
+
+  it("插话（steer）留在轮内原位：轮还开着时到达的 user 不折到轮首", () => {
+    // 引擎把插队消息写在当前轮中途（turn/start 与 turn/end 之间，走 next-step 领取），
+    // 官方 UI 按时序摆原地。判据是"该组还没有 turn-tail"——轮前项一定落在上一轮
+    // turn/end 之后，那时上一组已带 tail。
+    const items = [
+      mk({ key: "u1", kind: "user", turn: 1 }),
+      mk({ key: "a1", kind: "assistant", turn: 1 }),
+      mk({ key: "u2", kind: "user", turn: 1 }), // 插话：轮内中途
+      mk({ key: "a2", kind: "assistant", turn: 1 }),
+      mk({ key: "t1", kind: "turn-tail", turn: 1 }),
+    ];
+    const g = groupTurns(items);
+    expect(g).toHaveLength(1);
+    expect(g[0].items.map((x) => x.key)).toEqual(["u1", "a1", "u2", "a2", "t1"]);
+  });
+
+  it("插话落在轮首（本轮还没有任何项）时开这一轮，后续项跟在它后面", () => {
+    const items = [
+      mk({ key: "a1", kind: "assistant", turn: 1 }),
+      mk({ key: "t1", kind: "turn-tail", turn: 1 }),
+      mk({ key: "u2", kind: "user", turn: 2 }), // 轮已收尾 → 按轮前项开新轮
+      mk({ key: "a2", kind: "assistant", turn: 2 }),
+      mk({ key: "t2", kind: "turn-tail", turn: 2 }),
+    ];
+    const g = groupTurns(items);
+    expect(g.map((x) => x.turn)).toEqual([1, 2]);
+    expect(g[1].items.map((x) => x.key)).toEqual(["u2", "a2", "t2"]);
   });
 
   it("command/retry 是轮内项：留在当前轮，不越到下一轮", () => {
@@ -75,6 +105,50 @@ describe("command/retry ingest 标注 turn", () => {
     const g = groupTurns(out);
     expect(g).toHaveLength(1);
     expect(g[0]!.turn).toBe(3);
+  });
+});
+
+describe("插话 ingest + 分组（PITFALLS §3.9）", () => {
+  // 引擎把插话的 user/message 写在当前轮中途（next-step 领取）：step/start 之间，
+  // 严格早于 turn/end。整条链（ingest 标 turn → finalizeTurns 插 tail → groupTurns）
+  // 都要让它停在事件时序原位。
+  const events: SessionEvent[] = [
+    { type: "turn/start", seq: 1, time: 1, data: { turn: 1 } },
+    { type: "user/message", seq: 2, time: 2, data: { id: "m1", role: "user", content: [{ type: "text", text: "开个头" }], source: { kind: "user" } } },
+    { type: "assistant/message", seq: 3, time: 3, data: { turn: 1, step: 1, message: { role: "assistant", content: [{ type: "text", text: "第一步" }] } } as never },
+    { type: "user/message", seq: 4, time: 4, data: { id: "m2", role: "user", content: [{ type: "text", text: "插话" }], source: { kind: "user" } } },
+    { type: "assistant/message", seq: 5, time: 5, data: { turn: 1, step: 2, message: { role: "assistant", content: [{ type: "text", text: "第二步" }] } } as never },
+    { type: "turn/end", seq: 6, time: 6, data: { turn: 1, reason: { kind: "stop" } } },
+  ];
+
+  it("插话停在它前后两步之间，不被折到本轮开头", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    for (const ev of events) ingest(out, { event: ev }, ctx);
+    finalizeTurns(out, ctx);
+    const g = groupTurns(out);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.items.map((x) => x.kind)).toEqual(["user", "assistant", "user", "assistant", "turn-tail"]);
+    expect(g[0]!.items.map((x) => (x.kind === "user" ? textOf(x.event) : ""))).toEqual(["开个头", "", "插话", "", ""]);
+  });
+
+  it("同轮再排一条（排队消息落在下一轮）时，插话仍在原位", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    // 排队消息的 user/message 在**下一轮**（turn/start 之后）才写进日志——next-turn
+    // 只在开新轮的第一步被领取。
+    const queued: SessionEvent[] = [
+      { type: "turn/start", seq: 7, time: 7, data: { turn: 2 } },
+      { type: "user/message", seq: 8, time: 8, data: { id: "m3", role: "user", content: [{ type: "text", text: "排队的" }], source: { kind: "user" } } },
+      { type: "assistant/message", seq: 9, time: 9, data: { turn: 2, step: 1, message: { role: "assistant", content: [{ type: "text", text: "第二轮" }] } } as never },
+      { type: "turn/end", seq: 10, time: 10, data: { turn: 2, reason: { kind: "stop" } } },
+    ];
+    for (const ev of [...events, ...queued]) ingest(out, { event: ev }, ctx);
+    finalizeTurns(out, ctx);
+    const g = groupTurns(out);
+    expect(g.map((x) => x.turn)).toEqual([1, 2]);
+    expect(g[0]!.items.map((x) => x.kind)).toEqual(["user", "assistant", "user", "assistant", "turn-tail"]);
+    expect(g[1]!.items.map((x) => x.kind)).toEqual(["user", "assistant", "turn-tail"]);
   });
 });
 

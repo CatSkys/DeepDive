@@ -2,7 +2,7 @@
 // 但**只有会话设置页**——草稿页没有会话，产物/目标/任务这些分区无数据可读，
 // 屏幕缩略图那一层也由壳按会话摆原生视图（无会话则无槽位）。
 //
-// 用户定稿：新会话右上角要有右边栏按钮，点开直接落在会话设置。
+// 用户定稿：新会话右上角要有会话设置入口（齿轮，同面板顶条那颗），点开直接落在会话设置。
 //
 // 三个写入面在草稿页的落点（都不新造契约）：
 //   模型   —— store.draftModel（首条消息建会话时随 selectModel 带走）
@@ -10,7 +10,7 @@
 //             草稿页还没有会话，`/permission` 那条会话级写路在这里没有对象）
 //   发送方式 —— conversation.busyEnter（本来就是全局设置，与设置页同源）
 import { useEffect, useRef, useState } from "react";
-import { PanelRight, X } from "lucide-react";
+import { Settings2, X } from "lucide-react";
 import { t } from "../i18n";
 import { Dropdown } from "../components/controls";
 import { ModelMenu } from "../components/ModelMenu";
@@ -148,9 +148,10 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
   );
 }
 
-/** 草稿页右上角的右边栏入口：与会话页的 PanelTrigger 同一颗（同 glyph、同尺寸、
- *  同位置——.hero 是定位祖先，右 16 / 上 8 正好落在会话头那颗的位置上）。
- *  差别只在落点：草稿页没有会话，点开直接进会话设置页。 */
+/** 草稿页右上角的会话设置入口：坐会话页那颗边栏入口的位置（同尺寸、同位置——
+ *  .hero 是定位祖先，右 16 / 上 8 正好落在会话头那颗的位置上），**glyph 不同**：
+ *  草稿页没有会话，点开直接进会话设置，所以画的是设置齿轮（与会话面板顶条那颗
+ *  同一枚 `Settings2`），不画边栏图标。 */
 export function HeroPanelTrigger({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   if (open) return null;
   return (
@@ -161,7 +162,7 @@ export function HeroPanelTrigger({ open, onToggle }: { open: boolean; onToggle: 
       data-tip={t("会话设置")}
       onClick={onToggle}
     >
-      <PanelRight size={15} />
+      <Settings2 size={15} />
     </button>
   );
 }

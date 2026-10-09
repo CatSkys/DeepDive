@@ -699,17 +699,22 @@ button {
   flex-direction: column;
   align-items: center;
   /* 横向 padding 是卡内 composer/brand 的公共缩进；hero-top 要跟会话页单层
-     对齐，按这个变量负边距抵掉——改值两处联动，别写死两份 */
+     对齐，按这个变量负边距抵掉——改值两处联动，别写死两份。
+     下内边距 = 头部行高度：头部（hero-top / 空白会话的 .session-header）占掉上方
+     那一段，下方补回等量，自由空间才对半分——整组落在**整张卡**的垂直中线上
+     （不补这一下，组中心比卡中心低半个头高，用户报"还有点偏下"）。 */
   --hero-pad-x: 24px;
-  padding: 0 var(--hero-pad-x);
+  padding: 0 var(--hero-pad-x) var(--session-header-h);
 }
-/* 品牌组垂直居中：hero 里只允许这里两份 auto 外边距（上下均分自由空间）。
-   .hero-composer 若再挂 margin-top:auto 会变成三份均分，标题掉到 1/3 高度偏上。 */
+/* 欢迎语与输入框是**一组**，整组在卡内垂直居中：hero 里只允许两份 auto 外边距，
+   挂在这组的外缘（标题上、输入框下）——自由空间由它们均分，组内是固定行距
+   （32 = 用户调的欢迎语↔输入框间距，比 §1.3 阶梯上限 24 大一档），不参与分配。
+   auto 挂到组内别处（如 composer 的 margin-top）会把整组分偏。 */
 .hero-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: auto 0;
+  margin: auto 0 32px;
 }
 .hero-title {
   /* fill=backwards：延迟期用 from 态隐藏、结束后彻底摘除动画。fill both 会
@@ -724,10 +729,11 @@ button {
 .hero-top {
   display: flex;
   align-items: flex-start;
-  /* 与 .session-header 同款 padding：空态标题也落在 26px 中心线。横向 16/24
-     是卡内**单层**值——负边距抵掉 .hero 自带的横向 padding，落点才跟会话页
-     对齐（双层叠加曾多缩 24px；收起态同理由 .app.collapsed 补回同款 176） */
-  padding: 8px 16px 0 24px;
+  /* 与 .session-header 逐边同款 padding（含 8px 下内边距）——两处头部是同一根条，
+     高度同为 --session-header-h，.hero 的下内边距靠它抵平。横向 16/24 是卡内
+     **单层**值——负边距抵掉 .hero 自带的横向 padding，落点才跟会话页对齐
+     （双层叠加曾多缩 24px；收起态同理由 .app.collapsed 补回同款 176） */
+  padding: 8px 16px 8px 24px;
   margin: 0 calc(-1 * var(--hero-pad-x));
   width: calc(100% + 2 * var(--hero-pad-x));
   /* 收起态的让位 padding 必须算进盒内：hero 是 align-items:center
@@ -750,9 +756,10 @@ button {
 }
 /* 草稿页的会话设置卡：只有设置分区，没有屏幕缩略图与状态分区 */
 .hero-panel .panel-settings { padding: 4px 12px 20px; }
-/* 右边栏入口与会话头那颗**同位**：会话头是 padding 8/16 的绝对定位条，
-   这里同样按卡片定 8/16——不跟着 .hero 自己的 24px 横向 padding 走，
-   否则比会话页往里缩 24px（用户报"按钮位置不一致"）。 */
+/* 草稿页右上角的会话设置齿轮坐会话头那颗入口的**同位**（glyph 不同，见
+   HeroPanel.tsx）：会话头是 padding 8/16 的绝对定位条，这里同样按卡片定 8/16——
+   不跟着 .hero 自己的 24px 横向 padding 走，否则比会话页往里缩 24px
+   （用户报"按钮位置不一致"）。 */
 /* 卡上浮层：hero-top 拓宽到整卡后，其后代 .left（position:relative、DOM 靠后）
    会整片盖住本钮的点击区——浮层必须显式提层才可点 */
 .hero-panel-btn { position: absolute; top: 8px; right: 16px; z-index: 1; }
@@ -985,7 +992,8 @@ button {
   width: calc(100% - 48px);
   /* 与会话正文列同宽（--reading-col）：草稿页与会话页的输入区不能两套宽度 */
   max-width: var(--reading-col);
-  margin-bottom: 20px;
+  /* 组的下外缘 auto：与 .hero-brand 的 margin-top 均分自由空间 = 整组居中 */
+  margin-bottom: auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1166,14 +1174,15 @@ button {
 .att-chip-x:hover { background: rgba(0, 0, 0, .7); }
 
 /* 通用文件 chip（0.1.5 上传面）：图标+名+状态；uploading 自旋点、error 带重试。
-   data-status=pending/uploading 期间整体降不透明度示意「还不可发送」。 */
+   data-status=pending/uploading 期间整体降不透明度示意「还不可发送」。
+   两端全圆（radius.bubble，见 .user-file-chip）：它与已发送侧那颗是同一套。 */
 .att-chip.file {
   cursor: default;
   align-items: center;
   gap: 6px;
   height: 30px;
   padding: 0 26px 0 10px;
-  border-radius: var(--dsh-radius-keycap);
+  border-radius: var(--dsh-radius-bubble);
   border: 1px solid var(--line);
   background: var(--fill-soft);
   color: var(--ink-2);
@@ -1469,12 +1478,14 @@ button {
 .preview-frame[src*=".html"], .preview-frame[sandbox] { background: #fff; }
 
 /* 用户消息里的文件 chip（0.1.5 历史 file 块）与工具结果图片行 */
-/* 文件 chip：与输入框里那颗 .att-chip.file 同一套（30 高、--fill-soft 底）——
-   同一段对话里两处文件看着是一套（图片附件早就是这个口径：92×68 两边一致）。 */
+/* 文件 chip：与输入框里那颗 .att-chip.file 同一套（30 高、--fill-soft 底、
+   两端全圆的胶囊）——同一段对话里两处文件看着是一套（图片附件早就是这个口径：
+   92×68 两边一致）。胶囊用 radius.bubble(24)，30 高的盒子上被裁成半高整圆端；
+   别写 999px（§2.4 的胶囊口径：流内胶囊一律引 token）。 */
 .user-file-chip {
   display: inline-flex; align-items: center; gap: 6px;
   height: 30px; padding: 0 10px;
-  border-radius: var(--dsh-radius-keycap);
+  border-radius: var(--dsh-radius-bubble);
   border: 1px solid var(--line);
   background: var(--fill-soft);
   color: var(--ink-2); font-size: var(--dsh-font-size-sm);

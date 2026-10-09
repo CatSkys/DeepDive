@@ -161,6 +161,11 @@
 - 事故（2026-09-06 新用户实测）：无凭据发消息，引擎 `turn/end` 带完整 `MISSING_CREDENTIAL` 错误，但 UI 零提示。根因：turn-tail 只插在「该 turn 最后一个**带 `turn` 字段的 item**」之后，而 wire 上 `user/message` 不含 turn，renderModel 的 user item 因此一直没标——一步失败（缺 key/401/网络错）的轮没有任何 assistant item，tail 无处可插，「本轮失败」永不渲染。§5.6 同型：错误通了，渲染前提没被端到端验证过。
 - 处置：ingest 上下文记 `currentTurn`（`turn/start` 时更新），user item 标注归属；空 turn（无任何 item）仍不发 tail（§3.4 口径不变）。回归钉在 `session-ingest.test.ts` 一步失败轮夹具。
 
+### 3.9 插话（steer）的 `user/message` 落在轮**中途**——当轮前项折到轮首会把它挪到本轮开头
+- 事故（2026-10-09 用户报"插队消息在生效后会跑到上面去"）：`groupTurns` 把 user item 一律当"轮前项"缓冲、再 `unshift` 进下一个轮组。而插话的消息写在**当前轮的中途**（`turn/start` 与 `turn/end` 之间，走 `next-step` 领取——agent-loop 的 `preStep`/`claim`），于是它被折到本轮开头、压在已经产出的正文上面。
+- 判据是**"轮还开着"**：插话到达时该轮组还没有 `turn-tail`；轮前项（排队消息）一定落在上一轮 `turn/end` 之后，那时上一组已带 tail。`user/message` 载荷里**没有任何字段**能区分 steer/queue（`source.kind` 恒为 `user`），wire 上唯一的差别是前一条 `agent/inbox/spliced` 的 `target`（`next-step` vs `next-turn`）。
+- 官方口径（ui-chat）：插话按事件 seq 摆在轮内原位；只有**本轮开头那条** user 会被提到过程折叠条之前。回归钉在 `turn-groups.test.ts`。
+
 ---
 
 ### 3.7 流式中途的围栏不是"渲染失败"：未闭合就别去渲染（2026-09-16 实测）
