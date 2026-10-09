@@ -1,6 +1,6 @@
 // 会话展示层的格式化纯函数：工具参数摘要、时长/时钟/速率、截断、排队文本。
 // 从 SessionView.tsx 整体搬迁（R-007）；只做字符串搬运，不碰事件语义。
-import { tt } from "../i18n";
+import { t, tt } from "../i18n";
 import type { SessionQueuedItem } from "../types";
 
 /// Derived DSH-style tool summary from arguments (first line of the payload).
@@ -104,6 +104,30 @@ export function queueText(item: SessionQueuedItem): string {
     .filter((c) => c.type === "text" && typeof c.text === "string")
     .map((c) => c.text as string)
     .join("");
+}
+
+/** 排队消息里的附件部件计数。引擎存的是**耐久引用**（image/file 各带 attachment），
+ *  所以这里只看类型：胶囊要能说出"这条不只是文字"，编辑钮也要据此判断能不能改。 */
+export function queueAttachments(item: SessionQueuedItem): { images: number; files: number } {
+  let images = 0;
+  let files = 0;
+  for (const part of item.message.content) {
+    if (part.type === "image") images += 1;
+    else if (part.type === "file") files += 1;
+  }
+  return { images, files };
+}
+
+/** 胶囊那一行显示什么：文本部件拼接，附件部件折成标记（图片 / 文件，多个带 ×N）。
+ *  纯附件消息因此不会渲染成空胶囊。 */
+export function queueLabel(item: SessionQueuedItem): string {
+  const parts: string[] = [];
+  const text = queueText(item);
+  if (text) parts.push(text);
+  const { images, files } = queueAttachments(item);
+  if (images > 0) parts.push(images > 1 ? tt("{n} 张图片", "{n} images", { n: images }) : t("图片"));
+  if (files > 0) parts.push(files > 1 ? tt("{n} 个文件", "{n} files", { n: files }) : t("文件"));
+  return parts.join(" · ");
 }
 
 /// ask_user_question 行摘要：首题问题文本（多题标注数量），避免裸 JSON。

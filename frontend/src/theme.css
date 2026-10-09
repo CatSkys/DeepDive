@@ -1922,15 +1922,15 @@ button {
   padding: 0 6px;
   display: flex;
   flex-direction: column;
-  /* 胶囊按内容宽左对齐（fit-content），别被 flex 拉满 */
-  align-items: flex-start;
+  /* 胶囊按内容宽（fit-content）**居中**摆：别被 flex 拉满，也别靠左（用户定稿） */
+  align-items: center;
   gap: 4px;
 }
-.queue-dock { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; }
-/* 常态是**小胶囊**：宽度贴合内容（上限 62%，长消息省略号收尾）、高 24；hover /
-   键盘焦点 / 编辑态才长成整行、高 30（用户参考图的那个大小）并浮出操作。
+.queue-dock { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
+/* 常态是**小胶囊**：宽度贴合内容（上限 62%，长消息省略号收尾）、高 24；**点击**才
+   长成整行、高 30 并浮出操作（用户定稿：hover 展开不好控制，改成点击；点别处收回）。
    底色与输入框同色（--composer-bg）、**不用描边**——与输入框一样靠底色分层；
-   状态差异也走颜色（hover 提一档 --fill-strong），不加边框。
+   展开态也走颜色（提一档 --fill-strong），不加边框。
    圆角取高度的一半：**不能用 999px**（PITFALLS §1.1，WebKit 合成伪影）。 */
 .queue-pill {
   display: flex;
@@ -1941,7 +1941,7 @@ button {
   width: fit-content;
   max-width: 62%;
   min-width: 0;
-  padding: 0 6px 0 10px;
+  padding: 0 10px;
   border-radius: 12px;
   background: var(--composer-bg);
   /* 与输入框同一套磨砂（WebKit 需双前缀，PITFALLS §1.3） */
@@ -1952,22 +1952,14 @@ button {
               height var(--dur-med) var(--ease-out), border-radius var(--dur-med) var(--ease-out),
               background-color var(--dur-fast) var(--ease-out);
 }
-.queue-pill:hover, .queue-pill:focus-within, .queue-pill[data-editing] {
+.queue-pill[data-expanded] {
   height: 30px;
-  /* min-width 顶到整行：短消息也长成参考图那个大小（width 是 fit-content，
-     只有 min-width 能把它撑满） */
+  /* min-width 顶到整行：短消息也长成整行（width 是 fit-content，只有 min-width
+     能把它撑满） */
   min-width: 100%;
   max-width: 100%;
   border-radius: 15px;
   background: var(--fill-strong);
-}
-/* 状态词（排队中/插话中）：一行小字，说明这条挂在哪个队列上——「立即」只在
-   next-turn 有效，插话中的行没有那枚钮，靠这行字解释为什么。 */
-.queue-state {
-  flex: none;
-  font-size: var(--dsh-font-size-xs);
-  color: var(--ink-3);
-  white-space: nowrap;
 }
 .queue-text {
   flex: 1;
@@ -1979,22 +1971,13 @@ button {
   white-space: nowrap;
   user-select: text;
 }
-/* 操作钮：常态**不占位也不显形**（max-width:0 + 隐藏溢出），hover / 键盘焦点进入
-   胶囊才随胶囊一起长出来——小胶囊才装得住一行文本。 */
+/* 操作钮只在展开态渲染（不是藏起来占位）：键盘 Tab 不会落进看不见的钮里。 */
 .queue-actions {
   flex: none;
   display: flex;
   align-items: center;
   gap: 4px;
-  max-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-  transition: max-width var(--dur-med) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
-.queue-pill:hover .queue-actions,
-.queue-pill:focus-within .queue-actions,
-.queue-pill[data-editing] .queue-actions { max-width: 140px; opacity: 1; pointer-events: auto; }
 .queue-now {
   display: inline-flex;
   align-items: center;
@@ -2021,6 +2004,9 @@ button {
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .queue-btn:hover { background: var(--fill); color: var(--ink); }
+/* 禁用（带附件的排队消息不能编辑，见 QueueDock）：只降亮度，别做成看不出是按钮 */
+.queue-btn:disabled { opacity: .4; }
+.queue-btn:disabled:hover { background: transparent; color: var(--ink-2); }
 .queue-edit {
   flex: 1;
   min-width: 0;
