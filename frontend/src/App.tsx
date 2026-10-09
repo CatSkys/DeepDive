@@ -8,6 +8,7 @@ import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
 import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
 import { DD_EVENTS, dispatchAppEvent, onAppEvent } from "./events";
+import { useHoverArmingDisarm } from "./useHoverArming";
 import { Sidebar } from "./components/Sidebar";
 import { AutomationProvider } from "./automation/useAutomation";
 import type { AutomationProposal } from "./automation/protocol";
@@ -85,6 +86,10 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     // An empty list means "not loaded yet" — keep waiting.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredNav, store.sessions]);
+
+  // 换视图（换会话/换空间/开关设置浮层）后指针可能正停在原处：新列表里那一行不该
+  // 一亮就成了"指针选的"。机制与其余复位时机见 hoverArming.ts。
+  useHoverArmingDisarm({ session: active, settings: settingsOpen, workspace: store.activeWorkspaceId });
 
   // Shell→frontend bridge mount (SPEC-NOTIFICATIONS §3.1): native pushes
   // navigateToSession/navigateToSettings/themeChanged here; mounted once,

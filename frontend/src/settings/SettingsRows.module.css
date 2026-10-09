@@ -139,7 +139,7 @@
   text-align: left;
   white-space: nowrap;
 }
-.ddItem:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .ddItem:hover { background: var(--row-hover); }
 .ddItem.active { color: var(--ink); font-weight: 600; }
 .ddCheck { color: var(--ink); flex-shrink: 0; }
 /* 富行（图标 + 标签/说明 + 勾选），高度自适应 */
@@ -247,7 +247,7 @@
   font-size: var(--dsh-font-size-base);
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.appearanceCard:hover { background: var(--fill-strong); color: var(--ink); }
+:where(html[data-hover-armed]) .appearanceCard:hover { background: var(--fill-strong); color: var(--ink); }
 .appearanceCard.active { background: var(--ink); color: var(--on-ink); }
 
 .presetBadge {
@@ -348,7 +348,7 @@
   color: var(--ink);
   text-align: left;
 }
-.modelGroupHead:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .modelGroupHead:hover { background: var(--row-hover); }
 .modelGroupName { font-size: var(--dsh-font-size-base); font-weight: 600; }
 .savedTitle { margin-bottom: 12px; }
 .modelGroupCount { font-size: var(--dsh-font-size-xs); color: var(--ink-3); }
@@ -361,7 +361,7 @@
   gap: 10px;
   padding: 8px 14px 8px 40px;
 }
-.modelRow:hover { background: var(--fill-soft); }
+:where(html[data-hover-armed]) .modelRow:hover { background: var(--fill-soft); }
 /* 行间分隔线：两边留空、与文本内容对齐（不用全宽横线） */
 .modelRow + .modelRow::before {
   content: "";
@@ -591,7 +591,7 @@
   gap: 12px;
   padding: 10px 14px;
 }
-.blockRow:hover { background: var(--fill-soft); }
+:where(html[data-hover-armed]) .blockRow:hover { background: var(--fill-soft); }
 .blockRow + .blockRow::before {
   content: "";
   position: absolute;
@@ -633,9 +633,8 @@
   gap: 9px;
   padding: 7px 10px;
   border-radius: 6px;
-  cursor: pointer;
 }
-.pickRow:hover { background: var(--fill-soft); }
+:where(html[data-hover-armed]) .pickRow:hover { background: var(--fill-soft); }
 .pickRow + .pickRow::before {
   content: "";
   position: absolute;

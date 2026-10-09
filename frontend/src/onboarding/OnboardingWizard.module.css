@@ -45,7 +45,6 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
 }
 .close:hover { background: rgba(255, 255, 255, 0.16); }
 
@@ -122,10 +121,9 @@
   color: var(--ink-2);
   font-size: var(--dsh-font-size-base);
   text-align: left;
-  cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.stepRow:hover { background: var(--fill); color: var(--ink); }
+:where(html[data-hover-armed]) .stepRow:hover { background: var(--row-hover); color: var(--ink); }
 .stepCurrent { background: var(--fill); color: var(--ink); font-weight: 600; }
 
 .stepMark {
@@ -310,14 +308,13 @@
   color: inherit;
   font: inherit;
   text-align: left;
-  cursor: pointer;
 }
 .groupRow { border-radius: 10px; transition: background-color var(--dur-fast) var(--ease-out); }
-.groupRow:hover { background: var(--fill); }
-.headPick { display: inline-flex; align-items: center; padding: 0 2px 0 8px; cursor: pointer; }
+:where(html[data-hover-armed]) .groupRow:hover { background: var(--row-hover); }
+.headPick { display: inline-flex; align-items: center; padding: 0 2px 0 8px; }
 .pickMeta { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 4px; }
 .tallList { max-height: 220px; overflow: auto; }
-.rowActions { display: inline-flex; align-items: center; padding-right: 8px; cursor: pointer; }
+.rowActions { display: inline-flex; align-items: center; padding-right: 8px; }
 .pickMain {
   flex: 1;
   display: flex;
@@ -330,9 +327,8 @@
   background: var(--fill);
   font-size: var(--dsh-font-size-base);
   color: var(--ink);
-  cursor: pointer;
 }
-.pickMain:hover { background: var(--fill-strong); }
+:where(html[data-hover-armed]) .pickMain:hover { background: var(--fill-strong); }
 .groupHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .mini {
   display: inline-flex;
@@ -344,7 +340,6 @@
   border-radius: 6px;
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
-  cursor: pointer;
 }
 .mini:hover { color: var(--ink); background: var(--fill); }
 .srcTag { margin-left: 6px; font-size: var(--dsh-font-size-xs); color: var(--ink-faint, var(--ink-3)); }
@@ -361,8 +356,7 @@
   font-size: var(--dsh-font-size-base);
   color: var(--ink);
 }
-.radioRow, .checkRow { cursor: pointer; }
-.radioRow:hover, .checkRow:hover { background: var(--fill-strong); }
+:where(html[data-hover-armed]) .radioRow:hover, :where(html[data-hover-armed]) .checkRow:hover { background: var(--fill-strong); }
 .rowName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rowMeta { margin-left: auto; flex: none; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 
@@ -386,7 +380,6 @@
   background: var(--fill);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
-  cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .chip:hover { background: var(--fill-strong); color: var(--ink); }
@@ -437,7 +430,6 @@
   border-radius: var(--dsh-radius-control);
   font-size: var(--dsh-font-size-base);
   font-weight: 600;
-  cursor: pointer;
   transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 .primary { border: none; background: var(--ink); color: var(--on-ink); }

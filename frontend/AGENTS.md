@@ -15,7 +15,8 @@ npx tsc --noEmit --noUnusedLocals --noUnusedParameters   # 死代码门槛，应
 
 ## 样式（theme.css 唯一事实源）
 
-- 动样式或组件前先读 `docs/UI-SPEC.md §0`（外观、原则、不变式，含禁区 `.session-fade`）与 §1.1 的「明暗间刻意不变」清单。
+- 动样式或组件前先读 `docs/UI-SPEC.md §0`（外观、原则、不变式，含禁区 `.session-fade`）、§1.1 的「明暗间刻意不变」清单与 §1.10 的悬停/光标口径。
+- 光标与 hover：**不给控件加 `cursor: pointer`**（手形只给正文超链接，全局 `* { cursor: default !important }` 在执行这条）；行/菜单的 hover 必须带 `:where(html[data-hover-armed])` 前缀，行的 hover 填充引 `--row-hover`（机制与复位时机见 §1.10）。
 - 颜色/圆角/间距用语义变量（`--ink`/`--line`/`--fill` 等，token 派生）；新增数值先查 `tokens.css` 有无现成变量。
 - 圆角禁用 `999px` 级无穷值（WebKit 合成伪影，PITFALLS §1.1）；胶囊用高度值。
 - backdrop-filter 必须带 `-webkit-` 双前缀，且只加在浮层白名单（PITFALLS §1.3）。

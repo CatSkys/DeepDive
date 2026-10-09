@@ -5,6 +5,7 @@ import { ComposerOverlayApp } from "./sidebar-right/ComposerOverlay";
 import { initTitlebarBridge } from "./titlebar";
 import { initNativeSlotBridge } from "./nativeSlot";
 import { initChatFloatBridge } from "./sidebar-right/useComposerOverlay";
+import { installHoverArming } from "./hoverArming";
 import { inShell } from "./host";
 
 // 叠加层入口：壳在浏览器页之上叠的那层透明 webview 用 `?composer=<sid>` 打开同一个包，
@@ -27,6 +28,9 @@ if (overlaySession !== null && overlaySession !== "") {
   // 对话卡的开关态（壳在每次显隐变化时推 `chatFloat`）：装在这里而不是那颗胶囊上——
   // 面板收起时胶囊是卸掉的，装在那儿会漏掉壳推来的状态。
   initChatFloatBridge();
+  // 悬停点亮：行/菜单的 hover 只响应指针主动移动（复位时机见 hoverArming.ts）。
+  // 只装主 SPA 这一份——叠加层里没有门控过的行。
+  installHoverArming();
 
   // 首帧前标明"是否在壳里"：窗口 chrome（红绿灯 + 标题栏条）只有壳里有，CSS 据此
   // 决定顶部两钮贴不贴左、会话头让位多少。放在渲染之前，避免先按壳里排一帧再跳位。

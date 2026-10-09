@@ -38,7 +38,7 @@
   text-align: left;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.channelRow:hover { background: var(--fill-soft); }
+:where(html[data-hover-armed]) .channelRow:hover { background: var(--fill-soft); }
 .channelIcon { color: var(--ink-2); flex: none; }
 .channelMain { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .channelName { font-size: var(--dsh-font-size-base); color: var(--ink); }

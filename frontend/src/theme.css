@@ -38,6 +38,9 @@
   --fill: rgba(255,255,255,.07);
   --fill-strong: rgba(255,255,255,.11);
   --fill-heavy: rgba(255,255,255,.20);
+  /* 列表行的 hover 填充：比 --fill 轻一档，且恒轻于 --selection——hover 是"指针在挑这一项"
+     的提示，不能盖过"这一项被选中"。只有行用它；控件/表面仍用 --fill 一族。 */
+  --row-hover: rgba(255,255,255,.05);
   --selection: rgba(255,255,255,.20);
   /* Diff 增删色：消息流的 diff 卡与审查面板的 diff 行同源，别处不再写字面量
      （原是 .diff-line.del/add 上的 rgba，这里提出来是为了不出现第二份）。 */
@@ -122,6 +125,7 @@
     --fill: rgba(0,0,0,.055);
     --fill-strong: rgba(0,0,0,.09);
     --fill-heavy: rgba(0,0,0,.15);
+    --row-hover: rgba(0,0,0,.045);
     --selection: rgba(0,0,0,.16);
     --on-ink: rgba(250,250,251,.86);
     --dot-face: rgba(22,23,26,.85);
@@ -398,7 +402,7 @@ button {
   text-align: left;
   overflow: hidden;
 }
-.task-row:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .task-row:hover { background: var(--row-hover); }
 /* 选中行悬停时不再叠一层 fill——底片已经在下面，否则滑过去的底会被冲淡 */
 .task-row.selected:hover { background: transparent; }
 .task-row.running .title { color: var(--ink-bright); }
@@ -451,10 +455,9 @@ button {
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
   font-weight: 600;
-  cursor: pointer;
   border-radius: 16px; /* 胶囊与 task-row 同语法：半径用高度值（PITFALLS §1.1） */
 }
-.ws-row:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .ws-row:hover { background: var(--row-hover); }
 .ws-row svg { color: var(--ink-3); flex: none; }
 /* 「新会话」入口（Safari New tab 式）：紧跟 .sessions 滚动列表之后——列表短时
    贴着最后一行，会话多到要滚时被顶到底部常驻（设置行上面那行）；
@@ -473,7 +476,7 @@ button {
   font-size: var(--dsh-font-size-base);
   text-align: left;
 }
-.new-session-entry:hover { background: var(--fill); color: var(--ink); }
+:where(html[data-hover-armed]) .new-session-entry:hover { background: var(--row-hover); color: var(--ink); }
 .new-session-entry svg { flex: none; } /* 颜色随行置灰（currentColor），只保住不压缩 */
 .new-session-entry .ns-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -510,16 +513,16 @@ button {
   transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-med) var(--ease-spring);
 }
 .ws-name { transition: margin-left var(--dur-med) var(--ease-spring); }
-.ws-row:hover .ws-chevron-ic, .ws-row.collapsed .ws-chevron-ic { opacity: 1; transition-delay: 60ms; }
-.ws-row:hover .ws-chevron-ic { transform: none; }
+:where(html[data-hover-armed]) .ws-row:hover .ws-chevron-ic, .ws-row.collapsed .ws-chevron-ic { opacity: 1; transition-delay: 60ms; }
+:where(html[data-hover-armed]) .ws-row:hover .ws-chevron-ic { transform: none; }
 .ws-row.collapsed .ws-chevron-ic { transform: rotate(-90deg); }
-.ws-row:hover .ws-lead .ws-folder-ic, .ws-row.collapsed .ws-lead .ws-folder-ic { opacity: 0; }
+:where(html[data-hover-armed]) .ws-row:hover .ws-lead .ws-folder-ic, .ws-row.collapsed .ws-lead .ws-folder-ic { opacity: 0; }
 /* 让位只对「没选 glyph」的行：那时箭头落在项目名首字那一格，必须让开；选了 glyph 的
    行箭头本来就在图标格里顶替 glyph，名字（已在文字列）不必动——动了反而多一次右移 */
-.ws-row.no-glyph:hover .ws-name, .ws-row.no-glyph.collapsed .ws-name { margin-left: 20px; } /* 14 槽 + 6 gap */
+:where(html[data-hover-armed]) .ws-row.no-glyph:hover .ws-name, .ws-row.no-glyph.collapsed .ws-name { margin-left: 20px; } /* 14 槽 + 6 gap */
 
 .ws-row-actions { margin-left: auto; display: none; align-items: center; gap: 2px; }
-.ws-row:hover .ws-row-actions { display: inline-flex; }
+:where(html[data-hover-armed]) .ws-row:hover .ws-row-actions { display: inline-flex; }
 .ws-row .ws-act {
   display: flex;
   align-items: center;
@@ -531,7 +534,6 @@ button {
   border-radius: var(--dsh-radius-keycap);
   background: transparent;
   color: var(--ink-2);
-  cursor: pointer;
 }
 .ws-row-actions svg { color: currentColor; }
 .ws-row .ws-act:hover { background: var(--fill-strong); color: var(--ink); }
@@ -599,7 +601,7 @@ button {
 }
 /* 项目图标缩略图（icon.png/logo.* 读盘），无图标回落首字母 */
 .ws-cell-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
-.ws-cell:hover { background: var(--fill); color: var(--ink); }
+:where(html[data-hover-armed]) .ws-cell:hover { background: var(--row-hover); color: var(--ink); }
 /* 选中态：底色由滑移底片（.glide-ws）给，自身裸图标——文字亮度仍由这里给。
    hover 透明：悬停那层 fill 会把滑过来的底冲淡。 */
 .ws-cell.active { color: var(--ink-bright); }
@@ -857,7 +859,7 @@ button {
 
 /* ── 思考强度页：档位单选列表（行样式复用 .model-menu-row，选中行填充 + 行尾对勾） ── */
 .effort-head-value { font-size: var(--dsh-font-size-sm); font-weight: 400; color: var(--ink-3); margin-left: 4px; }
-.model-menu-row:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .model-menu-row:hover { background: var(--row-hover); }
 .model-menu-row.active { background: var(--fill-strong); color: var(--ink-bright); }
 .model-menu-empty { padding: 16px; color: var(--ink-3); font-size: var(--dsh-font-size-base); text-align: center; }
 .model-menu-search {
@@ -888,7 +890,6 @@ button {
   color: inherit;
   font: inherit;
   letter-spacing: inherit;
-  cursor: pointer;
   text-decoration: underline;
   text-decoration-style: dotted;
   text-decoration-color: var(--ink-3);
@@ -964,7 +965,7 @@ button {
   text-align: left;
   cursor: default;
 }
-.ws-menu-row:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .ws-menu-row:hover { background: var(--row-hover); }
 .ws-menu-row svg { color: var(--ink-2); flex-shrink: 0; }
 .ws-menu-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-menu-row svg.check { color: var(--ink); }
@@ -1081,7 +1082,6 @@ button {
   height: 28px;
   border: none;
   border-radius: 999px;
-  cursor: pointer;
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 .composer-icon {
@@ -1156,7 +1156,6 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
 }
 .att-chip-x:hover { background: rgba(0, 0, 0, .7); }
 
@@ -1187,7 +1186,7 @@ button {
 @keyframes att-file-rotate { to { transform: rotate(360deg); } }
 .att-file-retry {
   border: none; background: none; padding: 0 2px;
-  color: var(--ink-2); font-size: var(--dsh-font-size-sm); cursor: pointer; text-decoration: underline;
+  color: var(--ink-2); font-size: var(--dsh-font-size-sm); text-decoration: underline;
 }
 .att-chip.file .att-chip-x { position: absolute; top: 5px; right: 4px; }
 
@@ -2134,7 +2133,7 @@ button {
   background: transparent;
   text-align: left;
 }
-.q-option:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .q-option:hover { background: var(--row-hover); }
 .q-option.active { background: var(--line); }
 .q-option.kb { background: var(--fill); }
 .q-option.active.kb { background: var(--line); }
@@ -2159,7 +2158,7 @@ button {
   border-radius: 999px;
   background: transparent;
 }
-.q-custom:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .q-custom:hover { background: var(--row-hover); }
 .q-custom:focus-within { background: var(--fill); }
 .q-custom.kb { background: var(--fill); }
 .q-custom input {
@@ -2252,11 +2251,10 @@ button {
   border: none;
   margin: 0;
   padding: 0;
-  cursor: pointer;
   text-align: left;
   font: inherit;
 }
-.tool-row-main:hover .tool-title { color: var(--ink); }
+:where(html[data-hover-armed]) .tool-row-main:hover .tool-title { color: var(--ink); }
 .tool-leading {
   width: 16px;
   height: 16px;
@@ -2388,7 +2386,6 @@ button {
   padding: 0;
   margin: 0;
   color: var(--ink-3);
-  cursor: pointer;
   font-size: var(--dsh-font-size-sm);
   line-height: var(--dsl-terminal-line-height);
 }
@@ -2412,7 +2409,6 @@ button {
   border: none;
   background: transparent;
   color: var(--ink-3);
-  cursor: pointer;
   font: inherit;
   font-size: var(--dsh-font-size-sm);
   text-align: left;
@@ -2443,13 +2439,12 @@ button {
   width: 100%;
   border: none;
   background: transparent;
-  cursor: pointer;
   font: inherit;
   text-align: left;
 }
 /* hover 与流内其他行同语言：只提亮标题，不铺整条底色（官方 DisclosureRow 的 row
    也没有 hover 背景——整条灰带是本仓自己加的，也是"只有思考这样"的由来） */
-.thinking-head:hover .thinking-done { color: var(--ink); }
+:where(html[data-hover-armed]) .thinking-head:hover .thinking-done { color: var(--ink); }
 .thinking-spark { flex: none; color: var(--tk-ink-3); }
 .thinking-label-wrap { display: inline-flex; }
 .thinking-active {
@@ -2628,7 +2623,6 @@ button {
   width: 24px;
   height: 24px;
   color: var(--ink-3);
-  cursor: pointer;
   background: transparent;
   border: none;
   border-radius: 50%;
@@ -2679,7 +2673,6 @@ button {
   background: transparent;
   color: inherit;
   padding: 2px 10px;
-  cursor: pointer;
   font: inherit;
   font-size: var(--dsh-font-size-sm);
 }
@@ -2739,7 +2732,6 @@ button {
   max-width: 320px;
   color: var(--ink-2);
   font: inherit;
-  cursor: pointer;
   border: none;
   border-radius: var(--dsh-radius-keycap);
   flex: none;
@@ -2748,7 +2740,7 @@ button {
   overflow: hidden;
   transition: background var(--dur-fast) var(--ease-out);
 }
-.produced-file:hover { background: var(--fill-strong); color: var(--ink); }
+:where(html[data-hover-armed]) .produced-file:hover { background: var(--fill-strong); color: var(--ink); }
 .produced-more { white-space: nowrap; color: var(--ink-3); flex: none; }
 
 /* 交付图片卡（并入产物行后保留的缩略图形态）：缩略图即内容，内边距与底色
@@ -2766,11 +2758,10 @@ button {
   background: var(--fill);
   color: var(--ink-2);
   font: inherit;
-  cursor: pointer;
   overflow: hidden;
   transition: background var(--dur-fast) var(--ease-out);
 }
-.delivered-card:hover { background: var(--fill-strong); color: var(--ink); }
+:where(html[data-hover-armed]) .delivered-card:hover { background: var(--fill-strong); color: var(--ink); }
 .delivered-image { padding: 0; background: transparent; }
 .delivered-image:hover { background: transparent; }
 .delivered-thumb {
@@ -2922,7 +2913,6 @@ button {
   background: var(--fill-strong);
   min-width: 34px;
   color: var(--ink);
-  cursor: pointer;
   border: 1px solid var(--line);
   border-radius: 999px;
   align-items: center;
@@ -2933,7 +2923,7 @@ button {
   line-height: 20px;
   display: inline-flex;
 }
-.plan-chip:hover { color: var(--ink-bright); background: var(--fill-heavy); }
+:where(html[data-hover-armed]) .plan-chip:hover { color: var(--ink-bright); background: var(--fill-heavy); }
 
 
 /* ---- 任务行:悬停操作区(归档/时间/置顶)+ 右键菜单 ---- */
@@ -2977,8 +2967,8 @@ button {
 }
 /* 时间常驻;hover 时归档按钮替换时间(参考图交互) */
 .task-row .row-archive { display: none; }
-.task-row:hover .row-time { display: none; }
-.task-row:hover .row-archive { display: inline-flex; }
+:where(html[data-hover-armed]) .task-row:hover .row-time { display: none; }
+:where(html[data-hover-armed]) .task-row:hover .row-archive { display: inline-flex; }
 .task-row .row-time { font-size: var(--dsh-font-size-base); color: var(--ink-3); white-space: nowrap; }
 .task-row .row-archive {
   display: none;
@@ -2990,9 +2980,8 @@ button {
   border-radius: var(--dsh-radius-keycap);
   background: var(--fill);
   color: var(--ink-soft);
-  cursor: pointer;
 }
-.task-row:hover .row-archive { display: inline-flex; }
+:where(html[data-hover-armed]) .task-row:hover .row-archive { display: inline-flex; }
 .task-row .row-archive:hover { background: var(--fill-strong); }
 /* 行首槽位：每条任务行预留一个 14px 图标位（与 pinned 行图标对齐），
    状态标志放这里：运行中 → Drive 像素网格 loader（复用 LoadingState
@@ -3034,10 +3023,9 @@ button {
   font-size: var(--dsh-font-size-base);
   line-height: 18px;
   color: var(--ink);
-  cursor: pointer;
   white-space: nowrap;
 }
-.ctx-item:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .ctx-item:hover { background: var(--row-hover); }
 /* 破坏性动作（删除工作区）：官方菜单同款红色 */
 .ctx-item.danger { color: var(--dsh-signal-danger); }
 .ctx-item.danger svg { color: currentColor; }
@@ -3368,7 +3356,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
    （会话列表的置顶/今天）不受影响——这里是 .snav-group 作用域内覆盖。 */
 .snav-group .section-label { color: var(--ink-2); padding-bottom: 8px; }
 .snav-group + .snav-group { margin-top: 16px; }
-.snav-item:hover { background: var(--fill); color: var(--ink); }
+:where(html[data-hover-armed]) .snav-item:hover { background: var(--row-hover); color: var(--ink); }
 .snav-item.active { background: var(--fill-strong); color: var(--ink); font-weight: 600; }
 
 /* ── 设置内容（装进真实 .main 卡片，仅一层内容容器）── */
@@ -3513,7 +3501,7 @@ html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
   padding: 7px 10px;
   text-align: left;
 }
-.rv-file-head:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .rv-file-head:hover { background: var(--row-hover); }
 .rv-file-name { font-size: var(--dsh-font-size-sm); color: var(--ink); flex: none; }
 .rv-file-dir {
   font-size: var(--dsh-font-size-xs);
@@ -3695,7 +3683,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.task-row:hover .row-pin-btn { opacity: 1; }
+:where(html[data-hover-armed]) .task-row:hover .row-pin-btn { opacity: 1; }
 .task-row .row-pin-btn[data-pinned] { opacity: 1; color: var(--ink-2); }
 .task-row .row-pin-btn:hover { color: var(--ink); }
 
@@ -3713,7 +3701,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   font-size: var(--dsh-font-size-base);
   color: var(--ink-2);
 }
-.command-main:hover { background: var(--fill-soft); }
+:where(html[data-hover-armed]) .command-main:hover { background: var(--fill-soft); }
 .command-leading { display: inline-flex; align-items: center; color: var(--ink-3); }
 .command-name { font-weight: 600; color: var(--ink-soft); font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); }
 .command-args { font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3810,7 +3798,6 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .ctx-cap-dot { width: 7px; height: 7px; border-radius: 3.5px; background: var(--ink-2); flex-shrink: 0; }
 .ctx-cap-div { height: 1px; background: var(--line); }
 .turn-usage-wrap { position: relative; display: inline-flex; }
-.turn-usage-wrap > [role="button"] { cursor: pointer; }
 
 /* Markdown 补齐 */
 /* 链接下划线统一点状虚线（用户定稿：实线下划线不好看） */
@@ -3913,7 +3900,6 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
 }
 .lightbox-zoom button:hover { background: rgba(255,255,255,.16); }
 .lightbox-zoom .lightbox-zoom-value {
@@ -3940,7 +3926,6 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
 }
 .lightbox-close:hover { background: rgba(0, 0, 0, .7); }
 @keyframes lightbox-in { from { opacity: 0; } }
@@ -3961,7 +3946,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   border-radius: 18px;
   border: 1px dashed var(--line-strong);
 }
-.compaction-main:hover { color: var(--ink-2); background: var(--fill-soft); }
+:where(html[data-hover-armed]) .compaction-main:hover { color: var(--ink-2); background: var(--fill-soft); }
 .compaction-ic { font-size: var(--dsh-font-size-base); }
 .compaction-body {
   margin-top: 6px;
@@ -4251,7 +4236,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   font-size: var(--dsh-font-size-base);
   color: var(--ink-2);
 }
-.capsule-git-row:hover:not(:disabled) { background: var(--fill); color: var(--ink); }
+:where(html[data-hover-armed]) .capsule-git-row:hover:not(:disabled) { background: var(--row-hover); color: var(--ink); }
 .capsule-git-row:disabled { opacity: .5; cursor: default; }
 .capsule-git-row > svg { flex: none; }
 .capsule-git-label { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -4279,7 +4264,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   color: var(--ink-2);
   text-align: left;
 }
-.capsule-card-item:hover:not(:disabled) { background: var(--fill-strong); color: var(--ink); }
+:where(html[data-hover-armed]) .capsule-card-item:hover:not(:disabled) { background: var(--fill-strong); color: var(--ink); }
 .capsule-card-item:disabled { cursor: default; color: var(--ink); }
 .capsule-card-item:disabled:not([aria-current]) { opacity: .5; }
 .capsule-card-item > svg { flex: none; }
@@ -4300,7 +4285,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   margin: -2px -8px;
   border-radius: var(--dsh-radius-keycap);
 }
-.capsule-row-click:hover { background: var(--fill); }
+:where(html[data-hover-armed]) .capsule-row-click:hover { background: var(--row-hover); }
 /* 子智能体行：两行（标签 + 副行）——行顶端对齐，图标与右侧「状态 · 时长」都钉在
    标签那一行（ZCode 的 agents 行同款）。副行是子会话自己的标题，与标签重复时不渲染。 */
 .capsule-sub-click { align-items: flex-start; }
@@ -4410,7 +4395,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   border-radius: var(--dsh-radius-keycap);
   text-align: left;
 }
-.workflow-member:hover:not(:disabled) { background: var(--fill); }
+:where(html[data-hover-armed]) .workflow-member:hover:not(:disabled) { background: var(--row-hover); }
 .workflow-member:disabled { cursor: default; }
 .workflow-member-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workflow-phase { font-size: var(--dsh-font-size-xs); color: var(--ink-3); }
@@ -4438,10 +4423,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
   border-bottom: 1px solid var(--line);
   background: none;
   color: var(--ink-2);
-  cursor: pointer;
   text-align: left;
 }
-.turn-process-row:hover { color: var(--ink); }
+:where(html[data-hover-armed]) .turn-process-row:hover { color: var(--ink); }
 .turn-process-label {
   min-width: 0;
   overflow: hidden;
@@ -4457,7 +4441,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   transform: rotate(-90deg);
   transition: transform var(--dur-fast) var(--ease-out);
 }
-.turn-process-row:hover .turn-process-chevron { color: var(--ink-2); }
+:where(html[data-hover-armed]) .turn-process-row:hover .turn-process-chevron { color: var(--ink-2); }
 .turn-process-row[data-open] .turn-process-chevron { transform: rotate(0deg); }
 
 .user-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; justify-content: flex-end; }
@@ -4605,7 +4589,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
-  cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 .dialog-btn:hover { background: var(--fill-strong); }
@@ -5008,7 +4991,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   font-size: var(--dsh-font-size-base);
   text-align: left;
 }
-.panel-settings-row:hover { background: var(--fill-strong); }
+:where(html[data-hover-armed]) .panel-settings-row:hover { background: var(--fill-strong); }
 .panel-settings-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-settings-meta { flex: none; color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
 .panel-settings-hint { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); }
@@ -5030,7 +5013,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   font-size: var(--dsh-font-size-base);
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.panel-artifact:hover { background: var(--fill); color: var(--ink); }
+:where(html[data-hover-armed]) .panel-artifact:hover { background: var(--row-hover); color: var(--ink); }
 .panel-artifact-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 收起态的行尾「查看全部」：与产物行同一栅格，只是标签换了个词（参考图同款） */
 .panel-artifact-more {
@@ -5114,7 +5097,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
   border-radius: var(--dsh-radius-control, 8px);
   background: none;
   color: var(--dsh-text-tertiary);
-  cursor: pointer;
 }
 .chat-float-close:hover { background: var(--fill-soft); color: var(--ink); }
 .chat-float-body { display: flex; flex: 1; min-height: 0; overflow: hidden; padding: 8px 12px; }
@@ -5151,7 +5133,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
   background: transparent;
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
-  cursor: pointer;
 }
 /* 悬停档与 `.panel-browser-tool:hover` 同一档（--fill-soft）；`.on` 声明在它之后，
    开着悬停不会掉回浅档。 */

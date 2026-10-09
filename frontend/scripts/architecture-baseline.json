@@ -45,10 +45,10 @@
       "detail": "772 lines > 300"
     },
     {
-      "id": "f77a4bd1bf744779",
+      "id": "9fe34a6a75b575aa",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "413 lines > 300"
+      "detail": "418 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
