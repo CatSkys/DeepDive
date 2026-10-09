@@ -3,6 +3,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# 分发档 = 带公证的这一份（README：发给他人必须用这条）。**每次分发自动递增最后一位
+# 版本号**——用户 2026-10-09 定稿："每次分发就更新最后一位，前两位只有我确认才能更新"。
+# 必须放在 xcodegen **之前**：Info.plist 与 DMG 文件名都是从这里之后的 build 取的
+# （版本号唯一事实源 = apps/macos/project.yml，见 scripts/bump-app-version.sh）。
+# 不带公证的本地包不动版本号（不算分发）。
+if [ -n "${DSHMINI_NOTARY_PROFILE:-}" ]; then
+  bash scripts/bump-app-version.sh patch
+fi
+
 (cd apps/macos && xcodegen generate)
 # Info.plist 由 xcodegen 生成：版本必须在生成之后读取，且读不到即停——
 # 曾静默回退 0.1.0，新 clone 的 DMG 恒以 0.1.0 命名（AUD-013）。

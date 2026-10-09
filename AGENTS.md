@@ -35,6 +35,7 @@ deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引�
 make dev        # Debug 构建并打开（scripts/dev.sh）
 make app        # Release 构建 + 嵌入 web/engine 并打开（scripts/build-release.sh）
 make package    # Release + adhoc 深签 + DMG（dist/）
+DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 分发档（公证+装钉）：打包前自动把版本号最后一位 +1；前两位只有用户确认才能动（README 开发节）
 make tokens     # tokens.json → tokens.css（改 token 后必跑）
 make test       # 前端 vitest + 壳 XCTest 全量（scripts/test.sh）
 make clean      # 清 .build 与 dist

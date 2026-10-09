@@ -27,6 +27,8 @@ DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 带公证与装钉（发�
 
 **发给他人必须公证**：未公证的包在 macOS 15 及以上会被 Gatekeeper 拦下——新用户双击只看到「未打开 DeepDive」，而那个对话框的默认按钮是「移到废纸篓」，用户按常规操作根本进不去（右键 → 打开 的旧绕过入口自 macOS 15 起已被系统取消）。诊断锚点：`spctl -a -vvv -t exec <app>` 报 `rejected / source=Unnotarized Developer ID`，系统日志见 `syspolicyd: Terminating process due to Gatekeeper rejection`。
 
+**版本号（用户 2026-10-09 定稿）**：唯一事实源是 `apps/macos/project.yml` 的 `CFBundleShortVersionString` + `CFBundleVersion`（两处同步，别在别处再写；`Info.plist` 与 DMG 文件名都从它取）。**每次分发只递增最后一位**（0.1.0 → 0.1.1），由上面那条公证命令在 xcodegen 之前自动做（`scripts/bump-app-version.sh patch`），不需要谁记得；**前两位（major / minor）只有用户确认后才能动**，脚本对这两个要 `--user-confirmed`，没带旗标直接停。不带公证的本地 `make package` 不动版本号（那不算分发）。
+
 启动后：菜单栏出现引擎状态点；`⌥Space` 显示/隐藏窗口；菜单栏「设置启动工作区…」选择沙箱根目录（重启引擎生效）；设置内「外观」（跟随系统/亮/暗）即时生效。
 
 ## 数据
