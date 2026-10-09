@@ -849,15 +849,23 @@
 
 ---
 
-### 5.11 `embed-web` 不会替你构建前端：dist 陈旧会静默嵌旧包（2026-09-16 实踩）
+### 5.11 `embed-web` 不会替你构建前端：dist 陈旧会静默嵌旧包（2026-09-16 实踩；2026-10-09 又踩一次）
 
 - 事故：改完前端直接 `make app`，应用起来还是旧界面——`embed-web.sh` 只把 `frontend/dist`
   拷进包，**不跑 `npm run build`**；`make test` 也不构建（只跑 vitest）。dist 是上一次
   build 的产物，于是"改动没生效"而构建日志一路绿色。
-- 处置：交付链里那条「前端 build」不是修饰语，是**必须自己先跑**的一步：
-  `cd frontend && npm run build` → `make app`。判据：`ls -l frontend/dist/index.html` 的
-  时间戳要新于你最后一次源码改动；`make app` 日志里的 `OK: embedded web` 只说"拷过去了"，
-  不说"拷的是新的"。
+- 现状态：`embed-web.sh` **自己会拦**——`frontend/dist` 比 `frontend/src`（含 `packages/`、
+  `index.html`、`vite.config.ts`、`package.json`）旧就 `FAIL` 退出，缺 `dist/index.html`
+  更早停。所以交付链里那条「前端 build」漏了会在**打包那一步**停住，不再静默出旧包。
+  手工判据：`ls -l frontend/dist/index.html` 的时间戳要新于你最后一次源码改动。
+- **第二次踩（2026-10-09，用户报"靠下、注释还在，一个不少"）的教训不在 build 上，在"自证"上**：
+  当时确实跑了 `make package`，也"核过产物"——grep `align-items:flex-end` 在包里存在，就当成
+  生效了。可那个值在本仓**别处本来就有**（一堆竖排/卡片规则在用），等于拿一个恒真的值当证据，
+  真正那条规则压根没进包。**判据必须有辨识度**：要么是本次改动**独有**的串（例：删掉的
+  `取消上传` 在新包里必须为 0），要么直接问**运行中的应用**——桥的静态口
+  `curl http://127.0.0.1:<port>/` 拿 `assets/<hash>.css` 看那条规则，或
+  `scripts/probe.py styles <选择器> --props <属性>` 看 computed 值（实测法见 WORKING-AGREEMENTS §2）。
+  `make app` 日志里的 `OK: embedded web` 只说"拷过去了"，不说"拷的是新的"。
 
 ### 5.12 签名 walk 被打断 = 半个签名的包：hardened 的 node 加载不了还没签的 .node 插件
 - 事故（2026-10-08，用户报"为什么会有这个报错"）：会话恢复失败，弹窗里是引擎原文
