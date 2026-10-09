@@ -17,6 +17,11 @@ function readPref<T>(key: string, fallback: T, parse: (raw: string) => T | null)
   return fallback;
 }
 
+/** 页面明暗的本地基准：外观三态最终落在壳的 `webView.appearance` 上，WebKit 因此把它
+ *  报成本地媒体查询（运行时改 appearance 会即时翻转并触发 change，2026-10-09 实测）。
+ *  这条通道丢不掉，所以页面明暗以它为准；壳的 themeChanged / prefs 推送是同值确认。 */
+const SCHEME_QUERY = "(prefers-color-scheme: dark)";
+
 export function usePrefs() {
   // 侧栏宽：壳 prefs（host-ready 时推送）为初值；setSidebarWidth 落点持久化。
   // 200–320 与 tokens.json size.sidebar.min/max 手工双写——改动须三处同步
@@ -35,7 +40,15 @@ export function usePrefs() {
     setLangState(l);
     sendToShell({ type: "set-pref", key: "language", value: l });
   }, []);
-  const [schemeDark, setSchemeDark] = useState(true);
+  // 首帧就与壳同档：只认媒体查询，不等那次推送——推送漏投会留下"壳已浅色、页面仍暗色"
+  // 的半切窗口（2026-10-09 用户报：切成浅色模式后卡片仍暗、侧栏白字压在浅玻璃上）。
+  const [schemeDark, setSchemeDark] = useState(() => window.matchMedia(SCHEME_QUERY).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(SCHEME_QUERY);
+    const onChange = () => setSchemeDark(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   const [appearance, setAppearanceState] = useState<"system" | "light" | "dark">("dark");
   const [keybinds, setKeybindsState] = useState<KeybindOverrides>({});
   const [hotkeyOn, setHotkeyOnState] = useState(true);
@@ -92,7 +105,8 @@ export function usePrefs() {
     setArchiveRetentionState(v);
   }, []);
   // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗、键位覆盖；
-  // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
+  // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送——themeChanged 只到
+  // 这里（不经 installHostBridge 的 handler 表），与主题相关只有 store 状态一处写入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
       const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number };

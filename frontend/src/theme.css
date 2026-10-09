@@ -2113,9 +2113,9 @@ button {
   border-radius: 11px;
   border: 1px solid var(--line-strong);
   background: var(--fill);
-  /* 配色走语义变量（--ink*）：主题由 html[data-theme] 切，而 --dsh-* 那一套按
-     prefers-color-scheme 切，两套在「应用暗 × 系统亮」（本机现状）下互相打架——
-     用 --dsh-text-primary 会在暗色玻璃底上写出近黑字（编辑态看不见）。 */
+  /* 正文面只用语义 ink 一族（--dsh-* 那族留给字号/圆角等无语义量）。明暗由
+     html[data-theme] 与 prefers-color-scheme 两条同源通道决定（prefs.ts 的
+     SCHEME_QUERY），两条变量族不会再互相打架。 */
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
   font-family: inherit;

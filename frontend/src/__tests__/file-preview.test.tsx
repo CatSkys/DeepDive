@@ -187,7 +187,7 @@ describe("打开方式（分离按钮）", () => {
     const post = vi.fn();
     (window as unknown as { webkit?: unknown }).webkit = { messageHandlers: { deepdiveHost: { postMessage: post } } };
     installHostBridge({
-      navigateToSession: () => {}, navigateToSettings: () => {}, themeChanged: () => {},
+      navigateToSession: () => {}, navigateToSettings: () => {},
       workspacePicked: () => {}, systemWake: () => {}, newSession: () => {}, openOnboarding: () => {},
     });
     return post;
@@ -242,7 +242,7 @@ describe("审查面", () => {
     const post = vi.fn();
     (window as unknown as { webkit?: unknown }).webkit = { messageHandlers: { deepdiveHost: { postMessage: post } } };
     installHostBridge({
-      navigateToSession: () => {}, navigateToSettings: () => {}, themeChanged: () => {},
+      navigateToSession: () => {}, navigateToSettings: () => {},
       workspacePicked: () => {}, systemWake: () => {}, newSession: () => {}, openOnboarding: () => {},
     });
     return post;

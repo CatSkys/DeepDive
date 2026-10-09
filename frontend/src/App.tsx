@@ -93,8 +93,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   useHoverArmingDisarm({ session: active, settings: settingsOpen, workspace: store.activeWorkspaceId });
 
   // Shell→frontend bridge mount (SPEC-NOTIFICATIONS §3.1): native pushes
-  // navigateToSession/navigateToSettings/themeChanged here; mounted once,
-  // reports host-ready.
+  // navigateToSession/navigateToSettings here; mounted once, reports host-ready.
+  // 改明暗的 themeChanged 不在这张表里——它落进 store 状态（prefs.ts 的监听）。
   useEffect(() => {
     installHostBridge({
       navigateToSession: (sessionId) => {
@@ -104,9 +104,6 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         else setDeferredNav(sessionId);
       },
       navigateToSettings: () => openSettings(),
-      themeChanged: (dark) => {
-        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-      },
       workspacePicked: (path) => {
         // 新建项目弹窗开着时，目录选择器结果归弹窗（表单流程接管）
         if (routeWorkspacePicked(path)) return;
