@@ -27,6 +27,7 @@ import { QueueDock } from "../session/QueueDock";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { useSessionModels } from "../session/useSessionModels";
 import { placeReadingProgress, publishReadingProgress, readingProgressOf } from "../session/readingProgress";
+import { FindInConversation } from "./FindInConversation";
 
 /** 顶部模糊带满强度所需的滚动深度（px）：雾的渐显与内容渐隐共用这一个深度，
  *  两条边同步走完，不会各显各的。 */
@@ -357,6 +358,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             })}
           </div>
         </div>
+        {/* 页内查找（⌘F）：只读真会话里找词——预览页与子会话是"打开成的另一个页面"，
+            不挂。取词根就是消息流本体。 */}
+        {!previewFull && !isSubagent && <FindInConversation rootRef={flowRef} />}
         {!follow && (
           <button
             className="jump-down"

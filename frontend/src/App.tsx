@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PanelLeft, Search } from "lucide-react";
 import { api } from "./api";
 import { alertDialog, confirmDialog } from "./components/DialogHost";
 import { installHostBridge, copyText } from "./host";
+import { comboFor } from "./keybinds";
 import { mux } from "./mux";
 import { StoreProvider, useStore } from "./store"
 import { useT } from "./i18n";
-import { comboFor, comboOf, isOff, KEYBIND_DEFS } from "./keybinds";
-import { DD_EVENTS, dispatchAppEvent, onAppEvent } from "./events";
+import { DD_EVENTS, onAppEvent } from "./events";
 import { useHoverArmingDisarm } from "./useHoverArming";
 import { Sidebar } from "./components/Sidebar";
 import { AutomationProvider } from "./automation/useAutomation";
@@ -30,7 +30,8 @@ import { DialogHost } from "./components/DialogHost";
 import { NewProjectDialogHost } from "./components/NewProjectDialog";
 import { EditProjectDialogHost } from "./components/EditProjectDialog";
 import { IconPickerHost } from "./components/IconPicker";
-import { CommandPaletteHost, openCommandPalette, toggleCommandPalette } from "./components/CommandPalette";
+import { CommandPaletteHost, openCommandPalette } from "./components/CommandPalette";
+import { useAppKeybinds } from "./useAppKeybinds";
 import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
@@ -187,52 +188,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     effortLabel: (id) => effortDisplayName(id, heroModel.efforts),
     pickModel, applyModelEffort: pickModel,
   };
-  // 应用内快捷键：window 捕获段匹配键位注册表（快捷键页可改/可停用）。
-  // 输入框聚焦时仅听写可触发，避免打字误触。
-  // 键位处理必须读「当下这一个」store：store 对象按状态重建（toggleSidebar 等
-  // 闭包捕获了当时的 sidebarOverride），而这个监听只随 keybinds 重挂——直接闭包
-  // store 会拿到旧副本，⌘B 连按只生效一次（收得起、展不开）。
-  const storeRef = useRef(store);
-  storeRef.current = store;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const store = storeRef.current;
-      const combo = comboOf(e);
-      if (!combo) return;
-      const target = e.target as HTMLElement | null;
-      const typing = !!target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-      // ⌥1-9 切换第 N 个项目空间（固定键位，不入改键表）：输入框聚焦时放行
-      // ——⌥数字在文本框里是 macOS 特殊字符输入，劫持会打断打字
-      if (!typing && e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
-        const ws = store.workspaces[Number(e.key) - 1];
-        if (ws) { e.preventDefault(); store.switchWorkspace(ws.workspaceId); }
-        return;
-      }
-      for (const def of KEYBIND_DEFS) {
-        if (isOff(def.id, store.keybinds)) continue;
-        if (combo !== comboFor(def.id, store.keybinds)) continue;
-        // 输入中放行的例外：听写（要在输入框里唤起）、⌘B 侧栏、⌘K 搜索——
-        // 三个都不是文本编辑键（⌘B 只在富文本里是加粗，本应用输入面都是纯文本），
-        // 且 ⌘K 必须放行才能「开着再按一次收起」（面板自己的输入框一开就抢焦点）
-        const typingAllowed =
-          def.id === "dictation" || def.id === "toggle-sidebar" || def.id === "command-palette";
-        if (typing && !typingAllowed) return;
-        e.preventDefault();
-        if (def.id === "new-session") store.openSession(null);
-        else if (def.id === "toggle-sidebar") store.toggleSidebar();
-        else if (def.id === "dictation") dispatchAppEvent(DD_EVENTS.dictationToggle);
-        else if (def.id === "cycle-effort") dispatchAppEvent(DD_EVENTS.cycleEffort);
-        else if (def.id === "open-settings") openSettings();
-        // 搜索面板是开关：开着再按一次收起（⌘K）
-        else if (def.id === "command-palette") toggleCommandPalette();
-        return;
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-    // 真实依赖只有 keybinds；store.openSession/toggleSidebar 按稳定引用约定不入表
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.keybinds]);
+  // 应用内快捷键：window 捕获段按注册表派发（实现见 useAppKeybinds）
+  useAppKeybinds(store, { openSettings });
 
   // 启动骨架屏的判定**必须发生在首帧**：定时器/effect 都会让首帧先渲染真实界面，
   // 于是"先看到画面再变成占位动画"（用户报的就是这一下）。所以冷启动与否由**文档

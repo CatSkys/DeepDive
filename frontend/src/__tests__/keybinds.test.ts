@@ -10,6 +10,7 @@ import {
   KEYBIND_DEFS,
   parseKeybinds,
   RESERVED_COMBOS,
+  workspaceDigitOf,
 } from "../keybinds";
 
 /** 造一个 KeyboardEvent：只填判据用得到的字段。 */
@@ -79,8 +80,27 @@ describe("默认键位", () => {
   });
 });
 
-describe("formatHotkeySpec 壳侧 spec → 键帽串", () => {
-  it("修饰序与键名跟 comboOf 同一套", () => {
+describe("workspaceDigitOf：⌥1-9 认物理键位，不认字符", () => {
+  // 现场 U.S. 布局实测（UCKeyTranslate）：⌥1-9 产出 ¡™£¢∞§¶•ª，e.key 永远不是数字
+  const ev = (code: string, key: string, mods: Partial<KeyboardEvent> = {}) =>
+    ({ code, key, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...mods }) as KeyboardEvent;
+
+  it("⌥+数字：key 是特殊字符也照样认（这就是它以前完全不工作的原因）", () => {
+    expect(workspaceDigitOf(ev("Digit2", "™", { altKey: true }))).toBe(2);
+    expect(workspaceDigitOf(ev("Digit1", "¡", { altKey: true }))).toBe(1);
+    expect(workspaceDigitOf(ev("Digit9", "ª", { altKey: true }))).toBe(9);
+  });
+
+  it("别的修饰键组合、非数字键都不算", () => {
+    expect(workspaceDigitOf(ev("Digit2", "2"))).toBeUndefined();
+    expect(workspaceDigitOf(ev("Digit2", "™", { altKey: true, shiftKey: true }))).toBeUndefined();
+    expect(workspaceDigitOf(ev("Digit2", "™", { altKey: true, metaKey: true }))).toBeUndefined();
+    expect(workspaceDigitOf(ev("Digit0", "º", { altKey: true }))).toBeUndefined();
+    expect(workspaceDigitOf(ev("KeyW", "∑", { altKey: true }))).toBeUndefined();
+  });
+});
+
+describe("formatHotkeySpec 壳侧 spec → 键帽串", () => {  it("修饰序与键名跟 comboOf 同一套", () => {
     expect(formatHotkeySpec("option+space")).toBe("⌥Space");
     expect(formatHotkeySpec("command+shift+e")).toBe("⇧⌘E");
     expect(formatHotkeySpec("control+k")).toBe("⌃K");

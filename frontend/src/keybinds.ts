@@ -22,6 +22,7 @@ export const KEYBIND_DEFS: KeybindDef[] = [
   // id 保持 command-palette（用户覆盖按 id 持久化，改名即丢）；标签随用户口径
   // 叫「搜索」——搜索就是命令面板这一件事（入口：⌘K / 顶栏搜索钮 / 侧栏搜索行）。
   { id: "command-palette", zh: "搜索", en: "Search", combo: "⌘K" },
+  { id: "find", zh: "页内查找", en: "Find in conversation", combo: "⌘F" },
 ];
 
 /** 固定键位（不可改键，故不在 KEYBIND_DEFS 里）：实现在各自交互面内（输入框在
@@ -101,6 +102,15 @@ export const FIXED_KEYBINDS: FixedKeybindGroup[] = [
     ],
   },
 ];
+
+/** ⌥1-9 切第 N 个项目空间（固定键位，不入改键表）。认**物理键位**（`e.code`）不认字符：
+ *  按着 ⌥ 敲主键盘 1-9 产出的是 ¡™£¢∞§¶•ª（现场 U.S. 布局实测），`e.key` 永远不是数字，
+ *  拿它做判断等于这条快捷键不存在。`e.code` 与布局和修饰键都无关。 */
+export function workspaceDigitOf(e: KeyboardEvent): number | undefined {
+  if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return undefined;
+  const m = /^Digit([1-9])$/.exec(e.code);
+  return m ? Number(m[1]) : undefined;
+}
 
 /** 壳侧的全局热键 spec（`"option+space"`，HotKeyManager 的键名表）→ 键帽串。
  *  壳在 prefs/rebind 里推的就是 spec，不转换就会把「option+space」原样显示在设置页。
