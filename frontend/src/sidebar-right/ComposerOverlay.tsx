@@ -1,8 +1,9 @@
 // 浏览器页之上那颗**悬浮对话卡**（壳侧透明叠加层里那一页）。
 //
 // 浏览器页是壳的原生 WKWebView，HTML 不能浮到它上面；壳在浏览器视图之上再叠一层
-// 透明 WKWebView。这一层只负责合成位置和命中测试，卡片自身使用高遮盖率的浮层表面，
-// 不依赖跨 WKWebView 的 backdrop-filter 读取网页背景。
+// 透明 WKWebView。这一层只负责合成位置和命中测试，卡片的**磨砂底由壳侧原生层给**
+// （`FrostSurface`）——两个 WKWebView 之间 `backdrop-filter` 采不到网页，
+// 所以卡片自己的底色只压一层浅色，模糊是原生那块（据上报的矩形与圆角摆位）。
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Composer } from "../components/Composer";
@@ -83,14 +84,20 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
     if (cmd === "chatShow") setClosed(false);
   }), []);
 
-  // 卡片矩形报给壳：壳按它做 hitTest，卡外一律透传给网页。拖动/窗口变化都要跟上。
+  // 卡片矩形报给壳：壳按它做 hitTest（卡外一律透传给网页），并按同一个矩形摆那块
+  // 原生磨砂。圆角一起报——磨砂块也要按同一个半径收角，值从实际渲染的 border-radius
+  // 现读（事实源是 tokens，壳里不写第二份）。拖动/窗口变化都要跟上。
   const report = useCallback(() => {
     if (!inShell() || closed) return;
     const box = rootRef.current;
     if (!box) return;
     const r = box.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) return;
-    sendToShell({ type: "composer-pill", rect: { x: r.left, y: r.top, w: r.width, h: r.height } });
+    sendToShell({
+      type: "composer-pill",
+      rect: { x: r.left, y: r.top, w: r.width, h: r.height },
+      radius: Number.parseFloat(getComputedStyle(box).borderTopLeftRadius) || 0,
+    });
   }, [closed]);
 
   useLayoutEffect(() => {

@@ -86,10 +86,10 @@ final class BrowserHostTests: XCTestCase {
         // "关闭键没用"。这里把换算结果与 hitTest 的真行为一起钉住。
         let host = ComposerOverlayHost()
         let parent = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
-        parent.addSubview(host.view)
+        host.install(in: parent)
         host.view.frame = NSRect(x: 100, y: 400, width: 600, height: 300)   // 面板那一格
         // 页面里卡片在 (20,100) 100x50（左上原点、y 向下）
-        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1)
+        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1, radius: 20)
 
         // 父坐标 = 视图位移 + 视图高度翻转：y = 400 + 300 - (100+50) = 550
         XCTAssertEqual(host.view.interactiveRect, NSRect(x: 120, y: 550, width: 100, height: 50))
@@ -99,6 +99,43 @@ final class BrowserHostTests: XCTestCase {
         // 隐藏后不该再吃任何点击（卡不在了，旧矩形会让那块网页点不动）
         host.hide()
         XCTAssertNil(host.view.hitTest(NSPoint(x: 170, y: 575)))
+    }
+
+    func testFrostFollowsCardRectAndRadius() {
+        // 磨砂块是卡片底下那块原生模糊：它必须与可点矩形**重合**（多出来就是一块压在
+        // 网页上的磨砂，少一块就是卡片角上没磨砂），圆角也必须与卡片一致（不一致会把
+        // 方角露在卡片圆角外）。两者都走同一套换算与同一个缩放。
+        let host = ComposerOverlayHost()
+        let parent = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+        host.install(in: parent)
+        host.view.frame = NSRect(x: 100, y: 400, width: 600, height: 300)
+        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1, radius: 20)
+        XCTAssertEqual(host.frost.frame, host.view.interactiveRect)
+        XCTAssertEqual(host.frost.layer?.cornerRadius, 20)
+        XCTAssertFalse(host.frost.isHidden)
+
+        // 页面缩放跟着一起缩（圆角值来自页面，单位是 CSS px）
+        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1.5, radius: 20)
+        XCTAssertEqual(host.frost.frame, host.view.interactiveRect)
+        XCTAssertEqual(host.frost.layer?.cornerRadius, 30)
+
+        // 收起：磨砂块跟着消失，否则网页上会留下一块盖着的磨砂
+        host.hide()
+        XCTAssertTrue(host.frost.isHidden)
+    }
+
+    func testFrostStaysHiddenUntilPageReportsCard() {
+        // 卡片显隐与矩形都来自页面上报：在页面报回来之前不能摆出上一轮（或上一个会话）
+        // 的磨砂——那就是一块贴在网页上的假糊。
+        let host = ComposerOverlayHost()
+        let parent = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+        host.install(in: parent)
+        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1, radius: 20)
+        XCTAssertFalse(host.frost.isHidden)
+
+        host.show(sessionId: "s2", rect: NSRect(x: 0, y: 0, width: 300, height: 200), contentHeight: 800, zoom: 1, origin: "http://127.0.0.1:1")
+        XCTAssertTrue(host.frost.isHidden)
+        XCTAssertEqual(host.frost.frame, .zero)
     }
 
     func testOverlayIsTransparentAndStartsHidden() {

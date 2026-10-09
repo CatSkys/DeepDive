@@ -37,6 +37,8 @@ extension MainWindowController {
     /// 另带 `overlay`：悬浮输入框那层透明 webview 的显隐与**可点矩形**。它是网页之上
     /// 的合成层，可点矩形之外透传——矩形留着旧值就是一个看不见的死区（页面量不出来，
     /// 只有这里能证），故把 isVisible/alpha/interactiveRect 一并报出。
+    /// 同一块还有 `frost`：卡片下面那块原生磨砂的几何与圆角（它必须与 hitRect 重合、
+    /// 圆角与卡片一致，否则表现为"网页上多出一块压着的磨砂"或方角露在圆角外）。
     private func nativeFacts() -> [String: Any] {
         func frame(_ view: NSView?) -> [String: Any]? {
             guard let view else { return nil }
@@ -60,6 +62,11 @@ extension MainWindowController {
                 "w": Double(composerOverlay.view.interactiveRect.size.width),
                 "h": Double(composerOverlay.view.interactiveRect.size.height),
             ],
+            "frost": [
+                "hidden": composerOverlay.frost.isHidden,
+                "radius": Double(composerOverlay.frost.layer?.cornerRadius ?? 0),
+                "rect": frame(composerOverlay.frost) ?? [:],
+            ] as [String: Any],
         ] as [String: Any]
         return facts
     }

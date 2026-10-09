@@ -1,5 +1,6 @@
-// 透明 WKWebView 只提供网页之上的合成层；卡片表面由前端使用稳定的浮层底色绘制，
-// 不依赖跨 WKWebView 的 backdrop-filter。
+// 透明 WKWebView 提供网页之上的合成层；卡片那块**磨砂底由原生层给**
+// （`FrostSurface`，见该文件的"为什么不是 CSS"）——两个 WKWebView 之间
+// `backdrop-filter` 采不到下面那个的网页，模糊只能在原生层做。
 
 import AppKit
 import WebKit
@@ -17,6 +18,8 @@ final class ComposerOverlayView: WKWebView {
 
 final class ComposerOverlayHost: NSObject {
     let view: ComposerOverlayView
+    /// 卡片正下方那块原生磨砂（插在叠加层之下、浏览器之上）。
+    let frost = FrostSurface()
 
     private var origin: NSPoint = .zero
     private var loadedSession: String?
@@ -39,6 +42,13 @@ final class ComposerOverlayHost: NSObject {
         view.alphaValue = 0
     }
 
+    /// 挂到窗口：叠加层铺上去，磨砂块紧贴它**下面**（浏览器之上）。层序只在这一处定，
+    /// 磨砂块跑到叠加层之上就会盖住卡片自己的内容。
+    func install(in parent: NSView) {
+        parent.addSubview(view)
+        parent.addSubview(frost, positioned: .below, relativeTo: view)
+    }
+
     /// 主 SPA 说"现在该给哪个会话显示悬浮输入框"（nil = 收起）。
     func show(sessionId: String, rect: NSRect, contentHeight: CGFloat, zoom: CGFloat, origin host: String) {
         if loadedSession != sessionId {
@@ -51,6 +61,8 @@ final class ComposerOverlayHost: NSObject {
         // 会话）的旧矩形就是一个看不见的死区，压在会话框右端（停止钮/排队行操作钮）。
         // 新页面挂载后 300ms 内会自己报回来（ComposerOverlay 的 report 轮询）。
         view.interactiveRect = .zero
+        // 磨砂块同样等矩形：跟旧的走会先闪一块贴在网页上的磨砂，等页面报回来再摆。
+        hideFrost()
         view.alphaValue = 1
         // 页面可能还是"上次关掉"的状态：叫出来时通知它把卡片摆回来
         view.evaluateJavaScript("window.__deepDiveHost && window.__deepDiveHost.dispatch('chatShow', {})", completionHandler: nil)
@@ -61,7 +73,13 @@ final class ComposerOverlayHost: NSObject {
         view.alphaValue = 0
         // 卡不在了就不该再收事件：留着旧矩形会让那一块网页点不动
         view.interactiveRect = .zero
+        hideFrost()
         isVisible = false
+    }
+
+    private func hideFrost() {
+        frost.isHidden = true
+        frost.frame = .zero
     }
 
     /// 「对话」按钮的开关：按壳自己记的可见性翻转——卡片被 × 关过的话下一次
@@ -79,7 +97,10 @@ final class ComposerOverlayHost: NSObject {
     /// `hitTest(_:)` 收到的是**父视图坐标系**里的点，所以这里必须把视图自身的 frame 位移
     /// 算进去、并按视图高度翻转 Y（页面是左上原点、y 向下）。漏了位移或翻错方向都不会报错，
     /// 只表现为"卡片点不动、别的某一块反而把网页点击吃掉"——实测用户报"关闭键没用"就是这个。
-    func setPill(cssRect: NSRect, zoom: CGFloat) {
+    ///
+    /// 磨砂块用的是同一套换算结果（同一个矩形），所以它与"可点矩形"永远重合：卡片之外的
+    /// 网页照旧点得动，磨砂也不会多出半块压住页面。
+    func setPill(cssRect: NSRect, zoom: CGFloat, radius: CGFloat) {
         let frame = view.frame
         view.interactiveRect = NSRect(
             x: frame.minX + cssRect.minX * zoom,
@@ -87,6 +108,9 @@ final class ComposerOverlayHost: NSObject {
             width: cssRect.width * zoom,
             height: cssRect.height * zoom
         )
+        frost.frame = view.interactiveRect
+        frost.setRadius(radius * zoom)
+        frost.isHidden = view.interactiveRect.width <= 1 || view.interactiveRect.height <= 1
     }
 
     private func place(rect: NSRect, contentHeight: CGFloat, zoom: CGFloat) {

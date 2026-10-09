@@ -246,14 +246,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
         // 悬浮输入框叠加层加在浏览器视图**之后**：网页之上才能浮得住（网页是原生视图，
         // 恒在 SPA 的 HTML 之上，HTML 浮不上去）。它只在自己那颗胶囊的矩形里收点击，
-        // 其余对鼠标透明（ComposerOverlayView.hitTest）。桥与主 SPA 同一套：输入框要用
-        // 到的附件选择/听写都走这里。
+        // 其余对鼠标透明（ComposerOverlayView.hitTest）；install 还会在它**正下方**并一块
+        // 卡片磨砂——网页的 backdrop-filter 采不到这个 webview，理由见 FrostSurface。
         let overlayController = composerOverlay.view.configuration.userContentController
         overlayController.add(self, name: "deepdiveHost")
         overlayController.add(self, name: "deepdive")
         composerOverlay.view.navigationDelegate = self
         composerOverlay.view.uiDelegate = self
-        glass.addSubview(composerOverlay.view)
+        composerOverlay.install(in: glass)
         installBrowserKeyMonitor()
 
         webView.navigationDelegate = self

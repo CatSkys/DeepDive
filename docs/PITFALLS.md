@@ -408,6 +408,19 @@
   写错不报错、只表现为"胶囊点不动/网页点不动"，所以 `BrowserHostTests` 里钉了一条。
 - 位置由主 SPA 算（它知道面板网页那一格的几何）后推 `composer-overlay`（含 rect）；会话为
   nil 即收起。同屏只允许一个活着的 composer：浏览器全屏时会话列自己那份不再渲染。
+- **卡片那块磨砂底只能由原生层给**（2026-10-09 用户报"背景是透明的，应该要有模糊磨砂"）：
+  `backdrop-filter` 只采样**自己** webview 内的内容，采不到下面另一个 WKWebView，所以卡面写
+  近实色只是"没有模糊的将就"——实测 `--panel-strong`（.92）下网页以 8% 直接透出来（网页上的
+  白底黄字在卡里被压成 `rgb(41,41,26)`，而卡面底色是 `rgb(21,21,25)`；`24*.92 + 255*.08 ≈ 42`
+  与实测吻合），观感就是"这卡是透明的"。做法：壳在叠加层**正下方**插一块 `FrostSurface`
+  （`NSVisualEffectView`，`.hudWindow` + `withinWindow` = 混合窗口内它下面的内容即浏览器页，
+  圆角跟着卡片走），卡面底色退到毛玻璃档 `--panel-glass`，让模糊透出来。三条硬约束：
+  ① 磨砂块的矩形与 `interactiveRect` **同一个**（复用那套坐标换算与页面缩放），多出来就是一块
+  压在网页上的假糊；② 圆角由页面按实际渲染的 border-radius 报来（事实源在 tokens，壳里不写
+  第二份）；③ 页面报回矩形之前必须藏着，否则会摆出上一轮/上一个会话的磨砂。
+- **`NSVisualEffectView` 默认不是 layer-backed**：`layer` 为 nil 时 `layer?.cornerRadius` 这类
+  赋值会被可选链**静默吞掉**（圆角没了、不报错、也不崩），测试里量到的就是 `nil`。显式
+  `wantsLayer = true`，并由测试钉住圆角值而不是只钉矩形。
 - 又一条 CSS 坑：百分比 `max-height` 需要**确定高度的父**。悬浮卡片原来只写
   `bottom: 0`（父高 auto），`max-height: calc(100% - 96px)` 被整条忽略——一条长回复把卡片
   撑到 1681px、顶边跑到视口外 y=-1108。改成 `inset: 0`（高度确定）+ `justify-content:

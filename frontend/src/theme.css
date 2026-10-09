@@ -5057,8 +5057,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
 :root[data-overlay] body { background: transparent; }
 /* 透明层：卡外一律透传。它铺满整个网页那一格，所以卡片能拖到任何位置。 */
 .chat-float-layer { position: absolute; inset: 0; }
-/* 对话卡在独立透明 WKWebView 中，不能依赖 backdrop-filter 读取下面另一个 WKWebView；
-   使用稳定的浮层表面，避免网页底色透成灰块。 */
+/* 对话卡在独立透明 WKWebView 中：模糊由**壳侧原生磨砂**给（卡片正下方那块
+   NSVisualEffectView，跟着卡片矩形与圆角摆），网页里的 backdrop-filter 采不到
+   另一个 webview 的内容。所以这里只压一层浅色（毛玻璃档 --panel-glass），
+   让底下的模糊透出来——写近实色会把磨砂整个盖掉，等于回到"没有模糊"。 */
 .chat-float {
   position: absolute;
   display: flex;
@@ -5068,7 +5070,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   /* 浮层圆角用 --dsh-radius-floating（tokens 里浮层那一档），不是卡片那一档：
      用户报"圆角不符合规范，有点小"。 */
   border-radius: var(--dsh-radius-floating);
-  background: var(--panel-strong);
+  background: var(--panel-glass);
   box-shadow: var(--shadow-pop);
   color: var(--ink);
 }

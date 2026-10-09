@@ -162,6 +162,8 @@ extension MainWindowController {
     }
 
     /// 叠加层页面报上来的"可点矩形"（`composer-pill`）：胶囊之外要透传点击给网页。
+    /// 同一个矩形也是卡片那块原生磨砂的几何；`radius` 是页面按实际渲染的 border-radius
+    /// 报来的圆角（圆角的事实源在 tokens，壳里不写第二份）。
     func handleComposerPill(_ body: [String: Any]) {
         let d = (body["rect"] as? [String: Any]) ?? [:]
         composerOverlay.setPill(
@@ -171,7 +173,8 @@ extension MainWindowController {
                 width: d["w"] as? Double ?? 0,
                 height: d["h"] as? Double ?? 0
             ),
-            zoom: browserZoom
+            zoom: browserZoom,
+            radius: body["radius"] as? Double ?? 0
         )
     }
 
