@@ -15,6 +15,7 @@ npx tsc --noEmit --noUnusedLocals --noUnusedParameters   # 死代码门槛，应
 
 ## 样式（theme.css 唯一事实源）
 
+- 动样式或组件前先读 `docs/UI-SPEC.md §0`（外观、原则、不变式，含禁区 `.session-fade`）与 §1.1 的「明暗间刻意不变」清单。
 - 颜色/圆角/间距用语义变量（`--ink`/`--line`/`--fill` 等，token 派生）；新增数值先查 `tokens.css` 有无现成变量。
 - 圆角禁用 `999px` 级无穷值（WebKit 合成伪影，PITFALLS §1.1）；胶囊用高度值。
 - backdrop-filter 必须带 `-webkit-` 双前缀，且只加在浮层白名单（PITFALLS §1.3）。
