@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { Archive, ChevronDown, Ellipsis, Pin, Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
+import { comboFor } from "../keybinds";
 import { Spinner } from "./LoadingState";
 import { HoverScrollText } from "./HoverScrollText";
 import { wsGlyphIcon } from "./IconPicker";
@@ -224,6 +225,7 @@ function WorkspaceRow({
   onNewSession: () => void;
 }) {
   const { t } = useT();
+  const { keybinds } = useStore();
   // 行首槽位只显示"选过"的项目 glyph；没选就留空——行首摆一个首字母很怪，
   // 首字母只在切换条/命令面板/图标选择器里出现（用户定稿）。
   const Glyph = wsGlyphIcon(useWsIcon(wsId));
@@ -255,8 +257,14 @@ function WorkspaceRow({
         >
           <Ellipsis size={14} />
         </button>
-        {/* 同顶栏 ＋：只切到草稿页，首条消息发出才真正建会话 */}
-        <button className="ws-act" data-tip={t("新会话")} onClick={onNewSession}>
+        {/* 同顶栏 ＋：只切到草稿页，首条消息发出才真正建会话。
+            键帽走注册表（改键后跟着变），别写死「⌘N」。 */}
+        <button
+          className="ws-act"
+          data-tip={t("新会话")}
+          data-tip-keys={comboFor("new-session", keybinds)}
+          onClick={onNewSession}
+        >
           <Plus size={14} />
         </button>
       </span>

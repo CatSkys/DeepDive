@@ -45,6 +45,12 @@ export function CommandPaletteHost() {
     toggleReq = () => setOpen((v) => !v);
     return () => { openReq = null; toggleReq = null; };
   }, []);
+  // 面板一开就广播：hoverArming 据此复位——浮层在静止的指针下面出现，那一行的
+  // 悬停高亮不是指针选的，得灭掉（此前这条事件只有监听没有发送方，⌘K 开着指
+  // 针停在某行上的话，那行会一直亮着）。
+  useEffect(() => {
+    if (open) dispatchAppEvent(DD_EVENTS.commandPalette);
+  }, [open]);
   return open ? <CommandPalette onClose={() => setOpen(false)} /> : null;
 }
 

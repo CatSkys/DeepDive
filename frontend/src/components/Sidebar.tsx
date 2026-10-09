@@ -6,6 +6,7 @@ import { Folder, Settings } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { useStore } from "../store";
 import { useT } from "../i18n";
+import { comboFor } from "../keybinds";
 import { openNewProjectDialog } from "./NewProjectDialog";
 import { WsSwitcher } from "./WsSwitcher";
 import { SidebarSessionList } from "./SidebarSessionList";
@@ -74,7 +75,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         <button
           className="settings-entry"
           data-tip={t("设置")}
-          data-tip-keys="⌘,"
+          data-tip-keys={comboFor("open-settings", store.keybinds)}
           aria-label={t("设置")}
           onClick={onOpenSettings}
         >

@@ -124,6 +124,9 @@ interface Store {
   /** 全局热键（唤起面板）启用开关，壳偏好持久化；关 = 系统级注销。 */
   hotkeyOn: boolean;
   setHotkeyOn: (v: boolean) => void;
+  /** 全局热键当前值的键帽串（壳推 spec，见 prefs.ts）。 */
+  hotkey: string;
+  setHotkey: (v: string) => void;
   /** 自动归档开关（客户端偏好，localStorage；默认关——归档单向不可撤销）。 */
   autoArchive: boolean;
   setAutoArchive: (v: boolean) => void;
@@ -225,6 +228,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     appearance, setAppearance,
     keybinds, setKeybinds,
     hotkeyOn, setHotkeyOn,
+    hotkey, setHotkey,
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,
   } = prefs;
@@ -665,6 +669,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setKeybinds,
     hotkeyOn,
     setHotkeyOn,
+    hotkey,
+    setHotkey,
       switchWorkspace,
       createWorkspace,
       createSession,
@@ -703,7 +709,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

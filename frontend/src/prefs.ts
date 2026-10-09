@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
 import { onHostEvent, sendToShell } from "./host";
-import { parseKeybinds, type KeybindOverrides } from "./keybinds";
+import { formatHotkeySpec, parseKeybinds, type KeybindOverrides } from "./keybinds";
 
 /** 单值本地偏好读取：无 localStorage（受限环境）或值非法一律回退默认。 */
 function readPref<T>(key: string, fallback: T, parse: (raw: string) => T | null): T {
@@ -39,6 +39,9 @@ export function usePrefs() {
   const [appearance, setAppearanceState] = useState<"system" | "light" | "dark">("dark");
   const [keybinds, setKeybindsState] = useState<KeybindOverrides>({});
   const [hotkeyOn, setHotkeyOnState] = useState(true);
+  // 全局热键的当前值（壳推 spec，这里格式化成键帽串）。初值是壳默认 option+space 的显示串
+  // ——事实源在 AppPaths.swift 的 hotkey 默认值；prefs 一到就被真值替换。
+  const [hotkey, setHotkey] = useState("⌥Space");
   // 浏览器缩放（壳侧读 UserDefaults：壳在 didCommit 时要按它排版）
   const [browserZoomDefault, setBrowserZoomDefaultState] = useState(1);
   const [browserZoomRememberSite, setBrowserZoomRememberSiteState] = useState(true);
@@ -92,13 +95,14 @@ export function usePrefs() {
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
       if (p.appearance === "system" || p.appearance === "light" || p.appearance === "dark") setAppearanceState(p.appearance);
       if (typeof p.keybinds === "string") setKeybindsState(parseKeybinds(p.keybinds));
       if (typeof p.hotkeyOn === "boolean") setHotkeyOnState(p.hotkeyOn);
+      if (typeof p.hotkey === "string" && p.hotkey) setHotkey(formatHotkeySpec(p.hotkey));
       if (typeof p.onboarding === "string") setOnboardingState(p.onboarding);
       if (typeof p.browserZoomDefault === "number") setBrowserZoomDefaultState(p.browserZoomDefault);
       if (typeof p.browserZoomRememberSite === "boolean") setBrowserZoomRememberSiteState(p.browserZoomRememberSite);
@@ -120,6 +124,7 @@ export function usePrefs() {
     appearance, setAppearance,
     keybinds, setKeybinds,
     hotkeyOn, setHotkeyOn,
+    hotkey, setHotkey,
     browserZoomDefault, setBrowserZoomDefault,
     browserZoomRememberSite, setBrowserZoomRememberSite,
     browserTabSleepMinutes, setBrowserTabSleepMinutes,

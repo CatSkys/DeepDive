@@ -58,7 +58,7 @@
 | `BrowserControl.swift` | 浏览器控制面：桥的 `POST /browser-control`（boot token 鉴权）→ 落到 `BrowserTabs` 里的某个标签（命令带 `tabId`，缺省当前标签）。只提供原语（导航/观察/截图/执行 JS/轮询等待（页面脚本或壳里的状态）/标签增删选），高层语义在 JS 侧 SDK 里 |
 | `BrowserUseInstaller.swift` | 把随包的 `BrowserUse/`（MCP server + 浏览器 SDK）装进 `<support>/browser-use/`（幂等），并给出引擎 spawn 要注入的控制面 URL 与 token；组合行由 `EngineSupervisor.enginePatchBody` 写 |
 | `MainWindowController.swift` | 玻璃主窗 + 透明 WKWebView + 显隐防闪烁 + 标题栏拖拽 rect 表 + 空 NSToolbar（Tahoe 大圆角档，勿删，`PITFALLS §4.7`）+ 视图菜单的页面缩放 |
-| `MainMenu.swift` | 主菜单结构（文件/编辑/视图/窗口/帮助）：只连选择器，动作实现在 AppDelegate/MainWindowController。**可改键位不写死**——应用内快捷键（⌘N/⌘K/⌘B/⌘D/⌘⇧E/⌘,）的事实源是前端键位注册表，菜单项不占这些键，否则改键失效（文件头有完整说明） |
+| `MainMenu.swift` | 主菜单结构（文件/编辑/视图/窗口/帮助）：只连选择器，动作实现在 AppDelegate/MainWindowController。**可改键位不写死**——应用内快捷键（⌘N/⌘K/⌘B/⌘D/⇧⌘E/⌘,）的事实源是前端键位注册表 `keybinds.ts`，菜单项不占这些键，否则改键失效（文件头有完整说明）。**菜单占用的组合是注册表保留清单的镜像**：改菜单要同步 `RESERVED_COMBOS`，否则用户能绑到一个永远不响的键（PITFALLS §4.28） |
 | `BridgeServer.swift` + `MiniHTTPServer.swift` | 同源托管：SPA 静态文件 + `/api` 反代 + WS 盲中继（Origin 全等校验）。**监听端口固定**（`DSHAppPrefs.bridgePort` 记住，被占才退回内核分配）：端口即网页 origin，换了 origin 前端的 localStorage（用量缓存/自动化任务/置顶未读）就等于清零（PITFALLS §4.17）。移动端远程面复用同一套分发与中继，只是监听在 `0.0.0.0` 且先过配对闸 |
 | `RemoteAccess.swift` + `QRCode.swift` | 移动端远程访问：配对令牌（落地即轮换）、设备台账（逐台解绑）、局域网地址探测、CoreImage 生成二维码。只管「谁被允许进来」，HTTP 面复用 BridgeServer；安全边界见 `SPEC-MOBILE-REMOTE.md` |
 | `BotChannelPlugin.swift` | IM 渠道插件（`@xmanrui/dsh-im`，社区包 MIT，引脚 `scripts/dsh-im-version.txt`）安装器：把随包的整棵依赖闭包铺进 `profiles/web` 并登记 profile bundles，引擎启动后挂上 `POST /api/dsh-im/<渠道>`（Bot Channel 与机器人管理走这条）。幂等 + 失败不阻塞引擎（与 `ChatImportPlugin` 同款纪律） |

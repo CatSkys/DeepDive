@@ -3,10 +3,10 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "c379ab479ed6b2cb",
+      "id": "a54f47f82bcaad5a",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1058 lines > 300"
+      "detail": "1067 lines > 300"
     },
     {
       "id": "81fe5c5d6c7a7050",
@@ -81,10 +81,10 @@
       "detail": "401 lines > 300"
     },
     {
-      "id": "95dd2f406462f346",
+      "id": "4818f35fb69487f7",
       "rule": "file-lines",
       "file": "frontend/src/components/SettingsPage.tsx",
-      "detail": "719 lines > 300"
+      "detail": "591 lines > 300"
     },
     {
       "id": "3cbe20737e2447b6",
@@ -147,10 +147,10 @@
       "detail": "449 lines > 300"
     },
     {
-      "id": "bb1834e54e11cb99",
+      "id": "6601b3fd7cb57205",
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
-      "detail": "711 lines > 300"
+      "detail": "717 lines > 300"
     },
     {
       "id": "b5a2dc790aada236",

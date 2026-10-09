@@ -4371,7 +4371,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
   background: var(--fill-strong);
   color: var(--ink);
   font-size: var(--dsh-font-size-xs);
+  font-weight: 500;
   line-height: 1;
+  /* 键帽是 <kbd>：UA 样式表给 kbd 钉了 font-family: monospace（元素上的声明压过
+     body 的继承），于是修饰符走 Menlo——⌘ 比字母矮一截、⇧ 只有一半宽，键帽看着
+     "小而怪"（用户 2026-10-09 报；实测 computed fontFamily 就是 monospace）。
+     符号的字形只在系统 UI 字体里是按字母高度对好的，这里显式钉回去（§1.19）。 */
+  font-family: var(--dsh-font-ui-family);
   /* Raycast 同款键帽：描边方块 + 底缘微投影 */
   box-shadow: 0 1px 0 rgba(0,0,0,.28);
 }

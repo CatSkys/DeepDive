@@ -69,10 +69,13 @@ final class HotkeyRecorderWindow: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Red close button: take the monitor down with the window.
+    /// Red close button: take the monitor down with the window — and report the
+    /// cancellation (nil), or the settings page's chip stays stuck on
+    /// "recording" with no way back.
     func windowWillClose(_ notification: Notification) {
         if let m = monitor { NSEvent.removeMonitor(m) }
         monitor = nil
+        onResult?(nil)
     }
 
     /// NSEvent → "option+space" style spec. Key names come from

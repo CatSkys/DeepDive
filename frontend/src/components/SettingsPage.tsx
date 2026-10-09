@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { BrowserSection } from "../settings/BrowserSection";
+import { HotkeysSection } from "../settings/HotkeysSection";
+import { onHostEvent, sendToShell } from "../host";
 import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
 import { ImportSection } from "../settings/ImportSection";
@@ -21,8 +23,6 @@ import { AgentPresetCard } from "../settings/AgentPresetCard";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { RETENTIONS, retentionLabel, type ArchiveRetention } from "../autoArchive";
 import { api } from "../api";
-import { comboFor, comboOf, FIXED_KEYBINDS, isOff, KEYBIND_DEFS } from "../keybinds";
-import { onHostEvent, sendToShell } from "../host";
 import { useStore } from "../store";
 import { sessionTitle } from "../session/sessionTitle";
 import { buildArchivedGroups, filterArchivedGroups, UNGROUPED, type ArchivedGroup } from "../settings/archivedGroups";
@@ -406,134 +406,6 @@ function ApprovalSection() {
   );
 }
 
-/* ───────────────────────── 快捷键 ───────────────────────── */
-
-function HotkeysSection() {
-  const { t, tt } = useT();
-  const store = useStore();
-  const { keybinds, setKeybinds } = store;
-  const [hotkey, setHotkey] = useState("⌥Space");
-  const [recording, setRecording] = useState(false);
-  const [recordingId, setRecordingId] = useState<string | null>(null);
-  const [conflict, setConflict] = useState<string | null>(null);
-  useEffect(() => onHostEvent((cmd, payload) => {
-    if (cmd === "hotkeyChanged" && payload) {
-      setHotkey((payload as { spec?: string }).spec ?? hotkey);
-      setRecording(false);
-    }
-  }), [hotkey]);
-
-  // 录制期捕获任意按键：Esc 取消；与他启用项冲突则拒绝并提示
-  useEffect(() => {
-    if (!recordingId) return;
-    const onKey = (e: KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.key === "Escape") { setRecordingId(null); setConflict(null); return; }
-      const combo = comboOf(e);
-      if (!combo) return;
-      const clash = KEYBIND_DEFS.find(
-        (d) => d.id !== recordingId && !isOff(d.id, keybinds) && comboFor(d.id, keybinds) === combo,
-      );
-      if (clash) { setConflict(tt("与「{n}」冲突", "Conflicts with \"{n}\"", { n: tt(clash.zh, clash.en) })); return; }
-      setConflict(null);
-      setKeybinds({ ...keybinds, [recordingId]: { combo } });
-      setRecordingId(null);
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [recordingId, keybinds, setKeybinds, t, tt]);
-
-  const toggleBind = (id: string) =>
-    setKeybinds({ ...keybinds, [id]: { combo: comboFor(id, keybinds), off: !isOff(id, keybinds) } });
-
-  return (
-    <>
-      <div className={rowsCss.section}>
-        <div className={rowsCss.sectionTitle}>{t("全局唤起")}</div>
-        <div className={rowsCss.sectionIntro}>{t("系统级热键，任何应用在前台都能唤起面板并聚焦输入框。")}</div>
-        <div className={rowsCss.hotkeyCard}>
-          <div className={rowsCss.hotkeyRow}>
-            <div className={rowsCss.rowIdentity}>
-              <div className={rowsCss.rowName} style={!store.hotkeyOn ? { color: "var(--ink-3)" } : undefined}>
-                {t("唤起面板")}
-                <span className={rowsCss.metaTag}>{t("全局")}</span>
-              </div>
-            </div>
-            <div className={rowsCss.rowActions}>
-              <button
-                type="button"
-                className={`${rowsCss.comboChip}${recording ? ` ${rowsCss.recording}` : ""}${!store.hotkeyOn ? ` ${rowsCss.off}` : ""}`}
-                onClick={() => { if (store.hotkeyOn && !recording) { setRecording(true); sendToShell({ type: "rebind-hotkey" }); } }}
-                aria-label={t("修改快捷键")}
-              >
-                {recording ? t("录制中…") : hotkey}
-              </button>
-              <Toggle on={store.hotkeyOn} onChange={(v) => store.setHotkeyOn(v)} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className={rowsCss.section}>
-        <div className={rowsCss.sectionTitle}>{t("应用快捷键")}</div>
-        <div className={rowsCss.sectionIntro}>{t("点组合即可改键；右侧开关停用该键位。")}</div>
-        <div className={rowsCss.hotkeyCard}>
-          {KEYBIND_DEFS.map((def) => {
-            const combo = comboFor(def.id, keybinds);
-            const off = isOff(def.id, keybinds);
-            const isRec = recordingId === def.id;
-            return (
-              <div key={def.id} className={rowsCss.hotkeyRow}>
-                <div className={rowsCss.rowIdentity}>
-                  <div className={rowsCss.rowName} style={off ? { color: "var(--ink-3)" } : undefined}>{tt(def.zh, def.en)}</div>
-                </div>
-                <div className={rowsCss.rowActions}>
-                  <button
-                    type="button"
-                    className={`${rowsCss.comboChip}${isRec ? ` ${rowsCss.recording}` : ""}${off ? ` ${rowsCss.off}` : ""}`}
-                    onClick={() => { setConflict(null); setRecordingId(def.id); }}
-                    aria-label={t("修改快捷键")}
-                  >
-                    {isRec ? t("按下新组合…") : combo}
-                  </button>
-                  <Toggle on={!off} onChange={() => toggleBind(def.id)} />
-                </div>
-              </div>
-            );
-          })}
-          {conflict && <div className={rowsCss.modelError} style={{ padding: "0 14px 10px" }}>{conflict}</div>}
-        </div>
-      </div>
-
-      <div className={rowsCss.section}>
-        <div className={rowsCss.sectionTitle}>{t("固定键位")}</div>
-        <div className={rowsCss.sectionIntro}>{t("由各自交互面固定的键位，不可改键。")}</div>
-        <div className={rowsCss.hotkeyCard}>
-          {FIXED_KEYBINDS.map((group) => (
-            <div key={group.zh}>
-              <div className={rowsCss.hotkeyRow}>
-                <div className={rowsCss.rowIdentity}>
-                  <div className={rowsCss.rowCaption}>{tt(group.zh, group.en)}</div>
-                </div>
-              </div>
-              {group.items.map((item) => (
-                <div key={`${group.zh}:${item.keys}:${item.zh}`} className={rowsCss.hotkeyRow}>
-                  <div className={rowsCss.rowIdentity}>
-                    <div className={rowsCss.rowName}>{tt(item.zh, item.en)}</div>
-                  </div>
-                  <div className={rowsCss.rowActions}>
-                    <span className={rowsCss.comboChip}>{item.keys}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
 
 /* ───────────────────────── 已归档的聊天 ───────────────────────── */
 

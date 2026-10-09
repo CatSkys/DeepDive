@@ -834,6 +834,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "keybinds": DSHAppPrefs.keybinds,
             "onboarding": DSHAppPrefs.onboarding,
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
+            // 热键 spec（"option+space"）：SPA 据此显示当前热键，不带它设置页只能显示
+            // 一个写死的默认值（改过热键、重启后就对不上）
+            "hotkey": AppConfig.load().hotkey,
             "schemeDark": windowController.isEffectiveDark,
             "home": AppPaths.harnessHome.path,
             "browserZoomDefault": Double(BrowserZoom.defaultZoom()),
@@ -855,11 +858,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.pushHostCommand("hotkeyChanged", payload: json)
     }
 
+    /// 录制窗结束（成功带新 spec，取消/关窗带 nil）：两条路都要回一条消息——SPA 的
+    /// 组合键钮在等这一条才能从「录制中…」退出来（取消时静默返回，那枚钮会一直卡在
+    /// 录制态，用户只能重开设置页）。
     private func beginHotkeyRecording() {
         let recorder = HotkeyRecorderWindow()
         recorder.onResult = { [weak self] spec in
             guard let self else { return }
-            guard let spec else { return }
+            guard let spec else {
+                self.windowController.pushHostCommand("hotkeyRecordingEnded", payload: "{}")
+                return
+            }
             var cfg = AppConfig.load()
             cfg.hotkey = spec
             cfg.save()
