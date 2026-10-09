@@ -1934,8 +1934,9 @@ button {
    圆角取高度的一半：**不能用 999px**（PITFALLS §1.1，WebKit 合成伪影）。 */
 .queue-pill {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  /* 展开时是两段：头行（状态词+文本+操作）+ 附件带（UserAttachments）；常态只有头行 */
+  flex-direction: column;
+  justify-content: center;
   box-sizing: border-box;
   height: 24px;
   width: fit-content;
@@ -1953,7 +1954,10 @@ button {
               background-color var(--dur-fast) var(--ease-out);
 }
 .queue-pill[data-expanded] {
-  height: 30px;
+  /* 高度改由内容定：头行 22 + 附件带（有附件时多一条缩略图/文件 chip 带） */
+  height: auto;
+  min-height: 30px;
+  padding: 4px 6px 4px 10px;
   /* min-width 顶到整行：短消息也长成整行（width 是 fit-content，只有 min-width
      能把它撑满） */
   min-width: 100%;
@@ -1961,6 +1965,9 @@ button {
   border-radius: 15px;
   background: var(--fill-strong);
 }
+.queue-head { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+/* 附件带在胶囊里左对齐（用户消息里那条是右对齐的），与头行同一条左缘 */
+.queue-pill .user-attachments { justify-content: flex-start; margin: 6px 0 0; }
 /* 状态词（排队中/插话中）：一行小字，说明这条挂在哪个队列上——「立即」只在
    next-turn 有效，插话中的行没有那枚钮，靠这行字解释为什么。 */
 .queue-state {

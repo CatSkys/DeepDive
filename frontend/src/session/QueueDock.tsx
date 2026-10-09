@@ -13,6 +13,7 @@ import { t, tt } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
 import { useCompositionGuard } from "../useCompositionGuard";
 import { IconCheckOutline16 } from "../components/Icons";
+import { UserAttachments } from "../components/AttachmentImage";
 import type { SessionQueuedItem } from "../types";
 import { queueAttachments, queueLabel, queueText } from "./format";
 
@@ -78,6 +79,7 @@ export function QueueDock({ sessionId, items }: { sessionId: string; items: Sess
               if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(item.id, false); }
             }}
           >
+            <div className="queue-head">
             {editing ? (
               <input
                 className="queue-edit"
@@ -99,6 +101,13 @@ export function QueueDock({ sessionId, items }: { sessionId: string; items: Sess
                 {/* 不带 data-tip：胶囊上的悬浮注释与胶囊里的文本重复（用户定稿去掉） */}
                 <span className="queue-text">{label}</span>
               </>
+            )}
+            </div>
+            {/* 附件（图片缩略图 / 文件图标+名字）只在**展开**时显示，用的是用户消息
+                那条附件带（UserAttachments）——排队里看到的就是发出去的样子；
+                没有附件的消息它自己返回 null。 */}
+            {expanded && !editing && (
+              <UserAttachments sessionId={sessionId} content={item.message.content} />
             )}
             {expanded && (
               <div className="queue-actions">

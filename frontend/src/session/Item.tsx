@@ -4,7 +4,7 @@
 
 import { t } from "../i18n";
 import { ThinkingState } from "../components/ThinkingState";
-import { UserAttachments } from "../components/AttachmentImage";
+import { UserAttachments, messageContentOf } from "../components/AttachmentImage";
 import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, StreamingAgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
@@ -30,7 +30,7 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
     return (
       <div className="msg-block user">
         <UserBubble text={textOf(item.event)} />
-        <UserAttachments sessionId={sessionId} event={item.event} />
+        <UserAttachments sessionId={sessionId} content={messageContentOf(item.event)} />
         {/* DSH user chrome: copy + clock only, NO branch, clock="start" */}
         <MessageMeta
           time={item.time}

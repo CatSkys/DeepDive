@@ -54,17 +54,30 @@ describe("QueueDock", () => {
     await waitFor(() => expect(screen.queryByText("立即")).toBeNull());
   });
 
-  it("带附件的排队消息：胶囊显示附件标记，编辑钮禁用（引擎的排队编辑只收文本，改一次就丢附件）", async () => {
-    const withImage: SessionQueuedItem = {
+  it("带附件的排队消息：常态折成标记，展开后出真附件带（缩略图/文件 chip），编辑钮禁用", async () => {
+    const withFiles: SessionQueuedItem = {
       id: "e",
       rpcId: "rpc-e",
       placement: "queued",
-      message: { id: "e", content: [{ type: "image", attachment: { attachmentId: "att-1", mediaType: "image/png" } }] },
+      message: {
+        id: "e",
+        content: [
+          { type: "image", attachment: { attachmentId: "att-1", mediaType: "image/png" } },
+          { type: "file", attachment: { attachmentId: "att-2", name: "报告.pdf", bytes: 2048 } },
+        ],
+      },
     };
-    render(<QueueDock sessionId="s" items={[withImage]} />);
-    expect(screen.getByText("图片")).toBeTruthy();
+    const { container } = render(<QueueDock sessionId="s" items={[withFiles]} />);
+    // 常态：只有文本标记（图片 / 文件），没有真附件带
     expect(screen.getByText("排队中")).toBeTruthy();
-    screen.getByText("图片").click();
+    expect(screen.getByText("图片 · 文件")).toBeTruthy();
+    expect(container.querySelector(".user-attachments")).toBeNull();
+    // 展开：出附件带——图片缩略图 + 文件 chip（图标 + 名字 + 大小）
+    screen.getByText("图片 · 文件").click();
+    expect(await screen.findByText("报告.pdf")).toBeTruthy();
+    expect(container.querySelector(".user-attachments .user-attachment-thumb")).toBeTruthy();
+    expect(container.querySelector(".user-attachments .user-file-chip")).toBeTruthy();
+    // 引擎的排队编辑只收文本（改一次就丢附件）：编辑钮禁用，立即/删除照旧
     const edit = await screen.findByLabelText("编辑排队消息");
     expect((edit as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByLabelText("删除排队消息")).toBeTruthy();

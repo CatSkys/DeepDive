@@ -38,20 +38,21 @@ function sizeText(bytes?: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function blocksOf(event: unknown): ContentBlock[] {
+/** user/message 事件里的内容块（排队区手里只有队列快照的 content，没有事件本体）。 */
+export function messageContentOf(event: unknown): ContentBlock[] {
   const content = (event as { data?: { content?: ContentBlock[] } } | undefined)?.data?.content;
   return Array.isArray(content) ? content : [];
 }
 
-function attachmentsOf(event: unknown): Att[] {
-  return blocksOf(event)
+function attachmentsOf(content: readonly ContentBlock[]): Att[] {
+  return content
     .filter((b) => b.type === "image" && !!(b as { attachment?: Att }).attachment)
     .map((b) => (b as { attachment: Att }).attachment);
 }
 
 /** 0.1.5 通用文件块：{type:'file', attachment:{attachmentId,name,bytes}}。 */
-function fileRefsOf(event: unknown): Array<{ attachmentId: string; name: string; bytes?: number }> {
-  return blocksOf(event)
+function fileRefsOf(content: readonly ContentBlock[]): Array<{ attachmentId: string; name: string; bytes?: number }> {
+  return content
     .filter((b) => b.type === "file" && !!(b as { attachment?: { attachmentId: string; name?: string; bytes?: number } }).attachment)
     .map((b) => {
       const a = (b as { attachment: { attachmentId: string; name?: string; bytes?: number } }).attachment;
@@ -59,10 +60,12 @@ function fileRefsOf(event: unknown): Array<{ attachmentId: string; name: string;
     });
 }
 
-export function UserAttachments({ sessionId, event }: { sessionId: string; event: unknown }) {
+/** 用户消息的附件带：图片出缩略图（点击 Lightbox）、通用文件出图标+名字+大小。
+ *  传的是**内容块**而不是事件本体：排队区手里只有队列快照里的 content，没有事件。 */
+export function UserAttachments({ sessionId, content }: { sessionId: string; content: readonly ContentBlock[] }) {
   const [lightbox, setLightbox] = useState<{ src: string; name?: string } | null>(null);
-  const atts = attachmentsOf(event);
-  const files = fileRefsOf(event);
+  const atts = attachmentsOf(content);
+  const files = fileRefsOf(content);
   if (atts.length === 0 && files.length === 0) return null;
   return (
     <div className="user-attachments">
