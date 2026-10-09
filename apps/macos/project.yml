@@ -45,8 +45,8 @@ targets:
         CFBundleName: DeepDive
         CFBundleDisplayName: DeepDive
         CFBundleIdentifier: com.deepdive.app
-        CFBundleVersion: "0.1.0"
-        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "0.1.1"
+        CFBundleShortVersionString: "0.1.1"
         LSUIElement: false
         NSHumanReadableCopyright: "MIT"
         NSHighResolutionCapable: true
