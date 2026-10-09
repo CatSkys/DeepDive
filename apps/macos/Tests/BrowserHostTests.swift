@@ -80,16 +80,27 @@ final class BrowserHostTests: XCTestCase {
 
     // MARK: - 悬浮输入框叠加层（浏览器全屏时浮在网页之上）
 
+    /// 显示中的叠加层 + 它那一格（面板网页区）的几何：真实顺序是壳先 `show`，
+    /// 页面 300ms 内才把卡片矩形报回来——所以测 pill/磨砂的用例都得先过 `show`。
+    /// 面板那一格在内容坐标 (100,100) 600x300、内容高 800 → 视图 frame (100,400,600,300)。
+    private func shownHost() -> ComposerOverlayHost {
+        let host = ComposerOverlayHost()
+        let parent = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+        host.install(in: parent)
+        host.show(sessionId: "s1", rect: NSRect(x: 100, y: 100, width: 600, height: 300),
+                  contentHeight: 800, zoom: 1, origin: "http://127.0.0.1:1")
+        return host
+    }
+
+    /// 页面里卡片在 (20,100) 100x50，圆角 20（CSS px，左上原点、y 向下）。
+    private let cardPill = NSRect(x: 20, y: 100, width: 100, height: 50)
+
     func testPillRectMapsIntoSupersuperCoordinatesAndHitTests() {
         // hitTest 收到的点是**父视图坐标**：漏掉视图自身 frame 的位移、或 Y 翻错方向，
         // 都不会报错，只表现为"卡片点不动、别的某块反而吃掉网页点击"——实测用户报
         // "关闭键没用"。这里把换算结果与 hitTest 的真行为一起钉住。
-        let host = ComposerOverlayHost()
-        let parent = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
-        host.install(in: parent)
-        host.view.frame = NSRect(x: 100, y: 400, width: 600, height: 300)   // 面板那一格
-        // 页面里卡片在 (20,100) 100x50（左上原点、y 向下）
-        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1, radius: 20)
+        let host = shownHost()
+        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)
 
         // 父坐标 = 视图位移 + 视图高度翻转：y = 400 + 300 - (100+50) = 550
         XCTAssertEqual(host.view.interactiveRect, NSRect(x: 120, y: 550, width: 100, height: 50))
@@ -105,17 +116,14 @@ final class BrowserHostTests: XCTestCase {
         // 磨砂块是卡片底下那块原生模糊：它必须与可点矩形**重合**（多出来就是一块压在
         // 网页上的磨砂，少一块就是卡片角上没磨砂），圆角也必须与卡片一致（不一致会把
         // 方角露在卡片圆角外）。两者都走同一套换算与同一个缩放。
-        let host = ComposerOverlayHost()
-        let parent = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
-        host.install(in: parent)
-        host.view.frame = NSRect(x: 100, y: 400, width: 600, height: 300)
-        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1, radius: 20)
+        let host = shownHost()
+        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)
         XCTAssertEqual(host.frost.frame, host.view.interactiveRect)
         XCTAssertEqual(host.frost.layer?.cornerRadius, 20)
         XCTAssertFalse(host.frost.isHidden)
 
         // 页面缩放跟着一起缩（圆角值来自页面，单位是 CSS px）
-        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1.5, radius: 20)
+        host.setPill(cssRect: cardPill, zoom: 1.5, radius: 20)
         XCTAssertEqual(host.frost.frame, host.view.interactiveRect)
         XCTAssertEqual(host.frost.layer?.cornerRadius, 30)
 
@@ -125,17 +133,34 @@ final class BrowserHostTests: XCTestCase {
     }
 
     func testFrostStaysHiddenUntilPageReportsCard() {
-        // 卡片显隐与矩形都来自页面上报：在页面报回来之前不能摆出上一轮（或上一个会话）
+        // 卡片矩形的唯一来源是页面上报：页面报回来之前不能摆出上一轮（或上一个会话）
         // 的磨砂——那就是一块贴在网页上的假糊。
-        let host = ComposerOverlayHost()
-        let parent = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
-        host.install(in: parent)
-        host.setPill(cssRect: NSRect(x: 20, y: 100, width: 100, height: 50), zoom: 1, radius: 20)
+        let host = shownHost()
+        XCTAssertTrue(host.frost.isHidden)
+        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)
         XCTAssertFalse(host.frost.isHidden)
 
-        host.show(sessionId: "s2", rect: NSRect(x: 0, y: 0, width: 300, height: 200), contentHeight: 800, zoom: 1, origin: "http://127.0.0.1:1")
+        // 换会话重新显示（等同于收起再叫出来）：又得等页面重新报
+        host.show(sessionId: "s2", rect: NSRect(x: 100, y: 100, width: 600, height: 300),
+                  contentHeight: 800, zoom: 1, origin: "http://127.0.0.1:1")
         XCTAssertTrue(host.frost.isHidden)
         XCTAssertEqual(host.frost.frame, .zero)
+    }
+
+    func testHiddenCardIgnoresLatePillReport() {
+        // 壳侧收起（地址栏那颗「对话」按钮、退出全屏）只改壳自己的可见性，页面并不知道，
+        // 它按 300ms 一条继续报同一颗卡片的矩形。迟到的上报一旦被采纳，磨砂会重新贴在
+        // 网页上不走（用户报"关闭对话后背景还在"），旧矩形还会变成一块看不见的死区。
+        let host = shownHost()
+        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)
+        XCTAssertFalse(host.frost.isHidden)
+
+        host.hide()
+        host.setPill(cssRect: cardPill, zoom: 1, radius: 20)   // 迟到的那一条
+        XCTAssertTrue(host.frost.isHidden)
+        XCTAssertEqual(host.frost.frame, .zero)
+        XCTAssertEqual(host.view.interactiveRect, .zero)
+        XCTAssertNil(host.view.hitTest(NSPoint(x: 170, y: 575)))
     }
 
     func testOverlayIsTransparentAndStartsHidden() {
