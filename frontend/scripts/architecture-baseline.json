@@ -63,10 +63,10 @@
       "detail": "574 lines > 300"
     },
     {
-      "id": "a048c32abe5dcbfe",
+      "id": "67773846545a6191",
       "rule": "file-lines",
       "file": "frontend/src/components/composer/useComposerAttachments.ts",
-      "detail": "400 lines > 300"
+      "detail": "404 lines > 300"
     },
     {
       "id": "e92bd9496830ebef",
@@ -93,10 +93,10 @@
       "detail": "542 lines > 300"
     },
     {
-      "id": "7817c379ae56da83",
+      "id": "0eca8ebce2691ed0",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1012 lines > 300"
+      "detail": "1014 lines > 300"
     },
     {
       "id": "243df8aa0448c8ca",

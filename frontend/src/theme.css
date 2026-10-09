@@ -1916,7 +1916,7 @@ button {
 /* ---- 排队区（QueueDock）：会话框上方一叠**胶囊** ----
    数据源：session/control 的 queue 帧；操作走 session.updateQueue。一条挂起消息
    一枚胶囊（排队 next-turn 与插话中 next-step 都摆，故两种都能编辑/删除）；平时
-   只有一行文本，hover 才浮出操作——所以常态下它是"一条消息"，不是"一张带按钮的卡"。
+   只有一行文本，点击才展开出操作——所以常态下它是"一条消息"，不是"一张带按钮的卡"。
    材质走弹出面板统一配方（UI-SPEC §1.5 半透明 + §2.4 磨砂）：悬浮区叠在消息流上，
    必须 blur，禁止实底色板。 */
 .queue-dock-wrap {
@@ -4452,6 +4452,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 .user-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; justify-content: flex-end; }
 .user-attachment-thumb {
+  position: relative;
   width: 92px;
   height: 68px;
   border-radius: var(--dsh-radius-keycap);
@@ -4463,8 +4464,24 @@ input:focus, textarea:focus, select:focus { outline: none; }
   justify-content: center;
   cursor: zoom-in;
 }
-.user-attachment-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.user-attachment-thumb img, .user-attachment-thumb video { width: 100%; height: 100%; object-fit: cover; }
 .user-attachment-loading { width: 100%; height: 100%; background: var(--fill); animation: pulse var(--loop-breathe) ease-in-out infinite; }
+/* 视频缩略图上的播放角标：叠在任意亮度的帧上，配色不随主题（与 .lightbox-close 同语言） */
+.user-attachment-play {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .5);
+  color: #fff;
+}
+/* Lightbox 里的视频：按视口适配，控件交给播放器自己 */
+.lightbox-video { max-width: 94vw; max-height: 94vh; flex: none; margin: auto; }
 
 .md .md-math .katex { font-size: 1.02em; }
 .md-math-block { margin: 6px 0; overflow-x: auto; }

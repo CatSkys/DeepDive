@@ -9,6 +9,7 @@ import { pickAttachments, type PickedAttachment } from "../../host";
 import { formatMention } from "../../atGrammar";
 import { tt } from "../../i18n";
 import { api } from "../../api";
+import { rememberUploadedMedia } from "../../session/localMedia";
 import { uuid } from "../../uuid";
 import { DD_EVENTS, onAppEvent } from "../../events";
 import { alertDialog } from "../DialogHost";
@@ -225,6 +226,9 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     }).then(
       (r) => {
         cancels.current.delete(id);
+        // 视频留一份本地 blob URL：文件部件的字节引擎拿不回来，缩略图靠它（见 session/localMedia）
+        // 判名用回执里的 name（引擎净化过的），与排队/消息里渲染时的那个名字同源
+        rememberUploadedMedia(r.file.attachmentId, r.file.name, file);
         setAttachments((prev) => prev.map((a): Attachment =>
           a.id === id && a.kind === "file"
             // file 字节留着不清：引擎侧回执失效（FILE_NOT_STAGED）时要重传同一份字节

@@ -17,7 +17,14 @@ const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 const fitScale = (n: { w: number; h: number }, v: { w: number; h: number }) =>
   Math.min(1, (v.w * 0.94) / n.w, (v.h * 0.94) / n.h);
 
-export function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onClose: () => void }) {
+export function Lightbox({ src, alt, kind = "image", onClose }: {
+  src: string;
+  alt?: string;
+  /** image（默认）= 可缩放平移的放大图；video = 交给播放器自己的控件播。 */
+  kind?: "image" | "video";
+  onClose: () => void;
+}) {
+  const isImage = kind === "image";
   const bodyRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef(1);
   /** 上一次的适配倍率（视口变化时判断当前是否处于适配态）。 */
@@ -37,11 +44,11 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onC
 
   // 视口变化重算适配倍率：当前正处在适配态就跟着变，用户手动缩放过的不动
   useEffect(() => {
-    if (!natural) return;
+    if (!isImage || !natural) return;
     const fit = fitScale(natural, viewport);
     setZoomState((z) => (Math.abs(z - fitRef.current) < 1e-6 ? fit : z));
     fitRef.current = fit;
-  }, [natural, viewport]);
+  }, [isImage, natural, viewport]);
 
   /** 改倍率：以画面中心为不动点，缩放后把同一画面点摆回原位置。 */
   const setZoom = (next: number) => {
@@ -74,13 +81,14 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      else if (!isImage) return; // 视频没有缩放档
       else if (e.key === "+" || e.key === "=") setZoom(zoomRef.current * ZOOM_STEP);
       else if (e.key === "-" || e.key === "_") setZoom(zoomRef.current / ZOOM_STEP);
       else if (e.key === "0") setZoom(1);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]); // 倍率经 zoomRef 读，不随它重挂
+  }, [isImage, onClose]); // 倍率经 zoomRef 读，不随它重挂
 
   /** 按住拖拽平移（放大到超出视口时用）；位移超过阈值即不算"点击"。 */
   const onMouseDown = (e: React.MouseEvent) => {
@@ -107,10 +115,11 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onC
     <div
       className="lightbox"
       role="dialog"
-      aria-label={alt || "image"}
+      aria-label={alt || kind}
       onClick={() => { if (!draggedRef.current) onClose(); }}
     >
-      <div className="lightbox-body" ref={bodyRef} onMouseDown={onMouseDown}>
+      <div className="lightbox-body" ref={bodyRef} onMouseDown={isImage ? onMouseDown : undefined}>
+        {isImage ? (
         <img
           src={src}
           alt={alt ?? ""}
@@ -126,9 +135,13 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onC
           }}
           style={natural ? { width: Math.max(1, Math.round(natural.w * zoom)) } : undefined}
         />
+        ) : (
+          // 点视频本身不关浮层（交给播放器），点周边才关
+          <video className="lightbox-video" src={src} controls autoPlay playsInline onClick={(e) => e.stopPropagation()} />
+        )}
       </div>
       {/* 缩放胶囊：配色与关闭钮同语言（叠在任意亮度的图上，不随主题） */}
-      <div className="lightbox-zoom" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+      {isImage && <div className="lightbox-zoom" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
         <button type="button" aria-label={t("缩小")} onClick={() => setZoom(zoom / ZOOM_STEP)}>−</button>
         <button
           type="button"
@@ -137,7 +150,7 @@ export function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onC
           data-tip={t("恢复 100%")}
         >{Math.round(zoom * 100)}%</button>
         <button type="button" aria-label={t("放大")} onClick={() => setZoom(zoom * ZOOM_STEP)}>+</button>
-      </div>
+      </div>}
       <button
         className="lightbox-close"
         aria-label={t("关闭")}

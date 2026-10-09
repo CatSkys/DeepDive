@@ -102,47 +102,47 @@ export function QueueDock({ sessionId, items }: { sessionId: string; items: Sess
                 <span className="queue-text">{label}</span>
               </>
             )}
+              {expanded && (
+                <div className="queue-actions">
+                  {editing ? (
+                    <>
+                      <button className="queue-btn" data-tip={t("保存排队消息")} aria-label={t("保存排队消息")} onClick={() => saveEdit(item.id)}>
+                        <IconCheckOutline16 size={13} />
+                      </button>
+                      <button className="queue-btn" data-tip={t("取消编辑")} aria-label={t("取消编辑")} onClick={() => setEditingId(null)}>
+                        <X size={13} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {item.placement === "queued" && (
+                        <button className="queue-now" data-tip={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
+                          <ArrowUp size={13} />
+                          {t("立即")}
+                        </button>
+                      )}
+                      <button
+                        className="queue-btn"
+                        data-tip={editable ? t("编辑排队消息") : t("带附件的排队消息不能编辑（排队编辑只收文本）")}
+                        aria-label={t("编辑排队消息")}
+                        disabled={!editable}
+                        onClick={() => { setEditingId(item.id); setDraft(text); }}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button className="queue-btn" data-tip={t("删除排队消息")} aria-label={t("删除排队消息")} onClick={() => void mutate(item.id, { kind: "remove" })}>
+                        <Trash2 size={13} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             {/* 附件（图片缩略图 / 文件图标+名字）只在**展开**时显示，用的是用户消息
                 那条附件带（UserAttachments）——排队里看到的就是发出去的样子；
                 没有附件的消息它自己返回 null。 */}
             {expanded && !editing && (
               <UserAttachments sessionId={sessionId} content={item.message.content} />
-            )}
-            {expanded && (
-              <div className="queue-actions">
-                {editing ? (
-                  <>
-                    <button className="queue-btn" data-tip={t("保存排队消息")} aria-label={t("保存排队消息")} onClick={() => saveEdit(item.id)}>
-                      <IconCheckOutline16 size={13} />
-                    </button>
-                    <button className="queue-btn" data-tip={t("取消编辑")} aria-label={t("取消编辑")} onClick={() => setEditingId(null)}>
-                      <X size={13} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {item.placement === "queued" && (
-                      <button className="queue-now" data-tip={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
-                        <ArrowUp size={13} />
-                        {t("立即")}
-                      </button>
-                    )}
-                    <button
-                      className="queue-btn"
-                      data-tip={editable ? t("编辑排队消息") : t("带附件的排队消息不能编辑（排队编辑只收文本）")}
-                      aria-label={t("编辑排队消息")}
-                      disabled={!editable}
-                      onClick={() => { setEditingId(item.id); setDraft(text); }}
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button className="queue-btn" data-tip={t("删除排队消息")} aria-label={t("删除排队消息")} onClick={() => void mutate(item.id, { kind: "remove" })}>
-                      <Trash2 size={13} />
-                    </button>
-                  </>
-                )}
-              </div>
             )}
           </div>
         );

@@ -483,6 +483,8 @@ export const EN: Record<string, string> = {
   "插话中": "Steering",
   "图片": "Image",
   "文件": "File",
+  "{n} 个视频": "{n} videos",
+  "{n} 个音频": "{n} audio files",
   "{n} 张图片": "{n} images",
   "{n} 个文件": "{n} files",
   "带附件的排队消息不能编辑（排队编辑只收文本）": "Queued messages with attachments cannot be edited (queue edits accept text only)",

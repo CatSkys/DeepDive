@@ -7,6 +7,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { QueueDock } from "../session/QueueDock";
 import type { SessionQueuedItem } from "../types";
+import { rememberLocalMedia } from "../session/localMedia";
 
 const item = (id: string, text: string, placement: "queued" | "steering"): SessionQueuedItem => ({
   id,
@@ -87,6 +88,30 @@ describe("QueueDock", () => {
     expect((edit as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByLabelText("删除排队消息")).toBeTruthy();
     expect(screen.getByText("立即")).toBeTruthy();
+  });
+
+  it("视频附件：本端有字节时出缩略图（首帧 + 播放角标），没有则退回文件 chip", async () => {
+    const withVideo: SessionQueuedItem = {
+      id: "v",
+      rpcId: "rpc-v",
+      placement: "queued",
+      message: { id: "v", content: [{ type: "file", attachment: { attachmentId: "att-v", name: "clip.mp4", bytes: 1024 } }] },
+    };
+    // 没有本端字节（历史回放/重启后）：退回按类型图标的 chip，不摆空白框
+    const bare = render(<QueueDock sessionId="s" items={[withVideo]} />);
+    screen.getByText("视频").click();
+    expect(await screen.findByText("clip.mp4")).toBeTruthy();
+    expect(bare.container.querySelector(".user-file-chip")).toBeTruthy();
+    expect(bare.container.querySelector(".user-attachment-thumb")).toBeNull();
+    bare.unmount();
+    // 本端刚上传过（blob URL 在）：出缩略图 + 播放角标
+    rememberLocalMedia("att-v", "blob:probe");
+    const { container } = render(<QueueDock sessionId="s" items={[withVideo]} />);
+    screen.getByText("视频").click();
+    await screen.findByText("立即"); // 等展开这一帧落定，再查附件带的形状
+    expect(container.querySelector(".user-attachments .user-attachment-thumb")).toBeTruthy();
+    expect(container.querySelector(".user-attachment-play")).toBeTruthy();
+    expect(container.querySelector(".user-file-chip")).toBeNull();
   });
 
   it("展开后点编辑：文本装进输入框（保存/取消两枚钮）", async () => {

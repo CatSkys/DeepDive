@@ -2,6 +2,7 @@
 // 从 SessionView.tsx 整体搬迁（R-007）；只做字符串搬运，不碰事件语义。
 import { t, tt } from "../i18n";
 import type { SessionQueuedItem } from "../types";
+import { resolveFileIconName } from "./fileIcons";
 
 /// Derived DSH-style tool summary from arguments (first line of the payload).
 export function summarizeArgs(args: string): string {
@@ -118,15 +119,31 @@ export function queueAttachments(item: SessionQueuedItem): { images: number; fil
   return { images, files };
 }
 
-/** 胶囊那一行显示什么：文本部件拼接，附件部件折成标记（图片 / 文件，多个带 ×N）。
- *  纯附件消息因此不会渲染成空胶囊。 */
+/** 胶囊那一行显示什么：文本部件拼接，附件部件折成标记。标记**按类型**说人话
+ *  （图片 / 视频 / 音频 / 文件，同类的合并计数），与 chip 的图标同一套判定
+ *  （resolveFileIconName）。纯附件消息因此不会渲染成空胶囊。 */
 export function queueLabel(item: SessionQueuedItem): string {
   const parts: string[] = [];
   const text = queueText(item);
   if (text) parts.push(text);
-  const { images, files } = queueAttachments(item);
+  const { images } = queueAttachments(item);
   if (images > 0) parts.push(images > 1 ? tt("{n} 张图片", "{n} images", { n: images }) : t("图片"));
-  if (files > 0) parts.push(files > 1 ? tt("{n} 个文件", "{n} files", { n: files }) : t("文件"));
+  // 文件部件按类型归并：视频/音频各成一类，其余归「文件」
+  const buckets: Array<{ kind: "video" | "audio" | "file"; n: number }> = [];
+  for (const part of item.message.content) {
+    if (part.type !== "file") continue;
+    const name = (part as { attachment?: { name?: string } }).attachment?.name ?? "";
+    const icon = resolveFileIconName(name);
+    const kind = icon === "video" ? "video" as const : icon === "audio" ? "audio" as const : "file" as const;
+    const found = buckets.find((b) => b.kind === kind);
+    if (found) found.n += 1;
+    else buckets.push({ kind, n: 1 });
+  }
+  for (const b of buckets) {
+    if (b.kind === "video") parts.push(b.n > 1 ? tt("{n} 个视频", "{n} videos", { n: b.n }) : t("视频"));
+    else if (b.kind === "audio") parts.push(b.n > 1 ? tt("{n} 个音频", "{n} audio files", { n: b.n }) : t("音频"));
+    else parts.push(b.n > 1 ? tt("{n} 个文件", "{n} files", { n: b.n }) : t("文件"));
+  }
   return parts.join(" · ");
 }
 
