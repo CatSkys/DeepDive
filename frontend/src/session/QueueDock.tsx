@@ -16,6 +16,12 @@ import { IconCheckOutline16 } from "../components/Icons";
 import type { SessionQueuedItem } from "../types";
 import { queueAttachments, queueLabel, queueText } from "./format";
 
+
+/** 一行状态词：排队中（还在 next-turn 等轮边界）/ 插话中（已递给当前轮，下一步生效）。 */
+function stateLabel(item: SessionQueuedItem): string {
+  return item.placement === "steering" ? t("插话中") : t("排队中");
+}
+
 export function QueueDock({ sessionId, items }: { sessionId: string; items: SessionQueuedItem[] }) {
   /** 展开的那一枚（同一时刻只展开一枚）。 */
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -88,7 +94,11 @@ export function QueueDock({ sessionId, items }: { sessionId: string; items: Sess
                 }}
               />
             ) : (
-              <span className="queue-text" data-tip={expanded ? undefined : label}>{label}</span>
+              <>
+                <span className="queue-state">{stateLabel(item)}</span>
+                {/* 不带 data-tip：胶囊上的悬浮注释与胶囊里的文本重复（用户定稿去掉） */}
+                <span className="queue-text">{label}</span>
+              </>
             )}
             {expanded && (
               <div className="queue-actions">

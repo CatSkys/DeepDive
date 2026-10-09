@@ -1961,6 +1961,14 @@ button {
   border-radius: 15px;
   background: var(--fill-strong);
 }
+/* 状态词（排队中/插话中）：一行小字，说明这条挂在哪个队列上——「立即」只在
+   next-turn 有效，插话中的行没有那枚钮，靠这行字解释为什么。 */
+.queue-state {
+  flex: none;
+  font-size: var(--dsh-font-size-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
 .queue-text {
   flex: 1;
   min-width: 0;

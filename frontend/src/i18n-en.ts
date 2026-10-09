@@ -479,6 +479,8 @@ export const EN: Record<string, string> = {
   "关闭": "Close",
   "返回": "Back",
   "打开方式": "Open With",
+  "排队中": "Queued",
+  "插话中": "Steering",
   "图片": "Image",
   "文件": "File",
   "{n} 张图片": "{n} images",

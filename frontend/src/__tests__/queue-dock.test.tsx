@@ -18,10 +18,12 @@ const item = (id: string, text: string, placement: "queued" | "steering"): Sessi
 afterEach(cleanup);
 
 describe("QueueDock", () => {
-  it("常态是小胶囊：只有文本，没有状态注释、也没有操作钮", () => {
+  it("常态是小胶囊：状态词 + 文本，没有操作钮、也没有悬浮注释", () => {
     render(<QueueDock sessionId="s" items={[item("a", "改一下标题", "queued")]} />);
     expect(screen.getByText("改一下标题")).toBeTruthy();
-    expect(screen.queryByText("排队中")).toBeNull();
+    expect(screen.getByText("排队中")).toBeTruthy();
+    // 胶囊上不挂 data-tip（悬浮注释与胶囊里的文本重复，用户定稿去掉）
+    expect(screen.getByText("改一下标题").getAttribute("data-tip")).toBeNull();
     expect(screen.queryByText("立即")).toBeNull();
     expect(screen.queryByLabelText("编辑排队消息")).toBeNull();
     expect(screen.queryByLabelText("删除排队消息")).toBeNull();
@@ -37,6 +39,7 @@ describe("QueueDock", () => {
 
   it("点击展开：插话中的消息照样可编辑/删除，只是没有立即（引擎会拒）", async () => {
     render(<QueueDock sessionId="s" items={[item("b", "先别打包", "steering")]} />);
+    expect(screen.getByText("插话中")).toBeTruthy();
     screen.getByText("先别打包").click();
     expect(await screen.findByLabelText("编辑排队消息")).toBeTruthy();
     expect(screen.getByLabelText("删除排队消息")).toBeTruthy();
@@ -60,6 +63,7 @@ describe("QueueDock", () => {
     };
     render(<QueueDock sessionId="s" items={[withImage]} />);
     expect(screen.getByText("图片")).toBeTruthy();
+    expect(screen.getByText("排队中")).toBeTruthy();
     screen.getByText("图片").click();
     const edit = await screen.findByLabelText("编辑排队消息");
     expect((edit as HTMLButtonElement).disabled).toBe(true);
