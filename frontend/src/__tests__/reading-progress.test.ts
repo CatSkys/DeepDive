@@ -2,7 +2,7 @@
 // 读数走根元素的 --session-read（DOM 通道），所以这里在 jsdom 里钉住边界。
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { publishReadingProgress, readingProgressOf } from "../session/readingProgress";
+import { publishReadingProgress, readingProgressOf, setReadingTarget } from "../session/readingProgress";
 
 /** 造一个滚动容器的读数来源：内容 3000、视口 1000 → 可滚 2000。 */
 const box = (scrollTop: number) => ({ scrollTop, scrollHeight: 3000, clientHeight: 1000 });
@@ -27,18 +27,36 @@ describe("readingProgressOf 读数", () => {
 });
 
 describe("publishReadingProgress 发布", () => {
+  const target = document.createElement("div");
+
   beforeEach(() => {
-    document.documentElement.style.removeProperty("--session-read");
+    setReadingTarget(null);
+    target.style.removeProperty("--session-read");
   });
 
-  it("写进根元素的 --session-read（侧栏灰底宽度的来源）", () => {
+  it("写到登记的那一层（侧栏容器），不写根元素——根上写等于每帧重算整棵可见树", () => {
+    setReadingTarget(target);
     publishReadingProgress(0.42);
-    expect(document.documentElement.style.getPropertyValue("--session-read")).toBe("0.42");
+    expect(target.style.getPropertyValue("--session-read")).toBe("0.42");
+    expect(document.documentElement.style.getPropertyValue("--session-read")).toBe("");
   });
 
-  it("同一个读数不重写：滚动每帧都调，根元素样式一变整棵可见树要重算", () => {
+  it("没人登记时什么都不写（侧栏不在就没人在看）", () => {
+    publishReadingProgress(0.5);
+    expect(target.style.getPropertyValue("--session-read")).toBe("");
+  });
+
+  it("登记时补一次现值：重挂侧栏不必等下一次滚动", () => {
+    setReadingTarget(target);
+    publishReadingProgress(0.7);
+    setReadingTarget(null);
+    expect(target.style.getPropertyValue("--session-read")).toBe("0.7");
+  });
+
+  it("同一个读数不重写：滚动每帧都调，样式重算不该跟着每帧来一次", () => {
+    setReadingTarget(target);
     publishReadingProgress(0.42);
-    const spy = vi.spyOn(document.documentElement.style, "setProperty");
+    const spy = vi.spyOn(target.style, "setProperty");
     publishReadingProgress(0.42);
     expect(spy).not.toHaveBeenCalled();
     publishReadingProgress(0.43);

@@ -2954,9 +2954,14 @@ button {
    圆角与裁切也归它（overflow: hidden），这里只负责填。 */
 .row-read {
   position: absolute; left: 0; top: 0; bottom: 0; z-index: 1;
-  width: calc(var(--session-read, 0) * 100%);
+  /* 满宽铺好、用 transform 缩放进度（不是动画 width）：width 每帧触发排版，快速滚动
+     时就是"卡卡的"（用户 2026-10-09 对比 Search："没有那么丝滑"）；transform 只走合成。
+     灰底是纯色空盒，等比拉伸没有任何观感代价。 */
+  width: 100%;
+  transform: scaleX(var(--session-read, 0));
+  transform-origin: left center;
   background: var(--ink); opacity: .06; pointer-events: none;
-  transition: width var(--dur-fast) var(--ease-out);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 /* 行内三段内容抬到灰底之上（灰底只当底，别冲淡标题与时间） */
 .task-row > .row-slot, .task-row > .row-main, .task-row > .row-actions { position: relative; z-index: 2; }

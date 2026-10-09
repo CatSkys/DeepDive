@@ -15,6 +15,7 @@ import { useSelectionGlide } from "./useSelectionGlide";
 import { bucketLabel, fmtTime } from "../session/sessionTime";
 import { sessionTitle } from "../session/sessionTitle";
 import { alertDialog, confirmDialog } from "./DialogHost";
+import { setReadingTarget } from "../session/readingProgress";
 import type { SessionSummary } from "../types";
 
 /** 一组会话：label 为分组标题（"" = 不出标题行）。 */
@@ -159,6 +160,8 @@ export function SidebarSessionList({
   const setSessionsRef = (el: HTMLDivElement | null) => {
     sessionsFade.ref(el);
     glide.setContainer(el);
+    // 阅读进度写到这一层（不是根元素）：自定义属性一变的样式重算就锁在这几十行里
+    setReadingTarget(el);
   };
 
   const ws = activeWs;
