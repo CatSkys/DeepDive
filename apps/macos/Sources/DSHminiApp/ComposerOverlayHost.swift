@@ -14,6 +14,23 @@ final class ComposerOverlayView: WKWebView {
         guard interactiveRect.width > 1, interactiveRect.height > 1 else { return nil }
         return interactiveRect.contains(point) ? super.hitTest(point) : nil
     }
+
+    // 拖放与鼠标是**两条通道**：AppKit 挑拖放目标不看 hitTest，只看"最前面、矩形盖住这点、
+    // 且注册了这些类型"（WebKit 内部视图自己注册了文件类型）。卡片收起后这一层留在原地
+    // （alpha 0、rect 已清空）照样会把落在那一块的文件拖入吃掉，下面的 SPA 再也收不到
+    // （同 BrowserHostView 那条：用户 2026-10-09 报"界面无法拖动导入文件"）。没卡片就不当
+    // 拖放目标。
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        interactiveRect.width > 1 ? super.draggingEntered(sender) : []
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        interactiveRect.width > 1 ? super.draggingUpdated(sender) : []
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        interactiveRect.width > 1 ? super.performDragOperation(sender) : false
+    }
 }
 
 final class ComposerOverlayHost: NSObject {

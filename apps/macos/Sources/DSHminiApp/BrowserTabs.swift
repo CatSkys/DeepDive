@@ -120,6 +120,10 @@ final class BrowserTabs {
         applySlot(contentHeight: contentHeight, zoom: zoom)
     }
 
+    /// 这一格现在要不要显示（SPA 推的槽位说了算）：窗口层序跟着它走，见
+    /// `MainWindowController.restackBrowserStage`。
+    var slotVisible: Bool { slot?.visible ?? false }
+
     /// 按缓存的槽位与当前 bounds/pageZoom 重算当前标签的 frame（窗口尺寸/缩放变化时调）。
     func applySlot(contentHeight: CGFloat, zoom: CGFloat) {
         self.contentHeight = contentHeight

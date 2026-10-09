@@ -32,12 +32,30 @@ extension MainWindowController {
         browserTabs.onPickCancelled = { [weak self] in self?.pushVeils() }
         BrowserShield.shared.compile()
         browserTabs.attach(to: browserStage)
+        // 开机即闲置：舞台先待在 SPA 之下（见 restackBrowserStage）
+        restackBrowserStage(visible: false)
+    }
+
+    /// 浏览器舞台的层序跟着"这一格现在要不要显示"走：
+    ///   要显示 → 舞台在 SPA webView **之上**（网页是原生视图，恒在 SPA 的 HTML 之上）
+    ///   不显示 → 舞台退到 SPA webView **之下**
+    ///
+    /// 为什么闲置时不能留在上面（用户 2026-10-09 报"界面无法拖动导入文件"）：舞台里那块
+    /// 宿主是 alpha 0 的 WKWebView（不能 isHidden——隐藏会让 takeSnapshot 失败，见
+    /// BrowserHost.place），而闲置时它按"默认视口 1280×720"摆在窗口左下——一块悬在 SPA
+    /// 上面的大矩形。WebKit 的内部视图注册了拖放类型，AppKit 挑拖放目标按"最前面、且矩形
+    /// 盖住这一点"算，于是整窗的文件拖入都被它吃掉，SPA 的窗口级 dragenter/drop 再也收不到。
+    /// 退到下面之后最前面的候选回到 SPA webView 自己（`alphaValue = 0` 保证退下去也不会从
+    /// 透明的 SPA 里透出来）；面板真开着时再抬回上面，网页照旧盖住 SPA。
+    func restackBrowserStage(visible: Bool) {
+        stackBrowserStage(browserStage, relativeTo: webView, visible: visible)
     }
 
     /// 按当前内容高度与 pageZoom 重算当前标签的 frame（槽位本身存在 BrowserTabs 里；
     /// 窗口尺寸与应用缩放变化时都调它）。
     func applyBrowserSlot() {
         browserTabs.applySlot(contentHeight: browserContainerHeight, zoom: browserZoom)
+        restackBrowserStage(visible: browserTabs.slotVisible)
     }
 
     /// 原生视图槽位（frontend/src/nativeSlot.ts）：把 CSS px 的 rect 交给 BrowserHost，
@@ -58,6 +76,7 @@ extension MainWindowController {
             interactive: body["interactive"] as? Bool ?? false
         )
         browserTabs.setSlot(slot, contentHeight: browserContainerHeight, zoom: browserZoom)
+        restackBrowserStage(visible: slot.visible)
     }
 
     /// 槽位消息里那组 `{x,y,w,h}`（CSS px，窗口坐标）。

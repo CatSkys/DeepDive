@@ -208,6 +208,35 @@ final class BrowserHostTests: XCTestCase {
         XCTAssertEqual(host.view.alphaValue, 0)
     }
 
+    // MARK: - 舞台层序（闲置必须让开拖放目标）
+
+    func testStageStacksBelowSpaWhenIdleAndAboveWhenVisible() {
+        // 层序规则：显示时舞台在 SPA 之上（网页盖住 SPA），闲置时退到 SPA 之下——那块
+        // alpha 0 的宿主悬在 SPA 上面会把整窗的文件拖入吃掉（用户报"无法拖动导入文件"）。
+        let glass = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let webView = NSView(frame: glass.bounds)
+        glass.addSubview(webView)
+        let stage = NSView(frame: glass.bounds)
+        glass.addSubview(stage)
+
+        stackBrowserStage(stage, relativeTo: webView, visible: false)
+        XCTAssertLessThan(glass.subviews.firstIndex(of: stage)!, glass.subviews.firstIndex(of: webView)!)
+        XCTAssertFalse(stage.isHidden, "退层序就够了，不能靠 isHidden（隐藏会让 takeSnapshot 失败）")
+
+        stackBrowserStage(stage, relativeTo: webView, visible: true)
+        XCTAssertGreaterThan(glass.subviews.firstIndex(of: stage)!, glass.subviews.firstIndex(of: webView)!)
+    }
+
+    func testStackDoesNothingWhenParentsDiffer() {
+        // 还没挂到同一父上时别动手（舞台尚未 install）
+        let glass = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let webView = NSView(frame: glass.bounds)
+        glass.addSubview(webView)
+        let orphan = NSView()
+        stackBrowserStage(orphan, relativeTo: webView, visible: true)
+        XCTAssertNil(orphan.superview)
+    }
+
     // MARK: - 组合行（app 自有 overlay 里的内置 MCP server）
 
     func testPatchRowPinsPathsAndSecretReferences() {

@@ -236,9 +236,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         webView.autoresizingMask = [.width, .height]
         glass.addSubview(webView)
 
-        // 浏览器舞台加在 webView **之后** = 网页恒在 SPA 之上：当前标签的 WKWebView 盖住
-        // SPA 挖的那一格，点击归它自己（缩略图态由 hitTest 让位，见 BrowserHostView）。
-        // 初始不可见，等前端推槽位。舞台里的接线在 MainWindowController+Browser.swift。
+        // 浏览器舞台：**显示时**在 webView 之后 = 网页恒在 SPA 之上：当前标签的 WKWebView
+        // 盖住 SPA 挖的那一格，点击归它自己（让位态由 hitTest 让位，见 BrowserHostView）。
+        // 层序**跟着槽位走**（闲置时退到 SPA 之下——那块 alpha 0 的宿主悬在上面会把整窗的
+        // 文件拖入吃掉，见 restackBrowserStage），这里只给初始顺序：初始不可见，等前端推槽位。
+        // 舞台里的接线在 MainWindowController+Browser.swift。
         browserStage.frame = glass.bounds
         browserStage.autoresizingMask = [.width, .height]
         glass.addSubview(browserStage)

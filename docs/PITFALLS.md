@@ -704,6 +704,29 @@
   `e.key` 是"产出的字符"，被布局与修饰键改写过；数字、标点、字母都可能变成别的字符。
 - 输入框聚焦时仍然放行给文本框（⌥数字在那里就是打特殊字符），只在非输入焦点下劫持。
 
+### 4.35 透明 webview 悬在 SPA 上面会**吃掉文件拖入**：hitTest 只管鼠标，拖放走另一条通道
+- 事故（2026-10-09 用户报"界面无法拖动导入文件"）：SPA 的窗口级 `dragenter`/`drop` 一行没改，
+  在浏览器里合成一次拖放照样出蒙版与附件 chip，但真机上把文件拖进窗口**毫无反应**。
+- 根因：浏览器那一格的原生宿主是**挂在 SPA webView 之上的 WKWebView**（`browserStage` 加在
+  `webView` 之后 = 网页恒在 SPA 之上）。面板关着时它按"默认视口 1280×720"摆在窗口左下
+  （尺寸是给 agent 截图用的，见 `BrowserHost.place`），`alphaValue = 0` 但**不能 `isHidden`**
+  （隐藏会让 `takeSnapshot` 失败，实测过）。于是窗口里悬着一块 1280×720 的隐形 webview。
+- 关键判据：**AppKit 挑拖放目标不看 `hitTest`**——按"最前面、矩形盖住这一点、且注册了这些
+  拖放类型"选（WebKit 的内部视图自己注册了文件类型）。那块宿主于是把整窗的文件拖入全吃了，
+  下面的 SPA 永远收不到；而**鼠标点击照样正常**（点击走 `hitTest`，让位态返回 nil）——这正是
+  "看着没坏、就是拖不进来"的原因。
+- 处置两条，缺一条仍会漏：
+  ① **闲置时把整个舞台退到 SPA webView 之下**（`MainWindowController.restackBrowserStage`
+     ← `stackBrowserStage`，随槽位可见性切换；`alphaValue = 0` 保证退下去不会从透明的 SPA
+     里透出来）。最前面的候选因此回到 SPA webView 自己。**不能改用 `isHidden`**：那条路会把
+     agent 的截图打死（上面那条约束）。
+  ② **让位态在拖放上也要让**：`BrowserHostView` / `ComposerOverlayView` 在"不收输入"
+     （`acceptsInput == false` / `interactiveRect` 空）时，`draggingEntered/Updated` 回 `[]`、
+     `performDragOperation` 回 `false`——它们仍可能处在最前面（缩略图态、卡片收起后留下的旧矩形）。
+- 一般化：**凡是"透明/隐形的 webview 或视图悬在别的东西上面"，除了 `hitTest` 还要处理拖放**；
+  两者是两套命中判定，只做前者等于只修了一半（表现是"点得动、拖不进"）。层序能退就退
+  （比逐个拦可靠），退不了才在视图上拦。
+
 ---
 
 ## 5. 版本角标 / 交付自检
