@@ -22,6 +22,10 @@ export const EN: Record<string, string> = {
   "新建项目": "New project",
   "没有匹配的项目": "No matching projects",
   "无结果": "No results",
+  // 命令面板的分组标签（⌘K）
+  "操作": "Actions",
+  "当前会话": "Current Session",
+  "项目": "Projects",
 
   // 审查面板（预览面板的审查面）
   "审查": "Review",

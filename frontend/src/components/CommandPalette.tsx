@@ -1,13 +1,14 @@
-// 全局搜索面板（⌘K，版式照参考图 Search for actions）：操作 / 项目 / 会话 /
-// 设置分区统一搜索，回车直达。OpenHost 挂 App 根部，openCommandPalette() /
+// 全局搜索面板（⌘K，版式照参考图 Search for actions）：操作 / 当前会话 / 项目 /
+// 会话 / 设置分区统一搜索，回车直达。OpenHost 挂 App 根部，openCommandPalette() /
 // toggleCommandPalette() 供键位与其它入口调用。无全屏遮罩：浮层挂 top-center，
-// 点外部 / Esc 关闭。
-import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+// 点外部 / Esc 关闭。分组标签复用 .section-label（§2.1 SectionLabel），不用全宽横线；
+// 列表两端渐隐走 FadeEdge（§2.1）；行 hover 走全站门控口径（§1.10）。
+import type { CSSProperties, ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ReactNode } from "react";
 import { Archive, Check, Gauge, MessageSquare, Mic, PanelLeft, Pin, Plus, Search, Settings, SquarePen } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 import { useStore } from "../store";
 import { getWsIcon, useWsIcon } from "../wsIcons";
 import { useT } from "../i18n";
@@ -57,6 +58,12 @@ interface Row {
   run: () => void;
 }
 
+/** 一个分区：标题（渲染成 .section-label）+ 行（idx 是全局行下标，键盘上下与滚动定位用它）。 */
+interface PaletteGroup {
+  title: string;
+  rows: Array<{ row: Row; idx: number }>;
+}
+
 function CommandPalette({ onClose }: { onClose: () => void }) {
   const { t, tt, lang } = useT();
   const store = useStore();
@@ -64,9 +71,9 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   useWsIcon(store.workspaces[0]?.workspaceId);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const fade = useEdgeFade("y");
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -76,7 +83,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [onClose]);
 
-  const groups = useMemo<Array<Row[]>>(() => {
+  const groups = useMemo<PaletteGroup[]>(() => {
     const q = query.trim().toLowerCase();
     const hit = (label: string) => !q || label.toLowerCase().includes(q);
     const actions: Row[] = [
@@ -155,15 +162,29 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         };
       });
 
-    return [actions, current, projects, sessions, settings].filter((g) => g.length > 0);
+    // 分组顺序即参考图的分区顺序；空组不出现。行下标在这里一次编好（渲染时不再找下标）。
+    const candidates: Array<[string, Row[]]> = [
+      [t("操作"), actions],
+      [t("当前会话"), current],
+      [t("项目"), projects],
+      [t("会话"), sessions],
+      [t("设置"), settings],
+    ];
+    const out: PaletteGroup[] = [];
+    let n = 0;
+    for (const [title, rows] of candidates) {
+      if (rows.length === 0) continue;
+      out.push({ title, rows: rows.map((row) => ({ row, idx: n++ })) });
+    }
+    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, store.workspaces, store.sessions, store.activeWorkspaceId, store.activeSessionId, store.keybinds, store.pinned, lang, t]);
 
-  const flat = useMemo(() => groups.flat(), [groups]);
+  const flat = useMemo(() => groups.flatMap((g) => g.rows.map((r) => r.row)), [groups]);
   // 过滤结果变化时把焦点收回首项
   useEffect(() => { setActive(0); }, [query]);
   useEffect(() => {
-    const el = listRef.current?.querySelector(`[data-idx="${active}"]`);
+    const el = panelRef.current?.querySelector(`[data-idx="${active}"]`);
     el?.scrollIntoView({ block: "nearest" });
   }, [active]);
 
@@ -182,7 +203,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   return createPortal(
     <div className={css.panel} ref={panelRef} role="dialog" aria-label={t("搜索")}>
       <div className={css.searchRow}>
-        <Search size={15} />
+        <Search size={16} />
         <input
           ref={inputRef}
           autoFocus
@@ -192,34 +213,30 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
           onKeyDown={onInputKeyDown}
         />
       </div>
-      <div className={css.list} ref={listRef}>
-        {groups.map((rows, gi) => (
-          <div key={gi}>
-            {gi > 0 && <div className={css.sep} />}
-            {rows.map((row) => {
-              const idx = flat.indexOf(row);
-              return (
-                <button
-                  key={row.key}
-                  type="button"
-                  data-idx={idx}
-                  className={`${css.row}${idx === active ? ` ${css.active}` : ""}`}
-                  style={{ "--i": idx } as CSSProperties}
-                  onMouseEnter={() => setActive(idx)}
-                  onClick={() => runRow(row)}
-                >
-                  <span className={css.rowIcon}>{row.icon}</span>
-                  <span className={css.rowLabel}>{row.label}</span>
-                  {row.activeMark && <Check size={14} className={css.check} />}
-                  {row.combo && (
-                    <span className="tip-keys-row">
-                      {[...row.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+      <div className={`${css.list} fade-y`} ref={fade.ref} {...fadeAttrs(fade.fade)}>
+        {groups.map((group) => (
+          <Fragment key={group.title}>
+            <div className="section-label">{group.title}</div>
+            {group.rows.map(({ row, idx }) => (
+              <button
+                key={row.key}
+                type="button"
+                data-idx={idx}
+                className={`${css.row}${idx === active ? ` ${css.active}` : ""}`}
+                style={{ "--i": idx } as CSSProperties}
+                onClick={() => runRow(row)}
+              >
+                <span className={css.rowIcon}>{row.icon}</span>
+                <span className={css.rowLabel}>{row.label}</span>
+                {row.activeMark && <Check size={14} className={css.check} />}
+                {row.combo && (
+                  <span className="tip-keys-row">
+                    {[...row.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
+                  </span>
+                )}
+              </button>
+            ))}
+          </Fragment>
         ))}
         {flat.length === 0 && <div className={css.empty}>{t("无结果")}</div>}
       </div>
