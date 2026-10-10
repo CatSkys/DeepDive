@@ -36,9 +36,11 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   const todo = parseTodos(args);
   const isTodo = toolName === "todo_write" || toolName === "todos" || todo !== null;
   const isAsk = toolName === "ask_user_question" || toolName === "ask_user";
-  const isBash = toolName === "bash" || toolName === "terminal-bash";
+  // 终端族（bash/pwsh）共用命令摘要与终端展开体；摘要走 bashSummary
+  // （引擎 bash/pwsh 的必填 description 优先）
+  const isShell = toolName === "bash" || toolName === "terminal-bash" || toolName === "pwsh";
   const summary = (() => {
-    const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : isBash ? bashSummary(args) : isBrowserTool(toolName) ? browserSummary(args) : summarizeArgs(args);
+    const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : isShell ? bashSummary(args) : isBrowserTool(toolName) ? browserSummary(args) : summarizeArgs(args);
     return relativizePath(raw, cwd);
   })();
   const filePath = derivePath(toolName, args);
@@ -88,7 +90,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
           <div className="tool-body">
             {isTodo && todo !== null ? (
               <TodoList todos={todo.items} />
-            ) : isBash ? (
+            ) : isShell ? (
               <TerminalBlock command={commandOf(args)} output={output ?? ""} failed={failed} />
             ) : (
               <>

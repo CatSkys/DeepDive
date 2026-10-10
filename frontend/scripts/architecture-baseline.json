@@ -93,10 +93,10 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "32e152a5ec0c2d71",
+      "id": "a2dfa8799a8eea1b",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1032 lines > 300"
+      "detail": "1034 lines > 300"
     },
     {
       "id": "90411fea4b28cfed",
@@ -123,10 +123,10 @@
       "detail": "547 lines > 300"
     },
     {
-      "id": "f1ed9ce2409730c0",
+      "id": "d510156e6def9047",
       "rule": "file-lines",
       "file": "frontend/src/session/ToolRow.tsx",
-      "detail": "321 lines > 300"
+      "detail": "323 lines > 300"
     },
     {
       "id": "519ada29d5abcc2a",

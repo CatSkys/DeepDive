@@ -118,6 +118,8 @@ const TOOL_TITLE_ZH: Record<string, string> = {
   job_list: "查看后台任务",
   job_output: "后台任务输出",
   job_kill: "终止后台任务",
+  ralph: "目标循环",
+  list_subagent_models: "列出子智能体模型",
 };
 
 /** 本仓自带的浏览器控制 MCP（随包安装的 browser-use server）——对外一个产品名，

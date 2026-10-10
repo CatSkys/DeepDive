@@ -302,6 +302,8 @@ export const EN: Record<string, string> = {
   "子智能体消息": "Subagent Message",
   "中断子智能体": "Interrupt Subagent",
   "列出子智能体": "List Subagents",
+  "列出子智能体模型": "List Subagent Models",
+  "目标循环": "Goal Loop",
   "等待子智能体": "Wait for Subagent",
   "查看目标": "Get Goal",
   "创建目标": "Create Goal",
