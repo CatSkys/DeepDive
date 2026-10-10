@@ -777,27 +777,13 @@ button {
 }
 .hero-top .model:hover { background: var(--fill); color: var(--ink); }
 
-/* 模型与推理单入口（DSH：模型名 + 当前档位 + ⌄，菜单内两行导航） */
+/* 模型触发器（模型名 + ⌄）；档位不在这里，是输入框的胶囊 */
 .model.trigger {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-.model.trigger .effort-tag { margin-left: 6px; color: var(--ink-3); }
 .model.trigger svg { color: var(--ink-3); }
-.model-menu-back {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 8px 6px 0;
-  padding: 6px 8px;
-  border-radius: var(--dsh-radius-control);
-  color: var(--ink-2);
-  font-size: var(--dsh-font-size-base);
-  font-weight: 600;
-  text-align: left;
-}
-.model-menu-back:hover { background: var(--fill); color: var(--ink); }
 .model-menu-row.active svg { color: var(--ink); }
 
 /* 文件语言/类型图标（工具行文件名前，Material Icon Theme 素材，见 session/FileIcon.tsx）。
@@ -869,10 +855,6 @@ button {
   font-size: var(--dsh-font-size-xs);
   color: var(--ink-3);
 }
-.model-menu-row .chev { color: var(--ink-3); flex-shrink: 0; }
-
-/* ── 思考强度页：档位单选列表（行样式复用 .model-menu-row，选中行填充 + 行尾对勾） ── */
-.effort-head-value { font-size: var(--dsh-font-size-sm); font-weight: 400; color: var(--ink-3); margin-left: 4px; }
 :where(html[data-hover-armed]) .model-menu-row:hover { background: var(--row-hover); }
 .model-menu-row.active { background: var(--fill-strong); color: var(--ink-bright); }
 .model-menu-empty { padding: 16px; color: var(--ink-3); font-size: var(--dsh-font-size-base); text-align: center; }
@@ -1014,7 +996,7 @@ button {
 .composer {
   position: relative;
   display: grid;
-  grid-template-columns: 28px minmax(0,1fr) 28px;
+  grid-template-columns: 28px minmax(0,1fr) auto;
   align-items: center;
   gap: 4px;
   width: 100%;
@@ -1036,23 +1018,25 @@ button {
    共用第 2 列首行，自动排布会把它们互相挤到第 3 列/第 2 行去。 */
 .composer textarea { grid-column: 2; grid-row: 1; }
 .composer-icon { grid-column: 1; grid-row: 1; }
-.composer-mic, .composer-send { grid-column: 3; grid-row: 1; }
-/* 多行（参考图 4）：文本独占首行，＋/右钮换到底部行，圆角转大。多行 = 内容在
+/* 右侧控件簇占第 3 列（auto）：档位胶囊 / 容量圈 / 单槽位（发送·停止·听写）同住
+   一格 flex 行。三颗各自占列会长成「有档位 × 有容量圈 × 宽态」一张组合表，收成
+   一簇后换行只有一处规则（用户 2026-10-09：档位从模型菜单挪进输入框）。 */
+.composer-actions {
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  /* 簇内间距比输入框那条 4px 宽一档：思考强度是文字标签、容量圈与发送钮是 28px
+     圆钮，紧挨着读成一块；用户 2026-10-09 定稿"三个之间可以大些"。 */
+  gap: 12px;
+}
+/* 多行（参考图 4）：文本独占首行，＋/右簇换到底部行，圆角转大。多行 = 内容在
    文本列宽下折成两行以上（Composer 的 .composer-probe 量出来的行数），软换行
    与手动换行同等对待——整框只按内容长高，底边不动即向上生长。 */
 .composer.wide { grid-template-rows: auto auto; row-gap: 8px; border-radius: var(--dsh-radius-bubble); padding: 12px 8px 8px; }
 .composer.wide textarea { grid-column: 1 / -1; grid-row: 1; }
 .composer.wide .composer-icon { grid-row: 2; grid-column: 1; }
-.composer.wide .composer-send,
-.composer.wide .composer-mic { grid-row: 2; grid-column: 3; }
-/* 容量圈占第 3 列（右钮左侧）；无投影数据时保持三列，不空占位 */
-.composer.has-ctx { grid-template-columns: 28px minmax(0,1fr) auto 28px; }
-.composer.has-ctx .composer-send,
-.composer.has-ctx .composer-mic { grid-column: 4; }
-.composer.has-ctx .ctx-ring-wrap { grid-column: 3; }
-.composer.wide.has-ctx .composer-send,
-.composer.wide.has-ctx .composer-mic { grid-row: 2; grid-column: 4; }
-.composer.wide.has-ctx .ctx-ring-wrap { grid-row: 2; grid-column: 3; }
+.composer.wide .composer-actions { grid-row: 2; grid-column: 1 / -1; justify-self: end; }
 /* 行数量测件：与输入框同格（第 2 列首行）、零高度、不绘制、不交互——只为读它的
    scrollHeight 得折行行数。宽度天然等于输入框宽度（同一条网格轨上的拉伸项），
    所以「几行」的判据与当前是单行态还是宽态无关。放 .wide 之后是为了压过
@@ -1079,7 +1063,12 @@ button {
   outline: none;
   resize: none;
   color: var(--ink);
-  font-size: var(--dsh-font-size-lg);
+  /* 与会话正文同号（`.md` 也是 base）：输入框原来用 lg，比正文大两号，打字时
+     像是另一个世界的字号（用户 2026-10-09 定稿"保持一致"）。**框的大小不动**——
+     框高由 min-height 30 + 上下 padding 5×2 + line-height 21 决定，都没改，
+     只有字变小，所以胶囊尺寸、按钮垂直居中、多行态的折行判据（.composer-probe
+     量的是同一个 grid 轨的宽度）全部照旧。 */
+  font-size: var(--dsh-font-size-base);
   line-height: 21px;
   max-height: 160px;
   overflow-wrap: anywhere;
@@ -1118,6 +1107,31 @@ button {
 }
 .composer-send:hover { background: var(--fill-strong); }
 .composer-send.stop { background: var(--fill-strong); }
+/* 思考强度（输入框右簇首颗）：只有「档位名 + ⌄」两样，**无底色**——用户 2026-10-09
+   定稿"hover 块不要，字高亮就行"：hover 与展开态只把字提到 --ink，不给填充块，
+   免得右簇里凭空多一颗与发送钮争重量的胶囊。高度仍与同簇圆钮对齐（28px）。 */
+.composer-effort {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: var(--dsh-font-size-sm);
+  /* 不设 line-height:1：28px 的 flex 居中不需要压行高，压了会连同 overflow 一起
+     把下伸部切平（用户 2026-10-09 报"字母下方有截断感"）。档位名是引擎给的定长词
+     （Low/High/Max…），也不给它 max-width + ellipsis。 */
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.composer-effort:hover,
+.composer-effort[data-open="true"] { color: var(--ink); }
+.composer-effort svg { flex-shrink: 0; color: var(--ink-3); }
+.composer-effort:hover svg { color: var(--ink-2); }
+.composer-effort[data-open="true"] svg { color: var(--ink-2); }
 /* 听写中的均衡器（reference eq-bounce） */
 .eq { display: flex; align-items: center; gap: 2.5px; height: 14px; }
 .eq span {
@@ -2387,6 +2401,7 @@ button {
   /* 一律钉在行右端（用户定稿：箭头位置统一成一条竖线） */
   margin-left: auto;
   padding-left: 8px;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 /* 行级展开箭头统一一种语言（用户定稿：流里的箭头乱七八糟）：收 = 旋 -90° 指向
    右、展 = 0° 指下，位置一律在行右端；思考块的头同此。 */
@@ -2394,6 +2409,8 @@ button {
 .tool-chevron[data-open="true"] svg { transform: rotate(0); }
 /* 这一行没有可展内容：箭头藏起来但**留位**——右缘那条箭头竖线不能在这里断开 */
 .tool-chevron[data-empty] { visibility: hidden; }
+/* 收起态的箭头只在行 hover / 键盘聚焦时现，展开态常驻——规则与选择器在文件末尾
+   「展开箭头：hover 才现」那段（要与各自的 rotate 规则放一处，故不写在这里）。 */
 .tool-row.bad .tool-title { color: var(--ink-soft); }
 .tool-body {
   padding: 8px 0 12px;
@@ -2545,7 +2562,8 @@ button {
   animation: fade-in var(--dur-med) var(--ease-out) both;
 }
 .thinking-chevron {
-  flex: none; color: var(--tk-ink-3); transition: transform var(--dur-slow) var(--ease-out);
+  flex: none; color: var(--tk-ink-3);
+  transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
   /* 钉行右端（与工具行箭头同一条竖线，用户定稿） */
   margin-left: auto;
 }
@@ -2568,9 +2586,14 @@ button {
   flex-direction: column;
   gap: 4px;
   padding: 4px 0;
-  /* 固定行数视口（≈7 行：base 14 × 1.6 + 行距 4）：内容超出即在框内滚动，
-     流式时由 ThinkingState 吸底跟随，不再把整条消息流撑长 */
-  max-height: 208px;
+  /* 固定行数视口 = **3 行文本**（用户 2026-10-10，此前 5 行）。
+     算式是「行数 × 行高 + 上下 padding」：行高 = base 14 × 1.6 = 22.4，padding 4+4，
+     故 3 × 22.4 + 8 = 75.2px。**gap 不进算式**——那 4px 是**段与段之间**的间距，不是行距
+     （上一版把它按"每行都有一份"算成 5×22.4 + 4×4 + 8 = 136，于是 136-8 塞得下 5.7 行
+     文本，看着不止 5 行；这次改成只算行盒）。多段时会因为 gap 少显示不足 3 行，那是有
+     意的：这个数是上限，不是保证。内容超出即在框内滚动，流式时由 ThinkingState 吸底
+     跟随，不把整条消息流撑长。改行数只改这个乘数。 */
+  max-height: calc(3 * 1.6 * var(--dsh-font-size-base) + 8px);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -3161,6 +3184,8 @@ button {
   .app.collapsed .panel[data-mode="browser"] .panel-browser-chrome { padding-left: 190px; }
   .task-row, .session-back, .snav-item, .ctx-item { height: 44px; }
   .composer-send, .composer-icon, .composer-mic { width: 38px; height: 38px; }
+  /* 触达高度跟同簇圆钮齐；横向留一点内边距好点得中（无底色，只影响点击区） */
+  .composer-effort { height: 38px; padding: 0 6px; }
   /* 审批/提问卡是手机上最需要"点得准"的地方（放行一次命令） */
   .btn-primary, .btn-plain { min-height: 44px; }
   .q-option { padding: 12px; }
@@ -4105,7 +4130,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   line-height: var(--flow-row);
 }
 .tool-group-chevron {
-  flex: none; color: var(--ink-3); transition: transform var(--dur-fast) var(--ease-out);
+  flex: none; color: var(--ink-3);
+  transition: transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
   /* 与工具行箭头同位：钉右端 */
   margin-left: auto; padding-left: 8px;
 }
@@ -4476,6 +4502,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .capsule-trigger, .capsule-panel, .capsule-card { animation: none; }
+  /* 文字脉冲停下后必须把字色还回来——否则 color:transparent 会留下一块空白 */
+  .capsule-live-text { animation: none; background-image: none; color: var(--ink); -webkit-text-fill-color: currentColor; }
 }
 
 
@@ -4546,7 +4574,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   margin-left: 6px;
   color: var(--ink-3);
   transform: rotate(-90deg);
-  transition: transform var(--dur-fast) var(--ease-out);
+  transition: transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
 :where(html[data-hover-armed]) .turn-process-row:hover .turn-process-chevron { color: var(--ink-2); }
 .turn-process-row[data-open] .turn-process-chevron { transform: rotate(0deg); }
@@ -5296,8 +5324,40 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .btn-primary:active, .btn-plain:active, .dialog-btn:active, .queue-btn:active,
 .turn-issue-btn:active, .engine-banner-action:active, .preview-review-btn:active,
 .preview-view-btn:active, .panel-chat-btn:active { opacity: .8; }
-.composer-icon:active, .composer-send:active, .panel-icon-btn:active,
+.composer-effort:active, .composer-icon:active, .composer-send:active, .panel-icon-btn:active,
 .panel-expand-btn:active, .ws-act:active, .task-row .row-pin-btn:active,
 .row-archive:active, .window-top-btn:active, .capsule-icon-btn:active,
 .meta-action:active, .hero-panel-btn:active, .q-pager-btn:active,
 .lightbox-close:active, .panel-artifact-more:active { transform: scale(.94); }
+
+/* ── 展开箭头：收起态只在行 hover / 键盘聚焦时现（用户 2026-10-09 定稿）──────
+   会话流里那族行级箭头（工具行 / 工具组行 / 思考头 / 轮内过程条）收起时一律是
+   朝右的 ">"，一列常驻下来把右缘划成一道虚线——噪声比它承载的"这行能展开"信息大。
+   四处收在这一段而不是各写一条：它们是同一条规则的四份实例（AGENTS 的"平行值要抽取"）。
+
+   · **槽位不撤**：仍是 flex 项、仍占宽，藏的是 opacity 不是 display/visibility——
+     撤了右缘那条箭头竖线会随行抖动（这正是 .tool-chevron[data-empty] 用
+     visibility 而非 display 的同一条理由）。
+   · **展开态常驻**：那时箭头是"这里摊开了、点我可收起"的唯一可见提示，藏了就成
+     一块看不出所以然的正文。取态用各自已有的属性：工具行有 data-open，过程条
+     data-open 只在展开时挂，工具组行与思考头只有 aria-expanded。
+   · hover 一律带 `:where(html[data-hover-armed])` 门控（UI-SPEC §1.10：行上
+     hover 才现的控件归门控），键盘走 :focus-visible 不经门控。 */
+/* 这里只管 opacity；各箭头自己的 transition 在原处（旋角时长各不同：思考头走
+   --dur-slow、其余 --dur-fast/med），那些列表里已各自补上 opacity 一项。 */
+.tool-chevron,
+.tool-group-chevron,
+.thinking-chevron,
+.turn-process-chevron { opacity: 0; }
+:where(html[data-hover-armed]) .tool-row-main:hover .tool-chevron,
+:where(html[data-hover-armed]) .tool-group-head:hover .tool-group-chevron,
+:where(html[data-hover-armed]) .thinking-head:hover .thinking-chevron,
+:where(html[data-hover-armed]) .turn-process-row:hover .turn-process-chevron,
+.tool-row-main:focus-visible .tool-chevron,
+.tool-group-head:focus-visible .tool-group-chevron,
+.thinking-head:focus-visible .thinking-chevron,
+.turn-process-row:focus-visible .turn-process-chevron,
+.tool-chevron[data-open="true"],
+.tool-group-head[aria-expanded="true"] .tool-group-chevron,
+.thinking-head[aria-expanded="true"] .thinking-chevron,
+.turn-process-row[data-open] .turn-process-chevron { opacity: 1; }

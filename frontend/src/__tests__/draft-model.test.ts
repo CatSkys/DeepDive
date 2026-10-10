@@ -27,6 +27,7 @@ const FLASH: ModelOption = {
   label: "DeepSeek-V4",
   providerLabel: "DeepSeek",
   efforts: [{ id: "low", name: "Low" }, { id: "high", name: "High" }],
+  defaultEffort: "high",
 };
 
 describe("parseDraftModel 边界校验", () => {
@@ -70,11 +71,11 @@ describe("heroModelFace：hero 头部生效模型口径", () => {
   const models = [FLASH, PLAIN];
   const DEF = { provider: "deepseek", model: "v4" };
 
-  it("尚无草稿 → 跟引擎默认，档位来自默认模型的 efforts（标签不靠手选才出现）", () => {
+  it("尚无草稿 → 跟引擎默认；档位取该模型目录里的 defaultEffort（没有 Default 这一档）", () => {
     const face = heroModelFace(models, null, DEF);
     expect(face.currentModel).toEqual(DEF);
     expect(face.efforts).toEqual(FLASH.efforts);
-    expect(face.effort).toBeUndefined();
+    expect(face.effort).toBe("high");
   });
 
   it("草稿在目录 → 草稿优先，effort 用草稿自己的档位", () => {
@@ -84,11 +85,16 @@ describe("heroModelFace：hero 头部生效模型口径", () => {
     expect(face.effort).toBe("low");
   });
 
-  it("草稿已不在目录（配置撤销）→ 跟引擎默认，且不带旧档位", () => {
-    const dm: DraftModel = { provider: "gone", model: "x", reasoningEffort: "high" };
+  it("草稿已不在目录（配置撤销）→ 跟引擎默认，且不把旧档位贴到别的模型上", () => {
+    const dm: DraftModel = { provider: "gone", model: "x", reasoningEffort: "low" };
     const face = heroModelFace(models, dm, DEF);
     expect(face.currentModel).toEqual(DEF);
-    expect(face.effort).toBeUndefined();
+    expect(face.effort).toBe("high");
+  });
+
+  it("草稿选了模型但没选档位 → 落该模型的 defaultEffort（与引擎同一规则）", () => {
+    const dm: DraftModel = { provider: "deepseek", model: "v4" };
+    expect(heroModelFace(models, dm, { provider: "openai", model: "gpt" }).effort).toBe("high");
   });
 
   it("目录里没有默认模型（引擎未就绪）→ 空面，不显示档位", () => {

@@ -106,7 +106,6 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
               onClick={() => setShowModels((v) => !v)}
             >
               <span className="panel-settings-value">{face.modelName || t("跟随默认")}</span>
-              <span className="panel-settings-meta">{face.effortLabel(face.effort)}</span>
             </button>
             {/* 目录为空也照开（引擎未就绪时给"无匹配模型"这句反馈，而不是点了没反应——
                 ModelMenu 自己有空态；会话设置那边同样是这个口径） */}
@@ -115,9 +114,7 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
                 options={face.models}
                 current={face.modelName}
                 currentModel={face.currentModel}
-                effortValue={face.effort}
                 onPick={(m) => void face.pickModel(m)}
-                onApplyEffort={(m, id) => void face.applyModelEffort(m, id)}
                 onClose={() => setShowModels(false)}
                 anchorRef={modelTriggerRef}
               />

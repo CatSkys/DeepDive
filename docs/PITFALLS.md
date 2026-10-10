@@ -1075,6 +1075,32 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 查证路径：先看 `~/.dsh/profiles/web/package.json` 的 bundles/dependencies，再读插件包源码（`lib/panel.mjs` 等）拿真实路由契约——不要在引擎源里死磕。
 - 同场加映：`/api-import/import` 的结果条目在整源失败时只有 `status:"failed"+error` 没有数值字段，前端汇总要归一化否则 NaN；前端渐进扫描（逐来源 append）在「导入后立即 rescan」时与上一轮并发，来源行整组重复——世代守卫（ref 计数）是这类并发 setState 的最小修法。
 
+### 7.6 思考强度：显示的档位要么是引擎给的推荐值，要么是最高档——**永不为空**（2026-10-10）
+
+- **口径（用户定稿）**：有引擎报的生效档（`defaultEffort`）就显示它；没有则显示档位表
+  里**最高**的一档（`levels` 由引擎按 pi-ai 档位序 `off<minimal<…<max` 排好，末项即最高）。
+  **任何情况下都不许显示为空**——空胶囊读起来像坏了，不像"如实"。也没有 `Default`
+  这种假档位名。
+- 事故：引擎 catalog 实测 `opencode-go` 系 35 个模型 `defaultEffort` **全为 null**。
+  根因在引擎 `llm-pi-ai` 的 `describableReasoningLevel`：它只在该 route 配了
+  `reasoning:`、或该档模型支持时才返回值，否则返回 `undefined` → catalog 没有
+  `defaultEffort`、请求也不发 `reasoning` 字段。
+- **正解是改引擎，不是改显示**：已把 `describableReasoningLevel` 改成"配的档 → 模型
+  支持的最高档"两级回落，并让**请求路径复用同一个解析函数**
+  （`streamWithSnapshot` 的 `options.reasoningEffort === undefined` 分支）。同一个
+  函数既填 catalog 又决定实际发什么，所以 `defaultEffort` 永远不是一个"声称"——
+  **目录报什么就是真跑什么**。前端那条"退到最高档"是第二道保险，不是常态。
+- 本机另有一层：给 `llm-pi-ai.providers.<name>` 配了 `reasoning: high`（见 §7.4 的
+  配置面）。**选值要看覆盖不是看"最高"**：`high` 覆盖 35 个 pi-ai 模型里的 33 个，
+  `max` 只覆盖 13 个——配 `max` 反而大面积落空。先按 catalog 统计各档覆盖率再取值。
+- 验证必须**双向**：只查 catalog 的 `defaultEffort` 不够，还要确认引擎真发这一档——
+  调一次**不带** `reasoningEffort` 的 `session/selectModel`，看返回的
+  `selected.reasoningEffort`。⚠️ 这条调用**会改写该会话的 pending 选择**，别拿正在跑
+  的会话试（我犯过：顺手拿列表第一个会话试，把它的 pending 模型改了才发现）。
+- 改 `engine/` 要知道它会被覆盖：`engine/` 是 `deepseek-harness/` 的逐字 fork，
+  `scripts/sync-engine-fork.mjs` 在每次升引脚时整树覆盖。改引擎源码要么记在
+  `docs/` 里（本条即是），要么接受下次同步要重放。
+
 ## 9. 原生视图槽位（侧栏浏览器，2026-09-25 起）
 
 ### 9.1 原生视图恒在 SPA 之上——浮层会被它压住

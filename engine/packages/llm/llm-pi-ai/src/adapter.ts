@@ -132,26 +132,40 @@ function profileOptions(
 }
 
 /**
- * The profile default this exact model can actually take, for DESCRIBING it.
+ * The level this exact model actually runs with, for DESCRIBING it **and** for
+ * dispatching it — one function so the two can never disagree.
+ *
  * A configured level the model does not support yields none rather than
  * throwing: `resolveModel` builds the model catalog, and a catalog that fails
  * takes its whole provider out of every picker — so one mis-set profile field
  * would hide every model on the route, including the ones that support the
- * level. The request path still refuses, which is where a bad configuration
- * belongs: describing what a model can do must not fail because a deployment
- * asked it for something it cannot.
+ * level. The request path still refuses an EXPLICIT bad effort, which is where
+ * a bad configuration belongs: describing what a model can do must not fail
+ * because a deployment asked it for something it cannot.
+ *
+ * With nothing configured (or a level this model cannot take) we do NOT report
+ * "no effort": we fall back to the highest level the model supports, so every
+ * reasoning model has a concrete current level. Leaving it undefined meant the
+ * catalog carried no `defaultEffort`, the request sent no `reasoning` field at
+ * all, and the client had nothing truthful to show — it either rendered an empty
+ * control or, worse, guessed a level the engine was not running. The fallback
+ * is dispatched too, so what the catalog says is what actually goes out.
+ *
  * @param model - the resolved model descriptor.
  * @param effort - the profile's configured level, if any.
- * @returns the level when this model supports it, otherwise undefined.
+ * @returns the level this model runs with, or undefined when it has none.
  */
 function describableReasoningLevel(
   model: Model<Api>,
   effort: ReasoningEffortIdType | ModelThinkingLevel | undefined,
 ): ModelThinkingLevel | undefined {
-  if (effort === undefined) return undefined
-  return getSupportedThinkingLevels(model).some(level => level === effort)
-    ? effort as ModelThinkingLevel
-    : undefined
+  const supported = getSupportedThinkingLevels(model)
+  if (effort !== undefined && supported.some(level => level === effort)) {
+    return effort as ModelThinkingLevel
+  }
+  // Highest level this model supports (`getSupportedThinkingLevels` returns them
+  // in pi-ai's canonical off<minimal<…<max order, so the last entry is highest).
+  return supported[supported.length - 1]
 }
 
 /** Validate an explicit Harness/profile effort without invoking pi-ai's clamp. */
@@ -341,10 +355,13 @@ export class PiAiAdapter extends LlmAdapter {
     // the one it started with and the next call picks up the new one.
     const profile = this.profileOf(snapshot, options.provider)
     const model = this.modelOf(snapshot, options.provider, options.model)
-    const reasoning = resolveReasoningLevel(
-      model,
-      options.reasoningEffort ?? profile.reasoning,
-    )
+    // Explicit effort wins; otherwise the same level the catalog advertises as
+    // this model's default (`describableReasoningLevel`, incl. its fallback) —
+    // one resolver for both, so `defaultEffort` is never a claim the request
+    // path doesn't honour.
+    const reasoning = options.reasoningEffort === undefined
+      ? describableReasoningLevel(model, profile.reasoning)
+      : resolveReasoningLevel(model, options.reasoningEffort)
     const apiKey = await this.config.resolveApiKey(options.provider, profile)
 
     const consumer = new AbortController()

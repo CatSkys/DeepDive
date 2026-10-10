@@ -5,7 +5,8 @@
 export const DD_EVENTS = {
   /** 开/关听写（⌘D）。收发：App → composer/useComposerDictation。 */
   dictationToggle: "dd:dictation-toggle",
-  /** 循环思考强度档位（⇧⌘E）。收发：App → SessionHeader。 */
+  /** 循环思考强度档位（⇧⌘E）。收发：useAppKeybinds/命令面板 → 输入框档位胶囊
+   *  （components/composer/EffortPicker）。 */
   cycleEffort: "dd:cycle-effort",
   /** 把选中文字追加进输入框。收发：SelectionActions → Composer，
    *  CustomEvent detail 携带 { text }。 */

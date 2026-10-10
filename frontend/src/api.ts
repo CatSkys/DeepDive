@@ -582,8 +582,11 @@ export const api = {
       payload.signal?.addEventListener("abort", () => { xhr.abort(); reject(new DOMException("upload aborted", "AbortError")); });
       xhr.send(payload.file);
     }),
+  /** 会话模型选择（模型 + 可选档位是一份 durable 选择）；返回值是引擎归一后的
+   *  选择——省略档位时 resolveCallConfig 会解析成该模型的适配器默认档，可能物化
+   *  成一个具体 id，所以档位显示取 `selected`，不本地猜「没传就是 Default」。 */
   selectModel: (payload: { sessionId: string; provider: string; model: string; reasoningEffort?: string }) =>
-    unary("session/selectModel", { request: payload }),
+    unary<{ selected: { provider: string; model: string; reasoningEffort?: string } }>("session/selectModel", { request: payload }),
   sessionModelCatalog: () => unary<{
     default: { provider: string; model: string };
     routableProviders?: string[];

@@ -23,7 +23,8 @@ import { OnboardingWizard } from "./onboarding/OnboardingWizard";
 import { useAutoArchive } from "./useAutoArchive";
 import { useBrowserPermissionAsk } from "./sidebar-right/useBrowserPermissionAsk";
 import { useBrowserLibraryBridge } from "./sidebar-right/browserHistory";
-import { effortDisplayName, type ModelOption } from "./components/ModelMenu";
+import { type ModelOption } from "./components/ModelMenu";
+import type { EffortFace } from "./components/composer/EffortPicker";
 import { heroModelFace } from "./draftModel";
 import { TooltipHost } from "./components/Tooltip";
 import { DialogHost } from "./components/DialogHost";
@@ -160,19 +161,26 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   // 与菜单共用，档位元数据来自目录里的 efforts（modelCatalog 透传）。
   const heroModel = heroModelFace(models, store.draftModel, engineDefault);
 
-  const pickModel = async (m: ModelOption, reasoningEffort?: string) => {
+  const pickModel = async (m: ModelOption) => {
     setModelName(m.label);
-    // 菜单关闭由 ModelMenu 决定（与 useSessionModels 同一口径）：无档位模型
-    // 选完即关；带档位的留在档位选择页，点选后经 applyModelEffort 一次提交。
+    // 只提交模型：档位是输入框那颗胶囊的事（components/composer/EffortPicker）。
     // 草稿页（hero）选模型：会话还没真正创建，暂存草稿，首条消息创建会话时
     // 由 store.createSession 随新会话 selectModel 带走——这里不建会话。
     if (!store.activeSessionId) {
-      store.setDraftModel({ provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });
+      store.setDraftModel({ provider: m.provider, model: m.model });
       return;
     }
     try {
-      await api.selectModel({ sessionId: store.activeSessionId, provider: m.provider, model: m.model, ...(reasoningEffort ? { reasoningEffort } : {}) });
+      await api.selectModel({ sessionId: store.activeSessionId, provider: m.provider, model: m.model });
     } catch { /* engine may be booting */ }
+  };
+
+  /** 草稿页改档位：写在草稿模型上；还没草稿（跟着引擎默认模型）就先按当前生效
+   *  模型立一份草稿——首条消息建会话时随 selectModel 一起带走。 */
+  const pickDraftEffort = (id: string) => {
+    const base = store.draftModel ?? heroModel.currentModel;
+    if (!base) return;
+    store.setDraftModel({ provider: base.provider, model: base.model, reasoningEffort: id });
   };
 
   // 草稿页的模型面：头部那一行与会话设置卡共用同一份（同一目录、同一草稿选择，
@@ -180,11 +188,11 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   const heroFace: ModelFace = {
     showModels, setShowModels, modelName, models,
     currentModel: heroModel.currentModel,
-    effortLevels: heroModel.efforts,
-    effort: heroModel.effort,
-    effortLabel: (id) => effortDisplayName(id, heroModel.efforts),
-    pickModel, applyModelEffort: pickModel,
+    pickModel,
   };
+  // 草稿页的思考强度面（输入框胶囊用）：档位表来自目录里当前生效模型的
+  // reasoning 元数据，当前档位只认草稿自己的（见 draftModel.ts heroModelFace）。
+  const heroEffort: EffortFace = { levels: heroModel.efforts, value: heroModel.effort, pick: pickDraftEffort };
   // 应用内快捷键：window 捕获段按注册表派发（实现见 useAppKeybinds）
   useAppKeybinds(store, { openSettings });
 
@@ -303,7 +311,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
             </div>
             <HeroBrand />
             <div className="hero-composer">
-              <Composer sessionId={null} />
+              <Composer sessionId={null} effort={heroEffort} />
             </div>
           </div>
           <HeroPanel

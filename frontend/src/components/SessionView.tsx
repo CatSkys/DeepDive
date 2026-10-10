@@ -40,6 +40,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const store = useStore();
   const { approvals, questions, queues, sessions } = store;
   const modelFace = useSessionModels(sessionId);
+  // 输入框上的思考强度面（与模型选择分开）：档位表与当前档来自会话的
+  // modelSelection 投影，提交走 pickEffort（同一个 selectModel RPC）。
+  const effortFace = { levels: modelFace.effortLevels, value: modelFace.effort, pick: modelFace.pickEffort };
   // 轮内过程折叠（官方 turn-process）：默认收起；Set 记用户手动展开的轮号。
   // 切会话时 SessionView 以 sessionId 重挂，Set 随之清空。
   const [processOpen, setProcessOpen] = useState<ReadonlySet<number>>(new Set());
@@ -248,7 +251,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             <div className="hero">
               <HeroBrand />
               <div className="hero-composer">
-                <Composer sessionId={sessionId} ctx={ctxData} />
+                <Composer sessionId={sessionId} ctx={ctxData} effort={effortFace} />
               </div>
             </div>
           </>
@@ -389,7 +392,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </div>
           )}
           {browserFullscreen ? null : (
-            <Composer sessionId={sessionId} ctx={ctxData} />
+            <Composer sessionId={sessionId} ctx={ctxData} effort={effortFace} />
           )}
         </div>
         )}

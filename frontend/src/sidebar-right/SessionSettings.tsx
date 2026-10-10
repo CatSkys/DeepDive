@@ -75,16 +75,13 @@ export function SessionSettings({ sessionId, face, permissions, onOpenPlugins }:
           onClick={() => setShowModels((v) => !v)}
         >
           <span className="panel-settings-value">{face.modelName || t("跟随默认")}</span>
-          <span className="panel-settings-meta">{face.effortLabel(face.effort)}</span>
         </button>
         {showModels && (
           <ModelMenu
             options={face.models}
             current={face.modelName}
             currentModel={face.currentModel}
-            effortValue={face.effort}
             onPick={(m) => void face.pickModel(m)}
-            onApplyEffort={(m, id) => void face.applyModelEffort(m, id)}
             onClose={() => setShowModels(false)}
             anchorRef={modelTriggerRef}
           />

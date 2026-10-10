@@ -1,11 +1,17 @@
 // 模型面 hook（R-007 从 SessionView 搬出）：统一模型目录加载
 // （session/modelCatalog + rc.2 llm/models 兜底 + session/models 实时选择与
-// 思考强度元数据并轨）、选模型 / 应用档位的提交。不管渲染。
+// 思考强度元数据并轨）、选模型 / 改档位的提交。不管渲染。
+//
+// 选模型与思考强度是两条独立的写路（用户 2026-10-09 定稿）：模型菜单只提交
+// provider/model，档位由输入框上的档位胶囊提交；两条都走同一个
+// session/selectModel RPC（引擎的 durable 选择是「模型 + 可选档位」一份整体）。
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { effortDisplayName, type ModelOption } from "../components/ModelMenu";
+import { useStore } from "../store";
+import type { ModelOption } from "../components/ModelMenu";
 
 export function useSessionModels(sessionId: string) {
+  const store = useStore();
   const [modelName, setModelName] = useState("");
   const [models, setModels] = useState<ModelOption[]>([]);
   const [showModels, setShowModels] = useState(false);
@@ -39,50 +45,61 @@ export function useSessionModels(sessionId: string) {
           setModelName(hit?.label ?? cur.model);
         }
         if (cur?.provider && cur?.model) setCurrentModel({ provider: cur.provider, model: cur.model });
-        setEffort(cur?.reasoningEffort ?? undefined);
         const hit = options.find((m) => m.provider === cur?.provider && m.model === cur?.model);
         setEffortLevels(hit?.efforts ?? []);
+        // 生效档位 = 会话选的那一档 ?? 目录里该模型的 defaultEffort（与引擎
+        // resolveCallConfig 的 `requested ?? reasoning.defaultEffort` 同一规则）。
+        // 没有"Default"这一档——用户 2026-10-09 定稿"是啥档位就显示啥档位"。
+        setEffort(cur?.reasoningEffort ?? hit?.defaultEffort ?? undefined);
       } catch { /* optional enrichment */ }
     })();
   }, [sessionId]);
 
+  /** 切模型：只提交 provider/model。档位不跟着走——引擎按 resolveCallConfig 归一
+   *  （省略档位＝该模型的适配器默认档，可能物化成一个具体 id），所以档位显示取
+   *  引擎返回的 selected，不在本地猜「没传就是 Default」。
+   *
+   *  **「上次选择」在这里跟着走**：新会话的模型取自 store.draftModel，而它此前只在
+   *  草稿页选模型时才写——于是"在会话里换了模型，新会话却还是老的那个"（用户
+   *  2026-10-10 报障）。模型选择在哪发生都是同一次"上次选择"，所以两处都写。
+   *  真有差别的只有"草稿页还没有会话"这一点，不是写不写的理由。 */
   const pickModel = async (m: ModelOption) => {
-    // 菜单关闭由 ModelMenu 决定：无档位模型选完即关；带档位的进档位选择页，
-    // 点选一个档位时经 applyModelEffort 一次提交模型+档位后关闭。
-    const prevLabel = modelName;
-    setModelName(m.label);
-    try {
-      await api.selectModel({ sessionId, provider: m.provider, model: m.model });
-    } catch {
-      // 提交失败：引擎侧选择未变，乐观更新回滚为前值（AUD-086）
-      setModelName(prevLabel);
-    }
-  };
-
-  const effortLabel = (id: string | undefined) => effortDisplayName(id, effortLevels);
-
-  const applyModelEffort = async (m: ModelOption, id: string | undefined) => {
-    const prev = { label: modelName, current: currentModel, effort };
+    const prev = { label: modelName, current: currentModel, effort, levels: effortLevels };
     setModelName(m.label);
     setCurrentModel({ provider: m.provider, model: m.model });
-    setEffort(id);
+    setEffortLevels(m.efforts ?? []);
     try {
-      await api.selectModel({
-        sessionId,
-        provider: m.provider,
-        model: m.model,
-        ...(id === undefined ? {} : { reasoningEffort: id }),
+      const res = await api.selectModel({ sessionId, provider: m.provider, model: m.model });
+      setEffort(res.selected.reasoningEffort);
+      store.setDraftModel({
+        provider: m.provider, model: m.model,
+        ...(res.selected.reasoningEffort === undefined ? {} : { reasoningEffort: res.selected.reasoningEffort }),
       });
     } catch {
-      // 提交失败：引擎侧选择未变，三个乐观更新一并回滚为前值（AUD-086）
+      // 提交失败：引擎侧选择未变，乐观更新回滚为前值（AUD-086）
       setModelName(prev.label);
       setCurrentModel(prev.current);
       setEffort(prev.effort);
+      setEffortLevels(prev.levels);
+    }
+  };
+
+  /** 改档位：模型不动，只换该会话的推理档位（输入框档位胶囊的写路）。 */
+  const pickEffort = async (id: string) => {
+    if (!currentModel) return;
+    const prev = effort;
+    setEffort(id);
+    try {
+      await api.selectModel({ sessionId, provider: currentModel.provider, model: currentModel.model, reasoningEffort: id });
+      // 档位也是"上次选择"的一部分：不带过去的话，下个新会话会拿到别的档位
+      store.setDraftModel({ provider: currentModel.provider, model: currentModel.model, reasoningEffort: id });
+    } catch {
+      setEffort(prev); // 提交失败回滚为前值（引擎侧未变，同 AUD-086）
     }
   };
 
   return {
     showModels, setShowModels, modelName, models, currentModel,
-    effortLevels, effort, effortLabel, pickModel, applyModelEffort,
+    effortLevels, effort, pickModel, pickEffort,
   };
 }

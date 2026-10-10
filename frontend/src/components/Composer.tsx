@@ -20,12 +20,18 @@ import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
 import { useSlashCommands } from "./composer/useSlashCommands";
 import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
+import { EffortPicker, type EffortFace } from "./composer/EffortPicker";
 import { FileIcon } from "../session/FileIcon";
 import { fileMeta } from "./composer/fileMeta";
 import { uuid } from "../uuid";
 
 /* ─────────────────────────────────────────────────────────
- * COMPOSER — single glass pill: [＋] [textarea] [容量圈] [发送]
+ * COMPOSER — single glass pill: [＋] [textarea] [思考强度] [容量圈] [发送]
+ *
+ * 思考强度档位是输入框自己的控件（用户 2026-10-09 定稿：与模型选择分开，
+ * 档位跟输入走、模型仍留头部）——数据经 effort prop 由调用方给，见
+ * composer/EffortPicker.tsx。右侧三颗（档位/容量圈/发送·停止·听写）收在
+ * 同一格 flex 簇里，宽态一起换行到底部行。
  *
  * Menus are keyboard-first, no dedicated buttons: typing "@"
  * opens 附件/引用, typing "/" opens 命令; the ＋ button forces
@@ -44,10 +50,13 @@ function autoGrow(el: HTMLTextAreaElement) {
   el.style.height = Math.min(el.scrollHeight, 160) + "px";
 }
 
-export function Composer({ sessionId, onSent, ctx }: {
+export function Composer({ sessionId, onSent, ctx, effort }: {
   sessionId: string | null;
   onSent?: () => void;
   ctx?: ContextData;
+  /** 思考强度面（档位表 + 当前档 + 提交）：真会话来自 modelSelection 投影，
+   *  草稿页来自 store.draftModel；模型没有档位元数据时档位胶囊不渲染。 */
+  effort: EffortFace;
 }) {
   const [dismissed, setDismissed] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -459,7 +468,7 @@ export function Composer({ sessionId, onSent, ctx }: {
         {menu && (
           <ComposerMenu menu={menu} query={query} rows={rows} active={active} setActive={setActive} onPick={pick} />
         )}
-        <div className={`composer${multiline ? " wide" : ""}${showCtx ? " has-ctx" : ""}`}>
+        <div className={`composer${multiline ? " wide" : ""}`}>
           {/* 行数量测件：与输入框同款式的只读 textarea，零高度、不可见，占第 2 列
               （＝单行态文本列宽）。列宽与当前布局无关，所以行数判据不会抖。 */}
           <textarea ref={probeRef} className="composer-probe" readOnly tabIndex={-1} aria-hidden="true" value={text} />
@@ -514,48 +523,53 @@ export function Composer({ sessionId, onSent, ctx }: {
               }
             }}
           />
-          {/* 容量圈在右钮（发送/停止/听写）左侧，hover 出容量面板 */}
-          {showCtx && <ContextRing ctx={ctx} />}
-          {/* 右侧单槽位：空=听写 → 有内容=发送 → 运行中=停止（参考图 1-4） */}
-          {running ? (
-            <button
-              type="button"
-              className="composer-send stop"
-              data-tip={t("停止")}
-              onClick={() => {
-                // 停止失败要说话：静默吞掉时用户会以为"点了没反应"，而引擎挂着
-                // 恰恰是最需要知道"停不下来"的时候（运行态仍随事件流收敛）。
-                if (!sessionId) return;
-                void api.cancel({ sessionId }).catch((err: unknown) => {
-                  void alertDialog({ message: tt(`停止失败：${(err as Error).message}`, `Stop failed: ${(err as Error).message}`) });
-                });
-              }}
-            >
-              <Square size={13} fill="currentColor" />
-            </button>
-          ) : canSend ? (
-            <button type="button" className="composer-send" data-tip={t("发送")} data-tip-keys="Enter" onClick={() => void submit()}>
-              <ArrowUp size={15} strokeWidth={2.4} />
-            </button>
-          ) : hasShell ? (
-            <button
-              type="button"
-              className={`composer-mic${listening ? " live" : ""}`}
-              data-tip={listening ? t("停止听写") : t("听写")}
-              data-tip-keys={comboFor("dictation", store.keybinds)}
-              onClick={toggleDictation}
-            >
-              {listening ? (
-                <span className="eq">
-                  {[0, 1, 2].map((i) => (
-                    <span key={i} style={{ animationDelay: `${i * 150}ms` }} />
-                  ))}
-                </span>
-              ) : (
-                <Mic size={15} strokeWidth={2} />
-              )}
-            </button>
-          ) : null}
+          {/* 右侧控件簇：思考强度胶囊（有档位的模型才有）→ 容量圈 → 单槽位
+              （空=听写 → 有内容=发送 → 运行中=停止）。同一格一个 flex 行，
+              宽态整簇换到底部行。 */}
+          <div className="composer-actions">
+            {effort.levels.length > 0 && <EffortPicker {...effort} />}
+            {/* 容量圈 hover 出容量面板 */}
+            {showCtx && <ContextRing ctx={ctx} />}
+            {running ? (
+              <button
+                type="button"
+                className="composer-send stop"
+                data-tip={t("停止")}
+                onClick={() => {
+                  // 停止失败要说话：静默吞掉时用户会以为"点了没反应"，而引擎挂着
+                  // 恰恰是最需要知道"停不下来"的时候（运行态仍随事件流收敛）。
+                  if (!sessionId) return;
+                  void api.cancel({ sessionId }).catch((err: unknown) => {
+                    void alertDialog({ message: tt(`停止失败：${(err as Error).message}`, `Stop failed: ${(err as Error).message}`) });
+                  });
+                }}
+              >
+                <Square size={13} fill="currentColor" />
+              </button>
+            ) : canSend ? (
+              <button type="button" className="composer-send" data-tip={t("发送")} data-tip-keys="Enter" onClick={() => void submit()}>
+                <ArrowUp size={15} strokeWidth={2.4} />
+              </button>
+            ) : hasShell ? (
+              <button
+                type="button"
+                className={`composer-mic${listening ? " live" : ""}`}
+                data-tip={listening ? t("停止听写") : t("听写")}
+                data-tip-keys={comboFor("dictation", store.keybinds)}
+                onClick={toggleDictation}
+              >
+                {listening ? (
+                  <span className="eq">
+                    {[0, 1, 2].map((i) => (
+                      <span key={i} style={{ animationDelay: `${i * 150}ms` }} />
+                    ))}
+                  </span>
+                ) : (
+                  <Mic size={15} strokeWidth={2} />
+                )}
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />

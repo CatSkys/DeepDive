@@ -11,6 +11,7 @@ import { TurnTail } from "./TurnTail";
 import { inShell, installHostBridge, onHostEvent, sendToShell } from "../host";
 import { useT } from "../i18n";
 import { sessionTitle } from "../session/sessionTitle";
+import { useSessionModels } from "../session/useSessionModels";
 import { StoreProvider, useStore } from "../store";
 
 const CARD_WIDTH = 440;
@@ -52,6 +53,10 @@ function defaultPos(size: Size): Point {
 function ChatFloatCard({ sessionId }: { sessionId: string }) {
   const { t, lang } = useT();
   const store = useStore();
+  // 输入框上的思考强度面：这一层是独立 webview（浏览器页之上那块浮卡），
+  // 数据只能自己按会话读一份（见 useSessionModels）。
+  const modelFace = useSessionModels(sessionId);
+  const effort = { levels: modelFace.effortLevels, value: modelFace.effort, pick: modelFace.pickEffort };
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
   const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -216,7 +221,7 @@ function ChatFloatCard({ sessionId }: { sessionId: string }) {
           <TurnTail sessionId={sessionId} />
         </div>
         <div className="chat-float-foot">
-          <Composer sessionId={sessionId} />
+          <Composer sessionId={sessionId} effort={effort} />
           <div
             className="chat-float-resize"
             role="separator"

@@ -523,7 +523,7 @@ describe('provider profile lifecycle', () => {
     expect((await ctx.llm.resolveModelInfo('openai', 'gpt-4.1')).reasoning).toBeUndefined()
   })
 
-  it('uses a supported profile reasoning value as the model default and rejects an unsupported one', async () => {
+  it('uses a supported profile reasoning value as the model default and falls back to the highest supported level otherwise', async () => {
     const supported = new Context()
     await supported.plugin(LlmRuntime)
     await supported.plugin(LlmPiAi, {
@@ -532,24 +532,37 @@ describe('provider profile lifecycle', () => {
     await expect(supported.llm.resolveModelInfo('deepseek', 'deepseek-v4-flash'))
       .resolves.toMatchObject({ reasoning: { defaultEffort: ReasoningEffortId('max') } })
 
-    // A profile level this model cannot take DESCRIBES as no default rather
-    // than failing: resolveModelInfo builds the model catalog, and a catalog
-    // that throws takes its whole provider out of every picker — one mis-set
-    // field would hide every model on the route, including the ones that do
-    // support the level. The request path below is where it is refused.
+    // A profile level this model cannot take still DESCRIBES as a concrete
+    // level — the highest supported one — rather than failing: resolveModelInfo
+    // builds the model catalog, and a catalog that throws takes its whole
+    // provider out of every picker — one mis-set field would hide every model
+    // on the route, including the ones that do support the level. It also
+    // empty reads a broken control, not a truthful one (PITFALLS §7.6). The
+    // same resolver fills the catalog and dispatches requests, so an EXPLICIT
+    // effort the model cannot take is still where it is refused (pre-network,
+    // below), while the catalog's level is provably what a bare request sends
+    // (the wire assert via the mock server).
     const unsupported = new Context()
     await unsupported.plugin(LlmRuntime)
     await unsupported.plugin(LlmPiAi, {
       providers: { deepseek: { reasoning: 'medium' } },
     })
     const described = await unsupported.llm.resolveModelInfo('deepseek', 'deepseek-v4-flash')
-    expect(described.reasoning?.defaultEffort).toBeUndefined()
+    expect(described.reasoning?.defaultEffort).toBe(ReasoningEffortId('max'))
     expect(described.reasoning?.efforts.length).toBeGreaterThan(0)
     await expect(assemble(unsupported, {
       provider: 'deepseek', model: 'deepseek-v4-flash', messages: [],
+      reasoningEffort: ReasoningEffortId('medium'),
     })).resolves.toMatchObject({
       finish: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT' } },
     })
+
+    // Dispatch follows describe: a request with no explicit effort runs the
+    // catalog's level — the fallback is honoured on the wire, not implied.
+    const fallbackServer = await mockServer([{ events: textEvents }])
+    const fallback = await harness(fallbackServer.url)
+    await assemble(fallback, { model: 'deepseek-v4-flash', messages: [] })
+    expect(fallbackServer.requests[0]).toMatchObject({ reasoning_effort: 'max' })
 
     const disabled = new Context()
     await disabled.plugin(LlmRuntime)

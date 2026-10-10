@@ -589,7 +589,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.createSession({ workspaceId: wsId });
       const dm = draftModelRef.current;
-      // 草稿带走但不清空：它是「上次选择」（持久化），下个新会话继续继承。
+      // 「上次选择」带走但不清空：它是持久化的，下个新会话继续继承。写入方是每次
+      // 用户改模型/档位的地方（草稿页 + 会话内的 useSessionModels），所以这里拿到的
+      // 总是用户最后改的那个，不是一个单独的"默认模型"。
       if (dm) {
         try {
           await api.selectModel({ sessionId: res.sessionId, ...dm });

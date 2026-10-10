@@ -45,16 +45,16 @@
       "detail": "335 lines > 300"
     },
     {
-      "id": "8ce44107c27ce6c9",
+      "id": "813cc4f4db8e8164",
       "rule": "file-lines",
       "file": "frontend/src/api.ts",
-      "detail": "772 lines > 300"
+      "detail": "775 lines > 300"
     },
     {
-      "id": "fc359c529c273e18",
+      "id": "b215970ae2a0f33e",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "372 lines > 300"
+      "detail": "380 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -63,10 +63,10 @@
       "detail": "338 lines > 300"
     },
     {
-      "id": "02c87bb9ffcaaff8",
+      "id": "8f26d19669e9abfd",
       "rule": "file-lines",
       "file": "frontend/src/components/Composer.tsx",
-      "detail": "580 lines > 300"
+      "detail": "594 lines > 300"
     },
     {
       "id": "29173287b348c446",
@@ -81,10 +81,10 @@
       "detail": "364 lines > 300"
     },
     {
-      "id": "4b8a53bdd76c85bb",
+      "id": "ed4af509d5515068",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
-      "detail": "412 lines > 300"
+      "detail": "415 lines > 300"
     },
     {
       "id": "4818f35fb69487f7",
@@ -153,10 +153,10 @@
       "detail": "449 lines > 300"
     },
     {
-      "id": "6601b3fd7cb57205",
+      "id": "ba7bb8ebd186972c",
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
-      "detail": "717 lines > 300"
+      "detail": "719 lines > 300"
     },
     {
       "id": "b5a2dc790aada236",

@@ -33,7 +33,14 @@ vi.mock("../session/useSessionEvents", () => ({
     hasMore: false, loadingOlder: false, loadOlder: vi.fn(), loadError: false, retry: vi.fn(),
   }),
 }));
-vi.mock("../session/useSessionModels", () => ({ useSessionModels: () => null }));
+// 桩成真实形状：SessionView 每次渲染都从这读输入框的思考强度面（档位表/当前档/提交），
+// 返回 null 会让这行解引用炸掉。
+vi.mock("../session/useSessionModels", () => ({
+  useSessionModels: () => ({
+    showModels: false, setShowModels: vi.fn(), modelName: "", models: [], currentModel: undefined,
+    effortLevels: [], effort: undefined, pickModel: vi.fn(), pickEffort: vi.fn(),
+  }),
+}));
 vi.mock("../sidebar-right/useComposerOverlay", () => ({ useComposerOverlay: () => false }));
 vi.mock("../sidebar-right/SessionPanel", () => ({ SessionPanel: () => null }));
 vi.mock("../sidebar-right/PanelTrigger", () => ({ PanelTrigger: () => null }));

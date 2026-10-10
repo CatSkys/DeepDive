@@ -43,12 +43,13 @@ export function useAppKeybinds(store: Store, actions: { openSettings: () => void
       for (const def of KEYBIND_DEFS) {
         if (isOff(def.id, store.keybinds)) continue;
         if (combo !== comboFor(def.id, store.keybinds)) continue;
-        // 输入中放行的例外：听写（要在输入框里唤起）、⌘B 侧栏、⌘K 搜索、⌘F 查找——
-        // 都不是文本编辑键（⌘B 只在富文本里是加粗，本应用输入面都是纯文本），
-        // 且 ⌘K/⌘F 必须放行才能「开着再按一次」把焦点收回自己的输入框
+        // 输入中放行的例外：听写（要在输入框里唤起）、⌘B 侧栏、⌘K 搜索、⌘F 查找、
+        // ⇧⌘E 思考强度——都不是文本编辑键（⌘B 只在富文本里是加粗，本应用输入面都是
+        // 纯文本），且 ⌘K/⌘F 必须放行才能「开着再按一次」把焦点收回自己的输入框；
+        // 档位胶囊就长在输入框里，指着它按却因为焦点在输入框而没反应说不通。
         const typingAllowed =
           def.id === "dictation" || def.id === "toggle-sidebar" ||
-          def.id === "command-palette" || def.id === "find";
+          def.id === "command-palette" || def.id === "find" || def.id === "cycle-effort";
         if (typing && !typingAllowed) return;
         e.preventDefault();
         if (def.id === "new-session") store.openSession(null);

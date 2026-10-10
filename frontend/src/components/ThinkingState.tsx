@@ -3,6 +3,7 @@ import { useT } from "../i18n";
 import { useFocusStream } from "../session/useFocusStream";
 import { thinkingLabel } from "../session/turnProcess";
 import { IconThinkOutline14 } from "./Icons";
+import { fadeAttrs, useEdgeFade } from "../useEdgeFade";
 
 /* ─────────────────────────────────────────────────────────
  * THINKING — expandable agent reasoning trace
@@ -10,7 +11,8 @@ import { IconThinkOutline14 } from "./Icons";
  * While `running`, the header label shimmers ("思考中") and the
  * trace auto-expands: prose paragraphs fade up along a timeline
  * as reasoning deltas stream in, pinned to the newest text inside
- * a ~10-line viewport that scrolls in place once content overflows.
+ * a fixed ~3-line viewport that scrolls in place once content
+ * overflows (with the standard edge fade — see useEdgeFade).
  * When the run settles it collapses to a quiet "已思考" row; a
  * manual toggle always wins over the automatic open/close until
  * the next run.
@@ -41,7 +43,9 @@ export function ThinkingState({
   // grows with the streaming content instead of being sized by the collapsed
   // grid track.
   const traceRef = useRef<HTMLDivElement>(null);
-  const rowsRef = useRef<HTMLDivElement>(null);
+  // 显式带上 null 联合：下面要往 current 写（React 的 `useRef<T>(null)` 返回只读
+  // RefObject，用 `T | null` 才是可变 ref）
+  const rowsRef = useRef<HTMLDivElement | null>(null);
   // 视口跟随：true = 贴着最新文本；用户在窗口内上滚即暂停跟随，滚回底部恢复。
   const pinnedRef = useRef(true);
   const [lineHeight, setLineHeight] = useState(0);
@@ -64,6 +68,14 @@ export function ThinkingState({
     const el = rowsRef.current;
     if (!el) return;
     pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+  };
+
+  // 溢出渐隐（超限标准 UI，同会话流/侧栏列表）：这个视口只有 3 行高，超出即硬截断
+  // 等于不告诉用户"后面还有"。rowsRef 同时是吸底跟随的测量目标，两个 ref 聚成一个。
+  const rowsFade = useEdgeFade<HTMLDivElement>("y");
+  const setRowsRef = (el: HTMLDivElement | null) => {
+    rowsRef.current = el;
+    rowsFade.ref(el);
   };
 
   return (
@@ -111,7 +123,7 @@ export function ThinkingState({
               className="thinking-line"
               style={{ height: lineHeight ? lineHeight - 2 : 0 }}
             />
-            <div ref={rowsRef} onScroll={onRowsScroll} className="thinking-rows">
+            <div ref={setRowsRef} onScroll={onRowsScroll} className="thinking-rows fade-y" {...fadeAttrs(rowsFade.fade)}>
               {paragraphs.map((p, i) => (
                 <div key={i} className="thinking-row">{p}</div>
               ))}
