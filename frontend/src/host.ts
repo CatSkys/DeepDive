@@ -1,15 +1,21 @@
 import { uuid } from "./uuid";
 import { narrowReviewChanges, narrowReviewDiff } from "./review/gitChangesModel";
 import type { ReviewChanges, ReviewDiff } from "./review/types";
+import {
+  inShell as platformInShell,
+  mountShellDispatch,
+  sendRects as platformSendRects,
+  sendToShell as platformSendToShell,
+} from "./platform";
 // Shell↔frontend bridge mount (SPEC-NOTIFICATIONS-FLOATING-BALL §3.1).
 //
-// The native shell pushes instructions via WKWebView evaluateJavaScript on
-// `window.__deepDiveHost.dispatch(cmd, payload)`; the frontend reports the
-// mounted hook with a `host-ready` message on the "deepdiveHost" script
-// message handler. The shell stages at most one pending command until this
-// hook reports ready, so a notification tap during cold start is never lost.
-// Degradation: in a plain browser (no webkit messageHandlers) everything
-// here no-ops silently — the bridge is an enhancement, not a dependency.
+// The native shell pushes instructions to `window.__deepDiveHost.dispatch(cmd, payload)`
+//（mac 走 evaluateJavaScript；Windows 壳经 chrome.webview 事件由 platform 转投）;
+// the frontend reports the mounted hook with a `host-ready` message. The shell
+// stages at most one pending command until this hook reports ready, so a
+// notification tap during cold start is never lost. Degradation: in a plain
+// browser everything here no-ops silently — the bridge is an enhancement, not
+// a dependency.
 
 interface HostBridge {
   dispatch: (cmd: string, payload?: unknown) => void;
@@ -28,15 +34,9 @@ declare global {
   }
 }
 
-/** 是否跑在壳里（WKWebView 的 host 消息桥在）。
- *
- *  窗口 chrome——红绿灯 + 顶部 52px 标题栏条——**只有壳里有**：手机经局域网
- *  打开 SPA 时是普通浏览器，左上角没有红绿灯。所以"顶部两钮左偏移 84px"与
- *  "收起态给会话头让位的左内边距"都该按这个判据分支，而不是按窗口宽度猜
- *  （窄窗口的 Mac 窗口仍有红绿灯）。main.tsx 在首帧前把结果标到
- *  `<html data-shell>`，CSS 据此覆盖。 */
+/** 是否跑在壳里（壳桥在）：窗口 chrome 只有壳里有，main.tsx 据此标 `<html data-shell>`。 */
 export function inShell(): boolean {
-  return !!window.webkit?.messageHandlers?.deepdiveHost;
+  return platformInShell();
 }
 
 type HostEvent = (cmd: string, payload?: unknown) => void;
@@ -48,16 +48,14 @@ export function onHostEvent(cb: HostEvent): () => void {
 }
 
 export function sendToShell(message: Record<string, unknown>): void {
-  window.webkit?.messageHandlers?.deepdiveHost?.postMessage(message);
+  platformSendToShell(message);
 }
 
-/** 「rect 表」通道（`deepdive` message handler）：顶条控件 rect 与原生槽位 rect 共用，
- *  300ms 一推、量大且无应答——与 `deepdiveHost`（指令通道，壳侧走 case 表 + 单条暂存）
- *  分开是**壳侧按 channel 分派**的既有契约（MainWindowController.userContentController：
- *  `deepdive` → 两张 rect 表，`deepdiveHost` → 指令）。
- *  发错通道不会报错：壳那边只是"没人接"，表现为控件点不动/原生视图不显示。 */
+/** 「rect 表」通道：顶条控件 rect 与原生槽位 rect 共用，300ms 一推、量大且无应答
+ *  ——与指令通道分开是壳侧按 channel 分派的既有契约（mac 双 handler；Windows 壳
+ *  两通道合一、type 区分）。发错通道不会报错：壳那边只是"没人接"。 */
 export function sendRects(message: Record<string, unknown>): void {
-  window.webkit?.messageHandlers?.deepdive?.postMessage(message);
+  platformSendRects(message);
 }
 
 /** 用默认应用打开一个本地路径（0.1.5 产物三动作之一；壳 NSWorkspace.open）。 */
@@ -140,7 +138,7 @@ function bridgeRequest<T>(
   timeoutMs = 10_000,
 ): Promise<T> {
   return new Promise((resolve) => {
-    if (!window.webkit?.messageHandlers?.deepdiveHost) {
+    if (!platformInShell()) {
       resolve(fallback);
       return;
     }
@@ -506,6 +504,11 @@ export function installHostBridge(handlers: Partial<{
       for (const cb of listeners) cb(cmd, payload);
     },
   };
+  // Windows 壳的推送走 chrome.webview 事件，接到同一个 dispatch（mac 由
+  // evaluateJavaScript 直调，注册是 no-op）。
+  mountShellDispatch((cmd, payload) => {
+    window.__deepDiveHost?.dispatch(cmd, payload);
+  });
   sendToShell({ type: "host-ready" });
 }
 

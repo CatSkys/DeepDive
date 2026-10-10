@@ -3283,6 +3283,18 @@ html:not([data-shell]) .window-top { left: 12px; }
 html:not([data-shell]) .app.collapsed .session-header { padding-left: 118px; }
 html:not([data-shell]) .app.collapsed .hero-top { padding-left: 118px; }
 
+/* ---- Windows 壳：标题栏拖拽走 WebView2 非客户区（app-region），不是 rect 表 ----
+   mac 的"空白条带 = 壳 hitTest 拖窗"契约在 WebView2 上由 CSS `app-region: drag`
+   承担（C# 壳开 IsNonClientRegionSupportEnabled）：顶条空白可拖、可双击最大化，
+   顶条内的控件一律 no-drag（等价 mac rect 表的作用）。app-region 只在
+   Chromium 系被识别，WebKit 忽略之——mac 不受影响，不用分支判断。 */
+html[data-platform="windows"] .window-top,
+html[data-platform="windows"] .session-header { app-region: drag; }
+html[data-platform="windows"] .window-top :is(button, a, input, textarea, select, [role="button"], [data-strip-interactive]),
+html[data-platform="windows"] .session-header :is(button, a, input, textarea, select, [role="button"], [data-strip-interactive]) {
+  app-region: no-drag;
+}
+
 /* ─────────────────────────────────────────────────────────
    MOTION LAYER — 全局动效（Liner/Raycast 式：短、轻、precise）
    原则：入场 = opacity + 6px 上浮 + expo-out；展开 = grid-rows 高度

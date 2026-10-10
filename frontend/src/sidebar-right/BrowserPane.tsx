@@ -201,7 +201,9 @@ export function BrowserPane({ expanded, applicationOrigin, onExpand, onChat, onE
   onExitFullscreen: () => void;
   onTabsRespawned: () => void;
 }) {
-  return browserCarrierKind() === "native"
+  const kind = browserCarrierKind();
+  if (kind === "none") return <BrowserEmpty />;
+  return kind === "native"
     ? <NativeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} onExitFullscreen={onExitFullscreen} onTabsRespawned={onTabsRespawned} />
     : <IframeBrowserPane expanded={expanded} applicationOrigin={applicationOrigin} onExpand={onExpand} onChat={onChat} />;
 }

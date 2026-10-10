@@ -8,7 +8,7 @@
 // referrerPolicy=no-referrer。壳里的原生载体由壳自己执行同等强度的策略（见 BrowserHost.swift）。
 
 import { t } from "../i18n";
-import { inShell } from "../host";
+import { inShell, shellCapabilities } from "../platform";
 import { NATIVE_SLOT_INTERACTIVE_ATTR } from "../nativeSlot";
 import { WEB_BROWSER_SANDBOX } from "./useIframeBrowser";
 import type { ReactNode } from "react";
@@ -63,7 +63,10 @@ export function BrowserEmpty() {
   return <div className="sr-browser-empty">{t("还没有打开的网页")}</div>;
 }
 
-/** 载体选择：壳里给原生槽位，否则给 iframe（没有目标时给空态）。 */
-export function browserCarrierKind(): "native" | "iframe" {
-  return inShell() ? "native" : "iframe";
+/** 载体选择：壳里给原生槽位，否则给 iframe（没有目标时给空态）。
+ *  壳里但壳没有浏览器栈（Windows 第一期，见 platform 能力清单）→ "none"：
+ *  面板落空态，不给 iframe 也不给会黑洞的槽位。 */
+export function browserCarrierKind(): "native" | "iframe" | "none" {
+  if (!inShell()) return "iframe";
+  return shellCapabilities().browser ? "native" : "none";
 }

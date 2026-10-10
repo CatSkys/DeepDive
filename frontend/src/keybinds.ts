@@ -1,7 +1,10 @@
-// 应用内快捷键注册表：默认键位 + 用户覆盖（经壳持久化 UserDefaults，
-// set-pref "keybinds" 存 JSON 字符串）。覆盖格式 Record<id, {combo?, off?}>；
+// 应用内快捷键注册表：默认键位 + 用户覆盖（经壳持久化，set-pref "keybinds" 存
+// JSON 字符串）。覆盖格式 Record<id, {combo?, off?}>；
 // combo 为规范化显示串（修饰序固定 ⌃⌥⇧⌘ + 主键，如 "⌘N"、"⇧⌘E"）——与
 // comboOf 的产出**逐字节相同**，否则按下去匹配不上（⌘⇧E 与 ⇧⌘E 是两个字面量）。
+// Windows 上 ⌘ 槽位的物理键是 Ctrl（comboOf 映射）；显示层用 displayKeyCaps 转写。
+
+import { IS_WINDOWS_OS } from "./platform";
 
 export interface KeybindDef {
   id: string;
@@ -112,14 +115,18 @@ export function workspaceDigitOf(e: KeyboardEvent): number | undefined {
   return m ? Number(m[1]) : undefined;
 }
 
-/** 壳侧的全局热键 spec（`"option+space"`，HotKeyManager 的键名表）→ 键帽串。
+/** 壳侧的全局热键 spec（`"option+space"`，壳侧键名表）→ 键帽串。
  *  壳在 prefs/rebind 里推的就是 spec，不转换就会把「option+space」原样显示在设置页。
- *  修饰序与键名都取 comboOf/normKey 同一套（⌃⌥⇧⌘ + Space/↩/Esc/Tab/⌫）。 */
+ *  修饰序与键名都取 comboOf/normKey 同一套（⌃⌥⇧⌘ + Space/↩/Esc/Tab/⌫）。
+ *  Windows 上 control 显示 Ctrl、option/alt 显示 Alt、command 显示 Win（规格词表
+ *  两平台同源，Windows 壳推的就是 ctrl+alt+space）。 */
 const HOTKEY_MODS: Record<string, string> = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘" };
 const HOTKEY_KEYS: Record<string, string> = { space: "Space", return: "↩", esc: "Esc", tab: "Tab", backspace: "⌫" };
+const WINDOWS_MOD_ALIASES: Record<string, string> = { ctrl: "control", alt: "option" };
 
 export function formatHotkeySpec(spec: string): string {
-  const parts = spec.split("+").map((p) => p.trim()).filter(Boolean);
+  const parts = spec.split("+").map((p) => p.trim()).filter(Boolean)
+    .map((p) => WINDOWS_MOD_ALIASES[p] ?? p);
   const key = parts.pop() ?? "";
   const mods = ["control", "option", "shift", "command"]
     .filter((m) => parts.includes(m))
@@ -209,11 +216,32 @@ function normKey(e: KeyboardEvent): string | undefined {
 export function comboOf(e: KeyboardEvent): string | undefined {
   const key = normKey(e);
   if (!key) return undefined;
+  // 平台主修饰键映进 ⌘ 槽位（mac=⌘ 键 / Windows=Ctrl），另一个映 ⌃（mac=⌃ /
+  // Windows=Win 键）——规范串与注册表逐字节对齐的前提下，Windows 的 Ctrl+N
+  // 才能命中默认键位 "⌘N"。槽位不换，规范序 ⌃⌥⇧⌘ 不变。
+  const primary = IS_WINDOWS_OS ? e.ctrlKey : e.metaKey;
+  const secondary = IS_WINDOWS_OS ? e.metaKey : e.ctrlKey;
   // ⇧ 显式记录（⇧⌘E 与 ⌘E 是不同绑定，不能靠字母大写隐含）
   const mods =
-    (e.ctrlKey ? "⌃" : "") +
+    (secondary ? "⌃" : "") +
     (e.altKey ? "⌥" : "") +
     (e.shiftKey ? "⇧" : "") +
-    (e.metaKey ? "⌘" : "");
+    (primary ? "⌘" : "");
   return mods + key;
+}
+
+/** 规范 combo → 键帽显示 token 数组。mac 保持逐字符（⌘N → ["⌘","N"]，现有渲染）；
+ *  Windows 显示 Ctrl/Alt/Shift/Win 并按 Windows 惯例排序（Ctrl+Alt+Shift+Win），
+ *  主键原样保留（"⌘," → ["Ctrl", ","]）。Tooltip 的键帽行消费。
+ *  isWindows 参数供测试注入（默认取平台事实）。 */
+export function displayKeyCaps(combo: string, isWindows: boolean = IS_WINDOWS_OS): string[] {
+  if (!isWindows) return [...combo];
+  const tokens: string[] = [];
+  if (combo.includes("⌘")) tokens.push("Ctrl");
+  if (combo.includes("⌥")) tokens.push("Alt");
+  if (combo.includes("⇧")) tokens.push("Shift");
+  if (combo.includes("⌃")) tokens.push("Win");
+  const key = combo.replace(/[⌘⌃⌥⇧]/g, "");
+  if (key) tokens.push(key);
+  return tokens;
 }

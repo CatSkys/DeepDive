@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { displayKeyCaps } from "../keybinds";
 
 // 全局悬浮注释（替代原生 title）：任意元素加
 //   data-tip="文案"  data-tip-keys="⌘,"（右侧键帽快捷键，可省）
@@ -125,9 +126,14 @@ export function TooltipHost() {
       style={placed ? { top: placed.top, left: placed.left } : { visibility: "hidden" }}
     >
       <span className="tip-text">{tip.text}</span>
-      {tip.keys && (tip.keys.length <= 3
-        ? <span className="tip-keys-row">{[...tip.keys].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}</span>
-        : <kbd className="tip-key">{tip.keys}</kbd>)}
+      {tip.keys && (() => {
+        // Windows 上键帽是 Ctrl/Alt 这类多字符 token（displayKeyCaps 转写）；
+        // mac 保持逐字符键帽。两个以上 token 压成单键帽不折行。
+        const caps = displayKeyCaps(tip.keys);
+        return caps.length <= 3
+          ? <span className="tip-keys-row">{caps.map((cap, i) => <kbd key={i} className="tip-key">{cap}</kbd>)}</span>
+          : <kbd className="tip-key">{caps.join("")}</kbd>;
+      })()}
     </div>,
     document.body,
   );
