@@ -12,8 +12,6 @@ import type {
   SessionAssistantStreamBaseline,
   SessionControlBaseline,
   SessionControlFrame,
-  SessionDeleteSessionsRequest,
-  SessionDeleteSessionsValue,
   SessionFollowFrame,
   SessionFollowRequest,
   SessionPage,
@@ -23,11 +21,7 @@ import type {
   SessionSelectModelValue,
 } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { WorkspaceRemote } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type {
-  WorkspaceFollowFrame,
-  WorkspaceUnarchiveSessionsRequest,
-  WorkspaceUnarchiveValue,
-} from '@deepseek-ai/dsh-api-workspace-controller/types'
+import type { WorkspaceFollowFrame } from '@deepseek-ai/dsh-api-workspace-controller/types'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import {
   RemoteStream,
@@ -212,8 +206,6 @@ export class FakeApiClient {
       },
       session: {
         canOpenWorkspacePath: () => Promise.resolve(ok(true)),
-        deleteSessions: (_request: SessionDeleteSessionsRequest): Promise<RemoteResult<SessionDeleteSessionsValue>> =>
-          Promise.resolve(ok({ deleted: [], refused: [] })),
         list: payload => this.record('session.list', payload, this.onList(payload)),
         modelCatalog: () => Promise.resolve({
           ok: true,
@@ -236,6 +228,10 @@ export class FakeApiClient {
         ),
         rename: payload => this.record('session.rename', payload, this.onRename(payload)),
         fork: payload => this.record('session.fork', payload, this.onFork(payload)),
+        deleteSessions: payload => this.record('session.deleteSessions', payload, Promise.resolve(ok({
+          deleted: (payload as { sessionIds: SessionId[] }).sessionIds,
+          refused: [],
+        }))),
         prompt: payload => this.record('session.prompt', payload, this.onPrompt(payload)),
         attachment: payload => this.record('session.attachment', payload, this.onAttachment(payload)),
         updateQueue: payload => this.record('session.updateQueue', payload, this.onUpdateQueue(payload)),
@@ -281,8 +277,9 @@ export class FakeApiClient {
           payload,
           this.onWorkspaceArchiveSession(payload),
         ),
-        unarchiveSessions: (request: WorkspaceUnarchiveSessionsRequest): Promise<RemoteResult<WorkspaceUnarchiveValue>> =>
-          Promise.resolve(ok({ archivedSessionIds: request.sessionIds })),
+        unarchiveSessions: payload => this.record('workspace.unarchiveSessions', payload, Promise.resolve(ok({
+          archivedSessionIds: (payload as { sessionIds: SessionId[] }).sessionIds,
+        }))),
         follow: signal => this.openWorkspace(signal),
       },
     }

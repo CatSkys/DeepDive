@@ -24,6 +24,7 @@ import { useAutoArchive } from "./useAutoArchive";
 import { useBrowserPermissionAsk } from "./sidebar-right/useBrowserPermissionAsk";
 import { useBrowserLibraryBridge } from "./sidebar-right/browserHistory";
 import { type ModelOption } from "./components/ModelMenu";
+import { withFacts } from "./modelFacts";
 import type { EffortFace } from "./components/composer/EffortPicker";
 import { heroModelFace } from "./draftModel";
 import { TooltipHost } from "./components/Tooltip";
@@ -135,7 +136,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     //（上方注释的既有策略）；不捕获会成为 unhandledrejection 污染诊断通道。
     const { options, default: def } = await api.modelOptions()
       .catch(() => ({ options: [] as ModelOption[], default: undefined }));
-    setModels(options);
+    setModels(withFacts(options));
     setEngineDefault(def);
     const want = store.draftModel ?? def;
     if (want) {

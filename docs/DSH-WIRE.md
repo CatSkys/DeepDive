@@ -52,7 +52,7 @@
 | `fileReferences/list` | **已落地**（`{agentId, query}` → `[{path,kind}]`，cwd 亲和整库索引；@ 菜单文件候选原生源，见 §7） |
 | `sessionReferenceResolver/candidates` | **已落地**（`{agentId, query}` → 候选自带规范 mention；@ 会话引用候选原生源，见 §7） |
 | `session/search` | **原生常开**——session-query-sqlite 已进 base bundle，`--patch` overlay 的 session-query 条目已删 |
-| `session/models`、`llm/models` | **已删除**——模型目录唯一面 `session/modelCatalog`（含 reasoning 档位元数据 + default + failures） |
+| `session/models`、`llm/models` | **已删除**——模型目录唯一面 `session/modelCatalog`（含 reasoning 档位元数据 + default + failures；模型条目另带能力事实 `inputModalities`/`contextWindow`——引擎目录投影，选择器详情卡消费） |
 | `session/history` | **已删除**——冷读走 `session/follow` 开窗快照 + `session/page` 向前翻页 |
 | `workspace/list`、`workspace/unarchiveSession` | **已删除**——列表走 `workspace/follow` 流；归档单向（仅 `workspace/archiveSession`），unarchive UI 已随之删除 |
 | `subagent.*` | 改名 `subagents/list|prompt|interruptByParent`；`subagent.history` 消亡，子会话冷读走 follow 的 subagent 地址 `{kind:'subagent', parentSessionId, childSessionId, mode}` |

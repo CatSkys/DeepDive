@@ -428,6 +428,40 @@ describe('Web session model selection', () => {
     await ctx.fiber.dispose()
   })
 
+  it('surfaces input modalities and the context window through the catalog', async () => {
+    const { ctx } = await harness()
+    ctx.llm.registerAdapter(['factful'], new class extends CatalogAdapter {
+      override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
+        return Promise.resolve({
+          provider, id: model, name: model,
+          inputModalities: ['text', 'image'],
+          context: { contextWindow: 200_000 },
+        })
+      }
+    }('Factful', [
+      { provider: 'factful', id: 'vision-model', name: 'Vision Model' },
+    ]))
+    createSessionTestRemote(ctx, {
+      defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
+      cwd: '/tmp',
+    })
+
+    const catalog = await buildModelCatalog(ctx)
+    expect(catalog.groups).toEqual(expect.arrayContaining([
+      {
+        id: 'factful',
+        name: 'Factful',
+        models: [{
+          id: 'vision-model',
+          name: 'Vision Model',
+          inputModalities: ['text', 'image'],
+          contextWindow: 200000,
+        }],
+      },
+    ]))
+    await ctx.fiber.dispose()
+  })
+
   it('accepts an advisory-unlisted model, rejects an unavailable provider, and switches only after the next assembly', async () => {
     const { ctx, agent, sessionId } = await harness()
     const remote = createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }), cwd: '/tmp' })

@@ -121,6 +121,11 @@ class FakeWorkspaceRemote implements WorkspaceRemote {
     return this.onArchiveSession(request)
   }
 
+  onUnarchiveSessions: (
+    request: WorkspaceUnarchiveSessionsRequest,
+  ) => Promise<RemoteResult<WorkspaceUnarchiveValue>> = request =>
+    Promise.resolve(remoteOk({ archivedSessionIds: request.sessionIds }))
+
   unarchiveSessions(request: WorkspaceUnarchiveSessionsRequest): Promise<RemoteResult<WorkspaceUnarchiveValue>> {
     this.record('unarchiveSessions', request)
     return this.onUnarchiveSessions(request)

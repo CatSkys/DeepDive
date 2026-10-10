@@ -590,22 +590,25 @@ export const api = {
   sessionModelCatalog: () => unary<{
     default: { provider: string; model: string };
     routableProviders?: string[];
-    groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string; description?: string; reasoning?: { efforts: Array<{ id: string; name: string }>; defaultEffort?: string } }> }>;
+    groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string; description?: string; inputModalities?: string[]; contextWindow?: number; reasoning?: { efforts: Array<{ id: string; name: string }>; defaultEffort?: string } }> }>;
     failures?: Array<{ id: string; name: string; message: string }>;
   }>("session/modelCatalog", {}),
   /** 统一模型选项（选择器数据源）：session/modelCatalog 是唯一目录面
    *  （session/models 与 llm/models 已随 0.1.2 移除）。reasoning 元数据必须
-   *  透传——模型菜单靠它决定「选完即关」还是「进档位选择页」。 */
+   *  透传——模型菜单靠它决定「选完即关」还是「进档位选择页」；能力事实
+   *  （inputModalities/contextWindow）是详情卡的引擎侧事实。 */
   modelOptions: async () => {
-    type CatalogGroup = { id: string; name: string; models: Array<{ id: string; name: string; reasoning?: { efforts?: Array<{ id: string; name: string }>; defaultEffort?: string } }> };
+    type CatalogGroup = { id: string; name: string; models: Array<{ id: string; name: string; inputModalities?: string[]; contextWindow?: number; reasoning?: { efforts?: Array<{ id: string; name: string }>; defaultEffort?: string } }> };
     const flatten = (groups: CatalogGroup[]) => {
-      const options: Array<{ provider: string; model: string; label: string; providerLabel: string; efforts?: Array<{ id: string; name: string }>; defaultEffort?: string }> = [];
+      const options: Array<{ provider: string; model: string; label: string; providerLabel: string; efforts?: Array<{ id: string; name: string }>; defaultEffort?: string; inputModalities?: string[]; contextWindow?: number }> = [];
       for (const g of groups ?? []) {
         for (const m of g.models ?? []) {
           const efforts = m.reasoning?.efforts?.length ? m.reasoning.efforts : undefined;
           options.push({
             provider: g.id, model: m.id, label: m.name ?? m.id, providerLabel: g.name ?? g.id,
             ...(efforts ? { efforts, ...(m.reasoning?.defaultEffort ? { defaultEffort: m.reasoning.defaultEffort } : {}) } : {}),
+            ...(m.inputModalities?.length ? { inputModalities: m.inputModalities } : {}),
+            ...(m.contextWindow === undefined ? {} : { contextWindow: m.contextWindow }),
           });
         }
       }

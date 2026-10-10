@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
+import { withFacts } from "../modelFacts";
 import type { ModelOption } from "../components/ModelMenu";
 
 export function useSessionModels(sessionId: string) {
@@ -28,7 +29,8 @@ export function useSessionModels(sessionId: string) {
       let options: ModelOption[] = [];
       try {
         const r = await api.modelOptions();
-        options = r.options;
+        // 基准刻度 join（modelFacts 登记表）；未收录的模型原样透传。
+        options = withFacts(r.options);
         setModels(options);
         if (r.default) {
           const hit = options.find((m) => m.provider === r.default!.provider && m.model === r.default!.model);

@@ -29,6 +29,8 @@ import type {
   WorkspaceInsertBeforeRequest,
   WorkspaceInsertSessionBeforeRequest,
   WorkspaceOrderValue,
+  WorkspaceUnarchiveSessionsRequest,
+  WorkspaceUnarchiveValue,
   WorkspaceRenameRequest,
   WorkspaceUnarchiveSessionsRequest,
   WorkspaceUnarchiveValue,
