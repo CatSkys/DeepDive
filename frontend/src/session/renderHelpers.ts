@@ -1,8 +1,7 @@
 // renderModel 的纯派生函数群（从 renderModel.ts 拆出，行数棘轮）：推理帧时长
-// 折算、todo 参数解析、变更类工具的 call 侧 diff 推导、重试行文案。不碰
+// 折算、todo 参数解析、变更类工具的 call 侧 diff 推导。不碰
 // RenderItem 数组与摄取上下文，vitest 直接钉行为。
-import type { FileDiff, LlmRetryData } from "../types";
-import { formatLatencySeconds } from "./format";
+import type { FileDiff } from "../types";
 
 /** 从持久化的消息流帧（`data.stream`）里读**推理那一段**的时长。
  *  帧的真实形状（实测 log，`assistant/message` → `data.stream`）：
@@ -98,13 +97,5 @@ export function deriveCallDiffs(toolName: string, args: string): FileDiff[] | nu
     }
   }
   return null;
-}
-
-/** 重试行文本：延迟与次数 + 失败摘要（failure.code 优先，过长截断）。 */
-export function retryText(d: LlmRetryData): string {
-  const delay = d.delayMs !== undefined ? `${formatLatencySeconds(d.delayMs)}s` : "";
-  const attempt = d.maxRetries !== undefined ? `${d.retry}/${d.maxRetries}` : String(d.retry ?? "");
-  const why = d.failure?.code ?? d.failure?.message ?? "";
-  return [why, delay, attempt].filter(Boolean).join(" · ");
 }
 

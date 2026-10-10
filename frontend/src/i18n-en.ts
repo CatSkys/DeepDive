@@ -384,7 +384,11 @@ export const EN: Record<string, string> = {
   "继续": "Continue",
   "本轮失败": "Turn failed",
   "请在设置中配置 API Key 后重试": "Configure an API key in Settings and retry",
-  "模型请求重试": "Model request retrying",
+  "等待重试模型请求": "Waiting to retry model request",
+  "正在重试模型请求": "Retrying model request",
+  "重试延迟": "Retry delay",
+  "失败原因": "Failure reason",
+  "API 密钥无效": "API key invalid",
   "已压缩更早的上下文": "Earlier context compacted",
   "（约 {n} tokens）": "(~{n} tokens)",
   // phase 5 long-running & parallel surface

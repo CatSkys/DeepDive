@@ -2,7 +2,9 @@
 //   · 查阅 explore （ToolCallBlocks/renderers/explore.tsx）：读族、搜索族、
 //     **只读命令**；摘要「N 搜索, M 文件」（桶序固定 搜索→列表→文件，0 不出现）。
 //   · 终端 execute （renderers/execute-group.tsx）：命令族里**非只读**的那些；
-//     摘要「N 个命令」+「, X 个失败」（他们还有「, Y 个已停止」，本仓行上没有该状态）。
+//     摘要（用户 2026-10-10 定稿，偏离官方的 N commands）：「最新命令 · N 个命令」
+//     +「· X 个失败」——终端这行要说清**当前在干什么**，光给条数不够。
+//     （他们还有「, Y 个已停止」，本仓行上没有该状态。）
 //   · 更改 changes （renderers/changes-group.tsx）：写族（write/edit/apply_patch…）；
 //     摘要「N 个文件」+「·」+ 文件清单，单个文件时只显示文件名。
 //     **他们默认关掉这一组**（ENABLE_CHANGES_TOOL_CALL_GROUPING = false），
@@ -16,6 +18,7 @@
 // 故取保守白名单——认不出的命令进"终端"组，而不是"查阅"组。
 import type { RenderItem } from "./renderModel";
 import { derivePath } from "./renderModel";
+import { firstLine } from "./format";
 import { toolVariant } from "./toolKind";
 
 export type ToolGroupKind = "explore" | "execute" | "changes";
@@ -168,7 +171,7 @@ export function changedFiles(members: readonly RenderItem[]): string[] {
 
 /** 组摘要（按组类拼）。`ttPair` 由调用方注入——i18n 入口在宿主。
  *  · 查阅：桶序固定、0 不出现、", " 分隔 —— 即「N 搜索, M 文件」
- *  · 终端：「N 个命令」+ 失败计数（他们的「已停止」本仓行上没有该状态）
+ *  · 终端：「最新命令 · N 个命令」+ 失败计数（他们的「已停止」本仓行上没有该状态）
  *  · 更改：「N 个文件 · 文件清单」，单个文件时只显示文件名 */
 export function formatGroupSummary(
   kind: ToolGroupKind,
@@ -185,10 +188,16 @@ export function formatGroupSummary(
     return parts.join(", ");
   }
   if (kind === "execute") {
-    const parts = [ttPair("{n} 个命令", "{n} commands", { n: members.length })];
+    const parts: string[] = [];
+    // 当前在干什么 = 组内最新一条命令（流式期间即正在跑的那条；单行截断与
+    // 单条工具行的 summarizeArgs 同一口径）
+    const last = members[members.length - 1];
+    const cmd = last ? firstLine(commandOf(last.args ?? "")) : "";
+    if (cmd) parts.push(cmd);
+    parts.push(ttPair("{n} 个命令", "{n} commands", { n: members.length }));
     const failed = members.filter((m) => m.failed).length;
     if (failed > 0) parts.push(ttPair("{n} 个失败", "{n} failed", { n: failed }));
-    return parts.join(", ");
+    return parts.join(" · ");
   }
   const files = changedFiles(members);
   if (files.length === 1) return files[0]!;

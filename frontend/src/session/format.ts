@@ -33,6 +33,23 @@ export function relativizePath(text: string, cwd?: string): string {
   return text.slice(cwd.length + 1);
 }
 
+/// 浏览器控制行（mcp__deepdive-browser__js）的摘要（用户 2026-10-10 定稿：
+/// 要说清在控制什么）。模型随调用带面向用户的 title——一句话说清这一步在
+/// 干什么，首选；没有再退到代码里的首个 URL（控制哪个页面），最后才是
+/// 通用参数摘要（代码首行）。
+export function browserSummary(args: string): string {
+  try {
+    const p = JSON.parse(args) as Record<string, unknown>;
+    if (p && typeof p === "object") {
+      if (typeof p.title === "string" && p.title) return firstLine(p.title);
+      const code = typeof p.code === "string" ? p.code : "";
+      const url = /https?:\/\/[^\s"'`\\)]+/.exec(code)?.[0];
+      if (url) return url;
+    }
+  } catch { /* 不是合法 JSON：走通用参数摘要 */ }
+  return summarizeArgs(args);
+}
+
 export function commandOf(args: string): string {
   try {
     const p = JSON.parse(args);
@@ -65,12 +82,6 @@ export function formatClock(ms: number): string {
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
-/** 秒级延时（重试行「7.9s」用）：≥10s 取整，否则保留一位小数、去掉 .0 */
-export function formatLatencySeconds(ms: number): string {
-  const s = ms / 1000;
-  return s >= 10 ? String(Math.round(s)) : (Math.round(s * 10) / 10).toString().replace(/\.0$/, "");
-}
-
 /** 经过时长（StatusCapsule/LoadingState 的 elapsed 收敛目的地，AUD-047）：
  *  <60s → "{n}s"；<60m → "{m}m {s}s"；否则 "{h}h {m}m {s}s"（均向下取整）。
  *  秒恒在（用户定稿：分钟后没秒就是"1m"地停着不走，看不出在动；小时同理）。 */

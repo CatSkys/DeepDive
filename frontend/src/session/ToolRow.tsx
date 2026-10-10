@@ -9,9 +9,9 @@ import { useStore } from "../store";
 import { DiffBlock } from "../components/DiffBlock";
 import { AttachmentThumb } from "../components/AttachmentImage";
 import { IconCheckOutline16, IconChecklistOutline14, IconCopyOutline16 } from "../components/Icons";
-import { askSummary, basename, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
+import { askSummary, basename, browserSummary, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
-import { toolDisplayName } from "./toolKind";
+import { isBrowserTool, toolDisplayName } from "./toolKind";
 import { presetLabel } from "../settings/permissionPreset";
 import { fileUrlOf } from "../components/preview/previewModel";
 import { mergeArtifacts } from "../sidebar-right/sessionArtifacts";
@@ -37,7 +37,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   const isTodo = toolName === "todo_write" || toolName === "todos" || todo !== null;
   const isAsk = toolName === "ask_user_question" || toolName === "ask_user";
   const summary = (() => {
-    const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : summarizeArgs(args);
+    const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : isBrowserTool(toolName) ? browserSummary(args) : summarizeArgs(args);
     return relativizePath(raw, cwd);
   })();
   const filePath = derivePath(toolName, args);

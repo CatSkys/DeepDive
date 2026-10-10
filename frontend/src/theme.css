@@ -2695,7 +2695,8 @@ button {
 @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .thinking-active, .thinking-done, .thinking-row,
-  .tool-row[data-state="running"] .tool-title { animation: none !important; }
+  .tool-row[data-state="running"] .tool-title,
+  .retry-row[data-active] .retry-text { animation: none !important; }
   .thinking-collapse, .thinking-line, .thinking-chevron, .thinking-head { transition: none !important; }
   .flow-inner, .session-header .title-row { animation: none !important; }
 }
@@ -4154,16 +4155,58 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   color: var(--ink-2);
 }
 
-/* 重试行 */
+/* 重试提示行（官方 ModelRetryItem 口径）：一句话状态 + 可展开细节，不摆
+   状态点、不露原始错误码（失败原话在展开体里）。直播等待时文字微光脉冲
+   ——与运行中工具行同一手法（UI-SPEC「运行中不摆状态点」）。 */
 .retry-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
   padding: 2px 8px;
 }
-.retry-detail { font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-xs); }
+.retry-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 0;
+  border-radius: 3px;
+  color: inherit;
+  cursor: pointer;
+  list-style: none;
+  line-height: var(--flow-row);
+}
+.retry-summary::-webkit-details-marker { display: none; }
+.retry-summary::after {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  content: "";
+  opacity: 0.8;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.retry-row[open] .retry-summary::after { transform: rotate(45deg); }
+:where(html[data-hover-armed]) .retry-summary:hover { color: var(--ink-2); }
+.retry-row[data-active] .retry-text {
+  background-image: linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%);
+  background-size: 200% 100%;
+  background-position: 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-text 1.4s linear infinite;
+}
+.retry-details {
+  display: grid;
+  gap: 2px;
+  margin-top: 3px;
+  padding-left: 14px;
+  overflow-wrap: anywhere;
+  color: var(--ink-3);
+  line-height: var(--flow-row);
+}
+.retry-detail-label { margin-right: 6px; }
 
 /* 轮失败条 */
 /* 轮末提醒条（失败 / max tokens）：有底色即卡片 → 不描边（UI-SPEC §2.4 卡片纪律），

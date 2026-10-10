@@ -9,7 +9,7 @@ import { narrowDiffs } from "../diffModel";
 import { messageText, userText } from "./eventText";
 import { truncate } from "./format";
 import { isBrowserTool } from "./toolKind";
-import { deriveCallDiffs, retryText, streamThinkMs } from "./renderHelpers";
+import { deriveCallDiffs, streamThinkMs } from "./renderHelpers";
 
 // 对外导出保留在 renderModel（调用方与测试的导入点不变）。
 export { parseTodos, deriveCallDiffs } from "./renderHelpers";
@@ -46,6 +46,8 @@ export interface RenderItem {
   compactionId?: string;
   /** 重试行：retryId 去重键（同一等待更新不新增）。 */
   retryId?: string;
+  /** 重试行的结构化数据（RetryRow 渲染用；同 retryId 的后续事件就地覆盖）。 */
+  retryData?: import("../types").LlmRetryData;
   // 编辑类工具的文件变更（call 侧=pending 态；result 侧=已应用，权威）
   diffs?: import("../types").FileDiff[];
   // 工具结果图片（read_image：attachment 引用，字节经 session/attachment 取）
@@ -423,11 +425,11 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       const prev = d.retryId ? ctx.retryIndex.get(d.retryId) : undefined;
       if (prev !== undefined && out[prev]) {
         out[prev].time = ev.time;
-        out[prev].output = retryText(d);
+        out[prev].retryData = d;
         touch(out[prev]);
       } else {
         const idx = out.length;
-        out.push({ ...base, kind: "retry", retryId: d.retryId, output: retryText(d), turn: ctx.currentTurn });
+        out.push({ ...base, kind: "retry", retryId: d.retryId, retryData: d, turn: ctx.currentTurn });
         if (d.retryId) ctx.retryIndex.set(d.retryId, idx);
       }
       break;

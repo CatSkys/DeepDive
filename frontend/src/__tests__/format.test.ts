@@ -1,7 +1,21 @@
 // formatElapsed（AUD-047 收敛目的地）的档位边界：秒/分/时分三档与跨档进位。
 // relativizePath：工具行摘要的项目内路径相对化（用户定稿）。
+// browserSummary：浏览器控制行的摘要（title 优先 → 代码内 URL → 通用摘要）。
 import { describe, expect, it } from "vitest";
-import { compactElapsed, formatElapsed, relativizePath } from "../session/format";
+import { browserSummary, compactElapsed, formatElapsed, relativizePath } from "../session/format";
+
+describe("browserSummary", () => {
+  it("有 title 给 title（模型给的这步人话描述）", () => {
+    expect(browserSummary(JSON.stringify({ code: 'await b.navigate("https://x.com")', title: "打开 X 首页" }))).toBe("打开 X 首页");
+  });
+  it("无 title 退代码里的首个 URL（控制哪个页面）", () => {
+    expect(browserSummary(JSON.stringify({ code: 'const el = await q("a"); fetch("https://example.com/page")' }))).toBe("https://example.com/page");
+  });
+  it("都没有退通用参数摘要（代码首行）", () => {
+    expect(browserSummary(JSON.stringify({ code: "await b.title()\nawait b.screenshot()" }))).toBe("await b.title()");
+    expect(browserSummary("不是 JSON")).toBe("不是 JSON");
+  });
+});
 
 describe("relativizePath", () => {
   const cwd = "/Users/me/DSHmini";

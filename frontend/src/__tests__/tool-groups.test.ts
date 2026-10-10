@@ -115,13 +115,13 @@ describe("groupTools：相邻同类且 ≥2 条才成组", () => {
     expect(units[0]!.groupKind).toBe("explore");
   });
 
-  it("写命令成「终端」组，摘要给命令数", () => {
+  it("写命令成「终端」组，摘要给最新命令 + 命令数", () => {
     const items = [tool("bash", asJson("npm install")), tool("bash", asJson("make package")), tool("bash", asJson("rm -rf dist"))];
     const units = groupTools(items);
     expect(units).toHaveLength(1);
     if (units[0]!.kind !== "tool-group") throw new Error("unreachable");
     expect(units[0]!.groupKind).toBe("execute");
-    expect(formatGroupSummary("execute", units[0]!.members, zh)).toBe("3 个命令");
+    expect(formatGroupSummary("execute", units[0]!.members, zh)).toBe("rm -rf dist · 3 个命令");
   });
 
   it("编辑族成「更改」组", () => {
@@ -152,9 +152,9 @@ describe("formatGroupSummary：三类各自的形状", () => {
     expect(formatGroupSummary("explore", items, zh)).toBe("1 搜索, 1 列表, 2 文件");
     expect(formatGroupSummary("explore", [tool("read", "a"), tool("read", "b")], zh)).toBe("2 文件");
   });
-  it("终端：失败计数另起一段", () => {
+  it("终端：最新命令打头，失败计数另起一段", () => {
     const items = [tool("bash", asJson("npm test"), true), tool("bash", asJson("make"))];
-    expect(formatGroupSummary("execute", items, zh)).toBe("2 个命令, 1 个失败");
+    expect(formatGroupSummary("execute", items, zh)).toBe("make · 2 个命令 · 1 个失败");
   });
   it("更改：单文件只给文件名，多文件给计数 + 清单", () => {
     expect(formatGroupSummary("changes", [tool("edit", JSON.stringify({ file_path: "only.ts" }))], zh)).toBe("only.ts");

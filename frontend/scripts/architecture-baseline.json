@@ -93,10 +93,10 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "4768b0a22dc71af5",
+      "id": "32e152a5ec0c2d71",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1028 lines > 300"
+      "detail": "1032 lines > 300"
     },
     {
       "id": "90411fea4b28cfed",
@@ -117,10 +117,10 @@
       "detail": "439 lines > 300"
     },
     {
-      "id": "74e01ae051ceeeab",
+      "id": "c2e2fa8c2fb2c633",
       "rule": "file-lines",
       "file": "frontend/src/session/renderModel.ts",
-      "detail": "545 lines > 300"
+      "detail": "547 lines > 300"
     },
     {
       "id": "f1ed9ce2409730c0",

@@ -8,8 +8,9 @@ import { ThinkingState } from "../components/ThinkingState";
 import { UserAttachments, messageContentOf } from "../components/AttachmentImage";
 import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
-import { UserBubble, AgentMessage, StreamingAgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
+import { UserBubble, AgentMessage, StreamingAgentMessage, MessageMeta, CompactionCard } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ArtifactsRow } from "./ToolRow";
+import { RetryRow } from "./RetryRow";
 
 export interface ItemProps {
   onPreviewFile?: (path: string, line?: number) => void;
@@ -111,7 +112,9 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
     return <CompactionCard summary={item.output ?? ""} shadowedTokens={item.args} />;
   }
   if (item.kind === "retry") {
-    return <div className="retry-row"><StateDot state="warning" />{t("模型请求重试")}<span className="retry-detail">{item.output}</span></div>;
+    if (!item.retryData) return null;
+    // active = 会话在跑且本行是直播尾（即这次等待正在进行）→ 倒计时 + 微光
+    return <RetryRow data={item.retryData} active={running} />;
   }
   if (item.kind === "tool-call") {
     return (
