@@ -179,7 +179,7 @@ backdrop-filter 渐隐带**——`theme.css:1535-1575`（`--session-fade-blur: 1
 ## 21. 引擎核心转向 pi（2026-10-10 定稿）
 
 - Agent loop 与 agent 核心换 pi、Cordis 留任组合内核（插件页 / 应用页的地基）、dsh 安全件移植保留、渐进自研。
-- 决策、依据、四阶段路径与开放问题清单的唯一事实源：[PLAN-ENGINE-PI-CORE.md](PLAN-ENGINE-PI-CORE.md)。
+- 决策、依据、四阶段路径与自研原则（交接缝即自研层）的唯一事实源：[PLAN-ENGINE-PI-CORE.md](PLAN-ENGINE-PI-CORE.md)。
 
 ## 期间不做
 
