@@ -499,6 +499,7 @@ export const EN: Record<string, string> = {
   "打开方式": "Open With",
   "排队中": "Queued",
   "插话中": "Steering",
+  "等待引导当前任务…": "Waiting to steer the current turn…",
   "图片": "Image",
   "文件": "File",
   "{n} 个视频": "{n} videos",

@@ -24,6 +24,7 @@ import { panelActions } from "../sidebar-right/panelStore";
 import { sessionTitle } from "../session/sessionTitle";
 import { ApprovalCard, QuestionCard } from "../session/Cards";
 import { QueueDock } from "../session/QueueDock";
+import { SteerQueue } from "../session/SteerQueue";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { isBrowserTool } from "../session/toolKind";
 import { useSessionModels } from "../session/useSessionModels";
@@ -185,11 +186,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
   const pending = [...approvals.values()].filter((a) => a.sessionId === sessionId);
   const sessionQuestions = [...questions.values()].filter((q) => q.sessionId === sessionId);
-  // 还没被引擎领取的消息都在排队区（一叠胶囊）：排队（next-turn）与插话中
-  //（next-step）两种 placement 都摆，因此都能编辑/删除；context（注入的运行时
+  // 还没被引擎领取的消息按 placement 分流（用户 2026-10-10 定稿）：插话中
+  //（next-step）用消息形态排在输入区上方（SteerQueue），排队（next-turn）留在
+  // 排队区胶囊（QueueDock）——两种都保留编辑/删除；context（注入的运行时
   // 上下文，不是用户消息）不摆。队列快照本身即真相，本端不再另记"发送中"。
   const sessionQueue = queues.get(sessionId) ?? [];
-  const pendingItems = sessionQueue.filter((i) => i.placement !== "context");
+  const steerItems = sessionQueue.filter((i) => i.placement === "steering");
+  const pendingItems = sessionQueue.filter((i) => i.placement === "queued");
 
   // 子会话（origin==='subagent'）是**只读预览页**：形态照全屏产物预览——返回
   // 父会话 + 标题，内容铺满，不挂输入框（continuable 子会话续话那条路随之撤掉）。
@@ -386,6 +389,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
           className="session-bottom"
           ref={attachBottom}
         >
+          {steerItems.length > 0 && <SteerQueue sessionId={sessionId} items={steerItems} />}
           {pendingItems.length > 0 && (
             <div className="queue-dock-wrap">
               <QueueDock sessionId={sessionId} items={pendingItems} />

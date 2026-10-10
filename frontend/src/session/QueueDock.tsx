@@ -1,6 +1,7 @@
-// 排队区（会话框上方一叠胶囊）：**引擎还没领取**的消息一条一枚——排队（next-turn）
-// 与插话中（next-step）都摆在这里，因此两种都能编辑/删除（引擎的 session.updateQueue
-// 对两者都收；只有「立即」限定 next-turn，插话中的不给这枚）。
+// 排队区（会话框上方一叠胶囊）：**引擎还没领取**的排队消息（next-turn）一条
+// 一枚。插话中（next-step）不摆这里——那条走消息形态（SteerQueue，用户定稿），
+// 因此本区只剩排队态：「立即」转插话、编辑、删除（引擎的 session.updateQueue
+// 对排队收这三种）。
 //
 // 交互是**点击展开**（用户定稿：hover 展开不好控制）：常态只包住一行文本的小胶囊，
 // 点它长成整行并浮出操作，点别处收回。数据来自 store.queues（session/control 帧），
@@ -16,12 +17,6 @@ import { IconCheckOutline16 } from "../components/Icons";
 import { UserAttachments } from "../components/AttachmentImage";
 import type { SessionQueuedItem } from "../types";
 import { queueAttachments, queueLabel, queueText } from "./format";
-
-
-/** 一行状态词：排队中（还在 next-turn 等轮边界）/ 插话中（已递给当前轮，下一步生效）。 */
-function stateLabel(item: SessionQueuedItem): string {
-  return item.placement === "steering" ? t("插话中") : t("排队中");
-}
 
 export function QueueDock({ sessionId, items }: { sessionId: string; items: SessionQueuedItem[] }) {
   /** 展开的那一枚（同一时刻只展开一枚）。 */
@@ -97,7 +92,7 @@ export function QueueDock({ sessionId, items }: { sessionId: string; items: Sess
               />
             ) : (
               <>
-                <span className="queue-state">{stateLabel(item)}</span>
+                <span className="queue-state">{t("排队中")}</span>
                 {/* 不带 data-tip：胶囊上的悬浮注释与胶囊里的文本重复（用户定稿去掉） */}
                 <span className="queue-text">{label}</span>
               </>
@@ -115,12 +110,10 @@ export function QueueDock({ sessionId, items }: { sessionId: string; items: Sess
                     </>
                   ) : (
                     <>
-                      {item.placement === "queued" && (
-                        <button className="queue-now" data-tip={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
-                          <ArrowUp size={13} />
-                          {t("立即")}
-                        </button>
-                      )}
+                      <button className="queue-now" data-tip={t("立即插队执行")} onClick={() => void mutate(item.id, { kind: "steer" })}>
+                        <ArrowUp size={13} />
+                        {t("立即")}
+                      </button>
                       <button
                         className="queue-btn"
                         data-tip={editable ? t("编辑排队消息") : t("带附件的排队消息不能编辑（排队编辑只收文本）")}
