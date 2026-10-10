@@ -42,9 +42,9 @@
 - 在 `build-release.sh` / `package-macos.sh` / `dev.sh` 中追加一步（与 `embed-web.sh` 平级）。
 - 将：
   - `node` 可执行（按 §3.1 `node-version.txt` 引脚取，非本机随手版）→ `Contents/Resources/Runtime/node`（**勿放 `Contents/MacOS/`**：LS 会当成第二个 app，Dock 闪 node 窗口；校验架构匹配、动态 node 的 `libnode*.dylib` 拷到 `Resources/Runtime/lib` 与二进制做兄弟目录——`@executable_path/../lib` 靠它解析）。
-  - 准备好的 DSH runtime 闭包（`prepare-dsh-runtime.sh` 输出）→ **`Contents/Resources/Runtime/dsh/`（整目录拷入，入口脚本为 `Runtime/dsh/lib/bin.js`）**；拷入后由 `patch-engine-model-data.sh` 把 pi-ai 的生成数据层覆盖为 `scripts/engine-model-data/` 快照（模型目录新鲜度，见 `ARCHITECTURE §5`；带版本闸，引脚自带 pi-ai 够新即自动跳过）。
+  - 准备好的 DSH runtime 闭包（`prepare-dsh-runtime.sh` 输出）→ **`Contents/Resources/Runtime/dsh/`（整目录拷入，入口脚本为 `Runtime/dsh/lib/bin.js`）**；模型目录随 bundle 内 pi-ai 版本自带（见 `ARCHITECTURE §5` 模型目录新鲜度）。
   - `engine/profile/`（自有组合）→ `Contents/Resources/EngineProfile/`，供壳在引擎启动前装进 harness home（§3.5）。
-- 步骤**有序且不得乱调**：拷 node/闭包 → 模型目录覆盖 → **`prune-dsh-runtime.sh`（裁掉自有组合不装载的包）** → 拷 `EngineProfile` + 组合自检（`--dump-config`）→ **`sign-app.sh` 重封**（必须在所有文件改动之后）→ 许可 → `bin.js --version` → **`smoke-engine-boot.sh`**（用随包 node 真起一次引擎等 `dsh web:` 就绪行）。
+- 步骤**有序且不得乱调**：拷 node/闭包 → **`prune-dsh-runtime.sh`（裁掉自有组合不装载的包）** → 拷 `EngineProfile` + 组合自检（`--dump-config`）→ **`sign-app.sh` 重封**（必须在所有文件改动之后）→ 许可 → `bin.js --version` → **`smoke-engine-boot.sh`**（用随包 node 真起一次引擎等 `dsh web:` 就绪行）。
   最后一步不是可选项：`--version` 根本不装载插件、`--dump-config` 只解析补丁层，两者都发现不了"某个包被裁掉但某行还依赖它"——那正是裁剪唯一会犯的错，只有真实启动能判。
 - 记录/声明运行时许可（Node LICENSE、DSH runtime THIRD_PARTY_NOTICES）。
 - **引擎来源（2026-09-29 起默认自有）**：默认嵌**本仓构建的自有引擎**（`engine/`，见
@@ -136,8 +136,7 @@
 **没有硬性驱动**（逐条实证）：
 
 - **引擎无强制更新机制**——boot/core 内无版本门或 outdated 检查，服务端也不拒绝旧客户端。
-- **模型目录新鲜度已与引脚解耦**：`@earendil-works/pi-ai` 在新旧闭包里逐字节相同（`diff -rq` 零差异），
-  故 `scripts/engine-model-data/` 的快照继续生效；新模型上线只更新该目录的数据，不动引脚（流程见其 README）。
+- **模型目录新鲜度已与引脚解耦**（2026-10-10 起更进一步）：pi-ai 升级是 fork 自己的依赖决策，本次随 fork 升 `@earendil-works/pi-ai` 1.1.0，目录数据层与引擎闭包同版本演进；当年的覆盖快照机制随之退役，新模型上线 = 升 fork 自身的 pi-ai 依赖，不动引脚。
 - **DeepSeek 路由不构成约束**：本 pin 的 `dsh-llm-deepseek` 走 `{baseURL}/chat/completions`，
   0.1.7 改为 Messages-only 并硬拒 `protocol` 配置项；pi-ai 的 `deepseek` provider 同为 openai-completions，
   **故本 pin 上无配置逃生口**。但无凭据探测该端点仍返回 401（在线而非 404），官方文档无弃用公告，

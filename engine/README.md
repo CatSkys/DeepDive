@@ -32,8 +32,10 @@ bash scripts/build-engine.sh       # 双面构建 → 原生 flock 编译 → �
 产物 `dist/.dsh-engine-build/<pin>/`，形状与 npm 闭包完全一致
 （`package.json` + `lib/bin.js` + 扁平 `node_modules`），因此
 `prepare-dsh-runtime.sh --validate`、`smoke-engine-boot.sh`、`embed-engine.sh`
-原样可用。嵌入应用：`bash scripts/build-release.sh`（默认嵌自有引擎；`DEEPDIVE_ENGINE_SOURCE=npm` 回退闭包轨）
-（默认仍嵌 npm 闭包，随时可回退）。
+原样可用。嵌入应用：`bash scripts/build-release.sh`（默认嵌自有引擎；`DEEPDIVE_ENGINE_SOURCE=npm` 回退闭包轨——回退轨下产品面 RPC 不可用，仅对照）。
+
+`@earendil-works/pi-ai` 是 fork 自己的依赖决策（2026-10-10 起 1.1.0），不随
+dsh 引脚走；模型目录随它自带生成数据层，不再有数据覆盖层。
 
 ## 三道对等闸门
 

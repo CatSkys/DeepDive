@@ -109,12 +109,6 @@ fi
 rm -rf "$STAGE/Resources/Runtime/dsh"
 ditto "$RUNTIME_SOURCE" "$STAGE/Resources/Runtime/dsh"
 
-# Model-menu freshness: the pinned engine's pi-ai catalog is frozen at its
-# release date. Overlay the newer generated data layer (pure data, no code —
-# scripts/engine-model-data/README.md); no-ops once the pin's pi-ai is newer
-# than the snapshot。
-bash "$ROOT/scripts/patch-engine-model-data.sh" "$STAGE/Resources/Runtime/dsh"
-
 # 闭包裁剪：engine/profile 不装载的包从分发里摘掉（官方 GUI 客户端等，见该脚本
 # 的移除清单）。自有组合是这件事成立的前提——我们知道自己装载什么，才敢删。
 bash "$ROOT/scripts/prune-dsh-runtime.sh" "$STAGE/Resources/Runtime/dsh"

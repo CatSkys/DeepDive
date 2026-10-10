@@ -9,9 +9,9 @@
 # composition (engine/profile) is what makes those removals stateable; this
 # script is the mechanical half of that decision.
 #
-# Discipline mirrors patch-engine-model-data.sh: a version gate against the
-# runtime pin, an explicit list, and a smoke. It does NOT sign — embed-engine.sh
-# re-seals after every mutation, and this runs before that seal.
+# Discipline: a version gate against the runtime pin, an explicit list, and a
+# smoke. It does NOT sign — embed-engine.sh re-seals after every mutation, and
+# this runs before that seal.
 #
 # Each removal is judged by a real boot (scripts/smoke-engine-boot.sh), not by
 # reading imports: static reachability over a bundled closure is unreliable — it
@@ -25,7 +25,7 @@ PIN="$(tr -d '[:space:]' < "$ROOT/scripts/dsh-runtime-version.txt")"
 
 [[ -f "$RUNTIME_ROOT/lib/bin.js" ]] || { echo "not a dsh runtime root: $RUNTIME_ROOT" >&2; exit 1; }
 # node's require() rejects a relative path that does not start with ./ — the build
-# chain passes a relative .app path (the same trap patch-engine-model-data.sh hits).
+# chain passes a relative .app path.
 RUNTIME_ROOT="$(cd "$RUNTIME_ROOT" && pwd)"
 ACTUAL="$(node -p 'require(process.argv[1]).version' "$RUNTIME_ROOT/package.json")"
 [[ "$ACTUAL" == "$PIN" ]] || {
