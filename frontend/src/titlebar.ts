@@ -18,8 +18,9 @@
 // interval 仍是安全网，差分只省下推送成本。
 
 import { sendRects } from "./host";
+import { hasRectChannel } from "./platform";
 
-const STRIP_HEIGHT = 52; // keep in sync with TitlebarAwareWebView.dragStripHeight
+const STRIP_HEIGHT = 52; // keep in sync with TitlebarDragView.dragStripHeight
 const PUSH_INTERVAL_MS = 300;
 
 interface Rect {
@@ -29,13 +30,9 @@ interface Rect {
   h: number;
 }
 
-interface BridgeHost {
-  webkit?: { messageHandlers?: { deepdive?: { postMessage(msg: unknown): void } } };
-}
-
 /** 壳桥在不在（rect 表通道）：纯浏览器里全部静默降级。 */
 function bridgeUp(): boolean {
-  return !!((window as unknown as BridgeHost).webkit?.messageHandlers?.deepdive);
+  return hasRectChannel();
 }
 
 // data-strip-interactive: 非控件但必须可在顶条内交互的元素（侧栏拖拽

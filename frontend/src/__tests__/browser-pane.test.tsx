@@ -13,6 +13,20 @@ vi.mock("../host", () => ({
   openExternalUrl: () => { /* not exercised */ },
 }));
 
+// 载体判定改经 platform（能力清单）：这里钉"mac 壳 = 原生载体"。
+vi.mock("../platform", () => ({
+  IS_WINDOWS_OS: false,
+  inShell: () => true,
+  shellCapabilities: () => ({
+    browser: true, dictation: true, remote: true, qr: true,
+    agentImport: true, openWith: true, hotkeyRecorder: true,
+  }),
+  hasRectChannel: () => true,
+  sendToShell: (m: Record<string, unknown>) => { sent.push(m); },
+  sendRects: (m: Record<string, unknown>) => { sent.push(m); },
+  mountShellDispatch: () => () => { /* mac 壳不走事件通道 */ },
+}));
+
 import { BrowserPane } from "../sidebar-right/BrowserPane";
 
 afterEach(cleanup);

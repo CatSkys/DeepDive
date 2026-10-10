@@ -4,6 +4,7 @@ import { ArrowUp, Square, Plus, Mic } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
+import { inShell } from "../platform";
 import { useT } from "../i18n";
 import { useCompositionGuard } from "../useCompositionGuard";
 import { Lightbox } from "./Lightbox";
@@ -68,7 +69,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   const [widthTick, setWidthTick] = useState(0);
   // 繁忙时 Enter 行为（settings conversation ns，设置页同款；默认排队）
   const [busyEnter, setBusyEnter] = useState<"queue" | "steer">("queue");
-  const [hasShell] = useState(() => !!window.webkit?.messageHandlers?.deepdiveHost);
+  const [hasShell] = useState(() => inShell());
   // 附件 chip 点击预览（Lightbox；仅图片 chip）
   const [preview, setPreview] = useState<ImageAttachment | null>(null);
   // 中文输入法确认词的回车余波守卫（useCompositionGuard.ts 顶部注释）
