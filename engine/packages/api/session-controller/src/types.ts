@@ -124,6 +124,10 @@ export interface ModelCatalogModel {
   readonly name: string
   readonly description?: string
   readonly reasoning?: ModelReasoning
+  /** Accepted request modalities; absent means unknown (selector capability rows gate on it). */
+  readonly inputModalities?: readonly string[]
+  /** Provider-owned context capacity in tokens when known; absent means unknown. */
+  readonly contextWindow?: number
 }
 
 /** One provider and its successfully loaded model catalog. */

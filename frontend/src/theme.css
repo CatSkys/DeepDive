@@ -278,7 +278,7 @@ button {
     0 24px 64px rgba(0,0,0,.17);
 }
 /* 浮在会话流之上的一档材质（弹层/提示/回到底部钮/页内查找胶囊都吃这一条） */
-.model-menu, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .preview-window, .find-capsule {
+.model-menu, .model-detail, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .preview-window, .find-capsule {
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
      别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
@@ -848,16 +848,30 @@ button {
 .model-menu-row svg { color: var(--ink-2); flex-shrink: 0; }
 .model-menu-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-menu-row.active svg { color: var(--ink); }
-
-.model-menu-row .provider {
-  flex: none;
-  margin-left: 2px;
-  font-size: var(--dsh-font-size-xs);
-  color: var(--ink-3);
-}
 :where(html[data-hover-armed]) .model-menu-row:hover { background: var(--row-hover); }
+
 .model-menu-row.active { background: var(--fill-strong); color: var(--ink-bright); }
 .model-menu-empty { padding: 16px; color: var(--ink-3); font-size: var(--dsh-font-size-base); text-align: center; }
+/* 厂商分组小标题：列表按厂商聚合（行内不再重复厂商名） */
+.model-menu-group {
+  padding: 10px 10px 4px;
+  font-size: var(--dsh-font-size-xs);
+  color: var(--ink-3);
+  user-select: none;
+}
+/* ⓘ 基准详情开关：透明钮，aria-pressed 与 hover 才提色——右簇里不凭空多一颗带底的钮 */
+.model-menu-info {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--dsh-radius-control);
+  color: var(--ink-3);
+}
+:where(html[data-hover-armed]) .model-menu-info:hover,
+.model-menu-info[aria-pressed="true"] { color: var(--ink); }
 .model-menu-search {
   display: flex;
   align-items: center;
@@ -878,6 +892,72 @@ button {
   font-size: var(--dsh-font-size-base);
 }
 .model-menu-search input::placeholder { color: var(--ink-3); }
+
+/* 模型基准详情卡（ModelMenu ⓘ 的旁位浮层）：材质只来自共享组（281 行选择器
+   列表，含 .model-detail），这里只写定位与内容；容器配方抄 .model-menu。 */
+.model-detail {
+  /* 弹层挂 body（ModelMenu 的 portal）：fixed + 行内 top/left 由菜单 rect 算出 */
+  position: fixed;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--dsh-radius-floating);
+  border: 1px solid var(--line);
+  overflow-y: auto;
+  /* 与 .model-menu 同层：都是挂 body 的浮动菜单 */
+  z-index: 1100;
+}
+.model-detail-view { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; }
+.model-detail-name {
+  font-size: var(--dsh-font-size-base);
+  font-weight: 600;
+  color: var(--ink-bright);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-detail-meter { display: flex; flex-direction: column; gap: 6px; }
+.model-detail-meter .lbl { font-size: var(--dsh-font-size-xs); color: var(--ink-3); }
+.model-detail-meter .track {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--fill-strong);
+  /* 五段轨道的段界圆点（25/50/75%）：fill 盖住已划过段的点，余段可见 */
+}
+.model-detail-meter .track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    radial-gradient(circle at 25% 50%, var(--ink-3) 1.2px, transparent 1.7px),
+    radial-gradient(circle at 50% 50%, var(--ink-3) 1.2px, transparent 1.7px),
+    radial-gradient(circle at 75% 50%, var(--ink-3) 1.2px, transparent 1.7px);
+}
+.model-detail-meter .fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: var(--ink-soft);
+}
+.model-detail-nobench {
+  padding: 14px 12px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  color: var(--ink-3);
+  font-size: var(--dsh-font-size-xs);
+  text-align: center;
+}
+.model-detail-context { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.model-detail-context .lbl { font-size: var(--dsh-font-size-xs); color: var(--ink-3); }
+.model-detail-context .val { font-size: var(--dsh-font-size-xs); color: var(--ink-soft); white-space: nowrap; }
+.model-detail-caps { display: flex; flex-direction: column; gap: 8px; }
+.model-detail-caps .cap { display: flex; align-items: center; gap: 10px; font-size: var(--dsh-font-size-xs); color: var(--ink-soft); }
+.model-detail-caps .cap svg { color: var(--ink-2); flex-shrink: 0; }
+.model-detail-caps .cap.off { color: var(--ink-3); }
 
 /* hero 项目名：可点击切换项目（点状虚线，参考 Claude 项目选择器同款）。
    按钮继承 .hero-title 字号字色，只有虚线与 hover 提色。 */

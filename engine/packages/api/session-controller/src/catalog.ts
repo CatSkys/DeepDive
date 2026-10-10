@@ -40,6 +40,10 @@ export async function buildModelCatalog(
           name: model.name,
           ...(model.description === undefined ? {} : { description: model.description }),
           ...(reasoning === undefined ? {} : { reasoning }),
+          // 能力事实随目录透出（选择器能力行消费）；引擎「absent means unknown」
+          // 语义原样保留——值缺就省字段，不造默认。
+          ...(resolved.inputModalities === undefined ? {} : { inputModalities: resolved.inputModalities }),
+          ...(resolved.context === undefined ? {} : { contextWindow: resolved.context.contextWindow }),
         }
       }))
       return {

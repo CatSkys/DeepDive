@@ -39,8 +39,8 @@ interface ProviderGroup {
 /** 模态标签：引擎词表只有 text / image，text 是每个模型的默认能力，不值得占一枚
  *  标签——只标出额外能力（未收录的取值原样显示，不猜）。 */
 const MODALITY_LABEL: Record<string, string> = { image: "视觉" };
-/** 上下文窗口紧凑表示：1000000 → 1M，131072 → 131K */
-const fmtContext = (n: number) => (n >= 1e6 ? `${Math.round((n / 1e6) * 10) / 10}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n));
+/** 上下文窗口紧凑表示：1000000 → 1M，131072 → 131K（模型菜单详情卡复用同一份）。 */
+export const fmtContext = (n: number) => (n >= 1e6 ? `${Math.round((n / 1e6) * 10) / 10}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n));
 
 export function ModelsManage() {
   const { t } = useT();
