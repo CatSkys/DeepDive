@@ -591,7 +591,7 @@ export const api = {
   sessionModelCatalog: () => unary<{
     default: { provider: string; model: string };
     routableProviders?: string[];
-    groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string; description?: string; inputModalities?: string[]; contextWindow?: number; reasoning?: { efforts: Array<{ id: string; name: string }>; defaultEffort?: string } }> }>;
+    groups: Array<{ id: string; name: string; models: Array<{ id: string; name: string; description?: string; inputModalities?: string[]; contextWindow?: number; cost?: { input: number; output: number; cacheRead?: number; cacheWrite?: number }; reasoning?: { efforts: Array<{ id: string; name: string }>; defaultEffort?: string } }> }>;
     failures?: Array<{ id: string; name: string; message: string }>;
   }>("session/modelCatalog", {}),
   /** 统一模型选项（选择器数据源）：session/modelCatalog 是唯一目录面
@@ -599,9 +599,9 @@ export const api = {
    *  透传——模型菜单靠它决定「选完即关」还是「进档位选择页」；能力事实
    *  （inputModalities/contextWindow）是详情卡的引擎侧事实。 */
   modelOptions: async () => {
-    type CatalogGroup = { id: string; name: string; models: Array<{ id: string; name: string; inputModalities?: string[]; contextWindow?: number; reasoning?: { efforts?: Array<{ id: string; name: string }>; defaultEffort?: string } }> };
+    type CatalogGroup = { id: string; name: string; models: Array<{ id: string; name: string; inputModalities?: string[]; contextWindow?: number; cost?: { input: number; output: number; cacheRead?: number; cacheWrite?: number }; reasoning?: { efforts?: Array<{ id: string; name: string }>; defaultEffort?: string } }> };
     const flatten = (groups: CatalogGroup[]) => {
-      const options: Array<{ provider: string; model: string; label: string; providerLabel: string; efforts?: Array<{ id: string; name: string }>; defaultEffort?: string; inputModalities?: string[]; contextWindow?: number }> = [];
+      const options: Array<{ provider: string; model: string; label: string; providerLabel: string; efforts?: Array<{ id: string; name: string }>; defaultEffort?: string; inputModalities?: string[]; contextWindow?: number; cost?: { input: number; output: number; cacheRead?: number; cacheWrite?: number } }> = [];
       for (const g of groups ?? []) {
         for (const m of g.models ?? []) {
           const efforts = m.reasoning?.efforts?.length ? m.reasoning.efforts : undefined;
@@ -610,6 +610,7 @@ export const api = {
             ...(efforts ? { efforts, ...(m.reasoning?.defaultEffort ? { defaultEffort: m.reasoning.defaultEffort } : {}) } : {}),
             ...(m.inputModalities?.length ? { inputModalities: m.inputModalities } : {}),
             ...(m.contextWindow === undefined ? {} : { contextWindow: m.contextWindow }),
+            ...(m.cost === undefined ? {} : { cost: m.cost }),
           });
         }
       }

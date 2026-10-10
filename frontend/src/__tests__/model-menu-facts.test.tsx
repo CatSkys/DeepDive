@@ -1,5 +1,6 @@
-// 模型菜单基准详情卡测试：withFacts join 命中/未收录回退、按厂商分组、
-// ⓘ 开合、hover 换内容、搜索空组隐藏、点卡片不算外点。
+// 模型菜单基准详情卡测试：withFacts join 命中/未收录回退、成本刻度推导
+// （手工档覆盖、引擎 peak 价兜默认家）、按厂商分组、ⓘ 开合、hover 换内容、
+// 搜索空组隐藏、点卡片不算外点。
 // portal 到 body 的节点不在 RTL 容器内——直接 document.querySelector
 // （仿 context-menu.test.tsx 的 portal 路线）。
 // @vitest-environment jsdom
@@ -7,7 +8,7 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
-import { withFacts } from "../modelFacts";
+import { costMeter, costScaleFromPrices, withFacts } from "../modelFacts";
 
 // useT 依赖 store context：本测试只关心词典默认态（zh 恒等），给个最小壳。
 vi.mock("../store", () => ({ useStore: () => ({ lang: "zh" }) }));
@@ -45,11 +46,30 @@ function Harness(props: { options: ModelOption[]; current: string }) {
 }
 
 describe("模型基准登记表 join", () => {
-  it("命中登记表附加刻度，未收录原样回退", () => {
+  it("命中登记表附加刻度，未收录原样回退（成本档已让位引擎价，见 costMeter）", () => {
     const out = withFacts(opts);
-    expect(out[0].facts).toEqual({ speed: 2, intelligence: 1, cost: 4 });
+    expect(out[0].facts).toEqual({ speed: 2, intelligence: 1 });
     expect(out[1].facts).toBeUndefined();
     expect(out[2].facts).toBeDefined();
+  });
+});
+
+describe("成本刻度推导", () => {
+  it("costScaleFromPrices：0.3×输入 + 0.7×输出 → ≤1→4 / ≤3→3 / ≤10→2 / ≤25→1 / 否则 0", () => {
+    // deepseek-flash peak：0.3/1.2 → 0.93 → 4
+    expect(costScaleFromPrices({ input: 0.3, output: 1.2, cacheRead: 0.006 })).toBe(4);
+    // deepseek-v4-pro peak：1.32/3.96 → 3.17 → 2（引擎价修正此前手抄档 4）
+    expect(costScaleFromPrices({ input: 1.32, output: 3.96, cacheRead: 0.044 })).toBe(2);
+    expect(costScaleFromPrices({ input: 2, output: 3.2 })).toBe(3);
+    // input 20/output 40 → 6+28=34 → 0
+    expect(costScaleFromPrices({ input: 20, output: 40 })).toBe(0);
+    expect(costScaleFromPrices(undefined)).toBeUndefined();
+  });
+
+  it("costMeter：登记表手工档覆盖，引擎 peak 价兜默认家", () => {
+    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: { cost: 0 } })).toBe(0);
+    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: undefined })).toBe(4);
+    expect(costMeter({ cost: undefined, facts: undefined })).toBeUndefined();
   });
 });
 

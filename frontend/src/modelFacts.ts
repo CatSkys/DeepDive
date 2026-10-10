@@ -35,15 +35,17 @@ export interface ModelBench {
   tools?: false;
 }
 
-/** provider/model → 基准刻度。AA 取数日期一律 2026-10-10；键段 = 引擎真实路由（2026-10-10 目录实测）。 */
+/** provider/model → 基准刻度。AA 取数日期一律 2026-10-10；键段 = 引擎真实路由（2026-10-10 目录实测）。
+ *  成本刻度（2026-10-10 M1 起）：默认家 = 引擎目录的 peak 牌价（costScaleFromPrices），
+ *  本表只对**不在任何目录里的套餐/聚合行**保留手工档（覆盖语义，见 costMeter）。 */
 export const MODEL_BENCH: Record<string, ModelBench> = {
   // —— deepseek-official（官方直连路由，四条全收）——
   // deepseek-flash 与 deepseek-v4-flash 是同一物理模型的两个端点（新名 DeepSeek-V41-Flash
   // 显示），AA DeepSeek 页只有一组 V4.1 Flash 值（226.1 tok/s · II 34，AA 已标弃用），两条共用。
-  "deepseek-official/deepseek-flash": { speed: 3, intelligence: 0, cost: 4 },
-  "deepseek-official/deepseek-v4-flash": { speed: 3, intelligence: 0, cost: 4 },
-  "deepseek-official/deepseek-v4-pro": { speed: 2, intelligence: 1, cost: 4 }, // 89.0 tok/s · II 36
-  "deepseek-official/deepseek-v4-flash-vision-exp": { cost: 4 }, // Exp 通道无 AA 页，仅牌价
+  // 成本档摘掉：引擎目录直发 peak 牌价（flash 0.93→4；v4-pro 3.17→2——此前手抄档 4 是错的，由引擎价修正）。
+  "deepseek-official/deepseek-flash": { speed: 3, intelligence: 0 },
+  "deepseek-official/deepseek-v4-flash": { speed: 3, intelligence: 0 },
+  "deepseek-official/deepseek-v4-pro": { speed: 2, intelligence: 1 }, // 89.0 tok/s · II 36
 
   // —— opencode-go（聚合路由）——
   "opencode-go/minimax-m3": { cost: 4 },
@@ -73,4 +75,28 @@ export function withFacts(options: ModelOption[]): ModelOption[] {
     const facts = MODEL_BENCH[`${o.provider}/${o.model}`];
     return facts === undefined ? o : { ...o, facts };
   });
+}
+
+/** 引擎目录透出的牌价（$/Mtok，peak 口径；官方页 off-peak 减半，不跨刻度界）。 */
+export interface ModelPrice {
+  input: number;
+  output: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+}
+
+/** 牌价 → 成本刻度（登记表口径原样：0.3×输入价 + 0.7×输出价 → ≤1→4，≤3→3，≤10→2，≤25→1，否则 0）。 */
+export function costScaleFromPrices(prices: ModelPrice | undefined): number | undefined {
+  if (prices === undefined) return undefined;
+  const composite = 0.3 * prices.input + 0.7 * prices.output;
+  if (composite <= 1) return 4;
+  if (composite <= 3) return 3;
+  if (composite <= 10) return 2;
+  if (composite <= 25) return 1;
+  return 0;
+}
+
+/** 详情卡的成本刻度（唯一推导口径）：手工档（套餐行）覆盖，引擎 peak 价兜默认家。 */
+export function costMeter(option: Pick<ModelOption, "cost" | "facts">): number | undefined {
+  return option.facts?.cost ?? costScaleFromPrices(option.cost);
 }

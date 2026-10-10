@@ -45,10 +45,10 @@
       "detail": "335 lines > 300"
     },
     {
-      "id": "4c7a3257501efc16",
+      "id": "452391059a576a9b",
       "rule": "file-lines",
       "file": "frontend/src/api.ts",
-      "detail": "779 lines > 300"
+      "detail": "780 lines > 300"
     },
     {
       "id": "f664da0e96fc84f8",

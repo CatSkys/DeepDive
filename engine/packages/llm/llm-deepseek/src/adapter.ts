@@ -13,6 +13,7 @@ import type {
   ContentBlock,
   GenerateOptions,
   ImageAttachmentAccess,
+  LlmModelCost,
   LlmModelInfo,
   LlmProviderInfo,
   PreparedAdapterCall,
@@ -70,6 +71,32 @@ export interface DeepSeekCatalogModel {
    * system prompt; omission means only a leading system message is read.
    */
   systemPromptUpdate?: SystemPromptUpdate
+  /**
+   * Provider-published prices in $ per million tokens (peak rates; the
+   * published pricing page halves them off-peak). Entries naming neither
+   * input nor output price surface no cost in the model catalog.
+   */
+  inputPrice?: number
+  outputPrice?: number
+  cacheReadPrice?: number
+  cacheWritePrice?: number
+}
+
+/**
+ * Pricing for one catalog model, or nothing when the entry publishes none —
+ * the catalog's "absent means unknown" shape holds for cost like every other
+ * capability fact.
+ */
+function modelCost(model: DeepSeekCatalogModel): LlmModelCost | undefined {
+  const input = model.inputPrice ?? 0
+  const output = model.outputPrice ?? 0
+  if (input <= 0 && output <= 0) return undefined
+  return {
+    input,
+    output,
+    ...((model.cacheReadPrice ?? 0) > 0 ? { cacheRead: model.cacheReadPrice } : {}),
+    ...((model.cacheWritePrice ?? 0) > 0 ? { cacheWrite: model.cacheWritePrice } : {}),
+  }
 }
 
 /**
@@ -405,6 +432,7 @@ export class DeepSeekAdapter extends LlmAdapter {
     const configured = connection.models.find(entry => entry.id === model)
     const contextWindow = configured?.contextWindow
       ?? connection.defaultContextWindow
+    const cost = configured === undefined ? undefined : modelCost(configured)
     return {
       // An uncatalogued endpoint is safely treated as text-only. Declaring an
       // unverified image capability would let the host persist input that the
@@ -414,6 +442,7 @@ export class DeepSeekAdapter extends LlmAdapter {
         : modelInfo(provider, configured),
       context: { contextWindow },
       defaultMaxTokens: configured?.maxTokens ?? connection.maxTokens,
+      ...cost === undefined ? {} : { cost },
       ...configured?.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: configured.systemPromptUpdate },
       ...connection.defaults.thinking === 'disabled'
         ? {
