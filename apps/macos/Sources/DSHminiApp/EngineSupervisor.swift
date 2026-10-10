@@ -42,6 +42,10 @@ final class EngineSupervisor {
     /// 秒崩判定窗：就绪后存活不足此秒数即退出的重启计入连续失败。
     private static let readyGraceSeconds: TimeInterval = 300
     private var restartWorkItem: DispatchWorkItem?
+    /// stop() 的完结回调：引擎退出那一刻由 handleExit 送走（主线程，
+    /// terminationHandler 直达）。stop 本体不再等——旧实现 SIGTERM 后 usleep 忙等，
+    /// SPA 的「重启引擎」＝全应用冻结 0.8–6s。
+    private var stopCompletion: (() -> Void)?
     private var stdoutBuffer = Data()
     private let home: URL
     private let workspace: URL
@@ -101,8 +105,15 @@ final class EngineSupervisor {
         restartWorkItem = nil
         guard process == nil else { return }
         // 壳被强杀过（上一条 pid 还活着）：先收掉它，再起新的——同一份 DSH_HOME
-        // 同时被两个引擎写，会话会交错。
-        Self.reapLeftoverEngine()
+        // 同时被两个引擎写，会话会交错。等待搬去后台（收尾回调才 spawn），调用
+        // 线程不等（首启在主线程上收刀最多冻结 6s）。
+        Self.reapLeftoverEngine { [weak self] in self?.thenStart() }
+    }
+
+    /// reap 完结后的后半段：守卫在 reap 等待期间可能已被后来者满足（连续
+    /// start），幂等如前。
+    private func thenStart() {
+        guard process == nil else { return }
         if !FileManager.default.fileExists(
             atPath: home.appendingPathComponent(".credentials.yaml").path
         ) {
@@ -114,28 +125,45 @@ final class EngineSupervisor {
         spawn()
     }
 
-    /// 收掉引擎：SIGTERM →（等它走）→ SIGKILL。
-    /// 旧实现发完 SIGTERM 就把引用丢了、不等待：SIGTERM 被忽略或卡住的引擎就此
-    /// 变成孤儿，继续占着 DSH_HOME 写会话——下次启动就是两个引擎交错写同一份存储
-    /// （单实例锁想防的正是这件事）。等待有上限（引擎正常是毫秒级退出）。
-    func stop() {
+    /// 收掉引擎：SIGTERM →（等它走）→ SIGKILL。等待**事件化**：宽限 SIGKILL
+    /// 挂成定时器兜底，正常/超时退出都由 terminationHandler → handleExit 清
+    /// pid 文件、送 stopCompletion——调用线程（主线程）不再忙等（旧实现
+    /// usleep 轮询 0.8–6s，SPA 的「重启引擎」＝全应用冻结）。完结回调可选：
+    /// 退出清理（applicationWillTerminate / SIGTERM 源）不关心完结。
+    func stop(completion: (() -> Void)? = nil) {
         stopping = true
         restartWorkItem?.cancel()
         restartWorkItem = nil
-        guard let proc = process else { state = .idle; return }
+        guard let proc = process else {
+            finishStop()
+            if let completion { DispatchQueue.main.async { completion() } }
+            return
+        }
         process = nil
+        if let completion { stopCompletion = completion }
         proc.terminate()
-        let deadline = Date().addingTimeInterval(Self.stopGraceSeconds)
-        while proc.isRunning, Date() < deadline {
-            usleep(20_000)
-        }
-        if proc.isRunning {
-            log.append("[engine] did not exit on SIGTERM within \(Self.stopGraceSeconds)s; SIGKILL")
+        Self.scheduleStopGraceKill(proc)
+    }
+
+    /// 宽限 SIGKILL：stop 后引擎在 grace 内没走就补刀。判定与动手都立在
+    /// stop 时抓住的同一个 Process 对象上——已退出的 isRunning 恒 false，
+    /// 不会误杀 pid 复用者。引擎退出后走 handleExit 清 pid 文件、送完结。
+    /// 应用退出早于引擎退出时补刀不再送达，孤儿由下一次启动的 reap 收掉。
+    private static func scheduleStopGraceKill(_ proc: Process) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + stopGraceSeconds) {
+            guard proc.isRunning else { return }
+            EngineLog.shared.append("[engine] did not exit on SIGTERM within \(stopGraceSeconds)s; SIGKILL")
             kill(proc.processIdentifier, SIGKILL)
-            proc.waitUntilExit()
         }
+    }
+
+    /// stop 的收尾（幂等）：清 pid 文件、置 idle、送（至多一个）完结回调。
+    private func finishStop() {
         Self.clearPidFile()
         state = .idle
+        let done = stopCompletion
+        stopCompletion = nil
+        done?()
     }
 
     /// SIGTERM 之后等它自己走的宽限。实测空闲时 0.78s 退出，但忙时（一轮在跑、
@@ -152,26 +180,41 @@ final class EngineSupervisor {
     }
 
     /// 收掉上一次运行残留的引擎（壳被强杀才会出现）。**先核对可执行路径**再动手：
-    /// pid 会被复用，不看身份就 kill 可能误杀无关进程。
-    static func reapLeftoverEngine() {
+    /// pid 会被复用，不看身份就 kill 可能误杀无关进程。等待搬去后台（SIGTERM 后
+    /// 的轮询从调用线程挪到 userInitiated 队列），完结回调在主线程送——否则首启
+    /// 的 start() 会把主线程收刀最多冻结 6s。
+    static func reapLeftoverEngine(completion: (() -> Void)? = nil) {
         guard let raw = try? String(contentsOf: enginePidFile, encoding: .utf8),
-              let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
+              let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            completion?()
+            return
+        }
         defer { clearPidFile() }
-        guard kill(pid, 0) == 0 else { return } // 已经死了
+        guard kill(pid, 0) == 0 else {
+            completion?() // 已经死了
+            return
+        }
         var buffer = [UInt8](repeating: 0, count: Int(MAXPATHLEN))
         let n = proc_pidpath(pid, &buffer, UInt32(buffer.count))
-        guard n > 0 else { return }
+        guard n > 0 else {
+            completion?()
+            return
+        }
         let path = String(decoding: buffer[0..<Int(n)], as: UTF8.self)
         // 身份核对：必须是我们的随包 node（或外部 dsh）在跑引擎脚本
         guard path.contains(".app/Contents/Resources/Runtime/") || path.hasSuffix("/bin/node") else {
             EngineLog.shared.append("[engine] leftover pid \(pid) has unexpected image \(path); leaving it alone")
+            completion?()
             return
         }
         EngineLog.shared.append("[engine] reaping leftover engine pid \(pid) (\(path))")
         kill(pid, SIGTERM)
-        let deadline = Date().addingTimeInterval(stopGraceSeconds)
-        while kill(pid, 0) == 0, Date() < deadline { usleep(20_000) }
-        if kill(pid, 0) == 0 { kill(pid, SIGKILL) }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let deadline = Date().addingTimeInterval(stopGraceSeconds)
+            while kill(pid, 0) == 0, Date() < deadline { usleep(20_000) }
+            if kill(pid, 0) == 0 { kill(pid, SIGKILL) }
+            if let completion { DispatchQueue.main.async { completion() } }
+        }
     }
 
     // MARK: - entry resolution
@@ -526,9 +569,14 @@ final class EngineSupervisor {
     }
 
     private func handleExit(_ proc: Process) {
-        guard proc === process else { return }
+        // stop() 已经把 process 摘掉：这次退出只是 stop 等待的共鸣——清 pid 文件、
+        // 置 idle、送完结回调。绝不能往下走退避：引擎按请求退出不是失败（旧实现
+        // 在 stop 内同步收尾，改为事件等待后收尾挂到这里）。
+        guard proc === process else {
+            if stopping { finishStop() }
+            return
+        }
         process = nil
-        if stopping { return }
 
         // 存活满 readyGrace 的运行才把退避计数清零；秒崩循环会累积到 3 次升级 failed。
         let uptime = readyAt.map { Date().timeIntervalSince($0) } ?? 0

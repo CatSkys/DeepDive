@@ -98,70 +98,79 @@ final class MiniHTTPServer {
 
     private func handle(_ client: Int32) {
         // AUD-037b：慢连接/半开连接每条都会挂死一个 detached 线程——accept
-        // 后立刻设接收超时，recv 超时返回 -1，readRequest 按 EOF 处理断开。
+        // 后立刻设接收/发送超时，recv 超时返回 -1，readRequest 按 EOF 处理断开；
+        // 慢读者（不 send 的连接）也不会把这条线程钉死（send 超时 → -1，发完
+        // 即断）。空闲 keep-alive 连接被同一个 15s 收口。
         var tv = timeval(tv_sec: 15, tv_usec: 0)
         setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
-        // 统一头优先读取，再补读剩余 body（全量缓冲；上限见 maxBodyBytes）。
-        guard let (headRequest, partial) = readRequestHead(client) else {
-            close(client)
-            return
-        }
-        let declared = headRequest.contentLength ?? partial.count
-        // 超过**缓冲**上限：上传面落临时文件（几百 MB 的文件整段进内存就是把内存吃光），
-        // 其余路径维持显式 413——那些面的 body 本来就小，超了说明客户端不对。
-        let spool = declared > Self.maxBodyBytes && Self.spoolsBody(path: headRequest.path)
-        if declared > Self.maxBodyBytes && !spool {
-            // 客户端可能仍在发 body，响应先写后关，XHR 侧按 413/网络错误归到上传失败。
-            writeResponse(client, Response(status: 413))
-            close(client)
-            return
-        }
-        var body = Data()
-        var bodyFile: URL?
-        var sink: FileHandle?
-        if spool {
-            let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("dsh-bridge-body-\(UUID().uuidString)")
-            guard FileManager.default.createFile(atPath: url.path, contents: nil),
-                  let handle = try? FileHandle(forWritingTo: url) else {
-                writeResponse(client, Response(status: 500))
-                close(client)
+        var stv = timeval(tv_sec: 30, tv_usec: 0)
+        setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &stv, socklen_t(MemoryLayout<timeval>.size))
+        // HTTP/1.1 默认 keep-alive：同一连接顺序处理多条请求，静态/策略面的
+        // 每请求「新 TCP + 新线程」开销消失（冷启动 index + assets 一百多个请求
+        // 落到一条复用连接上）。管线化不支持：一请求一响应、发完才读下一条。
+        var alive = true
+        while alive {
+            guard let (headRequest, partial) = readRequestHead(client) else {
+                break
+            }
+            let declared = headRequest.contentLength ?? partial.count
+            // 超过**缓冲**上限：上传面落临时文件（几百 MB 的文件整段进内存就是把内存吃光），
+            // 其余路径维持显式 413——那些面的 body 本来就小，超了说明客户端不对。
+            let spool = declared > Self.maxBodyBytes && Self.spoolsBody(path: headRequest.path)
+            if declared > Self.maxBodyBytes && !spool {
+                // 客户端可能仍在发 body，响应先写后关，XHR 侧按 413/网络错误归到上传失败。
+                _ = writeResponse(client, Response(status: 413), keepAlive: false)
+                break
+            }
+            var body = Data()
+            var bodyFile: URL?
+            var sink: FileHandle?
+            if spool {
+                let url = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("dsh-bridge-body-\(UUID().uuidString)")
+                guard FileManager.default.createFile(atPath: url.path, contents: nil),
+                      let handle = try? FileHandle(forWritingTo: url) else {
+                    _ = writeResponse(client, Response(status: 500), keepAlive: false)
+                    break
+                }
+                bodyFile = url
+                sink = handle
+            } else {
+                body = partial
+            }
+            try? sink?.write(contentsOf: partial)
+            var scratch = [UInt8](repeating: 0, count: 64 * 1024)
+            var read = partial.count
+            while read < declared {
+                let n = recv(client, &scratch, scratch.count, 0)
+                guard n > 0 else { break }
+                read += n
+                if let sink {
+                    try? sink.write(contentsOf: Data(scratch[0..<n]))
+                } else {
+                    body.append(contentsOf: scratch[0..<n])
+                }
+            }
+            try? sink?.close()
+            let request = Request(method: headRequest.method, path: headRequest.path, query: headRequest.query,
+                                  headers: headRequest.headers, body: body, bodyFile: bodyFile,
+                                  rawHead: headRequest.rawHead)
+            let wantsClose = request.headers["connection"]?.lowercased() == "close"
+            switch callback(request) {
+            case .response(let response):
+                let sent = writeResponse(client, response, keepAlive: !wantsClose)
+                // 发送失败（对端死/30s 慢读者）：连接告废，不再攒请求。
+                alive = wantsClose ? false : sent
+            case .upgrade:
+                // The relay owns the socket from here (handshake + bidirectional
+                // pump); it closes both ends when the stream ends.
+                upgradeHandler?(client, request)
                 return
             }
-            bodyFile = url
-            sink = handle
-        } else {
-            body = partial
+            // 落盘的 body 用完即删（转发是同步的，到这里已经送出去了）
+            if let url = bodyFile { try? FileManager.default.removeItem(at: url) }
         }
-        try? sink?.write(contentsOf: partial)
-        var scratch = [UInt8](repeating: 0, count: 64 * 1024)
-        var read = partial.count
-        while read < declared {
-            let n = recv(client, &scratch, scratch.count, 0)
-            guard n > 0 else { break }
-            read += n
-            if let sink {
-                try? sink.write(contentsOf: Data(scratch[0..<n]))
-            } else {
-                body.append(contentsOf: scratch[0..<n])
-            }
-        }
-        try? sink?.close()
-        let request = Request(method: headRequest.method, path: headRequest.path, query: headRequest.query,
-                              headers: headRequest.headers, body: body, bodyFile: bodyFile,
-                              rawHead: headRequest.rawHead)
-        switch callback(request) {
-        case .response(let response):
-            writeResponse(client, response)
-            close(client)
-        case .upgrade:
-            // The relay owns the socket from here (handshake + bidirectional
-            // pump); it closes both ends when the stream ends.
-            upgradeHandler?(client, request)
-            return
-        }
-        // 落盘的 body 用完即删（转发是同步的，到这里已经送出去了）
-        if let url = bodyFile { try? FileManager.default.removeItem(at: url) }
+        close(client)
     }
 
     /// 头优先读取：收齐请求头块即返回（首段 body 一并带回，剩余 body 由
@@ -217,22 +226,34 @@ final class MiniHTTPServer {
         path == "/api/session/uploadFileBinary"
     }
 
-    private func writeResponse(_ client: Int32, _ response: Response) {
+    /// 写响应：keep-alive 时声明同一连接可续（面不去掉再读下一条），且**回执
+    /// 是否完整送达**——SO_SNDTIMEO 兜住的慢读者/半死连接返回 false，调用方
+    /// 据此断开不给它续。发送逐段推进直到送完（旧实现单次 send 丢弃返回值，
+    /// 大响应可能静默截断）。
+    @discardableResult
+    private func writeResponse(_ client: Int32, _ response: Response, keepAlive: Bool = true) -> Bool {
         var head = "HTTP/1.1 \(response.status) \(statusText(response.status))\r\n"
         head += "Content-Type: \(response.headers["content-type"] ?? "application/json")\r\n"
-        head += "Connection: close\r\n"
+        head += "Connection: \(keepAlive ? "keep-alive" : "close")\r\n"
         for (key, value) in response.headers where key != "content-type" {
             head += "\(key): \(value)\r\n"
         }
         head += "Content-Length: \(response.body.count)\r\n"
         head += "\r\n"
-        let headerData = Data(head.utf8)
-        headerData.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
-            _ = send(client, ptr.baseAddress, ptr.count, 0)
+        return Self.sendAll(client, Data(head.utf8)) && Self.sendAll(client, response.body)
+    }
+
+    /// 把 data 全部发出去（中断/超时即 false）。单一发送路径，调用方好收尾。
+    static func sendAll(_ fd: Int32, _ data: Data) -> Bool {
+        var sent = 0
+        while sent < data.count {
+            let n = data.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) -> Int in
+                send(fd, ptr.baseAddress!.advanced(by: sent), data.count - sent, 0)
+            }
+            guard n > 0 else { return false }
+            sent += n
         }
-        response.body.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
-            _ = send(client, ptr.baseAddress, ptr.count, 0)
-        }
+        return true
     }
 
     private func statusText(_ status: Int) -> String {

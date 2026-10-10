@@ -76,7 +76,10 @@ final class EngineEventObserver {
         if let cookie = EngineAuth.shared.currentCookieHeader {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
-        let session = URLSession(configuration: .ephemeral)
+        // 回调队列给专用串行后台队列：JSON 解析（每帧一次）不占主线程——
+        // 完结回调与后台会话的活动事件频率高；语义应用仍回主线程（状态与
+        // 悬浮球等都是主线程数据）。
+        let session = URLSession(configuration: .ephemeral, delegate: nil, delegateQueue: Self.parseQueue)
         self.session = session
         let task = session.webSocketTask(with: request)
         self.task = task
@@ -95,25 +98,31 @@ final class EngineEventObserver {
         EngineLog.shared.append("[observer] mux connected \(url.absoluteString)")
     }
 
+    /// 连接回调与帧解析共用：串行（保帧序）、后台。
+    private static let parseQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "app.deepdive.engine-events.parse"
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
+
     private func receive() {
         task?.receive { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                switch result {
-                case .success(let message):
-                    self.reconnectDelay = 1.0
-                    if case .string(let text) = message {
-                        self.consume(text)
-                    }
-                    self.receive()
-                case .failure(let error):
-                    // 瞬时断开（引擎重启/睡眠/启动期抖动）只按普通断连退避重连——
-                    // 路径由引擎引脚唯一决定（0.1.2 = remote.mux），不做「快速
-                    // 失败即换路径」的猜测式回退（曾把瞬时断连误判成路径不可用，
-                    // 永久落到已消亡的 events.mux 上 30s 循环掉线）。
-                    EngineLog.shared.append("[observer] mux dropped: \(error.localizedDescription); reconnect in \(Int(self.reconnectDelay))s")
-                    self.retry()
+            guard let self else { return }
+            switch result {
+            case .success(let message):
+                self.reconnectDelay = 1.0
+                if case .string(let text) = message {
+                    self.consume(text)
                 }
+                self.receive()
+            case .failure(let error):
+                // 瞬时断开（引擎重启/睡眠/启动期抖动）只按普通断连退避重连——
+                // 路径由引擎引脚唯一决定（0.1.2 = remote.mux），不做「快速
+                // 失败即换路径」的猜测式回退（曾把瞬时断连误判成路径不可用，
+                // 永久落到已消亡的 events.mux 上 30s 循环掉线）。
+                EngineLog.shared.append("[observer] mux dropped: \(error.localizedDescription); reconnect in \(Int(self.reconnectDelay))s")
+                DispatchQueue.main.async { self.retry() }
             }
         }
     }
@@ -133,16 +142,21 @@ final class EngineEventObserver {
         guard let raw = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
               let type = raw["type"] as? String else { return }
         // remote.mux 只承载逻辑流帧（open 由本端发；error/end 见下）。
+        // 解析（JSONSerialization）在本端回调队列，语义应用回主线程——
+        // 状态集合/悬浮球等都是主线程数据，应用自身不能再挪（帧序由
+        // parseQueue 串行 + 主队列 FIFO 保持）。
         switch type {
         case "item":
             guard (raw["streamId"] as? String) == eventsStreamId,
                   let value = raw["value"] as? [String: Any] else { return }
-            consumeEventValue(value)
+            DispatchQueue.main.async { self.consumeEventValue(value) }
         case "error", "end":
             // $events 流异常终止：整条 WS 重连（重开新世代）。
             if (raw["streamId"] as? String) == eventsStreamId {
-                task?.cancel(with: .goingAway, reason: nil)
-                retry()
+                DispatchQueue.main.async {
+                    self.task?.cancel(with: .goingAway, reason: nil)
+                    self.retry()
+                }
             }
         default:
             break

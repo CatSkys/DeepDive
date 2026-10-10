@@ -43,11 +43,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onShowWindow = { [weak self] in self?.windowController.showPanel() }
         statusItem.onOpenSettings = { [weak self] in self?.openSettings() }
         statusItem.onReloadWeb = { [weak self] in self?.windowController.reloadWeb() }
-        statusItem.onRestartEngine = { [weak self] in self?.supervisor.start() }
+        statusItem.onRestartEngine = { [weak self] in self?.startEngine() }
         statusItem.onChooseWorkspace = { [weak self] in self?.chooseWorkspace() }
         statusItem.onQuit = { [weak self] in
-            self?.supervisor.stop()
-            NSApp.terminate(nil)
+            // 引擎收到 SIGTERM 后正常毫秒级退出，退出即经 stop 完结回调 terminate——
+            // 退出期不再忙等（旧实现主线程 usleep 轮询 0.8–6s）。卡住的引擎由宽限
+            // SIGKILL 收，极端情况下应用先离开、孤儿由下一次启动 reap。
+            self?.supervisor?.stop { NSApp.terminate(nil) }
         }
         // 通知区可见性（设置-通用）：菜单栏图标可整体隐藏；Dock 图标走
         // accessory 策略（不经 Dock/Cmd⌘-Tab，窗口与热键不受影响）。
@@ -89,31 +91,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             EngineLog.shared.append("[shell] hotkey disabled by pref")
         }
 
-        // Chat-import 插件须在引擎启动前装进 harness home 的 web profile：
-        // 引擎按 profile bundles 加载后才挂上 /api-import/* 导入路由。
-        if let runtime = Bundle.main.resourceURL {
-            // 组合先落地、再谈别的插件：ProfileComposer 写 dsh.profile.bundles，
-            // 下面两个安装器读同一份清单做合并——顺序倒了就会把上游两层重新写回去。
-            ProfileComposer.ensureInstalled(
-                in: AppPaths.harnessHome,
-                bundledDir: runtime.appendingPathComponent("EngineProfile", isDirectory: true)
-            )
-            ChatImportPlugin.ensureInstalled(
-                in: AppPaths.harnessHome,
-                bundledDir: runtime.appendingPathComponent("Runtime/chat-import", isDirectory: true)
-            )
-            // IM 渠道插件同批铺盘：引擎按 profile bundles 加载后才挂上
-            // /api/dsh-im/<渠道>（移动端远程控制的 Bot Channel 与机器人管理）。
-            BotChannelPlugin.ensureInstalled(
-                in: AppPaths.harnessHome,
-                bundledDir: runtime.appendingPathComponent("Runtime/dsh-im", isDirectory: true)
-            )
-        }
         // 老 dsh CLI（~/.dsh）的凭据一次性接过来——引擎只认 DSH_HOME 下那一份。
         // 原挂载点是恢复窗的按钮，恢复窗删除后改在启动期自动走（.already/.missing
         // 是常态、静默；.imported/.failed 由 LegacyCredentials 自己落日志）。
-        _ = LegacyCredentials.perform()
-        supervisor.start()
 
         // Load the bridge (SPA shows "引擎启动中" until the engine is up).
         if let bridgeURL = BridgeServer.shared.url {
@@ -126,6 +106,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 windowController.load(url: bridgeURL)
             }
+        }
+
+        // 铺盘期放后台：首启/升级那一次 ProfileComposer/ChatImport/BotChannel 各要
+        // 整树拷贝（node_modules 闭包数万文件），同步在主线程上=启动卡死；凭据迁移
+        // 也要触文件面板。**串行保证**：引擎 spawn 必须等它们做完（profile bundles
+        // 决定装载、凭据不由用户错过则冷启动零回复），同一后台队列顺序执行再回主
+        // 线程调用 start（spawn 本体仍走主线程 supervisor 的字面量纪律）。
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            if let runtime = Bundle.main.resourceURL {
+                // 组合先落地、再谈别的插件：ProfileComposer 写 dsh.profile.bundles，
+                // 下面两个安装器读同一份清单做合并——顺序倒了就会把上游两层重新写回去。
+                ProfileComposer.ensureInstalled(
+                    in: AppPaths.harnessHome,
+                    bundledDir: runtime.appendingPathComponent("EngineProfile", isDirectory: true)
+                )
+                ChatImportPlugin.ensureInstalled(
+                    in: AppPaths.harnessHome,
+                    bundledDir: runtime.appendingPathComponent("Runtime/chat-import", isDirectory: true)
+                )
+                // IM 渠道插件同批铺盘：引擎按 profile bundles 加载后才挂上
+                // /api/dsh-im/<渠道>（移动端远程控制的 Bot Channel 与机器人管理）。
+                BotChannelPlugin.ensureInstalled(
+                    in: AppPaths.harnessHome,
+                    bundledDir: runtime.appendingPathComponent("Runtime/dsh-im", isDirectory: true)
+                )
+            }
+            LegacyCredentials.perform()
+            DispatchQueue.main.async { self.startEngine() }
         }
 
         // Second launch of the same app: bring the existing window forward.
@@ -150,6 +159,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.openSettings()
             }
         }
+    }
+
+    /// 引擎启动的唯一入口：启动链（铺盘完/重启链收尾）都汇到它。start() 内有
+    /// 幂等守卫 + reap 后台等待，重复调用安全。
+    private func startEngine() {
+        supervisor.start()
     }
 
     /// 第二个实例的唤醒（双击图标时已有实例在跑）：把面板带到前台。
@@ -216,8 +231,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "restart-engine":
             // 真正的重启：start() 对运行中的引擎是 no-op（process 幂等守卫），
             // 只调它等于"什么都不做"——而 bundle 成员变化（如卸载插件）必须换进程才生效。
-            supervisor.stop()
-            supervisor.start()
+            // 收尾链（stop→start）事件化：引擎退出即在 stop 完结回调里起新的，
+            // 主线程不再忙等（旧实现 0.8–6s 冻结）。回调期可能撞上
+            // chooseWorkspace 换装（supervisor 已换）：这时重启落在新链上，
+            // 旧实例只归还其完结。
+            let retiring = supervisor
+            guard let retiring else { return }
+            retiring.stop { [weak self] in
+                guard let self, self.supervisor === retiring else { return }
+                self.startEngine()
+            }
         case "rebind-hotkey":
             beginHotkeyRecording()
         case "set-pref":
@@ -407,17 +430,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "qr-encode":
             // 通用二维码（Bot Channel 的扫码配对：插件给的是 verificationUrl）。
             // 复用壳里那一份 CoreImage 生成器，前端不再塞第二套 QR 实现。
-            windowController.pushHostCommand("qrEncoded", payload: AppDelegate.jsonPayload([
-                "reqId": body["reqId"] as? String ?? "",
-                "qr": QRCode.dataURL(text: body["text"] as? String ?? "") ?? "",
-            ]))
+            // 生成在后台队列（CoreImage 渲染不是瞬时活；此前主线程同步生成）。
+            let reqId = body["reqId"] as? String ?? ""
+            let text = body["text"] as? String ?? ""
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let qr = QRCode.dataURL(text: text) ?? ""
+                DispatchQueue.main.async {
+                    self?.windowController.pushHostCommand("qrEncoded", payload: AppDelegate.jsonPayload([
+                        "reqId": reqId,
+                        "qr": qr,
+                    ]))
+                }
+            }
         case "scan-agent-configs":
             // 新手引导「迁移」步：读其他 Agent 的配置原文交给前端解析（壳不解析、不落日志，
             // 见 AgentConfigScan 的隐私边界）。文件按白名单，缺失的来源直接不出现。
-            windowController.pushHostCommand("agentConfigs", payload: AppDelegate.jsonPayload([
-                "reqId": body["reqId"] as? String ?? "",
-                "files": AgentConfigScan.read(home: FileManager.default.homeDirectoryForCurrentUser),
-            ]))
+            // 逐来源读文件走后台队列（对齐 runGit 的线程纪律）。
+            let reqId = body["reqId"] as? String ?? ""
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let files = AgentConfigScan.read(home: FileManager.default.homeDirectoryForCurrentUser)
+                DispatchQueue.main.async {
+                    self?.windowController.pushHostCommand("agentConfigs", payload: AppDelegate.jsonPayload([
+                        "reqId": reqId,
+                        "files": files,
+                    ]))
+                }
+            }
         case "open-url":
             // Markdown 链接经壳打开（webview 内跳转会离开 SPA）；只放行 http/https
             if let url = URL(string: body["url"] as? String ?? ""), url.scheme == "http" || url.scheme == "https" {
@@ -455,51 +493,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 壳侧目录列举（@ 引用候选源，host.listDir 契约见 frontend/src/host.ts）：
     /// 一层目录、目录优先、隐藏文件排除。错误也回包（entries 空 + error），
-    /// 前端按 reqId 配对。
+    /// 前端按 reqId 配对。目录 IO 在后台队列（对齐 runGit 的线程纪律——此前在
+    /// 主线程同步读目录，深目录/慢盘会把输入框的 @ 弹层卡住）。
     private func listDirectory(reqId: String, path: String) {
         func reply(_ entries: [[String: Any]], error: String? = nil) {
             var fields: [String: Any] = ["reqId": reqId, "entries": entries]
             if let error { fields["error"] = error }
             windowController.pushHostCommand("dirListing", payload: Self.jsonPayload(fields))
         }
-        let base = URL(fileURLWithPath: path)
-        guard FileManager.default.fileExists(atPath: base.path) else {
+        guard FileManager.default.fileExists(atPath: path) else {
             reply([], error: "not-found")
             return
         }
-        let items = (try? FileManager.default.contentsOfDirectory(
-            at: base,
-            includingPropertiesForKeys: [.isDirectoryKey, .isHiddenKey],
-        )) ?? []
-        struct Row { let name: String; let path: String; let isDir: Bool }
-        var rows: [Row] = []
-        for url in items {
-            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isHiddenKey]),
-                  values.isHidden != true else { continue }
-            rows.append(Row(name: url.lastPathComponent, path: url.path, isDir: values.isDirectory ?? false))
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let items = (try? FileManager.default.contentsOfDirectory(
+                at: URL(fileURLWithPath: path),
+                includingPropertiesForKeys: [.isDirectoryKey, .isHiddenKey],
+            )) ?? []
+            struct Row { let name: String; let path: String; let isDir: Bool }
+            var rows: [Row] = []
+            for url in items {
+                guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isHiddenKey]),
+                      values.isHidden != true else { continue }
+                rows.append(Row(name: url.lastPathComponent, path: url.path, isDir: values.isDirectory ?? false))
+            }
+            rows.sort { a, b in
+                if a.isDir != b.isDir { return a.isDir }
+                return a.name < b.name
+            }
+            let payload = rows.prefix(200).map { ["name": $0.name, "path": $0.path, "isDir": $0.isDir] }
+            DispatchQueue.main.async { reply(payload) }
         }
-        rows.sort { a, b in
-            if a.isDir != b.isDir { return a.isDir }
-            return a.name < b.name
-        }
-        reply(rows.prefix(200).map { ["name": $0.name, "path": $0.path, "isDir": $0.isDir] })
     }
 
     /// 全屏预览页「打开方式」候选：OpenWithCatalog 出事实（App 列表 + 图标
     /// dataURL + 默认 App），这里只负责按桥约定回推。文件不存在/无候选回空表
-    /// （前端按「无候选」隐藏选择器，不冒充）。
+    /// （前端按「无候选」隐藏选择器，不冒充）。LaunchServices 逐 App 查询在
+    /// 后台队列（对齐 runGit 的线程纪律；此前主线程同步查询，候选多时预览页
+    /// 点「打开方式」会卡）。
     private func openWithList(reqId: String, path: String) {
-        guard let listing = OpenWithCatalog.listing(forPath: path) else {
-            windowController.pushHostCommand(
-                "openWith",
-                payload: AppDelegate.jsonPayload(["reqId": reqId, "defaultId": "", "apps": []]),
-            )
-            return
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let listing = OpenWithCatalog.listing(forPath: path)
+            DispatchQueue.main.async {
+                guard let listing else {
+                    self?.windowController.pushHostCommand(
+                        "openWith",
+                        payload: AppDelegate.jsonPayload(["reqId": reqId, "defaultId": "", "apps": []]),
+                    )
+                    return
+                }
+                self?.windowController.pushHostCommand(
+                    "openWith",
+                    payload: AppDelegate.jsonPayload(OpenWithCatalog.payload(listing, reqId: reqId)),
+                )
+            }
         }
-        windowController.pushHostCommand(
-            "openWith",
-            payload: AppDelegate.jsonPayload(OpenWithCatalog.payload(listing, reqId: reqId)),
-        )
     }
 
     /// 新建项目弹窗的落地准备：① 目录——引擎 workspace/create 要求目录已
@@ -578,18 +626,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 侧栏空间格图标：读项目根目录约定图标文件（WorkspaceIcon.probe），
     /// base64 dataURL 回推；无图标/路径非目录回空串——前端回落项目首字母。
+    /// 文件 IO + base64 在后台队列（对齐 runGit 的线程纪律；此前主线程同步
+    /// 读盘编码，慢盘会卡侧栏）。
     private func readWorkspaceIcon(reqId: String, path: String) {
         func reply(_ dataUrl: String) {
             windowController.pushHostCommand("workspaceIcon", payload: AppDelegate.jsonPayload(["reqId": reqId, "dataUrl": dataUrl]))
         }
-        let dir = URL(fileURLWithPath: path)
-        var isDir: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue,
-              let hit = WorkspaceIcon.probe(in: dir) else {
-            reply("")
-            return
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dir = URL(fileURLWithPath: path)
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue,
+                  let hit = WorkspaceIcon.probe(in: dir) else {
+                DispatchQueue.main.async { reply("") }
+                return
+            }
+            let dataUrl = "data:\(hit.mime);base64,\(hit.data.base64EncodedString())"
+            DispatchQueue.main.async { reply(dataUrl) }
         }
-        reply("data:\(hit.mime);base64,\(hit.data.base64EncodedString())")
     }
 
 
@@ -1010,8 +1063,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
         source.setEventHandler { [weak self] in
-            self?.supervisor.stop()
-            NSApp.terminate(nil)
+            self?.supervisor?.stop { NSApp.terminate(nil) }
         }
         source.resume()
         terminationSource = source
@@ -1036,7 +1088,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        supervisor.stop()
+        supervisor?.stop()
+        // 日志是攒批落盘的（EngineLog）：退场前收口，最后一批不丢。
+        EngineLog.shared.flushNow()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -1099,11 +1153,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         config.launchWorkspace = url.path
         config.save()
         EngineLog.shared.append("[shell] workspace set to \(url.path); restarting engine")
-        supervisor.stop()
-        // Engine binds workspace committed at process start (sandbox root = cwd).
-        let newSupervisor = EngineSupervisor(home: AppPaths.harnessHome, workspace: config.workspaceURL)
-        newSupervisor.onState = { [weak self] state in self?.handleEngineState(state) }
-        supervisor = newSupervisor
-        newSupervisor.start()
+        // 换装链事件化：旧引擎退出（stop 完结回调）后换装再启动，主线程不再
+        // 忙等。回调时判 supervisor 没被再换过，避免两次选区各来一条链。
+        let retiring = supervisor
+        guard let retiring else { return }
+        retiring.stop { [weak self] in
+            guard let self, self.supervisor === retiring else { return }
+            // Engine binds workspace committed at process start (sandbox root = cwd).
+            let newSupervisor = EngineSupervisor(home: AppPaths.harnessHome, workspace: self.config.workspaceURL)
+            newSupervisor.onState = { [weak self] state in self?.handleEngineState(state) }
+            self.supervisor = newSupervisor
+            self.startEngine()
+        }
     }
 }
