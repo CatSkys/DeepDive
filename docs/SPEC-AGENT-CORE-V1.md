@@ -1,6 +1,7 @@
 # Agent 核心 v1（@deepdive/agent-core）对表面（草案）
 
-> 状态（2026-10-10）：草案，待定稿（M2b 门槛：**对表面定稿才动代码**，PLAN-ENGINE-SELF-IMPL §4）。
+> 状态（2026-10-10）：**M2b 收编判定已落（证据见 §3）——判定对 `agent 核心用 pi`
+> 的执行路径做了改判，待用户复核**；初稿阶段的对表结论在 §0/§1 全部成立。
 > 收编对象：`@earendil-works/pi-agent-core` v1.0（fork 纪律：逐字复制 → 改名 → 归我们演进）。
 
 ## 0. dsh 语义 → pi 钩子对照
@@ -30,6 +31,30 @@
   settle 时 `assistant/message|attempt` 落日志——A 的「直播-结算替换」语义逐字保留，
   前端半截 echo 修复的语义契约不受影响）
 - `tool_execution_start/update/end` → `tool/call`（pending）与 `tool/result`（settle）
+
+## 3. M2b 收编判定（2026-10-10 落档，待用户复核）
+
+对本坞两侧逐字对读后的判定：**ReactLoopAgent 是 pi Agent 类的功能超集，替换会构成
+产品契约的降级**。细则：platform/cordis 无关的两条证据 + 纪律约束——
+
+- **pi 缺的产品合同**：durable inbox（claim/splice/edit/remove 的 QueueDock 合同）、
+  pre-step / request / request-error 三条 waterfall（模型选择 UI、llm-retry、编排的
+  全部挂点）、turn-stopping serial 协议（goal 轮次驱动的挂点）、assistant-stream 的
+  durable settlement（直播-结算替换 + 中断落账，即「半截 echo」修复所在的合同）、
+  request-header 日志与 KV 稳定纪律、冻结请求推导。
+- **§0/§1 对照表已验证**：pi 的每个钩子（beforeToolCall / prepareRequest /
+  finishTurn / steer / followUp / sessionId / message_update）在本仓都有等价或更强的
+  挂点；loop 近期的修复链（edaf9e01 item key、cd018ce6 tail 重插）说明它被持续
+  理解与维护，不是无人区。
+- **纪律**：同一功能禁止第二份拷贝——重写 = 把 763 前端用例钉住的合同换皮重测，
+  无用户可见收益。
+
+**pi 的自研角色就此定型**：`pi-ai`（provider 目录 / auth / 发现 / 成本，M1 已打通
+成本直发）。pi-agent-core 供 CLI 场景用，不进产品引擎。
+
+**判定若被用户推翻**的执行路径（原方案保留在案）：收编 pi-agent-core 为
+`@deepdive/agent-core`、写 PiLoopAgent 实现 dsh `Agent` 接口、§1 事件桥落地，
+再接审批/沙箱闸转移。
 
 ## 2. 首版不收编的 pi 面
 

@@ -50,3 +50,18 @@
    直播增量——直播帧本就进程级、不入日志）。中途落账留作未来增强。
 3. **spill 归工具面**：会话层只负责记录事件（spill 改写后的 tool/result 原样入账）；
    spill-local/policy 的改写语义在 M2c/M2d 的工具收编里对照 dsh 现实现。
+
+## M2a 验证结论（2026-10-10 实证，结论：**现有会话层即收编形态，不新建包**）
+
+- **惰性迁移已存在**：`session-format` + `v0→v1/v1→v2/v2→v3` 格式包就是迁移机器
+  （真实数据已完成 V2→V3 迁移一轮，SPEC-ENGINE-RUNTIME §5.1）。
+- **缓存亲和已有等价物**：SessionHeader 无独立 provider id，但会话 id 本身持久、
+  且请求路径已把它作为 `sessionId` 传给 pi-ai（provider 侧缓存幂等键）——pi-durable
+  的 UUIDv7 设想已被覆盖，不重复建设。
+- **存储一致性套件已存在**：persistence-jsonl 的 tests/ 十一个文件覆盖
+  生成/准入/删除/生成器/双进程租约 e2e/迁移拒绝与验证器/多边发布——pi-durable
+  `registerStorageConformance` 想要的服法在这里是更细的现成实现。
+- **原子性**：settlement 语义按本表 §0 拍板保留（不引全量 tx）。
+
+**故 M2a 无新代码**：@(engine fork 里) 会话层即收编形态；本 spec 的价值留在
+「对照结论 + 已拍板项」，供后续判定引用。

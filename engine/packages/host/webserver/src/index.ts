@@ -222,6 +222,11 @@ export class WebServer extends Service {
       /* v8 ignore next -- `?? '/'` arm: node:http always sets url on server
       requests; the field is only optional on the client-side IncomingMessage type */
       const rawPath = new URL(req.url ?? '/', 'http://x').pathname
+      // DeepDive wire 版本协商（docs/WIRE-V1.md §1）：所有 /api unary 响应都带
+      // 版本头；writeHead 与 setHeader 合并，不影响各路由自己的头。
+      if (rawPath === '/api' || rawPath.startsWith('/api/')) {
+        res.setHeader('X-DeepDive-Wire', '1')
+      }
       const route = this.match(rawPath)
       if (route !== undefined) {
         await route.handler(req, res)

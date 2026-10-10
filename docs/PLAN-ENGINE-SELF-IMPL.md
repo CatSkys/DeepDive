@@ -125,3 +125,22 @@ pi-agent-core 的 `streamFn` 用法。
 
 M0 契约 → M1 LLM → M2a 会话 → M2b loop → M2c 安全缝 → M2d 语义对齐 → M3 收尾。
 每段绿了才进下一段；本分支合并回 main 即该段交付。
+
+## 8. 交付台账（2026-10-10 更新）
+
+- **M0 已交付**（634a133f）：`frontend/src/wire/` v1 词表 + A→v1 归一化 + 版本侦测；
+  761→763 用例全绿。
+- **M1 已交付**（42403292）：成本 peak 牌价端到端直发（seam→deepseek/pi-ai→
+  modelCatalog→详情卡）；组合零漂。
+- **M2 判定已落**（见 SPEC-AGENT-CORE-V1 §3 与 SPEC-SESSION-V1 验证结论）：
+  会话层与 loop 的「自研包」不再新建——fork 现有的 session/agent/agent-loop 就是
+  收编形态（MIT、逐字拥有、带仓内修复链）；pi-agent-core 替换判定=降级，不执行。
+  **M2c/M2d 结论**：审批/沙箱/plan/goal/命令/@ 引用的产品语义就是 antrop 侧
+  composition 行 + `$events` waterfall，M0 词表已覆盖（goals 保留的实证即其）。
+- **M2 交付**（本提交）：引擎开口说 wire v1——`X-DeepDive-Wire: 1` 响应头
+  （host-webserver）+ `$events` ready 帧 `wireVersion: 1`（gateway）；
+  unary 头已在真实构建上实证（boot 后 `session/list` 200 + 头）。
+- **M3 收尾判定**：`sync-engine-fork` 升级流程**保留**（对照升级路径，判定见
+  PLAN-ENGINE-PI-CORE §3 的 M3 修订）；组合/prune 维持现状（本分支无组合漂移）。
+- **待用户复核**：agent 核心不换 pi 的改判（SPEC-AGENT-CORE-V1 §3）。若推翻，
+  原执行路径在案。
