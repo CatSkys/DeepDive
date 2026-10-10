@@ -28,6 +28,19 @@ API 面（v1.0 实测其 README 与源码形状）：
   事件的桥。
 - **工具**：`AgentTool { name, label, description, TypeBox parameters, executionMode,
   execute(id, params, signal, onUpdate) }`。
+
+**pi-durable（用户 2026-10-10 指名参考）**：它是**另一套自带 loop 的 durable harness**
+（GenerationTask / ToolTask 内建，不消费 pi-agent-core），实验期、README 自认 API unstable、
+强绑 chord——所以不引包，也不改 M2b 的选型；但它的持久化设计正是 M2a 要对照的现成解：
+
+- 原子提交：`conversation.commit(tx)`——entries / docs / tasks 同落或同不落；
+- 崩溃续跑：进度默认 ≤100ms 提交窗口 + `harness.resume()`；
+- **UUIDv7 provider session id 持久随会话**（跨 reopen / retry / reset / compaction / 换模型）
+  ——与我们的 KV cache 稳定纪律同向，值得收编；
+- 存储一致性套件（`registerStorageConformance`）——自研存储的测试范式可照此收编；
+- fork / reset / compaction 是 conversation 的一等操作；`test/examples` 里 subagent、
+  plan mode、沙箱都有成例可读。
+
 - **引包集**：`@earendil-works/pi-agent-core` + `@earendil-works/pi-ai`，其余
   （durable / chord / server / protocol / …）不引（决策文档 §5.5）。
 
@@ -69,10 +82,12 @@ pi-agent-core 的 `streamFn` 用法。
 
 ## 4. M2 —— loop / session 收编（风险集中段，拆四个子里程碑）
 
-- **M2a 自研会话层 `@deepdive/session`**：JSONL 持久化（收编 dsh `session-persistence-jsonl`
-  纪律：「模型可见即已记录」、全事件化记录、checkpoint 策略）+ 投影（`usage` / `turn-outline`
-  两个）+ **惰性 V3 迁移**（决策文档 §5.4：读旧 V3、下次写入起新格式）+ follow/page/list 的
-  wire v1 面（M0 契约在此落地）。
+- **M2a 自研会话层 `@deepdive/session`**：**第一份交付物是三方设计对照**（dsh
+  `session-persistence-jsonl` / pi-durable（§1）/ wire v1 对 follow·page·list 与投影的需求），
+  定稿才动代码。实现收编 dsh 纪律（「模型可见即已记录」、全事件化记录、checkpoint 策略），
+  并按对照结论择优吸收 pi-durable 的候选设计（原子提交、崩溃续跑窗口、UUIDv7 provider
+  session id 缓存亲和、存储一致性套件）+ 投影（`usage` / `turn-outline` 两个）+
+  **惰性 V3 迁移**（决策文档 §5.4：读旧 V3、下次写入起新格式）。
 - **M2b loop**：收编 pi-agent-core 为 `@deepdive/agent-core`（fork 纪律），Cordis service 提供
   Agent 实例；dsh `agent` / `agent-loop` 退役。**第一份交付物是对表面**：dsh-agent 语义 ↔
   pi 钩子映射（轮次、steer、审批、plan、工具 schema 进请求的方式），定稿才动代码。
