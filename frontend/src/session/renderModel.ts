@@ -243,7 +243,10 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         if (t0 && t0.firstToken === undefined) t0.firstToken = ev.time;
         const last = out[out.length - 1];
         if (last && last.kind === "chunk" && last.turn === turn) { last.output = (last.output ?? "") + chunk.text; touch(last); }
-        else out.push({ ...base, key: `${base.key}:text`, kind: "chunk", output: chunk.text, turn });
+        // 直播伪事件没有 seq（帧不进持久日志）：base.key 是常量，同一轮里
+        // 每个新 item 直接同 key——React 复用实例，思考展开状态串行到别的
+        // 思考行（行头点开无效，2026-10-10 实测）。用 out.length 唯一化。
+        else out.push({ ...base, key: `${base.key}:text:${out.length}`, kind: "chunk", output: chunk.text, turn });
       }
       if (chunk.type === "reasoning-delta" && typeof chunk.text === "string" && chunk.text) {
         const turn = d.turn;
@@ -255,7 +258,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
           // 所以两条路都要算——同一把尺子，两个数据来源。
           last.thinkMs = Math.max(0, ev.time - (last.time ?? ev.time));
           touch(last);
-        } else out.push({ ...base, key: `${base.key}:reasoning`, kind: "reasoning", output: chunk.text, turn, thinkMs: 0 });
+        } else out.push({ ...base, key: `${base.key}:reasoning:${out.length}`, kind: "reasoning", output: chunk.text, turn, thinkMs: 0 });
       }
       break;
     }
