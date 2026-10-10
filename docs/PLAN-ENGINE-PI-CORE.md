@@ -111,3 +111,6 @@ dsh 的解就在本仓逐字拥有，pi 的解在其种子源码里；有可收�
   内核血统改判：agent 核心以 pi 为种子、终态全自研，Cordis 留任。
 - `DSH-WIRE.md`：wire v1 落地前仍是 wire 事实源。
 - `TODO.md`：路线挂指针。
+- 实施计划：本文的落法（里程碑分解 / wire v1 轮廓 / 风险）见
+  [PLAN-ENGINE-SELF-IMPL.md](PLAN-ENGINE-SELF-IMPL.md)，载体为分支 `feat/engine-self`
+  的独立 worktree。
