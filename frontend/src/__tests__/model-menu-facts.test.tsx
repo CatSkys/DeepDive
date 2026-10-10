@@ -19,10 +19,10 @@ afterEach(() => {
 
 const opts: ModelOption[] = [
   {
-    provider: "deepseek", model: "deepseek-v4-pro", label: "DeepSeek V4 Pro", providerLabel: "DeepSeek",
+    provider: "deepseek-official", model: "deepseek-v4-pro", label: "DeepSeek V4 Pro", providerLabel: "DeepSeek",
     efforts: [{ id: "high", name: "High" }], contextWindow: 1000000,
   },
-  { provider: "deepseek", model: "deepseek-v4-nobench", label: "DeepSeek V4 Nobench", providerLabel: "DeepSeek" },
+  { provider: "deepseek-official", model: "deepseek-v4-nobench", label: "DeepSeek V4 Nobench", providerLabel: "DeepSeek" },
   {
     provider: "anthropic", model: "claude-fable-5-1", label: "Claude Fable 5.1", providerLabel: "Anthropic",
     inputModalities: ["text", "image"], contextWindow: 1000000,

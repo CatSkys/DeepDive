@@ -7,8 +7,10 @@
 // 速度、智能、成本只有榜单与牌价有，且只用于显示。三处事实的家：
 // 引擎=可用性，引擎目录投影=能力事实，本表=榜单/牌价刻度（SPEC-SEMANTICS「模型基准」）。
 //
-// 键规则：逐字等于引擎目录的 `${provider}/${model}`（路由 key + 模型 id，抄自
-// 引擎内置目录，勿凭记忆拼写）。缺省语义：条目里哪项没抄到就不写哪项（该行
+// 键规则：逐字等于引擎目录投影的 `${provider}/${model}`（provider = session/modelCatalog
+// 的**路由 key**，2026-10-10 实测为 deepseek-official / opencode-go / opencode-go-new /
+// opencode-go-responses 四组——**不是** pi-ai 数据层的品牌直连 id（deepseek / minimax /
+// anthropic…那类键在本引擎路由里永不命中）。缺省语义：条目里哪项没抄到就不写哪项（该行
 // 不渲染）；整条目缺席 = 详情卡显示「暂无基准数据」占位。绝不现编数值。
 //
 // 填表口径（更新时照此抄录，行尾注释留出处与日期）：
@@ -33,52 +35,36 @@ export interface ModelBench {
   tools?: false;
 }
 
-/** provider/model → 基准刻度。AA 取数日期一律 2026-10-10。 */
+/** provider/model → 基准刻度。AA 取数日期一律 2026-10-10；键段 = 引擎真实路由（2026-10-10 目录实测）。 */
 export const MODEL_BENCH: Record<string, ModelBench> = {
-  // —— DeepSeek（核心路由）——
-  "deepseek/deepseek-v4-pro": { speed: 2, intelligence: 1, cost: 4 }, // 89.0 tok/s · II 36
-  // pi-ai 1.1 目录把 v4-flash 换名 deepseek-flash（同一模型），AA 值原样顺延
-  "deepseek/deepseek-flash": { speed: 3, intelligence: 0, cost: 4 }, // 226.1 tok/s · II 34（AA 已标弃用）
-  // —— Anthropic ——
-  "anthropic/claude-fable-5-1": { speed: 2, intelligence: 4, cost: 0 }, // 70.4 tok/s · II 53（#5/227）
-  "anthropic/claude-fable-5": { cost: 0 },
-  "anthropic/claude-opus-5": { speed: 1, intelligence: 4, cost: 1 }, // 53.1 tok/s · II 51（AA 已标弃用）
-  "anthropic/claude-opus-4-8": { speed: 1, intelligence: 2, cost: 1 }, // 58.3 tok/s · II 42（AA 已标弃用）
-  "anthropic/claude-sonnet-5": { speed: 2, intelligence: 1, cost: 1 }, // 79.3 tok/s · II 38（AA 已标弃用）
-  "anthropic/claude-sonnet-4-6": { cost: 1 },
-  "anthropic/claude-haiku-4-5": { cost: 2 },
-  // —— OpenAI ——
-  "openai/gpt-6-astra": { speed: 1, intelligence: 4, cost: 0 }, // 46.9 tok/s · II 53（#7/227）
-  "openai/gpt-5.6-terra": { speed: 2, intelligence: 2, cost: 2 }, // 118.7 tok/s · II 42
-  "openai/gpt-5.6-sol": { speed: 2, intelligence: 3, cost: 1 }, // 79.3 tok/s · II 47（AA 已标弃用）
-  "openai/gpt-5.6-luna": { cost: 4 },
-  "openai/gpt-5.5": { cost: 1 },
-  "openai/gpt-5.5-pro": { cost: 0 },
-  // —— xAI ——
-  "xai/grok-4.6": { speed: 3, intelligence: 2, cost: 2 }, // 121.0 tok/s · II 41
-  "xai/grok-4.5": { speed: 1, intelligence: 3, cost: 1 }, // 59.5 tok/s · II 44（AA 已标弃用）
-  "xai/grok-4.3": { cost: 3 }, // 无基准占位态的样例模型（参考截图二）
-  // —— Google ——
-  "google/gemini-3.5-flash": { speed: 3, intelligence: 0, cost: 2 }, // 197.5 tok/s · II 33（AA 已标弃用）
-  "google/gemini-3.8-flash": { cost: 3 },
-  "google/gemini-3.6-flash": { cost: 3 },
-  "google/gemini-3.1-pro-preview": { cost: 2 },
-  // —— Moonshot / Kimi ——
-  "moonshotai/kimi-k3": { speed: 1, intelligence: 3, cost: 1 }, // 40.4 tok/s · II 44
-  "moonshotai/kimi-k2.7-code": { cost: 3 },
-  "moonshotai/kimi-k2.6": { cost: 3 },
-  // —— 智谱 GLM ——
-  "zai/glm-5.3": { speed: 2, intelligence: 3, cost: 3 }, // 83.0 tok/s · II 45
-  "zai/glm-5.3-flash": { cost: 4 },
-  "zai/glm-5.2": { cost: 3 },
-  // —— Qwen（套餐端点牌价 0/0，不折成本刻度）——
-  "qwen-token-plan/qwen3.8-max": { speed: 0, intelligence: 3 }, // 36.0 tok/s · II 45
-  // —— MiniMax ——
-  "minimax/MiniMax-M3": { cost: 4 },
-  "minimax/MiniMax-M2.7": { cost: 4 },
-  // —— Mistral ——
-  "mistral/mistral-large-2512": { cost: 3 },
-  "mistral/mistral-medium-2604": { cost: 2 },
+  // —— deepseek-official（官方直连路由，四条全收）——
+  // deepseek-flash 与 deepseek-v4-flash 是同一物理模型的两个端点（新名 DeepSeek-V41-Flash
+  // 显示），AA DeepSeek 页只有一组 V4.1 Flash 值（226.1 tok/s · II 34，AA 已标弃用），两条共用。
+  "deepseek-official/deepseek-flash": { speed: 3, intelligence: 0, cost: 4 },
+  "deepseek-official/deepseek-v4-flash": { speed: 3, intelligence: 0, cost: 4 },
+  "deepseek-official/deepseek-v4-pro": { speed: 2, intelligence: 1, cost: 4 }, // 89.0 tok/s · II 36
+  "deepseek-official/deepseek-v4-flash-vision-exp": { cost: 4 }, // Exp 通道无 AA 页，仅牌价
+
+  // —— opencode-go（聚合路由）——
+  "opencode-go/minimax-m3": { cost: 4 },
+  "opencode-go/minimax-m2.7": { cost: 4 },
+  "opencode-go/qwen3.8-max": { speed: 0, intelligence: 3 }, // 套餐端点 0/0 牌价，不折成本刻度
+  "opencode-go/deepseek-v4-flash": { speed: 3, intelligence: 0, cost: 4 },
+  "opencode-go/deepseek-v4.1-flash": { speed: 3, intelligence: 0, cost: 4 },
+  "opencode-go/deepseek-v4-pro": { speed: 2, intelligence: 1, cost: 4 },
+  "opencode-go/glm-5.3": { speed: 2, intelligence: 3, cost: 3 }, // 83.0 tok/s · II 45
+  "opencode-go/glm-5.3-flash": { cost: 4 },
+  "opencode-go/glm-5.2": { cost: 3 },
+  "opencode-go/kimi-k3": { speed: 1, intelligence: 3, cost: 1 }, // 40.4 tok/s · II 44
+  "opencode-go/kimi-k2.7-code": { cost: 3 },
+  "opencode-go/gpt-5.6-luna": { cost: 4 },
+  "opencode-go/grok-4.6": { speed: 3, intelligence: 2, cost: 2 }, // 121.0 tok/s · II 41
+
+  // —— opencode-go-new ——
+  "opencode-go-new/deepseek-flash": { speed: 3, intelligence: 0, cost: 4 },
+
+  // —— opencode-go-responses ——
+  "opencode-go-responses/gpt-6-luna": { cost: 4 },
 };
 
 /** join：引擎目录选项 × 登记表。未收录的模型原样回退（facts 缺席 = 占位态）。 */
