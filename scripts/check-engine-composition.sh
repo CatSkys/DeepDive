@@ -7,9 +7,9 @@
 # a row does NOT reach us automatically — and an `- id:` that matches nothing only
 # warns (docs/PITFALLS.md §7.6), so nothing else would notice. Dumping and diffing
 # against the checked-in expectation is what turns that silence into a reviewable
-# diff at exactly the moment it matters (a pin bump, or an edit to the row list).
+# diff at exactly the moment it matters (an engine change, or an edit to the row list).
 #
-# It runs wherever a pinned runtime is available (the build chain boots the engine
+# It runs wherever a built engine runtime is available (the build chain boots the engine
 # for real; scripts/test.sh runs this). Without one it SKIPS rather than fails, so a
 # frontend-only checkout is not blocked — the skip is printed, never silent.
 #
@@ -39,7 +39,7 @@ if ! bash "$ROOT/scripts/dump-engine-composition.sh" \
   # No runtime here is a normal state (frontend-only checkout, fresh clone before
   # the first build), not a composition failure — say so and let the caller pass.
   if grep -q "engine runtime not found" "$DUMP_LOG"; then
-    echo "skip composition check: no pinned runtime prepared yet (run scripts/prepare-dsh-runtime.sh)"
+    echo "skip composition check: no engine runtime prepared yet (run scripts/build-engine.sh)"
     exit 0
   fi
   cat "$DUMP_LOG" >&2

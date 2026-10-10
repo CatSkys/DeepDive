@@ -107,7 +107,7 @@
 - **组合归本仓**：引擎装载哪些插件由 `engine/profile/` 定义（`cordis.patch.yml` 是唯一事实源），
   上游的 `@deepseek-ai/dsh-base` / `dsh-web-app` **不作为层参与组合**；壳在引擎启动前经
   `ProfileComposer` 把它装进 harness home 的 web profile 并收敛 `dsh.profile.bundles`
-  （含既有安装的迁移：摘掉退役的上游两层）。改法与**升引脚的漂移流程**见该目录 README；
+  （含既有安装的迁移：摘掉退役的上游两层）。改法与组合漂移的复核流程见该目录 README；
   `scripts/check-engine-composition.sh` 每次 `make test` 拿实际组合对比入库的期望快照，不一致即失败。
 - **闭包裁剪**：`scripts/prune-dsh-runtime.sh` 把自有组合不装载的包从分发里摘掉
   （官方 GUI 客户端、反馈通道与遥测、webhook 等；移除清单与 `cordis.patch.yml` 的
@@ -116,11 +116,11 @@
 - **外向数据流**：这台机器往外发什么（模型调用、联网工具、IM 渠道、听写、正文里的远程图片、
   `widget` 围栏……）逐条记在 **`docs/DATA-FLOW.md`**——组合归本仓之后"我们发了什么"是我们的
   责任，那份文档同时写明**未审计项**，别把它读成完整清单。
-- **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Resources/Runtime/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`；bundled 残缺或外部入口版本与随包引脚不符一律拒启（版本门，`SPEC-ENGINE-RUNTIME §3.4`）。
-- **版本引脚唯一事实源**：`scripts/dsh-runtime-version.txt`（XcodeGen 把原文件拷进 bundle 作 `Resources/dsh-runtime-version.txt`，版本门据此判外部入口）+ `scripts/node-version.txt`（构建机校验 fail-loud）；上游新 rc 的升级裁决（当前：0.1.7-rc.1 暂不升）见 `SPEC-ENGINE-RUNTIME §5.1`。
-- **构建链**：`prepare-dsh-runtime.sh`（闭包准备 + 原生/FFI 冒烟，`DSH_SOURCE` 可复用同版本源）+ `prepare-chat-import.sh` / `prepare-dsh-im.sh`（两个随包社区插件的闭包，各自版本引脚在 `scripts/dsh-*-version.txt`）→ `embed-engine.sh`，其步骤有序且不得乱调：拷 node/闭包 → `prune-dsh-runtime.sh`（裁剪）→ 拷 `engine/profile` 进 `Resources/EngineProfile/` + 组合自检（`--dump-config`，挡补丁写坏）→ **`sign-app.sh` 重封**（所有文件改动之后）→ 许可 → `bin.js --version` → `smoke-engine-boot.sh`（用随包 node 真起一次等就绪行——`--version` 不装载插件、`--dump-config` 只解析补丁层，两者都发现不了"包被裁掉但某行还依赖它"）→ `build-release.sh` / `package-macos.sh`（最终 `sign-app.sh` 深签 + 可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
+- **入口优先级**：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（`Resources/Runtime/node` + `Runtime/dsh/lib/bin.js`）→ 系统路径探测 → `PATH` 的 `dsh`；bundled 残缺或外部入口版本与随包版本不符一律拒启（版本门，`SPEC-ENGINE-RUNTIME §3.4`）。
+- **引擎版本唯一事实源**：`scripts/dsh-runtime-version.txt`（自研引擎自己的版本号；XcodeGen 把原文件拷进 bundle 作 `Resources/dsh-runtime-version.txt`，版本门据此判外部入口）+ `scripts/node-version.txt`（构建机校验 fail-loud）。引擎自研后没有"上游升引脚"动作——上游 dsh 是种子/对照，版本演进归本仓（历史评估存档于 `SPEC-ENGINE-RUNTIME §5.1`）。
+- **构建链**：`build-engine.sh`（自研引擎默认轨：pnpm 构建 + prompt 冒烟，产物落 `dist/.dsh-engine-build/<引擎版本号>`）+ `prepare-chat-import.sh` / `prepare-dsh-im.sh`（两个随包社区插件的闭包，各自版本引脚在 `scripts/dsh-*-version.txt`）→ `embed-engine.sh`（`DEEPDIVE_ENGINE_SOURCE=npm` 时改走 `prepare-dsh-runtime.sh` 闭包回退轨），其步骤有序且不得乱调：拷 node/闭包 → `prune-dsh-runtime.sh`（裁剪）→ 拷 `engine/profile` 进 `Resources/EngineProfile/` + 组合自检（`--dump-config`，挡补丁写坏）→ **`sign-app.sh` 重封**（所有文件改动之后）→ 许可 → `bin.js --version` → `smoke-engine-boot.sh`（用随包 node 真起一次等就绪行——`--version` 不装载插件、`--dump-config` 只解析补丁层，两者都发现不了"包被裁掉但某行还依赖它"）→ `build-release.sh` / `package-macos.sh`（最终 `sign-app.sh` 深签 + 可选公证装钉）/ `dev.sh`（`DSHMINI_DEV_ENGINE=1` 时嵌入）。
 - **签名身份统一走 `sign-app.sh`**（两条链共用一份）：Developer ID 固定身份 → TCC 授权绑 (bundle id + 团队)、跨构建持久；ad-hoc 无 Team ID，授权只能按 cdhash 记，每次重建都重置（PITFALLS §4.8）。无证书环境回退 adhoc 并明说会丢授权。
-- **模型目录新鲜度**：目录事实源是引擎 bundle 内 pi-ai 自带**生成数据层**，随 pi-ai 版本走；引擎是自有 fork，pi-ai 升级是 fork 自己的依赖决策（2026-10-10 已升至 1.1.0），不再受 dsh 引脚约束——引脚只钉内核来源。曾用 `scripts/engine-model-data/` 覆盖层为引脚冻结期的目录续命，随该次升级整体退役（覆盖目录与 `patch-engine-model-data.sh` 已删）；目录数据层如再落后，升 fork 自身的 pi-ai 依赖即可。`prepare-dsh-runtime.sh` 仍校验 npm 回退轨闭包与其引脚一致。
+- **模型目录新鲜度**：目录事实源是引擎 bundle 内 pi-ai 自带**生成数据层**，随 pi-ai 版本走；引擎是自有 fork，pi-ai 升级是 fork 自己的依赖决策（2026-10-10 已升至 1.1.0），不受上游 dsh 版本约束。曾用 `scripts/engine-model-data/` 覆盖层为引脚冻结期的目录续命，随该次升级整体退役（覆盖目录与 `patch-engine-model-data.sh` 已删）；目录数据层如再落后，升 fork 自身的 pi-ai 依赖即可。`prepare-dsh-runtime.sh` 仍校验 npm 回退轨闭包与其引脚一致。
 - **版本韧性**：稳定面直接用；版本敏感面（provider 管理等）`probeMethod` 能力探测，缺则降级/隐藏。
 - **部署提示词落 AGENTS.md，不走 `system-prompt` 的 personaPrefix**：后者被随包 agent preset 的
   `@deepseek-ai/dsh-persona` 按同名 section 遮蔽、到不了模型（实测与修法见 `PITFALLS §7.7`），
@@ -138,11 +138,12 @@
 ```
 apps/macos/                Swift 壳（XcodeGen project.yml；xcodeproj/Info.plist 生成物已 ignore）
 frontend/                  自建 SPA（Vite 单入口）；packages/design = token 源 + 生成器
+engine/                    自研 dsh 引擎（pnpm monorepo；README 记 fork 范围与纪律）
 engine/profile/            引擎组合：装载哪些插件的唯一事实源（bundle 包 + 期望快照 + README）
 design/logo/               DeepDive logo 种子工程与导出（白底实心 D + 右侧渐变模糊；BRANDING.md）
-scripts/                   构建/打包/嵌入/运行时准备/裁剪/组合门脚本 + 版本引脚
+scripts/                   构建/打包/嵌入/裁剪/组合门脚本 + 引擎/插件版本号
 docs/                      本架构 + 规范（UI/SEMANTICS/三个 P2 SPEC）+ PITFALLS + WORKING-AGREEMENTS
-deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引脚，embed 时 check-dsh-source.sh 强校验）——资产/移植对照，勿当运行时
+deepseek-harness/          官方 DSH 源码 vendored 副本（fork 基线对照源，版本=引擎版本号，embed 时 check-dsh-source.sh 强校验）——资产/移植对照，勿当运行时
 ```
 
 ## 8. 与原蓝图（v0.3）的偏差（有意为之）

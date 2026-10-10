@@ -8,7 +8,7 @@
 > 参考：`luochenw/deepseek-harness-macos` 的 `scripts/prepare-dsh-runtime.sh`、`scripts/build-macos-app.sh`、`scripts/dsh-runtime-version.txt`、`DSHHostProtocol` 的 settings/credentials 端点。
 > v2 变更：钉死 bundled 入口形状（node + `lib/bin.js`，修 v1 的路径自相矛盾）；node 二进制版本同样引脚化；新增 §4.4 凭据冷启动闭环。
 > v2.1 变更：入口优先级修正（`DSHMINI_DSH_ENTRY` 显式 env 最强覆盖、压过 bundled，否则 §5"对照不同版本"失效）；子命令形状以实测为准；`PATH` 注入 bundled node；`package-macos.sh` 签名改 `--deep`；node 引脚不符改 fail-loud（不做自动下载）。
-> **引脚版本以 `scripts/dsh-runtime-version.txt` 为唯一事实源，不在本文内联数字**。版本史：rc.2 → 0.1.2-alpha.2 协议移植试验 → c590653 回退 rc.2（alpha.2 UNARY 面当时不可用）→ 2026-09-09 **升 0.1.2-rc.1 全量落地** → 2026-09-10 **升 0.1.5-rc.1 全量落地**（会话格式 V3 → §3.4 版本门；wire 契约现状态见 `DSH-WIRE.md`；旧兼容层已删）→ 2026-09-24 **评估上游 0.1.7-rc.1：暂不升**（依据与触发条件见 §5.1）。
+> **引擎版本以 `scripts/dsh-runtime-version.txt` 为唯一事实源，不在本文内联数字**。版本史：rc.2 → 0.1.2-alpha.2 协议移植试验 → c590653 回退 rc.2（alpha.2 UNARY 面当时不可用）→ 2026-09-09 **升 0.1.2-rc.1 全量落地** → 2026-09-10 **升 0.1.5-rc.1 全量落地**（会话格式 V3 → §3.4 版本门；wire 契约现状态见 `DSH-WIRE.md`；旧兼容层已删）→ 2026-09-24 **评估上游 0.1.7-rc.1：暂不升**（依据与触发条件见 §5.1）→ 2026-10-10 **引擎自研化**（`engine/` 仓内构建，"引脚"语义收口为自研引擎自己的版本号，上游 dsh 转为种子/对照；npm 闭包轨降为回退）。
 
 ---
 
@@ -129,6 +129,10 @@
 - 开发：`DSHMINI_DSH_ENTRY` 指向任意目标版本 dsh，用于对照不同版本 API 面（异版本仅告警；对照务必配 `DSHMINI_SUPPORT_DIR` 隔离——生产 home 的会话格式不可降级读取，§3.4 版本门拦的正是这种混用）。
 
 ### 5.1 上游新 rc 的升级裁决：0.1.7-rc.1 暂不升（2026-09-24）
+
+> 2026-10-10 起引擎自研（`engine/` 仓内构建），上游 rc 的"升引脚"裁决流程就此退役：
+> 本节存档当时的评估依据；上游 dsh 转为种子/对照源，`sync-engine-fork` 同步面一并退役
+> （`PLAN-ENGINE-SELF-IMPL.md`）。
 
 上游 rc 线已到 `0.1.7-rc.1`（npm `next`；`latest` 仍停在 0.1.5-rc.3 且无对应 GitHub release）。
 裁决为**暂不升**：不存在硬性驱动，而代价是不可分割的单向迁移。

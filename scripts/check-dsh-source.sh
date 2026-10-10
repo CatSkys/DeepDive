@@ -2,13 +2,13 @@
 # DeepDive — vendored DSH source version guard.
 #
 # `deepseek-harness/` is the porting/reference copy of the official DSH
-# monorepo and must always match the runtime pin (scripts/dsh-runtime-version.txt).
+# monorepo and must always match the engine version (scripts/dsh-runtime-version.txt).
 # A mismatch once shipped silently (vendored 0.1.2-alpha.2 vs embedded runtime
 # 0.1.1-rc.2), so wire-contract and UI-porting lookups read the wrong engine
 # version. Fail the build instead.
 #
-# To sync after a pin bump: download the `dsh-v<pin>` tag tarball from
-# github.com/deepseek-ai/deepseek-harness and replace deepseek-harness/.
+# The engine is owned in-repo now (engine/), so this copy is the frozen fork
+# baseline reference — no upstream syncs; the guard only pins the pairing.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

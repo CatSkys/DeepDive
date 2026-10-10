@@ -59,29 +59,25 @@ ProfileComposer 重装，不会出现"组合改了、用户机器还跑着旧 bu
 改 `cordis.patch.yml` → 跑 `scripts/dump-engine-composition.sh` 对比改动前后的组合清单 →
 启动引擎实跑一轮。**不要**只读补丁文件就判断生效。
 
-## 升引脚时怎么查漂移
+## 动引擎包时怎么查组合漂移
 
 `composition.expected.txt` 是本目录组合结果的**期望快照**，`scripts/check-engine-composition.sh`
 每次 `make test` 与构建链都会拿实际 dump 与它对比，不一致即失败。所以漂移不会静默：
-升完引脚第一次跑测试就会红，diff 直接告诉你上游动了什么。
+动过 `engine/packages`（升依赖、改插件）后第一次跑测试就会红，diff 直接告诉你组合变了什么。
 
-裁决时把上游两层也 dump 一份，与我们的对比——**差异就是待裁决清单**：
+裁决时把改动前后的 dump 对比——**差异就是待裁决清单**（需要对照上游行为时，
+对 vendored 基线 `deepseek-harness/` 里的两层做同样的 dump）：
 
 ```sh
-# 上游两层在本 pin 下组合出什么
-scripts/dump-engine-composition.sh --bundles '@deepseek-ai/dsh-base,@deepseek-ai/dsh-web-app' \
-  --out /tmp/upstream-composition.txt
-
 # 我们这份组合出什么
 scripts/dump-engine-composition.sh --bundles 'deepdive-engine-profile' \
   --local-bundle engine/profile --out /tmp/ours-composition.txt
-
-diff /tmp/upstream-composition.txt /tmp/ours-composition.txt
 ```
 
-逐条判断：上游新增的核心行（我们没跟上 → 能力静默缺失）、上游改过的 config（要不要跟）、
-上游删掉的行（我们的行成了死行）。注意我们**有意移除**的那批行也在 diff 里，
-它们同时列在 `cordis.patch.yml` 的文件头——在清单里=我们有意为之，不在=新漂移。
+逐条判断：删掉的核心行（能力静默缺失）、改过的 config（要不要那样改）、
+新增的行（是否本意）。注意我们**有意移除**的那批行也在期望快照里，
+它们同时列在 `cordis.patch.yml` 的文件头——在清单里=我们有意为之，
+不期而遇的变化=待裁决。
 裁决完把结论落回 `cordis.patch.yml`，重新生成期望快照，两者一起提交:
 
 ```sh
@@ -89,9 +85,9 @@ scripts/dump-engine-composition.sh --bundles deepdive-engine-profile \
   --local-bundle engine/profile --out engine/profile/composition.expected.txt
 ```
 
-**预设文件同样要查漂移**：上游升引脚若动过 `engine/packages/preset/agent-presets/presets/`，
-diff 会告诉我们上游改了什么预设内容——逐字复制是默认，除非我们有意的裁剪行被上游
-改了（那时重新裁决再落）：
+**预设文件同样要查漂移**：动过 `engine/packages/preset/agent-presets/presets/` 时，
+diff 会告诉我们预设内容变没变——逐字复制是默认，除非我们有意的裁剪行被改了
+（那时重新裁决再落）：
 
 ```sh
 diff -r engine/packages/preset/agent-presets/presets engine/profile/presets

@@ -2,8 +2,8 @@
 
 官方实现源码的移植对照图。以后移植 DSH UI 直接读源码，**不要自行发挥**。
 
-- **唯一对照源：本仓库 vendored 副本** `deepseek-harness/`（根目录）——随仓库走，版本恒等于运行时引脚（`scripts/dsh-runtime-version.txt`；嵌入引擎时 `scripts/check-dsh-source.sh` 强校验。升引脚必须同步换源：用 GitHub `dsh-v<版本>` tag tarball 整目录替换）。
-- 勿用本机 Downloads 散落副本对照（历史上曾 vendored 0.1.2-alpha.2 与引脚 0.1.1-rc.2 错位，造成 wire 契约误判）。
+- **唯一对照源：本仓库 vendored 副本** `deepseek-harness/`（根目录）——随仓库走，版本恒等于引擎版本号（`scripts/dsh-runtime-version.txt`；嵌入引擎时 `scripts/check-dsh-source.sh` 强校验）。引擎自研后本副本冻结为 fork 基线对照（官方 `dsh-v<引擎版本号>` tag tarball），不再从上游换源。
+- 勿用本机 Downloads 散落副本对照（历史上曾 vendored 0.1.2-alpha.2 与引擎版本 0.1.1-rc.2 错位，造成 wire 契约误判）。
 
 ## 图标
 - `packages/client/ui-primitives/src/icons/index.tsx`

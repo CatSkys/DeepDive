@@ -1,8 +1,8 @@
 # DSH Wire 契约与载荷形状（0.1.5-rc.1 实测）
 
 > 本文拥有「引擎 wire 面的载荷形状与通道可用性」这一事实。全部条目来自
-> 对引脚引擎（版本见 `scripts/dsh-runtime-version.txt`）的**实机 POST/WS 实测**
-> 或 vendored 源码实读，非猜测；升级引脚时须复核并整篇更新。路由与参数的
+> 对随包引擎（版本见 `scripts/dsh-runtime-version.txt`）的**实机 POST/WS 实测**
+> 或 vendored 源码实读，非猜测；引擎改动时须复核并整篇更新。路由与参数的
 > 权威清单在**内嵌 runtime 各包的 `lib/typert.remote-client.js`**（`id:
 > '<pkg>#<ns>/<method>'`、`scope.wire`、`parameters[].wire` 逐项给出 wire
 > 参数名；rc.2 时代的 `dsh-host-apiproxy`/`UNARY_ROUTES` 已随包消亡）。
