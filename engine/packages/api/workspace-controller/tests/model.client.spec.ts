@@ -14,6 +14,8 @@ import type {
   WorkspaceInsertSessionBeforeRequest,
   WorkspaceOrderValue,
   WorkspaceRenameRequest,
+  WorkspaceUnarchiveSessionsRequest,
+  WorkspaceUnarchiveValue,
   WorkspaceValue,
   WorkspaceId,
   WorkspaceView,
@@ -113,6 +115,16 @@ class FakeWorkspaceRemote implements WorkspaceRemote {
   archiveSession(request: WorkspaceArchiveSessionRequest): Promise<RemoteResult<WorkspaceArchiveValue>> {
     this.record('archiveSession', request)
     return this.onArchiveSession(request)
+  }
+
+  onUnarchiveSessions: (
+    request: WorkspaceUnarchiveSessionsRequest,
+  ) => Promise<RemoteResult<WorkspaceUnarchiveValue>> = request =>
+    Promise.resolve(remoteOk({ archivedSessionIds: request.sessionIds }))
+
+  unarchiveSessions(request: WorkspaceUnarchiveSessionsRequest): Promise<RemoteResult<WorkspaceUnarchiveValue>> {
+    this.record('unarchiveSessions', request)
+    return this.onUnarchiveSessions(request)
   }
 
   async *follow(_signal?: AbortSignal): AsyncGenerator<WorkspaceFollowFrame> {}

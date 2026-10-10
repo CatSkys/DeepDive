@@ -228,6 +228,10 @@ export class FakeApiClient {
         ),
         rename: payload => this.record('session.rename', payload, this.onRename(payload)),
         fork: payload => this.record('session.fork', payload, this.onFork(payload)),
+        deleteSessions: payload => this.record('session.deleteSessions', payload, Promise.resolve(ok({
+          deleted: (payload as { sessionIds: SessionId[] }).sessionIds,
+          refused: [],
+        }))),
         prompt: payload => this.record('session.prompt', payload, this.onPrompt(payload)),
         attachment: payload => this.record('session.attachment', payload, this.onAttachment(payload)),
         updateQueue: payload => this.record('session.updateQueue', payload, this.onUpdateQueue(payload)),
@@ -273,6 +277,9 @@ export class FakeApiClient {
           payload,
           this.onWorkspaceArchiveSession(payload),
         ),
+        unarchiveSessions: payload => this.record('workspace.unarchiveSessions', payload, Promise.resolve(ok({
+          archivedSessionIds: (payload as { sessionIds: SessionId[] }).sessionIds,
+        }))),
         follow: signal => this.openWorkspace(signal),
       },
     }
