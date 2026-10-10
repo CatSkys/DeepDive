@@ -1,12 +1,13 @@
 // 会话事件面 hook（R-007 从 SessionView 搬出）：事件日志全量缓存 + 增量摄取、
 // session/follow 直播流（0.1.2：开窗快照 + 之后追加事件，断线重连重发快照）、
-// session/page 深历史分页、plan/goal 投影（control 流实时 + 3s 轮询兜底）、
-// schedule 折叠。不管渲染与滚动 UI（分页锚定经 refs 参数借用组件的滚动容器）。
+// session/page 深历史分页、schedule 折叠。不管渲染与滚动 UI（分页锚定经 refs
+// 参数借用组件的滚动容器）；plan/goal/容量等投影由消费方直读 store 的会话列表。
 import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
 import type { SessionAddress, SessionEvent } from "../types";
 import { finalizeTurns, foldSchedule, ingest, makeIngestCtx, type IngestCtx, type RenderItem, openTurnSince } from "./renderModel";
+import { makeCommitScheduler } from "./streamCommit";
 
 export function useSessionEvents(
   sessionId: string,
@@ -19,6 +20,11 @@ export function useSessionEvents(
   // 现在结构上杜绝：handler 内完成 log.push/ingest/finalize，再一次性快照）。
   const itemsRef = useRef<RenderItem[]>([]);
   itemsRef.current = items;
+  // 流式提交合帧：逐条 delta 的高频 setState 合成 ≤32ms 一拍（O(1) 摄取仍即时，
+  // 被合并的只有全列表 slice 的 React 提交）。
+  const commit = useMemo(() => makeCommitScheduler(() => {
+    setItems(itemsRef.current.slice());
+  }), []);
   // 翻页锚点：pageOnce 抓到的"当前首行视口偏移"，等新页 items 提交后由
   // useLayoutEffect 消费（commit 时机，早于绘制）。
   const pendingAnchorRef = useRef<number | null>(null);
@@ -45,7 +51,6 @@ export function useSessionEvents(
   // reload mid-turn, where no turn/start will ever arrive again.
   const [liveRunning, setLiveRunning] = useState(false);
   const [runningSince, setRunningSince] = useState<number | undefined>(undefined);
-  const [plan, setPlan] = useState<{ active: boolean; pending: boolean } | undefined>(undefined);
   /** 本会话的 agent 操控过浏览器（ingest 记账，见 renderModel 的 browserUsed）——
    *  会话头角落那颗胶囊据此给出浏览器入口；重载后由全量 rebuild 重新算出来。 */
   const [browserUsed, setBrowserUsed] = useState(false);
@@ -56,15 +61,6 @@ export function useSessionEvents(
   const earliestSeqRef = useRef<number | undefined>(undefined);
   // 载入更早的互斥：一次进行中忽略新的点击。
   const pagingRef = useRef(false);
-  // 5.1 Goal：goal 投影整值（control projection 实时推，3s 轮询兜底）
-  const [goalProj, setGoalProj] = useState<import("../types").GoalProjection | null | undefined>(undefined);
-  const refreshGoal = () => {
-    void api.sessions().then((r) => {
-      const s = (r.items ?? []).find((x) => x.sessionId === sessionId);
-      const v = s?.projections?.values?.goal as import("../types").GoalProjection | null | undefined;
-      setGoalProj(v ?? null);
-    }).catch(() => void 0); // goal 投影轮询兜底：单次失败等实时推送或下一拍
-  };
   // 5.3 Schedule：schedule/change 折叠出的会话提醒目录（只读）
   const [scheduleRecords, setScheduleRecords] = useState<import("../types").ScheduleRecord[]>([]);
 
@@ -154,8 +150,6 @@ export function useSessionEvents(
           earliestSeqRef.current = first ? first.event.seq : undefined;
           const last = s.entries[s.entries.length - 1];
           seqFloor = last ? last.event.seq + 1 : 0;
-          const goalVal = s.projections.values?.goal as import("../types").GoalProjection | undefined;
-          setGoalProj(goalVal ?? null);
           setLoadError(false);
           // 运行态对账：快照是权威基线，尾部该轮的闭合状态说了算。事件侧的 liveRunning
           // 只是快通道——漏掉一个 turn/end（断线、丢帧、重连落在轮结束之后）会让
@@ -197,7 +191,7 @@ export function useSessionEvents(
           ingest(itemsRef.current, { event: ev }, ctx.current);
           if (ctx.current.browserUsed) setBrowserUsed(true);
           if (ev.type === "turn/end") finalizeTurns(itemsRef.current, ctx.current);
-          setItems(itemsRef.current.slice());
+          commit.schedule();
           if (ev.type === "turn/start") {
             setLiveRunning(true);
             setRunningSince(ev.time);
@@ -221,7 +215,7 @@ export function useSessionEvents(
               if (it.turn === frame.turn && (it.kind === "chunk" || it.kind === "reasoning")) items.splice(i, 1);
               else if (it.turn !== undefined && it.turn < frame.turn) break;
             }
-            setItems(items.slice());
+            commit.schedule();
             return;
           }
           if (frame.type === "chunk") {
@@ -232,7 +226,7 @@ export function useSessionEvents(
               data: { turn: liveAttempt.turn, step: liveAttempt.step, chunk: frame.chunk },
             } as unknown as SessionEvent; // 无 seq：进程级伪事件，seq 守卫按 -1 放行
             ingest(itemsRef.current, { event: ev }, ctx.current);
-            setItems(itemsRef.current.slice());
+            commit.schedule();
             return;
           }
           if (frame.type === "end") {
@@ -244,7 +238,7 @@ export function useSessionEvents(
                 const it = items[i];
                 if (it.kind === "chunk" || it.kind === "reasoning") items.splice(i, 1);
               }
-              setItems(items.slice());
+              commit.schedule();
             }
           }
         },
@@ -257,44 +251,13 @@ export function useSessionEvents(
       if (alive) setLoadError(true);
     });
 
-    // plan projection: DSH PlanChip visibility (active, or pending when folded)
-    // + goal 投影兜底（正常路径走 control projection 实时推送）。
-    // plan 键只在有值时 setPlan 是安全的：引擎侧 plan 投影是常驻纯折叠
-    // （vendored plan-mode/src/index.ts——init 恒有值、view 派生 {active,
-    // pending}、键不从 projections.values 移除），无值只可能出现在「引擎
-    // 无 plan 面」的首次读，那时芯片本就从未显示过（AUD-073 查证结论）。
-    const tickPlan = () => {
-      api.sessions().then((r) => {
-        const s = (r.items ?? []).find((x) => x.sessionId === sessionId);
-        const planVal = s?.projections?.values?.plan as { active?: boolean; pending?: boolean } | undefined;
-        if (planVal) {
-          setPlan({ active: !!planVal.active, pending: !!planVal.pending });
-        }
-        const goalVal = s?.projections?.values?.goal as import("../types").GoalProjection | null | undefined;
-        setGoalProj(goalVal ?? null);
-      }).catch(() => void 0); // 3s 轮询兜底：单次失败等下一拍
-    };
-    tickPlan();
-    const planIv = setInterval(tickPlan, 3000);
-
     return () => {
       alive = false;
-      clearInterval(planIv);
+      commit.cancel();
       closeFollow?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, retryKey]);
-
-  // control 流投影（goal/turnOutline 实时整值；plan 同键路）。
-  useEffect(() => {
-    return store.subscribeControl((frame) => {
-      if (frame.type !== "projection" || frame.sessionId !== sessionId) return;
-      if (frame.key === "goal") {
-        setGoalProj((frame.value ?? null) as import("../types").GoalProjection | null);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
 
   /** 向前翻一页并把新页并入日志（载入更早/大纲跳转共用）；返回新页首 seq。 */
   const pageOnce = async (maxMessages: number): Promise<{ firstSeq?: number; hasMore: boolean }> => {
@@ -341,7 +304,7 @@ export function useSessionEvents(
   };
 
   return {
-    items, liveRunning, runningSince, plan, goalProj, refreshGoal, browserUsed,
+    items, liveRunning, runningSince, browserUsed,
     scheduleRecords, hasMore, loadingOlder, loadOlder,
     loadError, retry: () => setRetryKey((k) => k + 1),
   };

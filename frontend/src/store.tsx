@@ -43,6 +43,19 @@ function buildWsMap(workspaces: WorkspaceView[], sessions: SessionSummary[]): Ma
   return m;
 }
 
+/** 每会话投影的紧凑签名段：plan/goal 变化也要换会话列表的身份——plan 芯片与
+ *  胶囊的取数已直读这些投影（`projections.values`），签名缺它们时 updateAt
+ *  没动的会话列表 identity 不动，消费者就永远看不到新的 plan/goal。
+ *  goal 取 updatedAt+revision 两个标量，别逐轮 JSON 序列化整个 objective。 */
+function projectionSig(s: SessionSummary): string {
+  const vals = s.projections?.values as Record<string, unknown> | undefined;
+  const plan = vals?.plan as { active?: boolean; pending?: boolean } | undefined;
+  const goal = vals?.goal as { updatedAt?: number; goal?: { revision?: number } } | undefined;
+  const planKey = plan ? `${plan.active ? 1 : 0}${plan.pending ? 1 : 0}` : "-";
+  const goalKey = goal ? `${goal.updatedAt ?? "-"}:${goal.goal?.revision ?? "-"}` : "-";
+  return `${planKey}:${goalKey}`;
+}
+
 export interface Store {
   workspaces: WorkspaceView[];
   /** 归档会话全集（workspace follow 的 archivedSessionIds；归档唯一事实源）。 */
@@ -170,6 +183,9 @@ function persistIdSet(key: string, set: Set<string>): void {
   localStorage.setItem(key, JSON.stringify([...set]));
 }
 
+// 后台会话活动打未读点的合并窗口（markUnread → flushPendingUnread）。
+const UNREAD_BATCH_MS = 500;
+
 const Ctx = createContext<Store>(null as unknown as Store);
 export const useStore = () => useContext(Ctx);
 
@@ -272,11 +288,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     persistIdSet("deepdive.pinned", next);
     return next;
   }), []);
-  const markUnread = useCallback((id: string) => setUnread((prev) => {
-    const next = new Set(prev).add(id);
-    persistIdSet("deepdive.unread", next);
-    return next;
-  }), []);
   const clearUnread = useCallback((id: string) => setUnread((prev) => {
     if (!prev.has(id)) return prev;
     const next = new Set(prev);
@@ -291,6 +302,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     activeIdRef.current = activeSessionId;
     if (activeSessionId) clearUnread(activeSessionId);
   }, [activeSessionId, clearUnread]);
+
+  // 未读合并成批：后台会话的每条 api-session/activity 都会打一次 markUnread，
+  // 逐条 = new Set + 全量 localStorage 序化 + context 换值（全树重渲）。合并
+  // 到 UNREAD_BATCH_MS 一批；冲账前剔除这期间已被点开的会话，未读点不落在
+  // 正在看的会话上。
+  const pendingUnreadRef = useRef<Set<string>>(new Set());
+  const unreadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushPendingUnread = useCallback(() => {
+    unreadTimerRef.current = null;
+    const ids = pendingUnreadRef.current;
+    pendingUnreadRef.current = new Set(ids); // 冲账期间新到的 id 留给下一批
+    if (ids.size === 0) return;
+    if (activeIdRef.current !== null) ids.delete(activeIdRef.current);
+    if (ids.size === 0) return;
+    setUnread((prev) => {
+      let touched = false;
+      for (const id of ids) if (!prev.has(id)) touched = true;
+      if (!touched) return prev;
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      persistIdSet("deepdive.unread", next);
+      return next;
+    });
+  }, []);
+  const markUnread = useCallback((id: string) => {
+    pendingUnreadRef.current.add(id);
+    if (unreadTimerRef.current === null) {
+      unreadTimerRef.current = setTimeout(flushPendingUnread, UNREAD_BATCH_MS);
+    }
+  }, [flushPendingUnread]);
 
   // ── 工作空间状态 ──
   // ref 镜像：refresh 的轮询闭包只捕获首帧，同步读写必须走 ref（同 activeIdRef
@@ -392,6 +433,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // 初始值相等会让 setSessions 一次都不执行、allSessions 永远为空
   // （使用统计的取数清单被饿死而全 0，2026-09-13）。
   const sessionsSigRef = useRef<string | null>(null);
+  // buildWsMap 门控：上次重算时的工作空间对象。工作空间对象身份变化（follow 流
+  // 推了增量）即要求重算，与签名门互补——签名只看列表元数据，看不到 sessionIds。
+  const wsMapWorkspacesRef = useRef<WorkspaceView[] | null>(null);
 
   const refresh = async () => {
     // session/list 轮询负责列表元数据与投影（workspace 面由 follow 流驱动，
@@ -401,9 +445,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const sorted = ss.items.slice().sort((a, b) => b.updatedAt - a.updatedAt);
       // 归档过滤不在写入时做：本列表是**引擎原始列表**（含已归档），视图层再筛。
       const sig = sorted
-        .map((s) => `${s.sessionId}:${s.updatedAt}:${s.running ? 1 : 0}:${(s.projections?.values as { title?: string } | undefined)?.title ?? ""}`)
+        .map((s) => `${s.sessionId}:${s.updatedAt}:${s.running ? 1 : 0}:${(s.projections?.values as { title?: string } | undefined)?.title ?? ""}:${projectionSig(s)}`)
         .join("|");
-      if (sig !== sessionsSigRef.current) {
+      const sigChanged = sig !== sessionsSigRef.current;
+      if (sigChanged) {
         sessionsSigRef.current = sig;
         setSessions(sorted);
       }
@@ -418,16 +463,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setEngineUp(true);
       setEverConnected(true);
       resolveActiveWs(workspacesRef.current);
-      // 会话→空间归属：用本 tick 的数据现算（wsOfSession 的 memo 镜像要等
-      // 重渲染才更新，boot 策略等不得），并同步回 ref 供即时读取。
-      const wsMap = buildWsMap(workspacesRef.current, sorted);
-      wsOfRef.current = wsMap;
+      // 会话→空间归属：任一输入变化才重算（归属表只由工作空间 sessionIds 与
+      // 会话 cwd 集决定，签名/工作空间都没变就是同一张表），并同步回 ref 供
+      // 即时读取——wsOfSession 的 memo 镜像要等重渲染才更新，boot 策略等不得。
+      const wsBase = workspacesRef.current;
+      if (sigChanged || wsBase !== wsMapWorkspacesRef.current) {
+        wsMapWorkspacesRef.current = wsBase;
+        wsOfRef.current = buildWsMap(wsBase, sorted);
+      }
       // 深链：?sid=… 打开指定会话（Playwright 验证 / 通知落地备用路径）。
       // 只消费一次——导航成功即从地址栏剥掉参数，否则用户此后每次回到草稿页
       // （active=null）都会被 3s 轮询按残留参数拉回这个旧会话。
       const sid = new URLSearchParams(location.search).get("sid");
       if (sid && sorted.some((x) => x.sessionId === sid)) {
-        const wid = wsMap.get(sid) ?? workspacesRef.current[0]?.workspaceId;
+        const wid = wsOfRef.current.get(sid) ?? workspacesRef.current[0]?.workspaceId;
         if (wid && wid !== activeWsRef.current) persistActiveWs(wid);
         if (!activeIdRef.current) {
           history.replaceState(null, "", location.pathname);

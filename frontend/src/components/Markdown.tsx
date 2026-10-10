@@ -338,22 +338,31 @@ export const Markdown = memo(function Markdown({ text, onOpenFile }: {
     image: (src: string, alt: string) => setLightbox({ src, alt }),
     openFile: (path: string, line?: number) => cb.current.onOpenFile?.(path, line),
   }).current;
-  // 块级元素缓存（官方 incremental 渲染的「块冻结」纪律，落在 React 元素这一层）：
-  // 流式期间只有正在增长的那个尾块内容在变，已完成的块按「块内容签名」命中缓存，
-  // 直接复用上次的元素对象——React 见元素引用不变即跳过整棵子树，highlight.js、
-  // KaTeX、行内解析全部零成本（实测 8.5KB 消息逐增量重渲 6.8ms → 命中后 <1ms）。
-  const cache = useRef(new Map<string, ReactNode>());
+  // 块级元素缓存（官方 incremental 渲染的「块冻结」纪律，落在 React 元素这一层：
+  // 流式期间只有正在增长的那个尾块内容在变）。键是**块的位置**：输入严格追加
+  // （切会话/落定/重建都是新的 Markdown 实例，text 只从这一个组件流进来增长），
+  // parseBlocks 又是确定性的左到右扫描——非尾块的行序一旦排定便冻结，命中时只需
+  // 校验 kind/lang/unclosed/行数/末行，不再落 O(len) 的全量 join；尾块（增长中的
+  // 一段）每版重解析重渲染。highlight.js、KaTeX、行内解析对非尾块全部零成本
+  // （实测 8.5KB 消息逐增量重渲 6.8ms → 命中后 <1ms）。
+  const cache = useRef(new Map<number, { node: ReactNode; shape: string; lineCount: number; tail: string }>());
   const blocks = parseBlocks(text);
+  const lastIdx = blocks.length - 1;
   return (
     <div className="md">
       {blocks.map((b, i) => {
-        const sig = `${b.kind}\u0000${b.lang ?? ""}\u0000${b.unclosed ? "unclosed" : "closed"}\u0000${b.lines.join("\n")}`;
-        let node = cache.current.get(sig);
-        if (node === undefined) {
-          node = renderBlock(b, `b${i}`, handlers.image, handlers.openFile);
-          // 上限兜底：长流式消息每一版尾块都会新占一条，攒满即整体丢弃重来
-          if (cache.current.size >= 300) cache.current.clear();
-          cache.current.set(sig, node);
+        if (i < lastIdx) {
+          const keep = cache.current.get(i);
+          const shape = `${b.kind}\u0000${b.lang ?? ""}\u0000${b.unclosed ? "unclosed" : "closed"}`;
+          if (keep && keep.shape === shape && keep.lineCount === b.lines.length && keep.tail === b.lines[b.lines.length - 1]) {
+            return <Fragment key={`b${i}`}>{keep.node}</Fragment>;
+          }
+        }
+        const node = renderBlock(b, `b${i}`, handlers.image, handlers.openFile);
+        if (i < lastIdx) {
+          // 上限兜底：实例内极少积累（一条消息几个块），超限整体丢弃重来
+          if (cache.current.size >= 512) cache.current.clear();
+          cache.current.set(i, { node, shape: `${b.kind}\u0000${b.lang ?? ""}\u0000${b.unclosed ? "unclosed" : "closed"}`, lineCount: b.lines.length, tail: b.lines[b.lines.length - 1] ?? "" });
         }
         return <Fragment key={`b${i}`}>{node}</Fragment>;
       })}

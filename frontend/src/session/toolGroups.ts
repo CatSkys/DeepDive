@@ -100,24 +100,45 @@ export function isReadOnlyCommand(command: string): boolean {
   });
 }
 
+// kind 判据缓存（shell 族要 JSON.parse args + 词法判定，是热路径上最贵的单点）。
+// 键=item、值带 item.v：args 被更新（tool/call 补发）时 v 自增，缓存随之失效。
+const kindCache = new WeakMap<RenderItem, { v: number; kind: ToolGroupKind | null }>();
+
 /** 一条渲染项属于哪个组；null = 不参与合并（代码/技能/提问/其它）。 */
 export function groupKindOf(item: RenderItem): ToolGroupKind | null {
-  if (item.kind !== "tool-call") return null;
-  const variant = toolVariant(item.toolName ?? "");
-  if (variant === "edit") return "changes";
-  if (variant === "read" || variant === "search") return "explore";
-  if (variant === "shell") return isReadOnlyCommand(commandOf(item.args ?? "")) ? "explore" : "execute";
-  return null;
+  const v = item.v ?? 0;
+  const hit = kindCache.get(item);
+  if (hit && hit.v === v) return hit.kind;
+  let kind: ToolGroupKind | null;
+  if (item.kind !== "tool-call") kind = null;
+  else {
+    const variant = toolVariant(item.toolName ?? "");
+    if (variant === "edit") kind = "changes";
+    else if (variant === "read" || variant === "search") kind = "explore";
+    else if (variant === "shell") kind = isReadOnlyCommand(commandOf(item.args ?? "")) ? "explore" : "execute";
+    else kind = null;
+  }
+  kindCache.set(item, { v, kind });
+  return kind;
 }
 
 export type ExploreBucket = "search" | "list" | "file";
 
+// 桶归类缓存：fingerprint 与正则全在热路径上重跑（ToolGroupRow 每次渲染都要）。
+const bucketCache = new WeakMap<RenderItem, { v: number; bucket: ExploreBucket }>();
+
 /** 组内按桶计数：搜索 / 列表 / 文件（照他们的 classifyExploreToolCall 口径）。 */
 export function classifyExploreItem(item: RenderItem): ExploreBucket {
+  const v = item.v ?? 0;
+  const hit = bucketCache.get(item);
+  if (hit && hit.v === v) return hit.bucket;
   const fingerprint = `${item.toolName ?? ""} ${commandOf(item.args ?? "")}`;
-  if (/(\bgrep\b|\bsearch\b|\bfetch\b|\bweb.?search\b|\bweb.?fetch\b|\brg\b|\bripgrep\b)/i.test(fingerprint)) return "search";
-  if (/(\bglob\b|\bfind\b|\blist\b|\btree\b|\bdir\b|\bls\b|\bfd\b)/i.test(fingerprint)) return "list";
-  return "file";
+  let bucket: ExploreBucket;
+  if (/(\bgrep\b|\bsearch\b|\bfetch\b|\bweb.?search\b|\bweb.?fetch\b|\brg\b|\bripgrep\b)/i.test(fingerprint)) bucket = "search";
+  else if (/(\bglob\b|\bfind\b|\blist\b|\btree\b|\bdir\b|\bls\b|\bfd\b)/i.test(fingerprint)) bucket = "list";
+  else bucket = "file";
+  bucketCache.set(item, { v, bucket });
+  return bucket;
 }
 
 const BUCKET_ORDER: readonly ExploreBucket[] = ["search", "list", "file"];
@@ -188,8 +209,21 @@ export interface ToolGroup {
 
 export type RenderUnit = { kind: "item"; index: number; item: RenderItem } | ToolGroup;
 
+// ── 版本感知缓存 ──
+// 流式热路径上每条 delta 都会把整窗重新派生一遍（TurnList 每轮渲染调
+// groupTools/groupKindOf），而 item 的就地修改靠 renderModel 的 v 戳记账。
+// 组的形状只由「成员集 + 成员的 kind 判据（含 args 词法）」决定，两个内容
+// 代理校验后即可整组复用，JSON.parse/正则不再每次重跑。
+
+/** 组内改动到的文件（去重，按首次出现顺序；取叶子名）。 */
+function groupV(items: readonly RenderItem[]): number {
+  let v = 0;
+  for (const it of items) v += it.v ?? 0;
+  return v;
+}
+
 /** 把一串渲染项折成「普通行 / 组」的序列（仅相邻同类且 ≥2 条成组）。 */
-export function groupTools(items: readonly RenderItem[]): RenderUnit[] {
+function buildToolUnits(items: readonly RenderItem[]): RenderUnit[] {
   const units: RenderUnit[] = [];
   let i = 0;
   while (i < items.length) {
@@ -214,5 +248,22 @@ export function groupTools(items: readonly RenderItem[]): RenderUnit[] {
     }
     i = j;
   }
+  return units;
+}
+
+// 组的单位列表缓存：键锚在组的**首个成员**（一个 item 只属于一个组），
+// 校验用 len+末成员引用+v 总和——新成员（append/收尾插入）必改 len 或 last，
+// 就地修改必改 v。回灌重建产生全新 item 对象，WeakMap 旧值随其回收。
+const unitCache = new WeakMap<RenderItem, { len: number; last: RenderItem; v: number; units: RenderUnit[] }>();
+
+/** 把一串渲染项折成「普通行 / 组」的序列（仅相邻同类且 ≥2 条成组）。 */
+export function groupTools(items: readonly RenderItem[]): RenderUnit[] {
+  if (items.length === 0) return [];
+  const first = items[0]!;
+  const last = items[items.length - 1]!;
+  const hit = unitCache.get(first);
+  if (hit && hit.len === items.length && hit.last === last && hit.v === groupV(items)) return hit.units;
+  const units = buildToolUnits(items);
+  unitCache.set(first, { len: items.length, last, v: groupV(items), units });
   return units;
 }

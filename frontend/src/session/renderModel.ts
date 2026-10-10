@@ -91,6 +91,15 @@ export interface RenderItem {
   forkSeq?: number;
   // 轮终原因（3.5 轮失败增强：error 消息/max-tokens 继续按钮）
   endReason?: import("../types").TurnEndReason;
+  // 就地修改版本戳：直播流增量/结果落定写的是**已存在** item 的字段（对象身份
+  // 不动，React key 稳定）；每次写脏自增 1，memo 化行组件的比较器靠它分辨。
+  // 新建项不带（观测方按 0 处理）。经 touch() 写，别散落 it.v++。
+  v?: number;
+}
+
+/** 写脏一个已存在的渲染项（就地修改的统一出口）：v 自增。 */
+function touch(it: RenderItem): void {
+  it.v = (it.v ?? 0) + 1;
 }
 
 /** schedule/change 折叠（5.3，官方 schedule 域 fold）：create→登记、
@@ -325,7 +334,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         const t0 = ctx.timing.get(turn);
         if (t0 && t0.firstToken === undefined) t0.firstToken = ev.time;
         const last = out[out.length - 1];
-        if (last && last.kind === "chunk" && last.turn === turn) last.output = (last.output ?? "") + chunk.text;
+        if (last && last.kind === "chunk" && last.turn === turn) { last.output = (last.output ?? "") + chunk.text; touch(last); }
         else out.push({ ...base, key: `${base.key}:text`, kind: "chunk", output: chunk.text, turn });
       }
       if (chunk.type === "reasoning-delta" && typeof chunk.text === "string" && chunk.text) {
@@ -337,6 +346,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
           // streamThinkMs）：引擎把 delta 压成批次后写日志，直播事件里没有那个 stream，
           // 所以两条路都要算——同一把尺子，两个数据来源。
           last.thinkMs = Math.max(0, ev.time - (last.time ?? ev.time));
+          touch(last);
         } else out.push({ ...base, key: `${base.key}:reasoning`, kind: "reasoning", output: chunk.text, turn, thinkMs: 0 });
       }
       break;
@@ -392,6 +402,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       const prev = ctx.callIndex.get(callId);
       if (prev !== undefined) {
         out[prev].args = args || out[prev].args;
+        touch(out[prev]);
       } else {
         const idx = out.length;
         out.push({
@@ -407,7 +418,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       // call 侧 diff：从调用参数推导（0.1.2 引擎不再预计算下发，官方
       // presentCall 同款——write/edit/str_replace_editor 三族的具名参数）。
       const pendingDiffs = deriveCallDiffs(d.name ?? "tool", args);
-      if (pendingDiffs && prev !== undefined) out[prev].diffs = pendingDiffs;
+      if (pendingDiffs && prev !== undefined) { out[prev].diffs = pendingDiffs; touch(out[prev]); }
       const p = derivePath(d.name ?? "tool", args);
       if (callId && p) ctx.callPaths.set(callId, p);
       break;
@@ -428,6 +439,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
           if (appliedDiffs) item.diffs = appliedDiffs;
           // read_image 等结果图片：内容块里的 attachment 引用直出工具卡。
           if (extracted.images.length > 0) item.resultImages = extracted.images;
+          touch(item);
         }
       }
       // produced files: mutation-only 白名单（上游 turn-deliverables mutationPath
@@ -471,6 +483,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       if (idx !== undefined && out[idx]) {
         out[idx].commandStatus = d.kind;
         out[idx].commandText = d.text;
+        touch(out[idx]);
       }
       break;
     }
@@ -492,6 +505,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       if (prev !== undefined && out[prev]) {
         out[prev].time = ev.time;
         out[prev].output = retryText(d);
+        touch(out[prev]);
       } else {
         const idx = out.length;
         out.push({ ...base, kind: "retry", retryId: d.retryId, output: retryText(d), turn: ctx.currentTurn });
@@ -523,14 +537,16 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         card.members = card.members ?? [];
         card.members.push({ seq: s.seq, label: s.label, phase: s.phase, childId: s.childId, outcome: undefined });
         if (!card.args) card.args = s.label;
+        touch(card);
       } else if (ev.type === "tool-workflow/agent-end") {
         const e2 = ev.data as import("../types").WorkflowAgentEndData;
         card.members = card.members ?? [];
         const m = card.members.find((x) => x.seq === e2.seq);
-        if (m) m.outcome = e2.outcome;
+        if (m) { m.outcome = e2.outcome; touch(card); }
       } else if (ev.type === "tool-workflow/run-end") {
         card.commandStatus = (ev.data as import("../types").WorkflowRunEndData).stopReason === "completed" ? "success" : "error";
         card.commandText = (ev.data as import("../types").WorkflowRunEndData).stopReason;
+        touch(card);
       }
       break;
     }

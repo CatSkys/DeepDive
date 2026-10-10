@@ -68,6 +68,24 @@ export function computeTurnProcess(items: readonly RenderItem[]): TurnProcessInf
   };
 }
 
+// 过程折叠缓存：computeTurnProcess 读的是 kinds/时间与最终回答的 content
+//（不含任何会被就地修改的字段），组内容代理（首个成员引用 + len + 末成员引用）
+// 相等即整组信息可复用——纯函数本体保持原样供测试与回灌用，渲染热路径走这层。
+const procCache = new WeakMap<RenderItem, { len: number; last: RenderItem; info: TurnProcessInfo | null }>();
+
+/** 渲染热路径用的带缓存版（TurnList 每轮渲染都调；未闭合的轮恒走 miss——
+ *  未闭合轮的组序列在持续增长，内容代理本来就不等）。 */
+export function computeTurnProcessCached(items: readonly RenderItem[]): TurnProcessInfo | null {
+  if (items.length === 0) return null;
+  const first = items[0]!;
+  const last = items[items.length - 1]!;
+  const hit = procCache.get(first);
+  if (hit && hit.len === items.length && hit.last === last) return hit.info;
+  const info = computeTurnProcess(items);
+  procCache.set(first, { len: items.length, last, info });
+  return info;
+}
+
 /**
  * 披露条标题（用户定稿，对齐官方）：「已工作 5 分 17 秒」——只给工作时长，
  * 不再罗列工具分组（那面信息展开过程可见）。秒级 <1 分钟只给秒；过小时

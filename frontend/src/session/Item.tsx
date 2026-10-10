@@ -2,6 +2,7 @@
 // 用户气泡/agent 文本/流式思考/工具行/turn-tail/命令/工作流/压缩卡。
 // 不管摄取与分组（renderModel/turnGroups 的下游）。
 
+import { memo } from "react";
 import { t } from "../i18n";
 import { ThinkingState } from "../components/ThinkingState";
 import { UserAttachments, messageContentOf } from "../components/AttachmentImage";
@@ -9,7 +10,8 @@ import { blocksOf, textOf } from "./eventText";
 import type { RenderItem } from "./renderModel";
 import { UserBubble, AgentMessage, StreamingAgentMessage, MessageMeta, CompactionCard, StateDot } from "./MessageRow";
 import { ToolRow, CommandCard, WorkflowCard, ArtifactsRow } from "./ToolRow";
-export function Item({ item, running, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, wsPath, cwd }: {
+
+export interface ItemProps {
   onPreviewFile?: (path: string, line?: number) => void;
   /** 工作区根（相对产物路径 → 绝对解析用）。 */
   wsPath?: string;
@@ -25,7 +27,9 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
   sessionId: string;
   /** 过程折叠收起时：最终回答的内嵌思考一并隐藏（官方 inlineReasoning 口径）。 */
   hideThinking?: boolean;
-}) {
+}
+
+function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, wsPath, cwd }: ItemProps) {
   if (item.kind === "user") {
     return (
       <div className="msg-block user">
@@ -136,4 +140,21 @@ export function Item({ item, running, onBranch, onContinue, sessionId, hideThink
   return null;
 }
 
+/** 流式期间每条 delta 都会重渲整份会话流，未变的行整棵跳过是体感收益大头。
+ *  比较器两条裁定（就地修改的语义见 renderModel 的 `v` 戳）：
+ *  · item 是**不同的对象** → 重渲（回灌重建/新增项）；
+ *  · item 是**同一对象** → 对象字段可能已被就地写脏（chunk 增量、tool/result
+ *    落定…），按版本戳分辨。其余原语 prop 参与比较；
+ *  onBranch/onPreviewFile/onContinue 不进比较：三个回调的契约就是引用稳定
+ *  （useSessionActions 头注），其依赖（sessionId/wsPath）已逐项入表。 */
+function areItemPropsEqual(prev: ItemProps, next: ItemProps): boolean {
+  if (prev.item !== next.item) return false;
+  if ((prev.item.v ?? 0) !== (next.item.v ?? 0)) return false;
+  return prev.running === next.running
+    && prev.hideThinking === next.hideThinking
+    && prev.sessionId === next.sessionId
+    && prev.wsPath === next.wsPath
+    && prev.cwd === next.cwd;
+}
 
+export const Item = memo(ItemBody, areItemPropsEqual);

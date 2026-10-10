@@ -11,7 +11,7 @@ import { groupTools } from "./toolGroups";
 import { Item } from "./Item";
 import { ToolGroupRow } from "./ToolGroupRow";
 import { TurnProcessBar } from "./TurnProcessBar";
-import { computeTurnProcess } from "./turnProcess";
+import { computeTurnProcessCached } from "./turnProcess";
 import { LoadingState } from "../components/LoadingState";
 
 export function TurnList({ keyIdx, groups, running, runningSince, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onContinue }: {
@@ -44,7 +44,7 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
     const isLiveGroup = running && gi === groups.length - 1;
     // 轮内过程折叠：已闭合轮把最终回答之前的工具/中间消息收成披露条；
     // 默认收起，点击展开。正在跑的轮（无 turn-tail）不折。
-    const proc = g.turn !== null ? computeTurnProcess(g.items) : null;
+    const proc = g.turn !== null ? computeTurnProcessCached(g.items) : null;
     const procOpen = proc !== null && g.turn !== null && processOpen.has(g.turn);
     const toggleProc = g.turn !== null
       ? (open: boolean) => {
