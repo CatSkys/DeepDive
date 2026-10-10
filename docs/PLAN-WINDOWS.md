@@ -1,16 +1,15 @@
-# DeepDive Windows 客户端 — 方案
+# DeepDive Windows 客户端 — 方案与施工计划
 
-> **状态（2026-09-12）：暂缓，不排期——先把 macOS 端做完善，之后再推动 Windows。** 未动代码；
-> 开工前需先过 §11 的三项定稿。本文是 Windows 端的决策与施工图，唯一事实源；
+> **状态（2026-10-10）：方案已按现状复核并细化为施工计划（自研引擎、浏览器套件、构建车道三项为本次复核新增）；未动代码；开工需先过 §11 的三项定稿。** 本文是 Windows 端的决策与施工图，唯一事实源；
 > macOS 端 as-built 归 `ARCHITECTURE.md`，路线归 `TODO.md`。
 > 依据：Raycast 2.0 技术复盘（`raycast.com/blog/a-technical-deep-dive-into-the-new-raycast`）
-> + 本仓现状 + 引擎（vendored `deepseek-harness/`，引脚见 `scripts/dsh-runtime-version.txt`）实查。
+> + 本仓现状 + 引擎（`engine/` 自研 fork，引脚见 `scripts/dsh-runtime-version.txt`）实查。
 
 ---
 
 ## 1. 结论
 
-**壳换平台，SPA 与引擎不动。** 新增一个 C#/.NET + WPF + WebView2 的 Windows 原生壳，
+**壳换平台，SPA 与引擎不动。** 新增一个 C#/.NET 8 + WPF + WebView2 的 Windows 原生壳，
 `frontend/` 与 bundled 引擎按现状共享；桥（同源托管 + 反代 + WS 中继）在 Windows 侧重写一份。
 
 不引入 Electron、Tauri、Flutter、Qt、React Native for Desktop。
@@ -77,7 +76,7 @@
 | 托盘 / 菜单栏 | `NSStatusItem` | `NotifyIcon` + 上下文菜单 | 低 |
 | 原生通知 | `UNUserNotificationCenter` | Windows toast（未打包应用需注册 AUMID / 开始菜单快捷方式） | **中**：AUMID 与静默分级语义需实测 |
 | 悬浮球 | 常驻 `NSPanel` | WPF 无边框 `Topmost` 窗 | 中：点击穿透需 Win32 扩展样式 |
-| 听写 | `SFSpeechRecognizer` | WinRT `Windows.Media.SpeechRecognition` | **可延后**（P2+，建议不进第一期） |
+| 听写 | `SFSpeechRecognizer` | WinRT `Windows.Media.SpeechRecognition` | **可延后**（P4，建议不进第一期） |
 | 文件 / 目录选择 | `NSOpenPanel` | 通用项对话框（`IFileOpenDialog`） | 低 |
 | 打开方式 / 定位 | `NSWorkspace` | `ShellExecuteEx` / `SHOpenFolderAndSelectItems` | 低（上游已有 PowerShell `Invoke-Item` 先例） |
 | 保持唤醒 | `ProcessInfo.beginActivity` | `SetThreadExecutionState` | 低 |
@@ -86,94 +85,153 @@
 | 偏好持久化 | `UserDefaults`（**端口必须记住**） | HKCU 注册表或本地 JSON | 中：端口丢 = SPA localStorage 清零（PITFALLS §4.17） |
 | 数据目录 | `~/Library/Application Support/DeepDive` | `%LOCALAPPDATA%\DeepDive`（**不用 Roaming**） | 低 |
 
+### 5.5 浏览器套件（2026-10-10 复核新增——方案此前未覆盖的最大单项）
+
+macOS 壳里**侧栏浏览器是一整套子系统**（`Browser*.swift` + `ChromiumCookieCrypto.swift`，
+共 ~3.3k 行，占壳的 11.4k 行约三成）：标签宿主与舞台、`WKWebsiteDataStore` 持久 store、
+三家浏览器 cookie 导入、阅读模式、按站隐藏、`WKContentRuleList` 广告拦截、按站权限、
+历史/书签、缩略图与 hitTest 让位；另有浏览器控制面 `POST /browser-control`（browser-use
+MCP server 的宿主，SPEC-BROWSER-USE §4）。SPA 侧（`frontend/src/sidebar-right/`）是共享的，
+但它按 `inShell()` 二值选载体（`browserCarrierKind`，BrowserCarrier.tsx）：壳里给原生槽位
+（壳摆第二个 WKWebView 进去），纯浏览器里给 iframe。
+
+Windows 侧的含义：
+
+- **WebView2 换底座是可行的**（同为系统级 Chromium 内核，槽位契约 `native-slot` 原样沿用），
+  但 BrowserHost/Tabs/Control 等宿主逻辑要在 C# 逐文件对等重写，量级 **4-5k 行**——
+  与"主窗+桥+引擎监督"的剩余部分相当，是全项目最大的单项。
+- **cookie 导入在 Windows 形状不同**：Chromium 系 cookie 密钥走 DPAPI（v10/AES-GCM 同构），
+  Safari `binarycookies` 无 Windows 对应物（直接不列），Firefox `cookies.sqlite` 明文可照搬。
+- **`WKContentRuleList` 没有 WebView2 直接等价物**：拦截要走 `WebResourceRequested` 事件
+  自实现过滤（或不做，见 §11 范围决策）。
+- 阅读模式/按站隐藏是注入 JS/CSS，平台无关度高，可随套件一起移植。
+
 ## 6. 引擎监督：Windows 的三个硬差异
 
 1. **SIGTERM 不跨进程边界**——Windows 上 `child.kill('SIGTERM')` 是 `TerminateProcess`，
    引擎的 JS 处理器不会跑。优雅停必须走**显式消息**，上游 `apps/desktop/src/host-process.ts`
    的 `stop()` 是现成范式：发 shutdown → 关父端管道（释放子进程挂起的管道读）→ 等 10s →
-   `taskkill` → 等 5s → 强杀。我们的 `EngineSupervisor` 需按此改造，不能照搬 POSIX 信号路径。
+   `taskkill` → 等 5s → 强杀。我们的 `EngineSupervisor`（macOS 侧 518 行）需按此改造，不能照搬 POSIX 信号路径。
 2. **进程树**：引擎会拉子进程（子代理 / PTY / 工具）。硬杀用 `taskkill /PID <pid> /T /F`；
    要保证子孙不逃逸需 Job Object（`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`）。上游用 koffi 建 Job，
    我们在 C# 用 P/Invoke 建一次即可。
 3. **入口形状不变但解析不同**：bundled 仍是 `node.exe + lib/bin.js`，子命令与
-   `dsh web:` URL 行的解析逻辑照旧（`packages/bundle/web-app/src/index.ts` 的
-   `console.log` 输出，纯 stdout，无平台依赖）。`DSHMINI_DSH_ENTRY` 开发对照面保留。
+   `dsh web:` URL 行的解析逻辑照旧（`apps/cli` 的就绪行输出，纯 stdout，无平台依赖）。
+   `DSHMINI_DSH_ENTRY` 开发对照面保留。
 
-引擎本身的 Windows 可行性已实查，不是推测：上游有原生 Windows CI 车道
-（`.github/workflows/ci.yml` 的 `windows-build` / `windows-native-tests`）、
-Windows 专用沙箱（`packages/sandbox/sandbox-windows-acl`）、
-`.cmd` 解析与 `windowsHide`（`packages/subprocess/subprocess-local/src/index.ts`）、
-会话锁的命名信号量分支与 `MoveFileExW` 持久化（`session-persistence-jsonl/src/win32.ts`）、
-`pwsh` 工具行替代 `bash`（`packages/bundle/base/cordis.patch.yml` 的 `!!js process.platform` 门）。
-原生依赖 `koffi` / `node-pty` / `sharp` / `@vscode/ripgrep` 均发布 win32 预编译产物，
-**不需要编译器**。
+引擎本身的 Windows 可行性（2026-10-10 对 `engine/` fork 实查，非推测）：
+
+- fork 继承了上游的 win32 专用实现：会话锁走 `packages/session/session-persistence-jsonl/src/win32.ts`
+  （`lease.ts` 按 `process.platform === 'win32'` 分支到锁句柄，不走 POSIX flock）；Windows 沙箱
+  走 `sandbox-windows-acl`；`.cmd` 解析与 `windowsHide` 在 `subprocess-local`；`pwsh` 工具行替代
+  `bash`（组合层 `!!js process.platform` 门）。上游有原生 Windows CI 车道（`windows-build` /
+  `windows-native-tests`），fork 同步自上游，这些分支都在。
+- 原生依赖 `koffi` / `node-pty` / `sharp` / `@vscode/ripgrep` 均发布 win32-x64 预编译产物，
+  **Windows 上不需要编译器**。
+- **一个新查明的缺口**：fork 自己的原生 flock addon（`engine/native/system`，
+  `@deepseek-ai/node-addon-system`）目前只带 darwin-arm64 / darwin-x64 / linux-arm64 / linux-x64
+  平台包，**没有 win32**；其契约是"绑定缺失时 acquire 直接 reject、不做安装期编译"。会话锁
+  （最关键消费者）在 win32 走 `win32.ts` 分支不受影响，但 `sandbox-local` / `bash-sandbox` /
+  `webworker-runtime` 这些消费者的 Windows 行为（走 ACL 沙箱还是 reject 降级）需在 P0 实测启动
+  路径后定——不阻塞立项，阻塞 P0 出口判据。
 
 ## 7. 前端改动（唯一真改 SPA 的地方）
 
-1. **壳桥抽象（必做）**：现在各处直接摸 `window.webkit.messageHandlers`（`host.ts`、
-   `titlebar.ts`，以及 `Composer` / `Sidebar` / `ProjectMenu` 的 `hasShell` 判定）。
-   WebView2 的通道是 `window.chrome.webview.postMessage` + `addEventListener("message")`。
+1. **壳桥抽象（必做）**：源码里直接摸 `window.webkit.messageHandlers` 的有四处——
+   `host.ts`（`deepdive`/`deepdiveHost` 双 handler）、`titlebar.ts`（rect 表）、
+   `Composer.tsx` 与 `composer/useComposerAttachments.ts`（`hasShell` 判定），
+   另有 `__tests__` 里 5 个文件直接造 webkit 桩。WebView2 的通道是
+   `window.chrome.webview.postMessage` + `addEventListener("message")`。
    抽一个平台入口（如 `frontend/src/platform.ts`），其余模块只依赖它。
    **不做的后果**：Windows 上全部桥功能静默降级——正是"开关看着生效、刷新即丢"那类事故
    （WORKING-AGREEMENTS §2）。
-2. **键位与控制键**：`⌘` → `Ctrl`（`keybinds.ts` 默认键位 + 显示串规范化 + Tooltip 键帽 + 词典）。
-3. **平台文案**：`i18n-en.ts` 的 Finder / Dock / Cmd-Tab 等条目需按平台取值。
-4. **字体 token**：`packages/design/tokens.json` 的 `font.ui.family` 是 Apple 栈
+2. **桥抽象必须带能力清单，不能只做通道切换**：SPA 的浏览器载体由 `inShell()` 二值判定
+   （`browserCarrierKind`），按"在不在壳里"切原生槽位/iframe。Windows 壳 P0-P3 若不含
+   浏览器栈，"在壳里但没有浏览器"会让原生槽位后面什么都没有（面板变黑洞）。能力清单
+   （browser / dictation / remote / …）由壳在握手时声明，`browserCarrierKind` 等判定点改为
+   读能力而不是读"是否在壳里"；mac 端声明全量能力，行为不变。
+3. **键位与控制键**：`⌘` → `Ctrl`（`keybinds.ts` 默认键位 + 显示串规范化 + Tooltip 键帽 + 词典）。
+4. **平台文案**：`i18n-en.ts` 的 Finder / Dock / Cmd-Tab 等条目需按平台取值。
+5. **字体 token**：`frontend/packages/design/tokens.json` 的 `font.ui.family` 是 Apple 栈
    （`-apple-system, "PingFang SC", …`）、`font.mono.family` 是 `SF Mono` 栈——Windows 需
    Segoe UI Variable / 微软雅黑 / Cascadia Mono。改 token 源后必须 `make tokens`（手写数值违规）。
-5. **"桌面感"视觉决策（待定稿，见 §11）**：文章明确点出 `cursor: pointer` 是"立刻暴露这是
-   网站"的信号，并列出桌面与 Web 的惯例差异。我们 `theme.css` 现有 22 处 `cursor: pointer`。
-   跟不跟是一次面向用户的视觉取舍，不由实现方单方面决定。
+6. **"桌面感"视觉决策已收敛，不再是开放项**：`theme.css` 现在是全局
+   `* { cursor: default !important; }`（input/textarea 另行 `cursor: text`），源码里已无
+   `cursor: pointer`——桌面惯例形态已经落地，Windows 直接共享同一份 `theme.css`，无需分叉决策。
 
 ## 8. 构建与分发：新增一条 Windows 车道
 
-- **运行时闭包必须在 Windows 构建机准备。** 现有 `prepare-dsh-runtime.sh` 是 bash + `lipo` /
-  `otool` / `codesign` / `ditto`，不可跨用；且在 macOS 上 `npm install` 只会取到 darwin 的
+- **运行时闭包必须在 Windows 构建机准备。** 现有链是 bash 侧（`build-engine.sh` →
+  `collect-engine-closure.mjs` → `prepare-dsh-runtime.sh` 校验 + `prune-dsh-runtime.sh` 裁剪 →
+  `embed-engine.sh` → `smoke-engine-boot.sh`），且 macOS 上的安装只会取到 darwin 的
   `koffi` / `node-pty` / `sharp` / ripgrep 预编译产物。→ 新增 PowerShell 对等脚本
-  （`scripts/prepare-dsh-runtime.ps1`、`embed-engine.ps1` 等）。
+  （`build-engine.ps1`、`prepare-dsh-runtime.ps1`、`embed-engine.ps1`、`smoke-engine-boot.ps1`、
+  `package-windows.ps1`）；`collect-engine-closure.mjs` 是纯 Node 脚本，预计可直接复用。
+  裁剪与组合闸门（`check-engine-composition.sh`、`--dump-config` 自检、boot 冒烟）逐条保留，
+  平台差异只在"拷文件与签名"。
 - **node 引脚不变**：`scripts/node-version.txt` 仍为唯一事实源，Windows 取官方 win-x64 zip。
-- **架构先只做 win-x64。** 上游自己的打包工具显式断言 x64-only
-  （`scripts/build-exe-for-python-sdk.ts`："Windows supports x64 only"），arm64 无 CI 覆盖，
-  且 koffi 的 `__stdcall` 绑定在 ARM64 下无任何测试。arm64 待 x64 稳定后专项立项。
+- **架构先只做 win-x64。** 上游打包工具显式断言 x64-only（"Windows supports x64 only"），
+  arm64 无 CI 覆盖，且 koffi 的 `__stdcall` 绑定在 ARM64 下无任何测试。arm64 待 x64 稳定后专项立项。
+- **fork 的 native addon 需要补 win32 平台包或确认可缺省**（§6 第四条）：若 P0 实测其消费者
+  在 Windows 必须 reject-fail，则需在 Windows 构建机补一次 `system.node` 编译（node-addon-system
+  的 release 流程自带 prebuild 组装脚本）；若实测全部走 JS/ACL 分支则记录豁免即可。
 - **分发形态待定**（MSIX vs NSIS/Inno，上游用 NSIS）+ 代码签名（EV）+ 自动更新通道。
   与 macOS 侧的 Sparkle（`TODO.md §3`）分开定。
 - **CI**：新增 `windows-latest` job（前端 job 不变；`dotnet test` 对位现有 XCTest job）。
 
-## 9. 分期
+## 9. 分期（施工计划）
 
-| 期 | 内容 | 出口判据 |
-|---|---|---|
-| **P0 可行性冒烟** | WebView2 加载 SPA + C# 桥反代/中继 + 引擎 spawn 与 URL 解析 + 显式关机 + 主窗 | 在 Windows 上完成一次完整对话（含审批卡、事件流不断） |
-| **P1 壳能力补齐** | 托盘 / 全局热键 / 通知 / 悬浮球 / 单实例 / 保持唤醒 / 文件选择 / 打开方式 / 偏好 | 与 mac 端功能对齐清单逐条勾掉 |
-| **P2 前端平台化** | §7 的 1–4（桥抽象、键位、文案、字体 token）+ §11 视觉决策落地 | 两端同一份 SPA 产物，桥功能在 WebView2 真机可用 |
-| **P3 分发** | 安装器 / 签名 / 更新 / CI 车道 | 干净 Windows 机器安装即用 |
-| **P4 可选** | 听写、arm64 | 另立项 |
+| 期 | 内容 | 出口判据 | 量级 |
+|---|---|---|---|
+| **P0 可行性冒烟** | C# 壳骨架：无边框主窗 + WebView2 装 SPA + 透明/丙烯；桥最小集（静态托管 + `/api` 反代 + WS 盲中继 + Origin 门 + 固定端口 + token→cookie）；引擎 spawn 与 `dsh web:` 解析 + 显式关机 + Job Object；Windows 闭包轨（`build-engine.ps1` 等）+ native addon 缺口实测 | 在 Windows 上完成一次完整对话（含审批卡、事件流不断）；引擎不在时静态资源仍可托管（PITFALLS §5.6）；关机后不留进程 | ~2k 行 C# + ~300 行 ps1 |
+| **P1 SPA 平台化** | §7 全部：`platform.ts` 桥抽象 + 能力清单、⌘→Ctrl、字体 token、平台文案；mac 端切到抽象后全量回归（行为不变） | 同一份 SPA 产物在 WKWebView 与 WebView2 真机各过一遍桥功能清单 | ~500 行，前端专属 |
+| **P2 壳能力补齐** | §5 表逐条：托盘 / 全局热键 / 通知（AUMID 实测）/ 悬浮球 / 单实例 / 保持唤醒 / 文件选择 / 打开方式 / 偏好（注册表）；移动远程面与 browser-use 宿主是否进本期见 §11 | 与 mac 端功能对齐清单逐条勾掉（浏览器套件除外） | ~2-3k 行 C# |
+| **P3 分发** | 安装器（NSIS/MSIX 定稿）/ EV 签名 / 更新通道 / CI `windows-latest` job（`dotnet test` 对位 XCTest） | 干净 Windows 机器安装即用 | 脚本 + CI |
+| **P4 决策项** | 浏览器套件移植（§5.5，WebView2 版 BrowserHost 族 + cookie DPAPI + 拦截替代 + browser-use 控制面）、听写（WinRT）、arm64 | 另立项 | 浏览器套件 ~4-5k 行 C# |
 
-顺序理由：可行性未知全部集中在 P0（WebView2 透明与丙烯 + §6 的三个差异），P0 过了再谈补齐；
-P2 的桥抽象必须在 P1 之前或同期完成，否则 P1 的能力在 WebView2 里点不动。
+顺序理由：可行性未知全部集中在 P0（WebView2 透明与丙烯、桥保真、关机协议、native addon 缺口），
+P0 过了再谈补齐；P1 必须在 P2 之前或同期完成，否则 P2 的能力在 WebView2 里点不动
+（SPA 还在摸 `window.webkit`，一切壳功能静默降级）。浏览器套件单独成 P4：它是量级最大的
+单项且独立成块，不阻塞主产品的 Windows 可用性。
 
-## 10. 风险与已知代价
+## 10. 难度清单与已知代价
 
-- **内存基线抬高**。文章的实测区间可直接当作我们的预期：同类场景全原生 200–300 MB →
-  混合栈 350–450 MB；分解为 WebView 120–200 MB + Node 150–200 MB + 原生壳 ~40 MB
-  （空 WebView 基线 ~50 MB、裸 Node ~12 MB）。我们的引擎本身就是 Node 进程，
-  这部分 mac 端已经付过；Windows 侧新增的是 WebView2 与第二个壳进程。
-- **WebView2 版本碎片化**：系统 WebView 版本随机器不同，渲染行为与 API 可用性有差异
-  （文章点名的 Windows 多样性风险）。需要版本探测与降级，而不是假设某个版本。
-- **两份壳 = 每个 OS 能力要写两遍**，桥的 Origin 门 / 路径遍历守卫 / cookie 注入各一份。
-  缓解：把桥的行为写成**两端共用的 wire 级一致性测试**（同一组断言跑两个实现），
-  让漂移在 CI 暴露而不是在用户机器上。
-- **原生细节长尾**：IME、无障碍、拖放、输入法候选框定位在 WebView 里都要显式处理
-  （文章同款警告）。请在排期里留出这笔预算，不要按"壳写完就完事"估。
+**难度在哪里（2026-10-10 复核，按险度排序）：**
 
-## 11. 开工前置（暂缓期间不改）
+1. **桥保真**——~1.0k 行 Swift 的桥对等重写（`BridgeServer` 418 + `MiniHTTPServer` 289 +
+   `RemoteAccess` 334），难在不是"写出来"而是"契约逐条不漂"：Origin 全等、固定端口持久化、
+   token→cookie 注入、WS 盲中继、`/__deepdive_error`、缓存策略，每条都有对应的踩坑记录
+   （PITFALLS §4）。缓解：两端共用的 wire 级一致性测试，同一组断言跑两个实现，漂移在 CI
+   暴露而不是在用户机器上。
+2. **视觉协同**——透明 WebView2 + DWM 丙烯 + 非客户区拖拽 + 原生槽位 hitTest 契约
+   （PITFALLS §4.3）都要在 WebView2 上重验，文章点名的"原生与 WebView2 协同"正是这里。
+3. **浏览器套件**——方案此前漏掉的最大单项（§5.5，~3.3k 行对等 + cookie DPAPI + 拦截自实现）；
+   好在独立成块、可整体延后，不阻塞主产品。
+4. **引擎监督三差异**（§6）——已知且有上游范式（显式关机 + Job Object），属"照做即可"但不可省。
+5. **构建车道**——bash 链 PowerShell 化 + Windows 构建机 + fork native addon 无 win32 预编译的
+   缺口（§8）；机械但必须一条条过闸门，不能裁剪验证步骤。
+6. **SPA 平台化**——小而关键（§7，四文件耦合点 + 能力清单设计点），它是 P2 的前置。
+7. **分发长尾**——安装器/签名/更新通道是首次涉猎，一次性的建链成本。
 
-推动 Windows 前需先定稿这三项：
+**已收敛、不再是难度的：** 引擎 Windows 可行性（上游 CI + fork 内 win32 分支背书）；大多数
+Win32 原语替换（热键/托盘/保持唤醒/单实例/文件对话框，机械活）；桌面光标惯例（全局 default
+已落地，§7.6）。
+
+**已知代价（文章同款）：** 内存基线抬高——全原生 200–300 MB → 混合栈 350–450 MB
+（WebView 120–200 + Node 150–200 + 原生壳 ~40 MB；引擎本身就是 Node，这部分 mac 端已付过，
+Windows 新增的是 WebView2 与第二个壳进程）。WebView2 版本碎片化：随机器不同，渲染行为与
+API 可用性有差异，需版本探测与降级。两份壳 = 每个 OS 能力写两遍，桥的安全守卫各一份。
+原生细节长尾：IME、无障碍、拖放、候选框定位在 WebView 里都要显式处理——排期里留出预算，
+不要按"壳写完就完事"估。
+
+## 11. 开工前置
+
+推动 Windows 前需先定稿这三项（现状：均未定稿，本文不擅自替用户决定）：
 
 1. **壳技术栈批准**（铁律 7：引入新技术栈须先问）。推荐 C#/.NET 8 + WPF + WebView2，
    对齐文章与上游官方桌面端的 Windows host 选型。
-2. **视觉决策**：`cursor: pointer`（22 处）与 hover 高亮等桌面惯例，跟不跟；
-   macOS 端是否同步改，还是只 Windows 分叉。
+2. **浏览器套件范围**：Windows 端要不要侧栏浏览器（决定 P4 是否立项、§5.5 那 ~4-5k 行
+   是否进入总盘子）；第一期（P0-P3）默认不含，只影响"功能缺口要在产品上明说"。
 3. **第一期范围**：P0 冒烟后是否直接补齐到 mac 端功能对齐，还是先只交主窗 + 桥 + 引擎。
 
-排期：**暂缓，排在 macOS 端完善之后。**
+排期决策归用户：三项定稿后本文 §9 的 P0 即可开工。
