@@ -5,7 +5,7 @@ import type {
 } from '@deepseek-ai/dsh-attachment'
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { LlmAttemptId, MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, LlmModelCost } from '@deepseek-ai/dsh-llm'
 import type { SessionId, SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
 import type { JobId } from '@deepseek-ai/dsh-jobs/brand'
@@ -128,6 +128,8 @@ export interface ModelCatalogModel {
   readonly inputModalities?: readonly string[]
   /** Provider-owned context capacity in tokens when known; absent means unknown. */
   readonly contextWindow?: number
+  /** Provider-published pricing in $ per million tokens (peak rates); absent means the adapter publishes none. */
+  readonly cost?: LlmModelCost
 }
 
 /** One provider and its successfully loaded model catalog. */

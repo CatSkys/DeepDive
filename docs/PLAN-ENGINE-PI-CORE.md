@@ -49,6 +49,12 @@ PLAN-NATIVE-ENGINE §1）。
 
 ## 3. 分阶段路径（每段独立 PR 链 + 闸门，顺序即依赖）
 
+> **实施修订（2026-10-10，交付台账见 PLAN-ENGINE-SELF-IMPL §8）**：
+> 阶段 0/1 已交付（wire v1 词表 + 成本直发）；阶段 2 的「会话/loop 换 pi」**实施判定
+> = 收编不成立**（ReactLoopAgent 是 pi Agent 的功能超集，pi 留 pi-ai 层，证据与
+> 复核路径见 SPEC-AGENT-CORE-V1 §3）；阶段 3 的引脚升级流程**保留**（对照升级路径，
+> 不因血统改判而退役）。
+
 ### 阶段 0：契约自立（不改引擎）
 
 定义 DeepDive wire/事件协议 v1：版本化、由我们演进；现 dsh 帧形作为 v1 的第一个实现细节。
@@ -93,7 +99,10 @@ dsh 业务包退役后的 prune 链收敛；组合定义形态固化（补丁语
 fork 同款（逐字复制起步、归我们演进），每收编成熟一层，供应商代码就降级为实现细节。**
 
 1. **会话存储**：自研。起点 = 把 dsh `session-persistence-jsonl` 的纪律与格式语义收编进
-   `@deepdive/*`（逐字复制 → 改名 → 归我们演进，fork 纪律同款）；pi-durable 不引。
+   `@deepdive/*`（逐字复制 → 改名 → 归我们演进，fork 纪律同款）；pi-durable 不作为依赖
+   引入（实验期 API、自带另一套 loop、强绑 chord），但按解题纪律列为 M2a 会话层的必读
+   对照——其持久化设计（原子提交、崩溃续跑、provider 会话 id 缓存亲和、存储一致性套件）
+   择优收编。
 2. **wire v1**：自研协议，即阶段 0 的交付物（事件词汇、分帧、版本协商、迁移期双读）。
 3. **审批 / 权限 / 排队**：自研层——把 dsh 审批 / 沙箱语义包成 pi loop 工具执行缝上的闸，
    对照表在阶段 2 设计文档里定稿。
@@ -111,3 +120,6 @@ dsh 的解就在本仓逐字拥有，pi 的解在其种子源码里；有可收�
   内核血统改判：agent 核心以 pi 为种子、终态全自研，Cordis 留任。
 - `DSH-WIRE.md`：wire v1 落地前仍是 wire 事实源。
 - `TODO.md`：路线挂指针。
+- 实施计划：本文的落法（里程碑分解 / wire v1 轮廓 / 风险）见
+  [PLAN-ENGINE-SELF-IMPL.md](PLAN-ENGINE-SELF-IMPL.md)，载体为分支 `feat/engine-self`
+  的独立 worktree。

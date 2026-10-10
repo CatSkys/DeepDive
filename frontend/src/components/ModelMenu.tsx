@@ -17,7 +17,7 @@ import { Check, Info, Search } from "lucide-react";
 import { ProviderIcon } from "./ProviderIcon";
 import { HoverScrollText } from "./HoverScrollText";
 import { ModelDetailCard } from "./ModelDetailCard";
-import type { ModelBench } from "../modelFacts";
+import type { ModelBench, ModelPrice } from "../modelFacts";
 
 export interface ModelOption {
   provider: string;
@@ -31,6 +31,8 @@ export interface ModelOption {
   /** 引擎目录透出的能力事实（缺 = 引擎也不知道，详情卡相应省行）。 */
   inputModalities?: string[];
   contextWindow?: number;
+  /** 引擎目录透出的 peak 牌价（$/Mtok；缺 = 适配器不发价，详情卡走手工档）。 */
+  cost?: ModelPrice;
   /** 基准登记表刻度（modelFacts join）；未收录的模型缺席。 */
   facts?: ModelBench;
 }

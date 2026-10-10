@@ -44,6 +44,7 @@ export async function buildModelCatalog(
           // 语义原样保留——值缺就省字段，不造默认。
           ...(resolved.inputModalities === undefined ? {} : { inputModalities: resolved.inputModalities }),
           ...(resolved.context === undefined ? {} : { contextWindow: resolved.context.contextWindow }),
+          ...(resolved.cost === undefined ? {} : { cost: resolved.cost }),
         }
       }))
       return {

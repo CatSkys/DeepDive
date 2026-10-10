@@ -48,6 +48,7 @@ import {
 import type {
   GenerateOptions,
   ImageAttachmentAccess,
+  LlmModelCost,
   LlmModelInfo,
   LlmProviderInfo,
   LlmResolvedModelInfo,
@@ -180,6 +181,22 @@ function resolveReasoningLevel(
     `pi-ai provider "${model.provider}" model "${model.id}" does not support reasoning effort "${effort}"`,
     'UNSUPPORTED_REASONING_EFFORT',
   )
+}
+
+/**
+ * Provider-published pricing (pi-ai's generated catalog). Zeros are "not
+ * priced" — pi-ai ships `NO_COST` zeros for models its catalog does not
+ * price — and the omission keeps the seam's "absent means unknown" shape.
+ */
+function resolvedModelCost(model: Model<Api>): LlmModelCost | undefined {
+  const { cost } = model
+  if (cost === undefined || (cost.input <= 0 && cost.output <= 0)) return undefined
+  return {
+    input: cost.input,
+    output: cost.output,
+    ...(cost.cacheRead > 0 ? { cacheRead: cost.cacheRead } : {}),
+    ...(cost.cacheWrite > 0 ? { cacheWrite: cost.cacheWrite } : {}),
+  }
 }
 
 /**
@@ -318,6 +335,7 @@ export class PiAiAdapter extends LlmAdapter {
     // Only a cap the deployment configured is a request default; the
     // catalog's `maxTokens` sizes the model and stops there.
     const configuredMaxTokens = profile.configuredMaxTokens.get(model)
+    const cost = resolvedModelCost(resolvedModel)
     return {
       provider,
       id: model,
@@ -326,6 +344,7 @@ export class PiAiAdapter extends LlmAdapter {
       context: { contextWindow: resolvedModel.contextWindow },
       ...configuredMaxTokens === undefined ? {} : { defaultMaxTokens: configuredMaxTokens },
       ...reasoningInfo(resolvedModel, defaultLevel),
+      ...cost === undefined ? {} : { cost },
     }
   }
 

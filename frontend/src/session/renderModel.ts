@@ -81,7 +81,7 @@ export function foldSchedule(records: import("../types").ScheduleRecord[], data:
 }
 
 function toolCallIdOf(data: ToolCallData): string {
-  return data.callId ?? data.id ?? "";
+  return data.callId;
 }
 
 /// Read the stored args of a rendered tool-call item (for derived file path).
@@ -144,12 +144,9 @@ export function extractToolResult(data: ToolResultData): { callId?: string; outp
   };
   walk(msg?.content);
   if (parts.length) output = parts.join("\n");
-  if (!output && typeof data.output === "string") output = data.output;
-  if (!output && data.text) output = String(data.text);
-  if (!output && data.result !== undefined) output = JSON.stringify(data.result);
   if (!output) output = truncate(JSON.stringify(data));
-  const failed = data.isError === true || msg?.isError === true || data.ok === false;
-  const callId = data.toolCallId ?? data.callId ?? msg?.source?.callId;
+  const failed = msg?.isError === true;
+  const callId = msg?.source?.callId;
   const path = typeof data.path === "string" ? data.path : undefined;
   return { callId, output, failed, path, images };
 }
@@ -319,7 +316,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
     case "tool/call": {
       const d = ev.data as ToolCallData;
       const callId = toolCallIdOf(d);
-      const args = d.arguments !== undefined ? toolArgsString(d.arguments) : d.argsRaw ?? d.command ?? "";
+      const args = toolArgsString(d.arguments);
       if (isBrowserTool(d.name)) ctx.browserUsed = true;
       const prev = ctx.callIndex.get(callId);
       if (prev !== undefined) {

@@ -346,6 +346,14 @@ export interface LlmModelReasoningInfo {
  */
 export type SystemPromptUpdate = 'in-history'
 
+/** Provider-published pricing for one model, in $ per million tokens (peak rates). */
+export interface LlmModelCost {
+  input: number
+  output: number
+  cacheRead?: number
+  cacheWrite?: number
+}
+
 /** Exact-route model metadata resolved by its owning adapter. */
 export interface LlmResolvedModelInfo extends LlmModelInfo {
   /** Provider-owned context capacity when known. */
@@ -354,6 +362,8 @@ export interface LlmResolvedModelInfo extends LlmModelInfo {
   defaultMaxTokens?: number
   /** Adapter-owned selectable reasoning levels when exposed. */
   reasoning?: LlmModelReasoningInfo
+  /** Provider-published pricing in $/Mtok; absent means the adapter publishes none. */
+  cost?: LlmModelCost
   /** Declared mid-conversation system prompt handling; absent means only a leading system message is read. */
   systemPromptUpdate?: SystemPromptUpdate
 }

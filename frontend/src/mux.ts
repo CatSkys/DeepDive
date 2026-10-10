@@ -12,6 +12,7 @@
 // store/useSessionEvents 的消费）。
 
 import { uuid } from "./uuid";
+import { reportWireVersion } from "./wire/normalize";
 
 export interface RemoteEventReadyFrame {
   type: "ready";
@@ -295,6 +296,8 @@ class MuxClient {
     const frame = value as Record<string, unknown>;
     if (frame.type === "ready") {
       if (typeof frame.clientId === "string") this.eventClientId = frame.clientId;
+      // wire 版本协商（docs/WIRE-V1.md §1）：ready 帧上报；缺省 = 实现注记 A。
+      if (typeof frame.wireVersion === "number") reportWireVersion(frame.wireVersion);
     } else if (frame.type === "emit") {
       if (typeof frame.event === "string" && Array.isArray(frame.args)) {
         for (const h of this.eventsHandlers) h.onEmit?.(frame.event, frame.args);

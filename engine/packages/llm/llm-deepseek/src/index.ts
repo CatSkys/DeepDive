@@ -89,6 +89,11 @@ const DEFAULT_API_KEY_ENV = 'DEEPSEEK_API_KEY'
 /** The single provider route this plugin owns. */
 const PROVIDER = 'deepseek-official'
 
+// Price fact source: pi-ai 1.1.0's generated deepseek catalog (= the official
+// API pricing page's peak rates, 2026-10-10). deepseek-v4-flash 与 vision-exp 是
+// flash 同层的端点（模型基准登记表 modelFacts 的同端点口径），同价。
+const FLASH_PRICES = { inputPrice: 0.3, outputPrice: 1.2, cacheReadPrice: 0.006 } as const
+
 const DEFAULT_MODELS: DeepSeekCatalogModel[] = [
   {
     id: 'deepseek-flash',
@@ -98,18 +103,23 @@ const DEFAULT_MODELS: DeepSeekCatalogModel[] = [
     imagePixelBudget: DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET,
     imageMaxBytes: DEFAULT_REQUEST_IMAGE_MAX_BYTES,
     systemPromptUpdate: 'in-history',
+    ...FLASH_PRICES,
   },
   {
     id: 'deepseek-v4-flash',
     name: 'DeepSeek-V4-Flash',
     description: 'Fast, efficient, and economical; suited to focused, routine, or parallel tasks.',
     contextWindow: DEFAULT_CONTEXT_WINDOW,
+    ...FLASH_PRICES,
   },
   {
     id: 'deepseek-v4-pro',
     name: 'DeepSeek-V4-Pro',
     description: 'Stronger agentic coding, knowledge, and difficult reasoning; suited to complex or quality-critical tasks at higher cost.',
     contextWindow: DEFAULT_CONTEXT_WINDOW,
+    inputPrice: 1.32,
+    outputPrice: 3.96,
+    cacheReadPrice: 0.044,
   },
   {
     id: 'deepseek-v4-flash-vision-exp',
@@ -118,6 +128,7 @@ const DEFAULT_MODELS: DeepSeekCatalogModel[] = [
     inputModalities: ['text', 'image'],
     imagePixelBudget: DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET,
     imageMaxBytes: DEFAULT_REQUEST_IMAGE_MAX_BYTES,
+    ...FLASH_PRICES,
   },
 ]
 
@@ -181,6 +192,10 @@ const catalogModel: z<DeepSeekCatalogModel> = z.object({
   inputModalities: z.array(z.union(MODEL_MODALITIES)).min(1).default(['text']),
   imagePixelBudget: z.union([z.number().step(1).min(1), 'low']),
   imageMaxBytes: z.number().step(1).min(1),
+  inputPrice: z.number().min(0),
+  outputPrice: z.number().min(0),
+  cacheReadPrice: z.number().min(0),
+  cacheWritePrice: z.number().min(0),
   systemPromptUpdate: z.const('in-history'),
 })
 
@@ -273,6 +288,12 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
     if (systemPromptUpdate !== undefined && systemPromptUpdate !== 'in-history') {
       throw new Error(`llm-deepseek: catalog model "${model.id}" systemPromptUpdate must be "in-history" when present`)
     }
+    for (const field of ['inputPrice', 'outputPrice', 'cacheReadPrice', 'cacheWritePrice'] as const) {
+      const price: unknown = model[field]
+      if (price !== undefined && (!Number.isFinite(price) || (price as number) < 0)) {
+        throw new Error(`llm-deepseek: catalog model "${model.id}" ${field} must be a non-negative finite number`)
+      }
+    }
     if (seen.has(model.id)) throw new Error(`llm-deepseek: duplicate catalog model "${model.id}"`)
     seen.add(model.id)
     return {
@@ -282,6 +303,10 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
       ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
       ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
       ...model.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: model.systemPromptUpdate },
+      ...model.inputPrice === undefined ? {} : { inputPrice: model.inputPrice },
+      ...model.outputPrice === undefined ? {} : { outputPrice: model.outputPrice },
+      ...model.cacheReadPrice === undefined ? {} : { cacheReadPrice: model.cacheReadPrice },
+      ...model.cacheWritePrice === undefined ? {} : { cacheWritePrice: model.cacheWritePrice },
       inputModalities: [...inputModalities],
       ...hasImage
         ? {

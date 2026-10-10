@@ -118,12 +118,12 @@ export function foldSessionEvents(fold: UsageFold, events: SessionEvent[]): void
       }
       case "tool/call": {
         const d = ev.data as ToolCallData;
-        pendingCalls.set(d.callId ?? d.id ?? "", ev.time);
+        pendingCalls.set(d.callId ?? "", ev.time);
         break;
       }
       case "tool/result": {
         const d = ev.data as ToolResultData;
-        const callId = d.message?.source?.callId ?? d.callId ?? d.toolCallId;
+        const callId = d.message?.source?.callId;
         const dispatched = callId !== undefined ? pendingCalls.get(callId) : undefined;
         if (dispatched !== undefined && callId !== undefined) {
           activeMs += Math.max(0, ev.time - dispatched);

@@ -14,8 +14,13 @@ export const REMOTE_EVENT_RESULT_ENDPOINT = '$events/result'
 /** Empty standard Remote payload used to open the forwarded-event stream. */
 export const REMOTE_EVENT_STREAM_PAYLOAD = { args: {} } as const
 
-/** Discriminator for the first item proving the Host event source is ready. */
-export const REMOTE_EVENT_STREAM_READY = { type: 'ready' } as const
+/**
+ * Discriminator for the first item proving the Host event source is ready.
+ * `wireVersion` is the DeepDive wire contract version (docs/WIRE-V1.md);
+ * clients that see no version stamp are talking to an engine predating the
+ * DeepDive wire (implementation-note A in that document).
+ */
+export const REMOTE_EVENT_STREAM_READY = { type: 'ready', wireVersion: 1 } as const
 
 /** Opaque identity for one active Client Remote Event generation. */
 export type RemoteEventClientId = Branded<'RemoteEventClientId'>
@@ -32,6 +37,8 @@ export interface RemoteEventHostInfo {
 /** Opening item that binds later HTTP results to this active event stream. */
 export interface RemoteEventReadyFrame {
   readonly type: 'ready'
+  /** DeepDive wire contract version carried by this Host generation (docs/WIRE-V1.md). */
+  readonly wireVersion: 1
   readonly clientId: RemoteEventClientId
   /** Stable Host facts attached to this connection generation. */
   readonly host: RemoteEventHostInfo
