@@ -98,14 +98,6 @@ final class EngineEventObserver {
         EngineLog.shared.append("[observer] mux connected \(url.absoluteString)")
     }
 
-    /// 连接回调与帧解析共用：串行（保帧序）、后台。
-    private static let parseQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.name = "app.deepdive.engine-events.parse"
-        queue.maxConcurrentOperationCount = 1
-        return queue
-    }()
-
     private func receive() {
         task?.receive { [weak self] result in
             guard let self else { return }
@@ -205,23 +197,6 @@ final class EngineEventObserver {
         default:
             break
         }
-    }
-
-    /// api-session/status 的 args 解析（纯函数，XCTest 表驱动钉住形状）：
-    /// [sessionId, running] 二元组，缺一或类型不符返回 nil（不猜）。
-    static func statusArgs(_ args: [Any]) -> (sessionId: String, running: Bool)? {
-        guard let sessionId = args.first as? String,
-              let running = args.dropFirst().first as? Bool else { return nil }
-        return (sessionId, running)
-    }
-
-    /// waterfall 帧的身份三元组（纯函数，XCTest 钉住）：event + eventId +
-    /// agentId（会话身份）。挂起集合与 cancel 帧统一用 eventId 配对。
-    static func waterfallIdentity(_ value: [String: Any]) -> (event: String, eventId: String, sessionId: String)? {
-        guard let event = value["event"] as? String,
-              let eventId = value["eventId"] as? String,
-              let sessionId = value["agentId"] as? String else { return nil }
-        return (event, eventId, sessionId)
     }
 
     private func applyStatus(sessionId: String, running: Bool) {
@@ -338,10 +313,6 @@ final class EngineEventObserver {
             }
             // 列表无此会话或无投影标题 → 超时兜底接管
         }
-    }
-
-    private static func fallbackTitle(_ sessionId: String) -> String {
-        "会话 " + sessionId.suffix(6)
     }
 
     private func publish() {

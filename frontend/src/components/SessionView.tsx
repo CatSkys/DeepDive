@@ -34,7 +34,6 @@ import { FindInConversation } from "./FindInConversation";
  *  两条边同步走完，不会各显各的。 */
 const FADE_RAMP_PX = 96;
 
-
 export function SessionView({ sessionId }: { sessionId: string }) {
   const { lang } = useT(); // 订阅语言切换：文案与标题回退随 lang 重渲染
   const store = useStore();
@@ -52,8 +51,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 供 syncBottomPad 同步读）保持一个事实源，拆两套监听会算出两个贴底。
   const [scrolled, setScrolled] = useState(false);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
-  const { items, liveRunning, runningSince, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry, browserUsed } =
-    useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
+  const { items, liveRunning, runningSince, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry, browserUsed } = useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
   // 贴底跟随与悬浮对话卡共用一份（那边同样要自己滚到底）
   const { follow, followRef, onScroll: followScroll } = useFollowTail(scrollRef, items);
   const summary = sessions.find((s) => s.sessionId === sessionId);
@@ -209,12 +207,9 @@ export function SessionView({ sessionId }: { sessionId: string }) {
     contextPressure?: { projectedTokens?: number; contextWindow?: number };
     contextBreakdown?: { systemTokens?: number; toolsTokens?: number; messageTokens?: number };
     sessionStats?: { turns?: number; steps?: number; llmMs?: number; toolMs?: number; ttftMs?: number; ttftSteps?: number; decodeMs?: number; decodeTokens?: number };
-    plan?: { active?: boolean; pending?: boolean };
   };
-  // plan 芯片（DSH PlanChip）：投影直读 store 的会话列表——实时值走 control 流、
-  // 兜底走 store 轮询（useSessionEvents 不再自持一份 3s RPC）。无 plan 投影时
-  // undefined，芯片永不显示（AUD-073 口径不变）。
-  const plan = projVals.plan ? { active: !!projVals.plan.active, pending: !!projVals.plan.pending } : undefined;
+  const planProj = (summary?.projections?.values as { plan?: { active?: boolean; pending?: boolean } } | undefined)?.plan;
+  const plan = planProj ? { active: !!planProj.active, pending: !!planProj.pending } : undefined; // AUD-073：无投影 undefined
   // 容量圈数据挂在输入框上（发送/听写钮左侧，hover 出面板）
   // 浏览器全屏 → 壳在网页之上叠一层透明 webview 跑同一个 Composer（悬浮输入框）；
   // 同时这里把自己那份收起来：同一会话只允许一个活着的 composer。

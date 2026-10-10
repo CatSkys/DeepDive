@@ -9,7 +9,9 @@ import { usePrefs } from "./prefs";
 import { useSidebarLayout } from "./useSidebarLayout";
 import type { KeybindOverrides } from "./keybinds";
 import { readDraftModel, writeDraftModel, type DraftModel } from "./draftModel";
+import { createUnreadBatcher } from "./store/unreadBatcher";
 import type { ApprovalPending, QuestionItem, QuestionPending, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
+import { buildWsMap, projectionSig } from "./store/wsMap";
 
 // Minimal store: engine lists + the live event stream (0.1.2: $events 转发流 +
 // session/control + workspace/follow，全部复用 mux.ts 的单条 remote.mux 连接)。
@@ -18,43 +20,6 @@ import type { ApprovalPending, QuestionItem, QuestionPending, SessionQueuedItem,
 // subscribers.
 
 type ControlHandler = (frame: ControlFrame) => void;
-
-/** sessionId → workspaceId 归属表。workspace follow 的 sessionIds 为准；不在任何
- *  空间的会话（引擎未回填的老会话）按 cwd 与空间路径的最长前缀匹配归位；
- *  仍无主 → 第一个空间。无工作空间面时返回空表（全部视为"当前空间"）。 */
-function buildWsMap(workspaces: WorkspaceView[], sessions: SessionSummary[]): Map<string, string> {
-  const m = new Map<string, string>();
-  if (workspaces.length === 0) return m;
-  for (const w of workspaces) for (const sid of w.sessionIds ?? []) m.set(sid, w.workspaceId);
-  const byPath = (cwd?: string) => {
-    if (!cwd) return undefined;
-    let hit: WorkspaceView | undefined;
-    for (const w of workspaces) {
-      const root = w.path.endsWith("/") ? w.path : `${w.path}/`;
-      if (cwd === w.path || cwd.startsWith(root)) {
-        if (!hit || w.path.length > hit.path.length) hit = w;
-      }
-    }
-    return hit?.workspaceId;
-  };
-  for (const s of sessions) {
-    if (!m.has(s.sessionId)) m.set(s.sessionId, byPath(s.cwd) ?? workspaces[0].workspaceId);
-  }
-  return m;
-}
-
-/** 每会话投影的紧凑签名段：plan/goal 变化也要换会话列表的身份——plan 芯片与
- *  胶囊的取数已直读这些投影（`projections.values`），签名缺它们时 updateAt
- *  没动的会话列表 identity 不动，消费者就永远看不到新的 plan/goal。
- *  goal 取 updatedAt+revision 两个标量，别逐轮 JSON 序列化整个 objective。 */
-function projectionSig(s: SessionSummary): string {
-  const vals = s.projections?.values as Record<string, unknown> | undefined;
-  const plan = vals?.plan as { active?: boolean; pending?: boolean } | undefined;
-  const goal = vals?.goal as { updatedAt?: number; goal?: { revision?: number } } | undefined;
-  const planKey = plan ? `${plan.active ? 1 : 0}${plan.pending ? 1 : 0}` : "-";
-  const goalKey = goal ? `${goal.updatedAt ?? "-"}:${goal.goal?.revision ?? "-"}` : "-";
-  return `${planKey}:${goalKey}`;
-}
 
 export interface Store {
   workspaces: WorkspaceView[];
@@ -183,9 +148,6 @@ function persistIdSet(key: string, set: Set<string>): void {
   localStorage.setItem(key, JSON.stringify([...set]));
 }
 
-// 后台会话活动打未读点的合并窗口（markUnread → flushPendingUnread）。
-const UNREAD_BATCH_MS = 500;
-
 const Ctx = createContext<Store>(null as unknown as Store);
 export const useStore = () => useContext(Ctx);
 
@@ -303,35 +265,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (activeSessionId) clearUnread(activeSessionId);
   }, [activeSessionId, clearUnread]);
 
-  // 未读合并成批：后台会话的每条 api-session/activity 都会打一次 markUnread，
-  // 逐条 = new Set + 全量 localStorage 序化 + context 换值（全树重渲）。合并
-  // 到 UNREAD_BATCH_MS 一批；冲账前剔除这期间已被点开的会话，未读点不落在
-  // 正在看的会话上。
-  const pendingUnreadRef = useRef<Set<string>>(new Set());
-  const unreadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flushPendingUnread = useCallback(() => {
-    unreadTimerRef.current = null;
-    const ids = pendingUnreadRef.current;
-    pendingUnreadRef.current = new Set(ids); // 冲账期间新到的 id 留给下一批
-    if (ids.size === 0) return;
-    if (activeIdRef.current !== null) ids.delete(activeIdRef.current);
-    if (ids.size === 0) return;
-    setUnread((prev) => {
-      let touched = false;
-      for (const id of ids) if (!prev.has(id)) touched = true;
-      if (!touched) return prev;
-      const next = new Set(prev);
-      for (const id of ids) next.add(id);
-      persistIdSet("deepdive.unread", next);
-      return next;
-    });
-  }, []);
-  const markUnread = useCallback((id: string) => {
-    pendingUnreadRef.current.add(id);
-    if (unreadTimerRef.current === null) {
-      unreadTimerRef.current = setTimeout(flushPendingUnread, UNREAD_BATCH_MS);
-    }
-  }, [flushPendingUnread]);
+  // 未读合并成批（实现与窗口常量见 store/unreadBatcher.ts）。
+  const unreadBatcher = useMemo(() => createUnreadBatcher({
+    persist: (next) => persistIdSet("deepdive.unread", next),
+    activeId: () => activeIdRef.current,
+    setUnread,
+  }), []);
+  const markUnread = useCallback((id: string) => unreadBatcher.mark(id), [unreadBatcher]);
 
   // ── 工作空间状态 ──
   // ref 镜像：refresh 的轮询闭包只捕获首帧，同步读写必须走 ref（同 activeIdRef

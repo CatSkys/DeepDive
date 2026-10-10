@@ -3,10 +3,10 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "2cb7a10129bf04ff",
+      "id": "b830d89a4aa2ba38",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1110 lines > 300"
+      "detail": "1017 lines > 300"
     },
     {
       "id": "3ebdfe081f0708e8",
@@ -15,16 +15,16 @@
       "detail": "419 lines > 300"
     },
     {
-      "id": "ab5b5da21009aae6",
+      "id": "2d09ec0bd79b3be5",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/EngineEventObserver.swift",
-      "detail": "340 lines > 300"
+      "detail": "325 lines > 300"
     },
     {
-      "id": "3057ea4557183cdd",
+      "id": "481e928decb67577",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/EngineSupervisor.swift",
-      "detail": "568 lines > 300"
+      "detail": "519 lines > 300"
     },
     {
       "id": "e839046f3a85a190",
@@ -75,12 +75,6 @@
       "detail": "425 lines > 300"
     },
     {
-      "id": "e92bd9496830ebef",
-      "rule": "file-lines",
-      "file": "frontend/src/components/Markdown.tsx",
-      "detail": "364 lines > 300"
-    },
-    {
       "id": "ed4af509d5515068",
       "rule": "file-lines",
       "file": "frontend/src/components/SessionView.tsx",
@@ -123,10 +117,10 @@
       "detail": "439 lines > 300"
     },
     {
-      "id": "e905d8bb1fa6932c",
+      "id": "b5d2be2acc0ef495",
       "rule": "file-lines",
       "file": "frontend/src/session/renderModel.ts",
-      "detail": "618 lines > 300"
+      "detail": "534 lines > 300"
     },
     {
       "id": "f1ed9ce2409730c0",
@@ -135,10 +129,10 @@
       "detail": "321 lines > 300"
     },
     {
-      "id": "7119ab6a1be7c5cd",
+      "id": "519ada29d5abcc2a",
       "rule": "file-lines",
       "file": "frontend/src/session/useSessionEvents.ts",
-      "detail": "349 lines > 300"
+      "detail": "312 lines > 300"
     },
     {
       "id": "6e60185ec857426a",
@@ -153,10 +147,10 @@
       "detail": "449 lines > 300"
     },
     {
-      "id": "ba7bb8ebd186972c",
+      "id": "320fde4bf534fef0",
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
-      "detail": "719 lines > 300"
+      "detail": "708 lines > 300"
     },
     {
       "id": "b5a2dc790aada236",
