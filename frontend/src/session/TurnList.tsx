@@ -99,6 +99,7 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
           const renderItem = (it: import("../session/renderModel").RenderItem) => (
             <Item
               item={it}
+              itemV={it.v}
               running={running && it === liveItem}
               onBranch={onBranch}
               sessionId={sessionId}

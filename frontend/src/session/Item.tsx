@@ -19,6 +19,11 @@ export interface ItemProps {
    *  可能不同）；老会话摘要缺 cwd 时退回工作区路径。 */
   cwd?: string;
   item: RenderItem;
+  /** 本项的版本戳（`item.v`）。**必须是独立原语 prop**：就地修改语义下 item 是
+   *  同一对象被写脏，memo 的 prev/next 指向同一引用，从 item 上读 v 永远相等
+   *  （2026-10-10 实测会把流式增量整段判等拦下，turn 完成才“突然全部出来”）。
+   *  每次提交由父层按值传入，prev/next 才能存下上一帧的快照。 */
+  itemV?: number;
   /** 本项是否仍在流式写入（会话在跑 且 本项是列表最后一项）。思考块据此自动
    *  展开/收起——只按会话级 running 判，早已结束的思考会一直摊着不折叠。 */
   running: boolean;
@@ -144,12 +149,14 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
  *  比较器两条裁定（就地修改的语义见 renderModel 的 `v` 戳）：
  *  · item 是**不同的对象** → 重渲（回灌重建/新增项）；
  *  · item 是**同一对象** → 对象字段可能已被就地写脏（chunk 增量、tool/result
- *    落定…），按版本戳分辨。其余原语 prop 参与比较；
+ *    落定…），按**独立的 itemV 原语 prop**分辨——不能从 item 上读 v：prev/next
+ *    指向同一引用时读到的是同一份最新值，就地写脏会被整体判等漏过（2026-10-10
+ *    流式整段冻结实测）。每帧提交由父层传值，prev/next 才留得住上一帧快照。
  *  onBranch/onPreviewFile/onContinue 不进比较：三个回调的契约就是引用稳定
  *  （useSessionActions 头注），其依赖（sessionId/wsPath）已逐项入表。 */
 function areItemPropsEqual(prev: ItemProps, next: ItemProps): boolean {
   if (prev.item !== next.item) return false;
-  if ((prev.item.v ?? 0) !== (next.item.v ?? 0)) return false;
+  if ((prev.itemV ?? 0) !== (next.itemV ?? 0)) return false;
   return prev.running === next.running
     && prev.hideThinking === next.hideThinking
     && prev.sessionId === next.sessionId
