@@ -29,6 +29,12 @@ const opts: ModelOption[] = [
     inputModalities: ["text", "image"], contextWindow: 1000000,
     facts: { speed: 2, intelligence: 4, cost: 0 },
   },
+  {
+    // 半张卡回归（用户 2026-10-10）：只有成本、缺速度/智能 → 占位框，绝不出现单条成本刻度
+    provider: "deepseek-official", model: "deepseek-partial", label: "DeepSeek Partial", providerLabel: "DeepSeek",
+    cost: { input: 0.3, output: 1.2 },
+    facts: { cost: 2 },
+  },
 ];
 
 /** 持开合 state 的壳：外点关闭真的会卸菜单，断言"点卡片不关"才有效。 */
@@ -55,20 +61,20 @@ describe("模型基准登记表 join", () => {
 });
 
 describe("成本刻度推导", () => {
-  it("costScaleFromPrices：0.3×输入 + 0.7×输出 → ≤1→4 / ≤3→3 / ≤10→2 / ≤25→1 / 否则 0", () => {
-    // deepseek-flash peak：0.3/1.2 → 0.93 → 4
-    expect(costScaleFromPrices({ input: 0.3, output: 1.2, cacheRead: 0.006 })).toBe(4);
-    // deepseek-v4-pro peak：1.32/3.96 → 3.17 → 2（引擎价修正此前手抄档 4）
+  it("costScaleFromPrices：0.3×输入 + 0.7×输出 → ≤1→0 / ≤3→1 / ≤10→2 / ≤25→3 / 否则 4（越满越贵）", () => {
+    // deepseek-flash peak：0.3/1.2 → 0.93 → 0（便宜=短条）
+    expect(costScaleFromPrices({ input: 0.3, output: 1.2, cacheRead: 0.006 })).toBe(0);
+    // deepseek-v4-pro peak：1.32/3.96 → 3.17 → 2
     expect(costScaleFromPrices({ input: 1.32, output: 3.96, cacheRead: 0.044 })).toBe(2);
-    expect(costScaleFromPrices({ input: 2, output: 3.2 })).toBe(3);
-    // input 20/output 40 → 6+28=34 → 0
-    expect(costScaleFromPrices({ input: 20, output: 40 })).toBe(0);
+    expect(costScaleFromPrices({ input: 2, output: 3.2 })).toBe(1);
+    // input 20/output 40 → 6+28=34 → 4（贵=满条）
+    expect(costScaleFromPrices({ input: 20, output: 40 })).toBe(4);
     expect(costScaleFromPrices(undefined)).toBeUndefined();
   });
 
   it("costMeter：登记表手工档覆盖，引擎 peak 价兜默认家", () => {
-    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: { cost: 0 } })).toBe(0);
-    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: undefined })).toBe(4);
+    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: { cost: 3 } })).toBe(3);
+    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: undefined })).toBe(0);
     expect(costMeter({ cost: undefined, facts: undefined })).toBeUndefined();
   });
 });
@@ -95,6 +101,10 @@ describe("模型菜单基准详情卡", () => {
     fireEvent.mouseOver(rows.find((r) => r.textContent?.includes("DeepSeek V4 Nobench"))!);
     expect(document.querySelector(".model-detail-name")!.textContent).toBe("DeepSeek V4 Nobench");
     expect(document.querySelector(".model-detail-nobench")).not.toBeNull();
+    // 半张卡回归：只有成本（无速度/智能）→ 占位框，一条刻度都不画
+    fireEvent.mouseOver(rows.find((r) => r.textContent?.includes("DeepSeek Partial"))!);
+    expect(document.querySelector(".model-detail-nobench")).not.toBeNull();
+    expect(document.querySelectorAll(".model-detail-meter").length).toBe(0);
     // hover 回收录模型 → 三条刻度（速度/智能/成本），无占位
     fireEvent.mouseOver(rows.find((r) => r.textContent?.includes("Claude Fable 5.1"))!);
     expect(document.querySelector(".model-detail-name")!.textContent).toBe("Claude Fable 5.1");
