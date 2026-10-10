@@ -265,16 +265,26 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
       const text = messageText(d.message?.content);
       // Replace the live-streamed chunk/reasoning items for this step with
       // the final blocks. Discard them — re-appending interleaves stale
-      // fragments.
+      // fragments. The settlement may arrive AFTER the turn/end already
+      // inserted this turn's `turn-tail` row (直播桥先到、日志落账后到是合法
+      // 错序)，所以同 turn 的 tail 行也一并摘下，durable 落位后再插回末尾——
+      // tail 的不变式是「排在本 turn 最后一项之后」，否则 durable 会被推到
+      // tail 之后，出现「半截 echo → 已工作行 → 完整正文」的乱序（实测截图）。
       let cut = out.length - 1;
-      while (cut >= 0 && (out[cut].kind === "chunk" || out[cut].kind === "reasoning") && out[cut].turn === turn) cut -= 1;
+      let tailRow: RenderItem | undefined;
+      while (cut >= 0) {
+        const it = out[cut]!;
+        if ((it.kind === "chunk" || it.kind === "reasoning") && it.turn === turn) { cut -= 1; continue; }
+        if (it.kind === "turn-tail" && it.turn === turn) { tailRow = it; cut -= 1; continue; }
+        break;
+      }
       // 这一步的思考时长：从**消息自带的流帧**（`data.stream`）里算——它是持久化的，
       // 重载后仍在（直播的 delta 帧不进日志，实测 log 里没有 assistant/chunk，之前用
       // delta 记账算出来的时长一重载就没了，用户报"这个时间会莫名消失"）。
       let thinkMs = streamThinkMs((ev.data as { stream?: unknown }).stream);
       if (thinkMs === undefined) {
         for (let i = cut + 1; i < out.length; i++) {
-          if (out[i].kind === "reasoning" && out[i].thinkMs !== undefined) thinkMs = out[i].thinkMs;
+          if (out[i]!.kind === "reasoning" && out[i]!.thinkMs !== undefined) thinkMs = out[i]!.thinkMs;
         }
       }
       out.length = cut + 1;
@@ -285,6 +295,7 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
         // 多步轮按官方口径跨 step 求和（turn-metrics 的 fold 规则）
       }
       ctx.turnTime.set(turn, ev.time);
+      if (tailRow !== undefined) out.push(tailRow);
       break;
     }
     case "deliverables/presented": {

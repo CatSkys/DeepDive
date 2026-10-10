@@ -377,4 +377,34 @@ describe("全量回灌 ≡ 实时增量", () => {
     expect(out.filter((x) => x.kind === "assistant")).toHaveLength(2);
     expect(out.filter((x) => x.kind === "turn-tail")).toHaveLength(1);
   });
+
+  // 合法错序：直播桥把 turn/end 先送到（tail 已插到本 turn 最后一项之后），
+  // 日志落账的 assistant/message 才到。settlement 必须把同 turn 的 tail 行摘下、
+  // durable 落位后插回末尾——否则 durable 排到 tail 之后，出现
+  // 「半截 echo → 已工作行 → 完整正文」的乱序（2026-10-10 用户实测截图）。
+  it("settlement 晚于 turn/end 到达：tail 摘下重插，durable 不排到 tail 之后", () => {
+    const ctx = makeIngestCtx();
+    const out: RenderItem[] = [];
+    const lateSettled = {
+      type: "assistant/message", seq: 7, time: 1_200,
+      data: {
+        turn: 1, step: 1,
+        message: { role: "assistant", id: "m1", content: [{ type: "text", text: "完整正文" }], source: { kind: "model", provider: "deepseek", model: "r1" } },
+      },
+    } as unknown as SessionEvent;
+    for (const ev of [
+      EV.turn1Start,
+      EV.chunkThink,
+      EV.chunkText1,
+      EV.chunkText2,
+      EV.turn1End, // tail 先到（错序的点）
+      lateSettled, // settlement 后到
+    ]) ingest(out, { event: ev }, ctx);
+    finalizeTurns(out, ctx);
+
+    const kinds = out.map((x) => x.kind);
+    expect(kinds).toEqual(["assistant", "turn-tail"]);
+    expect(ctx.turnText.get(1)).toBe("完整正文");
+    expect(out.some((x) => x.kind === "chunk" || x.kind === "reasoning")).toBe(false);
+  });
 });
