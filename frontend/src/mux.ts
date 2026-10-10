@@ -12,6 +12,7 @@
 // store/useSessionEvents 的消费）。
 
 import { uuid } from "./uuid";
+import { streamDiag } from "./session/streamDiag";
 
 export interface RemoteEventReadyFrame {
   type: "ready";
@@ -159,20 +160,25 @@ class MuxClient {
       // $$events 已在 streams 表内、循环覆盖——勿再单独发：同一 streamId
       // 双开会被网关按协议违规整条断连（close 1008），重连即死循环。
       for (const [streamId] of this.streams) this.sendOpen(streamId);
+      streamDiag("ws-open", `注册流=${this.streams.size}`);
     };
     this.ws.onmessage = (e) => {
       try {
-        this.dispatch(JSON.parse(String(e.data)) as Record<string, unknown>);
+        const frame = JSON.parse(String(e.data)) as Record<string, unknown>;
+        streamDiag(`rx:${String(frame.type)}`, `sid=${String(frame.streamId ?? "")}`);
+        this.dispatch(frame);
       } catch {
         // 一条坏帧不能杀掉整条流
       }
     };
     this.ws.onclose = () => {
+      streamDiag("ws-close");
       this.eventClientId = undefined;
       this.disarmOpenAck();
       this.retryTimer = setTimeout(() => this.connect(), 2000) as unknown as number;
     };
     this.ws.onerror = () => {
+      streamDiag("ws-error");
       this.ws?.close();
     };
   }
@@ -217,8 +223,9 @@ class MuxClient {
    *  流已建立后的假死无任何 JS 侧迹象）共用此入口；重连后注册流全部
    *  重开、服务端重发快照，健康连接误杀代价为零。 */
   recycle() {
-    this.disarmOpenAck();
     const old = this.ws;
+    streamDiag("recycle", `旧socket=${old !== null}`);
+    this.disarmOpenAck();
     this.ws = null;
     this.eventClientId = undefined;
     if (old !== null) {
@@ -259,8 +266,10 @@ class MuxClient {
     if (frame.type === "item") {
       this.reopenTimers.delete(streamId); // 已恢复出帧：撤销未决的重开
       this.reopenBackoff.delete(streamId);
+      streamDiag("item", `sid=${streamId}`);
       this.streams.get(streamId)?.onItem(frame.value);
     } else if (frame.type === "end" || frame.type === "error") {
+      streamDiag(`stream-${frame.type}`, `sid=${streamId}`);
       // 服务端终止了这条流（引擎 follow 生成器在通知流跳 seq 时即抛错终止，
       // PITFALLS §4.7）。注册保留、按退避重开同 streamId：重开后服务端重发
       // 快照/基线，消费方全量替换，间隙由构造补齐——官方客户端的代际重连

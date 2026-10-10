@@ -4,6 +4,7 @@
 // 参数借用组件的滚动容器）；plan/goal/容量等投影由消费方直读 store 的会话列表。
 import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { api } from "../api";
+import { streamDiag } from "./streamDiag";
 import { useStore } from "../store";
 import type { SessionAddress, SessionEvent } from "../types";
 import { finalizeTurns, foldSchedule, ingest, makeIngestCtx, type IngestCtx, type RenderItem, openTurnSince } from "./renderModel";
@@ -175,6 +176,7 @@ export function useSessionEvents(
         },
         onEvent: (ev: SessionEvent) => {
           if (!alive) return;
+          streamDiag("ev", `${ev.type} turn=${(ev as { data?: { turn?: number } }).data?.turn ?? ""} seq=${ev.seq ?? ""}`);
           if (ev.type === "schedule/change") {
             setScheduleRecords((prev) => foldSchedule(prev, ev.data as import("../types").ScheduleChangeData));
           }
@@ -206,6 +208,7 @@ export function useSessionEvents(
         // assistant/attempt）落日志时自然替换直播项，与旧 chunk 行同语义。
         onStream: (frame) => {
           if (!alive) return;
+          streamDiag("st", `${frame.type} turn=${(frame as { turn?: number }).turn ?? ""} len=${(frame as { chunk?: { text?: string } }).chunk?.text?.length ?? ""}`);
           if (frame.type === "start") {
             liveAttempt = { turn: frame.turn, step: frame.step };
             // 新 attempt（重试）：剪掉本轮旧直播项再起，避免两次尝试文本相接。

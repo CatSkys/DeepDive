@@ -325,6 +325,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "keep-awake":
             // 自动化页的「运行会话时保持电脑唤醒」：前端按 开关 ∧ 有会话在跑 推
             KeepAwake.set((body["on"] as? NSNumber)?.boolValue ?? false)
+        case "log-diag":
+            // streamDiag 临时验证通道：前端把流式取证行写进引擎日志（engine.log），
+            // 修完流式卡滞即连前端 hook 一并移除（PITFALLS：无静默诊断不落账）。
+            EngineLog.shared.append("[streamdiag] \(body["msg"] as? String ?? "")")
         case "open-with-list":
             // 全屏预览页「打开方式」候选：能打开该文件的 App + 图标 dataURL
             openWithList(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", out: windowController)
