@@ -176,6 +176,11 @@ backdrop-filter 渐隐带**——`theme.css:1535-1575`（`--session-fade-blur: 1
   提供器随 appearance 自动解析（REF §6），手动换档可整段删。
 - **触发条件**：壳侧颜色长到第三处再做——现在只有两对，为两个值建体系属过度设计。
 
+## 21. 引擎核心转向 pi（2026-10-10 定稿）
+
+- Agent loop 与 agent 核心换 pi、Cordis 留任组合内核（插件页 / 应用页的地基）、dsh 安全件移植保留、渐进自研。
+- 决策、依据、四阶段路径与开放问题清单的唯一事实源：[PLAN-ENGINE-PI-CORE.md](PLAN-ENGINE-PI-CORE.md)。
+
 ## 期间不做
 
 - **Agent Teams**（上游 experimental：单会话内 Lead + 命名队友 + 持久消息 + 共享任务板，四包 `experimental/agent-team*`）：用户拍板暂不用。接的话 = 挂 experimental profile + 花名册/任务板面板；地基已备——队友即 continuable 子会话，子代理续聊已落地。

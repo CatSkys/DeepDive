@@ -1,0 +1,99 @@
+# 引擎核心转向 pi —— Cordis 留任组合内核
+
+> 本文是「Agent loop 与 agent 核心用 pi、组合与插件底座用 Cordis、渐进自研」的唯一事实源：
+> 决策与依据、目标架构、分阶段路径与判据、开放问题。2026-10-10 用户定稿。
+> 前一章（归属 / 精简 / 融合，已完成）见 [PLAN-NATIVE-ENGINE.md](PLAN-NATIVE-ENGINE.md)；
+> 架构现状见 [ARCHITECTURE.md](ARCHITECTURE.md)；fork 纪律见 `engine/README.md`。
+
+## 0. 决策
+
+用户定稿原文：「未来我们要做插件页，甚至还有应用页，这些用 Cordis 来进行管理，然后 Agent loop
+和 Core 用 pi——这是我们引擎的真正核心。就像我们的名字，我们未来需要不停下潜，逐渐转为自研。」
+
+1. **Agent loop 与 agent 核心换 pi**（`pi-agent-core` 起，以库形态挂为 Cordis service）：
+   dsh 的 agent / agent-loop / session 业务层最终退役。
+2. **Cordis 留任，不引入 chord**：组合、生命周期、服务 seam、运行时插件装载都归它——
+   未来的插件页与应用页以它为地基。两个组合框架并存才是债；chord 是 pi 自家 CLI 产品的
+   运行时，不接。
+3. **dsh 不整体废除**（MIT，逐字拥有）：真正值钱的器官——会话日志纪律（"模型可见即已记录"）、
+   审批 / 沙箱 / 权限预设、llm-retry、请求冻结与回放——移植后继续用，不照 pi 重来。
+4. **节奏 = 渐进自研**：每阶段独立可验收、可回退，不做大爆炸切换。
+
+## 1. 依据（定稿时的证据）
+
+- **dsh 的病是契约不受我们控制地漂移**：上游无稳定轨（`latest` 停在 0.1.5-rc.3、无 GitHub
+  release），每次升引脚破坏 wire（PITFALLS §7.1 系），0.1.7 是不可分割的单向迁移
+  （SPEC-ENGINE-RUNTIME §5.1），配置链静默失败（PITFALLS §7.4 / §7.7 / §7.8）。
+- **pi 的成熟是发布与可拥有性意义上的**：v1.0.0 正式版、语义化发布、核心小、明确设计为被
+  fork 与拥有；pi-ai 已是 fork 自己的引脚（1.1.0）。
+- **病不在 Cordis**：事故记录零条 Cordis 本体事故；vendor 全套约 2MB 且冻结。它背的三样
+  东西都是活的：service 图（`@deepdive/engine-host` 即 Cordis 插件）、schemastery →
+  `settings.describe` 的 schema 化设置面、运行时插件装载（社区插件 / 用户预设 / 插件页落账）。
+- **pi 有意不做的三样（subagent / plan mode / 权限系统）恰是产品面**：审批与沙箱要靠移植的
+  dsh 安全件补齐——这是全计划风险最高的一段，排最后。
+
+## 2. 目标架构（引擎 = 我们自己的 Node 进程）
+
+```
+Cordis 组合（cordis.patch.yml，单层、归我们）
+├─ pi 核心：agent loop + 工具执行（pi-agent-core，一个 service）
+├─ 移植的 dsh 器官：会话日志 / 审批+沙箱+权限预设 / llm-retry / spill / token-meter
+├─ 自研面：wire 协议 v1（版本化）· engine-host（就绪行 / 信任快照 / 设置命名空间 / 投影）
+└─ 插件装载：社区插件、用户预设、未来的插件页与应用页
+```
+
+业务层退役后，随包体积与 prune 链大幅缩减（现状 276 MB / 198 个 `@deepseek-ai` 包，
+PLAN-NATIVE-ENGINE §1）。
+
+## 3. 分阶段路径（每段独立 PR 链 + 闸门，顺序即依赖）
+
+### 阶段 0：契约自立（不改引擎）
+
+定义 DeepDive wire/事件协议 v1：版本化、由我们演进；现 dsh 帧形作为 v1 的第一个实现细节。
+前端摄取层与协议之间立正式适配边界（`session/` 摄取模型已是事实上的适配层，把它钉死成契约）。
+
+- 判据：协议文档 + 摄取层对协议 v1 的单测全绿；`DSH-WIRE.md` 标注为 v1 的 dsh 实现注记。
+
+### 阶段 1：LLM seam 换 pi-ai 直连
+
+退役 `dsh-llm` / `llm-deepseek` / `llm-pi-ai` 三层，自研 llm service 直接消费 pi-ai；
+顺手透出目录成本（`modelFacts.ts` 手抄牌价退役，只留 AA 速度 / 智能两列）。
+
+- 判据：§7.4 / §7.6 那类配置链（settings 解析 / profile 合并 / 补丁语义）从 LLM 路径上消失；
+  模型目录、思考档位、发现路由、凭据行为与现状对齐；启动 / 消息可落闸门绿。
+
+### 阶段 2：loop / session 换 pi-agent-core
+
+审批 / 沙箱 / 权限预设用移植的 dsh 安全件，最后接入；会话数据做一次性迁移
+（V3 JSONL，`dsh-chat-import` 有同款先例）。
+
+- 判据：审批卡 / 排队 / 计划模式语义在新 loop 下行为不变；存量会话可读；
+  壳的监督与就绪行契约保持（只换引擎内部）。
+
+### 阶段 3：收编收尾
+
+dsh 业务包退役后的 prune 链收敛；组合定义形态固化（补丁语义只服务我们单层）。
+
+- 判据：随包体积与包数对照 §2 目标；三道闸门变体（对应新形态）全绿。
+
+## 4. 有意保留（不从 pi 重来）
+
+- 审批 / 沙箱 / 权限预设——安全命门，dsh 实现久经本仓实测，最后才动。
+- 会话日志「模型可见即已记录」、请求冻结、回放信封、KV cache 稳定性设计。
+- preset 驱动的工具面（未启用模式的工具 schema 不进请求，PLAN-NATIVE-ENGINE §5.1）。
+
+## 5. 开放问题（动手前必须拍板，禁止猜测性实现）
+
+1. **会话持久化**：移植 dsh `session-persistence-jsonl`，还是用 pi-durable？
+   （倾向：先移植 dsh 日志——格式已吃透、迁移工具必须写、pi-durable 的形状未经我们评估。）
+2. **wire v1 的形状**：独立小文档定稿后才开阶段 0（事件词汇、分帧、版本协商、迁移期双读）。
+3. **阶段 2 的审批 / 排队映射**：pi 的事件词汇到审批卡 / QueueDock 语义的对照表。
+4. **迁移窗口**：V3 会话兼容读 vs 一次性转换（决定「升级当天旧会话还在不在」）。
+5. **pi 包集清单**：pi-agent-core 之外引哪些——逐个过依赖问询（AGENTS.md 铁律 7）。
+
+## 6. 与现有文档的关系
+
+- `PLAN-NATIVE-ENGINE.md`：归属 / 精简 / 融合三章已完成；其「继承内核」的论断由本文接续——
+  内核血统改判：agent 核心换 pi，Cordis 留任。
+- `DSH-WIRE.md`：wire v1 落地前仍是 wire 事实源。
+- `TODO.md`：路线挂指针。

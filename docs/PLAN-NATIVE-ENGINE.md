@@ -2,6 +2,7 @@
 
 > 本文是「引擎与应用融为一体、Agent 与 harness 更精简」的**唯一事实源**：现状量出来的数、三个方向（归属 / 精简 / 融合）、落地顺序与判据。
 > 架构现状见 `ARCHITECTURE.md`；引擎 fork 的范围与改动纪律见 `engine/README.md`；产品待办见 `TODO.md`。
+> 引擎核心血统的后续决策（agent 核心换 pi、Cordis 留任组合内核，2026-10-10 定稿）见 [PLAN-ENGINE-PI-CORE.md](PLAN-ENGINE-PI-CORE.md)。
 
 ## 0. 结论
 
