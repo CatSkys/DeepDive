@@ -1,8 +1,27 @@
 // formatElapsed（AUD-047 收敛目的地）的档位边界：秒/分/时分三档与跨档进位。
 // relativizePath：工具行摘要的项目内路径相对化（用户定稿）。
 // browserSummary：浏览器控制行的摘要（title 优先 → 代码内 URL → 通用摘要）。
+// commandDigest：终端命令的摘要（剥 cd 前缀 → 首行 → 截短；用户定稿：行右侧
+// 是摘要不是命令原文）。
 import { describe, expect, it } from "vitest";
-import { browserSummary, compactElapsed, formatElapsed, relativizePath } from "../session/format";
+import { browserSummary, commandDigest, compactElapsed, formatElapsed, relativizePath } from "../session/format";
+
+describe("commandDigest 终端命令摘要", () => {
+  it("剥掉开头的 cd … && 前缀（会话本就在那个目录，纯噪音）", () => {
+    expect(commandDigest(JSON.stringify({ command: "cd /Users/me/DSHmini && npm run build" }))).toBe("npm run build");
+    expect(commandDigest(JSON.stringify({ command: "cd /a b/c&& make package" }))).toBe("make package");
+  });
+  it("不碰无 cd 前缀的命令；多行取首行", () => {
+    expect(commandDigest(JSON.stringify({ command: "rm -rf dist" }))).toBe("rm -rf dist");
+    expect(commandDigest(JSON.stringify({ command: "echo one\necho two" }))).toBe("echo one");
+  });
+  it("超长截短到 60 字符加省略号", () => {
+    const long = "hdiutil info | grep -i disk | head -20; echo wait; ps -p 1 2 3 4 5 6 7 8 9 10 11 12 13";
+    const digest = commandDigest(JSON.stringify({ command: long }));
+    expect(digest.endsWith("…")).toBe(true);
+    expect(digest.length).toBe(61);
+  });
+});
 
 describe("browserSummary", () => {
   it("有 title 给 title（模型给的这步人话描述）", () => {

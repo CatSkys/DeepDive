@@ -58,6 +58,18 @@ export function commandOf(args: string): string {
   return args;
 }
 
+/** 终端命令的摘要上限（用户 2026-10-10 定稿：行右侧是「摘要」，不是命令原文，
+ *  跟浏览器控制行的 title 一个观感）。 */
+const COMMAND_DIGEST_MAX = 60;
+
+/** 终端命令的摘要形态：剥掉开头的 `cd … && `（会话本就在那个目录，纯噪音）→
+ *  取首行 → 截短加省略号。单条终端行与终端组摘要共用这一个入口。 */
+export function commandDigest(args: string): string {
+  const cmd = commandOf(args).replace(/^\s*cd\s+[^;&|]*\s*&&\s*/, "");
+  const line = firstLine(cmd);
+  return line.length > COMMAND_DIGEST_MAX ? line.slice(0, COMMAND_DIGEST_MAX) + "…" : line;
+}
+
 export function prettyArgs(args: string): string {
   try {
     return JSON.stringify(JSON.parse(args), null, 2);
