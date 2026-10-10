@@ -48,7 +48,7 @@ API 面（v1.0 实测其 README 与源码形状）：
 
 **交付物**：
 
-1. `docs/WIRE-V1.md`（独立小文档，**先定稿后动代码**）：
+1. `docs/WIRE-V1.md`（独立小文档，**先定稿后动代码**；草案已落：[WIRE-V1.md](WIRE-V1.md)）：
    - 传输层照旧：HTTP unary + 单 mux WS + cookie 鉴权——壳的 BridgeServer / 远程面 / 配对全不动；
    - 信封收归我们：client-request / server-response / ready 帧带 `wireVersion`；
    - 会话事件词汇 = 前端 renderModel 实际消费集（从 DSH-WIRE §3 的 durable 词表裁剪定案），
@@ -66,6 +66,8 @@ pkill → open → 日志确认）。
 
 ## 3. M1 —— LLM seam 换 pi-ai 直连
 
+> 设计草案：[SPEC-LLM-V1.md](SPEC-LLM-V1.md)。
+
 **交付物**：
 
 1. `@deepdive/llm`（Cordis 插件）：实现现 `dsh-llm` 的**服务契约**（StreamChunk 词汇、
@@ -82,14 +84,15 @@ pi-agent-core 的 `streamFn` 用法。
 
 ## 4. M2 —— loop / session 收编（风险集中段，拆四个子里程碑）
 
-- **M2a 自研会话层 `@deepdive/session`**：**第一份交付物是三方设计对照**（dsh
+- **M2a 自研会话层 `@deepdive/session`**（设计草案：[SPEC-SESSION-V1.md](SPEC-SESSION-V1.md)）：**第一份交付物是三方设计对照**（dsh
   `session-persistence-jsonl` / pi-durable（§1）/ wire v1 对 follow·page·list 与投影的需求），
   定稿才动代码。实现收编 dsh 纪律（「模型可见即已记录」、全事件化记录、checkpoint 策略），
   并按对照结论择优吸收 pi-durable 的候选设计（原子提交、崩溃续跑窗口、UUIDv7 provider
   session id 缓存亲和、存储一致性套件）+ 投影（`usage` / `turn-outline` 两个）+
   **惰性 V3 迁移**（决策文档 §5.4：读旧 V3、下次写入起新格式）。
 - **M2b loop**：收编 pi-agent-core 为 `@deepdive/agent-core`（fork 纪律），Cordis service 提供
-  Agent 实例；dsh `agent` / `agent-loop` 退役。**第一份交付物是对表面**：dsh-agent 语义 ↔
+  Agent 实例；dsh `agent` / `agent-loop` 退役。**第一份交付物是对表面**（草案已落：
+  [SPEC-AGENT-CORE-V1.md](SPEC-AGENT-CORE-V1.md)）：dsh-agent 语义 ↔
   pi 钩子映射（轮次、steer、审批、plan、工具 schema 进请求的方式），定稿才动代码。
 - **M2c 安全缝**：`beforeToolCall` 挂审批 / 沙箱闸（收编 dsh `user-approval` /
   `sandbox-policy` / `permission-presets` 语义）；`$events` 的 approval waterfall 应答语义不变。
