@@ -19,7 +19,7 @@
 // 故取保守白名单——认不出的命令进"终端"组，而不是"查阅"组。
 import type { RenderItem } from "./renderModel";
 import { derivePath } from "./renderModel";
-import { commandDigest } from "./format";
+import { bashSummary } from "./format";
 import { toolVariant } from "./toolKind";
 
 export type ToolGroupKind = "explore" | "execute" | "changes";
@@ -190,10 +190,10 @@ export function formatGroupSummary(
   }
   if (kind === "execute") {
     const parts: string[] = [];
-    // 当前在干什么 = 组内最新一条命令的摘要（流式期间即正在跑的那条；剥 cd
-    // 前缀、首行、截短，与单条终端行同一入口 commandDigest）
+    // 当前在干什么 = 组内最新一条命令的摘要（流式期间即正在跑的那条；
+    // description 优先、命令摘要回退，与单条终端行同一入口 bashSummary）
     const last = members[members.length - 1];
-    const cmd = last ? commandDigest(last.args ?? "") : "";
+    const cmd = last ? bashSummary(last.args ?? "") : "";
     if (cmd) parts.push(cmd);
     parts.push(ttPair("{n} 个命令", "{n} commands", { n: members.length }));
     const failed = members.filter((m) => m.failed).length;

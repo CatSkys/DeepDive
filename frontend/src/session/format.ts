@@ -58,13 +58,21 @@ export function commandOf(args: string): string {
   return args;
 }
 
-/** 终端命令的摘要上限（用户 2026-10-10 定稿：行右侧是「摘要」，不是命令原文，
- *  跟浏览器控制行的 title 一个观感）。 */
+/** 终端命令摘要的回退上限（用户 2026-10-10 定稿：行右侧是「摘要」，不是命令
+ *  原文，跟浏览器控制行的 title 一个观感）。 */
 const COMMAND_DIGEST_MAX = 60;
 
-/** 终端命令的摘要形态：剥掉开头的 `cd … && `（会话本就在那个目录，纯噪音）→
- *  取首行 → 截短加省略号。单条终端行与终端组摘要共用这一个入口。 */
-export function commandDigest(args: string): string {
+/** 终端行右侧的摘要（用户 2026-10-10 定稿）：引擎 bash 工具必填的
+ *  description（模型随调用写的动作短语）优先；老会话/缺参时回退命令摘要
+ *  ——剥掉开头的 `cd … && `（会话本就在那个目录，纯噪音）→ 取首行 → 截短。
+ *  单条终端行与终端组摘要共用这一个入口。 */
+export function bashSummary(args: string): string {
+  try {
+    const p = JSON.parse(args) as Record<string, unknown>;
+    if (p && typeof p === "object" && typeof p.description === "string" && p.description) {
+      return firstLine(p.description);
+    }
+  } catch { /* 不是合法 JSON：走命令摘要 */ }
   const cmd = commandOf(args).replace(/^\s*cd\s+[^;&|]*\s*&&\s*/, "");
   const line = firstLine(cmd);
   return line.length > COMMAND_DIGEST_MAX ? line.slice(0, COMMAND_DIGEST_MAX) + "…" : line;

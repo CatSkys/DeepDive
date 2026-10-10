@@ -66,11 +66,20 @@ function call(
   command: string,
   signal = new AbortController().signal,
 ) {
+  return callArgs(ctx, owner, { command, description: 'run the test command' }, signal)
+}
+
+function callArgs(
+  ctx: Context,
+  owner: Agent | undefined,
+  args: { command: string; description?: string },
+  signal = new AbortController().signal,
+) {
   return ctx.tools.execute({
     signal,
     callId: ToolCallId(`persistent-bash-${++callNumber}`),
     name: 'bash',
-    arguments: { command },
+    arguments: args,
     ...owner === undefined ? {} : { agent: owner },
   })
 }
@@ -322,11 +331,11 @@ describe('tool-bash-persistent', () => {
     expect(ctx.tools.schemas().map(item => item.name)).toEqual(['bash'])
     expect(schema?.description).toBe('deployment-specific persistent shell')
     expect(schema?.parameters).toMatchObject({
-      required: ['command'],
-      properties: { command: { type: 'string' } },
+      required: ['command', 'description'],
+      properties: { command: { type: 'string' }, description: { type: 'string' } },
     })
-    expect(ctx.tools.get('bash')?.presentCall?.({ command: 'pwd' }))
-      .toEqual({ card: 'terminal', title: 'pwd' })
+    expect(ctx.tools.get('bash')?.presentCall?.({ command: 'pwd', description: 'print working directory' }))
+      .toEqual({ card: 'terminal', title: 'pwd', description: 'print working directory' })
 
     expect(text(await call(ctx, owner, 'echo one'))).toBe('hello from stub\n[Command finished with exit code 0]')
     expect(text(await call(ctx, owner, 'echo two'))).toBe('hello from stub\n[Command finished with exit code 0]')
@@ -582,6 +591,8 @@ describe('tool-bash-persistent', () => {
     const { ctx, owner, stub } = await setup()
     expect((await call(ctx, undefined, 'pwd')).isError).toBe(true)
     expect(text(await call(ctx, owner, ' '))).toContain('command must be a non-empty string')
+    expect(text(await callArgs(ctx, owner, { command: 'pwd' }))).toContain('missing required property "description"')
+    expect(text(await callArgs(ctx, owner, { command: 'pwd', description: '   ' }))).toContain('description must be a non-empty string')
 
     const controller = new AbortController()
     controller.abort(new Error('caller stopped'))

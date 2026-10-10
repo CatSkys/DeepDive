@@ -410,6 +410,13 @@ function registerPersistentBash(ctx: Context, config: ResolvedConfig): void {
         required: true,
         description: 'The bash command to run. Relative path is preferred in the command.',
       },
+      description: {
+        type: 'string',
+        required: true,
+        description: 'Clear, concise description of what this command does in active voice, '
+          + '5-10 words (shown in the UI; use the user\'s language). Examples: "ls" → "List files in current directory"; '
+          + '"git status" → "Show working tree status"; "npm install" → "Install package dependencies".',
+      },
     },
     output: {
       schema: { type: 'string' },
@@ -417,6 +424,9 @@ function registerPersistentBash(ctx: Context, config: ResolvedConfig): void {
     },
     async execute(args, exec) {
       if (args.command.trim().length === 0) throw new Error('command must be a non-empty string')
+      if (typeof args.description !== 'string' || args.description.trim().length === 0) {
+        throw new Error('description must be a non-empty string')
+      }
       const owner = exec.agent
       if (owner === undefined) throw new Error('bash requires an owning agent session')
       return serialized(owner, async () => {
@@ -424,7 +434,7 @@ function registerPersistentBash(ctx: Context, config: ResolvedConfig): void {
         return executeCommand(ctx, shells, owner, args.command, config, exec.signal)
       })
     },
-    presentCall: args => ({ card: 'terminal', title: args.command }),
+    presentCall: args => ({ card: 'terminal', title: args.command, description: args.description }),
   }))
 }
 
