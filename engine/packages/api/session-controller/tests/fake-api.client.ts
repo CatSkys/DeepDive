@@ -12,6 +12,8 @@ import type {
   SessionAssistantStreamBaseline,
   SessionControlBaseline,
   SessionControlFrame,
+  SessionDeleteSessionsRequest,
+  SessionDeleteSessionsValue,
   SessionFollowFrame,
   SessionFollowRequest,
   SessionPage,
@@ -21,7 +23,11 @@ import type {
   SessionSelectModelValue,
 } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { WorkspaceRemote } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { WorkspaceFollowFrame } from '@deepseek-ai/dsh-api-workspace-controller/types'
+import type {
+  WorkspaceFollowFrame,
+  WorkspaceUnarchiveSessionsRequest,
+  WorkspaceUnarchiveValue,
+} from '@deepseek-ai/dsh-api-workspace-controller/types'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import {
   RemoteStream,
@@ -206,6 +212,8 @@ export class FakeApiClient {
       },
       session: {
         canOpenWorkspacePath: () => Promise.resolve(ok(true)),
+        deleteSessions: (_request: SessionDeleteSessionsRequest): Promise<RemoteResult<SessionDeleteSessionsValue>> =>
+          Promise.resolve(ok({ deleted: [], refused: [] })),
         list: payload => this.record('session.list', payload, this.onList(payload)),
         modelCatalog: () => Promise.resolve({
           ok: true,
@@ -273,6 +281,8 @@ export class FakeApiClient {
           payload,
           this.onWorkspaceArchiveSession(payload),
         ),
+        unarchiveSessions: (request: WorkspaceUnarchiveSessionsRequest): Promise<RemoteResult<WorkspaceUnarchiveValue>> =>
+          Promise.resolve(ok({ archivedSessionIds: request.sessionIds })),
         follow: signal => this.openWorkspace(signal),
       },
     }

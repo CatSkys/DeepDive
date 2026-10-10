@@ -73,8 +73,11 @@ if [[ "$DO_INSTALL" == "1" ]]; then
 fi
 
 if [[ "$DO_BUILD" == "1" ]]; then
-  echo "==> pnpm run build:lib:host"
-  "$PNPM" run build:lib:host
+  # 两面都要：host 面给出引擎闭包，client 面给出 clientBundle 包的 lib 产物
+  # （全新环境只有 host 面时，client/connection 等行包缺 lib/index.js，
+  # Loader import 断链——就绪全绿但加载失败）。按 build:lib 的链条走。
+  echo "==> pnpm run build:lib"
+  "$PNPM" run build:lib
   # The host flock addon is compiled from vendored C sources into
   # native/system/packages/<host>/bin/; without it the npm-tarball's bin/ has no
   # counterpart in the fork and session-persistence's lease fails silently
