@@ -1,7 +1,7 @@
-# Agent 核心 v1（@deepdive/agent-core）对表面（草案）
+# Agent 核心 v1（@deepdive/agent-core）对表面
 
-> 状态（2026-10-10）：**M2b 收编判定已落（证据见 §3）——判定对 `agent 核心用 pi`
-> 的执行路径做了改判，待用户复核**；初稿阶段的对表结论在 §0/§1 全部成立。
+> 状态（2026-10-10）：**M2b 收编判定已落并经用户复核确认（§3）——pi 定型 pi-ai 层，
+> loop 保留 dsh 本体**；初稿阶段的对表结论在 §0/§1 全部成立。
 > 收编对象：`@earendil-works/pi-agent-core` v1.0（fork 纪律：逐字复制 → 改名 → 归我们演进）。
 
 ## 0. dsh 语义 → pi 钩子对照
@@ -32,7 +32,7 @@
   前端半截 echo 修复的语义契约不受影响）
 - `tool_execution_start/update/end` → `tool/call`（pending）与 `tool/result`（settle）
 
-## 3. M2b 收编判定（2026-10-10 落档，待用户复核）
+## 3. M2b 收编判定（2026-10-10 落档；**用户同日复核：确认改判**）
 
 对本坞两侧逐字对读后的判定：**ReactLoopAgent 是 pi Agent 类的功能超集，替换会构成
 产品契约的降级**。细则：platform/cordis 无关的两条证据 + 纪律约束——

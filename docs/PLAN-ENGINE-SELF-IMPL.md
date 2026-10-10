@@ -142,5 +142,6 @@ M0 契约 → M1 LLM → M2a 会话 → M2b loop → M2c 安全缝 → M2d 语�
   unary 头已在真实构建上实证（boot 后 `session/list` 200 + 头）。
 - **M3 收尾判定**：`sync-engine-fork` 升级流程**保留**（对照升级路径，判定见
   PLAN-ENGINE-PI-CORE §3 的 M3 修订）；组合/prune 维持现状（本分支无组合漂移）。
-- **待用户复核**：agent 核心不换 pi 的改判（SPEC-AGENT-CORE-V1 §3）。若推翻，
-  原执行路径在案。
+- **待用户复核**：~~agent 核心不换 pi 的改判~~ **已复核：确认（2026-10-10）**——
+  pi 定型 pi-ai 层，loop 保留 dsh 本体；按确认路径合并 `feat/engine-self` 回 main
+  并走完整交付链。
