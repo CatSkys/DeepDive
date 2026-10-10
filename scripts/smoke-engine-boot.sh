@@ -20,8 +20,8 @@ TIMEOUT="${3:-60}"
 
 [[ -f "$RUNTIME_ROOT/lib/bin.js" ]] || { echo "not a dsh runtime root: $RUNTIME_ROOT" >&2; exit 1; }
 [[ -f "$BUNDLE_DIR/package.json" ]] || { echo "not a bundle directory: $BUNDLE_DIR" >&2; exit 1; }
-# node's require() rejects a relative path that does not start with ./ (the same
-# trap patch-engine-model-data.sh hits), so hand it an absolute one.
+# node's require() rejects a relative path that does not start with ./, so
+# hand it an absolute one.
 BUNDLE_DIR="$(cd "$BUNDLE_DIR" && pwd)"
 
 BUNDLE_NAME="$(node -p 'require(process.argv[1]).name' "$BUNDLE_DIR/package.json")"
