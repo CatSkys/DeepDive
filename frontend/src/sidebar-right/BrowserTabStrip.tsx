@@ -37,14 +37,18 @@ function tabName(tab: BrowserTabFace): string {
   return hostOf(tab.url) || t("新标签页");
 }
 
-/** 站点图标；页面没声明或取不到就退回主机名首字母；空白标签什么都不放（参考 isBlank 同一档）。 */
+/** 站点图标；页面没声明或取不到就退回主机名首字母；空白标签什么都不放（参考 isBlank 同一档）。
+ *
+ *  `referrerPolicy="no-referrer"` 不是洁癖：不少站点的图标 CDN（实测小红书的
+ *  xhscdn.com）做防盗链——带 Referer 直接 403（实测 status=403，去掉即 200），
+ *  于是图标在标签栏与胶囊两处都只剩一个字母/空白。WebKit 默认发 Referer，必须显式关掉。 */
 function TabIcon({ tab }: { tab: BrowserTabFace }) {
   const [broken, setBroken] = useState(false);
   if (tab.url === "") return null;
   if (broken || tab.icon === "") {
     return <span className="panel-browser-tab-glyph">{hostOf(tab.url).slice(0, 1).toUpperCase()}</span>;
   }
-  return <img className="panel-browser-tab-icon" src={tab.icon} alt="" onError={() => setBroken(true)} />;
+  return <img className="panel-browser-tab-icon" src={tab.icon} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />;
 }
 
 /** 页面在响/被静音时叉前面那枚喇叭（可按）。加载中不出——响没响要等页面落地才算数。 */

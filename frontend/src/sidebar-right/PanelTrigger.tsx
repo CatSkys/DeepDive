@@ -26,7 +26,8 @@ export function PanelTrigger({ sessionId, scheduleRecords, browser }: {
 }) {
   const surface = usePanelSurface(sessionId);
   // 窗口级浏览器镜像：浏览器入口显示"agent 在看哪一页"（面板没开过时壳不会主动推，
-  // 这个 hook 首次订阅时会要一次现状）
+  // 这个 hook 首次订阅时会要一次现状），前导图标也用同一份里的站点图标——与浏览器
+  // tab 同源，胶囊和 tab 永远指着同一个站点
   const face = useBrowserFace();
   const data = useCapsuleData(sessionId, scheduleRecords, surface.open, { ...browser, title: face.title });
   // 面板展开时座位让空（官方如此）：收起入口在面板自己的控件行里
@@ -40,7 +41,7 @@ export function PanelTrigger({ sessionId, scheduleRecords, browser }: {
   if (data.pill !== null) {
     return (
       <div className="capsule-wrap">
-        <CapsuleStatusPill pill={data.pill} open={false} onToggle={toggle} />
+        <CapsuleStatusPill pill={data.pill} open={false} onToggle={toggle} iconUrl={face.icon} />
       </div>
     );
   }

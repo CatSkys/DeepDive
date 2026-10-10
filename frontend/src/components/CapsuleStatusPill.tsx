@@ -5,13 +5,36 @@
 // 用那枚图标把这件事说清楚。aria-label 与 tooltip 都是"展开状态"（他们的 zh 值）；
 // **浏览器那一级例外**：它点开的是面板的浏览器页（去看 agent 在看的那个页面），
 // 所以它自己的 tip 说的是这件事。
+import { useState, type ReactNode } from "react";
 import { AlarmClock, ArrowRight, Bot, CircleCheck, FileDiff, Flag, History, Maximize2 } from "lucide-react";
 import { t, tt } from "../i18n";
 import { IconGlobeOutline14 } from "./Icons";
 import type { CapsulePill } from "./capsuleModel";
 
-/** 各级的前导图标（常态那一层）。 */
-function PillIcon({ pill }: { pill: CapsulePill }) {
+/** 各级的前导图标（常态那一层）。`iconUrl` 是站点自己声明的图标地址（壳问来的），
+ *  有就画它——**与浏览器 tab 同一个来源**，所以胶囊与 tab 永远指向同一个站点；
+ *  没有、或取回来加载失败，就退回本级自己的记号。图标地址由壳决定（页面声明的
+ *  `link[rel~=icon]`，页面没声明则退到站点根的 `/favicon.ico`），这里只负责画。 */
+function PillIcon({ pill, iconUrl }: { pill: CapsulePill; iconUrl?: string }) {
+  if (iconUrl) return <SiteFavicon url={iconUrl} fallback={<PillGlyph pill={pill} />} />;
+  return <PillGlyph pill={pill} />;
+}
+
+/** 站点图标本体。两个细节都不是可选项：
+ *  · `referrerPolicy="no-referrer"`——不少站点的图标 CDN 做防盗链，带 Referer 直接
+ *    403（实测小红书 xhscdn.com：带 Referer 403、不带 200），图标就永远取不到；
+ *  · `onError` 回退——加载失败时渲染一颗碎图，不回退就成了胶囊前面一个空槽
+ *    （这正是"没拿到 icon 时显示不对"的成因）。 */
+function SiteFavicon({ url, fallback }: { url: string; fallback: ReactNode }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <>{fallback}</>;
+  return (
+    <img className="capsule-pill-favicon" src={url} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
+  );
+}
+
+/** 本级自己的记号（站点图标缺省/取不到时用）。 */
+function PillGlyph({ pill }: { pill: CapsulePill }) {
   if (pill.kind === "todo") return <ArrowRight size={13} />;
   if (pill.kind === "goal") return pill.done ? <CircleCheck size={13} className="capsule-check" /> : <Flag size={13} />;
   if (pill.kind === "git") return <FileDiff size={13} />;
@@ -23,7 +46,8 @@ function PillIcon({ pill }: { pill: CapsulePill }) {
   return <History size={13} />;
 }
 
-/** 图标右侧的正文（各级不同）。 */
+/** 图标右侧的正文（各级不同）。`live` 那一级不摆状态点，**由文字自己脉冲**——
+ *  与运行中的工具行、思考行同一手法（用户 2026-10-09 定稿，见 UI-SPEC §2.1）。 */
 function PillBody({ pill }: { pill: CapsulePill }) {
   if (pill.kind === "todo") return <>
     <span className="capsule-pill-text">{pill.text}</span>
@@ -34,26 +58,21 @@ function PillBody({ pill }: { pill: CapsulePill }) {
     <span className="capsule-pill-meta"><b className="capsule-add">+{pill.additions}</b> <b className="capsule-del">−{pill.deletions}</b></span>
   );
   if (pill.kind === "todoDone") return <span className="capsule-pill-text">{pill.text}</span>;
-  if (pill.kind === "running") return <>
-    <span>{tt("{n} 运行中", "{n} running", { n: pill.count })}</span>
-    <span className="capsule-live" aria-hidden="true" />
-  </>;
+  if (pill.kind === "running") return <span className="capsule-live-text">{tt("{n} 运行中", "{n} running", { n: pill.count })}</span>;
   if (pill.kind === "schedule") return <>
     <span className="capsule-pill-text">{pill.prompt}</span>
     <span className="capsule-pill-meta">{pill.when}</span>
   </>;
-  if (pill.kind === "browser") return <>
-    {/* 页面标题拿不到（空白标签/还没解析出来）时只给"浏览器"这个词 */}
-    <span className="capsule-pill-text">{pill.title || t("浏览器")}</span>
-    {pill.live && <span className="capsule-live" aria-hidden="true" />}
-  </>;
+  if (pill.kind === "browser") return <span className={`capsule-pill-text${pill.live ? " capsule-live-text" : ""}`}>{pill.title || t("浏览器")}</span>;
   return <span className="capsule-pill-meta">{tt("{n} 项已结束", "{n} ended", { n: pill.count })}</span>;
 }
 
-export function CapsuleStatusPill({ pill, open, onToggle }: {
+export function CapsuleStatusPill({ pill, open, onToggle, iconUrl }: {
   pill: CapsulePill;
   open: boolean;
   onToggle: () => void;
+  /** 站点图标地址（浏览器那一级用；与浏览器 tab 同一来源）。其余级别忽略。 */
+  iconUrl?: string;
 }) {
   // 浏览器那一级点开的是浏览器页（不是状态面板），tip 跟着说清楚去哪儿
   const label = pill.kind === "browser" ? tt("查看浏览器", "View browser") : tt("展开状态", "Expand status");
@@ -67,7 +86,7 @@ export function CapsuleStatusPill({ pill, open, onToggle }: {
       onClick={onToggle}
     >
       <span className="capsule-pill-icon" aria-hidden="true">
-        <span><PillIcon pill={pill} /></span>
+        <span><PillIcon pill={pill} iconUrl={pill.kind === "browser" ? iconUrl : undefined} /></span>
         <Maximize2 size={14} className="capsule-pill-expand" />
       </span>
       <PillBody pill={pill} />

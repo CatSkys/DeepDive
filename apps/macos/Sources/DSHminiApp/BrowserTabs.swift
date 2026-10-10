@@ -175,9 +175,15 @@ final class BrowserTabs {
         host.armScrollReport()
     }
 
-    /// 站点图标：问页面自己声明的那个（`link[rel~=icon]`），一次导航问一次。
-    /// 不替站点猜 `/favicon.ico`（多数站点没有，只会打一堆 404），也不下载缓存——
-    /// SPA 直接按这个地址取图，取不到退回首字母。
+    /// 站点图标：先问页面自己声明的那个（`link[rel~=icon]`），页面没声明就退回本站的
+    /// `/favicon.ico`。一次导航问一次，不下载缓存——SPA 直接按这个地址取图，取不到退回首字母。
+    ///
+    /// `/favicon.ico` 这条兜底是 2026-10-10 补的，此前刻意不猜，理由是"多数站点没有、
+    /// 只会打一堆 404"。实测相反：微博、豆瓣这类页面**不在 HTML 里声明 icon**（SPA 之后
+    /// 才注入或干脆没有），但 `/favicon.ico` 都返回 200——浏览器自己也是这么兜的
+    /// （无声明时默认取站点根的那个），所以"不猜"反而让一批正常站点没有图标。
+    /// 真没有的站点会 404，由 SPA 那侧的 `<img onError>` 吃掉（退回首字母/地球），
+    /// 每次导航至多多打一个 404，代价可以忽略。
     private func adoptIcon(_ tab: BrowserTab) {
         guard let host = tab.awakeHost, !host.view.isLoading else { return }
         guard !tab.url.isEmpty, tab.url != "about:blank", tab.iconAsked != tab.url else { return }
@@ -277,7 +283,10 @@ final class BrowserTabs {
     private static let iconScript = """
     (function () {
       var link = document.querySelector('link[rel~="icon" i], link[rel="apple-touch-icon" i]');
-      return link ? new URL(link.getAttribute('href'), location.href).href : "";
+      if (link) return new URL(link.getAttribute('href'), location.href).href;
+      // 页面没声明：退到站点根的 /favicon.ico（浏览器自己的默认行为）。取不到由 SPA
+      // 的 <img onError> 兜底，所以这里不必先探一次存在性。
+      return location.origin + '/favicon.ico';
     })()
     """
 }

@@ -15,16 +15,20 @@ export interface BrowserFace {
   /** 当前标签的地址；空 = 还没有页面（空白标签） */
   url: string;
   loading: boolean;
+  /** 当前标签的站点图标地址（壳问来的：页面声明的 `link[rel~=icon]`，页面没声明则
+   *  站点根的 `/favicon.ico`；随 browserTabs 一起推）。空串 = 还没问出来。
+   *  调用方拿它直接画，加载失败自己退记号。 */
+  icon: string;
 }
 
-const EMPTY: BrowserFace = { title: "", url: "", loading: false };
+const EMPTY: BrowserFace = { title: "", url: "", loading: false, icon: "" };
 
 let face: BrowserFace = EMPTY;
 const listeners = new Set<() => void>();
 let installed = false;
 
 function commit(next: BrowserFace): void {
-  if (next.title === face.title && next.url === face.url && next.loading === face.loading) return;
+  if (next.title === face.title && next.url === face.url && next.loading === face.loading && next.icon === face.icon) return;
   face = next;
   for (const l of listeners) l();
 }
@@ -36,17 +40,31 @@ function install(): void {
   installed = true;
   onHostEvent((cmd, payload) => {
     if (cmd === "browserTabs") {
-      const d = payload as { tabs?: Array<{ title?: string; url?: string; loading?: boolean; active?: boolean }>; activeId?: string } | undefined;
+      const d = payload as { tabs?: Array<{ title?: string; url?: string; loading?: boolean; active?: boolean; icon?: string }>; activeId?: string } | undefined;
       const active = (d?.tabs ?? []).find((tb) => tb.active === true) ?? (d?.tabs ?? [])[0];
-      commit({ title: active?.title ?? "", url: active?.url ?? "", loading: active?.loading === true });
+      commit({
+        title: active?.title ?? "", url: active?.url ?? "",
+        loading: active?.loading === true, icon: active?.icon ?? "",
+      });
       return;
     }
     if (cmd === "browserState") {
+      // browserState 是单页观察，不带 icon——图标只在 browserTabs 的标签镜像里，
+      // 留着上一次问到的值，别因为这条推送把它抹掉（否则面板开着时图标会闪没）。
       const d = payload as { title?: string; url?: string; loading?: boolean } | undefined;
-      commit({ title: d?.title ?? "", url: d?.url ?? "", loading: d?.loading === true });
+      commit({
+        title: d?.title ?? "", url: d?.url ?? "",
+        loading: d?.loading === true, icon: samePage(face.url, d?.url) ? face.icon : "",
+      });
     }
   });
   sendToShell({ type: "browser-sync" });
+}
+
+/** 换页（url 变了）时旧图标不再作数；空 url 视为同一页（首帧还没地址）。 */
+function samePage(prev: string, next: string | undefined): boolean {
+  if (next === undefined || next === "") return true;
+  return prev === next;
 }
 
 /** 当前页的只读镜像（订阅式）。没有页面时 url 为空串。 */

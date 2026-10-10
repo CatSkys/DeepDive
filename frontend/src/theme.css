@@ -4164,7 +4164,22 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   animation: fadein var(--dur-fast) var(--ease-out) both;
 }
 .capsule-trigger:hover, .capsule-trigger[data-open="true"] { background: var(--fill); color: var(--ink); }
-.capsule-live { width: 6px; height: 6px; border-radius: 50%; background: var(--dsh-signal-live); animation: pulse var(--loop-breathe) ease-in-out infinite; flex: none; }
+/* 运行中/浏览器在操控：由**文字自己脉冲**（微光扫过），不再在前导位摆一颗绿点
+   （用户 2026-10-09 定稿）。与运行中的工具行、思考行、流末加载行同一手法与同一
+   配色——亮端 --ink、暗端 --ink-3。状态由文字承载，图标保持与静态态同款。 */
+.capsule-live-text {
+  background-image: linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%);
+  background-size: 200% 100%;
+  background-position: 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-text 1.4s linear infinite;
+}
+/* 站点图标（浏览器那一级）：与浏览器 tab 同一个来源（壳按 link[rel~=icon] 问来的），
+   所以胶囊与 tab 永远指向同一个站点。取不到就不渲染、退回地球记号，不猜
+   /favicon.ico（多数站点没有，只打 404）。object-fit:contain 让非方形图标不裁。 */
+.capsule-pill-favicon { width: 13px; height: 13px; object-fit: contain; border-radius: 2px; }
 .capsule-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capsule-pill-meta { color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
 .capsule-add { color: rgba(120,220,140,.95); font-weight: 600; }
