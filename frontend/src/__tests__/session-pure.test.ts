@@ -1,6 +1,7 @@
 // 会话流外围纯函数：TodoList 摘要与 tool/result 提取（R-001 指定覆盖面）。
 import { describe, expect, it } from "vitest";
 import { extractToolResult, parseTodos } from "../session/renderModel";
+import { normalizeSessionEvent } from "../wire/normalize";
 import type { ToolResultData } from "../types";
 
 describe("parseTodos", () => {
@@ -41,20 +42,28 @@ describe("extractToolResult", () => {
     expect(extractToolResult(d).output).toBe("line1\nline2");
   });
 
-  it("输出回退链：message → output → text → result(JSON)", () => {
-    expect(extractToolResult({ turn: 1, step: 1, output: "raw" }).output).toBe("raw");
-    expect(extractToolResult({ turn: 1, step: 1, text: "txt" }).output).toBe("txt");
-    expect(extractToolResult({ turn: 1, step: 1, result: { ok: 1 } }).output).toBe('{"ok":1}');
+  // wire v1（M0）：A 的备选形态先过 normalizeSessionEvent 收敛，extract 只认
+  // canonical（message.content / message.isError / message.source.callId）。
+  const normalizeResult = (data: unknown): ToolResultData =>
+    (normalizeSessionEvent({ type: "tool/result", seq: 1, time: 2, data }) as { data: ToolResultData }).data;
+
+  it("A 备选形态经 normalize 兜出文本块：output → text → result(JSON)", () => {
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, output: "raw" })).output).toBe("raw");
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, text: "txt" })).output).toBe("txt");
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, result: { ok: 1 } })).output).toBe('{"ok":1}');
   });
 
-  it("failed 认 isError / message.isError / ok:false；callId 认 toolCallId > callId > source.callId", () => {
-    expect(extractToolResult({ turn: 1, step: 1, isError: true }).failed).toBe(true);
-    expect(extractToolResult({ turn: 1, step: 1, ok: false }).failed).toBe(true);
-    expect(extractToolResult({ turn: 1, step: 1, message: { isError: true } }).failed).toBe(true);
-    expect(extractToolResult({ turn: 1, step: 1 }).failed).toBe(false);
-    expect(extractToolResult({ turn: 1, step: 1, toolCallId: "a", callId: "b", message: { source: { kind: "tool", callId: "c" } } }).callId).toBe("a");
-    expect(extractToolResult({ turn: 1, step: 1, callId: "b", message: { source: { kind: "tool", callId: "c" } } }).callId).toBe("b");
-    expect(extractToolResult({ turn: 1, step: 1, message: { source: { kind: "tool", callId: "c" } } }).callId).toBe("c");
+  it("A 备选经 normalize 后统一认 message.source.callId；canonical 优先", () => {
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, toolCallId: "a" })).callId).toBe("a");
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, callId: "b" })).callId).toBe("b");
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, toolCallId: "a", callId: "b", message: { source: { kind: "tool", callId: "c" } } })).callId).toBe("c");
+  });
+
+  it("failed：isError（顶层备选或 message 侧）/ ok:false 经 normalize 后都在 message.isError", () => {
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, isError: true })).failed).toBe(true);
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, ok: false })).failed).toBe(true);
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1, message: { isError: true } })).failed).toBe(true);
+    expect(extractToolResult(normalizeResult({ turn: 1, step: 1 })).failed).toBe(false);
   });
 
   it("path 字符串原样透出", () => {

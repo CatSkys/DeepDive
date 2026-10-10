@@ -41,8 +41,12 @@
 - 一致性套件：内存 / 文件两后端同用例（开合、追加、崩溃截断恢复、fork、V3 双读）。
 - 三道闸门变体：boot 冒烟 + 「消息可落」（M2a 起以自研会话层跑同脚本）。
 
-## 开放点（定稿拍板）
+## 开放点（已拍板，2026-10-10，用户授权实施者定）
 
-1. fork 的 atSeq **引用 vs 物理拷贝**（影响归档 / 删除语义与子会话冷读地址）。
-2. 轮中途落账窗口的粒度（每 N ms vs 每 N chunk vs 仅 settlement）。
-3. spill（工具结果落盘，组合里 spill-local/policy 已挂载）在 v1 词表的落位。
+1. **fork = 物理拷贝**：`session/fork atSeq` 把前缀记录拷贝进新会话文件——与 A 的
+   删除/归档/子会话冷读语义对齐，不引入悬空引用。
+2. **落账粒度 = settlement per attempt**（照 A）：每次模型调用周期结束落一次 durable
+   settlement；不引 pi-durable 的 ≤100ms 中途窗口（写放大不值，崩溃最多丢当前步的
+   直播增量——直播帧本就进程级、不入日志）。中途落账留作未来增强。
+3. **spill 归工具面**：会话层只负责记录事件（spill 改写后的 tool/result 原样入账）；
+   spill-local/policy 的改写语义在 M2c/M2d 的工具收编里对照 dsh 现实现。

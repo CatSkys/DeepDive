@@ -20,7 +20,7 @@
 | tool-call-timeout-policy | execute 的 signal + 包装器 | 超时语义照迁移 |
 | KV 稳定（请求冻结 / 前缀稳定） | `sessionId` + `prepareRequest` | 请求冻结纪律照 dsh；provider 会话 id 亲和见 SPEC-SESSION-V1 §0 |
 | token-meter / usage 投影 | message 事件 usage | 汇入 M2a 的 usage 投影 |
-| 子代理 / goals | **pi 无对应** | 开放问题（下）：倾向 subagent 收编 dsh-subagent 改挂自研 loop；goals 视 SPA 零读者评估退役 |
+| 子代理 / goals | **pi 无对应** | subagent：收编 dsh-subagent 改挂自研 loop（产品面不可砍）；goals：**保留**——右栏目标区是活跃产品面（CapsuleGoalSection），goal rounds 的轮次驱动在 finishTurn 缝上收编 dsh-goal/goal-round-driver 语义 |
 
 ## 1. 事件桥（pi 事件 → WIRE-V1 词表）
 
@@ -36,9 +36,9 @@
 - `streamProxy`（无浏览器直连场景）、低层 `agentLoop*`（统一用 Agent 类）、
   `CustomAgentMessages` 声明合并（我们有自己的消息类型与 wire 词汇）。
 
-## 开放点（M2b 动代码前拍板）
+## 开放点（M2b 动代码前处理）
 
-1. **子代理与 goals**（上表末行）。
+1. **子代理**：收编 dsh-subagent 改挂自研 loop（上表已拍板保留，具体谱系/续聊语义在对表时验证）。
 2. `DSH_TOOLS_MODE`（code-runtime 的 ptc 模式）在 pi 工具模型下的去留——工具收编后
-   code-runtime 还是不是产品面。
+   code-runtime 还是不是产品面（M2b 对表时读 code-runtime 后定）。
 3. steer 的确切落点（轮中途事件序）需在 M2b 对表时以实测事件序验证。

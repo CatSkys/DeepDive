@@ -45,10 +45,10 @@
       "detail": "335 lines > 300"
     },
     {
-      "id": "1302be73f172e2ed",
+      "id": "4c7a3257501efc16",
       "rule": "file-lines",
       "file": "frontend/src/api.ts",
-      "detail": "778 lines > 300"
+      "detail": "779 lines > 300"
     },
     {
       "id": "f664da0e96fc84f8",
@@ -99,10 +99,10 @@
       "detail": "1028 lines > 300"
     },
     {
-      "id": "243df8aa0448c8ca",
+      "id": "90411fea4b28cfed",
       "rule": "file-lines",
       "file": "frontend/src/mux.ts",
-      "detail": "319 lines > 300"
+      "detail": "322 lines > 300"
     },
     {
       "id": "ea66fb24c2947289",
@@ -117,10 +117,10 @@
       "detail": "439 lines > 300"
     },
     {
-      "id": "b5d2be2acc0ef495",
+      "id": "74e01ae051ceeeab",
       "rule": "file-lines",
       "file": "frontend/src/session/renderModel.ts",
-      "detail": "534 lines > 300"
+      "detail": "545 lines > 300"
     },
     {
       "id": "f1ed9ce2409730c0",
@@ -151,12 +151,6 @@
       "rule": "file-lines",
       "file": "frontend/src/store.tsx",
       "detail": "708 lines > 300"
-    },
-    {
-      "id": "b5a2dc790aada236",
-      "rule": "file-lines",
-      "file": "frontend/src/types.ts",
-      "detail": "421 lines > 300"
     }
   ]
 }

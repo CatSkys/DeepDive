@@ -1,8 +1,9 @@
-# WIRE v1 —— DeepDive 自研引擎契约（草案）
+# WIRE v1 —— DeepDive 自研引擎契约
 
-> 状态（2026-10-10）：**v1 草案，待用户定稿**——本文定稿是 M0 动代码的前置门槛
-> （PLAN-ENGINE-SELF-IMPL §2）。定稿后本文拥有「v1 引擎 ↔ SPA/壳」的契约；
-> 现状事实源仍是 [DSH-WIRE.md](DSH-WIRE.md)（下称「实现注记 A」= dsh 引擎现状帧形）。
+> 状态（2026-10-10）：**已定稿**（用户授权实施者拍板开放点）。本文拥有「v1 引擎 ↔
+> SPA/壳」的契约；现状事实源仍是 [DSH-WIRE.md](DSH-WIRE.md)（下称「实现注记 A」
+> = dsh 引擎现状帧形）。前端实现：`frontend/src/wire/`（v1 类型 + A→v1 归一化 +
+> 版本侦测），测试在 `frontend/src/__tests__/wire-normalize.test.ts`。
 
 ## 0. 原则
 
@@ -38,7 +39,7 @@ v1 的面 = SPA 实际调用集（定稿时逐条以 `frontend/src/api.ts` 消�
 | 命令 | commands/list\|execute | 保留 |
 | 引用 | fileReferences/list、sessionReferenceResolver/candidates | 保留 |
 | 子代理 | subagents/list\|prompt\|interruptByParent | 保留（M2b 落自研 loop） |
-| 目标 | goals/* | **退役候选**（SPA 零读者待核；与 M2b 开放问题联动） |
+| 目标 | goals/* | 保留（右栏状态面板目标区 CapsuleGoalSection 是活跃产品面：编辑/暂停/恢复/清除，CAS 修订围栏） |
 
 ## 3. mux 下行流（语义照 A，字段归 v1 词表）
 
@@ -60,7 +61,9 @@ v1 的面 = SPA 实际调用集（定稿时逐条以 `frontend/src/api.ts` 消�
 - **log-only（实现细节，客户端 catch-all 忽略）**：permission/preset、sandbox/mode、
   approval/policy、request/header|context、system/message、session/title*、
   agent/inbox/spliced、session/end-seed 等
-- 未知事件：包装 `{type:'unknown', kind, payload}` 透传 + 计数，不崩、不丢。
+- 未知事件：由词表联合的尾部 catch-all 成员原样透传（不包装、不崩、不丢），由摄取层
+  default 分支忽略；A 的备选拼写（tool/call 的 id/toolName/argsRaw、tool/result 的
+  toolCallId/callId/ok 等）由归一化层收敛成 v1 规范形状——渲染层只见 canonical。
 
 ## 5. 交互（waterfall，语义与 A 逐字同）
 
