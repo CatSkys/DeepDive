@@ -37,8 +37,8 @@ export interface ModelBench {
 export const MODEL_BENCH: Record<string, ModelBench> = {
   // —— DeepSeek（核心路由）——
   "deepseek/deepseek-v4-pro": { speed: 2, intelligence: 1, cost: 4 }, // 89.0 tok/s · II 36
-  "deepseek/deepseek-v4-flash": { speed: 3, intelligence: 0, cost: 4 }, // 226.1 tok/s · II 34（AA 已标弃用）
-  "deepseek/deepseek-v4-flash-vision-exp": { cost: 4 }, // AA 页名无 Exp 后缀，不硬认——II/speed 待补
+  // pi-ai 1.1 目录把 v4-flash 换名 deepseek-flash（同一模型），AA 值原样顺延
+  "deepseek/deepseek-flash": { speed: 3, intelligence: 0, cost: 4 }, // 226.1 tok/s · II 34（AA 已标弃用）
   // —— Anthropic ——
   "anthropic/claude-fable-5-1": { speed: 2, intelligence: 4, cost: 0 }, // 70.4 tok/s · II 53（#5/227）
   "anthropic/claude-fable-5": { cost: 0 },
