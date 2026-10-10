@@ -15,7 +15,7 @@ vi.mock("../host", () => ({
   sendToShell: (m: Record<string, unknown>) => { commands.push(m); },
 }));
 
-import { NATIVE_SLOT_ATTR, pushNativeSlots } from "../nativeSlot";
+import { NATIVE_SLOT_ATTR, pushNativeSlots, resetPushState } from "../nativeSlot";
 
 function mountSlot(id: string) {
   const el = document.createElement("div");
@@ -30,6 +30,7 @@ beforeEach(() => {
   document.body.innerHTML = "";
   rects.length = 0;
   commands.length = 0;
+  resetPushState();
 });
 
 describe("pushNativeSlots", () => {
@@ -39,6 +40,18 @@ describe("pushNativeSlots", () => {
     expect(idsSentTo()).toEqual(["browser"]);
     expect(rects[0]?.type).toBe("native-slot");
     expect(commands).toHaveLength(0);   // 不许走指令通道
+  });
+
+  it("在场帧没变就不重复发（差分），变了（interactive 翻转）才发", () => {
+    const el = mountSlot("browser");
+    pushNativeSlots();
+    expect(idsSentTo()).toEqual(["browser"]);
+    rects.length = 0;
+    pushNativeSlots();
+    expect(rects).toHaveLength(0);
+    el.setAttribute("data-native-slot-interactive", "1");
+    pushNativeSlots();
+    expect(idsSentTo()).toEqual(["browser"]);
   });
 
   it("槽位元素卸载后必须显式推一条 visible:false（不能什么都不发）", () => {

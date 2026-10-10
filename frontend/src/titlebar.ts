@@ -12,6 +12,11 @@
 // Until the first table arrives the shell fails open: nothing is draggable
 // and nothing is swallowed.
 
+// Rect 表差分：壳的 hitTest 拿的是上次推来的表，逐拍推送**相同**的表是纯流量
+// （每条 bridge 消息都是一次 WKScriptMessageHandler 的完整反序列化）。表内容
+// 不变时不发；扫描节拍保持 300ms——transitionend 盖不住"无过渡的重排"，
+// interval 仍是安全网，差分只省下推送成本。
+
 import { sendRects } from "./host";
 
 const STRIP_HEIGHT = 52; // keep in sync with TitlebarAwareWebView.dragStripHeight
@@ -37,6 +42,8 @@ function bridgeUp(): boolean {
 // 调宽热区）——不加会被"空白条带 = 拖窗"契约吃掉上段热区。
 const INTERACTIVE = "button, a, input, textarea, select, [role='button'], [data-strip-interactive]";
 
+let lastSig = "";
+
 function pushRects() {
   if (!bridgeUp()) return;
   const rects: Rect[] = [];
@@ -47,6 +54,9 @@ function pushRects() {
     if (r.top >= STRIP_HEIGHT || r.bottom <= 0 || r.right <= 0 || r.left >= window.innerWidth) continue;
     rects.push({ x: r.x, y: r.y, w: r.width, h: r.height });
   }
+  const sig = JSON.stringify(rects);
+  if (sig === lastSig) return;
+  lastSig = sig;
   sendRects({ type: "titlebar-rects", rects });
 }
 

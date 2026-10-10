@@ -82,6 +82,17 @@ function unobstructed(el: Element, box: SlotBox): boolean {
  *  浏览器页换成空态）循环自然漏掉它——壳会沿用旧 rect 把原生视图留在原地盖住界面。 */
 let pushedIds: string[] = [];
 
+// 在场帧的差分：壳的槽位状态拿的是上次推的那个，逐拍推**相同**帧是纯流量。
+// rect/visible/interactive 完全相同则跳发；卸载路径**不参与差分**（下方永远显式
+// 推一条 visible:false——那是给壳纠偏的关键帧，不能因为"上轮也是 false"被省掉）。
+// resetPushState 供测试复位模块态。
+let lastSent = new Map<string, string>();
+
+/** 复位差分态（测试钩子：模块级缓存跨用例会串）。 */
+export function resetPushState(): void {
+  lastSent = new Map();
+}
+
 /** 推一次所有槽位（导出供测试与立即生效用）。 */
 export function pushNativeSlots(): void {
   if (!inShell()) return;
@@ -92,7 +103,12 @@ export function pushNativeSlots(): void {
     const box = readRect(el);
     const visible = box !== null && unobstructed(el, box);
     const interactive = el.getAttribute(NATIVE_SLOT_INTERACTIVE_ATTR) === "1";
-    sendRects({ type: "native-slot", id, visible, interactive, rect: box ?? { x: 0, y: 0, w: 0, h: 0 } });
+    const frame = { type: "native-slot", id, visible, interactive, rect: box ?? { x: 0, y: 0, w: 0, h: 0 } };
+    const sig = JSON.stringify(frame);
+    if (lastSent.get(id) !== sig) {
+      lastSent.set(id, sig);
+      sendRects(frame);
+    }
     seen.push(id);
   }
   for (const id of pushedIds) {
