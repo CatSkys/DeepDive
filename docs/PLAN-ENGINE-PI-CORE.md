@@ -1,6 +1,6 @@
-# 引擎核心转向 pi —— Cordis 留任组合内核
+# 引擎核心自研化 —— 以 pi 为种子，Cordis 留任组合内核
 
-> 本文是「Agent loop 与 agent 核心用 pi、组合与插件底座用 Cordis、渐进自研」的唯一事实源：
+> 本文是「引擎核心以 pi 为种子起步、组合与插件底座用 Cordis、交接缝即自研层、逐渐转为全自研」的唯一事实源：
 > 决策与依据、目标架构、分阶段路径与判据、自研原则。2026-10-10 用户定稿。
 > 前一章（归属 / 精简 / 融合，已完成）见 [PLAN-NATIVE-ENGINE.md](PLAN-NATIVE-ENGINE.md)；
 > 架构现状见 [ARCHITECTURE.md](ARCHITECTURE.md)；fork 纪律见 `engine/README.md`。
@@ -10,8 +10,9 @@
 用户定稿原文：「未来我们要做插件页，甚至还有应用页，这些用 Cordis 来进行管理，然后 Agent loop
 和 Core 用 pi——这是我们引擎的真正核心。就像我们的名字，我们未来需要不停下潜，逐渐转为自研。」
 
-1. **Agent loop 与 agent 核心换 pi**（`pi-agent-core` 起，以库形态挂为 Cordis service）：
-   dsh 的 agent / agent-loop / session 业务层最终退役。
+1. **Agent 核心以 pi 为种子起步，终点是自研**：`pi-agent-core` 收编进 `@deepdive/*`——与
+   dsh fork 同款纪律（逐字复制起步、归我们演进），以 service 形态挂进 Cordis。dsh 的
+   agent / agent-loop / session 业务层最终退役；终态没有 pi，收编成熟后它只是实现细节。
 2. **Cordis 留任，不引入 chord**：组合、生命周期、服务 seam、运行时插件装载都归它——
    未来的插件页与应用页以它为地基。两个组合框架并存才是债；chord 是 pi 自家 CLI 产品的
    运行时，不接。
@@ -37,7 +38,7 @@
 
 ```
 Cordis 组合（cordis.patch.yml，单层、归我们）
-├─ pi 核心：agent loop + 工具执行（pi-agent-core，一个 service）
+├─ 自研 agent 核心：agent loop + 工具执行（起步 = 收编 pi-agent-core，落 @deepdive/*）
 ├─ 收编的 dsh 器官（落 @deepdive/*）：会话日志 / 审批+沙箱+权限预设 / llm-retry / spill / token-meter
 ├─ 自研面：wire 协议 v1（版本化）· engine-host（就绪行 / 信任快照 / 设置命名空间 / 投影）
 └─ 插件装载：社区插件、用户预设、未来的插件页与应用页
@@ -63,10 +64,9 @@ PLAN-NATIVE-ENGINE §1）。
 - 判据：§7.4 / §7.6 那类配置链（settings 解析 / profile 合并 / 补丁语义）从 LLM 路径上消失；
   模型目录、思考档位、发现路由、凭据行为与现状对齐；启动 / 消息可落闸门绿。
 
-### 阶段 2：loop / session 换 pi-agent-core
+### 阶段 2：loop / session 收编 pi-agent-core
 
-审批 / 沙箱 / 权限预设用移植的 dsh 安全件，最后接入；会话数据做一次性迁移
-（V3 JSONL，`dsh-chat-import` 有同款先例）。
+审批 / 沙箱 / 权限预设用收编的 dsh 安全件（§5），最后接入；会话数据走惰性转换（§5.4）。
 
 - 判据：审批卡 / 排队 / 计划模式语义在新 loop 下行为不变；存量会话可读；
   壳的监督与就绪行契约保持（只换引擎内部）。
@@ -89,20 +89,25 @@ dsh 业务包退役后的 prune 链收敛；组合定义形态固化（补丁语
 
 据此，动手前的开放问题按一条原则全部落定：**dsh 与 pi 都只是供应商，两者的接缝面
 （wire、会话存储、审批与权限、组合定义）全部自研、归我们演进；pi 包集收敛到 loop 核心
-与模型接入，其余不引。**
+与模型接入，其余不引。终态没有 dsh 也没有 pi——只有 `@deepdive/*`：pi 的收编与 dsh
+fork 同款（逐字复制起步、归我们演进），每收编成熟一层，供应商代码就降级为实现细节。**
 
 1. **会话存储**：自研。起点 = 把 dsh `session-persistence-jsonl` 的纪律与格式语义收编进
    `@deepdive/*`（逐字复制 → 改名 → 归我们演进，fork 纪律同款）；pi-durable 不引。
 2. **wire v1**：自研协议，即阶段 0 的交付物（事件词汇、分帧、版本协商、迁移期双读）。
-3. **审批 / 权限 / 排队**：自研的 pi 扩展层——把 dsh 审批 / 沙箱语义包成 pi loop 的工具闸，
+3. **审批 / 权限 / 排队**：自研层——把 dsh 审批 / 沙箱语义包成 pi loop 工具执行缝上的闸，
    对照表在阶段 2 设计文档里定稿。
 4. **V3 迁移**：惰性转换——旧会话读 V3、下一次写入起落自研格式；升级当天旧会话原地可读，
    不背常驻双写代码，转换器是自研会话层的一部分。
 5. **pi 包集**：`pi-agent-core` + `pi-ai`，到此为止；再引任何包逐个过依赖问询（AGENTS.md 铁律 7）。
 
+**解题纪律（2026-10-10 用户定稿）**：自研途中碰到问题，先查 dsh 与 pi 双方各自的现成解——
+dsh 的解就在本仓逐字拥有，pi 的解在其种子源码里；有可收编的就收编（fork 纪律同款），
+两边都没有才自己写。禁止不查就硬加。
+
 ## 6. 与现有文档的关系
 
 - `PLAN-NATIVE-ENGINE.md`：归属 / 精简 / 融合三章已完成；其「继承内核」的论断由本文接续——
-  内核血统改判：agent 核心换 pi，Cordis 留任。
+  内核血统改判：agent 核心以 pi 为种子、终态全自研，Cordis 留任。
 - `DSH-WIRE.md`：wire v1 落地前仍是 wire 事实源。
 - `TODO.md`：路线挂指针。
