@@ -53,6 +53,11 @@ export function blipStart(): void {
   blip(330, 660, 0.12, 0.03);
 }
 
+/** 2048 合数：一声很轻的咔哒（每步至多一次）。 */
+export function blipMerge(): void {
+  blip(520, 520, 0.05, 0.03);
+}
+
 /** 触底：下滑低音。 */
 export function thudDeath(): void {
   blip(220, 70, 0.25, 0.06);

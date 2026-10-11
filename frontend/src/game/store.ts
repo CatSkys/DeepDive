@@ -36,7 +36,6 @@ export function resumeWorld(): void {
 }
 
 const BEST_KEY = "deepdive.deepdivingBest";
-const SOUND_KEY = "deepdive.deepdivingSound";
 
 /** 最高深度（米，整数）；无记录/存储不可用回 0。 */
 export function bestDepth(): number {
@@ -61,19 +60,5 @@ export function submitDepth(meters: number): boolean {
   return true;
 }
 
-/** 提示音开关，默认开。 */
-export function soundOn(): boolean {
-  try {
-    return localStorage.getItem(SOUND_KEY) !== "0";
-  } catch {
-    return true; /* 无 localStorage（测试/受限环境）→ 默认开 */
-  }
-}
-
-export function setSoundOn(on: boolean): void {
-  try {
-    localStorage.setItem(SOUND_KEY, on ? "1" : "0");
-  } catch {
-    /* 无 localStorage → 本次只在内存 */
-  }
-}
+// 提示音开关收编进共享的 soundPref（两个游戏一把喇叭）；这里转引保持旧引用可用
+export { soundOn, setSoundOn } from "./soundPref";

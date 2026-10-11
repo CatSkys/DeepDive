@@ -1,0 +1,123 @@
+/* 2048 浮层：屏幕居中面板（对话族近实色材质 §2.2bis），棋盘 352×352。
+   无全屏遮罩——点外部不关；Esc 直接关（回合制无暂停概念，棋局在 store 里，
+   关了再开续局）。键盘焦点收在面板上：方向键/WASD 走子，Esc=关闭。 */
+
+.panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 368px;
+  height: 424px;
+  z-index: 1100;
+  border-radius: var(--dsh-radius-floating);
+  background: var(--panel-strong);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  outline: none;
+}
+
+.hud {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  color: var(--ink);
+}
+
+.scores {
+  display: flex;
+  gap: 18px;
+}
+.scoreCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.scoreLabel {
+  font-size: var(--dsh-font-size-xs);
+  color: var(--ink-3);
+}
+.scoreValue {
+  font-family: var(--dsh-font-mono-family);
+  font-size: var(--dsh-font-size-lg);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.hudBtns {
+  display: flex;
+  gap: 6px;
+}
+.newBtn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill-strong);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-xs);
+  margin-right: 4px;
+}
+:where(html[data-hover-armed]) .newBtn:hover {
+  background: var(--row-hover);
+}
+.hudBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--dsh-radius-control);
+  color: var(--ink-2);
+}
+:where(html[data-hover-armed]) .hudBtn:hover {
+  background: var(--row-hover);
+  color: var(--ink);
+}
+
+.board {
+  display: block;
+  width: 352px;
+  height: 352px;
+  margin: 0 auto;
+}
+
+/* 终局/胜利盖层：近实色底（同面板族），压住棋盘。 */
+.ov {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--panel-strong);
+}
+.ovTitle {
+  font-family: var(--dsh-font-mono-family);
+  font-size: var(--dsh-font-size-hero);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ovBest {
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-3);
+}
+.ovRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.ovBtn {
+  height: 30px;
+  padding: 0 16px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill-strong);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+}
+:where(html[data-hover-armed]) .ovBtn:hover {
+  background: var(--row-hover);
+}

@@ -4,7 +4,6 @@
 import {
   DIVER_R,
   DIVER_X,
-  hash01,
   rocksInRange,
   wallBottomAt,
   wallTopAt,
@@ -12,11 +11,14 @@ import {
   VIEW_W,
   type World,
 } from "./world";
+import { hash01 } from "./hash";
 
 export interface GameColors {
   ink: string;
   ink2: string;
   ink3: string;
+  /** 窗口底板色（暗主题近黑、亮主题近白）：亮块上的文字用它（明暗自动成立）。 */
+  panelBg: string;
 }
 
 // 按 data-theme 缓存：明暗切换才重读 computed style，跑帧不碰它
@@ -30,6 +32,7 @@ export function themeColors(): GameColors {
     ink: cs.getPropertyValue("--ink").trim(),
     ink2: cs.getPropertyValue("--ink-2").trim(),
     ink3: cs.getPropertyValue("--ink-3").trim(),
+    panelBg: cs.getPropertyValue("--panel-bg").trim(),
   };
   cache = { theme, colors };
   return colors;

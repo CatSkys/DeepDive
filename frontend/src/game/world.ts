@@ -13,6 +13,8 @@ export const DIVER_X = 110;
 /** 碰撞半径：艇身胶囊的贴近值（塔台/尾鳍略出界，宽容在玩家一侧）。 */
 export const DIVER_R = 8;
 
+import { hash01 } from "./hash";
+
 const GRAVITY = 900; // px/s²：松开时的下沉加速度
 const THRUST = 1800; // px/s²：按住时的向上加速度（净上浮 = THRUST - GRAVITY）
 const MAX_VY = 260; // px/s
@@ -43,12 +45,6 @@ export interface Rock {
 }
 
 const READY_Y = VIEW_H / 2;
-
-/** 整数哈希 → [0,1)：同一 (i, seed) 恒同值——地形的原子（渲染层点阵复用这一枚）。 */
-export function hash01(i: number, seed: number): number {
-  const h = Math.sin(i * 127.1 + seed * 311.7) * 43758.5453;
-  return h - Math.floor(h);
-}
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 

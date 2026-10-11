@@ -1046,4 +1046,11 @@ export const EN: Record<string, string> = {
   "最佳 {m} 米": "Best {m} m",
   "提示音": "Sound",
   "按住上浮，松开下潜": "Hold to rise, release to dive",
+
+  // 2048（经典黑白，命令面板入口）：名字即数字，不入词典。
+  "分数": "Score",
+  "最佳": "Best",
+  "新的一局": "New game",
+  "本局 {s} 分": "Score {s}",
+  "成 2048 了，还能继续": "Made 2048 — keep going",
 };
