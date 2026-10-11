@@ -147,10 +147,17 @@ describe("groupTools：相邻同类且 ≥2 条才成组", () => {
 });
 
 describe("formatGroupSummary：三类各自的形状", () => {
-  it("查阅：桶序固定、0 不出现、逗号分隔", () => {
+  it("查阅：最新一条摘要打头，桶计数跟后（0 不出现、逗号分隔）", () => {
     const items = [tool("grep", "x"), tool("glob", "**/*"), tool("read", "a.ts"), tool("read", "b.ts")];
-    expect(formatGroupSummary("explore", items, zh)).toBe("1 搜索, 1 列表, 2 文件");
-    expect(formatGroupSummary("explore", [tool("read", "a"), tool("read", "b")], zh)).toBe("2 文件");
+    expect(formatGroupSummary("explore", items, zh)).toBe("b.ts · 1 搜索, 1 列表, 2 文件");
+    expect(formatGroupSummary("explore", [tool("read", "a"), tool("read", "b")], zh)).toBe("b · 2 文件");
+  });
+  it("查阅：命令族成员的摘要走 bashSummary（description 优先），与单条行同口径", () => {
+    const items = [
+      tool("bash", asJson("sed -n '1,40p' a.ts")),
+      tool("bash", JSON.stringify({ command: "tail -5 a.ts", description: "看结尾五行" })),
+    ];
+    expect(formatGroupSummary("explore", items, zh)).toBe("看结尾五行 · 2 文件");
   });
   it("终端：最新命令打头，失败计数另起一段", () => {
     const items = [tool("bash", asJson("npm test"), true), tool("bash", asJson("make"))];

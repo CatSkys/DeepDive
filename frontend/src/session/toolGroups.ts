@@ -1,6 +1,7 @@
 // 工具执行合并的纯模型：把连续的同类工具折成一个组。照 ZCode 的三组口径——
 //   · 查阅 explore （ToolCallBlocks/renderers/explore.tsx）：读族、搜索族、
-//     **只读命令**；摘要「N 搜索, M 文件」（桶序固定 搜索→列表→文件，0 不出现）。
+//     **只读命令**；摘要「最新摘要 · N 搜索, M 文件」（桶序固定 搜索→列表→文件，
+//     0 不出现；用户 2026-10-11 定稿：最新摘要打头，与终端组同一构形）。
 //   · 终端 execute （renderers/execute-group.tsx）：命令族里**非只读**的那些；
 //     摘要（用户 2026-10-10 定稿，偏离官方的 N commands）：「最新命令摘要 ·
 //     N 个命令」+「· X 个失败」——行右侧是摘要不是命令原文（跟浏览器控制行
@@ -19,7 +20,7 @@
 // 故取保守白名单——认不出的命令进"终端"组，而不是"查阅"组。
 import type { RenderItem } from "./renderModel";
 import { derivePath } from "./renderModel";
-import { bashSummary } from "./format";
+import { bashSummary, summarizeArgs } from "./format";
 import { toolVariant } from "./toolKind";
 
 export type ToolGroupKind = "explore" | "execute" | "changes";
@@ -163,8 +164,15 @@ export function changedFiles(members: readonly RenderItem[]): string[] {
   return out;
 }
 
+/** 查阅组成员的行内摘要（与单条工具行同一口径）：命令族走 bashSummary（引擎
+ *  必填 description 优先），读/搜索族走通用参数摘要。 */
+function exploreMemberSummary(item: RenderItem): string {
+  return toolVariant(item.toolName ?? "") === "shell" ? bashSummary(item.args ?? "") : summarizeArgs(item.args ?? "");
+}
+
 /** 组摘要（按组类拼）。`ttPair` 由调用方注入——i18n 入口在宿主。
- *  · 查阅：桶序固定、0 不出现、", " 分隔 —— 即「N 搜索, M 文件」
+ *  · 查阅：最新一条摘要打头、桶计数跟后（用户 2026-10-11 定稿，与终端组同一
+ *    构形）——「最新摘要 · N 搜索, M 文件」，桶序固定、0 不出现、", " 分隔
  *  · 终端：「最新命令摘要 · N 个命令」+ 失败计数（他们的「已停止」本仓行上没有该状态）
  *  · 更改：「N 个文件 · 文件清单」，单个文件时只显示文件名 */
 export function formatGroupSummary(
@@ -173,13 +181,19 @@ export function formatGroupSummary(
   ttPair: (zh: string, en: string, vars?: Record<string, string | number>) => string,
 ): string {
   if (kind === "explore") {
+    const parts: string[] = [];
+    // 成员明明带着摘要，头上一行只给计数就丢了"组此刻在干嘛"——最新一条打头
+    const last = members[members.length - 1];
+    const latest = last ? exploreMemberSummary(last) : "";
+    if (latest) parts.push(latest);
     const counts: Record<ExploreBucket, number> = { search: 0, list: 0, file: 0 };
     for (const item of members) counts[classifyExploreItem(item)] += 1;
-    const parts: string[] = [];
+    const countParts: string[] = [];
     for (const bucket of BUCKET_ORDER) {
-      if (counts[bucket] > 0) parts.push(`${counts[bucket]} ${ttPair(...BUCKET_LABEL[bucket])}`);
+      if (counts[bucket] > 0) countParts.push(`${counts[bucket]} ${ttPair(...BUCKET_LABEL[bucket])}`);
     }
-    return parts.join(", ");
+    if (countParts.length > 0) parts.push(countParts.join(", "));
+    return parts.join(" · ");
   }
   if (kind === "execute") {
     const parts: string[] = [];
