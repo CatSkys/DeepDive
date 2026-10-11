@@ -282,6 +282,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       scheduleRecords={scheduleRecords}
       artifacts={artifacts}
       face={modelFace}
+      agentPreset={summary?.agentPreset}
       permissions={permissions}
       onPreview={openPreviewFile}
       onOpenReview={preview.openReview}

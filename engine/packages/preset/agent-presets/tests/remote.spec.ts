@@ -394,22 +394,30 @@ describe('switching one session\'s composition', () => {
     expect(ctx.agentPresets.composedPreset(agent.ctx)).toBe('standard')
   })
 
-  it('refuses once the conversation has started', async () => {
+  it('refuses only while a turn is in flight; a settled conversation may switch', async () => {
     const ctx = await harness()
     const agent = await agentOn(ctx, 'sel-locked', 'standard')
-    // One turn is enough: the history from here on was produced under
-    // `standard`'s tools, and a swap would strand those tool calls.
+    // An open turn is running its model loop on the current composition — a
+    // swap here would strand the in-flight tool calls on a tree that no longer
+    // mounts them.
     agent.session.append('turn/start', { turn: 0 })
 
     const failure = await remoteFailure(ctx.agentPresets.select(agent, 'minimal'))
 
     expect(failure).toMatchObject({
       code: 'agent-preset/locked',
-      message: 'session "sel-locked" has already started; its agent preset is fixed',
+      message: 'session "sel-locked" has a turn in flight; switch after it settles',
       details: { sessionId: SessionId('sel-locked'), agentPreset: 'minimal' },
     })
     expect(ctx.agentPresets.composedPreset(agent.ctx)).toBe('standard')
     expect(recordedPreset(agent)).toBeUndefined()
+
+    // Turn settled: the switch lands between turns. The transcript's earlier
+    // turns stay the product of `standard`; the next model loop runs `minimal`.
+    agent.session.append('turn/end', { turn: 0, reason: { kind: 'completed' } })
+    expect(await ctx.agentPresets.select(agent, 'minimal')).toBe('minimal')
+    expect(ctx.agentPresets.composedPreset(agent.ctx)).toBe('minimal')
+    expect(recordedPreset(agent)).toEqual({ agentPreset: 'minimal' })
   })
 
   it('leaves the session on its composition when the named preset is unknown', async () => {

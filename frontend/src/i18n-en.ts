@@ -573,6 +573,8 @@ export const EN: Record<string, string> = {
   // settings — session mode
   "默认会话模式": "Default session mode",
   "新建会话时使用；运行中的会话保持开始时的模式。": "Used when a new session is created; running sessions keep the mode they started with.",
+  "会话模式": "Session mode",
+  "切换在下一轮对话生效。": "Applies from the next conversation turn.",
   // settings — hotkeys
   "全局热键": "Global hotkey",
   "任意应用下生效。": "Works from any app.",

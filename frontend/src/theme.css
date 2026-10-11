@@ -5455,29 +5455,37 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 唤醒期间铺的停帧图：压在上面的原生视图一有像素就盖住它（壳给 4s 撤退时限） */
 .panel-browser-cover { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 
-/* ---------- 面板里的会话设置 ---------- */
+/* ---------- 面板里的会话设置（行式：左文字右选项，与设置页同一形态） ---------- */
 .panel-settings { display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
 .panel-settings-section { display: flex; flex-direction: column; gap: 6px; }
-.panel-settings-label { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
-/* 模型那一行：与会话设置里的权限/发送方式下拉（.ddTrigger 尺寸与底色）同一形态 */
+/* 行：左文字（标签 + 可选说明），右控件/当前值 */
+.panel-settings-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; }
+.panel-settings-identity { min-width: 0; }
+.panel-settings-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
+.panel-settings-hint { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); margin-top: 2px; }
+/* 模型行：整行可点弹 ModelMenu——hover 浅填充给可点感，负 margin 让填充贴齐卡内边 */
 .panel-settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding: 0 8px;
+  min-height: 34px;
+  border: none;
+  background: none;
   border-radius: var(--dsh-radius-control);
-  background: var(--fill);
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
   text-align: left;
+  font-family: inherit;
 }
-:where(html[data-hover-armed]) .panel-settings-row:hover { background: var(--fill-strong); }
-.panel-settings-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.panel-settings-meta { flex: none; color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
-.panel-settings-hint { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); }
+:where(html[data-hover-armed]) .panel-settings-row:hover { background: var(--fill); }
+.panel-settings-value { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+.panel-settings-value-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-settings-chev { flex: none; color: var(--ink-3); transition: transform var(--dur-fast) var(--ease-out); }
+.panel-settings-row[data-open="true"] .panel-settings-chev { transform: rotate(180deg); }
 .panel-settings-plugins { max-height: 260px; overflow-y: auto; }
 
 /* ---------- 面板里的分区与产物 ---------- */

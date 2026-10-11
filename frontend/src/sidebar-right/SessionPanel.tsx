@@ -26,11 +26,13 @@ import type { PermissionSelect } from "../settings/permissionPreset";
 import type { ModelFace } from "../session/SessionHeader";
 import type { ScheduleRecord } from "../types";
 
-export function SessionPanel({ sessionId, scheduleRecords, artifacts, face, permissions, onPreview, onOpenReview }: {
+export function SessionPanel({ sessionId, scheduleRecords, artifacts, face, agentPreset, permissions, onPreview, onOpenReview }: {
   sessionId: string;
   scheduleRecords: ScheduleRecord[];
   artifacts: ArtifactItem[];
   face: ModelFace;
+  /** 当前会话 pin 的 agent preset id（summary 投影；透传给会话设置的模式行）。 */
+  agentPreset?: string;
   permissions: PermissionSelect | null;
   onPreview?: (path: string) => void;
   /** 开审查面板（状态胶囊 Git 区的「更改」行走这里）。 */
@@ -82,6 +84,7 @@ export function SessionPanel({ sessionId, scheduleRecords, artifacts, face, perm
           <SessionSettings
             sessionId={sessionId}
             face={face}
+            agentPreset={agentPreset}
             permissions={permissions}
             onOpenPlugins={() => dispatchAppEvent(DD_EVENTS.openSettings, { section: "plugins" })}
           />

@@ -496,6 +496,10 @@ export const api = {
   cancelQuestion: (eventId: string) =>
     mux.answerEvent(eventId, { kind: "rejected", error: { name: "Error", message: "cancelled by user", code: "cancelled" } }),
   agentPresets: () => unary<{ presets: AgentPreset[]; authorable?: boolean }>("agentPresets/list", {}),
+  /** 会话中切换 agent 预设（引擎 agentPresets/select）：落在轮与轮之间，turn 在途
+   *  会被 agent-preset/locked 拒——错误消息直出引擎原文。 */
+  agentPresetSelect: (payload: { agentId: string; agentPreset: string }) =>
+    unary<string>("agentPresets/select", { agentId: payload.agentId, agentPreset: payload.agentPreset }),
   /** 插件清单（`pluginInventory/list`，只读投影）：Loader 的非 group entry。
    *  响应里另带 `agentPresets`（每个 Agent 预设的组合行），客户端不使用。 */
   pluginInventory: () => unary<{ entries: PluginInventoryEntry[] }>("pluginInventory/list", {}),

@@ -10,7 +10,7 @@
 //             草稿页还没有会话，`/permission` 那条会话级写路在这里没有对象）
 //   发送方式 —— conversation.busyEnter（本来就是全局设置，与设置页同源）
 import { useEffect, useRef, useState } from "react";
-import { Settings2, X } from "lucide-react";
+import { ChevronDown, Settings2, X } from "lucide-react";
 import { t } from "../i18n";
 import { Dropdown } from "../components/controls";
 import { ModelMenu } from "../components/ModelMenu";
@@ -96,48 +96,52 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
       </div>
       <div className="panel-body">
         <div className="panel-settings">
-          <div className="panel-settings-section">
-            <div className="panel-settings-label">{t("模型")}</div>
-            <button
-              ref={modelTriggerRef}
-              type="button"
-              className="panel-settings-row"
-              data-open={showModels ? "true" : "false"}
-              onClick={() => setShowModels((v) => !v)}
-            >
-              <span className="panel-settings-value">{face.modelName || t("跟随默认")}</span>
-            </button>
-            {/* 目录为空也照开（引擎未就绪时给"无匹配模型"这句反馈，而不是点了没反应——
-                ModelMenu 自己有空态；会话设置那边同样是这个口径） */}
-            {showModels && (
-              <ModelMenu
-                options={face.models}
-                current={face.modelName}
-                currentModel={face.currentModel}
-                onPick={(m) => void face.pickModel(m)}
-                onClose={() => setShowModels(false)}
-                anchorRef={modelTriggerRef}
-              />
-            )}
-          </div>
+          <button
+            ref={modelTriggerRef}
+            type="button"
+            className="panel-settings-line panel-settings-row"
+            data-open={showModels ? "true" : "false"}
+            onClick={() => setShowModels((v) => !v)}
+          >
+            <span className="panel-settings-label">{t("模型")}</span>
+            <span className="panel-settings-value">
+              <span className="panel-settings-value-text">{face.modelName || t("跟随默认")}</span>
+              <ChevronDown size={14} className="panel-settings-chev" />
+            </span>
+          </button>
+          {/* 目录为空也照开（引擎未就绪时给"无匹配模型"这句反馈，而不是点了没反应——
+              ModelMenu 自己有空态；会话设置那边同样是这个口径） */}
+          {showModels && (
+            <ModelMenu
+              options={face.models}
+              current={face.modelName}
+              currentModel={face.currentModel}
+              onPick={(m) => void face.pickModel(m)}
+              onClose={() => setShowModels(false)}
+              anchorRef={modelTriggerRef}
+            />
+          )}
 
           {permission !== null && (
-            <div className="panel-settings-section">
-              <div className="panel-settings-label">{t("权限")}</div>
-              <Dropdown block options={presetDropdownOptions(permission.options, t)} value={permission.current} onChange={(v) => void savePermission(v)} />
-              <div className="panel-settings-hint">{t("新建会话的初始权限。")}</div>
+            <div className="panel-settings-line">
+              <div className="panel-settings-identity">
+                <div className="panel-settings-label">{t("权限")}</div>
+                <div className="panel-settings-hint">{t("新建会话的初始权限。")}</div>
+              </div>
+              <Dropdown options={presetDropdownOptions(permission.options, t)} value={permission.current} onChange={(v) => void savePermission(v)} />
             </div>
           )}
 
-          <div className="panel-settings-section">
-            <div className="panel-settings-label">{t("发送方式")}</div>
+          <div className="panel-settings-line">
+            <div className="panel-settings-identity">
+              <div className="panel-settings-label">{t("发送方式")}</div>
+              <div className="panel-settings-hint">{t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")}</div>
+            </div>
             <Dropdown
-              block
               options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}
               value={busy}
               onChange={(v) => void saveBusy(v)}
             />
-            <div className="panel-settings-hint">{t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")}</div>
           </div>
         </div>
       </div>
