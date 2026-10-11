@@ -10,12 +10,19 @@ mkdir -p .build
 # 其 xcodebuild 会重拉一个，所以还要停掉本项目仍在跑的 xcodebuild——同一
 # .build/debug 上并发 xcodebuild test 本就互踩。
 unlock_test_lock() {
-  local lock="/tmp/dshmini-test-support/instance.lock" holder
+  local lock="/tmp/dshmini-test-support/instance.lock" holder cmd
   holder=$(lsof -t "$lock" 2>/dev/null | head -1 || true)
   if [[ -z "$holder" ]]; then return 0; fi
-  if ! ps -p "$holder" -o command= 2>/dev/null | grep -q "Debug/DeepDive.app"; then
+  cmd=$(ps -p "$holder" -o command= 2>/dev/null || true)
+  # 只清本树的宿主：测试支撑锁全机共享（scheme 定值），别的 worktree 正在跑测试时
+  # 占锁是合法的——报清晰错误让对面跑完，绝不误杀（WORKING-AGREEMENTS §5）。
+  if [[ "$cmd" == *"/.build/debug/Build/Products/Debug/DeepDive.app"* && "$cmd" != *"$(pwd)/.build/debug/"* ]]; then
+    echo "FAIL: 测试锁被另一 worktree 的测试宿主占用 (pid $holder)——等它跑完再跑本树测试" >&2
+    return 1
+  fi
+  if [[ "$cmd" != *"$(pwd)/.build/debug/"* ]]; then
     echo "FAIL: 测试锁被非测试宿主占用 (pid $holder)，不自动清：" >&2
-    ps -p "$holder" -o command= 2>/dev/null >&2 || true
+    echo "$cmd" >&2
     return 1
   fi
   echo "test.sh: 清掉占测试锁的残留测试宿主 (pid $holder)"

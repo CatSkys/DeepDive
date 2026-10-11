@@ -47,5 +47,5 @@ sed -i '' -E \
   -e "s/(CFBundleVersion: \")[^\"]*/\1$NEW/" "$FILE"
 
 GOT=$(awk -F'"' '/CFBundleShortVersionString/ {print $2; exit}' "$FILE")
-[ "$GOT" = "$NEW" ] || { echo "FAIL: 写回后读到的还是 '$GOT'（期望 $NEW）" >&2; exit 1; }
+[ "$GOT" = "$NEW" ] || { echo "FAIL: 写回后读到的还是 '$GOT'（期望 ${NEW}）" >&2; exit 1; }
 echo "app version: $CUR -> $NEW ($PART)"

@@ -60,7 +60,7 @@ if [ -n "${DSHMINI_NOTARY_PROFILE:-}" ]; then
   rm -f .build/notary-upload.zip
   ditto -c -k --keepParent "$APP" .build/notary-upload.zip
   xcrun notarytool submit .build/notary-upload.zip --keychain-profile "$DSHMINI_NOTARY_PROFILE" --wait \
-    || { echo "FAIL: notarytool submit（详情：xcrun notarytool log <id> --keychain-profile $DSHMINI_NOTARY_PROFILE）"; exit 1; }
+    || { echo "FAIL: notarytool submit（详情：xcrun notarytool log <id> --keychain-profile ${DSHMINI_NOTARY_PROFILE}）"; exit 1; }
   xcrun stapler staple "$APP" || { echo "FAIL: stapler staple $APP"; exit 1; }
   xcrun stapler validate "$APP" || { echo "FAIL: stapler validate $APP"; exit 1; }
   echo "OK: notarized + stapled"

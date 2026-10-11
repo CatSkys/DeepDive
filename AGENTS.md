@@ -41,6 +41,9 @@ make tokens     # tokens.json → tokens.css（改 token 后必跑）
 make test       # 前端 vitest+两道门 ∥ 壳 XCTest 两腿并行（scripts/test.sh；起跑前自动清占测试锁的残留宿主）
 make clean      # 清 .build 与 dist
 
+scripts/new-worktree.sh <slug>    # 开并行任务树 DSHmini-<slug>（分支 feat/<slug>，纪律见 WORKING-AGREEMENTS §5）
+scripts/remove-worktree.sh <slug> # 合并后清场（删树删分支；--force 才允许丢脏树/未合并分支）
+
 cd frontend && npm run build   # tsc -b --noEmit && vite build
 cd frontend && npm run test    # vitest run（事件回放/纯函数/api 信封）
 cd frontend && npm run lint    # eslint src，零报错
