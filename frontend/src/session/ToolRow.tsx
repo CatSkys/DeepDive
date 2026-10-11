@@ -18,7 +18,8 @@ import { mergeArtifacts } from "../sidebar-right/sessionArtifacts";
 import { StateDot } from "./MessageRow";
 import { ToolIcon } from "./ToolIcon";
 import { FileIcon } from "./FileIcon";
-/// One-line tool row — DSH ToolRow port: icon + name · summary + chevron,
+/// One-line tool row — DSH ToolRow port: icon · summary + chevron（用户定稿
+/// 2026-10-11：类别名不摆——图标即类别；摘要为空才落回名字/状态文案），
 /// expandable to reveal terminal output or raw arguments.
 export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd }: {
   toolName: string;
@@ -57,13 +58,14 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         <span className="tool-leading">
           {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} />}
         </span>
-        <span className="tool-title">{title}</span>
-        {summary && (
+        {summary ? (
           <>
             <span className="tool-sep" aria-hidden="true" />
             {filePath && <FileIcon file={filePath} />}
             <span className="tool-summary">{summary}</span>
           </>
+        ) : (
+          <span className="tool-title">{title}</span>
         )}
         {/* 箭头槽**常驻**：这一行没什么可展时只藏起来（visibility，仍占位）。缺了它的
             后果是行右端那条箭头竖线在这里断掉——同一列里几行没有箭头，用户看到的

@@ -51,10 +51,10 @@
       "detail": "780 lines > 300"
     },
     {
-      "id": "abda6f445f802d6a",
+      "id": "f664da0e96fc84f8",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "385 lines > 300"
+      "detail": "381 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -87,10 +87,10 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "1d6cc0082f4d5d8d",
+      "id": "0e787384076031da",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1058 lines > 300"
+      "detail": "1040 lines > 300"
     },
     {
       "id": "90411fea4b28cfed",
@@ -111,22 +111,16 @@
       "detail": "439 lines > 300"
     },
     {
-      "id": "195584ed1e22a6e7",
-      "rule": "file-lines",
-      "file": "frontend/src/rich/ui/types.ts",
-      "detail": "351 lines > 300"
-    },
-    {
       "id": "c2e2fa8c2fb2c633",
       "rule": "file-lines",
       "file": "frontend/src/session/renderModel.ts",
       "detail": "547 lines > 300"
     },
     {
-      "id": "d510156e6def9047",
+      "id": "a4107209af017360",
       "rule": "file-lines",
       "file": "frontend/src/session/ToolRow.tsx",
-      "detail": "323 lines > 300"
+      "detail": "325 lines > 300"
     },
     {
       "id": "519ada29d5abcc2a",

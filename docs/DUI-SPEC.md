@@ -59,6 +59,8 @@
 
 **模型可见性**：沙箱内的 `window.error` / `unhandledrejection` 经桥回传（每实例至多 3 条），WidgetBlock 出错误条；会话**运行中**自动插队告知模型（`useWidgetErrorReport`，自愈即时），空闲时出「告知 AI」按钮——不自动开新轮。
 
+**外观与背景（2026-10-11，交 Agent 决定）**：iframe 画布默认透明——模型画不画背景、画什么背景自己定（不画即透明融入对话）。宿主经 bootstrap 把应用外观写到沙箱的 `<html data-theme="dark|light">`（沙箱自己的 `prefers-color-scheme`，随外观切换即时翻转，PITFALLS §4.37 同一机制），模型 CSS 按主题键控即可。
+
 iframe 内入口是注入的 bootstrap 暴露的 `window.dshui.sendPrompt/openLink`；bootstrap 同时周期上报内容高度。注入位置确定（`<head>`/`<html>` 后、纯片段串首），**同一输入永远同一输出**——srcDoc 引用稳定，iframe 不因重渲重载。目标 origin 一律 `"*"`：沙箱页本就不透明，父侧按 `event.source` 认身份而不是 origin。
 
 安全边界（改动前必读）：桥只上行、不下行；iframe 仍是 `allow-scripts` 孤岛；`sendPrompt` 上限即用户下一轮的一条文本，不携带任何宿主状态；`openLink` 的 https 白名单是显式决定。要加第三个动作前先在这里写清它的校验与上限。
@@ -69,7 +71,7 @@ iframe 内入口是注入的 bootstrap 暴露的 `window.dshui.sendPrompt/openLi
 
 ` ```embed ` 围栏体是**一行 https URL**（如 B站官方外播页 `https://player.bilibili.com/player.html?bvid=<BV id>`），实现 `rich/EmbedBlock.tsx`。这类页面**不能进 srcdoc 沙箱**（不透明源必死，见上）——它们是跨源文档，用独立 URL iframe 承载：
 
-- **许可闸门 = 用户的点击**：默认只渲染封面卡（host + URL + 说明 + 「加载外部内容」钮），点击才挂 iframe——模型不能自动内嵌任意站点。
+- **加载策略（2026-10-11 用户定稿：直接加载，无点击闸）**：围栏出现即挂 iframe——隔离靠结构性的跨源边界，不靠人工确认。
 - **加载后的隔离是结构性的**：跨源文档保留**其自身 origin**，storage/cookie 是它自己的（WebKit 分区），与宿主零共享；iframe 非 srcdoc，无同源逃逸面。沙箱旗标 `allow-scripts allow-same-origin allow-forms allow-popups` 对跨源页面只是恢复其自身能力。
 - URL 校验：仅 https、单行（多余残渣整块退回源码）；`allow` 属性给 autoplay/fullscreen/PiP/encrypted-media（播放器需要）。
 - 高度固定 16:9（aspect-ratio），与 widget 桥无关（跨源页面量不了高度，也不该量）。

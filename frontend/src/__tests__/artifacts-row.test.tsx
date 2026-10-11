@@ -41,23 +41,23 @@ describe("ArtifactsRow 产物/交付合并行", () => {
   });
 });
 
-// 工具行标题：MCP 工具不再摆整条 wire 名（用户定稿：mcp__<服务器>__<工具>
-// → "<服务器> · <工具>"，图标走 mcp 族）。
-describe("ToolRow 标题", () => {
-  const row = (toolName: string) => render(
-    <ToolRow toolName={toolName} args='{"code":"1+1"}' output="ok" sessionId="s" />,
-  );
-  it("MCP 工具：其他服务器标题是「服务器 · 工具」，行带 mcp 数据标记", () => {
-    const { container } = row("mcp__linear__create_issue");
-    expect(container.querySelector(".tool-title")?.textContent).toBe("linear · create_issue");
+// 工具行文案（用户定稿 2026-10-11：一律 icon·摘要，工具名不摆——MCP 工具也不摆
+// 整条 wire 名）；摘要为空才落回名字，对外名规则在 toolKind.toolDisplayName：
+// mcp__<服务器>__<工具> → "<服务器> · <工具>"，图标走 mcp 族。
+describe("ToolRow 文案", () => {
+  it("有摘要的行不摆名字（MCP 工具同理），行带 data-tool 标记", () => {
+    const { container } = render(
+      <ToolRow toolName="mcp__linear__create_issue" args='{"code":"1+1"}' output="ok" sessionId="s" />,
+    );
+    expect(container.querySelector(".tool-title")).toBeNull();
+    expect(container.querySelector(".tool-summary")?.textContent).toBe("1+1");
     expect(container.querySelector(".tool-row")?.getAttribute("data-tool")).toBe("mcp__linear__create_issue");
   });
-  it("本仓浏览器控制 MCP：标题是产品名「浏览器控制」，不摆半截内名", () => {
-    const { container } = row("mcp__deepdive-browser__js");
-    expect(container.querySelector(".tool-title")?.textContent).toBe("浏览器控制");
-  });
-  it("未收录的普通工具仍显原名", () => {
-    const { container } = row("weird_tool");
-    expect(container.querySelector(".tool-title")?.textContent).toBe("weird_tool");
+  it("摘要为空落回对外名：其他服务器是「服务器 · 工具」，浏览器控制是产品名，未收录显原名", () => {
+    const named = (toolName: string) =>
+      render(<ToolRow toolName={toolName} args="" output="" sessionId="s" />).container.querySelector(".tool-title")?.textContent;
+    expect(named("mcp__linear__create_issue")).toBe("linear · create_issue");
+    expect(named("mcp__deepdive-browser__js")).toBe("浏览器控制");
+    expect(named("weird_tool")).toBe("weird_tool");
   });
 });

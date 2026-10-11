@@ -129,7 +129,6 @@ const FLOW_ROW_RULES = [
   { selector: ".tool-title", prop: "line-height" },
   { selector: ".tool-summary", prop: "line-height" },
   { selector: ".tool-group-head", prop: "min-height" },
-  { selector: ".tool-group-label", prop: "line-height" },
   { selector: ".tool-group-summary", prop: "line-height" },
   { selector: ".thinking-head", prop: "min-height" },
   { selector: ".thinking-active", prop: "line-height" },
