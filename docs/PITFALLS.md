@@ -1144,3 +1144,17 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   （`done` 回调），主线程只负责发起 `evaluateJavaScript`，连接线程等它。
 - 教训：这类壳侧通道要**在真机跑一次**才算数——单测验证不了线程模型，而"UI 正常、只有新通道超时"
   这种症状最容易误判成环境问题。
+
+### 9.8 BrowserCookieTests 的两条假警（2026-10-11 实测）
+
+- **满套件偶发 40 秒超时风暴**：与重构建（`build-engine.sh`，495 包 pnpm + 引擎冒烟）
+  **并发**跑 XCTest 时，BrowserCookieTests 整组逐条 20s×2 异步等待超时——机器被吃满，
+  WKWebsiteDataStore/WebKit 守护进程的往返饿死。判据：整组同时超时 + 同机空闲重跑
+  19.9 秒全绿。**重构建与 XCTest 不要并发**；见到整组 40s 超时先查并发负载再查代码。
+- **`testChromiumUnwrapRoundTrips` 真闪失**：确定性密码学断言（固定 key/IV/密文，
+  `unwrap(Data("v10not-a-real-cipher!!"...))` 期望 nil）在满套件/整类运行中**偶发**
+  解出垃圾（如 `" \u0007c,w"`）判失败，`-only-testing` 单独只跑这一条恒过；同日失败
+  3 次通过 2 次，两个文件自 6628ce4e 起未动。疑似 CommonCrypto 对「非块整数长度
+  密文」解密的 success/error 判定在系统库层面不稳定（macOS 27.0 实测）。处置：见到
+  它先单跑裁决再下结论，别急着回滚自己的改动；根因修复待有闲暇（给 unwrap 补显式
+  长度校验 `body.count % 16 == 0` 或许比依赖库行为更稳，未验证）。

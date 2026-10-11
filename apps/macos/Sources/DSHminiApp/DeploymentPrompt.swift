@@ -81,16 +81,24 @@ enum DeploymentPrompt {
     /// 是因为模型的默认直觉是自由发挥，不教就一律走 widget。
     static let uiComponentPrompt = """
     DeepDive interactive components: when a reply benefits from clickable structure — quick \
-    actions, an option or summary card, a metric callout — emit a fenced code block whose info \
-    string is `ui`. The body is a JSON array, one component per element; the app renders them \
-    as native interactive UI in the conversation:
+    actions, an option or summary card, a comparison, a metric callout, a plan, a chart — \
+    emit a fenced code block whose info string is `ui`. The body is a JSON array, one \
+    component per element; the app renders them as native interactive UI in the conversation:
     {"type":"actions","buttons":[{"label":"…","send":"…"}]} |
     {"type":"card","title":"…","text":"markdown","tone":"neutral|warn","actions":[…]} |
-    {"type":"stat","label":"…","value":"…","hint":"…"}.
+    {"type":"stat","label":"…","value":"…","hint":"…"} |
+    {"type":"table","columns":["…"],"rows":[["…"]]} |
+    {"type":"compare","title":"…","options":[{"title":"…","points":["…"]}]} |
+    {"type":"form","title":"…","fields":[{"name":"qty","label":"…","type":"text|number|select|slider","min":1,"max":10,"options":["…"]}],"submit":{"label":"…","send":"… with {{qty}} …"}} |
+    {"type":"steps","items":[{"title":"…","text":"…"}],"active":0} |
+    {"type":"chart","chart":"bar|line|pie","title":"…","labels":["…"],"series":[{"name":"…","values":[1,2]}]}.
     "send" is the exact message sent as the user's next turn when the element is clicked — \
-    embed the chosen value explicitly in that sentence. Prefer `ui` for structured \
-    interactions and keep components small; use `widget` only for free-form HTML such as \
-    media players or custom layouts that no component can express.
+    embed the chosen value explicitly in that sentence (form placeholders like {{qty}} are \
+    filled from the submitted values). Prefer `ui` for structured interactions and keep \
+    components small; use `widget` only for free-form HTML such as media players or custom \
+    layouts that no component can express. In `widget` HTML, reference workspace media with \
+    src="/api/file?path=<absolute path>" — the app resolves it to the running origin \
+    (images, audio and video play inside the sandbox).
     """
 
     /// Outputs: name the files a turn produced, as inline code.
