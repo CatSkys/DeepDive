@@ -1,4 +1,4 @@
-/* DeepDiving 浮层：屏幕居中面板（对话族近实色材质 §2.2bis），画布 320×480 固定。
+/* DeepDiving 浮层：屏幕居中面板（对话族近实色材质 §2.2bis），画布 480×320 横版固定。
    无全屏遮罩——点外部不关（游玩中的误触会打断），关闭走 ✕ / Esc；键盘焦点收在
    面板上（tabIndex=-1，组件内处理），空格/方向键是推力，焦点离开即自动暂停。 */
 
@@ -7,8 +7,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 320px;
-  height: 480px;
+  width: 480px;
+  height: 320px;
   z-index: 1100;
   border-radius: var(--dsh-radius-floating);
   background: var(--panel-strong);
@@ -21,8 +21,8 @@
 
 .canvas {
   display: block;
-  width: 320px;
-  height: 480px;
+  width: 480px;
+  height: 320px;
 }
 
 /* HUD 文本层：只摆放、不吃指针（按钮除外）——按住画布任何位置都是推力。 */
@@ -50,6 +50,18 @@
 }
 .hudBest {
   margin-top: 2px;
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-3);
+}
+
+/* 开局唯一一行操作提示（UI-SPEC §1.9 已登记例外）：一键游戏的机制没法靠猜，
+   开跑即隐，其余画面不设第二行。 */
+.hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 64px;
+  text-align: center;
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
 }

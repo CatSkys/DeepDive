@@ -1045,4 +1045,5 @@ export const EN: Record<string, string> = {
   "再来": "Retry",
   "最佳 {m} 米": "Best {m} m",
   "提示音": "Sound",
+  "按住上浮，松开下潜": "Hold to rise, release to dive",
 };

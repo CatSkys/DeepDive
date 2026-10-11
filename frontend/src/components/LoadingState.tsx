@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Waves } from "lucide-react";
 import { t } from "../i18n";
 import { formatElapsed } from "../session/format";
 
@@ -8,7 +7,7 @@ import { formatElapsed } from "../session/format";
  *
  *   LoadingState — 会话流末那一行：只有文字（微光扫过的标签 +
  *                  走等宽表格数字的计时）。onClick（DeepDiving 入口，
- *                  TurnList 传）时整行成 button，并缀一枚波浪图标
+ *                  TurnList 传）时整行成 button——不加任何图标
  *   Spinner      — 行内转圈：DashRing 那一款（淡轨道 + 一段会伸缩
  *                  的弧）。边栏任务行槽位与浏览器标签的加载中共用
  *                  一枚；配色/线宽在 theme.css 的 .spin-ring
@@ -91,7 +90,6 @@ export function LoadingState({
   const body = (
     <>
       <span role="status" className="loading-label">{label}</span>
-      {onClick && <Waves size={12} className="loading-waves" />}
       <span className="loading-elapsed">{elapsed}</span>
     </>
   );

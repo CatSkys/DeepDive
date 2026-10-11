@@ -1,11 +1,12 @@
-// DeepDiving 纯模拟核心（game/world.ts）的契约：种子确定性（同种子同输入 → 同世界）、
-// 物理方向、单帧步长上限、突石碰撞判死、深度单调与新手缓冲。地形生成是纯函数，
-// 这里钉「回放一致」——改物理参数或地形时，先看这里红的对不对。
+// DeepDiving 纯模拟核心（game/world.ts，横版穿越）的契约：种子确定性（同种子同输入 →
+// 同世界）、物理方向、单帧步长上限、沟缝几何、突石嵌壁与碰撞判死、游程单调与新手缓冲。
+// 地形生成是纯函数，这里钉「回放一致」——改物理参数或地形时，先看这里红的对不对。
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
-  depthM,
+  distanceM,
   DIVER_X,
+  gapWidth,
   randomSeed,
   ROCK_SPACING,
   rockAt,
@@ -13,6 +14,8 @@ import {
   scrollSpeed,
   step,
   VIEW_H,
+  wallBottomAt,
+  wallTopAt,
   type World,
 } from "../game/world";
 
@@ -54,48 +57,65 @@ describe("相位与物理", () => {
     expect(rise.y).toBeLessThan(VIEW_H / 2);
   });
 
-  it("超长一帧按 MAX_DT 慢放，不瞬移撞石", () => {
+  it("超长一帧按 MAX_DT 慢放，不瞬移撞壁", () => {
     const next = step({ ...createWorld(1), phase: "run", t: 0 }, { thrust: false }, 10_000);
     expect(next.camera).toBeLessThanOrEqual(scrollSpeed(0) * 0.05 * 1.01);
   });
 
-  it("镜头（深度分数）单调不减", () => {
+  it("镜头（游程分数）单调不减", () => {
     let w: World = { ...createWorld(3), phase: "run", t: 0 };
-    let prev = depthM(w);
+    let prev = distanceM(w);
     for (let i = 0; i < 600; i++) {
       w = step(w, { thrust: i % 7 !== 0 }, DT);
-      expect(depthM(w)).toBeGreaterThanOrEqual(prev);
-      prev = depthM(w);
+      expect(distanceM(w)).toBeGreaterThanOrEqual(prev);
+      prev = distanceM(w);
     }
     expect(w.camera).toBeGreaterThan(0);
+  });
+});
+
+describe("沟缝几何", () => {
+  it("下缘 = 上缘 + 缝宽，壁缘恒在视口内", () => {
+    for (let wx = 0; wx < 50_000; wx += 130) {
+      const top = wallTopAt(wx, 9);
+      expect(wallBottomAt(wx, 9)).toBeCloseTo(top + gapWidth(wx), 6);
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(top + gapWidth(wx)).toBeLessThanOrEqual(VIEW_H);
+    }
+  });
+
+  it("缝宽 190 起步、100 到底", () => {
+    expect(gapWidth(0)).toBe(190);
+    expect(gapWidth(10 ** 9)).toBe(100);
   });
 });
 
 describe("突石", () => {
   it("前两枚留缓冲：可见范围内不出 2*ROCK_SPACING 之前的石", () => {
     for (const rock of rocksInRange(0, 3 * ROCK_SPACING, 9)) {
-      expect(rock.depth).toBeGreaterThanOrEqual(2 * ROCK_SPACING);
+      expect(rock.wx).toBeGreaterThanOrEqual(2 * ROCK_SPACING);
     }
   });
 
-  it("突石恒在潜水器车道内（横移躲不开，只能纵向让路）", () => {
+  it("突石恒嵌在沟壁上（上缘或下缘）", () => {
     for (let i = 2; i < 200; i++) {
       const rock = rockAt(i, 11);
-      expect(Math.abs(rock.x - DIVER_X)).toBeLessThan(rock.r);
+      const onWall = rock.y === wallTopAt(rock.wx, 11) || rock.y === wallBottomAt(rock.wx, 11);
+      expect(onWall).toBe(true);
     }
   });
 
   it("撞石判死", () => {
     const w = createWorld(13);
     const rock = rockAt(5, w.seed);
-    // 镜头摆到石正中：潜水器 y 视口居中、绝对深度对准石头深度
-    const doomed: World = { ...w, phase: "run", camera: rock.depth - VIEW_H / 2, t: 0 };
+    // 镜头摆到石正中：潜水器横坐标对准石头、y 对准石心
+    const doomed: World = { ...w, phase: "run", camera: rock.wx - DIVER_X, y: rock.y, t: 0 };
     expect(step(doomed, { thrust: false }, DT).phase).toBe("dead");
   });
 });
 
 describe("难度曲线", () => {
-  it("水流速度 90 起步、230 封顶", () => {
+  it("镜头速度 90 起步、230 封顶", () => {
     expect(scrollSpeed(0)).toBe(90);
     expect(scrollSpeed(10 ** 9)).toBe(230);
   });

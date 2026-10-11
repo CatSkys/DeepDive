@@ -3106,8 +3106,8 @@ button {
 }
 
 /* loader 即 DeepDiving 入口（TurnList 流末 onClick → 整行成 button）：button 全局
-   复位已够（theme.css button 规则），这里只补提示图标与 hover 口径（§1.10 门控）。 */
-.loading-waves { color: var(--ls-ink-3); flex: none; }
+   复位已够（theme.css button 规则），这里只补 hover 口径（§1.10 门控）——
+   不加图标（用户 2026-10-11 定：行尾不放提示图标）。 */
 :where(html[data-hover-armed]) .loading-state:hover .loading-elapsed { color: var(--ls-ink); }
 
 /* Surfer 变体：loader 下方的 context 视频卡片 */

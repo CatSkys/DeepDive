@@ -1,4 +1,4 @@
-// DeepDiving（深潜）浮层壳：App 根部挂 Host；流末 loader「Deep diving...」与命令面板
+// DeepDiving（深潜）浮层壳（横版穿越）：App 根部挂 Host；流末 loader「Deep diving...」与命令面板
 // 都经 openDeepDiving() 打开。RAF 循环在 ready（浮动）与 run（物理）两个相位跑，暂停=
 // 定格；关闭只卸浮层，世界保留在 store——再开从原地继续。键盘焦点收在面板上
 // （tabIndex=-1）：空格/方向键只在这里当推力，焦点离开/切窗即自动暂停；
@@ -21,7 +21,8 @@ import {
   submitDepth,
 } from "./store";
 import { drawFrame } from "./render";
-import { createWorld, depthM, randomSeed, step, VIEW_H, VIEW_W, type Phase } from "./world";
+import { DeadOverlay, PausedOverlay } from "./Overlays";
+import { createWorld, distanceM, randomSeed, step, VIEW_H, VIEW_W, type Phase } from "./world";
 import css from "./DeepDiving.module.css";
 
 /** App 根部挂一次：消费 openDeepDiving 请求。 */
@@ -51,11 +52,11 @@ function DeepDiving({ onClose }: { onClose: () => void }) {
   const depthRef = useRef<HTMLSpanElement | null>(null);
   const thrustRef = useRef(false);
   // 初值取当前世界的百米档：关了再开（世界保留）时不重放已过百米的 ping
-  const milestoneRef = useRef(Math.floor(depthM(currentWorld()) / 100));
+  const milestoneRef = useRef(Math.floor(distanceM(currentWorld()) / 100));
 
   const syncHud = () => {
     setPhase(currentWorld().phase);
-    if (depthRef.current) depthRef.current.textContent = `${Math.floor(depthM(currentWorld()))}m`;
+    if (depthRef.current) depthRef.current.textContent = `${Math.floor(distanceM(currentWorld()))}m`;
   };
 
   const doPause = () => {
@@ -103,16 +104,16 @@ function DeepDiving({ onClose }: { onClose: () => void }) {
       const next = step(currentWorld(), { thrust: thrustRef.current }, now - last);
       last = now;
       replaceWorld(next);
-      if (depthRef.current) depthRef.current.textContent = `${Math.floor(depthM(next))}m`;
+      if (depthRef.current) depthRef.current.textContent = `${Math.floor(distanceM(next))}m`;
       if (next.phase === "dead") {
         thudDeath();
-        submitDepth(depthM(next));
+        submitDepth(distanceM(next));
         setBest(bestDepth());
         setPhase("dead");
         drawFrame(canvasRef.current, next);
         return;
       }
-      const m = Math.floor(depthM(next) / 100);
+      const m = Math.floor(distanceM(next) / 100);
       if (m > milestoneRef.current) {
         milestoneRef.current = m;
         pingMilestone();
@@ -242,35 +243,29 @@ function DeepDiving({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div className={css.hudBest}>{tt("最佳 {m} 米", "Best {m} m", { m: best })}</div>
+        {phase === "ready" && (
+          <div className={css.hint}>{t("按住上浮，松开下潜")}</div>
+        )}
         {phase === "paused" && (
-          <div className={css.ov}>
-            <div className={css.ovTitle}>{t("已暂停")}</div>
-            <div className={css.ovRow}>
-              <button
-                type="button"
-                className={css.ovBtn}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  resumeWorld();
-                  syncHud();
-                }}
-              >
-                {t("继续")}
-              </button>
-              <button
-                type="button"
-                className={css.ovBtn}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={close}
-              >
-                {t("关闭")}
-              </button>
-            </div>
-          </div>
+          <PausedOverlay
+            onResume={() => {
+              resumeWorld();
+              syncHud();
+            }}
+            onClose={close}
+          />
+        )}
+        {phase === "dead" && (
+          <DeadOverlay
+            meters={Math.floor(distanceM(currentWorld()))}
+            best={best}
+            onRetry={retry}
+            onClose={close}
+          />
         )}
         {phase === "dead" && (
           <div className={css.ov}>
-            <div className={css.ovDepth}>{Math.floor(depthM(currentWorld()))}m</div>
+            <div className={css.ovDepth}>{Math.floor(distanceM(currentWorld()))}m</div>
             <div className={css.ovBest}>{tt("最佳 {m} 米", "Best {m} m", { m: best })}</div>
             <div className={css.ovRow}>
               <button
