@@ -42,6 +42,17 @@ export function pingMilestone(): void {
   blip(880, 880, 0.08, 0.04);
 }
 
+/** 破纪录：明亮的双音上扬。 */
+export function pingRecord(): void {
+  blip(880, 880, 0.07, 0.04);
+  blip(1318, 1318, 0.09, 0.04);
+}
+
+/** 开跑：一声短促的上扬。 */
+export function blipStart(): void {
+  blip(330, 660, 0.12, 0.03);
+}
+
 /** 触底：下滑低音。 */
 export function thudDeath(): void {
   blip(220, 70, 0.25, 0.06);

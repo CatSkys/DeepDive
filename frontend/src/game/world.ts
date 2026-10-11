@@ -1,5 +1,6 @@
 // DeepDiving（深潜）纯模拟核心（横版穿越）：潜水器贴着固定水层向右游，镜头不停
-// 右移——按住上浮、松开下沉，躲海沟上下壁与壁上突石，游程（米）即分数。
+// 右移——按住上浮、松开下沉，躲海沟上下壁与缝内浮石，游程（米）即分数。
+// 难度渐入：100m 前无石，石径由小渐大，镜头加速与缝宽收窄同步放缓（约 250m 到顶）。
 // 地形由种子确定性生成（整数哈希 + 站距采样），世界只存标量——回放测试与
 // 「几乎无限长」都从这把尺子来：没有运行时可变地形状态，step 是纯函数。
 // 只管模拟：不管渲染（render.ts）、不管输入/生命周期（DeepDiving.tsx）。
@@ -9,7 +10,8 @@ export const VIEW_W = 480;
 export const VIEW_H = 320;
 /** 潜水器固定横坐标（屏幕系）：只操纵纵向，横向是卷轴。 */
 export const DIVER_X = 110;
-export const DIVER_R = 7;
+/** 碰撞半径：艇身胶囊的贴近值（塔台/尾鳍略出界，宽容在玩家一侧）。 */
+export const DIVER_R = 8;
 
 const GRAVITY = 900; // px/s²：松开时的下沉加速度
 const THRUST = 1800; // px/s²：按住时的向上加速度（净上浮 = THRUST - GRAVITY）
@@ -64,14 +66,14 @@ export function distanceM(w: World): number {
   return w.camera / PX_PER_M;
 }
 
-/** 镜头速度随游程涨，155m 后封顶：难度有天花板，游程没有。 */
+/** 镜头速度随游程涨，233m 后封顶 230：难度有天花板，游程没有。 */
 export function scrollSpeed(cameraPx: number): number {
-  return 90 + Math.min(140, (cameraPx / PX_PER_M) * 0.9);
+  return 90 + Math.min(140, (cameraPx / PX_PER_M) * 0.6);
 }
 
-/** 沟缝宽随游程收窄，185m 后到底（100px）：缝有下限，游程没有。 */
+/** 沟缝宽随游程收窄，257m 后到底（100px）：缝有下限，游程没有。 */
 export function gapWidth(wx: number): number {
-  return Math.max(100, 190 - (wx / PX_PER_M) * 0.5);
+  return Math.max(100, 190 - (wx / PX_PER_M) * 0.35);
 }
 
 /** 沟中心线随游程摆动（值噪声：余弦插值），摆幅 130m 后封顶。 */
@@ -95,18 +97,27 @@ export function wallBottomAt(wx: number, seed: number): number {
   return wallTopAt(wx, seed) + gapWidth(wx);
 }
 
-/** 突石：每 ROCK_SPACING 一枚（前两枚留 40m+ 空档当缓冲），交替嵌在上下壁。 */
+/** 突石：每 ROCK_SPACING 一枚，悬在缝内的浮石；100m 前不出石（难度渐入）。 */
 export const ROCK_SPACING = 220;
+export const ROCK_START_WX = 1200; // 100m：首次出石
 export function rockAt(index: number, seed: number): Rock {
-  const r = 16 + hash01(index + 2000, seed) * 22;
   const wx = index * ROCK_SPACING + hash01(index + 1000, seed) * ROCK_SPACING * 0.5;
-  const fromTop = hash01(index + 3000, seed) < 0.5;
-  return { wx, r, y: fromTop ? wallTopAt(wx, seed) : wallBottomAt(wx, seed) };
+  const gap = gapWidth(wx);
+  const m = wx / PX_PER_M;
+  // 石径随游程渐长：100m 处 ~10px，233m 后到顶 ~30px；封顶保证 (gap-2r)/2 ≥ 16——
+  // 石头上下各留 ≥16px 活水，再大也堵不死一条缝
+  const base = 10 + Math.min(20, Math.max(0, (m - 100) * 0.15));
+  const r = Math.max(6, Math.min(base + (hash01(index + 2000, seed) - 0.5) * 6, (gap - 32) / 2));
+  // 石心在缝内上下摆动，但摆幅受活水线约束
+  const reach = Math.max(0, gap / 2 - r - 16);
+  const mid = (wallTopAt(wx, seed) + wallBottomAt(wx, seed)) / 2;
+  return { wx, r, y: mid + (hash01(index + 3000, seed) - 0.5) * 2 * reach };
 }
 
-/** 可见（含一圈余量）的突石；index 0/1 不出石。 */
+/** 可见（含一圈余量）的突石；ROCK_START_WX 之前不出石。 */
 export function rocksInRange(leftWx: number, rightWx: number, seed: number): Rock[] {
-  const first = Math.max(2, Math.floor(leftWx / ROCK_SPACING) - 1);
+  const start = Math.ceil(ROCK_START_WX / ROCK_SPACING);
+  const first = Math.max(start, Math.floor(leftWx / ROCK_SPACING) - 1);
   const last = Math.ceil(rightWx / ROCK_SPACING) + 1;
   const out: Rock[] = [];
   for (let i = first; i <= last; i++) out.push(rockAt(i, seed));

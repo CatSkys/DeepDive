@@ -8,7 +8,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerE
 import { Volume2, VolumeX, X } from "lucide-react";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { tt, useT } from "../i18n";
-import { pingMilestone, primeAudio, thudDeath } from "./audio";
+import { blipStart, pingMilestone, pingRecord, primeAudio, thudDeath } from "./audio";
 import {
   bestDepth,
   currentWorld,
@@ -51,6 +51,7 @@ function DeepDiving({ onClose }: { onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const depthRef = useRef<HTMLSpanElement | null>(null);
   const thrustRef = useRef(false);
+  const recordRef = useRef(false); // 本局是否已破过纪录（破纪录音只响一次）
   // 初值取当前世界的百米档：关了再开（世界保留）时不重放已过百米的 ping
   const milestoneRef = useRef(Math.floor(distanceM(currentWorld()) / 100));
 
@@ -68,6 +69,7 @@ function DeepDiving({ onClose }: { onClose: () => void }) {
   const retry = () => {
     replaceWorld(createWorld(randomSeed()));
     milestoneRef.current = 0;
+    recordRef.current = false;
     setBest(bestDepth());
     syncHud();
   };
@@ -75,6 +77,8 @@ function DeepDiving({ onClose }: { onClose: () => void }) {
   const startRun = () => {
     replaceWorld({ ...currentWorld(), phase: "run" });
     milestoneRef.current = 0;
+    recordRef.current = false;
+    blipStart();
     syncHud();
   };
 
@@ -118,12 +122,16 @@ function DeepDiving({ onClose }: { onClose: () => void }) {
         milestoneRef.current = m;
         pingMilestone();
       }
+      if (!recordRef.current && best > 0 && distanceM(next) > best) {
+        recordRef.current = true;
+        pingRecord();
+      }
       drawFrame(canvasRef.current, next);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [phase]);
+  }, [phase, best]);
 
   // 非 ready/run 相位画一帧定格（暂停/结束/重开都经这里）
   useEffect(() => {

@@ -91,26 +91,33 @@ describe("沟缝几何", () => {
 });
 
 describe("突石", () => {
-  it("前两枚留缓冲：可见范围内不出 2*ROCK_SPACING 之前的石", () => {
-    for (const rock of rocksInRange(0, 3 * ROCK_SPACING, 9)) {
-      expect(rock.wx).toBeGreaterThanOrEqual(2 * ROCK_SPACING);
-    }
+  it("难度渐入：ROCK_START_WX 前不出石", () => {
+    const rocks = rocksInRange(0, 7 * ROCK_SPACING, 9);
+    expect(rocks.length).toBeGreaterThan(0);
+    for (const rock of rocks) expect(rock.wx).toBeGreaterThanOrEqual(1200);
   });
 
-  it("突石恒嵌在沟壁上（上缘或下缘）", () => {
-    for (let i = 2; i < 200; i++) {
+  it("突石悬在缝内，两侧各留 ≥16px 活水", () => {
+    for (let i = 6; i < 200; i++) {
       const rock = rockAt(i, 11);
-      const onWall = rock.y === wallTopAt(rock.wx, 11) || rock.y === wallBottomAt(rock.wx, 11);
-      expect(onWall).toBe(true);
+      expect(rock.y - rock.r).toBeGreaterThanOrEqual(wallTopAt(rock.wx, 11) + 16 - 1e-6);
+      expect(rock.y + rock.r).toBeLessThanOrEqual(wallBottomAt(rock.wx, 11) - 16 + 1e-6);
     }
   });
 
   it("撞石判死", () => {
     const w = createWorld(13);
-    const rock = rockAt(5, w.seed);
+    const rock = rockAt(8, w.seed);
     // 镜头摆到石正中：潜水器横坐标对准石头、y 对准石心
     const doomed: World = { ...w, phase: "run", camera: rock.wx - DIVER_X, y: rock.y, t: 0 };
     expect(step(doomed, { thrust: false }, DT).phase).toBe("dead");
+  });
+
+  it("石径随游程渐长：100m 处小石，250m 后封顶 ~30px", () => {
+    const small = rockAt(Math.ceil(1200 / ROCK_SPACING), 5);
+    expect(small.r).toBeLessThan(16);
+    const late = rockAt(Math.ceil(60_000 / ROCK_SPACING), 5);
+    expect(late.r).toBeLessThanOrEqual(33);
   });
 });
 

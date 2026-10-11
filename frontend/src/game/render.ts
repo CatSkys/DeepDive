@@ -102,39 +102,59 @@ function drawRocks(ctx: CanvasRenderingContext2D, w: World): void {
 
 function drawDiver(ctx: CanvasRenderingContext2D, w: World): void {
   const colors = themeColors();
-  // 气泡尾：三枚拖在身后（左侧），位置由 t 确定性摆出，跑帧零状态
+  // 螺旋桨气泡尾：三枚拖在艇尾（左侧），位置由 t 确定性摆出，跑帧零状态
   ctx.globalAlpha = 0.4;
   ctx.fillStyle = colors.ink3;
   for (let k = 0; k < 3; k++) {
     const sway = Math.sin(w.t / 170 + k * 2.1) * 3;
     ctx.beginPath();
-    ctx.arc(DIVER_X - DIVER_R - 5 - k * 7, w.y + sway, 1.8 - k * 0.4, 0, Math.PI * 2);
+    ctx.arc(DIVER_X - 16 - k * 7, w.y + sway, 1.8 - k * 0.4, 0, Math.PI * 2);
     ctx.fill();
   }
-  // 潜水器：实心圆 + 姿态短轴（按 vy 俯仰），死亡帧画 ✕
+  // 潜水艇：艇身胶囊 + 塔台 + 潜望镜 + 舷窗 + 尾鳍，随 vy 俯仰；死亡帧画 ✕
   ctx.globalAlpha = 1;
+  ctx.save();
+  ctx.translate(DIVER_X, w.y);
+  ctx.rotate(Math.max(-0.45, Math.min(0.45, w.vy / 500)));
   ctx.fillStyle = colors.ink;
   ctx.beginPath();
-  ctx.arc(DIVER_X, w.y, DIVER_R, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, 11, 6.5, 0, 0, Math.PI * 2);
   ctx.fill();
-  const tilt = Math.max(-0.6, Math.min(0.6, w.vy / 400));
-  ctx.strokeStyle = colors.ink;
-  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(DIVER_X - Math.cos(tilt) * (DIVER_R + 3), w.y - Math.sin(tilt) * (DIVER_R + 3));
-  ctx.lineTo(DIVER_X + Math.cos(tilt) * (DIVER_R + 3), w.y + Math.sin(tilt) * (DIVER_R + 3));
+  ctx.roundRect(-2, -11, 8, 6, 2);
+  ctx.fill();
+  ctx.strokeStyle = colors.ink;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(4, -11);
+  ctx.lineTo(4, -15);
+  ctx.lineTo(7, -15);
   ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-10, -1.5);
+  ctx.lineTo(-15, -5);
+  ctx.lineTo(-15, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = colors.ink3;
+  ctx.beginPath();
+  ctx.ellipse(4.5, 0, 1.8, 1.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-0.5, 0.5, 1.8, 1.8, 0, 0, Math.PI * 2);
+  ctx.fill();
   if (w.phase === "dead") {
     ctx.strokeStyle = colors.ink2;
     ctx.lineWidth = 1.4;
     const s = DIVER_R + 6;
     ctx.beginPath();
-    ctx.moveTo(DIVER_X - s, w.y - s);
-    ctx.lineTo(DIVER_X + s, w.y + s);
-    ctx.moveTo(DIVER_X + s, w.y - s);
-    ctx.lineTo(DIVER_X - s, w.y + s);
+    ctx.moveTo(-s, -s);
+    ctx.lineTo(s, s);
+    ctx.moveTo(s, -s);
+    ctx.lineTo(-s, s);
     ctx.stroke();
   }
+  ctx.restore();
 }
 
 /** 把世界画上画布。画布尺寸由 DeepDiving.tsx 按 dpr 设好（这里只画逻辑 480×320）。 */
