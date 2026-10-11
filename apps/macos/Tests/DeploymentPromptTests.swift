@@ -33,6 +33,9 @@ final class DeploymentPromptTests: XCTestCase {
         XCTAssertTrue(body.contains("mermaid"))
         // 2026-09-29 从引擎的 ui-deliverables 行搬来的那段（剪包后模型行为不变）
         XCTAssertTrue(body.contains("name the primary ones in your final"))
+        // ui 围栏词表（结构化交互组件）与 send 语义的钉子
+        XCTAssertTrue(body.contains("info string is `ui`"))
+        XCTAssertTrue(body.contains("embed the chosen value explicitly"))
     }
 
     /// 搬来的那段不许留"在 Web 里点开"那半句：我们的 SPA 不把行内代码渲染成可点链接。

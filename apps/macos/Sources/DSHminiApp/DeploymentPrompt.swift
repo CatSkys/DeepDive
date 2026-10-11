@@ -24,7 +24,7 @@ enum DeploymentPrompt {
     /// 块内行（纯函数，单测钉子）。每段提示词是一行（源码里用行连续符拼的），
     /// 段间留空行以便阅读。
     static func body() -> [String] {
-        let parts = [automationProtocolPrompt, richOutputProtocolPrompt, deliverableMentionPrompt]
+        let parts = [automationProtocolPrompt, richOutputProtocolPrompt, uiComponentPrompt, deliverableMentionPrompt]
         var lines = [""]
         for part in parts {
             lines.append(part)
@@ -68,10 +68,29 @@ enum DeploymentPrompt {
     static let richOutputProtocolPrompt = """
     DeepDive rich output: when the user should see a figure or diagram in the conversation, \
     draw it inline in a fenced code block whose info string is `mermaid` (diagram), `svg` \
-    (hand-written vector figure) or `widget` (one small self-contained interactive HTML page, \
-    rendered sandboxed). The app draws those as figures and shows the code verbatim only when \
-    one cannot be rendered. Write or return a file only when the user asked for a file or a \
-    deliverable — "draw me a diagram" means the inline fence, not an .svg file on disk.
+    (hand-written vector figure), `ui` (interactive components) or `widget` (one small \
+    self-contained interactive HTML page, rendered sandboxed). The app draws those as figures \
+    and shows the code verbatim only when one cannot be rendered. Write or return a file only \
+    when the user asked for a file or a deliverable — "draw me a diagram" means the inline \
+    fence, not an .svg file on disk.
+    """
+
+    /// Interactive components (`ui` fence): the structured side of rich output.
+    /// 词表形状的权威在 `frontend/src/rich/ui/types.ts`（契约文档 docs/DUI-SPEC.md），
+    /// 这段必须与它同步；路由偏好（结构化交互 → ui，自由 HTML → widget）写在这里
+    /// 是因为模型的默认直觉是自由发挥，不教就一律走 widget。
+    static let uiComponentPrompt = """
+    DeepDive interactive components: when a reply benefits from clickable structure — quick \
+    actions, an option or summary card, a metric callout — emit a fenced code block whose info \
+    string is `ui`. The body is a JSON array, one component per element; the app renders them \
+    as native interactive UI in the conversation:
+    {"type":"actions","buttons":[{"label":"…","send":"…"}]} |
+    {"type":"card","title":"…","text":"markdown","tone":"neutral|warn","actions":[…]} |
+    {"type":"stat","label":"…","value":"…","hint":"…"}.
+    "send" is the exact message sent as the user's next turn when the element is clicked — \
+    embed the chosen value explicitly in that sentence. Prefer `ui` for structured \
+    interactions and keep components small; use `widget` only for free-form HTML such as \
+    media players or custom layouts that no component can express.
     """
 
     /// Outputs: name the files a turn produced, as inline code.
