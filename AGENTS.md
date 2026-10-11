@@ -38,7 +38,7 @@ make app        # Release 构建 + 嵌入 web/engine 并打开（scripts/build-r
 make package    # Release + adhoc 深签 + DMG（dist/）
 DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 分发档（公证+装钉）：打包前自动把版本号最后一位 +1；前两位只有用户确认才能动（README 开发节）
 make tokens     # tokens.json → tokens.css（改 token 后必跑）
-make test       # 前端 vitest + 壳 XCTest 全量（scripts/test.sh）
+make test       # 前端 vitest+两道门 ∥ 壳 XCTest 两腿并行（scripts/test.sh；起跑前自动清占测试锁的残留宿主）
 make clean      # 清 .build 与 dist
 
 cd frontend && npm run build   # tsc -b --noEmit && vite build
@@ -51,9 +51,8 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 
 ## 完成的定义
 
-- `cd frontend && npm run build` 通过，且 `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` 零错误。
-- `cd frontend && npm run test` 与 `npm run lint` 零失败；改过壳侧 Swift 则 XCTest 全绿。
-- `make test` 里的两道门零失败：架构约束（`check-architecture.mjs`，新增违规为零）与引擎组合漂移（`check-engine-composition.sh`）。
+- `cd frontend && npm run build` 通过——严格 tsc（noUnusedLocals/noUnusedParameters 配在 tsconfig）就是 build 的第一步，不用再单跑一遍。
+- `cd frontend && npm run lint` 零失败；`make test` 全绿：前端 vitest + 两道门（架构约束 `check-architecture.mjs`、引擎组合 `check-engine-composition.sh`）与壳 XCTest 两腿并行，改过壳侧 Swift 由其中的 XCTest 覆盖。
 - 改前端/UI 的提交走完交付链到"应用已重启、用户可直接看"为止；**验收归用户，不自行截图/做视觉验收**（铁律 2）。
 - 无死代码残留：删除功能时代码、样式、文案、文档引用一并删干净；禁止留下注释掉的代码。
 

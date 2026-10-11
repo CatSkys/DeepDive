@@ -40,7 +40,10 @@ if lockFD < 0 {
     // 守卫失效必须可见（AUD-039）：静默放行第二实例会共用 DSH_HOME，会话写入交错
     fputs("DeepDive: cannot open instance lock \(lockPath): \(String(cString: strerror(errno)))\n", stderr)
 } else if !acquireLock(fd: lockFD, timeout: 5) {
-    // 已有实例在跑：请它显身（它自己处理"置前主窗"），本次启动到此为止。
+    // exit(0) 不能无声（PITFALLS §7.2）：测试宿主撞锁时 xcodebuild 只会报
+    // "test runner exited with code 0 before establishing connection"，锁路径
+    // 落 stderr 日志才能自解释。已有实例在跑：请它显身，本次启动到此为止。
+    fputs("DeepDive: instance lock held by another process (\(lockPath)); exiting.\n", stderr)
     DistributedNotificationCenter.default().post(
         name: Notification.Name("com.deepdive.app.show"),
         object: nil

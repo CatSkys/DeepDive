@@ -1057,8 +1057,9 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **`credentials/describe` 返回值从包裹变裸 map → 首启门误判「一个密钥都没配」**：0.1.2 返回 `{credentials:{ref:CredentialInfo}}`，0.1.5 直接返回 `Record<string, CredentialInfo>`（权威：钉住运行时的生成客户端声明 `dsh-api-settings-controller/lib/typert.remote-client.d.ts` 的 `describe: refs => Promise<RemoteResult<Record<string, CredentialInfo>>>`）。SPA 的 `api.credentialsDescribe` 仍按旧包裹取 `cr.credentials`，于是密钥态恒空、`configuredKnown && !anyConfigured` 成立，**每次启动都弹首启引导页**（密钥明明配好，引擎侧 `credentials/describe` 实况 configured:true）；设置页「测试连通」同样恒判「未配置」。处置：类型改裸 map、三处消费（useModelCatalog/ModelsManage）同步。（2026-09-11 撞上：重打包后交付链自检时页面上就是那道门。**升级引擎后凡"包裹层"契约都要按生成客户端 d.ts 复读一遍**，0.1.5 已有多处这类去包裹。）
 
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
-- main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`，无任何输出——测试新构建时极易误判"app 秒退"。
+- main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`（exit 前把锁路径打到 stderr）——测试新构建时极易误判"app 秒退"。
 - 处置：`DSHMINI_SUPPORT_DIR=<dir>` 隔离支撑目录（P2 新增 dev 钩子），或先退掉运行中的实例。
+- 中断/超时的**测试运行**会留下孤儿测试宿主：它握着隔离目录（`/tmp/dshmini-test-support`）的 instance.lock 不放，此后每轮 xcodebuild test 的宿主一启动就撞锁 exit(0)，xcodebuild 只报 "test runner exited with code 0 before establishing connection"——极难对上号（2026-10-11 实况：上会话遗留的 xcodebuild 连同宿主占锁，后续 XCTest 全体秒挂）。宿主被 kill 后其 xcodebuild 还会重拉一个，只杀宿主不够。处置：test.sh 起跑前预检该锁，按 Debug 产物路径识别宿主自动清场（清不掉宿主时连同本项目仍在跑的 xcodebuild 一起停）；非测试进程占锁则报错不动手。
 
 ### 7.3 settings.describe 的真实 namespace 图谱（rc.2 实测）
 - `agent-default-model` = `{provider, model, reasoningEffort}`（对象，不是字符串）；`permission` = `{defaultPreset}`；`ui-theme` = `{preference}`——**都不是以 ns 名直接存标量**，写值要 `settings.update(ns, patch=整值改路径, expectedRevision)` 或 mutate ops 指向子路径。
@@ -1100,6 +1101,18 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 改 `engine/` 要知道它会被覆盖：`engine/` 是 `deepseek-harness/` 的逐字 fork，
   `scripts/sync-engine-fork.mjs` 在每次升引脚时整树覆盖。改引擎源码要么记在
   `docs/` 里（本条即是），要么接受下次同步要重放。
+
+### 7.7 BrowserCookieTests 的固定 UUID store 会间歇性整轮超时（2026-10-11 实况，间歇复现中）
+- `setUp/tearDown` 对固定 UUID（`B0A1C2D3-…`）的**持久化** `WKWebsiteDataStore` 做
+  `clear`（"clean store"，20s 时限）。 Wedge 发作时每个用例在 20s×2 上爆掉，
+  整套件 520s+/32 失败；同一台机器干净时 0.26s 全绿。触发条件未定论：与
+  SIGKILL 过测试宿主强相关（删 store 目录、清孤儿 WebKit XPC 都不一定解），
+  错峰重跑又能全绿——**先重跑一次再排查**，别急着改代码。
+- 处置：发作时先原样重跑 `make test`（多半自己好）；连续发作才查
+  `~/Library/WebKit/com.deepdive.app/WebsiteDataStore/b0a1c2d3-…` 的占用与
+  WebKit 守护进程状态。根治方向（改 `.nonPersistent` store / 每轮换 UUID）是
+  测试设计改动，动前先对齐覆盖语义。另：WebKit XPC 服务的 PPID 是 launchd(1)
+  是**常态**，不能当孤儿进程的判据去杀。
 
 ## 9. 原生视图槽位（侧栏浏览器，2026-09-25 起）
 
