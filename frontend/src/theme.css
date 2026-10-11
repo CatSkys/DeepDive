@@ -3569,34 +3569,6 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   border-radius: var(--dsh-radius-card);
   overflow: hidden;
 }
-.md-embed-cover {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 14px 16px;
-}
-.md-embed-host { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-bright); }
-.md-embed-url {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--dsh-font-size-sm);
-  color: var(--ink-3);
-}
-.md-embed-note { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
-.md-embed-load {
-  height: 26px;
-  margin-top: 2px;
-  padding: 0 12px;
-  border: 1px solid var(--line-heavy);
-  border-radius: var(--dsh-radius-control);
-  color: var(--ink-bright);
-  font-size: var(--dsh-font-size-base);
-  font-weight: 500;
-}
-.md-embed-load:hover { border-color: var(--dsh-border-strong); }
 .md-embed-frame { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; }
 
 /* ── ui 围栏组件（`rich/ui/`，词表契约 docs/DUI-SPEC.md）：与 .auto-proposal
