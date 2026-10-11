@@ -2,10 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ComposerOverlayApp } from "./sidebar-right/ComposerOverlay";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initTitlebarBridge } from "./titlebar";
 import { initNativeSlotBridge } from "./nativeSlot";
 import { initChatFloatBridge } from "./sidebar-right/useComposerOverlay";
 import { installHoverArming } from "./hoverArming";
+import { installCrashGuard } from "./crashGuard";
 import { inShell } from "./host";
 import { IS_WINDOWS_OS } from "./platform";
 
@@ -16,12 +18,16 @@ const overlaySession = new URLSearchParams(window.location.search).get("composer
 
 if (overlaySession !== null && overlaySession !== "") {
   document.documentElement.dataset.overlay = "1";
+  installCrashGuard();
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <ComposerOverlayApp sessionId={overlaySession} />
+      <ErrorBoundary>
+        <ComposerOverlayApp sessionId={overlaySession} />
+      </ErrorBoundary>
     </React.StrictMode>
   );
 } else {
+  installCrashGuard();
   initTitlebarBridge();
   // 原生视图槽位（侧栏浏览器的 WKWebView 载体）：把标记了 data-native-slot 的元素 rect
   // 推给壳。无壳桥时它自己 no-op（纯浏览器走 iframe 载体）。
@@ -43,7 +49,9 @@ if (overlaySession !== null && overlaySession !== "") {
 
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </React.StrictMode>
   );
 }

@@ -3674,6 +3674,28 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 .md-ui-legend-item { display: flex; align-items: center; gap: 5px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .md-ui-legend-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
 
+/* ── 顶层错误边界（components/ErrorBoundary.tsx）：渲染树崩了的可恢复面板。
+   此前整树卸载 = 一块不响应的黑玻璃；这里给一句说明 + 重载钮，居中安置。 ── */
+.crash-boundary {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.crash-boundary-title { margin: 0; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
+.crash-boundary-reload {
+  height: 28px;
+  padding: 0 14px;
+  border: 1px solid var(--line-heavy);
+  border-radius: var(--dsh-radius-control);
+  color: var(--ink-bright);
+  font-size: var(--dsh-font-size-base);
+  font-weight: 500;
+}
+.crash-boundary-reload:hover { border-color: var(--dsh-border-strong); }
+
 /* ── 终端块恒为深色内容面：两种外观下都保持白字深底（macOS 惯例），
    不随 ink 变量翻转。代码块(.cb)有自己的 [data-theme] 双份变量。 ── */
 .terminal-command { color: rgba(255,255,255,.90); }
