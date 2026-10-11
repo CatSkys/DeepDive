@@ -75,6 +75,12 @@ dsh 引脚走；模型目录随它自带生成数据层，不再有数据覆盖�
 - 第三方依赖版本与 npm 发布闭包**有意不同**（fork 快照按 vendored lockfile 冻结解析，
   与发布那一刻的 resolution 存在约 74 个包的漂移；引擎自有代码两侧逐字节一致）。等价性
   不靠版本号一致保证，靠上面三道闸门保证——升级引脚后若闸门红，按闸门报错裁决。
+- `session-controller` 的 `/api/file`：在上游行为之上为 **video/\* 与 audio/\* 追加了
+  独立的 512MB 字节上限与单段 Range 支持**（上游对所有 MIME 一律套 imageLimits、
+  忽略 Range）。动机：DeepDive 沙箱 widget 要在工作区里播媒体，播放器以 Range
+  探测、媒体体积也远超图片档。非媒体 MIME 的行为与上游逐字一致（上限、忽略
+  Range、HEAD/413/稀疏文件守卫全保留）；语法坏与多段 Range 仍按 RFC 7233 忽略。
+  上游钉这两条行为的 spec（media-references.host.spec.ts）已按新契约改写。
 
 ## 本仓对引擎的改动纪律
 

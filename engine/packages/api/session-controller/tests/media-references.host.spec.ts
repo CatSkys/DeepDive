@@ -111,24 +111,73 @@ describe('SessionMediaReferences /api/file', () => {
     expect(await responseBytes(response)).toEqual(PNG_BYTES)
   })
 
-  it.each(['mp4', 'mp3', 'bin'])('applies the attachment byte cap to .%s files', async (extension) => {
+  it('keeps the attachment byte cap for non-media files', async () => {
     const route = await mount(PNG_BYTES.length)
-    const path = join(root, `file.${extension}`)
+    const path = join(root, 'file.bin')
     await writeFile(path, PNG_BYTES)
-    expect(await responseBytes(await route.call(path))).toEqual(PNG_BYTES)
     await appendFile(path, new Uint8Array(1))
     expect((await route.call(path)).status).toBe(413)
     expect((await route.call(path, { method: 'HEAD' })).status).toBe(413)
   })
 
-  it('ignores Range headers and returns complete bodies without advertising ranges', async () => {
-    const route = await mount()
+  it('serves media files under the independent media cap, not the image cap', async () => {
+    const route = await mount(PNG_BYTES.length)
     const path = join(root, 'clip.mp4')
     await writeFile(path, PNG_BYTES)
-    for (const range of ['bytes=0-3', 'bytes=-4', 'bytes=999-', 'bytes=abc', 'items=0-0', 'bytes=0-1,3-4']) {
+    await appendFile(path, new Uint8Array(1))
+    expect(await responseBytes(await route.call(path))).toEqual(new Uint8Array([...PNG_BYTES, 0]))
+    expect((await route.call(path, { method: 'HEAD' })).status).toBe(200)
+
+    const huge = join(root, 'huge.mp4')
+    const handle = await open(huge, 'w')
+    try {
+      await handle.truncate(512 * 1024 * 1024 + 1)
+    } finally {
+      await handle.close()
+    }
+    expect((await route.call(huge)).status).toBe(413)
+    expect((await route.call(huge, { method: 'HEAD' })).status).toBe(413)
+  })
+
+  it('ignores Range headers on non-media files and returns complete bodies', async () => {
+    const route = await mount()
+    const path = join(root, 'frame.png')
+    await writeFile(path, PNG_BYTES)
+    for (const range of ['bytes=0-3', 'bytes=-4', 'bytes=abc', 'items=0-0', 'bytes=0-1,3-4']) {
       const response = await route.call(path, { headers: { range } })
       expect(response.status).toBe(200)
       expect(response.headers.get('accept-ranges')).toBeNull()
+      expect(response.headers.get('content-range')).toBeNull()
+      expect(await responseBytes(response)).toEqual(PNG_BYTES)
+    }
+  })
+
+  it('serves single ranges on media files and ignores malformed or multi ranges', async () => {
+    const route = await mount()
+    const path = join(root, 'clip.mp4')
+    await writeFile(path, PNG_BYTES)
+    const total = String(PNG_BYTES.length)
+
+    const head = await route.call(path, { method: 'HEAD' })
+    expect(head.headers.get('accept-ranges')).toBe('bytes')
+
+    for (const [range, start, end] of [['bytes=0-3', 0, 3], ['bytes=2-', 2, PNG_BYTES.length - 1], ['bytes=-4', PNG_BYTES.length - 4, PNG_BYTES.length - 1]] as const) {
+      const response = await route.call(path, { headers: { range } })
+      expect(response.status).toBe(206)
+      expect(response.headers.get('content-range')).toBe(`bytes ${start}-${end}/${total}`)
+      expect(response.headers.get('accept-ranges')).toBe('bytes')
+      expect(await responseBytes(response)).toEqual(PNG_BYTES.slice(start, end + 1))
+    }
+
+    // 起点越过文件末尾 = RFC 7233 不可满足 → 416 + bytes */size
+    const unsatisfiable = await route.call(path, { headers: { range: `bytes=${PNG_BYTES.length}-` } })
+    expect(unsatisfiable.status).toBe(416)
+    expect(unsatisfiable.headers.get('content-range')).toBe(`bytes */${total}`)
+
+    // 语法坏/多段 Range 按规范忽略 → 200 全量
+    for (const range of ['bytes=abc', 'items=0-0', 'bytes=0-1,3-4']) {
+      const response = await route.call(path, { headers: { range } })
+      expect(response.status).toBe(200)
       expect(response.headers.get('content-range')).toBeNull()
       expect(await responseBytes(response)).toEqual(PNG_BYTES)
     }
