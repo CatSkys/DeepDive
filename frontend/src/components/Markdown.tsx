@@ -3,10 +3,11 @@ import { Lightbox } from "./Lightbox";
 import { CodeBlock } from "./CodeBlock";
 import { AutomationProposalCard } from "../automation/AutomationProposalCard";
 import { parseProposal, PROPOSAL_LANG } from "../automation/protocol";
-import { MERMAID_FENCE, SVG_FENCE, WIDGET_FENCE } from "../rich/fences";
+import { MERMAID_FENCE, SVG_FENCE, WIDGET_FENCE, UI_FENCE } from "../rich/fences";
 import { MermaidBlock } from "../rich/MermaidBlock";
 import { SvgBlock } from "../rich/SvgBlock";
 import { WidgetBlock } from "../rich/WidgetBlock";
+import { UiBlock } from "../rich/ui/UiBlock";
 import { parseBlocks, type Block } from "../markdown/blocks";
 import { inline, renderMath } from "../markdown/inline";
 
@@ -28,7 +29,7 @@ function taskOf(line: string): { done: boolean; text: string } | null {
 
 /** 单个块 → React 元素（不含 key：块级缓存复用同一个元素对象，key 由调用方的
  *  Fragment 按位置给）。 */
-function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) => void, onOpenFile?: (path: string, line?: number) => void): ReactNode {
+function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) => void, onOpenFile?: (path: string, line?: number) => void, onSend?: (text: string) => void): ReactNode {
   const open = (line: string, k: string) => inline(line, k, onImage, onOpenFile);
   switch (b.kind) {
           case "h1": return <h1 key={key}>{open(b.lines[0], key)}</h1>;
@@ -62,6 +63,7 @@ function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) 
             if (b.lang === MERMAID_FENCE) return <MermaidBlock key={key} code={body} unclosed={b.unclosed === true} />;
             if (b.lang === SVG_FENCE) return <SvgBlock key={key} source={body} unclosed={b.unclosed === true} />;
             if (b.lang === WIDGET_FENCE) return <WidgetBlock key={key} html={body} unclosed={b.unclosed === true} />;
+            if (b.lang === UI_FENCE) return <UiBlock key={key} body={body} unclosed={b.unclosed === true} onSend={onSend} />;
             return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
           }
           case "math": return <div key={key} className="md-math-block" dangerouslySetInnerHTML={{ __html: renderMath(b.lines[0] ?? "", true) }} />;
@@ -83,19 +85,23 @@ function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) 
 
 /** memo：流式期间每条增量都会重渲整个消息列表 —— 未变化的文本
  *  （历史消息占绝大多数）直接跳过 parseBlocks + 全量 reconcile。 */
-export const Markdown = memo(function Markdown({ text, onOpenFile }: {
+export const Markdown = memo(function Markdown({ text, onOpenFile, onSend }: {
   text: string;
   /** 本地文件链接的落点（预览窗口打开/跳行）；不传则链接按外链处理。 */
   onOpenFile?: (path: string, line?: number) => void;
+  /** `ui` 围栏动作按钮的落点（交互文本作为用户下一轮发出）；不传则按钮不动作。 */
+  onSend?: (text: string) => void;
 }) {
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   // 回调经 ref 转发：块级缓存会复用上次建的元素，闭包若焊死建元素那刻的 props
   // 就会拿着过期的 onOpenFile（SessionView 传的是内联箭头，每渲染换身份）。
-  const cb = useRef({ onOpenFile });
+  const cb = useRef({ onOpenFile, onSend });
   cb.current.onOpenFile = onOpenFile;
+  cb.current.onSend = onSend;
   const handlers = useRef({
     image: (src: string, alt: string) => setLightbox({ src, alt }),
     openFile: (path: string, line?: number) => cb.current.onOpenFile?.(path, line),
+    send: (text: string) => cb.current.onSend?.(text),
   }).current;
   // 块级元素缓存（官方 incremental 渲染的「块冻结」纪律，落在 React 元素这一层：
   // 流式期间只有正在增长的那个尾块内容在变）。键是**块的位置**：输入严格追加
@@ -117,7 +123,7 @@ export const Markdown = memo(function Markdown({ text, onOpenFile }: {
             return <Fragment key={`b${i}`}>{keep.node}</Fragment>;
           }
         }
-        const node = renderBlock(b, `b${i}`, handlers.image, handlers.openFile);
+        const node = renderBlock(b, `b${i}`, handlers.image, handlers.openFile, handlers.send);
         if (i < lastIdx) {
           // 上限兜底：实例内极少积累（一条消息几个块），超限整体丢弃重来
           if (cache.current.size >= 512) cache.current.clear();

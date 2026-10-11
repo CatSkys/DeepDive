@@ -3555,6 +3555,50 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 .md-widget-hint { margin-left: auto; color: var(--ink-3); }
 .md-widget-frame { display: block; width: 100%; height: 360px; border: 0; }
 
+/* ── ui 围栏组件（`rich/ui/`，词表契约 docs/DUI-SPEC.md）：与 .auto-proposal
+   同一份流内卡片配方——有描边、不指望 background（流内 background 被全局
+   !important 清掉，PITFALLS §1.14）；动作按钮「描边 + 亮字」。 ── */
+.md-ui { display: flex; flex-direction: column; gap: 10px; margin: 0 0 9px; }
+.md-ui-card {
+  box-sizing: border-box;
+  border: 0.5px solid var(--line-strong);
+  border-radius: var(--dsh-radius-card);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: pop-in var(--dur-med) var(--ease-out) both;
+}
+.md-ui-card-title { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-bright); }
+.md-ui-card-text { font-size: var(--dsh-font-size-base); line-height: 1.65; color: var(--ink-2); }
+.md-ui-card-text .md p:last-child { margin-bottom: 0; }
+.md-ui-card[data-tone="warn"] { border-color: var(--dsh-signal-warn); }
+.md-ui-stat {
+  box-sizing: border-box;
+  border: 0.5px solid var(--line-strong);
+  border-radius: var(--dsh-radius-card);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: pop-in var(--dur-med) var(--ease-out) both;
+}
+.md-ui-stat-value { font-size: var(--dsh-font-size-hero); font-weight: 700; color: var(--ink-bright); line-height: 1.2; }
+.md-ui-stat-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
+.md-ui-stat-hint { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+.md-ui-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.md-ui-btn {
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--line-heavy);
+  border-radius: var(--dsh-radius-control);
+  color: var(--ink-bright);
+  font-size: var(--dsh-font-size-base);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.md-ui-btn:hover { border-color: var(--dsh-border-strong); }
+
 /* ── 终端块恒为深色内容面：两种外观下都保持白字深底（macOS 惯例），
    不随 ink 变量翻转。代码块(.cb)有自己的 [data-theme] 双份变量。 ── */
 .terminal-command { color: rgba(255,255,255,.90); }

@@ -14,7 +14,7 @@ import { TurnProcessBar } from "./TurnProcessBar";
 import { computeTurnProcessCached } from "./turnProcess";
 import { LoadingState } from "../components/LoadingState";
 
-export function TurnList({ keyIdx, groups, running, runningSince, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onContinue }: {
+export function TurnList({ keyIdx, groups, running, runningSince, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onSendPrompt, onContinue }: {
   /** 首个成员的 key → 索引（翻页锚点落点用） */
   keyIdx: Map<string, number>;
   groups: TurnGroup[];
@@ -31,6 +31,8 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
   olderAnchorRef: MutableRefObject<HTMLElement | null>;
   onBranch?: (forkSeq: number) => void;
   onPreviewFile?: (path: string, line?: number) => void;
+  /** `ui` 围栏动作按钮的落点（交互文本作为用户下一轮发出）。 */
+  onSendPrompt?: (text: string) => void;
   onContinue?: () => void;
 }) {
   const nodes: React.ReactNode[] = [];
@@ -104,6 +106,7 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
               onBranch={onBranch}
               sessionId={sessionId}
               onPreviewFile={onPreviewFile}
+              onSendPrompt={onSendPrompt}
               wsPath={wsPath}
               cwd={cwd}
               hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}

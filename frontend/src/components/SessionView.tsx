@@ -62,8 +62,8 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const previewFull = previewOpen(preview) && preview.fullscreen;
   // 产物/预览路径解析：模型常写 cwd 相对路径，/api/file 与壳动作都要绝对路径
   const wsPath = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId)?.path;
-  // 会话动作回调（打开预览 / 分叉 / 继续）：三者都要引用稳定，契约与出处见该 hook。
-  const { openPreviewFile, branchFrom, continueTurn } = useSessionActions({ sessionId, store, preview, wsPath });
+  // 会话动作回调（打开预览 / 分叉 / 继续 / ui 按钮发送）：都要引用稳定，契约与出处见该 hook。
+  const { openPreviewFile, branchFrom, continueTurn, sendPrompt } = useSessionActions({ sessionId, store, preview, wsPath });
 
   // 底部悬浮区（用户定稿「消息区下延贴底」）：composer 悬浮于消息流之上，
   // flow 的 padding-bottom 按悬浮区实测高度动态设置（附件/排队坞/多行输入
@@ -356,6 +356,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               olderAnchorRef={olderAnchorRef}
               onBranch={branchFrom}
               onPreviewFile={openPreviewFile}
+              onSendPrompt={sendPrompt}
               onContinue={continueTurn}
             />
             {pending.map((a) => (

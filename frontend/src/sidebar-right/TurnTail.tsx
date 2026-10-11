@@ -9,6 +9,7 @@ import { useMemo, useRef, useState } from "react";
 import { useSessionEvents } from "../session/useSessionEvents";
 import { useFollowTail } from "../session/useFollowTail";
 import { TurnList } from "../session/TurnList";
+import { useSessionSend } from "../session/useSessionActions";
 import { groupTurns } from "../turnGroups";
 import { useStore } from "../store";
 
@@ -29,6 +30,8 @@ export function TurnTail({ sessionId }: { sessionId: string }) {
   const groups = useMemo(() => groupTurns(items), [items]);
   // 锚点索引只有历史翻页要用：卡片不翻页，空表即可（TurnList 那边据此不挂锚点）
   const keyIdx = useMemo(() => new Map<string, number>(), []);
+  // 卡片里的 ui 围栏动作按钮与会话页同一份发送实现
+  const sendPrompt = useSessionSend(sessionId);
   // 与会话页同一口径：事件侧 liveRunning 要等 turn/start 被观察到才为真，摘要的 running
   // 补上"刚发出、引擎还没吐第一个事件"那段窗口——loader 恰恰最该在那段出现。
   const running = liveRunning || !!summary?.running;
@@ -48,6 +51,7 @@ export function TurnTail({ sessionId }: { sessionId: string }) {
         wsPath={wsPath}
         cwd={summary?.cwd}
         olderAnchorRef={olderAnchorRef}
+        onSendPrompt={sendPrompt}
       />
     </div>
   );

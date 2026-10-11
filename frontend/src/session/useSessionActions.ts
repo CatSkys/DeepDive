@@ -1,13 +1,29 @@
-// 会话动作回调（唯一入口）：三个回调都以**引用稳定**为契约——Markdown 的 memo 只做
+// 会话动作回调（唯一入口）：这些回调都以**引用稳定**为契约——Markdown 的 memo 只做
 // 浅比较，调用点逐项新建的内联箭头会让它永远不等价，流式期间每条落定消息都要重新
 // parseBlocks（契约的钉子见 __tests__/streaming-memo.test.tsx）。
 // 放在这里是为了让 SessionView 只做编排，新逻辑不再往上堆。
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
 import { uuid } from "../uuid";
 import { useStore } from "../store";
 import type { FilePreview } from "../components/preview/useFilePreview";
+
+/** `ui` 围栏动作按钮的发送回调（悬浮对话卡与会话页共用这一份实现）：
+ *  运行中插队（steer，点按即生效）、空闲开新轮（queue）——与 Composer 的
+ *  空闲分支同一语义。store 经 ref 取值保证**零依赖**（引用稳定的契约面）。 */
+export function useSessionSend(sessionId: string): (text: string) => void {
+  const store = useStore();
+  const ref = useRef(store);
+  ref.current = store;
+  return useCallback((text: string) => {
+    const s = ref.current.sessions.find((x) => x.sessionId === sessionId)
+      ?? ref.current.allSessions.find((x) => x.sessionId === sessionId);
+    const mode = s?.running ? "steer" : "queue";
+    // 发送失败静默：轮次没开成时流里没有可挂错误的位置，与 continueTurn 同一纪律。
+    void api.prompt({ requestId: uuid(), sessionId, mode, content: [{ type: "text", text }] }).catch(() => void 0);
+  }, [sessionId]);
+}
 
 export interface SessionActions {
   /** 正文/产物里的本地文件链接落点：交预览窗口打开并落到该行。 */
@@ -16,6 +32,8 @@ export interface SessionActions {
   branchFrom: (atSeq: number) => void;
   /** turn-tail 的「继续」（max-tokens 截断后接着跑）。 */
   continueTurn: () => void;
+  /** `ui` 围栏动作按钮：交互文本作为用户下一轮发出。 */
+  sendPrompt: (text: string) => void;
 }
 
 export function useSessionActions({ sessionId, store, preview, wsPath }: {
@@ -48,5 +66,6 @@ export function useSessionActions({ sessionId, store, preview, wsPath }: {
     // 发送失败：max-tokens 卡保留，用户可再点。
     void api.prompt({ requestId: uuid(), sessionId, mode: "queue", content: [{ type: "text", text: t("继续") }] }).catch(() => void 0);
   }, [sessionId]);
-  return { openPreviewFile, branchFrom, continueTurn };
+  const sendPrompt = useSessionSend(sessionId);
+  return { openPreviewFile, branchFrom, continueTurn, sendPrompt };
 }
