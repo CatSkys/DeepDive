@@ -16,7 +16,7 @@
      keycap 6  迷你图标钮/小标签
      bubble 24  聊天气泡软胶囊；pill 999 / 圆 50% 为语义形状
    例外：≤16px 的微型元素（滚动条 thumb、
-   unread-dot、tool-sep 圆点）允许按比例小圆角。 */
+   unread-dot 圆点）允许按比例小圆角。 */
 @import "../packages/design/generated/tokens.css";
 
 /* ── 语义颜色变量（暗色 = 现值；亮色经 media query 覆盖）───────────────
@@ -788,7 +788,7 @@ button {
 
 /* 文件语言/类型图标（工具行文件名前，Material Icon Theme 素材，见 session/FileIcon.tsx）。
    素材自带品牌色，故不做 mask 反白；尺寸由组件内联，这里只负责盒模型、缩放与
-   图标↔文件名的间隙（4px：比 .tool-sep 的 8px 紧一档，图标与文件名是一组）。 */
+   图标↔文件名的间隙（4px，图标与文件名是一组）。 */
 .file-icon {
   flex: none;
   display: inline-flex;
@@ -2511,14 +2511,6 @@ button {
   background-clip: text;
   color: transparent;
   animation: shimmer-text 1.4s linear infinite;
-}
-.tool-sep {
-  background: var(--ink-3);
-  border-radius: 1px;
-  flex: none;
-  width: 2px;
-  height: 2px;
-  margin: 0 8px;
 }
 .tool-summary {
   text-overflow: ellipsis;
@@ -4473,7 +4465,6 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .tool-group-head > svg:first-child { flex: none; color: var(--ink-3); }
 /* hover 反馈与单条工具行同路：摘要提亮（组名已不摆）；运行中的行让位给脉冲 */
 .tool-group:not([data-state="running"]) .tool-group-head:hover .tool-group-summary { color: var(--ink); }
-.tool-group-sep { flex: none; color: var(--ink-3); }
 .tool-group-summary {
   flex: 1;
   min-width: 0;

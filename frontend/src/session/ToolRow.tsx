@@ -18,8 +18,8 @@ import { mergeArtifacts } from "../sidebar-right/sessionArtifacts";
 import { StateDot } from "./MessageRow";
 import { ToolIcon } from "./ToolIcon";
 import { FileIcon } from "./FileIcon";
-/// One-line tool row — DSH ToolRow port: icon · summary + chevron（用户定稿
-/// 2026-10-11：类别名不摆——图标即类别；摘要为空才落回名字/状态文案），
+/// One-line tool row — DSH ToolRow port: icon + summary + chevron（用户定稿
+/// 2026-10-11：类别名与分隔点不摆——图标即类别；摘要为空才落回名字/状态文案），
 /// expandable to reveal terminal output or raw arguments.
 export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd }: {
   toolName: string;
@@ -60,7 +60,6 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         </span>
         {summary ? (
           <>
-            <span className="tool-sep" aria-hidden="true" />
             {filePath && <FileIcon file={filePath} />}
             <span className="tool-summary">{summary}</span>
           </>

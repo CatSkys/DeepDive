@@ -1,6 +1,6 @@
 // 工具组行（工具执行合并的呈现，分组规则见 session/toolGroups.ts）：
-// 图标 + 分隔点 + 摘要 + 折叠箭头，与单条工具行同一观感（用户定稿 2026-10-11：
-// 一律 icon·摘要，组名不摆——类别由图标承载；运行中由摘要文字脉冲表示）。
+// 图标 + 摘要 + 折叠箭头，与单条工具行同一观感（用户定稿 2026-10-11：
+// 一律 icon·摘要，组名与分隔点不摆——类别由图标承载；运行中由摘要文字脉冲表示）。
 // 展开体是缩进的子行并带一条左分隔线（他们 `ml-2 border-l pl-3.5` 的同款）。
 import { useState, type ReactNode } from "react";
 import { ChevronDown, Pencil, Search } from "lucide-react";
@@ -31,7 +31,6 @@ export function ToolGroupRow({ groupKind, members, children }: {
     <div className="tool-group" data-state={running ? "running" : undefined}>
       <button type="button" className="tool-group-head" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         {GROUP_ICON[groupKind]}
-        <span className="tool-group-sep" aria-hidden="true">·</span>
         <span className="tool-group-summary">{summary}</span>
         <ChevronDown size={14} className="tool-group-chevron" style={open ? undefined : { transform: "rotate(-90deg)" }} />
       </button>

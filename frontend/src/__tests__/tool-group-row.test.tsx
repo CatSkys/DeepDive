@@ -1,5 +1,5 @@
 // 工具组行（session/ToolGroupRow）呈现契约（用户定稿 2026-10-11）：与单条工具行
-// 同一观感——icon·摘要，组名不摆；终端组图标与单条终端行同一个 glyph。
+// 同一观感——icon + 摘要，组名与分隔点不摆；终端组图标与单条终端行同一个 glyph。
 // 组在跑（末位成员未落结果）时 data-state=running，脉冲挂在摘要文字上（theme.css）。
 // @vitest-environment jsdom
 import { cleanup, render } from "@testing-library/react";
