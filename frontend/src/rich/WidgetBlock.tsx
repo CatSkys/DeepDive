@@ -33,10 +33,6 @@ export function WidgetBlock({ html, unclosed, onSend }: {
   }
   return (
     <div className="md-widget">
-      <div className="md-widget-head">
-        <span>{t("交互组件")}</span>
-        <span className="md-widget-hint">{t("沙箱内运行")}</span>
-      </div>
       <iframe
         ref={iframeRef}
         className="md-widget-frame"
