@@ -4,9 +4,10 @@
 // 渲染空。本仓按用户定稿加了一条：**胶囊有内容就渲染胶囊、没内容才渲染那枚按钮**——
 // 两者是同一个座位、同一个动作（开合面板），所以胶囊不再自带下拉面板，它的内容搬进了面板。
 //
-// 例外（用户 2026-10-09）：胶囊落到**浏览器那一级**时，点它去的是面板的**浏览器页**
-// （agent 正在看的那个页面）——"用户不知道去哪儿看浏览器"就是这条缺位。其余各级照旧
-// 开合状态面板。
+// 例外（用户 2026-10-09；呈现口径 2026-10-11 收紧）：胶囊落到**浏览器那一级**时，
+// 点它去的是面板的**浏览器页**（agent 正在看的那个页面）——"用户不知道去哪儿看浏览器"
+// 就是这条缺位，但呈现仍是边栏、不进全屏（整格呈现留给屏幕缩略图入口）。
+// 其余各级照旧开合状态面板。
 //
 // 没有会话就没有这个座位（官方：Without a session there is no button and no panel）。
 
@@ -33,9 +34,9 @@ export function PanelTrigger({ sessionId, scheduleRecords, browser }: {
   // 面板展开时座位让空（官方如此）：收起入口在面板自己的控件行里
   if (surface.open) return null;
   const toggle = () => {
-    // 浏览器那一级：直接开面板的浏览器页并进全屏呈现（看网页就该有整格的地方；
-    // 与会话设置里的「屏幕缩略图」同一动作）
-    if (data.pill?.kind === "browser") panelActions.expandBrowser(sessionId);
+    // 浏览器那一级：开面板的浏览器页，呈现仍是边栏（用户 2026-10-11 定稿——
+    // 进全屏是屏幕缩略图那个入口的动作，胶囊不做）
+    if (data.pill?.kind === "browser") panelActions.openBrowser(sessionId);
     else panelActions.setOpen(sessionId, true);
   };
   if (data.pill !== null) {

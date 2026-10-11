@@ -7,7 +7,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import {
-  collapse, emptySurface, expand, expandBrowser, setFullscreen, setMode, setSettings, showSession,
+  collapse, emptySurface, expand, expandBrowser, openBrowser, setFullscreen, setMode, setSettings, showSession,
   type PanelMode, type SurfaceState,
 } from "./panelState";
 
@@ -65,6 +65,10 @@ export const panelActions = {
   /** 点屏幕缩略图：换到浏览器页并进全屏呈现。 */
   expandBrowser(sessionId: string): void {
     commit(sessionId, expandBrowser(surfaceOf(sessionId)));
+  },
+  /** 胶囊的浏览器入口：开面板到浏览器页，呈现仍是边栏（用户 2026-10-11 定稿）。 */
+  openBrowser(sessionId: string): void {
+    commit(sessionId, openBrowser(surfaceOf(sessionId)));
   },
   /** 从浏览器页退回默认页。 */
   showSession(sessionId: string): void {

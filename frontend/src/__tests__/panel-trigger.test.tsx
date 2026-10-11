@@ -41,12 +41,12 @@ beforeEach(() => panelActions.reset());
 afterEach(cleanup);
 
 describe("PanelTrigger 的点击落点", () => {
-  it("浏览器那一级：点开面板的浏览器页（push 之上进全屏呈现，与点缩略图同一动作）", () => {
+  it("浏览器那一级：点开面板的浏览器页，呈现仍是边栏（不全屏，用户 2026-10-11 定稿）", () => {
     seat({ kind: "browser", title: "示例页", live: false });
     expect(screen.getByText("示例页")).toBeTruthy();
     expect(screen.getByRole("button").getAttribute("data-tip")).toBe("查看浏览器");
     fireEvent.click(screen.getByRole("button"));
-    expect(screen.getByTestId("surface").textContent).toBe("true|true|browser");
+    expect(screen.getByTestId("surface").textContent).toBe("true|false|browser");
   });
 
   // 胶囊的前导图标 = 浏览器 tab 那个站点图标（同一个来源，浏览器与胶囊不会各指一个站）
