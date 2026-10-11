@@ -98,7 +98,13 @@ enum DeploymentPrompt {
     components small; use `widget` only for free-form HTML such as media players or custom \
     layouts that no component can express. In `widget` HTML, reference workspace media with \
     src="/api/file?path=<absolute path>" — the app resolves it to the running origin \
-    (images, audio and video play inside the sandbox).
+    (images, audio and video play inside the sandbox). The widget iframe runs on an opaque \
+    origin: storage/cookie-dependent pages (Bilibili, most app sites) fail to initialize and \
+    render blank — never embed them in `widget`; for such videos emit a fenced code block \
+    whose info string is `embed` with the site's official embed URL on the body line \
+    (Bilibili: https://player.bilibili.com/player.html?bvid=<BV id>), and the app shows a \
+    cover card that loads it on click under the site's own origin. Or play direct media \
+    file URLs in `widget`.
     """
 
     /// Outputs: name the files a turn produced, as inline code.

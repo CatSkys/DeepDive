@@ -5,6 +5,7 @@ export const MERMAID_FENCE = "mermaid";
 export const SVG_FENCE = "svg";
 export const WIDGET_FENCE = "widget";
 export const UI_FENCE = "ui";
+export const EMBED_FENCE = "embed";
 
 /** 单个富输出围栏的字符上限（约 200KB）。 */
 export const RICH_FENCE_MAX_CHARS = 200_000;

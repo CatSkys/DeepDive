@@ -3,10 +3,11 @@ import { Lightbox } from "./Lightbox";
 import { CodeBlock } from "./CodeBlock";
 import { AutomationProposalCard } from "../automation/AutomationProposalCard";
 import { parseProposal, PROPOSAL_LANG } from "../automation/protocol";
-import { MERMAID_FENCE, SVG_FENCE, WIDGET_FENCE, UI_FENCE } from "../rich/fences";
+import { MERMAID_FENCE, SVG_FENCE, WIDGET_FENCE, UI_FENCE, EMBED_FENCE } from "../rich/fences";
 import { MermaidBlock } from "../rich/MermaidBlock";
 import { SvgBlock } from "../rich/SvgBlock";
 import { WidgetBlock } from "../rich/WidgetBlock";
+import { EmbedBlock } from "../rich/EmbedBlock";
 import { UiBlock } from "../rich/ui/UiBlock";
 import { parseBlocks, type Block } from "../markdown/blocks";
 import { inline, renderMath } from "../markdown/inline";
@@ -64,6 +65,7 @@ function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) 
             if (b.lang === SVG_FENCE) return <SvgBlock key={key} source={body} unclosed={b.unclosed === true} />;
             if (b.lang === WIDGET_FENCE) return <WidgetBlock key={key} html={body} unclosed={b.unclosed === true} onSend={onSend} />;
             if (b.lang === UI_FENCE) return <UiBlock key={key} body={body} unclosed={b.unclosed === true} onSend={onSend} />;
+            if (b.lang === EMBED_FENCE) return <EmbedBlock key={key} url={body} unclosed={b.unclosed === true} />;
             return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
           }
           case "math": return <div key={key} className="md-math-block" dangerouslySetInnerHTML={{ __html: renderMath(b.lines[0] ?? "", true) }} />;

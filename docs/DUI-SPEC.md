@@ -21,7 +21,7 @@
 
 ## 2. 组件词表 v1
 
-形状的唯一实现是 `frontend/src/rich/ui/types.ts`（校验函数 `componentOf`）；超限/类型不符 = 该项无效。字段上限的意图是挡滥用，不是协议版本。
+形状的唯一事实源是 `frontend/src/rich/ui/types.ts`，形状校验的唯一实现是 `frontend/src/rich/ui/validate.ts`（校验函数 `componentOf`）；超限/类型不符 = 该项无效。字段上限的意图是挡滥用，不是协议版本。
 
 | type | 字段 | 说明 |
 |---|---|---|
@@ -57,3 +57,14 @@
 iframe 内入口是注入的 bootstrap 暴露的 `window.dshui.sendPrompt/openLink`；bootstrap 同时周期上报内容高度。注入位置确定（`<head>`/`<html>` 后、纯片段串首），**同一输入永远同一输出**——srcDoc 引用稳定，iframe 不因重渲重载。目标 origin 一律 `"*"`：沙箱页本就不透明，父侧按 `event.source` 认身份而不是 origin。
 
 安全边界（改动前必读）：桥只上行、不下行；iframe 仍是 `allow-scripts` 孤岛；`sendPrompt` 上限即用户下一轮的一条文本，不携带任何宿主状态；`openLink` 的 https 白名单是显式决定。要加第三个动作前先在这里写清它的校验与上限。
+
+**已知边界（2026-10-11 实测，不可修复只能绕行）**：沙箱的不透明源（opaque origin）使一切依赖 storage/cookie 的跨源页面初始化即抛 SecurityError——B站等 App 类站点嵌入必黑屏；开 `allow-same-origin` 在 srcdoc 场景等于沙箱逃逸（模型 HTML 将拿到宿主同源权限），不做。B站图床/视频 CDN 另有 referer 防盗链，外链素材也拉不到。此类内容的正确形态：封面卡 + `openLink` 跳转，或直接媒体文件 URL（无防盗链的 mp4 可播）。
+
+## 4. `embed` 围栏——外链直嵌（2026-10-11 新增，用户定稿"基于权限放开"）
+
+` ```embed ` 围栏体是**一行 https URL**（如 B站官方外播页 `https://player.bilibili.com/player.html?bvid=<BV id>`），实现 `rich/EmbedBlock.tsx`。这类页面**不能进 srcdoc 沙箱**（不透明源必死，见上）——它们是跨源文档，用独立 URL iframe 承载：
+
+- **许可闸门 = 用户的点击**：默认只渲染封面卡（host + URL + 说明 + 「加载外部内容」钮），点击才挂 iframe——模型不能自动内嵌任意站点。
+- **加载后的隔离是结构性的**：跨源文档保留**其自身 origin**，storage/cookie 是它自己的（WebKit 分区），与宿主零共享；iframe 非 srcdoc，无同源逃逸面。沙箱旗标 `allow-scripts allow-same-origin allow-forms allow-popups` 对跨源页面只是恢复其自身能力。
+- URL 校验：仅 https、单行（多余残渣整块退回源码）；`allow` 属性给 autoplay/fullscreen/PiP/encrypted-media（播放器需要）。
+- 高度固定 16:9（aspect-ratio），与 widget 桥无关（跨源页面量不了高度，也不该量）。
