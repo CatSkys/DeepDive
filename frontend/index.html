@@ -8,20 +8,18 @@
   <body>
     <div id="root"></div>
     <script>
+      // 前端诊断通道（壳 BridgeServer 的 /__deepdive_error → engine.log [web] 行）。
+      // 用 sendBeacon：崩警自愈守卫会立刻 location.reload()，fetch 在卸载时会被
+      // 掐掉（2026-10-11 实测丢了一次现场栈），beacon 不挑卸载时机。
+      const report = (body) => { try { navigator.sendBeacon("/__deepdive_error", body); } catch { fetch("/__deepdive_error", { method: "POST", body }).catch(() => {}); } };
       window.addEventListener("error", (e) => {
         // 被跨源遮蔽的 Script error 拿不到 message/源——把 e.error 的 stack
         // 一并上报，冷启动诊断才有的放矢。
         const stack = e.error && e.error.stack ? "\n" + String(e.error.stack).slice(0, 1200) : "";
-        fetch("/__deepdive_error", {
-          method: "POST",
-          body: String(e.message || "") + "\n" + String(e.filename || "") + ":" + String(e.lineno || "") + ":" + String(e.colno || "") + stack,
-        }).catch(() => {});
+        report(String(e.message || "") + "\n" + String(e.filename || "") + ":" + String(e.lineno || "") + ":" + String(e.colno || "") + stack);
       });
       window.addEventListener("unhandledrejection", (e) => {
-        fetch("/__deepdive_error", {
-          method: "POST",
-          body: "rejection: " + String((e.reason && e.reason.stack) || e.reason),
-        }).catch(() => {});
+        report("rejection: " + String((e.reason && e.reason.stack) || e.reason));
       });
     </script>
     <script type="module" src="/src/main.tsx"></script>

@@ -25,6 +25,11 @@ function showBareNote(): void {
 export function installCrashGuard(): void {
   window.addEventListener("error", (e) => {
     if (!isMaxUpdateDepth(String(e.message ?? ""))) return;
+    // 先上报后重载：fetch 在卸载时会被掐掉，beacon 不挑时机——#185 的现场栈
+    // 只有这里能送出去（错误边界接不住调度器抛的这类错）。
+    try {
+      navigator.sendBeacon("/__deepdive_error", "[crashguard] " + String(e.message ?? "") + "\n" + String(e.error?.stack ?? ""));
+    } catch { /* beacon 不可用时放弃上报，重载不受影响 */ }
     const now = Date.now();
     const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
     if (now - last < RELOAD_WINDOW_MS) {

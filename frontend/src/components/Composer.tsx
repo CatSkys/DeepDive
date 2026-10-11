@@ -130,11 +130,19 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     }
     autoGrow(el);
   }, [text, multiline, widthTick]);
-  // 列宽变化（窗口缩放、容量圈进出）会移动折行点：量测件宽度一变就重跑上面那条
+  // 列宽变化（窗口缩放、容量圈进出）会移动折行点：量测件宽度一变就重跑上面那条。
+  // 只认**宽度**：高度变化不移动折行点（#185 教训——探针盒高度抖动引发的计数
+  // 重入是同步 setState 循环的燃料），宽度不变就不 tick。
   useEffect(() => {
     const probe = probeRef.current;
     if (!probe) return;
-    const ro = new ResizeObserver(() => setWidthTick((t) => t + 1));
+    let lastWidth = -1;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w === undefined || w === lastWidth) return;
+      lastWidth = w;
+      setWidthTick((t) => t + 1);
+    });
     ro.observe(probe);
     return () => ro.disconnect();
   }, []);
