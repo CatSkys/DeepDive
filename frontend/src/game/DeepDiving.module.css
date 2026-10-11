@@ -1,0 +1,115 @@
+/* DeepDiving 浮层：屏幕居中面板（对话族近实色材质 §2.2bis），画布 320×480 固定。
+   无全屏遮罩——点外部不关（游玩中的误触会打断），关闭走 ✕ / Esc；键盘焦点收在
+   面板上（tabIndex=-1，组件内处理），空格/方向键是推力，焦点离开即自动暂停。 */
+
+.panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  height: 480px;
+  z-index: 1100;
+  border-radius: var(--dsh-radius-floating);
+  background: var(--panel-strong);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  outline: none;
+}
+
+.canvas {
+  display: block;
+  width: 320px;
+  height: 480px;
+}
+
+/* HUD 文本层：只摆放、不吃指针（按钮除外）——按住画布任何位置都是推力。 */
+.hud {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 14px 16px;
+  pointer-events: none;
+  color: var(--ink);
+}
+.hudTop {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.hudDepth {
+  font-family: var(--dsh-font-mono-family);
+  font-size: var(--dsh-font-size-hero);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.hudBest {
+  margin-top: 2px;
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-3);
+}
+.hudBtns {
+  display: flex;
+  gap: 6px;
+}
+.hudBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--dsh-radius-control);
+  color: var(--ink-2);
+  pointer-events: auto;
+}
+:where(html[data-hover-armed]) .hudBtn:hover {
+  background: var(--row-hover);
+  color: var(--ink);
+}
+
+/* 暂停/结束盖层：近实色底（同面板族），压住画布与 HUD 文本。 */
+.ov {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--panel-strong);
+}
+.ovTitle {
+  font-size: var(--dsh-font-size-base);
+  color: var(--ink-2);
+}
+.ovDepth {
+  font-family: var(--dsh-font-mono-family);
+  font-size: var(--dsh-font-size-hero);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ovBest {
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-3);
+}
+.ovRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.ovBtn {
+  height: 30px;
+  padding: 0 16px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill-strong);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+}
+:where(html[data-hover-armed]) .ovBtn:hover {
+  background: var(--row-hover);
+}

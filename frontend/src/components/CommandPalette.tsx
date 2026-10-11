@@ -7,7 +7,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Archive, Check, Gauge, MessageSquare, Mic, PanelLeft, Pin, Plus, Search, Settings, SquarePen } from "lucide-react";
+import { Archive, Check, Gauge, MessageSquare, Mic, PanelLeft, Pin, Plus, Search, Settings, SquarePen, Waves } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useStore } from "../store";
 import { getWsIcon, useWsIcon } from "../wsIcons";
@@ -21,6 +21,7 @@ import { titleHidesSession } from "../session/backgroundSession";
 import { WsGlyph } from "./IconPicker";
 import { IconProjectAddOutline16 } from "./Icons";
 import { openNewProjectDialog } from "./NewProjectDialog";
+import { openDeepDiving } from "../game/store";
 import { SETTINGS_SECTIONS } from "./SettingsPage";
 import css from "./CommandPalette.module.css";
 
@@ -103,6 +104,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     const actions: Row[] = [
       { key: "new-project", icon: <IconProjectAddOutline16 size={15} />, label: t("新建项目"), run: () => openNewProjectDialog() },
       { key: "new-session", icon: <SquarePen size={15} />, label: t("新会话"), combo: comboFor("new-session", store.keybinds), run: () => store.openSession(null) },
+      { key: "deepdiving", icon: <Waves size={15} />, label: t("DeepDiving"), run: () => openDeepDiving() },
       { key: "attach", icon: <Plus size={15} />, label: t("添加附件"), run: () => dispatchAppEvent(DD_EVENTS.composerAttach) },
       { key: "dictation", icon: <Mic size={15} />, label: t("听写"), combo: comboFor("dictation", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.dictationToggle) },
       { key: "cycle-effort", icon: <Gauge size={15} />, label: t("思考强度切换"), combo: comboFor("cycle-effort", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.cycleEffort) },

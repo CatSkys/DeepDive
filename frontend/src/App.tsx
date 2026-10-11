@@ -33,6 +33,7 @@ import { NewProjectDialogHost } from "./components/NewProjectDialog";
 import { EditProjectDialogHost } from "./components/EditProjectDialog";
 import { IconPickerHost } from "./components/IconPicker";
 import { CommandPaletteHost, openCommandPalette } from "./components/CommandPalette";
+import { DeepDivingHost } from "./game/DeepDiving";
 import { useAppKeybinds } from "./useAppKeybinds";
 import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";
@@ -235,6 +236,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       <EditProjectDialogHost />
       <IconPickerHost />
       <CommandPaletteHost />
+      <DeepDivingHost />
       {/* 断线横幅：连上后掉线时出现（启动期引擎未起不算），重连即消失。
           但 failed 是**硬失败**，与"掉线"不同：首启就失败（新装机器入口缺失/
           架构不符/连续崩溃）时从没连上过，everConnected 恒 false——不特判就等于

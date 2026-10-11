@@ -13,6 +13,7 @@ import { ToolGroupRow } from "./ToolGroupRow";
 import { TurnProcessBar } from "./TurnProcessBar";
 import { computeTurnProcessCached } from "./turnProcess";
 import { LoadingState } from "../components/LoadingState";
+import { openDeepDiving } from "../game/store";
 
 export function TurnList({ keyIdx, groups, running, runningSince, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onSendPrompt, onWidgetError, onContinue }: {
   /** 首个成员的 key → 索引（翻页锚点落点用） */
@@ -136,11 +137,12 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
     );
   });
   // loader 挂在流末（两处调用方的顺序都靠它：会话页它紧邻审批/提问卡之前，对话卡里它是
-  // 滚动容器最后一行）——"正在干活但还没有新内容"这段窗口只有它能表达。
+  // 滚动容器最后一行）——"正在干活但还没有新内容"这段窗口只有它能表达。整行即
+  // DeepDiving 入口：等待的时间自己潜一段（.onClick 由 LoadingState 渲染成 button）。
   return (
     <>
       {nodes}
-      {running && <LoadingState label="Deep diving..." since={runningSince} />}
+      {running && <LoadingState label="Deep diving..." since={runningSince} onClick={openDeepDiving} />}
     </>
   );
 }

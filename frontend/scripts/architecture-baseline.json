@@ -51,10 +51,10 @@
       "detail": "780 lines > 300"
     },
     {
-      "id": "f664da0e96fc84f8",
+      "id": "a58888a234549483",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "381 lines > 300"
+      "detail": "383 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -63,22 +63,16 @@
       "detail": "338 lines > 300"
     },
     {
-      "id": "650d12b831eb0a0e",
+      "id": "c92e1b9d7332a161",
       "rule": "file-lines",
       "file": "frontend/src/components/Composer.tsx",
-      "detail": "595 lines > 300"
+      "detail": "616 lines > 300"
     },
     {
       "id": "29173287b348c446",
       "rule": "file-lines",
       "file": "frontend/src/components/composer/useComposerAttachments.ts",
       "detail": "425 lines > 300"
-    },
-    {
-      "id": "779bc554c6960f6f",
-      "rule": "file-lines",
-      "file": "frontend/src/components/SessionView.tsx",
-      "detail": "419 lines > 300"
     },
     {
       "id": "4818f35fb69487f7",
@@ -93,10 +87,10 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "782ac540b8f0a381",
+      "id": "00096d2226aa1db4",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1035 lines > 300"
+      "detail": "1049 lines > 300"
     },
     {
       "id": "90411fea4b28cfed",
@@ -115,6 +109,12 @@
       "rule": "file-lines",
       "file": "frontend/src/onboarding/steps/MigrateStep.tsx",
       "detail": "439 lines > 300"
+    },
+    {
+      "id": "195584ed1e22a6e7",
+      "rule": "file-lines",
+      "file": "frontend/src/rich/ui/types.ts",
+      "detail": "351 lines > 300"
     },
     {
       "id": "c2e2fa8c2fb2c633",

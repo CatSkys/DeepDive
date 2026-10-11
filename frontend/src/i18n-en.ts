@@ -1038,4 +1038,11 @@ export const EN: Record<string, string> = {
   "自定义提供方…": "Custom provider…",
   "选中即设为默认模型": "Selecting sets the default model",
   "已设为默认模型": "Set as the default model",
+
+  // DeepDiving（深潜）小游戏：流末 loader「Deep diving...」即入口（名字沿用品牌双关，
+  // 不入词典——zh 同串）。「关闭」「继续」「已暂停」已有词条，不重复收。
+  "打开 DeepDiving": "Open DeepDiving",
+  "再来": "Retry",
+  "最佳 {m} 米": "Best {m} m",
+  "提示音": "Sound",
 };
