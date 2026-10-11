@@ -24,7 +24,7 @@ enum DeploymentPrompt {
     /// 块内行（纯函数，单测钉子）。每段提示词是一行（源码里用行连续符拼的），
     /// 段间留空行以便阅读。
     static func body() -> [String] {
-        let parts = [automationProtocolPrompt, richOutputProtocolPrompt, uiComponentPrompt, deliverableMentionPrompt]
+        let parts = [automationProtocolPrompt, richOutputProtocolPrompt, uiComponentPrompt, deliverableMentionPrompt, toolCallLanguagePrompt]
         var lines = [""]
         for part in parts {
             lines.append(part)
@@ -132,5 +132,17 @@ enum DeploymentPrompt {
     DeepDive automation: when the user asks for a scheduled or recurring task, or to change one, \
     load the `deepdive-automation` skill and follow its protocol exactly. One-off reminders \
     inside this conversation keep using the schedule tools.
+    """
+
+    /// 工具调用的人类可读说明随会话语言（2026-10-11 用户定稿）。模型对话时跟着用户
+    /// 语言走，但调用参数里的 bash `description` / 浏览器控制的 `title` 像给自己写的
+    /// 批注，默认英文——应用把它逐字当工具行摘要显示（session/format.ts 的
+    /// bashSummary/browserSummary），用户全程中文却看到英文行。在这里说一次就覆盖
+    /// 现在与将来所有带这类字段的工具；不写进引擎工具的参数说明（fork 是上游同步面，
+    /// 且那段教法得逐工具重复）。命令/代码/路径/URL 不翻——那是字面量。
+    static let toolCallLanguagePrompt = """
+    DeepDive tool calls: the app shows each tool call's human-facing summary verbatim — \
+    the bash tool's `description` and the browser-control tool's `title`. Write those strings \
+    in the same language the user is conversing in; keep commands, code, file paths and URLs as-is.
     """
 }

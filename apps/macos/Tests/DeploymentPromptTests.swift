@@ -36,6 +36,8 @@ final class DeploymentPromptTests: XCTestCase {
         // ui 围栏词表（结构化交互组件）与 send 语义的钉子
         XCTAssertTrue(body.contains("info string is `ui`"))
         XCTAssertTrue(body.contains("embed the chosen value explicitly"))
+        // 工具调用的说明文字随会话语言（摘要逐字显示 description/title）
+        XCTAssertTrue(body.contains("same language the user is conversing"))
     }
 
     /// 搬来的那段不许留"在 Web 里点开"那半句：我们的 SPA 不把行内代码渲染成可点链接。
