@@ -414,8 +414,9 @@ function registerPersistentBash(ctx: Context, config: ResolvedConfig): void {
         type: 'string',
         required: true,
         description: 'Clear, concise description of what this command does in active voice, '
-          + '5-10 words (shown in the UI; use the user\'s language). Examples: "ls" → "List files in current directory"; '
-          + '"git status" → "Show working tree status"; "npm install" → "Install package dependencies".',
+          + '5-10 words (shown in the UI). Write it in the user\'s language: for a Chinese-speaking '
+          + 'user, "ls" → "列出当前目录文件", "git status" → "查看工作区状态"; for an English-speaking '
+          + 'user, "ls" → "List files in current directory".',
       },
     },
     output: {
