@@ -136,7 +136,7 @@ export const MODEL_BENCH: Record<string, ModelBenchRaw> = {
   "anthropic/claude-opus-5-5": { tps: 97.0, ii: 58 }, // AA #1/227
   "anthropic/claude-sonnet-4-5": { tps: 42.3, ii: 19 },
   "anthropic/claude-sonnet-4-5-20250929": { tps: 42.3, ii: 19 },
-  "anthropic/claude-sonnet-4-6": { tps: 44.7, ii: 25 },
+  "anthropic/claude-sonnet-4-6": { tps: 44.7, ii: 30 }, // AA 标 25est，Command Code 正式评分 30.1（2026-10-11 对照，取正式值）
   "anthropic/claude-sonnet-5": { tps: 79.0, ii: 38 },
   "anthropic/claude-sonnet-5-5": { tps: 141.8, ii: 56 },
   // google（AA 2026-10-11；-latest 是别名映射最新一代页；High 档口径）
