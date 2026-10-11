@@ -16,6 +16,8 @@ export interface ItemProps {
   onPreviewFile?: (path: string, line?: number) => void;
   /** `ui` 围栏动作按钮的落点：交互文本作为用户下一轮发出。 */
   onSendPrompt?: (text: string) => void;
+  /** widget 沙箱运行时错误回传（运行中自动告知模型）。 */
+  onWidgetError?: (message: string) => boolean;
   /** 工作区根（相对产物路径 → 绝对解析用）。 */
   wsPath?: string;
   /** 会话工作目录：present 交付文件的相对路径按它解析（引擎口径，与工作区路径
@@ -37,7 +39,7 @@ export interface ItemProps {
   hideThinking?: boolean;
 }
 
-function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, onSendPrompt, wsPath, cwd }: ItemProps) {
+function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking, onPreviewFile, onSendPrompt, onWidgetError, wsPath, cwd }: ItemProps) {
   if (item.kind === "user") {
     return (
       <div className="msg-block user">
@@ -59,7 +61,7 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
     return (
       <div className="msg-block assistant">
         {blocks.think && !hideThinking && <ThinkingState reasoning={blocks.think} running={false} ms={item.thinkMs} />}
-        <AgentMessage text={t} onOpenFile={onPreviewFile} onSend={onSendPrompt} />
+        <AgentMessage text={t} onOpenFile={onPreviewFile} onSend={onSendPrompt} onWidgetError={onWidgetError} />
       </div>
     );
   }
@@ -144,7 +146,7 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
     // 没有格式、落定瞬间整段重排"（用户报障）；同一组件也让两段之间不跳版式。
     // 揭示节奏与块级对焦动画见 StreamingAgentMessage / useFocusStream。
     return (
-      <StreamingAgentMessage output={item.output} running={running} onOpenFile={onPreviewFile} onSend={onSendPrompt} />
+      <StreamingAgentMessage output={item.output} running={running} onOpenFile={onPreviewFile} onSend={onSendPrompt} onWidgetError={onWidgetError} />
     );
   }
   return null;
@@ -157,8 +159,8 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
  *    落定…），按**独立的 itemV 原语 prop**分辨——不能从 item 上读 v：prev/next
  *    指向同一引用时读到的是同一份最新值，就地写脏会被整体判等漏过（2026-10-10
  *    流式整段冻结实测）。每帧提交由父层传值，prev/next 才留得住上一帧快照。
- *  onBranch/onPreviewFile/onSendPrompt/onContinue 不进比较：四个回调的契约就是引用稳定
- *  （useSessionActions 头注），其依赖（sessionId/wsPath）已逐项入表。 */
+ *  onBranch/onPreviewFile/onSendPrompt/onWidgetError/onContinue 不进比较：这些回调
+ *  的契约就是引用稳定（useSessionActions 头注），其依赖（sessionId/wsPath）已逐项入表。 */
 function areItemPropsEqual(prev: ItemProps, next: ItemProps): boolean {
   if (prev.item !== next.item) return false;
   if ((prev.itemV ?? 0) !== (next.itemV ?? 0)) return false;

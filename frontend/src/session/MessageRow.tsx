@@ -18,16 +18,18 @@ export function UserBubble({ text }: { text: string }) {
 
 
 /// Agent reply: pure text — NO bubble, NO element background (design rule).
-export function AgentMessage({ text, onOpenFile, onSend }: {
+export function AgentMessage({ text, onOpenFile, onSend, onWidgetError }: {
   text: string;
   /** 正文里本地文件链接（`src/app.ts:42`）的落点：交预览打开并落到该行。 */
   onOpenFile?: (path: string, line?: number) => void;
   /** `ui` 围栏动作按钮的落点（交互文本作为用户下一轮发出）。 */
   onSend?: (text: string) => void;
+  /** widget 沙箱运行时错误回传（运行中自动告知模型）。 */
+  onWidgetError?: (message: string) => boolean;
 }) {
   return (
     <div className="agent-message">
-      <Markdown text={text} onOpenFile={onOpenFile} onSend={onSend} />
+      <Markdown text={text} onOpenFile={onOpenFile} onSend={onSend} onWidgetError={onWidgetError} />
     </div>
   );
 }
@@ -36,16 +38,17 @@ export function AgentMessage({ text, onOpenFile, onSend }: {
 /** 流式中的正文项：直播缓冲经 useFocusStream 受控揭示（替代打字机式整段
  *  闪现），并挂 `.streaming` 作用域——块级对焦动画只在这条消息上播；落定
  *  后由 assistant 项接替（无作用域），历史加载永不重播动画。 */
-export function StreamingAgentMessage({ output, running, onOpenFile, onSend }: {
+export function StreamingAgentMessage({ output, running, onOpenFile, onSend, onWidgetError }: {
   output: string;
   running: boolean;
   onOpenFile?: (path: string, line?: number) => void;
   onSend?: (text: string) => void;
+  onWidgetError?: (message: string) => boolean;
 }) {
   const shown = useFocusStream(output, running);
   return (
     <div className={`msg-block assistant${running ? " streaming" : ""}`}>
-      <AgentMessage text={shown} onOpenFile={onOpenFile} onSend={onSend} />
+      <AgentMessage text={shown} onOpenFile={onOpenFile} onSend={onSend} onWidgetError={onWidgetError} />
     </div>
   );
 }

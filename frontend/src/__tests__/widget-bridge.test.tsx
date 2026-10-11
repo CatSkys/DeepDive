@@ -5,7 +5,7 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { openExternalUrl } from "../host";
-import { prepareWidgetHtml, resolveWidgetUrls, useWidgetBridge } from "../rich/widgetBridge";
+import { prepareWidgetHtml, resolveWidgetUrls, useWidgetBridge, widgetSandboxAttr } from "../rich/widgetBridge";
 import { fillTemplate } from "../rich/ui/form";
 
 vi.mock("../host", () => ({ openExternalUrl: vi.fn() }));
@@ -44,14 +44,33 @@ describe("prepareWidgetHtml", () => {
   });
 });
 
+describe("widgetSandboxAttr（Agent 自声明权限）", () => {
+  it("缺省只有 allow-scripts；meta 声明白名单内旗标照准", () => {
+    expect(widgetSandboxAttr("<div>hi</div>")).toBe("allow-scripts");
+    expect(widgetSandboxAttr('<meta name="dsh-perms" content="forms popups"><div>hi</div>'))
+      .toBe("allow-scripts allow-forms allow-popups");
+    // 重复声明去重
+    expect(widgetSandboxAttr('<meta name="dsh-perms" content="forms forms"><div></div>'))
+      .toBe("allow-scripts allow-forms");
+    // 白名单外的名字丢弃
+    expect(widgetSandboxAttr('<meta name="dsh-perms" content="camera geolocation"><div></div>'))
+      .toBe("allow-scripts");
+  });
+
+  it("allow-same-origin 结构性剥除——声明了也不行（srcdoc 同源 = 沙箱逃逸）", () => {
+    expect(widgetSandboxAttr('<meta name="dsh-perms" content="allow-same-origin"><div></div>'))
+      .toBe("allow-scripts");
+  });
+});
+
 describe("useWidgetBridge 父侧校验", () => {
   /** 挂一个最小宿主组件，返回伪造 iframe source 的派发入口。 */
-  function mountBridge(onSend: (text: string) => void) {
+  function mountBridge(handlers: { onSend?: (text: string) => void; onWidgetError?: (message: string) => void }) {
     const contentWindow = {} as Window;
     const ref = { current: { contentWindow } as unknown as HTMLIFrameElement };
     let lastHeight: number | null = null;
     function Host() {
-      const h = useWidgetBridge(ref, { onSend });
+      const h = useWidgetBridge(ref, handlers);
       lastHeight = h;
       return <iframe title="t" />;
     }
@@ -67,7 +86,7 @@ describe("useWidgetBridge 父侧校验", () => {
 
   it("sendPrompt：本 iframe 的合法文本放行；越界/坏类型/别家 iframe 丢弃", () => {
     const onSend = vi.fn();
-    const bridge = mountBridge(onSend);
+    const bridge = mountBridge({ onSend });
     bridge.post({ dsh: "sendPrompt", text: "用 3 人份重算" });
     expect(onSend).toHaveBeenCalledWith("用 3 人份重算");
     onSend.mockClear();
@@ -81,7 +100,7 @@ describe("useWidgetBridge 父侧校验", () => {
   });
 
   it("openLink：只放行 https（javascript:/http 明确丢弃）", () => {
-    const bridge = mountBridge(vi.fn());
+    const bridge = mountBridge({});
     bridge.post({ dsh: "openLink", url: "javascript:alert(1)" });
     bridge.post({ dsh: "openLink", url: "http://insecure.com" });
     bridge.post({ dsh: "openLink", url: 42 });
@@ -91,7 +110,7 @@ describe("useWidgetBridge 父侧校验", () => {
   });
 
   it("resize：有界采纳（越界夹到 40..4000），非有限数丢弃", () => {
-    const bridge = mountBridge(vi.fn());
+    const bridge = mountBridge({});
     bridge.post({ dsh: "resize", height: 300 });
     expect(bridge.lastHeight()).toBe(300);
     bridge.post({ dsh: "resize", height: 10 });
@@ -101,6 +120,18 @@ describe("useWidgetBridge 父侧校验", () => {
     bridge.post({ dsh: "resize", height: Number.NaN });
     bridge.post({ dsh: "resize", height: "300" });
     expect(bridge.lastHeight()).toBe(4000);
+  });
+
+  it("error：本 iframe 的错误转发给 onWidgetError（模型可见性）", () => {
+    const onWidgetError = vi.fn();
+    const bridge = mountBridge({ onWidgetError });
+    bridge.post({ dsh: "error", message: "SecurityError: localStorage" });
+    expect(onWidgetError).toHaveBeenCalledWith("SecurityError: localStorage");
+    onWidgetError.mockClear();
+    bridge.post({ dsh: "error", message: "" });
+    bridge.post({ dsh: "error", message: 42 });
+    bridge.post({ dsh: "error", message: "别处的 iframe" }, {} as Window);
+    expect(onWidgetError).not.toHaveBeenCalled();
   });
 });
 

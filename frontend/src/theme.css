@@ -3544,6 +3544,20 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   overflow: hidden;
 }
 .md-widget-frame { display: block; width: 100%; height: 360px; border: 0; }
+/* 沙箱运行时错误条（模型可见性：桥回传 window.error，用户也能看到/一键告知 AI） */
+.md-widget-errors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 0.5px solid var(--line);
+  font-size: var(--dsh-font-size-sm);
+  color: var(--dsh-signal-warn);
+  min-width: 0;
+}
+.md-widget-error-label { flex: none; font-weight: 600; }
+.md-widget-error-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.md-widget-errors .md-ui-btn { margin-left: auto; flex: none; height: 22px; padding: 0 10px; font-size: var(--dsh-font-size-sm); }
 
 /* ── embed 围栏（rich/EmbedBlock.tsx）：外链直嵌。封面卡先出、点击才加载
    （外部内容的许可闸）；加载后是跨源 iframe（保留其自身 origin，storage/

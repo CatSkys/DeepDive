@@ -831,6 +831,8 @@ export const EN: Record<string, string> = {
   "内容过大，已按源码显示": "Too large — showing source",
   "无法解析为组件，已按源码显示": "Could not parse as components — showing source",
   "交互组件": "Interactive widget",
+  "组件运行报错": "Widget runtime error",
+  "告知 AI": "Tell the AI",
   // plugins page（设置 → 插件：插件 / 技能两个 tab）
   "插件": "Plugins",
   "已安装": "Installed",

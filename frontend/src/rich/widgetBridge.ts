@@ -22,6 +22,10 @@ window.dshui = {
   sendPrompt: function(text){ if (typeof text === "string" && text.length > 0 && text.length <= 2000) post({ dsh: "sendPrompt", text: text }); },
   openLink: function(url){ if (typeof url === "string") post({ dsh: "openLink", url: url }); }
 };
+var errCount = 0;
+function reportError(m){ if (errCount >= 3) return; errCount++; post({ dsh: "error", message: String(m).slice(0, 500) }); }
+window.addEventListener("error", function(e){ reportError((e.message || "error") + (e.lineno ? " @" + e.lineno : "")); });
+window.addEventListener("unhandledrejection", function(e){ reportError("rejection: " + String(e.reason).slice(0, 300)); });
 var last = -1;
 function tick(){
   var h = Math.max(
@@ -73,6 +77,30 @@ export function prepareWidgetHtml(html: string, origin: string): string {
   return BRIDGE_SCRIPT + resolved;
 }
 
+// Agent 自声明权限（用户定稿「能力交给 Agent、绝对危险自己把控」）：模型在
+// widget HTML 头部写 <meta name="dsh-perms" content="forms popups …">，白名单
+// 内的沙箱旗标照准。**allow-same-origin 永远剥除**——本 widget 是 srcdoc，同源
+// 旗标 = 模型 HTML 拿到宿主页面的完整权限（DOM/localStorage/cookie），结构性
+// 逃逸；meta 里声明了也不行，这是代码层把控不是提示词约定。其余旗标对不透明
+// 源只是能力增量，碰不到宿主。
+const PERM_FLAGS: Record<string, string> = {
+  forms: "allow-forms",
+  popups: "allow-popups",
+  downloads: "allow-downloads",
+  modals: "allow-modals",
+};
+
+export function widgetSandboxAttr(html: string): string {
+  const flags = ["allow-scripts"];
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const declared = doc.querySelector('meta[name="dsh-perms"]')?.getAttribute("content") ?? "";
+  for (const name of declared.split(/\s+/)) {
+    const flag = PERM_FLAGS[name];
+    if (flag && !flags.includes(flag)) flags.push(flag);
+  }
+  return flags.join(" ");
+}
+
 // resize 上下界：低于 40 的上报是 bootstrap 异常或页面塌缩，高于 4000 的
 // 会把消息流撑爆——都按异常丢弃，保持默认高度。
 const MIN_HEIGHT = 40;
@@ -81,6 +109,8 @@ const MAX_PROMPT = 2000;
 
 export interface WidgetBridgeHandlers {
   onSend?: (text: string) => void;
+  /** 沙箱内运行时错误（window.error / unhandledrejection，每实例至多 3 条）。 */
+  onWidgetError?: (message: string) => void;
 }
 
 /** 父侧监听：逐条校验 iframe 上行消息。返回当前上报高度（无上报为 null，
@@ -90,7 +120,7 @@ export function useWidgetBridge(iframeRef: RefObject<HTMLIFrameElement | null>, 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
-      const data = event.data as { dsh?: string; text?: unknown; url?: unknown; height?: unknown } | null;
+      const data = event.data as { dsh?: string; text?: unknown; url?: unknown; height?: unknown; message?: unknown } | null;
       if (typeof data !== "object" || data === null) return;
       if (data.dsh === "sendPrompt") {
         if (typeof data.text === "string" && data.text.length > 0 && data.text.length <= MAX_PROMPT) {
@@ -105,6 +135,10 @@ export function useWidgetBridge(iframeRef: RefObject<HTMLIFrameElement | null>, 
       } else if (data.dsh === "resize") {
         if (typeof data.height === "number" && Number.isFinite(data.height)) {
           setHeight(Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(data.height))));
+        }
+      } else if (data.dsh === "error") {
+        if (typeof data.message === "string" && data.message.length > 0) {
+          handlers.onWidgetError?.(data.message);
         }
       }
     };

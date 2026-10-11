@@ -14,7 +14,7 @@ import { TurnProcessBar } from "./TurnProcessBar";
 import { computeTurnProcessCached } from "./turnProcess";
 import { LoadingState } from "../components/LoadingState";
 
-export function TurnList({ keyIdx, groups, running, runningSince, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onSendPrompt, onContinue }: {
+export function TurnList({ keyIdx, groups, running, runningSince, liveItem, processOpen, setProcessOpen, sessionId, wsPath, cwd, olderAnchorRef, onBranch, onPreviewFile, onSendPrompt, onWidgetError, onContinue }: {
   /** 首个成员的 key → 索引（翻页锚点落点用） */
   keyIdx: Map<string, number>;
   groups: TurnGroup[];
@@ -33,6 +33,8 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
   onPreviewFile?: (path: string, line?: number) => void;
   /** `ui` 围栏动作按钮的落点（交互文本作为用户下一轮发出）。 */
   onSendPrompt?: (text: string) => void;
+  /** widget 沙箱运行时错误回传（运行中自动告知模型）。 */
+  onWidgetError?: (message: string) => boolean;
   onContinue?: () => void;
 }) {
   const nodes: React.ReactNode[] = [];
@@ -107,6 +109,7 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
               sessionId={sessionId}
               onPreviewFile={onPreviewFile}
               onSendPrompt={onSendPrompt}
+              onWidgetError={onWidgetError}
               wsPath={wsPath}
               cwd={cwd}
               hideThinking={isAnswer && !procOpen && !!proc?.inlineReasoning}

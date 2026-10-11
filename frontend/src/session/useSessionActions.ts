@@ -4,7 +4,7 @@
 // 放在这里是为了让 SessionView 只做编排，新逻辑不再往上堆。
 import { useCallback, useRef } from "react";
 import { api } from "../api";
-import { t } from "../i18n";
+import { t, tt } from "../i18n";
 import { uuid } from "../uuid";
 import { useStore } from "../store";
 import type { FilePreview } from "../components/preview/useFilePreview";
@@ -22,6 +22,25 @@ export function useSessionSend(sessionId: string): (text: string) => void {
     const mode = s?.running ? "steer" : "queue";
     // 发送失败静默：轮次没开成时流里没有可挂错误的位置，与 continueTurn 同一纪律。
     void api.prompt({ requestId: uuid(), sessionId, mode, content: [{ type: "text", text }] }).catch(() => void 0);
+  }, [sessionId]);
+}
+
+/** widget 运行时错误回传（用户定稿「AI 要能看到沙箱」）：会话**运行中**自动
+ *  插队告知模型（自愈即时，模型当场改 HTML）；空闲 → 返回 false——widget 出
+ *  错误条 + 「告知 AI」按钮，发不发由用户决定，不自动开新轮。 */
+export function useWidgetErrorReport(sessionId: string): (message: string) => boolean {
+  const store = useStore();
+  const ref = useRef(store);
+  ref.current = store;
+  return useCallback((message: string) => {
+    const s = ref.current.sessions.find((x) => x.sessionId === sessionId)
+      ?? ref.current.allSessions.find((x) => x.sessionId === sessionId);
+    if (!s?.running) return false;
+    void api.prompt({
+      requestId: uuid(), sessionId, mode: "steer",
+      content: [{ type: "text", text: tt("组件运行报错，请检查：", "Widget runtime error, please check: ") + message }],
+    }).catch(() => void 0);
+    return true;
   }, [sessionId]);
 }
 

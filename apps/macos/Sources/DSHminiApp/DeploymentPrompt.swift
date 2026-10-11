@@ -104,7 +104,10 @@ enum DeploymentPrompt {
     whose info string is `embed` with the site's official embed URL on the body line \
     (Bilibili: https://player.bilibili.com/player.html?bvid=<BV id>), and the app shows a \
     cover card that loads it on click under the site's own origin. Or play direct media \
-    file URLs in `widget`.
+    file URLs in `widget`. A widget may declare extra capabilities with \
+    <meta name="dsh-perms" content="forms popups downloads modals"> in the HTML head \
+    (same-origin is never grantable). Runtime errors inside a widget are reported back \
+    to you — when you see one, fix the HTML and re-emit.
     """
 
     /// Outputs: name the files a turn produced, as inline code.

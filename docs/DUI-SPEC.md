@@ -53,6 +53,11 @@
 | `{dsh:"sendPrompt", text}` | `event.source === iframe.contentWindow`；text 为 1..2000 字符串 | `onSend(text)` → 与 ui 按钮同一条发送路径 |
 | `{dsh:"openLink", url}` | 同上；**仅 `https://`**（javascript:/http/data: 显式丢弃） | `openExternalUrl`（与 Markdown 外链同一出口） |
 | `{dsh:"resize", height}` | 同上；有限数夹到 40..4000 | iframe 自适应高度（未上报时保持默认 360px） |
+| `{dsh:"error", message}` | 同上；message 非空（bootstrap 限 500 字符/实例 3 条） | 错误条（用户可见）+ **运行中自动插队告知模型**；空闲出「告知 AI」按钮 |
+
+**Agent 自声明权限（2026-10-11，用户定稿「能力交给 Agent、绝对危险自己把控」）**：模型在 widget HTML 头部写 `<meta name="dsh-perms" content="forms popups downloads modals">`，前端按白名单应用沙箱旗标（`widgetSandboxAttr`）。**`allow-same-origin` 永远结构性剥除**——srcdoc 同源旗标 = 模型 HTML 拿到宿主页面完整权限（DOM/localStorage/cookie），meta 声明了也没用，这是代码层把控不是提示词约定。摄像头/麦克风/定位无授权通路，不给。
+
+**模型可见性**：沙箱内的 `window.error` / `unhandledrejection` 经桥回传（每实例至多 3 条），WidgetBlock 出错误条；会话**运行中**自动插队告知模型（`useWidgetErrorReport`，自愈即时），空闲时出「告知 AI」按钮——不自动开新轮。
 
 iframe 内入口是注入的 bootstrap 暴露的 `window.dshui.sendPrompt/openLink`；bootstrap 同时周期上报内容高度。注入位置确定（`<head>`/`<html>` 后、纯片段串首），**同一输入永远同一输出**——srcDoc 引用稳定，iframe 不因重渲重载。目标 origin 一律 `"*"`：沙箱页本就不透明，父侧按 `event.source` 认身份而不是 origin。
 
