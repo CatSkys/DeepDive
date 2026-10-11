@@ -121,6 +121,9 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
     return <RetryRow data={item.retryData} active={running} />;
   }
   if (item.kind === "tool-call") {
+    // present（交付）行不渲染（2026-10-12 用户定稿）：交付文件已由 turn-tail 的
+    // 产物行（ArtifactsRow）呈现，工具行这边只剩裸参数兜底——同一信息不出两行。
+    if (item.toolName === "present") return null;
     return (
       <ToolRow
         toolName={item.toolName ?? "tool"}

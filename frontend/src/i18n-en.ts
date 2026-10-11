@@ -284,7 +284,7 @@ export const EN: Record<string, string> = {
   "提问": "Ask",
   "任务": "Todos",
   "终端": "Terminal",
-  "读取文件": "Read File",
+  "读取": "Read",
   "读取图片": "Read Image",
   "写入文件": "Write File",
   "编辑": "Edit",
