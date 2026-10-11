@@ -6,7 +6,8 @@
 //     **绝不判失败**（流式期间最后一项随时可能继续长）；
 //   · 围栏闭合后严格：任何一项解析失败/形状不符、数组没闭合、`]` 后还有残渣 →
 //     整块 invalid，由块组件退回代码块显示原文。
-import { componentOf, type UiComponent } from "./types";
+import { componentOf } from "./validate";
+import type { UiComponent } from "./types";
 
 export interface UiParseResult {
   items: UiComponent[];
@@ -18,6 +19,23 @@ export interface UiParseResult {
 
 export function parseUiFence(body: string, unclosed: boolean): UiParseResult {
   const text = body.trim();
+  // 单对象容错（2026-10-11 验收实测：模型教了"JSON 数组"仍常直接发一个组件对象）：
+  // `{…}` 也算合法形态——闭合后整对象解析校验，未闭合时按暂定项处理（合规就提前
+  // 上屏，不合规只挂占位）。
+  if (text.startsWith("{")) {
+    let value: unknown;
+    try {
+      value = JSON.parse(text);
+    } catch {
+      // 未闭合 = 还在长（可能继续到能解析）；闭合后还解不动 = 残渣，退回源码。
+      return { items: [], pending: unclosed, invalid: !unclosed };
+    }
+    const component = componentOf(value);
+    if (component === null) {
+      return { items: [], pending: unclosed, invalid: !unclosed };
+    }
+    return { items: [component], pending: false, invalid: false };
+  }
   if (!text.startsWith("[")) {
     // `[` 还没到（或前面有模型废话）：未闭合继续等，闭合后按原文退回。
     return { items: [], pending: unclosed, invalid: !unclosed };

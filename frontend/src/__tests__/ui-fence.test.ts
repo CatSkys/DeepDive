@@ -2,7 +2,7 @@
 // 流式语义是产品行为（"边生成边渲染"、未闭合 ≠ 失败），回归在这里拦。
 import { describe, expect, it } from "vitest";
 import { parseUiFence } from "../rich/ui/parse";
-import { componentOf } from "../rich/ui/types";
+import { componentOf } from "../rich/ui/validate";
 
 const card = JSON.stringify({ type: "card", title: "方案", text: "说明", actions: [{ label: "去办", send: "请把方案 A 落地" }] });
 const stat = JSON.stringify({ type: "stat", label: "成本", value: 42 });
@@ -44,6 +44,18 @@ describe("parseUiFence 流式语义", () => {
   it("闭合的空数组与正常数组", () => {
     expect(parseUiFence("[]", false)).toEqual({ items: [], pending: false, invalid: false });
     expect(parseUiFence(`[${card}, ${stat}]`, false).items).toHaveLength(2);
+  });
+
+  it("单对象容错：模型常直接发一个组件对象，不算失败（2026-10-11 验收实测）", () => {
+    const single = parseUiFence(stat, false);
+    expect(single.invalid).toBe(false);
+    expect(single.items).toHaveLength(1);
+    // 未闭合的单对象：半截挂占位，合规就提前上屏
+    expect(parseUiFence('{"type":"sta', true)).toEqual({ items: [], pending: true, invalid: false });
+    expect(parseUiFence(stat, true).items).toHaveLength(1);
+    // 闭合后坏对象/带残渣仍按原样退回
+    expect(parseUiFence('{"type":"nope"}', false).invalid).toBe(true);
+    expect(parseUiFence(`${stat} 剩点话`, false).invalid).toBe(true);
   });
 });
 
