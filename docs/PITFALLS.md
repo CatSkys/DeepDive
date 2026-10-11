@@ -1102,17 +1102,22 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   `scripts/sync-engine-fork.mjs` 在每次升引脚时整树覆盖。改引擎源码要么记在
   `docs/` 里（本条即是），要么接受下次同步要重放。
 
-### 7.7 BrowserCookieTests 的固定 UUID store 会间歇性整轮超时（2026-10-11 实况，间歇复现中）
-- `setUp/tearDown` 对固定 UUID（`B0A1C2D3-…`）的**持久化** `WKWebsiteDataStore` 做
-  `clear`（"clean store"，20s 时限）。 Wedge 发作时每个用例在 20s×2 上爆掉，
-  整套件 520s+/32 失败；同一台机器干净时 0.26s 全绿。触发条件未定论：与
-  SIGKILL 过测试宿主强相关（删 store 目录、清孤儿 WebKit XPC 都不一定解），
-  错峰重跑又能全绿——**先重跑一次再排查**，别急着改代码。
-- 处置：发作时先原样重跑 `make test`（多半自己好）；连续发作才查
-  `~/Library/WebKit/com.deepdive.app/WebsiteDataStore/b0a1c2d3-…` 的占用与
-  WebKit 守护进程状态。根治方向（改 `.nonPersistent` store / 每轮换 UUID）是
-  测试设计改动，动前先对齐覆盖语义。另：WebKit XPC 服务的 PPID 是 launchd(1)
-  是**常态**，不能当孤儿进程的判据去杀。
+### 7.7 固定 UUID 持久化 WKWebsiteDataStore 的 clear 会间歇性整轮 20s×N 超时（2026-10-11 实况，已根治）
+- BrowserCookieTests 曾对固定 UUID（`B0A1C2D3-…`）的**持久化** store 在每个用例的
+  setUp/tearDown 做 `clear`（"clean store"，20s 时限）。Wedge 发作时整套件 520s+/
+  32 失败；SIGKILL 过测试宿主后尤其必发（守护进程记住了 store 状态），错峰重跑又能
+  全绿——今天为此烧掉了数轮 10-20 分钟。
+- **根治（同日落地）**：测试改用 `WKWebsiteDataStore.nonPersistent()` 内存实例，
+  setUp/tearDown 不再做持久 store 的 clear——断言的导入/读回/隔离语义不变，
+  这一类超时整体消失。教训：测试里**永远别碰持久化 WebKit store**；WebKit XPC
+  服务的 PPID 是 launchd(1) 是**常态**，不能当孤儿进程的判据去杀。
+
+### 7.8 BrowserHiddenTests 的 15s 固定 sleep 改不得（CSP 页会卡死 evaluate，2026-10-11 实锤）
+- 该套件独占 XCTest ~15.5s 的固定 sleep（1.5s 首评 + 每动作 1-1.5s）不是懒惰：
+  事件驱动轮询版（页面就绪表达式 + bounded fulfillment）在**干净环境**实锤复现
+  卡死——CSP 页（`default-src 'none'`）导航刚提交就 callAsyncJavaScript 会卡死
+  主线程，连 fulfillment 的超时都触发不了（用例挂 3 分钟+，只能杀）。原实现的
+  1.5s 首评间隔恰好避开这个窗口。15s 是覆盖语义的固定成本，**别再试图改快**。
 
 ## 9. 原生视图槽位（侧栏浏览器，2026-09-25 起）
 

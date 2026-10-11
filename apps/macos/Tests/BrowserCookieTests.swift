@@ -6,28 +6,18 @@ import WebKit
 
 /// cookie 导入这一块的钉子：三种库的解析（含 Chromium 的 AES 与 Safari 的二进制格式）、
 /// 来源发现、以及"写进 store 真的进去了"（用真 WebKit 的 cookie store 验）。
+/// store 用 `.nonPersistent()` 内存实例：断言的是导入与隔离，不碰磁盘持久 store——
+/// 固定 UUID 持久 store 的 clear 会间歇性整轮 20s×N 超时（PITFALLS §7.7）。
 final class BrowserCookieTests: XCTestCase {
     private var root: URL!
-    /// store 测试用的固定标识：每次 setUp 先清掉上一轮的残留
-    private let testStoreID = UUID(uuidString: "B0A1C2D3-E4F5-4061-8273-849506172839")!
 
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("dd-cookie-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        removeTestStore()
     }
 
     override func tearDownWithError() throws {
-        removeTestStore()
         try? FileManager.default.removeItem(at: root)
-    }
-
-    /// 测试用的 store：把内容清空（删目录那支 API 的 Swift 名字与可用性都别扭，
-    /// 而这里要的只是"每轮从干净的开始"）。
-    private func removeTestStore() {
-        let done = expectation(description: "clean store")
-        BrowserDataStore.clear(WKWebsiteDataStore(forIdentifier: testStoreID)) { done.fulfill() }
-        wait(for: [done], timeout: 20)
     }
 
     // MARK: - cookie → NSHTTPCookie
@@ -226,7 +216,7 @@ final class BrowserCookieTests: XCTestCase {
 
         let source = BrowserCookieSource.installed(home: root, applicationSupport: support)[0]
         XCTAssertEqual(source.id, "firefox")
-        let store = WKWebsiteDataStore(forIdentifier: testStoreID)
+        let store = WKWebsiteDataStore.nonPersistent()
         let done = expectation(description: "import")
         var payload: [String: Any] = [:]
         BrowserCookieImport.run(source: source, store: store) { result in

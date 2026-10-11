@@ -40,6 +40,9 @@ afterEach(() => {
 
 describe("useCompositionGuard", () => {
   it("组合中确认词的回车余波：吞掉且拦默认行为（不落换行）", () => {
+    // 余波窗是 Date.now() 墙钟判断（GRACE_MS=10）：真实时钟被步进 ≥10ms 时
+    // （本机 2026-10-11 实测发生过）两条同步语句之间就能"过窗"，假时钟钉死。
+    vi.useFakeTimers();
     const onSend = vi.fn();
     const { getByTestId } = render(<Harness onSend={onSend} />);
     const ta = getByTestId("ta");
