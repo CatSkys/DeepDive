@@ -59,6 +59,8 @@
 
 **模型可见性**：沙箱内的 `window.error` / `unhandledrejection` 经桥回传（每实例至多 3 条），WidgetBlock 出错误条；会话**运行中**自动插队告知模型（`useWidgetErrorReport`，自愈即时），空闲时出「告知 AI」按钮——不自动开新轮。
 
+**外观与背景（2026-10-11，交 Agent 决定）**：iframe 画布默认透明——模型画不画背景、画什么背景自己定（不画即透明融入对话）。宿主经 bootstrap 把应用外观写到沙箱的 `<html data-theme="dark|light">`（沙箱自己的 `prefers-color-scheme`，随外观切换即时翻转，PITFALLS §4.37 同一机制），模型 CSS 按主题键控即可。
+
 iframe 内入口是注入的 bootstrap 暴露的 `window.dshui.sendPrompt/openLink`；bootstrap 同时周期上报内容高度。注入位置确定（`<head>`/`<html>` 后、纯片段串首），**同一输入永远同一输出**——srcDoc 引用稳定，iframe 不因重渲重载。目标 origin 一律 `"*"`：沙箱页本就不透明，父侧按 `event.source` 认身份而不是 origin。
 
 安全边界（改动前必读）：桥只上行、不下行；iframe 仍是 `allow-scripts` 孤岛；`sendPrompt` 上限即用户下一轮的一条文本，不携带任何宿主状态；`openLink` 的 https 白名单是显式决定。要加第三个动作前先在这里写清它的校验与上限。

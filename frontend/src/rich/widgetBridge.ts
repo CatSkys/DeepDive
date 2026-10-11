@@ -26,6 +26,14 @@ var errCount = 0;
 function reportError(m){ if (errCount >= 3) return; errCount++; post({ dsh: "error", message: String(m).slice(0, 500) }); }
 window.addEventListener("error", function(e){ reportError((e.message || "error") + (e.lineno ? " @" + e.lineno : "")); });
 window.addEventListener("unhandledrejection", function(e){ reportError("rejection: " + String(e.reason).slice(0, 300)); });
+// 主题：沙箱自己的 matchMedia 读 prefers-color-scheme——壳把外观设在 webview
+// 上（PITFALLS §4.37），子框架跟随同一媒体查询，明暗翻转即时生效。写到
+// <html data-theme>，模型 CSS 据此决定背景（不画即透明融入对话）。宿主不
+// 推送：一个事实一个来源，没有两套机制打架。
+function applyScheme(){ document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; }
+applyScheme();
+var schemeQuery = matchMedia("(prefers-color-scheme: dark)");
+if (schemeQuery.addEventListener) schemeQuery.addEventListener("change", applyScheme);
 var last = -1;
 function tick(){
   var h = Math.max(
