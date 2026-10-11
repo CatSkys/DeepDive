@@ -790,6 +790,18 @@ export class LlmRuntime extends TypertRemoteService {
         'INVALID_MODEL_MAX_TOKENS',
       )
     }
+    // 牌价与能力事实同语义 rides through（absent means unknown）：适配器已把
+    // 未定价行滤成 undefined（pi-ai 的 NO_COST 0/0、自包含路由的手写目录），
+    // 这里只校验形状——漏抄会把牌价缝静默掐断（2026-10-11 实测 modelCatalog
+    // 全员无 cost 即此因）。
+    const cost = resolved.cost
+    if (cost !== undefined
+      && (!Number.isFinite(cost.input) || !Number.isFinite(cost.output))) {
+      throw new LlmError(
+        `adapter returned invalid cost metadata for provider "${provider}" model "${model}"`,
+        'INVALID_MODEL_INFO',
+      )
+    }
     const info: LlmResolvedModelInfo = {
       provider,
       id: model,
@@ -798,6 +810,7 @@ export class LlmRuntime extends TypertRemoteService {
       ...inputModalities === undefined ? {} : { inputModalities },
       ...context === undefined ? {} : { context: { contextWindow: context.contextWindow } },
       ...defaultMaxTokens === undefined ? {} : { defaultMaxTokens },
+      ...cost === undefined ? {} : { cost },
       ...resolved.systemPromptUpdate === undefined ? {} : { systemPromptUpdate: resolved.systemPromptUpdate },
     }
     const reasoning = resolved.reasoning
