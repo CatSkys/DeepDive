@@ -39,9 +39,11 @@ const opts: ModelOption[] = [
   },
   { provider: "deepseek-official", model: "deepseek-v4-nobench", label: "DeepSeek V4 Nobench", providerLabel: "DeepSeek" },
   {
+    // 登记表里是原值（tps 70.2 / ii 53），折档在 withFacts：速度 2 / 智能 4；
+    // 卡上成本跟引擎价（fixture 给 $5/$25 → 折 3 档）
     provider: "anthropic", model: "claude-fable-5-1", label: "Claude Fable 5.1", providerLabel: "Anthropic",
     inputModalities: ["text", "image"], contextWindow: 1000000,
-    facts: { speed: 2, intelligence: 4, cost: 0 },
+    cost: { input: 5, output: 25 },
   },
   {
     // 半张卡回归（用户 2026-10-10）：只有成本、缺速度/智能 → 占位框，绝不出现单条成本刻度
@@ -59,18 +61,18 @@ function Harness(props: { options: ModelOption[]; current: string }) {
     <div>
       <button ref={ref} data-testid="trigger">模型</button>
       {open && (
-        <ModelMenu options={props.options} current={props.current} onPick={() => {}} onClose={() => setOpen(false)} anchorRef={ref} />
+        <ModelMenu options={withFacts(props.options)} current={props.current} onPick={() => {}} onClose={() => setOpen(false)} anchorRef={ref} />
       )}
     </div>
   );
 }
 
 describe("模型基准登记表 join", () => {
-  it("命中登记表附加刻度，未收录原样回退（成本档已让位引擎价，见 costMeter）", () => {
+  it("原值折档：deepseek-v4-pro（84.7 tok/s · II 36）→ 速度 2 / 智能 2；未收录原样回退", () => {
     const out = withFacts(opts);
-    expect(out[0].facts).toEqual({ speed: 2, intelligence: 1 });
+    expect(out[0].facts).toEqual({ speed: 2, intelligence: 2 });
     expect(out[1].facts).toBeUndefined();
-    expect(out[2].facts).toBeDefined();
+    expect(out[2].facts).toEqual({ speed: 2, intelligence: 4 }); // 70.2 · 53
   });
 });
 
@@ -133,7 +135,7 @@ describe("模型菜单基准详情卡", () => {
     expect(document.querySelectorAll(".model-detail-meter").length).toBe(3);
     // 刻度条内缩（用户 2026-10-11 定稿）：0 档→10%、4 档→90%，永不空条/顶满
     const fills = [...document.querySelectorAll(".model-detail-meter .fill")].map((e) => (e as HTMLElement).style.width);
-    expect(fills).toEqual(["50%", "90%", "10%"]); // 速度2 / 智能4 / 成本0
+    expect(fills).toEqual(["50%", "90%", "70%"]); // 速度2 / 智能4 / 成本3（$5/$25 → 19）
   });
 
   it("搜索过滤：空组标题隐藏", () => {
