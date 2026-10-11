@@ -2478,7 +2478,7 @@ button {
   text-align: left;
   font: inherit;
 }
-:where(html[data-hover-armed]) .tool-row-main:hover .tool-title { color: var(--ink); }
+:where(html[data-hover-armed]) .tool-row-main:hover :is(.tool-title, .tool-summary) { color: var(--ink); }
 .tool-leading {
   width: 16px;
   height: 16px;
@@ -2497,10 +2497,13 @@ button {
   line-height: var(--flow-row);
   font-weight: 400;
 }
-/* 运行中的工具行：「正在执行」由**文字自己脉冲**（微光扫过，与思考行、流末加载行
+/* 运行中的工具行/工具组行：由**文字自己脉冲**（微光扫过，与思考行、流末加载行
    同一手法），前导位不再摆闪烁的状态点——状态由文字承载，图标保持与落定行同款
-   （用户定稿）。渐变的亮端取 --ink（最亮档），暗端 --ink-3，与加载行同一配色。 */
-.tool-row[data-state="running"] .tool-title {
+   （用户定稿）。行文案是 icon·摘要（用户定稿 2026-10-11），脉冲默认落在摘要上；
+   单条行摘要为空时标题兜底（「正在执行」）。渐变的亮端取 --ink（最亮档），
+   暗端 --ink-3，与加载行同一配色。 */
+.tool-row[data-state="running"] :is(.tool-title, .tool-summary),
+.tool-group[data-state="running"] .tool-group-summary {
   background-image: linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%);
   background-size: 200% 100%;
   background-position: 0 0;
@@ -2749,7 +2752,8 @@ button {
 @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .thinking-active, .thinking-done, .thinking-row,
-  .tool-row[data-state="running"] .tool-title,
+  .tool-row[data-state="running"] :is(.tool-title, .tool-summary),
+  .tool-group[data-state="running"] .tool-group-summary,
   .retry-row[data-active] .retry-text { animation: none !important; }
   .thinking-collapse, .thinking-line, .thinking-chevron, .thinking-head { transition: none !important; }
   .flow-inner, .session-header .title-row { animation: none !important; }
@@ -4461,9 +4465,9 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   text-align: left;
   color: var(--ink-2);
 }
-.tool-group-head:hover { color: var(--ink); }
 .tool-group-head > svg:first-child { flex: none; color: var(--ink-3); }
-.tool-group-label { flex: none; font-size: var(--dsh-font-size-base); line-height: var(--flow-row); }
+/* hover 反馈与单条工具行同路：摘要提亮（组名已不摆）；运行中的行让位给脉冲 */
+.tool-group:not([data-state="running"]) .tool-group-head:hover .tool-group-summary { color: var(--ink); }
 .tool-group-sep { flex: none; color: var(--ink-3); }
 .tool-group-summary {
   flex: 1;

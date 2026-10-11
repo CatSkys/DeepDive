@@ -152,13 +152,6 @@ const BUCKET_LABEL: Record<ExploreBucket, [string, string]> = {
   file: ["文件", "file"],
 };
 
-/** 三个组的标签（他们 chat.toolCall.{explore,executeGroup,changesGroup}.label）。 */
-export const GROUP_LABEL: Record<ToolGroupKind, [string, string]> = {
-  explore: ["查阅", "Explore"],
-  execute: ["终端", "Terminal"],
-  changes: ["更改", "Changes"],
-};
-
 /** 组内改动到的文件（去重，按首次出现顺序；取叶子名）。 */
 export function changedFiles(members: readonly RenderItem[]): string[] {
   const out: string[] = [];
