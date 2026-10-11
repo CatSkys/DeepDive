@@ -3,10 +3,10 @@
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
   "violations": [
     {
-      "id": "b830d89a4aa2ba38",
+      "id": "02b4292893327026",
       "rule": "file-lines",
       "file": "apps/macos/Sources/DSHminiApp/AppDelegate.swift",
-      "detail": "1017 lines > 300"
+      "detail": "1019 lines > 300"
     },
     {
       "id": "3ebdfe081f0708e8",

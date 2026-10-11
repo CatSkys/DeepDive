@@ -923,7 +923,8 @@ button {
   height: 4px;
   border-radius: 999px;
   background: var(--fill-strong);
-  /* 五段轨道的段界圆点（25/50/75%）：fill 盖住已划过段的点，余段可见 */
+  /* 五段轨道的段界圆点（25/50/75%，用户定稿不动）：fill 把 0–4 档映射到
+     10–90%（两端内缩，用户 2026-10-11 定稿——空条/满条会被误读成"没数据/拉满"） */
 }
 .model-detail-meter .track::after {
   content: "";

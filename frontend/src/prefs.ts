@@ -104,12 +104,18 @@ export function usePrefs() {
     localStorage.setItem("deepdive.archiveRetention", v);
     setArchiveRetentionState(v);
   }, []);
+  // 基准详情卡显隐（模型菜单 ⓘ；用户 2026-10-11 定稿：持久化、默认开）。
+  const [modelDetail, setModelDetailState] = useState(true);
+  const setModelDetail = useCallback((v: boolean) => {
+    setModelDetailState(v);
+    sendToShell({ type: "set-pref", key: "modelDetail", value: v });
+  }, []);
   // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗、键位覆盖；
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送——themeChanged 只到
   // 这里（不经 installHostBridge 的 handler 表），与主题相关只有 store 状态一处写入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
@@ -121,6 +127,7 @@ export function usePrefs() {
       if (typeof p.browserZoomDefault === "number") setBrowserZoomDefaultState(p.browserZoomDefault);
       if (typeof p.browserZoomRememberSite === "boolean") setBrowserZoomRememberSiteState(p.browserZoomRememberSite);
       if (typeof p.browserTabSleepMinutes === "number") setBrowserTabSleepMinutesState(p.browserTabSleepMinutes);
+      if (typeof p.modelDetail === "boolean") setModelDetailState(p.modelDetail);
     }
     if (cmd === "themeChanged") {
       const dark = (payload as { dark?: boolean } | undefined)?.dark;
@@ -142,6 +149,7 @@ export function usePrefs() {
     browserZoomDefault, setBrowserZoomDefault,
     browserZoomRememberSite, setBrowserZoomRememberSite,
     browserTabSleepMinutes, setBrowserTabSleepMinutes,
+    modelDetail, setModelDetail,
     onboarding, setOnboarding,
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,

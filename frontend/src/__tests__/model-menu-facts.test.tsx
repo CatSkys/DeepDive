@@ -10,6 +10,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
 import { costMeter, costScaleFromPrices, withFacts } from "../modelFacts";
 
+// jsdom 不实现 matchMedia（prefs.ts 初始化外观要用），补标准 stub
+if (!window.matchMedia) {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}
+
 // useT 依赖 store context：本测试只关心词典默认态（zh 恒等），给个最小壳。
 vi.mock("../store", () => ({ useStore: () => ({ lang: "zh" }) }));
 
@@ -88,12 +102,19 @@ describe("模型菜单基准详情卡", () => {
     expect(document.querySelector(".model-menu-row .provider")).toBeNull();
   });
 
-  it("ⓘ 开卡：默认显示当前选择；hover 换内容；未收录显示占位框", () => {
+  it("ⓘ 基准详情默认开（壳偏好持久化，用户 2026-10-11 定稿）：点击收起/再开；hover 换内容；未收录显示占位框", () => {
     render(<Harness options={opts} current="Claude Fable 5.1" />);
+    // 默认开：卡直接在，内容跟当前选择
+    expect(document.querySelector(".model-detail")).not.toBeNull();
+    expect(document.querySelector(".model-detail-name")!.textContent).toBe("Claude Fable 5.1");
+    // 点击收起 → 再点重开
+    fireEvent.click(document.querySelector(".model-menu-info")!);
     expect(document.querySelector(".model-detail")).toBeNull();
     fireEvent.click(document.querySelector(".model-menu-info")!);
     expect(document.querySelector(".model-detail")).not.toBeNull();
-    expect(document.querySelector(".model-detail-name")!.textContent).toBe("Claude Fable 5.1");
+    // ⓘ 的悬浮注释走全局 data-tip 规范（不是原生 title）
+    expect(document.querySelector(".model-menu-info")!.getAttribute("data-tip")).toBe("基准详情");
+    expect(document.querySelector(".model-menu-info")!.getAttribute("title")).toBeNull();
     const rows = [...document.querySelectorAll(".model-menu-row")];
     // hover 未收录模型 → 占位框，卡名跟到 hover 行
     //（React 的 onMouseEnter 是 mouseover 模拟出来的；HoverScrollText 会渲染
@@ -110,6 +131,9 @@ describe("模型菜单基准详情卡", () => {
     expect(document.querySelector(".model-detail-name")!.textContent).toBe("Claude Fable 5.1");
     expect(document.querySelector(".model-detail-nobench")).toBeNull();
     expect(document.querySelectorAll(".model-detail-meter").length).toBe(3);
+    // 刻度条内缩（用户 2026-10-11 定稿）：0 档→10%、4 档→90%，永不空条/顶满
+    const fills = [...document.querySelectorAll(".model-detail-meter .fill")].map((e) => (e as HTMLElement).style.width);
+    expect(fills).toEqual(["50%", "90%", "10%"]); // 速度2 / 智能4 / 成本0
   });
 
   it("搜索过滤：空组标题隐藏", () => {
@@ -121,7 +145,8 @@ describe("模型菜单基准详情卡", () => {
 
   it("点卡片不关闭菜单，外点（body）才关", async () => {
     render(<Harness options={opts} current="Claude Fable 5.1" />);
-    fireEvent.click(document.querySelector(".model-menu-info")!);
+    fireEvent.click(document.querySelector(".model-menu-info")!); // 默认开 → 先收起
+    fireEvent.click(document.querySelector(".model-menu-info")!); // 再展开
     const card = document.querySelector(".model-detail")!;
     fireEvent.mouseDown(card);
     expect(document.querySelector(".model-menu")).not.toBeNull();

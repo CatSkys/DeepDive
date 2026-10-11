@@ -11,6 +11,20 @@ import { ModelMenu, type ModelOption } from "../components/ModelMenu";
 import { EffortPicker } from "../components/composer/EffortPicker";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
 
+// jsdom 不实现 matchMedia（prefs.ts 初始化外观要用），补标准 stub
+if (!window.matchMedia) {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}
+
 vi.mock("../store", () => ({ useStore: () => ({ lang: "zh", keybinds: undefined }) }));
 
 afterEach(cleanup);
@@ -62,7 +76,8 @@ describe("模型菜单 · 只选模型", () => {
 
   it("点无档位模型：同样提交并关闭（两条路径同一口径）", () => {
     const { onPick, onClose } = setupMenu();
-    fireEvent.click(screen.getByText("GPT-4o"));
+    // 基准详情默认开（用户 2026-10-11 定稿）：卡上也有一份当前选择名，点菜单行
+    fireEvent.click(screen.getAllByText("GPT-4o")[0]);
 
     expect(onPick).toHaveBeenCalledWith(PLAIN);
     expect(onClose).toHaveBeenCalledTimes(1);

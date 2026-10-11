@@ -33,6 +33,8 @@ enum DSHAppPrefs {
     /// 桥监听端口：固定下来前端 origin 才稳（localStorage 按 origin 分家）。
     /// 0 = 还没定过（首次启动由内核分配，随后记下）。
     static let bridgePortKey = "deepdive.bridge.port"
+    /// 模型菜单基准详情卡的显隐（前端模型菜单 ⓘ 开关，默认开）。
+    static let modelDetailKey = "deepdive.ui.modelDetail"
     /// 新手引导进度（JSON 串，结构由前端 `onboarding/useOnboarding.ts` 定义并解析，
     /// 壳只存不解析）。跨启动的 durable 状态走壳而不走 localStorage——后者随 origin
     /// 漂移（PITFALLS §4.17）。
@@ -125,6 +127,12 @@ enum DSHAppPrefs {
 
     static func setBridgePort(_ value: Int) {
         UserDefaults.standard.set(value, forKey: bridgePortKey)
+    }
+
+    static var modelDetail: Bool { boolDefaultingTrue(modelDetailKey) }
+
+    static func setModelDetail(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: modelDetailKey)
     }
 
     static func setSidebarWidth(_ value: Double) {

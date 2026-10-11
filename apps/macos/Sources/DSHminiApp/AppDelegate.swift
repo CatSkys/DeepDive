@@ -291,6 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     DSHAppPrefs.setDockIcon(value)
                     NSApp.setActivationPolicy(value ? .regular : .accessory)
                 case "bubble": FloatingBubbleManager.shared.setEnabled(value)
+                case "modelDetail": DSHAppPrefs.setModelDetail(value)
                 default: break
                 }
             } else if key == "sidebarWidth" {
@@ -783,6 +784,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "browserZoomDefault": Double(BrowserZoom.defaultZoom()),
             "browserZoomRememberSite": BrowserZoom.remembersPerSite(),
             "browserTabSleepMinutes": BrowserTabs.sleepMinutes(),
+            "modelDetail": DSHAppPrefs.modelDetail,
         ]
     }
 

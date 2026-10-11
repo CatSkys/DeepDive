@@ -13,6 +13,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { RefObject } from "react";
 import { useT } from "../i18n";
+import { usePrefs } from "../prefs";
 import { Check, Info, Search } from "lucide-react";
 import { ProviderIcon } from "./ProviderIcon";
 import { HoverScrollText } from "./HoverScrollText";
@@ -75,8 +76,8 @@ export function ModelMenu({
   anchorRef: RefObject<HTMLElement | null>;
 }) {
   const { t } = useT();
+  const { modelDetail: infoOn, setModelDetail: setInfoOn } = usePrefs();
   const [query, setQuery] = useState("");
-  const [infoOn, setInfoOn] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [rect, setRect] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -145,8 +146,8 @@ export function ModelMenu({
               type="button"
               className="model-menu-info"
               aria-pressed={infoOn}
-              title={t("基准详情")}
-              onClick={() => setInfoOn((v) => !v)}
+              data-tip={t("基准详情")}
+              onClick={() => setInfoOn(!infoOn)}
             >
               <Info size={13} />
             </button>

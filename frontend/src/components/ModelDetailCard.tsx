@@ -12,13 +12,15 @@ import { fmtContext } from "../settings/ModelsManage";
 import { costMeter } from "../modelFacts";
 import type { ModelOption } from "./ModelMenu";
 
-/** 一条刻度：标签行 + 五段轨道（fill 按刻度 0–4 占 0–100%；段界圆点画在轨道上）。 */
+/** 一条刻度：标签行 + 五段轨道。fill 按 0–4 档映射到 10–90%（用户 2026-10-11
+ *  定稿：条长永不落空、也永不顶满——两端读数最易被误读成"没数据/成本拉满"）；
+ *  轨道圆点保持在 25/50/75% 不动（用户定稿）。 */
 function Meter({ label, value }: { label: string; value: number }) {
   return (
     <div className="model-detail-meter">
       <span className="lbl">{label}</span>
       <span className="track">
-        <span className="fill" style={{ width: `${value * 25}%` }} />
+        <span className="fill" style={{ width: `${10 + value * 20}%` }} />
       </span>
     </div>
   );
