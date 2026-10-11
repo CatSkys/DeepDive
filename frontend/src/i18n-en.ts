@@ -1054,4 +1054,5 @@ export const EN: Record<string, string> = {
   "本局 {s} 分": "Score {s}",
   "成 2048 了，还能继续": "Made 2048 — keep going",
   "方向键或 WASD 滑动，同数相合，凑出 2048": "Arrow keys / WASD to slide — equal numbers merge. Reach 2048",
+  "游戏": "Games",
 };

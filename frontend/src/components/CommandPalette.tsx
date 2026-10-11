@@ -105,8 +105,6 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     const actions: Row[] = [
       { key: "new-project", icon: <IconProjectAddOutline16 size={15} />, label: t("新建项目"), run: () => openNewProjectDialog() },
       { key: "new-session", icon: <SquarePen size={15} />, label: t("新会话"), combo: comboFor("new-session", store.keybinds), run: () => store.openSession(null) },
-      { key: "deepdiving", icon: <Waves size={15} />, label: t("DeepDiving"), run: () => openDeepDiving() },
-      { key: "2048", icon: <LayoutGrid size={15} />, label: t("2048"), run: () => openGame2048() },
       { key: "attach", icon: <Plus size={15} />, label: t("添加附件"), run: () => dispatchAppEvent(DD_EVENTS.composerAttach) },
       { key: "dictation", icon: <Mic size={15} />, label: t("听写"), combo: comboFor("dictation", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.dictationToggle) },
       { key: "cycle-effort", icon: <Gauge size={15} />, label: t("思考强度切换"), combo: comboFor("cycle-effort", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.cycleEffort) },
@@ -182,8 +180,14 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
     // 五类的顺序就是列表顺序；列表平铺，每行尾部标自己的种类（参考图的做法），
     // 所以这里的分组只在建表时用来打 kind，渲染时不再有分组头。
+    const games: Row[] = [
+      { key: "deepdiving", icon: <Waves size={15} />, label: t("DeepDiving"), run: () => openDeepDiving() },
+      { key: "2048", icon: <LayoutGrid size={15} />, label: t("2048"), run: () => openGame2048() },
+    ].filter((r) => hit(r.label));
+
     return [
       [t("操作"), actions],
+      [t("游戏"), games],
       [t("当前会话"), current],
       [t("项目"), projects],
       [t("会话"), sessions],
