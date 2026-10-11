@@ -78,6 +78,12 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   const taRef = useRef<HTMLTextAreaElement>(null);
   /** 行数量测件（不绘制、不交互，只为读折行行数） */
   const probeRef = useRef<HTMLTextAreaElement>(null);
+  /** 当前 multiline 判定所锚定的文本：同一段文本只允许一次单行↔卡片翻转
+   *  （#185 死循环修复，2026-10-11 实测）。临界长度的文本在两种布局下量出的
+   *  行数不同——单行布局窄、卡片布局宽，布局一翻列宽一变、量出的行数跟着翻、
+   *  再翻回来，探针每次都 resize → widthTick++ → 50 轮内 React #185 把整树
+   *  卸成黑窗。钉住首次判定后只按当前布局自适应高度；文本变化即解锁。 */
+  const multilineLockedFor = useRef<string | null>(null);
   /** textarea 光标位（@ grammar 的 cursorCol）；onSelect 跟随 caret 更新。 */
   const [cursor, setCursorState] = useState(0);
   const store = useStore();
@@ -114,7 +120,14 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     const next = rows > 1;
     // 翻转的这一轮只改布局：输入框宽度跟着布局变，高度必须等新宽度落地后再量。
     // 否则窄态量出的高度留着——框里多一条空行，再敲一个字才回落。
-    if (next !== multiline) { setMultiline(next); return; }
+    if (next !== multiline) {
+      // 同段文本的二次翻转就是上面注释里的「来回翻」：钉住首次判定，本轮起只
+      // 按当前布局自适应高度，不再改布局（重新判定等文本变化）。
+      if (multilineLockedFor.current === text) { autoGrow(el); return; }
+      multilineLockedFor.current = text;
+      setMultiline(next);
+      return;
+    }
     autoGrow(el);
   }, [text, multiline, widthTick]);
   // 列宽变化（窗口缩放、容量圈进出）会移动折行点：量测件宽度一变就重跑上面那条
