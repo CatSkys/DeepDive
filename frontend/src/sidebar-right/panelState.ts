@@ -55,12 +55,6 @@ export function expandBrowser(surface: SurfaceState): SurfaceState {
   return { ...surface, open: true, fullscreen: true, mode: "browser", settings: false };
 }
 
-/** 胶囊的浏览器入口：开面板到浏览器页但呈现仍是边栏（用户 2026-10-11 定稿——
- *  全屏留给屏幕缩略图那个入口）。设置视图属于默认页，一并摘掉。 */
-export function openBrowser(surface: SurfaceState): SurfaceState {
-  return { ...surface, open: true, fullscreen: false, mode: "browser", settings: false };
-}
-
 /** 从浏览器页退回默认页（会话让位恢复，呈现也跟着退回 push）。 */
 export function showSession(surface: SurfaceState): SurfaceState {
   return { ...surface, fullscreen: false, mode: "session" };

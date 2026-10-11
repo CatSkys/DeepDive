@@ -1,5 +1,5 @@
-// 会话头角落座位的**点击落点**：浏览器那一级点开的是面板的浏览器页（去看 agent 在看的
-// 页面），其余各级仍是状态面板。这条分流是"用户不知道去哪儿看浏览器"的修复本体，
+// 会话头角落座位的**点击落点**：各级胶囊（含浏览器那级）一律开状态面板——
+// 浏览器从面板里的屏幕缩略图进（用户 2026-10-11 定稿：直达浏览器页的特例已撤销）。
 // 用假数据钉住它（真链路的取数与回落链在 capsule / browserFace / session-ingest 各自有测）。
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -41,12 +41,12 @@ beforeEach(() => panelActions.reset());
 afterEach(cleanup);
 
 describe("PanelTrigger 的点击落点", () => {
-  it("浏览器那一级：点开面板的浏览器页，呈现仍是边栏（不全屏，用户 2026-10-11 定稿）", () => {
+  it("浏览器那级也是开状态面板（默认页；浏览器从面板里的缩略图进，2026-10-11 定稿）", () => {
     seat({ kind: "browser", title: "示例页", live: false });
     expect(screen.getByText("示例页")).toBeTruthy();
-    expect(screen.getByRole("button").getAttribute("data-tip")).toBe("查看浏览器");
+    expect(screen.getByRole("button").getAttribute("data-tip")).toBe("展开状态");
     fireEvent.click(screen.getByRole("button"));
-    expect(screen.getByTestId("surface").textContent).toBe("true|false|browser");
+    expect(screen.getByTestId("surface").textContent).toBe("true|false|session");
   });
 
   // 胶囊的前导图标 = 浏览器 tab 那个站点图标（同一个来源，浏览器与胶囊不会各指一个站）

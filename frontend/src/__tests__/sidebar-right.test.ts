@@ -9,7 +9,7 @@ import {
   navigate, reload,
 } from "../sidebar-right/browserNavigation";
 import {
-  collapse, emptySurface, expand, expandBrowser, openBrowser, setFullscreen, setMode, setSettings, showSession, toggleExpanded,
+  collapse, emptySurface, expand, expandBrowser, setFullscreen, setMode, setSettings, showSession, toggleExpanded,
 } from "../sidebar-right/panelState";
 import { mergeArtifacts, sessionArtifacts } from "../sidebar-right/sessionArtifacts";
 import type { RenderItem } from "../session/renderModel";
@@ -142,15 +142,6 @@ describe("面板状态（官方 ui-sidebar-right 的规则）", () => {
     expect(s.mode).toBe("browser");
     expect(s.fullscreen).toBe(true);
     expect(s.open).toBe(true);
-  });
-
-  it("胶囊的浏览器入口：换页到浏览器页但呈现仍是边栏（用户 2026-10-11 定稿）", () => {
-    const s = openBrowser(emptySurface());
-    expect(s.open).toBe(true);
-    expect(s.mode).toBe("browser");
-    expect(s.fullscreen).toBe(false);
-    // 一样连设置视图一起摘掉
-    expect(openBrowser({ ...emptySurface(), settings: true }).settings).toBe(false);
   });
 
   it("从浏览器页退回默认页：呈现也跟着退回 push", () => {

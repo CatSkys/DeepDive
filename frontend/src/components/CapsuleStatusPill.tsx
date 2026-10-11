@@ -2,9 +2,7 @@
 // StatusSummaryMetric）：显示什么由 capsuleModel 的回落链算好，这里只按 kind 画图标与文案。
 // 前导图标是**两层叠放**（他们 StatusSummaryMetric 的原样）：常态图标 absolute inset-0、
 // hover/focus 淡出，Maximize2（"展开"）同位淡入——pill 是"点开面板"的入口，hover 时
-// 用那枚图标把这件事说清楚。aria-label 与 tooltip 都是"展开状态"（他们的 zh 值）；
-// **浏览器那一级例外**：它点开的是面板的浏览器页（去看 agent 在看的那个页面），
-// 所以它自己的 tip 说的是这件事。
+// 用那枚图标把这件事说清楚。aria-label 与 tooltip 都是"展开状态"（他们的 zh 值）。
 import { useState, type ReactNode } from "react";
 import { AlarmClock, ArrowRight, Bot, CircleCheck, FileDiff, Flag, History, Maximize2 } from "lucide-react";
 import { t, tt } from "../i18n";
@@ -74,8 +72,7 @@ export function CapsuleStatusPill({ pill, open, onToggle, iconUrl }: {
   /** 站点图标地址（浏览器那一级用；与浏览器 tab 同一来源）。其余级别忽略。 */
   iconUrl?: string;
 }) {
-  // 浏览器那一级点开的是浏览器页（不是状态面板），tip 跟着说清楚去哪儿
-  const label = pill.kind === "browser" ? tt("查看浏览器", "View browser") : tt("展开状态", "Expand status");
+  const label = tt("展开状态", "Expand status");
   return (
     <button
       type="button"
