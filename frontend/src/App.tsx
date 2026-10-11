@@ -33,7 +33,7 @@ import { NewProjectDialogHost } from "./components/NewProjectDialog";
 import { EditProjectDialogHost } from "./components/EditProjectDialog";
 import { IconPickerHost } from "./components/IconPicker";
 import { CommandPaletteHost, openCommandPalette } from "./components/CommandPalette";
-import { DeepDivingHost } from "./game/DeepDiving";
+import { DeepDivingHost } from "./game/DeepDivingHost";
 import { useAppKeybinds } from "./useAppKeybinds";
 import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";

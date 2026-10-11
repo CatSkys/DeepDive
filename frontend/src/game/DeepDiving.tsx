@@ -1,19 +1,17 @@
-// DeepDiving（深潜）浮层壳（横版穿越）：App 根部挂 Host；流末 loader「Deep diving...」与命令面板
-// 都经 openDeepDiving() 打开。RAF 循环在 ready（浮动）与 run（物理）两个相位跑，暂停=
-// 定格；关闭只卸浮层，世界保留在 store——再开从原地继续。键盘焦点收在面板上
-// （tabIndex=-1）：空格/方向键只在这里当推力，焦点离开/切窗即自动暂停；
-// Esc=暂停，暂停/结束态 Esc=关闭。相位的生命周期转换归本组件与 store，world 只管物理。
+// DeepDiving（深潜）游戏面板（横版穿越）：流末 loader「Deep diving...」与命令面板都经
+// openDeepDiving() 打开（挂载壳在 DeepDivingHost.tsx）。RAF 循环在 ready（浮动）与 run
+// （物理）两个相位跑，暂停=定格；关闭只卸浮层，世界保留在 store——再开从原地继续。
+// 键盘焦点收在面板上（tabIndex=-1）：空格/方向键只在这里当推力，焦点离开/切窗即
+// 自动暂停；Esc=暂停，暂停/结束态 Esc=关闭。相位转换归本组件与 store，world 只管物理。
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Volume2, VolumeX, X } from "lucide-react";
-import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { tt, useT } from "../i18n";
 import { blipStart, pingMilestone, pingRecord, primeAudio, thudDeath } from "./audio";
 import {
   bestDepth,
   currentWorld,
   pauseWorld,
-  registerDeepDiving,
   replaceWorld,
   resumeWorld,
   setSoundOn,
@@ -25,24 +23,9 @@ import { DeadOverlay, PausedOverlay } from "./Overlays";
 import { createWorld, distanceM, randomSeed, step, VIEW_H, VIEW_W, type Phase } from "./world";
 import css from "./DeepDiving.module.css";
 
-/** App 根部挂一次：消费 openDeepDiving 请求。 */
-export function DeepDivingHost() {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    registerDeepDiving(() => setOpen(true));
-    return () => registerDeepDiving(null);
-  }, []);
-  // 浮层在静止指针下打开：hover 复位走命令面板同一条事件（同一通道，语义都是
-  // 「浮层出现，指针停着的那处不算选」）
-  useEffect(() => {
-    if (open) dispatchAppEvent(DD_EVENTS.commandPalette);
-  }, [open]);
-  return open ? <DeepDiving onClose={() => setOpen(false)} /> : null;
-}
-
 const THRUST_KEYS = new Set([" ", "ArrowUp", "ArrowDown"]);
 
-function DeepDiving({ onClose }: { onClose: () => void }) {
+export function DeepDiving({ onClose }: { onClose: () => void }) {
   const { t } = useT();
   const [phase, setPhase] = useState<Phase>(currentWorld().phase);
   const [best, setBest] = useState(() => bestDepth());

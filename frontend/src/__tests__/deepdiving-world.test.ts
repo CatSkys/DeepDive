@@ -9,6 +9,7 @@ import {
   gapWidth,
   randomSeed,
   ROCK_SPACING,
+  ROCK_START_WX,
   rockAt,
   rocksInRange,
   scrollSpeed,
@@ -84,9 +85,9 @@ describe("沟缝几何", () => {
     }
   });
 
-  it("缝宽 190 起步、100 到底", () => {
-    expect(gapWidth(0)).toBe(190);
-    expect(gapWidth(10 ** 9)).toBe(100);
+  it("缝宽 200 起步、110 到底", () => {
+    expect(gapWidth(0)).toBe(200);
+    expect(gapWidth(10 ** 9)).toBe(110);
   });
 });
 
@@ -94,7 +95,7 @@ describe("突石", () => {
   it("难度渐入：ROCK_START_WX 前不出石", () => {
     const rocks = rocksInRange(0, 7 * ROCK_SPACING, 9);
     expect(rocks.length).toBeGreaterThan(0);
-    for (const rock of rocks) expect(rock.wx).toBeGreaterThanOrEqual(1200);
+    for (const rock of rocks) expect(rock.wx).toBeGreaterThanOrEqual(ROCK_START_WX);
   });
 
   it("突石悬在缝内，两侧各留 ≥16px 活水", () => {
@@ -113,18 +114,18 @@ describe("突石", () => {
     expect(step(doomed, { thrust: false }, DT).phase).toBe("dead");
   });
 
-  it("石径随游程渐长：100m 处小石，250m 后封顶 ~30px", () => {
-    const small = rockAt(Math.ceil(1200 / ROCK_SPACING), 5);
-    expect(small.r).toBeLessThan(16);
+  it("石径随游程渐长：120m 处小石，270m 后封顶 ~26px", () => {
+    const small = rockAt(Math.ceil(ROCK_START_WX / ROCK_SPACING), 5);
+    expect(small.r).toBeLessThan(14);
     const late = rockAt(Math.ceil(60_000 / ROCK_SPACING), 5);
-    expect(late.r).toBeLessThanOrEqual(33);
+    expect(late.r).toBeLessThanOrEqual(29);
   });
 });
 
 describe("难度曲线", () => {
-  it("镜头速度 90 起步、230 封顶", () => {
-    expect(scrollSpeed(0)).toBe(90);
-    expect(scrollSpeed(10 ** 9)).toBe(230);
+  it("镜头速度 80 起步、200 封顶", () => {
+    expect(scrollSpeed(0)).toBe(80);
+    expect(scrollSpeed(10 ** 9)).toBe(200);
   });
 
   it("随机种子非零：开局种子在创建时抓定", () => {
