@@ -3598,6 +3598,81 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   white-space: nowrap;
 }
 .md-ui-btn:hover { border-color: var(--dsh-border-strong); }
+.md-ui-tablewrap { box-sizing: border-box; overflow-x: auto; border: 0.5px solid var(--line-strong); border-radius: var(--dsh-radius-card); }
+.md-ui-table { width: 100%; border-collapse: collapse; font-size: var(--dsh-font-size-sm); }
+.md-ui-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 0.5px solid var(--line-strong);
+  color: var(--ink-bright);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.md-ui-table td { padding: 7px 12px; border-bottom: 0.5px solid var(--line); color: var(--ink-2); }
+.md-ui-table tbody tr:last-child td { border-bottom: 0; }
+.md-ui-compare {
+  box-sizing: border-box;
+  border: 0.5px solid var(--line-strong);
+  border-radius: var(--dsh-radius-card);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.md-ui-compare-cols { display: grid; grid-template-columns: repeat(var(--cols, 2), 1fr); gap: 12px; }
+.md-ui-compare-col { min-width: 0; }
+.md-ui-compare-head { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-bright); margin-bottom: 6px; }
+.md-ui-compare-col ul { margin: 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 4px; }
+.md-ui-compare-col li { font-size: var(--dsh-font-size-sm); line-height: 1.55; color: var(--ink-2); }
+.md-ui-form .md-ui-field { display: flex; flex-direction: column; gap: 4px; }
+.md-ui-field-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
+.md-ui-field input, .md-ui-field select {
+  height: 28px;
+  padding: 0 8px;
+  border: 0.5px solid var(--line-strong);
+  border-radius: var(--dsh-radius-control);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--dsh-font-size-base);
+  min-width: 0;
+}
+.md-ui-field-slider-row { display: flex; align-items: center; gap: 8px; }
+.md-ui-field-slider-row input[type="range"] { flex: 1; height: auto; padding: 0; border: 0; }
+.md-ui-field-value { min-width: 36px; text-align: right; font-size: var(--dsh-font-size-sm); color: var(--ink-bright); }
+.md-ui-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.md-ui-steps li { display: flex; align-items: flex-start; gap: 8px; }
+.md-ui-step-dot {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--dsh-radius-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--ink-2);
+  box-sizing: border-box;
+}
+.md-ui-steps li[data-state="active"] .md-ui-step-dot { border-color: var(--line-heavy); color: var(--ink-bright); }
+.md-ui-steps li[data-state="done"] .md-ui-step-dot { color: var(--ink-bright); }
+.md-ui-step-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.md-ui-step-title { font-size: var(--dsh-font-size-base); color: var(--ink); line-height: 1.5; }
+.md-ui-steps li[data-state="idle"] .md-ui-step-title { color: var(--ink-2); }
+.md-ui-step-text { font-size: var(--dsh-font-size-sm); color: var(--ink-3); line-height: 1.5; }
+.md-ui-chart {
+  box-sizing: border-box;
+  border: 0.5px solid var(--line-strong);
+  border-radius: var(--dsh-radius-card);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.md-ui-chart-svg { display: block; width: 100%; height: auto; }
+.md-ui-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.md-ui-legend-item { display: flex; align-items: center; gap: 5px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
+.md-ui-legend-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
 
 /* ── 终端块恒为深色内容面：两种外观下都保持白字深底（macOS 惯例），
    不随 ink 变量翻转。代码块(.cb)有自己的 [data-theme] 双份变量。 ── */

@@ -62,7 +62,7 @@ function renderBlock(b: Block, key: string, onImage: (src: string, alt: string) 
             const body = b.lines.join("\n");
             if (b.lang === MERMAID_FENCE) return <MermaidBlock key={key} code={body} unclosed={b.unclosed === true} />;
             if (b.lang === SVG_FENCE) return <SvgBlock key={key} source={body} unclosed={b.unclosed === true} />;
-            if (b.lang === WIDGET_FENCE) return <WidgetBlock key={key} html={body} unclosed={b.unclosed === true} />;
+            if (b.lang === WIDGET_FENCE) return <WidgetBlock key={key} html={body} unclosed={b.unclosed === true} onSend={onSend} />;
             if (b.lang === UI_FENCE) return <UiBlock key={key} body={body} unclosed={b.unclosed === true} onSend={onSend} />;
             return <CodeBlock key={key} lines={b.lines} lang={b.lang ?? ""} />;
           }
