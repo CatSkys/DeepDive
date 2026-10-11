@@ -39,6 +39,7 @@ export function Game2048({ onClose }: { onClose: () => void }) {
   const [game, setGame] = useState<GameState>(() => currentGame());
   const [sound, setSound] = useState(() => soundOn());
   const [wonOpen, setWonOpen] = useState(false);
+  const [moved, setMoved] = useState(false); // 开局操作提示只到第一步
   const panelRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const moveAtRef = useRef(0);
@@ -81,6 +82,7 @@ export function Game2048({ onClose }: { onClose: () => void }) {
     moveAtRef.current = 0;
     movesRef.current = [];
     spawnRef.current = null;
+    setMoved(false);
   };
 
   const move = (dir: Dir) => {
@@ -94,6 +96,7 @@ export function Game2048({ onClose }: { onClose: () => void }) {
     moveAtRef.current = performance.now();
     movesRef.current = res.moves;
     spawnRef.current = res.spawn;
+    setMoved(true);
     if (res.gained > 0) blipMerge();
     if (res.next.status === "over") thudDeath();
     if (res.next.won && !cur.won) {
@@ -172,6 +175,9 @@ export function Game2048({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <canvas ref={canvasRef} className={css.board} aria-hidden />
+      {!moved && (
+        <div className={css.hint}>{t("方向键或 WASD 滑动，同数相合，凑出 2048")}</div>
+      )}
       {game.status === "over" && (
         <div className={css.ov}>
           <div className={css.ovTitle}>{tt("本局 {s} 分", "Score {s}", { s: game.score })}</div>

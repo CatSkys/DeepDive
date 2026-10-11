@@ -8,7 +8,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: 368px;
-  height: 424px;
+  height: 448px;
   z-index: 1100;
   border-radius: var(--dsh-radius-floating);
   background: var(--panel-strong);
@@ -82,6 +82,14 @@
   width: 352px;
   height: 352px;
   margin: 0 auto;
+}
+
+/* 开局唯一一行操作提示（UI-SPEC §1.9 已登记例外）：走第一步即隐，其余画面不设。 */
+.hint {
+  margin-top: 2px;
+  text-align: center;
+  font-size: var(--dsh-font-size-xs);
+  color: var(--ink-3);
 }
 
 /* 终局/胜利盖层：近实色底（同面板族），压住棋盘。 */
