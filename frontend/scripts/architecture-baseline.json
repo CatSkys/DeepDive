@@ -51,10 +51,10 @@
       "detail": "780 lines > 300"
     },
     {
-      "id": "f664da0e96fc84f8",
+      "id": "abda6f445f802d6a",
       "rule": "file-lines",
       "file": "frontend/src/App.tsx",
-      "detail": "381 lines > 300"
+      "detail": "385 lines > 300"
     },
     {
       "id": "0245bc19d244d65a",
@@ -87,10 +87,10 @@
       "detail": "568 lines > 300"
     },
     {
-      "id": "0e787384076031da",
+      "id": "d27fe62655197b45",
       "rule": "file-lines",
       "file": "frontend/src/i18n-en.ts",
-      "detail": "1040 lines > 300"
+      "detail": "1057 lines > 300"
     },
     {
       "id": "90411fea4b28cfed",
@@ -109,6 +109,12 @@
       "rule": "file-lines",
       "file": "frontend/src/onboarding/steps/MigrateStep.tsx",
       "detail": "439 lines > 300"
+    },
+    {
+      "id": "195584ed1e22a6e7",
+      "rule": "file-lines",
+      "file": "frontend/src/rich/ui/types.ts",
+      "detail": "351 lines > 300"
     },
     {
       "id": "c2e2fa8c2fb2c633",
