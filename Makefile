@@ -1,4 +1,4 @@
-.PHONY: dev app package tokens test clean
+.PHONY: dev app package deliver tokens test clean
 
 dev:
 	sh scripts/dev.sh
@@ -9,6 +9,9 @@ app:
 
 package:
 	sh scripts/package-macos.sh
+
+deliver:
+	sh scripts/deliver.sh
 
 tokens:
 	node frontend/packages/design/gen-tokens.mjs

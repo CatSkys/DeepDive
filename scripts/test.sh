@@ -62,8 +62,8 @@ shell_leg() {
   unlock_test_lock || return 1
   (cd apps/macos && xcodegen generate) || return 1
   # 输出落盘再截尾：exit code 不经管道丢失（xcodebuild 输出很长）
-  if ! xcodebuild test -project apps/macos/DSHmini.xcodeproj -scheme DSHmini \
-      -configuration Debug -derivedDataPath .build/debug \
+  if ! xcodebuild test -project "$PWD/apps/macos/DSHmini.xcodeproj" -scheme DSHmini \
+      -configuration Debug -derivedDataPath "$PWD/.build/debug" \
       CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO > .build/xctest.log 2>&1; then
     tail -30 .build/xctest.log; return 1
   fi
@@ -72,7 +72,22 @@ shell_leg() {
 
 frontend_leg & FE_PID=$!
 shell_leg & SH_PID=$!
+
+# 用户 2026-10-11 定稿：单次测试严禁超过 2 分钟，超时直接杀（宁红勿挂）。
+# xcodebuild 走绝对工程路径，看门狗的 pkill 才只命中本树（WORKING-AGREEMENTS §5）；
+# 被杀的残留宿主占的测试锁由下轮起跑的预检清场。
+watchdog() {
+  sleep 120
+  echo "FAIL: 测试超过 120s——按用户口径直接杀" >&2
+  pkill -9 -f "xcodebuild test -project $PWD/apps/macos/DSHmini.xcodeproj" 2>/dev/null
+  pkill -9 -f "$PWD/.build/debug/Build/Products/Debug/DeepDive.app" 2>/dev/null
+  kill -9 "$FE_PID" "$SH_PID" 2>/dev/null
+  exit 1
+}
+watchdog & WD_PID=$!
+
 LEG_FAIL=0
 wait "$FE_PID" || { echo "FAIL: frontend leg"; LEG_FAIL=1; }
 wait "$SH_PID" || { echo "FAIL: shell leg"; LEG_FAIL=1; }
+kill "$WD_PID" 2>/dev/null || true
 exit "$LEG_FAIL"

@@ -24,7 +24,7 @@
 
 ## 4. 交付纪律
 
-- 交付命令链固定：`前端 build → package-macos（含 embed-web）→ pkill 旧进程 → open 最新包 → 日志确认`。
+- 交付命令链固定：`前端 build → Release 构建+嵌入 → pkill 旧进程 → open 最新包 → 日志确认`，已固化为 **`make deliver`**（scripts/deliver.sh）；分发档（公证+装钉+DMG）仍走 `make package`。
 - 文档/规范同步更新（REVIEW、本文件），改动即提交。
 - 单实例：临时验证代码（TEMP 标记）必须当轮还原，避免把调试态交付给用户。
 
