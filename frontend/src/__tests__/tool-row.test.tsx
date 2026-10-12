@@ -116,11 +116,11 @@ describe("ToolRow 后台委派行的运行态脉冲（data-tool-live）", () => 
     expect(row?.getAttribute("data-tool-live")).toBeNull();
   });
 
-  it("非委派行/无子会话 id 的行不吃这个属性；行自身在跑仍有 data-state=running 脉冲", () => {
+  it("非委派行/无子会话 id 的行不吃这个属性；无返回且会话已收口（running 默认 false）落静默 done", () => {
     const { container } = render(
       <ToolRow toolName="subagent" args={args} sessionId="s" toolCallId="c" />,
     );
     expect(container.querySelector(".tool-row")?.getAttribute("data-tool-live")).toBeNull();
-    expect(container.querySelector(".tool-row")?.getAttribute("data-state")).toBe("running");
+    expect(container.querySelector(".tool-row")?.getAttribute("data-state")).toBe("done");
   });
 });

@@ -44,7 +44,6 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
    *  丢结果）时降为静默——引擎不给结果帧时也不得永远闪下去（2026-10-12 报障）。 */
   running?: boolean;
 }) {
-}) {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
   const isTodo = toolName === "todo_write" || toolName === "todos" || todo !== null;
