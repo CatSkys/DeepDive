@@ -1,5 +1,288 @@
 {
   "version": 1,
   "note": "既有违规基线：只让新增违规失败。改好一处后重跑 --baseline:update。",
-  "violations": []
+  "violations": [
+    {
+      "id": "0fe3f3e95af0ef14",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/bots/Bots.module.css",
+      "detail": "#e5484d"
+    },
+    {
+      "id": "de3cebf201de81fa",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/bots/Bots.module.css",
+      "detail": "#ff9f0a"
+    },
+    {
+      "id": "bd271ca0d4dd9b54",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/bots/Bots.module.css",
+      "detail": "#fff"
+    },
+    {
+      "id": "f3f15055e7a5d2db",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/components/CommandPalette.module.css",
+      "detail": "#000"
+    },
+    {
+      "id": "ef1c650162afc1ec",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/mobile/RemoteControl.module.css",
+      "detail": "#fff"
+    },
+    {
+      "id": "9591a820cf13b219",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/onboarding/Confetti.tsx",
+      "detail": "#26ccff"
+    },
+    {
+      "id": "54c4cfd993cb4f51",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/onboarding/Confetti.tsx",
+      "detail": "#88ff5a"
+    },
+    {
+      "id": "2cafe699ddff4b13",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/onboarding/Confetti.tsx",
+      "detail": "#a25afd"
+    },
+    {
+      "id": "44e9c7c84f04855a",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/onboarding/Confetti.tsx",
+      "detail": "#fcff42"
+    },
+    {
+      "id": "ccb995811ca745ea",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/onboarding/Confetti.tsx",
+      "detail": "#ff36ff"
+    },
+    {
+      "id": "c69087e4846d1707",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/onboarding/Confetti.tsx",
+      "detail": "#ff5e7e"
+    },
+    {
+      "id": "472357482a123b7c",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/onboarding/Confetti.tsx",
+      "detail": "#ffa62d"
+    },
+    {
+      "id": "0911f616452c14d3",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/settings/SettingsRows.module.css",
+      "detail": "#e5484d"
+    },
+    {
+      "id": "0b14424a1825902b",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/settings/SettingsRows.module.css",
+      "detail": "#ff9f0a"
+    },
+    {
+      "id": "afb59ad2a425a641",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/settings/SettingsRows.module.css",
+      "detail": "#fff"
+    },
+    {
+      "id": "bed76e45f8820bb6",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#000"
+    },
+    {
+      "id": "36584fe74480ee81",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#16171A"
+    },
+    {
+      "id": "2332d8a65189409f",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#1a1a1a"
+    },
+    {
+      "id": "4e75812d4eb208ec",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#7FDBCA"
+    },
+    {
+      "id": "172cc71b6d07e459",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#82AAFF"
+    },
+    {
+      "id": "7690db4aa8005ece",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#A5D6A7"
+    },
+    {
+      "id": "6ea49ab25b3f2efe",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#C792EA"
+    },
+    {
+      "id": "27f182266eacd210",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#F78C6C"
+    },
+    {
+      "id": "eac2bee5f5ceafb9",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#FFCB6B"
+    },
+    {
+      "id": "93766a8365aeddf8",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#fff"
+    },
+    {
+      "id": "16e4e83c2ee60967",
+      "rule": "bare-hex-color",
+      "file": "frontend/src/theme.css",
+      "detail": "#FFFFFF"
+    },
+    {
+      "id": "2bfec2322f2f83d5",
+      "rule": "inline-static-style",
+      "file": "frontend/src/bots/BotManageDialog.tsx",
+      "detail": "style={{ marginLeft }} 全字面量"
+    },
+    {
+      "id": "3239881e25907b95",
+      "rule": "inline-static-style",
+      "file": "frontend/src/bots/ChannelLogo.tsx",
+      "detail": "style={{ display, flex }} 全字面量"
+    },
+    {
+      "id": "069821b37ee3c743",
+      "rule": "inline-static-style",
+      "file": "frontend/src/components/BootSkeleton.tsx",
+      "detail": "style={{ width }} 全字面量"
+    },
+    {
+      "id": "069821b37ee3c743",
+      "rule": "inline-static-style",
+      "file": "frontend/src/components/BootSkeleton.tsx",
+      "detail": "style={{ width }} 全字面量"
+    },
+    {
+      "id": "91a3127025b69735",
+      "rule": "inline-static-style",
+      "file": "frontend/src/components/ProviderIcon.tsx",
+      "detail": "style={{ display }} 全字面量"
+    },
+    {
+      "id": "48736b7d2171ba3d",
+      "rule": "inline-static-style",
+      "file": "frontend/src/onboarding/steps/MigrateStep.tsx",
+      "detail": "style={{ alignItems, display, flexWrap, gap }} 全字面量"
+    },
+    {
+      "id": "f55b2326d0ed3546",
+      "rule": "inline-static-style",
+      "file": "frontend/src/plugins/McpTab.tsx",
+      "detail": "style={{ flex, minWidth }} 全字面量"
+    },
+    {
+      "id": "f2c7756dab1b2026",
+      "rule": "inline-static-style",
+      "file": "frontend/src/plugins/PluginsTab.tsx",
+      "detail": "style={{ flex, minWidth }} 全字面量"
+    },
+    {
+      "id": "35465be0fa1124d7",
+      "rule": "inline-static-style",
+      "file": "frontend/src/plugins/SkillsTab.tsx",
+      "detail": "style={{ flex, minWidth }} 全字面量"
+    },
+    {
+      "id": "3d1c0b79baf63c1b",
+      "rule": "inline-static-style",
+      "file": "frontend/src/session/Cards.tsx",
+      "detail": "style={{ verticalAlign }} 全字面量"
+    },
+    {
+      "id": "f01ec8bfb4c31bf2",
+      "rule": "inline-static-style",
+      "file": "frontend/src/settings/HotkeysSection.tsx",
+      "detail": "style={{ padding }} 全字面量"
+    },
+    {
+      "id": "1aec33a32bc9333a",
+      "rule": "inline-static-style",
+      "file": "frontend/src/settings/ImportSection.tsx",
+      "detail": "style={{ padding }} 全字面量"
+    },
+    {
+      "id": "eaac09083543b899",
+      "rule": "inline-static-style",
+      "file": "frontend/src/settings/ModelDialog.tsx",
+      "detail": "style={{ display, width }} 全字面量"
+    },
+    {
+      "id": "eaac09083543b899",
+      "rule": "inline-static-style",
+      "file": "frontend/src/settings/ModelDialog.tsx",
+      "detail": "style={{ display, width }} 全字面量"
+    },
+    {
+      "id": "eaac09083543b899",
+      "rule": "inline-static-style",
+      "file": "frontend/src/settings/ModelDialog.tsx",
+      "detail": "style={{ display, width }} 全字面量"
+    },
+    {
+      "id": "bc4098a016bb7217",
+      "rule": "inline-static-style",
+      "file": "frontend/src/settings/ModelDialog.tsx",
+      "detail": "style={{ flex }} 全字面量"
+    },
+    {
+      "id": "51eed2736fc48a9b",
+      "rule": "inline-static-style",
+      "file": "frontend/src/settings/ModelDialog.tsx",
+      "detail": "style={{ marginLeft }} 全字面量"
+    },
+    {
+      "id": "fb6372dbb3a9df05",
+      "rule": "inline-static-style",
+      "file": "frontend/src/settings/ModelsManage.tsx",
+      "detail": "style={{ alignItems, display, flexWrap, gap }} 全字面量"
+    },
+    {
+      "id": "ef4ab77fa7f73405",
+      "rule": "inline-static-style",
+      "file": "frontend/src/stats/UsageDonut.tsx",
+      "detail": "style={{ marginBottom }} 全字面量"
+    },
+    {
+      "id": "5e958726fbc2fccf",
+      "rule": "inline-static-style",
+      "file": "frontend/src/stats/UsageDonut.tsx",
+      "detail": "style={{ marginTop }} 全字面量"
+    },
+    {
+      "id": "47677c7fe64bcbb7",
+      "rule": "inline-static-style",
+      "file": "frontend/src/stats/UsageHeatmap.tsx",
+      "detail": "style={{ gridAutoColumns, gridTemplateRows }} 全字面量"
+    }
+  ]
 }
