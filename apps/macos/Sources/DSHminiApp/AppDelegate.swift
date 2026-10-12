@@ -312,7 +312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "dockIcon":
                     DSHAppPrefs.setDockIcon(value)
                     NSApp.setActivationPolicy(value ? .regular : .accessory)
-                case "bubble": FloatingBubbleManager.shared.setEnabled(value)
+                case "miniPanel": MiniPanelController.shared.setEnabled(value)
                 case "modelDetail": DSHAppPrefs.setModelDetail(value)
                 default: break
                 }
@@ -795,7 +795,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "notifyAttention": DSHAppPrefs.notifyAttention,
             "menuBar": DSHAppPrefs.menuBar,
             "dockIcon": DSHAppPrefs.dockIcon,
-            "bubble": FloatingBubbleManager.shared.enabled,
+            "miniPanel": MiniPanelController.shared.enabled,
             "glass": config.themeEnabled,
             "sidebarWidth": DSHAppPrefs.sidebarWidth,
             "appearance": DSHAppPrefs.appearance,

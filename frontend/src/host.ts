@@ -115,7 +115,7 @@ export function openWith(path: string, app: string): void {
    `api.sessionDeleteSessions`，见 docs/TODO.md §18 的收口记录）。壳这里只剩
    通知侧的"别打扰"：哪些会话是机器会话，壳不该替它弹通知。 ── */
 
-/** 告诉壳哪些会话不该打扰用户（后台会话的"完成"不弹通知、不点亮悬浮球）。
+/** 告诉壳哪些会话不该打扰用户（后台会话的"完成"不弹通知、不点亮药丸状态点）。
  *  判据的唯一事实源在前端（session/backgroundSession），壳只照做。 */
 export function setQuietSessions(ids: string[]): void {
   sendToShell({ type: "quiet-sessions", ids });

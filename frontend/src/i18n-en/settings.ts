@@ -84,7 +84,8 @@ export const ENSettings: Record<string, string> = {
   "实时反映引擎与任务状态": "Live engine and task status",
   "Dock 栏图标": "Dock icon",
   "隐藏后不经 Dock 与 Cmd⌘-Tab 显示": "Hidden from the Dock and Cmd⌘-Tab",
-  "悬浮球": "Floating bubble",
+  "迷你面板": "Mini panel",
+  "贴屏缘常驻，⌥Space 展开": "Lives at the screen edge; ⌥Space to expand",
   "常驻置顶，单击回主窗": "Always on top; click to reopen",
 
   // settings — approvals

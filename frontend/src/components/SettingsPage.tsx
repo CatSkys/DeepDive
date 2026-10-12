@@ -176,7 +176,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
 function GeneralSection() {
   const { t, tt } = useT();
   const store = useStore();
-  const [prefs, setPrefs] = useState({ notifyTurnEnd: true, notifyAttention: true, menuBar: true, dockIcon: true, bubble: true });
+  const [prefs, setPrefs] = useState({ notifyTurnEnd: true, notifyAttention: true, menuBar: true, dockIcon: true, miniPanel: true });
   const [busy, setBusy] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -188,11 +188,11 @@ function GeneralSection() {
         if (p.notifyAttention !== undefined) setPrefs((c) => ({ ...c, notifyAttention: p.notifyAttention! }));
         if (p.menuBar !== undefined) setPrefs((c) => ({ ...c, menuBar: p.menuBar! }));
         if (p.dockIcon !== undefined) setPrefs((c) => ({ ...c, dockIcon: p.dockIcon! }));
-        if (p.bubble !== undefined) setPrefs((c) => ({ ...c, bubble: p.bubble! }));
+        if (p.miniPanel !== undefined) setPrefs((c) => ({ ...c, miniPanel: p.miniPanel! }));
       }
     });
   }, []);
-  const changeNotify = (key: "notifyTurnEnd" | "notifyAttention" | "menuBar" | "dockIcon" | "bubble", value: boolean) => {
+  const changeNotify = (key: "notifyTurnEnd" | "notifyAttention" | "menuBar" | "dockIcon" | "miniPanel", value: boolean) => {
     setPrefs((p) => ({ ...p, [key]: value }));
     sendToShell({ type: "set-pref", key, value });
   };
@@ -340,11 +340,11 @@ function GeneralSection() {
         </div>
         <div className={rowsCss.rowCard}>
           <div className={rowsCss.rowIdentity}>
-            <div className={rowsCss.rowName}>{t("悬浮球")}</div>
-            <div className={rowsCss.rowCaption}>{t("常驻置顶，单击回主窗")}</div>
+            <div className={rowsCss.rowName}>{t("迷你面板")}</div>
+            <div className={rowsCss.rowCaption}>{t("贴屏缘常驻，⌥Space 展开")}</div>
           </div>
           <div className={rowsCss.rowActions}>
-            <Toggle on={prefs.bubble} onChange={(v) => changeNotify("bubble", v)} />
+            <Toggle on={prefs.miniPanel} onChange={(v) => changeNotify("miniPanel", v)} />
           </div>
         </div>
         </div>

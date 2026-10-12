@@ -1,7 +1,7 @@
 import AppKit
 
 // 品牌标记（实心 D 剪影）：悬浮球中央图形与菜单栏状态图共用。管什么：剪影 path、
-// SVG→NSImage 渲染、菜单栏模板图（含状态点）；不管什么：状态推导（FloatingBubbleManager）
+// SVG→NSImage 渲染、菜单栏模板图（含状态点）；不管什么：状态推导（MiniPanelController）
 // 与状态环的绘制。path 逐字取自 design/logo/（`?path=1`），改配方时同步。
 /// The DeepDive mark — solid D: rounded handle + semicircular bowl, original
 /// geometry. Silhouette path and its square box come from `design/logo/`

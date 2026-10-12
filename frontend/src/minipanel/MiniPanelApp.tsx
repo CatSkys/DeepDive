@@ -16,6 +16,7 @@ export function MiniPanelApp() {
   const [quickSessionId, setQuickSessionId] = useState<string | null>(null);
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [commands, setCommands] = useState<CommandDescriptor[] | null>(null);
+  const [status, setStatus] = useState({ running: false, attention: false, unseen: false });
   const stripRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -26,6 +27,10 @@ export function MiniPanelApp() {
         setExpanded(Boolean(p.expanded));
         if (p.side === "left" || p.side === "right") setSide(p.side);
         if (!p.expanded) setFlyoutOpen(false);
+      }
+      if (cmd === "miniPanelStatus") {
+        const p = (payload ?? {}) as { running?: boolean; attention?: boolean; unseen?: boolean };
+        setStatus({ running: Boolean(p.running), attention: Boolean(p.attention), unseen: Boolean(p.unseen) });
       }
       if (cmd === "miniPanelQuick") {
         const sid = (payload as { sessionId?: string | null } | undefined)?.sessionId ?? null;
@@ -116,6 +121,12 @@ export function MiniPanelApp() {
           {/* 条目列本体透明，玻璃由壳的原生底板铺（UI-SPEC §1.5）；transform 会把
               这里变成合成上下文——命令卡挂 .root，不挂 strip 内。 */}
           <div className={css.strip} ref={stripRef}>
+            {(status.running || status.attention || status.unseen) && (
+              <span
+                className={css.pillDot}
+                data-kind={status.attention ? "attention" : status.running ? "running" : "unseen"}
+              />
+            )}
             <div className={css.itemWrap}>
               <span className={css.label}>{t("打开本体")}</span>
               <button
@@ -149,8 +160,15 @@ export function MiniPanelApp() {
           </div>
         </>
       ) : (
-        // 收起态：窗口就是命中区（玻璃小胶囊由壳铺在右缘，页面不画任何东西）
-        <div className={css.pillHit} onClick={() => sendToShell({ type: "miniPanel.expand" })} />
+        // 收起态：窗口就是命中区（玻璃小胶囊由壳铺在右缘，页面只画状态点）
+        <div className={css.pillHit} onClick={() => sendToShell({ type: "miniPanel.expand" })}>
+          {(status.running || status.attention || status.unseen) && (
+            <span
+              className={css.pillDot}
+              data-kind={status.attention ? "attention" : status.running ? "running" : "unseen"}
+            />
+          )}
+        </div>
       )}
     </div>
   );

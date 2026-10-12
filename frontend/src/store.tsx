@@ -651,7 +651,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sidebarSessionsRef = useRef(sidebarSessions);
   sidebarSessionsRef.current = sidebarSessions;
   // 机器会话集推给壳：自动化的运行会话"完成"时不该弹通知、
-  // 不该点亮悬浮球（待审批照旧——那是真有人在等）。只推变化，别每轮刷。
+  // 不该点亮药丸状态点（待审批照旧——那是真有人在等）。只推变化，别每轮刷。
   const quietKey = sessions.filter(isHiddenSession).map((s) => s.sessionId).sort().join(",");
   const quietKeyRef = useRef("");
   useEffect(() => {
