@@ -1,15 +1,16 @@
 // 子智能体的雾感渐变头像（平面、低饱和、边缘渐隐）：seed → 32 位 DJB2
-//（boring-avatars 同款）哈希定主色相；饱和 45–58、边缘色相偏移 40–89°——约束随机，
-// 不出脏色（color-hash 的 hue 带思路）。渐变到边缘 alpha 归零，慢慢融进任意亮暗
-// 背景（用户 2026-10-12 二轮定稿：平面、不要立体高光——小尺寸下高光不可读；
-// 也不是硬边圆片，参考"四周慢慢变淡"的雾感，无形变动画）。
+//（boring-avatars 同款）哈希定主色相；饱和 36–48、伴色相偏移 40–89°——约束随机，
+// 不出脏色（color-hash 的 hue 带思路）。画法（用户 2026-10-12 预览定稿）：两团色相
+// 错开放在对角——主色团左上、伴色团右下，各自从中心向外溶解，交界自然融合
+//（不是"中心亮核 + 同心圆淡出"，那版被否）；圆形剪影与边缘渐隐由 theme.css 的
+// .agent-orb 遮罩收出（70% 起淡出；mask 不能走内联 style，PITFALLS §1.9）。
 // 配色与渲染同居一个文件（配色是纯函数，vitest 直考；拆成 agentOrb.ts 会与
 // AgentOrb.tsx 构成大小写碰撞，在 macOS 不敏感盘上 vite 把 ./AgentOrb 错解析到
 // .ts 文件）。已结束行的对勾不归这里表达。
-export type OrbColors = { core: string; mid: string; fade: string; edge: string };
+export type OrbColors = { a: string; aEnd: string; b: string; bEnd: string };
 
-const SAT_MIN = 45;
-const SAT_RANGE = 14;
+const SAT_MIN = 36;
+const SAT_RANGE = 13;
 const HUE_SHIFT_MIN = 40;
 const HUE_SHIFT_RANGE = 50;
 
@@ -29,15 +30,15 @@ export function orbColors(seed: string): OrbColors {
   const shift = HUE_SHIFT_MIN + Math.floor(h / 360 / SAT_RANGE) % HUE_SHIFT_RANGE;
   const h2 = (hue + shift) % 360;
   return {
-    core: `hsl(${hue} ${sat}% 66%)`,
-    mid: `hsl(${h2} ${sat}% 58%)`,
-    fade: `hsl(${h2} ${sat}% 56% / 55%)`,
-    edge: `hsl(${h2} ${sat}% 54% / 0%)`,
+    a: `hsl(${hue} ${sat}% 66%)`, // 左上主色团
+    aEnd: `hsl(${hue} ${sat}% 66% / 0%)`,
+    b: `hsl(${h2} ${sat}% 58%)`, // 右下伴色团
+    bEnd: `hsl(${h2} ${sat}% 58% / 0%)`,
   };
 }
 
 export function AgentOrb({ seed, size, className }: { seed: string; size: number; className?: string }) {
-  const { core, mid, fade, edge } = orbColors(seed);
+  const { a, aEnd, b, bEnd } = orbColors(seed);
   return (
     <span
       className={`agent-orb${className ? ` ${className}` : ""}`}
@@ -46,7 +47,7 @@ export function AgentOrb({ seed, size, className }: { seed: string; size: number
         width: size,
         height: size,
         borderRadius: "50%", // 16px 小盒上的安全值（PITFALLS §1.1 只警告 999px 式巨大圆角）
-        background: `radial-gradient(circle closest-side, ${core} 0%, ${mid} 52%, ${fade} 75%, ${edge} 100%)`,
+        background: `radial-gradient(circle farthest-side at 32% 32%, ${a} 0%, ${aEnd} 100%), radial-gradient(circle farthest-side at 68% 68%, ${b} 0%, ${bEnd} 100%)`,
       }}
     />
   );
