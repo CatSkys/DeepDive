@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { MiniPanelApp } from "./minipanel/MiniPanelApp";
+import { StoreProvider } from "./store";
 import { ComposerOverlayApp } from "./sidebar-right/ComposerOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initTitlebarBridge } from "./titlebar";
@@ -41,7 +42,10 @@ if (overlaySession !== null && overlaySession !== "") {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <ErrorBoundary>
-        <MiniPanelApp />
+        {/* MiniPanelApp 消费共享 store——App() 里的包裹在主窗分支，mini 分支自配 */}
+        <StoreProvider>
+          <MiniPanelApp />
+        </StoreProvider>
       </ErrorBoundary>
     </React.StrictMode>
   );
