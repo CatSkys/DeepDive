@@ -34,7 +34,7 @@
 | SPA → 引擎 | same-origin `POST /api/<ns>/<method>`（client-request 信封、`{args}` 具名包裹）+ 单条 `ws /api/remote.mux` 多路流（`$events`/`session/follow`/`session/control`/`workspace/follow`） | 经壳内 BridgeServer 反代（token+cookie 注入）；wire 契约实测见 `DSH-WIRE.md` |
 | 手机浏览器 → 引擎 | 同一个 SPA 与同一套 `/api` 转发，但走**远程面**（独立局域网监听） | 用户显式开启才起（默认关）；一次性配对令牌 + 设备 cookie 台账，见 `SPEC-MOBILE-REMOTE.md` |
 | 壳 → 引擎 | stdio（`dsh web:` URL 行、日志尾巴）+ 进程信号 | 只关心 UP/BOOT_FAILED/EXITED 与端口 |
-| 壳 ↔ SPA | `WKScriptMessageHandler`（`deepdive` 标题栏 rect 表 / `deepdiveHost` 前端指令）；壳→前端 `evaluateJavaScript` 调 `window.__deepDiveHost.dispatch`（pending 单条暂存） | 指令集与降级纪律见 `SPEC-NOTIFICATIONS-FLOATING-BALL §3.1`；标题栏拖拽契约见 `PITFALLS §4.3`；**原生视图槽位**（`native-slot` 消息：rect + visible + interactive）见 `SPEC-BROWSER-USE §3` |
+| 壳 ↔ SPA | `WKScriptMessageHandler`（`deepdive` 标题栏 rect 表 / `deepdiveHost` 前端指令）；壳→前端 `evaluateJavaScript` 调 `window.__deepDiveHost.dispatch`（pending 单条暂存） | 指令集与降级纪律见 `SPEC-NOTIFICATIONS §3.1`；标题栏拖拽契约见 `PITFALLS §4.3`；**原生视图槽位**（`native-slot` 消息：rect + visible + interactive）见 `SPEC-BROWSER-USE §3` |
 | MCP server → 壳 | `POST /browser-control`（回环、`Authorization: Bearer <boot token>`） | 浏览器 agent 控制面；token 经引擎环境变量注入，见 `SPEC-BROWSER-USE §4` |
 | 引擎 → MCP server | stdio（引擎按组合行 spawn 随包 Node 跑 `browser-use-server.mjs`） | 工具面只有一个 `js`；协议要点见该文件头注 |
 | 壳 → 引擎事件 | `EngineEventObserver` 自读 `$events` 流派生 running/完成/待审批状态（waterfall 恒回 `next`，不决策） | 通知/悬浮球/菜单栏徽标原生实时，不依赖前端 |
@@ -65,8 +65,8 @@
 | `EngineSupervisor.swift` / `EngineVersion.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、入口版本门（随包引脚 vs 外部 dsh）、网关调用、token→cookie 交换、事件观察、日志 |
 | `ProfileComposer.swift` | 引擎组合的部署器：把随包的 `engine/profile` 装进 harness home 的 web profile，并把 `dsh.profile.bundles` 收敛到它（摘掉退役的上游两层、保留社区与用户自加的、迁移既有安装）。幂等 + 失败不阻塞启动，纪律同 `ChatImportPlugin` |
 | `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
-| `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS-FLOATING-BALL`） |
-| `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space（可改）、录制窗、语音听写 |
+| `NativeAlerts.swift` / `FloatingBubble.swift` | 原生通知（分级静默）+ 常驻悬浮球（`SPEC-NOTIFICATIONS`；悬浮球状态面将并入迷你面板药丸，见 `SPEC-SEMANTICS §6.1`） |
+| `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键（现行 ⌥Space 唤主窗，迷你面板落地后重绑为唤面板，`SPEC-SEMANTICS §4.1`）、录制窗、语音听写 |
 | `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`GitChanges`（审查面板的未暂存改动与单文件 diff）、`agentRun` |
 | `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |
 | `McpServerAdmin.swift` | MCP server 行：`- insert:` 一行一 server（`@deepseek-ai/dsh-mcp-client` + `config` 用 JSON 写进 YAML），同一份 home patch 层的第二块托管段；行上的 `disabled` 管启停，同样热生效 |

@@ -7,7 +7,7 @@ import {
   sendRects as platformSendRects,
   sendToShell as platformSendToShell,
 } from "./platform";
-// Shell↔frontend bridge mount (SPEC-NOTIFICATIONS-FLOATING-BALL §3.1).
+// Shell↔frontend bridge mount (SPEC-NOTIFICATIONS §3.1).
 //
 // The native shell pushes instructions to `window.__deepDiveHost.dispatch(cmd, payload)`
 //（mac 走 evaluateJavaScript；Windows 壳经 chrome.webview 事件由 platform 转投）;
