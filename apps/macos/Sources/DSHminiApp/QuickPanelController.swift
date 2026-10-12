@@ -28,7 +28,8 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
 
     let window: QuickPanelWindow
     let webView: TitlebarAwareWebView
-    private let glass: NSView
+    /// 窗口底板（主窗 WindowGlassView 同款）：液态玻璃 + 深浅两档 tint。
+    let glass: WindowGlassView
     /// 迷你面板页 → 壳（host-ready / set-pref / miniPanel.* 系列）。转发给
     /// AppDelegate.handleHostMessage；主窗与迷你面板各持一条，靠消息类型区分归属。
     var onHostMessage: (([String: Any]) -> Void)?
@@ -76,12 +77,16 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         wv.isInspectable = true
         webView = wv
 
-        // Atd GlassBackground：液态玻璃直接当 contentView，WebView 透明铺在上面；
-        // 页面自带圆角裁切与内容表面（透明 body），窗口 chrome 负责圆角与阴影。
-        glass = GlassBackground.make(content: wv)
+        // 窗底与主窗同源（WindowGlassView）：液态玻璃之上压深浅两档 tint（Raycast
+        // 的"玻璃化 + 主题叠色"配方在我们的体系里就是这一层）——迷你面板此前用
+        // GlassBackground 的裸玻璃（零叠色），壁纸大面积透上来（用户 2026-10-12
+        // "这个面板太透了"），与 PITFALLS §4.27 铁律同一条：凡把底玻璃化，都得
+        // 检查叠在上面的表面够不够实。WebView 透明铺在 tint 之上。
+        glass = WindowGlassView()
         window.contentView = glass
         wv.frame = glass.bounds
         wv.autoresizingMask = [.width, .height]
+        glass.addSubview(wv)
         self.window = window
 
         super.init()
@@ -236,6 +241,9 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         let appearance: NSAppearance? = mode == "system" ? nil : NSAppearance(named: light ? .aqua : .darkAqua)
         window.appearance = appearance
         webView.appearance = appearance
+        // 液态玻璃的 tint 按明暗换档（主窗 glass.applyAppearance 同一句；退回分支
+        // 的 vibrancy tint 也走这里——见 WindowGlassView.applyAppearance）。
+        glass.applyAppearance(light: light)
         pushHostCommand("themeChanged", payload: AppDelegate.jsonPayload(["dark": !light]))
     }
 

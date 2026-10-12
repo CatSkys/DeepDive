@@ -322,8 +322,9 @@ button {
 .mini-panel .session-header,
 .mini-panel .hero-top { padding-left: 84px; }
 
-/* 迷你面板页全出血：内容直接坐在窗体那块原生液态玻璃上（对话卡同族——磨砂
-   是窗体给的红利，网页不铺近实色卡底盖掉它）；圆角与外圈阴影归窗口 chrome。 */
+/* 迷你面板页全出血：内容直接坐在窗体的原生玻璃底上（窗底已带深浅两档近黑/白
+   tint——WindowGlassView，与主窗同源；网页再铺 --panel-glass 档卡底，磨砂是
+   两层合力，壁纸只留"糊成一片的色块"观感）；圆角与外圈阴影归窗口 chrome。 */
 .mini-panel .main:has(> .session-row) { padding: 0; }
 .mini-panel .session { background: var(--panel-glass); border-radius: 0; box-shadow: none; }
 /* 开着的右侧卡（会话设置/状态）在迷你面板以浮层呈现：500 宽窗排不下 320 定宽
