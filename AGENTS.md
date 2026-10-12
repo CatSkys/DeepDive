@@ -50,7 +50,7 @@ scripts/remove-worktree.sh <slug> # 合并后清场（删树删分支；--force 
 cd frontend && npm run build   # tsc -b --noEmit && vite build
 cd frontend && npm run test    # vitest run（事件回放/纯函数/api 信封）
 cd frontend && npm run lint    # eslint src，零报错
-node frontend/scripts/check-architecture.mjs   # 架构约束门（make test 已含）：CSS Module 类名写错、新文件超行数
+node frontend/scripts/check-architecture.mjs   # 架构约束门（make test 已含）：CSS Module 类名写错这类静默失效
 cd apps/macos && xcodegen generate   # 改 project.yml 后重新生成工程
 cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -configuration Debug -derivedDataPath ../../.build/debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO   # 壳 XCTest 全量；开发中迭代用 -only-testing:DSHminiAppTests/<类名> 只跑受影响套件（秒级），全量留给 make test
 ```
@@ -81,7 +81,7 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 ## 代码约定
 
 - **写新代码前先搜项目内同类实现**；同一功能禁止出现第二份拷贝。统一入口：RPC 只走 `api.ts`、壳桥只走 `host.ts`、共享状态经 `store.tsx`、样式用语义变量——同类通道禁止另开第二份。
-- **新文件 ≤300 行、函数 ≤50 行**，超了先拆再继续；存量大文件（`theme.css`、`session/renderModel.ts` 等）不强制重构，但新逻辑放新文件，不再向上堆。
+- **一文件一职责**（参考 Search 项目的组织法，2026-10-12 定稿）：文件以它管的唯一一件事命名，一件事要分家时**按职责拆、不按行数硬切**；新文件开头一两句注明职责（管什么、不管什么）。不再设行数上限。
 - TypeScript 严格：无可辨识联合不用 `as any` 溢出；`sessionId`/`callId`/`toolCallId` 是裸 string，同名概念勿混用。
 - 事件摄取热路径 O(1)（Map 索引），禁止整窗扫描（PITFALLS §3.3）。
 - UI 文案一律经 `t()`/`tt()` 词典（`frontend/src/i18n.ts`），JSX 不写裸中文；同一概念全项目同一词。
