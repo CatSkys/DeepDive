@@ -4669,7 +4669,10 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 /* 雾感盘（.agent-orb，面板行/工具行/胶囊堆叠共用）的圆形剪影：两团色相的渐变
    在组件内联 background 里（AgentOrb），这里用遮罩收出圆形、半径 70% 起向边缘
    淡出（2026-10-12 预览定稿 B 档）。mask 不能走 React 内联 style（PITFALLS §1.9
-   静默丢弃），只在类里；-webkit- 固定在前（PITFALLS §1.8），改完 grep dist 确认两条都在。 */
+   静默丢弃），只在类里。双前缀照写（-webkit- 在前，PITFALLS §1.8），但压缩器
+   实测会把 -webkit-mask-image 别名剥掉、dist 只剩标准属性（与 backdrop-filter
+   的合并方向相反）——目标 WKWebView（macOS 26）认无前缀 mask-image，功能无损，
+   grep dist 别拿"两条都在"当判据。 */
 .agent-orb {
   -webkit-mask-image: radial-gradient(circle closest-side, #000 70%, transparent 100%);
   mask-image: radial-gradient(circle closest-side, #000 70%, transparent 100%);
