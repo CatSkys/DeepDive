@@ -1,9 +1,9 @@
 import AppKit
 
-/// 迷你面板的屏幕几何与页面窗口底座（移植自 Atd `AIShell/Windows/Screens.swift`，
-/// 授权复制）：AppKit 屏幕与 y-up 全局点坐标的互转、给窗口铺液态玻璃底板、52pt
-/// 透明标题栏配方。另并入 Atd `DesktopPinScreens.swift` 的 `displayUUID` 扩展
-/// （迷你面板按显示器 UUID 记忆归属屏）。
+/// 迷你面板的屏幕几何与窗口底座（移植自 Atd `AIShell/Windows/Screens.swift`，
+/// 授权复制）：AppKit 屏幕与 y-up 全局点坐标的互转、52pt 透明标题栏配方。另并入
+/// Atd `DesktopPinScreens.swift` 的 `displayUUID` 扩展（迷你面板按显示器 UUID
+/// 记忆归属屏）。玻璃底板在 WindowGlassView（与主窗同源）。
 enum Screens {
   /// The work area (`visibleFrame`) of the display under the cursor, or the nearest one.
   static func workAreaUnderCursor() -> ScreenRect {
@@ -91,20 +91,6 @@ extension NSRect {
   }
 }
 
-/// The window background every page window shares: Liquid Glass behind a transparent web view.
-enum GlassBackground {
-  static func make(content: NSView) -> NSView {
-    let glass = material()
-    glass.contentView = content
-    return glass
-  }
-
-  /// The same glass on its own, for a surface laid under part of a page rather than a whole
-  /// window (the welcome guide's card).
-  static func material() -> NSGlassEffectView {
-    NSGlassEffectView()
-  }
-}
 
 /// The transparent 52pt title bar every page window shares. An empty unified `NSToolbar` sets
 /// the bar's height, centers the traffic lights in it and gives the window the toolbar window's
