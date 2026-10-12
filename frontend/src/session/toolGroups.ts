@@ -7,7 +7,7 @@
 import type { RenderItem } from "./renderModel";
 import { derivePath } from "./renderModel";
 import { bashSummary, relativizePath, summarizeArgs } from "./format";
-import { toolVariant, isVerbPathTool, toolDisplayName } from "./toolKind";
+import { toolVariant, isVerbPathTool, toolVerbName } from "./toolKind";
 
 export type ToolGroupKind = "explore" | "execute" | "changes";
 
@@ -167,10 +167,10 @@ export function groupSummarySplit(
     if (files.length === 1) {
       const first = members.find((m) => isVerbPathTool(m.toolName ?? ""));
       const p = first ? derivePath(first.toolName ?? "", first.args ?? "") : undefined;
-      if (first && p) return { verb: toolDisplayName(first.toolName ?? "", t), iconPath: p, text: relativizePath(p, cwd) };
+      if (first && p) return { verb: toolVerbName(first.toolName ?? "", t), iconPath: p, text: relativizePath(p, cwd) };
       return { text: files[0]! };
     }
-    const verb = toolDisplayName("edit", t);
+    const verb = toolVerbName("edit", t);
     return files.length > 0
       ? { verb, text: `${count} · ${files.join(", ")}` }
       : { verb, text: count };
@@ -187,7 +187,7 @@ export function groupSummarySplit(
       else if (isVerbPathTool(name)) {
         const object = derivePath(name, last.args ?? "") ?? summarizeArgs(last.args ?? "");
         if (object) {
-          verb = toolDisplayName(name, t);
+          verb = toolVerbName(name, t);
           iconPath = derivePath(name, last.args ?? "");
           parts.push(relativizePath(object, cwd));
         }

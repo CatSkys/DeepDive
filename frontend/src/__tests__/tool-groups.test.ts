@@ -165,6 +165,8 @@ describe("formatGroupSummary：三类各自的形状", () => {
   });
   it("更改：单文件与单条行同形（动词+路径），多文件动词 + 计数 + 清单", () => {
     expect(formatGroupSummary("changes", [tool("edit", JSON.stringify({ file_path: "only.ts" }))], zh)).toBe("编辑 only.ts");
+    // write 也进动词族（2026-10-12 用户定稿）：动词位不带「文件」宾语，只说「写入」
+    expect(formatGroupSummary("changes", [tool("write", JSON.stringify({ file_path: "new.md" }))], zh)).toBe("写入 new.md");
   });
   it("组头分段（groupSummarySplit）：徽标只跟真实路径，搜索族动词+查询词无徽标", () => {
     const read = groupSummarySplit("changes", [tool("edit", JSON.stringify({ file_path: "only.ts" }))], zh);

@@ -6,7 +6,7 @@
 import { FileIcon } from "./FileIcon";
 import { t } from "../i18n";
 import { relativizePath } from "./format";
-import { toolDisplayName } from "./toolKind";
+import { toolVerbName } from "./toolKind";
 
 export function VerbPath({ toolName, verb, text, badgePath, cwd, summaryClass = "tool-summary" }: {
   /** 工具名：verb 缺省时按它取对外动词。 */
@@ -20,7 +20,7 @@ export function VerbPath({ toolName, verb, text, badgePath, cwd, summaryClass = 
   cwd?: string;
   summaryClass?: string;
 }) {
-  const verbText = verb ?? (toolName ? toolDisplayName(toolName, t) : "");
+  const verbText = verb ?? (toolName ? toolVerbName(toolName, t) : "");
   const shown = relativizePath(text, cwd);
   if (!verbText) return <span className={summaryClass}>{shown}</span>;
   if (!shown) return <span className={summaryClass}>{verbText}</span>;
