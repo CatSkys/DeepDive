@@ -113,6 +113,16 @@ final class MiniPanelController: NSObject {
         panel?.orderFrontRegardless()
     }
 
+    /// 药丸钉在**用户所在的那块屏**（指针处），不是 NSScreen.main——多屏下
+    /// main 是主屏（0,0 那块），用户看的不一定是它（实机翻车：药丸在主屏、
+    /// 用户在带鱼屏工作，"没看到 mini 面板"）。
+    static func userScreen() -> NSScreen {
+        let loc = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(loc) }
+            ?? NSScreen.main
+            ?? NSScreen.screens[0]
+    }
+
     /// ⌥Space（§4.1）：收起 ↔ 展开。
     func toggleExpanded() {
         guard enabled, panel != nil else { return }
@@ -278,7 +288,8 @@ final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
 
     func apply(expanded: Bool) {
         currentExpanded = expanded
-        let workArea = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
+        // 跟随窗口所在的屏（拖到哪块屏就贴哪块）；窗口未建时退回指针屏。
+        let workArea = (screen ?? MiniPanelController.userScreen()).visibleFrame
         let size = expanded ? MiniPanelController.expandedSize : MiniPanelController.tuckedSize
         let side = MiniPanelController.shared.side
         let yOffset = UserDefaults.standard.double(forKey: "deepdive.miniPanel.yOffset")
