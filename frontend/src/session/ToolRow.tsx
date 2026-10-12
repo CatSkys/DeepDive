@@ -22,7 +22,7 @@ import { FileIcon } from "./FileIcon";
 /// 2026-10-11：图标即类别；摘要为空才落回名字。读取/编辑/搜索族例外——2026-10-12
 /// 定稿并对齐官方行结构（icon→title→detail）与 ZCode 的 kind-label 位：动词开头，
 /// 徽标跟动词，路径/查询词是宾语，见 VerbPath），expandable to reveal terminal output or raw arguments.
-export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd, toolCallId }: {
+export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd, toolCallId, running = false }: {
   toolName: string;
   args: string;
   output?: string;
@@ -36,6 +36,10 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   /** 工具调用 id：agent 族前导头像的回落 seed（委派行优先用 args 里的身份串，
    *  见 agentIdentity；行内恒定，ToolIcon 消费）。 */
   toolCallId?: string;
+  /** 会话仍在跑（Item 按「会话在跑 且 本行是直播尾」门控）：无返回的调用只有
+   *  在它之下才画「正在执行」/文字脉冲。轮已收口而调用始终无返回（中止、暂停
+   *  丢结果）时降为静默——引擎不给结果帧时也不得永远闪下去（2026-10-12 报障）。 */
+  running?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
@@ -53,7 +57,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
     return relativizePath(raw, cwd);
   })();
   const filePath = derivePath(toolName, args);
-  const state = failed ? "error" : output !== undefined ? "done" : "running";
+  const state = failed ? "error" : output !== undefined ? "done" : running ? "running" : "done";
   const title = isTodo ? t("任务") : isAsk && state === "running" ? t("等待回答") : state === "running" ? t("正在执行") : toolDisplayName(toolName, t);
   const expandable = (output !== undefined && output !== "") || args !== "" || isTodo || (!!diffs && diffs.length > 0);
   return (

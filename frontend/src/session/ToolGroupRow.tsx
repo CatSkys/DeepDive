@@ -19,21 +19,24 @@ const GROUP_ICON: Record<ToolGroupKind, ReactNode> = {
   changes: <IconEditOutline16 size={14} />,
 };
 
-export function ToolGroupRow({ groupKind, members, cwd, children }: {
+export function ToolGroupRow({ groupKind, members, cwd, running: sessionRunning = false, children }: {
   groupKind: ToolGroupKind;
   members: RenderItem[];
   /** 会话工作目录：组头摘要里的路径按它相对化（与单条行同一口径）。 */
   cwd?: string;
+  /** 会话仍在跑（TurnList 门控）：末位成员无返回只在它之下才画运行态。轮已收口
+   *  而末位成员始终无返回（中止、暂停丢结果）时组头降为静默（2026-10-12 报障）。 */
+  running?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const parts = groupSummarySplit(groupKind, members, (zh, en, vars) => tt(zh, en, vars), cwd, t);
-  // 组在跑 = 末位成员还没落结果（与单条行 data-state 同一判据；流式期间最新的
-  // 那条永远在末位，摘要随它更新）。
+  // 组在跑 = 会话在跑 且 末位成员还没落结果（与单条行 data-state 同一判据；流式
+  // 期间最新的那条永远在末位，摘要随它更新）。
   const last = members[members.length - 1];
-  const running = last ? last.output === undefined : false;
+  const headRunning = sessionRunning && (last ? last.output === undefined : false);
   return (
-    <div className="tool-group" data-state={running ? "running" : undefined}>
+    <div className="tool-group" data-state={headRunning ? "running" : undefined}>
       <button type="button" className="tool-group-head" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         {GROUP_ICON[groupKind]}
         <VerbPath verb={parts.verb} text={parts.text} badgePath={parts.iconPath} cwd={cwd} summaryClass="tool-group-summary" />
