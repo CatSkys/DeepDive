@@ -1059,7 +1059,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
 - main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`（exit 前把锁路径打到 stderr）——测试新构建时极易误判"app 秒退"。
 - 处置：`DSHMINI_SUPPORT_DIR=<dir>` 隔离支撑目录（P2 新增 dev 钩子），或先退掉运行中的实例。
-- 中断/超时的**测试运行**会留下孤儿测试宿主：它握着隔离目录（`/tmp/dshmini-test-support`）的 instance.lock 不放，此后每轮 xcodebuild test 的宿主一启动就撞锁 exit(0)，xcodebuild 只报 "test runner exited with code 0 before establishing connection"——极难对上号（2026-10-11 实况：上会话遗留的 xcodebuild 连同宿主占锁，后续 XCTest 全体秒挂）。宿主被 kill 后其 xcodebuild 还会重拉一个，只杀宿主不够。处置：test.sh 起跑前预检该锁，按 Debug 产物路径识别宿主自动清场（清不掉宿主时连同本项目仍在跑的 xcodebuild 一起停）；非测试进程占锁则报错不动手。
+- 中断/超时的**测试运行**会留下孤儿测试宿主：它握着测试支撑目录（`<树>/.build/test-support`）的 instance.lock 不放，此后每轮 xcodebuild test 的宿主一启动就撞锁 exit(0)，xcodebuild 只报 "test runner exited with code 0 before establishing connection"——极难对上号（2026-10-11 实况：上会话遗留的 xcodebuild 连同宿主占锁，后续 XCTest 全体秒挂）。宿主被 kill 后其 xcodebuild 还会重拉一个，只杀宿主不够。处置：test.sh 起跑前预检该锁，按 Debug 产物路径识别宿主自动清场（清不掉宿主时连同本树仍在跑的 xcodebuild 一起停）；非测试进程占锁则报错不动手。测试支撑目录按树隔离（AppPaths 认 XCTest 环境派生于 bundle 路径，2026-10-12）：锁互撞与跨树误杀整类消失；`DSHMINI_SUPPORT_DIR` 仍可手动隔离第二实例。
 
 ### 7.3 settings.describe 的真实 namespace 图谱（rc.2 实测）
 - `agent-default-model` = `{provider, model, reasoningEffort}`（对象，不是字符串）；`permission` = `{defaultPreset}`；`ui-theme` = `{preference}`——**都不是以 ns 名直接存标量**，写值要 `settings.update(ns, patch=整值改路径, expectedRevision)` 或 mutate ops 指向子路径。

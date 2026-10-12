@@ -46,5 +46,5 @@ cat <<EOF
   cd $DIR_ABS
   提交到 ${BRANCH}（不动 main）；完成后回主仓 merge --no-ff，再 scripts/remove-worktree.sh ${SLUG}
   在树里跑 app 必带隔离支撑目录（PITFALLS §7.2）：DSHMINI_SUPPORT_DIR=$DIR_ABS/.support
-  XCTest 测试支撑锁全机共享（/tmp/dshmini-test-support）：两棵树同时跑 make test 会排队等锁
+  XCTest 测试支撑目录按树隔离（.build/test-support）：多棵树可并行跑 make test
 EOF
