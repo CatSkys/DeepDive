@@ -64,6 +64,8 @@ export interface Store {
   /** 各会话的后台任务快照（session/control 帧，5.3）。 */
   jobsBySession: Map<string, import("./types").JobView[]>;
   openSession: (id: string | null) => void;
+  /** 快捷会话（D14）：切到「快捷会话」空间 + 开新草稿；空间未注册时退化为普通新会话。 */
+  openQuickSession: () => void;
   /** 切换工作空间：持久化 + 主区跟随——目标空间最近的一个会话（sessions 已按
    *  updatedAt 降序，blank 也算：渲染即欢迎页头）；空空间 → 欢迎页（id=null）。
    *  opts.keepDraft：切完留在草稿页（hero 项目菜单用——继续写新会话，不跳进
@@ -209,6 +211,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     hotkey, setHotkey,
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,
+    quickWorkspacePath,
   } = prefs;
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
   const [unread, setUnread] = useState<Set<string>>(() => readIdSet("deepdive.unread"));
@@ -554,6 +557,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
     setActiveSessionId(target?.sessionId ?? null);
   }, []);
+  // ── 快捷会话（D14）──
+  // 默认空间注册：workspace/create 幂等（已注册即返回既有，目录由壳保证存在）。
+  // 引擎对新建空间是"注册序置顶"（workspace/src/index.ts），所以首次注册后它排在
+  // 空间列表最前——属引擎语义，不前端重排。
+  useEffect(() => {
+    if (!engineUp || !quickWorkspacePath) return;
+    api.workspaceCreate({ path: quickWorkspacePath }).catch(() => void 0);
+  }, [engineUp, quickWorkspacePath]);
+
+  const openQuickSession = useCallback(() => {
+    const quick = quickWorkspacePath
+      ? workspaces.find((w) => w.path === quickWorkspacePath)
+      : undefined;
+    if (quick) switchWorkspace(quick.workspaceId);
+    openSession(null);
+  }, [quickWorkspacePath, workspaces, switchWorkspace, openSession]);
+
+  // 快捷空间最近会话 → 壳（迷你面板命令卡的数据锚点）。
+  useEffect(() => {
+    const quick = quickWorkspacePath
+      ? workspaces.find((w) => w.path === quickWorkspacePath)
+      : undefined;
+    const ids = quick?.sessionIds ?? [];
+    sendToShell({ type: "miniPanel.quickSession", sessionId: ids.length ? ids[ids.length - 1] : null });
+  }, [workspaces, quickWorkspacePath]);
+
 
   // 草稿模型（见 Store 接口注释）：初值读档，写入即落 localStorage；ref 镜像供
   // createSession 闭包读取。
@@ -656,6 +685,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       jobsBySession,
       refresh,
       openSession,
+      openQuickSession,
     keybinds,
     setKeybinds,
     hotkeyOn,
@@ -700,7 +730,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

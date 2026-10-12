@@ -66,6 +66,7 @@ export const ENShell: Record<string, string> = {
   "附件": "Attachments",
   "命令": "Commands",
   "打开本体": "Open DeepDive",
+  "暂无命令": "No commands yet",
   "图片…": "Image…",
   "听写失败": "Dictation failed",
   "没有匹配「{q}」": "No matches for “{q}”",

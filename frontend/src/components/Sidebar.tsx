@@ -70,6 +70,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         onOpenRowMenu={openRowMenu}
         onOpenWorkspaceMenu={(x, y) => { setRowMenu(null); setWsMenu({ x, y }); }}
         onNewSession={() => store.openSession(null)}
+        onQuickSession={() => store.openQuickSession()}
         slideDir={slideDir.current}
       />
       <div className="sidebar-foot">

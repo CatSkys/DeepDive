@@ -222,6 +222,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    /// 迷你面板 → 本体的指令通道（openQuickSession 等）；payload 为 JSON 文本。
+    func pushHostCommand(_ cmd: String, payload: String?) {
+        windowController.pushHostCommand(cmd, payload: payload ?? "{}")
+    }
+
     /// JSON payload builder for every bridge pushHostCommand — JSONSerialization
     /// only, so ids with quotes/backslashes can't produce invalid JSON and the
     /// shell has a single JSON construction path (hand-built interpolation and
@@ -780,7 +785,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 那一刻抛异常——表现是"应用一启动就崩"（2026-09-26 实测：`BrowserShield.shared.enabled`
     /// 少写了调用括号，把 Bool 写成了一个闭包）。所以这一段单独留出来给测试钉住。
     func prefsPayload() -> [String: Any] {
-        [
+        // 快捷会话默认空间目录（D14）：引擎 workspace/create 只收已存在的绝对
+        // 路径（~ 不展开），目录由壳保证存在，注册由 SPA 幂等做。
+        let quickDir = MiniPanelController.quickWorkspaceDirectory
+        try? FileManager.default.createDirectory(at: quickDir, withIntermediateDirectories: true)
+        return [
+            "quickWorkspacePath": quickDir.path,
             "notifyTurnEnd": DSHAppPrefs.notifyTurnEnd,
             "notifyAttention": DSHAppPrefs.notifyAttention,
             "menuBar": DSHAppPrefs.menuBar,
