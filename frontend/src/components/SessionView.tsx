@@ -50,7 +50,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 供 syncBottomPad 同步读）保持一个事实源，拆两套监听会算出两个贴底。
   const [scrolled, setScrolled] = useState(false);
   const olderAnchorRef = useRef<HTMLElement | null>(null);
-  const { items, liveRunning, runningSince, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry, browserUsed } = useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
+  const { items, liveRunning, runningSince, turnEnded, scheduleRecords, hasMore, loadingOlder, loadOlder, loadError, retry, browserUsed } = useSessionEvents(sessionId, { scrollRef, olderAnchorRef });
   // 贴底跟随与悬浮对话卡共用一份（那边同样要自己滚到底）
   const { follow, followRef, onScroll: followScroll } = useFollowTail(scrollRef, items);
   const flowRef = useRef<HTMLDivElement | null>(null);
@@ -85,7 +85,11 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   // 父会话 + 标题，内容铺满，不挂输入框（continuable 子会话续话那条路随之撤掉）。
   const isSubagent = summary?.origin === "subagent";
   const isBlank = summary ? !!summary.blank : items.length === 0;
-  const running = liveRunning || !!summary?.running;
+  // 事件流的逐轮真相优先（turnEnded=日志窗见过 turn/end，useSessionEvents 注）：
+  // 引擎 agent status 卡在 running 时 summary 的 running 永不落，Deep diving、
+  // composer 转圈、工具行脉冲会被它一直抬着（2026-10-12 用户报障）。只有日志窗
+  // 未见闭合（开窗落在轮中段、turn/start 已被截走）时才让 summary 兜底。
+  const running = liveRunning || (!turnEnded && !!summary?.running);
   // 直播项（流式 chunk/思考）只可能是列表最后一项。思考块用它判定「这一条思考
   // 是否还在进行」（官方 `running={streaming && i === last}` 口径）——只看会话级
   // running 的话，同轮后面的工具/答案都已出现、会话还在跑时，早已结束的思考会

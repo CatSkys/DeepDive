@@ -125,7 +125,7 @@ export function TurnList({ keyIdx, groups, running, runningSince, liveItem, proc
                 ref={idx === 0 ? ((el: HTMLDivElement | null) => { olderAnchorRef.current = el; }) : undefined}
               >
                 {unit.kind === "tool-group" ? (
-                  <ToolGroupRow groupKind={unit.groupKind} members={unit.members} cwd={cwd}>
+                  <ToolGroupRow groupKind={unit.groupKind} members={unit.members} cwd={cwd} running={running}>
                     {unit.members.map((m) => <div key={m.key}>{renderItem(m)}</div>)}
                   </ToolGroupRow>
                 ) : renderItem(unit.item)}
