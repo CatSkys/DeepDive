@@ -1,11 +1,12 @@
-# NOTIFICATIONS-FLOATING-BALL — 通知与悬浮球 spec（P2 · v2.1 复审收口）
+# NOTIFICATIONS — 通知与迷你面板状态面 spec（v3）
 
-> **状态（2026-09-03）：已实现**。落地文件：`NativeAlerts.swift`、`FloatingBubble.swift`（Manager+View 合一）、`EngineEventObserver.swift`（方案 A：壳自读 mux）。工程改名后标识符已变：桥钩子 `__dshminiHost` → **`__deepDiveHost`**、messageHandler `dshminiHost` → **`deepdiveHost`**、偏好键 `dsh.alerts.*` → **`deepdive.alerts.*`**（见 BRANDING §5）。
+> **状态**：通知（§1）与事件源（§3）**已实现**；§2 悬浮球 **v3 退役**——状态面并入迷你面板药丸（产品语义的家 = `SPEC-SEMANTICS §6.1`）。落地文件：`NativeAlerts.swift`、`FloatingBubble.swift`（v3 起由迷你面板承接后撤除）、`EngineEventObserver.swift`（方案 A：壳自读 mux）。工程改名后标识符已变：桥钩子 `__dshminiHost` → **`__deepDiveHost`**、messageHandler `dshminiHost` → **`deepdiveHost`**、偏好键 `dsh.alerts.*` → **`deepdive.alerts.*`**（见 BRANDING §5）。
 > 工程流 C。重点参考 `luochenw/deepseek-harness-macos`：`NativeAlerts.swift`（`UNUserNotificationCenter` + `NSStatusItem`）、`FloatingBubble.swift`（`NSPanel` 悬浮球）。这些是 **WebView 标签页做不到的 OS 级能力**，必须落在原生 Swift 层。
 > 视觉纪律（`UI-SPEC`）：黑白灰阶、无强调色（彩色仅 diff 内容层语义色）；状态用符号+亮度，**不用红点/彩色海景**——参考项目的红点与海景需按 spec 转 monochrome。
 > v2 变更：①通知按 `SPEC-SEMANTICS §5` 分级静默（回合完成不带 sound）②补引擎失败通知③新增 **§3.1 外壳↔前端通道**（通知点击"转入会话"/悬浮球聚焦会话/主题联动的落地前提，现状为零通道）④授权时机定为首次派发任务⑤菜单对现状的两处取舍写明。
 > v2.1 变更：①点击指令 **pending 暂存**（冷启动/页面加载中不丢转入意图，§3.1）②悬浮球显隐**不占全局热键**（§2.4，与 SETTINGS"全局热键仅 1 个"对齐，撤销 v1 `⌥⌘Y` 设想）③授权异步期间由状态图标兜底的说明。
 > v2.2 变更（2026-09-04）：①通知文案**按任务类型区分**（title=类型短语 / subtitle=会话标题 / body=该类型真实内容，去掉 "DSH" 前缀——品牌归属交给通知图标，§1.2）②新增**菜单栏图标 / Dock 栏图标显隐开关**（§1.3、§1.4），撤销"菜单栏始终显示不受开关影响"的旧约定。
+> v3 变更（2026-10-12）：**悬浮球退役，状态面并入迷你面板药丸**（§2 重写；窗口机制沿用药丸所在的 nonactivating panel，观察者 feed 与点击聚焦语义不变）；「悬浮球」开关由「迷你面板」开关接管；本文随内容改名（悬浮球不复存在）。
 
 ---
 
@@ -38,27 +39,23 @@
 - 图标整体显隐由 §1.3 `menuBar` 控制；`StatusItemController.setVisible` 只动 `isVisible`。
 - 菜单：显示主窗、设置…、刷新界面、重启引擎、切换工作区、退出。**对现状菜单的两处取舍**：「黑白主题」**删除**（明/暗移入设置-外观分区，避免双入口）；「刷新界面」**保留**（调试用）。
 
-## 2. 悬浮球（`NSPanel`，常驻置顶）
+## 2. 迷你面板状态面（v3：悬浮球退役，状态并入药丸）
 
-### 2.1 窗口
-- `NSPanel`：`[.borderless, .nonactivatingPanel]`，`level = .floating`，透明 `backgroundColor = .clear`，`hasShadow = false`（阴影由 SwiftUI 自画，避免透明窗阴影首帧冻结）。
-- `collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]`；`isMovableByWindowBackground = true`（拖动靠 NSWindow 截获 mouseDown）。
-- 画布 84pt：中央 44pt 圆 + 四周声呐涟漪区。
-- 内容：`NSHostingView(rootView:)` 承载 SwiftUI 视图；autosave 位置（默认主屏右上避开菜单栏）。
+产品语义（条目、快捷空间、显隐、技术路线）的家 = `SPEC-SEMANTICS §6.1`；本节只拥有「会话状态如何在药丸上原生表达」。
 
-### 2.2 状态（自持推导，不给外部加字段）
-- `FloatingBubbleManager`（单例 ObservableObject）：
-  - `enabled` 存 `UserDefaults`（默认开）。
-  - `unseenCompletion`：由"会话运行中 → 完成且 App 非前台"点亮；运行开始、App becomeActive、点击悬浮球都清。
-  - `toggle()` 显隐；`bubbleClicked()` 清红点 + 激活 App + 主窗到前（+ 经 §3.1 桥通道 `navigateToSession` 打开最近需注意/刚完成的会话，钩子不存在则只做前两步）。
+### 2.1 状态源（不变）
+- 观察者 feed 沿用方案 A（§3）：`running` / `attention` / `unseenCompletion`（后台完成未读）/ `focusSessionId`（下次点击聚焦的会话）。自持推导，不给外部加字段；运行开始与 App becomeActive 清未读的规则不变。
 
-### 2.3 交互
-- 单击：激活 App + 主窗到前。**拖**：用 `isMovableByWindowBackground`，**不得加 SwiftUI 手势**（会吃 mouseDown，拖不动）。**hover**：用 `onHover`（不消费事件），缩放到 1.06；光标处理按 `UI-SPEC` 无 `pointer` 纪律（可不用 pointingHand，或仅悬浮球保留）。
-- **中央图形 = 品牌标记（实心 D 剪影）**：path 由 `design/logo/`（`?path=1`，正方形 viewBox 0 0 737.28 737.28）生成后逐字粘进 `FloatingBubble.swift` 的 `BrandMark.markPath`——改 logo 配方时两边同步。渲染单色剪影，融入黑白。
-- 状态表达（**monochrome 移植**，不用红点/彩色海景）：在标记上做**环绕状态环/点**——运行=亮环（呼吸）、后台完成未读=白点（呼吸）/灰✓；语音/听写涟漪按需（P2）。中央标记本体保持黑白剪影。
+### 2.2 药丸上的表达（monochrome 纪律不变）
+- 状态画在药丸上：运行=呼吸环、需注意=点、后台完成未读=白点呼吸/灰✓——符号+亮度，不用红点/彩色。
+- 点击 = 原 `bubbleClicked()` 语义不变：清未读 + 聚焦最近需注意/刚完成的会话（经 §3.1 `navigateToSession`，钩子缺失时降级只激活，不重试）。
 
-### 2.4 入口
-- 开关：设置「通用」分区。**悬浮球显隐不占全局热键**——全局键是稀缺资源，仅保留唤起面板一个（与 `SPEC-SETTINGS-WINDOW` 快捷键分区"全局热键 1 个"一致；v1 的 `⌥⌘Y` 设想撤销）。
+### 2.3 显隐与开关
+- 状态面显隐随「迷你面板」开关（接管原「悬浮球」开关的偏好位，读旧键迁移）；面板隐藏期间屏缘没有状态点，状态由菜单栏图标兜底（§1.4 不变）。
+- 通知横幅（§1）、菜单栏徽标（§1.4）与本节状态面互不依赖：关掉迷你面板只失去屏缘状态点，不失去通知与菜单栏。
+
+### 2.4 前身（悬浮球）的窗口机制存档
+- 原 `FloatingBubblePanel` 的窗口配方（`[.borderless, .nonactivatingPanel]`、`level = .floating`、透明底、`canJoinAllSpaces + fullScreenAuxiliary`、`isMovableByWindowBackground`、拖动不加 SwiftUI 手势）是迷你面板窗口的直接前例；品牌剪影路径在 `BrandMark.markPath`（源 `design/logo/`）继续供菜单栏/药丸共用。
 
 ## 3. 事件来源（原生侧感知会话状态）
 
@@ -84,5 +81,7 @@
 | `apps/macos/Sources/DSHminiApp/MainWindowController.swift` | `__deepDiveHost` 钩子注入 + `evaluateJavaScript` 下发（§3.1；SETTINGS 外观联动复用） |
 | `apps/macos/Sources/DSHminiApp/DSHAppPrefs.swift` | 新增（notifyTurnEnd/notifyAttention 开关） |
 | 设置「通用」分区 | 接两个通知开关与悬浮球开关 |
+
+> v3：`FloatingBubble.swift` 随迷你面板落地撤除，其观察者 feed 与点击聚焦语义由药丸承接（§2）；上表保留为 §1/§3 的实现记录。
 
 > 视觉：悬浮球与通知按 `UI-SPEC` 黑白；彩色仅保留于 diff 内容层语义色。若需在"后台完成"做差异提示，用**亮度/符号**（白点呼吸）而非红点。
