@@ -130,7 +130,7 @@ describe("groupTools：相邻同类且 ≥2 条才成组", () => {
     if (units[0]!.kind !== "tool-group") throw new Error("unreachable");
     expect(units[0]!.groupKind).toBe("changes");
     expect(changedFiles(units[0]!.members)).toEqual(["a.ts", "b.ts"]);
-    expect(formatGroupSummary("changes", units[0]!.members, zh)).toBe("2 个文件 · a.ts, b.ts");
+    expect(formatGroupSummary("changes", units[0]!.members, zh)).toBe("编辑 2 个文件 · a.ts, b.ts");
   });
 
   it("换类即断组；单条不成组", () => {
@@ -147,10 +147,10 @@ describe("groupTools：相邻同类且 ≥2 条才成组", () => {
 });
 
 describe("formatGroupSummary：三类各自的形状", () => {
-  it("查阅：最新一条摘要打头，桶计数跟后（0 不出现、逗号分隔）", () => {
+  it("查阅：最新一条摘要打头（读取族=动词+路径），桶计数跟后（0 不出现、逗号分隔）", () => {
     const items = [tool("grep", "x"), tool("glob", "**/*"), tool("read", "a.ts"), tool("read", "b.ts")];
-    expect(formatGroupSummary("explore", items, zh)).toBe("b.ts · 1 搜索, 1 列表, 2 文件");
-    expect(formatGroupSummary("explore", [tool("read", "a"), tool("read", "b")], zh)).toBe("b · 2 文件");
+    expect(formatGroupSummary("explore", items, zh)).toBe("读取 b.ts · 1 搜索, 1 列表, 2 文件");
+    expect(formatGroupSummary("explore", [tool("read", "a"), tool("read", "b")], zh)).toBe("读取 b · 2 文件");
   });
   it("查阅：命令族成员的摘要走 bashSummary（description 优先），与单条行同口径", () => {
     const items = [
@@ -163,8 +163,8 @@ describe("formatGroupSummary：三类各自的形状", () => {
     const items = [tool("bash", asJson("npm test"), true), tool("bash", asJson("make"))];
     expect(formatGroupSummary("execute", items, zh)).toBe("make · 2 个命令 · 1 个失败");
   });
-  it("更改：单文件只给文件名，多文件给计数 + 清单", () => {
-    expect(formatGroupSummary("changes", [tool("edit", JSON.stringify({ file_path: "only.ts" }))], zh)).toBe("only.ts");
+  it("更改：单文件与单条行同形（动词+路径），多文件动词 + 计数 + 清单", () => {
+    expect(formatGroupSummary("changes", [tool("edit", JSON.stringify({ file_path: "only.ts" }))], zh)).toBe("编辑 only.ts");
   });
   it("桶计数之和 = 成员数（不漏不重）", () => {
     const items = REAL_READONLY.map((c) => tool("bash", c));
