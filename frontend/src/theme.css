@@ -322,6 +322,47 @@ button {
 .mini-panel .session-header,
 .mini-panel .hero-top { padding-left: 84px; }
 
+/* 迷你面板页全出血：内容直接坐在窗体那块原生液态玻璃上（对话卡同族——磨砂
+   是窗体给的红利，网页不铺近实色卡底盖掉它）；圆角与外圈阴影归窗口 chrome。 */
+.mini-panel .main:has(> .session-row) { padding: 0; }
+.mini-panel .session { background: var(--panel-glass); border-radius: 0; box-shadow: none; }
+/* 开着的右侧卡（会话设置/状态）在迷你面板以浮层呈现：500 宽窗排不下 320 定宽
+   的兄弟卡；收起态配方不动（width 0 + pointer-events none）。 */
+.mini-panel .panel:not([data-closed="true"]) { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; }
+
+/* 迷你面板的草稿页（Atd 主面板的结构，我们的画法）：头部同会话页根条（复用
+   hero-top，靠 --hero-pad-x 负边距抵齐）；其下左上问候 + 副题 + / 命令快捷行
+   （行 hover 填充与列表行同语言）；输入框钉底，与问候同缩进。 */
+.mini-draft {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-sizing: border-box;
+  --hero-pad-x: 24px;
+  padding: 0 var(--hero-pad-x) 12px;
+}
+.mini-draft .hero-brand { align-items: flex-start; margin: 28px 0 0; }
+.mini-draft-sub { margin: 6px 0 0; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
+.mini-draft-commands { display: flex; flex-direction: column; margin-top: 24px; }
+.mini-cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  margin: 0 -10px;
+  border-radius: var(--dsh-radius-control, 8px);
+  text-align: left;
+}
+:where(html[data-hover-armed]) .mini-cmd-row:hover { background: var(--row-hover); }
+.mini-cmd-glyph { flex: none; color: var(--ink-3); }
+.mini-cmd-text { display: flex; flex-direction: column; min-width: 0; }
+.mini-cmd-name { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink); }
+.mini-cmd-desc { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+.mini-draft-foot { flex: none; margin-top: auto; padding-top: 8px; }
+.mini-draft-foot .composer { width: 100%; }
+
 /* 启动过渡的舞台：把「侧栏 + 主卡」这对兄弟包进一个自己就是 flex row 的容器，
    几何与 .app 直接持有它们时一致（同样 flex:1 + min-width:0 + 同样的子元素），
    腾出的位置给 BootSkeleton 当绝对定位层（见 components/BootSkeleton.module.css）。

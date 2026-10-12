@@ -13,7 +13,7 @@ import { useStore } from "../store";
 import { DialogHost } from "../components/DialogHost";
 import { TooltipHost } from "../components/Tooltip";
 import { SessionView } from "../components/SessionView";
-import { HeroDraft } from "../components/HeroDraft";
+import { MiniDraft } from "./MiniDraft";
 
 export function MiniPanelApp() {
   const store = useStore();
@@ -74,7 +74,7 @@ export function MiniPanelApp() {
         {active ? (
           <SessionView key={active} sessionId={active} />
         ) : (
-          <HeroDraft />
+          <MiniDraft />
         )}
       </main>
     </div>
