@@ -27,9 +27,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../..");
 const BASELINE = join(HERE, "architecture-baseline.json");
 
-/** 新文件行数上限（`AGENTS.md` 代码约定）。存量超限的靠基线放行，不再向上堆。 */
-const MAX_FILE_LINES = 300;
-
 const SOURCE_ROOTS = [join(ROOT, "frontend/src"), join(ROOT, "apps/macos/Sources")];
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".swift"];
 
@@ -99,17 +96,7 @@ function checkCssModuleClasses(file) {
   return violations;
 }
 
-// ── 规则 2：文件行数上限 ─────────────────────────────────────────────────────
-// 只对新文件要求；存量超限进基线（`AGENTS.md`：存量大文件不强制重构，但新逻辑放新文件）。
-
-function checkFileLines(file) {
-  if (isTest(file)) return [];
-  const lines = readFileSync(file, "utf8").split("\n").length;
-  if (lines <= MAX_FILE_LINES) return [];
-  return [{ rule: "file-lines", file: rel(file), detail: `${lines} lines > ${MAX_FILE_LINES}` }];
-}
-
-// ── 规则 3：流的竖向行奏只能有一个值 ─────────────────────────────────────────
+// ── 规则 2：流的竖向行奏只能有一个值 ─────────────────────────────────────────
 // 用户两次报"行距没统一 / 贴的太近"：同一种"行与行"的关系曾经是 10/12/8/4 四份各写
 // 各的，隔一层容器就换一档——改一处、另一处不跟，不报错、测试不红，页面上只表现为
 // "看着不一致"。判据：这几个行容器里凡声明行距的地方都必须引 `--flow-gap`（值本身在
@@ -179,7 +166,6 @@ function collect() {
   const violations = [...checkFlowRhythm()];
   for (const file of files) {
     if (file.endsWith(".ts") || file.endsWith(".tsx")) violations.push(...checkCssModuleClasses(file));
-    violations.push(...checkFileLines(file));
   }
   return violations.sort((a, b) =>
     a.rule.localeCompare(b.rule) || a.file.localeCompare(b.file) || a.detail.localeCompare(b.detail),

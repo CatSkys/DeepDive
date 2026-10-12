@@ -30,9 +30,8 @@ else
   (cd "$DIR/frontend" && npm install) \
     && echo "OK: frontend npm install" \
     || echo "WARN: frontend 依赖没装好——改前端前重跑 (cd frontend && npm install)"
-  (cd "$DIR/engine" && pnpm install) \
-    && echo "OK: engine pnpm install（引擎侧 vitest 用）" \
-    || echo "WARN: engine 依赖没装好——改引擎前重跑 (cd engine && pnpm install)"
+  # 引擎依赖按需装（pnpm install 全量较慢，纯壳/前端任务用不到）
+  echo "SKIP: engine 依赖未装——改引擎前跑 (cd $DIR/engine && pnpm install)"
 fi
 
 # §5 机械卡点自愈：hooksPath 没配就配上（worktree 与主仓共享 git config，配一次全树生效）
