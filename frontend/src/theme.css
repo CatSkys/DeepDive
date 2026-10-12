@@ -377,11 +377,14 @@ button {
    flex: 0 1 auto（内容多高就多高、min-height:0 允许收缩）：列表短时贴合内容，
    「新会话」入口行紧随其后贴着最后一行；会话多到超出时列表收缩成滚动区，
    入口被顶到下面常驻（= 设置行上面那行）。撑满剩余高度的职责不在这里。
-   scrollbar-color 与会话流同款最淡档（用户定稿：两边滚动条一个颜色；机制同
-   .flow——标准属性只换拇指色，不会顶成常驻滚动条）。曾给滚动条让过 10/14px
-   右内距，拇指调淡后盖在胶囊上几乎不可见（参照应用同款），让位整层撤掉——
-   右缘空档回到行自身内距的口径（2026-10-12 用户定稿：参照应用 ~10px）。 */
-.sessions { position: relative; flex: 0 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; scrollbar-color: var(--ink-faintest) transparent; }
+   右缘口径（2026-10-12 用户定稿「往外压、跟左侧空隙对齐、滚动条不压内容」）：
+   负 margin 吃掉侧栏的 8px 右内距（数值与 .sidebar padding-right 配对），滚动
+   容器贴到窗口右缘；padding-right 10px 是拇指专用带——胶囊/时间戳止于带外
+   （与左侧 8px 胶囊位差 2px），滚动条出现在带里，永远不压内容。曾试过整层
+   让位（+10/14px）与完全不让位，前者右缘空一条、后者拇指压胶囊，均被否。
+   scrollbar-color 与会话流同款最淡档（标准属性只换拇指色，不会顶成常驻
+   滚动条——文件头决策）。 */
+.sessions { position: relative; flex: 0 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; margin-right: -8px; padding-right: 10px; scrollbar-color: var(--ink-faintest) transparent; }
 
 /* 分组标签（Pinned / Recent / 上周 / AI Agents）：小字 + 微量 tracking——小标签在
    深浅底上都比正文轻一档，tracking 让它在弱色（--ink-3）下不至于散掉。规范 §2.1
