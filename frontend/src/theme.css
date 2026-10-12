@@ -4666,16 +4666,17 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
    盘边缘 alpha 渐隐，叠放处自然融合，不用再画描边分隔。 */
 .capsule-orb-stack { display: flex; align-items: center; }
 .capsule-orb-overlap { margin-left: -5px; }
-/* 雾感盘（.agent-orb，面板行/工具行/胶囊堆叠共用）的圆形剪影：两团色相的渐变
-   在组件内联 background 里（AgentOrb），这里用遮罩收出圆形、半径 70% 起向边缘
-   淡出（2026-10-12 预览定稿 B 档）。mask 不能走 React 内联 style（PITFALLS §1.9
+/* 头像（.agent-orb，面板行/工具行/胶囊堆叠共用）的薄雾边：渐变与形状（多边形
+   clip-path）都在组件内联 style 里（AgentOrb），这里用遮罩把边缘磨进背景——
+   实心到半径 85% 再淡出（2026-10-12 定稿"薄雾边"；多边形的尖角落在渐隐带里
+   微微变软，即预览定稿的观感）。mask 不能走 React 内联 style（PITFALLS §1.9
    静默丢弃），只在类里。双前缀照写（-webkit- 在前，PITFALLS §1.8），但压缩器
    实测会把 -webkit-mask-image 别名剥掉、dist 只剩标准属性（与 backdrop-filter
    的合并方向相反）——目标 WKWebView（macOS 26）认无前缀 mask-image，功能无损，
    grep dist 别拿"两条都在"当判据。 */
 .agent-orb {
-  -webkit-mask-image: radial-gradient(circle closest-side, #000 70%, transparent 100%);
-  mask-image: radial-gradient(circle closest-side, #000 70%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 85%, transparent 100%);
+  mask-image: radial-gradient(circle closest-side, #000 85%, transparent 100%);
 }
 /* 面板正文：每区内距 8/14，行自己再吃 8px 横向内距——这样"行"的文字与"区标题"
    的左缘对齐在 22px（14 + 8），与 ZCode 的 `px-2 py-*`（行）落在 `p-3`（正文）里的
