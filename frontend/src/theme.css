@@ -986,11 +986,8 @@ button {
    居中——定宽 280 用 left: calc 偏移而非 translateX，避免与 menu-in 动画
    的 transform（fill-mode 会覆盖静态 transform）打架。 */
 .ws-menu {
-  position: absolute;
-  top: calc(100% + 14px);
-  left: calc(50% - 140px);
+  /* 定位（fixed + top/left + maxHeight）由 ProjectMenu 按触发器实测内联给 */
   width: 280px;
-  max-height: 420px;
   display: flex;
   flex-direction: column;
   border-radius: var(--dsh-radius-floating);
@@ -5482,6 +5479,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
   margin: 0 -8px;
   padding: 0 8px;
   border-radius: var(--dsh-radius-control);
+  /* 仓库没有全局 border-box（Automation.module.css 同款事故）：模型行是 button，
+     UA 样式表自带 border-box；这里是 div，缺了它 width+padding 右溢面板边框——
+     平时看不见，hover 一亮填充就出界（2026-10-12 用户报障）。 */
+  box-sizing: border-box;
 }
 :where(html[data-hover-armed]) .panel-settings-line:hover { background: var(--fill); }
 .panel-settings-identity { min-width: 0; }

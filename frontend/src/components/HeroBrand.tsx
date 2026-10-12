@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { ProjectMenu } from "./ProjectMenu";
@@ -14,6 +14,7 @@ export function HeroBrand() {
   const ws = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
   const [pickOpen, setPickOpen] = useState(false);
   const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null);
+  const wsBtnRef = useRef<HTMLButtonElement | null>(null);
   return (
     <div className="hero-brand">
       <div className="hero-title">
@@ -22,13 +23,14 @@ export function HeroBrand() {
             {tt("我们在 ", "What should we do in ")}
             <span className="hero-ws-wrap">
               <button
+                ref={wsBtnRef}
                 className="hero-ws"
                 onClick={() => setPickOpen(true)}
                 onContextMenu={(e) => { e.preventDefault(); setCtx({ x: e.clientX, y: e.clientY }); }}
               >
                 {ws.title}
               </button>
-              {pickOpen && <ProjectMenu onClose={() => setPickOpen(false)} />}
+              {pickOpen && <ProjectMenu onClose={() => setPickOpen(false)} anchorRef={wsBtnRef} />}
               {ctx && <WorkspaceMenu ws={ws} x={ctx.x} y={ctx.y} onClose={() => setCtx(null)} />}
             </span>
             {tt(" 做点什么？", "?")}

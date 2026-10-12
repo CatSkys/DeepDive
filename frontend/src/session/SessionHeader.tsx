@@ -32,6 +32,7 @@ export function SessionHeader({ title, face, onTitleClick }: { title: string; fa
   // 展开态项目名在侧栏常驻，不弹）
   const [projOpen, setProjOpen] = useState(false);
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
 
   return (
     <div className="left">
@@ -47,9 +48,9 @@ export function SessionHeader({ title, face, onTitleClick }: { title: string; fa
           >
             {title}
           </div>
-          {projOpen && <ProjectMenu onClose={() => setProjOpen(false)} />}
+          {projOpen && <ProjectMenu onClose={() => setProjOpen(false)} anchorRef={pillRef} />}
         </span>
-        <WorkspacePill onOpen={sidebarCollapsed ? () => setProjOpen((v) => !v) : undefined} />
+        <WorkspacePill anchorRef={pillRef} onOpen={sidebarCollapsed ? () => setProjOpen((v) => !v) : undefined} />
       </div>
       <button ref={modelTriggerRef} className="model trigger" data-open={face.showModels ? "true" : "false"} onClick={() => face.setShowModels(true)}>
         {face.modelName || "Auto"}

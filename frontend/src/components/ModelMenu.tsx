@@ -44,16 +44,17 @@ const MENU_MAX_HEIGHT = 460;
 /** 与 .model-detail 的 width 同步（卡片贴菜单旁定位要按它算）。 */
 const CARD_WIDTH = 240;
 
-/** 触发器下方的弹层位置：下方放不下且上方更宽裕就翻上去，两侧留 8px 边距。 */
-function popupRect(anchor: HTMLElement): { top: number; left: number; maxHeight: number } {
+/** 触发器下方的弹层位置：下方放不下且上方更宽裕就翻上去，两侧留 8px 边距。
+ *  弹层宽度与限高由调用方给（各家菜单尺寸不同），翻转判定全站共用这一条。 */
+export function popupRect(anchor: HTMLElement, opts: { width: number; maxHeight: number }): { top: number; left: number; maxHeight: number } {
   const r = anchor.getBoundingClientRect();
   const below = window.innerHeight - r.bottom - 8;
   const above = r.top - 8;
   const flip = below < 260 && above > below;
-  const maxHeight = Math.min(MENU_MAX_HEIGHT, Math.max(200, (flip ? above : below) - 4));
+  const maxHeight = Math.min(opts.maxHeight, Math.max(200, (flip ? above : below) - 4));
   return {
     top: flip ? Math.max(8, r.top - maxHeight - 4) : r.bottom + 4,
-    left: Math.max(8, Math.min(r.left, window.innerWidth - MENU_WIDTH - 12)),
+    left: Math.max(8, Math.min(r.left, window.innerWidth - opts.width - 12)),
     maxHeight,
   };
 }
@@ -86,7 +87,7 @@ export function ModelMenu({
   // 量触发器必须在绘制前完成，否则首帧会闪在左上角（useLayoutEffect）
   useLayoutEffect(() => {
     const el = anchorRef.current;
-    if (el) setRect(popupRect(el));
+    if (el) setRect(popupRect(el, { width: MENU_WIDTH, maxHeight: MENU_MAX_HEIGHT }));
   }, [anchorRef]);
 
   useEffect(() => {
