@@ -239,7 +239,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // 玻璃窗口必须非不透明 + 透明底色：`.behindWindow` 采样的是"窗口背后的桌面"，
         // 而 NSWindow 默认 isOpaque=true + 不透明 windowBackgroundColor——那样材质只能
         // 退化成"窗内混合"，观感就是一块平灰、什么都不透（设为 contentView 并不会让
-        // AppKit 自动改这两项，实测探针）。FloatingBubble 同款设置，主窗此处原先漏了。
+        // AppKit 自动改这两项，实测探针）。MiniPanelWindow 同款设置，主窗此处原先漏了。
         window.isOpaque = false
         window.backgroundColor = .clear
 

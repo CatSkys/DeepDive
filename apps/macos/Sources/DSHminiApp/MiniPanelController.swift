@@ -6,8 +6,73 @@ import WebKit
 /// （`UI-SPEC §1.5`），条目列渲染归 web 薄入口（`?miniPanel=1`，同包同 token）。
 /// 布局纪律：窗口每变一次态，container/玻璃/色调/webview 全部**显式**重排——
 /// 不依赖 autoresizing（树② 的教训：容器不跟手，展开后内容挤在窗口角落）。
-final class MiniPanelController {
+final class MiniPanelController: NSObject {
     static let shared = MiniPanelController()
+
+    override init() {
+        super.init()
+        // App 激活即清「后台完成未读」（悬浮球同款语义，SPEC-NOTIFICATIONS §2.1）。
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appBecameActive),
+            name: NSApplication.didBecomeActiveNotification, object: nil
+        )
+    }
+
+    @objc private func appBecameActive() {
+        guard unseen else { return }
+        unseen = false
+        pushStatus()
+    }
+
+    // MARK: - 会话状态面（悬浮球退役承接，SPEC-NOTIFICATIONS §2）
+
+    private(set) var running = false
+    private(set) var attention = false
+    private(set) var unseen = false
+    /// 点击聚焦目标（最近需注意/刚完成的会话；每次完成覆盖，不做"只在 nil 时设一次"）。
+    private(set) var focusSessionId: String?
+
+    func noteRunningStarted(sessionId: String) {
+        unseen = false
+        pushStatus()
+    }
+
+    func noteNeedsAttention() {
+        guard !attention else { return }
+        attention = true
+        pushStatus()
+    }
+
+    func noteTurnFinished(sessionId: String, appInactive: Bool) {
+        if appInactive { unseen = true }
+        focusSessionId = sessionId
+        pushStatus()
+    }
+
+    func sync(running: Bool, attention: Bool) {
+        self.running = running
+        self.attention = attention
+        pushStatus()
+    }
+
+    func clearFocus() {
+        focusSessionId = nil
+        unseen = false
+        pushStatus()
+    }
+
+    private func pushStatus() {
+        panel?.dispatch(
+            "miniPanelStatus",
+            payload: ["running": running, "attention": attention, "unseen": unseen]
+        )
+    }
+
+    /// 「迷你面板」开关（设置 → 通知，接管悬浮球行；新键默认开，悬浮球旧键作废）。
+    func setEnabled(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: "deepdive.miniPanel.enabled")
+        if on { show() } else { panel?.orderOut(nil) }
+    }
 
     /// 收起态窗口 bounds：8×44 玻璃小胶囊（右缘内贴）+ 左侧命中余量。
     static let tuckedSize = NSSize(width: 16, height: 48)
@@ -143,7 +208,16 @@ final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
         tone.autoresizingMask = []
         container.addSubview(tone)
         let grabber = MiniPanelGrabberView(frame: .zero)
-        grabber.onClick = { MiniPanelController.shared.setExpanded(true) }
+        grabber.onClick = {
+            let mini = MiniPanelController.shared
+            mini.setExpanded(true)
+            if let sid = mini.focusSessionId {
+                mini.clearFocus()
+                NSApp.activate(ignoringOtherApps: true)
+                AppDelegate.shared?.showMainWindow()
+                AppDelegate.shared?.pushNavigateToSession(sid)
+            }
+        }
         container.addSubview(grabber)
 
         let config = WKWebViewConfiguration()

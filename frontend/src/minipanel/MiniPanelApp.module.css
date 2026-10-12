@@ -148,3 +148,44 @@
   right: auto;
   left: 56px;
 }
+
+/* 状态点（树⑤，承接悬浮球的状态面）：黑白符号+亮度，无红点（UI-SPEC 纪律）。
+   running=呼吸条、attention=全亮长条、unseen=短点；收起态叠在玻璃小胶囊上，
+   展开态挂在条目列顶端。 */
+.pillDot {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--dsh-text-primary);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.strip .pillDot {
+  position: static;
+  transform: none;
+  margin-top: 2px;
+}
+
+.pillDot[data-kind="attention"] {
+  height: 22px;
+  opacity: 1;
+}
+
+.pillDot[data-kind="running"] {
+  animation: miniPulse 1.6s ease-in-out infinite;
+}
+
+.pillDot[data-kind="unseen"] {
+  height: 8px;
+  opacity: 0.85;
+}
+
+@keyframes miniPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}

@@ -15,7 +15,7 @@ import Foundation
 final class EngineEventObserver {
     static let shared = EngineEventObserver()
 
-    /// Derived state, consumed by FloatingBubbleManager / StatusItemController.
+    /// Derived state, consumed by MiniPanelController / StatusItemController.
     private(set) var runningSessions = Set<String>()
     private(set) var pendingApprovals = Set<String>()
     private(set) var pendingQuestions = Set<String>()
@@ -207,7 +207,7 @@ final class EngineEventObserver {
             runningSessions.insert(sessionId)
             lastErrors[sessionId] = nil
             if !quietSessions.contains(sessionId) {
-                FloatingBubbleManager.shared.noteRunningStarted(sessionId: sessionId)
+                MiniPanelController.shared.noteRunningStarted(sessionId: sessionId)
             }
         } else {
             let wasRunning = runningSessions.remove(sessionId) != nil
@@ -230,7 +230,7 @@ final class EngineEventObserver {
             // 同一 eventId 重发（mux 重连后引擎会重播仍挂起的 waterfall）不再弹：
             // 旧实现 insert 后无条件通知，重连一次就是第二条横幅 + 第二次弹跳。
             let isNew = pendingApprovals.insert(eventId).inserted
-            FloatingBubbleManager.shared.noteNeedsAttention()
+            MiniPanelController.shared.noteNeedsAttention()
             answerNext(eventId: eventId)
             if isNew {
                 resolveTitle(sessionId: sessionId) { title in
@@ -245,7 +245,7 @@ final class EngineEventObserver {
                 .compactMap { $0["question"] as? String }
                 .first ?? "打开 DeepDive 查看并回答"
             let isNew = pendingQuestions.insert(eventId).inserted
-            FloatingBubbleManager.shared.noteNeedsAttention()
+            MiniPanelController.shared.noteNeedsAttention()
             answerNext(eventId: eventId)
             if isNew {
                 resolveTitle(sessionId: sessionId) { title in
@@ -273,7 +273,7 @@ final class EngineEventObserver {
     private func noteTurnFinished(sessionId: String, failed: Bool) {
         if quietSessions.contains(sessionId) { return } // 机器会话的完成不值得打扰
         let appInactive = !NSApp.isActive
-        FloatingBubbleManager.shared.noteTurnFinished(sessionId: sessionId, appInactive: appInactive)
+        MiniPanelController.shared.noteTurnFinished(sessionId: sessionId, appInactive: appInactive)
         if appInactive, !failed {
             resolveTitle(sessionId: sessionId) { title in
                 NativeAlerts.notifyTurnFinished(sessionTitle: title, sessionId: sessionId)
@@ -318,7 +318,7 @@ final class EngineEventObserver {
     private func publish() {
         // running 只在"用户会话"上算：后台跑（自动化/落库）不该点亮悬浮球与菜单栏
         let userRunning = !runningSessions.subtracting(quietSessions).isEmpty
-        FloatingBubbleManager.shared.sync(running: userRunning, attention: needsAttention)
+        MiniPanelController.shared.sync(running: userRunning, attention: needsAttention)
         StatusItemController.shared?.setActivity(running: userRunning, attention: needsAttention)
     }
 }
