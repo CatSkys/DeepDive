@@ -174,7 +174,7 @@ describe("formatGroupSummary：三类各自的形状", () => {
     expect(search.iconPath).toBe("a.ts");
     expect(search.text).toBe("a.ts · 1 搜索, 1 文件");
     const query = groupSummarySplit("explore", [tool("grep", JSON.stringify({ pattern: "rateT" }))], zh);
-    expect(query.verb).toBe("搜索内容");
+    expect(query.verb).toBe("搜索");
     expect(query.iconPath).toBeUndefined();
     expect(query.text).toBe("rateT · 1 搜索");
   });
