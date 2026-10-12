@@ -91,7 +91,9 @@
   justify-content: center;
   gap: 5px;
 }
-.ddBare .ddTrigger:hover { background: var(--fill-soft); color: var(--ink); border-color: transparent; }
+/* 面板行自带整行 hover（.panel-settings-line），触发钮不再叠自己的小胶囊：
+   背景交给调用方经 --dd-bare-hover-bg 定（缺省仍 --fill-soft，automation 句内口径） */
+.ddBare .ddTrigger:hover { background: var(--dd-bare-hover-bg, var(--fill-soft)); color: var(--ink); border-color: transparent; }
 .ddTriggerIcon { flex-shrink: 0; }
 /* 危险项当前值（如 完全访问）：沿用全站热点橙例外 */
 .ddTrigger[data-danger="true"] { color: #ff9f0a; }

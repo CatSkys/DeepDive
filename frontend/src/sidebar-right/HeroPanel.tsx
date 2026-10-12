@@ -10,7 +10,7 @@
 //             草稿页还没有会话，`/permission` 那条会话级写路在这里没有对象）
 //   发送方式 —— conversation.busyEnter（本来就是全局设置，与设置页同源）
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Settings2, X } from "lucide-react";
+import { ChevronDown, CircleAlert, Settings2, X } from "lucide-react";
 import { t } from "../i18n";
 import { Dropdown } from "../components/controls";
 import { ModelMenu } from "../components/ModelMenu";
@@ -125,8 +125,10 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
           {permission !== null && (
             <div className="panel-settings-line">
               <div className="panel-settings-identity">
-                <div className="panel-settings-label">{t("权限")}</div>
-                <div className="panel-settings-hint">{t("新建会话的初始权限。")}</div>
+                <div className="panel-settings-label">
+                  {t("权限")}
+                  <CircleAlert size={13} className="panel-settings-hint-icon" data-tip={t("新建会话的初始权限。")} />
+                </div>
               </div>
               <Dropdown options={presetDropdownOptions(permission.options, t)} value={permission.current} onChange={(v) => void savePermission(v)} variant="bare" />
             </div>
@@ -134,8 +136,10 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
 
           <div className="panel-settings-line">
             <div className="panel-settings-identity">
-              <div className="panel-settings-label">{t("发送方式")}</div>
-              <div className="panel-settings-hint">{t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")}</div>
+              <div className="panel-settings-label">
+                {t("发送方式")}
+                <CircleAlert size={13} className="panel-settings-hint-icon" data-tip={t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")} />
+              </div>
             </div>
             <Dropdown
               options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}

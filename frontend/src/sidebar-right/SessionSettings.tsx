@@ -9,12 +9,13 @@
 //   插件       —— plugins/PluginsTab 原样内嵌
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CircleAlert } from "lucide-react";
 import { api } from "../api";
 import { t, tt } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
 import { Dropdown } from "../components/controls";
 import { ModelMenu } from "../components/ModelMenu";
+import { shownLevel } from "../components/composer/EffortPicker";
 import { PluginsTab } from "../plugins/PluginsTab";
 import { agentPresetLabel, visibleAgentPresets } from "../settings/agentPreset";
 import { presetDropdownOptions, type PermissionSelect } from "../settings/permissionPreset";
@@ -114,11 +115,30 @@ export function SessionSettings({ sessionId, face, agentPreset, permissions, onO
         />
       )}
 
+      {/* 思考强度：与输入框的档位胶囊同一条写路（session/selectModel），显示口径
+          同 EffortPicker 的 shownLevel（引擎没报生效档时取最高档，不显示为空）；
+          模型无推理档位时整行隐藏。 */}
+      {(face.effortLevels?.length ?? 0) > 0 && (
+        <div className="panel-settings-line">
+          <div className="panel-settings-identity">
+            <div className="panel-settings-label">{t("思考强度")}</div>
+          </div>
+          <Dropdown
+            options={(face.effortLevels ?? []).map((l) => ({ v: l.id, label: l.name }))}
+            value={shownLevel(face.effort, face.effortLevels ?? [])}
+            onChange={(v) => void face.pickEffort?.(v)}
+            variant="bare"
+          />
+        </div>
+      )}
+
       {pinned && sessionModeOptions.length > 0 && (
         <div className="panel-settings-line">
           <div className="panel-settings-identity">
-            <div className="panel-settings-label">{t("会话模式")}</div>
-            <div className="panel-settings-hint">{t("切换在下一轮对话生效。")}</div>
+            <div className="panel-settings-label">
+              {t("会话模式")}
+              <CircleAlert size={13} className="panel-settings-hint-icon" data-tip={t("切换在下一轮对话生效。")} />
+            </div>
           </div>
           <Dropdown options={sessionModeOptions} value={pinned} onChange={pickMode} variant="bare" />
         </div>
@@ -140,8 +160,10 @@ export function SessionSettings({ sessionId, face, agentPreset, permissions, onO
 
       <div className="panel-settings-line">
         <div className="panel-settings-identity">
-          <div className="panel-settings-label">{t("发送方式")}</div>
-          <div className="panel-settings-hint">{t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")}</div>
+          <div className="panel-settings-label">
+            {t("发送方式")}
+            <CircleAlert size={13} className="panel-settings-hint-icon" data-tip={t("仅在智能体运行时生效;Cmd/Ctrl+Enter 使用另一行为")} />
+          </div>
         </div>
         <Dropdown
           options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}
@@ -154,7 +176,7 @@ export function SessionSettings({ sessionId, face, agentPreset, permissions, onO
       <div className="panel-settings-section">
         <div className="panel-settings-label">{t("插件")}</div>
         <div className="panel-settings-plugins">
-          <PluginsTab query="" onTryPlugin={() => onOpenPlugins()} />
+          <PluginsTab query="" onTryPlugin={() => onOpenPlugins()} hideHeader />
         </div>
       </div>
     </div>

@@ -5464,34 +5464,42 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-cover { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 
 /* ---------- 面板里的会话设置（行式：左文字右选项，与设置页同一形态） ---------- */
-/* 行尾取值口径：bare 下拉（权限/发送方式/会话模式）的值文字与模型行同亮档 --ink
-   （2026-10-12 用户定稿：这几行统一成模型行的样式），盖过 .ddBare 的嵌句默认 --ink-2 */
-.panel-settings { --dd-bare-ink: var(--ink); display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
+/* 行尾取值口径：bare 下拉（权限/发送方式/思考强度等）的值文字与模型行同亮档 --ink
+   （2026-10-12 用户定稿：这几行统一成模型行的样式），盖过 .ddBare 的嵌句默认 --ink-2；
+   hover 时整行已由 .panel-settings-line 点亮，触发钮不再叠胶囊底 */
+.panel-settings { --dd-bare-ink: var(--ink); --dd-bare-hover-bg: transparent; display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
 .panel-settings-section { display: flex; flex-direction: column; gap: 6px; }
-/* 行：左文字（标签 + 可选说明），右控件/当前值 */
-.panel-settings-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; }
-.panel-settings-identity { min-width: 0; }
-.panel-settings-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
-.panel-settings-hint { font-size: var(--dsh-font-size-xs); color: var(--ink-faint); margin-top: 2px; }
-/* 模型行：整行可点弹 ModelMenu——hover 浅填充给可点感，负 margin 让填充贴齐卡内边 */
-.panel-settings-row {
+/* 行：左文字（标签 + ⓘ 解释入口），右控件/当前值。几何与 hover 全行统一
+   （2026-10-12 用户定稿：面板每一行都是模型行那套 hover——负 margin 出血 +
+   整行浅填充），不再只有模型行亮。 */
+.panel-settings-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 34px;
   width: calc(100% + 16px);
   margin: 0 -8px;
   padding: 0 8px;
-  min-height: 34px;
+  border-radius: var(--dsh-radius-control);
+}
+:where(html[data-hover-armed]) .panel-settings-line:hover { background: var(--fill); }
+.panel-settings-identity { min-width: 0; }
+.panel-settings-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
+/* 标签旁的解释入口（2026-10-12 用户定稿：说明不再占第二行，悬浮经全局
+   data-tip/TooltipHost 弹出——双行说明会把行尾取值挤到折行） */
+.panel-settings-hint-icon { margin-left: 4px; color: var(--ink-3); vertical-align: -2px; }
+:where(html[data-hover-armed]) .panel-settings-hint-icon:hover { color: var(--ink-2); }
+/* 模型行：整行可点弹 ModelMenu——几何与 hover 已由 .panel-settings-line 供，
+   这里只剩 button 自身的 UA 重置与文字档位 */
+.panel-settings-row {
   border: none;
   background: none;
-  border-radius: var(--dsh-radius-control);
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
   text-align: left;
   font-family: inherit;
 }
-:where(html[data-hover-armed]) .panel-settings-row:hover { background: var(--fill); }
 .panel-settings-value { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
 .panel-settings-value-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-settings-chev { flex: none; color: var(--ink-3); transition: transform var(--dur-fast) var(--ease-out); }

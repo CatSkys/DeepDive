@@ -54,14 +54,6 @@ export function presetDropdownOptions(options: PresetOption[], t: (s: string) =>
   });
 }
 
-/** 已知档位的本地化标签；未知档位（含引擎 derived 的 custom）如实退回原值。
-    会话流里 `/permission <档位>` 命令的正式说法也走这一份（用户定稿：
-    danger-full-access 这种引擎内名不该原样摆给人看）。 */
-export function presetLabel(value: string, t: (s: string) => string): string {
-  const meta = PRESET_META[value];
-  return meta ? t(meta.label) : value;
-}
-
 interface SchemaRefs {
   [id: string]: {
     type?: string;

@@ -13,7 +13,6 @@ import { askSummary, basename, bashSummary, browserSummary, commandOf, prettyArg
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
 import { isBrowserTool, isVerbPathTool, toolDisplayName } from "./toolKind";
 import { VerbPath } from "./VerbPath";
-import { presetLabel } from "../settings/permissionPreset";
 import { fileUrlOf } from "../components/preview/previewModel";
 import { mergeArtifacts } from "../sidebar-right/sessionArtifacts";
 import { StateDot } from "./MessageRow";
@@ -119,15 +118,6 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
 }
 
 
-/** 命令卡的正式说法（用户定稿）：引擎内部命令不摆 `/名 引擎内名` 原样——
-    已知的那几条翻成人话，未知命令照旧 `/name args`（用户自己敲的命令语言）。 */
-function commandSpoken(name: string, args: string): { title: string; args: string } {
-  if (name === "permission") {
-    return { title: t("会话权限"), args: presetLabel(args.trim(), t) };
-  }
-  return { title: `/${name}`, args };
-}
-
 /** 命令卡：`/name args` 单行 + 状态点 + 结果文本（success 提示/error 展开）。
  *  对照官方 ui-conversation command 节点：命令是 log-only 的静默行，不抢消息流的戏。 */
 export function CommandCard({ name, args, status, text }: {
@@ -138,7 +128,6 @@ export function CommandCard({ name, args, status, text }: {
 }) {
   const [open, setOpen] = useState(false);
   const hasBody = !!text;
-  const spoken = commandSpoken(name, args);
   return (
     <div className="command-card" data-status={status}>
       <button
@@ -150,8 +139,8 @@ export function CommandCard({ name, args, status, text }: {
         <span className="command-leading">
           {status === "running" ? <StateDot state="running" /> : status === "error" ? <StateDot state="error" /> : <IconCheckOutline16 size={13} />}
         </span>
-        <span className="command-name">{spoken.title}</span>
-        {spoken.args && <span className="command-args">{spoken.args}</span>}
+        <span className="command-name">/{name}</span>
+        {args && <span className="command-args">{args}</span>}
         {status === "success" && !text && <span className="command-hint">{t("已完成")}</span>}
       </button>
       {hasBody && open && <div className="command-body">{text}</div>}

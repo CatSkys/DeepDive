@@ -19,6 +19,11 @@ export interface ModelFace {
   models: ModelOption[];
   currentModel?: { provider: string; model: string };
   pickModel: (m: ModelOption) => void | Promise<void>;
+  /** 思考强度三件套（useSessionModels 现成返回，可选＝草稿面未接）：面板的
+   *  「思考强度」行用；levels 空＝模型无推理档位，该行整行隐藏。 */
+  effortLevels?: Array<{ id: string; name: string }>;
+  effort?: string;
+  pickEffort?: (id: string) => void | Promise<void>;
 }
 
 export function SessionHeader({ title, face, onTitleClick }: { title: string; face: ModelFace; onTitleClick?: () => void }) {
