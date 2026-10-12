@@ -1,0 +1,83 @@
+/* 迷你面板 web 薄入口（SPEC-SEMANTICS §6.1）：只管命中区/条目列/悬停标签的样式。
+   颜色与动效一律语义变量（架构门：禁裸 hex）；条目列本体透明——玻璃由壳的原生
+   底板铺，页面只画按钮与标签。 */
+
+.root {
+  position: fixed;
+  inset: 0;
+}
+
+/* 收起态：窗口 16×48 就是命中区（右侧 8×44 是壳的原生玻璃小胶囊） */
+.pillHit {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+/* 展开态：条目列外的窗口区域是收起点 */
+.scrim {
+  position: absolute;
+  inset: 0;
+}
+
+/* 条目列：右缘内贴 4px，垂直居中；本体透明（玻璃在壳侧），只有按钮与标签。
+   transform 会让它成为合成上下文——树③ 命令卡 portal 到 .root，别挂进这里。 */
+.strip {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--flow-gap, 8px);
+  width: 44px;
+  padding: var(--flow-gap, 8px) 0;
+  border-radius: 22px;
+}
+
+.itemWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--dsh-text-primary);
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--fill);
+}
+
+/* 悬停标签：Atd 式短动词，出现在条目左侧（朝屏幕中心），透明底不挡命中的是
+   pointer-events: none；显隐走透明度，位移交给条目本身不参与。 */
+.label {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 10px;
+  border-radius: var(--dsh-radius-card);
+  background: var(--panel-strong);
+  color: var(--dsh-text-primary);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) ease-out;
+}
+
+.itemWrap:hover .label {
+  opacity: 1;
+}

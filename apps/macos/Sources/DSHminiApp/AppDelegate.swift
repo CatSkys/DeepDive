@@ -88,9 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NativeAlerts.install()
 
-        // 全局热键唤迷你面板（§4.1 重绑）：主窗口不再占全局热键，
-        // 召唤走 Dock / 菜单栏「显示主窗」/ 药丸「打开本体」。
-        hotKey.onHotKey = { MiniPanelController.shared.toggle() }
+        // 全局热键展开/收起迷你面板（§4.1 重绑+二次更正）：主窗口不再占全局
+        // 热键，召唤走 Dock / 菜单栏「显示主窗」；药丸常驻，显隐不受热键控制。
+        hotKey.onHotKey = { MiniPanelController.shared.toggleExpanded() }
+        MiniPanelController.shared.show()
         if hotKey.register(spec: config.hotkey) {
             EngineLog.shared.append("[shell] hotkey registered: \(config.hotkey)")
         } else {
