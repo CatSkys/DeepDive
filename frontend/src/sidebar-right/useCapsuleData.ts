@@ -124,7 +124,9 @@ export function useCapsuleData(sessionId: string, scheduleRecords: ScheduleRecor
     subagentEntryCount: children.length,
     runningCount,
   });
-  const pill = capsulePill({ todos, goal, git, runningCount, endedCount, scheduleRecords, fmtScheduleWhen, browser });
+  // runningIds=在跑子会话 id（children 顺序）：胶囊 running 级头像堆叠的 seed
+  const runningIds = children.filter(childRunning).map((c) => c.id);
+  const pill = capsulePill({ todos, goal, git, runningCount, runningIds, endedCount, scheduleRecords, fmtScheduleWhen, browser });
 
   return {
     todos, goal, git, wsPath, jobs, jobSplit, children, diag,

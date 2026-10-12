@@ -102,10 +102,14 @@ export type CapsulePill =
   | { kind: "goal"; title: string; done: boolean }
   | { kind: "git"; additions: number; deletions: number }
   | { kind: "todoDone"; text: string }
-  | { kind: "running"; count: number }
+  | { kind: "running"; count: number; ids: string[] }
   | { kind: "schedule"; prompt: string; when: string }
   | { kind: "ended"; count: number }
   | { kind: "browser"; title: string; live: boolean };
+
+/** running 级头像堆叠最多几颗（参考协作工具的 avatar stack）：第 4 颗起只进
+ *  计数不进堆叠。渲染端（CapsuleStatusPill）按同一常量算盒宽，改一个要改另一个。 */
+export const PILL_ORB_MAX = 3;
 
 /** 收起态显示什么：优先级回落链，第一个非空者获胜；全空 → null（胶囊隐藏）。 */
 export function capsulePill(input: {
@@ -113,6 +117,9 @@ export function capsulePill(input: {
   goal: CapsuleGoal | null | undefined;
   git: GitStatus | null;
   runningCount: number;
+  /** 在跑子会话的 id（runningCount 里属于子智能体的那部分，children 顺序）：
+   *  running 级头像堆叠的 seed。后台任务不在内——它们不是 agent。 */
+  runningIds?: string[];
   endedCount: number;
   scheduleRecords: ScheduleRecord[];
   fmtScheduleWhen: (r: ScheduleRecord) => string;
@@ -146,8 +153,8 @@ export function capsulePill(input: {
   // ⑤ 最后一条已完成的任务
   const lastDone = completed[completed.length - 1];
   if (lastDone) return { kind: "todoDone", text: lastDone.content };
-  // ⑥ 运行中计数（live 活动只作兜底，见文件头）
-  if (input.runningCount > 0) return { kind: "running", count: input.runningCount };
+  // ⑥ 运行中计数（live 活动只作兜底，见文件头）：ids 供头像堆叠，最多 3 颗
+  if (input.runningCount > 0) return { kind: "running", count: input.runningCount, ids: (input.runningIds ?? []).slice(0, PILL_ORB_MAX) };
   // ⑦ 最近提醒：兜底一级，避免面板塌成空壳
   const next = nextScheduleRecord(input.scheduleRecords);
   if (next) return { kind: "schedule", prompt: next.prompt, when: input.fmtScheduleWhen(next) };

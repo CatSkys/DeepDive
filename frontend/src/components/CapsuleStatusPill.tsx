@@ -7,7 +7,26 @@ import { useState, type ReactNode } from "react";
 import { AlarmClock, ArrowRight, Bot, CircleCheck, FileDiff, Flag, History, Maximize2 } from "lucide-react";
 import { t, tt } from "../i18n";
 import { IconGlobeOutline14 } from "./Icons";
+import { AgentOrb } from "./AgentOrb";
 import type { CapsulePill } from "./capsuleModel";
+
+/** 在跑子智能体的头像堆叠（参考协作工具的 avatar stack）：最多 PILL_ORB_MAX 颗
+ *  雾感盘左→右叠放，重叠 5px（CSS .capsule-orb-overlap 与 orbStackWidth 的 5 是
+ *  一对，改一个要改另一个）；雾感边缘渐隐，叠放处自然融合。第 4 颗起只进计数
+ *  不进堆叠（capsuleModel 截断）。 */
+const ORB_SIZE = 13;
+const ORB_OVERLAP = 5;
+const orbStackWidth = (n: number) => ORB_SIZE * n - ORB_OVERLAP * (n - 1);
+
+function OrbStack({ ids }: { ids: string[] }) {
+  return (
+    <span className="capsule-orb-stack">
+      {ids.map((id, i) => (
+        <AgentOrb key={id} seed={id} size={ORB_SIZE} className={i > 0 ? "capsule-orb-overlap" : undefined} />
+      ))}
+    </span>
+  );
+}
 
 /** 各级的前导图标（常态那一层）。`iconUrl` 是站点自己声明的图标地址（壳问来的），
  *  有就画它——**与浏览器 tab 同一个来源**，所以胶囊与 tab 永远指向同一个站点；
@@ -37,7 +56,9 @@ function PillGlyph({ pill }: { pill: CapsulePill }) {
   if (pill.kind === "goal") return pill.done ? <CircleCheck size={13} className="capsule-check" /> : <Flag size={13} />;
   if (pill.kind === "git") return <FileDiff size={13} />;
   if (pill.kind === "todoDone") return <CircleCheck size={13} className="capsule-check" />;
-  if (pill.kind === "running") return <Bot size={13} />;
+  // running 级：有子智能体在跑就给头像堆叠（用户 2026-10-12 定稿，参考协作工具
+  // 的 avatar stack）；ids 为空说明在跑的全是后台任务——保持原 Bot 记号。
+  if (pill.kind === "running") return pill.ids.length > 0 ? <OrbStack ids={pill.ids} /> : <Bot size={13} />;
   if (pill.kind === "schedule") return <AlarmClock size={13} />;
   // 浏览器用官方那枚地球——与工具行、设置页导航里「浏览器」同一个记号
   if (pill.kind === "browser") return <IconGlobeOutline14 size={13} />;
@@ -73,6 +94,9 @@ export function CapsuleStatusPill({ pill, open, onToggle, iconUrl }: {
   iconUrl?: string;
 }) {
   const label = tt("展开状态", "Expand status");
+  // 堆叠态把前导盒从固定 16px 撑宽（否则 29px 的堆叠在 16px 盒里溢出）；
+  // 内层两层叠放（hover 淡出/淡入）都是 inset-0 居中，盒宽变了照样成立。
+  const stackWidth = pill.kind === "running" && pill.ids.length > 0 ? orbStackWidth(pill.ids.length) : undefined;
   return (
     <button
       type="button"
@@ -82,7 +106,7 @@ export function CapsuleStatusPill({ pill, open, onToggle, iconUrl }: {
       data-open={open ? "true" : "false"}
       onClick={onToggle}
     >
-      <span className="capsule-pill-icon" aria-hidden="true">
+      <span className="capsule-pill-icon" aria-hidden="true" style={stackWidth !== undefined ? { width: stackWidth } : undefined}>
         <span><PillIcon pill={pill} iconUrl={pill.kind === "browser" ? iconUrl : undefined} /></span>
         <Maximize2 size={14} className="capsule-pill-expand" />
       </span>

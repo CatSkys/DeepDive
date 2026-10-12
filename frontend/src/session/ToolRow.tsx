@@ -22,7 +22,7 @@ import { FileIcon } from "./FileIcon";
 /// 2026-10-11：图标即类别；摘要为空才落回名字。读取/编辑/搜索族例外——2026-10-12
 /// 定稿并对齐官方行结构（icon→title→detail）与 ZCode 的 kind-label 位：动词开头，
 /// 徽标跟动词，路径/查询词是宾语，见 VerbPath），expandable to reveal terminal output or raw arguments.
-export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd }: {
+export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd, toolCallId }: {
   toolName: string;
   args: string;
   output?: string;
@@ -33,6 +33,8 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   sessionId: string;
   /** 会话工作目录：行内摘要的绝对路径按它相对化为项目内路径（用户定稿）。 */
   cwd?: string;
+  /** 工具调用 id：agent 族前导雾感盘的 seed（行内恒定，ToolIcon 消费）。 */
+  toolCallId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
@@ -58,7 +60,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         aria-expanded={expandable ? open : undefined}
       >
         <span className="tool-leading">
-          {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} />}
+          {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} seed={toolCallId} />}
         </span>
         {verbObject ? (
           <VerbPath toolName={toolName} text={verbObject} badgePath={derivePath(toolName, args)} cwd={cwd} />
