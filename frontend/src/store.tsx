@@ -574,30 +574,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     openSession(null);
   }, [quickWorkspacePath, workspaces, switchWorkspace, openSession]);
 
-  // 快捷空间最近会话及其命令目录 → 壳（迷你面板命令卡的数据源；全原生渲染，
-  // 数据仍以 SPA 的引擎 RPC 为准——一条数据腿，不因渲染层换技术栈开第二份）。
+  // 快捷空间最近会话的命令目录 → 壳（迷你面板原生命令卡的唯一数据源，Atd 桥
+  // 契约 `miniPanel.setCommands`：条目 {id,name}，id 即引擎命令名——命令卡点行
+  // 回推 runQuickCommand{name}，预填 `/{name}` 走执行链）。双窗（主窗/迷你面板）
+  // 各推一份，壳按内容去重；上限 64 条与壳契约一致。
   useEffect(() => {
     const quick = quickWorkspacePath
       ? workspaces.find((w) => w.path === quickWorkspacePath)
       : undefined;
     const ids = quick?.sessionIds ?? [];
     const sid = ids.length ? ids[ids.length - 1] : null;
+    const push = (commands: Array<{ id: string; name: string }>) =>
+      sendToShell({ type: "miniPanel.setCommands", commands });
     if (!sid) {
-      sendToShell({ type: "miniPanel.quickSession", sessionId: null, commands: [] });
+      push([]);
       return;
     }
     let alive = true;
     api.commandsList(sid)
       .then((list) => {
         if (!alive) return;
-        sendToShell({
-          type: "miniPanel.quickSession",
-          sessionId: sid,
-          commands: list.filter((c) => c.name !== "export").map((c) => ({ name: c.name, description: c.description })),
-        });
+        push(
+          list
+            .filter((c) => c.name !== "export")
+            .slice(0, 64)
+            .map((c) => ({ id: c.name, name: c.name })),
+        );
       })
       .catch(() => {
-        if (alive) sendToShell({ type: "miniPanel.quickSession", sessionId: sid, commands: [] });
+        if (alive) push([]);
       });
     return () => {
       alive = false;

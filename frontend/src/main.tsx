@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { MiniPanelApp } from "./minipanel/MiniPanelApp";
 import { ComposerOverlayApp } from "./sidebar-right/ComposerOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initTitlebarBridge } from "./titlebar";
@@ -15,6 +16,9 @@ import { IS_WINDOWS_OS } from "./platform";
 // 只渲染输入框（悬浮在全屏网页上）。**不装**顶条与原生槽位桥——那两个是主窗口那一份的事，
 // 叠加层再推一份 rect 表会把主 SPA 的顶条命中区打乱。
 const overlaySession = new URLSearchParams(window.location.search).get("composer");
+// 迷你面板页：壳 QuickPanelWindow 载 `#/mini`——顶条桥与行悬停门控照装（迷你页有
+// 顶条与门控行）；原生槽位/对话卡桥是主窗那一份的事，叠加层同款不装。
+const miniPanelPage = window.location.hash === "#/mini";
 
 if (overlaySession !== null && overlaySession !== "") {
   document.documentElement.dataset.overlay = "1";
@@ -23,6 +27,21 @@ if (overlaySession !== null && overlaySession !== "") {
     <React.StrictMode>
       <ErrorBoundary>
         <ComposerOverlayApp sessionId={overlaySession} />
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+} else if (miniPanelPage) {
+  installCrashGuard();
+  initTitlebarBridge();
+  installHoverArming();
+  if (inShell()) {
+    document.documentElement.dataset.shell = "1";
+  }
+  document.documentElement.dataset.platform = IS_WINDOWS_OS ? "windows" : "mac";
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <MiniPanelApp />
       </ErrorBoundary>
     </React.StrictMode>
   );

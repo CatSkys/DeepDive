@@ -70,20 +70,6 @@ final class WindowGlassView: NSView {
         return glass
     }
 
-    /// 把玻璃裁成圆角/胶囊形（迷你面板用：收起 8×44 → r4，展开 44 宽 → r22）。
-    /// 主窗仍是 0——主窗的圆角由页面自己画，玻璃在下不裁形。
-    /// 退回分支按层圆角尽力对齐（本机跑在 26+ 走 NSGlassEffectView，该分支未实机验证）。
-    func setCornerRadius(_ radius: CGFloat) {
-        if #available(macOS 26.0, *), let glass = glassView as? NSGlassEffectView {
-            glass.cornerRadius = radius
-        } else {
-            for layer in [materialView.layer, tintView.layer] {
-                layer?.cornerRadius = radius
-                layer?.masksToBounds = true
-            }
-        }
-    }
-
     /// 铺满自己。autoresizingMask 让它在 AppKit 改 contentView 尺寸时跟上——本视图是
     /// 零 frame 构造后再交给 window.contentView 的，初始 bounds 为空，靠这个长满。
     private func addFilling(_ view: NSView) {

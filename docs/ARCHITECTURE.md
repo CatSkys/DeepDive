@@ -65,8 +65,9 @@
 | `EngineSupervisor.swift` / `EngineVersion.swift` / `EngineGateway.swift` / `EngineAuth.swift` / `EngineEventObserver.swift` / `EngineLog.swift` | 引擎子进程监督/自愈、入口版本门（随包引脚 vs 外部 dsh）、网关调用、token→cookie 交换、事件观察、日志 |
 | `ProfileComposer.swift` | 引擎组合的部署器：把随包的 `engine/profile` 装进 harness home 的 web profile，并把 `dsh.profile.bundles` 收敛到它（摘掉退役的上游两层、保留社区与用户自加的、迁移既有安装）。幂等 + 失败不阻塞启动，纪律同 `ChatImportPlugin` |
 | `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
-| `NativeAlerts.swift` / `MiniPanelController.swift` | 原生通知（分级静默）+ 迷你面板（常驻药丸承接状态面，`SPEC-NOTIFICATIONS` / `SPEC-SEMANTICS §6.1`） |
-| `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space 展开迷你面板（`SPEC-SEMANTICS §4.1`）、录制窗、语音听写 |
+| `NativeAlerts.swift` / `MiniPanel/` | 原生通知（分级静默）+ 迷你面板启动器（屏缘药丸/展开列 + 原生命令卡，Atd 整包移植；命令数据腿 `miniPanel.setCommands`，`SPEC-NOTIFICATIONS` / `SPEC-SEMANTICS §6.1`） |
+| `QuickPanelController.swift` / `Screens.swift` / `WindowGeometry.swift` | 会话面板窗（⌥Space/药丸标志位的召唤目标）：非激活 NSPanel + 玻璃底板 + 透明 WebView 载 SPA 的 `#/mini` 分支（快捷空间会话流+输入区）；每次召唤 dock 光标屏右下、常驻隐身保 WebKit 满速；屏幕工作区/面板几何助手为 Atd 同名移植 |
+| `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space 显隐会话面板窗（`SPEC-SEMANTICS §4.1`）、录制窗、语音听写 |
 | `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`GitChanges`（审查面板的未暂存改动与单文件 diff）、`agentRun` |
 | `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |
 | `McpServerAdmin.swift` | MCP server 行：`- insert:` 一行一 server（`@deepseek-ai/dsh-mcp-client` + `config` 用 JSON 写进 YAML），同一份 home patch 层的第二块托管段；行上的 `disabled` 管启停，同样热生效 |
@@ -80,7 +81,7 @@
 
 | 模块 | 职责 |
 |---|---|
-| `App.tsx` / `main.tsx` | Shell 骨架：侧栏 + 主区路由（欢迎 hero / SessionView / 设置浮层） |
+| `App.tsx` / `main.tsx` / `minipanel/MiniPanelApp.tsx` / `components/HeroDraft.tsx` | Shell 骨架：侧栏 + 主区路由（欢迎 hero / SessionView / 设置浮层）；main.tsx 三入口（主窗 / `?composer` 叠加层 / `#/mini` 迷你面板页）；hero 草稿页（模型/档位选择 + 会话设置卡）抽成 HeroDraft 供主窗与迷你面板页共用 |
 | `components/SessionView.tsx` + `session/` | 会话流：SessionView 为编排（~300 行），摄取与呈现拆在 `session/`——renderModel（RenderItem/ingest/finalizeTurns，O(1) 索引）、useSessionEvents/useSessionModels、Item/MessageRow/ToolRow/ToolIcon/Cards/QueueDock 组件群、eventText/format 纯函数、toolKind（工具名→语义族的唯一映射：图标与轮内折叠摘要共用）、turnProcess（整轮过程折叠的边界与摘要文案） |
 | `components/NewProjectDialog.tsx`（+ `IconPicker.tsx` / `wsIcons.ts` / `workspacePicker.ts`） | 新建项目表单弹窗（名称+图标/目录/项目指令；`openNewProjectDialog()` 入口 + App 根部 `NewProjectDialogHost` 消费）：目录由壳 `prepare-workspace` 自动创建（引擎 workspace/create 要求目录已存在）、名称走 workspace/rename、指令由壳写入项目 AGENTS.md；图标=lucide 精选集搜索选择（`IconPicker`），按 workspaceId 存 localStorage（`wsIcons.ts`，端口已固定），侧栏项目行/底部切换条统一 glyph>约定文件>首字母 |
 | `components/Composer.tsx`（编排）+ `components/composer/`（draft/dictation/attachments/menu hooks + 菜单子组件） / `ModelMenu.tsx`（选模型 + ⓘ 基准详情卡 `ModelDetailCard.tsx`：速度/智能/成本刻度 + 上下文 + 能力行）/ `modelFacts.ts`（模型基准登记表——引擎目录之外唯一自维护的数据面，AA/牌价静态抄录，见 `SPEC-SEMANTICS §4.4ter`） / `composer/EffortPicker.tsx`（输入框上的思考强度档位胶囊） / `Sidebar.tsx`（多工作区+会话列表） / `WsSwitcher.tsx`（底行空间切换条：溢出渐隐+滚轮就地消费；`⌥1-9` 切空间，判据认物理键位） / `SettingsPage.tsx` + `settings/`（含 `useSettingNamespace` 围栏 hook；`useModelCatalog` 模型目录+密钥态数据源、`providerProbe` 密钥/连通探测，设置页「模型」与新手引导卡共用；`ImportSection`/`ImportDialog` 设置「导入」分区（dsh-chat-import 插件面板路由），见 `SPEC-ENGINE-RUNTIME §4.4`） | 输入框（@附件 //命令/听写/思考强度胶囊）、模型选择（含基准详情卡）、侧栏、设置浮层（`useAppKeybinds` 派发 window 级快捷键；`FindInConversation` 是 ⌘F 页内查找胶囊）、新手引导卡（`onboarding/`：迁移→模型→项目→结尾，能力复用设置页与插件面板路由） |
