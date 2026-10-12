@@ -124,9 +124,10 @@ export function useCapsuleData(sessionId: string, scheduleRecords: ScheduleRecor
     subagentEntryCount: children.length,
     runningCount,
   });
-  // runningIds=在跑子会话 id（children 顺序）：胶囊 running 级头像堆叠的 seed
-  const runningIds = children.filter(childRunning).map((c) => c.id);
-  const pill = capsulePill({ todos, goal, git, runningCount, runningIds, endedCount, scheduleRecords, fmtScheduleWhen, browser });
+  // 胶囊堆叠的 seed=委派身份（子会话 label=引擎登记的 args.description，与面板行/
+  // 会话流工具行同一身份）；无 label 回落子会话 id
+  const runningSeeds = children.filter(childRunning).map((c) => c.label ?? c.id);
+  const pill = capsulePill({ todos, goal, git, runningCount, runningSeeds, endedCount, scheduleRecords, fmtScheduleWhen, browser });
 
   return {
     todos, goal, git, wsPath, jobs, jobSplit, children, diag,

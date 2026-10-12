@@ -3,8 +3,33 @@
 // browserSummary：浏览器控制行的摘要（title 优先 → 代码内 URL → 通用摘要）。
 // bashSummary：终端行的摘要（引擎 bash 必填 description 优先 → 命令摘要回退；
 // 用户定稿：行右侧是摘要不是命令原文，跟浏览器一个观感）。
+// agentIdentity/agentSummary：子智能体委派行的身份串与摘要（引擎把 subagent 的
+// description 定为"专给显示用的短描述"，也是子会话 label——三处头像 seed 的
+// 唯一来源；用户定稿：行上不摆整段提示词）。
 import { describe, expect, it } from "vitest";
-import { bashSummary, browserSummary, compactElapsed, formatElapsed, relativizePath } from "../session/format";
+import { agentIdentity, agentSummary, bashSummary, browserSummary, compactElapsed, formatElapsed, relativizePath } from "../session/format";
+
+describe("agentIdentity/agentSummary 子智能体委派行", () => {
+  const args = JSON.stringify({ description: "测试失败路径回报", prompt: "你是一个测试用子 Agent。本次任务专门测试\"失败路径如何回报\"。全部为只读/无副作用操作……" });
+  it("摘要=description（不是 prompt 整段）；身份串=description 全文", () => {
+    expect(agentSummary(args)).toBe("测试失败路径回报");
+    expect(agentIdentity(args)).toBe("测试失败路径回报");
+  });
+  it("多行 description：摘要取首行，身份串保留全文", () => {
+    const multi = JSON.stringify({ description: "第一行\n第二行", prompt: "p" });
+    expect(agentSummary(multi)).toBe("第一行");
+    expect(agentIdentity(multi)).toBe("第一行\n第二行");
+  });
+  it("缺 description / 空 description / 空白 description：身份串 undefined", () => {
+    expect(agentIdentity(JSON.stringify({ prompt: "只有提示词" }))).toBeUndefined();
+    expect(agentIdentity(JSON.stringify({ description: "", prompt: "p" }))).toBeUndefined();
+    expect(agentIdentity(JSON.stringify({ description: "   " }))).toBeUndefined();
+  });
+  it("不是合法 JSON：摘要退通用参数摘要（首行），身份串 undefined", () => {
+    expect(agentSummary("不是 JSON")).toBe("不是 JSON");
+    expect(agentIdentity("不是 JSON")).toBeUndefined();
+  });
+});
 
 describe("bashSummary 终端行摘要", () => {
   it("引擎 bash 的必填 description 优先（模型随调用写的动作短语）", () => {

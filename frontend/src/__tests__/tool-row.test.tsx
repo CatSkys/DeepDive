@@ -51,3 +51,27 @@ describe("ToolRow 运行态", () => {
     expect(empty.container.querySelector(".tool-summary")).toBeNull();
   });
 });
+
+describe("ToolRow 子智能体委派行（subagent）", () => {
+  const args = JSON.stringify({
+    description: "测试失败路径回报",
+    prompt: "你是一个测试用子 Agent。本次任务专门测试\"失败路径如何回报\"。全部为只读/无副作用操作。",
+  });
+
+  it("摘要=description 短描述，整段提示词不上行（用户 2026-10-12 定稿）", () => {
+    const { container } = render(<ToolRow toolName="subagent" args={args} sessionId="s" toolCallId="call-1" />);
+    expect(container.querySelector(".tool-summary")?.textContent).toBe("测试失败路径回报");
+    expect(container.querySelector(".tool-summary")?.textContent).not.toContain("测试用子 Agent。");
+  });
+
+  it("前导是 seed=身份串的渐变形状头像（与面板行同一身份）；无身份串回落工具调用 id 的头像", () => {
+    const withId = render(<ToolRow toolName="subagent" args={args} sessionId="s" toolCallId="call-1" />);
+    expect(withId.container.querySelector(".tool-leading .agent-orb")).toBeTruthy();
+    cleanup();
+    // args 缺 description：头像退到 callId seed 的另一颗（仍不落回机器人图标）
+    const noIdentity = render(
+      <ToolRow toolName="subagent" args={JSON.stringify({ prompt: "p" })} sessionId="s" toolCallId="call-2" />,
+    );
+    expect(noIdentity.container.querySelector(".tool-leading .agent-orb")).toBeTruthy();
+  });
+});
