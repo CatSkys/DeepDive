@@ -801,6 +801,12 @@ button {
   height: 100%;
   display: block;
 }
+/* 摘要文字里内联的文件徽标（动词+徽标+宾语三段式，ZCode kind-label 位）：
+   基线对齐下沉一点与两侧文字成一组；左边距补上与动词的间隙（右距自带 4px） */
+.tool-summary .file-icon, .tool-group-summary .file-icon {
+  vertical-align: -2px;
+  margin-left: 6px;
+}
 
 .model-menu {
   /* 弹层挂 body（ModelMenu 的 portal）：fixed + 行内 top/left 由触发器 rect 算出，
