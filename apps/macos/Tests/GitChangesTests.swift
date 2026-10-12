@@ -149,6 +149,20 @@ final class GitChangesTests: XCTestCase {
         return r.output
     }
 
+    /// fetchChanges 偶发 nil 的诊断锚（2026-10-12）：失败时带出**重跑**的 rev-parse
+    /// 结果——概率性 nil（spawn 失败被记成 status -1 / git 闪失）的第一现场，省掉
+    /// 下一次"凭空 nil"的排查；成功路径零成本。别在失败信息里只说"非 nil"。
+    private func fetchChangesDiagnosed(_ path: String) -> GitChanges.ChangeSet? {
+        let set = GitChanges.fetchChanges(at: path)
+        if set == nil {
+            let r = ProcessRunner.run(executable: GitChanges.executable,
+                                      arguments: ["rev-parse", "--abbrev-ref", "HEAD"],
+                                      workingDirectory: path, timeout: 10)
+            XCTFail("fetchChanges 返回 nil；重跑 rev-parse：status=\(r.status) timedOut=\(r.timedOut) out=\(r.output.prefix(200))")
+        }
+        return set
+    }
+
     /// 解析 fixture 盖不到命令接线那半：真跑一遍 git，验证 porcelain v2 与
     /// numstat 的 `-z` 记录形态、以及「未暂存」筛的是 Y 位。只用 init/add/status/
     /// diff ——都不需要 git 身份，机器上没配 user.name 也能跑。
@@ -172,7 +186,7 @@ final class GitChangesTests: XCTestCase {
         try FileManager.default.removeItem(at: dir.appendingPathComponent("gone.ts"))
         try Data("n\ne\nw\n".utf8).write(to: dir.appendingPathComponent("fresh.ts"))
 
-        let set = try XCTUnwrap(GitChanges.fetchChanges(at: dir.path))
+        let set = try XCTUnwrap(fetchChangesDiagnosed(dir.path))
         XCTAssertFalse(set.branch.isEmpty)
         let byPath = Dictionary(uniqueKeysWithValues: set.files.map { ($0.path, $0) })
         XCTAssertEqual(Set(byPath.keys), ["keep.ts", "gone.ts", "fresh.ts"])
@@ -191,7 +205,7 @@ final class GitChangesTests: XCTestCase {
         try Data("a\nB\nc\n".utf8).write(to: dir.appendingPathComponent("keep.ts"))
         git(["add", "keep.ts"], in: dir)
 
-        let set = try XCTUnwrap(GitChanges.fetchChanges(at: dir.path))
+        let set = try XCTUnwrap(fetchChangesDiagnosed(dir.path))
         // 改动已进索引，worktree 相对索引没变 → 不属于「未暂存」档
         XCTAssertTrue(set.files.isEmpty, "staged-only files leaked into the unstaged bucket")
     }
