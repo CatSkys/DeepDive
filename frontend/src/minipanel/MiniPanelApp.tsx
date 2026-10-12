@@ -12,6 +12,7 @@ import css from "./MiniPanelApp.module.css";
 
 export function MiniPanelApp() {
   const [expanded, setExpanded] = useState(false);
+  const [side, setSide] = useState<"right" | "left">("right");
   const [quickSessionId, setQuickSessionId] = useState<string | null>(null);
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [commands, setCommands] = useState<CommandDescriptor[] | null>(null);
@@ -21,9 +22,10 @@ export function MiniPanelApp() {
     installHostBridge({});
     return onHostEvent((cmd, payload) => {
       if (cmd === "miniPanelState") {
-        const next = Boolean((payload as { expanded?: boolean } | undefined)?.expanded);
-        setExpanded(next);
-        if (!next) setFlyoutOpen(false);
+        const p = (payload ?? {}) as { expanded?: boolean; side?: string };
+        setExpanded(Boolean(p.expanded));
+        if (p.side === "left" || p.side === "right") setSide(p.side);
+        if (!p.expanded) setFlyoutOpen(false);
       }
       if (cmd === "miniPanelQuick") {
         const sid = (payload as { sessionId?: string | null } | undefined)?.sessionId ?? null;
@@ -87,7 +89,7 @@ export function MiniPanelApp() {
   };
 
   return (
-    <div className={css.root} data-expanded={expanded ? "1" : "0"}>
+    <div className={css.root} data-expanded={expanded ? "1" : "0"} data-side={side}>
       {expanded ? (
         <>
           {/* 条目列外的窗口区域都是收起点（窗口级点击关闭；屏上窗口外区域树④ 收） */}
