@@ -3,6 +3,7 @@ import { PanelLeft, Search } from "lucide-react";
 import { api } from "./api";
 import { alertDialog, confirmDialog } from "./components/DialogHost";
 import { installHostBridge, copyText } from "./host";
+import { draftKeyOf, writeDraft } from "./components/composer/useComposerDraft";
 import { comboFor } from "./keybinds";
 import { mux } from "./mux";
 import { StoreProvider, useStore } from "./store"
@@ -110,6 +111,14 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
       navigateToSettings: () => openSettings(),
       // 迷你面板「新会话」→ 快捷会话空间新草稿（D14 两条线的壳侧入口）。
       openQuickSession: () => store.openQuickSession(),
+      // 迷你面板命令卡运行（全原生命令卡）：切到快捷会话，命令进输入框——
+      // 用草稿预填通道（useComposerDraft 挂载即读回），按一下回车即执行。
+      // 不这里直接 commandExecute：执行归 Composer/引擎既有链，不开第二份。
+      runQuickCommand: ({ sessionId, name }) => {
+        store.openSession(sessionId);
+        const key = draftKeyOf(sessionId, store.activeWorkspaceId);
+        if (key) writeDraft(key, `/${name}`);
+      },
       workspacePicked: (path) => {
         // 新建项目弹窗开着时，目录选择器结果归弹窗（表单流程接管）
         if (routeWorkspacePicked(path)) return;

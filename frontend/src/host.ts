@@ -460,6 +460,8 @@ export function installHostBridge(handlers: Partial<{
   navigateToSettings: () => void;
   /** 迷你面板「新会话」：快捷会话空间新草稿（D14）。 */
   openQuickSession: () => void;
+  /** 迷你面板命令卡运行：已切到快捷会话，前端把命令行放进该会话执行。 */
+  runQuickCommand: (payload: { sessionId: string; name: string }) => void;
   /** 壳端目录选择器（＋新建空间）选定后的回推；取消时不推送。 */
   workspacePicked: (path: string) => void;
   /** 系统唤醒通知（PITFALLS §4.7）：WKWebView 里的 WS 可能已假死，
@@ -481,6 +483,11 @@ export function installHostBridge(handlers: Partial<{
         }
         case "openQuickSession": {
           handlers.openQuickSession?.();
+          break;
+        }
+        case "runQuickCommand": {
+          const p = (payload ?? {}) as { sessionId?: string; name?: string };
+          handlers.runQuickCommand?.({ sessionId: p.sessionId ?? "", name: p.name ?? "" });
           break;
         }
         case "navigateToSettings": {

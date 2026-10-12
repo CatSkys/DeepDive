@@ -2,7 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ComposerOverlayApp } from "./sidebar-right/ComposerOverlay";
-import { MiniPanelApp } from "./minipanel/MiniPanelApp";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initTitlebarBridge } from "./titlebar";
 import { initNativeSlotBridge } from "./nativeSlot";
@@ -12,26 +11,12 @@ import { installCrashGuard } from "./crashGuard";
 import { inShell } from "./host";
 import { IS_WINDOWS_OS } from "./platform";
 
-// 迷你面板入口：壳右缘常驻药丸的 web 薄入口（`?miniPanel=1`，SPEC-SEMANTICS §6.1）。
-// **不装**顶条/槽位/悬浮桥——同叠加层纪律：那些是主窗口那一份的事。
-const miniPanelEntry = new URLSearchParams(window.location.search).get("miniPanel");
-
 // 叠加层入口：壳在浏览器页之上叠的那层透明 webview 用 `?composer=<sid>` 打开同一个包，
 // 只渲染输入框（悬浮在全屏网页上）。**不装**顶条与原生槽位桥——那两个是主窗口那一份的事，
 // 叠加层再推一份 rect 表会把主 SPA 的顶条命中区打乱。
 const overlaySession = new URLSearchParams(window.location.search).get("composer");
 
-if (miniPanelEntry !== null) {
-  document.documentElement.dataset.miniPanel = "1";
-  installCrashGuard();
-  ReactDOM.createRoot(document.getElementById("root")!).render(
-    <React.StrictMode>
-      <ErrorBoundary>
-        <MiniPanelApp />
-      </ErrorBoundary>
-    </React.StrictMode>
-  );
-} else if (overlaySession !== null && overlaySession !== "") {
+if (overlaySession !== null && overlaySession !== "") {
   document.documentElement.dataset.overlay = "1";
   installCrashGuard();
   ReactDOM.createRoot(document.getElementById("root")!).render(
