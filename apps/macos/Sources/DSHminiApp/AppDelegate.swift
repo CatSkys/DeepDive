@@ -413,6 +413,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", out: windowController)
         case "read-workspace-icon":
             readWorkspaceIcon(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", out: windowController)
+        case "miniPanel.quickSession":
+            // 主 SPA 推快捷空间最近会话（迷你面板命令卡的数据锚点，D14）。
+            MiniPanelController.shared.setQuickSession(body["sessionId"] as? String)
         case "run-git":
             runGit(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "git-run":
