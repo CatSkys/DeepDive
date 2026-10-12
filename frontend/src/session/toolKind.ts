@@ -37,6 +37,7 @@ export function toolVariant(name: string): ToolVariant {
     case "grep":
     case "glob":
     case "search":
+    case "list_files":
       return "search";
     case "run_code":
     case "code":
@@ -53,10 +54,12 @@ export function toolVariant(name: string): ToolVariant {
     case "interrupt_agent":
     case "list_agents":
     case "wait_agent":
+    case "list_subagent_models":
       return "agent";
     case "get_goal":
     case "create_goal":
     case "update_goal":
+    case "ralph":
       return "goal";
     case "schedule_create":
     case "schedule_list":
