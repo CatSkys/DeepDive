@@ -11,6 +11,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var terminationSource: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // §5 测试宿主瘦身（2026-10-12）：单测不消费 app 服务（引擎/webview/桥，
+        // 各测试自造 fixture）——XCTest 环境下整条启动链跳过。不带 WebContent/
+        // 引擎进程，宿主收尾挂死与子进程 spawn 压力（GitChangesTests flake 同根）
+        // 整类消失；保留 AppDelegate.shared 供断言"宿主在"的测试。
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            AppDelegate.shared = self
+            config = AppConfig.load() // prefsPayload 等断言要读它；读文件而已，不启服务
+            return
+        }
         _ = AppPaths.supportDir
         AppDelegate.shared = self
         installTerminationHandler()
@@ -779,7 +788,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // 热键 spec（"option+space"）：SPA 据此显示当前热键，不带它设置页只能显示
             // 一个写死的默认值（改过热键、重启后就对不上）
             "hotkey": AppConfig.load().hotkey,
-            "schemeDark": windowController.isEffectiveDark,
+            // 瘦身测试宿主无窗（§5）：prod 恒在 boot 时先建 windowController，
+            // `?.` 只在宿主里落 false——快照断言只管"JSON 可写"，不管暗色值。
+            "schemeDark": windowController?.isEffectiveDark ?? false,
             "home": AppPaths.harnessHome.path,
             "browserZoomDefault": Double(BrowserZoom.defaultZoom()),
             "browserZoomRememberSite": BrowserZoom.remembersPerSite(),
