@@ -100,6 +100,19 @@ export function agentSummary(args: string): string {
   return identity ? firstLine(identity) : summarizeArgs(args);
 }
 
+/** 打断行（interrupt_agent）参数里带的被指子会话 id：engine schema 是必填
+ *  `agent_id`（tool-subagent-control）。拆出来让行绑定那个 agent 的身份——
+ *  摘要跟人话、头像三处一颗球；缺参不猜，调用方走回落。 */
+export function agentControlTargetId(args: string): string | undefined {
+  try {
+    const p = JSON.parse(args) as Record<string, unknown>;
+    if (p && typeof p === "object" && typeof p.agent_id === "string" && p.agent_id.trim()) {
+      return p.agent_id;
+    }
+  } catch { /* 不是合法 JSON：调用方回落 */ }
+  return undefined;
+}
+
 export function prettyArgs(args: string): string {
   try {
     return JSON.stringify(JSON.parse(args), null, 2);

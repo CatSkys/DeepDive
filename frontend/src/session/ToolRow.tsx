@@ -9,7 +9,7 @@ import { useStore } from "../store";
 import { DiffBlock } from "../components/DiffBlock";
 import { AttachmentThumb } from "../components/AttachmentImage";
 import { IconCheckOutline16, IconChecklistOutline14, IconCopyOutline16 } from "../components/Icons";
-import { agentIdentity, agentSummary, askSummary, basename, bashSummary, browserSummary, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
+import { agentControlTargetId, agentIdentity, agentSummary, askSummary, basename, bashSummary, browserSummary, commandOf, firstLine, prettyArgs, relativizePath, summarizeArgs } from "./format";
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
 import { isBrowserTool, isVerbPathTool, toolDisplayName } from "./toolKind";
 import { VerbPath } from "./VerbPath";
@@ -54,8 +54,33 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   // 子智能体委派行（subagent）：摘要=身份串（description，不摆整段提示词——
   // 用户 2026-10-12 定稿），头像 seed 与面板行/胶囊堆叠共用同一身份
   const isAgentSpawn = toolName === "subagent";
+  // 引用子智能体的工具行（interrupt_agent / send_message）：参数里只有被指子会话
+  // 的 id——通用摘要拿到的是裸代号（用户 2026-10-12 指出"这是什么 Agent；同类型
+  // 工具都要有"）。跟 store 会话表对照：那颗子会话的委派身份（subagent 投影
+  // label）就是它的头像 seed——打开发消息这些行也是那个 agent 的球。store 里
+  // 找不到（快照缺投影/老会话）时 interrupt 行摘要置空落回工具名（「中断子智能体」），
+  // 不摆代号；与"不匹配不给"同一显式降级。send_message 的摘要仍显示消息文本
+  // （summarizeArgs 的 message 键），只绑头像身份。
+  const isAgentTargeted = toolName === "interrupt_agent" || toolName === "send_message";
+  const isAgentInterrupt = toolName === "interrupt_agent";
+  const agentTargetId = isAgentTargeted ? agentControlTargetId(args) : undefined;
+  // store 默认 null（独立渲染：测试直接挂组件；真实 app 恒有 provider）——
+  // 委派行/打断行都跟它对照身份，取不到就不绑定（同一"不匹配不给"架构）。
+  const sessions = useStore()?.sessions;
+  const agentTarget = agentTargetId === undefined ? undefined
+    : (sessions ?? []).find((s) => s.sessionId === agentTargetId);
+  const agentTargetLabel = (() => {
+    const values = agentTarget?.projections?.values as { subagent?: { label?: unknown }; title?: unknown } | undefined;
+    if (typeof values?.subagent?.label === "string" && values.subagent.label.trim()) return values.subagent.label.trim();
+    if (typeof values?.title === "string" && values.title.trim()) return values.title.trim();
+    return undefined;
+  })();
   const verbObject = isVerbPathTool(toolName) ? derivePath(toolName, args) ?? summarizeArgs(args) : "";
   const summary = (() => {
+    if (isAgentInterrupt) {
+      if (agentTargetLabel) return relativizePath(agentTargetLabel, cwd);
+      return ""; // 不摆代号：摘要置空落回工具名（行结构「摘要为空才落回名字」）
+    }
     const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : isShell ? bashSummary(args) : isAgentSpawn ? agentSummary(args) : isBrowserTool(toolName) ? browserSummary(args) : summarizeArgs(args);
     return relativizePath(raw, cwd);
   })();
@@ -64,9 +89,6 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   // 委派行的"还在跑"：工具结果到了（state=done）≠ 子会话结束——store 会话表里
   // 那个子会话仍 running 时行内摘要继续脉冲（用户 2026-10-12 定稿），结束就停；
   // 与上面会话侧的 running 收口正交（轮收口压的是无返回的调用，不压在跑的子会话）。
-  // store 默认 null（独立渲染：测试直接挂 ToolRow；真实 app 恒有 provider）——
-  // 取不到会话表就不脉冲，同一"不匹配不给"的显式降级，不编状态。
-  const sessions = useStore()?.sessions;
   const childLive = isAgentSpawn && state !== "error" && childSessionId !== undefined
     && (sessions ?? []).some((s) => s.sessionId === childSessionId && s.running);
   const title = isTodo ? t("任务") : isAsk && state === "running" ? t("等待回答") : state === "running" ? t("正在执行") : toolDisplayName(toolName, t);
@@ -84,7 +106,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         aria-expanded={expandable ? open : undefined}
       >
         <span className="tool-leading">
-          {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} seed={isAgentSpawn ? agentIdentity(args) ?? toolCallId : toolCallId} />}
+          {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} seed={isAgentSpawn ? agentIdentity(args) ?? toolCallId : isAgentTargeted ? agentTargetLabel ?? agentTargetId ?? toolCallId : toolCallId} />}
         </span>
         {verbObject ? (
           <VerbPath toolName={toolName} text={verbObject} badgePath={derivePath(toolName, args)} cwd={cwd} />

@@ -124,3 +124,38 @@ describe("ToolRow 后台委派行的运行态脉冲（data-tool-live）", () => 
     expect(container.querySelector(".tool-row")?.getAttribute("data-state")).toBe("done");
   });
 });
+
+describe("ToolRow 引用子智能体的工具行（打断/发消息）", () => {
+  const childId = "dd832469-498c-4ef9-83d4-3678bed5770d";
+  const childSession: SessionSummary = {
+    sessionId: childId, updatedAt: 0, running: true, blank: false,
+    projections: { asOfSeq: 1, values: { subagent: { mode: "continuable", label: "长任务调研", seq: 3 }, title: "你是「长任务」测试代理" } },
+  };
+
+  it("打断行：摘要=那个 agent 的委派身份（不摆裸代号），头像=同一身份的球", () => {
+    storeMock.sessions = [childSession];
+    const { container } = render(
+      <ToolRow toolName="interrupt_agent" args={JSON.stringify({ agent_id: childId })} output={`interrupt requested for agent ${childId}`} sessionId="s" toolCallId="c1" />,
+    );
+    expect(container.querySelector(".tool-summary")?.textContent).toBe("长任务调研");
+    expect(container.querySelector(".agent-orb")).toBeTruthy();
+  });
+
+  it("store 里找不到那颗子会话：打断行摘要置空落回「中断子智能体」，不摆代号", () => {
+    storeMock.sessions = [];
+    const { container } = render(
+      <ToolRow toolName="interrupt_agent" args={JSON.stringify({ agent_id: childId })} output="accepted" sessionId="s" toolCallId="c1" />,
+    );
+    expect(container.querySelector(".tool-summary")).toBeNull();
+    expect(container.querySelector(".tool-title")?.textContent).toBe("中断子智能体");
+  });
+
+  it("发消息行：摘要仍显示消息文本，头像绑到被指 agent 的同一身份", () => {
+    storeMock.sessions = [childSession];
+    const { container } = render(
+      <ToolRow toolName="send_message" args={JSON.stringify({ agent_id: childId, message: "先看看进度写得怎么样" })} output="delivered" sessionId="s" toolCallId="c2" />,
+    );
+    expect(container.querySelector(".tool-summary")?.textContent).toBe("先看看进度写得怎么样");
+    expect(container.querySelector(".agent-orb")).toBeTruthy();
+  });
+});

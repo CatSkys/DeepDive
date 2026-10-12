@@ -6,8 +6,22 @@
 // agentIdentity/agentSummary：子智能体委派行的身份串与摘要（引擎把 subagent 的
 // description 定为"专给显示用的短描述"，也是子会话 label——三处头像 seed 的
 // 唯一来源；用户定稿：行上不摆整段提示词）。
+// agentControlTargetId：打断行（interrupt_agent）参数里的被指子会话 id——
+// 摘要与头像据此绑定那个 agent（用户定稿：不摆裸代号）。
 import { describe, expect, it } from "vitest";
-import { agentIdentity, agentSummary, bashSummary, browserSummary, compactElapsed, formatElapsed, relativizePath } from "../session/format";
+import { agentControlTargetId, agentIdentity, agentSummary, bashSummary, browserSummary, compactElapsed, formatElapsed, relativizePath } from "../session/format";
+
+describe("agentControlTargetId 打断行的被指子会话", () => {
+  it("agent_id 必填串原样取出", () => {
+    expect(agentControlTargetId(JSON.stringify({ agent_id: "dd832469-498c-4ef9-83d4-3678bed5770d" })))
+      .toBe("dd832469-498c-4ef9-83d4-3678bed5770d");
+  });
+  it("缺 agent_id / 空串 / 不是 JSON：undefined（调用方走回落）", () => {
+    expect(agentControlTargetId(JSON.stringify({}))).toBeUndefined();
+    expect(agentControlTargetId(JSON.stringify({ agent_id: "  " }))).toBeUndefined();
+    expect(agentControlTargetId("不是 JSON")).toBeUndefined();
+  });
+});
 
 describe("agentIdentity/agentSummary 子智能体委派行", () => {
   const args = JSON.stringify({ description: "测试失败路径回报", prompt: "你是一个测试用子 Agent。本次任务专门测试\"失败路径如何回报\"。全部为只读/无副作用操作……" });
