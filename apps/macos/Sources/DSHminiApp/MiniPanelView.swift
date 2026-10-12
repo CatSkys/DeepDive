@@ -2,9 +2,10 @@ import SwiftUI
 import AppKit
 
 // 迷你面板 SwiftUI 树（全原生重做，Atd 同构——用户 2026-10-12 拍板 web 混合方案
-// 打回，他用 Swift 就用 Swift）。本文件只管三样视觉件：收起态状态点、展开条目列
-// （钮 + 悬停标签）、命令卡；窗口/玻璃/点击与拖动归 `MiniPanelWindow.swift`。
+// 打回，他用 Swift 就用 Swift）。本文件只管三样视觉件：收起态药丸、展开条目列
+// （状态槽 + 分隔线 + 钮）、命令卡；窗口/玻璃/点击与拖动归 `MiniPanelWindow.swift`。
 // 图标 = Lucide SVG 经 `BrandPanelIcons` 转 NSImage（与主应用同一收口，无第二图标源）。
+// 几何常量（胶囊 44×157 / 卡宽 224 / 行高 28）的事实源在窗口文件，这里只用布局镜像。
 
 // MARK: - 模型（状态与动作的唯一拥有者；宿主回填）
 
@@ -30,6 +31,8 @@ final class MiniPanelModel: ObservableObject {
     var onAction: ((String) -> Void)?
     /// 跑一条命令：宿主闭包（切本体 → 快捷会话执行）。
     var onRunCommand: ((String) -> Void)?
+    /// 命令卡开合后由宿主窗口重排（窗口宽/高随卡变）。
+    var onFlyoutChanged: (() -> Void)?
 
     func perform(_ action: String) {
         onAction?(action)
@@ -38,6 +41,7 @@ final class MiniPanelModel: ObservableObject {
     func toggleFlyout() {
         guard quickSessionId != nil else { return }
         flyoutOpen.toggle()
+        onFlyoutChanged?()
     }
 
     func runCommand(_ name: String) {
@@ -66,24 +70,38 @@ struct MiniPanelView: View {
         }
     }
 
-    /// 展开态：右缘模式 钮条在右、卡在左；左缘模式镜像。
+    /// 展开态：卡贴玻璃胶囊（条目列）。右缘 = 条目列贴右、卡在左；左缘镜像。
     private var expandedStack: some View {
         HStack(alignment: .center, spacing: 8) {
             if model.side == "left" {
-                CommandFlyout(model: model)
                 ItemStrip(model: model)
+                CommandFlyout(model: model)
             } else {
-                ItemStrip(model: model)
                 CommandFlyout(model: model)
+                ItemStrip(model: model)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 
-// MARK: - 收起态（8×44 玻璃小胶囊上面的状态点）
+// MARK: - 收起态（8×44 玻璃小胶囊上的状态符）
 
 private struct TuckedStatusDot: View {
+    @ObservedObject var model: MiniPanelModel
+
+    var body: some View {
+        StatusGlyph(model: model)
+            .frame(width: 8, height: 44)
+            // Atd pill-v2：未着色玻璃的小胶囊在纯色壁纸上不可见——玻璃内加一层
+            // 中性色调（labelColor 20% 的黑白移植），黑壁纸上有轮廓。
+            .background(Capsule().fill(Color.white.opacity(0.16)))
+    }
+}
+
+// MARK: - 状态符（运行呼吸条 / 注意长条 / 未读短条；空闲空内容）——两态共用
+
+private struct StatusGlyph: View {
     @ObservedObject var model: MiniPanelModel
     @State private var breathing = false
 
@@ -94,43 +112,48 @@ private struct TuckedStatusDot: View {
                     .fill(Color.white.opacity(breathing ? 0.35 : 0.95))
                     .frame(width: 3, height: 15)
                     .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: breathing)
-                    .onAppear { breathing = true }
             } else if model.attention {
                 Capsule().fill(Color.white).frame(width: 3, height: 21)
             } else if model.unseen {
                 Capsule().fill(Color.white.opacity(0.85)).frame(width: 3, height: 8)
             }
         }
-        .frame(width: 8, height: 44)
-        // Atd pill-v2：未着色玻璃的小胶囊在纯色壁纸上不可见——玻璃内加一层
-        // 中性色调（labelColor 20% 的黑白移植），黑壁纸上有轮廓。
-        .background(Capsule().fill(Color.white.opacity(0.16)))
+        .onAppear { breathing = true }
     }
 }
 
-// MARK: - 展开态条目列（44 宽玻璃竖条；玻璃由窗口铺，这里只有钮/点/标签）
+// MARK: - 展开态条目列（状态槽 + 分隔线 + 三钮；玻璃胶囊由窗口裁形铺底）
 
 private struct ItemStrip: View {
     @ObservedObject var model: MiniPanelModel
 
     var body: some View {
-        VStack(spacing: 8) {
-            if model.running || model.attention || model.unseen {
-                StatusDot(model: model)
-                    .padding(.top, 2)
-            }
+        VStack(spacing: 4) {
+            StatusSlot(model: model)
+            Capsule().fill(Color.white.opacity(0.18)).frame(width: 20, height: 1)
             ItemButton(model: model, action: "openMain", tip: "打开本体", icon: .panelLeft)
             ItemButton(model: model, action: "newSession", tip: "新会话", icon: .squarePen)
             ItemButton(model: model, tip: "命令", icon: .command, active: model.flyoutOpen) {
                 model.toggleFlyout()
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .frame(width: 44)
     }
 }
 
-// MARK: - 条目钮（28pt 圆钮；hover 白 9% / 按下 16%，Atd 按钮族的黑白移植）
+// MARK: - 状态槽（条目列第一格 32×32；Atd 此处是 logo，用户拍板不带品牌——空闲空槽）
+
+private struct StatusSlot: View {
+    @ObservedObject var model: MiniPanelModel
+
+    var body: some View {
+        StatusGlyph(model: model)
+            .frame(width: 32, height: 32)
+    }
+}
+
+// MARK: - 条目钮（32pt 圆钮；hover 白 9% / 按下 16%，Atd 按钮族的黑白移植）
 
 private struct ItemButton: View {
     @ObservedObject var model: MiniPanelModel
@@ -154,9 +177,9 @@ private struct ItemButton: View {
         } label: {
             Image(nsImage: icon.image)
                 .resizable()
-                .frame(width: 15, height: 15)
+                .frame(width: 16, height: 16)
                 .foregroundColor(Color.white.opacity(0.92))
-                .frame(width: 28, height: 28)
+                .frame(width: 32, height: 32)
                 .background(Circle().fill(fill))
         }
         .buttonStyle(.plain)
@@ -188,10 +211,10 @@ private struct CommandFlyout: View {
             .padding(6)
             .frame(width: 224)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color(white: 0.09, opacity: 0.96))
             )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
     }
 }
@@ -204,21 +227,21 @@ private struct FlyoutRow: View {
 
     var body: some View {
         Button(action: onRun) {
-            VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 8) {
                 Text("/\(name)")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.92))
-                if !description.isEmpty {
-                    Text(description)
-                        .font(.system(size: 12))
-                        .lineLimit(1)
-                        .foregroundStyle(Color.white.opacity(0.55))
-                }
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(description)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.white.opacity(0.5))
+                    .lineLimit(1)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(hovered ? 0.10 : 0)))
+            .frame(maxWidth: .infinity)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(hovered ? 0.10 : 0)))
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
@@ -233,27 +256,6 @@ private struct FlyoutCaption: View {
             .font(.system(size: 12))
             .foregroundStyle(Color.white.opacity(0.55))
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-    }
-}
-
-// MARK: - 状态点（条目列顶端的那枚；黑白符号+亮度）
-
-private struct StatusDot: View {
-    @ObservedObject var model: MiniPanelModel
-    @State private var breathing = false
-
-    var body: some View {
-        Group {
-            if model.running {
-                Capsule().fill(Color.white.opacity(breathing ? 0.35 : 0.95))
-                    .frame(width: 3, height: 15)
-            } else if model.attention {
-                Capsule().fill(Color.white).frame(width: 3, height: 21)
-            } else {
-                Capsule().fill(Color.white.opacity(0.85)).frame(width: 3, height: 8)
-            }
-        }
-        .onAppear { breathing = true }
+            .frame(height: 28)
     }
 }
