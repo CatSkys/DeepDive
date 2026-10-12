@@ -17,7 +17,13 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("[crash-boundary]", error.stack ?? String(error), "\ncomponent stack:", info.componentStack);
+    // 走 index.html 内联上报器的同一条通道（壳 /__deepdive_error → engine.log
+    // [web] 行）：边界接住的错误**不经过** window.onerror，不上报就谁也看不见
+    // ——线上崩溃的组件栈全靠这里。componentStack 生产构建同样有效。
+    const body =
+      "[crash-boundary] " + (error.stack ?? String(error))
+      + "\n--- component stack ---" + (info.componentStack ?? "");
+    fetch("/__deepdive_error", { method: "POST", body }).catch(() => {});
   }
 
   override render(): ReactNode {
