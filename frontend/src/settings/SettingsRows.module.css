@@ -95,8 +95,11 @@
   gap: 5px;
 }
 /* 面板行自带整行 hover（.panel-settings-line），触发钮不再叠自己的小胶囊：
-   背景交给调用方经 --dd-bare-hover-bg 定（缺省仍 --fill-soft，automation 句内口径） */
-.ddBare .ddTrigger:hover { background: var(--dd-bare-hover-bg, var(--fill-soft)); color: var(--ink); border-color: transparent; }
+   背景交给调用方经 --dd-bare-hover-bg 定（缺省仍 --fill-soft，automation 句内口径）。
+   **hover 不改字色**：danger 项（完全访问）的字与图标常驻热点橙，此前 hover 的
+   color:var(--ink) 只压住文字压不到图标，半白半橙还把橙字刷白（2026-10-12 用户
+   报障）——反馈一律交给底色，字色任何情况不动。 */
+.ddBare .ddTrigger:hover { background: var(--dd-bare-hover-bg, var(--fill-soft)); border-color: transparent; }
 .ddTriggerIcon { flex-shrink: 0; }
 /* 危险项当前值（如 完全访问）：沿用全站热点橙例外 */
 .ddTrigger[data-danger="true"] { color: #ff9f0a; }
