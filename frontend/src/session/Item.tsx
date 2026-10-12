@@ -138,6 +138,9 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
     );
   }
   if (item.kind === "command") {
+    // permission 切换卡不渲染（2026-10-12 用户定稿）：它是面板下拉动作的回声，
+    // 面板的即时反馈已足够，命令卡只把消息流刷成噪音（同 present 行的口径）。
+    if (item.toolName === "permission") return null;
     return <CommandCard name={item.toolName ?? "cmd"} args={item.args ?? ""} status={item.commandStatus ?? "running"} text={item.commandText} />;
   }
   if (item.kind === "workflow") {
