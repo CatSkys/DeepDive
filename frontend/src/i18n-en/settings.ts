@@ -100,7 +100,7 @@ export const ENSettings: Record<string, string> = {
   // settings — hotkeys
   "全局热键": "Global hotkey",
   "任意应用下生效。": "Works from any app.",
-  "唤起面板": "Toggle panel",
+  "唤起迷你面板": "Toggle mini panel",
   "按下新的组合键…": "Press a new key combination…",
   "录制中…": "Recording…",
   "修改": "Change",

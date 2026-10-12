@@ -88,7 +88,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NativeAlerts.install()
 
-        hotKey.onHotKey = { [weak self] in self?.windowController.togglePanel() }
+        // 全局热键唤迷你面板（§4.1 重绑）：主窗口不再占全局热键，
+        // 召唤走 Dock / 菜单栏「显示主窗」/ 药丸「打开本体」。
+        hotKey.onHotKey = { MiniPanelController.shared.toggle() }
         if hotKey.register(spec: config.hotkey) {
             EngineLog.shared.append("[shell] hotkey registered: \(config.hotkey)")
         } else {

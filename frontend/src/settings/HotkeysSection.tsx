@@ -67,12 +67,12 @@ export function HotkeysSection() {
     <>
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("全局唤起")}</div>
-        <div className={rowsCss.sectionIntro}>{t("系统级热键，任何应用在前台都能唤起面板并聚焦输入框。")}</div>
+        <div className={rowsCss.sectionIntro}>{t("系统级热键，任何应用在前台都能唤起或收起迷你面板。")}</div>
         <div className={rowsCss.hotkeyCard}>
           <div className={rowsCss.hotkeyRow}>
             <div className={rowsCss.rowIdentity}>
               <div className={rowsCss.rowName} style={!store.hotkeyOn ? { color: "var(--ink-3)" } : undefined}>
-                {t("唤起面板")}
+                {t("唤起迷你面板")}
                 <span className={rowsCss.metaTag}>{t("全局")}</span>
               </div>
             </div>
