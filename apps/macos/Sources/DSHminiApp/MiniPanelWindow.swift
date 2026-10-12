@@ -52,8 +52,10 @@ final class MiniPanelWindow: NSPanel {
         let content = NSView()
         content.wantsLayer = true
         glass.frame = NSRect(origin: .zero, size: Self.tucked)
+        glass.autoresizingMask = [.width, .height]
         content.addSubview(glass)
         hosting.frame = content.bounds
+        hosting.autoresizingMask = [.width, .height]
         content.addSubview(hosting)
         contentView = content
 
@@ -100,6 +102,11 @@ final class MiniPanelWindow: NSPanel {
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             ctx.allowsImplicitAnimation = true
             animator().setFrame(target, display: true)
+        }
+        // 子视图显式重排（hosting 不跟手 = 图标被裁进 16px 缝，实机三犯同型错误）
+        if let content = contentView {
+            glass.frame = content.bounds
+            hosting.frame = content.bounds
         }
         syncGlassAppearance()
     }
