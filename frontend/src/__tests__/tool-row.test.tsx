@@ -47,7 +47,7 @@ describe("ToolRow 运行态", () => {
     expect(container.querySelector(".tool-summary")?.textContent).toBe("等三秒");
 
     const empty = render(<ToolRow toolName="list_files" args="" output="" sessionId="s" />);
-    expect(empty.container.querySelector(".tool-title")?.textContent).toBe("列出文件");
+    expect(empty.container.querySelector(".tool-title")?.textContent).toBe("列出");
     expect(empty.container.querySelector(".tool-summary")).toBeNull();
   });
 });
