@@ -134,3 +134,17 @@
 
 /* 命令钮的展开态：与 hover 同一填充语言，保持"当前目标"可见 */
 .itemActive { background: var(--fill); }
+
+/* 左缘模式（树④ 拖动吸附）：条目列镜像到窗口左缘，标签改到按钮右侧 */
+.root[data-side="left"] .strip {
+  left: 4px;
+  right: auto;
+}
+.root[data-side="left"] .label {
+  right: auto;
+  left: calc(100% + 8px);
+}
+.root[data-side="left"] .flyout {
+  right: auto;
+  left: 56px;
+}

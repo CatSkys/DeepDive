@@ -14,6 +14,11 @@ final class MiniPanelController {
     /// 展开态窗口 bounds：右缘条目列（44）+ 左侧命令卡（树③ 接数据）。
     static let expandedSize = NSSize(width: 300, height: 560)
 
+    /// 药丸贴边（树④）：拖动后吸附到主屏最近缘；y 偏移记偏好。
+    var side: String {
+        UserDefaults.standard.string(forKey: "deepdive.miniPanel.side") ?? "right"
+    }
+
     /// 快捷会话默认空间的目录（D14）：引擎 `workspace/create` 只收**已存在的绝对
     /// 路径**（`~` 不展开，workspace/src/index.ts create 实锤），目录由壳保证存在；
     /// 注册由 SPA 首启幂等做（workspace/create 已注册即返回既有）。
@@ -53,6 +58,7 @@ final class MiniPanelController {
         guard enabled, expanded != on else { return }
         expanded = on
         panel?.apply(expanded: on)
+        panel?.setOutsideClickCollapse(on)
         EngineLog.shared.append("[miniPanel] \(on ? "expand" : "collapse")")
     }
 
@@ -64,8 +70,49 @@ final class MiniPanelController {
     }
 }
 
+/// 内容容器：拖动抓取区（收起态的小胶囊）在本层拦截，其余落给 webview。
+/// WKWebView 会吃掉 mouseDown，`isMovableByWindowBackground` 对它无效——
+/// 抓取走显式 rect（与 Atd 的"页面报拖拽区、壳起原生拖拽"同谱系）。
+final class MiniPanelContainerView: NSView {
+    var dragRect: NSRect = .zero
+    private let grabber = NSView(frame: .zero)
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if dragRect.contains(convert(point, from: nil)) { return grabber }
+        return super.hitTest(point)
+    }
+
+    func setDragRect(_ rect: NSRect) {
+        dragRect = rect
+        grabber.frame = rect
+    }
+}
+
+/// 抓取视图：mouseDown 交给窗口原生效拖拽；未移动的松手按点击算（展开）。
+final class MiniPanelGrabberView: NSView {
+    var onClick: (() -> Void)?
+    private var downLocation: NSPoint?
+
+    override func mouseDown(with event: NSEvent) {
+        downLocation = NSEvent.mouseLocation
+        window?.performDrag(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if let down = downLocation {
+            let moved = hypot(down.x - NSEvent.mouseLocation.x, down.y - NSEvent.mouseLocation.y)
+            if moved < 3 { onClick?() } // 原位松手 = 点击（Atd 的点击展开语义）
+        }
+        downLocation = nil
+    }
+}
+
 final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
-    private let container = NSView(frame: .zero)
+    private let container = MiniPanelContainerView(frame: .zero)
     private let glass = WindowGlassView(frame: .zero)
     /// 收起态小胶囊的色调层（Atd pill-v2：纯玻璃小胶囊在纯色壁纸上不可见，
     /// 玻璃内加一层 labelColor 中性色调，轮廓随胶囊）。
@@ -95,6 +142,9 @@ final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
         tone.wantsLayer = true
         tone.autoresizingMask = []
         container.addSubview(tone)
+        let grabber = MiniPanelGrabberView(frame: .zero)
+        grabber.onClick = { MiniPanelController.shared.setExpanded(true) }
+        container.addSubview(grabber)
 
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "deepdiveHost")
@@ -111,37 +161,80 @@ final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
             comps.percentEncodedQuery = (comps.percentEncodedQuery.map { $0 + "&" } ?? "") + "miniPanel=1"
             wv.load(URLRequest(url: comps.url!))
         }
+
+        // 拖完吸附：以窗口中心 y 记偏移，x 吸附到所在屏最近缘（Atd 的拖动语义）。
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(snapAfterMove),
+            name: NSWindow.didMoveNotification, object: self
+        )
+    }
+
+    private var clickMonitor: Any?
+
+    @objc private func snapAfterMove() {
+        guard !currentExpanded else { return } // 展开态不拖（树④ 只做收起态拖动）
+        guard let screen = screen else { return }
+        let workArea = screen.visibleFrame
+        let midX = frame.midX
+        let toLeft = abs(frame.minX - workArea.minX) <= abs(workArea.maxX - frame.maxX)
+        let side = toLeft ? "left" : "right"
+        UserDefaults.standard.set(side, forKey: "deepdive.miniPanel.side")
+        let yOffset = frame.midY - workArea.midY
+        UserDefaults.standard.set(yOffset, forKey: "deepdive.miniPanel.yOffset")
+        EngineLog.shared.append("[miniPanel] snap side=\(side) yOffset=\(Int(yOffset))")
+        apply(expanded: false)
+    }
+
+    /// 展开期间监听窗口外点击 → 收起（Atd 语义）；收起即撤监视。
+    func setOutsideClickCollapse(_ on: Bool) {
+        if on, clickMonitor == nil {
+            clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] _ in
+                guard let self, self.currentExpanded, !self.frame.contains(NSEvent.mouseLocation) else { return }
+                MiniPanelController.shared.setExpanded(false)
+            }
+        } else if !on, let monitor = clickMonitor {
+            NSEvent.removeMonitor(monitor)
+            clickMonitor = nil
+        }
     }
 
     func apply(expanded: Bool) {
         currentExpanded = expanded
         let workArea = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
         let size = expanded ? MiniPanelController.expandedSize : MiniPanelController.tuckedSize
+        let side = MiniPanelController.shared.side
         let yOffset = UserDefaults.standard.double(forKey: "deepdive.miniPanel.yOffset")
         let y = min(max(workArea.midY + yOffset - size.height / 2, workArea.minY), workArea.maxY - size.height)
-        setFrame(NSRect(origin: NSPoint(x: workArea.maxX - size.width, y: y), size: size), display: true)
+        let x = side == "left" ? workArea.minX : workArea.maxX - size.width
+        let target = NSRect(origin: NSPoint(x: x, y: y), size: size)
         // 全部显式重排（autoresizing 不参与）：容器=窗口内容区；
         // 收起=玻璃+色调只铺 8×44 小胶囊；展开=玻璃先归零，等 web 推条目列 rect。
         container.setFrameSize(size)
         webView?.frame = container.bounds
         tone.isHidden = expanded
-        if expanded {
-            glass.frame = .zero
-            tone.frame = .zero
-        } else {
-            let sliver = NSRect(x: size.width - 8, y: 2, width: 8, height: 44)
-            glass.frame = sliver
-            tone.frame = sliver
-            tone.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.16).cgColor
-        }
+        let sliver = NSRect(x: side == "left" ? 0 : size.width - 8, y: 2, width: 8, height: 44)
+        let nativeTarget = expanded ? NSRect.zero : sliver
+        tone.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.16).cgColor
+        container.setDragRect(expanded ? .zero : sliver)
+        // 窗口与原生件同拍动画（0.22s ease-out）；页面内部过渡由 CSS 负责。
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.22
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.allowsImplicitAnimation = true
+            animator().setFrame(target, display: true)
+            glass.animator().frame = nativeTarget
+            tone.animator().frame = nativeTarget
+        }, completionHandler: nil)
         pushState()
     }
 
     func setStripRect(_ rect: NSRect) {
         guard currentExpanded, let z = webView?.pageZoom else { return }
         // web CSS px（y 向下）→ 窗口 point（y 向上）；pageZoom 是两者间的系数（§9.2）。
+        // 左缘模式条目列贴窗口左缘，x 直接取 rect.x。
+        let left = MiniPanelController.shared.side == "left"
         glass.frame = NSRect(
-            x: frame.width - rect.maxX * z,
+            x: left ? rect.minX * z : frame.width - rect.maxX * z,
             y: frame.height - rect.maxY * z,
             width: rect.width * z,
             height: rect.height * z
@@ -150,8 +243,9 @@ final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
     }
 
     private func pushState() {
+        let side = MiniPanelController.shared.side
         webView?.evaluateJavaScript(
-            "window.__deepDiveHost && window.__deepDiveHost.dispatch('miniPanelState', { expanded: \(currentExpanded) })",
+            "window.__deepDiveHost && window.__deepDiveHost.dispatch('miniPanelState', { expanded: \(currentExpanded), side: '\(side)' })",
             completionHandler: nil
         )
     }
