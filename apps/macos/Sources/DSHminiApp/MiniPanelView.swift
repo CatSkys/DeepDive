@@ -102,6 +102,9 @@ private struct TuckedStatusDot: View {
             }
         }
         .frame(width: 8, height: 44)
+        // Atd pill-v2：未着色玻璃的小胶囊在纯色壁纸上不可见——玻璃内加一层
+        // 中性色调（labelColor 20% 的黑白移植），黑壁纸上有轮廓。
+        .background(Capsule().fill(Color.white.opacity(0.16)))
     }
 }
 
