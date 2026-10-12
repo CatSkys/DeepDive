@@ -29,7 +29,7 @@ export function VerbPath({ toolName, verb, text, badgePath, cwd, summaryClass = 
     <span className={summaryClass}>
       {verbText}
       <FileIcon file={relativizePath(badgePath, cwd)} />
-      {` ${shown}`}
+      {shown}
     </span>
   );
 }

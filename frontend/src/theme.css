@@ -2671,7 +2671,7 @@ button {
    也没有 hover 背景——整条灰带是本仓自己加的，也是"只有思考这样"的由来） */
 :where(html[data-hover-armed]) .thinking-head:hover .thinking-done { color: var(--ink); }
 .thinking-spark { flex: none; color: var(--tk-ink-3); }
-.thinking-label-wrap { display: inline-flex; }
+.thinking-label-wrap { display: inline-flex; min-width: 0; }
 .thinking-active {
   font-size: var(--dsh-font-size-base);
   /* 400：与工具行 .tool-title/.tool-summary 及官方 ReasoningRow .title 同字重，
@@ -2692,6 +2692,11 @@ button {
   font-weight: 400;
   line-height: var(--flow-row);
   white-space: nowrap;
+  /* 窄幅下长时档收 ellipsis（.tool-summary 同款三件套）——只有 nowrap 时标签会
+     顶开箭头把行撑出界（2026-10-12 样式 review） */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   /* --ink-3：与流内工具行/组头的摘要同亮档（读取/编辑行的文字都是这一档）；
      此前 --ink-2 比邻居亮一档（2026-10-12 用户报障「思考和读取字体不一样」） */
   color: var(--tk-ink-3);
@@ -2699,6 +2704,9 @@ button {
 }
 .thinking-chevron {
   flex: none; color: var(--tk-ink-3);
+  /* 与工具行/组行箭头同款：文字与箭头之间保 8px（只有 margin-left:auto 时
+     长标签会贴死箭头） */
+  padding-left: 8px;
   transition: transform var(--dur-slow) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
   /* 钉行右端（与工具行箭头同一条竖线，用户定稿） */
   margin-left: auto;
@@ -3423,7 +3431,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 .hero-composer { animation: row-in var(--dur-slow) var(--ease-out) 120ms backwards; }
 
 /* 通用悬浮过渡补齐（hover 背景都应有短过渡）。 */
-.tool-row-main, .task-row, .q-option, .model-menu-row,
+.tool-row-main, .command-main, .task-row, .q-option, .model-menu-row,
 .model-menu-back, .produced-file, .todo-item, .ctx-item,
 .ws-menu-row {
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
@@ -4109,19 +4117,36 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .command-main {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   width: 100%;
   text-align: left;
   padding: 3px 8px;
   border-radius: var(--dsh-radius-keycap);
   font-size: var(--dsh-font-size-base);
   color: var(--ink-2);
+  /* 显式钉 border-box：width:100%+padding 依赖 WebKit 给 button 的 UA 默认值，
+     div 化时就会右溢（Automation.module.css / .panel-settings-line 同款事故） */
+  box-sizing: border-box;
 }
-:where(html[data-hover-armed]) .command-main:hover { background: var(--fill-soft); }
+/* hover 与流内行族同语言：只提亮文字，不铺底（此前铺 fill-soft 是行族里的孤例） */
+:where(html[data-hover-armed]) .command-main:hover :is(.command-name, .command-args) { color: var(--ink); }
 .command-leading { display: inline-flex; align-items: center; color: var(--ink-3); }
 .command-name { font-weight: 600; color: var(--ink-soft); font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); }
 .command-args { font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 「已完成」钉在箭头槽旁（槽空占位时它就是行右缘的住民）；可展开时本元素不渲染 */
 .command-hint { margin-left: auto; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+/* 箭头槽与工具行同款：可展开才现（hover/焦点门控见文件末「展开箭头」段），
+   无展开体时藏起但**留位**——右缘那条箭头竖线不在这里断 */
+.command-chevron {
+  flex: none;
+  color: var(--ink-3);
+  margin-left: auto;
+  padding-left: 8px;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.command-chevron[data-empty] { visibility: hidden; }
+.command-chevron svg { transition: transform var(--dur-med) var(--ease-out); transform: rotate(-90deg); }
+.command-chevron[data-open="true"] svg { transform: rotate(0); }
 .command-body {
   margin: 4px 0 0 24px;
   padding: 6px 10px;
@@ -4378,17 +4403,18 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
    状态点、不露原始错误码（失败原话在展开体里）。直播等待时文字微光脉冲
    ——与运行中工具行同一手法（UI-SPEC「运行中不摆状态点」）。 */
 .retry-row {
-  font-size: var(--dsh-font-size-sm);
+  font-size: var(--dsh-font-size-base);
   color: var(--ink-3);
   padding: 2px 8px;
 }
 .retry-summary {
-  display: inline-flex;
+  /* 满宽 flex：caret 经 margin-left:auto 钉在行内容右缘——与工具行/组行/思考行
+     的箭头同一条竖线（此前 fit-content 让 caret 跟着文字走，右缘线在这里断掉） */
+  display: flex;
   align-items: center;
   gap: 7px;
-  width: fit-content;
+  width: 100%;
   padding: 0;
-  border-radius: 3px;
   color: inherit;
   cursor: pointer;
   list-style: none;
@@ -4398,6 +4424,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .retry-summary::after {
   width: 6px;
   height: 6px;
+  flex: none;
+  margin-left: auto;
   border-right: 1.5px solid currentcolor;
   border-bottom: 1.5px solid currentcolor;
   content: "";
@@ -4864,10 +4892,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .workflow-main {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   padding: 7px 10px;
   text-align: left;
+  box-sizing: border-box;
 }
 .workflow-leading { display: inline-flex; color: var(--ink-3); }
 .workflow-name { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-soft); }
@@ -5707,9 +5736,10 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .lightbox-close:active, .panel-artifact-more:active { transform: scale(.94); }
 
 /* ── 展开箭头：收起态只在行 hover / 键盘聚焦时现（用户 2026-10-09 定稿）──────
-   会话流里那族行级箭头（工具行 / 工具组行 / 思考头 / 轮内过程条）收起时一律是
-   朝右的 ">"，一列常驻下来把右缘划成一道虚线——噪声比它承载的"这行能展开"信息大。
-   四处收在这一段而不是各写一条：它们是同一条规则的四份实例（AGENTS 的"平行值要抽取"）。
+   会话流里那族行级箭头（工具行 / 工具组行 / 思考头 / 轮内过程条 / 命令卡）收起时
+   一律是朝右的 ">"，一列常驻下来把右缘划成一道虚线——噪声比它承载的"这行能展开"
+   信息大。五处收在这一段而不是各写一条：它们是同一条规则的五份实例（AGENTS 的
+   "平行值要抽取"）。
 
    · **槽位不撤**：仍是 flex 项、仍占宽，藏的是 opacity 不是 display/visibility——
      撤了右缘那条箭头竖线会随行抖动（这正是 .tool-chevron[data-empty] 用
@@ -5724,16 +5754,20 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .tool-chevron,
 .tool-group-chevron,
 .thinking-chevron,
-.turn-process-chevron { opacity: 0; }
+.turn-process-chevron,
+.command-chevron { opacity: 0; }
 :where(html[data-hover-armed]) .tool-row-main:hover .tool-chevron,
 :where(html[data-hover-armed]) .tool-group-head:hover .tool-group-chevron,
 :where(html[data-hover-armed]) .thinking-head:hover .thinking-chevron,
 :where(html[data-hover-armed]) .turn-process-row:hover .turn-process-chevron,
+:where(html[data-hover-armed]) .command-main:hover .command-chevron,
 .tool-row-main:focus-visible .tool-chevron,
 .tool-group-head:focus-visible .tool-group-chevron,
 .thinking-head:focus-visible .thinking-chevron,
 .turn-process-row:focus-visible .turn-process-chevron,
+.command-main:focus-visible .command-chevron,
 .tool-chevron[data-open="true"],
 .tool-group-head[aria-expanded="true"] .tool-group-chevron,
 .thinking-head[aria-expanded="true"] .thinking-chevron,
-.turn-process-row[data-open] .turn-process-chevron { opacity: 1; }
+.turn-process-row[data-open] .turn-process-chevron,
+.command-main[aria-expanded="true"] .command-chevron { opacity: 1; }

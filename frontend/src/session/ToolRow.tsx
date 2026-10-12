@@ -142,6 +142,15 @@ export function CommandCard({ name, args, status, text }: {
         <span className="command-name">/{name}</span>
         {args && <span className="command-args">{args}</span>}
         {status === "success" && !text && <span className="command-hint">{t("已完成")}</span>}
+        {/* 箭头槽与工具行同款：无展开体时藏起但留位（右缘箭头竖线不断） */}
+        <span
+          className="command-chevron"
+          data-open={hasBody && open ? "true" : "false"}
+          data-empty={hasBody ? undefined : ""}
+          aria-hidden={hasBody ? undefined : true}
+        >
+          <ChevronDown size={14} />
+        </span>
       </button>
       {hasBody && open && <div className="command-body">{text}</div>}
     </div>
