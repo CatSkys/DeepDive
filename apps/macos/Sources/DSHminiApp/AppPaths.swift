@@ -11,6 +11,23 @@ enum AppPaths {
             try? FileManager.default.createDirectory(at: override, withIntermediateDirectories: true)
             return override
         }
+        // §5 按树隔离：测试宿主（xcodebuild test 会注入 XCTest 环境）把支撑目录
+        // 钉在所属树的 .build/test-support——每棵树自己的 instance.lock，多树并行
+        // 测试互不挡。真机 app（无 XCTest 环境）不走这条，仍用共享支撑目录。
+        // 布局假设：宿主 bundle 位于 <树根>/.build/debug/Build/Products/Debug/*.app；
+        // 前缀不符（布局将来变了）就落回共享目录——宁可退回旧行为也不猜。
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            let bundlePath = Bundle.main.bundleURL.path
+            let layoutSuffix = "/.build/debug/Build/Products/Debug/"
+            if bundlePath.contains(layoutSuffix),
+               let cut = bundlePath.range(of: layoutSuffix) {
+                let treeRoot = String(bundlePath[..<cut.lowerBound])
+                let scratch = URL(fileURLWithPath: treeRoot, isDirectory: true)
+                    .appendingPathComponent(".build/test-support", isDirectory: true)
+                try? FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+                return scratch
+            }
+        }
         let fm = FileManager.default
         let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")

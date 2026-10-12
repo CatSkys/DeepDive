@@ -4,28 +4,22 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p .build
 
-# 测试锁预检（PITFALLS §7.2）：被中断的测试运行会留下占着隔离目录锁的测试宿主，
-# 本轮宿主一启动就 exit(0)，xcodebuild 只报难对号的 "test runner exited with code
-# 0"。宿主按 Debug 产物路径识别（真机包在 release/dist，不持这把锁）；宿主被杀后
-# 其 xcodebuild 会重拉一个，所以还要停掉本项目仍在跑的 xcodebuild——同一
-# .build/debug 上并发 xcodebuild test 本就互踩。
+# 测试锁预检（PITFALLS §7.2）：被中断的测试运行会留下占着本树测试支撑目录锁的
+# 测试宿主，本轮宿主一启动就 exit(0)，xcodebuild 只报难对号的 "test runner
+# exited with code 0"。支撑目录按树隔离（.build/test-support，AppPaths 认
+# XCTest 环境派生），所以锁的持有者只能是本树自己的测试宿主；宿主被杀后
+# 其 xcodebuild 会重拉一个，所以还要停掉本树仍在跑的 xcodebuild。
 unlock_test_lock() {
-  local lock="/tmp/dshmini-test-support/instance.lock" holder cmd
+  local lock="$PWD/.build/test-support/instance.lock" holder cmd
   holder=$(lsof -t "$lock" 2>/dev/null | head -1 || true)
   if [[ -z "$holder" ]]; then return 0; fi
   cmd=$(ps -p "$holder" -o command= 2>/dev/null || true)
-  # 只清本树的宿主：测试支撑锁全机共享（scheme 定值），别的 worktree 正在跑测试时
-  # 占锁是合法的——报清晰错误让对面跑完，绝不误杀（WORKING-AGREEMENTS §5）。
-  if [[ "$cmd" == *"/.build/debug/Build/Products/Debug/DeepDive.app"* && "$cmd" != *"$(pwd)/.build/debug/"* ]]; then
-    echo "FAIL: 测试锁被另一 worktree 的测试宿主占用 (pid $holder)——等它跑完再跑本树测试" >&2
-    return 1
-  fi
   if [[ "$cmd" != *"$(pwd)/.build/debug/"* ]]; then
-    echo "FAIL: 测试锁被非测试宿主占用 (pid $holder)，不自动清：" >&2
+    echo "FAIL: 测试锁被非本树测试宿主占用 (pid $holder)，不自动清：" >&2
     echo "$cmd" >&2
     return 1
   fi
-  echo "test.sh: 清掉占测试锁的残留测试宿主 (pid $holder)"
+  echo "test.sh: 清掉占本树测试锁的残留测试宿主 (pid $holder)"
   kill "$holder" 2>/dev/null || true
   sleep 2
   kill -9 "$holder" 2>/dev/null || true
