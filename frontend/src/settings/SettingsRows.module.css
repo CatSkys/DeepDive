@@ -86,6 +86,9 @@
   /* 默认嵌句口径 --ink-2；行尾取值面板（.panel-settings）经 --dd-bare-ink
      提到 --ink，与同排模型行的值文字同亮档 */
   color: var(--dd-bare-ink, var(--ink-2));
+  /* 水平内垫同经变量交出（.panel-settings 置 0）：基础 .ddTrigger 的 0 10px
+     会把箭头顶离行内容右缘 10px，与模型行的箭头错位（2026-10-12 用户报障） */
+  padding: 0 var(--dd-bare-pad-x, 10px);
   /* 收掉缺省 min-width+space-between：箭头紧跟文案，不拉开 */
   min-width: 0;
   justify-content: center;
