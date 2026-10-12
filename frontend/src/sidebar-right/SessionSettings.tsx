@@ -120,7 +120,7 @@ export function SessionSettings({ sessionId, face, agentPreset, permissions, onO
             <div className="panel-settings-label">{t("会话模式")}</div>
             <div className="panel-settings-hint">{t("切换在下一轮对话生效。")}</div>
           </div>
-          <Dropdown options={sessionModeOptions} value={pinned} onChange={pickMode} />
+          <Dropdown options={sessionModeOptions} value={pinned} onChange={pickMode} variant="bare" />
         </div>
       )}
 
@@ -133,6 +133,7 @@ export function SessionSettings({ sessionId, face, agentPreset, permissions, onO
             options={presetDropdownOptions(permissions.options, t)}
             value={currentValue}
             onChange={pickPermission}
+            variant="bare"
           />
         </div>
       )}
@@ -146,6 +147,7 @@ export function SessionSettings({ sessionId, face, agentPreset, permissions, onO
           options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}
           value={busy}
           onChange={(v) => void saveBusy(v)}
+          variant="bare"
         />
       </div>
 

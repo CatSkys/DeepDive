@@ -5464,7 +5464,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-browser-cover { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 
 /* ---------- 面板里的会话设置（行式：左文字右选项，与设置页同一形态） ---------- */
-.panel-settings { display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
+/* 行尾取值口径：bare 下拉（权限/发送方式/会话模式）的值文字与模型行同亮档 --ink
+   （2026-10-12 用户定稿：这几行统一成模型行的样式），盖过 .ddBare 的嵌句默认 --ink-2 */
+.panel-settings { --dd-bare-ink: var(--ink); display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
 .panel-settings-section { display: flex; flex-direction: column; gap: 6px; }
 /* 行：左文字（标签 + 可选说明），右控件/当前值 */
 .panel-settings-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; }
