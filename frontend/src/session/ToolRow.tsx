@@ -20,7 +20,7 @@ import { ToolIcon } from "./ToolIcon";
 import { FileIcon } from "./FileIcon";
 /// One-line tool row — DSH ToolRow port: icon + summary + chevron（用户定稿
 /// 2026-10-11：图标即类别；摘要为空才落回名字。读取/编辑族例外——2026-10-12 定稿：
-/// 动词+路径即摘要、文件图标不上），expandable to reveal terminal output or raw arguments.
+/// 动词+路径即摘要，语言徽标照上），expandable to reveal terminal output or raw arguments.
 export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd }: {
   toolName: string;
   args: string;
@@ -60,7 +60,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         </span>
         {summary ? (
           <>
-            {filePath && !isVerbPathTool(toolName) && <FileIcon file={filePath} />}
+            {filePath && <FileIcon file={filePath} />}
             <span className="tool-summary">{summary}</span>
           </>
         ) : (

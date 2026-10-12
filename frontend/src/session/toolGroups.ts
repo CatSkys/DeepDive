@@ -21,7 +21,7 @@
 import type { RenderItem } from "./renderModel";
 import { derivePath } from "./renderModel";
 import { bashSummary, summarizeArgs } from "./format";
-import { toolVariant } from "./toolKind";
+import { toolVariant, isVerbPathTool, toolDisplayName, verbSummary } from "./toolKind";
 
 export type ToolGroupKind = "explore" | "execute" | "changes";
 
@@ -165,26 +165,34 @@ export function changedFiles(members: readonly RenderItem[]): string[] {
 }
 
 /** 查阅组成员的行内摘要（与单条工具行同一口径）：命令族走 bashSummary（引擎
- *  必填 description 优先），读/搜索族走通用参数摘要。 */
-function exploreMemberSummary(item: RenderItem): string {
-  return toolVariant(item.toolName ?? "") === "shell" ? bashSummary(item.args ?? "") : summarizeArgs(item.args ?? "");
+ *  必填 description 优先），读取族走动词+路径（2026-10-12 定稿，与单条行同形），
+ *  搜索族仍是查询词。 */
+function exploreMemberSummary(item: RenderItem, cwd?: string, t: (s: string) => string = (s) => s): string {
+  const name = item.toolName ?? "";
+  if (toolVariant(name) === "shell") return bashSummary(item.args ?? "");
+  if (isVerbPathTool(name)) return verbSummary(name, derivePath(name, item.args ?? "") ?? summarizeArgs(item.args ?? ""), cwd, t);
+  return summarizeArgs(item.args ?? "");
 }
 
 /** 组摘要（按组类拼）。`ttPair` 由调用方注入——i18n 入口在宿主。
  *  · 查阅：最新一条摘要打头、桶计数跟后（用户 2026-10-11 定稿，与终端组同一
- *    构形）——「最新摘要 · N 搜索, M 文件」，桶序固定、0 不出现、", " 分隔
+ *    构形）——「最新摘要 · N 搜索, M 文件」，桶序固定、0 不出现、", " 分隔；
+ *    读取族成员的「最新摘要」即动词+路径（2026-10-12 定稿）
  *  · 终端：「最新命令摘要 · N 个命令」+ 失败计数（他们的「已停止」本仓行上没有该状态）
- *  · 更改：「N 个文件 · 文件清单」，单个文件时只显示文件名 */
+ *  · 更改：组头与单条行同说一门话（2026-10-12 定稿）——单文件 = 动词 + 项目内
+ *    路径，多文件 = 「动词 N 个文件 · 文件清单」 */
 export function formatGroupSummary(
   kind: ToolGroupKind,
   members: readonly RenderItem[],
   ttPair: (zh: string, en: string, vars?: Record<string, string | number>) => string,
+  cwd?: string,
+  t: (s: string) => string = (s) => s,
 ): string {
   if (kind === "explore") {
     const parts: string[] = [];
     // 成员明明带着摘要，头上一行只给计数就丢了"组此刻在干嘛"——最新一条打头
     const last = members[members.length - 1];
-    const latest = last ? exploreMemberSummary(last) : "";
+    const latest = last ? exploreMemberSummary(last, cwd, t) : "";
     if (latest) parts.push(latest);
     const counts: Record<ExploreBucket, number> = { search: 0, list: 0, file: 0 };
     for (const item of members) counts[classifyExploreItem(item)] += 1;
@@ -208,9 +216,14 @@ export function formatGroupSummary(
     return parts.join(" · ");
   }
   const files = changedFiles(members);
-  if (files.length === 1) return files[0]!;
-  const head = ttPair("{n} 个文件", "{n} files", { n: files.length });
-  return files.length > 0 ? `${head} · ${files.join(", ")}` : head;
+  if (files.length === 1) {
+    const first = members.find((m) => isVerbPathTool(m.toolName ?? ""));
+    if (first) return verbSummary(first.toolName ?? "", derivePath(first.toolName ?? "", first.args ?? ""), cwd, t);
+    return files[0]!;
+  }
+  const head = toolDisplayName("edit", t);
+  const count = ttPair("{n} 个文件", "{n} files", { n: files.length });
+  return files.length > 0 ? `${head} ${count} · ${files.join(", ")}` : head;
 }
 
 /** 一个合并组：成员连续、同类、至少两条。 */
