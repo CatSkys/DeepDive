@@ -2692,7 +2692,9 @@ button {
   font-weight: 400;
   line-height: var(--flow-row);
   white-space: nowrap;
-  color: var(--tk-ink-2);
+  /* --ink-3：与流内工具行/组头的摘要同亮档（读取/编辑行的文字都是这一档）；
+     此前 --ink-2 比邻居亮一档（2026-10-12 用户报障「思考和读取字体不一样」） */
+  color: var(--tk-ink-3);
   animation: fade-in var(--dur-med) var(--ease-out) both;
 }
 .thinking-chevron {

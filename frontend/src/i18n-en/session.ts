@@ -50,6 +50,7 @@ export const ENSession: Record<string, string> = {
   "终端": "Terminal",
   "读取": "Read",
   "读取图片": "Read Image",
+  "写入": "Write",
   "写入文件": "Write File",
   "编辑": "Edit",
   "批量编辑": "Multi-Edit",

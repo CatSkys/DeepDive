@@ -150,8 +150,14 @@ export function toolDisplayName(toolName: string, t: (s: string) => string): str
 
 /** 读取/编辑/搜索族（2026-10-12 用户定稿，官方行同构 icon→title→detail）：
  *  折叠行的宾语开头是工具动词——读取/编辑族跟语言徽标 + 路径，搜索族跟查询词
- *  （查询词不是文件，无徽标）。动词就是名字，不带「文件」宾语；写族不在此列
- *  （路径仍是它的摘要，口径不变）。 */
+ *  （查询词不是文件，无徽标）。动词就是名字，不带「文件」宾语。write 也在此列
+ *  （2026-10-12 用户定稿：icon 右侧要带动词，整文件写入行原本只落路径是漏了）。 */
 export function isVerbPathTool(toolName: string): boolean {
-  return /^(read|read_file|file_read|read_image|edit|str_replace_editor|multiedit|apply_patch|patch|list_files|web_search|grep|glob|search)$/.test(toolName);
+  return /^(read|read_file|file_read|read_image|write|edit|str_replace_editor|multiedit|apply_patch|patch|list_files|web_search|grep|glob|search)$/.test(toolName);
+}
+
+/** 动词位的对外名（VerbPath 行首消费）：与产品名同词，唯独 write——产品名
+ *  「写入文件」（审批卡与兜底标题口径不动），动词位不带「文件」宾语，只说「写入」。 */
+export function toolVerbName(toolName: string, t: (s: string) => string): string {
+  return toolName === "write" ? t("写入") : toolDisplayName(toolName, t);
 }
