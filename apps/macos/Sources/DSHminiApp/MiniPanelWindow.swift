@@ -10,8 +10,17 @@ final class MiniPanelWindow: NSPanel {
     /// 药丸钉在**用户所在的那块屏**（指针处），不是 NSScreen.main——多屏下
     /// main 是主屏（0,0 那块），用户看的不一定是它（实机翻车根因）。
     static func userScreen() -> NSScreen {
+        // 优先上次记住的屏（拖过去的归属跨启动保留），没有再退指针屏。
+        let saved = UserDefaults.standard.integer(forKey: "deepdive.miniPanel.screenID")
+        if saved != 0, let hit = NSScreen.screens.first(where: { displayID(of: $0) == saved }) {
+            return hit
+        }
         let loc = NSEvent.mouseLocation
         return NSScreen.screens.first { $0.frame.contains(loc) } ?? NSScreen.main ?? NSScreen.screens[0]
+    }
+    /// NSScreen → CGDirectDisplayID（NSScreen.displayID 在新 SDK 已移除）。
+    private static func displayID(of screen: NSScreen) -> Int {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue ?? 0
     }
     static let tucked = NSSize(width: 16, height: 48)
     static let expanded = NSSize(width: 300, height: 260)
@@ -55,6 +64,11 @@ final class MiniPanelWindow: NSPanel {
         observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
             self?.syncGlassAppearance()
         }
+        // 拖完吸附（Atd 语义）：松手后按所在屏吸附近缘，归属（side/yOffset/屏）存档。
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(snapAfterMove),
+            name: NSWindow.didMoveNotification, object: self
+        )
         syncGlassAppearance()
 
         if let base = BridgeServer.shared.url { /* no web: 全原生无页面 */ }
@@ -98,6 +112,18 @@ final class MiniPanelWindow: NSPanel {
         appearance = mode == "system" ? nil : NSAppearance(named: light ? .aqua : .darkAqua)
         glass.applyAppearance(light: light)
         glass.frame = contentView?.bounds ?? .zero
+    }
+
+    @objc private func snapAfterMove() {
+        guard !model.expanded else { return } // 展开态不吸附（收起态的归属由拖动决定）
+        guard let screen else { return }
+        let workArea = screen.visibleFrame
+        let toLeft = abs(frame.minX - workArea.minX) <= abs(workArea.maxX - frame.maxX)
+        let side = toLeft ? "left" : "right"
+        UserDefaults.standard.set(side, forKey: "deepdive.miniPanel.side")
+        UserDefaults.standard.set(frame.midY - workArea.midY, forKey: "deepdive.miniPanel.yOffset")
+        UserDefaults.standard.set(Self.displayID(of: screen), forKey: "deepdive.miniPanel.screenID")
+        applyState(expanded: false)
     }
 
     // MARK: 点击 vs 拖动（Atd 语义：原位松手=点击展开/动作，移动=拖）
