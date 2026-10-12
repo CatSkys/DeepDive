@@ -304,12 +304,13 @@ final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
 
     func setStripRect(_ rect: NSRect) {
         guard currentExpanded, let z = webView?.pageZoom else { return }
-        // web CSS px（y 向下）→ 窗口 point（y 向上）；pageZoom 是两者间的系数（§9.2）。
-        // 左缘模式条目列贴窗口左缘，x 直接取 rect.x。
-        let left = MiniPanelController.shared.side == "left"
+        // web CSS px（y 向下）→ 窗口 point（y 向上）：只有 Y 翻转，X 两端同为向右
+        // 增长（此前写成 width - maxX 的水平镜像，玻璃被铺到对侧——日志实锤）。
+        // 尺寸按展开态终值算，不用动画中的 frame（rect 推送与 0.22s 动画赛跑，
+        // 用动画中的宽度会算出负坐标）。
         glass.frame = NSRect(
-            x: left ? rect.minX * z : frame.width - rect.maxX * z,
-            y: frame.height - rect.maxY * z,
+            x: rect.minX * z,
+            y: MiniPanelController.expandedSize.height - rect.maxY * z,
             width: rect.width * z,
             height: rect.height * z
         )
