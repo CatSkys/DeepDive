@@ -51,7 +51,7 @@ private final class TitlebarAwareWebView: WKWebView {
     private var controlRects: [NSRect] = [] // CSS viewport coords (y-down)
 
     /// 拖入的**文件夹**：路径只有拖放板上有——DOM 侧 WebKit 只给 `["Files"]`，
-    /// `getAsString` 对文件项根本不回调（PITFALLS §4.38）。所以只把目录那几条读出来
+    /// `getAsString` 对文件项根本不回调（PITFALLS §4.36）。所以只把目录那几条读出来
     /// 交给 SPA 转 @ 引用；**其余原样交回 super**：文件与图片继续走 WebKit 自己的投递
     /// （页面拿得到字节），这条路一点都不抢。
     var onFoldersDropped: (([URL]) -> Void)?
