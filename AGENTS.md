@@ -37,7 +37,7 @@ make dev        # Debug 构建并打开（scripts/dev.sh）
 make app        # Release 构建 + 嵌入 web/engine 并打开（scripts/build-release.sh）
 make package    # Release + adhoc 深签 + DMG（dist/）
 DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 分发档（公证+装钉）：打包前自动把版本号最后一位 +1；前两位只有用户确认才能动（README 开发节）
-make deliver    # 一键交付链：前端 build → Release+嵌入 → pkill → open → 日志确认（scripts/deliver.sh；分发档仍走 make package）
+make deliver    # 一键日常交付：lint → 前端 build → 引擎保鲜 → Release+嵌入 → pkill → open → 日志确认（简单改动这一条就是全部）
 make tokens     # tokens.json → tokens.css（改 token 后必跑）
 make test       # 前端 vitest+两道门 ∥ 壳 XCTest 两腿并行（scripts/test.sh；起跑前自动清占测试锁的残留宿主）
 make clean      # 清 .build 与 dist
@@ -55,9 +55,9 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 
 ## 完成的定义
 
-- `cd frontend && npm run build` 通过——严格 tsc（noUnusedLocals/noUnusedParameters 配在 tsconfig）就是 build 的第一步，不用再单跑一遍。
-- **测试分级（用户 2026-10-11 定稿）**：`npm run lint` 永远跑；简单改动（文案/样式/注释/文档/脚本）build+lint 过了就能提交，**不必跑测试**；改行为逻辑（事件摄取/渲染语义/壳侧 Swift/引擎契约）才要求 `make test` 全绿——拿不准就跑（约 30s），壳侧开发中迭代可用 `-only-testing` 快速腿。**单次测试严禁超过 2 分钟**：test.sh 自带看门狗超时即杀，手动跑的同样掐表，超了直接杀复跑。**同一轮改动测试最多跑 2 次**（首次 + 1 次复跑），仍红立即带日志停下报告——禁止冷却等待、禁止第三轮重跑（2026-10-12 定稿：cookie wedge 连挂 3 次 + 冷却的教训）。
-- 改前端/UI 的提交走完交付链到"应用已重启、用户可直接看"为止；**验收归用户，不自行截图/做视觉验收**（铁律 2）。
+- **改完就两条路（用户 2026-10-12 定稿）**：简单改动（文案/样式/注释/文档/脚本）= **`make deliver` 一条**（内含 lint、build、引擎保鲜、交付）；改行为逻辑（事件摄取/渲染语义/壳侧 Swift/引擎契约）= **`make test` 全绿 → `make deliver`**。lint/build/严格 tsc 都在这两条的内部，不再单独跑。
+- **测试纪律**：单次测试严禁超过 2 分钟（test.sh 看门狗超时即杀，手动跑同样掐表）；同一轮改动最多跑 2 次，仍红带日志停下报告，禁止冷却/第三轮重跑；壳侧开发中迭代用 `-only-testing:DSHminiAppTests/<类名>` 快速腿。拿不准算不算行为改动，按行为改动跑。
+- 交付到"应用已重启、用户可直接看"为止（`make deliver` 已含 pkill/open/日志确认）；**验收归用户，不自行截图/做视觉验收**（铁律 2）。
 - 无死代码残留：删除功能时代码、样式、文案、文档引用一并删干净；禁止留下注释掉的代码。
 
 ## 工程铁律

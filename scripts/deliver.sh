@@ -1,8 +1,20 @@
 #!/bin/bash
-# DeepDive — 一键交付链（WORKING-AGREEMENTS §4）：前端 build → Release 构建+嵌入 →
-# pkill 旧实例 → open → 日志确认。分发档（公证+装钉+DMG）仍走 make package。
+# DeepDive — 一键日常交付（WORKING-AGREEMENTS §4）：lint → 前端 build → 引擎保鲜 →
+# Release 构建+嵌入 → pkill → open → 日志确认。简单改动这一条就是全部；
+# 行为类改动先 make test。分发档（公证+装钉+DMG）仍走 make package。
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+(cd frontend && npm run lint)
+
+# 引擎保鲜：engine 源码比当前构建新 → 先重建再嵌入（漏跑 build-engine 会把
+# 旧引擎交付出去——2026-10-12 语言修复就这样没送达过）。纯前端/壳改动零开销。
+VERSION=$(cat scripts/dsh-runtime-version.txt)
+ENGINE_BUILD="dist/.dsh-engine-build/$VERSION"
+if [[ -d "$ENGINE_BUILD" ]] && [[ -n $(find engine/packages engine/apps -newer "$ENGINE_BUILD" -name "*.ts" -print -quit 2>/dev/null) ]]; then
+  echo "engine 源码比构建产物新 → 先重建"
+  bash scripts/build-engine.sh
+fi
 
 (cd frontend && npm run build)
 bash scripts/build-release.sh
