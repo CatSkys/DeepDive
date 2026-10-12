@@ -380,10 +380,11 @@ button {
    padding-right 让行内容（含 hover 胶囊与时间戳）让开系统悬浮滚动条带——
    滚动时拇指正压在胶囊和「1 天」上（2026-10-12 用户报障）；::-webkit-scrollbar
    定制被文件头那条决策禁用（会把 WebKit 切成常驻滚动条），只能从内容侧让位。
+   让位值 10px ≈ 拇指带宽（更大曾把侧栏右缘空出一大条，2026-10-12 用户回报）。
    .ws-row/.new-session-entry 以等值 margin-right 对齐同一条右缘。
    scrollbar-color 与会话流同款最淡档（用户定稿：两边滚动条一个颜色；机制同
    .flow——标准属性只换拇指色，不会顶成常驻滚动条）。 */
-.sessions { position: relative; flex: 0 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; padding-right: 14px; scrollbar-color: var(--ink-faintest) transparent; }
+.sessions { position: relative; flex: 0 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 3px; padding-right: 10px; scrollbar-color: var(--ink-faintest) transparent; }
 
 /* 分组标签（Pinned / Recent / 上周 / AI Agents）：小字 + 微量 tracking——小标签在
    深浅底上都比正文轻一档，tracking 让它在弱色（--ink-3）下不至于散掉。规范 §2.1
@@ -465,8 +466,8 @@ button {
   gap: 8px;
   height: 32px;
   padding: 0 10px;
-  /* 右缘与 .sessions 内的行对齐（那边给滚动条让了 14px，见 .sessions 注释） */
-  margin-right: 14px;
+  /* 右缘与 .sessions 内的行对齐（那边给滚动条让了 10px，见 .sessions 注释） */
+  margin-right: 10px;
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
   font-weight: 600;
@@ -485,7 +486,7 @@ button {
   width: 100%;
   height: 32px;
   margin-top: 3px; /* 补回原在 .sessions gap 里的行距 */
-  margin-right: 14px; /* 右缘与 .sessions 内的行对齐（那边给滚动条让了 14px） */
+  margin-right: 10px; /* 右缘与 .sessions 内的行对齐（那边给滚动条让了 10px） */
   padding: 0 10px;
   border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
   color: var(--ink-3);
