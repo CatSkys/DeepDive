@@ -24,15 +24,22 @@ describe("ToolGroupRow", () => {
     expect(container.querySelector(".tool-group-summary")?.textContent).toContain("make clean");
   });
 
-  it("末位成员未落结果 → data-state=running；落定后无该属性", () => {
+  it("会话在跑且末位成员未落结果 → data-state=running；落定或轮收口后无该属性", () => {
     const { container, rerender } = render(
-      <ToolGroupRow groupKind="execute" members={[bashItem("a", "make", "ok"), bashItem("b", "make clean")]}>
+      <ToolGroupRow groupKind="execute" members={[bashItem("a", "make", "ok"), bashItem("b", "make clean")]} running>
         <div />
       </ToolGroupRow>,
     );
     expect(container.querySelector(".tool-group")?.getAttribute("data-state")).toBe("running");
     rerender(
-      <ToolGroupRow groupKind="execute" members={[bashItem("a", "make", "ok"), bashItem("b", "make clean", "done")]}>
+      <ToolGroupRow groupKind="execute" members={[bashItem("a", "make", "ok"), bashItem("b", "make clean", "done")]} running>
+        <div />
+      </ToolGroupRow>,
+    );
+    expect(container.querySelector(".tool-group")?.getAttribute("data-state")).toBeNull();
+    // 会话收口后，末位成员始终无返回也不再画运行态（2026-10-12 报障）
+    rerender(
+      <ToolGroupRow groupKind="execute" members={[bashItem("a", "make", "ok"), bashItem("b", "make clean")]}>
         <div />
       </ToolGroupRow>,
     );

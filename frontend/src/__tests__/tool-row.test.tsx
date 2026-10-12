@@ -22,7 +22,7 @@ afterEach(() => {
 describe("ToolRow 运行态", () => {
   it("运行中的行没有闪烁状态点，且带 data-state=running（脉冲挂在它上面）", () => {
     const { container } = render(
-      <ToolRow toolName="bash" args={JSON.stringify({ command: "sleep 3" })} sessionId="s" />,
+      <ToolRow toolName="bash" args={JSON.stringify({ command: "sleep 3" })} sessionId="s" running />,
     );
     const row = container.querySelector(".tool-row");
     expect(row?.getAttribute("data-state")).toBe("running");
@@ -35,9 +35,17 @@ describe("ToolRow 运行态", () => {
   });
 
   it("运行中且没有摘要的行落回「正在执行」", () => {
-    const { container } = render(<ToolRow toolName="list_files" args="" sessionId="s" />);
+    const { container } = render(<ToolRow toolName="list_files" args="" sessionId="s" running />);
     expect(container.querySelector(".tool-title")?.textContent).toBe("正在执行");
     expect(container.querySelector(".tool-summary")).toBeNull();
+  });
+
+  it("轮已收口而调用无返回：降为静默，不摆「正在执行」也不闪（2026-10-12 报障）", () => {
+    const { container } = render(
+      <ToolRow toolName="list_files" args="" sessionId="s" />,
+    );
+    expect(container.querySelector(".tool-row")?.getAttribute("data-state")).toBe("done");
+    expect(container.querySelector(".tool-title")?.textContent).toBe("列出");
   });
 
   it("落定（有输出）的行同理不带状态点", () => {

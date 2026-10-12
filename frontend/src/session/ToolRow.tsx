@@ -22,7 +22,7 @@ import { FileIcon } from "./FileIcon";
 /// 2026-10-11：图标即类别；摘要为空才落回名字。读取/编辑/搜索族例外——2026-10-12
 /// 定稿并对齐官方行结构（icon→title→detail）与 ZCode 的 kind-label 位：动词开头，
 /// 徽标跟动词，路径/查询词是宾语，见 VerbPath），expandable to reveal terminal output or raw arguments.
-export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd, toolCallId, childSessionId }: {
+export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd, toolCallId, running = false, childSessionId }: {
   toolName: string;
   args: string;
   output?: string;
@@ -39,6 +39,11 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   /** 委派行后台撒种拆出的子会话 id（renderModel）：它在 store 里还 running，
    *  行内摘要就保持脉冲（用户 2026-10-12 定稿：结果到达≠子会话结束）。 */
   childSessionId?: string;
+  /** 会话仍在跑（Item 按「会话在跑 且 本行是直播尾」门控）：无返回的调用只有
+   *  在它之下才画「正在执行」/文字脉冲。轮已收口而调用始终无返回（中止、暂停
+   *  丢结果）时降为静默——引擎不给结果帧时也不得永远闪下去（2026-10-12 报障）。 */
+  running?: boolean;
+}) {
 }) {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
@@ -56,9 +61,10 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
     return relativizePath(raw, cwd);
   })();
   const filePath = derivePath(toolName, args);
-  const state = failed ? "error" : output !== undefined ? "done" : "running";
+  const state = failed ? "error" : output !== undefined ? "done" : running ? "running" : "done";
   // 委派行的"还在跑"：工具结果到了（state=done）≠ 子会话结束——store 会话表里
-  // 那个子会话仍 running 时行内摘要继续脉冲（用户 2026-10-12 定稿），结束就停。
+  // 那个子会话仍 running 时行内摘要继续脉冲（用户 2026-10-12 定稿），结束就停；
+  // 与上面会话侧的 running 收口正交（轮收口压的是无返回的调用，不压在跑的子会话）。
   // store 默认 null（独立渲染：测试直接挂 ToolRow；真实 app 恒有 provider）——
   // 取不到会话表就不脉冲，同一"不匹配不给"的显式降级，不编状态。
   const sessions = useStore()?.sessions;

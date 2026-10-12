@@ -51,6 +51,11 @@ export function useSessionEvents(
   // reload mid-turn, where no turn/start will ever arrive again.
   const [liveRunning, setLiveRunning] = useState(false);
   const [runningSince, setRunningSince] = useState<number | undefined>(undefined);
+  /** 日志窗里见过 turn/end（逐轮收口的最直证据）。消费方（SessionView）用它把
+   *  summary.running 的兜底关掉：引擎 agent status 卡在 running 时，轮已闭合也
+   *  会把 Deep diving/工具行脉冲抬着永不落（2026-10-12 用户报障）。新轮
+   *  turn/start 后由 liveRunning 接管，无需复位。 */
+  const [turnEnded, setTurnEnded] = useState(false);
   /** 本会话的 agent 操控过浏览器（ingest 记账，见 renderModel 的 browserUsed）——
    *  会话头角落那颗胶囊据此给出浏览器入口；重载后由全量 rebuild 重新算出来。 */
   const [browserUsed, setBrowserUsed] = useState(false);
@@ -158,6 +163,7 @@ export function useSessionEvents(
           const openSince = openTurnSince(eventLog.current);
           setLiveRunning(openSince !== undefined);
           setRunningSince(openSince);
+          setTurnEnded(eventLog.current.some((e) => e.event.type === "turn/end"));
           // 断线重连落在流式中段：快照基线里是活跃 attempt 已累计的 chunks，
           // 就地种成直播项续播（后续增量经 onStream 追加）。
           const live = s.assistantStream?.activeAttempt;
@@ -198,6 +204,7 @@ export function useSessionEvents(
           } else if (ev.type === "turn/end") {
             setLiveRunning(false);
             setRunningSince(undefined);
+            setTurnEnded(true);
           }
           if (seq >= 0) seqFloor = seq + 1;
         },
@@ -304,7 +311,7 @@ export function useSessionEvents(
   };
 
   return {
-    items, liveRunning, runningSince, browserUsed,
+    items, liveRunning, runningSince, turnEnded, browserUsed,
     scheduleRecords, hasMore, loadingOlder, loadOlder,
     loadError, retry: () => setRetryKey((k) => k + 1),
   };
