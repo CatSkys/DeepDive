@@ -128,7 +128,7 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
                 <div className="panel-settings-label">{t("权限")}</div>
                 <div className="panel-settings-hint">{t("新建会话的初始权限。")}</div>
               </div>
-              <Dropdown options={presetDropdownOptions(permission.options, t)} value={permission.current} onChange={(v) => void savePermission(v)} />
+              <Dropdown options={presetDropdownOptions(permission.options, t)} value={permission.current} onChange={(v) => void savePermission(v)} variant="bare" />
             </div>
           )}
 
@@ -141,6 +141,7 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
               options={[{ v: "steer", label: t("插话发送") }, { v: "queue", label: t("排队") }]}
               value={busy}
               onChange={(v) => void saveBusy(v)}
+              variant="bare"
             />
           </div>
         </div>
