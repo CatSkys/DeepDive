@@ -1,0 +1,20 @@
+#!/bin/sh
+# DeepDive — WORKING-AGREEMENTS §5 机械卡点：主仓检出上一律拒绝 commit（无关大小）。
+# 任务（含一行修复）必须 scripts/new-worktree.sh <slug> 开树在 feat/* 分支上做；
+# merge 不经过本钩子，主仓照常收合并。确需例外：git commit --no-verify。
+branch=$(git symbolic-ref --short -q HEAD)
+git_dir=$(git rev-parse --git-dir)
+common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --git-common-dir)
+# worktree 的 git-dir 在 .git/worktrees/<name> 下；与 common-dir 相同 = 主仓检出
+case "$git_dir" in
+  /*) ;; # 已是绝对路径
+  *) git_dir=$(pwd)/$git_dir ;;
+esac
+if [ "$git_dir" = "$common_dir" ]; then
+  echo "WORKING-AGREEMENTS §5：主仓不承接任务开发（必须，无关大小）——并行会话共用工作区会互卷 WIP。" >&2
+  echo "  scripts/new-worktree.sh <slug>   # 开树（目录 DSHmini-<slug>，分支 feat/<slug>）" >&2
+  echo "  树内改完 → 回主仓 merge --no-ff → scripts/remove-worktree.sh <slug>" >&2
+  echo "  确需例外绕过：git commit --no-verify" >&2
+  exit 1
+fi
+exit 0

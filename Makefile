@@ -1,4 +1,4 @@
-.PHONY: dev app package deliver tokens test clean
+.PHONY: dev app package deliver check hooks tokens test clean
 
 dev:
 	sh scripts/dev.sh
@@ -12,6 +12,12 @@ package:
 
 deliver:
 	sh scripts/deliver.sh
+
+check:
+	(cd frontend && npm run lint && npm run build)
+
+hooks:
+	git config core.hooksPath scripts/git-hooks
 
 tokens:
 	node frontend/packages/design/gen-tokens.mjs

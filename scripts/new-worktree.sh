@@ -35,6 +35,12 @@ else
     || echo "WARN: engine 依赖没装好——改引擎前重跑 (cd engine && pnpm install)"
 fi
 
+# §5 机械卡点自愈：hooksPath 没配就配上（worktree 与主仓共享 git config，配一次全树生效）
+if [[ "$(git config core.hooksPath || true)" != "scripts/git-hooks" ]]; then
+  git config core.hooksPath scripts/git-hooks
+  echo "OK: core.hooksPath → scripts/git-hooks（§5 主仓拒直提交卡点已启用）"
+fi
+
 cat <<EOF
 
 在该树工作：

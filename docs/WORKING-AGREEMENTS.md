@@ -28,11 +28,11 @@
 - 文档/规范同步更新（REVIEW、本文件），改动即提交。
 - 单实例：临时验证代码（TEMP 标记）必须当轮还原，避免把调试态交付给用户。
 
-## 5. 并行会话与 worktree 纪律（2026-10-11 定稿）
+## 5. 并行会话与 worktree 纪律（用户 2026-10-12 定稿：必须，无关大小）
 
-- **主仓只接受合并，不承接任务开发**：任务用 `scripts/new-worktree.sh <slug>` 开 `DSHmini-<slug>` 树（分支 `feat/<slug>`），merge 一律 `--no-ff`（一个任务一个合并提交），收尾 `scripts/remove-worktree.sh <slug>` 删树删分支，不留残树（`/tmp/dsh-win-merge` 的 detached 残留是反面教材）。
+- **主仓一律只收合并，不接受任何直接改动与提交——无关大小，一行修复也要开树**：任务用 `scripts/new-worktree.sh <slug>` 开 `DSHmini-<slug>` 树（分支 `feat/<slug>`），merge 一律 `--no-ff`（一个任务一个合并提交），收尾 `scripts/remove-worktree.sh <slug>` 删树删分支，不留残树。
+- **机械卡点**：pre-commit 钩子（`scripts/git-hooks/`，`make hooks` 启用 `core.hooksPath`，worktree 与主仓共享该配置）在主仓检出上拒绝 commit；merge 不经过钩子。确需例外 `git commit --no-verify`（绕过是显式动作，不是默认）。
+- **每个任务的完整流程**：开树 → 树内改 + 验证（简单改动 `make check`；行为改动 `make test`，测试支撑锁全机共享、多树错峰）→ 回主仓 `merge --no-ff` → 主仓 `make deliver` 交付 → `scripts/remove-worktree.sh` 清场。
 - **多个 agent 会话不共用同一个 working tree**（2026-10-11 教训：并行会话把彼此进行中的 WIP 卷进自己的 feature 提交，历史归属错乱；中断会话遗留的测试宿主占锁，后续 XCTest 全体秒挂）。
-- **交付链只在主仓跑**（一机一个 app 实例）；确要在树里跑 app，必须带 `DSHMINI_SUPPORT_DIR=<树>/.support` 隔离（PITFALLS §7.2）。
-- **XCTest 的测试支撑锁全机共享**（`/tmp/dshmini-test-support`，scheme 定值）：两棵树同时跑 make test 会撞锁——树间并行的是编辑与构建，测试错峰跑；test.sh 预检只清本树的宿主，别树占锁会报清晰错误。
 - **棘轮基线与词典不并行改**（architecture-baseline.json、i18n-en.ts 等）：merge 必撞；动基线的任务独占进行。
 - **提交前 `git status` 复核**：只暂存本任务文件；非本任务 WIP（其他会话/用户的）拿不准就不 add。
