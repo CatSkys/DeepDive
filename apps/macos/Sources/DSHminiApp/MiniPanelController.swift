@@ -241,6 +241,10 @@ final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
             self, selector: #selector(snapAfterMove),
             name: NSWindow.didMoveNotification, object: self
         )
+        observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            // 系统明暗翻转（appearance=system）：下次 apply 一并重定档，玻璃与页面同拍。
+            self?.apply(expanded: self?.currentExpanded ?? false)
+        }
     }
 
     private var clickMonitor: Any?
@@ -290,6 +294,14 @@ final class MiniPanelWindow: NSPanel, WKScriptMessageHandler {
         let nativeTarget = expanded ? NSRect.zero : sliver
         tone.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.16).cgColor
         container.setDragRect(expanded ? .zero : sliver)
+        // 外观与主窗同一解析（MainWindowController.applyAppearanceMode 同源）：
+        // 玻璃材质与页面 tokens 都吃 appearance——不同步就会出现亮色图标压暗玻璃。
+        let mode = DSHAppPrefs.appearance
+        let light = mode == "light" || (mode == "system" && NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua)
+        let appearance: NSAppearance? = mode == "system" ? nil : NSAppearance(named: light ? .aqua : .darkAqua)
+        self.appearance = appearance
+        webView?.appearance = appearance
+        glass.applyAppearance(light: light)
         // 窗口与原生件同拍动画（0.22s ease-out）；页面内部过渡由 CSS 负责。
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.22
