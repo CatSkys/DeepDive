@@ -9,7 +9,7 @@ import { useStore } from "../store";
 import { DiffBlock } from "../components/DiffBlock";
 import { AttachmentThumb } from "../components/AttachmentImage";
 import { IconCheckOutline16, IconChecklistOutline14, IconCopyOutline16 } from "../components/Icons";
-import { agentControlTargetId, agentIdentity, agentSummary, askSummary, basename, bashSummary, browserSummary, commandOf, firstLine, prettyArgs, relativizePath, summarizeArgs } from "./format";
+import { agentControlTargetId, agentIdentity, agentSummary, askSummary, basename, bashSummary, browserSummary, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
 import { isBrowserTool, isVerbPathTool, toolDisplayName } from "./toolKind";
 import { VerbPath } from "./VerbPath";
