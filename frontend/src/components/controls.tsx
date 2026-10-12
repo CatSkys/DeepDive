@@ -36,8 +36,9 @@ export interface DropdownOption {
 }
 
 /** 下拉选择器。variant="bare"＝行内文字触发器（无描边无底色）；
- *  block＝占满容器宽度（表单里与输入框同宽的一行）。 */
-export function Dropdown({ options, value, onChange, variant, block }: { options: DropdownOption[]; value: string; onChange: (v: string) => void; variant?: "bare"; block?: boolean }) {
+ *  block＝占满容器宽度（表单里与输入框同宽的一行）。value 可缺省（思考强度
+ *  跟随引擎默认档时无确定值），此时触发器显示 options 里命中的当前项或空。 */
+export function Dropdown({ options, value, onChange, variant, block }: { options: DropdownOption[]; value: string | undefined; onChange: (v: string) => void; variant?: "bare"; block?: boolean }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);

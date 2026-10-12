@@ -49,9 +49,12 @@ function StateBadge({ state }: { state: PluginState }) {
   );
 }
 
-export function PluginsTab({ query, onTryPlugin }: {
+export function PluginsTab({ query, onTryPlugin, hideHeader = false }: {
   query: string;
   onTryPlugin: (moduleName: string) => void;
+  /** 面板内嵌口径（2026-10-12 用户定稿）：不摆「已安装（n）」计数与手动刷新——
+   *  那是设置页的管理件，面板里只出插件行本身。 */
+  hideHeader?: boolean;
 }) {
   const { t, tt } = useT();
   const [entries, setEntries] = useState<PluginInventoryEntry[] | null>(null);
@@ -172,14 +175,16 @@ export function PluginsTab({ query, onTryPlugin }: {
 
   return (
     <>
-      <div className={css.groupHead}>
-        <div className={css.groupLabel}>
-          {tt("已安装（{n}）", "Installed ({n})", { n: String(installed.length) })}
+      {!hideHeader && (
+        <div className={css.groupHead}>
+          <div className={css.groupLabel}>
+            {tt("已安装（{n}）", "Installed ({n})", { n: String(installed.length) })}
+          </div>
+          <button className={rs.secondaryButton} onClick={load} disabled={busy !== null}>
+            <RefreshCw size={12} /> {t("刷新")}
+          </button>
         </div>
-        <button className={rs.secondaryButton} onClick={load} disabled={busy !== null}>
-          <RefreshCw size={12} /> {t("刷新")}
-        </button>
-      </div>
+      )}
       <div className={rs.blockCard}>
         {installed.length === 0 && (
           <div className={rs.blockRow}>
