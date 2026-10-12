@@ -2,6 +2,7 @@
 // 会话列表本身在 SidebarSessionList（项目行 + 分组 + 行渲染 + 末行入口），菜单在
 // SidebarContextMenus，调宽热区在 SidebarResizer——这里只管"哪片内容、摊在哪"。
 import { useRef, useState } from "react";
+import type { RefObject } from "react";
 import { Folder, Settings } from "lucide-react";
 import { IconProjectAddOutline16 } from "./Icons";
 import { useStore } from "../store";
@@ -17,13 +18,13 @@ import type { SessionSummary } from "../types";
 
 /** 顶栏工作空间胶囊（收起态专用）：文件夹图标 + 项目名，样式对齐官方 UI
  *  顶栏。展开态由 CSS 隐藏——项目名那时常驻侧栏顶部。收起态点击弹出项目
- *  切换选框（onOpen 由 SessionHeader 传入）。 */
-export function WorkspacePill({ onOpen }: { onOpen?: () => void }) {
+ *  切换选框（onOpen 由 SessionHeader 传入；anchorRef 供选框按胶囊实测定位）。 */
+export function WorkspacePill({ onOpen, anchorRef }: { onOpen?: () => void; anchorRef?: RefObject<HTMLSpanElement | null> }) {
   const store = useStore();
   const ws = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
   if (!ws) return null;
   return (
-    <span className="ws-pill" role="button" onClick={onOpen}>
+    <span ref={anchorRef} className="ws-pill" role="button" onClick={onOpen}>
       <Folder size={12} />
       <span className="ws-pill-name">{ws.title}</span>
     </span>

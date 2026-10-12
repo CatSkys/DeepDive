@@ -187,11 +187,15 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   };
 
   // 草稿页的模型面：头部那一行与会话设置卡共用同一份（同一目录、同一草稿选择，
-  // 两处各写一遍字面量会漂移——其中一处改了 modelName 另一处就不跟着）。
+  // 两处各写一遍字面量会漂移——其中一处改了 modelName 另一处就不跟着）。档位三件套
+  // 同源（heroModel/pickDraftEffort），会话设置卡的「思考强度」行从这里取。
   const heroFace: ModelFace = {
     showModels, setShowModels, modelName, models,
     currentModel: heroModel.currentModel,
     pickModel,
+    effortLevels: heroModel.efforts,
+    effort: heroModel.effort,
+    pickEffort: pickDraftEffort,
   };
   // 草稿页的思考强度面（输入框胶囊用）：档位表来自目录里当前生效模型的
   // reasoning 元数据，当前档位只认草稿自己的（见 draftModel.ts heroModelFace）。

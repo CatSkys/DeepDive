@@ -14,6 +14,7 @@ import { ChevronDown, CircleAlert, Settings2, X } from "lucide-react";
 import { t } from "../i18n";
 import { Dropdown } from "../components/controls";
 import { ModelMenu } from "../components/ModelMenu";
+import { shownLevel } from "../components/composer/EffortPicker";
 import { presetDropdownOptions, permissionPresetView } from "../settings/permissionPreset";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { alertDialog } from "../components/DialogHost";
@@ -120,6 +121,22 @@ export function HeroPanel({ face, open, onClose, reloadModels }: {
               onClose={() => setShowModels(false)}
               anchorRef={modelTriggerRef}
             />
+          )}
+
+          {/* 思考强度：草稿写在 draftModel 上（首条消息建会话时随 selectModel 带走），
+              显示口径同 EffortPicker 的 shownLevel；模型无推理档位整行隐藏。 */}
+          {(face.effortLevels?.length ?? 0) > 0 && (
+            <div className="panel-settings-line">
+              <div className="panel-settings-identity">
+                <div className="panel-settings-label">{t("思考强度")}</div>
+              </div>
+              <Dropdown
+                options={(face.effortLevels ?? []).map((l) => ({ v: l.id, label: l.name }))}
+                value={shownLevel(face.effort, face.effortLevels ?? [])}
+                onChange={(v) => void face.pickEffort?.(v)}
+                variant="bare"
+              />
+            </div>
           )}
 
           {permission !== null && (

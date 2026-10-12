@@ -51,8 +51,10 @@ function useWorkspaceActions(ws: WorkspaceView, onDone: () => void) {
 }
 
 /** 项目完整菜单：文件夹动作 + 生命周期动作。三处入口（hero 胶囊、底部空间格、
- *  侧栏工作区行 ⋯）共用这一份，不再出现「这里能删那里不能删」。 */
-export function WorkspaceMenuItems({ ws, onDone }: { ws: WorkspaceView; onDone: () => void }) {
+ *  侧栏工作区行 ⋯）共用这一份，不再出现「这里能删那里不能删」。iconAt 是项目
+ *  元素上的一个点（右键落点/⋯按钮位）：「修改图标」的选择器贴它弹出——用菜单行
+ *  自己的点击坐标会随菜单位置漂移，锚项目元素三处入口才都落对。 */
+export function WorkspaceMenuItems({ ws, onDone, iconAt }: { ws: WorkspaceView; onDone: () => void; iconAt: { x: number; y: number } }) {
   const { t } = useT();
   const { rename, remove } = useWorkspaceActions(ws, onDone);
   return (
@@ -77,10 +79,11 @@ export function WorkspaceMenuItems({ ws, onDone }: { ws: WorkspaceView; onDone: 
         {t("重命名")}
       </div>
       {/* 修改图标：坐标锚定的图标选择器（IconPickerHost 挂 App 根部，不随
-          本菜单卸载）；选「默认」即清除 glyph 回落首字母/约定文件 */}
-      <div className="ctx-item" onClick={(e) => {
+          本菜单卸载），锚点取项目元素上的 iconAt；选「默认」即清除 glyph
+          回落首字母/约定文件 */}
+      <div className="ctx-item" onClick={() => {
         openIconPickerAt({
-          x: e.clientX, y: e.clientY,
+          x: iconAt.x, y: iconAt.y,
           value: getWsIcon(ws.workspaceId),
           label: ws.title,
           onChange: (v) => { if (v) setWsIcon(ws.workspaceId, v); else clearWsIcon(ws.workspaceId); },
@@ -125,7 +128,7 @@ export function WorkspaceMenu({ ws, x, y, onClose }: { ws: WorkspaceView; x: num
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <WorkspaceMenuItems ws={ws} onDone={onClose} />
+      <WorkspaceMenuItems ws={ws} onDone={onClose} iconAt={{ x, y }} />
     </div>,
     document.body,
   );
