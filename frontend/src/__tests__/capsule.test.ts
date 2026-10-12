@@ -145,11 +145,16 @@ describe("capsulePill 回落链（顺序与 ZCode StatusSummaryRow 一致）", (
   });
 
   it("⑥ 运行中计数：live 活动只作兜底，压不过上面的各级", () => {
-    expect(pill({ runningCount: 2 })).toEqual({ kind: "running", count: 2 });
+    expect(pill({ runningCount: 2 })).toEqual({ kind: "running", count: 2, ids: [] });
     // 已完成的任务压过运行计数（ZCode 同款：todo 一完成，pill 就不再显示运行数）
     expect(pill({ todos: [t("刚完成", "completed")], runningCount: 2 })).toEqual({ kind: "todoDone", text: "刚完成" });
     // 运行计数压过兜底的提醒
-    expect(pill({ runningCount: 1, scheduleRecords: [schedule] })).toEqual({ kind: "running", count: 1 });
+    expect(pill({ runningCount: 1, scheduleRecords: [schedule] })).toEqual({ kind: "running", count: 1, ids: [] });
+  });
+
+  it("⑥′ 头像堆叠的 ids：随 runningIds 带出，最多 3 颗（第 4 颗起只进计数）", () => {
+    expect(pill({ runningCount: 2, runningIds: ["a", "b"] })).toEqual({ kind: "running", count: 2, ids: ["a", "b"] });
+    expect(pill({ runningCount: 5, runningIds: ["a", "b", "c", "d", "e"] })).toEqual({ kind: "running", count: 5, ids: ["a", "b", "c"] });
   });
 
   it("⑦ 最近提醒：最低一级之前的兜底", () => {

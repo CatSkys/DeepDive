@@ -8,7 +8,9 @@
 /// agent/goal/schedule/job/mcp 是本仓应用级工具（官方表没有，原落 sparkle）——图标
 /// 与右侧面板同语义区对齐（用户定稿「icon 取 zcode 或官方」：官方表无此族、
 /// zcode 是终端无图标体系，故取面板已定稿的视觉语言 + MCP 的插头语义）：
-/// Bot / Flag / CalendarClock / SquareTerminal / Plug（浏览器控制走官方地球图标）。
+/// Flag / CalendarClock / SquareTerminal / Plug（浏览器控制走官方地球图标）。
+/// agent 族例外（2026-10-12 定稿）：前导是子智能体的雾感盘（AgentOrb），表里的
+/// Bot 只是 callId 缺席时的回落记号。
 /// 表按族穷举（与官方同形）：新增族漏写是类型错误，不会静默落到别的分支。
 
 import type { ReactNode } from "react";
@@ -18,6 +20,7 @@ import {
   IconGlobeOutline14, IconQuestionOutline14, IconSearchOutline16, IconSkillOutline16,
   IconSparkle16,
 } from "../components/Icons";
+import { AgentOrb } from "../components/AgentOrb";
 import { toolVariant, type ToolVariant } from "./toolKind";
 
 const VARIANT_ICONS: Record<ToolVariant, ReactNode> = {
@@ -37,6 +40,11 @@ const VARIANT_ICONS: Record<ToolVariant, ReactNode> = {
   other: <IconSparkle16 size={14} />,
 };
 
-export function ToolIcon({ name }: { name: string }) {
-  return <>{VARIANT_ICONS[toolVariant(name)]}</>;
+export function ToolIcon({ name, seed }: { name: string; seed?: string }) {
+  const variant = toolVariant(name);
+  // agent 族的前导 = 子智能体的雾感盘（seed=工具调用 id，行内恒定），与面板
+  // 子智能体行同一视觉语言（用户 2026-10-12 定稿：会话流里也不用机器人图标）。
+  // callId 缺席才回落 Bot——引擎 wire 的 tool/call 必带 callId，这档只防半成品。
+  if (variant === "agent") return seed ? <AgentOrb seed={seed} size={14} /> : VARIANT_ICONS.agent;
+  return <>{VARIANT_ICONS[variant]}</>;
 }

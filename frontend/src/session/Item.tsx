@@ -134,6 +134,7 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
         resultImages={item.resultImages}
         sessionId={sessionId}
         cwd={cwd}
+        toolCallId={item.toolCallId}
       />
     );
   }

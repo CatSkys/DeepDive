@@ -4645,6 +4645,11 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .capsule-trigger:focus-visible .capsule-pill-icon > span { opacity: 0; }
 .capsule-trigger:hover .capsule-pill-expand,
 .capsule-trigger:focus-visible .capsule-pill-expand { opacity: 1; }
+/* running 级的子智能体头像堆叠（avatar stack）：雾感盘左→右排，重叠 5px——
+   与 CapsuleStatusPill 的 orbStackWidth 里那个 5 是一对，改一个要改另一个；
+   盘边缘 alpha 渐隐，叠放处自然融合，不用再画描边分隔。 */
+.capsule-orb-stack { display: flex; align-items: center; }
+.capsule-orb-overlap { margin-left: -5px; }
 /* 面板正文：每区内距 8/14，行自己再吃 8px 横向内距——这样"行"的文字与"区标题"
    的左缘对齐在 22px（14 + 8），与 ZCode 的 `px-2 py-*`（行）落在 `p-3`（正文）里的
    同一套栅格一致。少一层就错位，别把行内距挪到区上。 */
