@@ -414,8 +414,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "read-workspace-icon":
             readWorkspaceIcon(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", out: windowController)
         case "miniPanel.quickSession":
-            // 主 SPA 推快捷空间最近会话（迷你面板命令卡的数据锚点，D14）。
-            MiniPanelController.shared.setQuickSession(body["sessionId"] as? String)
+            // 主 SPA 推快捷空间最近会话 + 引擎命令目录（全原生命令卡的数据源，D14）。
+            MiniPanelController.shared.setQuickSession(
+                body["sessionId"] as? String,
+                commands: body["commands"] as? [[String: String]] ?? []
+            )
+        case "runQuickCommand":
+            // 迷你面板命令卡 → 主 SPA 执行（原生命令卡的一腿：会话已切换，
+            // 前端据此把命令行放进输入框执行——执行链仍走引擎 RPC）。
+            windowController.pushHostCommand(
+                "runQuickCommand",
+                payload: Self.jsonPayload([
+                    "sessionId": body["sessionId"] as? String ?? "",
+                    "name": body["name"] as? String ?? "",
+                ])
+            )
         case "run-git":
             runGit(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "git-run":

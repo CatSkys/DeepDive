@@ -574,13 +574,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     openSession(null);
   }, [quickWorkspacePath, workspaces, switchWorkspace, openSession]);
 
-  // 快捷空间最近会话 → 壳（迷你面板命令卡的数据锚点）。
+  // 快捷空间最近会话及其命令目录 → 壳（迷你面板命令卡的数据源；全原生渲染，
+  // 数据仍以 SPA 的引擎 RPC 为准——一条数据腿，不因渲染层换技术栈开第二份）。
   useEffect(() => {
     const quick = quickWorkspacePath
       ? workspaces.find((w) => w.path === quickWorkspacePath)
       : undefined;
     const ids = quick?.sessionIds ?? [];
-    sendToShell({ type: "miniPanel.quickSession", sessionId: ids.length ? ids[ids.length - 1] : null });
+    const sid = ids.length ? ids[ids.length - 1] : null;
+    if (!sid) {
+      sendToShell({ type: "miniPanel.quickSession", sessionId: null, commands: [] });
+      return;
+    }
+    let alive = true;
+    api.commandsList(sid)
+      .then((list) => {
+        if (!alive) return;
+        sendToShell({
+          type: "miniPanel.quickSession",
+          sessionId: sid,
+          commands: list.filter((c) => c.name !== "export").map((c) => ({ name: c.name, description: c.description })),
+        });
+      })
+      .catch(() => {
+        if (alive) sendToShell({ type: "miniPanel.quickSession", sessionId: sid, commands: [] });
+      });
+    return () => {
+      alive = false;
+    };
   }, [workspaces, quickWorkspacePath]);
 
 
