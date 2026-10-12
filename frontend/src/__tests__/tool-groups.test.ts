@@ -3,7 +3,7 @@
 // JSON 参数两种形态**——后者漏剥过一次，真实会话里那 11 条 bash 全因此没并成组。
 import { describe, expect, it } from "vitest";
 import {
-  changedFiles, classifyExploreItem, commandOf, formatGroupSummary, groupKindOf, groupTools,
+  changedFiles, classifyExploreItem, commandOf, formatGroupSummary, groupKindOf, groupSummarySplit, groupTools,
   isReadOnlyCommand,
 } from "../session/toolGroups";
 import type { RenderItem } from "../session/renderModel";
@@ -165,6 +165,18 @@ describe("formatGroupSummary：三类各自的形状", () => {
   });
   it("更改：单文件与单条行同形（动词+路径），多文件动词 + 计数 + 清单", () => {
     expect(formatGroupSummary("changes", [tool("edit", JSON.stringify({ file_path: "only.ts" }))], zh)).toBe("编辑 only.ts");
+  });
+  it("组头分段（groupSummarySplit）：徽标只跟真实路径，搜索族动词+查询词无徽标", () => {
+    const read = groupSummarySplit("changes", [tool("edit", JSON.stringify({ file_path: "only.ts" }))], zh);
+    expect(read).toEqual({ verb: "编辑", iconPath: "only.ts", text: "only.ts" });
+    const search = groupSummarySplit("explore", [tool("grep", JSON.stringify({ pattern: "rateT" })), tool("read", JSON.stringify({ path: "a.ts" }))], zh);
+    expect(search.verb).toBe("读取");
+    expect(search.iconPath).toBe("a.ts");
+    expect(search.text).toBe("a.ts · 1 搜索, 1 文件");
+    const query = groupSummarySplit("explore", [tool("grep", JSON.stringify({ pattern: "rateT" }))], zh);
+    expect(query.verb).toBe("搜索内容");
+    expect(query.iconPath).toBeUndefined();
+    expect(query.text).toBe("rateT · 1 搜索");
   });
   it("桶计数之和 = 成员数（不漏不重）", () => {
     const items = REAL_READONLY.map((c) => tool("bash", c));

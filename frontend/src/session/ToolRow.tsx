@@ -11,7 +11,8 @@ import { AttachmentThumb } from "../components/AttachmentImage";
 import { IconCheckOutline16, IconChecklistOutline14, IconCopyOutline16 } from "../components/Icons";
 import { askSummary, basename, bashSummary, browserSummary, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
-import { isBrowserTool, isVerbPathTool, toolDisplayName, verbSummary } from "./toolKind";
+import { isBrowserTool, isVerbPathTool, toolDisplayName } from "./toolKind";
+import { VerbPath } from "./VerbPath";
 import { presetLabel } from "../settings/permissionPreset";
 import { fileUrlOf } from "../components/preview/previewModel";
 import { mergeArtifacts } from "../sidebar-right/sessionArtifacts";
@@ -19,8 +20,9 @@ import { StateDot } from "./MessageRow";
 import { ToolIcon } from "./ToolIcon";
 import { FileIcon } from "./FileIcon";
 /// One-line tool row — DSH ToolRow port: icon + summary + chevron（用户定稿
-/// 2026-10-11：图标即类别；摘要为空才落回名字。读取/编辑族例外——2026-10-12 定稿：
-/// 动词+路径即摘要，语言徽标照上），expandable to reveal terminal output or raw arguments.
+/// 2026-10-11：图标即类别；摘要为空才落回名字。读取/编辑/搜索族例外——2026-10-12
+/// 定稿并对齐官方行结构（icon→title→detail）与 ZCode 的 kind-label 位：动词开头，
+/// 徽标跟动词，路径/查询词是宾语，见 VerbPath），expandable to reveal terminal output or raw arguments.
 export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd }: {
   toolName: string;
   args: string;
@@ -40,8 +42,9 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   // 终端族（bash/pwsh）共用命令摘要与终端展开体；摘要走 bashSummary
   // （引擎 bash/pwsh 的必填 description 优先）
   const isShell = toolName === "bash" || toolName === "terminal-bash" || toolName === "pwsh";
+  const verbObject = isVerbPathTool(toolName) ? derivePath(toolName, args) ?? summarizeArgs(args) : "";
   const summary = (() => {
-    const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : isVerbPathTool(toolName) ? verbSummary(toolName, derivePath(toolName, args), cwd, t) : isShell ? bashSummary(args) : isBrowserTool(toolName) ? browserSummary(args) : summarizeArgs(args);
+    const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : isShell ? bashSummary(args) : isBrowserTool(toolName) ? browserSummary(args) : summarizeArgs(args);
     return relativizePath(raw, cwd);
   })();
   const filePath = derivePath(toolName, args);
@@ -58,7 +61,9 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         <span className="tool-leading">
           {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} />}
         </span>
-        {summary ? (
+        {verbObject ? (
+          <VerbPath toolName={toolName} text={verbObject} badgePath={derivePath(toolName, args)} cwd={cwd} />
+        ) : summary ? (
           <>
             {filePath && <FileIcon file={filePath} />}
             <span className="tool-summary">{summary}</span>

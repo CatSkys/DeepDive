@@ -5,8 +5,6 @@
 // ——图标与右侧面板同语义区对齐：Bot/Flag/CalendarClock/SquareTerminal/MCP 插头）。
 // 表里没有的名字回 other。
 
-import { relativizePath } from "./format";
-
 export type ToolVariant =
   | "read" | "edit" | "shell" | "search" | "code" | "skill" | "question"
   | "agent" | "goal" | "schedule" | "job" | "mcp" | "browser" | "other";
@@ -150,14 +148,10 @@ export function toolDisplayName(toolName: string, t: (s: string) => string): str
   return toolName;
 }
 
-/** 读取/编辑族（2026-10-12 用户定稿）：折叠行的摘要 = 工具动词 + 项目内路径。
- *  动词就是名字，不带「文件」宾语——后面跟着的路径就是宾语；路径解析不出时
- *  落回动词本身。写族不在此列（路径仍是它的摘要，口径不变）。 */
+/** 读取/编辑/搜索族（2026-10-12 用户定稿，官方行同构 icon→title→detail）：
+ *  折叠行的宾语开头是工具动词——读取/编辑族跟语言徽标 + 路径，搜索族跟查询词
+ *  （查询词不是文件，无徽标）。动词就是名字，不带「文件」宾语；写族不在此列
+ *  （路径仍是它的摘要，口径不变）。 */
 export function isVerbPathTool(toolName: string): boolean {
-  return /^(read|read_file|file_read|read_image|edit|str_replace_editor|multiedit|apply_patch|patch)$/.test(toolName);
-}
-
-export function verbSummary(toolName: string, path: string | undefined, cwd: string | undefined, t: (s: string) => string): string {
-  const p = path ? relativizePath(path, cwd) : "";
-  return p ? `${toolDisplayName(toolName, t)} ${p}` : toolDisplayName(toolName, t);
+  return /^(read|read_file|file_read|read_image|edit|str_replace_editor|multiedit|apply_patch|patch|list_files|web_search|grep|glob|search)$/.test(toolName);
 }

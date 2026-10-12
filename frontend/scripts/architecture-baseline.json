@@ -117,10 +117,10 @@
       "detail": "547 lines > 300"
     },
     {
-      "id": "fb1bce52e55e2d3f",
+      "id": "83be7d8f5f8193af",
       "rule": "file-lines",
       "file": "frontend/src/session/ToolRow.tsx",
-      "detail": "324 lines > 300"
+      "detail": "329 lines > 300"
     },
     {
       "id": "519ada29d5abcc2a",
