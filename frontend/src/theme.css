@@ -2677,7 +2677,9 @@ button {
 .thinking-label-wrap { display: inline-flex; }
 .thinking-active {
   font-size: var(--dsh-font-size-base);
-  font-weight: 500;
+  /* 400：与工具行 .tool-title/.tool-summary 及官方 ReasoningRow .title 同字重，
+     思考行初版带的 500 在中文字体下 Medium/Regular 一眼可辨（用户报障） */
+  font-weight: 400;
   line-height: var(--flow-row);
   white-space: nowrap;
   background-image: linear-gradient(90deg, var(--tk-ink-3) 35%, var(--tk-ink) 50%, var(--tk-ink-3) 65%);
@@ -2690,7 +2692,7 @@ button {
 }
 .thinking-done {
   font-size: var(--dsh-font-size-base);
-  font-weight: 500;
+  font-weight: 400;
   line-height: var(--flow-row);
   white-space: nowrap;
   color: var(--tk-ink-2);
