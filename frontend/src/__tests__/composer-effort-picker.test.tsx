@@ -99,7 +99,7 @@ describe("输入框 · 思考强度胶囊", () => {
   // 显示口径（用户 2026-10-10 定稿）：有引擎给的推荐值就显示推荐值；没有则取档位表里
   // **最高**的一档——任何情况下都不许显示为空。引擎侧同时被要求补齐事实源
   // （llm-pi-ai 的 describableReasoningLevel 兜底到最高档并真的发出去，见
-  // PITFALLS §7.6），所以这条前端兜底是第二道保险，不是常态。
+  // PITFALLS §7.11），所以这条前端兜底是第二道保险，不是常态。
   it("引擎没报生效档：显示档位表里最高的一档，不留空", () => {
     setupPicker({ value: undefined });
     expect(screen.getByRole("button", { name: /Max/ })).toBeTruthy();

@@ -27,7 +27,7 @@ export interface EffortFace {
  *  口径（用户 2026-10-10 定稿）：有推荐值就显示推荐值，没有则**任何情况下都不许
  *  显示为空**——最高档就是那一档。levels 由引擎按 pi-ai 的档位序 off<minimal<…<max
  *  排好，末项即最高。空胶囊在这里是"看起来坏了"，不是"如实"。
- *  引擎侧同时被要求补齐事实源（见 PITFALLS §7.6），那条兜底是第二道保险，不是常态。 */
+ *  引擎侧同时被要求补齐事实源（见 PITFALLS §7.11），那条兜底是第二道保险，不是常态。 */
 function shownLevel(id: string | undefined, levels: Array<{ id: string; name: string }>): string | undefined {
   if (id !== undefined && levels.some((l) => l.id === id)) return id;
   return levels[levels.length - 1]?.id;

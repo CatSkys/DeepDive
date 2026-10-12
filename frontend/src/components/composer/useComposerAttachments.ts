@@ -92,7 +92,7 @@ function isFileDrag(e: DragEvent): boolean {
 
 // 拖拽载荷分类：**不碰 `getAsString`**——WebKit 对文件项根本不回调它（实测：整个
 // 拖放只暴露 `["Files"]`），拿它求文件夹路径会让整批挂在 Promise.all 上、一个都不
-// 摄入，用户看到的就是"文件夹拖入不显示"（PITFALLS §4.38）。文件夹路径只有壳拿得到
+// 摄入，用户看到的就是"文件夹拖入不显示"（PITFALLS §4.36）。文件夹路径只有壳拿得到
 // （拖放板），所以这里只同步挑出"有没有文件夹"，路径由壳另推（hostDroppedFolders）。
 export function classifyDrop(dt: DataTransfer): { files: File[]; dirs: number } {
   const items = Array.from(dt.items ?? []).filter((i) => i.kind === "file");

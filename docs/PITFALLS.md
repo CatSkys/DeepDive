@@ -2,6 +2,28 @@
 
 本文件记录开发本客户端时踩过、且**极易复发**的坑。每条都来自真实事故，先读这里再改对应代码，避免重蹈覆辙。
 
+**怎么读（渐进）**：先按症状在索引里定位，只读命中那条；改到某层代码前再扫该层整节。条目号是**稳定地址**（代码注释与文档都按号引用），不要重排或复用。
+
+## 症状索引
+
+**渲染怪象（CSS / WebKit，细节 §1）**：圆角失控→1.1 · 全选色块→1.2 · 模糊失效→1.3/1.8 · 一类元素被整体改样式→1.4/1.11 · 表单塌细条→1.6 · 下拉压扁/点不动→1.7 · mask 不生效→1.9 · 浮层被困纯透明→1.10 · 删 token 后透明→1.13 · 流内按钮隐形→1.14 · 会话日志只解一行→1.15 · 滚动落点偏短→1.12 · 浮层整条看不见→1.16 · "收起"仍有高度→1.17 · 滚动进度条抖动→1.18 · 键帽字符怪→1.19
+
+**事件/数据形状（细节 §2）**：正文渲染为空→2.1 · RPC invalid-request→2.2 · 到处 as any→2.3 · 注入上下文成大气泡→2.4 · 提问后状态卡死→2.5 · 直播空白历史正常→2.6
+
+**消息流错乱（细节 §3）**：穿插错位→3.1 · Think 重复→3.2 · 热路径卡→3.3 · turn-tail 跑位→3.4 · seq 竞态→3.5 · 一步失败零提示→3.6 · 流式"渲染失败"→3.7 · SVG 全黑→3.8 · 插话跑到轮首→3.9
+
+**壳/引擎（细节 §4）**：LLM 空回复→4.1 · mux 解析错→4.2 · 标题栏拖拽/双击→4.3 · CPU 空转→4.4 · WS 被读→4.5 · RPC 静默失败→4.6 · 窗口圆角变小→4.7 · 重打包弹授权框→4.8 · 双引擎→4.9 · 直播冻结→4.10 · app 冻结→4.11 · 大整数截断→4.12 · TCC 风暴→4.13 · Dock 闪 node→4.14 · 删了还列着→4.15 · 误删用户会话→4.18 · 统计页慢→4.16 · localStorage 清零→4.17 · 主工作树判错→4.19 · 听写恒英文→4.20 · 浏览器"坏了"不报错→4.21 · 站点弹版本过低→4.22 · 网页上浮不出 HTML→4.23 · evaluate 回传变形→4.24 · 等 cookie 死锁→4.25 · "别的应用数据"列不出→4.26 · 启动即崩(JSON)→4.41 · 按站隐藏撤不掉→4.42 · 页面标题不更新→4.29 · 补全永远空→4.31/4.30 · 面板被盖住→4.32 · 设置页卡死→4.33 · prompt 被吞→4.34 · vibrancy 平灰→4.27 · 快捷键乱→4.28 · ⌥1-9 不工作→4.44 · 拖入不显示→4.35/4.36 · 壳浅页面暗→4.37
+
+**React/表单（细节 §8）**：新增 state 不刷新→8.1 · 编辑弹窗丢原值→8.2 · updater 有副作用→8.3 · in-flight 卡死→8.4 · 指标对不上→8.5 · WS 断连接线死亡→8.6
+
+**引擎配置/升级/协议（细节 §7）**：升级后协议断裂→7.1/7.1.1/7.1.2 · 第二实例无声退出→7.2 · settings 读写错→7.3 · llm-pi-ai 段消失→7.4 · 导入会话找不到→7.5 · 思考强度为空→7.11 · 插件开关没反应→7.6 · 改 persona 没生效→7.7 · 模型自称 dsh→7.8 · 测试假信号→7.10 · BrowserHidden sleep 别改快→7.9 · 模型不守协议→7.8/7.7
+
+**交付/打包（细节 §5）**：版本假 SHA→5.1 · 验收对象不对→5.2 · 视觉自检配方→5.3 · 构建失败被洗白→5.4 · 并行打包互撕→5.5 · 新机器黑屏→5.6 · 公证过引擎崩→5.7 · 分发包引擎必死→5.8 · 打包慢→5.9 · 开发档 SIGKILL→5.10 · 改动没生效(旧 dist)→5.11 · 签名被打断→5.12
+
+**调试技巧（细节 §6）**：抓事件流→6.1 · Playwright 验证→6.2 · 后台 subagent 失败→6.3 · hdiutil 僵尸→6.4
+
+**原生视图槽位（细节 §9）**：浮层被浏览器压住→9.1 · 缩放后错位→9.2 · 缩略图点不动→9.3 · MCP 卡 60s→9.4 · http 打不开→9.5 · 查找少一个字→9.6 · 新通道全超时→9.7
+
 ---
 
 ## 1. WebKit 的 CSS 陷阱（反复踩）
@@ -529,7 +551,7 @@
   标 `blocked`、导入时报 `permission` 码。（Safari 那支是另一半：文件 stat 得到、读内容被拒，
   同一个 `permission` 码，但指向的是「完全磁盘访问权限」。）
 
-### 4.27 Swift 方法少写调用括号 → 值是个闭包 → JSONSerialization 抛异常 → 应用一启动就崩（2026-09-26 实测）
+### 4.41 Swift 方法少写调用括号 → 值是个闭包 → JSONSerialization 抛异常 → 应用一启动就崩（2026-09-26 实测）
 
 - 症状：包一打开就退，`~/Library/Logs/DiagnosticReports` 里那一份的栈顶是
   `AppDelegate.pushPrefs()` → `NSJSONSerialization.dataWithJSONObject` → `_writeJSONValue`
@@ -541,7 +563,7 @@
   `pushPrefs` 的载荷因此拆成 `AppDelegate.prefsPayload()`，由 `BrowserShieldTests` 里
   "prefs 必须 JSON 可写"那一条钉住（这类错编译期看不出来，只能靠测试或真机崩溃报告）。
 
-### 4.28 "空 CSS 不注入" ≠ "把注入过的样式撤掉"（2026-09-26 实测：按站隐藏的"放回来"没生效）
+### 4.42 "空 CSS 不注入" ≠ "把注入过的样式撤掉"（2026-09-26 实测：按站隐藏的"放回来"没生效）
 
 - 症状：按站隐藏里点"恢复"，记忆里确实空了，但页面上的元素还是 `display: none`——要等下一次导航
   才看得见。
@@ -682,7 +704,7 @@
   （`hotkeyRecordingEnded`）。
 - 顺带：`kbd` 键帽的字体坑见 §1.19（同一天一起报的"⌘ ⇧ 又小又怪"）。
 
-### 4.29 ⌥1-9 切项目空间一直没工作：拿 `e.key` 判断带 ⌥ 的数字，而它产出的是特殊字符
+### 4.44 ⌥1-9 切项目空间一直没工作：拿 `e.key` 判断带 ⌥ 的数字，而它产出的是特殊字符
 - 事故（2026-10-09 用户报"这个项目空间无法快捷键切换"）：侧栏底部切换条上挂着 ⌥1-9 的键帽提示，
   按下去毫无反应——提示是真的，绑定从来没成立过。
 - 根因两层，缺一条它也响不了：
@@ -805,7 +827,7 @@
   - 补充（同日复现）：**原地重建也会触发**——一次普通 `make app`（当日第二次）同样在 embed 自检处 137，`codesign --verify` 是 valid，处置仍是上一条三步（`lsregister -u` → `rm -rf` → 从 `/tmp` 的新副本 `cp -R` 回原路径），换回来即 `node --version` 正常、引擎 ready。所以这条不是"手动 embed 才会有"，而是**同一路径上反复重建**的概率事件——交付前见到 137 就按三步走，别去查代码。
   - 诊断锚点：引擎 3 连崩 / 自检 137 + `node --version` 在新路径可跑 → 路径击杀；`codesign --verify` 报 web 资源增删 → 封签。
 
-### 5.3 交付前必截图自检（WORKING-AGREEMENTS）
+### 5.3 视觉自检的配方与死路（仅用户要求时；平日不截图，验收归用户）
 - 改完样式/渲染 → 构建 → 打包 → 启动 → 截图，核对：消息流居中、无卡片、tool 行/产物/turn-tail/meta 位置、用户消息右对齐等。
 - 只改用户指出的项；不质疑用户、不拿"旧实例"当借口。
 - **看真实会话的配方（2026-09-24 定稿并实测，照这个走别再摸）**：`DSHMINI_OPEN_SID=session-<uuid> <app>/Contents/MacOS/DeepDive`（要直接跑二进制才带得上环境变量）→ 等 ~16s → `osascript -e 'tell application "System Events" to tell process "DeepDive" to get {position, size} of window 1'` 现取窗口矩形 → `screencapture -x -R<x,y,w,h> <png>` → PIL **粗步长**采样量边缘（逐像素全图扫会跑几分钟）。三个关键点：① **id 必须带 `session-` 前缀**——wire 上的 `sessionId` 本就带前缀（拿 `storages/workspace.json` 的 `archivedSessionIds` 对），裸 uuid 会被 `store.tsx` 的深链判定静默忽略，页面停在草稿页且**零报错**；② **窗口矩形每次现取**——位置/尺寸随用户拖动变化，写死会截到桌面；③ 屏幕上是这条会话的**哪一段取决于它的尾部**，要看工具行/代码块就挑一条尾部含 ``` 的会话（`cd $DSH_HOME/sessions && du -sk ./*/*/ | sort -rn | head -12 | awk '{print $2}' | while read d; do zstd -dc "${d}session.v3.jsonl.zstd" 2>/dev/null | tail -8 | grep -c '```'; done`——**`./` 前缀不能省**：工作区目录名以 `--` 开头，`du */*/` 会被当成选项吃掉），别去滚动（`.flow` 不吃 End/PageDown）；最后一条消息很长时视口停在这条消息的开头，看不到尾部的代码块——换一条尾部消息短的。另：启动后落在哪个界面还受 SPA 现有状态影响（实测有一次停在设置页），**截图先确认画面确实是会话流再下结论**。
@@ -920,6 +942,8 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 
 ---
 
+## 7. 引擎配置、跨版本与测试环境（P2 实测起）
+
 ### 7.8 极简模式的 persona 就是全部系统提示词：产品身份与部署提示词都会静默消失（2026-09-29 实测）
 - 现象（用户截图）：模型自我介绍成"我是 dsh，一个跑在命令行里的 AI 编程助手"。查会话日志的 `system/message`（**唯一权威**：模型可见即已记录）发现它收到的全部提示词只有一句 `You are a helpful software engineer assistant.`——身份是模型自己从运行时路径/env 猜的。
 - 根因有两层，缺一都会再犯：
@@ -1027,8 +1051,6 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 处置：这类「保测量值同步」的接线（贴底 padding、悬浮位置等）加 **1s 看门狗兜底**（syncBottomPad 每秒跑、检测观察目标变更即重挂 RO），任何断线/换节点一秒内自愈；不要赌「React 会及时重渲染」。
 - **新实例（2026-09-12，测量型接线）**：统计页趋势图用「挂载期 effect 读 ref 再 `ResizeObserver`」量宽度——页面改成**缓存优先 + 渐进渲染**后，首帧还没数据（走空态分支、plot 不挂载），观察器就永远没挂上，数据到了 SVG 因 `width=0` 也不渲染（用户报"趋势图怎么坏了"）。处置：**测量类接线一律用 callback ref**（元素出现/换新即重挂 + 先给一帧实测兜底 + 旧 observer 显式 disconnect），不要赌"挂载那一刻元素已在"。
 
-## 7. 引擎跨版本协议断裂（P2 实测，2026-08-31）
-
 ### 7.1 alpha.2 两大破坏：mux 改名 + cookie 鉴权 + unary RPC 移除
 - **mux 端点改名**：rc.2 = `ws://…/api/events.mux`；alpha.2 = `ws://…/api/remote.mux`（Gateway-owned WS mux，unary RPC 也走它）。
 - **浏览器鉴权强制**：`dsh web:` 打印的根 URL `?token=` 只用于 `GET /` 换**签名 cookie**（303+Set-Cookie，绑定 Host authority）；之后所有 `/api` 只认 cookie，token 放在 `/api` 路径上**无效**。无 cookie 的 unary `/api/<method>` 在 rc.2 直通、在 alpha.2 回 401 "unauthorized"；再往上 alpha.2 的 unary RPC 干脆不存在（全部 404 "not found"，官方 web 客户端走 remote.mux 流）。
@@ -1076,7 +1098,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 查证路径：先看 `~/.dsh/profiles/web/package.json` 的 bundles/dependencies，再读插件包源码（`lib/panel.mjs` 等）拿真实路由契约——不要在引擎源里死磕。
 - 同场加映：`/api-import/import` 的结果条目在整源失败时只有 `status:"failed"+error` 没有数值字段，前端汇总要归一化否则 NaN；前端渐进扫描（逐来源 append）在「导入后立即 rescan」时与上一轮并发，来源行整组重复——世代守卫（ref 计数）是这类并发 setState 的最小修法。
 
-### 7.6 思考强度：显示的档位要么是引擎给的推荐值，要么是最高档——**永不为空**（2026-10-10）
+### 7.11 思考强度：显示的档位要么是引擎给的推荐值，要么是最高档——**永不为空**（2026-10-10）
 
 - **口径（用户定稿）**：有引擎报的生效档（`defaultEffort`）就显示它；没有则显示档位表
   里**最高**的一档（`levels` 由引擎按 pi-ai 档位序 `off<minimal<…<max` 排好，末项即最高）。
@@ -1102,7 +1124,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   `scripts/sync-engine-fork.mjs` 在每次升引脚时整树覆盖。改引擎源码要么记在
   `docs/` 里（本条即是），要么接受下次同步要重放。
 
-### 7.7 固定 UUID 持久化 WKWebsiteDataStore 的 clear 会间歇性整轮 20s×N 超时（2026-10-11 实况，已根治）
+### 7.10 测试环境的假信号：cookie store 超时（已根治）/ 重构建并发饿死 / CommonCrypto 偶发（2026-10-11 实况）
 - BrowserCookieTests 曾对固定 UUID（`B0A1C2D3-…`）的**持久化** store 在每个用例的
   setUp/tearDown 做 `clear`（"clean store"，20s 时限）。Wedge 发作时整套件 520s+/
   32 失败；SIGKILL 过测试宿主后尤其必发（守护进程记住了 store 状态），错峰重跑又能
@@ -1111,8 +1133,17 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   setUp/tearDown 不再做持久 store 的 clear——断言的导入/读回/隔离语义不变，
   这一类超时整体消失。教训：测试里**永远别碰持久化 WebKit store**；WebKit XPC
   服务的 PPID 是 launchd(1) 是**常态**，不能当孤儿进程的判据去杀。
+- **满套件偶发 40 秒超时风暴（另一形态）**：与重构建（`build-engine.sh`，495 包 pnpm +
+  引擎冒烟）**并发**跑 XCTest 时，cookie 组整组逐条 20s×2 超时——机器被吃满，WebKit
+  守护进程的往返饿死，与 store 无关。判据：整组同时超时 + 同机空闲重跑 19.9s 全绿。
+  **重构建与 XCTest 不要并发**；见到整组 40s 超时先查并发负载再查代码。
+- **`testChromiumUnwrapRoundTrips` 真闪失（第三形态）**：确定性密码学断言（固定 key/IV/密文）
+  在满套件/整类运行中**偶发**解出垃圾判失败，`-only-testing` 单独只跑这一条恒过；同日失败
+  3 次通过 2 次，两个文件自 6628ce4e 起未动。疑似 CommonCrypto 对「非块整数长度密文」解密的
+  判定在系统库层面不稳定（macOS 27.0 实测）。处置：见到它先单跑裁决再下结论，别急着回滚
+  自己的改动；根因修复待有闲暇（给 unwrap 补显式长度校验 `body.count % 16 == 0` 或许更稳，未验证）。
 
-### 7.8 BrowserHiddenTests 的 15s 固定 sleep 改不得（CSP 页会卡死 evaluate，2026-10-11 实锤）
+### 7.9 BrowserHiddenTests 的 15s 固定 sleep 改不得（CSP 页会卡死 evaluate，2026-10-11 实锤）
 - 该套件独占 XCTest ~15.5s 的固定 sleep（1.5s 首评 + 每动作 1-1.5s）不是懒惰：
   事件驱动轮询版（页面就绪表达式 + bounded fulfillment）在**干净环境**实锤复现
   卡死——CSP 页（`default-src 'none'`）导航刚提交就 callAsyncJavaScript 会卡死
@@ -1163,16 +1194,3 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 教训：这类壳侧通道要**在真机跑一次**才算数——单测验证不了线程模型，而"UI 正常、只有新通道超时"
   这种症状最容易误判成环境问题。
 
-### 9.8 BrowserCookieTests 的两条假警（2026-10-11 实测）
-
-- **满套件偶发 40 秒超时风暴**：与重构建（`build-engine.sh`，495 包 pnpm + 引擎冒烟）
-  **并发**跑 XCTest 时，BrowserCookieTests 整组逐条 20s×2 异步等待超时——机器被吃满，
-  WKWebsiteDataStore/WebKit 守护进程的往返饿死。判据：整组同时超时 + 同机空闲重跑
-  19.9 秒全绿。**重构建与 XCTest 不要并发**；见到整组 40s 超时先查并发负载再查代码。
-- **`testChromiumUnwrapRoundTrips` 真闪失**：确定性密码学断言（固定 key/IV/密文，
-  `unwrap(Data("v10not-a-real-cipher!!"...))` 期望 nil）在满套件/整类运行中**偶发**
-  解出垃圾（如 `" \u0007c,w"`）判失败，`-only-testing` 单独只跑这一条恒过；同日失败
-  3 次通过 2 次，两个文件自 6628ce4e 起未动。疑似 CommonCrypto 对「非块整数长度
-  密文」解密的 success/error 判定在系统库层面不稳定（macOS 27.0 实测）。处置：见到
-  它先单跑裁决再下结论，别急着回滚自己的改动；根因修复待有闲暇（给 unwrap 补显式
-  长度校验 `body.count % 16 == 0` 或许比依赖库行为更稳，未验证）。
