@@ -1,27 +1,13 @@
-// 工具执行合并的纯模型：把连续的同类工具折成一个组。照 ZCode 的三组口径——
-//   · 查阅 explore （ToolCallBlocks/renderers/explore.tsx）：读族、搜索族、
-//     **只读命令**；摘要「最新摘要 · N 搜索, M 文件」（桶序固定 搜索→列表→文件，
-//     0 不出现；用户 2026-10-11 定稿：最新摘要打头，与终端组同一构形）。
-//   · 终端 execute （renderers/execute-group.tsx）：命令族里**非只读**的那些；
-//     摘要（用户 2026-10-10 定稿，偏离官方的 N commands）：「最新命令摘要 ·
-//     N 个命令」+「· X 个失败」——行右侧是摘要不是命令原文（跟浏览器控制行
-//     一个观感），摘要形态见 format.ts 的 commandDigest。
-//     （他们还有「, Y 个已停止」，本仓行上没有该状态。）
-//   · 更改 changes （renderers/changes-group.tsx）：写族（write/edit/apply_patch…）；
-//     摘要「N 个文件」+「·」+ 文件清单，单个文件时只显示文件名。
-//     **他们默认关掉这一组**（ENABLE_CHANGES_TOOL_CALL_GROUPING = false），
-//     本仓按用户要求三组全开。
-//
-// 共同规则（他们 conversationAssistantWorkItems.ts 的分组循环）：只有**相邻同类**才算一组、
-// **至少两条**（单条仍是普通行）、换类即断组、无条数上限；组的 key 锚在首个成员上，
-// 流式追加不会重置身份与展开态。
-//
-// 命令族的"只读"判定：引擎不给按次信号（ToolCallData 只有 name/arguments），
-// 故取保守白名单——认不出的命令进"终端"组，而不是"查阅"组。
+// 工具执行合并的纯模型：把连续的同类工具折成一个组（官方三组口径；共同规则
+// 取他们 conversationAssistantWorkItems.ts 的分组循环：只有**相邻同类**才算一组、
+// **至少两条**、换类即断组、无条数上限，组的 key 锚在首个成员上）。组头摘要的
+// 分段口径见 groupSummarySplit；命令族"只读"判定取保守白名单——引擎不给按次
+// 信号（ToolCallData 只有 name/arguments），认不出的命令进"终端"组。
+// 他们默认关掉 changes 组（ENABLE_CHANGES_TOOL_CALL_GROUPING=false），本仓三组全开。
 import type { RenderItem } from "./renderModel";
 import { derivePath } from "./renderModel";
-import { bashSummary, summarizeArgs } from "./format";
-import { toolVariant, isVerbPathTool, toolDisplayName, verbSummary } from "./toolKind";
+import { bashSummary, relativizePath, summarizeArgs } from "./format";
+import { toolVariant, isVerbPathTool, toolDisplayName } from "./toolKind";
 
 export type ToolGroupKind = "explore" | "execute" | "changes";
 
@@ -164,36 +150,49 @@ export function changedFiles(members: readonly RenderItem[]): string[] {
   return out;
 }
 
-/** 查阅组成员的行内摘要（与单条工具行同一口径）：命令族走 bashSummary（引擎
- *  必填 description 优先），读取族走动词+路径（2026-10-12 定稿，与单条行同形），
- *  搜索族仍是查询词。 */
-function exploreMemberSummary(item: RenderItem, cwd?: string, t: (s: string) => string = (s) => s): string {
-  const name = item.toolName ?? "";
-  if (toolVariant(name) === "shell") return bashSummary(item.args ?? "");
-  if (isVerbPathTool(name)) return verbSummary(name, derivePath(name, item.args ?? "") ?? summarizeArgs(item.args ?? ""), cwd, t);
-  return summarizeArgs(item.args ?? "");
-}
-
-/** 组摘要（按组类拼）。`ttPair` 由调用方注入——i18n 入口在宿主。
- *  · 查阅：最新一条摘要打头、桶计数跟后（用户 2026-10-11 定稿，与终端组同一
- *    构形）——「最新摘要 · N 搜索, M 文件」，桶序固定、0 不出现、", " 分隔；
- *    读取族成员的「最新摘要」即动词+路径（2026-10-12 定稿）
- *  · 终端：「最新命令摘要 · N 个命令」+ 失败计数（他们的「已停止」本仓行上没有该状态）
- *  · 更改：组头与单条行同说一门话（2026-10-12 定稿）——单文件 = 动词 + 项目内
- *    路径，多文件 = 「动词 N 个文件 · 文件清单」 */
-export function formatGroupSummary(
+/** 组头摘要的分段（组头渲染 verb/徽标/text 三段；字符串口径见 formatGroupSummary，
+ *  测试钉在字符串上）。verb/徽标只在"打头对象是路径型成员或更改组"时给出——徽标
+ *  跟在动词后面，宾语在徽标后（2026-10-12 定稿，对齐官方行 icon→title→detail 与
+ *  ZCode 的 kind-label 位）。三类各自的打头形状见分支内注释。 */
+export function groupSummarySplit(
   kind: ToolGroupKind,
   members: readonly RenderItem[],
   ttPair: (zh: string, en: string, vars?: Record<string, string | number>) => string,
   cwd?: string,
   t: (s: string) => string = (s) => s,
-): string {
+): { verb?: string; iconPath?: string; text: string } {
+  if (kind === "changes") {
+    const files = changedFiles(members);
+    const count = ttPair("{n} 个文件", "{n} files", { n: files.length });
+    if (files.length === 1) {
+      const first = members.find((m) => isVerbPathTool(m.toolName ?? ""));
+      const p = first ? derivePath(first.toolName ?? "", first.args ?? "") : undefined;
+      if (first && p) return { verb: toolDisplayName(first.toolName ?? "", t), iconPath: p, text: relativizePath(p, cwd) };
+      return { text: files[0]! };
+    }
+    const verb = toolDisplayName("edit", t);
+    return files.length > 0
+      ? { verb, text: `${count} · ${files.join(", ")}` }
+      : { verb, text: count };
+  }
   if (kind === "explore") {
     const parts: string[] = [];
     // 成员明明带着摘要，头上一行只给计数就丢了"组此刻在干嘛"——最新一条打头
     const last = members[members.length - 1];
-    const latest = last ? exploreMemberSummary(last, cwd, t) : "";
-    if (latest) parts.push(latest);
+    let verb: string | undefined;
+    let iconPath: string | undefined;
+    if (last) {
+      const name = last.toolName ?? "";
+      if (toolVariant(name) === "shell") parts.push(bashSummary(last.args ?? ""));
+      else if (isVerbPathTool(name)) {
+        const object = derivePath(name, last.args ?? "") ?? summarizeArgs(last.args ?? "");
+        if (object) {
+          verb = toolDisplayName(name, t);
+          iconPath = derivePath(name, last.args ?? "");
+          parts.push(relativizePath(object, cwd));
+        }
+      } else parts.push(summarizeArgs(last.args ?? ""));
+    }
     const counts: Record<ExploreBucket, number> = { search: 0, list: 0, file: 0 };
     for (const item of members) counts[classifyExploreItem(item)] += 1;
     const countParts: string[] = [];
@@ -201,29 +200,30 @@ export function formatGroupSummary(
       if (counts[bucket] > 0) countParts.push(`${counts[bucket]} ${ttPair(...BUCKET_LABEL[bucket])}`);
     }
     if (countParts.length > 0) parts.push(countParts.join(", "));
-    return parts.join(" · ");
+    return { verb, iconPath, text: parts.join(" · ") };
   }
-  if (kind === "execute") {
-    const parts: string[] = [];
-    // 当前在干什么 = 组内最新一条命令的摘要（流式期间即正在跑的那条；
-    // description 优先、命令摘要回退，与单条终端行同一入口 bashSummary）
-    const last = members[members.length - 1];
-    const cmd = last ? bashSummary(last.args ?? "") : "";
-    if (cmd) parts.push(cmd);
-    parts.push(ttPair("{n} 个命令", "{n} commands", { n: members.length }));
-    const failed = members.filter((m) => m.failed).length;
-    if (failed > 0) parts.push(ttPair("{n} 个失败", "{n} failed", { n: failed }));
-    return parts.join(" · ");
-  }
-  const files = changedFiles(members);
-  if (files.length === 1) {
-    const first = members.find((m) => isVerbPathTool(m.toolName ?? ""));
-    if (first) return verbSummary(first.toolName ?? "", derivePath(first.toolName ?? "", first.args ?? ""), cwd, t);
-    return files[0]!;
-  }
-  const head = toolDisplayName("edit", t);
-  const count = ttPair("{n} 个文件", "{n} files", { n: files.length });
-  return files.length > 0 ? `${head} ${count} · ${files.join(", ")}` : head;
+  // 终端：当前在干什么 = 组内最新一条命令的摘要（流式期间即正在跑的那条）；
+  // description 优先、命令摘要回退，与单条终端行同一入口 bashSummary。
+  const parts: string[] = [];
+  const last = members[members.length - 1];
+  const cmd = last ? bashSummary(last.args ?? "") : "";
+  if (cmd) parts.push(cmd);
+  parts.push(ttPair("{n} 个命令", "{n} commands", { n: members.length }));
+  const failed = members.filter((m) => m.failed).length;
+  if (failed > 0) parts.push(ttPair("{n} 个失败", "{n} failed", { n: failed }));
+  return { text: parts.join(" · ") };
+}
+
+/** 组摘要字符串口径（测试钉在这；组头渲染走 groupSummarySplit 拿三段）。 */
+export function formatGroupSummary(
+  kind: ToolGroupKind,
+  members: readonly RenderItem[],
+  ttPair: (zh: string, en: string, vars?: Record<string, string | number>) => string,
+  cwd?: string,
+  t: (s: string) => string = (s) => s,
+): string {
+  const s = groupSummarySplit(kind, members, ttPair, cwd, t);
+  return s.verb ? `${s.verb} ${s.text}` : s.text;
 }
 
 /** 一个合并组：成员连续、同类、至少两条。 */
