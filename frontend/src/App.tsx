@@ -108,6 +108,8 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
         else setDeferredNav(sessionId);
       },
       navigateToSettings: () => openSettings(),
+      // 迷你面板「新会话」→ 快捷会话空间新草稿（D14 两条线的壳侧入口）。
+      openQuickSession: () => store.openQuickSession(),
       workspacePicked: (path) => {
         // 新建项目弹窗开着时，目录选择器结果归弹窗（表单流程接管）
         if (routeWorkspacePicked(path)) return;

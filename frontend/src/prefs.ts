@@ -106,6 +106,8 @@ export function usePrefs() {
   }, []);
   // 基准详情卡显隐（模型菜单 ⓘ；用户 2026-10-11 定稿：持久化、默认开）。
   const [modelDetail, setModelDetailState] = useState(true);
+  // 快捷会话默认空间目录（壳保证存在；D14）——注册与跳转都以它为锚。
+  const [quickWorkspacePath, setQuickWorkspacePathState] = useState<string | null>(null);
   const setModelDetail = useCallback((v: boolean) => {
     setModelDetailState(v);
     sendToShell({ type: "set-pref", key: "modelDetail", value: v });
@@ -115,7 +117,7 @@ export function usePrefs() {
   // 这里（不经 installHostBridge 的 handler 表），与主题相关只有 store 状态一处写入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean; quickWorkspacePath?: string };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
@@ -128,6 +130,7 @@ export function usePrefs() {
       if (typeof p.browserZoomRememberSite === "boolean") setBrowserZoomRememberSiteState(p.browserZoomRememberSite);
       if (typeof p.browserTabSleepMinutes === "number") setBrowserTabSleepMinutesState(p.browserTabSleepMinutes);
       if (typeof p.modelDetail === "boolean") setModelDetailState(p.modelDetail);
+      if (typeof p.quickWorkspacePath === "string" && p.quickWorkspacePath) setQuickWorkspacePathState(p.quickWorkspacePath);
     }
     if (cmd === "themeChanged") {
       const dark = (payload as { dark?: boolean } | undefined)?.dark;
@@ -150,6 +153,7 @@ export function usePrefs() {
     browserZoomRememberSite, setBrowserZoomRememberSite,
     browserTabSleepMinutes, setBrowserTabSleepMinutes,
     modelDetail, setModelDetail,
+    quickWorkspacePath,
     onboarding, setOnboarding,
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,

@@ -458,6 +458,8 @@ export function uploadAttachmentPath(path: string, sessionId: string, name: stri
 export function installHostBridge(handlers: Partial<{
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;
+  /** 迷你面板「新会话」：快捷会话空间新草稿（D14）。 */
+  openQuickSession: () => void;
   /** 壳端目录选择器（＋新建空间）选定后的回推；取消时不推送。 */
   workspacePicked: (path: string) => void;
   /** 系统唤醒通知（PITFALLS §4.7）：WKWebView 里的 WS 可能已假死，
@@ -475,6 +477,10 @@ export function installHostBridge(handlers: Partial<{
         case "navigateToSession": {
           const sessionId = (payload as { sessionId?: string } | undefined)?.sessionId;
           if (typeof sessionId === "string" && sessionId) handlers.navigateToSession?.(sessionId);
+          break;
+        }
+        case "openQuickSession": {
+          handlers.openQuickSession?.();
           break;
         }
         case "navigateToSettings": {

@@ -81,3 +81,56 @@
 .itemWrap:hover .label {
   opacity: 1;
 }
+
+/* 命令卡（树③）：条目列左侧的近实色卡——它的位置没有原生玻璃底板（底板只铺
+   条目列），按 §1.5 对话框语言取 --panel-strong 近实色 + --shadow-pop 浮层投影。
+   行高亮覆盖整行（提案 #3 行结构守恒）。 */
+.flyout {
+  position: absolute;
+  right: 56px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 240px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding: 4px;
+  border-radius: 18px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-pop);
+}
+
+.flyoutRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--dsh-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+:where(html[data-hover-armed]) .flyoutRow:hover { background: var(--row-hover); }
+
+.flyoutName { font-size: var(--dsh-font-size-base); }
+.flyoutDesc {
+  font-size: var(--dsh-font-size-base);
+  color: var(--dsh-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.flyoutEmpty {
+  padding: 12px 10px;
+  color: var(--dsh-text-secondary);
+  font-size: var(--dsh-font-size-base);
+}
+
+/* 命令钮的展开态：与 hover 同一填充语言，保持"当前目标"可见 */
+.itemActive { background: var(--fill); }

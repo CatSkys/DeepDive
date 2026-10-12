@@ -1,27 +1,57 @@
-// 迷你面板 web 薄入口（SPEC-SEMANTICS §6.1）：只管药丸命中区/条目列/悬停标签的
-// 渲染与动作上报。几何唯一来源在页面——条目列 rect 经 `miniPanelStrip` 推给壳，
-// 原生玻璃底板跟随；展开态由壳推 `miniPanelState`。命令卡与快捷会话落点在树③。
+// 迷你面板 web 薄入口（SPEC-SEMANTICS §6.1）：只管药丸命中区/条目列/悬停标签/
+// 命令卡的渲染与动作上报。几何唯一来源在页面——条目列 rect 经 `miniPanelStrip`
+// 推给壳，原生玻璃底板跟随；展开态由壳推 `miniPanelState`；命令卡的数据锚点
+// （快捷空间最近会话）由主 SPA 经壳推 `miniPanelQuick`，本页直接调引擎 RPC。
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Command, PanelLeft, SquarePen } from "lucide-react";
 import { installHostBridge, onHostEvent, sendToShell } from "../host";
+import { api } from "../api";
 import { t } from "../i18n";
+import type { CommandDescriptor } from "../types";
 import css from "./MiniPanelApp.module.css";
 
 export function MiniPanelApp() {
   const [expanded, setExpanded] = useState(false);
+  const [quickSessionId, setQuickSessionId] = useState<string | null>(null);
+  const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const [commands, setCommands] = useState<CommandDescriptor[] | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     installHostBridge({});
     return onHostEvent((cmd, payload) => {
       if (cmd === "miniPanelState") {
-        setExpanded(Boolean((payload as { expanded?: boolean } | undefined)?.expanded));
+        const next = Boolean((payload as { expanded?: boolean } | undefined)?.expanded);
+        setExpanded(next);
+        if (!next) setFlyoutOpen(false);
+      }
+      if (cmd === "miniPanelQuick") {
+        const sid = (payload as { sessionId?: string | null } | undefined)?.sessionId ?? null;
+        setQuickSessionId(sid || null);
+        setCommands(null);
+        setFlyoutOpen(false);
       }
     });
   }, []);
 
-  // 条目列 rect → 壳（玻璃底板跟随；rect 含 transform 前的布局值即可，
-  // getBoundingClientRect 已是视口坐标）。收起态没有条目列，不推。
+  // 命令卡数据：快捷空间最近会话的引擎命令目录（spec：已启用命令列表）。
+  // 没有快捷会话时不出目录——空态如实，不放假数据。
+  useEffect(() => {
+    if (!flyoutOpen || !quickSessionId || commands !== null) return;
+    let alive = true;
+    api.commandsList(quickSessionId)
+      .then((list) => {
+        if (alive) setCommands(list.filter((c) => c.name !== "export"));
+      })
+      .catch(() => {
+        if (alive) setCommands([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [flyoutOpen, quickSessionId, commands]);
+
+  // 条目列 rect → 壳（玻璃底板跟随；getBoundingClientRect 已是视口坐标）。
   useLayoutEffect(() => {
     if (!expanded) return;
     const el = stripRef.current;
@@ -37,7 +67,7 @@ export function MiniPanelApp() {
     const ro = new ResizeObserver(push);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [expanded]);
+  }, [expanded, flyoutOpen]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -48,14 +78,41 @@ export function MiniPanelApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
+  const runCommand = (name: string) => {
+    if (!quickSessionId) return;
+    api
+      .commandExecute({ agentId: quickSessionId, line: `/${name}` })
+      .catch(() => void 0);
+    sendToShell({ type: "miniPanel.action", kind: "openSession", sessionId: quickSessionId });
+  };
+
   return (
     <div className={css.root} data-expanded={expanded ? "1" : "0"}>
       {expanded ? (
         <>
           {/* 条目列外的窗口区域都是收起点（窗口级点击关闭；屏上窗口外区域树④ 收） */}
           <div className={css.scrim} onClick={() => sendToShell({ type: "miniPanel.collapse" })} />
+          {flyoutOpen && (
+            <div className={css.flyout} onClick={(e) => e.stopPropagation()}>
+              {commands !== null && commands.length === 0 ? (
+                <div className={css.flyoutEmpty}>{t("暂无命令")}</div>
+              ) : (
+                (commands ?? []).map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    className={css.flyoutRow}
+                    onClick={() => runCommand(c.name)}
+                  >
+                    <span className={css.flyoutName}>/{c.name}</span>
+                    {c.description && <span className={css.flyoutDesc}>{c.description}</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
           {/* 条目列本体透明，玻璃由壳的原生底板铺（UI-SPEC §1.5）；transform 会把
-              这里变成合成上下文——树③ 的命令卡必须 portal 到 .root，不挂 strip 内。 */}
+              这里变成合成上下文——命令卡挂 .root，不挂 strip 内。 */}
           <div className={css.strip} ref={stripRef}>
             <div className={css.itemWrap}>
               <span className={css.label}>{t("打开本体")}</span>
@@ -81,8 +138,8 @@ export function MiniPanelApp() {
               <span className={css.label}>{t("命令")}</span>
               <button
                 type="button"
-                className={css.item}
-                onClick={() => sendToShell({ type: "miniPanel.action", kind: "commands" })}
+                className={`${css.item} ${flyoutOpen ? css.itemActive : ""}`}
+                onClick={() => setFlyoutOpen((v) => !v)}
               >
                 <Command size={16} strokeWidth={1.5} />
               </button>

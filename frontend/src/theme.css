@@ -492,6 +492,22 @@ button {
 }
 :where(html[data-hover-armed]) .new-session-entry:hover { background: var(--row-hover); color: var(--ink); }
 .new-session-entry svg { flex: none; } /* 颜色随行置灰（currentColor），只保住不压缩 */
+/* 快捷会话行（D14）：「新会话」右侧的快捷线入口——行容器承接原 100% 宽，
+   文字入口占 flex:1，快捷钮是等高方形，同一 hover 语言（--row-hover）。 */
+.new-session-row { display: flex; align-items: center; gap: 2px; width: 100%; }
+.quick-session-entry {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-top: 3px;
+  border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
+  color: var(--ink-3);
+}
+.quick-session-entry svg { flex: none; }
+:where(html[data-hover-armed]) .quick-session-entry:hover { background: var(--row-hover); color: var(--ink); }
 .new-session-entry .ns-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ws-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
