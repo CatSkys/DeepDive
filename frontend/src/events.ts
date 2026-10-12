@@ -11,6 +11,12 @@ export const DD_EVENTS = {
   /** 把选中文字追加进输入框。收发：SelectionActions → Composer，
    *  CustomEvent detail 携带 { text }。 */
   composerAppend: "dd:composer-append",
+  /** 把一行字预填进输入框（整段替换）。收发：迷你面板页壳命令 runQuickCommand
+   *  → Composer，CustomEvent detail 携带 { text }。 */
+  composerPrefill: "dd:composer-prefill",
+  /** 只聚焦输入框。收发：迷你面板页壳命令 quickPanelFocus → Composer
+   *  （面板带前键后壳推来，页面把自己的输入区拿到键盘）。 */
+  composerFocus: "dd:composer-focus",
   /** 打开设置页（可带分节）。收发：引导卡/命令面板 → App/Shell，
    *  CustomEvent detail 携带 { section?: string }。 */
   openSettings: "dd:open-settings",

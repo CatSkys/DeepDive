@@ -317,6 +317,11 @@ button {
 /* hero-top 的负边距已抵掉 .hero 的横向 padding：与会话头同款 176（同位让位） */
 .app.collapsed .hero-top { padding-left: 176px; }
 
+/* 迷你面板页（QuickPanelWindow 的 #/mini）：无侧栏无顶部两钮，内容从窗口左缘
+   起——头部/草稿头只让位原生红绿灯，84 与 .window-top 的左缘（灯区尽头）对齐。 */
+.mini-panel .session-header,
+.mini-panel .hero-top { padding-left: 84px; }
+
 /* 启动过渡的舞台：把「侧栏 + 主卡」这对兄弟包进一个自己就是 flex row 的容器，
    几何与 .app 直接持有它们时一致（同样 flex:1 + min-width:0 + 同样的子元素），
    腾出的位置给 BootSkeleton 当绝对定位层（见 components/BootSkeleton.module.css）。

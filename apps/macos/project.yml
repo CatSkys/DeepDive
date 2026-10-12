@@ -2,12 +2,14 @@ name: DSHmini
 options:
   bundleIdPrefix: com.deepdive
   deploymentTarget:
-    macOS: "14.0"
+    # 迷你面板整包复刻 Atd（其源码零守卫直接用 macOS 26 液态玻璃 API）——部署
+    # 目标随之从 14.0 提到 26.0；主窗玻璃的 vibrancy 退回分支因此成死分支（暂留）。
+    macOS: "26.0"
   createIntermediateGroups: true
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
     CODE_SIGN_IDENTITY: "-"
     CODE_SIGN_STYLE: Manual
     ENABLE_HARDENED_RUNTIME: NO

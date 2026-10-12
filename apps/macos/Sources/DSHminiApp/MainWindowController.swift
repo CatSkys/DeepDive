@@ -44,7 +44,8 @@ private final class TitlebarDragView: NSView {
 /// against the live bounds height at hit time, so no cached height can go
 /// stale. Until the first table arrives the view behaves like a plain
 /// WKWebView (fail-open: no drag, no swallowed clicks).
-private final class TitlebarAwareWebView: WKWebView {
+/// 迷你面板窗口（QuickPanelController）复用同一套机制；类因此是 internal 的。
+final class TitlebarAwareWebView: WKWebView {
     static let dragStripHeight: CGFloat = 52 // keep in sync with titlebar.ts
     /// Near-miss clicks around a control land on the control, not a drag.
     static let rectPadding: CGFloat = 6
@@ -124,8 +125,8 @@ private final class TitlebarAwareWebView: WKWebView {
 /// DO NOT remove it and DO NOT set isVisible = false — a hidden or missing
 /// toolbar silently reverts the window to the small-radius class, and the
 /// frontend radius scale is anchored at 26 (tokens.json radius.window;
-/// theme.css concentric ladder).
-private final class EmptyToolbarDelegate: NSObject, NSToolbarDelegate {
+/// theme.css concentric ladder). 迷你面板窗口（QuickPanelController）复用同一配方。
+final class EmptyToolbarDelegate: NSObject, NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [] }
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [] }
 }

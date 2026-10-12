@@ -274,6 +274,33 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     return () => window.removeEventListener(DD_EVENTS.composerAppend, onAppend);
   }, [setText]);
 
+  // 迷你面板壳命令（quickPanelFocus/runQuickCommand）进输入框的两条通道：
+  // 预填 = 整段替换（防抖照落草稿），聚焦 = 只拿键盘。输入框归 Composer 管，
+  // 外部一律经 DD 事件进来（composerAppend 同款）；CustomEvent 只在窗口内
+  // 走，主窗的 composer 不会被迷你面板的壳命令碰到。
+  useEffect(() => {
+    const onPrefill = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (typeof text !== "string" || !text) return;
+      setText(text);
+      requestAnimationFrame(() => {
+        const ta = taRef.current;
+        if (!ta) return;
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      });
+    };
+    const onFocus = () => {
+      requestAnimationFrame(() => taRef.current?.focus());
+    };
+    window.addEventListener(DD_EVENTS.composerPrefill, onPrefill);
+    window.addEventListener(DD_EVENTS.composerFocus, onFocus);
+    return () => {
+      window.removeEventListener(DD_EVENTS.composerPrefill, onPrefill);
+      window.removeEventListener(DD_EVENTS.composerFocus, onFocus);
+    };
+  }, [setText]);
+
   // 发送行为偏好（busyEnter：排队/插话）存在引擎里。启动期引擎还没起（503）→
   // 就绪后补取一次：壳不再因引擎就绪重载整页 SPA，这类一次性取数得自己跟上。
   useEffect(() => {

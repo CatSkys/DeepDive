@@ -5,6 +5,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var supervisor: EngineSupervisor!
     private var windowController: MainWindowController!
+    private var quickPanel: QuickPanelController!
+    private var miniPanel: MiniPanelController!
     private var statusItem: StatusItemController!
     private var hotKey: HotKeyManager!
     private var config: AppConfig!
@@ -18,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             AppDelegate.shared = self
             config = AppConfig.load() // prefsPayload 等断言要读它；读文件而已，不启服务
+            // prefsPayload 读 miniPanel.isShown：测试宿主不跑启动链，这里只建
+            // 控制器不 start（init 纯逻辑不开窗不开进程，窗在 start/present）。
+            miniPanel = MiniPanelController()
             return
         }
         _ = AppPaths.supportDir
@@ -88,10 +93,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NativeAlerts.install()
 
-        // 全局热键展开/收起迷你面板（§4.1 重绑+二次更正）：主窗口不再占全局
-        // 热键，召唤走 Dock / 菜单栏「显示主窗」；药丸常驻，显隐不受热键控制。
-        hotKey.onHotKey = { MiniPanelController.shared.toggleExpanded() }
-        MiniPanelController.shared.show()
+        // 全局热键 = 会话窗口（迷你面板）的显隐开关（用户定稿：热键是会话窗口的
+        // 开关，与胶囊无关）；召唤目标永远是迷你面板，不是本体主窗。
+        hotKey.onHotKey = { [weak self] in self?.quickPanel.togglePanel() }
+        // 迷你面板的启动器（屏缘药丸/胶囊，Atd 整包移植）：Actions 接到本项目
+        // 的既有流程；划词（P2）/截图（P3）/拖放（P3）未上——条目按 §6.1 不
+        // 显示，对应 Actions 槽位先空着留给后续接线。
+        miniPanel = MiniPanelController()
+        miniPanel.actions = MiniPanelController.Actions(
+            toggle: { [weak self] in self?.quickPanel.togglePanel() },
+            newTask: { [weak self] in self?.quickPanelNewTask() },
+            ask: {},
+            screenshot: {},
+            command: { [weak self] id in self?.quickPanelCommand(id) },
+            openSettings: { [weak self] in self?.openSettings() },
+            openItems: { _ in },
+            importImage: { _ in },
+            askAbout: { _ in },
+            showPanel: { [weak self] in self?.quickPanel.showPanel() },
+            reportFailures: { _ in },
+            panelIsKey: { [weak self] in self?.quickPanel.window.isKeyWindow ?? false },
+            stateChanged: {}
+        )
+        miniPanel.start()
         if hotKey.register(spec: config.hotkey) {
             EngineLog.shared.append("[shell] hotkey registered: \(config.hotkey)")
         } else {
@@ -108,6 +132,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 是常态、静默；.imported/.failed 由 LegacyCredentials 自己落日志）。
 
         // Load the bridge (SPA shows "引擎启动中" until the engine is up).
+        // 迷你面板窗口**无条件创建**：热键与药丸钮随时会碰它， IUO 上留 nil
+        // 就是崩溃；bridge 起不来时只加载不出页面（玻璃空壳），与主窗同命。
+        quickPanel = QuickPanelController()
+        quickPanel.onHostMessage = { [weak self] body in self?.handleHostMessage(body) }
         if let bridgeURL = BridgeServer.shared.url {
             // Deep link aid: DSHMINI_OPEN_SID=<session-id> opens that session on boot.
             if let sid = ProcessInfo.processInfo.environment["DSHMINI_OPEN_SID"],
@@ -118,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 windowController.load(url: bridgeURL)
             }
+            quickPanel.load(bridgeURL: bridgeURL)
         }
 
         // 铺盘期放后台：首启/升级那一次 ProfileComposer/ChatImport/BotChannel 各要
@@ -199,6 +228,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showMainWindow() {
         windowController.showPanel()
+    }
+
+    // MARK: - 迷你面板（QuickPanel）召唤目标
+
+    /// 胶囊「新会话」：页面未加载先现身面板（Atd 的门槛），随后推 openQuickSession；
+    /// 迷你面板页切好新会话视图、画出首帧后回 quickPanel-show，壳再把窗口带到前台
+    /// ——用户看到的永远是新会话页，绝不闪旧视图（Atd task.new 的编排）。
+    func quickPanelNewTask() {
+        let pageReady = quickPanel.webView.url != nil
+        if !pageReady { quickPanel.showPanel() }
+        quickPanel.pushHostCommand("openQuickSession", payload: "{}")
+    }
+
+    /// 胶囊命令卡一行：在迷你面板的快捷会话里执行该命令（输入框预填，用户回车确认）。
+    func quickPanelCommand(_ id: String) {
+        quickPanel.showPanel()
+        quickPanel.pushHostCommand("runQuickCommand", payload: Self.jsonPayload(["name": id]))
     }
 
     /// Dock 图标点击（运行中 reopen）：主面板是 orderOut 管理的 NSPanel，
@@ -312,7 +358,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "dockIcon":
                     DSHAppPrefs.setDockIcon(value)
                     NSApp.setActivationPolicy(value ? .regular : .accessory)
-                case "miniPanel": MiniPanelController.shared.setEnabled(value)
+                case "miniPanel": miniPanel.setShown(value)
                 case "modelDetail": DSHAppPrefs.setModelDetail(value)
                 default: break
                 }
@@ -383,6 +429,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "quiet-sessions":
             // 前端推来的"不打扰"会话集（后台会话判据的唯一事实源在前端）
             EngineEventObserver.shared.setQuietSessions(body["ids"] as? [String] ?? [])
+        case "quickPanel-show":
+            // 迷你面板页报新视图首帧已画出 → 把面板带到前台（Atd windowShow 语义）。
+            quickPanel.showPanel()
         case "prepare-workspace":
             prepareWorkspace(
                 reqId: body["reqId"] as? String ?? "",
@@ -413,22 +462,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", out: windowController)
         case "read-workspace-icon":
             readWorkspaceIcon(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", out: windowController)
-        case "miniPanel.quickSession":
-            // 主 SPA 推快捷空间最近会话 + 引擎命令目录（全原生命令卡的数据源，D14）。
-            MiniPanelController.shared.setQuickSession(
-                body["sessionId"] as? String,
-                commands: body["commands"] as? [[String: String]] ?? []
-            )
-        case "runQuickCommand":
-            // 迷你面板命令卡 → 主 SPA 执行（原生命令卡的一腿：会话已切换，
-            // 前端据此把命令行放进输入框执行——执行链仍走引擎 RPC）。
-            windowController.pushHostCommand(
-                "runQuickCommand",
-                payload: Self.jsonPayload([
-                    "sessionId": body["sessionId"] as? String ?? "",
-                    "name": body["name"] as? String ?? "",
-                ])
-            )
+        case "miniPanel.setCommands":
+            // 迷你面板页推来的引擎命令目录（Atd 桥契约同名；命令卡的唯一数据源）。
+            let rows = (body["commands"] as? [[String: Any]]) ?? []
+            let commands: [MiniPanelSetCommandsParams.Command] = rows.compactMap { row in
+                guard let id = row["id"] as? String, !id.isEmpty,
+                      let name = row["name"] as? String, !name.isEmpty else { return nil }
+                return MiniPanelSetCommandsParams.Command(id: id, name: name)
+            }
+            miniPanel.setCommands(commands)
         case "run-git":
             runGit(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "")
         case "git-run":
@@ -803,7 +845,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func prefsPayload() -> [String: Any] {
         // 快捷会话默认空间目录（D14）：引擎 workspace/create 只收已存在的绝对
         // 路径（~ 不展开），目录由壳保证存在，注册由 SPA 幂等做。
-        let quickDir = MiniPanelController.quickWorkspaceDirectory
+        let quickDir = QuickPanelController.quickWorkspaceDirectory
         try? FileManager.default.createDirectory(at: quickDir, withIntermediateDirectories: true)
         return [
             "quickWorkspacePath": quickDir.path,
@@ -811,7 +853,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "notifyAttention": DSHAppPrefs.notifyAttention,
             "menuBar": DSHAppPrefs.menuBar,
             "dockIcon": DSHAppPrefs.dockIcon,
-            "miniPanel": MiniPanelController.shared.enabled,
+            "miniPanel": miniPanel.isShown,
             "glass": config.themeEnabled,
             "sidebarWidth": DSHAppPrefs.sidebarWidth,
             "appearance": DSHAppPrefs.appearance,
@@ -837,6 +879,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let data = try? JSONSerialization.data(withJSONObject: prefsPayload()),
               let json = String(data: data, encoding: .utf8) else { return }
         windowController.pushHostCommand("prefs", payload: json)
+        quickPanel.pushHostCommand("prefs", payload: json)
     }
 
     private func pushHotkey() {
@@ -948,6 +991,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             payload["tail"] = EngineLog.shared.tailText
         }
         windowController.pushHostCommand("engineState", payload: Self.jsonPayload(payload))
+        quickPanel.pushHostCommand("engineState", payload: Self.jsonPayload(payload))
     }
 
     /// A SIGTERM (kill from terminal / launchd) must not orphan the engine:
@@ -1001,6 +1045,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch state {
         case .ready(let url):
             BridgeServer.shared.setEngine(url)
+            quickPanel.noteEngineReady()
             // Mint the engine browser-auth cookie FIRST (alpha.2+), then wire
             // the native consumers (settings RPC + event observer, §3 方案 A).
             Task { @MainActor in
