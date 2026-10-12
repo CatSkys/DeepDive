@@ -152,9 +152,9 @@ describe("capsulePill 回落链（顺序与 ZCode StatusSummaryRow 一致）", (
     expect(pill({ runningCount: 1, scheduleRecords: [schedule] })).toEqual({ kind: "running", count: 1, ids: [] });
   });
 
-  it("⑥′ 头像堆叠的 ids：随 runningIds 带出，最多 3 颗（第 4 颗起只进计数）", () => {
-    expect(pill({ runningCount: 2, runningIds: ["a", "b"] })).toEqual({ kind: "running", count: 2, ids: ["a", "b"] });
-    expect(pill({ runningCount: 5, runningIds: ["a", "b", "c", "d", "e"] })).toEqual({ kind: "running", count: 5, ids: ["a", "b", "c"] });
+  it("⑥′ 头像堆叠的 seeds：随 runningSeeds 带出，最多 3 颗（第 4 颗起只进计数）", () => {
+    expect(pill({ runningCount: 2, runningSeeds: ["a", "b"] })).toEqual({ kind: "running", count: 2, ids: ["a", "b"] });
+    expect(pill({ runningCount: 5, runningSeeds: ["a", "b", "c", "d", "e"] })).toEqual({ kind: "running", count: 5, ids: ["a", "b", "c"] });
   });
 
   it("⑦ 最近提醒：最低一级之前的兜底", () => {

@@ -9,7 +9,7 @@ import { useStore } from "../store";
 import { DiffBlock } from "../components/DiffBlock";
 import { AttachmentThumb } from "../components/AttachmentImage";
 import { IconCheckOutline16, IconChecklistOutline14, IconCopyOutline16 } from "../components/Icons";
-import { askSummary, basename, bashSummary, browserSummary, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
+import { agentIdentity, agentSummary, askSummary, basename, bashSummary, browserSummary, commandOf, prettyArgs, relativizePath, summarizeArgs } from "./format";
 import { derivePath, parseTodos, type WorkflowMember } from "./renderModel";
 import { isBrowserTool, isVerbPathTool, toolDisplayName } from "./toolKind";
 import { VerbPath } from "./VerbPath";
@@ -33,7 +33,8 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   sessionId: string;
   /** 会话工作目录：行内摘要的绝对路径按它相对化为项目内路径（用户定稿）。 */
   cwd?: string;
-  /** 工具调用 id：agent 族前导雾感盘的 seed（行内恒定，ToolIcon 消费）。 */
+  /** 工具调用 id：agent 族前导头像的回落 seed（委派行优先用 args 里的身份串，
+   *  见 agentIdentity；行内恒定，ToolIcon 消费）。 */
   toolCallId?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -43,9 +44,12 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   // 终端族（bash/pwsh）共用命令摘要与终端展开体；摘要走 bashSummary
   // （引擎 bash/pwsh 的必填 description 优先）
   const isShell = toolName === "bash" || toolName === "terminal-bash" || toolName === "pwsh";
+  // 子智能体委派行（subagent）：摘要=身份串（description，不摆整段提示词——
+  // 用户 2026-10-12 定稿），头像 seed 与面板行/胶囊堆叠共用同一身份
+  const isAgentSpawn = toolName === "subagent";
   const verbObject = isVerbPathTool(toolName) ? derivePath(toolName, args) ?? summarizeArgs(args) : "";
   const summary = (() => {
-    const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : isShell ? bashSummary(args) : isBrowserTool(toolName) ? browserSummary(args) : summarizeArgs(args);
+    const raw = isAsk ? askSummary(args) : todo !== null ? tt("{done}/{total} 已完成 · {active} 进行中 · {pending} 待处理", "{done}/{total} done · {active} in progress · {pending} pending", { done: todo.done, total: todo.total, active: todo.active, pending: todo.pending }) : isShell ? bashSummary(args) : isAgentSpawn ? agentSummary(args) : isBrowserTool(toolName) ? browserSummary(args) : summarizeArgs(args);
     return relativizePath(raw, cwd);
   })();
   const filePath = derivePath(toolName, args);
@@ -60,7 +64,7 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
         aria-expanded={expandable ? open : undefined}
       >
         <span className="tool-leading">
-          {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} seed={toolCallId} />}
+          {state === "error" ? <StateDot state="error" /> : isTodo ? <IconChecklistOutline14 /> : <ToolIcon name={toolName} seed={isAgentSpawn ? agentIdentity(args) ?? toolCallId : toolCallId} />}
         </span>
         {verbObject ? (
           <VerbPath toolName={toolName} text={verbObject} badgePath={derivePath(toolName, args)} cwd={cwd} />

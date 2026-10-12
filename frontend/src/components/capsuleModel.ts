@@ -117,9 +117,11 @@ export function capsulePill(input: {
   goal: CapsuleGoal | null | undefined;
   git: GitStatus | null;
   runningCount: number;
-  /** 在跑子会话的 id（runningCount 里属于子智能体的那部分，children 顺序）：
-   *  running 级头像堆叠的 seed。后台任务不在内——它们不是 agent。 */
-  runningIds?: string[];
+  /** 在跑子会话的 avatar seed（runningCount 里属于子智能体的那部分，children
+   *  顺序）：seed=委派身份（子会话 label=引擎登记的 args.description），与面板行/
+   *  会话流工具行同一身份，三处同形同色（用户 2026-10-12 定稿）；无 label 回落
+   *  子会话 id。后台任务不在内——它们不是 agent。 */
+  runningSeeds?: string[];
   endedCount: number;
   scheduleRecords: ScheduleRecord[];
   fmtScheduleWhen: (r: ScheduleRecord) => string;
@@ -154,7 +156,7 @@ export function capsulePill(input: {
   const lastDone = completed[completed.length - 1];
   if (lastDone) return { kind: "todoDone", text: lastDone.content };
   // ⑥ 运行中计数（live 活动只作兜底，见文件头）：ids 供头像堆叠，最多 3 颗
-  if (input.runningCount > 0) return { kind: "running", count: input.runningCount, ids: (input.runningIds ?? []).slice(0, PILL_ORB_MAX) };
+  if (input.runningCount > 0) return { kind: "running", count: input.runningCount, ids: (input.runningSeeds ?? []).slice(0, PILL_ORB_MAX) };
   // ⑦ 最近提醒：兜底一级，避免面板塌成空壳
   const next = nextScheduleRecord(input.scheduleRecords);
   if (next) return { kind: "schedule", prompt: next.prompt, when: input.fmtScheduleWhen(next) };

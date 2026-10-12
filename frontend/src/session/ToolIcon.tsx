@@ -42,9 +42,10 @@ const VARIANT_ICONS: Record<ToolVariant, ReactNode> = {
 
 export function ToolIcon({ name, seed }: { name: string; seed?: string }) {
   const variant = toolVariant(name);
-  // agent 族的前导 = 子智能体的雾感盘（seed=工具调用 id，行内恒定），与面板
-  // 子智能体行同一视觉语言（用户 2026-10-12 定稿：会话流里也不用机器人图标）。
-  // callId 缺席才回落 Bot——引擎 wire 的 tool/call 必带 callId，这档只防半成品。
+  // agent 族的前导 = 子智能体的渐变形状头像（AgentOrb），与面板行/胶囊堆叠同一
+  // 视觉语言（用户 2026-10-12 定稿：会话流里也不用机器人图标）。委派行（subagent）
+  // 的 seed=委派身份串（args.description，与面板行同一身份，三处同形同色）；
+  // 其余 agent 族工具行用工具调用 id。seed 缺席才回落 Bot——这档只防半成品。
   if (variant === "agent") return seed ? <AgentOrb seed={seed} size={14} /> : VARIANT_ICONS.agent;
   return <>{VARIANT_ICONS[variant]}</>;
 }

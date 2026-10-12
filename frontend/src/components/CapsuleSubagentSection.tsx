@@ -56,12 +56,13 @@ export function CapsuleSubagentSection({ children, runningIds, diag, busy, onOpe
     return (
       <div key={c.id} className="capsule-row">
         <button type="button" className="capsule-row-click capsule-sub-click" onClick={() => onOpen(c.id)}>
-          {/* 在跑用 seed（子会话 id）定的渐变球——同一子智能体永远同色（AgentOrb，
-              用户 2026-10-12 定稿：不用机器人图标）；已结束用**对勾**——ZCode 的
-              agents 行就是勾，用户 2026-10-08 指出"已完成前面应该是勾"。对勾描边色
-              随行继承 --ink-3（勾本身即状态，不带色彩语义）。 */}
+          {/* 在跑用委派身份（label=引擎登记的 args.description，与会话流工具行/
+              胶囊堆叠同一 seed——用户 2026-10-12 定稿三处同形同色；无 label 回落
+              子会话 id）；已结束用**对勾**——ZCode 的 agents 行就是勾，用户
+              2026-10-08 指出"已完成前面应该是勾"。对勾描边色随行继承 --ink-3
+              （勾本身即状态，不带色彩语义）。 */}
           {isLive
-            ? <AgentOrb seed={c.id} size={16} className="capsule-row-icon" />
+            ? <AgentOrb seed={c.label ?? c.id} size={16} className="capsule-row-icon" />
             : <CircleCheck size={15} className="capsule-row-icon" aria-hidden="true" />}
           <span className="capsule-sub-main">
             <span className="capsule-sub-label">{label}</span>

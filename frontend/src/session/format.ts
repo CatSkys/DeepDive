@@ -78,6 +78,28 @@ export function bashSummary(args: string): string {
   return line.length > COMMAND_DIGEST_MAX ? line.slice(0, COMMAND_DIGEST_MAX) + "…" : line;
 }
 
+/** 子智能体委派的身份串：引擎把 `subagent` 工具的 `description` 定为"专给显示用的
+ *  3-5 词短描述"，也是它给子会话登记的 label——工具行头像、面板行、胶囊堆叠
+ *  三处共用这一个串当 avatar seed，才保证同一个 agent 三处同形同色。缺参/不是
+ *  合法 JSON 返回 undefined，调用方走自己的回落（不在这里堆保底）。 */
+export function agentIdentity(args: string): string | undefined {
+  try {
+    const p = JSON.parse(args) as Record<string, unknown>;
+    if (p && typeof p === "object" && typeof p.description === "string" && p.description.trim()) {
+      return p.description;
+    }
+  } catch { /* 不是合法 JSON：调用方回落 */ }
+  return undefined;
+}
+
+/** 子智能体委派行（subagent）的摘要：身份串首行。通用 summarizeArgs 的键序里
+ *  prompt 排在 description 前——直接用它会把整段提示词摆上行（用户 2026-10-12
+ *  指出"不该显示提示词"），所以 agent 族单走这条。 */
+export function agentSummary(args: string): string {
+  const identity = agentIdentity(args);
+  return identity ? firstLine(identity) : summarizeArgs(args);
+}
+
 export function prettyArgs(args: string): string {
   try {
     return JSON.stringify(JSON.parse(args), null, 2);
