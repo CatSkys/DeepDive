@@ -5463,8 +5463,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* ---------- 面板里的会话设置（行式：左文字右选项，与设置页同一形态） ---------- */
 /* 行尾取值口径：bare 下拉（权限/发送方式/思考强度等）的值文字与模型行同亮档 --ink
    （2026-10-12 用户定稿：这几行统一成模型行的样式），盖过 .ddBare 的嵌句默认 --ink-2；
-   hover 时整行已由 .panel-settings-line 点亮，触发钮不再叠胶囊底 */
-.panel-settings { --dd-bare-ink: var(--ink); --dd-bare-hover-bg: transparent; display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
+   hover 时整行已由 .panel-settings-line 点亮，触发钮不再叠胶囊底；水平内垫清零，
+   箭头与模型行的箭头钉在同一条右缘竖线上 */
+.panel-settings { --dd-bare-ink: var(--ink); --dd-bare-hover-bg: transparent; --dd-bare-pad-x: 0px; display: flex; flex-direction: column; gap: 14px; padding: 12px 12px 20px; overflow-y: auto; }
 .panel-settings-section { display: flex; flex-direction: column; gap: 6px; }
 /* 行：左文字（标签 + ⓘ 解释入口），右控件/当前值。几何与 hover 全行统一
    （2026-10-12 用户定稿：面板每一行都是模型行那套 hover——负 margin 出血 +
