@@ -55,7 +55,7 @@ describe("CapsuleSubagentSection", () => {
     expect(bare.container.querySelectorAll(".capsule-sub-line")).toHaveLength(0);
   });
 
-  it("已结束的行前导用对勾（在跑才是 Bot）", () => {
+  it("已结束的行前导用对勾（在跑是 seed 定的渐变球）", () => {
     expect(mount().container.querySelector(".lucide-circle-check")).toBeTruthy();
     cleanup();
     const live = render(
@@ -69,7 +69,7 @@ describe("CapsuleSubagentSection", () => {
       />,
     );
     expect(live.container.querySelector(".lucide-circle-check")).toBeNull();
-    expect(live.container.querySelector(".lucide-bot")).toBeTruthy();
+    expect(live.container.querySelector(".agent-orb")).toBeTruthy();
   });
 
   it("右侧是「已结束 · 时长」，取投影 subagentTiming.settledMs；投影缺字段只给状态", () => {
