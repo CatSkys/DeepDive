@@ -65,7 +65,9 @@ export function CapsuleSubagentSection({ children, runningIds, diag, busy, onOpe
             ? <AgentOrb seed={c.label ?? c.id} size={16} className="capsule-row-icon" />
             : <CircleCheck size={15} className="capsule-row-icon" aria-hidden="true" />}
           <span className="capsule-sub-main">
-            <span className="capsule-sub-label">{label}</span>
+            {/* 在跑时标签自己脉冲（capsule-live-text，与胶囊 live 文本同一手法，
+                用户 2026-10-12 定稿：子智能体行也要表现运行态）；已结束不脉冲 */}
+            <span className={`capsule-sub-label${isLive ? " capsule-live-text" : ""}`}>{label}</span>
             {sub && <span className="capsule-sub-line">{sub}</span>}
           </span>
           <span className="capsule-row-meta">

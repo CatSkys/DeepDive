@@ -135,6 +135,7 @@ function ItemBody({ item, running, onBranch, onContinue, sessionId, hideThinking
         sessionId={sessionId}
         cwd={cwd}
         toolCallId={item.toolCallId}
+        childSessionId={item.childSessionId}
         running={running}
       />
     );

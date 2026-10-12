@@ -23,6 +23,7 @@
 - 待审批：`approval/requested` → `notifyApprovalNeeded(toolName, sessionTitle, sessionId)` → **"需要你的许可 / <会话标题> / 请求执行：<tool>"**（带 sound）+ `NSApp.requestUserAttention(.informationalRequest)`（dock 弹跳）。
 - 待提问：`question/requested` → `notifyQuestionNeeded(questionText, sessionTitle, sessionId)` → **"有问题要问你 / <会话标题> / <首条提问文本，截断 120 字>"**（带 sound；载荷契约见引擎 `askUserQuestionItemSchema`）+ dock 弹跳。
 - 回合完成：`turn/end(completed)` → `notifyTurnFinished(sessionTitle, sessionId)` → **"回合已完成 / <会话标题>"**（**静默**，对齐 SEMANTICS §5）。
+- **quiet 集（会话通知只属于正式会话）**：自动化运行会话与**子智能体派生会话**进 quiet 集（判据唯一事实源 `session/backgroundSession.ts` 的 `isQuietSession`，前端经 §3.1 通道推给壳的 `EngineEventObserver.setQuietSessions`）——它们**不发"回合完成"通知、不点亮悬浮球"在跑"**（子智能体结束另有面板行停脉冲这套界面反馈，用户 2026-10-12 定稿）。**待审批/待提问照旧通知**：那是真有人在等，quiet 压噪音不压等待。
 - 引擎失败：**不发通知**——`EngineSupervisor` 进入 `.failed` 后由壳推 `engineState`（含原因与日志尾部），SPA 的引擎横幅给出原因 + 重试 + 详情（对齐 SEMANTICS §5"失败/引擎异常"），菜单栏状态点同时变红。系统通知与原生窗口都不是应用报错的地方。
 - 前台抑制：仅当 `!NSApp.isActive` 才弹通知与弹跳；悬浮球状态始终实时反映；菜单栏图标也可经 §1.3 开关整体隐藏（隐藏后状态面只剩悬浮球/通知本身）。
 > 范围外声明：SEMANTICS §5 的「专注模式（通知时间窗）」为 P2 后续项，不在本 spec 实现；本阶段只做前台抑制。

@@ -28,6 +28,9 @@ export interface RenderItem {
   event?: SessionEvent;
   toolName?: string;
   toolCallId?: string;
+  /** 委派行（subagent）后台撒种结果拆出的子会话 id：行内运行态脉冲靠它对
+   *  store 会话表的 running 标志（结果到达≠子会话跑完）。 */
+  childSessionId?: string;
   args?: string;
   output?: string;
   failed?: boolean;
@@ -151,6 +154,15 @@ export function extractToolResult(data: ToolResultData): { callId?: string; outp
   const callId = msg?.source?.callId;
   const path = typeof data.path === "string" ? data.path : undefined;
   return { callId, output, failed, path, images };
+}
+
+/** 后台委派的撒种结果（引擎 durable 文本，用户会话日志 2026-10-12 实证）：首行
+ *  形如 `started subagent <子会话id>`——模型自己也读这段文本拿 id 干预子会话，
+ *  是稳定契约。拆出子会话 id 供行内运行态脉冲；不匹配不给（行只是没有脉冲，
+ *  不猜别的格式）。 */
+export function subagentChildIdOf(output: string): string | undefined {
+  const m = /^started subagent (\S+)\s*$/.exec(output.split("\n")[0] ?? "");
+  return m?.[1];
 }
 
 /**
@@ -358,6 +370,8 @@ export function ingest(out: RenderItem[], entry: { event: SessionEvent; output?:
           item.output = extracted.output;
           item.failed = extracted.failed;
           if (appliedDiffs) item.diffs = appliedDiffs;
+          // 后台委派结果拆子会话 id（行内运行态脉冲用，见 ToolRow 的 data-tool-live）
+          if (item.toolName === "subagent") item.childSessionId = subagentChildIdOf(extracted.output);
           // read_image 等结果图片：内容块里的 attachment 引用直出工具卡。
           if (extracted.images.length > 0) item.resultImages = extracted.images;
           touch(item);

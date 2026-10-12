@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, type ControlFrame, type WorkspaceFollowFrame } from "./api";
 import type { ArchiveRetention } from "./autoArchive";
-import { isHiddenSession, isSidebarSession } from "./session/backgroundSession";
+import { isHiddenSession, isQuietSession, isSidebarSession } from "./session/backgroundSession";
 import { onHostEvent, sendToShell, setQuietSessions } from "./host";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
@@ -671,9 +671,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sidebarSessions = useMemo(() => visibleList.filter(isSidebarSession), [visibleList]);
   const sidebarSessionsRef = useRef(sidebarSessions);
   sidebarSessionsRef.current = sidebarSessions;
-  // 机器会话集推给壳：自动化的运行会话"完成"时不该弹通知、
-  // 不该点亮药丸状态点（待审批照旧——那是真有人在等）。只推变化，别每轮刷。
-  const quietKey = sessions.filter(isHiddenSession).map((s) => s.sessionId).sort().join(",");
+  // 机器会话集推给壳：自动化的运行会话与子智能体会话"完成"时不该弹系统通知、
+  // 不该点亮药丸状态点（待审批照旧——那是真有人在等）。判据一组走
+  // session/backgroundSession 的 isQuietSession（唯一事实源）。只推变化，别每轮刷。
+  const quietKey = sessions.filter(isQuietSession).map((s) => s.sessionId).sort().join(",");
   const quietKeyRef = useRef("");
   useEffect(() => {
     if (quietKey === quietKeyRef.current) return;

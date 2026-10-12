@@ -48,3 +48,11 @@ export function isHiddenSession(s: SessionSummary): boolean {
 export function isSidebarSession(s: SessionSummary): boolean {
   return !isHiddenSession(s) && s.origin !== "subagent";
 }
+
+/** 不该打扰用户的会话（壳的 quiet 集判据，session/backgroundSession 唯一事实源）：
+ *  标题判据的后台运行会话 + 子代理派生会话——它们回答结束不发系统通知、不点亮
+ *  悬浮球（用户 2026-10-12 定稿：只有正式会话发会话通知；子智能体结束另有面板行
+ *  停脉冲这套界面反馈）。只压"完成/在跑"这类噪音；待审批/提问照旧（真有人在等）。 */
+export function isQuietSession(s: SessionSummary): boolean {
+  return isHiddenSession(s) || s.origin === "subagent";
+}

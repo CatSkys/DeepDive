@@ -3,12 +3,21 @@
 // .tool-row[data-state="running"] :is(.tool-title, .tool-summary)），前导位不摆
 // 闪烁的状态点——图标保持与落定行同款（用户参考图）。
 // 行文案（用户定稿 2026-10-11）：工具名与分隔点不摆，摘要为空才落回名字/状态文案。
+// 后台委派行（2026-10-12 定稿）：子会话在跑→data-tool-live 摘要继续脉冲，结束摘掉。
 // @vitest-environment jsdom
 import { cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SessionSummary } from "../types";
+
+const storeMock = vi.hoisted(() => ({ sessions: [] as SessionSummary[] }));
+vi.mock("../store", () => ({ useStore: () => ({ sessions: storeMock.sessions }) }));
+
 import { ToolRow } from "../session/ToolRow";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  storeMock.sessions = [];
+});
 
 describe("ToolRow 运行态", () => {
   it("运行中的行没有闪烁状态点，且带 data-state=running（脉冲挂在它上面）", () => {
@@ -81,5 +90,37 @@ describe("ToolRow 子智能体委派行（subagent）", () => {
       <ToolRow toolName="subagent" args={JSON.stringify({ prompt: "p" })} sessionId="s" toolCallId="call-2" />,
     );
     expect(noIdentity.container.querySelector(".tool-leading .agent-orb")).toBeTruthy();
+  });
+});
+
+describe("ToolRow 后台委派行的运行态脉冲（data-tool-live）", () => {
+  const args = JSON.stringify({ description: "调研", prompt: "p" });
+
+  it("子会话在跑：result 已到、行是 done，但摘要继续脉冲（data-tool-live）", () => {
+    storeMock.sessions = [{ sessionId: "child-9", updatedAt: 0, running: true, blank: false }];
+    const { container } = render(
+      <ToolRow toolName="subagent" args={args} output="started subagent child-9" sessionId="s" toolCallId="c" childSessionId="child-9" />,
+    );
+    const row = container.querySelector(".tool-row");
+    expect(row?.getAttribute("data-state")).toBe("done");
+    expect(row?.getAttribute("data-tool-live")).toBe("true");
+  });
+
+  it("子会话结束：data-tool-live 摘掉，落回静态 done 行（用户定稿：结束就不要）", () => {
+    storeMock.sessions = [{ sessionId: "child-9", updatedAt: 0, running: false, blank: false }];
+    const { container } = render(
+      <ToolRow toolName="subagent" args={args} output="started subagent child-9" sessionId="s" toolCallId="c" childSessionId="child-9" />,
+    );
+    const row = container.querySelector(".tool-row");
+    expect(row?.getAttribute("data-state")).toBe("done");
+    expect(row?.getAttribute("data-tool-live")).toBeNull();
+  });
+
+  it("非委派行/无子会话 id 的行不吃这个属性；无返回且会话已收口（running 默认 false）落静默 done", () => {
+    const { container } = render(
+      <ToolRow toolName="subagent" args={args} sessionId="s" toolCallId="c" />,
+    );
+    expect(container.querySelector(".tool-row")?.getAttribute("data-tool-live")).toBeNull();
+    expect(container.querySelector(".tool-row")?.getAttribute("data-state")).toBe("done");
   });
 });
