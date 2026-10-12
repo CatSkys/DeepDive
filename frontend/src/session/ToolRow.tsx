@@ -22,7 +22,7 @@ import { FileIcon } from "./FileIcon";
 /// 2026-10-11：图标即类别；摘要为空才落回名字。读取/编辑/搜索族例外——2026-10-12
 /// 定稿并对齐官方行结构（icon→title→detail）与 ZCode 的 kind-label 位：动词开头，
 /// 徽标跟动词，路径/查询词是宾语，见 VerbPath），expandable to reveal terminal output or raw arguments.
-export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd, toolCallId }: {
+export function ToolRow({ toolName, args, output, failed, diffs, resultImages, sessionId, cwd, toolCallId, childSessionId }: {
   toolName: string;
   args: string;
   output?: string;
@@ -36,6 +36,9 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   /** 工具调用 id：agent 族前导头像的回落 seed（委派行优先用 args 里的身份串，
    *  见 agentIdentity；行内恒定，ToolIcon 消费）。 */
   toolCallId?: string;
+  /** 委派行后台撒种拆出的子会话 id（renderModel）：它在 store 里还 running，
+   *  行内摘要就保持脉冲（用户 2026-10-12 定稿：结果到达≠子会话结束）。 */
+  childSessionId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const todo = parseTodos(args);
@@ -54,10 +57,22 @@ export function ToolRow({ toolName, args, output, failed, diffs, resultImages, s
   })();
   const filePath = derivePath(toolName, args);
   const state = failed ? "error" : output !== undefined ? "done" : "running";
+  // 委派行的"还在跑"：工具结果到了（state=done）≠ 子会话结束——store 会话表里
+  // 那个子会话仍 running 时行内摘要继续脉冲（用户 2026-10-12 定稿），结束就停。
+  // store 默认 null（独立渲染：测试直接挂 ToolRow；真实 app 恒有 provider）——
+  // 取不到会话表就不脉冲，同一"不匹配不给"的显式降级，不编状态。
+  const sessions = useStore()?.sessions;
+  const childLive = isAgentSpawn && state !== "error" && childSessionId !== undefined
+    && (sessions ?? []).some((s) => s.sessionId === childSessionId && s.running);
   const title = isTodo ? t("任务") : isAsk && state === "running" ? t("等待回答") : state === "running" ? t("正在执行") : toolDisplayName(toolName, t);
   const expandable = (output !== undefined && output !== "") || args !== "" || isTodo || (!!diffs && diffs.length > 0);
   return (
-    <div className={`tool-row${state === "error" ? " bad" : ""}`} data-state={state} data-tool={toolName}>
+    <div
+      className={`tool-row${state === "error" ? " bad" : ""}`}
+      data-state={state}
+      data-tool={toolName}
+      data-tool-live={childLive ? "true" : undefined}
+    >
       <button
         className="tool-row-main"
         onClick={() => (expandable ? setOpen((v) => !v) : undefined)}

@@ -2529,6 +2529,7 @@ button {
    单条行摘要为空时标题兜底（「正在执行」）。渐变的亮端取 --ink（最亮档），
    暗端 --ink-3，与加载行同一配色。 */
 .tool-row[data-state="running"] :is(.tool-title, .tool-summary),
+.tool-row[data-tool-live] :is(.tool-title, .tool-summary),
 .tool-group[data-state="running"] .tool-group-summary {
   background-image: linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%);
   background-size: 200% 100%;
@@ -2538,6 +2539,9 @@ button {
   color: transparent;
   animation: shimmer-text 1.4s linear infinite;
 }
+/* data-tool-live：后台委派行（subagent）——工具结果随即到达、行 data-state 已是
+   done，但子会话还在跑（store 会话表 running）；用户 2026-10-12 定稿：子会话在跑
+   摘要继续脉冲，结束就停（ToolRow 按子会话 id 对表）。 */
 .tool-summary {
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2783,6 +2787,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .thinking-active, .thinking-done, .thinking-row,
   .tool-row[data-state="running"] :is(.tool-title, .tool-summary),
+  .tool-row[data-tool-live] :is(.tool-title, .tool-summary),
   .tool-group[data-state="running"] .tool-group-summary,
   .retry-row[data-active] .retry-text { animation: none !important; }
   .thinking-collapse, .thinking-line, .thinking-chevron, .thinking-head { transition: none !important; }

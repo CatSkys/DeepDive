@@ -1,6 +1,6 @@
 // 会话流外围纯函数：TodoList 摘要与 tool/result 提取（R-001 指定覆盖面）。
 import { describe, expect, it } from "vitest";
-import { extractToolResult, parseTodos } from "../session/renderModel";
+import { extractToolResult, parseTodos, subagentChildIdOf } from "../session/renderModel";
 import { normalizeSessionEvent } from "../wire/normalize";
 import type { ToolResultData } from "../types";
 
@@ -71,5 +71,19 @@ describe("extractToolResult", () => {
     // 越界输入（非字符串 path）只被运行时守卫挡下，不走类型：故意断言
     const malformed = { turn: 1, step: 1, path: 42 } as unknown as ToolResultData;
     expect(extractToolResult(malformed).path).toBeUndefined();
+  });
+});
+
+describe("subagentChildIdOf：后台委派撒种文本拆子会话 id", () => {
+  // 夹具取自真实会话日志（2026-10-12 实证）：引擎 durable 文本，模型自己也读它
+  it("`started subagent <id>`：单行正中 → 拆出 id", () => {
+    expect(subagentChildIdOf("started subagent 5cbf65e7-5b41-4ec0-9d0f-34658ab8e629"))
+      .toBe("5cbf65e7-5b41-4ec0-9d0f-34658ab8e629");
+  });
+  it("首行之后还有内容时不误伤不猜：非该格式一律 undefined", () => {
+    // 前台一次性子会话的结果=子会话产出文本，没有这行撒种文本 → undefined（行不脉冲）
+    expect(subagentChildIdOf("调研结果如下……\nstarted subagent 5cbf65e7")).toBeUndefined();
+    expect(subagentChildIdOf("started task abc123")).toBeUndefined();
+    expect(subagentChildIdOf("")).toBeUndefined();
   });
 });

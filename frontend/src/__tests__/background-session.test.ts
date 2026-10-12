@@ -3,16 +3,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  AUTOMATION_PREFIX, LEGACY_EVOLUTION_PREFIX, automationRunTitle, isHiddenSession, titleHidesSession,
+  AUTOMATION_PREFIX, LEGACY_EVOLUTION_PREFIX, automationRunTitle, isHiddenSession, isQuietSession, titleHidesSession,
 } from "../session/backgroundSession";
 import type { SessionSummary } from "../types";
 
-const s = (title?: string): SessionSummary => ({
+const s = (title?: string, origin?: "subagent"): SessionSummary => ({
   sessionId: "s1",
   updatedAt: 0,
   running: false,
   blank: false,
   ...(title === undefined ? {} : { projections: { asOfSeq: 1, values: { title } } }),
+  ...(origin === undefined ? {} : { origin }),
 });
 
 describe("isHiddenSession", () => {
@@ -63,5 +64,18 @@ describe("titleHidesSession（改名准入）", () => {
   it("普通名字不隐藏", () => {
     expect(titleHidesSession("修登录 bug")).toBe(false);
     expect(titleHidesSession("  ")).toBe(false);
+  });
+});
+
+describe("isQuietSession（壳侧 quiet 集的判据）", () => {
+  it("子代理派生会话（origin=subagent）＝ quiet：结束不发系统通知（用户 2026-10-12 定稿）", () => {
+    expect(isQuietSession(s(undefined, "subagent"))).toBe(true);
+    expect(isQuietSession(s("调研今日科技/AI资讯", "subagent"))).toBe(true);
+  });
+
+  it("自动化运行会话照旧 quiet；正式会话不 quiet（标题判据 + origin 双源都收敛到这里）", () => {
+    expect(isQuietSession(s(automationRunTitle("每日巡检")))).toBe(true);
+    expect(isQuietSession(s("新会话"))).toBe(false);
+    expect(isQuietSession(s())).toBe(false); // fail-open 同口径
   });
 });
