@@ -30,6 +30,10 @@ else
   (cd "$DIR/frontend" && npm install) \
     && echo "OK: frontend npm install" \
     || echo "WARN: frontend 依赖没装好——改前端前重跑 (cd frontend && npm install)"
+  # tokens.css 是生成产物不入库（tokens.json 唯一事实源）：不生成 vite build 会挂在 CSS @import
+  (cd "$DIR/frontend" && npm run gen) \
+    && echo "OK: design tokens 已生成" \
+    || echo "WARN: tokens 没生成——改前端前重跑 (cd frontend && npm run gen)"
   # 引擎依赖按需装（pnpm install 全量较慢，纯壳/前端任务用不到）
   echo "SKIP: engine 依赖未装——改引擎前跑 (cd $DIR/engine && pnpm install)"
 fi
