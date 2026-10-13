@@ -3,7 +3,7 @@
 // 只管这一模式的取数排布与交互：搜索词/键盘由命令中心（MiniCommandCenter）给进来，
 // 取数过滤分段全在 miniHistoryView.ts（纯函数、有单测）。
 // 不做筛选/排序控件（用户 2026-10-13 定稿：历史那一排直接删掉，段序恒为日期）。
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Ellipsis } from "lucide-react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
@@ -12,6 +12,7 @@ import { Spinner } from "../components/LoadingState";
 import { HoverScrollText } from "../components/HoverScrollText";
 import { SidebarContextMenus, type RowMenuState } from "../components/SidebarContextMenus";
 import { filterHistory, groupByDate, historyItems, type HistoryItem } from "./miniHistoryView";
+import { MiniCcList } from "./MiniCcList";
 import type { KeyHandler } from "./MiniCommandCenter";
 
 export function MiniHistoryRows({
@@ -64,7 +65,7 @@ export function MiniHistoryRows({
   }, [cursor, flat.length]);
 
   useEffect(() => {
-    registerKeys((e: ReactKeyboardEvent<HTMLInputElement>) => {
+    registerKeys((e) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         if (flat.length === 0) return true;
@@ -87,7 +88,7 @@ export function MiniHistoryRows({
 
   return (
     <>
-      <div className="mini-cc-list" ref={listRef}>
+      <MiniCcList listRef={listRef}>
         {sections.map((section) => (
           <section className="mini-cc-section" key={section.key}>
             {section.title !== null && <h3 className="mini-cc-section-title">{section.title}</h3>}
@@ -138,7 +139,7 @@ export function MiniHistoryRows({
           </section>
         ))}
         {visible.length === 0 && <p className="mini-cc-empty">{query !== "" ? t("没有匹配的会话") : t("暂无会话")}</p>}
-      </div>
+      </MiniCcList>
       <SidebarContextMenus row={rowMenu} workspaceAt={null} onClose={() => setRowMenu(null)} />
     </>
   );

@@ -8,10 +8,10 @@
 // permission·conversation 命名空间 / agentPresets+select / `/permission` 命令），
 // 与 HeroPanel、SessionSettings 同源，不是第二份实现。选择页本身只有 MiniChoicePage 一个件。
 // 「插件」不进面板：主窗设置页的事（面板求简洁）。
-import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, CircleAlert } from "lucide-react";
 import { api } from "../api";
-import { t as tRaw, tt, useT } from "../i18n";
+import { t as tRaw, tt } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
 import { modelKey, modelSections } from "../components/ModelMenu";
 import { effortDisplayName, shownLevel } from "../components/composer/EffortPicker";
@@ -140,42 +140,33 @@ function SettingRow({ page, cursor, onOpen }: { page: SettingsPage; cursor: bool
 }
 
 interface ShellProps {
-  query: string;
   registerKeys: (handler: KeyHandler) => void;
-  /** 翻页前后把搜索词清掉：上一页的过滤词留着会让新一页整片空。 */
-  onClearQuery: () => void;
 }
 
 /** 设置模式的壳：根行 ↔ 选择页的翻页、搜索过滤与键盘，两脸共用（只喂 pages）。 */
 function SettingsShell({
   pages,
-  query,
   registerKeys,
-  onClearQuery,
   onOpenPage,
 }: ShellProps & {
   pages: SettingsPage[];
   /** 打开某页时的钩子（草稿脸的模型页借它重拉目录）。 */
   onOpenPage?: (id: string) => void;
 }) {
-  const { t } = useT();
   const [openId, setOpenId] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
   // 页可能因取数未到而缺席（如权限投影还没来）：找不到就按根行处理，不留半张空页
   const open = pages.find((p) => p.id === openId) ?? null;
-  const q = query.trim().toLowerCase();
-  const rows = pages.filter((p) => !q || p.label.toLowerCase().includes(q));
-  const choices = open === null ? [] : flattenChoices(open.sections, query);
+  // 设置脸没有搜索框（用户 2026-10-13 定稿："它就是一块设置页面"），所以行集与选项都不再过滤
+  const rows = pages;
+  const choices = open === null ? [] : flattenChoices(open.sections);
 
-  useEffect(() => { setCursor(0); }, [openId, query]);
+  useEffect(() => { setCursor(0); }, [openId]);
 
-  const back = () => {
-    setOpenId(null);
-    onClearQuery();
-  };
+  const back = () => setOpenId(null);
 
   useEffect(() => {
-    registerKeys((e: ReactKeyboardEvent<HTMLInputElement>) => {
+    registerKeys((e) => {
       if (e.key === "Escape" && open !== null) {
         back();
         return true;
@@ -194,7 +185,6 @@ function SettingsShell({
           e.preventDefault();
           onOpenPage?.(row.id);
           setOpenId(row.id);
-          onClearQuery();
           return true;
         }
         const option = choices[cursor];
@@ -219,11 +209,9 @@ function SettingsShell({
             onOpen={() => {
               onOpenPage?.(p.id);
               setOpenId(p.id);
-              onClearQuery();
             }}
           />
         ))}
-        {rows.length === 0 && <p className="mini-cc-empty">{t("没有匹配的设置")}</p>}
       </div>
     );
   }
@@ -236,7 +224,6 @@ function SettingsShell({
       <MiniChoicePage
         sections={open.sections}
         value={open.valueId}
-        query={query}
         cursor={cursor}
         onPick={(v) => {
           open.pick(v);

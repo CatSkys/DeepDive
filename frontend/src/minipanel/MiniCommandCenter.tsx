@@ -16,8 +16,9 @@ import { MiniSettingsRows } from "./MiniSettingsRows";
 export type MiniOverlayMode = "history" | "settings";
 
 /** 行件的键盘钩子：**返回 true = 已消费**（框架不再走自己的 Esc/其它语义）。
- *  搜索框拿着焦点，所以行件的上下键/回车都由这里转发进来。 */
-export type KeyHandler = (e: ReactKeyboardEvent<HTMLInputElement>) => boolean;
+ *  事件的现实形态有两处：历史脸的搜索框（React 事件）与设置脸的整页监听（DOM 事件）
+ *  ——只用到 `key` 与 `preventDefault`，所以按这个最小形状收口。 */
+export type KeyHandler = (e: { key: string; preventDefault(): void }) => boolean;
 
 export function MiniCommandCenter({
   mode,
@@ -40,7 +41,6 @@ export function MiniCommandCenter({
   const registerKeys = useCallback((handler: KeyHandler) => {
     keyRef.current = handler;
   }, []);
-  const clearQuery = useCallback(() => setQuery(""), []);
   useEffect(() => {
     keyRef.current = null; // 换模式先清掉旧模式那份处理
   }, [mode]);
@@ -49,6 +49,19 @@ export function MiniCommandCenter({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // 设置脸**没有搜索框**（用户 2026-10-13 定稿："它就是一块设置页面"）：没有那个拿键盘的
+  // 输入框，键盘改挂整页——↑↓ 走行、Enter 激活、Esc 先回上一层、再按收卡。历史脸的键盘
+  // 仍由搜索框自己转发（它在焦点里）。壳在开卡时已把第一响应者交给这块 webview。
+  useEffect(() => {
+    if (mode !== "settings") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (keyRef.current?.(e)) return;
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mode, onClose]);
 
   // 点卡片外收掉。两类不算"外"：卡片自己，以及卡片上弹出的右键菜单（.ctx-menu——
   // 历史行的「更多」/右键菜单挂在 body，点它不该把卡片一起收掉）。
@@ -76,6 +89,7 @@ export function MiniCommandCenter({
 
   return (
     <div className="mini-cc" ref={cardRef} role="dialog" aria-label={mode === "history" ? t("会话历史") : t("会话设置")}>
+      {mode === "history" && (
       <label className="mini-cc-search">
         <Search size={15} aria-hidden="true" />
         <input
@@ -101,10 +115,11 @@ export function MiniCommandCenter({
           </button>
         )}
       </label>
+      )}
       <div className="mini-cc-body">
         {mode === "history"
           ? <MiniHistoryRows query={query} registerKeys={registerKeys} onDone={onClose} />
-          : <MiniSettingsRows sessionId={sessionId} query={query} registerKeys={registerKeys} onClearQuery={clearQuery} />}
+          : <MiniSettingsRows sessionId={sessionId} registerKeys={registerKeys} />}
       </div>
     </div>
   );

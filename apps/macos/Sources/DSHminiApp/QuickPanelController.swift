@@ -476,6 +476,9 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                 view.animator().alphaValue = 1
             }
         }
+        // 键盘交给卡片那一页：设置脸没有搜索框（用户定稿"它就是一块设置页面"），它的 ↑↓/Enter/Esc
+        // 全靠整页 keydown——那要求这块 webview 是第一响应者。历史脸的搜索框也在这一页里，一并管用。
+        window.makeFirstResponder(cardWeb)
     }
 
     /// 卡片入场的**弹性**：0.96 → 1 的缩放（CASpringAnimation），与 alpha 淡入同时起。
@@ -503,6 +506,8 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             view.isHidden = true
         }
         pushedFace = ""
+        // 键盘还给面板页：收卡后用户接着打字（输入框在那儿），不该留在一张看不见的页上。
+        window.makeFirstResponder(webView)
     }
 
     // MARK: - NSWindowDelegate
