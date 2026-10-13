@@ -580,7 +580,7 @@ export function installHostBridge(handlers: Partial<{
   /** 截图到了（全局热键或迷你面板条目发起，没有请求方）：items 与附件选择器同形，
    *  按既有摄入路径建 chip。带 reqId 的不走这里（那是 `screenshotCapture()` 的应答）。 */
   onScreenshotArrived: (items: PickedAttachment[]) => void;
-  /** 工具条上的「问 DeepDive」：文字已在壳里暂存，这里读它并引用进草稿。 */
+  /** 工具条上的「问 AI」：文字已在壳里暂存，这里读它并引用进草稿。 */
   onSelectionAsk: () => void;
   /** toggle 模式监听状态变了。 */
   onSelectionListening: (on: boolean) => void;

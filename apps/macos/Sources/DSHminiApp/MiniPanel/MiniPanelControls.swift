@@ -9,7 +9,7 @@ struct MiniPanelCapsule: View {
   let model: MiniPanelModel
 
   var body: some View {
-    let controls = MiniPanelControl.buttons(hasCommands: !model.commands.isEmpty)
+    let controls = MiniPanelControl.buttons()
     VStack(spacing: 0) {
       ForEach(Array(controls.enumerated()), id: \.element) { index, control in
         if index == 1 {
