@@ -582,6 +582,9 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
             className="composer-icon"
             data-tip={t("添加")}
             aria-expanded={plusOpen}
+            /* 打开时图标转 45° 放大 1.15（＋ 变 ×），样式在 theme.css 的
+               .composer-icon[data-open] */
+            data-open={plusOpen ? "true" : "false"}
             onClick={() => setPlusOpen((open) => !open)}
           >
             <Plus size={16} strokeWidth={2} />
