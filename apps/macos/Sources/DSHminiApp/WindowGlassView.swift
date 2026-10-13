@@ -48,7 +48,7 @@ final class WindowGlassView: NSView {
     init(surface: Surface = .window) {
         self.surface = surface
         if #available(macOS 26.0, *) {
-            glassView = Self.makeLiquidGlass()
+            glassView = Self.makeLiquidGlass(surface: surface)
         } else {
             glassView = nil
         }
@@ -107,11 +107,15 @@ final class WindowGlassView: NSView {
 
     /// `NSGlassEffectView` 只有 macOS 26+ 可引用：构造与初始 tint 都收进这一个门。
     @available(macOS 26.0, *)
-    private static func makeLiquidGlass() -> NSGlassEffectView {
+    private static func makeLiquidGlass(surface: Surface) -> NSGlassEffectView {
         let glass = NSGlassEffectView()
         glass.style = .regular
-        glass.cornerRadius = 0
-        glass.tintColor = darkGlassTint
+        // 玻璃圆角对齐窗体裁切（tokens.json v5 锚：工具栏类窗口 26pt）：方玻璃
+        // 压在圆窗里会在四角切出缺口——边缘高光出两圈（chrome 一圈 + 玻璃方边
+        // 一圈）、圆角观感也比实际小；对齐后两圈合一圈（用户 2026-10-13
+        // "高光有两层？砍一层""圆角小了"——头文件无高光开关，重合即砍）。
+        glass.cornerRadius = surface == .panel ? 26 : 0
+        glass.tintColor = surface == .panel ? darkPanelGlassTint : darkGlassTint
         return glass
     }
 
