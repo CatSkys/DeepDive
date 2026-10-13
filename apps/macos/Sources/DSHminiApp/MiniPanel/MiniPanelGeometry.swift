@@ -67,8 +67,8 @@ public enum MiniPanelMetrics {
   public static let rowPadding = 8.0
   public static let cardPadding = 6.0
   /// Concentric with the rows' 8 pt highlight: 18 − 6 = 12 ≥ 8.
-  public static let cardRadius = 18.0
-  public static let rowRadius = 8.0
+  public static let cardRadius = ShellRadius.panel
+  public static let rowRadius = ShellRadius.control
   /// More commands than this scroll inside the card.
   public static let maxVisibleRows = 8
 

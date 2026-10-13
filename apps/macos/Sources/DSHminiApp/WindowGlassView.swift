@@ -62,6 +62,7 @@ final class WindowGlassView: NSView {
     /// 给大了（曾设 26）玻璃高光会在角上被窗体裁断、留一道断线（用户："圆角修一下，
     /// 它现在有一个线"）；对齐后高光与边界重合，一圈干净。**改这个值前先重量一遍**
     /// （窗口类变了大圆角才会变）。
+    /// 窗口自身的裁切档，**不在页内阶梯里**（量出来的 12pt，见 ShellDesign 的说明）。
     private static let panelCornerRadius: CGFloat = 12
     /// .panel 档（迷你面板）：整窗压在这层上、网页侧只铺半透明卡面，底层比
     /// 主窗实一截。α 落点：0.50 浅（用户"差一档"）→ 0.72 深（用户"颜色深了"
@@ -76,7 +77,7 @@ final class WindowGlassView: NSView {
     private static let lightCardGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.42)
     /// .floating 档的默认圆角（= theme.css 的 `radius.floating`/`--dsh-radius-floating` 20px）。
     /// 运行时由页面按实际渲染值覆盖（`setRadius`），这里只是构造那一刻的占位。
-    private static let cardCornerRadius: CGFloat = 20
+    private static let cardCornerRadius = ShellRadius.floating
 
     init(surface: Surface = .window) {
         self.surface = surface

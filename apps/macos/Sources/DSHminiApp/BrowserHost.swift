@@ -76,7 +76,7 @@ final class BrowserHost: NSObject {
         // 圆角与 .main 卡片同心（tokens.json radius.panel = 18，keep in sync）：原生视图
         // 浮在 SPA 之上，.main 的 overflow 裁剪管不到它，直角会盖住卡片的圆角
         view.wantsLayer = true
-        view.layer?.cornerRadius = 18
+        view.layer?.cornerRadius = ShellRadius.panel
         view.layer?.masksToBounds = true
         view.allowsMagnification = false
         view.isInspectable = true

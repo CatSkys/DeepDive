@@ -122,7 +122,7 @@
 /* ── 下拉菜单（统一弹出面板配方） ── */
 .ddMenu {
   /* 材质族（menu）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--panel-glass);
+  --glass-tint: var(--glass-fill-float);
   --glass-blur: var(--blur-float);
   --glass-inset: var(--shadow-pop-inset);
   position: absolute;
@@ -311,7 +311,7 @@
   justify-content: center;
 }.modal {
   /* 材质族（dialog）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--panel-strong);
+  --glass-tint: var(--glass-fill-dialog);
   --glass-blur: var(--blur-scrim);
   --glass-inset: var(--shadow-modal-inset);
   width: 470px;
@@ -321,6 +321,10 @@
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
   box-shadow: var(--shadow-modal-drop);
+  /* 材质层是绝对定位子元素（inset:0）：宿主必须是定位元素，否则它铺到最近的定位祖先上
+     （对话框那层是 fixed inset:0 的遮罩）——2026-10-14 用户截图里"整窗一块暗面、卡片找不到
+     边"就是这个。 */
+  position: relative;
 }
 .modalHead { display: flex; align-items: center; gap: 10px; padding: 16px 18px 10px; }
 .modalTitle { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }

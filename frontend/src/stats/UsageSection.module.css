@@ -119,7 +119,7 @@
    前缀顺序 -webkit- 在前。 */
 .tip {
   /* 材质族（menu）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--panel-glass);
+  --glass-tint: var(--glass-fill-float);
   --glass-blur: var(--blur-float);
   --glass-inset: var(--shadow-pop-inset);
   position: fixed;

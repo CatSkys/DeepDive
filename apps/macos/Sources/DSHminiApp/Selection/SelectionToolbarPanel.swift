@@ -52,7 +52,7 @@ final class SelectionToolbarPanel: NSObject {
     window.isOpaque = false
     window.backgroundColor = .clear
     window.hasShadow = false
-    window.level = .popUpMenu
+    window.level = ShellWindowLevel.selectionToolbar
     window.hidesOnDeactivate = false
     window.isReleasedWhenClosed = false
     window.becomesKeyOnlyIfNeeded = true

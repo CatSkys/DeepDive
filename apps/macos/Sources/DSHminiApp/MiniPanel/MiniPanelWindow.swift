@@ -51,7 +51,7 @@ enum MiniPanelScrollerPhase: Equatable {
 /// menu. Pins resize from their corners and report frames,
 /// so this keeps its own, smaller version of their press handling rather than sharing it.
 final class MiniPanelWindow: NSPanel {
-  static let level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)
+  static let level = ShellWindowLevel.miniPanel
 
   /// What lies under a point in global coordinates (y up).
   var pressTarget: ((NSPoint) -> MiniPanelPress)?
