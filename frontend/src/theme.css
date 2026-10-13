@@ -575,7 +575,8 @@ button {
 }
 
 /* 迷你面板的首页（草稿脸）：头部同会话页根条（复用 hero-top，靠 --hero-pad-x 负边距
-   抵齐）；其下招呼语在中间居中、提示词胶囊一行贴在输入框上方、输入框钉底。 */
+   抵齐）；其下招呼语横向居中、垂直居中（UI-SPEC §3.1 的空状态：留白、内容居中），
+   提示词胶囊一行贴在输入框上方，输入框钉底。 */
 .mini-draft {
   flex: 1;
   position: relative;
@@ -586,25 +587,39 @@ button {
   --hero-pad-x: 24px;
   padding: 0 var(--hero-pad-x) 12px;
 }
-/* 招呼语在**中间居中**：上下两份 auto 外边距均分自由空间（经典空状态的样子，用户
-   2026-10-13 定稿——此前试过贴头部、试过按 1/3 与 2/3 分，都不对）。 */
+/* 招呼语在**中间居中**：文字横向居中，上下两份 auto 外边距均分自由空间把它摆到垂直
+   正中（用户 2026-10-13 定稿：要靠左就不是居中了——此前试过贴头部、按 1/3 与 2/3 分，
+   都不对）。 */
 .mini-draft-hello {
   margin: auto 0;
   font-size: var(--dsh-font-size-xl);
   font-weight: 400;
   line-height: 24px;
   letter-spacing: .01em;
+  text-align: center;
   color: var(--ink);
 }
-/* 胶囊按内容宽换行排布，**贴在输入框上方**（同一组的下缘）；一颗 = 一个短标签（预填的
-   整段提示词看不见，进输入框才读）。无描边（UI-SPEC §1.1「有底色的卡片一律不描边」），
-   两端全圆走 radius.bubble 同文件那颗文件 chip 的口径（30 高的盒子上被裁成半高整圆端，
-   不写 999px）；--fill 底配 --ink-soft 字同 .ws-pill 那条配方；hover 不门控——常驻
-   控件不是随内容滑动的行（UI-SPEC §1.10 门控范围）。 */
-.mini-draft-prompts { display: flex; flex-wrap: wrap; gap: 10px; }
+/* 提示词胶囊行：**单行**（不折行），贴在输入框上方。放不下时横向滚动——滚动条隐藏 +
+   .fade-x 两端渐隐 + 滚轮就地消费，走 FadeEdge 这条超限标准件（UI-SPEC §0/§2.1：
+   超限只许渐隐表达，禁裸滚动条与生硬裁切线；配方同 .ws-switcher）。 */
+.mini-prompts {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox：隐藏滚动条 */
+}
+.mini-prompts::-webkit-scrollbar { display: none; } /* WKWebView/Chromium：隐藏滚动条 */
+/* auto margin 居中（放得下时居中，溢出时归零，同 .ws-switcher-cells 那条注释的理由） */
+.mini-prompts-row { display: flex; align-items: center; gap: 8px; margin: 0 auto; }
+/* 一颗 = 一个短标签（预填的整段提示词看不见，进输入框才读）。无描边（UI-SPEC §1.1
+   「有底色的卡片一律不描边」），两端全圆走 radius.bubble 同文件那颗文件 chip 的口径
+   （盒子上被裁成半高整圆端，不写 999px）；--fill 底配 --ink-soft 字同 .ws-pill 那条
+   配方；flex: none 不许被压扁——放不下归横向滚动管。hover 不门控：常驻控件不是随内容
+   滑动的行（UI-SPEC §1.10 门控范围）。 */
 .mini-prompt {
-  height: 30px;
-  padding: 0 14px;
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
   border-radius: var(--dsh-radius-bubble);
   background: var(--fill);
   color: var(--ink-soft);
