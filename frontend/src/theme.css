@@ -1585,8 +1585,15 @@ button {
    --composer-bg 保留作 tint——「tint 只定基调、玻璃观感归材质」（PITFALLS §7 玻璃那条），
    所以即使材质在本运行时画不出东西，胶囊仍是一块读得清的面，不会凭空消失。
    降级链：系统材质 → 上面的 CSS 模糊 → 底色；不支持的运行时整块不生效。
+   实测（macOS 27 / 系统 WebKit 22625.1.29.11.27）：该属性在运行时的 WKWebView 里
+   **整体不存在**——`CSS.supports("-apple-visual-effect", "initial")` 与十个材质值全为
+   false（`backdrop-filter` 为 true；本机无 Safari 独立那份 WebKit，应用与 Safari 共用
+   系统份），所以**这一档在本代系统上不生效，实际材质是 CSS 模糊**。整块保留的理由：
+   它就是能力探测降级（铁律 4），属性存在的那代 WebKit 自动升级；且它是"网页内拿系统
+   玻璃"的唯一入口——原生 `NSGlassEffectView` 糊不到同一块 webview 里的内容
+   （PITFALLS §4.38）。
    注：浏览器悬浮卡那一页（另一块 webview）里 CSS 模糊本来就采不到面外内容，那一档
-   由壳的原生磨砂兜着（见 .chat-float 段），系统材质档在那边反而能生效。 */
+   由壳的原生磨砂兜着（见 .chat-float 段）。 */
 @supports (-apple-visual-effect: -apple-system-glass-material-media-controls) {
   [data-liquid-glass-backdrop] {
     -apple-visual-effect: -apple-system-glass-material-media-controls;
