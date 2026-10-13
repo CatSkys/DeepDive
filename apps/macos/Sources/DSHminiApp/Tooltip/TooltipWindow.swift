@@ -20,6 +20,9 @@ final class TooltipWindow: NSPanel {
   /// 半径 18 / 向下 8），而窗口会把它裁掉——所以窗口四周留出这一圈透明边，玻璃与内容
   /// 一起内缩同一个值。改投影参数就要跟着改这里。
   static let shadowInset: CGFloat = 28
+  /// 量尺寸用的初始视口（`?tooltip=1` 那一页第一次量之前窗口的大小）：够放下 300 上限的
+  /// 单行注释（300 + 内距 12）与两行的高度。
+  static let initialSize = NSSize(width: 320, height: 56)
   /// 高于迷你面板那一档（`MiniPanelWindow.level` = floating + 1）：注释要浮在它上面。
   static let level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 2)
 
@@ -39,8 +42,12 @@ final class TooltipWindow: NSPanel {
   init(configuration: WKWebViewConfiguration) {
     let web = WKWebView(frame: .zero, configuration: configuration)
     self.web = web
+    // 初值不是 1×1：这一页要**先量出注释多大**壳才知道窗口该多大，视口挤成一列会量出
+    // 一个又窄又高的错尺寸（实测：48 高而真值 30）。给一档"放得下常规注释"的量尺尺寸，
+    // 收到实测值后窗口再收到刚好；真比它还宽的长文案按 max-width 300 换行，页里会按
+    // resize 重量一次对齐。
     super.init(
-      contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
+      contentRect: NSRect(origin: .zero, size: Self.initialSize),
       styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     level = Self.level
     collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]

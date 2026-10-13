@@ -853,6 +853,28 @@
   胶囊与输入框只有布局与图标，用户报"胶囊和输入框怎么没了"）。同理，原生面报上来的
   圆角可能是个"整圆"写法（999px），喂给 CALayer/CGPath 前要收敛到半个短边。
 
+### 4.45 锚点换算别手动翻 y：WKWebView 自己是 flipped 的，手翻一次就是翻两遍
+- 事故（2026-10-13 用户报"都跑到下面去了"）：悬浮注释改原生窗口后，**所有**注释都落在窗口
+  底部——悬停顶栏按钮，注释出现在离它约 700px 的下方。
+- 根因：锚点是页面给的 CSS 视口矩形（左上原点、y 向下）。按"NSView 默认左下原点"手动翻一次
+  y（`bounds.height - css.maxY`）再交给 `web.convert(_:to:)`——而 **WKWebView 自己就是
+  flipped 的**（`isFlipped == true`，实测），它的坐标系与 CSS 同向，`convert` 又替我把翻转
+  解了一次：翻两遍，`css.y` 被当成"从下沿起算"。症状可以直接验算：算出来的锚点恒等于
+  `window.origin.y + css.y`。
+- 判据（不用看图）：**x 对、y 恒偏 就先数坐标系数了几遍**。一行探针 `web.isFlipped` 定案。
+- 处置：CSS 矩形**原样**交给 `web.convert(_:to:)`，不手动翻。本仓别处（`QuickPanelController
+  .hostFrame`、titlebar 的 rect 表）手写翻转是对的——它们从 webview 的 `frame` 起算、不经过
+  `convert`；两种口径别混（`Tooltip/` 是唯一走 `convert` 的一处）。
+- 同一轮实测到的另一半：注释页要**先量出自己多大**壳才知道窗口开多大，窗口初值若给 1×1
+  会把注释挤成一列、量出"48 高"这种错值（真值 30）。初值给一档放得下常规注释的量尺尺寸
+  （`TooltipWindow.initialSize`），并让注释页按 resize 重量一次；壳侧比对 frame 再摆，
+  防"量→摆→再量"空转。
+- 顺带一条**这类"合成输入自测"的口径**（本轮首次用上，值得复用）：`CGWarpMouseCursorPosition`
+  不产生事件（hover 不会触发），要用 `CGEvent(mouseEventSource:mouseType:.mouseMoved…)
+  .post(tap: .cghidEventTap)`；且**应用得在前台**（`NSRunningApplication.activate`），
+  否则 inactive 的窗口收不到 mouseover。窗口落点用 `CGWindowListCopyWindowInfo` 枚举本应用
+  窗口（注释窗口是 `floating + 2`）比截图靠谱。
+
 ### 4.37 页面明暗不能只靠壳那一次推送：漏一次就是"壳已浅色、页面仍暗色"
 - 事故（2026-10-09，用户报他机 macOS 27）：切成浅色模式后窗口底板变浅、内容卡还是暗色，
   侧栏白字压在浅玻璃上像空的。同一 macOS 版本、同一份包的另一台复现不出。
