@@ -455,6 +455,84 @@ export function uploadAttachmentPath(path: string, sessionId: string, name: stri
   );
 }
 
+/* ── 截图与划词（Atd 移植）：截图整段会话在壳里跑（冻结屏幕/选区/标注），回来的是与
+   附件选择器同形的 items（图片内联 base64、屏幕上下文按路径）——摄入路径复用 ＋ 选择器
+   那一份（`ingestPicked`）。划词的选中文字走「读一次」请求，工具条设置整份推给壳。 ── */
+
+/** 请壳截一张图（`screenshot-capture`）；取消 resolve null。用户要拖选区与标注，
+ *  给足时限（桥的超时只是兜底，正常几百毫秒到几十秒）。 */
+export function screenshotCapture(): Promise<PickedAttachment[] | null> {
+  return bridgeRequest(
+    "screenshotCaptured",
+    null,
+    (p) => {
+      const r = p as { ok?: boolean; items?: PickedAttachment[] } | undefined;
+      return r?.ok ? (r.items ?? []) : null;
+    },
+    (reqId) => sendToShell({ type: "screenshot-capture", reqId }),
+    600_000,
+  );
+}
+
+/** 重开一张已存图片继续编辑（`screenshot.edit`）；同样回附件项。 */
+export function screenshotEdit(path: string): Promise<PickedAttachment[] | null> {
+  return bridgeRequest(
+    "screenshotCaptured",
+    null,
+    (p) => {
+      const r = p as { ok?: boolean; items?: PickedAttachment[] } | undefined;
+      return r?.ok ? (r.items ?? []) : null;
+    },
+    (reqId) => sendToShell({ type: "screenshot-edit", reqId, path }),
+    600_000,
+  );
+}
+
+/** 读一次前台应用里选中的文字（`selection-capture`）；读不到（无选区/未授权）resolve null。 */
+export function selectionCapture(): Promise<{ text: string; capturedAt: string } | null> {
+  return bridgeRequest(
+    "selectionCaptured",
+    null,
+    (p) => {
+      const r = p as { ok?: boolean; value?: { text: string; capturedAt: string } } | undefined;
+      return r?.ok && r.value ? r.value : null;
+    },
+    (reqId) => sendToShell({ type: "selection-capture", reqId }),
+    10_000,
+  );
+}
+
+/** 把整份选区工具条设置推给壳（壳存偏好并立即生效；不回执）。 */
+export function selectionToolbarSet(settings: Record<string, unknown>): void {
+  sendToShell({ type: "selection-toolbar-set", settings });
+}
+
+/** toggle 模式的监听开合（工具条 HUD 与状态菜单据此显示）。 */
+export function selectionSetListening(on: boolean): void {
+  sendToShell({ type: "selection-listening", on });
+}
+
+/** 选一批「不显示选区工具条」的 App（壳开系统选 App 面板）。 */
+export function selectionAppsPick(): Promise<Array<{ bundleId: string; name: string }>> {
+  return bridgeRequest(
+    "appsPicked",
+    [],
+    (p) => (p as { apps?: Array<{ bundleId: string; name: string }> } | undefined)?.apps ?? [],
+    (reqId) => sendToShell({ type: "selection-apps-pick", reqId }),
+    120_000,
+  );
+}
+
+/** 打开系统设置的辅助功能面板（工具条要这项授权）。 */
+export function openAccessibilitySettings(): void {
+  sendToShell({ type: "accessibility-request" });
+}
+
+/** 请求屏幕录制授权（截图要这项授权）。 */
+export function requestScreenRecording(): void {
+  sendToShell({ type: "screen-recording-request" });
+}
+
 export function installHostBridge(handlers: Partial<{
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;
@@ -474,6 +552,19 @@ export function installHostBridge(handlers: Partial<{
   newSession: () => void;
   /** 菜单「帮助 → 新手引导」：把引导卡再请出来（与首启那张同一份）。 */
   openOnboarding: () => void;
+  /** 截图到了（全局热键或迷你面板条目发起，没有请求方）：items 与附件选择器同形，
+   *  按既有摄入路径建 chip。带 reqId 的不走这里（那是 `screenshotCapture()` 的应答）。 */
+  onScreenshotArrived: (items: PickedAttachment[]) => void;
+  /** 截图进了剪贴板（复制路径）。 */
+  onScreenshotCopied: () => void;
+  /** 屏幕录制未授权，截图没跑起来。 */
+  onScreenRecordingDenied: () => void;
+  /** 工具条上的「问 DeepDive」：文字已在壳里暂存，这里读它并引用进草稿。 */
+  onSelectionAsk: () => void;
+  /** toggle 模式监听状态变了。 */
+  onSelectionListening: (on: boolean) => void;
+  /** 辅助功能授权状态变了。 */
+  onAccessibilityTrust: (trusted: boolean) => void;
 }> = {}): void {
   if (window.__deepDiveHost) return; // idempotent mount (StrictMode/reloads)
   window.__deepDiveHost = {
@@ -516,6 +607,32 @@ export function installHostBridge(handlers: Partial<{
         }
         case "openOnboarding": {
           handlers.openOnboarding?.();
+          break;
+        }
+        case "screenshotCaptured": {
+          const p = payload as { reqId?: string; items?: PickedAttachment[] } | undefined;
+          if (!p?.reqId) handlers.onScreenshotArrived?.(p?.items ?? []);
+          break;
+        }
+        case "screenshotCopied": {
+          handlers.onScreenshotCopied?.();
+          break;
+        }
+        case "screenRecordingDenied": {
+          handlers.onScreenRecordingDenied?.();
+          break;
+        }
+        case "selectionAsk": {
+          handlers.onSelectionAsk?.();
+          break;
+        }
+        case "selectionListening": {
+          handlers.onSelectionListening?.((payload as { on?: boolean } | undefined)?.on === true);
+          break;
+        }
+        case "accessibilityTrust": {
+          handlers.onAccessibilityTrust?.(
+            (payload as { trusted?: boolean } | undefined)?.trusted === true);
           break;
         }
         default:

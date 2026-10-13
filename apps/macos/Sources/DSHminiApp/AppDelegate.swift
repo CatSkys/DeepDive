@@ -9,6 +9,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var miniPanel: MiniPanelController!
     private var statusItem: StatusItemController!
     private var hotKey: HotKeyManager!
+    /// 截图的壳侧编排（Atd 移植族的接线）；懒建：测试宿主不碰屏幕冻结与授权计时器。
+    private lazy var screenshot = ScreenshotController()
+    /// 划词的壳侧编排（Atd 移植族的接线）；懒建同上。
+    private lazy var selection = SelectionController()
+    /// 桥消息的来源窗口：结果要回到发起它的那个页面。
+    enum BridgeSource { case main, panel }
+    /// 进行中的截图：来源（nil = 全局热键，交付后要把面板亮起来）与请求 id。
+    private var pendingCapture: (source: BridgeSource?, reqId: String?)?
     private var config: AppConfig!
     private var terminationSource: DispatchSourceSignal?
 
@@ -78,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Theme changes flow through the same path as the old menu toggle and
         // push `themeChanged`; hotkey re-binds re-register the Carbon hotkey.
         windowController.onHostMessage = { [weak self] body in
-            self?.handleHostMessage(body)
+            self?.handleHostMessage(body, from: .main)
         }
 
         // Notification tap → activate + route to the tapped session (§1.1).
@@ -95,7 +103,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 全局热键 = 会话窗口（迷你面板）的显隐开关（用户定稿：热键是会话窗口的
         // 开关，与胶囊无关）；召唤目标永远是迷你面板，不是本体主窗。
-        hotKey.onHotKey = { [weak self] in self?.quickPanel.togglePanel() }
+        hotKey.onPanelHotKey = { [weak self] in self?.quickPanel.togglePanel() }
+        hotKey.onScreenshotHotKey = { [weak self] in self?.beginCapture(from: nil, reqId: nil) }
         // 迷你面板的启动器（屏缘药丸/胶囊，Atd 整包移植）：Actions 接到本项目
         // 的既有流程；划词（P2）/截图（P3）/拖放（P3）未上——条目按 §6.1 不
         // 显示，对应 Actions 槽位先空着留给后续接线。
@@ -103,27 +112,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         miniPanel.actions = MiniPanelController.Actions(
             toggle: { [weak self] in self?.quickPanel.togglePanel() },
             newTask: { [weak self] in self?.quickPanelNewTask() },
-            ask: {},
-            screenshot: {},
+            ask: { [weak self] in self?.askAboutSelection() },
+            screenshot: { [weak self] in self?.beginCapture(from: .panel, reqId: nil) },
             command: { [weak self] id in self?.quickPanelCommand(id) },
             openSettings: { [weak self] in self?.openSettings() },
             openItems: { _ in },
             importImage: { _ in },
-            askAbout: { _ in },
+            askAbout: { [weak self] text in self?.askAboutSelection(known: text) },
             showPanel: { [weak self] in self?.quickPanel.showPanel() },
             reportFailures: { _ in },
             panelIsKey: { [weak self] in self?.quickPanel.window.isKeyWindow ?? false },
             stateChanged: {}
         )
         miniPanel.start()
-        if hotKey.register(spec: config.hotkey) {
+        wireCaptureAndSelection()
+        if hotKey.register(.panel, spec: config.hotkey) {
             EngineLog.shared.append("[shell] hotkey registered: \(config.hotkey)")
         } else {
             EngineLog.shared.append("[shell] hotkey register FAILED: \(config.hotkey)")
         }
+        registerScreenshotHotkey()
         // 全局热键开关（设置-快捷键）：关 = 系统级注销，⌥Space 不再触发
         if !DSHAppPrefs.hotkeyOn {
-            hotKey.unregister()
+            hotKey.unregister(.panel)
             EngineLog.shared.append("[shell] hotkey disabled by pref")
         }
 
@@ -135,7 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 迷你面板窗口**无条件创建**：热键与药丸钮随时会碰它， IUO 上留 nil
         // 就是崩溃；bridge 起不来时只加载不出页面（玻璃空壳），与主窗同命。
         quickPanel = QuickPanelController()
-        quickPanel.onHostMessage = { [weak self] body in self?.handleHostMessage(body) }
+        quickPanel.onHostMessage = { [weak self] body in self?.handleHostMessage(body, from: .panel) }
         if let bridgeURL = BridgeServer.shared.url {
             // Deep link aid: DSHMINI_OPEN_SID=<session-id> opens that session on boot.
             if let sid = ProcessInfo.processInfo.environment["DSHMINI_OPEN_SID"],
@@ -287,7 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var hotkeyRecorder: HotkeyRecorderWindow?
 
-    private func handleHostMessage(_ body: [String: Any]) {
+    private func handleHostMessage(_ body: [String: Any], from source: BridgeSource) {
         guard let type = body["type"] as? String else { return }
         switch type {
         case "host-ready":
@@ -310,7 +321,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.startEngine()
             }
         case "rebind-hotkey":
-            beginHotkeyRecording()
+            beginHotkeyRecording(which: body["which"] as? String ?? "panel")
         case "set-pref":
             guard let key = body["key"] as? String else { return }
             // 字符串偏好（外观三态 / 语言）：JS string 桥接成 NSString。
@@ -326,6 +337,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 } else if key == "onboarding" {
                     // 新手引导进度（JSON 串，结构由前端 onboarding/useOnboarding 定义）。
                     DSHAppPrefs.setOnboarding(mode)
+                } else if key == "screenshotHotkey" {
+                    DSHAppPrefs.setScreenshotHotkey(mode)
+                    registerScreenshotHotkey()
                 }
                 break
             }
@@ -348,9 +362,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "hotkeyOn":
                     DSHAppPrefs.setHotkeyOn(value)
                     if value {
-                        hotKey.register(spec: config.hotkey)
+                        hotKey.register(.panel, spec: config.hotkey)
                     } else {
-                        hotKey.unregister()
+                        hotKey.unregister(.panel)
                     }
                 case "menuBar":
                     DSHAppPrefs.setMenuBar(value)
@@ -360,6 +374,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     NSApp.setActivationPolicy(value ? .regular : .accessory)
                 case "miniPanel": miniPanel.setShown(value)
                 case "modelDetail": DSHAppPrefs.setModelDetail(value)
+                case "screenshotHotkeyOn":
+                    DSHAppPrefs.setScreenshotHotkeyOn(value)
+                    registerScreenshotHotkey()
                 default: break
                 }
             } else if key == "sidebarWidth" {
@@ -447,6 +464,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 instructions: body["instructions"] as? String ?? "",
                 out: windowController,
             )
+        case "screenshot-capture":
+            beginCapture(from: source, reqId: body["reqId"] as? String)
+        case "screenshot-edit":
+            beginCaptureEdit(
+                path: body["path"] as? String ?? "", from: source, reqId: body["reqId"] as? String)
+        case "selection-capture":
+            captureSelectionFor(source: source, reqId: body["reqId"] as? String)
+        case "selection-toolbar-set":
+            if let settings = body["settings"] as? [String: Any] {
+                DSHAppPrefs.setSelectionToolbar(Self.jsonString(settings))
+                selection.apply(ToolbarSetParams(settings))
+            }
+        case "selection-listening":
+            selection.setListening(body["on"] as? Bool ?? false)
+        case "selection-apps-pick":
+            pickExcludedApps(from: source, reqId: body["reqId"] as? String)
+        case "accessibility-request":
+            selection.openAccessibilityPane()
+        case "screen-recording-request":
+            screenshot.requestPermission()
         case "pick-attachments":
             pickAttachments(reqId: body["reqId"] as? String ?? "")
         // 按路径上传附件（选择器挑中的文件走这条：SPA 那侧要么整段进一次请求，
@@ -861,6 +898,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "keybinds": DSHAppPrefs.keybinds,
             "onboarding": DSHAppPrefs.onboarding,
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
+            "selectionToolbar": DSHAppPrefs.selectionToolbar,
+            "screenshotHotkey": DSHAppPrefs.screenshotHotkey,
+            "screenshotHotkeyOn": DSHAppPrefs.screenshotHotkeyOn,
             // 热键 spec（"option+space"）：SPA 据此显示当前热键，不带它设置页只能显示
             // 一个写死的默认值（改过热键、重启后就对不上）
             "hotkey": AppConfig.load().hotkey,
@@ -892,7 +932,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 录制窗结束（成功带新 spec，取消/关窗带 nil）：两条路都要回一条消息——SPA 的
     /// 组合键钮在等这一条才能从「录制中…」退出来（取消时静默返回，那枚钮会一直卡在
     /// 录制态，用户只能重开设置页）。
-    private func beginHotkeyRecording() {
+    private func beginHotkeyRecording(which: String) {
         let recorder = HotkeyRecorderWindow()
         recorder.onResult = { [weak self] spec in
             guard let self else { return }
@@ -900,15 +940,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.windowController.pushHostCommand("hotkeyRecordingEnded", payload: "{}")
                 return
             }
+            if which == "screenshot" {
+                DSHAppPrefs.setScreenshotHotkey(spec)
+                self.registerScreenshotHotkey()
+                EngineLog.shared.append("[settings] screenshot hotkey rebound: \(spec)")
+                self.pushScreenshotHotkey()
+                return
+            }
             var cfg = AppConfig.load()
             cfg.hotkey = spec
             cfg.save()
-            self.hotKey.register(spec: cfg.hotkey)
+            self.hotKey.register(.panel, spec: cfg.hotkey)
             EngineLog.shared.append("[settings] hotkey rebound: \(spec)")
             self.pushHotkey()
         }
         hotkeyRecorder = recorder
         recorder.showRecorder()
+    }
+
+    /// 截图热键的新值推给页面（设置页那枚钮据此退出「录制中…」并显示新组合）。
+    private func pushScreenshotHotkey() {
+        let json = Self.jsonPayload([
+            "which": "screenshot", "spec": DSHAppPrefs.screenshotHotkey,
+        ])
+        windowController.pushHostCommand("hotkeyChanged", payload: json)
+        quickPanel.pushHostCommand("hotkeyChanged", payload: json)
     }
 
     // MARK: - main menu (⌘, needs a menu seat; Edit menu powers ⌘C/⌘V in
@@ -1104,5 +1160,184 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.supervisor = newSupervisor
             self.startEngine()
         }
+    }
+
+    // MARK: - 截图与划词的接线（Atd 移植族，见 ScreenshotController / SelectionController）
+
+    /// 结果交付、事件外推与持久化设置回灌——移植族本身不碰桥，全在这一段。
+    private func wireCaptureAndSelection() {
+        screenshot.onDelivered = { [weak self] delivered in self?.deliverCapture(delivered) }
+        screenshot.onCopied = { [weak self] in
+            guard let self else { return }
+            self.pushHost("screenshotCopied", payload: [:], to: self.currentSource())
+        }
+        screenshot.onPermissionDenied = { [weak self] in
+            guard let self else { return }
+            self.pushHost("screenRecordingDenied", payload: [:], to: self.currentSource())
+        }
+        screenshot.onWantsAccessibility = { SelectionReader.requestTrust() }
+        // 「问 DeepDive」：页面亮面板并把暂存里的文字引用进草稿（文字已由壳存好）。
+        selection.onAsk = { [weak self] _ in
+            guard let self else { return }
+            self.quickPanel.showPanel()
+            self.pushHost("selectionAsk", payload: [:], to: .panel)
+        }
+        // 工具条上的命令：与迷你面板命令卡同一条通道（面板亮起、命令跑在会话里）。
+        selection.onCommand = { [weak self] id in self?.quickPanelCommand(id) }
+        selection.onListeningChange = { [weak self] on in
+            guard let self else { return }
+            self.pushHost("selectionListening", payload: ["on": on], to: self.currentSource())
+        }
+        selection.onTrustChange = { [weak self] trusted in
+            guard let self else { return }
+            self.pushHost("accessibilityTrust", payload: ["trusted": trusted], to: self.currentSource())
+        }
+        applyPersistedSelectionToolbar()
+    }
+
+    /// 结果推给谁：迷你面板窗可见就推它（用户正在那儿工作），否则主窗。
+    private func currentSource() -> BridgeSource {
+        (quickPanel?.window.isVisible ?? false) ? .panel : .main
+    }
+
+    private func pushHost(_ cmd: String, payload: [String: Any], to source: BridgeSource) {
+        let json = Self.jsonPayload(payload)
+        switch source {
+        case .main: windowController.pushHostCommand(cmd, payload: json)
+        case .panel: quickPanel.pushHostCommand(cmd, payload: json)
+        }
+    }
+
+    /// 截图热键（默认 ⌘⇧2）：关着就注销；注册失败只落日志（设置页的状态由它自己读）。
+    private func registerScreenshotHotkey() {
+        guard DSHAppPrefs.screenshotHotkeyOn else {
+            hotKey.unregister(.screenshot)
+            return
+        }
+        let spec = DSHAppPrefs.screenshotHotkey
+        if !hotKey.register(.screenshot, spec: spec) {
+            EngineLog.shared.append("[shell] screenshot hotkey register FAILED: \(spec)")
+        }
+    }
+
+    /// 上次存的工具条设置：页面还没推之前先按它工作（工具条要在加载前就生效）。
+    private func applyPersistedSelectionToolbar() {
+        let raw = DSHAppPrefs.selectionToolbar
+        guard !raw.isEmpty, let data = raw.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return }
+        selection.apply(ToolbarSetParams(object))
+    }
+
+    /// `screenshot-capture`：来源 nil = 全局热键（交付后把面板亮起来）。
+    private func beginCapture(from source: BridgeSource?, reqId: String?) {
+        guard pendingCapture == nil else { return }
+        pendingCapture = (source, reqId)
+        Task { @MainActor in
+            do {
+                try await screenshot.capture()
+            } catch {
+                self.finishCapture(
+                    payload: ["ok": false, "error": (error as? LocalizedError)?.errorDescription ?? "\(error)"])
+            }
+        }
+    }
+
+    /// `screenshot.edit`：重开一张已存图片继续编辑。
+    private func beginCaptureEdit(path: String, from source: BridgeSource, reqId: String?) {
+        guard pendingCapture == nil, !path.isEmpty else { return }
+        pendingCapture = (source, reqId)
+        Task { @MainActor in
+            do {
+                try await screenshot.edit(path: path)
+            } catch {
+                self.finishCapture(
+                    payload: ["ok": false, "error": (error as? LocalizedError)?.errorDescription ?? "\(error)"])
+            }
+        }
+    }
+
+    /// 交付：图片按既有附件口径内联字节（页面拿它建输入框里的 chip），屏幕上下文按路径。
+    private func deliverCapture(_ delivered: ScreenshotController.Delivered) {
+        finishCapture(payload: ["ok": true, "items": captureItems(delivered)])
+    }
+
+    private func finishCapture(payload: [String: Any]) {
+        guard let pending = pendingCapture else { return }
+        pendingCapture = nil
+        let source = pending.source ?? currentSource()
+        var body = payload
+        if let reqId = pending.reqId { body["reqId"] = reqId }
+        pushHost("screenshotCaptured", payload: body, to: source)
+        // 热键召唤：图进了草稿就把面板亮出来（Atd 的「截图后见面板」）。
+        if pending.source == nil, (payload["ok"] as? Bool) == true { quickPanel.showPanel() }
+    }
+
+    private func captureItems(_ delivered: ScreenshotController.Delivered) -> [[String: Any]] {
+        var items: [[String: Any]] = []
+        if let data = try? Data(contentsOf: delivered.image),
+           data.count <= Self.maxInlineImageBytes {
+            items.append([
+                "path": delivered.image.path,
+                "name": delivered.image.lastPathComponent,
+                "isDir": false,
+                "isImage": true,
+                "bytes": data.count,
+                "base64": data.base64EncodedString(),
+            ])
+        }
+        if let context = delivered.context {
+            let bytes = (try? context.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+            items.append([
+                "path": context.path, "name": context.lastPathComponent, "isDir": false,
+                "bytes": bytes,
+            ])
+        }
+        return items
+    }
+
+    /// `selection-capture`：现读一次前台 App 的选区并答给页面。
+    private func captureSelectionFor(source: BridgeSource, reqId: String?) {
+        Task { @MainActor in
+            let result = await selection.captureCurrentSelection()
+            var payload = result.json
+            payload["reqId"] = reqId ?? ""
+            pushHost("selectionCaptured", payload: payload, to: source)
+        }
+    }
+
+    /// 迷你面板「就所选文字询问」：文字已知（拖入的文本）就用它，否则现读前台选区，
+    /// 然后亮面板让页面把文字引用进草稿。
+    private func askAboutSelection(known: String? = nil) {
+        Task { @MainActor in
+            if let known {
+                selection.stash(known)
+            } else {
+                _ = await selection.captureCurrentSelection()
+            }
+            quickPanel.showPanel()
+            pushHost("selectionAsk", payload: [:], to: .panel)
+        }
+    }
+
+    /// `selection-apps-pick`：选一批「不显示工具条」的 App（结果按 bundleId 记设置）。
+    private func pickExcludedApps(from source: BridgeSource, reqId: String?) {
+        Task { @MainActor in
+            let result = await selection.pickExcludedApps()
+            pushHost(
+                "appsPicked",
+                payload: [
+                    "reqId": reqId ?? "",
+                    "apps": result.apps.map { ["bundleId": $0.bundleId, "name": $0.name] },
+                ],
+                to: source)
+        }
+    }
+
+    /// 一段 JSON 文本（存偏好用；构造路径与 jsonPayload 同一份 JSONSerialization）。
+    static func jsonString(_ object: Any) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: object),
+              let json = String(data: data, encoding: .utf8) else { return "{}" }
+        return json
     }
 }

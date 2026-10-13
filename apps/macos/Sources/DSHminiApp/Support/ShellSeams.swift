@@ -94,26 +94,6 @@ enum ShellStringKey {
   case screenshotCloseDialog
 }
 
-/// AICore 侧复用的文案（`ShellStrings.catalog`）：语言 + 查表闭包，与 Atd `ShellText` 同形。
-public struct ShellText: Sendable {
-  let language: ShellLanguage
-  let lookup: @Sendable (ShellStringKey) -> String
-
-  func callAsFunction(_ key: ShellStringKey) -> String { lookup(key) }
-
-  /// 带一个 `%@` 的整句。
-  func text(_ key: ShellStringKey, _ argument: String) -> String { lookup(key).replacingOccurrences(of: "%@", with: argument) }
-
-  /// 带两个 `%@`（Atd 用位置参数 `%1$@`；本地表按出现顺序替换）。
-  func text(_ key: ShellStringKey, _ first: String, _ second: String) -> String {
-    var text = lookup(key)
-    for argument in [first, second] {
-      if let range = text.range(of: "%@") { text.replaceSubrange(range, with: argument) }
-    }
-    return text
-  }
-}
-
 final class ShellStrings {
   static let shared = ShellStrings()
   static let didChange = Notification.Name("deepdive.shellStringsDidChange")
@@ -221,11 +201,6 @@ final class ShellStrings {
   /// 带一个参数的整句（Atd 目录里有 `%lld` / `%@` 的键用）。
   func text(_ key: ShellStringKey, _ argument: String) -> String {
     text(key).replacingOccurrences(of: "%@", with: argument)
-  }
-
-  /// AICore 侧复用的文案面（Atd `ShellStrings.catalog`）。
-  var catalog: ShellText {
-    ShellText(language: language) { [weak self] key in self?.text(key) ?? "" }
   }
 }
 

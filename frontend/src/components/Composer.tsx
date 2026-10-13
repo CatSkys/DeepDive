@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, Square, Plus, Mic } from "lucide-react";
+import { ArrowUp, Square, Plus, Mic, Camera } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
@@ -15,7 +15,8 @@ import { classifyAttachmentRefusal, classifyAttachmentRefusalText, type Attachme
 import type { RpcErrorFacts } from "../api";
 import { useComposerDraft } from "./composer/useComposerDraft";
 import { useComposerAttachments, type ImageAttachment } from "./composer/useComposerAttachments";
-import { DD_EVENTS } from "../events";
+import { onHostEvent, screenshotCapture, selectionCapture, type PickedAttachment } from "../host";
+import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { useComposerDictation } from "./composer/useComposerDictation";
 import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
 import { useSlashCommands } from "./composer/useSlashCommands";
@@ -85,7 +86,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
   const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
-  const { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile } =
+  const { attachments, setAttachments, addAttachments, ingestAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile } =
     useComposerAttachments({ setText, hasShell, sessionId });
   // 听写 final 落稿后回焦（长高由 [text] 的 useLayoutEffect 统一负责）
   const refocusDraft = () => requestAnimationFrame(() => {
@@ -300,6 +301,45 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
       window.removeEventListener(DD_EVENTS.composerFocus, onFocus);
     };
   }, [setText]);
+
+  /** 截一张图（＋ 旁的相机钮）：壳里跑完冻结/选区/标注，回来的是与选择器同形的 items。 */
+  const addScreenshot = () => {
+    void screenshotCapture().then((items) => { if (items) ingestAttachments(items); });
+  };
+
+  // 壳推来的截图与划词事件（全局截图热键、工具条上的「问 DeepDive」）：
+  // 带 reqId 的截图是上面那次请求的应答，由 promise 消费，这里不重复摄入。
+  useEffect(() => onHostEvent((cmd, payload) => {
+    if (cmd === "screenshotCaptured") {
+      const p = payload as { reqId?: string; items?: PickedAttachment[] } | undefined;
+      if (!p?.reqId) ingestAttachments(p?.items ?? []);
+      return;
+    }
+    if (cmd === "screenshotCopied") {
+      void alertDialog({ message: tt("截图已复制到剪贴板", "Screenshot copied to the clipboard") });
+      return;
+    }
+    if (cmd === "screenRecordingDenied") {
+      void alertDialog({
+        message: tt("需要「屏幕录制」权限才能截图：系统设置 → 隐私与安全性 → 屏幕录制",
+          "Screen Recording permission is needed: System Settings → Privacy & Security → Screen Recording"),
+      });
+      return;
+    }
+    if (cmd === "selectionAsk") {
+      // 文字已在壳里暂存（面板抢焦点前读的）；这里读一次并引用进草稿。
+      void selectionCapture().then((captured) => {
+        if (!captured) {
+          void alertDialog({
+            message: tt("没有读到选中的文字（需在「辅助功能」里允许本应用）",
+              "No selected text was read (allow this app under Accessibility)"),
+          });
+          return;
+        }
+        dispatchAppEvent(DD_EVENTS.composerPrefill, { text: captured.text });
+      });
+    }
+  }), [ingestAttachments, tt]);
 
   // 发送行为偏好（busyEnter：排队/插话）存在引擎里。启动期引擎还没起（503）→
   // 就绪后补取一次：壳不再因引擎就绪重载整页 SPA，这类一次性取数得自己跟上。
@@ -521,6 +561,16 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
           >
             <Plus size={16} strokeWidth={2} />
           </button>
+          {hasShell && (
+            <button
+              type="button"
+              className="composer-icon"
+              data-tip={t("截图（含标注）")}
+              onClick={addScreenshot}
+            >
+              <Camera size={16} strokeWidth={2} />
+            </button>
+          )}
           <textarea
             ref={taRef}
             rows={1}

@@ -3,10 +3,12 @@ import {
   Archive, CalendarClock, ChartColumn, ChevronLeft, Cpu, Download, Folder, Globe, Keyboard,
   Moon, Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldCheck, Smartphone, Sun,
   Trash2, Undo2,
+  ScanText,
 } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { BrowserSection } from "../settings/BrowserSection";
 import { HotkeysSection } from "../settings/HotkeysSection";
+import { SelectionToolbarSection } from "../settings/SelectionToolbarSection";
 import { onHostEvent, sendToShell } from "../host";
 import { Dropdown, Toggle } from "../components/controls";
 import { ModelsManage } from "../settings/ModelsManage";
@@ -40,6 +42,7 @@ export const SETTINGS_SECTIONS: Array<{ id: string; label: string; icon: typeof 
   { id: "models", label: "模型", icon: Cpu, group: "basic" },
   { id: "approval", label: "审批", icon: ShieldCheck, group: "basic" },
   { id: "hotkeys", label: "快捷键", icon: Keyboard, group: "basic" },
+  { id: "selection", label: "划词与截图", icon: ScanText, group: "basic" },
   { id: "browser", label: "浏览器", icon: Globe, group: "basic" },
   { id: "automation", label: "自动化", icon: CalendarClock, group: "agent" },
   { id: "plugins", label: "插件", icon: Puzzle, group: "agent" },
@@ -162,6 +165,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
           {activeId === "import" && <ImportSection />}
           {activeId === "approval" && <ApprovalSection />}
           {activeId === "hotkeys" && <HotkeysSection />}
+          {activeId === "selection" && <SelectionToolbarSection />}
           {activeId === "browser" && <BrowserSection />}
           {activeId === "archived" && <ArchivedSection onBulk={setBulk} />}
           {activeId === "usage" && <UsageSection />}

@@ -1,27 +1,80 @@
 import Foundation
 import Carbon.HIToolbox
 
-/// Global hotkey registered through Carbon (consume-capable, unlike an
-/// NSEvent local monitor). v1 spec: "option+space" style strings, one key.
+/// Global hotkeys registered through Carbon (consume-capable, unlike an
+/// NSEvent local monitor). Several named slots share one event handler;
+/// spec strings are "option+space" style, one key.
 final class HotKeyManager {
-    var onHotKey: (() -> Void)?
+    /// 一条全局热键的槽位：面板显隐、截图。签名固定 'DSMI'，id 即槽位。
+    enum Slot: UInt32 {
+        case panel = 1
+        case screenshot = 2
+    }
 
-    private var hotKeyRef: EventHotKeyRef?
+    var onPanelHotKey: (() -> Void)?
+    var onScreenshotHotKey: (() -> Void)?
+
+    private var refs: [Slot: EventHotKeyRef] = [:]
     private var eventHandler: EventHandlerRef?
 
+    /// 注册槽位，覆盖该槽位原有绑定；false = 组合非法或系统拒绝（已被占用）。
     @discardableResult
-    func register(spec: String) -> Bool {
-        unregister()
+    func register(_ slot: Slot, spec: String) -> Bool {
+        unregister(slot)
         guard let (modifiers, keyCode) = Self.parse(spec) else { return false }
+        guard installHandlerIfNeeded() else { return false }
 
+        var ref: EventHotKeyRef?
+        let hotKeyID = EventHotKeyID(signature: OSType(0x44534D49), id: slot.rawValue) // 'DSMI'
+        let status = RegisterEventHotKey(
+            UInt32(keyCode),
+            UInt32(modifiers),
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &ref
+        )
+        guard status == noErr, let ref else { return false }
+        refs[slot] = ref
+        return true
+    }
+
+    func unregister(_ slot: Slot) {
+        if let ref = refs.removeValue(forKey: slot) { UnregisterEventHotKey(ref) }
+    }
+
+    /// 全部注销并摘掉事件处理器（退出前用）。
+    func unregisterAll() {
+        for ref in refs.values { UnregisterEventHotKey(ref) }
+        refs.removeAll()
+        if let eventHandler {
+            RemoveEventHandler(eventHandler)
+            self.eventHandler = nil
+        }
+    }
+
+    /// 装一次事件处理器；按按下热键的 id 分发到对应槽位的回调。
+    private func installHandlerIfNeeded() -> Bool {
+        if eventHandler != nil { return true }
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
         )
         let handler: EventHandlerUPP = { _, event, userData -> OSStatus in
-            guard let userData else { return noErr }
+            guard let userData, let event else { return noErr }
+            var hotKeyID = EventHotKeyID()
+            let status = GetEventParameter(
+                event,
+                EventParamName(kEventParamDirectObject),
+                EventParamType(typeEventHotKeyID),
+                nil,
+                MemoryLayout<EventHotKeyID>.size,
+                nil,
+                &hotKeyID
+            )
+            guard status == noErr else { return noErr }
             let manager = Unmanaged<HotKeyManager>.fromOpaque(userData).takeUnretainedValue()
-            manager.onHotKey?()
+            manager.fire(Slot(rawValue: hotKeyID.id))
             return noErr
         }
         let status = InstallEventHandler(
@@ -32,28 +85,14 @@ final class HotKeyManager {
             Unmanaged.passUnretained(self).toOpaque(),
             &eventHandler
         )
-        guard status == noErr else { return false }
-
-        let hotKeyID = EventHotKeyID(signature: OSType(0x44534D49), id: 1) // 'DSMI'
-        let regStatus = RegisterEventHotKey(
-            UInt32(keyCode),
-            UInt32(modifiers),
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &hotKeyRef
-        )
-        return regStatus == noErr
+        return status == noErr
     }
 
-    func unregister() {
-        if let ref = hotKeyRef {
-            UnregisterEventHotKey(ref)
-            hotKeyRef = nil
-        }
-        if let handler = eventHandler {
-            RemoveEventHandler(handler)
-            eventHandler = nil
+    private func fire(_ slot: Slot?) {
+        switch slot {
+        case .panel: onPanelHotKey?()
+        case .screenshot: onScreenshotHotKey?()
+        case nil: break
         }
     }
 

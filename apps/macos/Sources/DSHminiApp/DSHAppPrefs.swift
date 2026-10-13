@@ -39,6 +39,16 @@ enum DSHAppPrefs {
     /// 壳只存不解析）。跨启动的 durable 状态走壳而不走 localStorage——后者随 origin
     /// 漂移（PITFALLS §4.17）。
     static let onboardingKey = "deepdive.onboarding"
+    /// 选区工具条设置（JSON 串，结构 = 桥的 `selection-toolbar-set` 载荷，前端
+    /// `settings/selectionToolbar.ts` 定义；壳解析成 `ToolbarSetParams` 消费）。
+    /// 存壳不存 localStorage：工具条要在页面加载之前就按上次的设置工作。
+    static let selectionToolbarKey = "deepdive.selectionToolbar"
+    /// 截图全局热键（"command+shift+2" 式 spec；空 = 用默认）。
+    static let screenshotHotkeyKey = "deepdive.screenshot.hotkey"
+    /// 截图全局热键启用开关。
+    static let screenshotHotkeyOnKey = "deepdive.screenshot.hotkeyOn"
+    /// 截图热键的出厂默认（Atd 同款 ⌘⇧2；系统占的是 ⌘⇧3/4/5）。
+    static let defaultScreenshotHotkey = "command+shift+2"
 
     /// 侧栏拖拽边界。唯一事实源是 tokens.json 的 size.sidebar.min/max；
     /// 前端消费侧（frontend/src/store.tsx）为同值手工双写——改动必须三处
@@ -101,6 +111,31 @@ enum DSHAppPrefs {
 
     static func setOnboarding(_ value: String) {
         UserDefaults.standard.set(value, forKey: onboardingKey)
+    }
+
+    /// 选区工具条设置（JSON 串；缺省 = 空，页面首次推送即写入）。
+    static var selectionToolbar: String {
+        UserDefaults.standard.string(forKey: selectionToolbarKey) ?? ""
+    }
+
+    static func setSelectionToolbar(_ value: String) {
+        UserDefaults.standard.set(value, forKey: selectionToolbarKey)
+    }
+
+    /// 截图热键 spec；空 = 还没设置过，用出厂默认。
+    static var screenshotHotkey: String {
+        let raw = UserDefaults.standard.string(forKey: screenshotHotkeyKey) ?? ""
+        return raw.isEmpty ? defaultScreenshotHotkey : raw
+    }
+
+    static func setScreenshotHotkey(_ value: String) {
+        UserDefaults.standard.set(value, forKey: screenshotHotkeyKey)
+    }
+
+    static var screenshotHotkeyOn: Bool { boolDefaultingTrue(screenshotHotkeyOnKey) }
+
+    static func setScreenshotHotkeyOn(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: screenshotHotkeyOnKey)
     }
 
     static var hotkeyOn: Bool {
