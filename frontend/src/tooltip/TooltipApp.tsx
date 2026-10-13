@@ -39,13 +39,6 @@ export function TooltipApp() {
   }, [content]);
   useLayoutEffect(report, [report]);
 
-  // 壳把窗口收到实测尺寸会改这一页的**视口**，那可能让注释重新折行——按 resize 重量一次。
-  // 不会空转：尺寸没变时壳那一侧不重摆（TooltipController.present 的比对）。
-  useEffect(() => {
-    window.addEventListener("resize", report);
-    return () => window.removeEventListener("resize", report);
-  }, [report]);
-
   return (
     <div className="tip-page">{content && <TooltipChip text={content.text} caps={content.caps} boxRef={boxRef} />}</div>
   );

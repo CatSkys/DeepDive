@@ -122,7 +122,13 @@ export function TooltipHost() {
     };
     const out = (e: Event) => {
       const el = (e.target as HTMLElement | null)?.closest?.("[data-tip]");
-      if (el && el === current.current) hide();
+      if (!el || el !== current.current) return;
+      // 指针挪到**触发元素自己的子节点**上（图标钮里最常见的动作：从钮挪到它里面那颗
+      // svg 上）不是"离开"——`mouseout` 照样打在钮上，不挡这一下就是"收起再弹出"的一抽
+      // （用户 2026-10-13 报"经常抽搐"）。
+      const to = (e as MouseEvent).relatedTarget as Node | null;
+      if (to && el.contains(to)) return;
+      hide();
     };
     const down = () => hide();
     const onScroll = () => hide();

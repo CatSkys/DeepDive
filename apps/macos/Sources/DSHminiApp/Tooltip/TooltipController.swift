@@ -162,8 +162,8 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
     guard let request = current, let host = window else { return }
     let frame = TipPlacement.frame(
       anchor: request.anchor, size: hit.size, side: request.side, gap: request.gap, limits: request.limits)
-    // 已经摆在这一处就什么都不做：注释页量完会**按 resize 再报一次**（窗口从初值收到实测
-    // 尺寸会触发一次），不设这道门就是"量→摆→再量→再摆"的空转。
+    // 已经摆在这一处就什么都不做：`present` 因此是幂等的（同一条文案的重量、迟到的那一份
+    // 尺寸都落在这里被挡掉）。
     if visible, host.frame == candidateFrame(frame) { return }
     host.place(size: hit.size, origin: frame.origin, radius: hit.radius)
     // 入场只在"从看不见到看得见"那一刻跑；已经在屏上就只挪位置（换按钮不重播动画）。
