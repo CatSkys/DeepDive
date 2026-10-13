@@ -74,3 +74,28 @@ final class TooltipControllerTests: XCTestCase {
         XCTAssertEqual(anchor.size, NSSize(width: 20, height: 20))
     }
 }
+
+/// 原生控件（截图/标注工具条那一族）挂注释的两条口径。
+final class NativeTooltipTests: XCTestCase {
+    /// 快捷键显示串 → 键帽：修饰符逐字成块，单词键整块不拆（UI-SPEC §1.8）。
+    func testShortcutSplitsIntoKeyCaps() {
+        XCTAssertEqual(NativeTooltip.caps("⌘Z"), ["⌘", "Z"])
+        XCTAssertEqual(NativeTooltip.caps("⇧⌘Z"), ["⇧", "⌘", "Z"])
+        XCTAssertEqual(NativeTooltip.caps("A"), ["A"])
+        XCTAssertEqual(NativeTooltip.caps("Esc"), ["Esc"])
+        XCTAssertEqual(NativeTooltip.caps("↩"), ["↩"])
+        XCTAssertEqual(NativeTooltip.caps(""), [])
+    }
+
+    /// 注释要浮在**被注释的那个窗口**之上：截图 overlay 是 `.screenSaver`，不抬上去就是
+    /// 整块被盖住（而且不报错、只是看不见）。回到普通窗口时落回默认档。
+    func testRaiseFollowsTheAnnotatedWindowLevel() {
+        let window = TooltipWindow(configuration: WKWebViewConfiguration())
+        window.raise(above: .normal)
+        XCTAssertEqual(window.level.rawValue, TooltipWindow.level.rawValue)
+        window.raise(above: .screenSaver)
+        XCTAssertGreaterThan(window.level.rawValue, NSWindow.Level.screenSaver.rawValue)
+        window.raise(above: .normal)
+        XCTAssertEqual(window.level.rawValue, TooltipWindow.level.rawValue)
+    }
+}

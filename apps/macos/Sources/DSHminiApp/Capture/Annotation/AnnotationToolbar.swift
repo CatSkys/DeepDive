@@ -4,8 +4,8 @@ import AppKit
 /// and confirm, on the shared glass capsule (``AnnotationGlassBar``), which the grip or its surface
 /// drags. Colours and stroke widths live on the
 /// separate ``AnnotationStyleBar``, which appears next to this bar only when there is something
-/// to style. Every control has a localized tooltip naming its shortcut, and its glyph a
-/// VoiceOver description.
+/// to style. Every control carries the app's own hover annotation (``NativeTooltip``: the name
+/// and the shortcut as a key cap), and its glyph a VoiceOver description.
 final class AnnotationToolbar: NSView {
   var onTool: ((AnnotationTool) -> Void)?
   var onUndo: (() -> Void)?
@@ -57,18 +57,18 @@ final class AnnotationToolbar: NSView {
   }
 
   /// Reads the copy in the current shell language (once per session, as it opens).
+  ///
+  /// 注释不再走系统原生 `toolTip`（那种小黄标），改挂全站那套（`attachTooltip`，悬浮玻璃
+  /// 注释窗）：全站注释只有一套语言，工具条不该是例外（UI-SPEC §1.11）。
   func applyStrings() {
     let strings = ShellStrings.shared
-    func tip(_ name: String, _ key: String) -> String {
-      String(format: strings.text(.captureTooltipShortcut), name, key)
-    }
     setAccessibilityLabel(strings.text(.captureToolbar))
     grip.image = AnnotationIcons.glyph(AnnotationIcons.grip, label: "")
-    grip.toolTip = strings.text(.captureToolbarMove)
+    grip.attachTooltip(text: strings.text(.captureToolbarMove), caps: [])
     for (button, tool) in zip(tools, AnnotationTool.allCases) {
       let name = strings.text(Self.key(for: tool))
       button.image = AnnotationIcons.glyph(AnnotationIcons.lucideName(for: tool), label: name)
-      label(button, name, tip: tip(name, String(tool.key).uppercased()))
+      label(button, name, shortcut: String(tool.key).uppercased())
     }
     for (button, icon, key, shortcut) in [
       (undoButton, AnnotationIcons.undo, ShellStringKey.captureUndo, "⌘Z"),
@@ -79,7 +79,7 @@ final class AnnotationToolbar: NSView {
     ] {
       let name = strings.text(key)
       button.image = AnnotationIcons.glyph(icon, label: name)
-      label(button, name, tip: tip(name, shortcut))
+      label(button, name, shortcut: shortcut)
     }
   }
 
@@ -90,9 +90,11 @@ final class AnnotationToolbar: NSView {
     redoButton.isEnabled = canRedo
   }
 
-  private func label(_ button: NSButton, _ name: String, tip: String) {
-    button.toolTip = tip
+  /// 一个控件的无障碍名与注释：名字进文字、键位进**键帽**（与网页那份 `data-tip` +
+  /// `data-tip-keys` 同一分工——不再拼成"名字（⌘Z）"一句话塞进系统 toolTip）。
+  private func label(_ button: AnnotationToolbarButton, _ name: String, shortcut: String) {
     button.setAccessibilityLabel(name)
+    button.attachTooltip(text: name, caps: NativeTooltip.caps(shortcut))
   }
 
   @objc private func toolClicked(_ sender: NSButton) {

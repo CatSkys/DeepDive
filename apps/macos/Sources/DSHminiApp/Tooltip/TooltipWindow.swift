@@ -86,6 +86,14 @@ final class TooltipWindow: NSPanel {
   override var canBecomeKey: Bool { false }
   override var canBecomeMain: Bool { false }
 
+  /// 浮到给定窗口层级之上（每一条注释都重算）。截图/标注工具条住在 `CaptureOverlayPanel`
+  /// ——`.screenSaver` 那一档，比注释窗口默认那档高得多，不抬上去整块会被它盖住，而且**不
+  /// 报错、只是看不见**。普通窗口（层级 0）就落回默认档。
+  func raise(above level: NSWindow.Level) {
+    let needed = NSWindow.Level(rawValue: level.rawValue + 1)
+    self.level = needed.rawValue > Self.level.rawValue ? needed : Self.level
+  }
+
   /// 贴着注释摆：`origin` 是**注释内容**的屏幕原点（左下），窗口自己往外让出投影余量。
   func place(size: NSSize, origin: NSPoint, radius: CGFloat) {
     let inset = Self.shadowInset

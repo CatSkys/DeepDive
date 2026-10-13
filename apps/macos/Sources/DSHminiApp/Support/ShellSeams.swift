@@ -74,7 +74,6 @@ enum ShellStringKey {
   case captureUndo
   case captureRedactionPixelate
   case captureColorRed
-  case captureTooltipShortcut
   case captureHintIdle
   case captureHintAccessibility
   case captureHintWindowsOnly
@@ -175,7 +174,6 @@ final class ShellStrings {
     case .captureUndo: return zh ? "撤销" : "Undo"
     case .captureRedactionPixelate: return zh ? "马赛克" : "Mosaic"
     case .captureColorRed: return zh ? "红色" : "Red"
-    case .captureTooltipShortcut: return zh ? "%@（%@）" : "%@ (%@)"
     case .captureHintIdle:
       return zh
         ? "点击高亮区域或拖动选择 · 滚动切换更大区域 · ⌘A 选择整个屏幕 · Esc 取消"
