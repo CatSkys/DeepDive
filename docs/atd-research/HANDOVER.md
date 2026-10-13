@@ -84,6 +84,8 @@
 | `atd_repo.json` / `atd_rel.json` / `atd_tree.json` / `atd_{apps,packages,crates}.json` | 仓库/最新 release/根目录/子目录 GitHub API 快照 |
 | DMG | 原件在 `~/Downloads/Atd-0.7.12-arm64.dmg`;已安装为 `/Applications/Atd.app`(与 DMG 同构建,cdhash `abf8968e…`,无隔离属性,持续在运行)。包已解剖(只挂过只读盘,已卸载)。**注**:该 DMG 已不在 `~/Downloads`,本机 `/Applications/Atd.app` 现为 0.8.0 |
 | `APPS.md` + `assets/atd-apps/` | 「个人小应用(My apps)」专文与素材:create-app 技能全文与三份 references、它自己的两份立项计划(create-app、能力层)、三份契约(manifest/identity/widgets)、出处 `SOURCE.md` |
+| 源码克隆 | `/Users/hanbyking/Documents/Atd-src`(本地 HEAD = v0.7.12 `b6f8bfc`,origin/main 已 fetch 至 v0.8.1+2 `1cc03af`)——`SELECTION-CAPTURE.md` 的施工底稿,后续复测先在此 `git fetch` |
+| `SELECTION-CAPTURE.md` | 「截图(采集+标注)与选区工具条(划词)」专文:逐文件解剖、桥契约、权限模型、移植盘与七条提案(2026-10-13;上游 MIT,用户已获作者许可直接移植) |
 
 复测命令(将来它出新版本时):
 
@@ -103,6 +105,7 @@ codesign -dv "/Volumes/Atd <ver>/Atd.app"
 4. (可选)分包深潜:它的 `agent-service/dist/atd-agents/`(自研 agents 面)、`file-index` Rust 索引、`pi-subagents` 组合方式——未开工,起点是 DMG 里的包体与 `assets/`
 5. 素材保鲜:上游仍高频发版(0.7.11→0.7.12 只隔数小时),重要复测前先拉最新 release 对照 §1 版本号
 6. **个人小应用(My apps)对照已产出**(2026-10-13):见 `APPS.md` + `assets/atd-apps/`。其中 §8 的 7 条借鉴提案**仍未采纳**,待逐条裁决;它公开的最大缺口(沙箱碰不到本机)与那份未实现的能力层计划记在 `APPS.md` §10
+7. **「截图与划词」对照已产出**(2026-10-13):见 `SELECTION-CAPTURE.md`(源码级,含 0.7.12↔main 差异基线)。其 §6 七条移植提案**未拍板**——拍板前不动规范文件、不写任何代码;§5 风险 1(adhoc 签名每次重构建掉两 TCC 授权)需随提案一并裁决
 
 ## 7. 本文维护规矩
 
