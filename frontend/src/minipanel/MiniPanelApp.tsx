@@ -16,6 +16,20 @@ import { SessionView } from "../components/SessionView";
 import { MiniDraft } from "./MiniDraft";
 import { MiniRunningGlow } from "./MiniRunningGlow";
 
+/** 面板该显示哪张脸：会话**有内容**（summary 非 blank）才交给 SessionView；
+ *  刚建出来、内容还没落盘（summary 未到或仍 blank）的会话留在本页自己的草稿页——
+ *  SessionView 对空白会话渲染的是主窗那套「头部 + hero 整页」，在面板里是另一张脸，
+ *  闪一帧就是用户报的"发送后中间跳一下"（主窗不报，因为它那份草稿页就是那张 hero）。
+ *  纯函数：单测锁住这条判定（__tests__/mini-panel-face）。 */
+export function miniPanelFace(
+  activeSessionId: string | null,
+  sessions: ReadonlyArray<{ sessionId: string; blank?: boolean }>,
+): "draft" | "session" {
+  if (activeSessionId === null) return "draft";
+  const summary = sessions.find((s) => s.sessionId === activeSessionId);
+  return summary && !summary.blank ? "session" : "draft";
+}
+
 export function MiniPanelApp() {
   const store = useStore();
   const { quickWorkspacePath } = usePrefs();
@@ -67,6 +81,7 @@ export function MiniPanelApp() {
   }, []);
 
   const active = store.activeSessionId;
+  const face = miniPanelFace(active, store.sessions);
   // 会话在跑 → 整面板辉光（信号与 Composer 的停止按钮同一条：sessions[].running）。
   const activeRunning = active
     ? (store.sessions.find((s) => s.sessionId === active)?.running ?? false)
@@ -77,7 +92,7 @@ export function MiniPanelApp() {
       <DialogHost />
       {activeRunning && <MiniRunningGlow />}
       <main className="main">
-        {active ? (
+        {face === "session" && active !== null ? (
           <SessionView key={active} sessionId={active} />
         ) : (
           <MiniDraft />
