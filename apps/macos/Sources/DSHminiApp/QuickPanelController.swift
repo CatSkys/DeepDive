@@ -30,6 +30,16 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     let webView: TitlebarAwareWebView
     /// 窗口底板（主窗 WindowGlassView 同款）：液态玻璃 + 深浅两档 tint。
     let glass: WindowGlassView
+    /// 命令中心卡的**原生玻璃面**：插在 SPA webview 之下（兄弟层的顺序），
+    /// 页面把卡片矩形推上来（`mini-cc-rect`）它就跟着走。网页那侧的卡不再自己画
+    /// 背景/模糊/投影/圆角——**同一个 webview 里的 CSS 玻璃永远只是近似**，而这一块
+    /// 是系统真正的 Liquid Glass（`NSGlassEffectView`），浮起投影与进出场也归它。
+    private let cardGlass = WindowGlassView(surface: .card)
+    /// 卡片当前是不是"该显示"（淡入途中也算 true）：每 300ms 一条矩形上报必须幂等，
+    /// 否则入场会被反复重播（FrostSurface 同款纪律）。
+    private var cardVisible = false
+    /// 卡片进出的时长（秒）：页面按 token（`--dur-fast`）报来，壳里不写第二份。
+    private var cardMotion: TimeInterval = 0.12
     /// 迷你面板页 → 壳（host-ready / set-pref / miniPanel.* 系列）。转发给
     /// AppDelegate.handleHostMessage；主窗与迷你面板各持一条，靠消息类型区分归属。
     var onHostMessage: (([String: Any]) -> Void)?
@@ -88,6 +98,12 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         wv.frame = glass.bounds
         wv.autoresizingMask = [.width, .height]
         glass.addSubview(wv)
+        // 卡片玻璃**紧贴 webview 之下**：网页那侧卡片的位置是透明的，透出来的就是这一块。
+        // 顺序反了（玻璃在网页之上）会把卡片内容整片盖掉。
+        cardGlass.autoresizingMask = []
+        cardGlass.alphaValue = 0
+        cardGlass.isHidden = true
+        glass.addSubview(cardGlass, positioned: .below, relativeTo: wv)
         self.window = window
 
         super.init()
@@ -160,6 +176,9 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     }
 
     func hidePanel() {
+        // 卡片那块原生玻璃不必单独藏：它是本窗的子视图，窗口 alpha 归零它跟着一起没了
+        // （真去藏它反而有害——页面还开着卡、下一次矩形上报要 300ms 才来，那半秒里
+        // 卡是没有面的）。
         guard window.alphaValue > 0 else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.10
@@ -251,6 +270,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         // 液态玻璃的 tint 按明暗换档（主窗 glass.applyAppearance 同一句；退回分支
         // 的 vibrancy tint 也走这里——见 WindowGlassView.applyAppearance）。
         glass.applyAppearance(light: light)
+        cardGlass.applyAppearance(light: light)
         pushHostCommand("themeChanged", payload: AppDelegate.jsonPayload(["dark": !light]))
     }
 
@@ -258,6 +278,13 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "deepdive" {
+            // 命令中心卡的矩形（页面 → 壳）：卡片那块原生玻璃的几何与圆角，
+            // 口径与 composer-pill 完全一致（CSS 视口坐标 y-down、圆角按实际渲染值报来、
+            // 时长按 token 报来），只是按兄弟层顺序垫在网页之下而不是叠在上面。
+            if let body = message.body as? [String: Any], body["type"] as? String == "mini-cc-rect" {
+                placeCardGlass(body)
+                return
+            }
             // 标题栏控件矩形表（titlebar.ts 同一协议：{type:"titlebar-rects", rects:[{x,y,w,h}]}）。
             if let body = message.body as? [String: Any], body["type"] as? String == "titlebar-rects" {
                 let rects: [NSRect] = ((body["rects"] as? [[String: Any]]) ?? []).map { d in
@@ -286,6 +313,60 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.flushPendingHostCommand()
         }
+    }
+
+    // MARK: - 命令中心卡的原生面（几何跟着页面上报走）
+
+    /// 页面报来卡片矩形（`mini-cc-rect`）：`rect` 为 nil/空 = 收起。
+    /// 坐标是 CSS 视口值（y-down、缩放前），与顶条 rect 表同一套换算（见 PITFALLS §4.3）。
+    private func placeCardGlass(_ body: [String: Any]) {
+        guard let d = body["rect"] as? [String: Any] else {
+            hideCardGlass()
+            return
+        }
+        let css = NSRect(
+            x: d["x"] as? Double ?? 0,
+            y: d["y"] as? Double ?? 0,
+            width: d["w"] as? Double ?? 0,
+            height: d["h"] as? Double ?? 0
+        )
+        guard css.width > 1, css.height > 1 else {
+            hideCardGlass()
+            return
+        }
+        let zoom = webView.pageZoom
+        let host = webView.frame
+        cardGlass.frame = NSRect(
+            x: host.minX + css.minX * zoom,
+            y: host.minY + host.height - (css.minY + css.height) * zoom,
+            width: css.width * zoom,
+            height: css.height * zoom
+        )
+        if let radius = d["radius"] as? Double { cardGlass.setRadius(radius * zoom) }
+        if let ms = d["durationMs"] as? Double, ms > 0 { cardMotion = ms / 1000 }
+        showCardGlass()
+    }
+
+    /// 淡入（幂等）。只做入场：离场要页面把 DOM 留到动画跑完才不闪，收益不值那份
+    /// 编排复杂度——收起直接藏，两边同时消失看不出过程。
+    private func showCardGlass() {
+        guard !cardVisible else { return }
+        cardVisible = true
+        if cardGlass.isHidden {
+            cardGlass.alphaValue = 0
+            cardGlass.isHidden = false
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = cardMotion
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            cardGlass.animator().alphaValue = 1
+        }
+    }
+
+    private func hideCardGlass() {
+        cardVisible = false
+        cardGlass.alphaValue = 0
+        cardGlass.isHidden = true
     }
 
     // MARK: - NSWindowDelegate

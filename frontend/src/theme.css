@@ -400,17 +400,18 @@ button {
 .app.mini-panel { --session-header-h: 44px; }
 
 /* ── 悬浮命令中心（历史 / 设置两张卡共用这一副壳）：浮在面板**正中间**，页面本身不换 ──
-   位置：面板中心（水平垂直都居中），宽度 min(100% − 72, 380)——整窗满宽那条太宽了
-   （用户 2026-10-13："太宽了"，玻璃也要留出能看见背后内容的边）。页面本身不换。
-   材质：**会话输入框/胶囊那一族的玻璃**（--composer-bg 半透底 + 大半径模糊 + saturate
-   补回彩度 + --composer-shadow 的顶部内高光 + --shadow-pop 浮起投影）。
-   为什么不沿用菜单/⌘K 那档（--panel-glass / --panel-palette）：它们是为"必须压住背后
-   正文"的菜单调的（.55 / .82 不透明度），铺到一块 380×500 的卡上就成了实心板——
-   用户报"没有液态玻璃的感觉"正是这个：blur 与 saturate 在 82% 底下面等于不存在
-   （社区做法同结论：毛玻璃必须"低不透明度 tint + blur + saturate 175-180% + 顶内高光"，
-   tint 太实就是灰矩形、半点没有就是没有面）。同一 webview 内的真玻璃就是输入框那套，
-   这里与它同族，深浅才一致。
-   **无描边**（用户定稿："这东西不要描边"）——层次靠明度差与那口顶部内高光，不靠线。 */
+   **这一条只排内容，不画材质**：卡片那块面是**原生玻璃**——`WindowGlassView` 的 .card 档
+   （系统真 Liquid Glass，`NSGlassEffectView`），由壳插在本 webview **之下**、按本组件报上去的
+   矩形跟着走（`useMiniCardSurface` → `mini-cc-rect` → `QuickPanelController.placeCardGlass`）。
+   为什么不在网页里画：同一个 webview 内的 CSS 玻璃永远只是近似（采不到别的窗口、没有系统
+   材质的高光与折射），这也是用户一直说"没有液态玻璃的感觉"的根；Raycast 那个面板同理——
+   内容是 web 渲染的，**材质/圆角/投影/进出场全在原生层**。
+   所以这里没有 background / backdrop-filter / box-shadow / 描边，圆角只用来**裁内容**
+   （行 hover 的出血、列表滚动区不能糊出圆角外），值 = 上报给壳的那个半径（CSS 是事实源）。
+   位置：面板中心（水平垂直都居中），宽度 min(100% − 72, 380)——整窗满宽太宽，玻璃也要
+   留出能看见背后内容的边（用户 2026-10-13："太宽了"）。
+   字号**卡内统一**（"字体统一一下，命令面板里的字体有点偏大"）：12 是基准，只有搜索行抬到
+   base（这一屏的主体，与 ⌘K 同一口径）。 */
 .app.mini-panel .mini-cc {
   position: absolute;
   top: 50%;
@@ -423,23 +424,15 @@ button {
   max-height: 72%;
   overflow: hidden;
   border-radius: var(--dsh-radius-floating);
-  background: var(--composer-bg);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
-  box-shadow: var(--composer-shadow), var(--shadow-pop);
+  /* 只做**不透明度**入场：壳那块原生玻璃用同一个 token 时长淡入（两边同时到），
+     而位移/缩放不能进动画——矩形是上面那个 hook 量出来推给壳的，动画中的 transform
+     会让上报的矩形每帧都是错的（原生面跟着抖）。 */
   animation: mini-cc-in var(--dur-fast) var(--ease-out) both;
-  /* 字号**卡内统一**（用户 2026-10-13："字体统一一下，命令面板里的字体有点偏大"）：
-     12 是卡内基准，只有搜索行抬到 base（它是这一屏的主体，与 ⌘K 同一口径）。 */
   font-size: var(--dsh-font-size-sm);
 }
-/* 入场动画必须是**本卡片自己的一条**：menu-in 的 to 是 transform:none，用它会把
-   居中那两个位移一起抹掉（卡片掉回下方）。 */
 @keyframes mini-cc-in {
-  from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(.97); }
-  to { opacity: 1; transform: translate(-50%, -50%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .app.mini-panel .mini-cc { animation: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 /* 搜索行：定高 **40**（Raycast 面板规范的 --space-40），下沿一条 **0.5px 发丝线**，
    颜色取 `--line`——它正好是规范里的分隔色 fg-10（前景 10%）。0.5px 是那条规范里的
