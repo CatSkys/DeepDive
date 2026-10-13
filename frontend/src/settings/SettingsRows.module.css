@@ -434,6 +434,9 @@
 .comboChip:hover { background: var(--fill-heavy); }
 .comboChip.recording { border-color: var(--ink); color: var(--ink-2); background: transparent; }
 .comboChip.off { color: var(--ink-3); border-color: var(--line); background: transparent; text-decoration: line-through; }
+/* 已授权：只降一档字色（只读态，不可点）。与 .off/.recording 同族修饰类——
+   架构门不允许字面量内联样式（规则 inline-static-style）。 */
+.comboChip.granted { color: var(--ink-3); }
 
 /* ── 归档页：搜索 + 项目筛选 + 项目分组卡片（无描边，纯底色分范围） ── */
 /* 右上一枚「全部删除」+ 处理中提示（布局照参考图：动作在标题一级的右侧） */

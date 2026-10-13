@@ -508,11 +508,15 @@ button {
   color: var(--ink-2);
 }
 .app.mini-panel .mini-cc-back:hover { color: var(--ink); }
+/* 清单节奏（两脸**统一**：用户 2026-10-13 报"两个面板统一一下，行高和行距这些都统一一下"）：
+   行高 32（`.task-row` 与设置行本来就都是 32）+ 行距 12（原设置脸的值，历史脸此前是 0）。
+   段与段之间同样 12。 */
 .app.mini-panel .mini-cc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 6px 8px; }
-.app.mini-panel .mini-cc-section + .mini-cc-section { margin-top: 10px; }
+.app.mini-panel .mini-cc-section { display: flex; flex-direction: column; gap: 12px; }
+.app.mini-panel .mini-cc-section + .mini-cc-section { margin-top: 12px; }
 .app.mini-panel .mini-cc-section-title {
   margin: 0;
-  padding: 6px 10px 2px;
+  padding: 6px 10px 0;
   color: var(--ink-3);
   font-size: var(--dsh-font-size-sm);
   font-weight: 500;
@@ -547,31 +551,29 @@ button {
   margin: 0 -4px;
   font-size: var(--dsh-font-size-sm);
 }
-/* 最右的时间（状态不写字：未读/在跑由行首那颗亮点表示，见行件注释） */
-.app.mini-panel .mini-cc-row-time {
-  flex: none;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
+/* 最右的时间：借用侧栏那条 `.row-time`（字号在卡里落回 12——侧栏那条是 14）。
+   状态不写字：未读/在跑由行首那颗亮点表示（见行件注释）。 */
+.app.mini-panel .mini-cc-row .row-time { font-size: var(--dsh-font-size-sm); }
 /* 光标行 = "选中"档：hover 是"指针在挑"（--row-hover 5%），光标行是"回车就开这一条"
    ——两档同色等于没有选中态（用户 2026-10-13 报"hover 和选中的颜色好像是一样的"）。
    数值口径：前景色透明度阶梯的 5/10（--row-hover .05 / --fill-strong .11）——与 ⌘K 那排
    .row.active、本卡的 .mini-cc-choice[data-cursor] 同一档，全站一致。 */
 .app.mini-panel .mini-cc-row[data-cursor="true"] { background: var(--fill-strong); }
+/* 「更多」：**平时不存在**（不占位），hover 时替换掉时间出现在同一处——与侧栏"时间常驻、
+   hover 时动作替换时间"那条约定同一条交互（用户 2026-10-13："完全可以 hover 的时候显示
+   3 个点，不用这样占位置"）。尺寸比侧栏那枚小一档（用户："有点太大了，缩小一点"）。 */
 .app.mini-panel .mini-cc-more {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: none;
   border-radius: var(--dsh-radius-keycap);
   background: var(--fill);
   color: var(--ink-soft);
-  opacity: 0;
 }
-:where(html[data-hover-armed]) .app.mini-panel .mini-cc-row:hover .mini-cc-more,
-.app.mini-panel .mini-cc-row:focus-within .mini-cc-more { opacity: 1; }
+:where(html[data-hover-armed]) .app.mini-panel .mini-cc-row:hover .mini-cc-more { display: inline-flex; }
 .app.mini-panel .mini-cc-more:hover { background: var(--fill-strong); }
 .app.mini-panel .mini-cc-empty {
   margin: 0;

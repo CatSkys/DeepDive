@@ -111,7 +111,9 @@ export function MiniHistoryRows({
                   {it.running ? <Spinner /> : it.unread ? <span className="unread-dot" /> : null}
                 </span>
                 <HoverScrollText className="title">{it.title}</HoverScrollText>
-                <span className="mini-cc-row-time">{fmtTime(it.updatedAt, lang)}</span>
+                {/* 时间复用侧栏那条 .row-time：它的交互约定是"时间常驻，hover 时被行内动作
+                    （这里那颗「更多」）替换"——不预留位置，时间自然贴最右。 */}
+                <span className="row-time">{fmtTime(it.updatedAt, lang)}</span>
                 <span className="row-actions" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
