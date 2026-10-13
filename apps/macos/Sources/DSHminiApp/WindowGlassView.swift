@@ -6,10 +6,11 @@
 // AppKit 控件，走不到"系统自动给标准控件发放"那条路。更早的系统退回 vibrancy 材质
 // （`NSVisualEffectView` + 近黑 tint），两边观感不同但职责相同。
 //
-// 面板窗（`.panel`）多一段：玻璃之上再叠一层窗内磨砂（`frostView`）——同一真实场景
-// 被系统糊两遍，糊度才够（Raycast 面板的深糊观感）。底图语义始终是**系统采样面板
-// 之下的真实画面**，不读壁纸文件（2026-10-13 定案：下面是别的窗口、或文件夹轮换 /
-// 动态 / 航拍壁纸时，读文件根本取不到此刻的真画面）。
+// 糊度是系统材质的（Raycast 同款，2026-10-13 反编译结论：它的 BlurView 只做着色，
+// `layer.backgroundColor = tintColor` + `opacity = 1.0`，没有模糊滤镜；带数值的
+// `glowBlurRadius` / `setShadowBlurRadius:` 是辉光与窗口阴影，不是背景糊）。想要
+// 比系统材质更强/可调数值的糊，得自己抓面板之下的画面自糊——那是另一条路（需屏幕
+// 录制授权），不在这里叠材质绕过。
 //
 // 表面档由使用方指定：`.window`（主窗）与 `.panel`（迷你面板）。两条分支都上 tint，
 // 但档位不同：液态玻璃自带亮度，tint 只往"近黑"拉一档（压死了又回到平色板，
@@ -23,15 +24,12 @@ final class WindowGlassView: NSView {
     enum Surface {
         /// 主窗：内容卡近实色兜底，玻璃只出边栏/边铬。
         case window
-        /// 迷你面板：全窗口就是玻璃面（无内容卡兜底），tint 深一档 + 多一段磨砂。
+        /// 迷你面板：全窗口就是玻璃面（无内容卡兜底），tint 深一档。
         case panel
     }
 
     /// macOS 26+ 的液态玻璃底板；更早的系统为 nil（那时走 materialView + tintView）。
     private let glassView: NSView?
-    /// .panel 档的第二段磨砂：坐在玻璃之上、WebView 之下，`.withinWindow` 采样窗内
-    /// 它下面的渲染结果（= 玻璃那一段的糊），叠出更深一档的糊度。.window 档为 nil。
-    private var frostView: NSVisualEffectView?
     /// vibrancy 底板（只在退回分支挂上来）。
     private let materialView = NSVisualEffectView()
     /// 材质之上的近黑 tint（只在退回分支挂上来）。不透明度对齐 tokens.json
@@ -62,18 +60,6 @@ final class WindowGlassView: NSView {
         super.init(frame: .zero)
         if let glass = glassView {
             addFilling(glass)
-            if surface == .panel {
-                // 第二段磨砂：`.withinWindow` 明确采样**窗内它之下**的内容（玻璃的
-                // 糊结果），再叠一段系统模糊；`.hudWindow` 是"盖在内容之上的浮层"
-                // 那一档（深色去饱和，同 FrostSurface 的选择）。语义确定、不读任何
-                // 文件、对任何壁纸/窗口内容都成立。
-                let frost = NSVisualEffectView()
-                frost.material = .hudWindow
-                frost.blendingMode = .withinWindow
-                frost.state = .active
-                addFilling(frost)
-                frostView = frost
-            }
         } else {
             materialView.material = .sidebar
             materialView.blendingMode = .behindWindow
