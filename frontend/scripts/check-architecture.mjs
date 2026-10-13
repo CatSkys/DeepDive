@@ -350,6 +350,34 @@ function checkNarrowMediaMiniPanel(file, text) {
   return violations;
 }
 
+// ── 规则 6：面板页规则必须显式赢得级联（2026-10-13 面板变主窗内容卡）──────────
+// 面板页（#/mini）整页复用主窗样式表，只靠祖先类区分：面板的修正与主窗规则常常落在
+// 同一批属性上（卡面/圆角/投影/内边距），而主窗规则多为 2 类选择器、写在文件后段——
+// 面板若也用 2 类就会静默输掉。事故：`.mini-panel .session` 与
+// `.session-row > .session` 同为 2 类、前者更靠前，覆盖被吃掉——会话列一从
+// `visibility:hidden` 里放出来就带着主窗内容卡的深色底/卡圆角/卡投影（用户报
+// "跳转到了内容面板上…深色底也一起弄过来了"）。
+// 约定（机检）：选择器带 `.mini-panel` 的只许两种写法——
+//   · 面板作用域 `.app.mini-panel …`（3 类起步，稳定压过主窗规则）；
+//   · 主窗作用域 `.app:not(.mini-panel) …`（窄窗这类只服务主页面的规则显式排除面板页）。
+
+const MINI_PANEL_SEL = /\.mini-panel(?![\w-])/;
+
+function checkMiniPanelScope(file, text) {
+  const stripped = text.replace(/\/\*[\s\S]*?\*\//g, " ");
+  const violations = [];
+  for (const m of stripped.matchAll(/([^{}]+)\{/g)) {
+    const selector = m[1].trim();
+    if (!MINI_PANEL_SEL.test(selector)) continue;
+    for (const one of splitTopLevel(selector)) {
+      if (!MINI_PANEL_SEL.test(one)) continue;
+      if (one.startsWith(".app.mini-panel") || one.includes(".app:not(.mini-panel)")) continue;
+      violations.push({ rule: "mini-panel-cascade-scope", file: rel(file), detail: one });
+    }
+  }
+  return violations;
+}
+
 // ── 主流程 ───────────────────────────────────────────────────────────────────
 
 function collect() {
@@ -358,11 +386,12 @@ function collect() {
   for (const file of files) {
     if (file.endsWith(".ts") || file.endsWith(".tsx")) violations.push(...checkCssModuleClasses(file));
   }
-  // 规则 3/4/5 只看前端：Swift 壳的样式不归 tokens.json 管。
+  // 规则 3~6 只看前端：Swift 壳的样式不归 tokens.json 管。
   for (const file of walk(FRONTEND_SRC, [], [".css"]).filter((f) => !isTest(f))) {
     const text = readFileSync(file, "utf8");
     violations.push(...checkBareHex(file, text, true));
     violations.push(...checkNarrowMediaMiniPanel(file, text));
+    violations.push(...checkMiniPanelScope(file, text));
   }
   for (const file of files) {
     if (file.startsWith(FRONTEND_SRC) && file.endsWith(".tsx")) {

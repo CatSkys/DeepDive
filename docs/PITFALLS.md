@@ -24,7 +24,7 @@
 
 **原生视图槽位（细节 §9）**：浮层被浏览器压住→9.1 · 缩放后错位→9.2 · 缩略图点不动→9.3 · MCP 卡 60s→9.4 · http 打不开→9.5 · 查找少一个字→9.6 · 新通道全超时→9.7
 
-**迷你面板（细节 §10）**：ForEach 过渡态回读活体数组→10.1；窄窗媒体规则误伤面板页（发送后黑窗）→10.2
+**迷你面板（细节 §10）**：ForEach 过渡态回读活体数组→10.1；面板页被主窗规则误伤（黑窗 / 变内容卡）→10.2
 
 ---
 
@@ -1230,8 +1230,21 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   探针视口 950px > 760，媒体查询压根没命中。**复现环境要连窗口/视口尺寸一起对齐**，
   验证要覆盖渲染开关类属性。
 - 处置：窄窗媒体块里凡点名会话/面板共享类的规则一律显式排除面板页（`.app:not(.mini-panel) …`；
-  面板页自己的窄窗呈现写在 `.mini-panel` 块里），并做成机械卡点——`check-architecture.mjs`
+  面板页自己的窄窗呈现写在 `.app.mini-panel` 块里），并做成机械卡点——`check-architecture.mjs`
   规则 5：窄窗块里未排除 `.mini-panel` 的 `.session/.session-row/.panel` 选择器即违规。
+- **第二层（同根的第二处伤，同日拆掉）**：会话列放出来之后，面板整页变成主窗的**内容卡**——
+  深色底、卡圆角、卡投影全跟着来（用户："跳转到了内容面板上…深色底也一起弄过来了"）。
+  同一类根因：面板页整页复用主窗样式表、只靠祖先类区分，面板的修正必须**赢得过**主窗规则。
+  那条 `.mini-panel .session { background: var(--panel-glass); … }` 与主窗的
+  `.session-row > .session { background: var(--card-gradient); box-shadow: var(--shadow-card); … }`
+  **同为 2 类且更靠前**——覆盖从来没生效过（此前列被隐藏，看不出来）。
+  处置：面板的呈现一律用 `.app.mini-panel` 起头（3 类起步，稳定胜出、不依赖文件顺序）；
+  会话列在面板里 `background: none`（深浅归窗底玻璃一个旋钮，网页不重复造底——与草稿页同一语言，
+  浮在网页上的对话卡才自带卡面）；并加机检规则 6：选择器带 `.mini-panel` 的只许
+  `.app.mini-panel …` 或 `.app:not(.mini-panel) …` 两种写法。
+- 通用教训：**"页面复用主窗样式表 + 祖先类区分"的岛，其规则必须能赢**——同优先级靠先后是运气，
+  靠祖先类再加一层（`.app.mini-panel`）才是结构；断点类规则（`@media (max-width: …)`）
+  对"天生窄的窗口"永远命中，要么按页面作用域排除，要么别用视口断点。
 - 另一处对照发现（未改，待定夺）：Atd 面板显隐是 `alphaValue = 0/1` 直接赋值、**无动画**
   （`Atd-src/apps/macos/Sources/AIShell/Windows/PanelWindowController.swift`）；本仓移植时改成了
   `animator()` 0.12s/0.10s 淡入淡出，且常驻 alpha 0 的写法在 Atd 那边是 `orderOut` 会掉 WebKit
