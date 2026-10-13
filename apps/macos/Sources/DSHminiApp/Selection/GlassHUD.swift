@@ -2,7 +2,7 @@ import AppKit
 
 /// A Liquid Glass status capsule near the bottom of the screen (``AnnotationGlassBar``, the
 /// single native glass material): the selection toolbar's listening HUD, which yields its place
-/// while the command island (``IslandController``) is on screen. Clients supply only the row and
+/// while the selection toolbar is on screen. Clients supply only the row and
 /// react to its buttons; this owns everything else:
 ///
 /// - the window: a borderless ``ToolbarWindow`` that never takes the keyboard or activates Atd,

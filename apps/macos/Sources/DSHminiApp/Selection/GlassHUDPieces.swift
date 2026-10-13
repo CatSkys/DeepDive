@@ -4,7 +4,7 @@ import AppKit
 /// vocabulary: the grip, the app's monochrome mark (the menu bar's), text in the toolbar's label
 /// type, a hint with its keys as keycaps (the page's `Kbd`: 20 pt tall, 12 pt medium on a muted
 /// fill, fully rounded), and the round close button. The command island
-/// (``IslandController``) draws the same vocabulary in SwiftUI and shares ``keysMarker`` and
+/// (``SelectionToolbarHUD``) draws the same vocabulary and shares ``keysMarker`` and
 /// ``keycapHeight``.
 enum GlassHUDPieces {
   /// Stands in for the keys while a hint is translated, then splits it around them.

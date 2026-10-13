@@ -208,7 +208,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.async {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.12
+                ctx.duration = ShellMotion.windowShow
                 self.window.animator().alphaValue = 1
             }
         }
@@ -221,7 +221,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         // 卡是没有面的）。
         guard window.alphaValue > 0 else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.10
+            ctx.duration = ShellMotion.windowHide
             self.window.animator().alphaValue = 0
         }, completionHandler: {
             guard !self.isVisible else { return }

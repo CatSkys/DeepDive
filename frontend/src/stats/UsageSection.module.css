@@ -49,7 +49,7 @@
   position: relative; /* 压过滑移底片 */
   height: 24px;
   padding: 0 12px;
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
   white-space: nowrap;
@@ -63,7 +63,7 @@
 .heatGridWrap { flex: 1; min-width: 0; }
 .heatCells { display: grid; gap: 3px; grid-auto-flow: column; }
 .heatCell {
-  border-radius: 3px;
+  border-radius: var(--dsh-radius-micro);
   background: var(--fill-strong);
   min-width: 0;
   transition: transform var(--dur-fast) var(--ease-out);
@@ -73,7 +73,7 @@
   /* 每周悬浮的整列大格：跨七行无缝圆角，细描边标出合并边界 */
   grid-row: 1 / span 7;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--dsh-radius-keycap);
   z-index: 1;
 }
 .heatCell.l1 { background: var(--dsh-chart-heat1); }
@@ -119,14 +119,14 @@
    前缀顺序 -webkit- 在前。 */
 .tip {
   position: fixed;
-  z-index: 1300;
+  z-index: var(--z-tip);
   pointer-events: none;
   padding: 8px 12px;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: var(--dsh-radius-control);
   background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: var(--blur-float);
+  backdrop-filter: var(--blur-float);
   box-shadow: var(--shadow-pop);
   font-size: var(--dsh-font-size-sm);
   color: var(--ink);

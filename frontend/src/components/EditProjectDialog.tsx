@@ -14,7 +14,6 @@ import { clearWsIcon, getWsIcon, setWsIcon } from "../wsIcons";
 import type { WorkspaceView } from "../types";
 import { ProjectFormFields, useProjectForm } from "./projectForm";
 import rowsCss from "../settings/SettingsRows.module.css";
-import css from "./NewProjectDialog.module.css";
 
 let editReq: ((ws: WorkspaceView) => void) | null = null;
 
@@ -101,7 +100,7 @@ function EditProjectDialog({ ws, onClose }: { ws: WorkspaceView; onClose: () => 
       aria-label={t("编辑项目")}
     >
       <div
-        className={`${rowsCss.modal} ${css.glass}`}
+        className={rowsCss.modal}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose();

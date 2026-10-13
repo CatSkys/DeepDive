@@ -22,13 +22,13 @@
      约束在 475 内滚动；少了它列表会按内容长高、被 overflow 裁掉且永远不滚。 */
   display: flex;
   flex-direction: column;
-  z-index: 260;
+  z-index: var(--z-menu);
   /* 圆角取 radius.floating：§1.4 把命令面板登记在这一档；行圆角 radius.control——
      行与面板的角不共处，不必凑同心（§1.4）。 */
   border-radius: var(--dsh-radius-floating);
   background: var(--panel-palette);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: var(--blur-float);
+  backdrop-filter: var(--blur-float);
   box-shadow: var(--shadow-pop);
   overflow: hidden;
 }

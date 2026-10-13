@@ -7,16 +7,18 @@
    窗口圆角由系统绘制：壳层挂可见空 NSToolbar 把窗口选进 Tahoe 的
    toolbar 圆角档（≈26pt，连续曲率，WindowServer 裁切；纯标题栏窗口只有
    ≈16pt 小档）。窗口内容不需要自绘 root 圆角 —— 系统按官方曲线裁切。
-   页内阶梯（CSS px）全部走 token，禁止手写数值：
+   页内阶梯（CSS px）全部走 token，禁止手写数值——七档，档间没有第二套值：
      window 26  系统锚点（仅用于同心计算，如 .main）
      panel  18  .main 主卡 = 26 − 8 缝（HIG 同心规则，与窗口角同心）
-     floating 20  大型浮层（模型菜单）
-     card 14  卡片与紧凑弹层（工具卡/授权/澄清/队列/终端/代码块/右键菜单）
-     control 10  按钮与行 hover、输入控件
-     keycap 6  迷你图标钮/小标签
-     bubble 24  聊天气泡软胶囊；pill 999 / 圆 50% 为语义形状
-   例外：≤16px 的微型元素（滚动条 thumb、
-   unread-dot 圆点）允许按比例小圆角。 */
+     floating 20  大型浮层（模型菜单/命令面板/浮动会话卡）
+     card 14  卡片与紧凑弹层（工具卡/授权/澄清/队列/终端/代码块/右键菜单/对话框）
+     control 10  按钮与行 hover、输入控件、设置行
+     keycap 6  迷你图标钮/小标签/键帽
+     micro  4  12–18px 微元素的几何（勾选标记/图标底板/热力图格/量表条）
+   两条语义形状，不是阶梯档：圆 50%（圆点/圆钮）、胶囊（行/钮/标签）——胶囊写
+   `bubble`（24）而非 999px：≤48px 的盒子 CSS 会把半径收到半高，渲染与 999px
+   等价，且避开 PITFALLS §1.1 的超大圆角合成伪影（该条的处置就是「用安全值 24px」）。
+   同心规则与"胶囊用哪个档"的取法见 UI-SPEC §1.4。 */
 @import "../packages/design/generated/tokens.css";
 
 /* ── 语义颜色变量（暗色 = 现值；亮色经 media query 覆盖）───────────────
@@ -97,12 +99,32 @@
   --card-gradient: linear-gradient(180deg, rgba(20,20,23,.96), rgba(15,15,18,.97) 35%, rgba(18,18,21,.96));
   /* 动效词汇（唯一一处定义，场景对应关系见 UI-SPEC §1.7）：
      四档过渡时长 + 两条常驻循环周期 + 两条曲线，就这么些。
+     时长按参考实现（Raycast 动效规范）的梯度校准：微交互 150ms、位移 200ms、
+     内容 300ms——整屏节奏因此一致，不是每个面各调一个数。
      tokens.json 的 motion 组已删——它从未被生成器输出过（AUD-054 死数据），
      数值以此为家。缺定义时引用处整条 invalid-at-computed-value-time 静默失效
      （AUD-002），所以新写动效只引这里的变量，别再手写字面量。
      过渡一律 var(--dur-*) + var(--ease-out)；animation-delay（错落入场的步进）
      是编排量，按场景就地写。 */
-  --dur-fast: 120ms;
+  /* 材质档（全部 backdrop-filter 取值，唯一一处定义）：一个模糊刻度四步 + 一个饱和值，
+     按"这一层是什么角色"取，不再按地方各调一套。角色见 UI-SPEC §1.4bis 表面层级表。
+     veil 轻遮挡（预览蒙版：背景要看得出还是界面）/ float 浮层本体 / glass 材质层
+     （系统材质不可用时的回退）/ scrim 遮挡垫（对话框、灯箱、拖放、引导）。 */
+  --blur-veil: blur(6px) saturate(160%);
+  --blur-float: blur(12px) saturate(160%);
+  --blur-glass: blur(24px) saturate(160%);
+  --blur-scrim: blur(40px) saturate(160%);
+  /* 层级档（挂到 body 的浮层，唯一一处定义）。顺序即语义，别插中间值：
+     scrim 遮挡垫 < menu 浮层菜单/面板 < tip 提示 < top 指针上下文菜单。
+     遮挡垫必须**低于**菜单——对话框里点开的下拉是挂在 body 上的（`.ddMenu`），
+     垫子高过它就把菜单压在自己底下、连点击都被垫子接走。
+     留在组件内部的浮层（composer 菜单、迷你面板卡、卡内徽标）用组件自己的层级，
+     不入档——它们的 z-index 只在自己那个堆叠上下文里有意义。 */
+  --z-scrim: 1000;
+  --z-menu: 1100;
+  --z-tip: 1300;
+  --z-top: 2000;
+  --dur-fast: 150ms;
   --dur-med: 200ms;
   --dur-slow: 300ms;
   /* 启动过渡（骨架屏 → 界面）刻意比 slow 再慢一档：这是全局唯一一处"等待感"的
@@ -112,10 +134,12 @@
   /* 常驻循环（不是交互延迟，另立两档）：状态点呼吸、转圈加载。 */
   --loop-breathe: 1.2s;
   --loop-spin: 1s;
-  --ease-out: cubic-bezier(.2, 0, 0, 1);
-  /* 带一点回弹的缓动：**只给"入场"用**（引导卡的卡面/步骤切换、侧栏项目名让位）。
-     持续位移/悬停仍用 --ease-out，回弹在反复交互里会显得毛躁。 */
-  --ease-spring: cubic-bezier(.22, .9, .24, 1.04);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  /* 回弹曲线：**只给"入场"用**（引导卡的卡面/步骤切换、侧栏项目名让位、迷你控件整组回弹）。
+     持续位移/悬停仍用 --ease-out，回弹在反复交互里会显得毛躁。
+     两条曲线的形状取自参考实现（Raycast 动效规范）：ease-out-expo 的强减速做入场、
+     ease-out-back 的过冲做俏皮回弹。 */
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 :root[data-theme="light"] {
     --ink: rgba(22,23,26,.90);
@@ -239,7 +263,7 @@ button {
    菜单类浮层（模型菜单 / @ 附件 / / 命令 / 右键菜单 / 容量弹层 / 胶囊面板 /
    悬浮提示 / 文件预览浮窗）共用同一材质。审批/提问/排队三卡不在配方内——它们是流内
    内容卡（fill 渐变 + 自带投影），不是浮层菜单，勿并组——把选择器加进下方材质组即得：
-   bg var(--panel-glass)（.55 玻璃底）+ blur(12px) saturate(180%) +
+   bg var(--panel-glass)（.55 玻璃底）+ var(--blur-float) +
    --shadow-pop 轻投影，勿另写材质。
    历史约束（事故沉淀，勿违反）：
    ① 全局 `* { backdrop-filter:none !important }` + 白名单方案两宗罪：
@@ -304,8 +328,8 @@ button {
   /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
      别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
      Chromium 侧就没了模糊 */
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: var(--blur-float);
+  backdrop-filter: var(--blur-float);
   box-shadow: var(--shadow-pop);
 }
 
@@ -368,7 +392,7 @@ button {
    三颗钮**聚成一个悬浮胶囊**（macOS 悬浮工具组的样子：整组共享一个胶囊底，项 hover/选中
    出内层高亮，不是三颗各自浮着的独立圆钮）。材质**照会话输入框那套抄**（用户 2026-10-13
    点名"像我们会话输入框一样"）——同一 webview 里的玻璃就是它：磨砂底 + 双前缀
-   blur(24px) saturate(150%) + 它的投影，且无描边（输入框定稿：只靠磨砂底色分层）。
+   var(--blur-glass) + 它的投影，且无描边（输入框定稿：只靠磨砂底色分层）。
    胶囊与输入框同族形状（整圆），整套直接对齐，不再自己配一套死板纯色底。
    （原生 NSGlassEffectView 在这个窗里不可行：背板只能垫在同一个 webview 之下＝玻璃叠
    已糊过的窗玻璃，垫在之上会把这颗胶囊连同图标一起糊掉。）
@@ -387,10 +411,10 @@ button {
   align-items: center;
   gap: 2px;
   padding: 3px;
-  /* 半径 = 高 ÷ 2（3 + 32 + 3 = 38 → 19）：写实际值、**不写 999px**——材质层的圆角是
+  /* 半径走 radius.bubble（24 落在 3 + 32 + 3 = 38 高的盒上被自动收到半高 = 19）：写 token、**不写 999px**——材质层的圆角是
      `inherit`，托管材质会把它原样交给 SwiftUI（四个角取最大值），喂 999 就是喂一个
      给不出形状的数（PITFALLS §1.1 同族；也是 2026-10-13 材质几何事故的邻因）。 */
-  border-radius: 19px;
+  border-radius: var(--dsh-radius-bubble);
   /* 外投影挂胶囊本体：材质层的层 bounds 被它撑大＝材质板大一圈（见 --composer-shadow）。
      底色、内缘高光、磨砂/材质都在这颗胶囊的材质层上（[data-liquid-glass-backdrop] 那条
      全局规则，与输入胶囊同一条）——所以这里只剩几何与位置。 */
@@ -420,7 +444,7 @@ button {
   width: 32px;
   height: 32px;
   margin-left: 0;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
 }
 /* 组内高亮按规范的两档走：**hover = 前景 5%**（--row-hover），**选中/按下 = 前景 10%**
    （--fill-strong，这里指"这张卡正开着"）——与列表行 hover/选中同一条阶梯，不另立档。
@@ -560,7 +584,7 @@ button {
      标签比历史标题右移 4px，翻页时文字列左右跳。
      圆角走胶囊（半径 ≥ 半高即整圆）：与历史行、设置行同一形状（用户定稿"改为胶囊样式"）。 */
   margin: 0 -4px;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-control);
   color: var(--ink);
   text-align: left;
 }
@@ -617,7 +641,7 @@ button {
 .app.mini-panel .mini-cc-settings .panel-settings-line {
   min-height: 32px;
   /* 同一张卡里行态一种形状：设置行也用胶囊（主窗那张设置卡仍是控件档圆角，那是另一张卡） */
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-control);
 }
 :where(html[data-hover-armed]) .app.mini-panel .mini-cc-settings .panel-settings-line:hover {
   background: var(--row-hover);
@@ -654,7 +678,7 @@ button {
   inset: 0;
   z-index: 4;
   pointer-events: none;
-  border-radius: 12px;
+  border-radius: var(--dsh-radius-panel);
   padding: 1.5px;
   background: var(--mini-glow-arc);
   mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
@@ -848,7 +872,7 @@ button {
   width: 100%;
   height: 32px;
   padding: 0 10px;
-  border-radius: 16px; /* 选中/悬停底为胶囊（用户定稿：半径用高度值，PITFALLS §1.1） */
+  border-radius: var(--dsh-radius-bubble); /* 选中/悬停底为胶囊（用户定稿：半径用高度值，PITFALLS §1.1） */
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
   text-align: left;
@@ -907,7 +931,7 @@ button {
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
   font-weight: 600;
-  border-radius: 16px; /* 胶囊与 task-row 同语法：半径用高度值（PITFALLS §1.1） */
+  border-radius: var(--dsh-radius-bubble); /* 胶囊与 task-row 同语法：半径用高度值（PITFALLS §1.1） */
 }
 :where(html[data-hover-armed]) .ws-row:hover { background: var(--row-hover); }
 .ws-row svg { color: var(--ink-3); flex: none; }
@@ -925,7 +949,7 @@ button {
   height: 32px;
   margin-top: 3px; /* 补回原在 .sessions gap 里的行距 */
   padding: 0 10px;
-  border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
+  border-radius: var(--dsh-radius-bubble); /* 胶囊用高度值（PITFALLS §1.1） */
   color: var(--ink-3);
   font-size: var(--dsh-font-size-base);
 }
@@ -953,7 +977,9 @@ button {
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 12px;
+  /* 胶囊引 radius.bubble：24 高的盒子上 CSS 自动收到半高（= 12），与写死高度值同渲染，
+     且避开 999px 那类无穷圆角的合成伪影（PITFALLS §1.1） */
+  border-radius: var(--dsh-radius-bubble);
   color: inherit;
 }
 .quick-session-entry svg { flex: none; }
@@ -1078,7 +1104,7 @@ button {
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 /* 项目图标缩略图（icon.png/logo.* 读盘），无图标回落首字母 */
-.ws-cell-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
+.ws-cell-icon { width: 18px; height: 18px; border-radius: var(--dsh-radius-micro); object-fit: cover; }
 :where(html[data-hover-armed]) .ws-cell:hover { background: var(--row-hover); color: var(--ink); }
 /* 选中态：底色由滑移底片（.glide-ws）给，自身裸图标——文字亮度仍由这里给。
    hover 透明：悬停那层 fill 会把滑过来的底冲淡。 */
@@ -1133,7 +1159,7 @@ button {
   max-width: 180px;
   height: 22px;
   padding: 0 9px;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill);
   color: var(--ink-soft);
   font-size: var(--dsh-font-size-sm);
@@ -1292,7 +1318,7 @@ button {
   /* 统一投影（弹出面板配方）：贴身锐影 + 中距柔影，不再各写一套 */
   overflow: hidden;
   /* 与 .ddMenu 同层：都是挂 body 的浮动菜单（portaled 菜单的层序） */
-  z-index: 1100;
+  z-index: var(--z-menu);
 }
 .model-menu::before {
   content: "";
@@ -1382,7 +1408,7 @@ button {
   border: 1px solid var(--line);
   overflow-y: auto;
   /* 与 .model-menu 同层：都是挂 body 的浮动菜单 */
-  z-index: 1100;
+  z-index: var(--z-menu);
 }
 .model-detail-view { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; }
 .model-detail-name {
@@ -1398,7 +1424,7 @@ button {
 .model-detail-meter .track {
   position: relative;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill-strong);
   /* 五段轨道的段界圆点（25/50/75%，用户定稿不动）：fill 把 0–4 档映射到
      10–90%（两端内缩，用户 2026-10-11 定稿——空条/满条会被误读成"没数据/拉满"） */
@@ -1464,7 +1490,7 @@ button {
   border-radius: var(--dsh-radius-floating);
   border: 1px solid var(--line);
   overflow: hidden;
-  z-index: 60;
+  z-index: var(--z-menu);
   animation: menu-in var(--dur-med) var(--ease-out) both;
   transform-origin: top center;
 }
@@ -1596,8 +1622,8 @@ button {
   background: var(--composer-bg);
   box-shadow: var(--composer-shadow);
   /* 悬浮后消息从胶囊背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
 }
 /* 内容抬到材质之上：同一条栈里靠 z 分先后。**不要求宿主做成栈上下文**——那正是会把
    宿主自己变成 backdrop root 的嫌疑动作（isolation / z-index 都得带上它）。
@@ -1767,7 +1793,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .eq span {
   width: 2.5px;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   background: currentColor;
   animation: eq-bounce 900ms ease-in-out infinite;
 }
@@ -1881,12 +1907,12 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   position: fixed;
   inset: 0;
   /* 高于页面内浮层（拖放 150、全屏预览面 40），低于 tooltip 1300 / 弹窗 1500 */
-  z-index: 160;
+  z-index: var(--z-scrim);
   background: var(--veil);
   /* 前缀顺序勿倒（PITFALLS §1.8）：-webkit- 在前。6px：背景要"看得出是
      界面、只是柔了一点"，糊成浓雾等于看着没模糊 */
-  -webkit-backdrop-filter: blur(6px) saturate(160%);
-  backdrop-filter: blur(6px) saturate(160%);
+  -webkit-backdrop-filter: var(--blur-veil);
+  backdrop-filter: var(--blur-veil);
   animation: preview-in var(--dur-med) var(--ease-out);
 }
 @keyframes preview-in { from { opacity: 0; } }
@@ -1898,7 +1924,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   position: fixed;
   inset: 0;
   margin: auto;
-  z-index: 161;
+  z-index: calc(var(--z-scrim) + 1);
   display: flex;
   flex-direction: column;
   width: min(880px, 68vw);
@@ -2044,7 +2070,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   max-width: 150px;
   padding: 4px 8px;
   border: none;
-  border-radius: 7px 7px 0 0;
+  border-radius: var(--dsh-radius-keycap) var(--dsh-radius-keycap) 0 0;
   background: transparent;
   color: var(--ink-3);
   font-size: var(--dsh-font-size-sm);
@@ -2055,7 +2081,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .preview-tab-x {
   display: inline-flex; align-items: center; justify-content: center;
   width: 14px; height: 14px; flex: none;
-  border-radius: 4px;
+  border-radius: var(--dsh-radius-micro);
   color: var(--ink-3);
 }
 .preview-tab-x:hover { background: var(--fill-heavy); color: var(--ink); }
@@ -2484,7 +2510,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   gap: 2px;
   height: 34px;
   padding: 0 6px 0 4px;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   animation: fadein var(--dur-fast) var(--ease-out);
 }
 .find-input {
@@ -2525,16 +2551,16 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
    右键菜单复用同条只带[复制]。配方玻璃底；portal 到 body，fixed 定位。 */
 .sel-actions {
   position: fixed;
-  z-index: 210;
+  z-index: var(--z-menu);
   display: flex;
   gap: 2px;
   padding: 4px;
-  border-radius: 16px;
+  border-radius: var(--dsh-radius-bubble);
   border: 1px solid var(--line-strong);
   background: var(--panel-glass);
   /* 前缀顺序勿倒（见配方组注释）：-webkit- 在前 */
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: var(--blur-float);
+  backdrop-filter: var(--blur-float);
   box-shadow: var(--shadow-pop);
   animation: pop-in var(--dur-fast) var(--ease-out) both;
   transform: translateX(-50%);
@@ -2546,7 +2572,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: var(--dsh-radius-bubble);
   white-space: nowrap;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
@@ -2626,7 +2652,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
   background: linear-gradient(135deg, var(--fill), var(--fill-soft));
-  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
   box-shadow: var(--shadow-pop);
   padding: 12px 14px;
   display: flex;
@@ -2670,11 +2697,11 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   max-width: 62%;
   min-width: 0;
   padding: 0 10px;
-  border-radius: 12px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--composer-bg);
   /* 与输入框同一套磨砂（WebKit 需双前缀，PITFALLS §1.3） */
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
   animation: pop-in var(--dur-med) var(--ease-out) both;
   transition: min-width var(--dur-med) var(--ease-out), max-width var(--dur-med) var(--ease-out),
               height var(--dur-med) var(--ease-out), border-radius var(--dur-med) var(--ease-out),
@@ -2689,7 +2716,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
      能把它撑满） */
   min-width: 100%;
   max-width: 100%;
-  border-radius: 15px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill-strong);
 }
 .queue-head { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
@@ -2726,7 +2753,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   gap: 4px;
   height: 22px;
   padding: 0 8px;
-  border-radius: 11px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill-strong);
   border: 1px solid var(--line);
   color: var(--ink);
@@ -2738,7 +2765,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .queue-btn {
   width: 22px;
   height: 22px;
-  border-radius: 11px;
+  border-radius: var(--dsh-radius-bubble);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2754,7 +2781,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   min-width: 0;
   height: 22px;
   padding: 0 8px;
-  border-radius: 11px;
+  border-radius: var(--dsh-radius-bubble);
   border: 1px solid var(--line-strong);
   background: var(--fill);
   /* 正文面只用语义 ink 一族（--dsh-* 那族留给字号/圆角等无语义量）。明暗由
@@ -2825,7 +2852,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
   background: linear-gradient(135deg, var(--fill), var(--fill-soft));
-  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
   box-shadow: var(--shadow-pop);
   padding: 12px 14px;
   display: flex;
@@ -2845,7 +2873,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   flex: none;
   padding: 2px 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-soft);
 }
@@ -2928,7 +2956,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   align-items: center;
   gap: 8px;
   padding: 0 6px 0 10px;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   background: transparent;
 }
 :where(html[data-hover-armed]) .q-custom:hover { background: var(--row-hover); }
@@ -2965,7 +2993,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 /* 流内三卡（提问/审批/计划审查）同族语言：plain 按钮统一胶囊 */
 .question-card .actions .btn-plain,
 .approval-card .actions .btn-plain,
-.plan-review-card .actions .btn-plain { border-radius: 999px; }
+.plan-review-card .actions .btn-plain { border-radius: var(--dsh-radius-bubble); }
 .question-card .actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 .btn-primary, .btn-plain {
@@ -3294,7 +3322,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   scrollbar-color: var(--ink-faint) transparent;
 }
 .thinking-rows::-webkit-scrollbar { width: 4px; }
-.thinking-rows::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
+.thinking-rows::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--dsh-radius-micro); }
 .thinking-rows::-webkit-scrollbar-track { background: transparent; }
 .thinking-row {
   font-size: var(--dsh-font-size-base);
@@ -3465,7 +3493,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 .load-error button {
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--dsh-radius-keycap);
   background: transparent;
   color: inherit;
   padding: 2px 10px;
@@ -3715,7 +3743,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   min-width: 34px;
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   align-items: center;
   gap: 4px;
   padding: 2px 9px;
@@ -3737,8 +3765,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   transition: top var(--dur-med) var(--ease-out), left var(--dur-med) var(--ease-out),
               width var(--dur-med) var(--ease-out), height var(--dur-med) var(--ease-out);
 }
-.glide-row { background: var(--fill-strong); border-radius: 16px; }  /* 与 .task-row 同半径（PITFALLS §1.1） */
-.glide-seg { background: var(--ink); border-radius: 8px; }           /* 统计分段：ink 实底 */
+.glide-row { background: var(--fill-strong); border-radius: var(--dsh-radius-bubble); }  /* 与 .task-row 同半径（PITFALLS §1.1） */
+.glide-seg { background: var(--ink); border-radius: var(--dsh-radius-control); }           /* 统计分段：ink 实底 */
 .glide-ws  { background: var(--fill-strong); border-radius: var(--dsh-radius-control); }
 
 .task-row { position: relative; }
@@ -3809,7 +3837,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 /* 右键任务菜单（材质走弹出面板统一配方，与模型/@ 菜单同款） */
 .ctx-menu {
   position: fixed;
-  z-index: 2000;
+  z-index: var(--z-top);
   min-width: 190px;
   padding: 4px;
   border: 1px solid var(--line);
@@ -3860,7 +3888,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
     /* 浮起来就得自己有底：宽屏时它是"窗口的底"（不透明靠 .app），浮在主卡
        之上再没有那层底——用弹层的玻璃配方 + 右描边，与全站弹出件同观感。 */
     background: var(--panel-strong);
-    backdrop-filter: blur(40px) saturate(160%);
+    -webkit-backdrop-filter: var(--blur-scrim);
+    backdrop-filter: var(--blur-scrim);
     border-right: 1px solid var(--line);
     box-shadow: var(--shadow-pop);
   }
@@ -4263,7 +4292,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 .md-ui-chart-svg { display: block; width: 100%; height: auto; }
 .md-ui-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .md-ui-legend-item { display: flex; align-items: center; gap: 5px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
-.md-ui-legend-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.md-ui-legend-dot { width: 8px; height: 8px; border-radius: var(--dsh-radius-micro); flex: none; }
 
 /* ── 顶层错误边界（components/ErrorBoundary.tsx）：渲染树崩了的可恢复面板。
    此前整树卸载 = 一块不响应的黑玻璃；这里给一句说明 + 重载钮，居中安置。 ── */
@@ -4307,7 +4336,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   padding: 0 8px;
   margin-bottom: 4px;
   border: none;
-  border-radius: 999px; /* 同下方 .snav-item：胶囊语法（用户 2026-10-01 定） */
+  border-radius: var(--dsh-radius-bubble); /* 同下方 .snav-item：胶囊语法（用户 2026-10-01 定） */
   background: transparent;
   color: var(--ink-2);
   font-size: var(--dsh-font-size-base);
@@ -4323,7 +4352,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   height: 30px;
   padding: 0 10px;
   border: none;
-  border-radius: 999px; /* 同侧栏会话行：胶囊语法（用户定稿） */
+  border-radius: var(--dsh-radius-bubble); /* 同侧栏会话行：胶囊语法（用户定稿） */
   background: transparent;
   /* 一级导航用 --ink-soft：--ink-2（56%）比侧栏会话行（--ink）还灰，
      一屏字看着发虚（用户反馈）。选中态仍用 --ink + 600 拉开层级。 */
@@ -4374,7 +4403,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   align-items: center;
   justify-content: center;
   flex: none;
-  border-radius: 5px;
+  border-radius: var(--dsh-radius-micro);
   border: 1px solid var(--line-strong);
   color: var(--ink-2);
   font-weight: 600;
@@ -4540,7 +4569,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
   background: linear-gradient(135deg, var(--fill), var(--fill-soft));
-  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
   box-shadow: var(--shadow-pop);
   padding: 12px 14px;
   display: flex;
@@ -4565,7 +4595,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
   background: linear-gradient(135deg, var(--fill), var(--fill-soft));
-  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
   box-shadow: var(--shadow-pop);
   padding: 12px 14px;
   display: flex;
@@ -4625,12 +4656,12 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  border-radius: 18px;
+  border-radius: var(--dsh-radius-panel);
   border: 1px solid var(--line-strong);
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前 */
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: var(--blur-float);
+  backdrop-filter: var(--blur-float);
   box-shadow: var(--shadow-pop);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-base);
@@ -4644,7 +4675,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   flex: none;
   height: 22px;
   padding: 0 10px;
-  border-radius: 11px;
+  border-radius: var(--dsh-radius-bubble);
   border: 1px solid var(--line-strong);
   background: var(--fill);
   color: var(--ink);
@@ -4722,10 +4753,10 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .drop-overlay {
   position: fixed;
   inset: 0;
-  z-index: 150;
+  z-index: var(--z-scrim);
   background: rgba(0,0,0,.6);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: var(--blur-scrim);
+  backdrop-filter: var(--blur-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4736,7 +4767,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   position: absolute;
   inset: 14px;
   border: 1.5px dashed var(--ink-2);
-  border-radius: 16px;
+  border-radius: var(--dsh-radius-floating);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4766,7 +4797,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 60;
+  z-index: var(--z-menu);
   min-width: 210px;
   padding: 8px 10px;
   border-radius: var(--dsh-radius-card);
@@ -4789,13 +4820,13 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .ctx-cap-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .ctx-cap-title { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); }
 .ctx-cap-total { font-size: var(--dsh-font-size-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* 低高度进度条用半高圆角（PITFALLS §1.1 禁 999px） */
-.ctx-cap-bar { height: 5px; border-radius: 2.5px; background: var(--fill-strong); overflow: hidden; }
-.ctx-cap-bar > span { display: block; height: 100%; border-radius: 2.5px; background: var(--ink); transition: width var(--dur-med) var(--ease-out); }
+/* 低高度进度条走 radius.bubble 的自动收半高（PITFALLS §1.1 禁 999px） */
+.ctx-cap-bar { height: 5px; border-radius: var(--dsh-radius-micro); background: var(--fill-strong); overflow: hidden; }
+.ctx-cap-bar > span { display: block; height: 100%; border-radius: var(--dsh-radius-micro); background: var(--ink); transition: width var(--dur-med) var(--ease-out); }
 .ctx-cap-bar > span[data-hot="true"] { background: var(--dsh-signal-warn); }
 .ctx-cap-row { display: flex; align-items: center; gap: 8px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .ctx-cap-row b { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
-.ctx-cap-dot { width: 7px; height: 7px; border-radius: 3.5px; background: var(--ink-2); flex-shrink: 0; }
+.ctx-cap-dot { width: 7px; height: 7px; border-radius: var(--dsh-radius-micro); background: var(--ink-2); flex-shrink: 0; }
 .ctx-cap-div { height: 1px; background: var(--line); }
 .turn-usage-wrap { position: relative; display: inline-flex; }
 
@@ -4809,7 +4840,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .md-task-mark {
   flex: none;
   width: 14px; height: 14px;
-  border-radius: 4px;
+  border-radius: var(--dsh-radius-micro);
   border: 1px solid var(--line-heavy);
   display: inline-flex; align-items: center; justify-content: center;
   font-size: var(--dsh-font-size-xs); line-height: 1;
@@ -4832,11 +4863,11 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: var(--z-scrim);
   background: rgba(0,0,0,.6);
   /* WebKit 需双前缀才渲染（PITFALLS §1.3）：此前只有无前缀声明，实机遮罩从未模糊过 */
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: var(--blur-scrim);
+  backdrop-filter: var(--blur-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4870,7 +4901,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 }
 .lightbox img[data-zoomed] { max-width: none; max-height: none; }
 /* 缩放胶囊（底部居中）：叠在任意亮度的图上，配色不随主题（与 .lightbox-close 同语言）。
-   半径按高度值给（胶囊 38→19、按钮 30→15），不用 999px（PITFALLS §1.1） */
+   半径走 radius.bubble（盒高 38/30 会被自动收到半高 19/15），不用 999px（PITFALLS §1.1） */
 .lightbox-zoom {
   position: absolute;
   left: 50%;
@@ -4880,10 +4911,10 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   align-items: center;
   gap: 2px;
   padding: 4px;
-  border-radius: 19px;
+  border-radius: var(--dsh-radius-bubble);
   background: rgba(0, 0, 0, .5);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: var(--blur-float);
+  backdrop-filter: var(--blur-float);
   color: #fff;
   user-select: none;
   cursor: default;
@@ -4892,7 +4923,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   width: 30px;
   height: 30px;
   border: none;
-  border-radius: 15px;
+  border-radius: var(--dsh-radius-bubble);
   background: transparent;
   color: #fff;
   font-size: var(--dsh-font-size-xl);
@@ -4906,7 +4937,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   width: auto;
   min-width: 62px;
   padding: 0 8px;
-  border-radius: 15px;
+  border-radius: var(--dsh-radius-bubble);
   font-size: var(--dsh-font-size-base);
   font-variant-numeric: tabular-nums;
 }
@@ -4943,7 +4974,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
   padding: 3px 10px;
-  border-radius: 18px;
+  border-radius: var(--dsh-radius-panel);
   border: 1px dashed var(--line-strong);
 }
 :where(html[data-hover-armed]) .compaction-main:hover { color: var(--ink-2); background: var(--fill-soft); }
@@ -5032,7 +5063,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 }
 .turn-issue-btn {
   padding: 2px 10px;
-  border-radius: 18px;
+  border-radius: var(--dsh-radius-panel);
   background: var(--dsh-text-primary);
   color: var(--dsh-surface-inverted);
   font-size: var(--dsh-font-size-sm);
@@ -5122,7 +5153,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   gap: 6px;
   max-width: 360px;
   padding: 4px 12px;
-  border-radius: 13px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill-soft);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
@@ -5145,7 +5176,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 /* 站点图标（浏览器那一级）：与浏览器 tab 同一个来源（壳按 link[rel~=icon] 问来的），
    所以胶囊与 tab 永远指向同一个站点。取不到就不渲染、退回地球记号，不猜
    /favicon.ico（多数站点没有，只打 404）。object-fit:contain 让非方形图标不裁。 */
-.capsule-pill-favicon { width: 13px; height: 13px; object-fit: contain; border-radius: 2px; }
+.capsule-pill-favicon { width: 13px; height: 13px; object-fit: contain; border-radius: var(--dsh-radius-micro); }
 .capsule-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capsule-pill-meta { color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
 .capsule-add { color: rgba(120,220,140,.95); font-weight: 600; }
@@ -5154,7 +5185,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 70;
+  z-index: var(--z-menu);
   transform-origin: top right;
   animation: pop-in var(--dur-med) var(--ease-out) both;
   width: 360px;
@@ -5265,7 +5296,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
    破坏（同 ZCode 的 STATUS_SECTION_SCROLL_POLICY）。normal 一档、tall 给计划类。 */
 .capsule-sec-scroll { max-height: 192px; overflow-x: hidden; overflow-y: auto; }
 .capsule-sec-scroll[data-tall] { max-height: 320px; }
-.capsule-refresh { color: var(--ink-3); padding: 2px; border-radius: 4px; margin-left: auto; }
+.capsule-refresh { color: var(--ink-3); padding: 2px; border-radius: var(--dsh-radius-micro); margin-left: auto; }
 .capsule-refresh:hover { color: var(--ink); }
 .capsule-row {
   display: flex;
@@ -5372,7 +5403,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: var(--dsh-font-size-sm); color: var(--ink-3);
 }
-.capsule-stop { color: var(--ink-3); padding: 3px; border-radius: 4px; flex: none; align-self: center; }
+.capsule-stop { color: var(--ink-3); padding: 3px; border-radius: var(--dsh-radius-micro); flex: none; align-self: center; }
 .capsule-stop:hover:not(:disabled) { color: var(--dsh-signal-warn); background: var(--fill); }
 .capsule-sec-toggle {
   display: inline-flex;
@@ -5403,14 +5434,14 @@ input:focus, textarea:focus, select:focus { outline: none; }
    壳里那份住 Tooltip 窗口（`?tooltip=1` 那一页 + 原生 AppKit 控件也走它，见 `Tooltip/`）。 */
 .tip {
   position: fixed;
-  z-index: 1300;
+  z-index: var(--z-tip);
   pointer-events: none;
   display: flex;
   align-items: center;
   gap: 4px;
   max-width: 300px;
   padding: 6px;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   border: 1px solid var(--line-strong);
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
@@ -5463,7 +5494,7 @@ html[data-tooltip] .tip {
   min-width: 18px;
   height: 19px;
   padding: 0 4px;
-  border-radius: 6px;
+  border-radius: var(--dsh-radius-keycap);
   border: 1px solid var(--line-strong);
   background: var(--fill-strong);
   color: var(--ink);
@@ -5655,7 +5686,7 @@ html[data-tooltip] .tip {
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1500;
+  z-index: var(--z-scrim);
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
@@ -5667,10 +5698,10 @@ html[data-tooltip] .tip {
   max-width: 92vw;
   padding: 18px;
   border: 1px solid var(--line-strong);
-  border-radius: 14px;
+  border-radius: var(--dsh-radius-card);
   background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: var(--blur-scrim);
+  backdrop-filter: var(--blur-scrim);
   box-shadow: var(--shadow-modal);
   animation: pop-in var(--dur-fast) var(--ease-out);
 }
@@ -5696,7 +5727,7 @@ html[data-tooltip] .tip {
   margin-top: 12px;
   padding: 0 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: var(--fill);
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
@@ -5707,7 +5738,7 @@ html[data-tooltip] .tip {
   height: 32px;
   padding: 0 16px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: var(--fill);
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
@@ -5927,7 +5958,7 @@ html[data-tooltip] .tip {
 .panel-browser-tab {
   flex: none; height: 28px;
   display: flex; align-items: center; position: relative;
-  border-radius: 8px; background: transparent; color: var(--ink-3);
+  border-radius: var(--dsh-radius-control); background: transparent; color: var(--ink-3);
 }
 .panel-browser-tab:hover { background: var(--fill-soft); color: var(--ink-2); }
 /* 选中那枚：底色在会滑的公共底上；标题用正色。编辑档照参考 span = min(340, room) */
@@ -5940,7 +5971,7 @@ html[data-tooltip] .tip {
    阅读进度灰底垫在它里面，跟着一起走 */
 .panel-browser-chrome-glide {
   position: absolute; top: 0; height: 28px; z-index: 0;
-  border-radius: 8px; background: var(--fill);
+  border-radius: var(--dsh-radius-control); background: var(--fill);
   transition: left var(--dur-med) var(--ease-out), width var(--dur-med) var(--ease-out);
 }
 .panel-browser-tab, .panel-browser-tab-body, .panel-browser-tab-live-field { z-index: 1; }
@@ -5960,13 +5991,13 @@ html[data-tooltip] .tip {
 .panel-browser-tab.asleep { opacity: .5; }
 .panel-browser-tab-body {
   flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 6px;
-  padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: inherit;
+  padding: 0 8px; border: 0; border-radius: var(--dsh-radius-control); background: transparent; color: inherit;
 }
 .panel-browser-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--dsh-font-size-sm); }
-.panel-browser-tab-icon { flex: none; width: 14px; height: 14px; border-radius: 3px; object-fit: contain; }
+.panel-browser-tab-icon { flex: none; width: 14px; height: 14px; border-radius: var(--dsh-radius-micro); object-fit: contain; }
 .panel-browser-tab-glyph {
   flex: none; display: flex; align-items: center; justify-content: center;
-  width: 14px; height: 14px; border-radius: 3px; background: var(--fill-strong);
+  width: 14px; height: 14px; border-radius: var(--dsh-radius-micro); background: var(--fill-strong);
   font-size: var(--dsh-font-size-xs); font-weight: 600; color: var(--ink-3);
 }
 /* 喇叭：页面在响（可按静音）或被静音（划掉的样子，可按恢复）时，叉前面那一枚 */
@@ -6000,7 +6031,7 @@ html[data-tooltip] .tip {
 .panel-browser-tab-live-field { flex: 1; min-width: 0; display: flex; }
 .panel-browser-tab-new {
   flex: none; display: flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px;
+  width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--dsh-radius-keycap);
   background: transparent; color: var(--ink-3);
   opacity: 0; transform: scale(.7); transform-origin: left center; pointer-events: none;
   transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
@@ -6019,7 +6050,7 @@ html[data-tooltip] .tip {
 .panel-browser-field-box { display: flex; align-items: center; position: relative; }
 .panel-browser-field-input {
   width: 100%; height: 28px; padding: 0 30px 0 10px;
-  border: 1px solid var(--line); border-radius: 8px;
+  border: 1px solid var(--line); border-radius: var(--dsh-radius-control);
   background: var(--fill-soft); color: var(--ink); font-size: var(--dsh-font-size-sm);
 }
 .panel-browser-field-input:focus { border-color: var(--line-focus); background: var(--fill); }
@@ -6031,24 +6062,24 @@ html[data-tooltip] .tip {
 /* 空白标签页那款：560 宽、圆角 14、带阴影（参考 Metrics.fieldWidth） */
 .panel-browser-field.big { flex: none; width: 560px; max-width: 100%; z-index: 61; }
 .panel-browser-field.big .panel-browser-field-input {
-  height: 50px; padding: 0 22px; border-radius: 14px;
+  height: 50px; padding: 0 22px; border-radius: var(--dsh-radius-card);
   background: var(--dsh-surface-raised);
   font-size: var(--dsh-font-size-lg);
 }
 /* 补全列表：挂在框正下方（不遮页面、不浮到页面正中）。挂 body 上、fixed 按框摆位
    （BrowserAddressField 文件头有理由），层序与 .ddMenu 同档。 */
 .panel-browser-offers {
-  position: fixed; z-index: 1100;
+  position: fixed; z-index: var(--z-menu);
   /* 摆位给的是输入框的**边框盒**宽（量出来的），所以这里要 border-box，否则列表比框宽出
      一条 padding + 边框（12 + 2 = 14px）。全局没有 border-box 复位，逐条写。 */
   box-sizing: border-box;
   display: flex; flex-direction: column; padding: 6px;
-  border: 1px solid var(--line); border-radius: 12px;
+  border: 1px solid var(--line); border-radius: var(--dsh-radius-card);
   background: var(--dsh-surface-raised); box-shadow: var(--shadow-pop); overflow: hidden;
 }
 .panel-browser-offer {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-  border: 0; border-radius: 8px; background: transparent; text-align: left;
+  border: 0; border-radius: var(--dsh-radius-control); background: transparent; text-align: left;
 }
 .panel-browser-offer.active, .panel-browser-offer:hover { background: var(--fill); }
 .panel-browser-offer.refused { color: var(--dsh-signal-danger); font-size: var(--dsh-font-size-sm); }
@@ -6079,7 +6110,7 @@ html[data-tooltip] .tip {
 .panel-browser-tool {
   display: flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0;
-  border: 0; border-radius: 8px; background: transparent; color: var(--ink-3);
+  border: 0; border-radius: var(--dsh-radius-control); background: transparent; color: var(--ink-3);
 }
 .panel-browser-tool:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
 /* 置灰态：后退/前进/刷新在做不到时是真 disabled（点下去壳也不执行），不置灰就还是一副
@@ -6090,7 +6121,7 @@ html[data-tooltip] .tip {
 /* 拾取模式的那行提示：浮在网页之上做不到（原生视图恒在 SPA 之上），所以它贴在工具栏下沿 */
 .panel-browser-hint {
   position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
-  padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: 14px;
+  padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: var(--dsh-radius-card);
   background: var(--dsh-surface-raised); color: var(--ink-2);
   font-size: var(--dsh-font-size-xs); box-shadow: var(--shadow-pop); pointer-events: none;
 }
@@ -6246,7 +6277,7 @@ html[data-tooltip] .tip {
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: var(--dsh-radius-control, 8px);
+  border-radius: var(--dsh-radius-control);
   background: none;
   color: var(--dsh-text-tertiary);
 }
@@ -6281,7 +6312,7 @@ html[data-tooltip] .tip {
   height: 26px;
   padding: 0 10px;
   border: 0;
-  border-radius: 13px;
+  border-radius: var(--dsh-radius-bubble);
   background: transparent;
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
@@ -6309,7 +6340,7 @@ html[data-tooltip] .tip {
   height: 26px;
   padding: 0 10px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill-soft);
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);

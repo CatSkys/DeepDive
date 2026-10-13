@@ -7,7 +7,7 @@
   animation: wizard-veil var(--dur-med) var(--ease-out) both;
   position: fixed;
   inset: 0;
-  z-index: 210;
+  z-index: var(--z-scrim);
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
@@ -23,10 +23,10 @@
   height: 560px;
   max-height: calc(100vh - 48px);
   border: 1px solid var(--line-strong);
-  border-radius: 14px;
+  border-radius: var(--dsh-radius-card);
   background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: var(--blur-scrim);
+  backdrop-filter: var(--blur-scrim);
   box-shadow: var(--shadow-modal);
   overflow: hidden;
 }
@@ -42,7 +42,7 @@
   width: 26px;
   height: 26px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.85);
 }
@@ -63,7 +63,7 @@
   font-size: var(--dsh-font-size-xs);
   color: var(--ink-2);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   padding: 3px 10px;
 }
 
@@ -90,7 +90,7 @@
   width: 24px;
   height: 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: transparent;
   color: var(--ink-3);
   cursor: default;
@@ -116,7 +116,7 @@
   height: 30px;
   padding: 0 8px;
   border: none;
-  border-radius: 9px;
+  border-radius: var(--dsh-radius-control);
   background: transparent;
   color: var(--ink-2);
   font-size: var(--dsh-font-size-base);
@@ -133,7 +133,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  border-radius: 6px;
+  border-radius: var(--dsh-radius-keycap);
   border: 1px solid var(--line);
   font-size: var(--dsh-font-size-xs);
   color: var(--ink-2);
@@ -147,7 +147,7 @@
   flex: 1;
   position: relative;
   margin: 10px 10px 10px 0;
-  border-radius: 10px;
+  border-radius: var(--dsh-radius-control);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -223,10 +223,10 @@
 .skeleton { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
 .skelGroup,
 .skelRow { background: var(--fill); animation: skel-pulse 1.7s ease-in-out infinite; }
-.skelGroup { width: 56px; height: 9px; border-radius: 5px; }
-.skelRow { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; }
-.skelBox { flex: none; width: 16px; height: 16px; border-radius: 5px; background: var(--fill-strong); }
-.skelBar { height: 9px; border-radius: 5px; background: var(--fill-strong); }
+.skelGroup { width: 56px; height: 9px; border-radius: var(--dsh-radius-micro); }
+.skelRow { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: var(--dsh-radius-control); }
+.skelBox { flex: none; width: 16px; height: 16px; border-radius: var(--dsh-radius-micro); background: var(--fill-strong); }
+.skelBar { height: 9px; border-radius: var(--dsh-radius-micro); background: var(--fill-strong); }
 .skelHint { margin-top: 2px; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 @keyframes skel-pulse {
   0%, 100% { opacity: .45; }
@@ -255,7 +255,7 @@
   width: 16px;
   height: 16px;
   border: 1px solid var(--line-strong);
-  border-radius: 5px;
+  border-radius: var(--dsh-radius-micro);
   background: transparent;
   color: transparent;
   transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
@@ -309,7 +309,7 @@
   font: inherit;
   text-align: left;
 }
-.groupRow { border-radius: 10px; transition: background-color var(--dur-fast) var(--ease-out); }
+.groupRow { border-radius: var(--dsh-radius-control); transition: background-color var(--dur-fast) var(--ease-out); }
 :where(html[data-hover-armed]) .groupRow:hover { background: var(--row-hover); }
 .headPick { display: inline-flex; align-items: center; padding: 0 2px 0 8px; }
 .pickMeta { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 4px; }
@@ -323,7 +323,7 @@
   min-width: 0;
   min-height: 30px;
   padding: 0 8px;
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: var(--fill);
   font-size: var(--dsh-font-size-base);
   color: var(--ink);
@@ -337,7 +337,7 @@
   border: none;
   background: transparent;
   padding: 2px 4px;
-  border-radius: 6px;
+  border-radius: var(--dsh-radius-keycap);
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-3);
 }
@@ -351,7 +351,7 @@
   gap: 8px;
   min-height: 28px;
   padding: 0 8px;
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: var(--fill);
   font-size: var(--dsh-font-size-base);
   color: var(--ink);
@@ -376,7 +376,7 @@
   height: 26px;
   padding: 0 10px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
@@ -392,7 +392,7 @@
   height: 30px;
   padding: 0 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: var(--fill);
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
@@ -403,7 +403,7 @@
 .pathLine {
   margin-top: 4px;
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   background: var(--fill);
   font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);

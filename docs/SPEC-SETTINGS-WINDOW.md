@@ -1,43 +1,44 @@
-# SETTINGS-WINDOW — 设置 spec（P2 · v3 改内置方案）
+# SETTINGS — 设置 spec（P2）
 
-> **状态（2026-09-03）：已实现**。**v3.2（2026-09-04，用户要求）：移除「Agent 预设」「插件」两分区**（引擎侧 agentPresets 为空、插件可配置项留引擎 settings.yaml 直编，UI 精简；代码可从 git 历史回溯）。模型分区同期改版为折叠卡片式（详见 `frontend/src/settings/ModelsManage.tsx`）。（v3.1 全量落地后又经 f53f2a5 重构）。现行实现：`frontend/src/components/SettingsPage.tsx` + `settings/controls.tsx` + `settings/SettingsRows.module.css`，与主界面同源（--ink/--line/--fill 语义变量 + 统一弹出配方），分类为 通用/模型/审批/快捷键/已归档的聊天/数据。下文提到的 `SettingsRoot.module.css`、`settings/models/`（mux 传输层）已在重构中删除——mux/wire 逻辑并入 `api.ts`（`callRaw`/`probeMethod`）。本文保留为数据层契约（describe/mutate/credentials、revision 围栏、冲突两选一、能力探测降级）。
-> **v3.3（2026-09-16，用户要求）：新增「会话协作」「工作树」两分区（两者均已按用户口径撤下：会话协作 2026-09-19、工作树 2026-09-24）**（会话协作＝投递消息给别的会话 + 外部 agent 当联系人 + 外部会话历史指路；工作树＝git worktree 生命周期 + 注册为工作区，并行隔离缺口在卡片里写明）。**v3.5（2026-09-19，用户要求）：移除「会话协作」分区**（协作改走 @ 引用会话 + 会话互发，外部 agent 联系人暂不做，外部会话历史归「导入」；投递底座 `session/prompt` 见 `DSH-WIRE.md §5`）。
-> **v3.4（2026-09-17，用户要求，照参考图重构）：分区改名「插件」，页内分 插件 / MCP / 技能 三个 tab**（各带搜索框，页头一行副标题——`UI-SPEC §1.9` 第 7 条已登记例外）。插件面**提供逐行启停开关**（写 home 级 `cordis.patch.yml` 托管块，`patchReload: live` 热生效、不重启）与行菜单「立即试用（新开会话 + 预填）/ 卸载（摘 profile 依赖 + 重启引擎）」；只给**真正挂载的行**开关，未挂载的（工具类，真身在 preset 组合里）只显示状态文字。MCP 面 = server 列表/启停/增删改，行落在同一份 patch 文件的第二块托管段。技能面 = 清单/新建/删除/从目录安装，读写走引擎（`skills/admin*`；壳只开选目录 sheet 并报出随应用发布的技能名）。契约与实测证据见 `PITFALLS §7.6`、`frontend/src/plugins/`。
-> 工程流 B。目标：提供模型/审批/快捷键/外观/通知/数据六分区设置。
-> **v3 形态变更（用户拍板 2026-08-31）**：独立原生 AppKit 窗口方案（v1/v2）试作后废弃——面板风格与主界面割裂、不可收敛。现行形态为 **WebView 内浮层**：复用官方 dsh `ui-settings-general` 的面板外壳（mask + 800px panel + nav rail，CSS 原样拷贝于 `frontend/src/settings/SettingsRoot.module.css`）与 `ui-settings-models` 的行/卡片/按钮类（`SettingsRows.module.css`），token 驱动自动继承主窗暗玻璃；数据层走前端 same-origin RPC（`settings.describe/update/mutate`、`credentials.*`、能力探测），revision 围栏与两选一冲突恢复保留。
-> 原生侧职责收缩为桥指令（§3.1）：`restart-engine`/`rebind-hotkey`（录制窗）/`set-pref`/`set-theme`/`get-prefs`/`reveal-home`/`open-host-doc`，及 `prefs`/`hotkeyChanged` 回推；原生设置窗口三文件已删除。
-> 快捷键/通知/悬浮球等纯原生开关经桥读写 UserDefaults（DSHAppPrefs/FloatingBubbleManager）；凭据配置后 `restart-engine` 保持 §4.4 冷启动闭环。
-> **v3.1 分区扩展（2026-08-31，对齐官方全功能）**：分区在六分区基础上增加 **预设**（Agent 预设列表+设为默认；复制/删除按引擎端点探测降级）与 **插件**（inventory 端点探测，不可用则明示）；模型分区完整移植官方 `ui-settings-models`（自定义 Provider 增删改/协议选择/模型发现/DeepSeek 多模型编辑/Key 管理，`frontend/src/settings/models/`），并保留 SPEC §4.2 降级——rc.2 无目录端点时自动回退"默认模型+目录点选+Key"精简页；数据分区提供**任意命名空间原始 JSON 编辑**（§3.2 diff→ops + revision 围栏 + 冲突两选一）。
-> **wire 移植说明**：前端 `api.ts` 统一按 Typert 描述符参数名打包（`settings/models/wire-params.json`，自 pinned 引擎描述符提取，26 方法），HTTP（斜杠 endpoint + `{args}`）与 mux 双传输自动探测。预设分区接官方端点 `agentPreset/list|copy|deletePreset`（探测降级）；插件分区接 `pluginInventory/list`（真实清单，只读）。
-> **会话历史移植**：alpha.2 移除 `session/history`/`events.mux`，会话视图改接 **`session/follow` 流**（首帧 snapshot=历史+cursor，后续帧=实时事件）与 **`session/page` 翻页**（`session/models`/`llm/models` 同批移除，模型选择统一走 `session/modelCatalog`）。实现：`settings/models/mux.ts` 的 `sessionFollow/sessionHistoryPage`，SessionView 数据源切换。
-
----
+> **状态（2026-09-03 落地；2026-10-13 按现状态重写）**：已实现。**形态是主窗内的一块浮层页**，不是独立窗口；分区清单以代码里的 `SETTINGS_SECTIONS` 为唯一事实源（§2）；本文拥有的是**数据层契约**（§3：describe/mutate/credentials、revision 围栏、冲突两选一、能力探测降级）与入口（§4）。
 
 ## 1. 形态
 
-- **独立原生窗口**（不是 modal/侧栏）：新增 `SettingsWindowController`（AppKit），或 SwiftUI `SettingsView` 承载于原生窗口。尺寸 480×600；左导航 160 + 右内容。
-- 内容渲染：两种可选，按"是否复用 @dshmini/design React 组件"取舍：
-  - **A. WKWebView 渲染设置入口 SPA**（复用 React 设计系统；黑白 token 直接复用）。
-  - **B. 原生 AppKit/SwiftUI 控件**（对齐 `UI-SPEC §5`“原生侧仅系统控件 + NSVisualEffectView”）。
-  - 推荐：**原生窗口 + 原生控件（B）** 为主，符合 spec；引擎动态数据（模型/凭据/命名空间）经设置 RPC 读取。若某分区复杂度高（模型目录、provider 增删）再考虑 WKWebView 局部渲染。
-- 窗口外观：`NSVisualEffectView` 透明玻璃（材质与 tint 口径归 `UI-SPEC §1.5`，此处不重述）；黑白。
+- **主窗内浮层页**（`frontend/src/components/SettingsPage.tsx`）：与主界面同一套 `.sidebar` / `.main` 底板与语义变量；左导航 + 主区内容，黑白。
+- 曾经试作过的**独立原生 AppKit 窗口**（480×600、左导航 160、原生控件）已废弃——面板风格与主界面割裂、不可收敛。原生设置窗口那几个文件已删；**原生侧只剩桥指令**：`restart-engine` / `rebind-hotkey`（录制窗）/ `set-pref` / `set-theme` / `get-prefs` / `reveal-home` / `open-host-doc`，以及 `prefs` / `hotkeyChanged` 回推。
+- 设置族**弹出面**（模型弹窗 / 导入弹窗 / 机器人管理 / 划词命令 / 新建·编辑项目）统一走对话框档（`SettingsRows.module.css` 的 `.modalOverlay` + `.modal`）——几何与材质见 `UI-SPEC §1.4bis` 的表面层级表，本文不重述。
+- 快捷键 / 通知等纯原生开关经桥读写 UserDefaults（`DSHAppPrefs`）；凭据配置成功后触发 `restart-engine` 走 `SPEC-ENGINE-RUNTIME §4.4` 的冷启动闭环。
 
-## 2. 左导航分区（UI-SPEC 6 分区全做）
+## 2. 分区
 
-| 分区 | 数据来源 | 内容要点 |
-|---|---|---|
-| **模型** | 引擎 `llm-deepseek`/`llm-pi-ai` + `credentials` + `llm.models`/`llm.discoverModels`/`llm.providers` | **快速添加 + 折叠卡片式**（2026-09 定稿）：快速添加一家一张卡片——有 Token Plan 就指套餐端点、否则指国内端点，卡片名不带地区后缀（同一家的其它区域端点只在弹窗的提供方下拉里出现）；「自定义 / Custom」＝手写一条路由（点它就落到自定义，不再替你预选一家）。已保存模型按提供方聚类成可折叠分组（单色反白 logo），模型行内联 Meta 胶囊（推理 / 额外输入模态 / 上下文窗口）；增删改走 `ModelDialog` 弹窗（提供商 → 接口地址 → API Key → 模型名称 → 高级配置）：**模型名称留空 = 按 API 自动发现全部支持模型**，填了就是只加那一个；高级配置里是 `提供方 ID`（路由名兼密钥名，留空＝按接口地址的主机名取名，字母开头、大小写不限——引擎只要求派生的密钥名匹配 `/^[A-Za-z_][A-Za-z0-9_]*$/`）、`协议`（枚举读 `llm-pi-ai` 自己的 schema）与 `视觉（图片输入）`（模态词表只有 text/image；写 pi 的 `input` / DeepSeek 的 `inputModalities`，改引擎目录里的模型走 `modelOverrides`，避免 `models` 整条替换挤掉目录其余模型）；行内「测试连通」（pi 走发现探测、DeepSeek 无发现路由退化为密钥状态检查）。实现：`settings/ModelsManage.tsx` + `settings/ModelDialog.tsx` + `settings/piProtocols.ts`（旧 `settings/models/` 平铺编辑器已删除） |
-| **审批** | 引擎 `permission.defaultPreset` + 审批/交互 | 默认权限与当前会话权限分别管理；完整访问需确认（对齐参考项目/`D5` 原生审批） |
-| **快捷键** | DSHmini 原生 `HotKeyManager` + 前端键位注册表 `keybinds.ts` | 三档：**全局热键**（现状仅 1 个：唤起面板 `⌥Space`，经 `HotKeyManager` 注册/注销重注册）；**应用快捷键**（`KEYBIND_DEFS`，可改键、可停用）（`KEYBIND_DEFS`，点组合录制新键——录制时拒绝裸键、macOS/菜单占用的组合、与别项撞车）；**固定键位**（`FIXED_KEYBINDS`：各交互面内的按键、浏览器页面键、macOS 菜单与系统接管的键）。两表由设置页直接渲染，键位清单不另抄一份 |
-| **外观** | 外壳偏好 `deepdive.ui.appearance`（跟随系统/亮/暗）+ 外壳 `themeEnabled` | 三态联动：外壳刷新 `NSAppearance`/材质；**WebView 侧联动走 `SPEC-NOTIFICATIONS §3.1` 外壳→前端通道**（`themeChanged` 指令）；黑白 token 统一 |
-| **通知** | DSHmini 原生（`UNUserNotificationCenter` 开关） | 回合完成提醒 / 待审批·提问提醒（默认开）；悬浮球开关（默认开，`SPEC-NOTIFICATIONS §2.4`，开关仅显隐、状态图标不受影响）；菜单栏状态图标不受开关影响 | 
-| **数据** | 引擎 会话/工作区 + `settings.openDocument` | 打开 `settings.yaml`、存储位置（`DSH_HOME`）、会话管理（归档/删除需确认） |
+**清单与分组的唯一事实源是 `SettingsPage.tsx` 的 `SETTINGS_SECTIONS`**（侧栏导航与命令面板搜索同一份）；现为 12 项分三组：
+
+| 组 | 分区 |
+|---|---|
+| 基础设置 | 通用（外观 / 语言 / 归档 / Enter 行为 / 通知 / 默认会话模式）· 模型 · 审批 · 快捷键 · 划词与截图 · 浏览器 |
+| Agent 能力 | 自动化 · 插件（插件 / MCP / 技能 三 tab）· 移动端远程控制 · 导入 |
+| 数据与统计 | 已归档的聊天 · 使用统计 |
+
+各分区的行为细节归各自的家，本文不抄第二份：
+
+| 分区 | 家 |
+|---|---|
+| 模型 | `settings/ModelsManage.tsx` + `settings/ModelDialog.tsx` + `settings/piProtocols.ts`；快速添加 + 折叠卡片（2026-09 定稿）：一家一张卡，有 Token Plan 指套餐端点、否则指国内端点；「自定义」＝手写一条路由。已保存模型按提供方聚成可折叠分组（单色反白 logo），行内联 Meta 胶囊（推理 / 额外输入模态 / 上下文窗口）。**模型名称留空 = 按 API 自动发现全部支持模型**；高级配置＝提供方 ID（留空按接口地址主机名派生）+ 协议（枚举读 `llm-pi-ai` 自己的 schema）+ 视觉（写 pi 的 `input` / DeepSeek 的 `inputModalities`，改目录里的模型走 `modelOverrides`，避免 `models` 整条替换挤掉目录其余模型）。行内「测试连通」：pi 走发现探测、DeepSeek 无发现路由退化为密钥状态检查 |
+| 快捷键 | 三档：**全局热键**（`HotKeyManager`）· **应用快捷键**（`KEYBIND_DEFS`，可改可停用，录制时拒绝裸键 / 系统占用 / 撞车）· **固定键位**（`FIXED_KEYBINDS`）。两表由设置页直接渲染，清单不另抄（`UI-SPEC §2.3`） |
+| 审批 | `settings/permissionPreset.ts` 是权限名与说明的唯一本地化表（会话设置 / 设置页审批 / 新建项目表单共用；wire 上的 `name` 是裸预设键，不直接摆给用户） |
+| 划词与截图 | `SPEC-SEMANTICS §6.2`；实现 `settings/SelectionToolbarSection.tsx` + `settings/SelectionCommandDialog.tsx` |
+| 浏览器 | `SPEC-BROWSER-USE.md`；实现 `settings/BrowserSection.tsx`（+ `BrowserLibrary` / `BrowserLoginData` / `BrowserPrivacy`） |
+| 自动化 | `SPEC-AUTOMATION.md`；实现 `automation/` |
+| 插件 | `frontend/src/plugins/`；契约与实测证据见 `PITFALLS §7.6` |
+| 移动端远程控制 | `SPEC-MOBILE-REMOTE.md`；实现 `mobile/RemoteControlSection.tsx` |
+| 使用统计 | `stats/usageStats.ts`（数据编码色见 `tokens.json` 的 color.chart） |
+| 通用 · 已归档 · 导入 | `components/SettingsPage.tsx` 内的对应 section |
 
 ## 3. 通用编辑机制（一切命名空间）
 
 ### 3.1 读取
 - `settings.describe`（`redactSecrets`）：得到每个命名空间的 `schema/value/base/user/revision/secrets`。UI 只渲染 `value`（已脱敏，`role('secret')` 字段已被结构移除，仅以 `secrets:[{path,set}]` 枚举）。
-- **namespace 清单动态渲染、不写死**：分区 UI 以 `describe` 返回的 `namespaces`/`schema` 驱动；本 spec 提到的 `llm-deepseek`/`agent-default-model`/`llm-pi-ai`/`web-search-deepseek`/`ui-theme.preference`/`permission.defaultPreset` 等名均为引脚版本实测值（`PITFALLS §7.3`），引擎升级后以 `describe` 实际返回为准（配合 `SPEC-ENGINE-RUNTIME §4.2` 能力探测）。
+- **namespace 清单动态渲染、不写死**：分区 UI 以 `describe` 返回的 `namespaces`/`schema` 驱动；引擎升级后以 `describe` 实际返回为准（配合 `SPEC-ENGINE-RUNTIME §4.2` 能力探测）。
 
 ### 3.2 编辑与保存（diff → path ops）
 - 编辑器把某个命名空间的当前 `value` 作为可编辑 JSON 文本显示。
@@ -50,27 +51,20 @@
 - **冷启动闭环**：配置成功时若引擎因缺凭据处于 `failed`，触发 `EngineSupervisor.start()` 自动重启引擎——接通 `SPEC-ENGINE-RUNTIME §4.4`，替代"手动复制 `.credentials.yaml`"的老路径。
 
 ### 3.4 冲突恢复
-- 保存收到 `settings/conflict`（revision 已前进）：两选一——"放弃修改，载入最新" / "保留修改，基于最新版本重试"（对齐参考项目）。绝不静默覆盖。
+- 保存收到 `settings/conflict`（revision 已前进）：两选一——"放弃修改，载入最新" / "保留修改，基于最新版本重试"。绝不静默覆盖。
 
 ## 4. 入口
 
-- 侧栏底部「设置」行改 `<button>`，`onClick` 打开设置窗口。
-- 菜单栏 `StatusItemController` 增加「设置…」；`⌘,` 唤起（对应 `UI-SPEC §2.3` 键盘映射）；`SPEC-SEMANTICS §7` 引导卡折叠进设置窗口。
+- 侧栏底部「设置」行（`onClick` 打开设置页）。
+- 菜单栏 `StatusItemController` 的「设置…」；`⌘,`（对应 `UI-SPEC §2.3` 键盘映射）；`SPEC-SEMANTICS §7` 引导卡完成后落在设置页。
 
-## 5. 文档一致性说明
+## 5. 文件地图
 
-- `UI-SPEC §3.3` 6 分区（模型/审批/快捷键/外观/通知/数据）为准；`SPEC-SEMANTICS §6/§8` 的"附件路由/审批策略/角色名单"并入对应分区（模型/审批）或作子项，不单列分区。
-
-## 6. 文件变更（实现起参考）
-
-| 文件 | 变更 |
+| 文件 | 管什么 |
 |---|---|
-| `apps/macos/Sources/DSHminiApp/SettingsWindowController.swift` | 新增（原生窗口壳） |
-| `apps/macos/Sources/DSHminiApp/...`（原生设置控件/视图） | 各分区视图 + 命名空间编辑器 + 凭据区 |
-| `apps/macos/Sources/DSHminiApp/AppDelegate.swift` / `StatusItemController.swift` | 接入设置入口 |
-| `apps/macos/Sources/DSHminiApp/MainWindowController.swift` | WebView 挂 `__deepDiveHost` 钩子 + `evaluateJavaScript` 注入（`themeChanged` 等，见 `SPEC-NOTIFICATIONS §3.1`） |
-| `frontend/src/api.ts` | 加 settings/credentials 通道 + 能力探测（若设置内容部分走 WebView） |
-| `frontend/src/components/Settings*.tsx` | 如需 WebView 渲染则新增设置入口 |
-| `frontend/src/theme.css`（+tokens） | 设置样式 + 明/暗（若走 WebView） |
+| `frontend/src/components/SettingsPage.tsx` | 页面外壳 + `SETTINGS_SECTIONS`（分区清单事实源）+ 通用/审批/已归档三个内联 section |
+| `frontend/src/settings/SettingsRows.module.css` | 行/卡片/按钮/弹窗/下拉的类（行规范与材质归 `UI-SPEC §2.4`） |
+| `frontend/src/settings/*.ts(x)` | 各分区组件与数据 helper（见 §2 的家一列） |
+| `frontend/src/api.ts` | settings / credentials 通道 + 能力探测 |
 
 > 不加 `.cursor:pointer`、不加 hover 高亮、无强调色；键盘焦点黑白 2px 环（`UI-SPEC §4`）。

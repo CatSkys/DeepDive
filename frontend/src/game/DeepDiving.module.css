@@ -9,11 +9,11 @@
   transform: translate(-50%, -50%);
   width: 480px;
   height: 320px;
-  z-index: 1100;
+  z-index: var(--z-menu);
   border-radius: var(--dsh-radius-floating);
   background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: var(--blur-scrim);
+  backdrop-filter: var(--blur-scrim);
   box-shadow: var(--shadow-pop);
   overflow: hidden;
   outline: none;

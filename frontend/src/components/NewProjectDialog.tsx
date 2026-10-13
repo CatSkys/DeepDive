@@ -20,7 +20,6 @@ import { useT } from "../i18n";
 import { ProjectFormFields, useProjectForm } from "./projectForm";
 import { endWorkspacePick, setWorkspacePickSink } from "./workspacePicker";
 import rowsCss from "../settings/SettingsRows.module.css";
-import css from "./NewProjectDialog.module.css";
 
 let openReq: (() => void) | null = null;
 
@@ -82,7 +81,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
       {/* Escape/⌘↵ 挂卡片上（不挂 document）：图标选择器 portal 后仍在本弹窗 React
           子树里，其内部 Escape 已被菜单 stopPropagation 截住，不会连带关掉弹窗 */}
       <div
-        className={`${rowsCss.modal} ${css.glass}`}
+        className={rowsCss.modal}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose();

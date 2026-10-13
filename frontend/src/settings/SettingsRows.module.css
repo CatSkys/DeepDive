@@ -32,7 +32,7 @@
   position: relative;
   width: 36px;
   height: 20px;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill-strong);
   transition: background-color var(--dur-fast) var(--ease-out);
   flex: none;
@@ -113,7 +113,7 @@
   justify-content: center;
   width: 26px;
   height: 26px;
-  border-radius: 8px;
+  border-radius: var(--dsh-radius-control);
   color: var(--ink-2);
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
@@ -124,13 +124,14 @@
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: 1100;
+  z-index: var(--z-menu);
   min-width: 100%;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
   background: var(--panel-strong);
-  backdrop-filter: blur(40px) saturate(160%) !important;
+  -webkit-backdrop-filter: var(--blur-scrim) !important;
+  backdrop-filter: var(--blur-scrim) !important;
   box-shadow: var(--shadow-pop);
 }
 .ddItem {
@@ -198,8 +199,8 @@
 
 .backButton { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 16px; color: var(--ink-3); font-size: var(--dsh-font-size-sm); }
 .backButton:hover { color: var(--ink); }
-.tabBar { display: inline-flex; gap: 3px; padding: 3px; margin-bottom: 12px; border-radius: 999px; background: var(--fill); }
-.tab, .tabActive { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
+.tabBar { display: inline-flex; gap: 3px; padding: 3px; margin-bottom: 12px; border-radius: var(--dsh-radius-bubble); background: var(--fill); }
+.tab, .tabActive { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: var(--dsh-radius-bubble); font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .tab:hover { color: var(--ink); }
 .tabActive { background: var(--ink); color: var(--on-ink); }
 
@@ -263,7 +264,7 @@
 .presetBadge {
   font-size: var(--dsh-font-size-xs);
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   border: 1px solid var(--line-strong);
   color: var(--ink-2);
 }
@@ -302,7 +303,7 @@
 .modalOverlay {
   position: fixed;
   inset: 0;
-  z-index: 210;
+  z-index: var(--z-scrim);
   background: rgba(0,0,0,.45);
   display: flex;
   align-items: center;
@@ -314,14 +315,15 @@
   max-height: 86vh;
   overflow: auto;
   border: 1px solid var(--line-strong);
-  border-radius: 14px;
+  border-radius: var(--dsh-radius-card);
   background: var(--panel-strong);
-  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: var(--blur-scrim);
+  backdrop-filter: var(--blur-scrim);
   box-shadow: var(--shadow-modal);
 }
 .modalHead { display: flex; align-items: center; gap: 10px; padding: 16px 18px 10px; }
 .modalTitle { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
-.modalBadge { font-size: var(--dsh-font-size-xs); color: var(--ink-3); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+.modalBadge { font-size: var(--dsh-font-size-xs); color: var(--ink-3); border: 1px solid var(--line); border-radius: var(--dsh-radius-bubble); padding: 2px 9px; }
 .modalBody { padding: 4px 18px 6px; display: flex; flex-direction: column; gap: 13px; }
 .modalFoot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; }
 .fieldLabel { display: block; font-size: var(--dsh-font-size-sm); color: var(--ink-2); margin-bottom: 5px; }
@@ -388,7 +390,7 @@
   line-height: 1;
   padding: 3px 6px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   color: var(--ink-3);
   font-weight: 400;
 }
@@ -423,7 +425,7 @@
   min-width: 64px;
   padding: 4px 8px 4px 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--dsh-radius-keycap);
   background: var(--fill-strong);
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
@@ -685,7 +687,7 @@
   align-items: center;
   gap: 9px;
   padding: 7px 10px;
-  border-radius: 6px;
+  border-radius: var(--dsh-radius-keycap);
 }
 :where(html[data-hover-armed]) .pickRow:hover { background: var(--fill-soft); }
 .pickRow + .pickRow::before {
@@ -726,7 +728,7 @@
 }
 .listFilter {
   flex: 1; min-width: 120px; height: 26px; padding: 0 10px;
-  border: 1px solid var(--line); border-radius: 13px;
+  border: 1px solid var(--line); border-radius: var(--dsh-radius-bubble);
   background: var(--fill-soft); color: var(--ink); font-size: var(--dsh-font-size-sm);
 }
 .listScroll { overflow-y: auto; }

@@ -381,6 +381,38 @@ function checkMiniPanelScope(file, text) {
 
 // ── 主流程 ───────────────────────────────────────────────────────────────────
 
+// ── 规则 7：表面层级表的三件事只能引 token（2026-10-13 全量收编）───────────────
+// 浮层的圆角 / 模糊 / 层级此前各自手写：圆角 36 种取值、z-index 30 种取值、
+// backdrop-filter 四套配方散在 9 个文件里——写歪了不报错、测试不红，页面上只表现
+// 为"这一块和别处不一样"，正是本检查器存在的理由。三件事现在各有唯一事实源：
+// radius 在 tokens.json，blur 与 z 在 theme.css 的 :root；取法在 UI-SPEC §1.4bis。
+// 阈值：z-index < 100 的按"组件内部堆叠"放行（它们只在自己那个堆叠上下文里有意义）。
+const SURFACE_RADIUS_RE = /border-radius\s*:\s*([^;}]+)/g;
+const SURFACE_BLUR_RE = /(?:^|;)\s*(?:-webkit-)?backdrop-filter\s*:\s*([^;}]+)/g;
+const SURFACE_Z_RE = /(?:^|;)\s*z-index\s*:\s*(\d+)/g;
+// 放行：0 / inherit / 百分比 / calc() / var()——派生值与语义形状（圆、胶囊的第二种写法）
+const RADIUS_OK_RE = /^(?:0|inherit|\d+(?:\.\d+)?%|calc\(|var\()/;
+
+function checkSurfaceTiers(file, css) {
+  const violations = [];
+  const detail = (what) => `${what}（引 token，见 UI-SPEC §1.4bis 表面层级表）`;
+  for (const m of css.matchAll(SURFACE_RADIUS_RE)) {
+    const value = m[1].trim();
+    if (RADIUS_OK_RE.test(value)) continue;
+    violations.push({ rule: "surface-tier", file, detail: detail(`border-radius 手写数值 ${value}`) });
+  }
+  for (const m of css.matchAll(SURFACE_BLUR_RE)) {
+    const value = m[1].trim();
+    if (!/blur\(\s*\d/.test(value)) continue; // blur(none/calc/var) 不算配方
+    violations.push({ rule: "surface-tier", file, detail: detail(`backdrop-filter 手写配方 ${value}`) });
+  }
+  for (const m of css.matchAll(SURFACE_Z_RE)) {
+    if (Number(m[1]) < 100) continue;
+    violations.push({ rule: "surface-tier", file, detail: detail(`z-index 手写层级 ${m[1]}`) });
+  }
+  return violations;
+}
+
 function collect() {
   const files = SOURCE_ROOTS.flatMap((dir) => walk(dir)).filter((f) => !isTest(f));
   const violations = [...checkFlowRhythm()];
@@ -393,6 +425,7 @@ function collect() {
     violations.push(...checkBareHex(file, text, true));
     violations.push(...checkNarrowMediaMiniPanel(file, text));
     violations.push(...checkMiniPanelScope(file, text));
+    violations.push(...checkSurfaceTiers(file, text.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))));
   }
   for (const file of files) {
     if (file.startsWith(FRONTEND_SRC) && file.endsWith(".tsx")) {
