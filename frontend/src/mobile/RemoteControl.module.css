@@ -67,7 +67,7 @@
 .kindBadge {
   padding: 1px 8px;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--dsh-radius-bubble);
   font-size: var(--dsh-font-size-xs);
   color: var(--ink-2);
 }

@@ -34,11 +34,9 @@ final class TooltipWindow: NSPanel {
   /// 那一页的父层：动效（缩放 + 透明度）跑在它身上。
   private let stack = NSView()
 
-  /// 入场：Raycast popover 的曲线——0.25s、cubic-bezier(.3, .7, 0, 1.26)（尾端一点过冲），
-  /// 从 opacity .6 / scale .97 到 1。离场 0.15s ease-out 到 opacity 0 / scale .97
-  /// （关闭比打开快——"快出慢入"）。页内那份跑的是同名 keyframes（theme.css 的 tip-in/tip-out）。
-  private static let enterDuration: CFTimeInterval = 0.25
-  private static let exitDuration: CFTimeInterval = 0.15
+  /// 进出场时长与曲线取自 `ShellMotion`（原生动效的唯一一处定义）：
+  /// 入场从 opacity .6 / scale .97 到 1、尾端一点过冲；离场到 opacity 0 / scale .97，
+  /// 比打开快（"快出慢入"）。页内那份跑的是同名 keyframes（theme.css 的 tip-in/tip-out）。
 
   init(configuration: WKWebViewConfiguration) {
     let web = WKWebView(frame: .zero, configuration: configuration)
@@ -108,15 +106,15 @@ final class TooltipWindow: NSPanel {
     guard let layer = stack.layer else { return }
     layer.opacity = 1
     layer.transform = CATransform3DIdentity
-    layer.add(scaleFade(from: 0.97, to: 1, opacityFrom: 0.6, opacityTo: 1, duration: Self.enterDuration,
-                        curve: CAMediaTimingFunction(controlPoints: 0.3, 0.7, 0, 1.26)),
+    layer.add(scaleFade(from: 0.97, to: 1, opacityFrom: 0.6, opacityTo: 1, duration: ShellMotion.popupEnter,
+                        curve: ShellMotion.popupCurve),
                forKey: Self.animationKey)
   }
 
   /// 收场：跑完离场再 `orderOut`（`completion` 里做）。中途又被叫出来时由调用方丢弃这次收尾。
   func animateOut(completion: @escaping () -> Void) {
     guard let layer = stack.layer else { return completion() }
-    layer.add(scaleFade(from: 1, to: 0.97, opacityFrom: 1, opacityTo: 0, duration: Self.exitDuration,
+    layer.add(scaleFade(from: 1, to: 0.97, opacityFrom: 1, opacityTo: 0, duration: ShellMotion.popupExit,
                         curve: CAMediaTimingFunction(name: .easeOut)),
               forKey: Self.animationKey)
     // 模型值同步落到终态：动画只改呈现值，不收尾的话下一次 orderFront 会闪一帧原样。
@@ -125,7 +123,7 @@ final class TooltipWindow: NSPanel {
     layer.opacity = 0
     layer.transform = CATransform3DMakeScale(0.97, 0.97, 1)
     CATransaction.commit()
-    DispatchQueue.main.asyncAfter(deadline: .now() + Self.exitDuration, execute: completion)
+    DispatchQueue.main.asyncAfter(deadline: .now() + ShellMotion.popupExit, execute: completion)
   }
 
   private static let animationKey = "deepdive.tooltip"

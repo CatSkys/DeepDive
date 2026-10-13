@@ -2,7 +2,7 @@
 .host {
   position: fixed;
   inset: 0;
-  z-index: 240; /* 盖在引导卡（210）之上、右键菜单（2000）之下 */
+  z-index: var(--z-top); /* 盖在引导卡（210）之上、右键菜单（2000）之下 */
   pointer-events: none;
   width: 100vw;
   height: 100vh;

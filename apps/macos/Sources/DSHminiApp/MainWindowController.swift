@@ -533,7 +533,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.async {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.12
+                ctx.duration = ShellMotion.windowShow
                 window.animator().alphaValue = 1
             }
         }
@@ -543,7 +543,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         guard let window, window.isVisible else { return }
         panelVisibleIntent = false
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.10
+            ctx.duration = ShellMotion.windowHide
             window.animator().alphaValue = 0
         }, completionHandler: {
             // 动画期间若又 show（意图已翻回可见），放弃收尾，交给后到的动画

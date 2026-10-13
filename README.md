@@ -43,7 +43,7 @@ DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 带公证与装钉（发�
 AGENTS.md                  Agent 常备军令：布局/命令/铁律（会话开始先读；frontend/ 与 apps/macos/ 各有局部版）
 apps/macos/                Swift + AppKit 外壳（XcodeGen）：窗口/热键/托盘/悬浮球/通知/引擎监督/恢复界面/Bridge
 frontend/                  自建 SPA（React + TS + Vite）：消息流渲染 + /api 客户端 + 标题栏拖拽桥(titlebar.ts)
-frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css / Tokens.swift
+frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css
 design/logo/               DeepDive logo 种子工程与导出（白底实心 D + 右侧渐变模糊；docs/BRANDING.md）
 scripts/                   构建/打包/引擎嵌入脚本 + 运行时版本引脚（dsh-runtime-version.txt）
 deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引脚，embed 时强校验）：资产源/移植对照，勿当运行时
