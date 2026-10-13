@@ -93,6 +93,9 @@ export interface ShellCapabilities {
   openWith: boolean;
   /** 全局热键录制窗。 */
   hotkeyRecorder: boolean;
+  /** 悬浮注释的原生宿主（壳的独立 Tooltip 窗口：系统液态玻璃 + 注释那一页 webview）。
+   *  没有它时注释留在页内自己画（CSS 材质）。 */
+  tooltip: boolean;
 }
 
 const MAC_CAPABILITIES: ShellCapabilities = {
@@ -103,6 +106,7 @@ const MAC_CAPABILITIES: ShellCapabilities = {
   agentImport: true,
   openWith: true,
   hotkeyRecorder: true,
+  tooltip: true,
 };
 
 /** Windows 壳第一期能力面（DeepDive-win 交付说明为准，随壳补齐逐项翻 true）。 */
@@ -114,9 +118,13 @@ const WINDOWS_V1_CAPABILITIES: ShellCapabilities = {
   agentImport: false,
   openWith: false,
   hotkeyRecorder: false,
+  // Windows 壳第一期没有那块原生窗口：注释留在页内那份（CSS 玻璃）
+  tooltip: false,
 };
 
-const NO_SHELL_CAPABILITIES: ShellCapabilities = MAC_CAPABILITIES;
+/** 纯浏览器（没有壳桥）：其余各项按 mac 那套走、由调用方各自降级；**只有注释这一项不是**
+ *  ——它的能力就是"壳有没有那块原生宿主窗口"，没有壳就一定没有，注释留在页内那份自己画。 */
+const NO_SHELL_CAPABILITIES: ShellCapabilities = { ...MAC_CAPABILITIES, tooltip: false };
 
 export function shellCapabilities(): ShellCapabilities {
   if (!inShell()) return NO_SHELL_CAPABILITIES;

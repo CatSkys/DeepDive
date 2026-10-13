@@ -169,6 +169,31 @@
   pre`——代码块要的就是等宽；只有"键帽"这一档该钉回 UI 字体。凡 `<kbd>`/`<code>` 上新写样式，
   先问一句"这个字符该由哪个字体出字形"。
 
+### 1.20 资料里那层"CSS 系统玻璃"照抄过来是空的：Raycast 的玻璃其实在 AppKit
+- 来由（2026-10-13 悬浮注释重做）：按 Raycast 的 CSS 反编译结论，macOS 侧浮层材质写的像是
+  `[macos] .popover__webPopover { -apple-visual-effect: -apple-system-glass-material }`，
+  看着就是"CSS 直接调系统玻璃"。**照抄到本仓的 WKWebView 里什么都不发生**。
+- 实测与结论的家（一处，别在这里重复）：`theme.css` `.composer` 那条 `@supports` 的注释
+  ＋ UI-SPEC §2.2 输入胶囊段——macOS 27 的系统 WKWebView 里该属性名与十个档位值
+  `CSS.supports` 全 false（`backdrop-filter` 为 true，探针有效）。本仓按能力探测保留那一块
+  （铁律 4），本代系统上翻到的是 CSS 模糊那一档。
+- 这条坑真正该记的是**"别把反编译读成实现，也别照着它加 `@supports` 就以为换了材质"**：
+  属性名与五个档位（`-apple-system-glass-material` `-clear` `-subdued` `-media-controls`
+  `-media-controls-subdued`）确实在系统 WebKit 里（dyld 共享缓存 `strings` 命中），但没有
+  任何 `WKPreferences` 开关放它出来（`_experimentalFeatures`(219) / `_internalDebugFeatures`
+  (146) / `_features`(601) 三表按 visual/glass/effect/material 过筛全不沾）。Raycast 自己也
+  没为它开特性（它只点 `BackgroundWebContentRunningBoardThrottling` / `AsyncOverflowScrolling`
+  / `PreferPageRenderingUpdatesNear60FPS`）——**它的浮层玻璃来自 AppKit**：
+  `RaycastMacOSUI/NSGlassEffectView+Private.swift` + `RaycastDesktopApp/TooltipWindow.swift`，
+  用 `NSGlassEffectView` 与 `_adaptiveAppearance`（本仓 `GlassSurface` 写的同一个私有键）。
+- 判据（十分钟可复现）：`import WebKit` 的小程序里 `evaluateJavaScript`
+  `CSS.supports('-apple-visual-effect','none')`——false 就是没戏（`none` 都 false ＝ 属性本身
+  不认识；命令行二进制与正经 `.app` 两种宿主都验过）；要更狠就 `strings` 共享缓存比对：
+  属性名在、开关不在 ＝ 门在系统手里。
+- 想要**真**系统液态玻璃，本仓只有一条路：AppKit 的 `NSGlassEffectView`（`WindowGlassView`），
+  代价是 §4.38 那条层级规矩——要原生材质就连内容一起搬进自己的窗口。悬浮注释就是这么做的
+  （`Tooltip/`，见 UI-SPEC §1.11）。
+
 ---
 
 ## 2. 引擎事件载荷（反复踩）

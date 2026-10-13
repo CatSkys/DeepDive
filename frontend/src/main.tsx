@@ -5,6 +5,7 @@ import { MiniPanelApp } from "./minipanel/MiniPanelApp";
 import { MiniCommandCenterApp } from "./minipanel/MiniCommandCenterApp";
 import { StoreProvider } from "./store";
 import { ComposerOverlayApp } from "./sidebar-right/ComposerOverlay";
+import { TooltipApp } from "./tooltip/TooltipApp";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initTitlebarBridge } from "./titlebar";
 import { initNativeSlotBridge } from "./nativeSlot";
@@ -25,8 +26,24 @@ const miniPanelPage = window.location.hash === "#/mini";
 // 命令中心卡的宿主页（`?minicc=1`）：壳把这块透明 webview 垫在面板页之上、原生玻璃之上，
 // 只渲染那张卡。store 与门控照装（卡里有 hover 行与设置行）；顶条/槽位桥是别家的，不装。
 const miniCardPage = new URLSearchParams(window.location.search).get("minicc") === "1";
+// 悬浮注释的宿主页（`?tooltip=1`）：壳的独立 Tooltip 窗口里那一块透明 webview，只渲染
+// 一条注释。素材全在壳（窗口按这页量出来的尺寸摆、底是系统液态玻璃），所以这里既不装
+// 顶条/槽位桥，也不装 store——注释的文案由壳从触发它的那一页转推过来。
+const tooltipPage = new URLSearchParams(window.location.search).get("tooltip") === "1";
 
-if (overlaySession !== null && overlaySession !== "") {
+if (tooltipPage) {
+  document.documentElement.dataset.overlay = "1";
+  document.documentElement.dataset.tooltip = "1";
+  document.documentElement.dataset.platform = IS_WINDOWS_OS ? "windows" : "mac";
+  installCrashGuard();
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <TooltipApp />
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+} else if (overlaySession !== null && overlaySession !== "") {
   document.documentElement.dataset.overlay = "1";
   installCrashGuard();
   // 输入胶囊的失焦态（这一页只渲染胶囊）

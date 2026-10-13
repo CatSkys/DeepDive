@@ -277,6 +277,21 @@
 - **门控范围**：行、列表项、菜单项，以及这些行上 hover 才现的控件（置顶/归档/箭头）。**一直在那儿的控件不门控**——按钮、图标钮、chip、关闭/返回/发送这些不随内容滑动换身份，hover 反馈照旧。
 - **行的 hover 填充引 `--row-hover`**（比 `--fill` 轻一档），且恒轻于 `--selection`：hover 是"指针在挑这一项"，不能盖过"这一项被选中"。选中压过 hover（`.task-row.selected:hover { background: transparent }` 那对规则就是它）。
 
+### 1.11 悬浮注释（Tooltip）
+
+任何元素挂 `data-tip="文案"`（可选 `data-tip-keys="⌘,"` 键帽、`data-tip-pos="top|bottom|left|right"`）就有注释；宿主组件是 `components/Tooltip.tsx` 的 `TooltipHost`，注释本体是同一份 `TooltipChip`。
+
+**两条宿主，同一份本体**：
+
+- **壳内（mac）＝独立原生窗口**。注释住在一块透明无边框面板里（`Tooltip/TooltipWindow.swift`），那块窗口的底是**系统液态玻璃**（`WindowGlassView(surface: .floating)`，与命令中心卡同一档），窗口贴着一块 `?tooltip=1` 的透明 webview（只渲注释本体）。页面**不画注释**，只把锚点矩形推上去（`tooltip-show`/`tooltip-hide`）；落位（偏好边居中 → 放不下翻面 → 夹进屏幕可视区）与开合全在壳里（`TipPlacement` / `TooltipController`）。**为什么必须独立窗口**：原生玻璃糊不到与自己同处一块 webview 的内容（PITFALLS §4.38），注释因此与命令中心卡同路——要原生材质就连内容一起搬进自己的窗口。好处是注释窗口只有一块、按屏幕坐标摆，主窗/迷你面板/命令中心卡三块页面的注释天然共用它。
+- **页内（浏览器调试 / 没有那条壳能力的平台）**：`TooltipHost` 在页里 render 一份同款注释，自己落位、自己出材质（`--panel-glass` + blur + `--shadow-pop`）。走哪条路由 `platform.ts` 的能力位 `tooltip` 决定。
+
+**几何**（Raycast tooltip 口径）：内距 6、内容间距 4、`max-width` 300，文案自带 4px 横向内距；形状是**胶囊**（与全站胶囊语法统一，用户定稿）。键帽吃 §1.8 的**有底**那一档（Raycast 的 `prominent`：底 fg-10 + 主文字色）。
+
+**动效**（Raycast popover 口径，"快出慢入"）：打开 `.25s cubic-bezier(.3, .7, 0, 1.26)`（尾端一点过冲），`opacity .6 → 1` 且 `scale .97 → 1`；关闭 `.15s ease-out` 到 `opacity 0` / `scale .97`。页内那份跑 theme.css 的 `tip-in`/`tip-out`，壳内那份由原生窗口跑同一条曲线（`TooltipWindow` 的组动画）。
+
+**时机**：悬停立即弹；滚动 / 按下 / 移出 / 目标元素离开文档即收；壳内那份另加一条"应用退到后台就收"（注释浮在所有窗口之上，跟着跑到别的应用头上没有道理）。文案规则见 §1.9 第 9 条（短动词词表）。
+
 ## 2. 组件规范（按类名配方落地）
 
 > 纯展示 + 最小回调；键盘焦点可见（**黑/白 2px 环**）。组件不是库，是 `theme.css` / `*.module.css` 里的一份类名配方——同名概念只有一份，别处复用而不是重写。
@@ -294,7 +309,7 @@
 | **StatusDot** | 五档 | queued 灰 · running 白(呼吸) · waiting ⚠白(呼吸,行高亮) · done 灰✓ · failed ✕白；12px |
 | **SectionLabel** | — | `sm`/500/`text.tertiary`；高 24；仅分组名 |
 | **Segmented** | 2–3 段 | 高 24；选中段 `surface.raised`+阴影；无彩色 |
-| **Tooltip** | — | P1 Web 内 120ms；**P2 原生** |
+| **Tooltip** | 原生窗口 / 页内 | 胶囊（内距 6 · 间距 4 · max 300）；壳内是独立玻璃窗口（内容在那个窗口自己的 webview 里）；开 .25s `cubic-bezier(.3,.7,0,1.26)` / 关 .15s ease-out；见 1.11 |
 | **ToastBar** | 信息/错误 | 面板底部：左一句 右动作+键帽；3s |
 | **ProgressLine** | 1px | 黑白进度；不转圈 |
 | **MarkdownContainer** | — | 正文 14/23（中文阅读通道 1.64，1.5 偏紧）；代码块 `terminal.bg` 圆角 10+复制；引用 2px 左条；链接（`[标签](url)`、加粗里的 URL、正文裸 URL 三种写法）点击一律经壳 `open-url` 用默认浏览器打开，不在 SPA 内跳转 |

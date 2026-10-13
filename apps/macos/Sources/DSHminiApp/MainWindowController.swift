@@ -593,6 +593,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 extension MainWindowController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "deepdive" {
+            // 悬浮注释的锚点先过一道：它归壳那块独立的注释窗口（TooltipController），
+            // 与顶条/槽位那两张 rect 表无关。
+            if let body = message.body as? [String: Any],
+               AppDelegate.shared?.tooltip.handleMessage(body, from: webView) == true { return }
             handleTitlebarRects(message)
             handleNativeSlot(message)
             return
