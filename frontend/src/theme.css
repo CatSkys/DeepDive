@@ -135,10 +135,15 @@
     --dot-face: rgba(22,23,26,.85);
     --dot-ring: rgba(22,23,26,.25);
     --dot-hole: rgba(255,255,255,.75);
+    /* 输入胶囊的浅色投影三层：贴地 1px + 中层 4px + **负 Y、64px 大范围的向上
+       柔光**——第三条是胶囊"自己发着光"的那口气，缺了它就浮不起来。负 Y 那条
+       暗色下是黑光落在暗底上、等于没有，所以只给亮色。 */
     --composer-shadow:
       inset 0 1px 0 rgba(0,0,0,.05),
       inset 0 -1px 1px rgba(0,0,0,.10),
-      0 4px 12px rgba(0,0,0,.08);
+      0 1px 8px -8px rgba(0,0,0,.10),
+      0 4px 12px rgba(0,0,0,.05),
+      0 -8px 64px 8px rgba(0,0,0,.05);
     --panel-strong: rgba(250,250,251,.94);
     /* 明显毛玻璃档（同 dark 注释）：浅色白底 .45，下方内容透出且保持雾感 */
     --panel-glass: rgba(250,250,251,.55);
@@ -1503,7 +1508,7 @@ button {
 }
 
 /* Reference look (PromptBar, Pill variant): ONE glass pill, controls live
-   inside. Grid 4 列保证单行时 ＋/麦克风/发送与文本垂直居中；多行（.wide）
+   inside. Grid 3 列保证单行时 ＋/麦克风/发送与文本垂直居中；多行（.wide）
    时文本独占首行、控件换到底部行（参考 wide 模式），圆角转 24px。圆角**不做
    补间**：整框高度与形状同一帧切换，给圆角加 transition 会慢半拍（2026-09-21
    用户实测）。 */
@@ -1514,9 +1519,14 @@ button {
    弹出卡片无模糊事故）。anchor 高度 = composer 高度，菜单 bottom:100% 恰贴其上。 */
 .composer-anchor { position: relative; }
 .composer {
+  /* 输入胶囊的自有尺寸（完整口径见 UI-SPEC §2.2「输入胶囊」）：单行高 36
+     = 编辑器行高 20 + 上下内距 8×2；**圆角 = 高 ÷ 2**（真胶囊，勿写 999px——
+     PITFALLS §1.1 合成伪影）。＋ 列宽、圆钮边长、圆角都从这一个值派生，
+     连触屏档也只改它一处。 */
+  --composer-h: 36px;
   position: relative;
   display: grid;
-  grid-template-columns: 28px minmax(0,1fr) auto;
+  grid-template-columns: var(--composer-h) minmax(0,1fr) auto;
   align-items: center;
   gap: 4px;
   width: 100%;
@@ -1524,15 +1534,36 @@ button {
      padding+border 一起溢出容器（width:100% + content-box = 右侧多出 18px，
      输入框看起来不居中——2026-09-06 用户实测） */
   box-sizing: border-box;
-  padding: 7px 8px;
-  border-radius: 999px;
+  min-height: var(--composer-h);
+  /* 左 16 / 右 8：＋ 那颗 36×36 圆钮占满单行高，两侧留白就是胶囊自己的呼吸 */
+  padding: 0 8px 0 16px;
+  border-radius: calc(var(--composer-h) / 2);
   background: var(--composer-bg);
   /* 无描边（用户定稿）：只靠磨砂底色分层；外阴影已按要求减淡 */
   box-shadow: var(--composer-shadow);
-  /* 悬浮后消息从胶囊背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
+  /* 材质必须挂在胶囊**自身**：WKWebView 不渲染 backdrop-filter 子层（frost
+     子层方案两轮实机失败，theme.css 上方浮层配方③）——所以这里没有
+     [data-liquid-glass-backdrop] 那种分离层，照搬过来会整块没有玻璃。
+     悬浮后消息从胶囊背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
   -webkit-backdrop-filter: blur(24px) saturate(150%);
   backdrop-filter: blur(24px) saturate(150%);
 }
+/* macOS 26 的原生液态玻璃：材质交系统合成器直接渲染（media-controls 档），折射、
+   边缘光、深浅自适应都不归我们管。CSS 模糊撤下（两套玻璃叠着会发灰），底色
+   --composer-bg 保留作 tint——「tint 只定基调、玻璃观感归材质」（PITFALLS §7 玻璃那条），
+   所以即使材质在本运行时画不出东西，胶囊仍是一块读得清的面，不会凭空消失。
+   降级链：系统材质 → 上面的 CSS 模糊 → 底色；不支持的运行时整块不生效。 */
+@supports (-apple-visual-effect: -apple-system-glass-material-media-controls) {
+  .composer {
+    -apple-visual-effect: -apple-system-glass-material-media-controls;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+/* 窗口失焦：**内容退后、材质留下**——内容和附件 chip 压到 40%，胶囊自己的底与
+   玻璃不动（整窗调暗会把材质一起糊掉）。标记的维护见 windowFocus.ts。 */
+html[data-window-blur] .composer-wrap > .composer-chips,
+html[data-window-blur] .composer > * { opacity: .4; }
 
 /* 单行态落位一律显式写死（原来靠自动排布按 DOM 顺序找空格）：行数量测件与输入框
    共用第 2 列首行，自动排布会把它们互相挤到第 3 列/第 2 行去。 */
@@ -1546,14 +1577,15 @@ button {
   grid-row: 1;
   display: flex;
   align-items: center;
-  /* 簇内间距比输入框那条 4px 宽一档：思考强度是文字标签、容量圈与发送钮是 28px
-     圆钮，紧挨着读成一块；用户 2026-10-09 定稿"三个之间可以大些"。 */
+  /* 簇内间距比输入框那条 4px 宽一档：思考强度是文字标签、容量圈与发送钮是圆钮，
+     紧挨着读成一块；用户 2026-10-09 定稿"三个之间可以大些"。 */
   gap: 12px;
 }
 /* 多行（参考图 4）：文本独占首行，＋/右簇换到底部行，圆角转大。多行 = 内容在
    文本列宽下折成两行以上（Composer 的 .composer-probe 量出来的行数），软换行
-   与手动换行同等对待——整框只按内容长高，底边不动即向上生长。 */
-.composer.wide { grid-template-rows: auto auto; row-gap: 8px; border-radius: var(--dsh-radius-bubble); padding: 12px 8px 8px; }
+   与手动换行同等对待——整框只按内容长高，底边不动即向上生长。展开态两侧内距
+   12（单行态 16/8 的不对称在宽胶囊里就不合身了）。 */
+.composer.wide { grid-template-rows: auto auto; row-gap: 8px; border-radius: var(--dsh-radius-bubble); padding: 12px 12px 8px; }
 .composer.wide textarea { grid-column: 1 / -1; grid-row: 1; }
 .composer.wide .composer-icon { grid-row: 2; grid-column: 1; }
 .composer.wide .composer-actions { grid-row: 2; grid-column: 1 / -1; justify-self: end; }
@@ -1576,20 +1608,22 @@ button {
   /* border-box 是对齐关键：autoGrow 写入的 inline height 必须已含上下
      padding，否则打字后外框多出 8px、文本中心偏离按钮中心 */
   box-sizing: border-box;
-  min-height: 30px;
-  padding: 5px 2px;
+  /* 单行高就是 --composer-h 的算式（行高 20 + 上下内距 8×2），与胶囊同源 */
+  min-height: var(--composer-h);
+  padding: 8px 0;
   background: transparent;
   border: none;
   outline: none;
   resize: none;
   color: var(--ink);
-  /* 与会话正文同号（`.md` 也是 base）：输入框原来用 lg，比正文大两号，打字时
-     像是另一个世界的字号（用户 2026-10-09 定稿"保持一致"）。**框的大小不动**——
-     框高由 min-height 30 + 上下 padding 5×2 + line-height 21 决定，都没改，
-     只有字变小，所以胶囊尺寸、按钮垂直居中、多行态的折行判据（.composer-probe
-     量的是同一个 grid 轨的宽度）全部照旧。 */
+  /* 与会话正文同号（`.md` 也是 base，2026-10-09 定稿"保持一致"）：字号只许走
+     阶梯变量（UI-SPEC §1.2 禁止在规则里手写字号）。框高由 --composer-h 与上下
+     内距定死，行高 20 只管字的落位。 */
   font-size: var(--dsh-font-size-base);
-  line-height: 21px;
+  line-height: 20px;
+  /* 上限 160：胶囊长高只吃掉会话流上方一点点。Raycast 的 66vh−106 是整窗 chat
+     的口径，搬到"对话在下、输入钉底"的会话页会把正文吃掉大半。autoGrow
+     （Composer.tsx）里是同一个数，改这里要一起改。 */
   max-height: 160px;
   overflow-wrap: anywhere;
 }
@@ -1602,8 +1636,9 @@ button {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 28px;
-  height: 28px;
+  /* 圆钮占满单行高（macOS 口径）：钮的底与胶囊同高同圆，三颗钮就是胶囊的骨 */
+  width: var(--composer-h);
+  height: var(--composer-h);
   border: none;
   border-radius: 999px;
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
@@ -1613,6 +1648,10 @@ button {
   background: transparent;
 }
 .composer-icon:hover { color: var(--ink); background: var(--fill); }
+/* ＋ → ×：菜单开着时图标转 45° 并放大 1.15，**转的是图标不是钮**（hover 底色不动）。
+   时长走动效阶梯的 fast 档，不另写字面量（theme.css 动效条）。 */
+.composer-icon svg { transition: transform var(--dur-fast) var(--ease-out); }
+.composer-icon[data-open="true"] svg { transform: rotate(45deg) scale(1.15); }
 .composer-mic {
   color: var(--ink-2);
   background: transparent;
@@ -1629,22 +1668,22 @@ button {
 .composer-send.stop { background: var(--fill-strong); }
 /* 思考强度（输入框右簇首颗）：只有「档位名 + ⌄」两样，**无底色**——用户 2026-10-09
    定稿"hover 块不要，字高亮就行"：hover 与展开态只把字提到 --ink，不给填充块，
-   免得右簇里凭空多一颗与发送钮争重量的胶囊。高度仍与同簇圆钮对齐（28px）。 */
+   免得右簇里凭空多一颗与发送钮争重量的胶囊。高度随胶囊单行高（--composer-h）。 */
 .composer-effort {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 3px;
   box-sizing: border-box;
-  height: 28px;
+  height: var(--composer-h);
   padding: 0 2px;
   border: none;
   background: transparent;
   color: var(--ink-3);
   font-size: var(--dsh-font-size-sm);
-  /* 不设 line-height:1：28px 的 flex 居中不需要压行高，压了会连同 overflow 一起
-     把下伸部切平（用户 2026-10-09 报"字母下方有截断感"）。档位名是引擎给的定长词
-     （Low/High/Max…），也不给它 max-width + ellipsis。 */
+  /* 不设 line-height:1：单行高胶囊的 flex 居中不需要压行高，压了会连同 overflow
+     一起把下伸部切平（用户 2026-10-09 报"字母下方有截断感"）。档位名是引擎给的
+     定长词（Low/High/Max…），也不给它 max-width + ellipsis。 */
   transition: color var(--dur-fast) var(--ease-out);
 }
 .composer-effort:hover,
@@ -3775,9 +3814,11 @@ button {
   .app.collapsed .hero-top { padding-left: 190px; }
   .app:not(.mini-panel).collapsed .panel[data-mode="browser"] .panel-browser-chrome { padding-left: 190px; }
   .task-row, .session-back, .snav-item, .ctx-item { height: 44px; }
-  .composer-send, .composer-icon, .composer-mic { width: 38px; height: 38px; }
+  /* 胶囊整条抬到 44：只改 --composer-h 一处，圆角、＋ 列宽、三颗圆钮的边长都
+     跟着派生（写死 38 会让圆角对不上高度，不再是真胶囊） */
+  .composer { --composer-h: 44px; }
   /* 触达高度跟同簇圆钮齐；横向留一点内边距好点得中（无底色，只影响点击区） */
-  .composer-effort { height: 38px; padding: 0 6px; }
+  .composer-effort { padding: 0 6px; }
   /* 审批/提问卡是手机上最需要"点得准"的地方（放行一次命令） */
   .btn-primary, .btn-plain { min-height: 44px; }
   .q-option { padding: 12px; }

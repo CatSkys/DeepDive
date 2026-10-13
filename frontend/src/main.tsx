@@ -10,6 +10,7 @@ import { initTitlebarBridge } from "./titlebar";
 import { initNativeSlotBridge } from "./nativeSlot";
 import { initChatFloatBridge } from "./sidebar-right/useComposerOverlay";
 import { installHoverArming } from "./hoverArming";
+import { installWindowFocus } from "./windowFocus";
 import { installCrashGuard } from "./crashGuard";
 import { inShell } from "./host";
 import { IS_WINDOWS_OS } from "./platform";
@@ -28,6 +29,8 @@ const miniCardPage = new URLSearchParams(window.location.search).get("minicc") =
 if (overlaySession !== null && overlaySession !== "") {
   document.documentElement.dataset.overlay = "1";
   installCrashGuard();
+  // 输入胶囊的失焦态（这一页只渲染胶囊）
+  installWindowFocus();
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <ErrorBoundary>
@@ -56,6 +59,7 @@ if (overlaySession !== null && overlaySession !== "") {
   installCrashGuard();
   initTitlebarBridge();
   installHoverArming();
+  installWindowFocus();
   if (inShell()) {
     document.documentElement.dataset.shell = "1";
   }
@@ -82,6 +86,8 @@ if (overlaySession !== null && overlaySession !== "") {
   // 悬停点亮：行/菜单的 hover 只响应指针主动移动（复位时机见 hoverArming.ts）。
   // 只装主 SPA 这一份——叠加层里没有门控过的行。
   installHoverArming();
+  // 输入胶囊的失焦态（theme.css 的 `.composer` 段）
+  installWindowFocus();
 
   // 首帧前标明"是否在壳里"：窗口 chrome（红绿灯 + 标题栏条）只有壳里有，CSS 据此
   // 决定顶部两钮贴不贴左、会话头让位多少。放在渲染之前，避免先按壳里排一帧再跳位。

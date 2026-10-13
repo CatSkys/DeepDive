@@ -105,7 +105,7 @@
 | `font.size.xs` | base − 4 = 10px | 键帽、徽标、计数、极弱元数据 |
 | `font.size.sm` | base − 2 = 12px | 次要文案、分组标签（Pinned / Recent / Last Week）、浮层小标题、Tooltip、行内代码 |
 | `font.size.base` | base = 14px | **正文默认**：正文、按钮、列表行、会话标题、markdown h3–h6、代码块正文 |
-| `font.size.lg` | base + 2 = 16px | 分区/弹窗标题、输入框、markdown h2 |
+| `font.size.lg` | base + 2 = 16px | 分区/弹窗标题、markdown h2 |
 | `font.size.xl` | base + 4 = 18px | markdown h1、浮层大字形（灯箱关闭/缩放）、命令面板查询行 |
 | `font.size.hero` | 24px（**显示级**，不随基准） | 面板主标题、引导页标题、页内一级标题、环图中心数 |
 | `font.weight` | 400 · 500 · 600 仅三档 | |
@@ -315,6 +315,9 @@
 
 > 此前的错误：两者共用 `.msg` 体系、气泡参数与 emoji/信息混调——已按"独立两套"重构并清空 `.msg` 残留。
 
+- **输入胶囊（`Composer.tsx`，主窗会话页/草稿页、迷你面板、浏览器悬浮卡同一颗）**：三列网格 `＋ | 编辑器 | 右簇`（簇内档位/容量圈/发送·停止·听写，间距 12）。**单行高 36**（触屏档 44）= 编辑器行高 20 + 上下内距 8×2；**圆角 = 高 ÷ 2**（真胶囊，勿写 999px，PITFALLS §1.1）——`theme.css` 里由 `.composer` 的 `--composer-h` 一个值派生（＋ 列宽、三颗圆钮边长、圆角、触屏档全跟着走）。＋ 与麦克风/发送都是 36×36 圆钮（占满单行高）；胶囊内距左 16 / 右 8，展开（`.wide`，内容折两行以上）时两侧 12、圆角转 `radius.bubble`；编辑器字号随正文（`base`）、上限 160px（Raycast 的 `66vh−106` 是整窗 chat 的口径，钉底输入框用会把正文吃掉大半）。改尺寸只动 `--composer-h` 与编辑器内距。
+- **输入胶囊的材质在胶囊自己身上**：底色 `--composer-bg`（tint，只定基调——铁律见 PITFALLS §7 玻璃那条）+ `backdrop-filter: blur(24px) saturate(150%)`（WebKit 需双前缀）；macOS 26 起经 `@supports` 换成 `-apple-visual-effect: -apple-system-glass-material-media-controls`，交系统合成器渲染液态玻璃、CSS 模糊撤下（两套玻璃叠着会发灰）。**没有 Raycast 那种 `[data-liquid-glass-backdrop]` 分离材质层**：WKWebView 不渲染 backdrop-filter 子层（theme.css 浮层配方③），照搬过来会整块没有玻璃。降级链＝系统材质 → CSS 模糊 → 纯底色，所以材质画不出来时胶囊仍是一块读得清的面。
+- **输入胶囊的失焦态**：窗口不是 key 窗口时内容与附件 chip 压到 **40%**，胶囊自己的底与玻璃**不动**——"内容退后、材质留下"，整窗调暗会把材质一起糊掉。标记是 `html[data-window-blur]`（维护在 `windowFocus.ts`，文档级 focus/blur，不走壳侧通道）。**＋ 打开菜单**时转的是**图标**不是钮：`rotate(45deg) scale(1.15)`（＋ 变 ×），走 `--dur-fast`。
 - **用户消息里的文件 chip**（`.user-file-chip`）与输入框那颗（`.att-chip.file`）是同一套：高 30、`--fill-soft` 底 + 1px 描边、**两端全圆**（`radius.bubble`——30 高的盒子上被裁成半高整圆端，胶囊口径同 §2.4；别写 999px）。同一段对话里两处文件看着是一套，改一个要改另一个。
 - **输入框那颗 chip 的状态位**（名字右边一截，与 ZCode 的状态列同一职责）：待发送 / `上传中 42%` / **失败原因原话**（CSS 截断，全文在 chip 的 tooltip）/ 大小；只有失败才多一颗「重试」文字钮（不划线）。**没有独立的「取消」钮**——同一颗移除钮就是"取消并移除"，多一颗只会把上传中的 chip 变成红的"已取消"错误态（既不是取消的样子，也和移除重复，用户 2026-10-09 定稿：参考成熟产品）。移除钮**悬停才现**（与侧栏行内动作同一套 hover 语言），图片与文件两种 chip 一致。
 - **名字不做悬浮注释**（用户 2026-10-09 定稿："没必要"）：名字已经在 chip 上（截断）；chip 的 tooltip 只留给**失败原因**那种 chip 展不开的原话。图片芯片同理不带名字 tooltip。
