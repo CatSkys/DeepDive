@@ -154,6 +154,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
 
     func hidePanel() {
         guard window.alphaValue > 0 else { return }
+        stopRepaintDog() // 探针（临时）：收起后不再推帧
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.10
             self.window.animator().alphaValue = 0
@@ -183,6 +184,39 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             self?.window.makeKey()
             self?.pushHostCommand("quickPanelFocus", payload: "{}")
         }
+        startRepaintDog() // 探针（临时）：可见期间 1Hz 强制重绘，验证停帧是否可解
+    }
+
+    // MARK: - 重绘推动电池（临时，验证「DOM 在但不提交帧」的诊断假设；定位后还原）
+
+    /// 可见期间每秒掀一次重绘（webview 与玻璃两层都打 needsDisplay），同时计点
+    /// 上报命中次数。如果铃响后用户看到内容回来了，停帧诊断即实锤，用命中时机
+    /// 收敛出正式修法。
+    private var repaintTicker: Timer?
+    private var repaintHits = 0
+
+    private func startRepaintDog() {
+        stopRepaintDog()
+        repaintHits = 0
+        repaintTicker = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.forceRepaint(nudge: true)
+        }
+    }
+
+    private func stopRepaintDog() {
+        repaintTicker?.invalidate()
+        repaintTicker = nil
+    }
+
+    private func forceRepaint(nudge: Bool) {
+        repaintHits += 1
+        if nudge {
+            webView.needsDisplay = true
+            webView.layer?.setNeedsDisplay()
+            glass.needsDisplay = true
+            glass.layer?.setNeedsDisplay()
+        }
+        EngineLog.shared.append("[mini-probe] repaint#\(repaintHits) visible=\(isVisible)")
     }
 
     // MARK: - URL + bridge
@@ -263,6 +297,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         webView.evaluateJavaScript(js) { result, _ in
             EngineLog.shared.append("[mini-probe] \(tag) " + (result as? String ?? "eval-failed"))
         }
+        forceRepaint(nudge: true) // 探针（临时）：采样点即强推一次重绘
     }
 
     // MARK: - 外观（与 MainWindowController.applyAppearanceMode 同源解析）
