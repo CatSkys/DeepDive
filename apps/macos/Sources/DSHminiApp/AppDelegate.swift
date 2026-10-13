@@ -429,9 +429,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "quiet-sessions":
             // 前端推来的"不打扰"会话集（后台会话判据的唯一事实源在前端）
             EngineEventObserver.shared.setQuietSessions(body["ids"] as? [String] ?? [])
+        case "composer-overlay", "browser-sync":
+            // 探针（临时）：迷你面板页在发送转换期推这两条，正是空白窗出现点，各自采样一次页面实况进日志。
+            quickPanel.diagnose(type)
         case "quickPanel-show":
             // 迷你面板页报新视图首帧已画出 → 把面板带到前台（Atd windowShow 语义）。
             quickPanel.showPanel()
+            quickPanel.diagnose("show") // 探针（临时）
         case "prepare-workspace":
             prepareWorkspace(
                 reqId: body["reqId"] as? String ?? "",
