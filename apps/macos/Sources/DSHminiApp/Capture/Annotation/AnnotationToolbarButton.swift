@@ -107,6 +107,13 @@ final class AnnotationToolbarButton: NSButton, HoverReporting {
 
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+  /// 按下即收注释（同网页那份"按下就收"）：点了一颗工具钮，注释不该还挂在那儿。
+  /// 只收注释——hover 洗色照旧（`isHovered` 不动）。
+  override func mouseDown(with event: NSEvent) {
+    onHover?(false)
+    super.mouseDown(with: event)
+  }
+
   // MARK: Drawing
 
   override func draw(_ dirtyRect: NSRect) {

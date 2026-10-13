@@ -81,6 +81,9 @@ final class AnnotationGlassBar: NSView {
   /// Taken here rather than passed up, so a press between the controls never reaches the
   /// overlay under the bar, where it would start a new selection.
   override func mouseDown(with event: NSEvent) {
+    // 按下即收注释（条形表面与抓手的按下都落在这里）：与网页那份同一条口径，不收的话
+    // 拖工具栏时那条注释会跟着条一起跑（2026-10-13 起工具条改用全站注释后新增的一条）。
+    NativeTooltip.hide()
     guard let onDrag else { return }
     guard event.clickCount < 2 else {
       onDrag(.reset)
