@@ -1585,13 +1585,16 @@ button {
    --composer-bg 保留作 tint——「tint 只定基调、玻璃观感归材质」（PITFALLS §7 玻璃那条），
    所以即使材质在本运行时画不出东西，胶囊仍是一块读得清的面，不会凭空消失。
    降级链：系统材质 → 上面的 CSS 模糊 → 底色；不支持的运行时整块不生效。
-   实测（macOS 27 / 系统 WebKit 22625.1.29.11.27）：该属性在运行时的 WKWebView 里
-   **整体不存在**——`CSS.supports("-apple-visual-effect", "initial")` 与十个材质值全为
-   false（`backdrop-filter` 为 true；本机无 Safari 独立那份 WebKit，应用与 Safari 共用
-   系统份），所以**这一档在本代系统上不生效，实际材质是 CSS 模糊**。整块保留的理由：
-   它就是能力探测降级（铁律 4），属性存在的那代 WebKit 自动升级；且它是"网页内拿系统
-   玻璃"的唯一入口——原生 `NSGlassEffectView` 糊不到同一块 webview 里的内容
-   （PITFALLS §4.38）。
+   **这一档要壳配合**：属性在 WebKit 里带 `settings-flag: useSystemAppearance`，默认 false
+   ——关着时它连解析器都不认识（`CSS.supports` 全 false、声明被丢弃），所以下面这段
+   `@supports` 自己不会亮。壳侧的开关在 `Support/WebKitSystemAppearance.swift`
+   （主窗 / 迷你面板 / 悬浮输入框三个 webview 各开一次，用私有
+   `WKWebView._setUseSystemAppearance:`；浏览器页是别人的内容，不开）。
+   本机实测（macOS 27 / build 26A428 / WebKit 22625.1.29.11.27）：开关打开后同一段 CSS 的
+   computed 值从 `""` 变成 `-apple-system-glass-material-media-controls`，`CSS.supports`
+   三个查询全 true——即这一档**是活的**，不再只是渐进增强的占位。
+   它是"网页内容里拿系统玻璃"的唯一入口：原生 `NSGlassEffectView` 糊不到同一块 webview
+   里的内容（PITFALLS §4.38）。
    注：浏览器悬浮卡那一页（另一块 webview）里 CSS 模糊本来就采不到面外内容，那一档
    由壳的原生磨砂兜着（见 .chat-float 段）。 */
 @supports (-apple-visual-effect: -apple-system-glass-material-media-controls) {

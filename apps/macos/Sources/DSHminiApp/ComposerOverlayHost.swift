@@ -56,6 +56,8 @@ final class ComposerOverlayHost: NSObject {
         // 与主 SPA 那个 webview 同一套透明做法（MainWindowController 里那段是本仓的既定
         // 配方：`drawsBackground` 走 KVC 是公开 API 之外唯一能关掉网页自身底色的口）。
         view.setValue(false, forKey: "drawsBackground")
+        // 这一页只渲染输入胶囊，同主窗开系统材质档（见 WebKitSystemAppearance）
+        WebKitSystemAppearance.enable(view)
         view.underPageBackgroundColor = .clear
         view.allowsMagnification = false
         view.autoresizingMask = []

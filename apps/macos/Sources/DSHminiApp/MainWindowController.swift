@@ -274,6 +274,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         config.userContentController = WKUserContentController()
         let wv = TitlebarAwareWebView(frame: .zero, configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
+        // 系统材质（网页里的 `-apple-visual-effect`，输入胶囊的玻璃档）默认是关的，
+        // 见 Support/WebKitSystemAppearance.swift
+        WebKitSystemAppearance.enable(wv)
         wv.underPageBackgroundColor = .clear
         wv.allowsMagnification = false
         wv.isInspectable = true
