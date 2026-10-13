@@ -3,7 +3,8 @@
 //
 // 为什么几何在页面算：面板页知道面板的视口尺寸与胶囊位置（与 `composer-overlay` 同一条
 // 分工——"rect 由 SPA 算，它知道面板网页那一格的几何"）。口径沿用成卡片时的那套：面板正中、
-// 宽 min(视口 − 72, 380)、限高 72%；圆角与时长按 CSS token 读（壳里不写第二份）。
+// 宽 min(视口 − 72, 380)、限高 72%；圆角与时长按 CSS token 读（壳里不写第二份）——
+// 时长取 `--dur-med`：卡片入场是"原生弹性缩放 + 两边一起淡入"，节奏要对齐。
 // 推送做差分，外加 300ms 安全网（无过渡的重排只有节拍兜得住，titlebar.ts 同款纪律）。
 import { sendRects } from "../host";
 import { hasRectChannel } from "../platform";
@@ -64,7 +65,9 @@ export function pushCardFrame(
         mode: face.mode,
         sessionId: face.sessionId,
         radius: cssPx("--dsh-radius-floating", 20),
-        durationMs: cssPx("--dur-fast", 120),
+        // 入场节奏与卡片那块原生玻璃的弹性缩放同一档（--dur-med）：网页只淡、原生淡+弹，
+        // 两边分开算就会看出"一块东西分两次出现"。
+        durationMs: cssPx("--dur-med", 200),
       };
     const sig = JSON.stringify(payload);
     if (sig === lastSig) return;
