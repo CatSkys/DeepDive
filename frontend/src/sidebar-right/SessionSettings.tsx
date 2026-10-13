@@ -25,8 +25,9 @@ import type { ModelFace } from "../session/SessionHeader";
 
 /** 会话中切换的模式（展示层乐观记录）：summary 的 agentPreset 来自会话头 pin，
  *  会话中切换不改头——用这份让面板重开后仍显示切换后的值。引擎的
- *  agent-preset/selected 事件是权威，此处只管展示连续性。 */
-const modeOverrides = new Map<string, string>();
+ *  agent-preset/selected 事件是权威，此处只管展示连续性。
+ *  导出给迷你面板的命令中心复用（同一份乐观值，两处读到的才不会打架）。 */
+export const modeOverrides = new Map<string, string>();
 
 export function SessionSettings({ sessionId, face, agentPreset, permissions, onOpenPlugins }: {
   sessionId: string;

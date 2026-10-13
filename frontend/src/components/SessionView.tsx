@@ -33,10 +33,20 @@ import { useSessionFlowScroll } from "../session/useSessionFlowScroll";
 import { sessionProjections } from "../session/sessionProjections";
 import { FindInConversation } from "./FindInConversation";
 
-/** `sidebarSeat`：会话头右侧那枚「边栏座位」（PanelTrigger 的胶囊/展开钮）要不要渲染。
- *  主窗不传（要）；迷你面板传 false——它开的是主窗的右边栏，面板里那件事由面板自己的
- *  控件簇承担（齿轮开会话设置卡，见 MiniPanelControls）。 */
-export function SessionView({ sessionId, sidebarSeat = true }: { sessionId: string; sidebarSeat?: boolean }) {
+/** `rightSidebar`：主窗那张右侧边栏面**整体**（座位钮 PanelTrigger + 卡片 SessionPanel，
+ *  卡片里是产物/状态/浏览器三块）要不要渲染。主窗不传（要）；迷你面板传 false——面板只做
+ *  简洁会话面，产物/状态/浏览器归主窗（用户 2026-10-13 定稿），设置走面板自己的命令中心。
+ *  `onOpenSettings`：标题点击的落点。主窗不传＝原有的「开右侧卡的会话设置」；面板传自己的
+ *  命令中心入口（那张卡在面板里不存在）。 */
+export function SessionView({
+  sessionId,
+  rightSidebar = true,
+  onOpenSettings,
+}: {
+  sessionId: string;
+  rightSidebar?: boolean;
+  onOpenSettings?: () => void;
+}) {
   const { lang } = useT(); // 订阅语言切换：文案与标题回退随 lang 重渲染
   const store = useStore();
   const { approvals, questions, queues, sessions } = store;
@@ -162,7 +172,12 @@ export function SessionView({ sessionId, sidebarSeat = true }: { sessionId: stri
       <div className="session-header">
         {/* key=会话：切会话时标题行整体重挂播 header-in 入场（标题更新/流式
             改名不换 key，不重播）。标题点击 = 弹出右侧面板的会话设置（用户定稿）。 */}
-        <SessionHeader key={sessionId} title={title} face={modelFace} onTitleClick={() => panelActions.setSettings(sessionId, true)} />
+        <SessionHeader
+          key={sessionId}
+          title={title}
+          face={modelFace}
+          onTitleClick={() => (onOpenSettings ? onOpenSettings() : panelActions.setSettings(sessionId, true))}
+        />
         {plan?.active && !plan?.pending && (
           <span className="plan-wrap">
             <button
@@ -179,7 +194,7 @@ export function SessionView({ sessionId, sidebarSeat = true }: { sessionId: stri
             </button>
           </span>
         )}
-        {sidebarSeat && (
+        {rightSidebar && (
           <PanelTrigger
             sessionId={sessionId}
             scheduleRecords={scheduleRecords}
@@ -286,16 +301,18 @@ export function SessionView({ sessionId, sidebarSeat = true }: { sessionId: stri
       </div>
       {previewOpen(preview) && !previewFull && <FilePreviewOverlay preview={preview} wsPath={wsPath} />}
     </div>
-    <SessionPanel
-      sessionId={sessionId}
-      scheduleRecords={scheduleRecords}
-      artifacts={artifacts}
-      face={modelFace}
-      agentPreset={summary?.agentPreset}
-      permissions={permissions}
-      onPreview={openPreviewFile}
-      onOpenReview={preview.openReview}
-    />
+    {rightSidebar && (
+      <SessionPanel
+        sessionId={sessionId}
+        scheduleRecords={scheduleRecords}
+        artifacts={artifacts}
+        face={modelFace}
+        agentPreset={summary?.agentPreset}
+        permissions={permissions}
+        onPreview={openPreviewFile}
+        onOpenReview={preview.openReview}
+      />
+    )}
     </div>
   );
 }

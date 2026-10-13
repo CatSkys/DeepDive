@@ -341,60 +341,73 @@ button {
 
 /* 面板右上控件簇（面板自有，不借主窗的头部座位）：新建会话 + 会话历史 + 会话设置，
    三颗钮**聚成一个悬浮胶囊**（macOS 悬浮工具组的样子：整组共享一个胶囊底，项 hover/选中
-   出内层高亮，而不是三颗各自浮着的独立圆钮）。位置沿用草稿页那颗齿轮的 8/16（旧入口位置
-   不变）；z-index 6 在滚动辉光(4)与会话设置浮层(5)之上——设置卡盖住整窗时这几颗仍可点。 */
+   出内层高亮，不是三颗各自浮着的独立圆钮）。材质是"窗底玻璃上的一块悬浮件"那套像样写法
+   ——比 fill 实一档的底 + 顶部内高光 + 细描边 + 收窄的柔和投影。（真液态玻璃在这个窗里
+   做不到：背板只能垫在同一个 webview 之下，采到的是已经糊过的窗玻璃＝玻璃叠玻璃，只会
+   更闷；垫在 webview 之上会把这颗胶囊连同图标一起糊掉。）
+   位置沿用草稿页那颗齿轮的 8/16；z-index 8 在命令中心(7)、滚动辉光(4)之上——卡片盖住
+   整窗时这几颗仍可点。 */
 .app.mini-panel .mini-controls {
   position: absolute;
   top: 8px;
   right: 16px;
-  z-index: 6;
+  z-index: 8;
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 2px;
+  padding: 3px;
   border-radius: 999px;
-  background: var(--fill);
+  background: var(--fill-strong);
   border: 1px solid var(--line);
-  /* 组内项与胶囊**同心**（胶囊全圆角、钮半径 = 胶囊半径 − 内边距）：圆角套圆角是
-     苹果给嵌套形状的规矩，内层若写小圆角会像两种形状叠在一起。 */
+  box-shadow:
+    inset 0 .5px 0 rgba(255, 255, 255, .18),
+    0 4px 12px rgba(0, 0, 0, .18);
 }
+/* 组内项与胶囊**同心**（项半径 = 胶囊半径 − 内边距）：圆角套圆角是苹果给嵌套形状的规矩，
+   内层写小圆角会像两种形状叠在一起。 */
 .app.mini-panel .mini-controls .panel-expand-btn {
+  width: 28px;
+  height: 28px;
   margin-left: 0;
   border-radius: 999px;
 }
-/* hover / 选中都在组内出高亮（底色用 fill-strong：胶囊底已经是 fill，同一档就看不见了） */
+/* hover / 选中都在组内出高亮（比胶囊底再实一档，否则同色看不出来） */
 .app.mini-panel .mini-controls .panel-expand-btn:hover,
 .app.mini-panel .mini-controls .panel-expand-btn[aria-pressed="true"] {
   background: var(--fill-strong);
   color: var(--ink);
 }
 /* 会话头右侧给控件簇让位：计划模式芯片（.plan-wrap）别钻到胶囊底下。
-   88 = 三钮 26×3 + 缝 2×2 + 内边距 2×2 + 描边 2，再留 8 的呼吸。 */
-.app.mini-panel .session-header { padding-right: 96px; }
+   112 = 三钮 28×3 + 缝 2×2 + 内边距 3×2 + 描边 2 + 呼吸 ~18。 */
+.app.mini-panel .session-header { padding-right: 112px; }
 
-/* ── 会话历史脸（Atd task-history 的裁剪版）：搜索行 + 按分组分段的列表 ── */
-.app.mini-panel .mini-history {
-  flex: 1;
+/* ── 悬浮命令中心（历史 / 设置两张卡片共用这一副壳）：浮在页面之上，页面本身不换 ── */
+.app.mini-panel .mini-cc {
+  position: absolute;
+  top: 46px;
+  left: 12px;
+  right: 12px;
+  z-index: 7;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  box-sizing: border-box;
-  padding: 0 16px 12px;
+  max-height: 64%;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--dsh-radius-floating);
+  background: var(--panel-glass);
+  box-shadow: var(--shadow-pop);
+  animation: menu-in var(--dur-fast) var(--ease-out) both;
 }
-.app.mini-panel .mini-history-search-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 10px; }
-.app.mini-panel .mini-history-search {
+.app.mini-panel .mini-cc-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  height: 30px;
-  padding: 0 8px;
-  border-radius: var(--dsh-radius-control);
-  background: var(--fill);
+  gap: 8px;
+  flex: none;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
   color: var(--ink-3);
 }
-.app.mini-panel .mini-history-search input {
+.app.mini-panel .mini-cc-search input {
   flex: 1;
   min-width: 0;
   border: none;
@@ -403,26 +416,53 @@ button {
   font-size: var(--dsh-font-size-base);
   outline: none;
 }
-.app.mini-panel .mini-history-search input::placeholder { color: var(--ink-faint); }
-.app.mini-panel .mini-history-clear { flex: none; display: inline-flex; color: var(--ink-3); }
-.app.mini-panel .mini-history-clear:hover { color: var(--ink); }
-.app.mini-panel .mini-history-list { flex: 1; min-height: 0; overflow-y: auto; }
-.app.mini-panel .mini-history-section + .mini-history-section { margin-top: 12px; }
-.app.mini-panel .mini-history-section-title {
+.app.mini-panel .mini-cc-search input::placeholder { color: var(--ink-faint); }
+.app.mini-panel .mini-cc-clear { flex: none; display: inline-flex; color: var(--ink-3); }
+.app.mini-panel .mini-cc-clear:hover { color: var(--ink); }
+.app.mini-panel .mini-cc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+/* 排序与分组：命令中心里它就是一条工具行（值即当前组合） */
+.app.mini-panel .mini-cc-tools { flex: none; padding: 6px 6px 0; }
+.app.mini-panel .mini-cc-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--dsh-radius-keycap);
+  color: var(--ink-3);
+  font-size: var(--dsh-font-size-sm);
+}
+:where(html[data-hover-armed]) .app.mini-panel .mini-cc-tool:hover { background: var(--row-hover); color: var(--ink-2); }
+.app.mini-panel .mini-cc-view-menu { min-width: 180px; }
+.app.mini-panel .mini-cc-view-menu .ctx-item[data-on] { color: var(--ink-bright); }
+.app.mini-panel .mini-cc-view-menu .ctx-item svg { margin-left: auto; }
+.app.mini-panel .mini-cc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 6px 8px; }
+.app.mini-panel .mini-cc-section + .mini-cc-section { margin-top: 10px; }
+.app.mini-panel .mini-cc-section-title {
   margin: 0;
-  padding: 0 10px 4px;
+  padding: 6px 10px 2px;
   color: var(--ink-3);
   font-size: var(--dsh-font-size-sm);
   font-weight: 500;
 }
-/* 行沿用侧栏那条会话行（.task-row + row-slot/row-main/row-actions），这里只补三点：
-   悬停胶囊出血到容器边（同 .mini-cmd-row 的语言）、时间常驻、键盘光标行高亮。 */
-.app.mini-panel .mini-history-row { margin: 0 -10px; }
-/* 主窗那条「hover 时时间让位给归档钮」是侧栏归档交互的配方，面板行没有归档钮——
-   时间常驻，别留一个空档。 */
-.app.mini-panel .task-row:hover .row-time { display: inline; }
-.app.mini-panel .mini-history-row[data-cursor="true"] { background: var(--row-hover); }
-.app.mini-panel .mini-history-more {
+/* 行：沿用侧栏那条会话行（.task-row + row-slot/row-main/row-actions），面板里改成**两行式**
+   （标题 + 元信息行，照参考图），并补三件：悬停出血、键盘光标行高亮、hover 出现的「更多」。 */
+.app.mini-panel .mini-cc-row {
+  height: auto;
+  min-height: 46px;
+  padding: 7px 10px;
+  margin: 0 -4px;
+}
+.app.mini-panel .mini-cc-row .row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.app.mini-panel .mini-cc-row-meta {
+  font-size: var(--dsh-font-size-sm);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app.mini-panel .mini-cc-row[data-cursor="true"] { background: var(--row-hover); }
+.app.mini-panel .mini-cc-more {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -434,23 +474,19 @@ button {
   color: var(--ink-soft);
   opacity: 0;
 }
-:where(html[data-hover-armed]) .app.mini-panel .mini-history-row:hover .mini-history-more,
-.app.mini-panel .mini-history-row:focus-within .mini-history-more,
-.app.mini-panel .mini-history-more[aria-expanded="true"] { opacity: 1; }
-.app.mini-panel .mini-history-more:hover { background: var(--fill-strong); }
-.app.mini-panel .mini-history-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 40px 16px;
+:where(html[data-hover-armed]) .app.mini-panel .mini-cc-row:hover .mini-cc-more,
+.app.mini-panel .mini-cc-row:focus-within .mini-cc-more { opacity: 1; }
+.app.mini-panel .mini-cc-more:hover { background: var(--fill-strong); }
+.app.mini-panel .mini-cc-empty {
+  margin: 0;
+  padding: 28px 16px;
   color: var(--ink-faint);
   font-size: var(--dsh-font-size-base);
   text-align: center;
 }
-.app.mini-panel .mini-history-view-menu { min-width: 180px; }
-.app.mini-panel .mini-history-view-menu .ctx-item[data-on] { color: var(--ink-bright); }
-.app.mini-panel .mini-history-view-menu .ctx-item svg { margin-left: auto; }
+/* 设置模式：行就是面板设置行那套（.panel-settings-line），这里只把卡里的内边距收成命令
+   中心的密度。 */
+.app.mini-panel .mini-cc-settings { padding: 10px 12px 14px; gap: 12px; overflow: visible; }
 
 /* 迷你面板「会话进行中」的辉光（MiniRunningGlow）：**一圈沿边缘滚动的高光**——
    conic-gradient 的亮弧在环形遮罩里转，光顺着面板的圆角边一路滑过去（用户要的
