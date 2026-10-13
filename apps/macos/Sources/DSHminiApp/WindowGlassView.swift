@@ -40,10 +40,11 @@ final class WindowGlassView: NSView {
     /// **调边栏深浅就动这里的 alpha**（0.35 → 0.50：用户 2026-09-29 两轮"还是有点透"，加了一档）。
     private static let darkGlassTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.50)
     private static let lightGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.45)
-    /// .panel 档（迷你面板）：整窗压在这层上、网页侧只铺半透明卡面，底层要比
-    /// 主窗再实一截，壁纸才只留糊开的色块（用户 2026-10-13 "还要暗一些"）。
-    private static let darkPanelGlassTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.72)
-    private static let lightPanelGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.66)
+    /// .panel 档（迷你面板）：整窗压在这层上、网页侧只铺半透明卡面，底层比
+    /// 主窗实一截。α 落点：0.50 浅（用户"差一档"）→ 0.72 深（用户"颜色深了"
+    /// 2026-10-13）→ 0.62 中间档；亮色同距回落。
+    private static let darkPanelGlassTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.62)
+    private static let lightPanelGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.58)
 
     init(surface: Surface = .window) {
         self.surface = surface
