@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { api, type ImportRunResult, type ImportableSession } from "../api";
 import { useT } from "../i18n";
 import cssRows from "./SettingsRows.module.css";
+import { GlassLayer } from "../components/GlassLayer";
 
 // 导入确认弹窗（参考 ChatGPT「导入自 …」选择对话框）：点来源卡的「导入」
 // 先弹出本窗——勾选要导入的会话（按项目分组，已导入的默认不勾）→「导入
@@ -86,6 +87,7 @@ export function ImportDialog({ sourceName, format, sessions, onDone, onClose }: 
       aria-label={tt("从 {s} 导入", "Import from {s}", { s: sourceName })}
     >
       <div className={cssRows.modal} onClick={(e) => e.stopPropagation()}>
+           <GlassLayer />
         <div className={cssRows.modalHead}>
           <span className={cssRows.modalTitle}>{tt("从 {s} 导入", "Import from {s}", { s: sourceName })}</span>
           <span className={cssRows.modalBadge}>{tt("{n} 个会话", "{n} chats", { n: sessions.length })}</span>

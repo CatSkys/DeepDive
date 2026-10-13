@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import css from "./UsageSection.module.css";
+import { GlassLayer } from "../components/GlassLayer";
 
 export interface ChartTipState {
   x: number;
@@ -28,6 +29,7 @@ export function ChartTip({ tip }: { tip: ChartTipState | null }) {
   if (!tip) return null;
   return createPortal(
     <div ref={ref} className={css.tip} style={{ left: tip.x + off.dx, top: tip.y + off.dy }}>
+                   <GlassLayer />
       {tip.content}
     </div>,
     document.body,

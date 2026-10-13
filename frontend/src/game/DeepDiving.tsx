@@ -22,6 +22,7 @@ import { drawFrame } from "./render";
 import { DeadOverlay, PausedOverlay } from "./Overlays";
 import { createWorld, distanceM, randomSeed, step, VIEW_H, VIEW_W, type Phase } from "./world";
 import css from "./DeepDiving.module.css";
+import { GlassLayer } from "../components/GlassLayer";
 
 const THRUST_KEYS = new Set([" ", "ArrowUp", "ArrowDown"]);
 
@@ -196,6 +197,7 @@ export function DeepDiving({ onClose }: { onClose: () => void }) {
       onKeyUp={onKeyUp}
       onBlur={doPause}
     >
+      <GlassLayer />
       <canvas
         ref={canvasRef}
         className={css.canvas}

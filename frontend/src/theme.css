@@ -288,10 +288,14 @@ button {
    ④ 投影统一 --shadow-pop：重投影会把低透明面板边界重新描黑
       （2026-09 阴影过重反馈）。 */
 :root {
-  --shadow-pop:
-    inset 0 1px 0 rgba(255,255,255,.08),
+  /* 浮层投影拆两半：**内缘高光归材质层**（--shadow-pop-inset，画在宿主身上会被材质层
+     盖住）、**外投影留在宿主**（--shadow-pop-drop，托管材质的板按材质层的 bounds 铺，
+     外投影挂在材质层上会把板撑大一圈）。--shadow-pop 是两者的合成，留给没有材质层的面。 */
+  --shadow-pop-inset: inset 0 1px 0 rgba(255,255,255,.08);
+  --shadow-pop-drop:
     0 12px 28px rgba(0,0,0,.20),
     0 2px 6px rgba(0,0,0,.10);
+  --shadow-pop: var(--shadow-pop-inset), var(--shadow-pop-drop);
   /* 悬浮卡（.main 主卡 / 会话卡 / 右侧面板卡是同一张卡的三处落地）：
      只留贴身一档——大范围环境投影会让下沿发糊、显松散。 */
   --shadow-card:
@@ -299,9 +303,9 @@ button {
     0 4px 14px rgba(0,0,0,.20);
   /* 对话框与灯箱（唯一比浮层更深的一档）：落点是近实色的 --panel-strong，
      边界不靠低透明面板那套"描边"逻辑，所以深投影在这里不吃 §④ 那条约束。 */
-  --shadow-modal:
-    inset 0 1px 0 rgba(255,255,255,.08),
-    0 24px 64px rgba(0,0,0,.4);
+  --shadow-modal-inset: inset 0 1px 0 rgba(255,255,255,.08);
+  --shadow-modal-drop: 0 24px 64px rgba(0,0,0,.4);
+  --shadow-modal: var(--shadow-modal-inset), var(--shadow-modal-drop);
 }
 /* 投影就这三档（--shadow-card 贴地卡 / --shadow-pop 浮在内容之上 / --shadow-modal 对话框），
    新表面选一档，别再就地写第四套。
@@ -315,15 +319,41 @@ button {
   --shadow-card:
     0 1px 0 rgba(0,0,0,.05),
     0 4px 12px rgba(0,0,0,.10);
-  --shadow-pop:
+  /* 亮色没有内缘高光——那 1px 底缘接地线本身就是**外**投影，留在宿主（bubble 里没有
+     inset 项，所以合成式不能写 `none, …`：那是非法值，整条声明会被丢掉）。 */
+  --shadow-pop-inset: none;
+  --shadow-pop-drop:
     0 1px 0 rgba(0,0,0,.04),
     0 12px 28px rgba(0,0,0,.11);
-  --shadow-modal:
+  --shadow-pop: var(--shadow-pop-drop);
+  --shadow-modal-inset: none;
+  --shadow-modal-drop:
     0 1px 0 rgba(0,0,0,.06),
     0 24px 64px rgba(0,0,0,.17);
+  --shadow-modal: var(--shadow-modal-drop);
 }
-/* 浮在会话流之上的一档材质（弹层/提示/回到底部钮/页内查找胶囊都吃这一条） */
-.model-menu, .model-detail, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .jump-down, .preview-window, .find-capsule {
+/* 材质族：给材质层定三个值（底色 / 内缘高光 / 回退模糊档）。宿主引这一条即得，不必各写
+   三个值——两族的分野（瞬时浮层用真半透、承载内容的浮窗用近实色）见 UI-SPEC §1.4bis。
+   CSS Module 里的面（设置族弹窗与下拉、命令面板、游戏面、引导卡、图表提示）类名被哈希，
+   匹配不到本块，那几处在自己的 module 文件里给同样的三个值。 */
+.model-menu, .model-detail, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop,
+.find-capsule, .engine-banner, .sel-actions, .panel-browser-offers {
+  --glass-tint: var(--panel-glass);
+  --glass-blur: var(--blur-float);
+  --glass-inset: var(--shadow-pop-inset);
+}
+.dialog-card {
+  --glass-tint: var(--panel-strong);
+  --glass-blur: var(--blur-scrim);
+  --glass-inset: var(--shadow-modal-inset);
+}
+
+/* 浮在会话流之上的一档材质：**还没接材质层的两个面**（回到底部钮、文件预览浮窗——
+   后者是承载大块内容的浮窗，与面板卡同族，见 UI-SPEC §1.4bis）。
+   其余菜单面（模型菜单/工作区菜单/@·/ 菜单/右键/胶囊面板/页内查找…）改由
+   `[data-liquid-glass-backdrop]` 材质层供材质——底色+内缘高光在层上、**外投影留在宿主**
+   （`--shadow-pop-drop`），宿主自己不再写 background/backdrop-filter。 */
+.jump-down, .preview-window {
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
      别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
@@ -1303,9 +1333,7 @@ button {
 .tool-summary .file-icon, .tool-group-summary .file-icon {
   vertical-align: -2px;
   margin-left: 6px;
-}
-
-.model-menu {
+}.model-menu {
   /* 弹层挂 body（ModelMenu 的 portal）：fixed + 行内 top/left 由触发器 rect 算出，
      放在会话头或右侧边栏的滚动容器里都不会被裁、也不占布局 */
   position: fixed;
@@ -1319,6 +1347,8 @@ button {
   overflow: hidden;
   /* 与 .ddMenu 同层：都是挂 body 的浮动菜单（portaled 菜单的层序） */
   z-index: var(--z-menu);
+  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
+  box-shadow: --shadow-pop-drop;
 }
 .model-menu::before {
   content: "";
@@ -1409,6 +1439,8 @@ button {
   overflow-y: auto;
   /* 与 .model-menu 同层：都是挂 body 的浮动菜单 */
   z-index: var(--z-menu);
+  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
+  box-shadow: --shadow-pop-drop;
 }
 .model-detail-view { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; }
 .model-detail-name {
@@ -1493,6 +1525,8 @@ button {
   z-index: var(--z-menu);
   animation: menu-in var(--dur-med) var(--ease-out) both;
   transform-origin: top center;
+  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
+  box-shadow: --shadow-pop-drop;
 }
 .ws-menu::before {
   content: "";
@@ -1619,17 +1653,19 @@ button {
   border-radius: inherit;
   /* 材质层不接事件：胶囊的空白处该点回胶囊本身 */
   pointer-events: none;
-  background: var(--composer-bg);
-  box-shadow: var(--composer-shadow);
+  /* 三个值由宿主参数化（默认＝输入胶囊那一套）：底色、内缘高光、回退模糊档。
+     宿主在自己的规则里写 --glass-tint/--glass-inset/--glass-blur 即可复用本层，
+     见 UI-SPEC §1.4bis 表面层级表（菜单族 / 对话框族各一组）。 */
+  background: var(--glass-tint, var(--composer-bg));
+  box-shadow: var(--glass-inset, var(--composer-shadow));
   /* 悬浮后消息从胶囊背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
-  -webkit-backdrop-filter: var(--blur-glass);
-  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--glass-blur, var(--blur-glass));
+  backdrop-filter: var(--glass-blur, var(--blur-glass));
 }
 /* 内容抬到材质之上：同一条栈里靠 z 分先后。**不要求宿主做成栈上下文**——那正是会把
    宿主自己变成 backdrop root 的嫌疑动作（isolation / z-index 都得带上它）。
    两个宿主共用一条：会话/草稿页的输入胶囊，与迷你面板右上那颗控件胶囊。 */
-.composer > :not([data-liquid-glass-backdrop]),
-.mini-controls > :not([data-liquid-glass-backdrop]) { position: relative; z-index: 1; }
+[data-liquid-glass-backdrop] ~ * { position: relative; z-index: 1; }
 /* macOS 26 的原生液态玻璃：材质交系统合成器直接渲染（media-controls 档），折射、
    边缘光、深浅自适应都不归我们管。CSS 模糊撤下（两套玻璃叠着会发灰），底色
    --composer-bg 保留作 tint——「tint 只定基调、玻璃观感归材质」（PITFALLS §7 玻璃那条），
@@ -2208,6 +2244,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   /* 材质（玻璃底/模糊/投影）来自配方组；面板自身不得再挂 backdrop-filter */
   animation: pop-in var(--dur-fast) var(--ease-out) both;
   transform-origin: bottom;
+  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
+  box-shadow: --shadow-pop-drop;
 }
 .menu-noise {
   position: absolute;
@@ -2512,6 +2550,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   padding: 0 6px 0 4px;
   border-radius: var(--dsh-radius-bubble);
   animation: fadein var(--dur-fast) var(--ease-out);
+  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
+  box-shadow: --shadow-pop-drop;
 }
 .find-input {
   width: 176px;
@@ -2557,11 +2597,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   padding: 4px;
   border-radius: var(--dsh-radius-bubble);
   border: 1px solid var(--line-strong);
-  background: var(--panel-glass);
   /* 前缀顺序勿倒（见配方组注释）：-webkit- 在前 */
-  -webkit-backdrop-filter: var(--blur-float);
-  backdrop-filter: var(--blur-float);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop-drop);
   animation: pop-in var(--dur-fast) var(--ease-out) both;
   transform: translateX(-50%);
   user-select: none;
@@ -3844,6 +3881,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   border-radius: var(--dsh-radius-card);
   animation: menu-in var(--dur-fast) var(--ease-out) both;
   transform-origin: top left;
+  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
+  box-shadow: --shadow-pop-drop;
 }
 .ctx-item {
   display: flex;
@@ -4658,11 +4697,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   padding: 6px 14px;
   border-radius: var(--dsh-radius-panel);
   border: 1px solid var(--line-strong);
-  background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前 */
-  -webkit-backdrop-filter: var(--blur-float);
-  backdrop-filter: var(--blur-float);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop-drop);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-base);
   white-space: nowrap;
@@ -4792,8 +4828,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   cursor: default;
 }
 .ctx-ring:hover { background: var(--fill); color: var(--ink); }
-.ctx-ring[data-hot="true"] { color: var(--dsh-signal-warn); }
-.ctx-pop {
+.ctx-ring[data-hot="true"] { color: var(--dsh-signal-warn); }.ctx-pop {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
@@ -4805,6 +4840,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   display: flex;
   flex-direction: column;
   gap: 5px;
+  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
+  box-shadow: --shadow-pop-drop;
 }
 .ctx-pop-row { display: flex; justify-content: space-between; gap: 16px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .ctx-pop-row b { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
@@ -5181,20 +5218,6 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .capsule-pill-meta { color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
 .capsule-add { color: rgba(120,220,140,.95); font-weight: 600; }
 .capsule-del { color: rgba(255,120,110,.95); font-weight: 600; }
-.capsule-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: var(--z-menu);
-  transform-origin: top right;
-  animation: pop-in var(--dur-med) var(--ease-out) both;
-  width: 360px;
-  max-width: calc(100vw - 48px);
-  max-height: 70vh;
-  overflow-y: auto;
-  padding: 4px 0;
-  border-radius: var(--dsh-radius-card);
-}
 /* 面板没有标题行（ZCode 如此）：收起控件浮在右上角，压在第一个区的区头上；
    区头因此留出右侧内距（ZCode 的 StatusSectionHeader 就是 pr-8）。 */
 .capsule-controls {
@@ -5449,10 +5472,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
   /* 外投影挂**本体**：材质那块托管板按材质层自己的 bounds 铺，投影挂在材质层上会把板
      撑大一圈（`--composer-shadow` 那条注释里的同一件事，Raycast 同一层也只有材质）。
      `.tip` 因此不在浮层材质组里——那一组是"自带底与模糊"的另一档。 */
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop-drop);
 }
-/* 内容抬到材质之上（同 `.composer > :not([data-liquid-glass-backdrop])` 那条） */
-.tip > :not([data-liquid-glass-backdrop]) { position: relative; z-index: 1; }
 .tip-text { padding-inline: 4px; white-space: pre-wrap; }
 /* 开合动效＝Raycast popover 那两条：打开 .25s 带一点过冲、关闭 .15s 更干脆（"快出慢入"）。
    页内这份按相位属性跑；壳内那份由原生窗口跑同一条曲线（TooltipController 的动画）。 */
@@ -5519,7 +5540,7 @@ html[data-tooltip] .tip {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .capsule-trigger, .capsule-panel, .capsule-card { animation: none; }
+  .capsule-trigger, .capsule-card { animation: none; }
   /* 文字脉冲停下后必须把字色还回来——否则 color:transparent 会留下一块空白 */
   .capsule-live-text { animation: none; background-image: none; color: var(--ink); -webkit-text-fill-color: currentColor; }
 }
@@ -5692,17 +5713,13 @@ html[data-tooltip] .tip {
   align-items: center;
   justify-content: center;
   animation: pop-in var(--dur-fast) var(--ease-out);
-}
-.dialog-card {
+}.dialog-card {
   width: 400px;
   max-width: 92vw;
   padding: 18px;
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
-  background: var(--panel-strong);
-  -webkit-backdrop-filter: var(--blur-scrim);
-  backdrop-filter: var(--blur-scrim);
-  box-shadow: var(--shadow-modal);
+  box-shadow: var(--shadow-modal-drop);
   animation: pop-in var(--dur-fast) var(--ease-out);
 }
 .dialog-title { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
@@ -6063,7 +6080,6 @@ html[data-tooltip] .tip {
 .panel-browser-field.big { flex: none; width: 560px; max-width: 100%; z-index: 61; }
 .panel-browser-field.big .panel-browser-field-input {
   height: 50px; padding: 0 22px; border-radius: var(--dsh-radius-card);
-  background: var(--dsh-surface-raised);
   font-size: var(--dsh-font-size-lg);
 }
 /* 补全列表：挂在框正下方（不遮页面、不浮到页面正中）。挂 body 上、fixed 按框摆位
@@ -6075,7 +6091,7 @@ html[data-tooltip] .tip {
   box-sizing: border-box;
   display: flex; flex-direction: column; padding: 6px;
   border: 1px solid var(--line); border-radius: var(--dsh-radius-card);
-  background: var(--dsh-surface-raised); box-shadow: var(--shadow-pop); overflow: hidden;
+  box-shadow: var(--shadow-pop-drop); overflow: hidden;
 }
 .panel-browser-offer {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px;
@@ -6122,7 +6138,7 @@ html[data-tooltip] .tip {
 .panel-browser-hint {
   position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
   padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: var(--dsh-radius-card);
-  background: var(--dsh-surface-raised); color: var(--ink-2);
+  color: var(--ink-2);
   font-size: var(--dsh-font-size-xs); box-shadow: var(--shadow-pop); pointer-events: none;
 }
 /* 唤醒期间铺的停帧图：压在上面的原生视图一有像素就盖住它（壳给 4s 撤退时限） */

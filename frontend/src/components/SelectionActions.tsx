@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { t } from "../i18n";
 import { openPath, revealPath } from "../host";
 import { DD_EVENTS } from "../events";
+import { GlassLayer } from "./GlassLayer";
 
 // 消息流右键菜单与选中浮条（用户定稿，参考 Raycast 选中弹窗）：选中文字 →
 // 选区上方浮出 [添加到当前任务][复制]；右键（非输入框）→ 光标处的自定义菜单，
@@ -137,6 +138,7 @@ export function SelectionActions() {
   const bar = (buttons: React.ReactNode) =>
     createPortal(
       <div ref={barRef} className="sel-actions" style={{ left: pos?.x ?? -9999, top: pos?.y ?? -9999 }}>
+                        <GlassLayer />
         {buttons}
       </div>,
       document.body,

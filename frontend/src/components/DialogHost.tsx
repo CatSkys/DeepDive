@@ -6,6 +6,7 @@
 //（与设置弹窗同一玻璃配方）。
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
+import { GlassLayer } from "./GlassLayer";
 
 export interface DialogOptions {
   /** 正文（可多行，\n 保留） */
@@ -95,6 +96,7 @@ export function DialogHost() {
           if (e.key === "Escape") cancel();
           if (e.key === "Enter" && isPrompt) confirm();
         }}>
+           <GlassLayer />
         {req.opts.title && <div className="dialog-title">{req.opts.title}</div>}
         {req.opts.message && <div className="dialog-msg">{req.opts.message}</div>}
         {isPrompt && (

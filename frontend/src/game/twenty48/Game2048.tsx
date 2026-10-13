@@ -14,6 +14,7 @@ import { bestScore, currentGame, newGame, register2048, replaceGame, submitScore
 import { drawBoard, BOARD_PX } from "./render";
 import { step, type Dir, type GameState, type Move } from "./world";
 import css from "./Game2048.module.css";
+import { GlassLayer } from "../../components/GlassLayer";
 
 /** App 根部挂一次：消费 openGame2048 请求；浮层出现时复位 hover（命令面板同一条事件）。 */
 export function Game2048Host() {
@@ -128,6 +129,7 @@ export function Game2048({ onClose }: { onClose: () => void }) {
       tabIndex={-1}
       onKeyDown={onKeyDown}
     >
+      <GlassLayer />
       <div className={css.hud}>
         <div className={css.scores}>
           <div className={css.scoreCol}>

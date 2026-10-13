@@ -118,16 +118,17 @@
    自带 backdrop-filter（CSS module 类进不了 theme.css 的配方组，PITFALLS §1.8），
    前缀顺序 -webkit- 在前。 */
 .tip {
+  /* 材质族（menu）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
+  --glass-tint: var(--panel-glass);
+  --glass-blur: var(--blur-float);
+  --glass-inset: var(--shadow-pop-inset);
   position: fixed;
   z-index: var(--z-tip);
   pointer-events: none;
   padding: 8px 12px;
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-control);
-  background: var(--panel-strong);
-  -webkit-backdrop-filter: var(--blur-float);
-  backdrop-filter: var(--blur-float);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop-drop);
   font-size: var(--dsh-font-size-sm);
   color: var(--ink);
 }

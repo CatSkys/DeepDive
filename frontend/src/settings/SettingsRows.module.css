@@ -121,6 +121,10 @@
 
 /* ── 下拉菜单（统一弹出面板配方） ── */
 .ddMenu {
+  /* 材质族（menu）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
+  --glass-tint: var(--panel-glass);
+  --glass-blur: var(--blur-float);
+  --glass-inset: var(--shadow-pop-inset);
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
@@ -129,10 +133,7 @@
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
-  background: var(--panel-strong);
-  -webkit-backdrop-filter: var(--blur-scrim) !important;
-  backdrop-filter: var(--blur-scrim) !important;
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop-drop);
 }
 .ddItem {
   display: flex;
@@ -308,18 +309,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.modal {
+}.modal {
+  /* 材质族（dialog）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
+  --glass-tint: var(--panel-strong);
+  --glass-blur: var(--blur-scrim);
+  --glass-inset: var(--shadow-modal-inset);
   width: 470px;
   max-width: 92vw;
   max-height: 86vh;
   overflow: auto;
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
-  background: var(--panel-strong);
-  -webkit-backdrop-filter: var(--blur-scrim);
-  backdrop-filter: var(--blur-scrim);
-  box-shadow: var(--shadow-modal);
+  box-shadow: var(--shadow-modal-drop);
 }
 .modalHead { display: flex; align-items: center; gap: 10px; padding: 16px 18px 10px; }
 .modalTitle { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }

@@ -10,6 +10,7 @@ import { channelLabel, provisionPending } from "./im";
 import { visibleAgentPresets } from "../settings/agentPreset";
 import { useT } from "../i18n";
 import { confirmDialog } from "../components/DialogHost";
+import { GlassLayer } from "../components/GlassLayer";
 
 // 机器人管理弹窗：一个渠道的机器人台账 + 扫码新建。数据全来自插件自己的渠道
 // 面（api.im），这里只做呈现与动作转发——配对令牌、凭据存储、连接状态都在
@@ -115,6 +116,7 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
   return createPortal(
     <div className={rowsCss.modalOverlay} onClick={close} role="dialog" aria-label={t("机器人")}>
       <div className={rowsCss.modal} onClick={(e) => e.stopPropagation()}>
+           <GlassLayer />
         <div className={rowsCss.modalHead}>
           <span className={rowsCss.modalTitle}>{tt("{label}机器人", "{label} bots", { label })}</span>
           {/* 关闭钮顶到右上角（modalHead 是 flex 行，marginLeft:auto 推到行尾）——

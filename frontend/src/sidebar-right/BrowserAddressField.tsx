@@ -17,6 +17,7 @@ import { completeVisits, useVisitsRevision } from "./browserHistory";
 import { looksLikeSearch, searchUrlFor, shortAddress } from "./browserUrl";
 import { useBrowserPopup } from "./useBrowserPopup";
 import type { PaneFace } from "./useIframeBrowser";
+import { GlassLayer } from "../components/GlassLayer";
 
 /** 补全列表的一行：`url` 是要去的地方，`title` 是它的名字（空的就只显示地址）。 */
 interface Suggestion { url: string; label: string; title: string; kind: "search" | "visit" }
@@ -154,6 +155,7 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
       </div>
       {drop !== null && popupTarget && suggestions.length > 0 && createPortal(
         <div className="panel-browser-offers" role="listbox" style={dropStyle}>
+             <GlassLayer />
           {suggestions.map((item, index) => (
             <button
               key={`${item.url}-${index}`}

@@ -6,6 +6,7 @@ import { useStore } from "../store";
 import { useT } from "../i18n";
 import { openNewProjectDialog } from "./NewProjectDialog";
 import { popupRect } from "./ModelMenu";
+import { GlassLayer } from "./GlassLayer";
 
 // 项目切换菜单（搜索 + 项目列表（文件夹图标 + 名称，当前项目右侧打勾）+ 底部
 // 「新建项目」）：hero 品牌组的项目名与会话头的项目胶囊（侧栏收起态）两处入口
@@ -52,6 +53,7 @@ export function ProjectMenu({ onClose, anchorRef }: { onClose: () => void; ancho
   return createPortal(
     <div className="ws-menu" ref={ref} data-strip-interactive
       style={{ position: "fixed", top: rect.top, left: rect.left, maxHeight: rect.maxHeight }}>
+         <GlassLayer />
       <div className="ws-menu-search">
         <Search size={13} />
         <input autoFocus placeholder={t("搜索项目")} value={query} onChange={(e) => setQuery(e.target.value)} />

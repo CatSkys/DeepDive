@@ -14,6 +14,7 @@ import { clearWsIcon, getWsIcon, setWsIcon } from "../wsIcons";
 import type { WorkspaceView } from "../types";
 import { ProjectFormFields, useProjectForm } from "./projectForm";
 import rowsCss from "../settings/SettingsRows.module.css";
+import { GlassLayer } from "./GlassLayer";
 
 let editReq: ((ws: WorkspaceView) => void) | null = null;
 
@@ -107,6 +108,7 @@ function EditProjectDialog({ ws, onClose }: { ws: WorkspaceView; onClose: () => 
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submit();
         }}
       >
+        <GlassLayer />
         <div className={rowsCss.modalHead}>
           <span className={rowsCss.modalTitle}>{t("编辑项目")}</span>
         </div>
