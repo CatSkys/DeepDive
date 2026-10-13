@@ -179,8 +179,13 @@ struct MiniPanelFlyout: View {
 
   private func rows(middleY: Double?) -> some View {
     VStack(spacing: 0) {
-      ForEach(model.commands.indices, id: \.self) { index in
-        MiniPanelRow(index: index, name: model.commands[index].name, model: model)
+      // 枚举快照进 ForEach、内容闭包只读自己的元组——**绝不在求值时回读活体数组**。
+      // setCommands 会在事务中换数组（发送时刻命令目录会随新会话注册收缩），按
+      // indices 枚举 + 内容回读，过渡态用陈旧下标打活数组：轻则宿主图中毒静默
+      // 停帧（面板整窗不再上画），重则主线程越界（EXC_BREAKPOINT，崩溃报告里的
+      // MiniPanelFlyout.rows(middleY:) 帧）。
+      ForEach(Array(model.commands.enumerated()), id: \.offset) { command in
+        MiniPanelRow(index: command.offset, name: command.element.name, model: model)
       }
     }
     .animation(animation) { $0.modifier(follow(middleY: middleY)) }
