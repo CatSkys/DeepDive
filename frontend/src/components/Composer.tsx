@@ -27,6 +27,7 @@ import { EffortPicker, type EffortFace } from "./composer/EffortPicker";
 import { FileIcon } from "../session/FileIcon";
 import { fileMeta } from "./composer/fileMeta";
 import { uuid } from "../uuid";
+import { renderSelectionPrompt } from "../settings/selectionCommands";
 
 /* ─────────────────────────────────────────────────────────
  * COMPOSER — single glass pill: [＋] [textarea] [思考强度] [容量圈] [发送]
@@ -228,6 +229,54 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
       `Attachment upload failed${why ? `: ${why}` : ""}; nothing was sent — retry or remove the attachment`,
     );
   };
+  /** 划词命令：把渲染好的提示词当一条消息发出去。有意不走 `submit`——那条链读的是
+   *  输入框里的草稿（`text` 与附件），而命令的正文不归输入框持有：用户可能正打到一半，
+   *  不能被命令清掉，命令也不该把别人的草稿当自己的内容。这里只用同几个原语：
+   *  草稿页先建会话、发送、进会话（草稿留在 localStorage，不清）。 */
+  const sendPromptText = async (body: string) => {
+    let sid = sessionId;
+    const fromDraft = sid === null;
+    if (sid === null) {
+      const created = await ensureSession();
+      if (created === null) return; // 建会话失败已弹窗
+      sid = created;
+    }
+    try {
+      await api.prompt({
+        requestId: uuid(), sessionId: sid, mode: "queue",
+        content: [{ type: "text", text: body }],
+      });
+    } catch (err) {
+      void alertDialog({ message: failureText(err, tt("命令没发出去，请重试", "The command was not sent; please retry")) });
+      return;
+    }
+    if (fromDraft) enterSentSession(sid);
+  };
+
+  /** 工具条上的划词命令被点了：壳已把选中的文字存进暂存（面板抢焦点之前读的），
+   *  随后推来命令 id——这里取文字、套模板、发出去，答案在面板会话里流式回来。 */
+  const runSelectionCommand = (id: string) => {
+    const command = store.selectionCommands.find((c) => c.id === id);
+    if (!command) {
+      void alertDialog({ message: tt(`未知的划词命令：${id}`, `Unknown selection command: ${id}`) });
+      return;
+    }
+    void selectionCapture().then((captured) => {
+      if (!captured) {
+        void alertDialog({
+          message: tt("没有读到选中的文字（需在「辅助功能」里允许本应用）",
+            "No selected text was read (allow this app under Accessibility)"),
+        });
+        return;
+      }
+      void sendPromptText(renderSelectionPrompt(command, captured.text));
+    });
+  };
+  // 事件回调取实时值（命令目录会被设置页改）：effect 只订阅一次，处理函数经 ref 镜像
+  // ——闭包里直接捕获会一直用挂载那一刻的目录（store.tsx 的 refreshRef 同款纪律）。
+  const selectionCommandRef = useRef(runSelectionCommand);
+  selectionCommandRef.current = runSelectionCommand;
+
   // 引擎命令目录（0.1.2 commands/list）：菜单与 Enter 裁决共用一份；草稿页没有
   // agent，拿的是前端内建兜底车道（useSlashCommands）。
   const commands = useSlashCommands(sessionId);
@@ -361,6 +410,11 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
         }
         dispatchAppEvent(DD_EVENTS.composerPrefill, { text: captured.text });
       });
+      return;
+    }
+    if (cmd === "selectionCommand") {
+      const id = (payload as { id?: string } | undefined)?.id;
+      if (id) selectionCommandRef.current(id);
     }
   }), [ingestAttachments, tt]);
 

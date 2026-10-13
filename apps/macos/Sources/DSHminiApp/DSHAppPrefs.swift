@@ -43,6 +43,10 @@ enum DSHAppPrefs {
     /// `settings/selectionToolbar.ts` 定义；壳解析成 `ToolbarSetParams` 消费）。
     /// 存壳不存 localStorage：工具条要在页面加载之前就按上次的设置工作。
     static let selectionToolbarKey = "deepdive.selectionToolbar"
+    /// 划词命令目录（JSON 串，结构由前端 `settings/selectionCommands.ts` 定义并解析，
+    /// 壳只存不解析）：胶囊按钮上的名字，与点下去要跑的提示词模板。空 = 还没编辑过，
+    /// 前端每次启动从代码里重新种子。
+    static let selectionCommandsKey = "deepdive.selectionCommands"
     /// 截图全局热键（"command+shift+2" 式 spec；空 = 用默认）。
     static let screenshotHotkeyKey = "deepdive.screenshot.hotkey"
     /// 截图全局热键启用开关。
@@ -120,6 +124,15 @@ enum DSHAppPrefs {
 
     static func setSelectionToolbar(_ value: String) {
         UserDefaults.standard.set(value, forKey: selectionToolbarKey)
+    }
+
+    /// 划词命令目录（JSON 串；缺省 = 空，前端据此回内置种子）。
+    static var selectionCommands: String {
+        UserDefaults.standard.string(forKey: selectionCommandsKey) ?? ""
+    }
+
+    static func setSelectionCommands(_ value: String) {
+        UserDefaults.standard.set(value, forKey: selectionCommandsKey)
     }
 
     /// 截图热键 spec；空 = 还没设置过，用出厂默认。

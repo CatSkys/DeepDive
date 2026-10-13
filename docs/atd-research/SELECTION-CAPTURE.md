@@ -3,7 +3,8 @@
 > 本文拥有「Atd 截图（采集+标注）与选区工具条（划词）」两块的解剖与移植方案，是 HANDOVER 登记的单块深挖专文；线级总纲、血统结论与背景见 `HANDOVER.md`，本文不重复。
 > 时点：源码克隆 `/Users/hanbyking/Documents/Atd-src`（本地 HEAD = **v0.7.12** `b6f8bfc`，已 fetch 到 origin/main = v0.8.1+2 `1cc03af`）；实机 `/Applications/Atd.app` 0.8.0。上游代码 **MIT**（其 `LICENSE` 覆盖），用户已获作者本人许可直接移植（2026-10-13）。
 > **状态（2026-10-13）：两块已按提案①②落地**——截图整块、划词核心（含 main 的读词复制兜底链）逐字移植进 `apps/macos/Sources/DSHminiApp/{Capture,Selection}`，接线见 `ScreenshotController` / `SelectionController` 与 `Support/` 的接缝；前端设置分区与输入框截图钮已上。
-> **本次未搬（提案③，仍待拍板）**：Atd 的命令 Island 族（命令进度岛 + 选项级联「命令 ∨」+ 把答案写回原 App 的 AX 写回链，约 4.5k 行岛 + 1.4k 行写回）——它整套挂在 Atd 自己的「带参数命令」子系统上（`CommandLaunch` / `CommandArguments` / `CommandOptionsCatalog`），而本项目的命令目录是另一套（迷你面板命令卡 + 引擎 `commands/list`）；照搬等于引入第二套命令系统（违反「同一功能禁止出现第二份拷贝」）。要上它得先决定：把命令模型换成 Atd 的，还是把写回链接到我们自己命令的运行结果上。
+> **命令目录已落地（2026-10-13 追加）**：starter 那批**提示词模板**（翻译 / 润色文字 / 总结 / 解释 / 提取待办事项 / 审查代码）做成「划词命令」放在前端 `frontend/src/settings/selectionCommands.ts`（名字照 starter，提示词取英文原文，参数取默认值），胶囊点一条 = 亮迷你面板 + 把渲染好的提示词当一条消息发进会话。这没有引入第二套命令系统：引擎的 `commands/list` 一字未动，胶囊从此只放划词命令，引擎那几条仍在迷你面板命令卡与输入框 `/` 菜单。Atd 另外两条 starter（总结文件 / 就截图提问）的输入是附件与截图，划词喂不了，未收。
+> **仍未搬（提案③余下部分）**：命令进度岛、选项级联「命令 ∨」（带参数命令的二级菜单）、把答案写回原 App 的 AX 写回链（约 4.5k 行岛 + 1.4k 行写回）——它们整套挂在 Atd 自己的「带参数命令」子系统上（`CommandLaunch` / `CommandArguments` / `CommandOptionsCatalog`）。要上写回得先决定：把命令模型换成 Atd 的，还是把写回链接到我们自己命令的运行结果上。
 > **§5 风险 1 的实况**：两项 TCC 授权在**交付链**上不会掉——`sign-app.sh` 默认用 Developer ID 重签，授权按 bundle id + 身份记、跨构建保留（实测 TeamIdentifier `49LSZKN27V`）；只有 adhoc 构建（测试宿主 / 证书不可用回退）才每次失效。
 > **两处接缝降级**（功能等价、实现更简）：① 权限引导窗（Atd 384 行的自绘「拖滑块允许」）→ 直接深链系统设置的对应面板；② 附件导入（Atd 经服务导入成资源 id）→ 落到 `<support>/screenshots/` 后由页面按既有 `upload-path` 通道上传。
 >
