@@ -462,6 +462,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "quickPanel-show":
             // 迷你面板页报新视图首帧已画出 → 把面板带到前台（Atd windowShow 语义）。
             quickPanel.showPanel()
+        case "open-quick-panel":
+            // 主窗侧栏「快捷会话」图标 → 把面板窗带到前台（与 ⌥Space 同一落点；
+            // 让面板自己决定露出哪一视图，这里不管内容，只负责"叫它出来"）。
+            quickPanel.showPanel()
         case "prepare-workspace":
             prepareWorkspace(
                 reqId: body["reqId"] as? String ?? "",

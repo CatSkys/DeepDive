@@ -8,6 +8,7 @@ import { IconProjectAddOutline16 } from "./Icons";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { comboFor } from "../keybinds";
+import { openQuickPanel } from "../host";
 import { openNewProjectDialog } from "./NewProjectDialog";
 import { WsSwitcher } from "./WsSwitcher";
 import { SidebarSessionList } from "./SidebarSessionList";
@@ -70,7 +71,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         onOpenRowMenu={openRowMenu}
         onOpenWorkspaceMenu={(x, y) => { setRowMenu(null); setWsMenu({ x, y }); }}
         onNewSession={() => store.openSession(null)}
-        onQuickSession={() => store.openQuickSession()}
+        onQuickSession={() => openQuickPanel()}
         slideDir={slideDir.current}
       />
       <div className="sidebar-foot">
