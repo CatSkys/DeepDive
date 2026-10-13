@@ -96,9 +96,12 @@ final class WindowGlassView: NSView {
         if surface == .card { applyCardShadow() }
     }
 
-    /// 卡片档的浮起投影。挂在**玻璃那一层**上而不是这个容器上：CALayer 的阴影只按本层
-    /// 自己的内容（底色/描边/内容图）算形状，子层不计入——挂容器等于没有影子。
-    /// 数值对齐 theme.css 的 `--shadow-pop`（浮层那档），壳里不另立一套。
+    /// 卡片档的浮起投影，画在**玻璃那一层**上。数值对齐 theme.css 的 `--shadow-pop`
+    /// （浮层那档），壳里不另立一套。
+    ///
+    /// 必须显式给 `shadowPath`：CALayer 的阴影只按本层**自己的内容**算形状，子层不计入，
+    /// 而系统玻璃是画在它自己的内部层上的——不给路径就是"设了阴影但什么都没有"（这类
+    /// 静默失效在 FrostSurface 的圆角注释里记过同型事故）。路径随尺寸/圆角走，见 `layout()`。
     private func applyCardShadow() {
         let target = (glassView ?? materialView) as NSView
         target.wantsLayer = true
@@ -107,6 +110,15 @@ final class WindowGlassView: NSView {
         layer.shadowOpacity = 0.28
         layer.shadowRadius = 18
         layer.shadowOffset = CGSize(width: 0, height: -8)  // y-up：负值 = 向屏幕下方投
+        refreshCardShadowPath()
+    }
+
+    /// 阴影路径 = 自己的圆角矩形（尺寸变了要跟着重算，否则影子还停在旧尺寸上）。
+    private func refreshCardShadowPath() {
+        guard surface == .card, let layer = (glassView ?? materialView).layer else { return }
+        let radius = (glassView as? NSGlassEffectView)?.cornerRadius ?? layer.cornerRadius
+        layer.shadowPath = CGPath(
+            roundedRect: bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
     }
 
     /// 卡片档：圆角由页面按**实际渲染的** border-radius 报来（`FrostSurface.setRadius` 同款
@@ -118,6 +130,13 @@ final class WindowGlassView: NSView {
             wantsLayer = true
             layer?.cornerRadius = radius
         }
+        refreshCardShadowPath()
+    }
+
+    /// 尺寸由壳的放置逻辑改（卡片跟着页面报来的矩形走）：阴影路径必须跟着重算。
+    override func layout() {
+        super.layout()
+        refreshCardShadowPath()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
