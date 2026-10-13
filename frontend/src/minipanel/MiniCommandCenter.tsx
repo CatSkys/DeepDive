@@ -12,7 +12,6 @@ import { Search, X } from "lucide-react";
 import { useT } from "../i18n";
 import { MiniHistoryRows } from "./MiniHistoryRows";
 import { MiniSettingsRows } from "./MiniSettingsRows";
-import { useMiniCardSurface } from "./useMiniCardSurface";
 
 export type MiniOverlayMode = "history" | "settings";
 
@@ -34,9 +33,8 @@ export function MiniCommandCenter({
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  // 卡片自己的矩形推给壳：那块**原生玻璃**（真 Liquid Glass）按它铺在 webview 之下，
-  // 所以这张卡不画背景、不画投影、不画模糊（见 theme.css 该条注释与 WindowGlassView.card）。
-  useMiniCardSurface(cardRef);
+  // 卡片不画材质：它底下那块原生玻璃由壳摆（矩形由面板页算并推给壳，见 miniCardAnchor.ts），
+  // 见 theme.css 该条注释与 WindowGlassView 的 .floating 档。
   /** 行件的键盘处理：每次渲染注册一份最新的（行件里的状态闭包才不会过期）。 */
   const keyRef = useRef<KeyHandler | null>(null);
   const registerKeys = useCallback((handler: KeyHandler) => {
