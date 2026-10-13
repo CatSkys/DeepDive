@@ -329,9 +329,9 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     // MARK: - WKScriptMessageHandler（页面 → 壳）
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        // 卡片页那两条桥只服务"用户要关"这一件事：开合的事实源在面板页（胶囊按钮在那儿），
-        // 卡片按了 Esc 就报上来、由这里转发回面板页收卡。**不转发给 AppDelegate**——那一层
-        // 认的是主窗/面板页那套消息，卡片页没有它的活。
+        // 卡片页那三条桥都是"卡片说了不算、面板页说了算"那一类（卡片是另一块 webview、
+        // 另一份 store）：Esc 与"点了历史里的一行"都报上来，由这里转发回面板页。**不转发给
+        // AppDelegate**——那一层认的是主窗/面板页那套消息，卡片页没有它的活。
         if message.name == "deepdiveHost",
            userContentController === cardWeb?.configuration.userContentController {
             if let body = message.body as? [String: Any], let type = body["type"] as? String {
@@ -346,6 +346,17 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                     hideCard()
                     pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
                     pushHostCommand("miniCCClosed", payload: "{}")
+                    return
+                }
+                if type == "mini-cc-open-session" {
+                    // 历史里点了一行：卡片页切自己那份 store 不算数（会话由面板页渲染），
+                    // 所以这里收卡并把"切到这条会话"转给面板页——与 Esc 那条同一条转发链。
+                    let sessionId = body["sessionId"] as? String ?? ""
+                    hideCard()
+                    pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
+                    pushHostCommand(
+                        "miniCCOpenSession",
+                        payload: AppDelegate.jsonPayload(["sessionId": sessionId]))
                     return
                 }
             }

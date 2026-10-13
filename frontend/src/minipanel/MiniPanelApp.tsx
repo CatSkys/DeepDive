@@ -96,6 +96,13 @@ export function MiniPanelApp() {
       },
       // 卡那一页按 Esc（它拿着键盘）→ 壳转回来：开合的事实源在本页（胶囊按钮在这儿）。
       miniCCClosed: () => setOverlay(null),
+      // 卡那一页点了历史里的一行 → 由**本页**切会话：卡那页是另一块 webview、另一份 store，
+      // 它在自己那儿 openSession 只会切换一个不渲染会话的 store（用户报"点哪一行都不进去"）。
+      // 切完顺手收卡（壳已经先把卡藏了，这里同步本页的开合状态）。
+      miniCCOpenSession: ({ sessionId }) => {
+        setOverlay(null);
+        storeRef.current.openSession(sessionId);
+      },
     });
     sendToShell({ type: "get-prefs" });
   }, []);
