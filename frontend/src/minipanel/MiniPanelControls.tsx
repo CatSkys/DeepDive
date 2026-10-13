@@ -31,6 +31,9 @@ export function MiniPanelControls({
         if (e.animationName === "mini-controls-pulse") setPulse(false);
       }}
     >
+      {/* 材质层：与输入胶囊同一条规则（[data-liquid-glass-backdrop] 是全局面），
+          所以这组只留几何、材质（含系统液态玻璃档）自动接上 */}
+      <div data-liquid-glass-backdrop aria-hidden="true" />
       <button
         type="button"
         className="panel-expand-btn"
