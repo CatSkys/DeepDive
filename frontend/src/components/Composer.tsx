@@ -574,6 +574,11 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
         )}
         {plusOpen && !menu && <ComposerPlusMenu onPick={onPlusPick} />}
         <div className={`composer${multiline ? " wide" : ""}`}>
+          {/* 液态玻璃材质层：内容与材质分离——胶囊只留几何，底色/投影/模糊（或系统
+              材质）都落在这个元素上。失焦、降级、换材质因此只动它一个；胶囊身上
+              **不许**有 backdrop-root 触发器，否则本层会被锁进胶囊内部＝一块实心
+              （完整约束见 theme.css 的 [data-liquid-glass-backdrop] 段）。 */}
+          <div data-liquid-glass-backdrop aria-hidden="true" />
           {/* 行数量测件：与输入框同款式的只读 textarea，零高度、不可见，占第 2 列
               （＝单行态文本列宽）。列宽与当前布局无关，所以行数判据不会抖。 */}
           <textarea ref={probeRef} className="composer-probe" readOnly tabIndex={-1} aria-hidden="true" value={text} />
