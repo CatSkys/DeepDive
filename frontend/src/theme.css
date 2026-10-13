@@ -511,7 +511,8 @@ button {
 /* 清单节奏（两脸**统一**：用户 2026-10-13 报"两个面板统一一下，行高和行距这些都统一一下"）：
    行高 32（`.task-row` 与设置行本来就都是 32）+ 行距 12（原设置脸的值，历史脸此前是 0）。
    段与段之间同样 12。 */
-.app.mini-panel .mini-cc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 6px 8px; }
+/* 上下内距与设置脸（.mini-cc-settings 的 10/14）对齐，两脸的"第一行离卡片顶"才是同一个数 */
+.app.mini-panel .mini-cc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 6px 14px; }
 .app.mini-panel .mini-cc-section { display: flex; flex-direction: column; gap: 12px; }
 .app.mini-panel .mini-cc-section + .mini-cc-section { margin-top: 12px; }
 .app.mini-panel .mini-cc-section-title {
@@ -3774,7 +3775,12 @@ button {
   .app.collapsed .session-header { padding-left: 190px; }
   .app.collapsed .hero-top { padding-left: 190px; }
   .app:not(.mini-panel).collapsed .panel[data-mode="browser"] .panel-browser-chrome { padding-left: 190px; }
-  .task-row, .session-back, .snav-item, .ctx-item { height: 44px; }
+  /* 面板页**显式排除**：迷你面板窗天生 ~500pt、永远落在窄窗断点里，不排除的话它里面的
+     会话行被当成触屏行撑到 44——而设置行（.panel-settings-line）不在这一串里、仍是 32，
+     于是同一张卡的两个脸行高不一致（用户 2026-10-13 报"这两个页面看在哪里统一的"）。
+     同一类事故的来龙去脉见 PITFALLS §10.2（面板页整列停画那次）。 */
+  .app:not(.mini-panel) .task-row,
+  .session-back, .snav-item, .ctx-item { height: 44px; }
   .composer-send, .composer-icon, .composer-mic { width: 38px; height: 38px; }
   /* 触达高度跟同簇圆钮齐；横向留一点内边距好点得中（无底色，只影响点击区） */
   .composer-effort { height: 38px; padding: 0 6px; }
