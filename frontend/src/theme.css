@@ -416,7 +416,7 @@ button {
   font-weight: 500;
 }
 /* 行沿用侧栏那条会话行（.task-row + row-slot/row-main/row-actions），这里只补三点：
-   悬停胶囊出血到容器边（同 .mini-cmd-row 的语言）、时间常驻、键盘光标行高亮。 */
+   悬停胶囊出血到容器边（负外边距扩到容器内边距里）、时间常驻、键盘光标行高亮。 */
 .app.mini-panel .mini-history-row { margin: 0 -10px; }
 /* 主窗那条「hover 时时间让位给归档钮」是侧栏归档交互的配方，面板行没有归档钮——
    时间常驻，别留一个空档。 */
@@ -525,9 +525,9 @@ button {
   .mini-running-glow { animation: none; opacity: .8; }
 }
 
-/* 迷你面板的草稿页（Atd 主面板的结构，我们的画法）：头部同会话页根条（复用
-   hero-top，靠 --hero-pad-x 负边距抵齐）；其下左上问候 + 副题 + / 命令快捷行
-   （行 hover 填充与列表行同语言）；输入框钉底，与问候同缩进。 */
+/* 迷你面板的首页（草稿脸）：头部同会话页根条（复用 hero-top，靠 --hero-pad-x 负边距
+   抵齐）；其下左上问候 + 提示词胶囊（点一颗把整段提示词预填进输入框），输入框钉底，
+   与问候同缩进。 */
 .mini-draft {
   flex: 1;
   position: relative;
@@ -538,23 +538,29 @@ button {
   --hero-pad-x: 24px;
   padding: 0 var(--hero-pad-x) 12px;
 }
-.mini-draft .hero-brand { align-items: flex-start; margin: 28px 0 0; }
-.mini-draft-sub { margin: 6px 0 0; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
-.mini-draft-commands { display: flex; flex-direction: column; margin-top: 24px; }
-.mini-cmd-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  margin: 0 -10px;
-  border-radius: var(--dsh-radius-control, 8px);
-  text-align: left;
+.mini-draft-greet { margin-top: 28px; }
+.mini-draft-hello {
+  margin: 0;
+  font-size: var(--dsh-font-size-hero);
+  font-weight: 400;
+  letter-spacing: .01em;
+  color: var(--ink-bright);
 }
-:where(html[data-hover-armed]) .mini-cmd-row:hover { background: var(--row-hover); }
-.mini-cmd-glyph { flex: none; color: var(--ink-3); }
-.mini-cmd-text { display: flex; flex-direction: column; min-width: 0; }
-.mini-cmd-name { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink); }
-.mini-cmd-desc { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
+/* 胶囊按内容宽换行排布；一颗 = 一个短标签（预填的整段提示词看不见，进输入框才读）。
+   无描边（UI-SPEC §1.1「有底色的卡片一律不描边」），两端全圆走 radius.bubble 同
+   文件那颗文件 chip 的口径（30 高的盒子上被裁成半高整圆端，不写 999px）；
+   hover 不门控——常驻控件不是随内容滑动的行（UI-SPEC §1.10 门控范围）。 */
+.mini-draft-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.mini-prompt {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--dsh-radius-bubble);
+  background: var(--fill);
+  color: var(--ink-2);
+  font-size: var(--dsh-font-size-sm);
+  white-space: nowrap;
+}
+.mini-prompt:hover { background: var(--fill-strong); color: var(--ink); }
 .mini-draft-foot { flex: none; margin-top: auto; padding-top: 8px; }
 .mini-draft-foot .composer { width: 100%; }
 

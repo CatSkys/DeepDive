@@ -63,8 +63,8 @@ export interface Store {
   queues: Map<string, SessionQueuedItem[]>;
   /** 各会话的后台任务快照（session/control 帧，5.3）。 */
   jobsBySession: Map<string, import("./types").JobView[]>;
-  /** 快捷空间最近会话的命令目录（commands/list 原文，已滤 export）：迷你面板
-   *  命令卡推壳与草稿页命令快捷行共用的同一份。 */
+  /** 快捷空间最近会话的命令目录（commands/list 原文，已滤 export）：壳侧药丸的
+   *  命令卡据此取数（`miniPanel.setCommands` 推壳）。 */
   quickCommands: CommandDescriptor[];
   openSession: (id: string | null) => void;
   /** 快捷会话（D14）：切到「快捷会话」空间 + 开新草稿；空间未注册时退化为普通新会话。 */
@@ -577,8 +577,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     openSession(null);
   }, [quickWorkspacePath, workspaces, switchWorkspace, openSession]);
 
-  // 快捷空间最近会话的命令目录（commands/list 原文，已滤 export）：迷你面板
-  // 命令卡推壳与草稿页命令快捷行共用的同一份（一次取数）。
+  // 快捷空间最近会话的命令目录（commands/list 原文，已滤 export）：壳侧药丸的
+  // 命令卡据此取数（一次取数）。
   const [quickCommands, setQuickCommands] = useState<CommandDescriptor[]>([]);
   // 推壳（Atd 桥契约 `miniPanel.setCommands`：条目 {id,name}，id 即引擎命令名
   // ——命令卡点行回推 runQuickCommand{name}，预填 `/{name}` 走执行链）。双窗
