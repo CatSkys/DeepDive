@@ -44,7 +44,7 @@ function PermissionRow({ name, hint, granted, onOpen, noteWhenGranted }: {
       </div>
       <div className={rowsCss.rowActions}>
         {granted === true ? (
-          <span className={rowsCss.comboChip} style={{ color: "var(--ink-3)" }}>{t("已授权")}</span>
+          <span className={`${rowsCss.comboChip} ${rowsCss.muted}`}>{t("已授权")}</span>
         ) : (
           <button type="button" className={rowsCss.comboChip} onClick={onOpen}>
             {t("打开系统设置")}
