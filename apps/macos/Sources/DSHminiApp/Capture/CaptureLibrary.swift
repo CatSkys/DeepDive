@@ -43,16 +43,9 @@ final class CaptureLibrary {
     }
     let raw = capture.raw
     async let recognized = snapshot == nil ? [] : ScreenText.lines(in: raw)
-    let image: URL
-    do {
-      image = try await CaptureExport.store(capture.image, capturedAt: capturedAt, in: Self.folder)
-    } catch let failure as ImageExportFailure {
-      switch failure {
-      case .tooLarge: throw BridgeError(ShellStrings.shared.text(.screenshotTooLarge))
-      case .unwritable: throw BridgeError(ShellStrings.shared.text(.screenshotUnwritable))
-      case .unencodable: throw BridgeError(ShellStrings.shared.text(.screenshotUnencodable))
-      }
-    }
+    // `CaptureExport.store` 自己把编码/写盘的失败折成带文案的 BridgeError，这里不再分支。
+    let image = try await CaptureExport.store(
+      capture.image, capturedAt: capturedAt, in: Self.folder)
     var context: URL?
     if let snapshot {
       let centre = CaptureCoordinates.quartzPoint(
