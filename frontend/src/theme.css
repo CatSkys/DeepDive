@@ -574,25 +574,32 @@ button {
   --hero-pad-x: 24px;
   padding: 0 var(--hero-pad-x) 12px;
 }
-.mini-draft-greet { margin-top: 28px; }
+/* 问候 + 胶囊这一组落在头部与输入框之间偏上的位置：两份 auto 外边距（这里一份、
+   .mini-draft-foot 一份）把自由空间对半分——输入框仍钉底，这一组不贴头部
+   （贴头部时下面空出一大片，用户 2026-10-13 报"位置不对"）。 */
+.mini-draft-greet { margin-top: auto; }
+/* 招呼语：display 档（hero 24）之下的一档（xl 18）——同一句在面板里是"招呼"不是
+   主窗 hero 的大标题（用户 2026-10-13 定：系统字体、调轻调小）。行高逐规则定。 */
 .mini-draft-hello {
   margin: 0;
-  font-size: var(--dsh-font-size-hero);
+  font-size: var(--dsh-font-size-xl);
   font-weight: 400;
+  line-height: 24px;
   letter-spacing: .01em;
-  color: var(--ink-bright);
+  color: var(--ink);
 }
 /* 胶囊按内容宽换行排布；一颗 = 一个短标签（预填的整段提示词看不见，进输入框才读）。
    无描边（UI-SPEC §1.1「有底色的卡片一律不描边」），两端全圆走 radius.bubble 同
    文件那颗文件 chip 的口径（30 高的盒子上被裁成半高整圆端，不写 999px）；
-   hover 不门控——常驻控件不是随内容滑动的行（UI-SPEC §1.10 门控范围）。 */
-.mini-draft-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+   --fill 底配 --ink-soft 字同 .ws-pill 那条配方；hover 不门控——常驻控件不是随
+   内容滑动的行（UI-SPEC §1.10 门控范围）。 */
+.mini-draft-prompts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .mini-prompt {
   height: 30px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: var(--dsh-radius-bubble);
   background: var(--fill);
-  color: var(--ink-2);
+  color: var(--ink-soft);
   font-size: var(--dsh-font-size-sm);
   white-space: nowrap;
 }
