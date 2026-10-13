@@ -32,6 +32,9 @@ final class WindowGlassView: NSView {
 
     /// macOS 26+ 的液态玻璃底板；更早的系统为 nil（那时走 materialView + tintView）。
     private let glassView: NSView?
+    /// .panel 档的第二段模糊：窗内磨砂，坐在玻璃之上、WebView 之下（与辉光同级、
+    /// 在辉光之下）。.window 档为 nil。
+    private(set) var frostView: NSVisualEffectView?
     /// .panel 档的边缘内辉光（玻璃之上、WebView 之下）。.window 档为 nil。
     private(set) var glowView: PanelGlowView?
     /// vibrancy 底板（只在退回分支挂上来）。
@@ -72,6 +75,17 @@ final class WindowGlassView: NSView {
         if let glass = glassView {
             addFilling(glass)
             if surface == .panel {
+                // 第二段模糊：与 Raycast `BlurView` **同参镜像**——它反编译出来就是
+                // `setBlendingMode(1)`（withinWindow：糊窗内它下面的内容）+
+                // `setState(1)`（active：不随失焦变暗），**且不给 material**（用系统
+                // 默认档）。上一版这里用了 `.hudWindow` 材质，那个材质自带深色 →
+                // "太实"（用户）；同参镜像就没有那层自带色，只加"糊"不加"实"。
+                // 若默认档观感不对，调点就是这一处：显式给一个中性 material。
+                let frost = NSVisualEffectView()
+                frost.blendingMode = .withinWindow
+                frost.state = .active
+                addFilling(frost)
+                frostView = frost
                 let glow = PanelGlowView(cornerRadius: Self.panelCornerRadius)
                 addFilling(glow)
                 glowView = glow
