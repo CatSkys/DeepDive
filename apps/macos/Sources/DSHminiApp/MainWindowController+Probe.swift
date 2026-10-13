@@ -85,16 +85,21 @@ extension MainWindowController {
         guard let root = webView.layer else { return ["found": 0, "hint": "webView 还没有 layer"] }
         var hosts: [[String: Any]] = []
         var dump: [[String: Any]] = []
+        var visited = 0
         func walk(_ layer: CALayer, depth: Int) {
-            guard depth <= 24, dump.count < 24 else { return }
+            // 两个预算必须分开：dump 只是给人看的抽样，装满了不能把遍历也掐掉
+            //（宿主层在树里很深，早退就永远走不到它）。
+            guard depth <= 40, visited < 8000 else { return }
+            visited += 1
             let cls = NSStringFromClass(type(of: layer))
             let bounds = layer.bounds
-            if bounds.width > 0, bounds.height > 0 {
+            if bounds.width > 0, bounds.height > 0, dump.count < 24 {
                 dump.append(["d": depth, "cls": cls, "name": layer.name ?? "",
                              "w": Double(bounds.width), "h": Double(bounds.height),
                              "x": Double(layer.frame.origin.x), "y": Double(layer.frame.origin.y)])
             }
-            if cls.localizedCaseInsensitiveContains("hosting") || (layer.name ?? "").contains("material hosting") {
+            if hosts.count < 8,
+               cls.localizedCaseInsensitiveContains("hosting") || (layer.name ?? "").contains("material hosting") {
                 hosts.append(["d": depth, "cls": cls, "name": layer.name ?? "",
                               "w": Double(bounds.width), "h": Double(bounds.height),
                               "x": Double(layer.frame.origin.x), "y": Double(layer.frame.origin.y),
@@ -103,6 +108,6 @@ extension MainWindowController {
             for sub in layer.sublayers ?? [] { walk(sub, depth: depth + 1) }
         }
         walk(root, depth: 0)
-        return ["found": hosts.count, "hosts": hosts, "layers": dump]
+        return ["found": hosts.count, "visited": visited, "hosts": hosts, "layers": dump]
     }
 }
