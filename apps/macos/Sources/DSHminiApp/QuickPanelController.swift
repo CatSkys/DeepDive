@@ -94,7 +94,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         window.animationBehavior = .none
         // 不置顶：正常窗口层级。曾按"快捷对话面"的语义置到 `.floating`（2026-10-13），
         // 实机用下来压在所有应用之上并不合理（用户复盘后收回），回到 `.normal`。
-        window.level = .normal
+        window.level = ShellWindowLevel.main
 
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = true

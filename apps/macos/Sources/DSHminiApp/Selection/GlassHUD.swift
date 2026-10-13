@@ -60,7 +60,7 @@ final class GlassHUD: NSObject {
     window.isOpaque = false
     window.backgroundColor = .clear
     window.hasShadow = false
-    window.level = .statusBar
+    window.level = ShellWindowLevel.glassHUD
     window.hidesOnDeactivate = false
     window.isReleasedWhenClosed = false
     window.becomesKeyOnlyIfNeeded = true

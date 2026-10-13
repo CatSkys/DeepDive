@@ -14,7 +14,7 @@
   justify-content: center;
 }.card {
   /* 材质族（dialog）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--panel-strong);
+  --glass-tint: var(--glass-fill-dialog);
   --glass-blur: var(--blur-scrim);
   --glass-inset: var(--shadow-modal-inset);
   animation: wizard-in var(--dur-slow) var(--ease-spring) both;

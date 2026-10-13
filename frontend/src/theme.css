@@ -80,6 +80,14 @@
      blur 强度在 .composer-menu 单独降为 14px（40px 会把背景糊成无法
      辨认的浓雾，反而显得「没有模糊」） */
   --panel-glass: rgba(24,24,27,.55);
+  /* 材质层的底色：**回退档**（没有系统材质）用真半透/近实色，**系统材质档**（@supports 里）
+     换成轻叠加——底色原是为"自带模糊"配的，玻璃本体由系统给时重底色会把玻璃盖死
+     （2026-10-14 用户报"看着都不像"；与参考实现的面板叠加 ~10% 白对齐）。 */
+  --glass-overlay: rgba(255,255,255,.07);
+  --glass-overlay-strong: rgba(255,255,255,.10);
+  --glass-fill-float: var(--panel-glass);
+  --glass-fill-dialog: var(--panel-strong);
+  --glass-fill-palette: var(--panel-palette);
   /* 命令面板（⌘K）的底：比菜单更浅也更实。它浮在应用自己的近黑铬件上——用
      --panel-glass 那两个数会跟背景糊成一片（实测两者相差 1 级亮度），所以要往
      亮处抬一档拉开隔离，同时把不透明度提到 .82 让背后的正文不再透上来。 */
@@ -175,6 +183,8 @@
       0 4px 12px rgba(0,0,0,.05),
       0 -8px 64px 8px rgba(0,0,0,.05);
     --panel-strong: rgba(250,250,251,.94);
+  --glass-overlay: rgba(0,0,0,.05);
+  --glass-overlay-strong: rgba(0,0,0,.07);
     /* 明显毛玻璃档（同 dark 注释）：浅色白底 .45，下方内容透出且保持雾感 */
     --panel-glass: rgba(250,250,251,.55);
     /* 命令面板的底（同 dark 注释）：亮色下"更浅"是更白更实——纯白近实色浮在浅灰应用上 */
@@ -338,12 +348,12 @@ button {
    匹配不到本块，那几处在自己的 module 文件里给同样的三个值。 */
 .model-menu, .model-detail, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop,
 .find-capsule, .engine-banner, .sel-actions, .panel-browser-offers {
-  --glass-tint: var(--panel-glass);
+  --glass-tint: var(--glass-fill-float);
   --glass-blur: var(--blur-float);
   --glass-inset: var(--shadow-pop-inset);
 }
 .dialog-card {
-  --glass-tint: var(--panel-strong);
+  --glass-tint: var(--glass-fill-dialog);
   --glass-blur: var(--blur-scrim);
   --glass-inset: var(--shadow-modal-inset);
 }
@@ -1684,6 +1694,13 @@ button {
    注：浏览器悬浮卡那一页（另一块 webview）里 CSS 模糊本来就采不到面外内容，那一档
    由壳的原生磨砂兜着（见 .chat-float 段）。 */
 @supports (-apple-visual-effect: -apple-system-glass-material-media-controls) {
+  /* 系统材质档：三个族的底色一起换成轻叠加。变量在这里改——模块里那些哈希类也吃得到
+     （按类名写 @supports 覆盖则匹配不到它们）。 */
+  :root {
+    --glass-fill-float: var(--glass-overlay);
+    --glass-fill-dialog: var(--glass-overlay-strong);
+    --glass-fill-palette: var(--glass-overlay);
+  }
   [data-liquid-glass-backdrop] {
     -apple-visual-effect: -apple-system-glass-material-media-controls;
     -webkit-backdrop-filter: none;
@@ -5721,6 +5738,10 @@ html[data-tooltip] .tip {
   border-radius: var(--dsh-radius-card);
   box-shadow: var(--shadow-modal-drop);
   animation: pop-in var(--dur-fast) var(--ease-out);
+  /* 材质层是绝对定位子元素（inset:0）：宿主必须是定位元素，否则它铺到最近的定位
+     祖先上（对话框那层是 fixed inset:0 的遮罩）——2026-10-14 用户截图里"整窗一块暗面、
+     卡片找不到边"就是这个。 */
+  position: relative;
 }
 .dialog-title { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
 /* 正文：长错误串里全是不可断的路径（引擎的 dlopen 报错就是十几行绝对路径），

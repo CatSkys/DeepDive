@@ -9,7 +9,7 @@ final class CaptureOverlayPanel: NSPanel {
     super.init(
       contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
       defer: false)
-    level = .screenSaver
+    level = ShellWindowLevel.captureOverlay
     collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
     isOpaque = false
     backgroundColor = .clear

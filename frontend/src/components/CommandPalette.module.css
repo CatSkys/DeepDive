@@ -9,7 +9,7 @@
    无全屏遮罩——点外部关闭（组件内 document mousedown）。 */
 .panel {
   /* 材质族（palette）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--panel-palette);
+  --glass-tint: var(--glass-fill-palette);
   --glass-blur: var(--blur-float);
   --glass-inset: var(--shadow-pop-inset);
   position: fixed;

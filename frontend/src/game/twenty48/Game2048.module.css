@@ -3,7 +3,7 @@
    关了再开续局）。键盘焦点收在面板上：方向键/WASD 走子，Esc=关闭。 */
 .panel {
   /* 材质族（dialog）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--panel-strong);
+  --glass-tint: var(--glass-fill-dialog);
   --glass-blur: var(--blur-scrim);
   --glass-inset: var(--shadow-modal-inset);
   position: fixed;

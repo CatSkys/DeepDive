@@ -25,7 +25,7 @@ final class TooltipWindow: NSPanel {
   /// （312），所以尺寸与窗口当前多大无关。
   static let initialSize = NSSize(width: 320, height: 56)
   /// 高于迷你面板那一档（`MiniPanelWindow.level` = floating + 1）：注释要浮在它上面。
-  static let level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 2)
+  static let level = ShellWindowLevel.tooltip
 
   /// 注释那一页：透明，**连材质一起画**——`[data-liquid-glass-backdrop]` 那一层是全站的
   /// 系统液态玻璃档（与输入胶囊同一份规则），所以窗口这里不再垫原生 `NSGlassEffectView`：
