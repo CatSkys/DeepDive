@@ -233,6 +233,38 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         pushHostCommand(cmd, payload: payload)
     }
 
+    // MARK: - 诊断探针（临时，排查空白窗；定位后还原）
+
+    /// 让迷你面板页自报关键布局事实，进 engine.log。只读不改：页面在卡死态也
+    /// 能区别「DOM 在但没画出来」与「DOM 本身空了」。
+    func diagnose(_ tag: String) {
+        guard webView.url != nil else { return }
+        let js = """
+        JSON.stringify({
+          href: location.href.slice(-24),
+          app: document.querySelector('.app')?.className ?? 'none',
+          mainKids: [...(document.querySelector('.main')?.children ?? [])].map(c => c.className || c.tagName),
+          srowKids: [...(document.querySelector('.session-row')?.children ?? [])].map(c => c.className || c.tagName),
+          minidraft: !!document.querySelector('.mini-draft'),
+          session: !!document.querySelector('.session'),
+          sessionKids: [...(document.querySelector('.session')?.children ?? [])].map(c => c.className || c.tagName),
+          sessionText: (document.querySelector('.session')?.textContent ?? '').replace(/\\s+/g, ' ').slice(0, 80),
+          sessionBg: getComputedStyle(document.querySelector('.session') || document.body).backgroundColor,
+          sessionH: Math.round((document.querySelector('.session') || document.body).getBoundingClientRect().height),
+          flowH: Math.round((document.querySelector('.flow') || document.body).getBoundingClientRect().height),
+          composerWrap: !!document.querySelector('.composer-wrap'),
+          taReal: [...document.querySelectorAll('textarea:not(.composer-probe)')].length,
+          taValue: [...document.querySelectorAll('textarea:not(.composer-probe)')].map(t => t.value),
+          sessionTitle: (document.querySelector('.session-header .title')?.textContent ?? '') || (document.querySelector('.hero-top .title')?.textContent ?? ''),
+          visibility: document.visibilityState,
+          boundary: !!document.querySelector('.crash-boundary')
+        })
+        """
+        webView.evaluateJavaScript(js) { result, _ in
+            EngineLog.shared.append("[mini-probe] \(tag) " + (result as? String ?? "eval-failed"))
+        }
+    }
+
     // MARK: - 外观（与 MainWindowController.applyAppearanceMode 同源解析）
 
     func applyAppearanceMode() {
