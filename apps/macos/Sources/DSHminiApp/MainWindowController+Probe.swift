@@ -53,6 +53,11 @@ extension MainWindowController {
         for (key, view) in [("glass", glass as NSView?), ("webview", webView as NSView?), ("browserWebview", browserView)] {
             if let f = frame(view) { facts[key] = f }
         }
+        // 托管材质（网页里 `-apple-visual-effect` 的 glass 档）在 macOS 上是应用进程里的
+        // 一个 CAHostingLayer，由 WebKit 的 WKMaterialHostingSupport 造、WebKit 把它的
+        // bounds/position 设成**元素自己那层**的几何。网页侧只量得到 DOM 盒、看不到它，
+        // 所以"材质板比元素大"这类事故只有这里能给出像素级证据（量元素盒与宿主层的差）。
+        facts["materialHostingLayers"] = materialHostingLayers()
         facts["overlay"] = [
             "visible": composerOverlay.isVisible,
             "alpha": Double(composerOverlay.view.alphaValue),
@@ -70,5 +75,34 @@ extension MainWindowController {
             ] as [String: Any],
         ] as [String: Any]
         return facts
+    }
+
+    /// 走一遍 webView 的层树，报出所有"材质宿主层"（类名带 Hosting 的 CALayer）的几何。
+    /// 判据用类名而不是名字：WebCore 侧给结构层起的名字（`material hosting: …`）不保证
+    /// 传到 UI 进程这块远程层上，而 CAHostingLayer 这个类名是 macOS 侧的宿主层实现。
+    /// 同时报一份有尺寸的层清单（前 24 个），名字/类名认不出来时还能人工定位。
+    private func materialHostingLayers() -> [String: Any] {
+        guard let root = webView.layer else { return ["found": 0, "hint": "webView 还没有 layer"] }
+        var hosts: [[String: Any]] = []
+        var dump: [[String: Any]] = []
+        func walk(_ layer: CALayer, depth: Int) {
+            guard depth <= 24, dump.count < 24 else { return }
+            let cls = NSStringFromClass(type(of: layer))
+            let bounds = layer.bounds
+            if bounds.width > 0, bounds.height > 0 {
+                dump.append(["d": depth, "cls": cls, "name": layer.name ?? "",
+                             "w": Double(bounds.width), "h": Double(bounds.height),
+                             "x": Double(layer.frame.origin.x), "y": Double(layer.frame.origin.y)])
+            }
+            if cls.localizedCaseInsensitiveContains("hosting") || (layer.name ?? "").contains("material hosting") {
+                hosts.append(["d": depth, "cls": cls, "name": layer.name ?? "",
+                              "w": Double(bounds.width), "h": Double(bounds.height),
+                              "x": Double(layer.frame.origin.x), "y": Double(layer.frame.origin.y),
+                              "radius": Double(layer.cornerRadius)])
+            }
+            for sub in layer.sublayers ?? [] { walk(sub, depth: depth + 1) }
+        }
+        walk(root, depth: 0)
+        return ["found": hosts.count, "hosts": hosts, "layers": dump]
     }
 }
