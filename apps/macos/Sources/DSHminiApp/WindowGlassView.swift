@@ -30,6 +30,11 @@ final class WindowGlassView: NSView {
         case window
         /// 迷你面板：全窗口就是玻璃面（无内容卡兜底），tint 深一档。
         case panel
+        /// 迷你面板里那张**命令中心卡**：一块浮在页面之上的原生玻璃（`QuickPanelController`
+        /// 把它插在 SPA webview 之下、按页面上报的卡片矩形跟着走）。它是"内容在 web、材质
+        /// 与铬件在原生"这条架构的落地处——网页那侧不再自己画背景/模糊/投影/圆角，圆角与
+        /// 尺寸由页面报数（`setRadius`），进出场动画由壳跑（页面上报 token 时长）。
+        case card
     }
 
     /// macOS 26+ 的液态玻璃底板；更早的系统为 nil（那时走 materialView + tintView）。
@@ -60,6 +65,14 @@ final class WindowGlassView: NSView {
     /// 2026-10-13）→ 0.62 中间档；亮色同距回落。
     private static let darkPanelGlassTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.62)
     private static let lightPanelGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.58)
+    /// .card 档：卡片浮在面板之上，比面板底**浅一档**（用户 2026-10-13 定稿"比桌面板浅一点，
+    /// 至少浅一档"）。**调卡面深浅就动这两个 alpha**：面板档 0.62 之下再压同样的近黑就等于
+    /// 又一块面板，浮层感全没了。
+    private static let darkCardGlassTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.34)
+    private static let lightCardGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.30)
+    /// .card 档的默认圆角（= theme.css 的 `radius.floating`/`--dsh-radius-floating` 20px）。
+    /// 运行时由页面按实际渲染值覆盖（`setRadius`），这里只是构造那一刻的占位。
+    private static let cardCornerRadius: CGFloat = 20
 
     init(surface: Surface = .window) {
         self.surface = surface
@@ -80,6 +93,31 @@ final class WindowGlassView: NSView {
             addFilling(tintView)
             applyAppearance(light: false)
         }
+        if surface == .card { applyCardShadow() }
+    }
+
+    /// 卡片档的浮起投影。挂在**玻璃那一层**上而不是这个容器上：CALayer 的阴影只按本层
+    /// 自己的内容（底色/描边/内容图）算形状，子层不计入——挂容器等于没有影子。
+    /// 数值对齐 theme.css 的 `--shadow-pop`（浮层那档），壳里不另立一套。
+    private func applyCardShadow() {
+        let target = (glassView ?? materialView) as NSView
+        target.wantsLayer = true
+        guard let layer = target.layer else { return }
+        layer.shadowColor = NSColor.black.cgColor
+        layer.shadowOpacity = 0.28
+        layer.shadowRadius = 18
+        layer.shadowOffset = CGSize(width: 0, height: -8)  // y-up：负值 = 向屏幕下方投
+    }
+
+    /// 卡片档：圆角由页面按**实际渲染的** border-radius 报来（`FrostSurface.setRadius` 同款
+    /// 口径）——CSS 是那个值的事实源，壳里不写第二份（写死就会在改 token 时两边漂移）。
+    func setRadius(_ radius: CGFloat) {
+        if #available(macOS 26.0, *), let glass = glassView as? NSGlassEffectView {
+            glass.cornerRadius = radius
+        } else {
+            wantsLayer = true
+            layer?.cornerRadius = radius
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -99,6 +137,7 @@ final class WindowGlassView: NSView {
         switch surface {
         case .window: return light ? Self.lightGlassTint : Self.darkGlassTint
         case .panel:  return light ? Self.lightPanelGlassTint : Self.darkPanelGlassTint
+        case .card:   return light ? Self.lightCardGlassTint : Self.darkCardGlassTint
         }
     }
 
@@ -116,8 +155,17 @@ final class WindowGlassView: NSView {
         // 圆角必须与窗体裁切同档：主窗是工具栏类大圆角（tokens.json v5 锚 26pt，
         // 玻璃给 0 由窗体裁）；迷你面板窗实测 ≈12pt（见 panelCornerRadius），
         // 玻璃对齐同值——给大了玻璃高光会被窗体裁断成一道线。
-        glass.cornerRadius = surface == .panel ? panelCornerRadius : 0
-        glass.tintColor = surface == .panel ? darkPanelGlassTint : darkGlassTint
+        switch surface {
+        case .panel:
+            glass.cornerRadius = panelCornerRadius
+            glass.tintColor = darkPanelGlassTint
+        case .card:
+            glass.cornerRadius = cardCornerRadius
+            glass.tintColor = darkCardGlassTint
+        case .window:
+            glass.cornerRadius = 0   // 由窗体裁
+            glass.tintColor = darkGlassTint
+        }
         return glass
     }
 

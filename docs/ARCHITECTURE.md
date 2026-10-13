@@ -66,7 +66,7 @@
 | `ProfileComposer.swift` | 引擎组合的部署器：把随包的 `engine/profile` 装进 harness home 的 web profile，并把 `dsh.profile.bundles` 收敛到它（摘掉退役的上游两层、保留社区与用户自加的、迁移既有安装）。幂等 + 失败不阻塞启动，纪律同 `ChatImportPlugin` |
 | `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
 | `NativeAlerts.swift` / `MiniPanel/` | 原生通知（分级静默）+ 迷你面板启动器（屏缘药丸/展开列 + 原生命令卡，Atd 整包移植；命令数据腿 `miniPanel.setCommands`，`SPEC-NOTIFICATIONS` / `SPEC-SEMANTICS §6.1`） |
-| `QuickPanelController.swift` / `Screens.swift` / `WindowGeometry.swift` | 会话面板窗（⌥Space/药丸标志位的召唤目标）：非激活 NSPanel + 玻璃底板 + 透明 WebView 载 SPA 的 `#/mini` 分支（快捷空间会话流+输入区）；每次召唤 dock 光标屏右下、常驻隐身保 WebKit 满速；屏幕工作区/面板几何助手为 Atd 同名移植 |
+| `QuickPanelController.swift` / `Screens.swift` / `WindowGeometry.swift` | 会话面板窗（⌥Space/药丸标志位的召唤目标）：非激活 NSPanel + 玻璃底板（`WindowGlassView`）+ 透明 WebView 载 SPA 的 `#/mini` 分支（快捷空间会话流+输入区）；命令中心卡的面是第二块原生玻璃（`WindowGlassView(surface: .card)`，系统 Liquid Glass），插在 webview 之下、按页面报来的矩形走（`mini-cc-rect`）；每次召唤 dock 光标屏右下、常驻隐身保 WebKit 满速；屏幕工作区/面板几何助手为 Atd 同名移植 |
 | `HotKeyManager.swift` / `HotkeyRecorderWindow.swift` / `DictationController.swift` | 全局热键 ⌥Space 显隐会话面板窗（`SPEC-SEMANTICS §4.1`）、录制窗、语音听写 |
 | `ProcessRunner.swift` | 通用子进程执行器（唯一实现）：起进程 + 两侧管道各自排空 + 可选超时 + 回收输出。纪律照 PITFALLS §4.11（顺序读有互锁面）；调用点：`runGit`/`gitRun`（状态胶囊与 git 动作）、`GitChanges`（审查面板的未暂存改动与单文件 diff）、`agentRun` |
 | `ProfilePluginAdmin.swift` | 插件卸载：从 web profile 的 `dependencies` 与 `dsh.profile.bundles` 摘掉该插件（bundle 成员有启动边界 → 调用方负责重启引擎）。随应用发布的插件拒卸 |

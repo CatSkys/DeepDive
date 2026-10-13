@@ -1,8 +1,10 @@
 // 迷你面板的悬浮**命令中心**（照参考图那类命令面板）：一张浮在页面之上的卡片——
 // 顶部搜索框，下面按模式给行（历史 = 会话列表，设置 = 设置行/选择页）。**页面本身不换**：
 // 卡片之外还是原来的草稿/会话页，Esc、点卡片外、或再点那颗钮收回。
-// 卡片**居中浮在面板窗口中间**（不是从按钮下拉出来的一条），材质走命令面板那一档
-// （--panel-palette：比面板玻璃浅一档，⌘K 同一份底），无描边。
+// 卡片**居中浮在面板窗口中间**（不是从按钮下拉出来的一条）：位置/尺寸由本组件排（壳按它
+// 报上来的矩形铺那块原生玻璃），**材质与铬件不在网页里**——真 Liquid Glass、圆角、浮起投影、
+// 进场淡入都是原生层给的（`WindowGlassView` 的 .card 档 + QuickPanelController），
+// 网页只画内容。所以这里没有背景/模糊/投影/描边，只有布局与那一条发丝线。
 // 键盘：↑↓ 走行、Enter 激活、Esc 先回上一层（设置的选择页）/清空搜索，空搜索再按才关。
 // 行件在 MiniHistoryRows / MiniSettingsRows，本文件只管卡片框架、搜索与键盘派发。
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -10,6 +12,7 @@ import { Search, X } from "lucide-react";
 import { useT } from "../i18n";
 import { MiniHistoryRows } from "./MiniHistoryRows";
 import { MiniSettingsRows } from "./MiniSettingsRows";
+import { useMiniCardSurface } from "./useMiniCardSurface";
 
 export type MiniOverlayMode = "history" | "settings";
 
@@ -31,6 +34,9 @@ export function MiniCommandCenter({
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  // 卡片自己的矩形推给壳：那块**原生玻璃**（真 Liquid Glass）按它铺在 webview 之下，
+  // 所以这张卡不画背景、不画投影、不画模糊（见 theme.css 该条注释与 WindowGlassView.card）。
+  useMiniCardSurface(cardRef);
   /** 行件的键盘处理：每次渲染注册一份最新的（行件里的状态闭包才不会过期）。 */
   const keyRef = useRef<KeyHandler | null>(null);
   const registerKeys = useCallback((handler: KeyHandler) => {
