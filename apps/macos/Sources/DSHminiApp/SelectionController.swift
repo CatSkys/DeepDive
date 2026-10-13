@@ -10,7 +10,8 @@ final class SelectionController {
   /// 「问 DeepDive」：暂存已写好，页面据此把文字引用进草稿（`guideText` 是欢迎页
   /// 练习区的文字，来自页面自己，非 AX 读取）。
   var onAsk: ((String?) -> Void)?
-  /// 工具条上的命令按钮/More 菜单行：id 交给页面跑（与迷你面板命令卡同一条通道）。
+  /// 工具条上的命令按钮/More 菜单行：id 交给页面跑（划词命令在面板会话里跑，见
+  /// AppDelegate 推的 `selectionCommand`）。回调前选中文字已进暂存。
   var onCommand: ((String) -> Void)?
   /// toggle 模式的监听状态变了（状态菜单与设置页据此显示）。
   var onListeningChange: ((Bool) -> Void)?
@@ -32,7 +33,7 @@ final class SelectionController {
       self?.toolbar.update()
     }
     toolbar.onAsk = { [weak self] guideText in self?.ask(guideText: guideText) }
-    toolbar.onCommand = { [weak self] id in self?.onCommand?(id) }
+    toolbar.onCommand = { [weak self] id in self?.command(id) }
     trust.start()
   }
 
@@ -71,18 +72,18 @@ final class SelectionController {
     stash = TextCapture.stash(text, at: .now)
   }
 
-  /// `capture('selection')`：答上一次召唤的暂存。
+  /// `selection-capture`：答上一次召唤的暂存（每次召唤/命令点击都先写过它，见上）。
   func captureResult() -> CaptureResult {
     TextCapture.captureResult(stash: stash, trusted: SelectionReader.isTrusted)
   }
 
-  /// `selection-capture`（面板要现读一次，如「就所选文字询问」从输入框触发）。
+  /// 菜单/迷你面板「就所选文字询问」：此刻前台还是那个 App，现读一次并写进暂存。
   func captureCurrentSelection() async -> CaptureResult {
     stash = TextCapture.stash(await readSelection(), at: .now)
     return TextCapture.captureResult(stash: stash, trusted: SelectionReader.isTrusted)
   }
 
-  // MARK: - Ask
+  // MARK: - Ask 与命令
 
   /// 工具条的 Ask：先存选区（此刻前台还是被选中的那个 App），再让页面亮面板。
   private func ask(guideText: String?) {
@@ -94,6 +95,16 @@ final class SelectionController {
     Task { @MainActor in
       stash = TextCapture.stash(await readSelection(), at: .now)
       onAsk?(nil)
+    }
+  }
+
+  /// 工具条上的命令按钮 / More 菜单行：与 Ask 同一条——先把选区存进暂存（面板一获得
+  /// 焦点前台应用就换了，那时再读读不到），页面拿到 id 再自己去暂存取文字。
+  /// 练习区的工具条不会走到这里（`SelectionToolbarController` 已挡下：点了会真跑）。
+  private func command(_ id: String) {
+    Task { @MainActor in
+      stash = TextCapture.stash(await readSelection(), at: .now)
+      onCommand?(id)
     }
   }
 

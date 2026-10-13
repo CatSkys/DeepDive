@@ -11,6 +11,11 @@ import {
   type SelectionActivationMode, type SelectionToolbarSettings,
 } from "./selectionToolbar";
 import {
+  builtinSelectionCommands, MAX_SELECTION_COMMANDS, type SelectionCommand,
+} from "./selectionCommands";
+import { SelectionCommandDialog } from "./SelectionCommandDialog";
+import { uuid } from "../uuid";
+import {
   onHostEvent, openAccessibilitySettings, permissionsState, requestScreenRecording, selectionAppsPick, sendToShell,
 } from "../host";
 import { useStore } from "../store";
@@ -83,6 +88,23 @@ export function SelectionToolbarSection() {
   }), []);
 
   const patch = (next: Partial<SelectionToolbarSettings>) => setSettings({ ...settings, ...next });
+
+  // 命令目录：一张弹窗管新增与编辑（`isNew` 只改标题），保存即整份写回（经壳持久化）。
+  const commands = store.selectionCommands;
+  const [editing, setEditing] = useState<{ command: SelectionCommand; isNew: boolean } | null>(null);
+  const save = (next: SelectionCommand) => {
+    const at = commands.findIndex((c) => c.id === next.id);
+    store.setSelectionCommands(at === -1 ? [...commands, next] : commands.map((c) => (c.id === next.id ? next : c)));
+  };
+  const remove = (id: string) => store.setSelectionCommands(commands.filter((c) => c.id !== id));
+  /** 把缺的内置命令补回来，同 id 的既有条目原样保留（编辑过的不被覆盖）。 */
+  const restoreBuiltins = () => {
+    const room = MAX_SELECTION_COMMANDS - commands.length;
+    if (room <= 0) return;
+    const have = new Set(commands.map((c) => c.id));
+    const missing = builtinSelectionCommands().filter((c) => !have.has(c.id)).slice(0, room);
+    if (missing.length > 0) store.setSelectionCommands([...commands, ...missing]);
+  };
 
   const pickApps = () => {
     void selectionAppsPick().then((apps) => {
@@ -204,6 +226,54 @@ export function SelectionToolbarSection() {
       </div>
 
       <div className={rowsCss.section}>
+        <div className={rowsCss.sectionTitle}>{t("命令")}</div>
+        <div className={rowsCss.sectionIntro}>
+          {t("选中文字后胶囊上并排的按钮。点一条就把它的提示词连着你选中的文字发出去，答案在迷你面板的对话里。")}
+        </div>
+        <div className={rowsCss.hotkeyCard}>
+          {commands.length === 0 && (
+            <div className={rowsCss.hotkeyRow}>
+              <div className={rowsCss.rowIdentity}>
+                <div className={rowsCss.rowCaption}>{t("一条命令都没有——胶囊上只会剩「问 DeepDive」。")}</div>
+              </div>
+            </div>
+          )}
+          {commands.map((c) => (
+            <div key={c.id} className={rowsCss.hotkeyRow}>
+              <div className={rowsCss.rowIdentity}>
+                <div className={rowsCss.rowName} style={!c.enabled ? { color: "var(--ink-3)" } : undefined}>
+                  {c.name}
+                </div>
+                <div className={`${rowsCss.rowCaption} ${rowsCss.cmdSummary}`}>{c.prompt}</div>
+              </div>
+              <div className={rowsCss.rowActions}>
+                <button type="button" className={rowsCss.comboChip} onClick={() => setEditing({ command: c, isNew: false })}>
+                  {t("编辑")}
+                </button>
+                <Toggle on={c.enabled} onChange={(v) => save({ ...c, enabled: v })} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className={rowsCss.cmdTools}>
+          <button
+            type="button"
+            className={rowsCss.secondaryButton}
+            disabled={commands.length >= MAX_SELECTION_COMMANDS}
+            onClick={() => setEditing({ command: { id: uuid(), name: "", prompt: "", enabled: true }, isNew: true })}
+          >
+            {t("添加命令…")}
+          </button>
+          <button type="button" className={rowsCss.secondaryButton} onClick={restoreBuiltins}>
+            {t("恢复内置命令")}
+          </button>
+          {commands.length >= MAX_SELECTION_COMMANDS && (
+            <span className={rowsCss.muted}>{tt("最多 {n} 条", "At most {n}", { n: String(MAX_SELECTION_COMMANDS) })}</span>
+          )}
+        </div>
+      </div>
+
+      <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("截图")}</div>
         <div className={rowsCss.sectionIntro}>
           {t("全屏冻结后拖选或点选区域，随手用箭头、马赛克、序号标注；确认后图片进输入框，另附一份识别出的屏幕文字。")}
@@ -238,6 +308,16 @@ export function SelectionToolbarSection() {
           />
         </div>
       </div>
+
+      {editing && (
+        <SelectionCommandDialog
+          draft={editing.command}
+          isNew={editing.isNew}
+          onCancel={() => setEditing(null)}
+          onSave={(next) => { save(next); setEditing(null); }}
+          onDelete={editing.isNew ? null : () => { remove(editing.command.id); setEditing(null); }}
+        />
+      )}
     </>
   );
 }

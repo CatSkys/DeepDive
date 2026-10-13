@@ -340,6 +340,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 } else if key == "screenshotHotkey" {
                     DSHAppPrefs.setScreenshotHotkey(mode)
                     registerScreenshotHotkey()
+                } else if key == "selectionCommands" {
+                    // 划词命令目录（JSON 串，结构由前端 settings/selectionCommands.ts 定义）：
+                    // 壳只存不解析——胶囊按钮要的名字经 selection-toolbar-set 来，这里存的是
+                    // 用户的编辑（名字与提示词模板）。
+                    DSHAppPrefs.setSelectionCommands(mode)
                 }
                 break
             }
@@ -904,6 +909,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "onboarding": DSHAppPrefs.onboarding,
             "hotkeyOn": DSHAppPrefs.hotkeyOn,
             "selectionToolbar": DSHAppPrefs.selectionToolbar,
+            "selectionCommands": DSHAppPrefs.selectionCommands,
             "screenshotHotkey": DSHAppPrefs.screenshotHotkey,
             "screenshotHotkeyOn": DSHAppPrefs.screenshotHotkeyOn,
             // 热键 spec（"option+space"）：SPA 据此显示当前热键，不带它设置页只能显示
@@ -1183,8 +1189,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.quickPanel.showPanel()
             self.pushHost("selectionAsk", payload: [:], to: .panel)
         }
-        // 工具条上的命令：与迷你面板命令卡同一条通道（面板亮起、命令跑在会话里）。
-        selection.onCommand = { [weak self] id in self?.quickPanelCommand(id) }
+        // 工具条上的划词命令：面板亮起，命令在面板会话里跑（页面自己去暂存取文字，
+        // 渲染提示词后当一条消息发出）。与迷你面板命令卡（引擎斜杠命令）不是一条道。
+        selection.onCommand = { [weak self] id in
+            guard let self else { return }
+            self.quickPanel.showPanel()
+            self.pushHost("selectionCommand", payload: ["id": id], to: .panel)
+        }
         selection.onListeningChange = { [weak self] on in
             guard let self else { return }
             self.pushHost("selectionListening", payload: ["on": on], to: self.currentSource())
@@ -1314,14 +1325,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return items
     }
 
-    /// `selection-capture`：现读一次前台 App 的选区并答给页面。
+    /// `selection-capture`：答**暂存**里那次召唤读到的选区（Ask / 命令点击 / 菜单与
+    /// 迷你面板的「就所选文字询问」都会先写暂存）。面板已经亮着时现读前台 App 是靠不住的
+    /// ——那正是要暂存的原因。
     private func captureSelectionFor(source: BridgeSource, reqId: String?) {
-        Task { @MainActor in
-            let result = await selection.captureCurrentSelection()
-            var payload = result.json
-            payload["reqId"] = reqId ?? ""
-            pushHost("selectionCaptured", payload: payload, to: source)
-        }
+        var payload = selection.captureResult().json
+        payload["reqId"] = reqId ?? ""
+        pushHost("selectionCaptured", payload: payload, to: source)
     }
 
     /// 迷你面板「就所选文字询问」：文字已知（拖入的文本）就用它，否则现读前台选区，

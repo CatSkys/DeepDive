@@ -438,6 +438,46 @@
    架构门不允许字面量内联样式（规则 inline-static-style）。 */
 .comboChip.granted { color: var(--ink-3); }
 
+/* ── 划词命令：编辑器（弹窗里的名字与提示词）与列表行上的提示词摘要 ── */
+.cmdInput {
+  box-sizing: border-box;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-base);
+  outline: none;
+}
+.cmdInput:focus { border-color: var(--line-strong); }
+.cmdPrompt {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 150px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  color: var(--ink);
+  font-family: var(--dsh-font-mono-family);
+  font-size: var(--dsh-font-size-sm);
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+.cmdPrompt:focus { border-color: var(--line-strong); }
+/* 提示词摘要：两行封顶，写长了不把行撑开 */
+.cmdSummary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+/* 命令卡片下面那排工具钮（添加 / 恢复内置） */
+.cmdTools { display: flex; gap: 8px; margin-top: 10px; }
+
 /* ── 归档页：搜索 + 项目筛选 + 项目分组卡片（无描边，纯底色分范围） ── */
 /* 右上一枚「全部删除」+ 处理中提示（布局照参考图：动作在标题一级的右侧） */
 .archBulk {

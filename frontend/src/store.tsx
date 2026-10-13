@@ -7,12 +7,13 @@ import type { AgentPreset } from "./api";
 import { mux } from "./mux";
 import { usePrefs } from "./prefs";
 import type { SelectionToolbarSettings } from "./settings/selectionToolbar";
+import type { SelectionCommand } from "./settings/selectionCommands";
 import { selectionToolbarSet } from "./host";
 import { useSidebarLayout } from "./useSidebarLayout";
 import type { KeybindOverrides } from "./keybinds";
 import { readDraftModel, writeDraftModel, type DraftModel } from "./draftModel";
 import { createUnreadBatcher } from "./store/unreadBatcher";
-import type { ApprovalPending, CommandDescriptor, QuestionItem, QuestionPending, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
+import type { ApprovalPending, QuestionItem, QuestionPending, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
 import { buildWsMap, projectionSig } from "./store/wsMap";
 
 // Minimal store: engine lists + the live event stream (0.1.2: $events 转发流 +
@@ -65,9 +66,6 @@ export interface Store {
   queues: Map<string, SessionQueuedItem[]>;
   /** 各会话的后台任务快照（session/control 帧，5.3）。 */
   jobsBySession: Map<string, import("./types").JobView[]>;
-  /** 快捷空间最近会话的命令目录（commands/list 原文，已滤 export）：壳侧药丸的
-   *  命令卡据此取数（`miniPanel.setCommands` 推壳）。 */
-  quickCommands: CommandDescriptor[];
   openSession: (id: string | null) => void;
   /** 快捷会话（D14）：切到「快捷会话」空间 + 开新草稿；空间未注册时退化为普通新会话。 */
   openQuickSession: () => void;
@@ -115,6 +113,9 @@ export interface Store {
   /** 选区工具条（划词）设置；改动经壳 `selection-toolbar-set` 落地。 */
   selectionToolbar: SelectionToolbarSettings;
   setSelectionToolbar: (next: SelectionToolbarSettings) => void;
+  /** 划词命令目录（胶囊上的按钮；名字与提示词模板见 settings/selectionCommands.ts）。 */
+  selectionCommands: SelectionCommand[];
+  setSelectionCommands: (next: SelectionCommand[]) => void;
   /** 截图全局热键（键帽串）与开合；注册在壳侧 HotKeyManager。 */
   screenshotHotkey: string;
   screenshotHotkeyOn: boolean;
@@ -225,6 +226,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     archiveRetention, setArchiveRetention,
     quickWorkspacePath,
     selectionToolbar, setSelectionToolbar,
+    selectionCommands, setSelectionCommands,
     screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn,
   } = prefs;
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
@@ -588,17 +590,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     openSession(null);
   }, [quickWorkspacePath, workspaces, switchWorkspace, openSession]);
 
-  // 快捷空间最近会话的命令目录（commands/list 原文，已滤 export）：壳侧药丸的
-  // 命令卡据此取数（一次取数）。
-  const [quickCommands, setQuickCommands] = useState<CommandDescriptor[]>([]);
-  // 选区工具条：设置（prefs）+ 命令目录（quickCommands）合成一份推给壳——壳据此
-  // 立即生效并持久化。工具条上的命令与迷你面板命令卡是同一份目录，只有一个写入口。
+  // 选区工具条：设置（prefs）+ 划词命令目录合成一份推给壳——壳据此立即生效并持久化。
+  // 胶囊上只放划词命令（提示词模板那批）；引擎的工具命令（/compact 这类）不在这儿，
+  // 它们在迷你面板命令卡与输入框的 / 菜单里。
   useEffect(() => {
     selectionToolbarSet({
       ...selectionToolbar,
-      commands: quickCommands.map((c) => ({ id: c.name, name: c.name })).slice(0, 64),
+      commands: selectionCommands.filter((c) => c.enabled).map((c) => ({ id: c.id, name: c.name })),
     });
-  }, [selectionToolbar, quickCommands]);
+  }, [selectionToolbar, selectionCommands]);
 
   // 推壳（Atd 桥契约 `miniPanel.setCommands`：条目 {id,name}，id 即引擎命令名
   // ——命令卡点行回推 runQuickCommand{name}，预填 `/{name}` 走执行链）。双窗
@@ -612,7 +612,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const push = (commands: Array<{ id: string; name: string }>) =>
       sendToShell({ type: "miniPanel.setCommands", commands });
     if (!sid) {
-      setQuickCommands([]);
       push([]);
       return;
     }
@@ -621,14 +620,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .then((list) => {
         if (!alive) return;
         const filtered = list.filter((c) => c.name !== "export");
-        setQuickCommands(filtered);
         push(filtered.slice(0, 64).map((c) => ({ id: c.name, name: c.name })));
       })
       .catch(() => {
-        if (alive) {
-          setQuickCommands([]);
-          push([]);
-        }
+        if (alive) push([]);
       });
     return () => {
       alive = false;
@@ -736,7 +731,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       settleEvent,
       queues,
       jobsBySession,
-      quickCommands,
       refresh,
       openSession,
       openQuickSession,
@@ -748,6 +742,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setHotkey,
     selectionToolbar,
     setSelectionToolbar,
+    selectionCommands,
+    setSelectionCommands,
     screenshotHotkey,
     screenshotHotkeyOn,
     setScreenshotHotkeyOn,
@@ -789,7 +785,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, quickCommands, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, selectionToolbar, setSelectionToolbar, screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, selectionToolbar, setSelectionToolbar, selectionCommands, setSelectionCommands, screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
