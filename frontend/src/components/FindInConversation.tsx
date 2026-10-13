@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useT } from "../i18n";
 import { collectMatches } from "../session/findMatches";
+import { GlassLayer } from "./GlassLayer";
 
 const HIT = "find-hit";
 const ACTIVE = "find-active";
@@ -90,6 +91,7 @@ export function FindInConversation({ rootRef }: { rootRef: React.RefObject<HTMLE
   if (!open) return null;
   return (
     <div className="find-capsule">
+         <GlassLayer />
       <input
         ref={inputRef}
         className="find-input"

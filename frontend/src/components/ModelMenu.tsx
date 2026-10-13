@@ -19,6 +19,7 @@ import { ProviderIcon } from "./ProviderIcon";
 import { HoverScrollText } from "./HoverScrollText";
 import { ModelDetailCard } from "./ModelDetailCard";
 import type { ModelBench, ModelPrice } from "../modelFacts";
+import { GlassLayer } from "./GlassLayer";
 
 export interface ModelOption {
   provider: string;
@@ -147,6 +148,7 @@ export function ModelMenu({
   return createPortal(
     <>
       <div className="model-menu" ref={ref} style={{ top: rect.top, left: rect.left, maxHeight: rect.maxHeight }}>
+           <GlassLayer />
         <div className="model-menu-view">
           <div className="model-menu-search">
             <Search size={13} />
@@ -192,6 +194,7 @@ export function ModelMenu({
           ref={cardRef}
           style={{ top: cardTop, left: cardLeft, maxHeight: window.innerHeight - cardTop - 8 }}
         >
+          <GlassLayer />
           <ModelDetailCard option={cardOption} />
         </div>
       )}

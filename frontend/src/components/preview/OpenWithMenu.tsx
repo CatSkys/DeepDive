@@ -12,6 +12,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { HoverScrollText } from "../HoverScrollText";
 import { openWith, openWithList, type OpenWithApp } from "../../host";
 import { t, tt } from "../../i18n";
+import { GlassLayer } from "../GlassLayer";
 
 /** 菜单与胶囊的间距、宽度上限（超限即截断走 HoverScrollText）。 */
 const MENU_GAP = 6;
@@ -102,6 +103,7 @@ export function OpenWithMenu({ path }: { path: string }) {
           aria-label={t("打开方式")}
           style={{ position: "fixed", top: pos.top, right: pos.right, maxWidth: MENU_MAX_W }}
         >
+          <GlassLayer />
           {apps.map((app) => (
             <button
               key={app.id}

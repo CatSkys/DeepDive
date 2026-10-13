@@ -9,6 +9,7 @@ import { openIconPickerAt } from "./IconPicker";
 import { openEditProjectDialog } from "./EditProjectDialog";
 import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { useT } from "../i18n";
+import { GlassLayer } from "./GlassLayer";
 
 // 项目（工作区）的"文件夹"类动作：打开项目文件夹 / 复制路径。
 //
@@ -128,6 +129,7 @@ export function WorkspaceMenu({ ws, x, y, onClose }: { ws: WorkspaceView; x: num
       }}
       onClick={(e) => e.stopPropagation()}
     >
+      <GlassLayer />
       <WorkspaceMenuItems ws={ws} onDone={onClose} iconAt={{ x, y }} />
     </div>,
     document.body,

@@ -9,6 +9,7 @@ import { Dropdown } from "../components/controls";
 import { HIDDEN_PROVIDERS, PROVIDER_SESSION_HEADERS, providerLabel } from "./vendors";
 import { uuid } from "../uuid";
 import cssRows from "./SettingsRows.module.css";
+import { GlassLayer } from "../components/GlassLayer";
 
 // 添加/编辑模型弹窗（版式照参考图）：提供商 → 接口地址 → API Key → 模型名称 →
 // 高级配置（模型类型）。字段落点按适配器分流——密钥走 credentials.set，DeepSeek
@@ -386,6 +387,7 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
       aria-label={edit ? t("编辑模型") : t("添加模型")}
     >
       <div className={cssRows.modal} onClick={(e) => e.stopPropagation()}>
+           <GlassLayer />
         <div className={cssRows.modalHead}>
           <span className={cssRows.modalTitle}>{edit ? t("编辑模型") : t("添加模型")}</span>
           <button className={cssRows.iconBtn} style={{ marginLeft: "auto" }} onClick={onCancel} aria-label={t("关闭")}>

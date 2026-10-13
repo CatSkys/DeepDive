@@ -20,6 +20,7 @@ import { useT } from "../i18n";
 import { ProjectFormFields, useProjectForm } from "./projectForm";
 import { endWorkspacePick, setWorkspacePickSink } from "./workspacePicker";
 import rowsCss from "../settings/SettingsRows.module.css";
+import { GlassLayer } from "./GlassLayer";
 
 let openReq: (() => void) | null = null;
 
@@ -88,6 +89,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submit();
         }}
       >
+        <GlassLayer />
         <div className={rowsCss.modalHead}>
           <span className={rowsCss.modalTitle}>{t("新建项目")}</span>
         </div>

@@ -7,8 +7,11 @@
    · 头尾各一条六段渐隐雾带（alpha 由组件按滚动深度写进 --palette-fade-*），
      内容在头部与面板下沿处幽灵式淡出；内容放得下时整条掩码撤下。
    无全屏遮罩——点外部关闭（组件内 document mousedown）。 */
-
 .panel {
+  /* 材质族（palette）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
+  --glass-tint: var(--panel-palette);
+  --glass-blur: var(--blur-float);
+  --glass-inset: var(--shadow-pop-inset);
   position: fixed;
   top: 50%;
   left: 50%;
@@ -26,10 +29,7 @@
   /* 圆角取 radius.floating：§1.4 把命令面板登记在这一档；行圆角 radius.control——
      行与面板的角不共处，不必凑同心（§1.4）。 */
   border-radius: var(--dsh-radius-floating);
-  background: var(--panel-palette);
-  -webkit-backdrop-filter: var(--blur-float);
-  backdrop-filter: var(--blur-float);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop-drop);
   overflow: hidden;
 }
 

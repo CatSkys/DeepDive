@@ -6,6 +6,7 @@ import { useState } from "react";
 import rowsCss from "./SettingsRows.module.css";
 import { INPUT_PLACEHOLDER, type SelectionCommand } from "./selectionCommands";
 import { useT } from "../i18n";
+import { GlassLayer } from "../components/GlassLayer";
 
 export function SelectionCommandDialog({ draft, isNew, onCancel, onSave, onDelete }: {
   draft: SelectionCommand;
@@ -27,6 +28,7 @@ export function SelectionCommandDialog({ draft, isNew, onCancel, onSave, onDelet
   return (
     <div className={rowsCss.modalOverlay} onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className={rowsCss.modal} role="dialog" aria-modal="true" onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}>
+           <GlassLayer />
         <div className={rowsCss.modalHead}>
           <div className={rowsCss.modalTitle}>{isNew ? t("添加命令") : t("编辑命令")}</div>
         </div>

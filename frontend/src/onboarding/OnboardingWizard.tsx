@@ -20,6 +20,7 @@ import { useModelCatalog } from "../settings/useModelCatalog";
 import { useStore } from "../store";
 import css from "./OnboardingWizard.module.css";
 import logoUrl from "../assets/deepdive-logo-256.png";
+import { GlassLayer } from "../components/GlassLayer";
 
 /** 步骤文案（中英成对，进 i18n 词典）。 */
 const STEP_LABELS: Record<OnboardingStepId, [string, string]> = {
@@ -87,6 +88,7 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
       )}
       <div className={leaving ? `${css.overlay} ${css.overlayLeaving}` : css.overlay}>
         <div className={leaving ? `${css.card} ${css.cardLeaving}` : css.card} role="dialog" aria-modal="true" aria-label={t("新手引导")}>
+        <GlassLayer />
           <button className={css.close} onClick={() => { skip(); onClosed?.(); }} aria-label={t("关闭引导")} title={t("关闭引导")}>
             <X size={15} />
           </button>

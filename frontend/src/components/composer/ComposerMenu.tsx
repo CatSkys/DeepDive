@@ -7,6 +7,7 @@ import { Info } from "lucide-react";
 import { useT } from "../../i18n";
 import { fadeAttrs, useEdgeFade } from "../../useEdgeFade";
 import type { MenuRow } from "./useComposerMenu";
+import { GlassLayer } from "../GlassLayer";
 
 /** 行按 section 字段分组（相邻同组合并，保持原顺序）。 */
 function groupSections(rows: MenuRow[]): Array<{ name: string; rows: MenuRow[] }> {
@@ -76,6 +77,7 @@ export function ComposerMenu({ menu, query, rows, active, setActive, onPick }: {
     : tt("输入内容以搜索命令", "Type to filter commands");
   return (
     <div className="composer-menu" onMouseLeave={() => setRowBox(null)}>
+         <GlassLayer />
       {/* 噪点 4% 去塑料平感。模糊必须挂在 .composer-menu 自身——WKWebView
           里 backdrop-filter 子层不渲染（frost 子层方案两轮实机均失败，
           面板自身挂载有实机截图背书），勿改回子层方案 */}

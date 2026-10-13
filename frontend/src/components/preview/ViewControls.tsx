@@ -9,6 +9,7 @@ import { Check, ChevronDown, WrapText } from "lucide-react";
 import { t } from "../../i18n";
 import { renderersOf, supportsWrap, titleOf, type PreviewRenderer } from "./previewModel";
 import { rendererOf, wrapOf, type FilePreview, type PreviewTab } from "./useFilePreview";
+import { GlassLayer } from "../GlassLayer";
 
 /** 视图控制簇（标签行右端 / 全屏页头右侧）：渲染器下拉 + 换行开关。
  *  渲染器候选来自 previewModel（多命中可切，纯文本恒兜底）；换行只在当前
@@ -76,6 +77,7 @@ export function ViewControls({ preview, active }: { preview: FilePreview; active
       {open && pos && createPortal(
         <div ref={menuRef} className="ctx-menu preview-view-menu" role="listbox" aria-label={t("预览方式")}
           style={{ position: "fixed", top: pos.top, right: pos.right }}>
+                           <GlassLayer />
           {candidates.map((r) => (
             <button
               key={r}

@@ -4,6 +4,7 @@
 
 import { AtSign, Camera, FolderPlus, Paperclip } from "lucide-react";
 import { useT } from "../../i18n";
+import { GlassLayer } from "../GlassLayer";
 
 export type PlusAction = "screenshot" | "files" | "folders" | "mention";
 
@@ -18,6 +19,7 @@ export function ComposerPlusMenu({ onPick }: { onPick: (action: PlusAction) => v
   const { tt } = useT();
   return (
     <div className="composer-menu">
+         <GlassLayer />
       <span className="menu-noise" aria-hidden />
       <div className="menu-list">
         {ROWS.map((row) => (

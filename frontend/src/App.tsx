@@ -31,6 +31,7 @@ import { useAppKeybinds } from "./useAppKeybinds";
 import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";
 import "./theme.css";
+import { GlassLayer } from "./components/GlassLayer";
 
 /** 引擎失败详情里展示/复制的日志行数：壳最多推 400 行，弹窗只看得下末尾这几行。 */
 const FAILURE_TAIL_LINES = 40;
@@ -163,6 +164,7 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
           "正在重试…"，既没有原因也没有重试入口。 */}
       {store.enginePhase === "failed" || (store.everConnected && !store.engineUp) ? (
         <div className="engine-banner" role="status" data-phase={store.enginePhase}>
+             <GlassLayer />
           <span className="engine-banner-dot" aria-hidden="true" />
           {store.enginePhase === "failed" ? (
             <>

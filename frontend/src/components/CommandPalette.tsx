@@ -25,6 +25,7 @@ import { openDeepDiving } from "../game/store";
 import { openGame2048 } from "../game/twenty48/store";
 import { SETTINGS_SECTIONS } from "./SettingsPage";
 import css from "./CommandPalette.module.css";
+import { GlassLayer } from "./GlassLayer";
 
 let openReq: (() => void) | null = null;
 let toggleReq: (() => void) | null = null;
@@ -250,6 +251,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
   return createPortal(
     <div className={css.panel} ref={panelRef} role="dialog" aria-label={t("搜索")}>
+         <GlassLayer />
       <div className={css.searchRow}>
         <Search size={16} />
         <input

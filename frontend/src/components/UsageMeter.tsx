@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { t, tt } from "../i18n";
+import { GlassLayer } from "./GlassLayer";
 
 // 用量呈现（阶段 3.1）：ContextRing = 输入框内的上下文容量圈（hover 弹层看
 // 容量/组成/缓存命中）。数据均来自引擎
@@ -94,6 +95,7 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
       </div>
       {open && popPos && createPortal(
         <div className="ctx-pop ctx-cap" style={{ position: "fixed", top: "auto", right: popPos.right, bottom: popPos.bottom }}>
+             <GlassLayer />
           <div className="ctx-cap-head">
             <span className="ctx-cap-title">{t("上下文容量")}</span>
             <span className="ctx-cap-total">{tt("{a} / {b}（{p}）", "{a} / {b} ({p})", { a: fmtTokens(projected), b: fmtTokens(win), p: fmtPct(pct) })}</span>

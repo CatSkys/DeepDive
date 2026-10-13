@@ -231,7 +231,9 @@ describe("打开方式（分离按钮）", () => {
     await replyListing(post, [{ id: "/Applications/Safari.app", name: "Safari" }, { id: "/Applications/Xcode.app", name: "Xcode" }]);
 
     fireEvent.click(screen.getByRole("button", { name: "打开方式" }));
-    fireEvent.click(document.querySelector<HTMLElement>(".open-with-item:nth-child(2)")!);
+    // 用 nth-of-type（按 button 数）而不是 nth-child：菜单首位是装饰性的材质层（GlassLayer），
+    // nth-child 会被它顶位（2026-10-13 铺开系统玻璃时踩到）
+    fireEvent.click(document.querySelector<HTMLElement>("button.open-with-item:nth-of-type(2)")!);
     expect(post).toHaveBeenCalledWith({ type: "open-path-with", path: "/w/a.txt", app: "/Applications/Xcode.app" });
     expect(screen.getByRole("button", { name: "用 Xcode 打开" })).not.toBeNull();
   });

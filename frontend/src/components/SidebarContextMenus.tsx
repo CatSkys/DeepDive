@@ -10,6 +10,7 @@ import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { WorkspaceMenuItems } from "./WorkspaceMenu";
 import { titleHidesSession } from "../session/backgroundSession";
 import type { SessionSummary } from "../types";
+import { GlassLayer } from "./GlassLayer";
 
 export interface RowMenuState {
   sessionId: string;
@@ -48,6 +49,7 @@ export function SidebarContextMenus({
     <>
       {workspaceAt && activeWs && (
         <div className="ctx-menu" style={{ top: workspaceAt.y, left: Math.min(workspaceAt.x, window.innerWidth - 200) }} onClick={(e) => e.stopPropagation()}>
+             <GlassLayer />
           {/* 与 hero 胶囊 / 空间格的右键菜单同一份（五项全量）；iconAt 取 ⋯
               按钮落点——「修改图标」的选择器贴项目行弹 */}
           <WorkspaceMenuItems ws={activeWs} onDone={onClose} iconAt={workspaceAt} />

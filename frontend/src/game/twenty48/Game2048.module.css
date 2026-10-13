@@ -1,8 +1,11 @@
 /* 2048 浮层：屏幕居中面板（对话族近实色材质 §2.2bis），棋盘 352×352。
    无全屏遮罩——点外部不关；Esc 直接关（回合制无暂停概念，棋局在 store 里，
    关了再开续局）。键盘焦点收在面板上：方向键/WASD 走子，Esc=关闭。 */
-
 .panel {
+  /* 材质族（dialog）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
+  --glass-tint: var(--panel-strong);
+  --glass-blur: var(--blur-scrim);
+  --glass-inset: var(--shadow-modal-inset);
   position: fixed;
   top: 50%;
   left: 50%;
@@ -11,10 +14,7 @@
   height: 448px;
   z-index: var(--z-menu);
   border-radius: var(--dsh-radius-floating);
-  background: var(--panel-strong);
-  -webkit-backdrop-filter: var(--blur-scrim);
-  backdrop-filter: var(--blur-scrim);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop-drop);
   overflow: hidden;
   outline: none;
 }
