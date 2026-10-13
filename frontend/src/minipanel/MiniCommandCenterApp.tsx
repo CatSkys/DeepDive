@@ -25,6 +25,11 @@ export function MiniCommandCenterApp() {
       },
       miniCCClosed: () => setFace(null),
     });
+    // 开局**自己来要一次脸**：壳的推脸与本页 React 挂载是一场比赛，第一次必输（推的时候桥
+    // 还没装），而壳那边"没变就不推"会把同一张脸挡在门外——表现是首次打开卡片整块空白
+    // （用户 2026-10-13 报"开机后每次打开都是空的，重新打开就正常"）。面板页的 prefs 当年
+    // 是同一型事故，修法同一套。
+    sendToShell({ type: "mini-cc-face" });
   }, []);
   if (face === null) return null;
   return (
