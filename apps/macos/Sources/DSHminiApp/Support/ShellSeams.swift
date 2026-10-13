@@ -93,6 +93,7 @@ enum ShellStringKey {
   case screenshotPanelOpening
   case screenshotCloseDialog
   case screenshotPermissionStale
+  case screenshotNeedsPermission
 }
 
 final class ShellStrings {
@@ -196,6 +197,10 @@ final class ShellStrings {
     case .screenshotAlreadyRunning: return zh ? "正在截图，请稍候。" : "A screenshot is already being taken."
     case .screenshotPanelOpening: return zh ? "面板正在打开，请稍后再试。" : "The panel is still opening; try again."
     case .screenshotCloseDialog: return zh ? "请先关闭打开的对话框，再截图。" : "Close the open dialog before taking a screenshot."
+    case .screenshotNeedsPermission:
+      return zh
+        ? "需要「屏幕录制」权限才能截图：设置 → 划词与截图 里有直达系统设置的按钮（授权后请退出并重开本应用）。"
+        : "Screen Recording permission is needed — Settings → 划词与截图 links straight to it (quit and reopen the app after granting)."
     case .screenshotPermissionStale:
       return zh
         ? "截图没能启动：如果刚在系统设置里授权，请退出并重新打开本应用（macOS 只对重启后的应用生效）。"

@@ -25,14 +25,22 @@ final class ScreenshotController {
   }
   /// 捕获开始/结束时通知（迷你面板在捕获期间离屏）。
   var onCapturingChange: ((_ capturing: Bool) -> Void)?
-  /// 捕获完成：把文件交给页面（`image` 内联字节、上下文按路径）。
-  var onDelivered: ((Delivered) -> Void)?
-  /// 复制路径：同样的图进了剪贴板，页面什么也不收。
-  var onCopied: (() -> Void)?
-  /// 屏幕录制授权被拒；页面据此提示。
-  var onPermissionDenied: (() -> Void)?
   /// 屏幕录制授权状态变了（授权后 macOS 只对**重启过**的进程生效，页面据此提示/显示状态）。
   var onTrustChange: ((Bool) -> Void)?
+
+  /// 一次截图/重开编辑的结果。**调用方按它回执、并据它清自己的在途状态**——早先按
+  /// 回调分发时，取消与复制这两条正常收尾没有回执，调用方的在途标记永远留着，
+  /// 表现就是"用过一次之后再也打不开"（2026-10-13 实机）。
+  enum Outcome {
+    /// 成图：文件已落盘，页面按既有附件通道摄入。
+    case delivered(Delivered)
+    /// 图进了剪贴板，页面不收东西。
+    case copied
+    case cancelled
+    /// 屏幕录制没授权（系统提示已发/已跳设置）。
+    case needsPermission
+    case failed(BridgeError)
+  }
   /// 无障碍提示被点：会话结束后再问授权（系统弹窗会盖在 overlay 之下）。
   var onWantsAccessibility: (() -> Void)?
   private var trustRequested = false
@@ -47,70 +55,92 @@ final class ScreenshotController {
   /// `screen-recording-request`：设置页的权限行按下时问一次（每 launch 一次）。
   func requestPermission() { access.prompt() }
 
-  /// 一次新截图（`screenshot.capture`）。
-  func capture() async throws(BridgeError) -> Void {
-    try claim()
+  /// 一次新截图（`screenshot.capture`）：永远答一个 `Outcome`，不抛。
+  func capture() async -> Outcome {
+    guard claim() else { return .failed(BridgeError(ShellStrings.shared.text(.screenshotAlreadyRunning))) }
     defer { isCapturing = false }
-    switch try await run(reopening: nil) {
+    switch await run(reopening: nil) {
     case .cancelled:
-      return
+      return .cancelled
+    case .copied:
+      return .copied
+    case .failed(let error):
+      return .failed(error)
     case .notPermitted:
-      onPermissionDenied?()
-      throw BridgeError(ShellStrings.shared.text(.screenshotNoDisplay))
+      return .needsPermission
     case .confirmed(let capture, let capturedAt, let snapshot):
       regions.remember(
         capture.selection, displayID: capture.displayID, displayFrame: capture.displayFrame)
-      let stored = try await library.store(capture, capturedAt: capturedAt, snapshot: snapshot)
-      onDelivered?(Delivered(image: stored.image, context: stored.context, capturedAt: capturedAt))
+      do {
+        let stored = try await library.store(capture, capturedAt: capturedAt, snapshot: snapshot)
+        return .delivered(Delivered(image: stored.image, context: stored.context, capturedAt: capturedAt))
+      } catch {
+        return .failed(error)
+      }
     }
   }
 
-  /// 重开一张已存图片继续编辑（`screenshot.edit`）。
-  func edit(path: String) async throws(BridgeError) {
-    try claim()
+  /// 重开一张已存图片继续编辑（`screenshot.edit`）：同样答一个 `Outcome`。
+  func edit(path: String) async -> Outcome {
+    guard claim() else { return .failed(BridgeError(ShellStrings.shared.text(.screenshotAlreadyRunning))) }
     defer { isCapturing = false }
     guard CGPreflightScreenCaptureAccess() else {
       access.prompt()
-      onPermissionDenied?()
-      throw BridgeError(ShellStrings.shared.text(.screenshotNoDisplay))
+      return .needsPermission
     }
-    let base = try await library.base(for: path)
-    switch try await run(reopening: base) {
+    let base: ReopenBase
+    do {
+      base = try await library.base(for: path)
+    } catch {
+      return .failed(error)
+    }
+    switch await run(reopening: base) {
     case .cancelled:
-      return
+      return .cancelled
+    case .copied:
+      return .copied
+    case .failed(let error):
+      return .failed(error)
     case .notPermitted:
-      onPermissionDenied?()
-      throw BridgeError(ShellStrings.shared.text(.screenshotNoDisplay))
+      return .needsPermission
     case .confirmed(let capture, let capturedAt, _):
-      let stored = try await library.store(capture, capturedAt: capturedAt, snapshot: nil)
-      onDelivered?(Delivered(image: stored.image, context: stored.context, capturedAt: capturedAt))
+      do {
+        let stored = try await library.store(capture, capturedAt: capturedAt, snapshot: nil)
+        return .delivered(Delivered(image: stored.image, context: stored.context, capturedAt: capturedAt))
+      } catch {
+        return .failed(error)
+      }
     }
   }
 
   /// 结束进行中的会话（面板/热键要取消时）；调用方的请求答 `cancelled`。
   func cancel() { session?.cancel() }
 
-  private func claim() throws(BridgeError) {
-    guard !isCapturing else { throw BridgeError(ShellStrings.shared.text(.screenshotAlreadyRunning)) }
+  /// 单会话互斥：已在截就直接说"正在截图"，别无声拒绝。
+  private func claim() -> Bool {
+    guard !isCapturing else { return false }
     isCapturing = true
+    return true
   }
 
   private enum SessionEnd {
     case cancelled
     case notPermitted
     case confirmed(CaptureConfirmation, capturedAt: Date, snapshot: WindowSnapshot)
+    /// 结果按用户要求进了剪贴板（同确认，但页面不收附件）。
+    case copied(CaptureConfirmation)
+    /// 会话没能跑起来（预检过了但采集失败等）；文案已成型，直接交给页面。
+    case failed(BridgeError)
   }
 
   /// 一次会话：从撤下自己的窗口到交还激活归属。新截图跑元素检测；重开编辑用
   /// `reopening` 预选，不检测。
-  private func run(reopening: ReopenBase?) async throws(BridgeError) -> SessionEnd {
+  private func run(reopening: ReopenBase?) async -> SessionEnd {
     // 授权被吊销（或换了签名）的构建只能截到壁纸与菜单栏，所以每次截图前都现查。
     guard CGPreflightScreenCaptureAccess() else {
       access.prompt()
       return .notPermitted
     }
-    // 授权记录在、但采集起不来：macOS 只对重启后的进程应用新授权，这是最常见的成因。
-    // 措辞明说，别让用户对着"截图准备失败"猜（原始错误进引擎日志）。
     // 借走激活：overlay 要光标、键盘与输入法；结束后还给原来那个 App。
     let previousApp = NSWorkspace.shared.frontmostApplication.flatMap {
       $0 == NSRunningApplication.current ? nil : $0
@@ -127,11 +157,12 @@ final class ScreenshotController {
     } catch {
       session.cancel()
       _ = await session.run()
+      EngineLog.shared.append("[capture] session failed: \(error)")
       if DisplayFreezer.isPermissionError(error) {
         access.prompt()
         return .notPermitted
       }
-      throw (error as? BridgeError) ?? BridgeError(ShellStrings.shared.text(.screenshotNotPrepared))
+      return .failed((error as? BridgeError) ?? BridgeError(ShellStrings.shared.text(.screenshotNotPrepared)))
     }
     let outcome = await session.run()
     if NSApp.isActive, let previousApp { _ = previousApp.activate(from: .current, options: []) }
@@ -139,11 +170,12 @@ final class ScreenshotController {
     case .cancelled:
       return .cancelled
     case .wantsAccessibility:
+      // 会话里点了无障碍提示：会话结束后再问授权（系统弹窗会盖在 overlay 之下）。
       trustRequested = true
-      onWantsAccessibility?()
+      SelectionReader.requestTrust()
       return .cancelled
     case .failed:
-      throw BridgeError(ShellStrings.shared.text(.screenshotNotPrepared))
+      return .failed(BridgeError(ShellStrings.shared.text(.screenshotNotPrepared)))
     case .confirmed(let capture):
       return .confirmed(capture, capturedAt: presented.capturedAt, snapshot: presented.snapshot)
     case .copied(let capture):
@@ -152,8 +184,7 @@ final class ScreenshotController {
           capture.selection, displayID: capture.displayID, displayFrame: capture.displayFrame)
       }
       Self.copy(capture)
-      onCopied?()
-      return .cancelled
+      return .copied(capture)
     }
   }
 

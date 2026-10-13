@@ -26,7 +26,8 @@ final class AnnotationGlassBar: NSView {
 
   var onDrag: ((Drag) -> Void)?
 
-  private let glass = NSGlassEffectView()
+  /// 浮动玻璃面：本仓 `.floating` 档配方（见 `GlassSurface` 与 `WindowGlassView`）。
+  private let glass = WindowGlassView.makeFloatingGlass()
   private let stack = NSStackView()
   private let groups: [[NSView]]
   /// Each group's divider (none before the first group).
