@@ -10,8 +10,9 @@ import AppKit
 import CoreImage
 
 final class PanelWallpaperView: NSImageView {
-    /// 模糊半径（pt）：Raycast 大环境模糊档 35/60/120px 的中间档。
-    private static let blurRadius: CGFloat = 60
+    /// 模糊半径（pt）：Raycast 大环境模糊三档 35/60/120px 的顶档
+    /// （用户 2026-10-13 对照 Raycast 面板："模糊大一档"，60 → 120）。
+    private static let blurRadius: CGFloat = 120
     /// 出图位图密度（pt→px）：2× 让 retina 下糊斑仍有细腻过渡。
     private static let bitmapScale: CGFloat = 2
     private static let ciContext = CIContext(options: [.cacheIntermediates: false])
