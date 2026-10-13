@@ -15,6 +15,8 @@
 // 表面档由使用方指定：`.window`（主窗）与 `.panel`（迷你面板）。两条分支都上 tint，
 // 但档位不同：液态玻璃自带亮度，tint 只往"近黑"拉一档（压死了又回到平色板，
 // PITFALLS §4.27）；vibrancy 材质本身更浅，tint 才需要更实。
+// `.panel` 还多两样：玻璃圆角对齐窗体自己的裁切档（见 panelCornerRadius），以及
+// 边缘内辉光一层（PanelGlowView，Raycast `glowBlurRadius` 的对应物）。
 
 import AppKit
 
@@ -24,12 +26,14 @@ final class WindowGlassView: NSView {
     enum Surface {
         /// 主窗：内容卡近实色兜底，玻璃只出边栏/边铬。
         case window
-        /// 迷你面板：全窗口就是玻璃面（无内容卡兜底），tint 深一档。
+        /// 迷你面板：全窗口就是玻璃面（无内容卡兜底），tint 深一档 + 边缘辉光。
         case panel
     }
 
     /// macOS 26+ 的液态玻璃底板；更早的系统为 nil（那时走 materialView + tintView）。
     private let glassView: NSView?
+    /// .panel 档的边缘内辉光（玻璃之上、WebView 之下）。.window 档为 nil。
+    private(set) var glowView: PanelGlowView?
     /// vibrancy 底板（只在退回分支挂上来）。
     private let materialView = NSVisualEffectView()
     /// 材质之上的近黑 tint（只在退回分支挂上来）。不透明度对齐 tokens.json
@@ -44,6 +48,13 @@ final class WindowGlassView: NSView {
     /// **调边栏深浅就动这里的 alpha**（0.35 → 0.50：用户 2026-09-29 两轮"还是有点透"，加了一档）。
     private static let darkGlassTint = NSColor(srgbRed: 14/255, green: 14/255, blue: 16/255, alpha: 0.50)
     private static let lightGlassTint = NSColor(srgbRed: 255/255, green: 255/255, blue: 255/255, alpha: 0.45)
+    /// .panel 档的玻璃圆角：**必须等于窗体自己的裁切半径**。面板窗不在主窗那个
+    /// 26pt 工具栏大圆角类里——实测（2026-10-13：截图 + 红绿灯 12pt/20pt 标准当
+    /// 标尺，角部高光曲线最小二乘拟合 27.5px ÷ 2.30px/pt）面板可见圆角 ≈ 12pt。
+    /// 给大了（曾设 26）玻璃高光会在角上被窗体裁断、留一道断线（用户："圆角修一下，
+    /// 它现在有一个线"）；对齐后高光与边界重合，一圈干净。**改这个值前先重量一遍**
+    /// （窗口类变了大圆角才会变）。
+    private static let panelCornerRadius: CGFloat = 12
     /// .panel 档（迷你面板）：整窗压在这层上、网页侧只铺半透明卡面，底层比
     /// 主窗实一截。α 落点：0.50 浅（用户"差一档"）→ 0.72 深（用户"颜色深了"
     /// 2026-10-13）→ 0.62 中间档；亮色同距回落。
@@ -60,6 +71,11 @@ final class WindowGlassView: NSView {
         super.init(frame: .zero)
         if let glass = glassView {
             addFilling(glass)
+            if surface == .panel {
+                let glow = PanelGlowView(cornerRadius: Self.panelCornerRadius)
+                addFilling(glow)
+                glowView = glow
+            }
         } else {
             materialView.material = .sidebar
             materialView.blendingMode = .behindWindow
@@ -102,11 +118,10 @@ final class WindowGlassView: NSView {
     private static func makeLiquidGlass(surface: Surface) -> NSGlassEffectView {
         let glass = NSGlassEffectView()
         glass.style = .regular
-        // 玻璃圆角对齐窗体裁切（tokens.json v5 锚：工具栏类窗口 26pt）：方玻璃
-        // 压在圆窗里会在四角切出缺口——边缘高光出两圈（chrome 一圈 + 玻璃方边
-        // 一圈）、圆角观感也比实际小；对齐后两圈合一圈（用户 2026-10-13
-        // "高光有两层？砍一层""圆角小了"——头文件无高光开关，重合即砍）。
-        glass.cornerRadius = surface == .panel ? 26 : 0
+        // 圆角必须与窗体裁切同档：主窗是工具栏类大圆角（tokens.json v5 锚 26pt，
+        // 玻璃给 0 由窗体裁）；迷你面板窗实测 ≈12pt（见 panelCornerRadius），
+        // 玻璃对齐同值——给大了玻璃高光会被窗体裁断成一道线。
+        glass.cornerRadius = surface == .panel ? panelCornerRadius : 0
         glass.tintColor = surface == .panel ? darkPanelGlassTint : darkGlassTint
         return glass
     }
