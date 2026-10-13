@@ -77,12 +77,13 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         wv.isInspectable = true
         webView = wv
 
-        // 窗底与主窗同源（WindowGlassView）：液态玻璃之上压深浅两档 tint（Raycast
-        // 的"玻璃化 + 主题叠色"配方在我们的体系里就是这一层）——迷你面板此前用
-        // GlassBackground 的裸玻璃（零叠色），壁纸大面积透上来（用户 2026-10-12
-        // "这个面板太透了"），与 PITFALLS §4.27 铁律同一条：凡把底玻璃化，都得
-        // 检查叠在上面的表面够不够实。WebView 透明铺在 tint 之上。
-        glass = WindowGlassView()
+        // 窗底与主窗同源（WindowGlassView）：液态玻璃之上按表面档压深浅两档 tint
+        // （Raycast 的"玻璃化 + 主题叠色"配方在我们的体系里就是这一层）——迷你面板
+        // 走 .panel 档：整窗都是玻璃面、无内容卡兜底，tint 比主窗深一档（面板档
+        // 值见 WindowGlassView）。此前 GlassBackground 的裸玻璃零叠色，壁纸大面积
+        // 透上来（用户 2026-10-12 "这个面板太透了"）；与 PITFALLS §4.27 铁律同一条：
+        // 凡把底玻璃化，都得检查叠在上面的表面够不够实。WebView 透明铺在 tint 之上。
+        glass = WindowGlassView(surface: .panel)
         window.contentView = glass
         wv.frame = glass.bounds
         wv.autoresizingMask = [.width, .height]
