@@ -357,9 +357,10 @@ function checkNarrowMediaMiniPanel(file, text) {
 // `.session-row > .session` 同为 2 类、前者更靠前，覆盖被吃掉——会话列一从
 // `visibility:hidden` 里放出来就带着主窗内容卡的深色底/卡圆角/卡投影（用户报
 // "跳转到了内容面板上…深色底也一起弄过来了"）。
-// 约定（机检）：选择器带 `.mini-panel` 的只许两种写法——
-//   · 面板作用域 `.app.mini-panel …`（3 类起步，稳定压过主窗规则）；
-//   · 主窗作用域 `.app:not(.mini-panel) …`（窄窗这类只服务主页面的规则显式排除面板页）。
+// 约定（机检）：选择器里的 `.mini-panel` 必须写成 `.app.mini-panel`（3 类起步，稳定压过
+// 主窗规则），或作为主窗作用域的排除 `.app:not(.mini-panel)` 出现。**位置不限**：
+// `:where(html[data-hover-armed])` 这类零特异度包装可以留在外层——特异度来自
+// `.app.mini-panel` 本身，与它排在第几个无关。
 
 const MINI_PANEL_SEL = /\.mini-panel(?![\w-])/;
 
@@ -370,8 +371,8 @@ function checkMiniPanelScope(file, text) {
     const selector = m[1].trim();
     if (!MINI_PANEL_SEL.test(selector)) continue;
     for (const one of splitTopLevel(selector)) {
-      if (!MINI_PANEL_SEL.test(one)) continue;
-      if (one.startsWith(".app.mini-panel") || one.includes(".app:not(.mini-panel)")) continue;
+      const masked = one.split(".app.mini-panel").join(" ").split(".app:not(.mini-panel)").join(" ");
+      if (!MINI_PANEL_SEL.test(masked)) continue;
       violations.push({ rule: "mini-panel-cascade-scope", file: rel(file), detail: one });
     }
   }

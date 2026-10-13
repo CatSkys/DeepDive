@@ -33,7 +33,10 @@ import { useSessionFlowScroll } from "../session/useSessionFlowScroll";
 import { sessionProjections } from "../session/sessionProjections";
 import { FindInConversation } from "./FindInConversation";
 
-export function SessionView({ sessionId }: { sessionId: string }) {
+/** `sidebarSeat`：会话头右侧那枚「边栏座位」（PanelTrigger 的胶囊/展开钮）要不要渲染。
+ *  主窗不传（要）；迷你面板传 false——它开的是主窗的右边栏，面板里那件事由面板自己的
+ *  控件簇承担（齿轮开会话设置卡，见 MiniPanelControls）。 */
+export function SessionView({ sessionId, sidebarSeat = true }: { sessionId: string; sidebarSeat?: boolean }) {
   const { lang } = useT(); // 订阅语言切换：文案与标题回退随 lang 重渲染
   const store = useStore();
   const { approvals, questions, queues, sessions } = store;
@@ -176,13 +179,15 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             </button>
           </span>
         )}
-        <PanelTrigger
-          sessionId={sessionId}
-          scheduleRecords={scheduleRecords}
-          /* agent 与浏览器的关系：用过 = ingest 记账（browserUsed，重载后仍算得出）；
-             正在操控 = 会话在跑且最后一项就是那条浏览器工具调用（此刻正在发生的事） */
-          browser={{ used: browserUsed, live: running && isBrowserTool(liveItem?.toolName) }}
-        />
+        {sidebarSeat && (
+          <PanelTrigger
+            sessionId={sessionId}
+            scheduleRecords={scheduleRecords}
+            /* agent 与浏览器的关系：用过 = ingest 记账（browserUsed，重载后仍算得出）；
+               正在操控 = 会话在跑且最后一项就是那条浏览器工具调用（此刻正在发生的事） */
+            browser={{ used: browserUsed, live: running && isBrowserTool(liveItem?.toolName) }}
+          />
+        )}
       </div>
       )}
       {/* 会话体：消息流 + 悬浮输入区 + （全屏预览时）盖在其上的预览面。
