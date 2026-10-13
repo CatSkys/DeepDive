@@ -377,8 +377,14 @@ button {
   margin-left: 0;
   border-radius: 999px;
 }
-/* hover / 选中都在组内出高亮（比胶囊底再实一档，否则同色看不出来） */
-.app.mini-panel .mini-controls .panel-expand-btn:hover,
+/* 组内高亮按规范的两档走：**hover = 前景 5%**（--row-hover），**选中/按下 = 前景 10%**
+   （--fill-strong，这里指"这张卡正开着"）——与列表行 hover/选中同一条阶梯，不另立档。
+   组底是 32% 灰的玻璃胶囊，5% 铺上去只是"微微一抬"；若实机看着不动，下一档是
+   --fill(7%)，别直奔 --fill-strong(11%)——那是选中态的量级。 */
+.app.mini-panel .mini-controls .panel-expand-btn:hover {
+  background: var(--row-hover);
+  color: var(--ink);
+}
 .app.mini-panel .mini-controls .panel-expand-btn[aria-pressed="true"] {
   background: var(--fill-strong);
   color: var(--ink);
@@ -435,14 +441,20 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .app.mini-panel .mini-cc { animation: none; }
 }
-/* 搜索行：**没有下分割线**（用户定稿："所有的面板里面都不要有分割线"）——它与列表
-   的分界交给列表首段的段标题与留白。 */
+/* 搜索行：定高 **40**（Raycast 面板规范的 --space-40），下沿一条 **0.5px 发丝线**，
+   颜色取 `--line`——它正好是规范里的分隔色 fg-10（前景 10%）。0.5px 是那条规范里的
+   `--half-pixel`：Retina 上落成 1 个物理像素的发丝，而不是 1px 逻辑像素的实线
+   （用户 2026-10-13 先要求"面板里不要分割线"，随后定"全部按 Raycast 规范"，此处按规范）。
+   横向下内距 12 与行文字同列（= 列表 6 + 行内距 10 − 出血 4；规范写 16 是它自己那套
+   留白算出来的等价值，不是硬数值）。 */
 .app.mini-panel .mini-cc-search {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: none;
-  padding: 10px 12px 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 0.5px solid var(--line);
   color: var(--ink-3);
 }
 .app.mini-panel .mini-cc-search input {
@@ -488,6 +500,9 @@ button {
   width: 100%;
   height: 34px;
   padding: 0 10px;
+  /* 与历史行同一文字列：出血 4（列表内距 6 + 行内距 10 − 出血 4 = 12），否则选择页的
+     标签比历史标题右移 4px，翻页时文字列左右跳。 */
+  margin: 0 -4px;
   border-radius: var(--dsh-radius-control);
   color: var(--ink);
   text-align: left;
@@ -506,6 +521,9 @@ button {
   padding: 6px 10px;
   margin: 0 -4px;
   font-size: var(--dsh-font-size-sm);
+  /* 圆角改回控件档 10（Raycast 规范：行圆角 radius-closest = 0 或 10）。.task-row 那条
+     16 是"半径 = 行高"的胶囊口径，而这张行是两行式、高 42，16 既不是胶囊也不是控件档。 */
+  border-radius: var(--dsh-radius-control);
 }
 .app.mini-panel .mini-cc-row .row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .app.mini-panel .mini-cc-row-meta {
