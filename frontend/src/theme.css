@@ -318,18 +318,26 @@ button {
 .app.collapsed .hero-top { padding-left: 176px; }
 
 /* 迷你面板页（QuickPanelWindow 的 #/mini）：无侧栏无顶部两钮，内容从窗口左缘
-   起——头部/草稿头只让位原生红绿灯，84 与 .window-top 的左缘（灯区尽头）对齐。 */
-.mini-panel .session-header,
-.mini-panel .hero-top { padding-left: 84px; }
+   起——头部/草稿头只让位原生红绿灯，84 与 .window-top 的左缘（灯区尽头）对齐。
+   **本块一律 `.app.mini-panel` 起头**：面板页整页复用主窗样式表，同属性上主窗规则
+   （`.session-row > .session` 那类 2 类选择器）就写在文件后段，面板若也用 2 类会
+   静默输掉——2026-10-13 面板整页变成主窗内容卡（深色底 + 卡圆角 + 卡投影）就是
+   这么来的（PITFALLS §10.2）；`check-architecture.mjs` 规则 6 机检这条约定。 */
+.app.mini-panel .session-header,
+.app.mini-panel .hero-top { padding-left: 84px; }
 
-/* 迷你面板页全出血：内容直接坐在窗体的原生玻璃底上（窗底 WindowGlassView 按
-   .panel 表面档上 tint，比主窗深一档——调深浅去 WindowGlassView，网页不重复
-   造一个旋钮；网页再铺 --panel-glass 档卡面）；圆角与外圈阴影归窗口 chrome。 */
-.mini-panel .main:has(> .session-row) { padding: 0; }
-.mini-panel .session { background: var(--panel-glass); border-radius: 0; box-shadow: none; }
+/* 面板页全出血：内容直接坐在窗体的原生玻璃底上（窗底 WindowGlassView 按 .panel
+   表面档上 tint——深浅去那里调，网页不重复造一个旋钮）；会话列因此不铺卡面/
+   圆角/投影，与草稿页同一语言（对话卡那种浮在网页上的卡才需要自带卡面）。 */
+.app.mini-panel .main:has(> .session-row) { padding: 0; }
+.app.mini-panel .session-row > .session {
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
 /* 开着的右侧卡（会话设置/状态）在迷你面板以浮层呈现：500 宽窗排不下 320 定宽
    的兄弟卡；收起态配方不动（width 0 + pointer-events none）。 */
-.mini-panel .panel:not([data-closed="true"]) { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; }
+.app.mini-panel .panel:not([data-closed="true"]) { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; }
 
 /* 迷你面板「会话进行中」的整面板辉光（MiniRunningGlow）：三层同款内辉光错拍循环，
    观感是一圈圈往里推的光；盖在内容之上（4）、不接事件，开着的右侧卡（5）仍在其上。
