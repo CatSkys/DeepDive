@@ -459,32 +459,52 @@ export function uploadAttachmentPath(path: string, sessionId: string, name: stri
    附件选择器同形的 items（图片内联 base64、屏幕上下文按路径）——摄入路径复用 ＋ 选择器
    那一份（`ingestPicked`）。划词的选中文字走「读一次」请求，工具条设置整份推给壳。 ── */
 
-/** 请壳截一张图（`screenshot-capture`）；取消 resolve null。用户要拖选区与标注，
- *  给足时限（桥的超时只是兜底，正常几百毫秒到几十秒）。 */
-export function screenshotCapture(): Promise<PickedAttachment[] | null> {
+/** 一次截图的结果：成功给附件项（与选择器同形），失败给壳的成品文案。
+ *  失败**必须**让调用方看见——静默 resolve null 会把"权限没生效/采集失败"
+ *  这类真话说没（2026-10-13 实机：授权后截图打不开，界面毫无反应）。 */
+export type ScreenshotResult =
+  | { ok: true; items: PickedAttachment[] }
+  | { ok: false; error: string };
+
+function parseShot(p: unknown): ScreenshotResult {
+  const r = p as { ok?: boolean; items?: PickedAttachment[]; error?: string } | undefined;
+  if (r?.ok) return { ok: true, items: r.items ?? [] };
+  return { ok: false, error: r?.error ?? "" };
+}
+
+/** 请壳截一张图（`screenshot-capture`）；用户取消也是一个 `ok:false`（error 为空）。
+ *  用户要拖选区与标注，给足时限（桥的超时只是兜底）。 */
+export function screenshotCapture(): Promise<ScreenshotResult> {
   return bridgeRequest(
     "screenshotCaptured",
-    null,
-    (p) => {
-      const r = p as { ok?: boolean; items?: PickedAttachment[] } | undefined;
-      return r?.ok ? (r.items ?? []) : null;
-    },
+    { ok: false, error: "" },
+    parseShot,
     (reqId) => sendToShell({ type: "screenshot-capture", reqId }),
     600_000,
   );
 }
 
 /** 重开一张已存图片继续编辑（`screenshot.edit`）；同样回附件项。 */
-export function screenshotEdit(path: string): Promise<PickedAttachment[] | null> {
+export function screenshotEdit(path: string): Promise<ScreenshotResult> {
   return bridgeRequest(
     "screenshotCaptured",
-    null,
-    (p) => {
-      const r = p as { ok?: boolean; items?: PickedAttachment[] } | undefined;
-      return r?.ok ? (r.items ?? []) : null;
-    },
+    { ok: false, error: "" },
+    parseShot,
     (reqId) => sendToShell({ type: "screenshot-edit", reqId, path }),
     600_000,
+  );
+}
+
+/** 两处授权现在的状态（设置页据此显示「已授权」）。 */
+export function permissionsState(): Promise<{ accessibility: boolean; screenRecording: boolean }> {
+  return bridgeRequest(
+    "permissionsState",
+    { accessibility: false, screenRecording: false },
+    (p) => {
+      const r = p as { accessibility?: boolean; screenRecording?: boolean } | undefined;
+      return { accessibility: r?.accessibility === true, screenRecording: r?.screenRecording === true };
+    },
+    (reqId) => sendToShell({ type: "permissions-state", reqId }),
   );
 }
 
@@ -569,6 +589,8 @@ export function installHostBridge(handlers: Partial<{
   onSelectionListening: (on: boolean) => void;
   /** 辅助功能授权状态变了。 */
   onAccessibilityTrust: (trusted: boolean) => void;
+  /** 屏幕录制授权状态变了。 */
+  onScreenRecordingTrust: (trusted: boolean) => void;
 }> = {}): void {
   if (window.__deepDiveHost) return; // idempotent mount (StrictMode/reloads)
   window.__deepDiveHost = {
@@ -641,6 +663,11 @@ export function installHostBridge(handlers: Partial<{
         }
         case "selectionListening": {
           handlers.onSelectionListening?.((payload as { on?: boolean } | undefined)?.on === true);
+          break;
+        }
+        case "screenRecordingTrust": {
+          handlers.onScreenRecordingTrust?.(
+            (payload as { trusted?: boolean } | undefined)?.trusted === true);
           break;
         }
         case "accessibilityTrust": {

@@ -124,13 +124,20 @@ final class SystemPanels {
 /// 少一个自绘窗。Atd 用自绘「拖滑块允许」引导是因为它的设置是网页、系统弹窗会盖住页面，
 /// 本项目没有那个约束）。
 enum SystemSettings {
+  /// 每一格各自的「面板 id + 锚点」。**两格在 macOS 26 上不是同一个面板**（2026-10-13 逐条实测）：
+  /// - 辅助功能：旧面板 `com.apple.preference.security?Privacy_Accessibility` 能开；
+  ///   换成新面板 id 反而落到「设备控制和数据访问」这一节。
+  /// - 屏幕录制：旧面板 id **什么都不开**（这正是"点了没反应"的根因），
+  ///   必须用 `com.apple.settings.PrivacySecurity.extension?Privacy_ScreenCapture`（实测落到
+  ///   标题「录屏与系统录音」的那一格）。
+  /// 两个锚点串都在新扩展 `SecurityPrivacyExtension.appex` 里，但旧面板不认屏幕录制那个。
   enum Pane: String {
-    case accessibility = "Privacy_Accessibility"
-    case screenRecording = "Privacy_ScreenCapture"
+    case accessibility = "com.apple.preference.security?Privacy_Accessibility"
+    case screenRecording = "com.apple.settings.PrivacySecurity.extension?Privacy_ScreenCapture"
   }
 
   static func open(_ pane: Pane) {
-    let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane.rawValue)")!
+    guard let url = URL(string: "x-apple.systempreferences:\(pane.rawValue)") else { return }
     NSWorkspace.shared.open(url)
   }
 }

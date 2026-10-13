@@ -31,11 +31,16 @@ final class ScreenshotController {
   var onCopied: (() -> Void)?
   /// 屏幕录制授权被拒；页面据此提示。
   var onPermissionDenied: (() -> Void)?
+  /// 屏幕录制授权状态变了（授权后 macOS 只对**重启过**的进程生效，页面据此提示/显示状态）。
+  var onTrustChange: ((Bool) -> Void)?
   /// 无障碍提示被点：会话结束后再问授权（系统弹窗会盖在 overlay 之下）。
   var onWantsAccessibility: (() -> Void)?
   private var trustRequested = false
 
-  init() { access.start() }
+  init() {
+    access.onChange = { [weak self] trusted in self?.onTrustChange?(trusted) }
+    access.start()
+  }
 
   var isTrusted: Bool { access.isTrusted }
 
@@ -104,6 +109,8 @@ final class ScreenshotController {
       access.prompt()
       return .notPermitted
     }
+    // 授权记录在、但采集起不来：macOS 只对重启后的进程应用新授权，这是最常见的成因。
+    // 措辞明说，别让用户对着"截图准备失败"猜（原始错误进引擎日志）。
     // 借走激活：overlay 要光标、键盘与输入法；结束后还给原来那个 App。
     let previousApp = NSWorkspace.shared.frontmostApplication.flatMap {
       $0 == NSRunningApplication.current ? nil : $0
@@ -173,7 +180,13 @@ final class ScreenshotController {
     // overlay 出现之前取：元素检测要看用户当时看到的窗口。
     let snapshot = reopening == nil ? WindowSnapshot.take() : WindowSnapshot(entries: [])
     if reopening == nil { session.begin(windows: snapshot.windows) }
-    let freezer = try await DisplayFreezer.prepare()
+    let freezer: DisplayFreezer
+    do {
+      freezer = try await DisplayFreezer.prepare()
+    } catch {
+      EngineLog.shared.append("[capture] SCShareableContent failed: \(error)")
+      throw BridgeError(ShellStrings.shared.text(.screenshotPermissionStale))
+    }
     let capturedAt = Date.now
     var preselection: (displayID: CGDirectDisplayID, rect: CGRect)?
     for target in freezer.targets {
