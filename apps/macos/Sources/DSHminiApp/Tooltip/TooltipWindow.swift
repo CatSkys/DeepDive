@@ -20,8 +20,8 @@ final class TooltipWindow: NSPanel {
   /// 半径 18 / 向下 8），而窗口会把它裁掉——所以窗口四周留出这一圈透明边，玻璃与内容
   /// 一起内缩同一个值。改投影参数就要跟着改这里。
   static let shadowInset: CGFloat = 28
-  /// 量尺寸用的初始视口（`?tooltip=1` 那一页第一次量之前窗口的大小）：够放下 300 上限的
-  /// 单行注释（300 + 内距 12）与两行的高度。
+  /// 量尺寸用的初始视口（`?tooltip=1` 那一页第一次量之前那两块的大小）：够放下 300 上限的
+  /// 单行注释（300 + 内距 12）与两行的高度。收到实测值后窗口就收到刚好。
   static let initialSize = NSSize(width: 320, height: 56)
   /// 高于迷你面板那一档（`MiniPanelWindow.level` = floating + 1）：注释要浮在它上面。
   static let level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 2)
@@ -42,12 +42,13 @@ final class TooltipWindow: NSPanel {
   init(configuration: WKWebViewConfiguration) {
     let web = WKWebView(frame: .zero, configuration: configuration)
     self.web = web
-    // 初值不是 1×1：这一页要**先量出注释多大**壳才知道窗口该多大，视口挤成一列会量出
-    // 一个又窄又高的错尺寸（实测：48 高而真值 30）。给一档"放得下常规注释"的量尺尺寸，
-    // 收到实测值后窗口再收到刚好；真比它还宽的长文案按 max-width 300 换行，页里会按
-    // resize 重量一次对齐。
+    // 初值不是 0/1px：这一页要**先量出注释多大**壳才知道窗口开多大，视口一塌（webview
+    // frame 还是零）`width: fit-content` 就退成"一列竖排"，量出 32×84 这种错尺寸
+    // （2026-10-13 实测；真值 68×30）。给一档"放得下常规注释"的量尺尺寸，收到实测值后
+    // 窗口再收到刚好，页里还会按 resize 重量一次对齐。
     super.init(
-      contentRect: NSRect(origin: .zero, size: Self.initialSize),
+      contentRect: NSRect(origin: .zero, size: Self.initialSize)
+        .insetBy(dx: -Self.shadowInset, dy: -Self.shadowInset),
       styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     level = Self.level
     collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
@@ -77,6 +78,11 @@ final class TooltipWindow: NSPanel {
     web.underPageBackgroundColor = .clear
     web.allowsMagnification = false
     web.autoresizingMask = []
+    // 先把两块摆到"量尺"尺寸上：`place()` 之前它们还是零尺寸，那一页第一次量尺寸就落在
+    // 一个塌掉的视口里（见上面 initialSize 的注释）。
+    let inner = NSRect(origin: NSPoint(x: Self.shadowInset, y: Self.shadowInset), size: Self.initialSize)
+    glass.frame = inner
+    web.frame = inner
   }
 
   override var canBecomeKey: Bool { false }
