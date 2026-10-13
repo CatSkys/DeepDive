@@ -116,10 +116,17 @@ function effortPage(face: ModelFace): SettingsPage {
   };
 }
 
-/** 根行：左标签（可带说明图标）、右当前值 + 指出去下一页的箭头。 */
-function SettingRow({ page, onOpen }: { page: SettingsPage; onOpen: () => void }) {
+/** 根行：左标签（可带说明图标）、右当前值 + 指出去下一页的箭头。
+ *  cursor = 键盘光标（↑↓ 走到这一行）：设置模式此前只有取值没有选中态，用户看不出回车
+ *  会开哪一页——与历史行同一档填充（hover 5% / 选中 10%，见 theme.css 那两条）。 */
+function SettingRow({ page, cursor, onOpen }: { page: SettingsPage; cursor: boolean; onOpen: () => void }) {
   return (
-    <button type="button" className="panel-settings-line panel-settings-row" onClick={onOpen}>
+    <button
+      type="button"
+      className="panel-settings-line panel-settings-row"
+      data-cursor={cursor || undefined}
+      onClick={onOpen}
+    >
       <span className="panel-settings-label">
         {page.label}
         {page.hint !== undefined && <CircleAlert size={12} className="panel-settings-hint-icon" data-tip={page.hint} />}
@@ -204,10 +211,11 @@ function SettingsShell({
   if (open === null) {
     return (
       <div className="panel-settings mini-cc-settings">
-        {rows.map((p) => (
+        {rows.map((p, i) => (
           <SettingRow
             key={p.id}
             page={p}
+            cursor={i === cursor}
             onOpen={() => {
               onOpenPage?.(p.id);
               setOpenId(p.id);
