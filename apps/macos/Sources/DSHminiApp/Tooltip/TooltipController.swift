@@ -30,10 +30,10 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
     var signature: String { "\(text)\u{1}\(caps.joined(separator: "\u{1}"))" }
   }
 
-  /// 注释页量出来的尺寸与圆角（CSS px = 点，那一页不缩放）。
+  /// 注释页量出来的尺寸（CSS px = 点，那一页不缩放）。**没有圆角**：圆角与材质都在网页
+  /// 那一侧（CSS），壳只按尺寸摆窗口。
   private struct Measured {
     let size: NSSize
-    let radius: CGFloat
   }
 
   private var window: TooltipWindow?
@@ -150,9 +150,7 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
     let width = (body["w"] as? Double) ?? 0
     let height = (body["h"] as? Double) ?? 0
     guard width > 1, height > 1 else { return }
-    let hit = Measured(
-      size: NSSize(width: ceil(width), height: ceil(height)),
-      radius: (body["radius"] as? Double).map { CGFloat($0) } ?? 0)
+    let hit = Measured(size: NSSize(width: ceil(width), height: ceil(height)))
     measured[request.signature] = hit
     present(hit)
   }
@@ -195,7 +193,7 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
     // 已经摆在这一处就什么都不做：`present` 因此是幂等的（同一条文案的重量、迟到的那一份
     // 尺寸都落在这里被挡掉）。
     if visible, host.frame == candidateFrame(frame) { return }
-    host.place(size: hit.size, origin: frame.origin, radius: hit.radius)
+    host.place(size: hit.size, origin: frame.origin)
     // 入场只在"从看不见到看得见"那一刻跑；已经在屏上就只挪位置（换按钮不重播动画）。
     let entering = !visible
     host.orderFrontRegardless()
@@ -228,6 +226,10 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
     let config = WKWebViewConfiguration()
     config.defaultWebpagePreferences.allowsContentJavaScript = true
     let host = TooltipWindow(configuration: config)
+    // 这一页的材质是 CSS 的系统液态玻璃档（`[data-liquid-glass-backdrop]` 那条全站规则），
+    // 所以和主窗/面板一样要先把 WebKit 的 `useSystemAppearance` 打开
+    // （见 Support/WebKitSystemAppearance.swift）——不开就落回 blur 那一档。
+    WebKitSystemAppearance.enable(host.web)
     host.web.configuration.userContentController.add(self, name: "deepdive")
     host.web.navigationDelegate = self
     window = host
@@ -268,7 +270,8 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
     let appearance: NSAppearance? = mode == "system" ? nil : NSAppearance(named: light ? .aqua : .darkAqua)
     host.appearance = appearance
     host.web.appearance = appearance
-    host.glass.applyAppearance(light: light)
+    // 明暗的其余部分归 CSS：那一页按 `prefers-color-scheme` 自己写 `data-theme`，
+    // 材质层的 tint（`--composer-bg`）随之换档。
   }
 
   // MARK: - WKScriptMessageHandler（注释页量出来的尺寸）

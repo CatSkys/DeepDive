@@ -13,16 +13,15 @@ final class TooltipWindowTests: XCTestCase {
         let window = makeWindow()
         let size = NSSize(width: 120, height: 30)
         let origin = NSPoint(x: 400, y: 500)
-        window.place(size: size, origin: origin, radius: 15)
+        window.place(size: size, origin: origin)
 
         let inset = TooltipWindow.shadowInset
         XCTAssertEqual(window.frame.origin.x, origin.x - inset)
         XCTAssertEqual(window.frame.origin.y, origin.y - inset)
         XCTAssertEqual(window.frame.width, size.width + inset * 2)
         XCTAssertEqual(window.frame.height, size.height + inset * 2)
-        // 玻璃与内容同矩形、且在窗口坐标系里内缩了那一圈
+        // 那一页在窗口坐标系里内缩了那一圈（外投影的余量）
         let inner = NSRect(x: inset, y: inset, width: size.width, height: size.height)
-        XCTAssertEqual(window.glass.frame, inner)
         XCTAssertEqual(window.web.frame, inner)
     }
 
@@ -31,7 +30,6 @@ final class TooltipWindowTests: XCTestCase {
     /// 截图里的"竖排文字"就是它）。
     func testLayersStartAtTheMeasuringSize() {
         let window = makeWindow()
-        XCTAssertEqual(window.glass.frame.size, TooltipWindow.initialSize)
         XCTAssertEqual(window.web.frame.size, TooltipWindow.initialSize)
     }
 

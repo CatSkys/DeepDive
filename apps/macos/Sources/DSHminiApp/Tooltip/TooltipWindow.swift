@@ -16,10 +16,10 @@ import AppKit
 import WebKit
 
 final class TooltipWindow: NSPanel {
-  /// 玻璃自己的投影要的余量：投影画在玻璃那一层上（`WindowGlassView.applyCardShadow`，
-  /// 半径 18 / 向下 8），而窗口会把它裁掉——所以窗口四周留出这一圈透明边，玻璃与内容
-  /// 一起内缩同一个值。改投影参数就要跟着改这里。
-  static let shadowInset: CGFloat = 28
+  /// 注释**自己的 CSS 外投影**要的余量：`.tip` 的 `--shadow-pop`（向下 12 / 半径 28）由
+  /// 那一页自己画，窗口会把它裁掉——所以窗口四周留出这一圈透明边，那一页内缩同一个值。
+  /// 改 `--shadow-pop` 就要跟着改这里。
+  static let shadowInset: CGFloat = 40
   /// 开场尺寸（第一次 `place()` 之前那两块的大小）：够放下 300 上限的注释，别让第一帧
   /// 就被窗口裁掉。**注释有多宽不靠它决定**——那一页的量尺宽度是 CSS 里那格 `.tip-page`
   /// （312），所以尺寸与窗口当前多大无关。
@@ -27,11 +27,11 @@ final class TooltipWindow: NSPanel {
   /// 高于迷你面板那一档（`MiniPanelWindow.level` = floating + 1）：注释要浮在它上面。
   static let level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 2)
 
-  /// 窗口的底：系统液态玻璃（`.floating` 档的 tint 与圆角口径见 WindowGlassView）。
-  let glass = WindowGlassView(surface: .floating)
-  /// 注释那一页：透明，只排内容（材质在下面那层玻璃上）。
+  /// 注释那一页：透明，**连材质一起画**——`[data-liquid-glass-backdrop]` 那一层是全站的
+  /// 系统液态玻璃档（与输入胶囊同一份规则），所以窗口这里不再垫原生 `NSGlassEffectView`：
+  /// 两层玻璃叠着会发灰（theme.css 那条注释里的同一件事）。窗口只管位置、层级与进出场。
   let web: WKWebView
-  /// 玻璃与内容的共同父层：动效（缩放 + 透明度）跑在它身上，两层始终同拍。
+  /// 那一页的父层：动效（缩放 + 透明度）跑在它身上。
   private let stack = NSView()
 
   /// 入场：Raycast popover 的曲线——0.25s、cubic-bezier(.3, .7, 0, 1.26)（尾端一点过冲），
@@ -52,7 +52,7 @@ final class TooltipWindow: NSPanel {
     collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
     isOpaque = false
     backgroundColor = .clear
-    // 投影由玻璃那一层自己画（同上）；窗口再画一份就是两层影子。
+    // 影子归那一页的 CSS（`--shadow-pop`）；窗口再画一份就是两层影子。
     hasShadow = false
     hidesOnDeactivate = false
     becomesKeyOnlyIfNeeded = true
@@ -66,9 +66,7 @@ final class TooltipWindow: NSPanel {
     stack.wantsLayer = true
     stack.autoresizingMask = [.width, .height]
     contentView = stack
-    stack.addSubview(glass)
-    // 内容在玻璃**之上**（玻璃糊的是窗口背后，不是这里面的东西）。
-    stack.addSubview(web, positioned: .above, relativeTo: glass)
+    stack.addSubview(web)
 
     // 与其它几块 webview 同一套透明做法（`drawsBackground` 走 KVC 是公开 API 之外
     // 唯一能关掉网页自身底色的口）。
@@ -76,11 +74,9 @@ final class TooltipWindow: NSPanel {
     web.underPageBackgroundColor = .clear
     web.allowsMagnification = false
     web.autoresizingMask = []
-    // 先摆到开场尺寸：`place()` 之前它们还是零尺寸，那一页第一次量尺寸就落在一个塌掉的
+    // 先摆到开场尺寸：`place()` 之前它还是零尺寸，那一页第一次量尺寸就落在一个塌掉的
     // 视口里（见 Tooltip/ 与 PITFALLS §4.45）。
-    let inner = NSRect(origin: NSPoint(x: Self.shadowInset, y: Self.shadowInset), size: Self.initialSize)
-    glass.frame = inner
-    web.frame = inner
+    web.frame = NSRect(origin: NSPoint(x: Self.shadowInset, y: Self.shadowInset), size: Self.initialSize)
   }
 
   override var canBecomeKey: Bool { false }
@@ -94,21 +90,17 @@ final class TooltipWindow: NSPanel {
     self.level = needed.rawValue > Self.level.rawValue ? needed : Self.level
   }
 
-  /// 贴着注释摆：`origin` 是**注释内容**的屏幕原点（左下），窗口自己往外让出投影余量。
-  func place(size: NSSize, origin: NSPoint, radius: CGFloat) {
+  /// 贴着注释摆：`origin` 是**注释内容**的屏幕原点（左下），窗口自己往外让出投影余量
+  /// ——那一圈是留给注释自己的 CSS 外投影的，窗口把它裁掉就没有影子了。
+  func place(size: NSSize, origin: NSPoint) {
     let inset = Self.shadowInset
     setFrame(
       NSRect(
         x: origin.x - inset, y: origin.y - inset,
         width: size.width + inset * 2, height: size.height + inset * 2),
       display: false)
-    let inner = NSRect(origin: NSPoint(x: inset, y: inset), size: size)
-    glass.frame = inner
-    web.frame = inner
-    // 圆角取那一页实际渲染的 border-radius（胶囊＝半高，收敛在 WindowGlassView.setRadius）。
-    glass.setRadius(radius)
-    // 尺寸变了，玻璃那层的投影路径要跟着重算（它按自己的 bounds 画，不重算就留在旧尺寸上）。
-    glass.layoutSubtreeIfNeeded()
+    // 圆角不归这里：注释的圆角与材质都在 CSS 上（材质层 `border-radius: inherit`）。
+    web.frame = NSRect(origin: NSPoint(x: inset, y: inset), size: size)
   }
 
   /// 弹入（每一条注释只跑一次；换内容不重播）。

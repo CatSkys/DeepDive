@@ -64,6 +64,9 @@ export function TooltipChip({
 }) {
   return (
     <div ref={boxRef} className="tip" role="tooltip" data-phase={phase} style={style}>
+      {/* 材质层：与输入胶囊同一条规则（[data-liquid-glass-backdrop] 是全局面），所以
+          这一层只留几何与外投影，材质（含系统液态玻璃档）自动接上。 */}
+      <div data-liquid-glass-backdrop aria-hidden="true" />
       <span className="tip-text">{text}</span>
       {caps.length > 0 && <KeyCaps caps={caps} />}
     </div>

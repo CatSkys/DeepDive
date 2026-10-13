@@ -169,46 +169,30 @@
   pre`——代码块要的就是等宽；只有"键帽"这一档该钉回 UI 字体。凡 `<kbd>`/`<code>` 上新写样式，
   先问一句"这个字符该由哪个字体出字形"。
 
-### 1.20 网页里的系统玻璃：属性是真的、门是私有的；材质板尺寸＝元素层，别给它外投影
-- 来由（2026-10-13）：按 Raycast 的 CSS 反编译结论，浮层材质写的像是
-  `-apple-visual-effect: -apple-system-glass-material*`，看着就是"CSS 直接调系统玻璃"。
-  第一轮照抄到本仓 WKWebView 里**什么都不发生**，一度被记成"属性不存在、玻璃其实在 AppKit"。
-  **那个结论是错的**——同日由上游源码 + 本机实测推翻，下面是更正后的全貌。
-- ① 属性是**真的**：WebKit 上游 `Source/WebCore/css/CSSProperties.json` 里有
-  `-apple-visual-effect`（`status: non-standard`），值域含五个 glass 档
-  （`-apple-system-glass-material` / `-clear` / `-subdued` / `-media-controls` /
-  `-media-controls-subdued`）+ blur/vibrancy 两族。glass 档带
-  `"settings-flag": "useSystemAppearance"`，**默认 false**——关着时属性连解析器都不认识
-  （`CSS.supports` 全 false、写进 `style.cssText` 的声明被直接丢弃），所以第一轮"看着像没实现"。
-- ② 门是私有的：`WKWebView._setUseSystemAppearance:`（`WKWebViewPrivate.h`）。UA 样式表由
-  WebKit 自己强制打开它（Apple 自家媒体控制条因此能用），宿主必须自己开。本仓开在
-  `Support/WebKitSystemAppearance.swift`（主窗 / 迷你面板 / 悬浮输入框三处；浏览器页不开
-  ——那是别人的内容）。代价：私有 API，App Store 审核只认公开 API（App Review 2.5.1），
-  本应用走 Developer ID 自行分发。实测：开关打开后同一段 CSS 的 computed 值从 `""` 变成
-  `-apple-system-glass-material-media-controls`。
-- ③ 它是**托管材质**（`HAVE_MATERIAL_HOSTING`）：WebKit 自动强制合成该元素，并自动建一块
-  `CAHostingLayer`（名字 `material hosting: …`，macOS 上住**应用进程**的层树里），其
-  bounds/position ＝ **元素自己那层**的几何；圆角只读元素自身的 `border-radius`（四角取最大
-  值交给 SwiftUI——`inherit` 到 999px 这种值就是喂不出形状的数）。整条路径**不读**
-  `overflow` / `will-change`：补那两条属白加（已实证）。
-- 事故与规矩（本条真正该记的）：**元素层带外扩投影时，层的 bounds 会被 box-shadow 撑大，
-  托管材质跟着铺到撑大的那块上** → 材质板比胶囊大一圈、还压住邻近内容。实测暗色那条
-  `0 4px 12px` 扩散 ~16px，板高 36 → 68（1.9×），与用户截图量到的 1.7–1.9× 吻合。
-  ⇒ **承载材质的层上只许有 `inset` 阴影**（画在边框盒内、不撑层），外投影挂宿主本体
-  （`.composer` / `.mini-controls` 用 `--composer-drop`）。两个 token 的注释在 `theme.css`
-  的 `:root`，产品口径在 UI-SPEC §2.2「输入胶囊」。
-- 量它的唯一口：`scripts/probe.py raw '<sel>' '{"props":["width"]}'` 输出里的
-  `native.materialHostingLayers`（`MainWindowController+Probe.swift` 走层树、报所有类名带
-  Hosting 的层）。**宿主层尺寸必须等于元素盒**（实测 644×36 ＝ 胶囊盒）。网页侧只有 DOM 盒、
-  看不到这块层，所以这是像素级证据的唯一来源——下次这类"多一块/大一圈"先量这里，别靠肉眼。
-- 顺带查实的旁证：`WKPreferences` 的 feature 三表（`_features` / `_experimentalFeatures` /
-  `_internalDebugFeatures`）在本机 WebKit 上**都不存在**，能翻的只有 `_setEnabled:forFeature:`
-  （要 feature 对象，无处枚举）；Raycast 点的是 `BackgroundWebContentRunningBoardThrottling` /
-  `AsyncOverflowScrolling` / `PreferPageRenderingUpdatesNear60FPS` 三个**性能**开关，与玻璃无关；
-  而它**确实引用了 `useSystemAppearance`** —— 它的玻璃就是这套 CSS 的（不是只有 AppKit）。
-- 想要**不碰私有 API** 的系统玻璃，本仓仍有那条 AppKit 路：`NSGlassEffectView`
-  （`WindowGlassView` / `GlassSurface`），代价是 §4.38 那条层级规矩——要原生材质就连内容一起
-  搬进自己的窗口（悬浮注释、命令中心卡页就是这么做的）。
+### 1.20 `-apple-visual-effect`：属性在，但要先把 WebKit 的 `useSystemAppearance` 打开
+- 来由（2026-10-13 悬浮注释重做）：按 Raycast 的 CSS 反编译结论，macOS 侧浮层材质写的像是
+  `[macos] .popover__webPopover { -apple-visual-effect: -apple-system-glass-material }`。
+  照抄到本仓的 WKWebView 里**什么都不发生**——但**不是因为"这属性不存在"**（我一开始就是这么
+  归因的，错了一半，据此下的"别再写 `@supports`"也是错的）。
+- 实测（两次都对，结论变了）：系统 WKWebView 里 `CSS.supports('-apple-visual-effect', <任一值>)`
+  恒 false、`getComputedStyle` 读回空串；而属性名与五个档位确实在系统 WebKit 里（dyld 共享
+  缓存 `strings` 命中）。真因是 WebKit 的**设置** `settings-flag: useSystemAppearance`
+  （**默认 false**）——关着时属性连解析器都不认识。它是 setter 不是 feature flag，所以在
+  `_experimentalFeatures`(219) / `_internalDebugFeatures`(146) / `_features`(601) 三张表里
+  一个都不沾；**当时拿这三张表下"系统没给开关"的结论，就是这一步错的**。
+- 处置（事实源在两处，别处链接）：`Support/WebKitSystemAppearance.swift` 用私有
+  `WKWebView._setUseSystemAppearance:` 打开（主窗 / 迷你面板 / 悬浮输入框 / Tooltip 窗口
+  四处各开一次；浏览器页是别人的内容，不开）；`theme.css` 的 `[data-liquid-glass-backdrop]`
+  那条全站规则把 `-apple-visual-effect` 上给材质层，三档降级：系统材质 → blur → 底色。
+- 判据（**别只看 `CSS.supports`**）：`scripts/probe.py styles '<选择器>' --props
+  -apple-visual-effect` 读 computed——开关没开是空串、开了是 `-apple-system-glass-material-*`。
+  离屏 WKWebView 自测同样受这个开关左右：探针里没开，就永远复现不出真机那一档（我那次自测
+  正是少了这一步）。
+- 两条别读错的：① Raycast 的浮层**另有** AppKit 的 `NSGlassEffectView` 与 `TooltipWindow`
+  （反编译实证），所以"它用 CSS"和"它用原生"两边都成立，别拿任一边当唯一答案；② 同一处别同时
+  上原生玻璃与 CSS 材质——**两层玻璃叠着会发灰**（注释窗口原本垫着原生 NSGlassEffectView，
+  2026-10-13 撤掉、只留 CSS 那一层）。
+
 ---
 
 ## 2. 引擎事件载荷（反复踩）
