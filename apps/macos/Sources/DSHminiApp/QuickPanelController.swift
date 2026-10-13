@@ -92,9 +92,9 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         window.becomesKeyOnlyIfNeeded = false
         window.collectionBehavior = [.fullScreenNone, .moveToActiveSpace]
         window.animationBehavior = .none
-        // 快捷对话面**默认置顶所有窗口**（用户 2026-10-13 定稿：面板的属性是快捷对话，
-        // 所以它压在所有页面之上）。隐藏仍走 alpha 0（见下方常驻隐身），不靠层级让位。
-        window.level = .floating
+        // 不置顶：正常窗口层级。曾按"快捷对话面"的语义置到 `.floating`（2026-10-13），
+        // 实机用下来压在所有应用之上并不合理（用户复盘后收回），回到 `.normal`。
+        window.level = .normal
 
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = true

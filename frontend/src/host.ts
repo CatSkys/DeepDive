@@ -464,12 +464,13 @@ export function uploadAttachmentPath(path: string, sessionId: string, name: stri
  *  这类真话说没（2026-10-13 实机：授权后截图打不开，界面毫无反应）。 */
 export type ScreenshotResult =
   | { ok: true; items: PickedAttachment[] }
-  | { ok: false; error: string };
+  /** `cancelled`（用户取消）与 `copied`（图进了剪贴板）都是正常收尾，不报错也不建 chip。 */
+  | { ok: false; error: string; cancelled?: boolean; copied?: boolean };
 
 function parseShot(p: unknown): ScreenshotResult {
-  const r = p as { ok?: boolean; items?: PickedAttachment[]; error?: string } | undefined;
+  const r = p as { ok?: boolean; items?: PickedAttachment[]; error?: string; cancelled?: boolean; copied?: boolean } | undefined;
   if (r?.ok) return { ok: true, items: r.items ?? [] };
-  return { ok: false, error: r?.error ?? "" };
+  return { ok: false, error: r?.error ?? "", cancelled: r?.cancelled, copied: r?.copied };
 }
 
 /** 请壳截一张图（`screenshot-capture`）；用户取消也是一个 `ok:false`（error 为空）。
@@ -579,10 +580,6 @@ export function installHostBridge(handlers: Partial<{
   /** 截图到了（全局热键或迷你面板条目发起，没有请求方）：items 与附件选择器同形，
    *  按既有摄入路径建 chip。带 reqId 的不走这里（那是 `screenshotCapture()` 的应答）。 */
   onScreenshotArrived: (items: PickedAttachment[]) => void;
-  /** 截图进了剪贴板（复制路径）。 */
-  onScreenshotCopied: () => void;
-  /** 屏幕录制未授权，截图没跑起来。 */
-  onScreenRecordingDenied: () => void;
   /** 工具条上的「问 DeepDive」：文字已在壳里暂存，这里读它并引用进草稿。 */
   onSelectionAsk: () => void;
   /** toggle 模式监听状态变了。 */
@@ -647,14 +644,6 @@ export function installHostBridge(handlers: Partial<{
         case "screenshotCaptured": {
           const p = payload as { reqId?: string; items?: PickedAttachment[] } | undefined;
           if (!p?.reqId) handlers.onScreenshotArrived?.(p?.items ?? []);
-          break;
-        }
-        case "screenshotCopied": {
-          handlers.onScreenshotCopied?.();
-          break;
-        }
-        case "screenRecordingDenied": {
-          handlers.onScreenRecordingDenied?.();
           break;
         }
         case "selectionAsk": {

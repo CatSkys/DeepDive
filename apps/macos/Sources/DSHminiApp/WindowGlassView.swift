@@ -174,6 +174,16 @@ final class WindowGlassView: NSView {
         light ? Self.lightTint : Self.darkTint
     }
 
+    /// 一块**浮动玻璃面**（标注工具条 / 选区工具条 / 状态 HUD / 工具条菜单共用）：
+    /// 与 `.floating` 档同配方——`style = .regular` + 深色 tint（46%），不是往内容层刷
+    /// 一层近乎不透明的底色（那样看着就是块实心板）。圆角由调用方按面的形状设。
+    /// 本工程的部署目标就是 macOS 26，这条不设退回分支（沿用其它档的 `#available` 只是
+    /// 历史遗留，不动它）。
+    static func makeFloatingGlass() -> NSGlassEffectView {
+        if #available(macOS 26.0, *) { return makeLiquidGlass(surface: .floating) }
+        return NSGlassEffectView()
+    }
+
     /// `NSGlassEffectView` 只有 macOS 26+ 可引用：构造与初始 tint 都收进这一个门。
     @available(macOS 26.0, *)
     private static func makeLiquidGlass(surface: Surface) -> NSGlassEffectView {

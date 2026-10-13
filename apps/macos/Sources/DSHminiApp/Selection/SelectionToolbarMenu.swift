@@ -123,7 +123,7 @@ final class SelectionToolbarMenu: NSObject {
     scroll.frame = content.bounds
     scroll.autoresizingMask = [.width, .height]
     content.addSubview(scroll)
-    let glass = NSGlassEffectView()
+    let glass = WindowGlassView.makeFloatingGlass()
     GlassSurface.attach(glass, content: content)
     GlassSurface.shape(glass, content: content, cornerRadius: layout.cornerRadius)
     glass.setAccessibilityElement(true)

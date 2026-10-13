@@ -311,7 +311,8 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     if (action === "screenshot") {
       void screenshotCapture().then((result) => {
         if (result.ok) { if (result.items.length > 0) ingestAttachments(result.items); return; }
-        // 取消（无文案）不提示；失败必须说清楚（授权没生效/采集起不来都在这里）
+        if (result.copied) { void alertDialog({ message: tt("截图已复制到剪贴板", "Screenshot copied to the clipboard") }); return; }
+        if (result.cancelled) return; // 用户取消：正常收尾，不打扰
         if (result.error) void alertDialog({ message: result.error });
       });
       return;
@@ -341,21 +342,11 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   // 带 reqId 的截图是上面那次请求的应答，由 promise 消费，这里不重复摄入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "screenshotCaptured") {
-      const p = payload as { reqId?: string; items?: PickedAttachment[]; error?: string } | undefined;
+      const p = payload as { reqId?: string; items?: PickedAttachment[]; error?: string; copied?: boolean } | undefined;
       if (p?.reqId) return; // 有请求方的由那次 promise 处理
+      if (p?.copied) { void alertDialog({ message: tt("截图已复制到剪贴板", "Screenshot copied to the clipboard") }); return; }
       if (p?.error) { void alertDialog({ message: p.error }); return; }
       ingestAttachments(p?.items ?? []);
-      return;
-    }
-    if (cmd === "screenshotCopied") {
-      void alertDialog({ message: tt("截图已复制到剪贴板", "Screenshot copied to the clipboard") });
-      return;
-    }
-    if (cmd === "screenRecordingDenied") {
-      void alertDialog({
-        message: tt("需要「屏幕录制」权限才能截图：设置页「划词与截图」里有直达系统设置的按钮（授权后请重启本应用）。",
-          "Screen Recording permission is needed — the 「划词与截图」 settings page links straight to it (reopen the app after granting)."),
-      });
       return;
     }
     if (cmd === "selectionAsk") {

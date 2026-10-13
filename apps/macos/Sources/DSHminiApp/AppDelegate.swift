@@ -1171,16 +1171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 结果交付、事件外推与持久化设置回灌——移植族本身不碰桥，全在这一段。
     private func wireCaptureAndSelection() {
-        screenshot.onDelivered = { [weak self] delivered in self?.deliverCapture(delivered) }
-        screenshot.onCopied = { [weak self] in
-            guard let self else { return }
-            self.pushHost("screenshotCopied", payload: [:], to: self.currentSource())
-        }
-        screenshot.onPermissionDenied = { [weak self] in
-            guard let self else { return }
-            self.pushHost("screenRecordingDenied", payload: [:], to: self.currentSource())
-        }
-        screenshot.onWantsAccessibility = { SelectionReader.requestTrust() }
+        // 截图的结果统一走 `finishCapture(outcome:)`（一次请求一条回执），不再挂回调。
         // 授权态变化（用户在系统设置里点了）：推给页面显示状态，不要求重启才发现。
         screenshot.onTrustChange = { [weak self] trusted in
             guard let self else { return }
@@ -1249,46 +1240,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// `screenshot-capture`：来源 nil = 全局热键（交付后把面板亮起来）。
     private func beginCapture(from source: BridgeSource?, reqId: String?) {
-        guard pendingCapture == nil else { return }
-        pendingCapture = (source, reqId)
-        Task { @MainActor in
-            do {
-                try await screenshot.capture()
-            } catch {
-                self.finishCapture(
-                    payload: ["ok": false, "error": (error as? LocalizedError)?.errorDescription ?? "\(error)"])
-            }
+        guard pendingCapture == nil else {
+            // 已在截：答一句"正在截图"，别无声拒绝（早先这里直接 return，用户只会看到没反应）。
+            pushHost(
+                "screenshotCaptured",
+                payload: [
+                    "ok": false, "reqId": reqId ?? "",
+                    "error": ShellStrings.shared.text(.screenshotAlreadyRunning),
+                ],
+                to: source ?? currentSource())
+            return
         }
+        pendingCapture = (source, reqId)
+        Task { @MainActor in self.finishCapture(outcome: await self.screenshot.capture()) }
     }
 
     /// `screenshot.edit`：重开一张已存图片继续编辑。
     private func beginCaptureEdit(path: String, from source: BridgeSource, reqId: String?) {
         guard pendingCapture == nil, !path.isEmpty else { return }
         pendingCapture = (source, reqId)
-        Task { @MainActor in
-            do {
-                try await screenshot.edit(path: path)
-            } catch {
-                self.finishCapture(
-                    payload: ["ok": false, "error": (error as? LocalizedError)?.errorDescription ?? "\(error)"])
-            }
-        }
+        Task { @MainActor in self.finishCapture(outcome: await self.screenshot.edit(path: path)) }
     }
 
-    /// 交付：图片按既有附件口径内联字节（页面拿它建输入框里的 chip），屏幕上下文按路径。
-    private func deliverCapture(_ delivered: ScreenshotController.Delivered) {
-        finishCapture(payload: ["ok": true, "items": captureItems(delivered)])
-    }
-
-    private func finishCapture(payload: [String: Any]) {
+    /// 一次截图/重开编辑的**唯一**收尾：按结果回一条 `screenshotCaptured`，并把在途标记清掉。
+    /// 结果只有这几种，每一种都必须回执——没有"什么都不说"的分支（那正是"用一次之后
+    /// 再也打不开"的成因：在途标记留着，后续请求全被挡在门外）。
+    private func finishCapture(outcome: ScreenshotController.Outcome) {
         guard let pending = pendingCapture else { return }
         pendingCapture = nil
-        let source = pending.source ?? currentSource()
-        var body = payload
+        var body: [String: Any]
+        var delivered = false
+        switch outcome {
+        case .delivered(let shot):
+            body = ["ok": true, "items": captureItems(shot)]
+            delivered = true
+        case .copied:
+            body = ["ok": false, "copied": true]
+        case .cancelled:
+            body = ["ok": false, "cancelled": true]
+        case .needsPermission:
+            body = ["ok": false, "error": ShellStrings.shared.text(.screenshotNeedsPermission)]
+        case .failed(let error):
+            body = ["ok": false, "error": error.message]
+        }
         if let reqId = pending.reqId { body["reqId"] = reqId }
-        pushHost("screenshotCaptured", payload: body, to: source)
+        EngineLog.shared.append(
+            "[capture] \(pending.reqId == nil ? "hotkey" : "request") → \(delivered ? "delivered" : String(describing: outcome))")
+        pushHost("screenshotCaptured", payload: body, to: pending.source ?? currentSource())
         // 热键召唤：图进了草稿就把面板亮出来（Atd 的「截图后见面板」）。
-        if pending.source == nil, (payload["ok"] as? Bool) == true { quickPanel.showPanel() }
+        if pending.source == nil, delivered { quickPanel.showPanel() }
     }
 
     private func captureItems(_ delivered: ScreenshotController.Delivered) -> [[String: Any]] {
