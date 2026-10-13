@@ -132,12 +132,18 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
   /// 页面那一侧算出来的锚点（CSS 视口坐标，左上原点、y 向下）→ 屏幕坐标（y 向上）。
   /// 中间过两道：页面局部 → 窗口（含页面缩放）→ 屏幕。缩放取那块页面自己的 `pageZoom`
   /// （主窗不缩放，浏览器面板会）。
-  private func screenAnchor(_ raw: [String: Any]?, from web: WKWebView, in owning: NSWindow) -> NSRect? {
+  ///
+  /// **不要手动翻 y**：WKWebView 自己就是 flipped 的（`isFlipped == true`，左上原点，
+  /// 2026-10-13 实测），与 CSS 视口坐标同向，交给 `convert(_:to:)` 就对了；手动再翻一次
+  /// 等于翻两遍，锚点会落到窗口底部（"都跑到下面去了"就是这么来的，见 PITFALLS §4.39）。
+  /// 本仓别处（`QuickPanelController.hostFrame`、titlebar 的 rect 表）手写翻转是对的——
+  /// 它们从 webview 的 frame 起算、不经过 `convert`，两种口径别混。
+  func screenAnchor(_ raw: [String: Any]?, from web: WKWebView, in owning: NSWindow) -> NSRect? {
     guard let raw, let css = cssRect(raw) else { return nil }
     let zoom = web.pageZoom
     let inWeb = NSRect(
       x: css.minX * zoom,
-      y: web.bounds.height - css.maxY * zoom,
+      y: css.minY * zoom,
       width: css.width * zoom,
       height: css.height * zoom)
     return owning.convertToScreen(web.convert(inWeb, to: nil))
@@ -156,12 +162,20 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
     guard let request = current, let host = window else { return }
     let frame = TipPlacement.frame(
       anchor: request.anchor, size: hit.size, side: request.side, gap: request.gap, limits: request.limits)
+    // 已经摆在这一处就什么都不做：注释页量完会**按 resize 再报一次**（窗口从初值收到实测
+    // 尺寸会触发一次），不设这道门就是"量→摆→再量→再摆"的空转。
+    if visible, host.frame == candidateFrame(frame) { return }
     host.place(size: hit.size, origin: frame.origin, radius: hit.radius)
     // 入场只在"从看不见到看得见"那一刻跑；已经在屏上就只挪位置（换按钮不重播动画）。
     let entering = !visible
     host.orderFrontRegardless()
     visible = true
     if entering { host.animateIn() }
+  }
+
+  /// 注释内容该占的那块窗口矩形（加投影余量）：`present` 拿它跟当前 frame 比对。
+  private func candidateFrame(_ frame: NSRect) -> NSRect {
+    frame.insetBy(dx: -TooltipWindow.shadowInset, dy: -TooltipWindow.shadowInset)
   }
 
   // MARK: - 注释那一页

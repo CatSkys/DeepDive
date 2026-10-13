@@ -6,7 +6,7 @@
 //
 // 收 `tooltipContent {seq, text, caps}` 渲染，量完回报 `tooltip-size {seq, w, h, radius}`：
 // 壳拿到尺寸才摆窗口，所以回报必须带上同一个 seq（连着换两次内容时，旧尺寸不能顶替新内容）。
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TooltipChip } from "../components/Tooltip";
 import { installHostBridge, sendRects } from "../host";
 
@@ -31,12 +31,20 @@ export function TooltipApp() {
 
   // 渲染后量一次报给壳：窗口与那块玻璃都按这个矩形摆，圆角取实际渲染值（胶囊＝半高，
   // 由 CSS 的 999px 收敛，与 `composer-pill` 同一条口径）。
-  useLayoutEffect(() => {
+  const report = useCallback(() => {
     if (!content || !boxRef.current) return;
     const box = boxRef.current.getBoundingClientRect();
     const radius = parseFloat(getComputedStyle(boxRef.current).borderTopLeftRadius) || 0;
     sendRects({ type: "tooltip-size", seq: content.seq, w: box.width, h: box.height, radius });
   }, [content]);
+  useLayoutEffect(report, [report]);
+
+  // 壳把窗口收到实测尺寸会改这一页的**视口**，那可能让注释重新折行——按 resize 重量一次。
+  // 不会空转：尺寸没变时壳那一侧不重摆（TooltipController.present 的比对）。
+  useEffect(() => {
+    window.addEventListener("resize", report);
+    return () => window.removeEventListener("resize", report);
+  }, [report]);
 
   return (
     <div className="tip-page">{content && <TooltipChip text={content.text} caps={content.caps} boxRef={boxRef} />}</div>

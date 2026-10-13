@@ -43,4 +43,25 @@ final class TooltipControllerTests: XCTestCase {
         XCTAssertFalse(controller.handleMessage(["type": "mini-cc-frame"], from: nil))
         XCTAssertFalse(controller.handleMessage([:], from: nil))
     }
+
+    /// 锚点换算：CSS 视口矩形（左上原点）与 WKWebView **同向**（它自己是 flipped 的），
+    /// 所以原样交给 `convert`。手动再翻一次 y 会把锚点送到窗口底部——用户 2026-10-13 报的
+    /// "都跑到下面去了" 就是这条（PITFALLS §4.45）。
+    func testScreenAnchorKeepsTheRectNearTheTopOfTheWindow() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 500, height: 400),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        let web = WKWebView(
+            frame: NSRect(x: 0, y: 0, width: 500, height: 400),
+            configuration: WKWebViewConfiguration())
+        window.contentView = web
+        XCTAssertTrue(web.isFlipped, "WKWebView 若不是 flipped，这处换算的写法要跟着改")
+
+        let anchor = try XCTUnwrap(
+            TooltipController().screenAnchor(["x": 10.0, "y": 10.0, "w": 20.0, "h": 20.0], from: web, in: window))
+        // 距上沿 10 的元素 → 屏幕坐标里贴窗口上沿（翻错时会掉到窗口底部，约 y≈100）
+        XCTAssertGreaterThan(anchor.minY, window.frame.minY + 300)
+        XCTAssertEqual(anchor.minX, window.frame.minX + 10)
+        XCTAssertEqual(anchor.size, NSSize(width: 20, height: 20))
+    }
 }
