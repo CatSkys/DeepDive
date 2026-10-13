@@ -76,6 +76,12 @@ export function openExternalUrl(url: string): void {
   else window.open(url, "_blank");
 }
 
+/** 侧栏「快捷会话」图标：把**会话面板窗**（快捷空间那扇窗）带到前台——与 ⌥Space
+ *  同一落点（壳 QuickPanelController.showPanel）。浏览器里没有壳桥，消息发不出去。 */
+export function openQuickPanel(): void {
+  sendToShell({ type: "open-quick-panel" });
+}
+
 /* ── 打开方式（全屏预览页右上选择器）：壳侧 OpenWithCatalog 列「能打开该
    文件的 App」+ 默认项 + 图标 dataURL；选一个就请壳用该 App 打开。 ── */
 

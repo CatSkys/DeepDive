@@ -2,7 +2,7 @@
 // 末行「新会话」入口。菜单落点在 SidebarContextMenus，调宽热区在 SidebarResizer。
 // 只管渲染，不管手势与菜单开关：那些由 Sidebar 决定后当 props 传进来。
 import { useMemo } from "react";
-import { Archive, ChevronDown, Ellipsis, MessageSquarePlus, Pin, Plus } from "lucide-react";
+import { Archive, ChevronDown, Ellipsis, MessageCirclePlus, Pin, Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
@@ -43,7 +43,7 @@ export function SidebarSessionList({
   onOpenRowMenu: (s: SessionSummary, x: number, y: number) => void;
   onOpenWorkspaceMenu: (x: number, y: number) => void;
   onNewSession: () => void;
-  /** 快捷会话按钮（D14）：切「快捷会话」空间 + 新草稿。 */
+  /** 快捷会话（D14）：开**会话面板窗**（快捷空间的窗口）。 */
   onQuickSession: () => void;
 }) {
   const store = useStore();
@@ -205,14 +205,15 @@ export function SidebarSessionList({
                 <span className="ns-label">{t("新会话")}</span>
               </button>
               {/* 快捷会话（D14）：同一行行尾的第二个落点（不是另起一块），
-                  所以只有图标、没有自己的底；行内没有文字，提示挂这颗。
+                  所以只有图标、没有自己的底；点它开**会话面板窗**（快捷会话
+                  那扇窗），悬停提示照旧挂这颗——行内没有文字。
                   数据快照键在 keybinds 不占位 */}
               <button
                 className="quick-session-entry"
                 onClick={onQuickSession}
                 data-tip={t("快捷会话")}
               >
-                <MessageSquarePlus size={14} />
+                <MessageCirclePlus size={14} />
               </button>
             </div>
           </div>
