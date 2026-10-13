@@ -101,6 +101,8 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         config.userContentController = WKUserContentController()
         let wv = TitlebarAwareWebView(frame: .zero, configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
+        // 面板页也渲染输入胶囊，同主窗开系统材质档（见 WebKitSystemAppearance）
+        WebKitSystemAppearance.enable(wv)
         wv.underPageBackgroundColor = .clear
         wv.allowsMagnification = false
         wv.isInspectable = true
