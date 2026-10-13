@@ -9,8 +9,8 @@
 接手「Atd 对照调研」线(对象:GitHub JUNERDD/Atd)。全部家当在
 docs/atd-research/:主交接文档 HANDOVER.md
 必先通读;assets/ 内有 Atd 仓库的 AGENTS.md 全文(设计章是借鉴提案的出处)、
-1245 行 design-source.md、5 张界面预览图、GitHub API 快照,共约 5.0MB——
-这是唯一持久副本,/tmp 原件已不可依。
+1245 行 design-source.md、5 张界面预览图、GitHub API 快照,以及
+atd-apps/(小应用素材),共约 5.2MB——这是唯一持久副本,/tmp 原件已不可依。
 
 按序执行:
 1. 读 HANDOVER.md。事实、数字、复测命令(含本机 mount 的可行/不可行结论)
@@ -32,7 +32,11 @@ docs/atd-research/:主交接文档 HANDOVER.md
 5. 改动流程:独立任务先 scripts/new-worktree.sh <slug> 开树;简单改动
    (文档/检查脚本)= make check;行为改动 = make test 全绿;主仓收
    merge --no-ff,合并后 make deliver;提交信息中文详述因果。
-6. 边界:我没点名的 Atd 其余块(个人小应用、widget、其余分包深潜)
+6. 边界:我没点名的 Atd 其余块(widget、其余分包深潜)
    不擅自扩;铁律 9——不确定就问,禁止猜测性代码;handover-atd 目录
    归宿(提交归档/移入 docs/)等你指示,勿自行处理。
+   「个人小应用(My apps)」已单独立文:`APPS.md` + `assets/atd-apps/`
+   (时点=上游 main @ 45d4714,release v0.8.1);它的 7 条借鉴提案
+   (§8)与两份立项计划(它是照 Raycast Glaze 做的)都在那里,拍板前
+   不动任何规范文件。
 ```
