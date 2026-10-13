@@ -5359,31 +5359,54 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 /* 黑白主题下 goal 编辑框的聚焦反馈（此前无规则，露出系统蓝环） */
 
-/* 全局悬浮注释（data-tip）：与触发元素四边对齐，键帽快捷键右置；胶囊形
-   （用户定稿：与全站胶囊语法统一） */
+/* 全局悬浮注释（data-tip）：文字 + 键帽，胶囊形（用户定稿：与全站胶囊语法统一）。
+   几何按 Raycast 的 tooltip：`padding 6 · gap 4 · max-width 300`，文案自己带 4px 横向
+   内距（`.tooltip__text` 同款）。
+   **两条路，同一份注释本体**：
+   · 壳内（mac）：注释住在**独立 Tooltip 窗口**里，材质是那块窗口的系统液态玻璃，本页
+     这一份的底/模糊/描边/投影在 `html[data-tooltip]` 作用域里撤下（PITFALLS §4.38：
+     原生玻璃与正文同处一块 webview 就等于没有玻璃，注释因此连内容一起搬进了自己的窗口）。
+   · 页内（浏览器调试 / 没有那条壳能力的平台）：下面这一份自己出材质、自己落位。 */
 .tip {
   position: fixed;
   z-index: 1300;
   pointer-events: none;
   display: flex;
   align-items: center;
-  gap: 10px;
-  max-width: 320px;
-  padding: 5px 12px;
+  gap: 4px;
+  max-width: 300px;
+  padding: 6px;
   border-radius: 999px;
   border: 1px solid var(--line-strong);
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
   line-height: 18px;
-  animation: tip-in var(--dur-fast) var(--ease-out) both;
 }
-.tip[data-pos="top"] { --tip-x: 0px; --tip-y: 6px; }
-.tip[data-pos="bottom"] { --tip-x: 0px; --tip-y: -6px; }
-.tip[data-pos="left"] { --tip-x: -6px; --tip-y: 0px; }
-.tip[data-pos="right"] { --tip-x: 6px; --tip-y: 0px; }
+.tip-text { padding-inline: 4px; white-space: pre-wrap; }
+/* 开合动效＝Raycast popover 那两条：打开 .25s 带一点过冲、关闭 .15s 更干脆（"快出慢入"）。
+   页内这份按相位属性跑；壳内那份由原生窗口跑同一条曲线（TooltipController 的动画）。 */
+.tip[data-phase="open"] { animation: tip-in .25s cubic-bezier(.3, .7, 0, 1.26) both; }
+.tip[data-phase="closing"] { animation: tip-out .15s ease-out both; }
 @keyframes tip-in {
-  from { opacity: 0; transform: translate(var(--tip-x), var(--tip-y)); }
-  to { opacity: 1; transform: translate(0px, 0px); }
+  from { opacity: .6; transform: scale(.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes tip-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(.97); }
+}
+/* 壳的 Tooltip 窗口那一页（`?tooltip=1`）：窗口就贴着这一条注释（壳按本页报上来的实测
+   尺寸摆窗口与那块玻璃），所以这一页里注释只管把自己排出来——材质全撤（在窗口的系统
+   液态玻璃上）、位置也不自己定（窗口就是它）、动效由原生窗口跑。 */
+html[data-tooltip] .tip {
+  position: static;
+  width: fit-content;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  animation: none;
 }
 .tip-keys-row { display: flex; gap: 3px; flex: none; }
 /* 空心键帽（§1.8 的第二档）：行内热键提示用这一档——描边不填底，列表里不喧宾夺主；
@@ -5416,7 +5439,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
   box-shadow: 0 1px 0 rgba(0,0,0,.28);
 }
 @media (prefers-reduced-motion: reduce) {
-  .tip { animation: none; }
+  /* 选择器要带上相位属性：裸 `.tip` 压不过 `.tip[data-phase="open"]`（多一个属性选择器） */
+  .tip[data-phase] { animation: none; }
 }
 
 .capsule-git-row, .capsule-card-item, .capsule-icon-btn, .capsule-refresh, .capsule-stop, .capsule-sec-toggle {

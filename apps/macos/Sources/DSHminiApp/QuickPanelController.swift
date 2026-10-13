@@ -350,6 +350,11 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             return
         }
         if message.name == "deepdive" {
+            // 悬浮注释的锚点：面板页与命令中心卡页都可能报（两页都挂 TooltipHost），
+            // 谁报的用 `message.webView` 认——锚点要按那一块页面的几何换算。注释归壳那块
+            // 独立窗口（TooltipController），与下面两张 rect 表无关。
+            if let body = message.body as? [String: Any],
+               AppDelegate.shared?.tooltip.handleMessage(body, from: message.webView) == true { return }
             // 几块原生玻璃的矩形表（页面 → 壳）：卡片那块的几何与圆角，口径与 composer-pill
             // 完全一致（CSS 视口坐标 y-down、圆角按实际渲染值报来、时长按 token 报来）。
             if let body = message.body as? [String: Any],

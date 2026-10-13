@@ -9,6 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var miniPanel: MiniPanelController!
     private var statusItem: StatusItemController!
     private var hotKey: HotKeyManager!
+    /// 悬浮注释的宿主（独立原生玻璃窗口 + 注释那一页）：三块页面（主窗/迷你面板/命令
+    /// 中心卡）的 `data-tip` 都汇到这一处——注释窗口只有一块，按屏幕坐标摆，天然同时
+    /// 服务所有窗口。懒建：测试宿主不碰 webview。
+    lazy var tooltip = TooltipController()
     /// 截图的壳侧编排（Atd 移植族的接线）；懒建：测试宿主不碰屏幕冻结与授权计时器。
     private lazy var screenshot = ScreenshotController()
     /// 划词的壳侧编排（Atd 移植族的接线）；懒建同上。
@@ -158,6 +162,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 windowController.load(url: bridgeURL)
             }
             quickPanel.load(bridgeURL: bridgeURL)
+            // 悬浮注释那块窗口（系统液态玻璃 + 注释那一页）：**跟着预载**——注释是随手
+            // 悬停就看的东西，第一次悬停不能是空的。
+            tooltip.load(bridgeURL: bridgeURL)
         }
 
         // 铺盘期放后台：首启/升级那一次 ProfileComposer/ChatImport/BotChannel 各要
@@ -329,6 +336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if key == "appearance" {
                     DSHAppPrefs.setAppearance(mode)
                     windowController.applyAppearanceMode()
+                    tooltip.applyAppearanceMode()
                 } else if key == "language" {
                     DSHAppPrefs.setLanguage(mode)
                 } else if key == "keybinds" {

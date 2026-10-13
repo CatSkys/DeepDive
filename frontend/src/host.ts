@@ -588,6 +588,9 @@ export function installHostBridge(handlers: Partial<{
   onAccessibilityTrust: (trusted: boolean) => void;
   /** 屏幕录制授权状态变了。 */
   onScreenRecordingTrust: (trusted: boolean) => void;
+  /** Tooltip 窗口那一页（`?tooltip=1`）专用：这一条注释该显示什么（壳收到锚点上报后转推，
+   *  `seq` 用于把它与那一页回报的实测尺寸对齐）。 */
+  tooltipContent: (payload: { seq: number; text: string; caps: string[] }) => void;
 }> = {}): void {
   if (window.__deepDiveHost) return; // idempotent mount (StrictMode/reloads)
   window.__deepDiveHost = {
@@ -614,6 +617,13 @@ export function installHostBridge(handlers: Partial<{
         }
         case "miniCCClosed": {
           handlers.miniCCClosed?.();
+          break;
+        }
+        case "tooltipContent": {
+          const p = (payload ?? {}) as { seq?: number; text?: string; caps?: string[] };
+          if (typeof p.seq === "number" && typeof p.text === "string") {
+            handlers.tooltipContent?.({ seq: p.seq, text: p.text, caps: p.caps ?? [] });
+          }
           break;
         }
         case "quickPanelFocus": {
