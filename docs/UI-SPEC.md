@@ -283,7 +283,7 @@
 
 **两条宿主，同一份本体**：
 
-- **壳内（mac）＝独立原生窗口**。注释住在一块透明无边框面板里（`Tooltip/TooltipWindow.swift`），那块窗口的底是**系统液态玻璃**（`WindowGlassView(surface: .floating)`，与命令中心卡同一档），窗口贴着一块 `?tooltip=1` 的透明 webview（只渲注释本体）。页面**不画注释**，只把锚点矩形推上去（`tooltip-show`/`tooltip-hide`）；落位（偏好边居中 → 放不下翻面 → 夹进屏幕可视区）与开合全在壳里（`TipPlacement` / `TooltipController`）。**为什么必须独立窗口**：原生玻璃糊不到与自己同处一块 webview 的内容（PITFALLS §4.38），注释因此与命令中心卡同路——要原生材质就连内容一起搬进自己的窗口。好处是注释窗口只有一块、按屏幕坐标摆，主窗/迷你面板/命令中心卡三块页面的注释天然共用它。
+- **壳内（mac）＝独立窗口**。注释住在一块透明无边框面板里（`Tooltip/TooltipWindow.swift`），窗口贴着一块 `?tooltip=1` 的透明 webview（只渲注释本体）。页面**不画注释**，只把锚点矩形推上去（`tooltip-show`/`tooltip-hide`）；落位（偏好边居中 → 放不下翻面 → 夹进屏幕可视区）与开合全在壳里（`TipPlacement` / `TooltipController`）。**窗口不垫原生玻璃**：材质与输入胶囊是同一份 CSS 系统玻璃（`[data-liquid-glass-backdrop]` 那条全站规则，见 §2.2），两层玻璃叠着会发灰。窗口留着是为了另外两件事——**原生 AppKit 控件那一族（截图/标注工具条）只能走它**（CSS 到不了 AppKit 视图，`NativeTooltip`），以及它一块就能按屏幕坐标同时服务主窗/迷你面板/命令中心卡三块页面。
 - **页内（浏览器调试 / 没有那条壳能力的平台）**：`TooltipHost` 在页里 render 一份同款注释，自己落位、自己出材质（`--panel-glass` + blur + `--shadow-pop`）。走哪条路由 `platform.ts` 的能力位 `tooltip` 决定。
 
 **几何**（Raycast tooltip 口径）：内距 6、内容间距 4、`max-width` 300，文案自带 4px 横向内距；形状是**胶囊**（与全站胶囊语法统一，用户定稿）。键帽吃 §1.8 的**有底**那一档（Raycast 的 `prominent`：底 fg-10 + 主文字色）。

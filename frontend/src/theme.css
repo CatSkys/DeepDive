@@ -299,7 +299,7 @@ button {
     0 24px 64px rgba(0,0,0,.17);
 }
 /* 浮在会话流之上的一档材质（弹层/提示/回到底部钮/页内查找胶囊都吃这一条） */
-.model-menu, .model-detail, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .tip, .jump-down, .preview-window, .find-capsule {
+.model-menu, .model-detail, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop, .capsule-panel, .jump-down, .preview-window, .find-capsule {
   background: var(--panel-glass);
   /* 前缀顺序勿倒：-webkit- 在前、标准在后——minifier 会把紧跟 -webkit-
      别子之后的同名标准属性当重复删掉（lightbox 曾因此逃过），删了标准属性
@@ -5384,13 +5384,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 黑白主题下 goal 编辑框的聚焦反馈（此前无规则，露出系统蓝环） */
 
 /* 全局悬浮注释（data-tip）：文字 + 键帽，胶囊形（用户定稿：与全站胶囊语法统一）。
-   几何按 Raycast 的 tooltip：`padding 6 · gap 4 · max-width 300`，文案自己带 4px 横向
-   内距（`.tooltip__text` 同款）。
-   **两条路，同一份注释本体**：
-   · 壳内（mac）：注释住在**独立 Tooltip 窗口**里，材质是那块窗口的系统液态玻璃，本页
-     这一份的底/模糊/描边/投影在 `html[data-tooltip]` 作用域里撤下（PITFALLS §4.38：
-     原生玻璃与正文同处一块 webview 就等于没有玻璃，注释因此连内容一起搬进了自己的窗口）。
-   · 页内（浏览器调试 / 没有那条壳能力的平台）：下面这一份自己出材质、自己落位。 */
+   几何按 Raycast 的 tooltip：`padding 6 · gap 4 · max-width 300`，文案自带 4px 横向内距。
+   **材质与输入胶囊是同一份**：`[data-liquid-glass-backdrop]` 那一层（全站那条规则，
+   `-apple-visual-effect` 系统液态玻璃；属性不可用的运行时退回 blur、再退回底色）——
+   注释不再自己画 CSS 玻璃，与胶囊/迷你面板控件组同一分工：本体只留几何与外投影、
+   底色与材质在材质层上。
+   **两条宿主，同一份本体**：页内那份自己落位（浏览器调试 / 没有那条壳能力的平台）；
+   壳里那份住 Tooltip 窗口（`?tooltip=1` 那一页 + 原生 AppKit 控件也走它，见 `Tooltip/`）。 */
 .tip {
   position: fixed;
   z-index: 1300;
@@ -5405,7 +5405,13 @@ input:focus, textarea:focus, select:focus { outline: none; }
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
   line-height: 18px;
+  /* 外投影挂**本体**：材质那块托管板按材质层自己的 bounds 铺，投影挂在材质层上会把板
+     撑大一圈（`--composer-shadow` 那条注释里的同一件事，Raycast 同一层也只有材质）。
+     `.tip` 因此不在浮层材质组里——那一组是"自带底与模糊"的另一档。 */
+  box-shadow: var(--shadow-pop);
 }
+/* 内容抬到材质之上（同 `.composer > :not([data-liquid-glass-backdrop])` 那条） */
+.tip > :not([data-liquid-glass-backdrop]) { position: relative; z-index: 1; }
 .tip-text { padding-inline: 4px; white-space: pre-wrap; }
 /* 开合动效＝Raycast popover 那两条：打开 .25s 带一点过冲、关闭 .15s 更干脆（"快出慢入"）。
    页内这份按相位属性跑；壳内那份由原生窗口跑同一条曲线（TooltipController 的动画）。 */
@@ -5420,8 +5426,9 @@ input:focus, textarea:focus, select:focus { outline: none; }
   to { opacity: 0; transform: scale(.97); }
 }
 /* 壳的 Tooltip 窗口那一页（`?tooltip=1`）：窗口就贴着这一条注释（壳按本页报上来的实测
-   尺寸摆窗口与那块玻璃），所以这一页里注释只管把自己排出来——材质全撤（在窗口的系统
-   液态玻璃上）、位置也不自己定（窗口就是它）、动效由原生窗口跑。 */
+   尺寸摆窗口与它那块 webview）。这一页里注释只管把自己排出来——位置不自己定（窗口就是
+   它）、动效由原生窗口跑；**材质照旧画在材质层上**（与页内那份同一份 CSS 系统玻璃，
+   窗口底下不再垫原生玻璃：两层玻璃叠着会发灰）。 */
 /* 量尺寸的**固定宽度**：注释多宽绝不能取决于窗口当前多大——每次量都发生在"上一个注释"
    的尺寸里的话，上一颗窄（68px），这一颗长文案（"收起侧栏 ⌘B"）就会被量成**竖排**并被
    永久缓存（用户 2026-10-13 报的"不太稳定"就是这条）。这一格给的是 max-width 300 + 左右
@@ -5430,12 +5437,6 @@ html[data-tooltip] .tip-page { width: 312px; }
 html[data-tooltip] .tip {
   position: static;
   width: fit-content;
-  background: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border: none;
-  box-shadow: none;
-  animation: none;
 }
 .tip-keys-row { display: flex; gap: 3px; flex: none; }
 /* 空心键帽（§1.8 的第二档）：行内热键提示用这一档——描边不填底，列表里不喧宾夺主；

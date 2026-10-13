@@ -20,6 +20,19 @@ export function TooltipApp() {
   const [content, setContent] = useState<TipContent | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
+  // 明暗的本地基准（prefs.ts 同一条，丢不掉）：壳把窗口外观设成应用的主题，WebKit 因此
+  // 把它报成本地媒体查询——这一页没有 store，自己把 `data-theme` 写上，浅色下材质层的
+  // tint（`--composer-bg` 的浅色档在 `:root[data-theme="light"]` 里）才跟着换。
+  useEffect(() => {
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      document.documentElement.dataset.theme = scheme.matches ? "dark" : "light";
+    };
+    apply();
+    scheme.addEventListener("change", apply);
+    return () => scheme.removeEventListener("change", apply);
+  }, []);
+
   // 桥只装这一条（installHostBridge 幂等；这一页没有别的消费者）
   useEffect(
     () =>
@@ -29,13 +42,11 @@ export function TooltipApp() {
     [],
   );
 
-  // 渲染后量一次报给壳：窗口与那块玻璃都按这个矩形摆，圆角取实际渲染值（胶囊＝半高，
-  // 由 CSS 的 999px 收敛，与 `composer-pill` 同一条口径）。
+  // 渲染后量一次报给壳：窗口按这个尺寸摆（圆角与材质都在 CSS 上，壳不需要）。
   const report = useCallback(() => {
     if (!content || !boxRef.current) return;
     const box = boxRef.current.getBoundingClientRect();
-    const radius = parseFloat(getComputedStyle(boxRef.current).borderTopLeftRadius) || 0;
-    sendRects({ type: "tooltip-size", seq: content.seq, w: box.width, h: box.height, radius });
+    sendRects({ type: "tooltip-size", seq: content.seq, w: box.width, h: box.height });
   }, [content]);
   useLayoutEffect(report, [report]);
 
