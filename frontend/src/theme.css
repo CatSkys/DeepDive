@@ -5405,6 +5405,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* 壳的 Tooltip 窗口那一页（`?tooltip=1`）：窗口就贴着这一条注释（壳按本页报上来的实测
    尺寸摆窗口与那块玻璃），所以这一页里注释只管把自己排出来——材质全撤（在窗口的系统
    液态玻璃上）、位置也不自己定（窗口就是它）、动效由原生窗口跑。 */
+/* 量尺寸的**固定宽度**：注释多宽绝不能取决于窗口当前多大——每次量都发生在"上一个注释"
+   的尺寸里的话，上一颗窄（68px），这一颗长文案（"收起侧栏 ⌘B"）就会被量成**竖排**并被
+   永久缓存（用户 2026-10-13 报的"不太稳定"就是这条）。这一格给的是 max-width 300 + 左右
+   内距 12 的余量，`fit-content` 在里面照常收到文案的自然宽度。 */
+html[data-tooltip] .tip-page { width: 312px; }
 html[data-tooltip] .tip {
   position: static;
   width: fit-content;
