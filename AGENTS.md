@@ -40,7 +40,7 @@ DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 分发档（公证+装钉
 make deliver    # 一键日常交付：lint → 前端 build → 引擎保鲜 → Release+嵌入 → pkill → open → 日志确认（简单改动这一条就是全部）
 make check      # 树内快速验证：前端 lint + build（含严格 tsc，~10s）
 make hooks      # 启用 §5 机械卡点（core.hooksPath → scripts/git-hooks；worktree 共享）
-make tokens     # tokens.json → tokens.css（改 token 后必跑）
+make tokens     # 手工重生成 tokens.json → tokens.css（构建已自动跑，这只用于想立刻看结果）
 make test       # 前端 vitest+两道门 ∥ 壳 XCTest 两腿并行（scripts/test.sh；起跑前自动清占测试锁的残留宿主）
 make clean      # 清 .build 与 dist
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b --noEmit && vite build --outDir dist --emptyOutDir && node scripts/copy-pdfjs-assets.mjs",
+    "build": "node packages/design/gen-tokens.mjs && tsc -b --noEmit && vite build --outDir dist --emptyOutDir && node scripts/copy-pdfjs-assets.mjs",
     "test": "vitest run",
     "lint": "eslint src",
     "gen": "node packages/design/gen-tokens.mjs"

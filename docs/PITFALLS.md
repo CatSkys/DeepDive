@@ -18,7 +18,7 @@
 
 **引擎配置/升级/协议（细节 §7）**：并行腿下 GitChanges 偶发红→7.12 · 升级后协议断裂→7.1/7.1.1/7.1.2 · 第二实例无声退出→7.2 · settings 读写错→7.3 · llm-pi-ai 段消失→7.4 · 导入会话找不到→7.5 · 思考强度为空→7.11 · 插件开关没反应→7.6 · 改 persona 没生效→7.7 · 模型自称 dsh→7.8 · 测试假信号→7.10 · BrowserHidden sleep 别改快→7.9 · 模型不守协议→7.8/7.7
 
-**交付/打包（细节 §5）**：版本假 SHA→5.1 · 验收对象不对→5.2 · 视觉自检配方→5.3 · 构建失败被洗白→5.4 · 并行打包互撕→5.5 · 新机器黑屏→5.6 · 公证过引擎崩→5.7 · 分发包引擎必死→5.8 · 打包慢→5.9 · 开发档 SIGKILL→5.10 · 改动没生效(旧 dist)→5.11 · 签名被打断→5.12
+**交付/打包（细节 §5）**：版本假 SHA→5.1 · 验收对象不对→5.2 · 视觉自检配方→5.3 · 构建失败被洗白→5.4 · 并行打包互撕→5.5 · 新机器黑屏→5.6 · 公证过引擎崩→5.7 · 分发包引擎必死→5.8 · 打包慢→5.9 · 开发档 SIGKILL→5.10 · 改动没生效(旧 dist)→5.11 · 签名被打断→5.12 · 改了 token 却发旧值(生成物不入库、生成步没挂构建)→5.13
 
 ### 7.12 `make test` 并行腿下 GitChangesTests 偶发失败，单跑全绿（2026-10-13）
 
@@ -1031,6 +1031,23 @@
 - 判别式（三条命令）：`codesign -dv --verbose=4` 看 `<app>` / `Contents/Resources/Runtime/node` / 那个 `.node` 的 TeamIdentifier 与 flags——`0x0(none)` 是开发档、`0x10000(runtime)` 才是 hardened；插件那侧 `adhoc, linker-signed` + `TeamIdentifier=not set` 即漏签。
 - 处置：`sign-app.sh --distribution` 改成**先签库（.node/.dylib 等）、后签可执行文件（node、Contents/MacOS/<名>）**——打断只停在"node 还没换 hardened 档"那一侧，那时库校验没开、插件照常加载；开发档本就不带 runtime（§5.10），不受影响。
 - 教训：**同一棵包的多步签名，顺序要按"打断后依然自洽"排**，别按路径字典序；这类报错别去读引擎代码——签名三件套一比就知道。
+
+### 5.13 token 生成物不进构建链：改了 `tokens.json` 交付出去的还是旧值（2026-10-13 实踩）
+- 事故（2026-10-13）：圆角阶梯新增 `radius.micro` 并同步改了 `tokens.json`，`make deliver` 全绿、包也打开了，
+  但产物里 **21 处 `var(--dsh-radius-micro)` 全部悬空**——`generated/tokens.css` 还是三天前那份（未定义变量
+  让整条 `border-radius` invalid-at-computed-value-time 静默失效，与 §1.13 同一根因），那些元素只是"圆角没了"，
+  不报错、测试不红。
+- 根因：`tokens.css` 是**生成物且不入库**，而生成步只在 `scripts/build-frontend.sh`（`make dev` 走它）里；
+  `make check` 与 `scripts/deliver.sh` 跑的是裸 `npm run build`（vite only），**没有生成步**。
+  于是"改了 token 源 → 交付"这条路上，生成物永远停在改之前——交付链里少一环，配合"生成物不入库"就成了静默路径。
+  （同 §5.11 的家族：交付前该构建/该生成的，构建链不替你做。）
+- 处置：生成步移进 `frontend/package.json` 的 `build`（`node packages/design/gen-tokens.mjs && tsc … && vite build`）
+  ——一处接线，`make check` / `deliver.sh` / `build-frontend.sh` / 任何人手动 `npm run build` 全覆盖；
+  `npm run gen` 与 `make tokens` 保留作"只想立刻看生成结果"的手工口。
+- 判别式（交付后一条命令）：拿产物 CSS 数一遍声明与引用——
+  `python3 -c "import re,sys; s=open(sys.argv[1]).read(); print({n: len(re.findall(r'--dsh-%s:'%n, s)) for n in ['radius-micro','radius-bubble']})"`
+  （故意用 `--dsh-x:` 冒号匹配，避免把 `var(--dsh-x)` 的**引用**当成声明；上面那次 21 引用 / 0 声明一眼可辨。）
+- 教训：**凡"生成物不入库"，其生成步必须挂在构建上，而不是挂在某一条构建腿或某个人的记忆上。**
 
 ## 6. 调试技巧
 
