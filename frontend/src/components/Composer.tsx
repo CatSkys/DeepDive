@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, Square, Plus, Mic, Camera } from "lucide-react";
+import { ArrowUp, Square, Plus, Mic } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../store";
 import { comboFor } from "../keybinds";
@@ -22,6 +22,7 @@ import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
 import { useSlashCommands } from "./composer/useSlashCommands";
 import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
+import { ComposerPlusMenu, type PlusAction } from "./composer/ComposerPlusMenu";
 import { EffortPicker, type EffortFace } from "./composer/EffortPicker";
 import { FileIcon } from "../session/FileIcon";
 import { fileMeta } from "./composer/fileMeta";
@@ -35,10 +36,11 @@ import { uuid } from "../uuid";
  * composer/EffortPicker.tsx。右侧三颗（档位/容量圈/发送·停止·听写）收在
  * 同一格 flex 簇里，宽态一起换行到底部行。
  *
- * Menus are keyboard-first, no dedicated buttons: typing "@"
- * opens 附件/引用, typing "/" opens 命令; the ＋ button forces
- * the @ menu for discoverability. ↑↓ + Enter/Tab pick, Esc
- * dismisses until the next edit, click-outside closes. The
+ * Menus are keyboard-first: typing "@" opens 附件/引用, typing "/" opens 命令;
+ * the ＋ button opens its own menu (截图 / 上传文件 / 添加文件夹… / 提及…, 照 Atd
+ * 参考图 2026-10-13 定稿), whose 提及 row just types the "@" that opens the
+ * mention menu. ↑↓ + Enter/Tab pick, Esc dismisses until the next edit,
+ * click-outside closes. The
  * send control is always visible — tactile when it can send,
  * a stop button while the turn is running. 容量圈 hover 出弹层，
  * 无投影数据时不渲染也不占网格位。
@@ -302,10 +304,34 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     };
   }, [setText]);
 
-  /** 截一张图（＋ 旁的相机钮）：壳里跑完冻结/选区/标注，回来的是与选择器同形的 items。 */
-  const addScreenshot = () => {
-    void screenshotCapture().then((items) => { if (items) ingestAttachments(items); });
+  // ＋ 的二级菜单：截图 / 上传文件 / 添加文件夹… / 提及…（照 Atd 参考图，2026-10-13 用户定稿）
+  const [plusOpen, setPlusOpen] = useState(false);
+  const onPlusPick = (action: PlusAction) => {
+    setPlusOpen(false);
+    if (action === "screenshot") {
+      void screenshotCapture().then((items) => { if (items) ingestAttachments(items); });
+      return;
+    }
+    if (action === "files" || action === "folders") { addAttachments(action); return; }
+    // 提及：插入 "@" 交给既有的 @ 菜单（键盘优先那条路，本项只是它的一个入口）
+    setText((prev) => `${prev}@`);
+    requestAnimationFrame(() => taRef.current?.focus());
   };
+
+  // Esc 与点别处收起 ＋ 菜单（@/ 命令菜单由输入框自己管，这条只管 plusOpen）
+  useEffect(() => {
+    if (!plusOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPlusOpen(false); };
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest(".composer-anchor")) setPlusOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("mousedown", onDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("mousedown", onDown, true);
+    };
+  }, [plusOpen]);
 
   // 壳推来的截图与划词事件（全局截图热键、工具条上的「问 DeepDive」）：
   // 带 reqId 的截图是上面那次请求的应答，由 promise 消费，这里不重复摄入。
@@ -549,6 +575,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
         {menu && (
           <ComposerMenu menu={menu} query={query} rows={rows} active={active} setActive={setActive} onPick={pick} />
         )}
+        {plusOpen && !menu && <ComposerPlusMenu onPick={onPlusPick} />}
         <div className={`composer${multiline ? " wide" : ""}`}>
           {/* 行数量测件：与输入框同款式的只读 textarea，零高度、不可见，占第 2 列
               （＝单行态文本列宽）。列宽与当前布局无关，所以行数判据不会抖。 */}
@@ -556,21 +583,12 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
           <button
             type="button"
             className="composer-icon"
-            data-tip={t("上传附件")}
-            onClick={addAttachments}
+            data-tip={t("添加")}
+            aria-expanded={plusOpen}
+            onClick={() => setPlusOpen((open) => !open)}
           >
             <Plus size={16} strokeWidth={2} />
           </button>
-          {hasShell && (
-            <button
-              type="button"
-              className="composer-icon"
-              data-tip={t("截图（含标注）")}
-              onClick={addScreenshot}
-            >
-              <Camera size={16} strokeWidth={2} />
-            </button>
-          )}
           <textarea
             ref={taRef}
             rows={1}
