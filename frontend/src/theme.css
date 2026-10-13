@@ -1675,7 +1675,12 @@ button {
 /* 内容抬到材质之上：同一条栈里靠 z 分先后。**不要求宿主做成栈上下文**——那正是会把
    宿主自己变成 backdrop root 的嫌疑动作（isolation / z-index 都得带上它）。
    两个宿主共用一条：会话/草稿页的输入胶囊，与迷你面板右上那颗控件胶囊。 */
-[data-liquid-glass-backdrop] ~ * { position: relative; z-index: 1; }
+/* 内容抬到材质之上（同一栈里靠 z 分先后）。**特异度必须是 0**（:where()）——
+   这条规则会给每个后续兄弟加 `position: relative`，而同特异度的类规则（游戏面的
+   `.ov` 暂停遮罩、命令面板的 `.searchRow` 浮动头）可能排在它后面，那样就把它们的
+   `position: absolute` 覆盖成 relative（遮罩不再铺满、浮动头落回文档流）。零特异度后
+   任何写明定位的子元素都稳赢。 */
+:where([data-liquid-glass-backdrop] ~ *) { position: relative; z-index: 1; }
 /* macOS 26 的原生液态玻璃：材质交系统合成器直接渲染（media-controls 档），折射、
    边缘光、深浅自适应都不归我们管。CSS 模糊撤下（两套玻璃叠着会发灰），底色
    --composer-bg 保留作 tint——「tint 只定基调、玻璃观感归材质」（PITFALLS §7 玻璃那条），
