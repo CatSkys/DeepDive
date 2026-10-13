@@ -26,6 +26,15 @@ final class TooltipWindowTests: XCTestCase {
         XCTAssertEqual(window.web.frame, inner)
     }
 
+    /// 第一次量尺寸发生在 `place()` **之前**：那时两块若还是零尺寸，注释页的视口就是塌的
+    /// （`width: fit-content` 退成竖排，量出 32×84 这种错尺寸，真值 68×30；用户 2026-10-13
+    /// 截图里的"竖排文字"就是它）。
+    func testLayersStartAtTheMeasuringSize() {
+        let window = makeWindow()
+        XCTAssertEqual(window.glass.frame.size, TooltipWindow.initialSize)
+        XCTAssertEqual(window.web.frame.size, TooltipWindow.initialSize)
+    }
+
     func testWindowNeverTakesEventsOrFocus() {
         let window = makeWindow()
         XCTAssertTrue(window.ignoresMouseEvents)
