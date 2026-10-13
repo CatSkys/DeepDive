@@ -339,11 +339,12 @@ button {
    的兄弟卡；收起态配方不动（width 0 + pointer-events none）。 */
 .app.mini-panel .panel:not([data-closed="true"]) { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; }
 
-/* 迷你面板「会话进行中」的辉光（MiniRunningGlow）：**只有最上方一条**——从顶缘向下
-   渐隐的柔光带，三层错拍循环，观感是一层层往下推的光（用户 2026-10-13 定稿：
-   "上下左右只有最上方显示"）。盖在内容之上（4）、不接事件，开着的右侧卡（5）仍在
-   其上。周期引 --loop-breathe——"在跑"全站一种节拍（同 .state-dot.running 的呼吸，
-   UI-SPEC §1.7）。 */
+/* 迷你面板「会话进行中」的辉光（MiniRunningGlow）：**只有最上方一条**，而且是沿线
+   **滑动**的光——细带 + 柔和拖尾，沿顶缘从左滑到右循环；三条错拍接成不断流
+   （Raycast 那种"边缘的光在滚动"；用户 2026-10-13 否掉了之前原地明灭的闪烁版：
+   "一闪一闪的，没有波浪起伏的感觉"）。盖在内容之上（4）、不接事件，开着的右侧卡
+   （5）仍在其上。扫动周期由 --loop-breathe 推两倍＝2.4s（词汇表口径的"就地写
+   周期"，与状态点呼吸同族）。 */
 .mini-running-glow {
   position: absolute;
   inset: 0;
@@ -354,27 +355,29 @@ button {
 }
 .mini-running-glow > span {
   position: absolute;
-  left: 0;
-  right: 0;
   top: 0;
-  height: 132px;
-  background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 100%);
-  opacity: 0;
-  animation: mini-running-glow-top var(--loop-breathe) var(--ease-out) infinite;
+  left: 0;
+  height: 20px;
+  width: 40%;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.5) 50%, rgba(255,255,255,0) 100%);
+  filter: blur(6px);
+  animation: mini-running-glow-run calc(var(--loop-breathe) * 2) linear infinite;
 }
-/* 三层错拍（负延迟＝直接从中途起跑），同一周期里依次亮起，接成连续的"一层层"。 */
-.mini-running-glow > span:nth-child(2) { animation-delay: calc(var(--loop-breathe) / -3); }
-.mini-running-glow > span:nth-child(3) { animation-delay: calc(var(--loop-breathe) / -1.5); }
-@keyframes mini-running-glow-top {
-  0%   { opacity: 0; transform: translateY(-18px); }
-  35%  { opacity: 1; }
-  100% { opacity: 0; transform: translateY(4px); }
+/* 三条错拍（负延迟＝直接从中途起跑）：一条滑出去时下一条已在路上，接成不断流。 */
+.mini-running-glow > span:nth-child(2) { animation-delay: calc(var(--loop-breathe) * -2 / 3); }
+.mini-running-glow > span:nth-child(3) { animation-delay: calc(var(--loop-breathe) * -4 / 3); }
+@keyframes mini-running-glow-run {
+  from { transform: translateX(-110%); }
+  to   { transform: translateX(260%); }   /* 带宽 40% → 260% 时整条滑出右缘 */
 }
 @media (prefers-reduced-motion: reduce) {
-  /* 全静止：光停住但状态不丢——留一层常亮，另两层撤掉。 */
-  .mini-running-glow > span { animation: none; opacity: .45; transform: none; }
+  /* 全静止：不扫动，留一条贴顶缘的常亮细线（状态不丢）。 */
+  .mini-running-glow > span {
+    animation: none; width: 100%; transform: none; filter: none; height: 14px;
+    background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0));
+  }
   .mini-running-glow > span:nth-child(2),
-  .mini-running-glow > span:nth-child(3) { opacity: 0; }
+  .mini-running-glow > span:nth-child(3) { display: none; }
 }
 
 /* 迷你面板的草稿页（Atd 主面板的结构，我们的画法）：头部同会话页根条（复用

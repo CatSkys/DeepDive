@@ -1,7 +1,7 @@
-// 迷你面板「会话进行中」的整面板辉光：三层同款内辉光错拍循环，盖在面板内容之上、
-// 不接事件——视觉上像一圈圈往里推的光。只管画这一件事；"在跑"的判断归调用方
-// （MiniPanelApp 按 store.sessions[].running 决定挂不挂它），周期引 --loop-breathe
-// 与状态点呼吸同拍（UI-SPEC §1.7）。
+// 迷你面板「会话进行中」的辉光：**只有最上方一条**沿线滑动的光——三个同款光带
+// （细带 + 拖尾）错拍循环，一条滑出去时下一条已在路上，接成不断流。只管画这一件事；
+// "在跑"的判断归调用方（MiniPanelApp 按 store.sessions[].running 决定挂不挂它），
+// 扫动周期在 theme.css 里由 --loop-breathe 推出（与状态点呼吸同族）。
 
 export function MiniRunningGlow() {
   return (
