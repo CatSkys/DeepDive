@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Ellipsis } from "lucide-react";
 import { useStore } from "../store";
+import { sendToShell } from "../host";
 import { useT } from "../i18n";
 import { fmtTime } from "../session/sessionTime";
 import { Spinner } from "../components/LoadingState";
@@ -20,19 +21,21 @@ import type { KeyHandler } from "./MiniCommandCenter";
 export function MiniHistoryRows({
   query,
   registerKeys,
-  onDone,
 }: {
   query: string;
   /** 把 ↑↓/Enter 交给命令中心：它的搜索框拿着焦点，行件的处理每次渲染注册一份最新的。 */
   registerKeys: (handler: KeyHandler) => void;
-  /** 点行开完会话、或用户选了别的动作之后收掉浮层。 */
-  onDone: () => void;
 }) {
   const store = useStore();
   const { t, lang } = useT();
   const [cursor, setCursor] = useState(0);
   const [rowMenu, setRowMenu] = useState<RowMenuState | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  /** 点行/回车：把"切到这个会话"报给壳，由它收卡并转给**面板页**去切。
+   *  这一页是另一块 webview（`?minicc=1`，玻璃层序要两块），store 也是它自己那份——
+   *  在本页 openSession 只会切换一个不渲染会话的 store（用户报"点哪一行都不进去"）。 */
+  const openSession = (sessionId: string) => sendToShell({ type: "mini-cc-open-session", sessionId });
 
   // 锚点 = 面板当前所在空间（= 快捷空间）：不依赖壳下发的 quickWorkspacePath
   // （那条曾整条落空 → 列表恒空，见 MiniPanelApp 的 get-prefs 注释）。
@@ -78,8 +81,7 @@ export function MiniHistoryRows({
         const target = flat[cursor];
         if (!target) return false;
         e.preventDefault();
-        store.openSession(target.sessionId);
-        onDone();
+        openSession(target.sessionId);
         return true;
       }
       return false;
@@ -98,10 +100,7 @@ export function MiniHistoryRows({
                 type="button"
                 className={`task-row mini-cc-row${it.sessionId === store.activeSessionId ? " selected" : ""}${it.running ? " running" : ""}`}
                 data-cursor={cursorOf.get(it.sessionId) === cursor || undefined}
-                onClick={() => {
-                  store.openSession(it.sessionId);
-                  onDone();
-                }}
+                onClick={() => openSession(it.sessionId)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setRowMenu({ sessionId: it.sessionId, title: it.title, cwd: it.cwd, x: e.clientX, y: e.clientY });

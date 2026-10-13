@@ -42,7 +42,7 @@ public struct MiniPanelLayout: Equatable, Sendable {
 
   /// - Parameters:
   ///   - displayFrame: the display's full frame, which the canvas stays inside vertically.
-  ///   - commands: how many commands the pushed list holds.
+  ///   - commands: how many commands the pushed list holds, which the card's height follows.
   ///   - flyoutWidth: the card's width (``MiniPanelMetrics/flyoutWidth(textWidth:)``).
   ///   - backingScale: the display's device pixels per point, which can widen the pill
   ///     (``MiniPanelMetrics/pillWidth(backingScale:)``); Retina's unless given.
@@ -54,6 +54,10 @@ public struct MiniPanelLayout: Equatable, Sendable {
     let right = placement.edge == .right
     edge = placement.edge
     self.workArea = workArea
+    // The capsule's shape and the card's anchor follow the controls it actually shows, not
+    // whether a pushed list exists: the list can hold commands with no button to open them
+    // (``MiniPanelControl/buttons()``). Reading the list kept the capsule one button too tall.
+    let hasCommands = MiniPanelControl.buttons().contains(.commands)
     let pillCenter = Self.pillCenterY(position: placement.position, in: workArea)
     let pillWidth = Metrics.pillWidth(backingScale: backingScale)
     pill = ScreenRect(
@@ -69,13 +73,13 @@ public struct MiniPanelLayout: Equatable, Sendable {
       right
       ? workArea.maxX - Metrics.capsuleInset - Metrics.capsuleWidth
       : workArea.x + Metrics.capsuleInset
-    let height = Metrics.capsuleHeight(hasCommands: commands > 0)
+    let height = Metrics.capsuleHeight(hasCommands: hasCommands)
     capsule = ScreenRect(
       x: column, y: Self.origin(centeredOn: pillCenter, length: height, in: workArea),
       width: Metrics.capsuleWidth, height: height)
-    (buttons, hairline) = Self.controls(in: capsule, hasCommands: commands > 0)
+    (buttons, hairline) = Self.controls(in: capsule, hasCommands: hasCommands)
     flyout = Self.flyout(
-      beside: capsule, commandsButton: commands > 0 ? buttons.last : nil, rows: commands,
+      beside: capsule, commandsButton: hasCommands ? buttons.last : nil, rows: commands,
       width: flyoutWidth, right: right, in: workArea)
     let invite = Metrics.inviteSize
     self.invite = ScreenRect(

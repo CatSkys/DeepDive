@@ -118,7 +118,7 @@ export function MiniCommandCenter({
       )}
       <div className="mini-cc-body">
         {mode === "history"
-          ? <MiniHistoryRows query={query} registerKeys={registerKeys} onDone={onClose} />
+          ? <MiniHistoryRows query={query} registerKeys={registerKeys} />
           : <MiniSettingsRows sessionId={sessionId} registerKeys={registerKeys} />}
       </div>
     </div>
