@@ -1,8 +1,9 @@
 # Atd 对照调研 · 交接文档
 
 > 本文是单线程调研的交接:对象是 **JUNERDD/Atd**(https://github.com/JUNERDD/Atd,官网 https://atd.best),目的有三——摸清这个同类竞品、解剖它的发布包与我们 DeepDive 对比、从它的设计规范里提炼可借鉴项。
-> 项目全局面(架构/铁律/规范/踩坑)的家在本仓 `AGENTS.md` 与 `docs/`(`ARCHITECTURE` / `UI-SPEC` / `SPEC-SEMANTICS` / `PITFALLS` / `WORKING-AGREEMENTS`),本文不重复;本文只拥有「Atd 调研」这一件事,别处不另立。
+> 项目全局面(架构/铁律/规范/踩坑)的家在本仓 `AGENTS.md` 与 `docs/`(`ARCHITECTURE` / `UI-SPEC` / `SPEC-SEMANTICS` / `PITFALLS` / `WORKING-AGREEMENTS`),本文不重复;本文只拥有「Atd 调研」这一件事,别处不另立——单块的深挖在本目录另立专文,并在本文登记。
 > 调研时点:**Atd v0.7.12**(release 2026-10-10,仓库最近推送 2026-10-12)。素材全部固化在本目录 `assets/`(原始文件在 /tmp 会随重启消失,不要再回去找)。
+> 「个人小应用」一块的时点更新到 **上游 main @ `45d4714`**(2026-10-13,release **v0.8.1**;本机安装副本 0.8.0),素材在同目录 `assets/atd-apps/`;§1-§4 的界面与设计规范素材仍是 v0.7.12 那批导出图,两者不混用。
 
 ---
 
@@ -23,7 +24,7 @@
 
 它 `agent-service` 的依赖表直接写着 **`@earendil-works/pi-coding-agent 1.0.0` + `pi-mcp 1.0.0` + `pi-ai 1.0.0` + `pi-subagents 0.74.0` + `pi-web-access 0.35.0`**,即 **pi-mono 上游直装**;我们的引擎是 **dsh——pi-mono 的 DeepSeek 分支**——再 fork(dsh fork 见 `engine/README.md`)。两家是同血统两级派生,这解释了界面上 agent loop / 工具活动 / 轮折叠 / 审批语义的高度同构。
 
-其余同构点(与 `docs/ARCHITECTURE.md` 三层逐项):Swift 壳 + 本地常驻 Node 服务 + React SPA;同源托管反代(它是 `ai-app://` 自定义 scheme + relay `/v1` 允许单与 `Authorization` 注入,我们是无端口话 BridgeServer 反代);凭据进 OS 钥匙串(它 `@napi-rs/keyring`,我们引擎 `credentials.*`);差异在:**它**调度用 croner 做**服务端**、带 Sparkle 自动更、带 widget、带 Memory 一级分区、带选区工具条与截图标注、个人小应用(Mini apps);**我们**调度在客户端(SPEC-AUTOMATION)、无自动更新(TODO 已记)、路线含浏览器壳与 IM 渠道等它没有的块。
+其余同构点(与 `docs/ARCHITECTURE.md` 三层逐项):Swift 壳 + 本地常驻 Node 服务 + React SPA;同源托管反代(它是 `ai-app://` 自定义 scheme + relay `/v1` 允许单与 `Authorization` 注入,我们是无端口话 BridgeServer 反代);凭据进 OS 钥匙串(它 `@napi-rs/keyring`,我们引擎 `credentials.*`);差异在:**它**调度用 croner 做**服务端**、带 Sparkle 自动更、带 widget、带 Memory 一级分区、带选区工具条与截图标注、个人小应用(Mini apps,深挖见 `APPS.md`);**我们**调度在客户端(SPEC-AUTOMATION)、无自动更新(TODO 已记)、路线含浏览器壳与 IM 渠道等它没有的块。
 
 ** sheds 的体积点**:它闭包不裁剪——node_modules 里 `fastify/test` 2.2 MB、`fastify/docs` 728 KB、`pi-web-access` 演示 mp4 4.9 MB、banner 1.2 MB 全在;我们 `prune-dsh-runtime.sh` 的裁剪门比它干净(此结论自带我们视角,别当成它的问题上纲)。
 
@@ -72,7 +73,7 @@
 - **Figma 图纸源工作流**(design:link/heavy Figma MCP/原型双轨)——我们有 Figma 时才是资产
 - 工具行 hover 已由我们门控细化(§1.10),它的「hover 只留光标」与我们的 hover 填充语言冲突,各留各的
 
-## 5. 素材索引(本目录 assets/,共 5.0 MB)
+## 5. 素材索引(本目录 assets/,共 5.2 MB)
 
 | 文件 | 是什么 |
 |---|---|
@@ -81,7 +82,8 @@
 | `README.md` (11 KB) | 它的产品面声明(功能清单/数据与权限/签名警告) |
 | `atd-ui-{main-panel,chat,selection-toolbar,mini-panel,settings}.png` | 5 张 1440×900 设计导出图 |
 | `atd_repo.json` / `atd_rel.json` / `atd_tree.json` / `atd_{apps,packages,crates}.json` | 仓库/最新 release/根目录/子目录 GitHub API 快照 |
-| DMG | 原件在 `~/Downloads/Atd-0.7.12-arm64.dmg`;已安装为 `/Applications/Atd.app`(与 DMG 同构建,cdhash `abf8968e…`,无隔离属性,持续在运行)。包已解剖(只挂过只读盘,已卸载) |
+| DMG | 原件在 `~/Downloads/Atd-0.7.12-arm64.dmg`;已安装为 `/Applications/Atd.app`(与 DMG 同构建,cdhash `abf8968e…`,无隔离属性,持续在运行)。包已解剖(只挂过只读盘,已卸载)。**注**:该 DMG 已不在 `~/Downloads`,本机 `/Applications/Atd.app` 现为 0.8.0 |
+| `APPS.md` + `assets/atd-apps/` | 「个人小应用(My apps)」专文与素材:create-app 技能全文与三份 references、它自己的两份立项计划(create-app、能力层)、三份契约(manifest/identity/widgets)、出处 `SOURCE.md` |
 
 复测命令(将来它出新版本时):
 
@@ -100,7 +102,8 @@ codesign -dv "/Volumes/Atd <ver>/Atd.app"
 3. **引擎侧 Automations 对照**——它 croner 服务端调度 vs 我们客户端调度(SPEC-AUTOMATION 已记取舍),是否立项评估,用户定
 4. (可选)分包深潜:它的 `agent-service/dist/atd-agents/`(自研 agents 面)、`file-index` Rust 索引、`pi-subagents` 组合方式——未开工,起点是 DMG 里的包体与 `assets/`
 5. 素材保鲜:上游仍高频发版(0.7.11→0.7.12 只隔数小时),重要复测前先拉最新 release 对照 §1 版本号
+6. **个人小应用(My apps)对照已产出**(2026-10-13):见 `APPS.md` + `assets/atd-apps/`。其中 §8 的 7 条借鉴提案**仍未采纳**,待逐条裁决;它公开的最大缺口(沙箱碰不到本机)与那份未实现的能力层计划记在 `APPS.md` §10
 
 ## 7. 本文维护规矩
 
-现状态写作(不写 previously/now、不带调研叙事)、一事一家(本文就是 Atd 调研的家,2026-10-12 自 `handover-atd/` 移入)、提案与结论分层(提案永远是提案,采纳与否沿线更新 §4 表)。本文是 Atd 调研线的唯一家;调研线完结(全部提案拍板并在 docs/ 落地)后归档。**实机补测不再进行(用户 2026-10-12 定)**:对照以官方素材(导出图/README/AGENTS.md/design-source.md)与其仓内代码为准,不再向用户要截图;§3 未实测面维持如实标注。
+现状态写作(不写 previously/now、不带调研叙事)、一事一家(本文就是 Atd 调研线的线级索引与总纲,2026-10-12 自 `handover-atd/` 移入;单块深挖由本目录专文拥有——`APPS.md` 拥有「个人小应用」——本文只链接不重复)、提案与结论分层(提案永远是提案,采纳与否沿线更新 §4 表与各专文自己的提案表)。调研线完结(全部提案拍板并在 docs/ 落地)后归档。**实机补测不再进行(用户 2026-10-12 定)**:对照以官方素材(导出图/README/AGENTS.md/design-source.md)与其仓内代码为准,不再向用户要截图;§3 未实测面维持如实标注。
