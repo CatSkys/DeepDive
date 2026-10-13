@@ -1,5 +1,7 @@
-// 命令中心的**历史模式**行件：按日期分段的会话行（两行式——标题 + 元信息行，
-// 照参考图），行的「更多」与右键复用侧栏那份会话行菜单（含删除）。
+// 命令中心的**历史模式**行件：按日期分段的会话行。**单行式**（用户 2026-10-13 定稿）：
+// 最左一个亮点（状态点：在跑 = 转圈、未读 = 亮点、其余不点）、中间标题、最右时间——
+// 状态**不再写字**（"未读/已完成"那串由亮点表示，文字是重复信息）。行的「更多」与右键
+// 复用侧栏那份会话行菜单（含删除）。
 // 只管这一模式的取数排布与交互：搜索词/键盘由命令中心（MiniCommandCenter）给进来，
 // 取数过滤分段全在 miniHistoryView.ts（纯函数、有单测）。
 // 不做筛选/排序控件（用户 2026-10-13 定稿：历史那一排直接删掉，段序恒为日期）。
@@ -11,7 +13,7 @@ import { fmtTime } from "../session/sessionTime";
 import { Spinner } from "../components/LoadingState";
 import { HoverScrollText } from "../components/HoverScrollText";
 import { SidebarContextMenus, type RowMenuState } from "../components/SidebarContextMenus";
-import { filterHistory, groupByDate, historyItems, type HistoryItem } from "./miniHistoryView";
+import { filterHistory, groupByDate, historyItems } from "./miniHistoryView";
 import { MiniCcList } from "./MiniCcList";
 import type { KeyHandler } from "./MiniCommandCenter";
 
@@ -84,8 +86,6 @@ export function MiniHistoryRows({
     });
   });
 
-  const statusWord = (it: HistoryItem) => (it.running ? t("运行中") : it.unread ? t("未读") : t("已完成"));
-
   return (
     <>
       <MiniCcList listRef={listRef}>
@@ -110,14 +110,8 @@ export function MiniHistoryRows({
                 <span className="row-slot">
                   {it.running ? <Spinner /> : it.unread ? <span className="unread-dot" /> : null}
                 </span>
-                <span className="row-main">
-                  <span className="row-title-line">
-                    <HoverScrollText className="title">{it.title}</HoverScrollText>
-                  </span>
-                  <span className="mini-cc-row-meta">
-                    {`${fmtTime(it.updatedAt, lang)} · ${statusWord(it)}`}
-                  </span>
-                </span>
+                <HoverScrollText className="title">{it.title}</HoverScrollText>
+                <span className="mini-cc-row-time">{fmtTime(it.updatedAt, lang)}</span>
                 <span className="row-actions" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
