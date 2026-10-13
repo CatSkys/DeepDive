@@ -515,7 +515,11 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.app.mini-panel .mini-cc-row[data-cursor="true"] { background: var(--row-hover); }
+/* 光标行 = "选中"档：hover 是"指针在挑"（--row-hover 5%），光标行是"回车就开这一条"
+   ——两档同色等于没有选中态（用户 2026-10-13 报"hover 和选中的颜色好像是一样的"）。
+   数值口径：前景色透明度阶梯的 5/10（--row-hover .05 / --fill-strong .11）——与 ⌘K 那排
+   .row.active、本卡的 .mini-cc-choice[data-cursor] 同一档，全站一致。 */
+.app.mini-panel .mini-cc-row[data-cursor="true"] { background: var(--fill-strong); }
 .app.mini-panel .mini-cc-more {
   display: inline-flex;
   align-items: center;
@@ -537,12 +541,19 @@ button {
   color: var(--ink-faint);
   text-align: center;
 }
-/* 设置模式：行就是面板设置行那套（.panel-settings-line），这里只收内边距与字号——
-   同一行里标签 12 而取值 14 是主窗设置卡的口径（那边有整卡留白撑得住），塞进这张小卡
-   就是"同一行两种字号"（用户要求字体统一）。 */
+/* 设置模式：行就是面板设置行那套（.panel-settings-line），这里只收内边距、字号与填充档——
+   ① 同一行里标签 12 而取值 14 是主窗设置卡的口径（那边有整卡留白撑得住），塞进这张小卡
+      就是"同一行两种字号"（用户要求字体统一）；
+   ② hover 用 --fill（7%）也是主窗那套，同一张卡里历史行 hover 5%、设置行 7% 是两种深浅
+      ——计数卡内统一到 5%（hover），选中态另给 10%（下方 data-cursor 那条）；
+   ③ 光标行与历史行同档，设置模式才有可见的"回车开哪一行"。 */
 .app.mini-panel .mini-cc-settings { padding: 10px 12px 14px; gap: 12px; overflow: visible; }
 .app.mini-panel .mini-cc-settings .panel-settings-row { font-size: var(--dsh-font-size-sm); }
 .app.mini-panel .mini-cc-settings .panel-settings-line { min-height: 32px; }
+:where(html[data-hover-armed]) .app.mini-panel .mini-cc-settings .panel-settings-line:hover {
+  background: var(--row-hover);
+}
+.app.mini-panel .mini-cc-settings .panel-settings-line[data-cursor="true"] { background: var(--fill-strong); }
 
 /* 迷你面板「会话进行中」的辉光（MiniRunningGlow）：**一圈沿边缘滚动的高光**——
    conic-gradient 的亮弧在环形遮罩里转，光顺着面板的圆角边一路滑过去（用户要的
