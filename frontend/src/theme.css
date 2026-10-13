@@ -1602,6 +1602,14 @@ button {
     -apple-visual-effect: -apple-system-glass-material-media-controls;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+    /* 托管材质（HAVE_MATERIAL_HOSTING：材质由系统渲染在一个宿主视图里）按元素**自己
+       的合成层**摆放。本层默认没有独立层，材质就落到祖先层上按那块几何铺——表现为
+       "材质板比胶囊大、和胶囊叠着两块"。这两条把它钉成自己的层并裁到自己的圆角盒：
+       will-change:transform 提层、overflow:hidden 收边。放在本块里是有意的——它俩都是
+       backdrop-root 触发器，放进基础规则会把上面那一档 CSS 模糊的采样掐死
+       （浮层配方③），而这里是材质档，模糊已经撤下。 */
+    will-change: transform;
+    overflow: hidden;
   }
 }
 /* 窗口失焦：**内容退后、材质留下**——内容与附件 chip 压到 40%，材质层豁免（它连着
