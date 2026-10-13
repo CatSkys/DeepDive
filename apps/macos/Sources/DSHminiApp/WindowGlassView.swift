@@ -15,8 +15,10 @@
 // 表面档由使用方指定：`.window`（主窗）与 `.panel`（迷你面板）。两条分支都上 tint，
 // 但档位不同：液态玻璃自带亮度，tint 只往"近黑"拉一档（压死了又回到平色板，
 // PITFALLS §4.27）；vibrancy 材质本身更浅，tint 才需要更实。
-// `.panel` 还多两样：玻璃圆角对齐窗体自己的裁切档（见 panelCornerRadius），以及
-// 边缘内辉光一层（PanelGlowView，Raycast `glowBlurRadius` 的对应物）。
+// `.panel` 只多一样：玻璃圆角对齐窗体自己的裁切档（见 panelCornerRadius）。
+// 背景糊**只有玻璃这一层**——"再加一层窗内磨砂"试过两版（.hudWindow 材质、
+// 与 Raycast BlurView 同参的默认材质）都被判"太实"（用户 2026-10-13），已删；
+// 运行中的那道辉光在网页层（frontend 的 MiniRunningGlow），不必在这叠。
 
 import AppKit
 
@@ -26,17 +28,12 @@ final class WindowGlassView: NSView {
     enum Surface {
         /// 主窗：内容卡近实色兜底，玻璃只出边栏/边铬。
         case window
-        /// 迷你面板：全窗口就是玻璃面（无内容卡兜底），tint 深一档 + 边缘辉光。
+        /// 迷你面板：全窗口就是玻璃面（无内容卡兜底），tint 深一档。
         case panel
     }
 
     /// macOS 26+ 的液态玻璃底板；更早的系统为 nil（那时走 materialView + tintView）。
     private let glassView: NSView?
-    /// .panel 档的第二段模糊：窗内磨砂，坐在玻璃之上、WebView 之下（与辉光同级、
-    /// 在辉光之下）。.window 档为 nil。
-    private(set) var frostView: NSVisualEffectView?
-    /// .panel 档的边缘内辉光（玻璃之上、WebView 之下）。.window 档为 nil。
-    private(set) var glowView: PanelGlowView?
     /// vibrancy 底板（只在退回分支挂上来）。
     private let materialView = NSVisualEffectView()
     /// 材质之上的近黑 tint（只在退回分支挂上来）。不透明度对齐 tokens.json
@@ -74,22 +71,6 @@ final class WindowGlassView: NSView {
         super.init(frame: .zero)
         if let glass = glassView {
             addFilling(glass)
-            if surface == .panel {
-                // 第二段模糊：与 Raycast `BlurView` **同参镜像**——它反编译出来就是
-                // `setBlendingMode(1)`（withinWindow：糊窗内它下面的内容）+
-                // `setState(1)`（active：不随失焦变暗），**且不给 material**（用系统
-                // 默认档）。上一版这里用了 `.hudWindow` 材质，那个材质自带深色 →
-                // "太实"（用户）；同参镜像就没有那层自带色，只加"糊"不加"实"。
-                // 若默认档观感不对，调点就是这一处：显式给一个中性 material。
-                let frost = NSVisualEffectView()
-                frost.blendingMode = .withinWindow
-                frost.state = .active
-                addFilling(frost)
-                frostView = frost
-                let glow = PanelGlowView(cornerRadius: Self.panelCornerRadius)
-                addFilling(glow)
-                glowView = glow
-            }
         } else {
             materialView.material = .sidebar
             materialView.blendingMode = .behindWindow
