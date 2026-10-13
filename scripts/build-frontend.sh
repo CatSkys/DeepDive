@@ -1,8 +1,8 @@
 #!/bin/bash
-# DSHmini frontend build: tokens codegen + vite → apps/macos/Resources/web
+# DSHmini frontend build: vite → apps/macos/Resources/web
+# （token codegen 归 `npm run build`——写在这里就多一处、且漏掉别的构建腿）
 set -euo pipefail
 cd "$(dirname "$0")/.."
-node frontend/packages/design/gen-tokens.mjs
 if [[ ! -d frontend/node_modules ]]; then
   (cd frontend && npm install --no-audit --no-fund)
 fi
