@@ -127,7 +127,12 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             piece.alphaValue = 0
             piece.isHidden = true
         }
-        glass.addSubview(cardGlass, positioned: .above, relativeTo: wv)
+        // 三块玻璃件都在面板页 webview 之上、卡片页之下（层序见上面那段注释）。
+        // **漏挂就是"没有材质"**：网页侧这些元素的 CSS 底/模糊已删（材质归原生），
+        // 挂不上就只剩透明的布局与图标（2026-10-13 用户报"胶囊和输入框怎么没了"）。
+        for piece in [capsuleGlass, composerGlass, cardGlass] {
+            glass.addSubview(piece, positioned: .above, relativeTo: wv)
+        }
         glass.addSubview(cardWeb, positioned: .above, relativeTo: cardGlass)
         self.window = window
 

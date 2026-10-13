@@ -128,6 +128,10 @@ final class WindowGlassView: NSView {
     /// 浮层档：圆角由页面按**实际渲染的** border-radius 报来（`FrostSurface.setRadius` 同款
     /// 口径）——CSS 是那个值的事实源，壳里不写第二份（写死就会在改 token 时两边漂移）。
     func setRadius(_ radius: CGFloat) {
+        // CSS 那边胶囊/输入框的圆角是 999px（"整圆"的写法），CALayer / CGPath 要的是真实
+        // 半径：超过半个短边是退化值（玻璃可能整个不渲染、阴影路径也画不出来）。收敛到半短边。
+        let limit = min(bounds.width, bounds.height) / 2
+        let radius = limit > 0 ? min(radius, limit) : radius
         if #available(macOS 26.0, *), let glass = glassView as? NSGlassEffectView {
             glass.cornerRadius = radius
         } else {
