@@ -26,7 +26,14 @@ export interface ModelFace {
   pickEffort?: (id: string) => void | Promise<void>;
 }
 
-export function SessionHeader({ title, face, onTitleClick }: { title: string; face: ModelFace; onTitleClick?: () => void }) {
+export function SessionHeader({ title, face, onTitleClick, showModel = true }: {
+  title: string;
+  face: ModelFace;
+  onTitleClick?: () => void;
+  /** 模型触发行（模型名 + 下拉）要不要渲染。主窗不传（要）；迷你面板传 false——它头部
+   *  只留标题，模型改在设置那张命令中心里（用户 2026-10-13 定稿）。 */
+  showModel?: boolean;
+}) {
   const { sidebarCollapsed } = useStore();
   // 项目切换选框（侧栏收起时点项目胶囊弹出——标题点击已改道面板的会话设置；
   // 展开态项目名在侧栏常驻，不弹）
@@ -52,19 +59,23 @@ export function SessionHeader({ title, face, onTitleClick }: { title: string; fa
         </span>
         <WorkspacePill anchorRef={pillRef} onOpen={sidebarCollapsed ? () => setProjOpen((v) => !v) : undefined} />
       </div>
-      <button ref={modelTriggerRef} className="model trigger" data-open={face.showModels ? "true" : "false"} onClick={() => face.setShowModels(true)}>
-        {face.modelName || "Auto"}
-        <ChevronDown size={12} className="trigger-chev" />
-      </button>
-      {face.showModels && (
-        <ModelMenu
-          options={face.models}
-          current={face.modelName}
-          currentModel={face.currentModel}
-          onPick={(m) => void face.pickModel(m)}
-          onClose={() => face.setShowModels(false)}
-          anchorRef={modelTriggerRef}
-        />
+      {showModel && (
+        <>
+          <button ref={modelTriggerRef} className="model trigger" data-open={face.showModels ? "true" : "false"} onClick={() => face.setShowModels(true)}>
+            {face.modelName || "Auto"}
+            <ChevronDown size={12} className="trigger-chev" />
+          </button>
+          {face.showModels && (
+            <ModelMenu
+              options={face.models}
+              current={face.modelName}
+              currentModel={face.currentModel}
+              onPick={(m) => void face.pickModel(m)}
+              onClose={() => face.setShowModels(false)}
+              anchorRef={modelTriggerRef}
+            />
+          )}
+        </>
       )}
     </div>
   );

@@ -41,10 +41,13 @@ import { FindInConversation } from "./FindInConversation";
 export function SessionView({
   sessionId,
   rightSidebar = true,
+  showModel = true,
   onOpenSettings,
 }: {
   sessionId: string;
   rightSidebar?: boolean;
+  /** 头部模型行要不要渲染（主窗要；迷你面板只要标题，模型在设置命令中心里改）。 */
+  showModel?: boolean;
   onOpenSettings?: () => void;
 }) {
   const { lang } = useT(); // 订阅语言切换：文案与标题回退随 lang 重渲染
@@ -176,6 +179,7 @@ export function SessionView({
           key={sessionId}
           title={title}
           face={modelFace}
+          showModel={showModel}
           onTitleClick={() => (onOpenSettings ? onOpenSettings() : panelActions.setSettings(sessionId, true))}
         />
         {plan?.active && !plan?.pending && (

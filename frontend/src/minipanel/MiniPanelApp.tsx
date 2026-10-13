@@ -130,6 +130,7 @@ export function MiniPanelApp() {
             key={active}
             sessionId={active}
             rightSidebar={false}
+            showModel={false}
             onOpenSettings={openSettings}
           />
         ) : (
