@@ -339,6 +339,101 @@ button {
    的兄弟卡；收起态配方不动（width 0 + pointer-events none）。 */
 .app.mini-panel .panel:not([data-closed="true"]) { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; }
 
+/* 面板右上控件簇（面板自有，不借主窗的头部座位）：会话历史 + 会话设置。位置沿用草稿页
+   那颗齿轮的 8/16（旧入口位置不变）；z-index 6 在滚动辉光(4)与会话设置浮层(5)之上——
+   设置卡盖住整窗时这两个钮仍可点。 */
+.app.mini-panel .mini-controls {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+/* 会话头右侧给控件簇让位：计划模式芯片（.plan-wrap）别钻到钮底下 */
+.app.mini-panel .session-header { padding-right: 76px; }
+
+/* ── 会话历史脸（Atd task-history 的裁剪版）：搜索行 + 按分组分段的列表 ── */
+.app.mini-panel .mini-history {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 16px 12px;
+}
+.app.mini-panel .mini-history-search-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 10px; }
+.app.mini-panel .mini-history-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--dsh-radius-control);
+  background: var(--fill);
+  color: var(--ink-3);
+}
+.app.mini-panel .mini-history-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: var(--dsh-font-size-base);
+  outline: none;
+}
+.app.mini-panel .mini-history-search input::placeholder { color: var(--ink-faint); }
+.app.mini-panel .mini-history-clear { flex: none; display: inline-flex; color: var(--ink-3); }
+.app.mini-panel .mini-history-clear:hover { color: var(--ink); }
+.app.mini-panel .mini-history-list { flex: 1; min-height: 0; overflow-y: auto; }
+.app.mini-panel .mini-history-section + .mini-history-section { margin-top: 12px; }
+.app.mini-panel .mini-history-section-title {
+  margin: 0;
+  padding: 0 10px 4px;
+  color: var(--ink-3);
+  font-size: var(--dsh-font-size-sm);
+  font-weight: 500;
+}
+/* 行沿用侧栏那条会话行（.task-row + row-slot/row-main/row-actions），这里只补三点：
+   悬停胶囊出血到容器边（同 .mini-cmd-row 的语言）、时间常驻、键盘光标行高亮。 */
+.app.mini-panel .mini-history-row { margin: 0 -10px; }
+/* 主窗那条「hover 时时间让位给归档钮」是侧栏归档交互的配方，面板行没有归档钮——
+   时间常驻，别留一个空档。 */
+.app.mini-panel .task-row:hover .row-time { display: inline; }
+.app.mini-panel .mini-history-row[data-cursor="true"] { background: var(--row-hover); }
+.app.mini-panel .mini-history-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  border: none;
+  border-radius: var(--dsh-radius-keycap);
+  background: var(--fill);
+  color: var(--ink-soft);
+  opacity: 0;
+}
+:where(html[data-hover-armed]) .app.mini-panel .mini-history-row:hover .mini-history-more,
+.app.mini-panel .mini-history-row:focus-within .mini-history-more,
+.app.mini-panel .mini-history-more[aria-expanded="true"] { opacity: 1; }
+.app.mini-panel .mini-history-more:hover { background: var(--fill-strong); }
+.app.mini-panel .mini-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: var(--ink-faint);
+  font-size: var(--dsh-font-size-base);
+  text-align: center;
+}
+.app.mini-panel .mini-history-view-menu { min-width: 180px; }
+.app.mini-panel .mini-history-view-menu .ctx-item[data-on] { color: var(--ink-bright); }
+.app.mini-panel .mini-history-view-menu .ctx-item svg { margin-left: auto; }
+
 /* 迷你面板「会话进行中」的辉光（MiniRunningGlow）：**一圈沿边缘滚动的高光**——
    conic-gradient 的亮弧在环形遮罩里转，光顺着面板的圆角边一路滑过去（用户要的
    "边缘的辉光在滑动滚动"）；弧里两处波峰（一强一弱）让光走过时此起彼伏而不是

@@ -10,10 +10,13 @@ import { installHostBridge, sendToShell } from "../host";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { usePrefs } from "../prefs";
 import { useStore } from "../store";
+import { panelActions } from "../sidebar-right/panelStore";
 import { DialogHost } from "../components/DialogHost";
 import { TooltipHost } from "../components/Tooltip";
 import { SessionView } from "../components/SessionView";
 import { MiniDraft } from "./MiniDraft";
+import { MiniHistory } from "./MiniHistory";
+import { MiniPanelControls } from "./MiniPanelControls";
 import { MiniRunningGlow } from "./MiniRunningGlow";
 
 /** 面板该显示哪张脸：会话**有内容**（summary 非 blank）才交给 SessionView；
@@ -41,6 +44,11 @@ export function MiniPanelApp() {
   const quickPathRef = useRef(quickWorkspacePath);
   quickPathRef.current = quickWorkspacePath;
 
+  // 历史脸的开关（Atd 的 view swap：历史是同一块位置上的另一张脸，不是浮层；再点历史钮
+  // 回原脸）。草稿脸的会话设置卡开合也提在这里——入口在面板控件簇里，与草稿页分开。
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [draftSettingsOpen, setDraftSettingsOpen] = useState(false);
+
   // Boot 落点：数据一到切到快捷空间（switchWorkspace 自带「侧栏可见层最近
   // 会话」语义，空空间落草稿页）；引擎失败不再等——横幅自己会出来。
   const [booted, setBooted] = useState(false);
@@ -65,6 +73,9 @@ export function MiniPanelApp() {
   useEffect(() => {
     installHostBridge({
       openQuickSession: () => {
+        // 壳命令"新任务"总回草稿：历史脸/草稿设置卡先收（不然新会话页被它们挡着）
+        setHistoryOpen(false);
+        setDraftSettingsOpen(false);
         storeRef.current.openQuickSession();
         requestAnimationFrame(() => requestAnimationFrame(() => {
           sendToShell({ type: "quickPanel-show" });
@@ -82,20 +93,40 @@ export function MiniPanelApp() {
 
   const active = store.activeSessionId;
   const face = miniPanelFace(active, store.sessions);
+  const sessionFace = face === "session" && active !== null;
   // 会话在跑 → 整面板辉光（信号与 Composer 的停止按钮同一条：sessions[].running）。
   const activeRunning = active
     ? (store.sessions.find((s) => s.sessionId === active)?.running ?? false)
     : false;
+  // 控件簇的齿轮：会话脸开会话设置卡（panelActions，主窗同一份状态机）；草稿脸开草稿的
+  // 会话设置卡（HeroPanel，那块状态与入口都在草稿页那一支里）。
+  const openSettings = () => {
+    if (sessionFace && active !== null) panelActions.setSettings(active, true);
+    else setDraftSettingsOpen(true);
+  };
   return (
     <div className="app mini-panel">
       <TooltipHost />
       <DialogHost />
       {activeRunning && <MiniRunningGlow />}
+      <MiniPanelControls
+        historyOpen={historyOpen}
+        onToggleHistory={() => setHistoryOpen((v) => !v)}
+        onOpenSettings={openSettings}
+      />
       <main className="main">
-        {face === "session" && active !== null ? (
-          <SessionView key={active} sessionId={active} />
+        {historyOpen ? (
+          <MiniHistory onClose={() => setHistoryOpen(false)} />
+        ) : sessionFace && active !== null ? (
+          /* sidebarSeat=false：面板里不出主窗那枚「展开边栏」座位（浏览器状态胶囊随它一起
+             退场，用户 2026-10-13 定稿）；设置入口由上面的控件簇承担。 */
+          <SessionView key={active} sessionId={active} sidebarSeat={false} />
         ) : (
-          <MiniDraft />
+          <MiniDraft
+            settingsOpen={draftSettingsOpen}
+            onOpenSettings={() => setDraftSettingsOpen(true)}
+            onCloseSettings={() => setDraftSettingsOpen(false)}
+          />
         )}
       </main>
     </div>

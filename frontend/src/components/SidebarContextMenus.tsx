@@ -29,7 +29,9 @@ export function SidebarContextMenus({
   /** 项目行 ⋯ 的落点；null = 不显示。 */
   workspaceAt: { x: number; y: number } | null;
   onClose: () => void;
-  onOpenSettings: () => void;
+  /** 「前往配置」的落点：主窗传（打开设置页）；迷你面板不传——它自己带设置入口，
+   *  这项在那边没有落点。不给就不渲染这一项。 */
+  onOpenSettings?: () => void;
 }) {
   const store = useStore();
   const { t, tt } = useT();
@@ -89,7 +91,27 @@ export function SidebarContextMenus({
           <div className="ctx-item" onClick={() => { if (row.cwd) navigator.clipboard.writeText(row.cwd); onClose(); }}>{t("复制路径")}</div>
           <div className="ctx-item" onClick={() => { sendToShell({ type: "copy-log-path" }); onClose(); }}>{t("复制日志路径")}</div>
           <div className="ctx-item" onClick={() => { navigator.clipboard.writeText(row.sessionId); onClose(); }}>{t("复制会话 ID")}</div>
-          <div className="ctx-item" onClick={() => { onClose(); onOpenSettings(); }}>{t("前往配置")}</div>
+          <div className="ctx-item danger" onClick={async () => {
+            // 删除不可逆：先危险确认。引擎按 id 逐条回 refused（在跑/正开着 = busy），
+            // 拒绝原因照实说——一句笼统的"删除失败"会让人以为点错了。
+            const ok = await confirmDialog({
+              title: t("删除会话"),
+              message: t("删除后聊天记录、投影缓存与工作区记账一起清掉，无法恢复。确定吗？"),
+              confirmLabel: t("删除"),
+              danger: true,
+            });
+            if (!ok) return;
+            onClose();
+            const res = await store.removeSessions([row.sessionId]);
+            const refused = res.refused[0];
+            if (!refused) return;
+            void alertDialog({
+              message: refused.reason === "busy"
+                ? t("正在运行或正开着的会话不能删除——先停掉它或切到别的会话")
+                : tt("删除失败：{m}", "Delete failed: {m}", { m: refused.detail ?? refused.reason }),
+            });
+          }}>{t("删除")}</div>
+          {onOpenSettings && <div className="ctx-item" onClick={() => { onClose(); onOpenSettings(); }}>{t("前往配置")}</div>}
         </div>
       )}
     </>
