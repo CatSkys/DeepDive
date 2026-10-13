@@ -3,15 +3,14 @@
 // 点行预填输入框），输入框钉底。模型 apparatus 与主窗草稿页共用（useDraftModelFace）；
 // 命令目录一条腿（store.quickCommands），点行与壳命令 runQuickCommand 走同一条预填通道
 // （dd:composer-prefill）。
-// 会话设置卡的开合由面板（MiniPanelApp）持有——入口在面板右上控件簇里，与历史钮同排；
-// 本页只负责渲染那张卡与让标题点击也能开它。
+// 设置不在本页：右上控件簇那颗齿轮（与历史/新建同排）开的是命令中心，标题点击同一落点
+// （onOpenSettings）。
 
 import { Terminal } from "lucide-react";
 import { useDraftModelFace } from "../useDraftModelFace";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
-import { HeroPanel } from "../sidebar-right/HeroPanel";
 import { HeroBrand } from "../components/HeroBrand";
 import { SessionHeader } from "../session/SessionHeader";
 import { Composer } from "../components/Composer";
@@ -19,18 +18,10 @@ import { Composer } from "../components/Composer";
 /** 草稿页列出的命令行数：Atd 主面板同位就是三五行，4 条正好一屏。 */
 const QUICK_ROWS = 4;
 
-export function MiniDraft({
-  settingsOpen,
-  onOpenSettings,
-  onCloseSettings,
-}: {
-  settingsOpen: boolean;
-  onOpenSettings: () => void;
-  onCloseSettings: () => void;
-}) {
+export function MiniDraft({ onOpenSettings }: { onOpenSettings: () => void }) {
   const store = useStore();
   const { t, tt } = useT();
-  const { face, effort, reloadModels } = useDraftModelFace();
+  const { face, effort } = useDraftModelFace();
   const rows = store.quickCommands.filter((c) => c.description).slice(0, QUICK_ROWS);
   const prefill = (name: string) => dispatchAppEvent(DD_EVENTS.composerPrefill, { text: `/${name}` });
   return (
@@ -60,12 +51,6 @@ export function MiniDraft({
           <Composer sessionId={null} effort={effort} />
         </div>
       </div>
-      <HeroPanel
-        open={settingsOpen}
-        onClose={onCloseSettings}
-        reloadModels={reloadModels}
-        face={face}
-      />
     </div>
   );
 }

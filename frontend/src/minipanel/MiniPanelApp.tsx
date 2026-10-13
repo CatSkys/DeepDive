@@ -10,12 +10,11 @@ import { installHostBridge, sendToShell } from "../host";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { usePrefs } from "../prefs";
 import { useStore } from "../store";
-import { panelActions } from "../sidebar-right/panelStore";
 import { DialogHost } from "../components/DialogHost";
 import { TooltipHost } from "../components/Tooltip";
 import { SessionView } from "../components/SessionView";
+import { MiniCommandCenter, type MiniOverlayMode } from "./MiniCommandCenter";
 import { MiniDraft } from "./MiniDraft";
-import { MiniHistory } from "./MiniHistory";
 import { MiniPanelControls } from "./MiniPanelControls";
 import { MiniRunningGlow } from "./MiniRunningGlow";
 
@@ -44,10 +43,9 @@ export function MiniPanelApp() {
   const quickPathRef = useRef(quickWorkspacePath);
   quickPathRef.current = quickWorkspacePath;
 
-  // 历史脸的开关（Atd 的 view swap：历史是同一块位置上的另一张脸，不是浮层；再点历史钮
-  // 回原脸）。草稿脸的会话设置卡开合也提在这里——入口在面板控件簇里，与草稿页分开。
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [draftSettingsOpen, setDraftSettingsOpen] = useState(false);
+  // 命令中心的开关：null = 没有浮层；"history"/"settings" = 那张卡片开着（用户 2026-10-13
+  // 定稿：历史与设置都是**浮在页面之上**的命令中心，不换页；再点那颗钮收回）。
+  const [overlay, setOverlay] = useState<MiniOverlayMode | null>(null);
 
   // Boot 落点：数据一到切到快捷空间（switchWorkspace 自带「侧栏可见层最近
   // 会话」语义，空空间落草稿页）；引擎失败不再等——横幅自己会出来。
@@ -78,9 +76,8 @@ export function MiniPanelApp() {
   useEffect(() => {
     installHostBridge({
       openQuickSession: () => {
-        // 壳命令"新任务"总回草稿：历史脸/草稿设置卡先收（不然新会话页被它们挡着）
-        setHistoryOpen(false);
-        setDraftSettingsOpen(false);
+        // 壳命令"新任务"总回草稿：命令中心先收（不然新会话页被它挡着）
+        setOverlay(null);
         storeRef.current.openQuickSession();
         requestAnimationFrame(() => requestAnimationFrame(() => {
           sendToShell({ type: "quickPanel-show" });
@@ -104,18 +101,14 @@ export function MiniPanelApp() {
   const activeRunning = active
     ? (store.sessions.find((s) => s.sessionId === active)?.running ?? false)
     : false;
-  // 控件簇的齿轮：会话脸开会话设置卡（panelActions，主窗同一份状态机）；草稿脸开草稿的
-  // 会话设置卡（HeroPanel，那块状态与入口都在草稿页那一支里）。
-  const openSettings = () => {
-    if (sessionFace && active !== null) panelActions.setSettings(active, true);
-    else setDraftSettingsOpen(true);
-  };
+  // 控件簇的齿轮：开设置那张命令中心（草稿/会话同一张卡片，行集按脸给，见 MiniSettingsRows）。
+  // 面板里不再开主窗那张右侧卡——产物/状态/浏览器归主窗（用户 2026-10-13 定稿）。
+  const openSettings = () => setOverlay((o) => (o === "settings" ? null : "settings"));
   // 控件簇的「新建会话」：落快捷空间新草稿（SPEC §6.1——与药丸那颗「新建会话」同一落点；
   // 壳命令 openQuickSession 那条路多推一次 quickPanel-show，是给"面板还没露脸"的召唤用的，
-  // 面板里点这颗不需要）。历史脸/设置卡先收，不然新草稿页被它们挡着。
+  // 面板里点这颗不需要）。命令中心先收，不然新草稿页被它挡着。
   const newSession = () => {
-    setHistoryOpen(false);
-    setDraftSettingsOpen(false);
+    setOverlay(null);
     storeRef.current.openQuickSession();
   };
   return (
@@ -124,26 +117,32 @@ export function MiniPanelApp() {
       <DialogHost />
       {activeRunning && <MiniRunningGlow />}
       <MiniPanelControls
-        historyOpen={historyOpen}
+        historyOpen={overlay === "history"}
         onNewSession={newSession}
-        onToggleHistory={() => setHistoryOpen((v) => !v)}
+        onToggleHistory={() => setOverlay((o) => (o === "history" ? null : "history"))}
         onOpenSettings={openSettings}
       />
       <main className="main">
-        {historyOpen ? (
-          <MiniHistory onClose={() => setHistoryOpen(false)} />
-        ) : sessionFace && active !== null ? (
-          /* sidebarSeat=false：面板里不出主窗那枚「展开边栏」座位（浏览器状态胶囊随它一起
-             退场，用户 2026-10-13 定稿）；设置入口由上面的控件簇承担。 */
-          <SessionView key={active} sessionId={active} sidebarSeat={false} />
-        ) : (
-          <MiniDraft
-            settingsOpen={draftSettingsOpen}
-            onOpenSettings={() => setDraftSettingsOpen(true)}
-            onCloseSettings={() => setDraftSettingsOpen(false)}
+        {sessionFace && active !== null ? (
+          /* rightSidebar=false：面板里不出主窗那张右侧卡与它的座位（产物/状态/浏览器归主窗，
+             用户 2026-10-13 定稿）；设置入口是上面的控件簇与标题点击 → 命令中心。 */
+          <SessionView
+            key={active}
+            sessionId={active}
+            rightSidebar={false}
+            onOpenSettings={openSettings}
           />
+        ) : (
+          <MiniDraft onOpenSettings={openSettings} />
         )}
       </main>
+      {overlay !== null && (
+        <MiniCommandCenter
+          mode={overlay}
+          sessionId={sessionFace && active !== null ? active : null}
+          onClose={() => setOverlay(null)}
+        />
+      )}
     </div>
   );
 }
