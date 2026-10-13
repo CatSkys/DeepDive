@@ -52,6 +52,11 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     private var cardURL: URL?
     /// 上一次推给卡片页的脸（模式 + 会话 id）：差分推送，别每个节拍都 evaluateJavaScript。
     private var pushedFace = ""
+    /// 当前这张脸：卡片页挂载后会**主动来要一次**（`mini-cc-face`）。壳推脸与它 React 挂载
+    /// 之间是一场竞速——第一次必然推空（页面还没装桥），此后差分又把同一张脸挡在门外，
+    /// 表现就是"开机后第一次打开指令面板是空的，关掉再开就好"（面板页当年的 prefs 同型事故，
+    /// 修法同一套：让页面开局自己问一次）。
+    private var currentFace: (mode: String, sessionId: String?)?
     /// 迷你面板页 → 壳（host-ready / set-pref / miniPanel.* 系列）。转发给
     /// AppDelegate.handleHostMessage；主窗与迷你面板各持一条，靠消息类型区分归属。
     var onHostMessage: (([String: Any]) -> Void)?
@@ -260,12 +265,13 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         webView.load(URLRequest(url: url))
 
         // 命令中心卡那一页：同一个包、同一个 engine 旗标，多一个 `?minicc=1`、不带 fragment。
-        // 什么时候真加载见 loadCardIfNeeded（首次开卡那一刻）——面板常驻隐身，别在召唤前
-        // 白发一页。
+        // **与面板页一起预载**（见 loadCardIfNeeded 那条注释：首次打开要立刻有内容，不能等
+        // 页面冷启动 + store 拉数据）。
         var cardComps = comps
         cardComps.fragment = nil
         cardComps.queryItems = items + [URLQueryItem(name: "minicc", value: "1")]
         cardURL = cardComps.url
+        loadCardIfNeeded()
     }
 
     /// 引擎就绪状态变化时重算 reload 标记（下次 load 生效；不主动重载页面）。
@@ -326,10 +332,20 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         // 认的是主窗/面板页那套消息，卡片页没有它的活。
         if message.name == "deepdiveHost",
            userContentController === cardWeb?.configuration.userContentController {
-            if let body = message.body as? [String: Any], body["type"] as? String == "mini-cc-close" {
-                hideCard()
-                pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
-                pushHostCommand("miniCCClosed", payload: "{}")
+            if let body = message.body as? [String: Any], let type = body["type"] as? String {
+                if type == "mini-cc-face" {
+                    // 卡片页挂载完成后来要一次：清掉差分键重推，不受"没变就不推"那扇门
+                    // 影响（它就是那次竞速失败后的确定性兜底）。
+                    pushedFace = ""
+                    pushFace(mode: currentFace?.mode, sessionId: currentFace?.sessionId)
+                    return
+                }
+                if type == "mini-cc-close" {
+                    hideCard()
+                    pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
+                    pushHostCommand("miniCCClosed", payload: "{}")
+                    return
+                }
             }
             return
         }
@@ -413,11 +429,17 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         cardWeb.frame = frame
         if let radius = body["radius"] as? Double { cardGlass.setRadius(radius * webView.pageZoom) }
         if let ms = body["durationMs"] as? Double, ms > 0 { cardMotion = ms / 1000 }
+        let mode = body["mode"] as? String
+        let sessionId = body["sessionId"] as? String
+        currentFace = mode.map { ($0, sessionId) }
         loadCardIfNeeded()
         showCard()
-        pushFace(mode: body["mode"] as? String, sessionId: body["sessionId"] as? String)
+        pushFace(mode: mode, sessionId: sessionId)
     }
 
+    /// 卡片页与面板页**同一时刻预载**（`load(bridgeURL:)` 里就叫它）：它那一份 store 要在
+    /// 用户第一次点开之前连上引擎、把会话列表拉回来——否则第一次打开即便脸对了，列表还是
+    /// 空一段（用户报的"开机后第一次打开是空的"第二半）。常驻隐身页本就是本仓的既定做法。
     private func loadCardIfNeeded() {
         guard cardWeb.url == nil, let url = cardURL else { return }
         cardWeb.load(URLRequest(url: url))
