@@ -29,7 +29,7 @@ final class AnnotationToolbar: NSView {
     selection: nil, action: #selector(cancelClicked))
   private let copyButton = AnnotationToolbarButton(selection: nil, action: #selector(copyClicked))
   private let confirmButton = AnnotationToolbarButton(
-    selection: nil, tint: .controlAccentColor, action: #selector(confirmClicked))
+    selection: nil, tint: .white, action: #selector(confirmClicked))
   private let bar: AnnotationGlassBar
 
   override init(frame: NSRect) {

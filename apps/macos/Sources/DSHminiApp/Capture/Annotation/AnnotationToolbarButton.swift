@@ -106,7 +106,7 @@ final class AnnotationToolbarButton: NSButton {
   override func draw(_ dirtyRect: NSRect) {
     let circle = capsule
     if selection == .fill || selection == .toggle, isSelected {
-      NSColor.controlAccentColor.withAlphaComponent(isHighlighted ? 0.8 : 1).setFill()
+      NSColor(white: 1, alpha: isHighlighted ? 0.78 : 0.92).setFill()
       circle.fill()
     } else if let wash {
       NSColor.labelColor.withAlphaComponent(wash).setFill()
@@ -115,7 +115,7 @@ final class AnnotationToolbarButton: NSButton {
     if selection == .ring, isSelected {
       let ring = NSBezierPath(ovalIn: bounds.insetBy(dx: 2, dy: 2))
       ring.lineWidth = 2
-      NSColor.controlAccentColor.setStroke()
+      NSColor(white: 1, alpha: 0.9).setStroke()
       ring.stroke()
     }
     if let label {
@@ -153,7 +153,8 @@ final class AnnotationToolbarButton: NSButton {
 
   private func updateTint() {
     guard selection == .fill || selection == .toggle else { return }
-    contentTintColor = isSelected ? .white : nil
+    // 选中态是白底，字形随之转黑（原来是蓝色底 + 白字形）。
+    contentTintColor = isSelected ? .black : nil
   }
 
   // MARK: Hover

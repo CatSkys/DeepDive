@@ -1,8 +1,10 @@
 import AppKit
 
 /// The dim over the frozen display with one undimmed area: the detected area under the pointer
-/// or the selection, outlined in the accent colour, with its "W × H" size in points and, on a
-/// committed selection, its eight handles. Redraws only the region an update touches, so
+/// or the selection, with its "W × H" size in points and, on a committed selection, its eight
+/// handles. The mask carries the state (the accent colour is not used: the capture chrome is
+/// black, white and grey); the boundary is a white hairline with a dark one just outside it, so
+/// it reads over dark and light content alike. Redraws only the region an update touches, so
 /// a mouse move does not repaint a whole Retina display.
 final class CaptureChromeView: NSView {
   /// An area with its size label, placed once per update.
@@ -16,6 +18,9 @@ final class CaptureChromeView: NSView {
   private var placement: Placement?
   private var handles = false
   private static let dim = NSColor(white: 0, alpha: 0.4)
+  /// 选区边缘：内侧一条亮发丝线，外侧紧跟一条深发丝线（亮底暗底都看得见）。
+  private static let outlineLight = NSColor(white: 1, alpha: 0.85)
+  private static let outlineDark = NSColor(white: 0, alpha: 0.35)
   private static let handleRadius: CGFloat = 4
   private static let labelFont = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
 
@@ -50,9 +55,13 @@ final class CaptureChromeView: NSView {
     dim.fill()
     guard let placement else { return }
     let area = placement.area
-    let outline = NSBezierPath(rect: area.insetBy(dx: -0.75, dy: -0.75))
-    outline.lineWidth = 1.5
-    NSColor.controlAccentColor.setStroke()
+    let outer = NSBezierPath(rect: area.insetBy(dx: -0.75, dy: -0.75))
+    outer.lineWidth = 1.5
+    Self.outlineDark.setStroke()
+    outer.stroke()
+    let outline = NSBezierPath(rect: area)
+    outline.lineWidth = 1
+    Self.outlineLight.setStroke()
     outline.stroke()
     if handles {
       for handle in SelectionHandle.allCases {
@@ -63,6 +72,7 @@ final class CaptureChromeView: NSView {
         NSColor.white.setFill()
         dot.fill()
         dot.lineWidth = 1
+        Self.outlineDark.setStroke()
         dot.stroke()
       }
     }
