@@ -1302,11 +1302,19 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **主线程默认隔离**：移植族是 Swift 6 + `defaultIsolation(MainActor)` 写成的（Atd 的 `Package.swift` 明写）。本项目壳是 Swift 5 模式，直接编会在 ~40 个类上报「call to main actor-isolated … in a synchronous nonisolated context」（54 错）。处置：XcodeGen 里加 `SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor`（一行），54 → 4 错，**自有代码零破坏**。别去手改几十处 `@MainActor` 注解——那是把工程开关的问题写进源码。
 - 随之留下的：移植族里「Swift 6 下才是错误」的告警（`Mutex` 在异步上下文等）不阻塞 Swift 5 构建；将来整体升 Swift 6 时要一并收。
 
-### 11.2 截图/划词的两项 TCC 授权绑 cdhash：adhoc 构建每次重建都要重新授权（2026-10-13）
+### 11.2 截图/划词的两项 TCC 授权：交付链走 Developer ID，授权跨构建保留（2026-10-13）
 
-- 屏幕录制与辅助功能两项授权按构建的 cdhash 记（我们是 adhoc 深签）。**每次 `make package`/`make deliver` 之后，两项授权都会掉**——表现是"划词工具条不出现、截图只截到壁纸"，用户得去系统设置重开两次。Atd 自己的 `AGENTS.md` 同样写着这条（它用固定证书 + `StaleGrantRecovery` 缓解）。
-- 判定与自查：`CGPreflightScreenCaptureAccess()`（每次截图前现查，别缓存）、`AXIsProcessTrusted()`；工具的 2s 轮询会自己跟上授权变化，不必重启。
-- 授权面板深链：`x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture`（屏幕录制）/ `?Privacy_Accessibility`（辅助功能）。
+- 两项授权是**屏幕录制**（截图）与**辅助功能**（读选中文字）。它们按「bundle id + 签名身份」记：
+  `make deliver` / `make package` 走的 `scripts/sign-app.sh` 默认用 **Developer ID**
+  （`Developer ID Application: HANGBIN JIN (49LSZKN27V)`）重签，所以**重建不掉授权**——
+  实测交付后 `codesign -dv` 的 TeamIdentifier 就是它，日志也这么写。
+- 会掉授权的只有**没有固定身份的构建**：adhoc（`CODE_SIGNING_ALLOWED=NO` 的测试宿主、
+  或显式 `DSHMINI_CODESIGN_IDENTITY=-` / 证书不可用时的回退）。那种构建每次重编都换 cdhash，
+  两项授权随之失效；Atd 自己的 `AGENTS.md` 同样记着这条（它靠固定证书 + `StaleGrantRecovery` 缓解）。
+- 判定与自查：`CGPreflightScreenCaptureAccess()`（**每次截图前现查**，别缓存——授权被吊销的构建
+  只会截到壁纸）、`AXIsProcessTrusted()`；两个工具的 2s 轮询会自己跟上授权变化，不必重启应用。
+- 授权面板深链：`x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture`
+  （屏幕录制）/ `?Privacy_Accessibility`（辅助功能）。系统在**授权后要求重启应用**才生效，属预期。
 
 ### 11.3 移植族碰的两处私有 API：只在同一个门里关着（2026-10-13）
 
