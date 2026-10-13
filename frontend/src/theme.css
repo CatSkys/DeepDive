@@ -470,12 +470,11 @@ button {
   transform: none;
   animation: none;
 }
-/* 搜索行：定高 **40**（Raycast 面板规范的 --space-40），下沿一条 **0.5px 发丝线**，
-   颜色取 `--line`——它正好是规范里的分隔色 fg-10（前景 10%）。0.5px 是那条规范里的
-   `--half-pixel`：Retina 上落成 1 个物理像素的发丝，而不是 1px 逻辑像素的实线
-   （用户 2026-10-13 先要求"面板里不要分割线"，随后定"全部按 Raycast 规范"，此处按规范）。
-   横向下内距 12 与行文字同列（= 列表 6 + 行内距 10 − 出血 4；规范写 16 是它自己那套
-   留白算出来的等价值，不是硬数值）。 */
+/* 搜索行：定高 **40**（Raycast 面板规范的 --space-40），**不画分隔线**（用户 2026-10-13
+   定稿：面板里不要分割线；规范里那条 0.5px 发丝线按此删掉，列表与它的分界交给留白与
+   列表自己的超限渐隐）。横向下内距 12 与行文字同列（= 列表 6 + 行内距 10 − 出血 4；
+   规范写 16 是它自己那套留白算出来的等价值，不是硬数值）。
+   **只有历史脸有这一行**：设置脸是一块纯设置页，没有可搜的东西。 */
 .app.mini-panel .mini-cc-search {
   display: flex;
   align-items: center;
@@ -483,7 +482,6 @@ button {
   flex: none;
   height: 40px;
   padding: 0 12px;
-  border-bottom: 0.5px solid var(--line);
   color: var(--ink-3);
 }
 .app.mini-panel .mini-cc-search input {

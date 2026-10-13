@@ -1,8 +1,10 @@
 // 命令中心的**选择页**：卡内翻到的那一层——一段段选项列表，当前值打勾，点一下就写完并返回。
 // 模型、思考强度、权限、会话模式、发送方式全是这一个件，只有 sections 不同（各脸自己装配，
-// 见 MiniSettingsRows）。只管呈现与按查询过滤；写回由调用方的 onPick 给（写入路径仍是既有那些）。
+// 见 MiniSettingsRows）。只管呈现；写回由调用方的 onPick 给（写入路径仍是既有那些）。
+// 设置脸没有搜索框（用户 2026-10-13 定稿），所以这里也不再有"按查询过滤"。
 import { Check } from "lucide-react";
 import { useT } from "../i18n";
+import { MiniCcList } from "./MiniCcList";
 
 export interface ChoiceOption {
   v: string;
@@ -16,35 +18,29 @@ export interface ChoiceSection {
   options: ChoiceOption[];
 }
 
-/** 过滤后展平的行序（段序即视觉序）——键盘光标与「这一屏有哪些可选项」同源。 */
-export function flattenChoices(sections: ChoiceSection[], query: string): ChoiceOption[] {
-  const q = query.trim().toLowerCase();
-  return sections.flatMap((s) => s.options.filter((o) => !q || o.label.toLowerCase().includes(q)));
+/** 展平的行序（段序即视觉序）——键盘光标与「这一屏有哪些可选项」同源。 */
+export function flattenChoices(sections: ChoiceSection[]): ChoiceOption[] {
+  return sections.flatMap((s) => s.options);
 }
 
 export function MiniChoicePage({
   sections,
   value,
-  query,
   cursor,
   onPick,
 }: {
   sections: ChoiceSection[];
   /** 当前值（打勾那一条）。 */
   value: string | undefined;
-  query: string;
-  /** 键盘光标（面板持有：搜索框拿着焦点，行序是各页展平出来的）。 */
+  /** 键盘光标（卡片持有：行序是各页展平出来的，见 flattenChoices）。 */
   cursor: number;
   onPick: (v: string) => void;
 }) {
   const { t } = useT();
-  const q = query.trim().toLowerCase();
-  const shown = sections
-    .map((s) => ({ ...s, options: s.options.filter((o) => !q || o.label.toLowerCase().includes(q)) }))
-    .filter((s) => s.options.length > 0);
+  const shown = sections.filter((s) => s.options.length > 0);
   let index = -1;
   return (
-    <div className="mini-cc-list">
+    <MiniCcList>
       {shown.map((section) => (
         <section className="mini-cc-section" key={section.key}>
           {section.title !== undefined && <h3 className="mini-cc-section-title">{section.title}</h3>}
@@ -66,7 +62,7 @@ export function MiniChoicePage({
           })}
         </section>
       ))}
-      {shown.length === 0 && <p className="mini-cc-empty">{t("没有匹配的选项")}</p>}
-    </div>
+      {shown.length === 0 && <p className="mini-cc-empty">{t("暂无选项")}</p>}
+    </MiniCcList>
   );
 }
