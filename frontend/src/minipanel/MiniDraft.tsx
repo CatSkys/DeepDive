@@ -5,7 +5,9 @@
 // 胶囊清单是纯前端常量（miniHomePrompts.ts）：首页给的是"帮你写好第一句"的提示词，
 // **不放 / 命令列表**——命令目录的消费面是壳侧药丸的命令卡（store.quickCommands 推壳）。
 // 设置不在本页：右上控件簇那颗齿轮（与历史/新建同排）开的是命令中心，标题点击同一落点
-// （onOpenSettings）。
+// （onOpenSettings）。头部**只留标题**（showModel=false）：模型行不在这儿，模型在设置那张
+// 命令中心里改——头部两行会把内容区压窄（用户 2026-10-13 定稿），头部高度随之由
+// theme.css 里面板作用域的 --session-header-h 收窄。
 
 import { useDraftModelFace } from "../useDraftModelFace";
 import { useT } from "../i18n";
@@ -22,7 +24,7 @@ export function MiniDraft({ onOpenSettings }: { onOpenSettings: () => void }) {
     <div className="session-row">
       <div className="mini-draft">
         <div className="hero-top">
-          <SessionHeader title={t("新会话")} face={face} onTitleClick={onOpenSettings} />
+          <SessionHeader title={t("新会话")} face={face} showModel={false} onTitleClick={onOpenSettings} />
         </div>
         <div className="mini-draft-greet">
           <h1 className="mini-draft-hello">{tt("有什么可以帮你的？", "How can I help you?")}</h1>

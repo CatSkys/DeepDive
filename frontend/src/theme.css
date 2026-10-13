@@ -341,10 +341,12 @@ button {
 
 /* 面板右上控件簇（面板自有，不借主窗的头部座位）：新建会话 + 会话历史 + 会话设置，
    三颗钮**聚成一个悬浮胶囊**（macOS 悬浮工具组的样子：整组共享一个胶囊底，项 hover/选中
-   出内层高亮，不是三颗各自浮着的独立圆钮）。材质是"窗底玻璃上的一块悬浮件"那套像样写法
-   ——比 fill 实一档的底 + 顶部内高光 + 细描边 + 收窄的柔和投影。（真液态玻璃在这个窗里
-   做不到：背板只能垫在同一个 webview 之下，采到的是已经糊过的窗玻璃＝玻璃叠玻璃，只会
-   更闷；垫在 webview 之上会把这颗胶囊连同图标一起糊掉。）
+   出内层高亮，不是三颗各自浮着的独立圆钮）。材质**照会话输入框那套抄**（用户 2026-10-13
+   点名"像我们会话输入框一样"）——同一 webview 里的玻璃就是它：磨砂底 + 双前缀
+   blur(24px) saturate(150%) + 它的投影，且无描边（输入框定稿：只靠磨砂底色分层）。
+   胶囊与输入框同族形状（整圆），整套直接对齐，不再自己配一套死板纯色底。
+   （原生 NSGlassEffectView 在这个窗里不可行：背板只能垫在同一个 webview 之下＝玻璃叠
+   已糊过的窗玻璃，垫在之上会把这颗胶囊连同图标一起糊掉。）
    位置沿用草稿页那颗齿轮的 8/16；z-index 8 在命令中心(7)、滚动辉光(4)之上——卡片盖住
    整窗时这几颗仍可点。 */
 .app.mini-panel .mini-controls {
@@ -357,11 +359,10 @@ button {
   gap: 2px;
   padding: 3px;
   border-radius: 999px;
-  background: var(--fill-strong);
-  border: 1px solid var(--line);
-  box-shadow:
-    inset 0 .5px 0 rgba(255, 255, 255, .18),
-    0 4px 12px rgba(0, 0, 0, .18);
+  background: var(--composer-bg);
+  box-shadow: var(--composer-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
 }
 /* 组内项与胶囊**同心**（项半径 = 胶囊半径 − 内边距）：圆角套圆角是苹果给嵌套形状的规矩，
    内层写小圆角会像两种形状叠在一起。 */
@@ -381,6 +382,12 @@ button {
    112 = 三钮 28×3 + 缝 2×2 + 内边距 3×2 + 描边 2 + 呼吸 ~18。 */
 .app.mini-panel .session-header { padding-right: 112px; }
 
+/* 面板头部只留标题（用户 2026-10-13 定稿：模型行不在这儿——模型在设置那张命令中心里
+   改，头部留两行反而把内容区压窄）。头部高度是 --session-header-h 一条链（头部多高、
+   内容让位多少都吃它，见 :root 那条注释），所以在面板作用域里换值即可：标题行
+   8 + 20 + 8 ≈ 36，取 38 留一点余量。 */
+.app.mini-panel { --session-header-h: 38px; }
+
 /* ── 悬浮命令中心（历史 / 设置两张卡片共用这一副壳）：浮在页面之上，页面本身不换 ── */
 .app.mini-panel .mini-cc {
   position: absolute;
@@ -394,7 +401,13 @@ button {
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-floating);
+  /* 弹层配方三件套（见上方 .model-menu 那条：glass 底 + 这口模糊 + 投影）——少了模糊，
+     卡片下面的页面正文会整片透上来读不清（用户 2026-10-13 报"面板是透明的"）。
+     同一 webview 内的弹层能吃 backdrop-filter（面板里的模型菜单就是这套），前缀顺序
+     与那条配方一致：-webkit- 在前。 */
   background: var(--panel-glass);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
   box-shadow: var(--shadow-pop);
   animation: menu-in var(--dur-fast) var(--ease-out) both;
 }
