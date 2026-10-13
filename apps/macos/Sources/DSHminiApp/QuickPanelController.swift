@@ -124,6 +124,8 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         window.minSize = NSSize(
             width: min(PanelGeometry.minimumSize.width, workArea.width),
             height: min(PanelGeometry.minimumSize.height, workArea.height))
+        // 预热实景底图：首次召唤不闪"锐利桌面"的那 0.1s（出图异步，见 PanelWallpaperView）。
+        glass.refreshWallpaper(for: window)
     }
 
     /// 显隐开关（⌥Space / 胶囊 logo 钮 / Dock 点击共用）。
@@ -138,6 +140,8 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     func showPanel() {
         // 召唤前记住前台应用（giveUpKey 用）；此时还没激活自己。
         previousApp = NSWorkspace.shared.frontmostApplication
+        // 藏着的时候壁纸可能换过：每次召唤核一次指纹（相同自会跳过）。
+        glass.refreshWallpaper(for: window)
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.alphaValue = 0
         window.ignoresMouseEvents = false
@@ -292,10 +296,13 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     func windowDidEndLiveResize(_ notification: Notification) {
         UserDefaults.standard.set(window.frame.width, forKey: Self.widthKey)
         UserDefaults.standard.set(window.frame.height, forKey: Self.heightKey)
+        // 拖完尺寸重裁底图（拖动中不刷，避免连续重糊）。
+        glass.refreshWallpaper(for: window)
     }
 
     func windowDidChangeScreen(_ notification: Notification) {
         dockToSavedWorkArea()
+        glass.refreshWallpaper(for: window)
     }
 
     /// 屏幕参数变化：仍在 dock 位就跟着新工作区重新 dock（PanelGeometry.follow）。

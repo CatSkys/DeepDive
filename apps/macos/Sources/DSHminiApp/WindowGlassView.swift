@@ -24,6 +24,8 @@ final class WindowGlassView: NSView {
 
     /// macOS 26+ 的液态玻璃底板；更早的系统为 nil（那时走 materialView + tintView）。
     private let glassView: NSView?
+    /// .panel 档的实景底图（铺在玻璃之下，玻璃采样它而不是锐利桌面）；.window 档为 nil。
+    private var wallpaperView: PanelWallpaperView?
     /// vibrancy 底板（只在退回分支挂上来）。
     private let materialView = NSVisualEffectView()
     /// 材质之上的近黑 tint（只在退回分支挂上来）。不透明度对齐 tokens.json
@@ -53,6 +55,12 @@ final class WindowGlassView: NSView {
         super.init(frame: .zero)
         if let glass = glassView {
             addFilling(glass)
+            if surface == .panel {
+                let wallpaper = PanelWallpaperView(frame: .zero)
+                wallpaper.autoresizingMask = [.width, .height]
+                addSubview(wallpaper, positioned: .below, relativeTo: glass)
+                wallpaperView = wallpaper
+            }
         } else {
             materialView.material = .sidebar
             materialView.blendingMode = .behindWindow
@@ -65,6 +73,13 @@ final class WindowGlassView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// .panel 档专属：按窗所在屏重出实景底图（QuickPanelController 在召唤/换屏/
+    /// 改尺寸后各调一次；指纹相同内部自会跳过）。.window 档是 no-op。
+    func refreshWallpaper(for window: NSWindow) {
+        guard surface == .panel, let screen = window.screen ?? NSScreen.main else { return }
+        wallpaperView?.refresh(for: window, screen: screen)
+    }
 
     /// 亮/暗切换：液态玻璃换 `tintColor`，退回分支换叠在材质上的 tint。
     /// （材质 `.sidebar` 与液态玻璃本身都随 `window.appearance` 自适应，不手动分档。）
