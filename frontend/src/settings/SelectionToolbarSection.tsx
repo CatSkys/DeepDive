@@ -10,7 +10,9 @@ import {
   activationKeycap, MAX_EXCLUDED_APPS,
   type SelectionActivationMode, type SelectionToolbarSettings,
 } from "./selectionToolbar";
-import { onHostEvent, openAccessibilitySettings, requestScreenRecording, selectionAppsPick, sendToShell } from "../host";
+import {
+  onHostEvent, openAccessibilitySettings, permissionsState, requestScreenRecording, selectionAppsPick, sendToShell,
+} from "../host";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 
@@ -21,18 +23,60 @@ const MODES: Array<{ v: SelectionActivationMode; zh: string; en: string }> = [
   { v: "toggle", zh: "监听模式（连按两次开合）", en: "Listening (press twice to toggle)" },
 ];
 
+/** 一处系统授权的状态行：查得到状态就按状态显示——**已授权只显示状态，不摆按钮**
+ *  （2026-10-13 用户定稿）；未授权才给"打开系统设置"。状态未知（还没查回来）时也
+ *  给按钮，否则用户无处可去。 */
+function PermissionRow({ name, hint, granted, onOpen, noteWhenGranted }: {
+  name: string;
+  hint: string;
+  granted: boolean | null;
+  onOpen: () => void;
+  noteWhenGranted?: string;
+}) {
+  const { t } = useT();
+  return (
+    <div className={rowsCss.hotkeyRow}>
+      <div className={rowsCss.rowIdentity}>
+        <div className={rowsCss.rowName}>{name}</div>
+        <div className={rowsCss.rowCaption}>
+          {granted === true ? (noteWhenGranted ?? hint) : granted === false ? t("未授权。") : hint}
+        </div>
+      </div>
+      <div className={rowsCss.rowActions}>
+        {granted === true ? (
+          <span className={rowsCss.comboChip} style={{ color: "var(--ink-3)" }}>{t("已授权")}</span>
+        ) : (
+          <button type="button" className={rowsCss.comboChip} onClick={onOpen}>
+            {t("打开系统设置")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function SelectionToolbarSection() {
   const { t, tt } = useT();
   const store = useStore();
   const settings = store.selectionToolbar;
   const setSettings = store.setSelectionToolbar;
-  const [trusted, setTrusted] = useState<boolean | null>(null);
+  // 两处授权：进页面查一次当前值（壳的 `permissions-state`），其后靠推送更新。
+  const [permissions, setPermissions] = useState<{ accessibility: boolean; screenRecording: boolean } | null>(null);
   const [listening, setListening] = useState(false);
   const [recording, setRecording] = useState(false);
 
+  useEffect(() => { void permissionsState().then(setPermissions); }, []);
+
   // 壳推来的授权与监听状态（打开设置页时先问一次当前值）。
   useEffect(() => onHostEvent((cmd, payload) => {
-    if (cmd === "accessibilityTrust") setTrusted((payload as { trusted?: boolean } | undefined)?.trusted === true);
+    if (cmd === "accessibilityTrust") {
+      const trusted = (payload as { trusted?: boolean } | undefined)?.trusted === true;
+      setPermissions((prev) => ({ accessibility: trusted, screenRecording: prev?.screenRecording ?? false }));
+    }
+    if (cmd === "screenRecordingTrust") {
+      const trusted = (payload as { trusted?: boolean } | undefined)?.trusted === true;
+      setPermissions((prev) => ({ accessibility: prev?.accessibility ?? false, screenRecording: trusted }));
+    }
     if (cmd === "selectionListening") setListening((payload as { on?: boolean } | undefined)?.on === true);
     if (cmd === "hotkeyChanged" && (payload as { which?: string } | undefined)?.which === "screenshot") setRecording(false);
     if (cmd === "hotkeyRecordingEnded") setRecording(false);
@@ -133,21 +177,12 @@ export function SelectionToolbarSection() {
             </div>
           </div>
 
-          <div className={rowsCss.hotkeyRow}>
-            <div className={rowsCss.rowIdentity}>
-              <div className={rowsCss.rowName}>{t("辅助功能权限")}</div>
-              <div className={rowsCss.rowCaption}>
-                {trusted === null
-                  ? t("读取选中文字需要这项授权。")
-                  : trusted ? t("已授权。") : t("未授权——工具条不会出现。")}
-              </div>
-            </div>
-            <div className={rowsCss.rowActions}>
-              <button type="button" className={rowsCss.comboChip} onClick={openAccessibilitySettings}>
-                {t("打开系统设置")}
-              </button>
-            </div>
-          </div>
+          <PermissionRow
+            name={t("辅助功能权限")}
+            hint={t("读取选中文字需要这项授权。")}
+            granted={permissions?.accessibility ?? null}
+            onOpen={openAccessibilitySettings}
+          />
 
           {settings.activation === "toggle" && (
             <div className={rowsCss.hotkeyRow}>
@@ -194,17 +229,13 @@ export function SelectionToolbarSection() {
             </div>
           </div>
 
-          <div className={rowsCss.hotkeyRow}>
-            <div className={rowsCss.rowIdentity}>
-              <div className={rowsCss.rowName}>{t("屏幕录制权限")}</div>
-              <div className={rowsCss.rowCaption}>{t("截图需要这项授权；授权后可能要重启应用才生效。")}</div>
-            </div>
-            <div className={rowsCss.rowActions}>
-              <button type="button" className={rowsCss.comboChip} onClick={requestScreenRecording}>
-                {t("打开系统设置")}
-              </button>
-            </div>
-          </div>
+          <PermissionRow
+            name={t("屏幕录制权限")}
+            hint={t("截图需要这项授权。")}
+            granted={permissions?.screenRecording ?? null}
+            onOpen={requestScreenRecording}
+            noteWhenGranted={t("刚授权的请退出并重开本应用（macOS 只对重启后的应用生效）。")}
+          />
         </div>
       </div>
     </>

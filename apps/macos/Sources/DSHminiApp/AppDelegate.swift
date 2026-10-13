@@ -484,6 +484,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             selection.openAccessibilityPane()
         case "screen-recording-request":
             screenshot.requestPermission()
+        case "permissions-state":
+            pushHost("permissionsState", payload: Self.permissionsPayload(), to: source)
         case "pick-attachments":
             pickAttachments(
                 reqId: body["reqId"] as? String ?? "",
@@ -1179,6 +1181,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.pushHost("screenRecordingDenied", payload: [:], to: self.currentSource())
         }
         screenshot.onWantsAccessibility = { SelectionReader.requestTrust() }
+        // 授权态变化（用户在系统设置里点了）：推给页面显示状态，不要求重启才发现。
+        screenshot.onTrustChange = { [weak self] trusted in
+            guard let self else { return }
+            self.pushHost("screenRecordingTrust", payload: ["trusted": trusted], to: self.currentSource())
+        }
         // 「问 DeepDive」：页面亮面板并把暂存里的文字引用进草稿（文字已由壳存好）。
         selection.onAsk = { [weak self] _ in
             guard let self else { return }
@@ -1196,6 +1203,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.pushHost("accessibilityTrust", payload: ["trusted": trusted], to: self.currentSource())
         }
         applyPersistedSelectionToolbar()
+    }
+
+    /// 两处授权现在的状态（设置页据此显示「已授权」而不是一枚按钮）。
+    static func permissionsPayload() -> [String: Any] {
+        [
+            "accessibility": SelectionReader.isTrusted,
+            "screenRecording": CGPreflightScreenCaptureAccess(),
+        ]
     }
 
     /// 结果推给谁：迷你面板窗可见就推它（用户正在那儿工作），否则主窗。

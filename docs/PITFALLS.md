@@ -24,13 +24,14 @@
 
 - 现象：`make test`（前端 vitest ∥ 壳 XCTest 两腿并行）时 `GitChangesTests` 报 2–11 条失败，且每次失败的用例不同（`testFetchDiffKinds` / `testFetchChangesOnlyReturnsUnstagedBucket`…），断言是「untracked」对「patch」这类——临时的 git 仓库还没 seed 完就被读了。
 - 定因：只跑壳腿（`xcodebuild test …`，不并行前端）187/187 全绿；单跑该套件 20/20 全绿。即这批用例起 git 子进程、对机器负载敏感，不是代码回归。
+- 频率与可疑机制：整轮并行下约每三次命中一两次；`seedRepo()` 起 git 子进程 seed 临时仓库，负载下一旦某步没落地（超时/失败未被检查），被测文件就还是 untracked，断言随即从 .patch 变 .untracked——**待查**，但这属于测试基建，不是产品代码。
 - 处置：见到这批用例在整轮里红、单跑绿，**先按环境抖动处理**（别去改 GitChanges）；判定改动是否真红，以「只跑壳腿」或 `-only-testing:` 单套件为准，并把两次结果都记进报告。
 
 **调试技巧（细节 §6）**：抓事件流→6.1 · Playwright 验证→6.2 · 后台 subagent 失败→6.3 · hdiutil 僵尸→6.4
 
 **原生视图槽位（细节 §9）**：浮层被浏览器压住→9.1 · 缩放后错位→9.2 · 缩略图点不动→9.3 · MCP 卡 60s→9.4 · http 打不开→9.5 · 查找少一个字→9.6 · 新通道全超时→9.7
 
-**截图与划词（细节 §11）**：移植族编不过→11.1 · 工具条不出现/截图只截壁纸（授权掉）→11.2 · 私有 API 两处→11.3
+**截图与划词（细节 §11）**：移植族编不过→11.1 · 屏幕录制深链点了没反应→11.4 · 授权后截图无反应（失败被吞）→11.5 · 工具条不出现/截图只截壁纸（授权掉）→11.2 · 私有 API 两处→11.3
 
 **迷你面板（细节 §10）**：ForEach 过渡态回读活体数组→10.1；面板页被主窗规则误伤（黑窗 / 变内容卡）→10.2；空白会话闪主窗 hero 整页→10.3
 
@@ -848,6 +849,23 @@
 
 
 ---
+
+### 11.4 屏幕录制那格的系统设置深链在 macOS 26 换了面板 id（2026-10-13 用户报"点了没反应"）
+
+- 现象：划词（辅助功能）那颗「打开系统设置」能跳，截图（屏幕录制）那颗点了什么都不开。
+- 实测（逐条 `open` 后读窗口标题）：
+  - `x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility` → 开（辅助功能，本节所在窗口）✓
+  - `x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture` → **连窗口都不开** ✗（旧面板不认这个锚点）
+  - `x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_ScreenCapture` → 开，标题「录屏与系统录音」✓
+  - 而 `com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility` 反而落到「设备控制和数据访问」那一节 ✗
+- 结论：**两格各用各的面板 id**（`SystemSettings.Pane` 的 rawValue 直接存整段「面板 id?锚点」，就是为此）；别"统一"成一个，实测证明统一必坏一格。锚点串本身都在新扩展 `SecurityPrivacyExtension.appex` 里，但旧面板只认辅助功能那个。
+
+### 11.5 授权后截图"打不开"的真因：失败被前端静默吞掉（2026-10-13）
+
+- 现象：用户在系统设置里授权屏幕录制之后，截图反而"没有任何反应"（授权前至少还有一句提示）。
+- 机制（两条叠加）：① macOS **只对重启后的进程**应用新的屏幕录制授权——`CGPreflightScreenCaptureAccess()` 已返回 true，而 `SCShareableContent` 仍会失败；② 壳把 `ok:false` + 文案推回时，前端的解析把它折成 `null`，调用点写着 `if (items) ...` → 一句话都没说。
+- 处置：截图的结果改判别式（`ScreenshotResult = {ok:true,items} | {ok:false,error}`），失败**必须**弹出来说；壳侧对「预检过了但 SCK 起不来」给出明确措辞（"刚授权请退出并重开应用"，原始错误进引擎日志）。热键/迷你面板那条无请求方的路同样弹。
+- 教训：桥的"失败"设计成 `null` 就等于设计成无声。凡是会失败的动作，回执里带着文案走。
 
 ## 5. 版本角标 / 交付自检
 
