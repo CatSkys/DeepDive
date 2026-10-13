@@ -14,6 +14,7 @@ import { DialogHost } from "../components/DialogHost";
 import { TooltipHost } from "../components/Tooltip";
 import { SessionView } from "../components/SessionView";
 import { MiniDraft } from "./MiniDraft";
+import { MiniRunningGlow } from "./MiniRunningGlow";
 
 export function MiniPanelApp() {
   const store = useStore();
@@ -66,10 +67,15 @@ export function MiniPanelApp() {
   }, []);
 
   const active = store.activeSessionId;
+  // 会话在跑 → 整面板辉光（信号与 Composer 的停止按钮同一条：sessions[].running）。
+  const activeRunning = active
+    ? (store.sessions.find((s) => s.sessionId === active)?.running ?? false)
+    : false;
   return (
     <div className="app mini-panel">
       <TooltipHost />
       <DialogHost />
+      {activeRunning && <MiniRunningGlow />}
       <main className="main">
         {active ? (
           <SessionView key={active} sessionId={active} />
