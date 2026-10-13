@@ -306,6 +306,50 @@ function checkInlineStaticStyle(file, text) {
   return violations;
 }
 
+// ── 规则 5：窄窗媒体规则不得误伤迷你面板页（2026-10-13 黑窗事故）────────────────
+// 迷你面板窗天生只有 ~500pt 宽，**永远**落在窄窗断点里：`@media (max-width: …)` 里给
+// 会话列/面板卡写的"窄屏呈现"（手机远程那一套）会被它照单全收。事故现场：手机断点的
+// `.session-row:has(> .panel) > .session { visibility: hidden }` 把面板页整列停画——
+// DOM 全在、布局正常、一个字不出，只剩窗底玻璃（用户报"发送后黑窗"；DOM 探针与
+// 受控浏览器都查不出来，因为断点没在探针视口命中）。这类规则的归属必须显式排除
+// `.mini-panel`：`.app:not(.mini-panel) …`；面板页自己的窄窗呈现写在 `.mini-panel` 块里。
+
+/** 窄窗媒体块里的规则前奏（selector），按顶层 {} 逐对扫。 */
+function narrowMediaRuleSelectors(body) {
+  const out = [];
+  let i = 0;
+  while (i < body.length) {
+    const open = body.indexOf("{", i);
+    if (open === -1) break;
+    const declarations = braceBody(body, open);
+    if (declarations === null) break;
+    const selector = body.slice(i, open).trim();
+    if (selector) out.push(selector);
+    i = open + declarations.length + 2;
+  }
+  return out;
+}
+
+/** 选择器是不是冲着主窗共享类去的（会话列 / 会话行 / 右侧面板卡）。 */
+const SHARED_SURFACE_SELECTOR = /(^|[\s>+~,(])\.(?:session|session-row|panel)(?![\w-])/;
+
+function checkNarrowMediaMiniPanel(file, text) {
+  const stripped = text.replace(/\/\*[\s\S]*?\*\//g, " ");
+  const violations = [];
+  for (const m of stripped.matchAll(/@media[^{]*max-width[^{]*\{/gi)) {
+    const body = braceBody(stripped, m.index + m[0].length - 1);
+    if (body === null) continue;
+    const query = m[0].replace(/\s*\{$/, "").trim();
+    for (const selector of narrowMediaRuleSelectors(body)) {
+      for (const one of splitTopLevel(selector)) {
+        if (!SHARED_SURFACE_SELECTOR.test(one) || one.includes(".mini-panel")) continue;
+        violations.push({ rule: "narrow-media-mini-panel", file: rel(file), detail: `${query} → ${one}` });
+      }
+    }
+  }
+  return violations;
+}
+
 // ── 主流程 ───────────────────────────────────────────────────────────────────
 
 function collect() {
@@ -314,9 +358,11 @@ function collect() {
   for (const file of files) {
     if (file.endsWith(".ts") || file.endsWith(".tsx")) violations.push(...checkCssModuleClasses(file));
   }
-  // 规则 3/4 只看前端：Swift 壳的样式不归 tokens.json 管。
+  // 规则 3/4/5 只看前端：Swift 壳的样式不归 tokens.json 管。
   for (const file of walk(FRONTEND_SRC, [], [".css"]).filter((f) => !isTest(f))) {
-    violations.push(...checkBareHex(file, readFileSync(file, "utf8"), true));
+    const text = readFileSync(file, "utf8");
+    violations.push(...checkBareHex(file, text, true));
+    violations.push(...checkNarrowMediaMiniPanel(file, text));
   }
   for (const file of files) {
     if (file.startsWith(FRONTEND_SRC) && file.endsWith(".tsx")) {

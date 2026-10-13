@@ -24,7 +24,7 @@
 
 **原生视图槽位（细节 §9）**：浮层被浏览器压住→9.1 · 缩放后错位→9.2 · 缩略图点不动→9.3 · MCP 卡 60s→9.4 · http 打不开→9.5 · 查找少一个字→9.6 · 新通道全超时→9.7
 
-**迷你面板 SwiftUI（细节 §10）**：ForEach 过渡态回读活体数组→10.1
+**迷你面板（细节 §10）**：ForEach 过渡态回读活体数组→10.1；窄窗媒体规则误伤面板页（发送后黑窗）→10.2
 
 ---
 
@@ -1196,22 +1196,43 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 教训：这类壳侧通道要**在真机跑一次**才算数——单测验证不了线程模型，而"UI 正常、只有新通道超时"
   这种症状最容易误判成环境问题。
 
-## 10. 迷你面板 SwiftUI（2026-10-12 Atd 整包移植起）
+## 10. 迷你面板（2026-10-12 Atd 整包移植起）
 
 ### 10.1 ForEach 用索引当 id、内容闭包回读活体数组——过渡态越界，轻中毒重崩溃（2026-10-13 实锤两次）
-- 症状：用户发送消息后面板**先闪回上一视图、再整窗黑死**（rects 仍在动 = 页面活着但宿主不再出帧）；
-  点命令卡时当场 `EXC_BREAKPOINT`，崩溃报告第 4 帧直指
-  `MiniPanelFlyout.rows(middleY:)` 的 `Swift runtime failure: Index out of range`。
+- 症状：点命令卡时当场 `EXC_BREAKPOINT`，崩溃报告第 4 帧直指
+  `MiniPanelFlyout.rows(middleY:)` 的 `Swift runtime failure: Index out of range`；
+  同族还有"图形失效但帧提交从此不再到达"的静默中毒（视图图同在一个进程里）。
 - 根因：`ForEach(model.commands.indices, id: \.self) { i in …commands[i].name }`——下标做 id + 内容
   闭包**回读活体数组**。`setCommands` 会在 SwiftUI 事务中途换数组（发送时刻命令目录随新会话注册收缩、
-  双窗各推一份），AttributeGraph 的过渡态求值拿旧下标打新数组：多数时候把视图图打毒——
-  图形失效但帧提交从此不再到达（黑窗，AppKit 侧一无所知）；赶巧了当场越界崩主线程。**黑窗与
-  闪现崩溃是同一根因的两种结局**——诊断时把黑窗整轮当合成层问题查（DOM 探针/受控浏览器/重绘
-  推动均无法证伪）走了弯路，最后一块拼图是崩溃报告补上的。
+  双窗各推一份），AttributeGraph 的过渡态求值拿旧下标打新数组：多数时候把视图图打毒，赶巧了当场
+  越界崩主线程。
 - 处置：枚举快照进 ForEach、内容只读自己的元素（`ForEach(Array(x.enumerated()), id: \.offset)`
   后闭包用 `pair.element`），**求值路径上不出现对活体数据的下标**；点击/悬停这类"按下才发生"的
   路径读当前数组必须显式判界（`commands.indices.contains`，注明"按下与结算之间数据可能已换"）。
   泛化：任何驱动 SwiftUI/Electron 视图图的数组，**改数组与改视图身份要一次给齐**，别让删除走
   "先缩数组后等视图自己追"。
 - 教训：黑窗这类"页面活着但不画"的壳侧怪象，**系统崩溃报告（`~/Library/Logs/DiagnosticReports` 里
-  最新 .ips）要第一个看**——静默中毒不会留下报告，但同根的崩溃会。 
+  最新 .ips）要第一个看**——静默中毒不会留下报告，但同根的崩溃会。
+- 订正（2026-10-13 晚）：本条曾把面板"发送后整窗黑"一并归到此根因，**结论错了**——崩溃止住后
+  黑窗照旧。面板页那条黑窗是页面侧的 §10.2（窄窗媒体规则停绘制会话列），与本条无关。
+
+### 10.2 窄窗媒体规则误伤迷你面板页——整列 `visibility:hidden`，DOM 全活却一个字不出（2026-10-13 实锤）
+- 症状：面板页**草稿页正常**；一发消息（视图切进会话页）整窗只剩窗底玻璃——"黑窗"/画面消失，
+  再也回不来。
+- 根因：`#/mini` 整页复用主窗主题表，而面板窗天生 ~500pt 宽、**永远**落在窄窗断点里 →
+  命中为手机远程页写的那条 `@media (max-width: 760px) { .session-row:has(> .panel) > .session
+  { visibility: hidden; } }`（窄屏让右侧面板卡接管整窗，会话列停绘制）。`SessionView` 永远渲染
+  `<aside class="panel">`（收起态也在，只是 `data-closed="true"`），所以这条**必中**；草稿页的
+  列是 `.mini-draft`，不受影响——"草稿好、会话黑"就是这么来的。
+- 盲区（为什么查了六轮）：DOM 探针只量了 `document.visibilityState`（页面级 visible）、元素高度
+  （hidden 不改布局）与文本，**没量元素级 computed `visibility`**——"活着的 DOM + 不出的像素"
+  正是 `visibility/opacity/display/transform` 这类渲染开关的签名；受控浏览器复现也失败，因为
+  探针视口 950px > 760，媒体查询压根没命中。**复现环境要连窗口/视口尺寸一起对齐**，
+  验证要覆盖渲染开关类属性。
+- 处置：窄窗媒体块里凡点名会话/面板共享类的规则一律显式排除面板页（`.app:not(.mini-panel) …`；
+  面板页自己的窄窗呈现写在 `.mini-panel` 块里），并做成机械卡点——`check-architecture.mjs`
+  规则 5：窄窗块里未排除 `.mini-panel` 的 `.session/.session-row/.panel` 选择器即违规。
+- 另一处对照发现（未改，待定夺）：Atd 面板显隐是 `alphaValue = 0/1` 直接赋值、**无动画**
+  （`Atd-src/apps/macos/Sources/AIShell/Windows/PanelWindowController.swift`）；本仓移植时改成了
+  `animator()` 0.12s/0.10s 淡入淡出，且常驻 alpha 0 的写法在 Atd 那边是 `orderOut` 会掉 WebKit
+  计时器才退而求其次的选择。

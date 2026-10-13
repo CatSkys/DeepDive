@@ -3407,7 +3407,7 @@ button {
   .window-top-btn { width: 44px; height: 44px; }
   .app.collapsed .session-header { padding-left: 190px; }
   .app.collapsed .hero-top { padding-left: 190px; }
-  .app.collapsed .panel[data-mode="browser"] .panel-browser-chrome { padding-left: 190px; }
+  .app:not(.mini-panel).collapsed .panel[data-mode="browser"] .panel-browser-chrome { padding-left: 190px; }
   .task-row, .session-back, .snav-item, .ctx-item { height: 44px; }
   .composer-send, .composer-icon, .composer-mic { width: 38px; height: 38px; }
   /* 触达高度跟同簇圆钮齐；横向留一点内边距好点得中（无底色，只影响点击区） */
@@ -5667,14 +5667,18 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .panel-artifact-more > svg { flex: none; }
 .panel-empty { padding: 18px 14px; color: var(--ink-faint); font-size: var(--dsh-font-size-sm); text-align: center; }
 
-/* 窄屏（手机远程）：面板改用 fullscreen 呈现（官方：768px 以下自动全屏） */
+/* 窄屏（手机远程）：面板改用 fullscreen 呈现（官方：768px 以下自动全屏）。
+   **只对主页面生效**：迷你面板页（.app.mini-panel）是 ~500pt 宽的桌面窗口，
+   天生落在本断点内，窄窗呈现由它自己的规则管（`.mini-panel .panel` 浮层，
+   见上）——会话列必须照常绘制，命中这条会整列 visibility:hidden：DOM 全在、
+   布局正常、一个字不画，只看得到窗底玻璃（2026-10-13 用户报"发送后黑窗"）。 */
 @media (max-width: 760px) {
-  .panel { width: 100%; }
+  .app:not(.mini-panel) .panel { width: 100%; }
   /* 窄屏下两张卡不再并列：缝要去掉，否则"100% + 8px 缝"会溢出主区右缘；
      会话列被挤成 0 宽，这里连它的描边一起停绘制（visibility 而非 display，
      与全屏同一条理由：滚动位置与事件状态都保住）。 */
-  .session-row { gap: 0; }
-  .session-row:has(> .panel) > .session { visibility: hidden; }
+  .app:not(.mini-panel) .session-row { gap: 0; }
+  .app:not(.mini-panel) .session-row:has(> .panel) > .session { visibility: hidden; }
 }
 
 /* ── 浏览器页上的悬浮对话卡（壳侧透明叠加层里那一页，`?composer=<sid>`）──
