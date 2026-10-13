@@ -24,6 +24,8 @@
 
 **原生视图槽位（细节 §9）**：浮层被浏览器压住→9.1 · 缩放后错位→9.2 · 缩略图点不动→9.3 · MCP 卡 60s→9.4 · http 打不开→9.5 · 查找少一个字→9.6 · 新通道全超时→9.7
 
+**截图与划词（细节 §11）**：移植族编不过→11.1 · 工具条不出现/截图只截壁纸（授权掉）→11.2 · 私有 API 两处→11.3
+
 **迷你面板（细节 §10）**：ForEach 过渡态回读活体数组→10.1；面板页被主窗规则误伤（黑窗 / 变内容卡）→10.2；空白会话闪主窗 hero 整页→10.3
 
 ---
@@ -1280,3 +1282,22 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   活跃会话**有内容**（summary 非 blank）才交 SessionView，否则继续用自己的 `MiniDraft`。
 - 教训：复用别的页面的组件，**它内部的空态/装载态分支也要一起审**——黑窗那轮审的是样式
   （谁把它隐藏了），这轮审的是组件分支（blank 时它画的是谁的草稿页）。
+
+## 11. 截图与划词（2026-10-13 Atd 整包移植起）
+
+### 11.1 Atd 移植族的两个工程前提：同名文件要收口、主线程默认隔离必须开（2026-10-13 截图/划词移植）
+
+- **同名文件**：Atd 的同一份小工具会同时出现在它的两个特征目录里（`Selection/BackgroundCursor.swift` 与迷你面板port 带过来的那份逐字相同）。XcodeGen/构建阶段按**文件名**判重，同 target 两份直接"Filename used twice"构建失败。处置：按职责归位到 `Support/`（三家共用），**不是**各留一份。
+- **主线程默认隔离**：移植族是 Swift 6 + `defaultIsolation(MainActor)` 写成的（Atd 的 `Package.swift` 明写）。本项目壳是 Swift 5 模式，直接编会在 ~40 个类上报「call to main actor-isolated … in a synchronous nonisolated context」（54 错）。处置：XcodeGen 里加 `SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor`（一行），54 → 4 错，**自有代码零破坏**。别去手改几十处 `@MainActor` 注解——那是把工程开关的问题写进源码。
+- 随之留下的：移植族里「Swift 6 下才是错误」的告警（`Mutex` 在异步上下文等）不阻塞 Swift 5 构建；将来整体升 Swift 6 时要一并收。
+
+### 11.2 截图/划词的两项 TCC 授权绑 cdhash：adhoc 构建每次重建都要重新授权（2026-10-13）
+
+- 屏幕录制与辅助功能两项授权按构建的 cdhash 记（我们是 adhoc 深签）。**每次 `make package`/`make deliver` 之后，两项授权都会掉**——表现是"划词工具条不出现、截图只截到壁纸"，用户得去系统设置重开两次。Atd 自己的 `AGENTS.md` 同样写着这条（它用固定证书 + `StaleGrantRecovery` 缓解）。
+- 判定与自查：`CGPreflightScreenCaptureAccess()`（每次截图前现查，别缓存）、`AXIsProcessTrusted()`；工具的 2s 轮询会自己跟上授权变化，不必重启。
+- 授权面板深链：`x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture`（屏幕录制）/ `?Privacy_Accessibility`（辅助功能）。
+
+### 11.3 移植族碰的两处私有 API：只在同一个门里关着（2026-10-13）
+
+- `BackgroundCursor` 用 `CGSSetConnectionProperty` 的 `SetsCursorInBackground` 让**未激活**的应用换光标（选择文字工具栏全程不激活本应用，否则被选中的那个 App 会丢焦点）；`ActiveGlassPanel` 覆写 `_hasActiveAppearance()` 让 `NSGlassEffectView` 在非键窗口也保持激活外观（否则玻璃掉边、变成扁平无边的面）。
+- 两处都是私有 API、无公开替代：符号缺失时**只降级不崩**（光标不换 / 玻璃退回非激活外观）。改玻璃或光标相关代码时先看这两个文件，别在别处再开第三个私有口。

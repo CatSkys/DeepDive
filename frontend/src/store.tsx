@@ -6,6 +6,8 @@ import { onHostEvent, sendToShell, setQuietSessions } from "./host";
 import type { AgentPreset } from "./api";
 import { mux } from "./mux";
 import { usePrefs } from "./prefs";
+import type { SelectionToolbarSettings } from "./settings/selectionToolbar";
+import { selectionToolbarSet } from "./host";
 import { useSidebarLayout } from "./useSidebarLayout";
 import type { KeybindOverrides } from "./keybinds";
 import { readDraftModel, writeDraftModel, type DraftModel } from "./draftModel";
@@ -110,6 +112,13 @@ export interface Store {
   /** 全局热键当前值的键帽串（壳推 spec，见 prefs.ts）。 */
   hotkey: string;
   setHotkey: (v: string) => void;
+  /** 选区工具条（划词）设置；改动经壳 `selection-toolbar-set` 落地。 */
+  selectionToolbar: SelectionToolbarSettings;
+  setSelectionToolbar: (next: SelectionToolbarSettings) => void;
+  /** 截图全局热键（键帽串）与开合；注册在壳侧 HotKeyManager。 */
+  screenshotHotkey: string;
+  screenshotHotkeyOn: boolean;
+  setScreenshotHotkeyOn: (v: boolean) => void;
   /** 自动归档开关（客户端偏好，localStorage；默认关——归档单向不可撤销）。 */
   autoArchive: boolean;
   setAutoArchive: (v: boolean) => void;
@@ -215,6 +224,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,
     quickWorkspacePath,
+    selectionToolbar, setSelectionToolbar,
+    screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn,
   } = prefs;
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
   const [unread, setUnread] = useState<Set<string>>(() => readIdSet("deepdive.unread"));
@@ -580,6 +591,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // 快捷空间最近会话的命令目录（commands/list 原文，已滤 export）：壳侧药丸的
   // 命令卡据此取数（一次取数）。
   const [quickCommands, setQuickCommands] = useState<CommandDescriptor[]>([]);
+  // 选区工具条：设置（prefs）+ 命令目录（quickCommands）合成一份推给壳——壳据此
+  // 立即生效并持久化。工具条上的命令与迷你面板命令卡是同一份目录，只有一个写入口。
+  useEffect(() => {
+    selectionToolbarSet({
+      ...selectionToolbar,
+      commands: quickCommands.map((c) => ({ id: c.name, name: c.name })).slice(0, 64),
+    });
+  }, [selectionToolbar, quickCommands]);
+
   // 推壳（Atd 桥契约 `miniPanel.setCommands`：条目 {id,name}，id 即引擎命令名
   // ——命令卡点行回推 runQuickCommand{name}，预填 `/{name}` 走执行链）。双窗
   // （主窗/迷你面板）各推一份，壳按内容去重；上限 64 条与壳契约一致。
@@ -726,6 +746,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setHotkeyOn,
     hotkey,
     setHotkey,
+    selectionToolbar,
+    setSelectionToolbar,
+    screenshotHotkey,
+    screenshotHotkeyOn,
+    setScreenshotHotkeyOn,
       switchWorkspace,
       createWorkspace,
       createSession,
@@ -764,7 +789,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, quickCommands, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, quickCommands, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, selectionToolbar, setSelectionToolbar, screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

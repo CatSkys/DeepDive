@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_RETENTION, RETENTIONS, type ArchiveRetention } from "./autoArchive";
 import { onHostEvent, sendToShell } from "./host";
 import { formatHotkeySpec, parseKeybinds, type KeybindOverrides } from "./keybinds";
+import { parseSelectionToolbar, type SelectionToolbarSettings } from "./settings/selectionToolbar";
 
 /** 单值本地偏好读取：无 localStorage（受限环境）或值非法一律回退默认。 */
 function readPref<T>(key: string, fallback: T, parse: (raw: string) => T | null): T {
@@ -84,6 +85,20 @@ export function usePrefs() {
     setHotkeyOnState(v);
     sendToShell({ type: "set-pref", key: "hotkeyOn", value: v });
   }, []);
+  // 选区工具条设置（划词）：壳推来的持久化值回灌，改动经壳落地（推送在 store 里
+  // 与命令目录合成一份——同一份设置只有一个写入口）。
+  const [selectionToolbar, setSelectionToolbarState] = useState<SelectionToolbarSettings>(() =>
+    parseSelectionToolbar(readPref("deepdive.selectionToolbar", "", (raw) => raw)));
+  const setSelectionToolbar = useCallback((next: SelectionToolbarSettings) => {
+    setSelectionToolbarState(next);
+  }, []);
+  // 截图全局热键（spec 与开关都在壳；这里显示的键帽串由壳推来）。
+  const [screenshotHotkey, setScreenshotHotkeyState] = useState("⌘⇧2");
+  const [screenshotHotkeyOn, setScreenshotHotkeyOnState] = useState(true);
+  const setScreenshotHotkeyOn = useCallback((v: boolean) => {
+    setScreenshotHotkeyOnState(v);
+    sendToShell({ type: "set-pref", key: "screenshotHotkeyOn", value: v });
+  }, []);
   // 新手引导进度（JSON 串，结构见 onboarding/useOnboarding.ts）：壳只存不解析。
   const [onboarding, setOnboardingState] = useState("");
   const setOnboarding = useCallback((v: string) => {
@@ -117,7 +132,7 @@ export function usePrefs() {
   // 这里（不经 installHostBridge 的 handler 表），与主题相关只有 store 状态一处写入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean; quickWorkspacePath?: string };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean; quickWorkspacePath?: string; selectionToolbar?: string; screenshotHotkey?: string; screenshotHotkeyOn?: boolean };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
@@ -131,6 +146,13 @@ export function usePrefs() {
       if (typeof p.browserTabSleepMinutes === "number") setBrowserTabSleepMinutesState(p.browserTabSleepMinutes);
       if (typeof p.modelDetail === "boolean") setModelDetailState(p.modelDetail);
       if (typeof p.quickWorkspacePath === "string" && p.quickWorkspacePath) setQuickWorkspacePathState(p.quickWorkspacePath);
+      if (typeof p.selectionToolbar === "string") setSelectionToolbarState(parseSelectionToolbar(p.selectionToolbar));
+      if (typeof p.screenshotHotkey === "string" && p.screenshotHotkey) setScreenshotHotkeyState(formatHotkeySpec(p.screenshotHotkey));
+      if (typeof p.screenshotHotkeyOn === "boolean") setScreenshotHotkeyOnState(p.screenshotHotkeyOn);
+    }
+    if (cmd === "hotkeyChanged") {
+      const p = payload as { which?: string; spec?: string } | undefined;
+      if (p?.which === "screenshot" && p.spec) setScreenshotHotkeyState(formatHotkeySpec(p.spec));
     }
     if (cmd === "themeChanged") {
       const dark = (payload as { dark?: boolean } | undefined)?.dark;
@@ -155,6 +177,8 @@ export function usePrefs() {
     modelDetail, setModelDetail,
     quickWorkspacePath,
     onboarding, setOnboarding,
+    selectionToolbar, setSelectionToolbar,
+    screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn,
     autoArchive, setAutoArchive,
     archiveRetention, setArchiveRetention,
   };

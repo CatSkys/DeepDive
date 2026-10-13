@@ -38,9 +38,8 @@ nonisolated enum MiniPanelControl: Hashable, Sendable {
   case row(Int)
 
   /// The capsule's buttons from the top, as ``MiniPanelLayout/buttons`` lays them out.
-  /// 划词（P2）/截图（P3）未上不显示（SPEC-SEMANTICS §6.1）；enum case 与 Actions 槽位留给后续接线。
   static func buttons(hasCommands: Bool) -> [MiniPanelControl] {
-    [.mark, .newTask] + (hasCommands ? [.commands] : [])
+    [.mark, .newTask, .ask, .screenshot] + (hasCommands ? [.commands] : [])
   }
 
   /// The stable accessibility identifier, which runtime checks read; never shown.

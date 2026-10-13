@@ -1,51 +1,7 @@
 import AppKit
 
-// 迷你面板移植自 Atd（授权复制）后缺的壳侧缝隙，收口在这一个文件：
-// 标签表（Atd 的 ShellStrings 多语言表 → 本项目静态中文表，键名保持一致以零改动
-// 消费）、命令卡数据类型、导入失败镜像、闭包菜单项。除这里列出的，移植族不改一行。
-
-/// The mini panel's copy in the shell language（adapted：Atd 的 ShellStrings → 本项目
-/// 静态 zh 表；didChange 目前无人发送——单语言，保留通知位以免语言系统接入时再翻契约）。
-enum ShellStringKey {
-  case miniPanelLabel
-  case miniPanelOpen
-  case miniPanelHidePanel
-  case miniPanelNewTask
-  case miniPanelAsk
-  case miniPanelScreenshot
-  case miniPanelCommands
-  case miniPanelDrop
-  case miniPanelMoveLeft
-  case miniPanelMoveRight
-  case miniPanelOpenOnClick
-  case miniPanelHide
-  case menuSettings
-}
-
-final class ShellStrings {
-  static let shared = ShellStrings()
-  static let didChange = Notification.Name("deepdive.shellStringsDidChange")
-
-  private init() {}
-
-  func text(_ key: ShellStringKey) -> String {
-    switch key {
-    case .miniPanelLabel: return "DeepDive 快捷面板"
-    case .miniPanelOpen: return "打开面板"
-    case .miniPanelHidePanel: return "收起面板"
-    case .miniPanelNewTask: return "新会话"
-    case .miniPanelAsk: return "问选区"
-    case .miniPanelScreenshot: return "截图"
-    case .miniPanelCommands: return "命令"
-    case .miniPanelDrop: return "松手放进会话"
-    case .miniPanelMoveLeft: return "移到屏幕左侧"
-    case .miniPanelMoveRight: return "移到屏幕右侧"
-    case .miniPanelOpenOnClick: return "点击打开"
-    case .miniPanelHide: return "隐藏迷你面板"
-    case .menuSettings: return "设置…"
-    }
-  }
-}
+// 迷你面板移植自 Atd（授权复制）后缺的壳侧缝隙：命令卡数据类型、拖拽类型、
+// 导入失败镜像、闭包菜单项。文案表与通用缝隙在 Support/ShellSeams.swift（三者共用）。
 
 /// 本应用自产拖拽会话的私有 pasteboard 类型（adapted：Atd DesktopPinDrag.pasteboardType，
 /// 拖放监视用来排除自家 pin 的拖拽）。DeepDive 目前没有自产拖拽源——位子先留给
@@ -56,10 +12,10 @@ enum DeepDiveDrag {
 
 /// 快捷会话命令卡的命令条目（adapted：Atd BridgeCalls2 的 MiniPanelSetCommandsParams.
 /// Command，字段形状保持 id/name；DeepDive 不走他们的 BridgeCoding 校验层）。
-enum MiniPanelSetCommandsParams {
-  struct Command: Equatable, Sendable {
-    let id: String
-    let name: String
+public enum MiniPanelSetCommandsParams {
+  public struct Command: Equatable, Sendable {
+    public let id: String
+    public let name: String
   }
 }
 

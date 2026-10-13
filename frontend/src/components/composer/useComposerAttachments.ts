@@ -350,7 +350,13 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     }
   };
 
-  return { attachments, setAttachments, addAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile };
+  /** 把外部已备好的附件项（截图/屏幕上下文）按 ＋ 选择器同一份逻辑摄入。 */
+  const ingestAttachments = useCallback(
+    (items: PickedAttachment[]) => ingestPicked(setAttachments, addFilePath, setText, items),
+    [addFilePath, setText],
+  );
+
+  return { attachments, setAttachments, addAttachments, ingestAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile };
 }
 
 /** 拖拽：窗口级监听——会话界面任意处拖入文件都出虚线框提示。图片收字节 chip、

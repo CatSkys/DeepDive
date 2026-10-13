@@ -9,6 +9,9 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    # 移植族（截图/划词，Atd 授权复制）按「Swift 6 + 主线程默认隔离」写成，
+    # 与 Atd 同一组设置；自有代码保持 Swift 5 语法面不动。
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     MACOSX_DEPLOYMENT_TARGET: "26.0"
     CODE_SIGN_IDENTITY: "-"
     CODE_SIGN_STYLE: Manual
