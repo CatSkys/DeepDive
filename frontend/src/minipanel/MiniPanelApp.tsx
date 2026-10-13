@@ -70,6 +70,11 @@ export function MiniPanelApp() {
   // · runQuickCommand → 命令行预填当前输入框（整段替换，防抖照落草稿），按回车
   //   即执行——执行链仍走 Composer/引擎既有路，不这里直接 commandExecute。
   // · quickPanelFocus → 输入框拿键盘（壳 makeKey 后 0.15s 推来）。
+  // 桥装好后再**主动要一次偏好**：壳的 prefs 只在主窗 host-ready / 设置页 get-prefs
+  // 时推，面板页自己不发 host-ready，那次推送与面板挂载之间是一场竞速（暂存位只有
+  // 一条、flush 只在 didFinish 后跑一遍）——错过就是永远没有，quickWorkspacePath
+  // 为 null，历史列表的空锚点、openQuickSession 的切空间都跟着落空（2026-10-13 用户
+  // 报"历史是空的"）。这里自己问一次，确定性拿回。
   useEffect(() => {
     installHostBridge({
       openQuickSession: () => {
@@ -89,6 +94,7 @@ export function MiniPanelApp() {
         dispatchAppEvent(DD_EVENTS.composerFocus);
       },
     });
+    sendToShell({ type: "get-prefs" });
   }, []);
 
   const active = store.activeSessionId;

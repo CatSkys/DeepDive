@@ -6,7 +6,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Check, Ellipsis, History, Search, SlidersHorizontal, X } from "lucide-react";
 import { useStore } from "../store";
-import { usePrefs } from "../prefs";
 import { useT } from "../i18n";
 import { fmtTime } from "../session/sessionTime";
 import { Spinner } from "../components/LoadingState";
@@ -30,7 +29,6 @@ const SORTS: { id: HistorySort; label: string }[] = [
 export function MiniHistory({ onClose }: { onClose: () => void }) {
   const store = useStore();
   const { t, tt, lang } = useT();
-  const { quickWorkspacePath } = usePrefs();
   const [view, setView] = useMiniHistoryView();
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
@@ -54,19 +52,23 @@ export function MiniHistory({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("click", close);
   }, [viewMenuAt]);
 
-  // 只列快捷会话空间（空间归属规则与侧栏同一份，见 miniHistoryView 头注）。
-  const quickWorkspaceId = store.workspaces.find((w) => w.path === quickWorkspacePath)?.workspaceId;
+  // 只列**面板当前所在空间**（= 快捷空间）的会话：锚点用 store 的活动空间，不用
+  // "路径比中的快捷空间"——后者依赖壳下发的 quickWorkspacePath，那条下发曾整条落空
+  //（面板页不发 host-ready），锚点取到空串 → 列表恒空（2026-10-13 用户报"历史是空的"）。
+  // 面板按构造就在快捷空间上，所以两者语义等价，而前者不依赖任何下发。
+  // 空间归属规则与侧栏同一份（摘要缺映射落回第一空间，见 miniHistoryView 头注）。
+  const anchorWorkspaceId = store.activeWorkspaceId ?? store.workspaces[0]?.workspaceId ?? "";
   const items = useMemo(
     () =>
       historyItems(store.sidebarSessions, {
-        workspaceId: quickWorkspaceId ?? "",
+        workspaceId: anchorWorkspaceId,
         fallbackWorkspaceId: store.workspaces[0]?.workspaceId,
         workspaceOf: store.wsOfSession,
         pinned: store.pinned,
         unread: store.unread,
         lang,
       }),
-    [store.sidebarSessions, store.wsOfSession, store.pinned, store.unread, store.workspaces, quickWorkspaceId, lang],
+    [store.sidebarSessions, store.wsOfSession, store.pinned, store.unread, store.workspaces, anchorWorkspaceId, lang],
   );
   const visible = useMemo(() => filterHistory(items, query), [items, query]);
   const sections = useMemo(
