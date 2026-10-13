@@ -528,9 +528,10 @@ button {
   height: 34px;
   padding: 0 10px;
   /* 与历史行同一文字列：出血 4（列表内距 6 + 行内距 10 − 出血 4 = 12），否则选择页的
-     标签比历史标题右移 4px，翻页时文字列左右跳。 */
+     标签比历史标题右移 4px，翻页时文字列左右跳。
+     圆角走胶囊（半径 ≥ 半高即整圆）：与历史行、设置行同一形状（用户定稿"改为胶囊样式"）。 */
   margin: 0 -4px;
-  border-radius: var(--dsh-radius-control);
+  border-radius: 999px;
   color: var(--ink);
   text-align: left;
 }
@@ -538,27 +539,19 @@ button {
 .app.mini-panel .mini-cc-choice[data-cursor="true"] { background: var(--fill-strong); }
 .app.mini-panel .mini-cc-choice-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app.mini-panel .mini-cc-choice-check { flex: none; color: var(--ink); }
-/* 行：沿用侧栏那条会话行（.task-row + row-slot/row-main/row-actions），面板里改成**两行式**
-   （标题 + 元信息行，照参考图），并补三件：悬停出血、键盘光标行高亮、hover 出现的「更多」。
-   字号必须显式落回卡内基准：.task-row 自己带 base（14），不覆盖的话标题又比卡里其余字大一档
-   ——两行式里标题与元信息同号（12），层次交给颜色（--ink vs --ink-3）而不是字号。 */
+/* 行：沿用侧栏那条会话行（.task-row + row-slot/title/row-actions）的**单行胶囊**几何——
+   高 32、圆角 16（= 行高的一半，本仓"半径 = 行高"的胶囊口径）、hover 与键盘光标都是这颗
+   胶囊（用户 2026-10-13 定稿："改变 hover 的形状，改为胶囊样式"）。卡里只加两样：
+   出血 4（文字列与搜索框同在 12）与卡内字号（.task-row 自带 base 14，不覆盖就比卡里大一档）。 */
 .app.mini-panel .mini-cc-row {
-  height: auto;
-  min-height: 42px;
-  padding: 6px 10px;
   margin: 0 -4px;
   font-size: var(--dsh-font-size-sm);
-  /* 圆角改回控件档 10（Raycast 规范：行圆角 radius-closest = 0 或 10）。.task-row 那条
-     16 是"半径 = 行高"的胶囊口径，而这张行是两行式、高 42，16 既不是胶囊也不是控件档。 */
-  border-radius: var(--dsh-radius-control);
 }
-.app.mini-panel .mini-cc-row .row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.app.mini-panel .mini-cc-row-meta {
-  font-size: var(--dsh-font-size-sm);
+/* 最右的时间（状态不写字：未读/在跑由行首那颗亮点表示，见行件注释） */
+.app.mini-panel .mini-cc-row-time {
+  flex: none;
   color: var(--ink-3);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 /* 光标行 = "选中"档：hover 是"指针在挑"（--row-hover 5%），光标行是"回车就开这一条"
    ——两档同色等于没有选中态（用户 2026-10-13 报"hover 和选中的颜色好像是一样的"）。
@@ -594,7 +587,11 @@ button {
    ③ 光标行与历史行同档，设置模式才有可见的"回车开哪一行"。 */
 .app.mini-panel .mini-cc-settings { padding: 10px 12px 14px; gap: 12px; overflow: visible; }
 .app.mini-panel .mini-cc-settings .panel-settings-row { font-size: var(--dsh-font-size-sm); }
-.app.mini-panel .mini-cc-settings .panel-settings-line { min-height: 32px; }
+.app.mini-panel .mini-cc-settings .panel-settings-line {
+  min-height: 32px;
+  /* 同一张卡里行态一种形状：设置行也用胶囊（主窗那张设置卡仍是控件档圆角，那是另一张卡） */
+  border-radius: 999px;
+}
 :where(html[data-hover-armed]) .app.mini-panel .mini-cc-settings .panel-settings-line:hover {
   background: var(--row-hover);
 }
