@@ -30,12 +30,14 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     let webView: TitlebarAwareWebView
     /// 窗口底板（主窗 WindowGlassView 同款）：液态玻璃 + 深浅两档 tint。
     let glass: WindowGlassView
-    /// 面板里那几块**原生玻璃件**（命令中心卡、右上胶囊、输入框）：系统真 Liquid Glass，
-    /// 网页那侧对应元素不再自己画背景/模糊/投影/圆角，只留布局（见 theme.css 面板作用域）。
-    /// 按页面上报的矩形摆位（`mini-cc-frame` / `mini-glass` 两份 rect 表）。
+    /// 命令中心卡那块**原生玻璃**：系统真 Liquid Glass，网页那侧对应元素不再自己画背景/
+    /// 模糊/投影/圆角（见 theme.css 面板作用域）。
+    /// **只有卡片这一块**：它的内容住在下面那块第二 webview 里，玻璃正好夹在"页面正文"与
+    /// "卡片内容"之间。胶囊与输入框的内容与面板正文同处一块 webview，这条路走不通——玻璃
+    /// 垫在下面糊不到正文（正文画在玻璃之上），垫在上面又把自己的图标压住（2026-10-13 用户
+    /// 报"颜色都特别暗，像是被玻璃压住"）。那两处的材质因此留在 CSS（`backdrop-filter` 糊的
+    /// 是同一份文档，天生没有这个二难）；要它们也用原生玻璃，得连内容一起搬进第二块 webview。
     private let cardGlass = WindowGlassView(surface: .floating)
-    private let capsuleGlass = WindowGlassView(surface: .floating)
-    private let composerGlass = WindowGlassView(surface: .floating)
     /// 卡片的**内容**住在第二块透明 webview 里（`?minicc=1` 那一页）：玻璃垫在 webview
     /// 之下，能糊到的只有它下面的东西——卡片内容若与面板页同处一块 webview，面板正文会
     /// 盖在玻璃上，卡片看着就是透明的（用户 2026-10-13 报"面板透明啦"）。分成两块之后
@@ -121,18 +123,14 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         cardWeb.alphaValue = 0
         cardWeb.isHidden = true
         self.cardWeb = cardWeb
-        let pieces: [WindowGlassView] = [cardGlass, capsuleGlass, composerGlass]
-        for piece in pieces {
-            piece.autoresizingMask = []
-            piece.alphaValue = 0
-            piece.isHidden = true
-        }
-        // 三块玻璃件都在面板页 webview 之上、卡片页之下（层序见上面那段注释）。
-        // **漏挂就是"没有材质"**：网页侧这些元素的 CSS 底/模糊已删（材质归原生），
-        // 挂不上就只剩透明的布局与图标（2026-10-13 用户报"胶囊和输入框怎么没了"）。
-        for piece in [capsuleGlass, composerGlass, cardGlass] {
-            glass.addSubview(piece, positioned: .above, relativeTo: wv)
-        }
+        cardGlass.autoresizingMask = []
+        cardGlass.alphaValue = 0
+        cardGlass.isHidden = true
+        // 卡片玻璃夹在**面板页 webview 之上、卡片页 webview 之下**：它糊到的正是面板正文，
+        // 卡片内容在它上面（层序错了必出两件事之一：玻璃盖住卡片内容，或面板正文盖在玻璃上）。
+        // **漏挂就是"没有材质"**：网页侧那处的 CSS 底已删，挂不上就只剩透明的布局与图标
+        // （2026-10-13"胶囊和输入框怎么没了"就是这么来的）。
+        glass.addSubview(cardGlass, positioned: .above, relativeTo: wv)
         glass.addSubview(cardWeb, positioned: .above, relativeTo: cardGlass)
         self.window = window
 
@@ -316,10 +314,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         // 液态玻璃的 tint 按明暗换档（主窗 glass.applyAppearance 同一句；退回分支
         // 的 vibrancy tint 也走这里——见 WindowGlassView.applyAppearance）。
         glass.applyAppearance(light: light)
-        let pieces: [WindowGlassView] = [cardGlass, capsuleGlass, composerGlass]
-        for piece in pieces {
-            piece.applyAppearance(light: light)
-        }
+        cardGlass.applyAppearance(light: light)
         pushHostCommand("themeChanged", payload: AppDelegate.jsonPayload(["dark": !light]))
     }
 
@@ -341,9 +336,10 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         if message.name == "deepdive" {
             // 几块原生玻璃的矩形表（页面 → 壳）：卡片那块的几何与圆角，口径与 composer-pill
             // 完全一致（CSS 视口坐标 y-down、圆角按实际渲染值报来、时长按 token 报来）。
-            if let body = message.body as? [String: Any], let type = body["type"] as? String {
-                if type == "mini-cc-frame" { placeCard(body); return }
-                if type == "mini-glass" { placeGlassPieces(body); return }
+            if let body = message.body as? [String: Any],
+               body["type"] as? String == "mini-cc-frame" {
+                placeCard(body)
+                return
             }
             // 标题栏控件矩形表（titlebar.ts 同一协议：{type:"titlebar-rects", rects:[{x,y,w,h}]}）。
             if let body = message.body as? [String: Any], body["type"] as? String == "titlebar-rects" {
@@ -420,22 +416,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         loadCardIfNeeded()
         showCard()
         pushFace(mode: body["mode"] as? String, sessionId: body["sessionId"] as? String)
-    }
-
-    /// 右上胶囊与输入框那两块（`mini-glass`）：一件一条 rect，空 = 藏。
-    private func placeGlassPieces(_ body: [String: Any]) {
-        let pieces: [(WindowGlassView, String)] = [(capsuleGlass, "capsule"), (composerGlass, "composer")]
-        for (piece, key) in pieces {
-            guard let spec = body[key] as? [String: Any],
-                  let css = cssRect(spec["rect"] as? [String: Any]) else {
-                piece.isHidden = true
-                continue
-            }
-            piece.frame = hostFrame(cssRect: css)
-            if let radius = spec["radius"] as? Double { piece.setRadius(radius * webView.pageZoom) }
-            piece.isHidden = false
-            piece.alphaValue = 1
-        }
     }
 
     private func loadCardIfNeeded() {

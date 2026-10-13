@@ -15,7 +15,6 @@ import { TooltipHost } from "../components/Tooltip";
 import { SessionView } from "../components/SessionView";
 import type { MiniOverlayMode } from "./MiniCommandCenter";
 import { pushCardFrame } from "./miniCardAnchor";
-import { initMiniGlassBridge } from "./miniGlassPieces";
 import { MiniDraft } from "./MiniDraft";
 import { MiniPanelControls } from "./MiniPanelControls";
 import { MiniRunningGlow } from "./MiniRunningGlow";
@@ -78,8 +77,6 @@ export function MiniPanelApp() {
   // 一条、flush 只在 didFinish 后跑一遍）——错过就是永远没有，quickWorkspacePath
   // 为 null，历史列表的空锚点、openQuickSession 的切空间都跟着落空（2026-10-13 用户
   // 报"历史是空的"）。这里自己问一次，确定性拿回。
-  // 胶囊与输入框那两块原生玻璃的矩形表（壳按它摆位；网页侧那两个元素不画材质）。
-  useEffect(() => initMiniGlassBridge(), []);
   useEffect(() => {
     installHostBridge({
       openQuickSession: () => {

@@ -353,9 +353,10 @@ button {
    已糊过的窗玻璃，垫在之上会把这颗胶囊连同图标一起糊掉。）
    位置沿用草稿页那颗齿轮的 8/16；z-index 8 在命令中心(7)、滚动辉光(4)之上——卡片盖住
    整窗时这几颗仍可点。
-   **材质不在这里**（2026-10-13 定稿）：胶囊那块面是壳摆的原生玻璃
-   （`WindowGlassView` 的 .floating 档），由 `mini-glass` 那份矩形表跟着走——网页里只留
-   布局与选中态的填充，既没有底色也没有模糊与投影（同一 webview 内的 CSS 玻璃只是近似）。 */
+   **材质留在 CSS**（与命令中心卡不同，别照着改原生）：这一块的内容与它背后的面板正文同处
+   一块 webview，原生玻璃两条路都走不通——垫在 webview 之下糊不到正文（正文画在玻璃之上），
+   垫在其上又把自己的图标压住（2026-10-13 用户报"颜色都特别暗，像是被玻璃压住"）。CSS 的
+   模糊糊的是同一份文档，没有这个二难。要上原生玻璃得连内容一起搬进第二块 webview。 */
 .app.mini-panel .mini-controls {
   position: absolute;
   top: 8px;
@@ -366,6 +367,10 @@ button {
   gap: 2px;
   padding: 3px;
   border-radius: 999px;
+  background: var(--composer-bg);
+  box-shadow: var(--composer-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
 }
 /* 组内项与胶囊**同心**（项半径 = 胶囊半径 − 内边距）：圆角套圆角是苹果给嵌套形状的规矩，
    内层写小圆角会像两种形状叠在一起。32 是面板这一档（用户 2026-10-13 两次报"按键还是
@@ -391,16 +396,6 @@ button {
 /* 会话头右侧给控件簇让位：计划模式芯片（.plan-wrap）别钻到胶囊底下。
    124 = 三钮 32×3 + 缝 2×2 + 内边距 3×2 + 描边 2 + 呼吸 ~16。 */
 .app.mini-panel .session-header { padding-right: 124px; }
-
-/* 面板里的输入框同样把材质交给原生（同 ①：壳按 `mini-glass` 摆一块 .floating 玻璃在它
-   底下）。**只限面板作用域**——主窗那份仍用 --composer-bg 那套 CSS 玻璃，两处配方不同是
-   有意的：面板窗整窗透明、原生玻璃能吃到面板正文，主窗那块压在内容卡上不需要第二层材质。 */
-.app.mini-panel .composer {
-  background: none;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
 
 /* 面板头部只留标题（用户 2026-10-13 定稿：模型行不在这儿——模型在设置那张命令中心里
    改，头部留两行反而把内容区压窄）。头部高度是 --session-header-h 一条链（头部多高、
