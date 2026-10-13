@@ -61,12 +61,16 @@
   --dot-face: rgba(255,255,255,.85);
   --dot-ring: rgba(255,255,255,.25);
   --dot-hole: rgba(0,0,0,.6);   /* error 的挖孔：亮色下反过来，透出卡面 */
-  /* 输入区（.composer / 草稿页同款）的阴影栈：内高光 + 底缘 + 贴身投影。亮色另立
-     一份——顶部那道白内高光在亮色下等于没有，改成一道极淡的墨线勾上缘。 */
+  /* 输入胶囊的**内缘高光**（只许 inset）：系统材质档的宿主层 bounds ＝ 元素自己的层 bounds
+     （WebKit `GraphicsLayerCA::updateGeometry` 把 material hosting 结构层设成元素的
+     bounds/position），所以**外扩**的投影会把材质板一起撑大——实测材质板比胶囊每边多出
+     ~17px，正好是下面那条外投影（4px 偏移 + 12px 模糊）的扩散量。外投影因此另立
+     --composer-drop、挂在胶囊本体上；材质层只留画在边框盒内的这一层。 */
   --composer-shadow:
     inset 0 1px 1px rgba(255,255,255,.08),
-    inset 0 -1px 1px rgba(0,0,0,.16),
-    0 4px 12px rgba(0,0,0,.06);
+    inset 0 -1px 1px rgba(0,0,0,.16);
+  /* 胶囊的外投影（贴身一层）：挂胶囊本体，**别挂材质层**（见上）。 */
+  --composer-drop: 0 4px 12px rgba(0,0,0,.06);
   /* 大弹层（居中 dialog）：毛玻璃但比菜单浮层更实——.55/.78 都压不住弹层正后的文字 */
   --panel-strong: rgba(24,24,27,.92);
   /* 明显毛玻璃档（composer @// 菜单）：backdrop-root 修复后模糊真正生效，
@@ -135,12 +139,14 @@
     --dot-face: rgba(22,23,26,.85);
     --dot-ring: rgba(22,23,26,.25);
     --dot-hole: rgba(255,255,255,.75);
-    /* 输入胶囊的浅色投影三层：贴地 1px + 中层 4px + **负 Y、64px 大范围的向上
-       柔光**——第三条是胶囊"自己发着光"的那口气，缺了它就浮不起来。负 Y 那条
-       暗色下是黑光落在暗底上、等于没有，所以只给亮色。 */
+    /* 输入胶囊的浅色投影：**只许 inset**（同 dark 注释——外投影会把托管材质的板撑大）。
+       内缘那道墨线勾上缘，外投影另立 --composer-drop：贴地 1px + 中层 4px +
+       **负 Y、64px 大范围的向上柔光**——第三条是胶囊"自己发着光"的那口气，缺了它
+       就浮不起来。负 Y 那条暗色下是黑光落在暗底上、等于没有，所以只给亮色。 */
     --composer-shadow:
       inset 0 1px 0 rgba(0,0,0,.05),
-      inset 0 -1px 1px rgba(0,0,0,.10),
+      inset 0 -1px 1px rgba(0,0,0,.10);
+    --composer-drop:
       0 1px 8px -8px rgba(0,0,0,.10),
       0 4px 12px rgba(0,0,0,.05),
       0 -8px 64px 8px rgba(0,0,0,.05);
@@ -383,7 +389,8 @@ button {
   padding: 3px;
   border-radius: 999px;
   background: var(--composer-bg);
-  box-shadow: var(--composer-shadow);
+  /* 排队胶囊不承载托管材质，内缘高光与外投影都要（两个 token 分开只为材质层，见 :root） */
+  box-shadow: var(--composer-shadow), var(--composer-drop);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
   backdrop-filter: blur(24px) saturate(150%);
 }
@@ -1550,7 +1557,9 @@ button {
      大（原来左 16 / 右 8）会在两端各留一条空带，把两颗钮读成"浮在胶囊中间"。 */
   padding: 0 4px;
   border-radius: calc(var(--composer-h) / 2);
-  /* 胶囊本体**只负责几何**（网格 / 内距 / 单行高 / 圆角）：底色、投影、材质全在
+  /* 外投影挂本体：材质层的层 bounds 会被它撑大（见 --composer-shadow 的注释） */
+  box-shadow: var(--composer-drop);
+  /* 胶囊本体**只负责几何**（网格 / 内距 / 单行高 / 圆角）：底色、材质全在
      子层 [data-liquid-glass-backdrop] 上（见下方那段）。
      **这里不许出现任何 backdrop-root 触发器**——backdrop-filter / filter / opacity<1 /
      mask / clip-path / transform / perspective / contain:paint / isolation:isolate。
@@ -1559,8 +1568,9 @@ button {
 }
 /* 液态玻璃材质层（内容与材质分离）：铺满胶囊的 padding box（inset:0 对绝对定位子元素
    就是 padding box，胶囊无边框所以正好是整颗胶囊，单行态与 .wide 都对），圆角继承
-   胶囊（18 / 宽态 24）。底色与投影也都搬到这里——投影里的 inset 层（顶部高光/底缘）
-   画在胶囊身上会被本层盖住，搬下来才看得见。 */
+   胶囊（18 / 宽态 24）。底色搬到这里（inset 高光同理——画在胶囊身上会被本层盖住），
+   但**外投影留在胶囊本体**：托管材质的宿主层按本层的 bounds 铺，外投影会把那块板撑大
+   （Raycast 的同一层也只有材质、既无底色也无投影）。 */
 [data-liquid-glass-backdrop] {
   position: absolute;
   inset: 0;
@@ -1602,14 +1612,6 @@ button {
     -apple-visual-effect: -apple-system-glass-material-media-controls;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    /* 托管材质（HAVE_MATERIAL_HOSTING：材质由系统渲染在一个宿主视图里）按元素**自己
-       的合成层**摆放。本层默认没有独立层，材质就落到祖先层上按那块几何铺——表现为
-       "材质板比胶囊大、和胶囊叠着两块"。这两条把它钉成自己的层并裁到自己的圆角盒：
-       will-change:transform 提层、overflow:hidden 收边。放在本块里是有意的——它俩都是
-       backdrop-root 触发器，放进基础规则会把上面那一档 CSS 模糊的采样掐死
-       （浮层配方③），而这里是材质档，模糊已经撤下。 */
-    will-change: transform;
-    overflow: hidden;
   }
 }
 /* 窗口失焦：**内容退后、材质留下**——内容与附件 chip 压到 40%，材质层豁免（它连着
