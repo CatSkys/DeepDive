@@ -130,8 +130,13 @@ final class AnnotationGlassBar: NSView {
 /// The handle at the toolbar's leading edge that shows the bar can be dragged. A press on it
 /// goes up the responder chain to the bar, which moves; the glyph inside, a control that would
 /// keep the press, is never hit.
-final class AnnotationBarGrip: NSView {
+final class AnnotationBarGrip: NSView, HoverReporting {
   private let glyph = NSImageView()
+  /// 指针进出（悬停注释）：抓手不是按钮，跟踪区得自己装一块（同 `PointerTracking` 的口径）。
+  var onHover: ((Bool) -> Void)?
+  private lazy var pointer = PointerTracking(view: self) { [weak self] hovered in
+    self?.onHover?(hovered)
+  }
 
   var image: NSImage? {
     get { glyph.image }
@@ -156,6 +161,11 @@ final class AnnotationBarGrip: NSView {
 
   @available(*, unavailable)
   required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    pointer.refresh()
+  }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
     super.hitTest(point) == nil ? nil : self

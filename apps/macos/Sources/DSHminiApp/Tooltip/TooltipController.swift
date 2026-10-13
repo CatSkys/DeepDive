@@ -23,6 +23,8 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
     let gap: CGFloat
     let anchor: NSRect
     let limits: NSRect
+    /// 被注释的那个窗口的层级：注释要浮在它之上（截图 overlay 是 `.screenSaver`，见 TooltipWindow.raise）。
+    let level: NSWindow.Level
 
     /// 内容签名：同一段文案 + 同一组键帽共用一份实测尺寸（缓存键）。
     var signature: String { "\(text)\u{1}\(caps.joined(separator: "\u{1}"))" }
@@ -81,24 +83,52 @@ final class TooltipController: NSObject, WKScriptMessageHandler, WKNavigationDel
       hide()
       return
     }
-    seq += 1
-    let request = Request(
-      seq: seq,
+    begin(Request(
+      seq: nextSeq(),
       text: text,
       caps: (body["caps"] as? [String]) ?? [],
       side: body["side"] as? String ?? "top",
       gap: (body["gap"] as? Double).map { CGFloat($0) } ?? 8,
       anchor: anchor,
       // 可待范围＝触发窗口所在屏的可视区：翻面与夹取都在这一块里算。
-      limits: (owning.screen ?? NSScreen.main)?.visibleFrame ?? owning.frame)
+      limits: (owning.screen ?? NSScreen.main)?.visibleFrame ?? owning.frame,
+      level: owning.level))
+  }
+
+  /// 原生控件那半边（截图/标注工具条那一族）：文案、键帽与**屏幕**矩形都直接给，没有页面
+  /// 参与——注释窗口与它那一页是全应用共用的，这里只是换一个入口喂它（`NativeTooltip`）。
+  func show(text: String, caps: [String], anchor: NSRect, in owning: NSWindow) {
+    guard !text.isEmpty else { return hide() }
+    begin(Request(
+      seq: nextSeq(),
+      text: text,
+      caps: caps,
+      side: "top",
+      // 原生控件没有"偏好边"这回事：默认浮在控件上方、放不下翻面（间距同页面那一侧的
+      // `TIP_GAP`，视觉规格 §1.11 就一个值）。
+      gap: 8,
+      anchor: anchor,
+      limits: (owning.screen ?? NSScreen.main)?.visibleFrame ?? owning.frame,
+      level: owning.level))
+  }
+
+  /// 一条注释上屏：两条入口（页面 / 原生控件）在这里合流。
+  private func begin(_ request: Request) {
     current = request
     ensureWindow()
+    // 层级每一条都重算：同一块注释窗口既服务普通窗（0）也服务截图 overlay（.screenSaver）。
+    window?.raise(above: request.level)
     // 内容每次都推：注释页换过一次内容之后，缓存里的尺寸仍对得上，页面内容却是它自己记的。
     pushContent(request)
     if let hit = measured[request.signature] {
       present(hit)
     }
     // 尺寸没缓存时窗口先不动：留上一条在原地（换按钮只挪不移，不闪）
+  }
+
+  private func nextSeq() -> Int {
+    seq += 1
+    return seq
   }
 
   /// 注释该收了（`tooltip-hide`）：滚动/按下/移出与指针离开都由页面判定。

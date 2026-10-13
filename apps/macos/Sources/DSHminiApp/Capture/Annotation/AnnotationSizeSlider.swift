@@ -4,9 +4,15 @@ import AppKit
 /// sends its action as the knob moves and once more with the value it is let go at, all with the
 /// same ``burst``, so the owner commits the whole drag as one undo step. A scroll over it goes on
 /// to the overlay, which adjusts the size the same way the wheel does anywhere else.
-final class AnnotationSizeSlider: NSSlider {
+final class AnnotationSizeSlider: NSSlider, HoverReporting {
   /// The drag in progress; nil between drags.
   private(set) var burst: UUID?
+
+  /// 指针进出（悬停注释）：滑块不吃 `.mouseEnteredAndExited` 的默认路径，自己装一块。
+  var onHover: ((Bool) -> Void)?
+  private lazy var pointer = PointerTracking(view: self) { [weak self] hovered in
+    self?.onHover?(hovered)
+  }
 
   init() {
     super.init(frame: .zero)
@@ -35,6 +41,11 @@ final class AnnotationSizeSlider: NSSlider {
   /// Not handled here: a slider of its own would make one undo step per tick.
   override func scrollWheel(with event: NSEvent) {
     nextResponder?.scrollWheel(with: event)
+  }
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    pointer.refresh()
   }
 
   override func resetCursorRects() {

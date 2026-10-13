@@ -66,21 +66,21 @@ final class AnnotationStyleBar: NSView {
     for (button, redaction) in zip(redactions, AnnotationRedaction.allCases) {
       let name = strings.text(Self.key(for: redaction))
       button.image = AnnotationIcons.redaction(redaction, label: name)
-      button.toolTip = name
+      button.attachTooltip(text: name, caps: [])
       button.setAccessibilityLabel(name)
     }
     for (button, color) in zip(colors, AnnotationColor.allCases) {
       let name = strings.text(Self.key(for: color))
       button.image = AnnotationIcons.swatch(color, label: name)
-      button.toolTip = name
+      button.attachTooltip(text: name, caps: [])
       button.setAccessibilityLabel(name)
     }
     let sizeName = strings.text(.captureSize)
-    size.toolTip = strings.text(.captureSizeTooltip)
+    size.attachTooltip(text: strings.text(.captureSizeTooltip), caps: [])
     size.setAccessibilityLabel(sizeName)
     let name = strings.text(.captureTextBackground)
     background.image = AnnotationIcons.glyph(AnnotationIcons.textBackground, label: name)
-    background.toolTip = name
+    background.attachTooltip(text: name, caps: [])
     background.setAccessibilityLabel(name)
   }
 

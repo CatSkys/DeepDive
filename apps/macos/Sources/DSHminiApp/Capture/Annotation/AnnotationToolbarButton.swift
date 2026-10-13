@@ -13,7 +13,7 @@ import AppKit
 /// A choice among several (tools, colours, strokes) reads as a selected radio button to
 /// VoiceOver, an on/off control (the text background) as a checkbox; the bars set
 /// ``isSelected`` from the editor's state after every change.
-final class AnnotationToolbarButton: NSButton {
+final class AnnotationToolbarButton: NSButton, HoverReporting {
   /// How the selected state shows: an accent fill under a white glyph (tools, stroke widths),
   /// or an accent ring around the glyph (colour swatches, which a fill would hide). `toggle` is
   /// an on/off control that shows "on" like `fill`.
@@ -38,6 +38,12 @@ final class AnnotationToolbarButton: NSButton {
   /// inactive, where tracking events arrive late or not at all, so the toolbar reads the pointer
   /// on every frame and sets ``isHovered`` and the cursor itself.
   var followsPointer = true
+
+  /// 指针进出（`HoverReporting`：悬停注释接在这一条上）。与 `isHovered` 同一时刻翻——
+  /// 跟随指针的那一份靠跟踪区，选择工具条那一份由 owner 每帧读指针后自己设 `isHovered`，
+  /// 所以这里只在跟踪区那两条消息里通知，不放进 `isHovered` 的 `didSet`（那会把逐帧设置
+  /// 也当成进出）。
+  var onHover: ((Bool) -> Void)?
 
   /// The pointer is over the button: a light wash, unless it is pressed or disabled.
   var isHovered = false {
@@ -173,10 +179,12 @@ final class AnnotationToolbarButton: NSButton {
 
   override func mouseEntered(with event: NSEvent) {
     isHovered = true
+    onHover?(true)
   }
 
   override func mouseExited(with event: NSEvent) {
     isHovered = false
+    onHover?(false)
   }
 
   override func resetCursorRects() {
