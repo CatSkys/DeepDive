@@ -77,12 +77,10 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         wv.isInspectable = true
         webView = wv
 
-        // 窗底与主窗同源（WindowGlassView）：液态玻璃之上按表面档压深浅两档 tint
-        // （Raycast 的"玻璃化 + 主题叠色"配方在我们的体系里就是这一层）——迷你面板
-        // 走 .panel 档：整窗都是玻璃面、无内容卡兜底，tint 比主窗深一档（面板档
-        // 值见 WindowGlassView）。此前 GlassBackground 的裸玻璃零叠色，壁纸大面积
-        // 透上来（用户 2026-10-12 "这个面板太透了"）；与 PITFALLS §4.27 铁律同一条：
-        // 凡把底玻璃化，都得检查叠在上面的表面够不够实。WebView 透明铺在 tint 之上。
+        // 窗底与主窗同源（WindowGlassView）：迷你面板走 .panel 档——整窗都是玻璃面、
+        // 无内容卡兜底，tint 比主窗深一档，玻璃之上再叠一段窗内磨砂（糊两遍，面板档
+        // 配方见 WindowGlassView）。底图语义是系统采样面板之下的真实画面，不读壁纸
+        // 文件。WebView 透明铺在最上层。
         glass = WindowGlassView(surface: .panel)
         window.contentView = glass
         wv.frame = glass.bounds
@@ -124,8 +122,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         window.minSize = NSSize(
             width: min(PanelGeometry.minimumSize.width, workArea.width),
             height: min(PanelGeometry.minimumSize.height, workArea.height))
-        // 预热实景底图：首次召唤不闪"锐利桌面"的那 0.1s（出图异步，见 PanelWallpaperView）。
-        glass.refreshWallpaper(for: window)
     }
 
     /// 显隐开关（⌥Space / 胶囊 logo 钮 / Dock 点击共用）。
@@ -140,8 +136,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     func showPanel() {
         // 召唤前记住前台应用（giveUpKey 用）；此时还没激活自己。
         previousApp = NSWorkspace.shared.frontmostApplication
-        // 藏着的时候壁纸可能换过：每次召唤核一次指纹（相同自会跳过）。
-        glass.refreshWallpaper(for: window)
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.alphaValue = 0
         window.ignoresMouseEvents = false
@@ -296,13 +290,10 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     func windowDidEndLiveResize(_ notification: Notification) {
         UserDefaults.standard.set(window.frame.width, forKey: Self.widthKey)
         UserDefaults.standard.set(window.frame.height, forKey: Self.heightKey)
-        // 拖完尺寸重裁底图（拖动中不刷，避免连续重糊）。
-        glass.refreshWallpaper(for: window)
     }
 
     func windowDidChangeScreen(_ notification: Notification) {
         dockToSavedWorkArea()
-        glass.refreshWallpaper(for: window)
     }
 
     /// 屏幕参数变化：仍在 dock 位就跟着新工作区重新 dock（PanelGeometry.follow）。
