@@ -159,7 +159,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
 
     func hidePanel() {
         guard window.alphaValue > 0 else { return }
-        stopRepaintDog() // 探针（临时）：收起后不再推帧
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.10
             self.window.animator().alphaValue = 0
@@ -189,39 +188,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             self?.window.makeKey()
             self?.pushHostCommand("quickPanelFocus", payload: "{}")
         }
-        startRepaintDog() // 探针（临时）：可见期间 1Hz 强制重绘，验证停帧是否可解
-    }
-
-    // MARK: - 重绘推动电池（临时，验证「DOM 在但不提交帧」的诊断假设；定位后还原）
-
-    /// 可见期间每秒掀一次重绘（webview 与玻璃两层都打 needsDisplay），同时计点
-    /// 上报命中次数。如果铃响后用户看到内容回来了，停帧诊断即实锤，用命中时机
-    /// 收敛出正式修法。
-    private var repaintTicker: Timer?
-    private var repaintHits = 0
-
-    private func startRepaintDog() {
-        stopRepaintDog()
-        repaintHits = 0
-        repaintTicker = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.forceRepaint(nudge: true)
-        }
-    }
-
-    private func stopRepaintDog() {
-        repaintTicker?.invalidate()
-        repaintTicker = nil
-    }
-
-    private func forceRepaint(nudge: Bool) {
-        repaintHits += 1
-        if nudge {
-            webView.needsDisplay = true
-            webView.layer?.setNeedsDisplay()
-            glass.needsDisplay = true
-            glass.layer?.setNeedsDisplay()
-        }
-        EngineLog.shared.append("[mini-probe] repaint#\(repaintHits) visible=\(isVisible)")
     }
 
     // MARK: - URL + bridge
@@ -270,51 +236,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             return
         }
         pushHostCommand(cmd, payload: payload)
-    }
-
-    // MARK: - 诊断探针（临时，排查空白窗；定位后还原）
-
-    /// 让迷你面板页自报关键布局事实，进 engine.log。只读不改：页面在卡死态也
-    /// 能区别「DOM 在但没画出来」与「DOM 本身空了」。
-    func diagnose(_ tag: String) {
-        guard webView.url != nil else { return }
-        let js = """
-        JSON.stringify({
-          href: location.href.slice(-24),
-          app: document.querySelector('.app')?.className ?? 'none',
-          mainKids: [...(document.querySelector('.main')?.children ?? [])].map(c => c.className || c.tagName),
-          srowKids: [...(document.querySelector('.session-row')?.children ?? [])].map(c => c.className || c.tagName),
-          minidraft: !!document.querySelector('.mini-draft'),
-          session: !!document.querySelector('.session'),
-          sessionKids: [...(document.querySelector('.session')?.children ?? [])].map(c => c.className || c.tagName),
-          sessionText: (document.querySelector('.session')?.textContent ?? '').replace(/\\s+/g, ' ').slice(0, 80),
-          sessionBg: getComputedStyle(document.querySelector('.session') || document.body).backgroundColor,
-          sessionH: Math.round((document.querySelector('.session') || document.body).getBoundingClientRect().height),
-          flowH: Math.round((document.querySelector('.flow') || document.body).getBoundingClientRect().height),
-          composerWrap: !!document.querySelector('.composer-wrap'),
-          taReal: [...document.querySelectorAll('textarea:not(.composer-probe)')].length,
-          taValue: [...document.querySelectorAll('textarea:not(.composer-probe)')].map(t => t.value),
-          sessionTitle: (document.querySelector('.session-header .title')?.textContent ?? '') || (document.querySelector('.hero-top .title')?.textContent ?? ''),
-          visibility: document.visibilityState,
-          boundary: !!document.querySelector('.crash-boundary')
-        })
-        """
-        webView.evaluateJavaScript(js) { result, _ in
-            EngineLog.shared.append("[mini-probe] \(tag) " + (result as? String ?? "eval-failed"))
-        }
-        forceRepaint(nudge: true) // 探针（临时）：采样点即强推一次重绘
-        // 探针试验（临时）：转换点 1s 后整页重载，验证「卡住态 reload 能否出画」。
-        // reload 后 boot 直接落在快捷空间最近会话，流各端重建，草稿在 localStorage 不丢。
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.logAndReload()
-        }
-    }
-
-    /// 探针试验（临时）：记录重载动作并执行。只从转换点走一次；boot 后的重载由
-    /// didStartProvisionalNavigation 清掉计时器防回环。
-    private func logAndReload() {
-        EngineLog.shared.append("[mini-probe] reload-attempt url=\(webView.url?.absoluteString ?? "nil")")
-        webView.reload()
     }
 
     // MARK: - 外观（与 MainWindowController.applyAppearanceMode 同源解析）
