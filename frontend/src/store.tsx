@@ -67,7 +67,9 @@ export interface Store {
   /** 各会话的后台任务快照（session/control 帧，5.3）。 */
   jobsBySession: Map<string, import("./types").JobView[]>;
   openSession: (id: string | null) => void;
-  /** 快捷会话（D14）：切到「快捷会话」空间 + 开新草稿；空间未注册时退化为普通新会话。 */
+  /** 快捷会话（D14）：切到「快捷会话」空间 + 开新草稿；空间未注册时退化为普通新会话。
+   *  **调用方是会话面板窗**（壳推 openQuickSession → 面板页）——它那扇窗就是快捷会话的
+   *  窗口，所以"新建"要落在本页。主窗侧栏那颗图标开的是**面板窗本身**，不走这里。 */
   openQuickSession: () => void;
   /** 切换工作空间：持久化 + 主区跟随——目标空间最近的一个会话（sessions 已按
    *  updatedAt 降序，blank 也算：渲染即欢迎页头）；空空间 → 欢迎页（id=null）。
