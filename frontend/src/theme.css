@@ -331,6 +331,41 @@ button {
    的兄弟卡；收起态配方不动（width 0 + pointer-events none）。 */
 .mini-panel .panel:not([data-closed="true"]) { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; }
 
+/* 迷你面板「会话进行中」的整面板辉光（MiniRunningGlow）：三层同款内辉光错拍循环，
+   观感是一圈圈往里推的光；盖在内容之上（4）、不接事件，开着的右侧卡（5）仍在其上。
+   周期引 --loop-breathe——"在跑"全站一种节拍（同 .state-dot.running 的呼吸，
+   UI-SPEC §1.7）；圆角跟窗体裁切档（壳侧实测 12pt）贴角走。 */
+.mini-running-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.mini-running-glow > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 22px 3px rgba(255,255,255,.30);
+  opacity: 0;
+  animation: mini-running-glow-wave var(--loop-breathe) var(--ease-out) infinite;
+}
+/* 三层错拍（负延迟＝直接从中途起跑），同一周期里依次亮起，接成连续的"一层层"。 */
+.mini-running-glow > span:nth-child(2) { animation-delay: calc(var(--loop-breathe) / -3); }
+.mini-running-glow > span:nth-child(3) { animation-delay: calc(var(--loop-breathe) / -1.5); }
+@keyframes mini-running-glow-wave {
+  0%   { opacity: 0; transform: scale(.99); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.006); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 全静止：光停住但状态不丢——留一层常亮，另两层撤掉。 */
+  .mini-running-glow > span { animation: none; opacity: .45; }
+  .mini-running-glow > span:nth-child(2),
+  .mini-running-glow > span:nth-child(3) { opacity: 0; }
+}
+
 /* 迷你面板的草稿页（Atd 主面板的结构，我们的画法）：头部同会话页根条（复用
    hero-top，靠 --hero-pad-x 负边距抵齐）；其下左上问候 + 副题 + / 命令快捷行
    （行 hover 填充与列表行同语言）；输入框钉底，与问候同缩进。 */
