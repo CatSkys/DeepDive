@@ -156,8 +156,8 @@ final class ShellStrings {
     case .captureToolText: return zh ? "文字" : "Text"
 
     case .selectionToolbar: return zh ? "选择文字工具栏" : "Selection toolbar"
-    case .selectionToolbarAsk: return zh ? "问 DeepDive" : "Ask DeepDive"
-    case .selectionToolbarAskTooltip: return zh ? "就所选文字询问 DeepDive" : "Ask DeepDive about the selected text"
+    case .selectionToolbarAsk: return zh ? "问 AI" : "AI ask"
+    case .selectionToolbarAskTooltip: return zh ? "就所选文字询问 AI" : "Ask AI about the selected text"
     case .selectionToolbarMore: return zh ? "更多" : "More"
     case .selectionToolbarMoreTooltip: return zh ? "更多命令" : "More commands"
     case .selectionHudOn: return zh ? "选区工具栏已开启" : "Selection toolbar on"

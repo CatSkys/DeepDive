@@ -177,7 +177,7 @@ extension MiniPanelController {
     let shifted = CGPoint(
       x: point.x - (content.minX - layout.capsule.x),
       y: point.y - (content.minY - layout.capsule.y))
-    let buttons = MiniPanelControl.buttons(hasCommands: !commands.isEmpty)
+    let buttons = MiniPanelControl.buttons()
     guard let index = layout.button(at: shifted), buttons.indices.contains(index) else {
       return nil
     }

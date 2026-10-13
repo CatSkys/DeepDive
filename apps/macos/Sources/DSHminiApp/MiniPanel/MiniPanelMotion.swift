@@ -136,21 +136,22 @@ nonisolated struct MiniPanelAxisAnimation: CustomAnimation {
 }
 
 /// The mini panel's glyphs (spec v1, Material). Functional glyphs are Lucide template image sets
-/// in the App target's asset catalog (`App/Assets.xcassets/MiniPanel/lucide-<name>.imageset`;
-/// Ask reuses the selection toolbar's `Selection/lucide-sparkles`), found in the main bundle by
-/// `NSImage(named:)` like ``AnnotationIcons``'s; outside the app bundle (`swift run`, tests) they
-/// are missing and the controls keep their labels. They match the renderer's: New task
-/// `square-pen`, Screenshot `camera` (the composer's screenshot), Commands `command` (the
-/// settings Commands section), the drop `file-plus` (the panel's drop overlay).
+/// in the App target's asset catalog (`App/Assets.xcassets/MiniPanel/lucide-<name>.imageset`),
+/// found in the main bundle by `NSImage(named:)` like ``AnnotationIcons``'s; outside the app
+/// bundle (`swift run`, tests) they are missing and the controls keep their labels. They match
+/// the renderer's: New task `square-pen`, Screenshot `camera` (the composer's screenshot),
+/// Ask `message-circle-question`, Commands `command` (the settings Commands section), the drop
+/// `file-plus` (the panel's drop overlay).
 ///
-/// Source: the icon nodes of `lucide-react` 1.49.0 (ISC), the version pinned in
-/// `pnpm-workspace.yaml`, written out as unmodified 24 × 24 SVGs.
+/// Source: the icon nodes of `lucide-react` (ISC), written out as unmodified 24 × 24 SVGs — the
+/// inherited ones from Atd's vendored 1.49.0, Ask's from the 0.454.0 this project pins
+/// (`frontend/package.json`).
 ///
 /// The Atd mark is the status item's own template image (``StatusItemController``), its idle
 /// mark: the Debug build's wider `DevTemplate` adds a DEV label that would not fit a button.
 enum MiniPanelIcons {
   static let newTask = "square-pen"
-  static let ask = "sparkles" // adapted：Atd 复用选区工具栏的 ask 图形名；划词 P2，动作空接
+  static let ask = "message-circle-question"
   static let screenshot = "camera"
   static let commands = "command"
   static let drop = "file-plus"

@@ -120,7 +120,7 @@ export function SelectionToolbarSection() {
       <div className={rowsCss.section}>
         <div className={rowsCss.sectionTitle}>{t("选择文字工具栏")}</div>
         <div className={rowsCss.sectionIntro}>
-          {t("在任意应用里选中文字时，浮出一条小工具条：「问 DeepDive」把这段文字引用进输入框，后面的按钮直接跑命令。")}
+          {t("在任意应用里选中文字时，浮出一条小工具条：「问 AI」把这段文字引用进输入框，后面的按钮直接跑命令。")}
         </div>
         <div className={rowsCss.hotkeyCard}>
           <div className={rowsCss.hotkeyRow}>
@@ -234,7 +234,7 @@ export function SelectionToolbarSection() {
           {commands.length === 0 && (
             <div className={rowsCss.hotkeyRow}>
               <div className={rowsCss.rowIdentity}>
-                <div className={rowsCss.rowCaption}>{t("一条命令都没有——胶囊上只会剩「问 DeepDive」。")}</div>
+                <div className={rowsCss.rowCaption}>{t("一条命令都没有——胶囊上只会剩「问 AI」。")}</div>
               </div>
             </div>
           )}

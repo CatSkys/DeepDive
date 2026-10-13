@@ -131,7 +131,7 @@ final class SelectionToolbarPanel: NSObject {
     grip.toolTip = strings.text(.captureToolbarMove)
     let ask = AnnotationToolbarButton(
       label: strings.text(.selectionToolbarAsk),
-      image: AnnotationIcons.glyph(SelectionToolbarIcons.ask, label: ""),
+      image: nil,
       action: #selector(askClicked))
     ask.toolTip = strings.text(.selectionToolbarAskTooltip)
     let buttons = commands.enumerated().map { index, command in
@@ -232,7 +232,6 @@ final class SelectionToolbarPanel: NSObject {
 /// Source: the icon nodes of `lucide-react` 1.49.0 (ISC), the version pinned in
 /// `pnpm-workspace.yaml`, written out as unmodified 24 × 24 SVGs.
 enum SelectionToolbarIcons {
-  static let ask = "sparkles"
   static let more = "ellipsis"
 }
 

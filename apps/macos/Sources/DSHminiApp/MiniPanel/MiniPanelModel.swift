@@ -38,8 +38,11 @@ nonisolated enum MiniPanelControl: Hashable, Sendable {
   case row(Int)
 
   /// The capsule's buttons from the top, as ``MiniPanelLayout/buttons`` lays them out.
-  static func buttons(hasCommands: Bool) -> [MiniPanelControl] {
-    [.mark, .newTask, .ask, .screenshot] + (hasCommands ? [.commands] : [])
+  /// The commands card is deliberately not offered here (user decision 2026-10-13): the pill
+  /// shows four controls and the command list stays out of it. The list, its card and
+  /// ``MiniPanelController/setCommands(_:)`` are untouched — only the way in is gone.
+  static func buttons() -> [MiniPanelControl] {
+    [.mark, .newTask, .ask, .screenshot]
   }
 
   /// The stable accessibility identifier, which runtime checks read; never shown.
