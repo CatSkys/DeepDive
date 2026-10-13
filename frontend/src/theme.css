@@ -445,7 +445,11 @@ button {
 }
 /* 卡片宿主页（`?minicc=1` 那块透明 webview）：那块 webview 就是卡片本身（壳按面板页报来的
    矩形摆它，底下垫着原生玻璃），所以卡在这里铺满视口，位置/尺寸/材质一律不自己管。
-   入场动画也不在这儿：原生那块玻璃用同一个 token 时长淡入（两边同时到）。 */
+   入场动画也不在这儿：原生那块玻璃用同一个 token 时长淡入（两边同时到）。
+   **整页不画任何东西**：`.app` 自带的那 1px 边框在面板页是窗口内衬，在这一页就成了套在
+   圆角卡片外面的方框（用户 2026-10-13 报"悬浮框周围有几条细线"），连同底色一起清掉。 */
+.app.mini-cc-page,
+.app.mini-cc-page .app { border: none; background: none; }
 .app.mini-cc-page .mini-cc {
   position: static;
   width: 100%;
