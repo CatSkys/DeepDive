@@ -372,6 +372,23 @@ button {
   -webkit-backdrop-filter: blur(24px) saturate(150%);
   backdrop-filter: blur(24px) saturate(150%);
 }
+/* 点胶囊里任意一颗钮：**整组弹一下**（用户 2026-10-13 定稿："点击里面的按钮，整个胶囊也会
+   有一个弹性的动画"）。单颗钮自己的按下反馈已由 `.panel-expand-btn:active` 的 scale(.94) 给，
+   这一道是整组响应：先轻轻一压、再弹回，尾部靠 `--ease-spring` 带一点过冲（本仓给"回弹/入场"
+   的那条曲线）。`data-pulse` 由 MiniPanelControls 在 pointerdown 挂上、animationend 摘掉
+   （摘掉才能再次触发）。 */
+@keyframes mini-controls-pulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(.955); }
+  100% { transform: scale(1); }
+}
+.app.mini-panel .mini-controls[data-pulse="true"] {
+  animation: mini-controls-pulse var(--dur-med) var(--ease-spring);
+}
+@media (prefers-reduced-motion: reduce) {
+  .app.mini-panel .mini-controls[data-pulse="true"] { animation: none; }
+}
+
 /* 组内项与胶囊**同心**（项半径 = 胶囊半径 − 内边距）：圆角套圆角是苹果给嵌套形状的规矩，
    内层写小圆角会像两种形状叠在一起。32 是面板这一档（用户 2026-10-13 两次报"按键还是
    有点小"，26 → 28 → 32；图标同步 15 → 17，见 MiniPanelControls）。 */
@@ -428,10 +445,10 @@ button {
   max-height: 72%;
   overflow: hidden;
   border-radius: var(--dsh-radius-floating);
-  /* 只做**不透明度**入场：壳那块原生玻璃用同一个 token 时长淡入（两边同时到），
-     而位移/缩放不能进动画——矩形是上面那个 hook 量出来推给壳的，动画中的 transform
-     会让上报的矩形每帧都是错的（原生面跟着抖）。 */
-  animation: mini-cc-in var(--dur-fast) var(--ease-out) both;
+  /* 入场只做**不透明度**（--dur-med：与壳那块原生玻璃的弹性缩放同一节奏，两边一起到）。
+     位移/缩放不能进这一层的动画——卡片矩形是页面量出来推给壳的，动画中的 transform 会让
+     上报的矩形每帧都是错的；"弹性"那一下由壳在原生的玻璃与 webview 上做。 */
+  animation: mini-cc-in var(--dur-med) var(--ease-out) both;
   font-size: var(--dsh-font-size-sm);
 }
 @keyframes mini-cc-in {

@@ -3,6 +3,7 @@
 // 项 hover/选中出内层高亮），簇绝对定在窗右上 8/16（见 theme.css 的 .app.mini-panel 块）。
 // 只管这三颗钮的渲染与选中态——「设置」开的是哪张卡由调用方按当前脸给（草稿脸开草稿的
 // 设置卡，会话脸开会话设置卡），「新建」落哪里也由调用方给（面板里 = 快捷空间新草稿）。
+import { useState } from "react";
 import { History, Plus, Settings2 } from "lucide-react";
 import { useT } from "../i18n";
 
@@ -18,8 +19,18 @@ export function MiniPanelControls({
   onOpenSettings: () => void;
 }) {
   const { t } = useT();
+  // 整组回弹：任一钮按下时给容器挂 data-pulse（动画跑完摘掉，才能再次触发）。
+  // 只做"组的响应"，单颗钮自己的按下反馈在 CSS 里（.panel-expand-btn:active）。
+  const [pulse, setPulse] = useState(false);
   return (
-    <div className="mini-controls">
+    <div
+      className="mini-controls"
+      data-pulse={pulse || undefined}
+      onPointerDown={() => setPulse(true)}
+      onAnimationEnd={(e) => {
+        if (e.animationName === "mini-controls-pulse") setPulse(false);
+      }}
+    >
       <button
         type="button"
         className="panel-expand-btn"
