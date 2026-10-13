@@ -13,7 +13,9 @@ import { useStore } from "../store";
 import { DialogHost } from "../components/DialogHost";
 import { TooltipHost } from "../components/Tooltip";
 import { SessionView } from "../components/SessionView";
-import { MiniCommandCenter, type MiniOverlayMode } from "./MiniCommandCenter";
+import type { MiniOverlayMode } from "./MiniCommandCenter";
+import { pushCardFrame } from "./miniCardAnchor";
+import { initMiniGlassBridge } from "./miniGlassPieces";
 import { MiniDraft } from "./MiniDraft";
 import { MiniPanelControls } from "./MiniPanelControls";
 import { MiniRunningGlow } from "./MiniRunningGlow";
@@ -45,6 +47,9 @@ export function MiniPanelApp() {
 
   // 命令中心的开关：null = 没有浮层；"history"/"settings" = 那张卡片开着（用户 2026-10-13
   // 定稿：历史与设置都是**浮在页面之上**的命令中心，不换页；再点那颗钮收回）。
+  // 卡片本身**不在这一页**：它是壳里另一块透明 webview（`?minicc=1` 那一页），垫在面板页
+  // 之上的原生玻璃之上——这一页只负责开合、落点与"用户点了别处"（见 pushCardFrame 与
+  // MiniCommandCenterApp 的注释：分两块才可能糊到面板正文）。
   const [overlay, setOverlay] = useState<MiniOverlayMode | null>(null);
 
   // Boot 落点：数据一到切到快捷空间（switchWorkspace 自带「侧栏可见层最近
@@ -73,6 +78,8 @@ export function MiniPanelApp() {
   // 一条、flush 只在 didFinish 后跑一遍）——错过就是永远没有，quickWorkspacePath
   // 为 null，历史列表的空锚点、openQuickSession 的切空间都跟着落空（2026-10-13 用户
   // 报"历史是空的"）。这里自己问一次，确定性拿回。
+  // 胶囊与输入框那两块原生玻璃的矩形表（壳按它摆位；网页侧那两个元素不画材质）。
+  useEffect(() => initMiniGlassBridge(), []);
   useEffect(() => {
     installHostBridge({
       openQuickSession: () => {
@@ -90,17 +97,63 @@ export function MiniPanelApp() {
       quickPanelFocus: () => {
         dispatchAppEvent(DD_EVENTS.composerFocus);
       },
+      // 卡那一页按 Esc（它拿着键盘）→ 壳转回来：开合的事实源在本页（胶囊按钮在这儿）。
+      miniCCClosed: () => setOverlay(null),
     });
     sendToShell({ type: "get-prefs" });
   }, []);
 
   const active = store.activeSessionId;
   const face = miniPanelFace(active, store.sessions);
-  const sessionFace = face === "session" && active !== null;
   // 会话在跑 → 整面板辉光（信号与 Composer 的停止按钮同一条：sessions[].running）。
   const activeRunning = active
     ? (store.sessions.find((s) => s.sessionId === active)?.running ?? false)
     : false;
+  const sessionFace = face === "session" && active !== null;
+  // 卡片那张脸（模式 + 会话 id）：设置行集按脸给，会话 id 由壳转给卡那一页。
+  const cardFaceRef = useRef<{ mode: MiniOverlayMode; sessionId: string | null } | null>(null);
+  cardFaceRef.current = overlay === null ? null : { mode: overlay, sessionId: sessionFace ? active : null };
+  const overlayOpen = overlay !== null;
+  const cardPush = useRef<{ pushNow: () => void } | null>(null);
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const handle = pushCardFrame(() => cardFaceRef.current);
+    cardPush.current = handle;
+    return () => {
+      cardPush.current = null;
+      handle.stop();
+    };
+  }, [overlayOpen]);
+  // 换脸（历史 ↔ 设置、切会话）立刻推一次：等下一个节拍会有小半秒的旧内容。
+  useEffect(() => {
+    cardPush.current?.pushNow();
+  }, [overlay, sessionFace, active]);
+  // 点面板任意处（胶囊自己除外）＝ 点在卡片外：收卡。卡片在另一块 webview 里，
+  // 落在这一页的点击天然都是"外面"。
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if ((e.target as HTMLElement | null)?.closest(".mini-controls")) return;
+      setOverlay(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [overlayOpen]);
+
+  // Esc 收卡：卡片页拿着键盘时由它自己上报（miniCCClosed），面板页这类只在"焦点其实还在
+  // 本页"时兜底——输入框/菜单里的 Esc 是它们自己的语义，不抢。
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+      if (e.key === "Escape") setOverlay(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [overlayOpen]);
+
+
   // 控件簇的齿轮：开设置那张命令中心（草稿/会话同一张卡片，行集按脸给，见 MiniSettingsRows）。
   // 面板里不再开主窗那张右侧卡——产物/状态/浏览器归主窗（用户 2026-10-13 定稿）。
   const openSettings = () => setOverlay((o) => (o === "settings" ? null : "settings"));
@@ -137,13 +190,6 @@ export function MiniPanelApp() {
           <MiniDraft onOpenSettings={openSettings} />
         )}
       </main>
-      {overlay !== null && (
-        <MiniCommandCenter
-          mode={overlay}
-          sessionId={sessionFace && active !== null ? active : null}
-          onClose={() => setOverlay(null)}
-        />
-      )}
     </div>
   );
 }

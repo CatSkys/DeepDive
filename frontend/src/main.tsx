@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { MiniPanelApp } from "./minipanel/MiniPanelApp";
+import { MiniCommandCenterApp } from "./minipanel/MiniCommandCenterApp";
 import { StoreProvider } from "./store";
 import { ComposerOverlayApp } from "./sidebar-right/ComposerOverlay";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -20,6 +21,9 @@ const overlaySession = new URLSearchParams(window.location.search).get("composer
 // 迷你面板页：壳 QuickPanelWindow 载 `#/mini`——顶条桥与行悬停门控照装（迷你页有
 // 顶条与门控行）；原生槽位/对话卡桥是主窗那一份的事，叠加层同款不装。
 const miniPanelPage = window.location.hash === "#/mini";
+// 命令中心卡的宿主页（`?minicc=1`）：壳把这块透明 webview 垫在面板页之上、原生玻璃之上，
+// 只渲染那张卡。store 与门控照装（卡里有 hover 行与设置行）；顶条/槽位桥是别家的，不装。
+const miniCardPage = new URLSearchParams(window.location.search).get("minicc") === "1";
 
 if (overlaySession !== null && overlaySession !== "") {
   document.documentElement.dataset.overlay = "1";
@@ -28,6 +32,23 @@ if (overlaySession !== null && overlaySession !== "") {
     <React.StrictMode>
       <ErrorBoundary>
         <ComposerOverlayApp sessionId={overlaySession} />
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+} else if (miniCardPage) {
+  document.documentElement.dataset.overlay = "1";
+  installCrashGuard();
+  installHoverArming();
+  if (inShell()) {
+    document.documentElement.dataset.shell = "1";
+  }
+  document.documentElement.dataset.platform = IS_WINDOWS_OS ? "windows" : "mac";
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <StoreProvider>
+          <MiniCommandCenterApp />
+        </StoreProvider>
       </ErrorBoundary>
     </React.StrictMode>
   );

@@ -465,6 +465,10 @@ export function installHostBridge(handlers: Partial<{
   runQuickCommand: (payload: { name: string }) => void;
   /** 壳把面板带到前台后（makeKey + 0.15s）推来：迷你面板页的输入框拿键盘。 */
   quickPanelFocus: () => void;
+  /** 命令中心卡那一页（`?minicc=1`）专用的两条：**开哪张脸**（模式 + 会话 id，设置行集
+   *  按脸给）与**用户要关**（卡那页按了 Esc——开合的事实源在面板页，壳只转发）。 */
+  miniCCFace: (payload: { mode: string; sessionId: string | null }) => void;
+  miniCCClosed: () => void;
   /** 壳端目录选择器（＋新建空间）选定后的回推；取消时不推送。 */
   workspacePicked: (path: string) => void;
   /** 系统唤醒通知（PITFALLS §4.7）：WKWebView 里的 WS 可能已假死，
@@ -491,6 +495,15 @@ export function installHostBridge(handlers: Partial<{
         case "runQuickCommand": {
           const p = (payload ?? {}) as { name?: string };
           handlers.runQuickCommand?.({ name: p.name ?? "" });
+          break;
+        }
+        case "miniCCFace": {
+          const p = (payload ?? {}) as { mode?: string; sessionId?: string | null };
+          handlers.miniCCFace?.({ mode: p.mode ?? "", sessionId: p.sessionId ?? null });
+          break;
+        }
+        case "miniCCClosed": {
+          handlers.miniCCClosed?.();
           break;
         }
         case "quickPanelFocus": {
