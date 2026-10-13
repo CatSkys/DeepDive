@@ -1,46 +1,34 @@
-// 命令中心的**历史模式**行件：按分组分段的会话行（两行式——标题 + 元信息行，
+// 命令中心的**历史模式**行件：按日期分段的会话行（两行式——标题 + 元信息行，
 // 照参考图），行的「更多」与右键复用侧栏那份会话行菜单（含删除）。
 // 只管这一模式的取数排布与交互：搜索词/键盘由命令中心（MiniCommandCenter）给进来，
-// 取数过滤分组排序全在 miniHistoryView.ts（纯函数、有单测），偏好存在 miniHistoryPrefs.ts。
+// 取数过滤分段全在 miniHistoryView.ts（纯函数、有单测）。
+// 不做筛选/排序控件（用户 2026-10-13 定稿：历史那一排直接删掉，段序恒为日期）。
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Check, Ellipsis, SlidersHorizontal } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { fmtTime } from "../session/sessionTime";
 import { Spinner } from "../components/LoadingState";
 import { HoverScrollText } from "../components/HoverScrollText";
 import { SidebarContextMenus, type RowMenuState } from "../components/SidebarContextMenus";
-import { filterHistory, groupAndSort, historyItems, type HistoryGroup, type HistoryItem, type HistorySort } from "./miniHistoryView";
-import { useMiniHistoryView } from "./miniHistoryPrefs";
-
-const GROUPS: { id: HistoryGroup; label: string }[] = [
-  { id: "date", label: "按日期分组" },
-  { id: "status", label: "按状态分组" },
-  { id: "agent", label: "按智能体分组" },
-  { id: "none", label: "不分组" },
-];
-const SORTS: { id: HistorySort; label: string }[] = [
-  { id: "updated", label: "最近更新" },
-  { id: "title", label: "标题" },
-];
+import { filterHistory, groupByDate, historyItems, type HistoryItem } from "./miniHistoryView";
+import type { KeyHandler } from "./MiniCommandCenter";
 
 export function MiniHistoryRows({
   query,
-  registerNav,
+  registerKeys,
   onDone,
 }: {
   query: string;
   /** 把 ↑↓/Enter 交给命令中心：它的搜索框拿着焦点，行件的处理每次渲染注册一份最新的。 */
-  registerNav: (handler: (e: ReactKeyboardEvent<HTMLInputElement>) => void) => void;
+  registerKeys: (handler: KeyHandler) => void;
   /** 点行开完会话、或用户选了别的动作之后收掉浮层。 */
   onDone: () => void;
 }) {
   const store = useStore();
   const { t, lang } = useT();
-  const [view, setView] = useMiniHistoryView();
   const [cursor, setCursor] = useState(0);
   const [rowMenu, setRowMenu] = useState<RowMenuState | null>(null);
-  const [viewMenu, setViewMenu] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
   // 锚点 = 面板当前所在空间（= 快捷空间）：不依赖壳下发的 quickWorkspacePath
@@ -60,15 +48,12 @@ export function MiniHistoryRows({
     [store.sidebarSessions, store.wsOfSession, store.pinned, store.unread, store.workspaces, anchorWorkspaceId, lang],
   );
   const visible = useMemo(() => filterHistory(items, query), [items, query]);
-  const sections = useMemo(
-    () => groupAndSort(visible, { group: view.group, sort: view.sort, lang, t }),
-    [visible, view, lang, t],
-  );
+  const sections = useMemo(() => groupByDate(visible, { lang, t }), [visible, lang, t]);
   /** 键盘光标的行序：段序即视觉序。 */
   const flat = useMemo(() => sections.flatMap((s) => s.items), [sections]);
   const cursorOf = useMemo(() => new Map(flat.map((it, i) => [it.sessionId, i])), [flat]);
 
-  // 过滤/换分组后行数变小：光标越界就回零。
+  // 过滤后行数变小：光标越界就回零。
   useEffect(() => {
     setCursor((c) => (c < flat.length ? c : 0));
   }, [flat.length]);
@@ -79,20 +64,22 @@ export function MiniHistoryRows({
   }, [cursor, flat.length]);
 
   useEffect(() => {
-    registerNav((e) => {
+    registerKeys((e: ReactKeyboardEvent<HTMLInputElement>) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
-        if (flat.length === 0) return;
+        if (flat.length === 0) return true;
         setCursor((c) => (e.key === "ArrowDown" ? Math.min(c + 1, flat.length - 1) : Math.max(c - 1, 0)));
-        return;
+        return true;
       }
       if (e.key === "Enter") {
         const target = flat[cursor];
-        if (!target) return;
+        if (!target) return false;
         e.preventDefault();
         store.openSession(target.sessionId);
         onDone();
+        return true;
       }
+      return false;
     });
   });
 
@@ -100,56 +87,6 @@ export function MiniHistoryRows({
 
   return (
     <>
-      {/* 排序与分组：命令中心里它就是一条工具行（值即当前组合），点开是那份菜单 */}
-      <div className="mini-cc-tools">
-        <button
-          type="button"
-          className="mini-cc-tool"
-          aria-expanded={viewMenu}
-          aria-label={t("排序与分组")}
-          data-tip={t("排序与分组")}
-          onClick={(e) => {
-            e.stopPropagation();
-            setViewMenu((v) => !v);
-          }}
-        >
-          <SlidersHorizontal size={14} />
-          <span>{`${t(GROUPS.find((g) => g.id === view.group)?.label ?? "按日期分组")} · ${t(SORTS.find((s) => s.id === view.sort)?.label ?? "最近更新")}`}</span>
-        </button>
-      </div>
-      {viewMenu && (
-        <div className="ctx-menu mini-cc-view-menu" onClick={(e) => e.stopPropagation()}>
-          {GROUPS.map((g) => (
-            <div
-              className="ctx-item"
-              key={g.id}
-              data-on={view.group === g.id || undefined}
-              onClick={() => {
-                setView({ group: g.id });
-                setViewMenu(false);
-              }}
-            >
-              {t(g.label)}
-              {view.group === g.id && <Check size={13} />}
-            </div>
-          ))}
-          <div className="ctx-sep" />
-          {SORTS.map((s) => (
-            <div
-              className="ctx-item"
-              key={s.id}
-              data-on={view.sort === s.id || undefined}
-              onClick={() => {
-                setView({ sort: s.id });
-                setViewMenu(false);
-              }}
-            >
-              {t(s.label)}
-              {view.sort === s.id && <Check size={13} />}
-            </div>
-          ))}
-        </div>
-      )}
       <div className="mini-cc-list" ref={listRef}>
         {sections.map((section) => (
           <section className="mini-cc-section" key={section.key}>

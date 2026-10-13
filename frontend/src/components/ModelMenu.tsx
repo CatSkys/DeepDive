@@ -38,6 +38,24 @@ export interface ModelOption {
   facts?: ModelBench;
 }
 
+/** 选项的唯一标识（provider/model）。选中的判定、写回时的回查都用它。 */
+export function modelKey(m: { provider: string; model: string }): string {
+  return `${m.provider}/${m.model}`;
+}
+
+/** 按厂商分组（保持目录顺序）：新厂商首次出现即落组，于是段序就是目录序。
+ *  空组不会产生。菜单（下方组件）与迷你面板命令中心的选择页共用这一份。 */
+export function modelSections(options: ModelOption[]): Array<{ label: string; items: ModelOption[] }> {
+  const out: Array<{ label: string; items: ModelOption[] }> = [];
+  const index = new Map<string, ModelOption[]>();
+  for (const m of options) {
+    let items = index.get(m.providerLabel);
+    if (!items) { items = []; index.set(m.providerLabel, items); out.push({ label: m.providerLabel, items }); }
+    items.push(m);
+  }
+  return out;
+}
+
 /** 与 .model-menu 的 width/max-height 同步（定位要按它们算翻转与限高）。 */
 const MENU_WIDTH = 280;
 const MENU_MAX_HEIGHT = 460;
@@ -108,17 +126,7 @@ export function ModelMenu({
     return options.filter((m) => m.label.toLowerCase().includes(q) || m.providerLabel.toLowerCase().includes(q));
   }, [options, query]);
 
-  // 分组显示（保持目录顺序）：过滤结果按厂商名聚合；空组在过滤后自然消失。
-  const groups = useMemo(() => {
-    const out: Array<{ label: string; items: ModelOption[] }> = [];
-    const index = new Map<string, ModelOption[]>();
-    for (const m of flat) {
-      let items = index.get(m.providerLabel);
-      if (!items) { items = []; index.set(m.providerLabel, items); out.push({ label: m.providerLabel, items }); }
-      items.push(m);
-    }
-    return out;
-  }, [flat]);
+  const groups = useMemo(() => modelSections(flat), [flat]);
 
   if (rect === null) return null;
 
@@ -134,7 +142,7 @@ export function ModelMenu({
 
   // 卡片内容：hover 行优先；无 hover 落回当前选择（当前选择不在目录里则不出卡）。
   const activeOption = options.find((m) => m.label === current || (currentModel?.provider === m.provider && currentModel?.model === m.model));
-  const cardOption = (hovered === null ? undefined : flat.find((m) => `${m.provider}/${m.model}` === hovered)) ?? activeOption;
+  const cardOption = (hovered === null ? undefined : flat.find((m) => modelKey(m) === hovered)) ?? activeOption;
 
   return createPortal(
     <>
@@ -161,9 +169,9 @@ export function ModelMenu({
                   const active = m.label === current || (currentModel?.provider === m.provider && currentModel?.model === m.model);
                   return (
                     <button
-                      key={`${m.provider}/${m.model}`}
+                      key={modelKey(m)}
                       className={`model-menu-row${active ? " active" : ""}`}
-                      onMouseEnter={() => setHovered(`${m.provider}/${m.model}`)}
+                      onMouseEnter={() => setHovered(modelKey(m))}
                       onClick={() => { onPick(m); onClose(); }}
                     >
                       <ProviderIcon provider={m.provider} size={15} />

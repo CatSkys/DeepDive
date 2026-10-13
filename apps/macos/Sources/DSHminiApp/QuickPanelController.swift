@@ -65,7 +65,9 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         window.becomesKeyOnlyIfNeeded = false
         window.collectionBehavior = [.fullScreenNone, .moveToActiveSpace]
         window.animationBehavior = .none
-        window.level = .normal
+        // 快捷对话面**默认置顶所有窗口**（用户 2026-10-13 定稿：面板的属性是快捷对话，
+        // 所以它压在所有页面之上）。隐藏仍走 alpha 0（见下方常驻隐身），不靠层级让位。
+        window.level = .floating
 
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
@@ -104,7 +106,13 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         appearanceObservation = window.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
             self?.applyAppearanceMode()
         }
-        DispatchQueue.main.async { [weak self] in self?.applyAppearanceMode() }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.applyAppearanceMode()
+            // 首帧就把灯压到头部中心线：窗口从没 key 过时上面那条 delegate 不会触发
+            // （常驻隐身 + orderFrontRegardless 的召唤前状态）。
+            WindowHeaderLine.alignTrafficLights(in: self.window)
+        }
     }
 
     // MARK: - summon（Atd dockAtCursor + show）
@@ -290,6 +298,17 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     func windowDidEndLiveResize(_ notification: Notification) {
         UserDefaults.standard.set(window.frame.width, forKey: Self.widthKey)
         UserDefaults.standard.set(window.frame.height, forKey: Self.heightKey)
+    }
+
+    /// 头部行与红绿灯同一条中心线（主窗同款：WindowHeaderLine；面板头部行按这条线
+    /// 排在内边距 16 处，见 theme.css 面板作用域那条注释）。尺寸/聚焦变化后重压一次
+    /// ——内容视图高度变了，落点就跟着变。
+    func windowDidResize(_ notification: Notification) {
+        WindowHeaderLine.alignTrafficLights(in: window)
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        WindowHeaderLine.alignTrafficLights(in: window)
     }
 
     func windowDidChangeScreen(_ notification: Notification) {

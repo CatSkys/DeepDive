@@ -35,8 +35,9 @@ export function shownLevel(id: string | undefined, levels: Array<{ id: string; n
 }
 
 /** 档位显示：直接用引擎给的名称（Off/Low/High/Max…）。**没有"Default"这一档**——
- *  用户 2026-10-09 定稿"是啥档位就显示啥档位"。 */
-function effortDisplayName(id: string | undefined, levels: Array<{ id: string; name: string }>): string {
+ *  用户 2026-10-09 定稿"是啥档位就显示啥档位"。导出给面板命令中心的选择页复用
+ *  （根行右边那颗当前档位名与选择页里的行名同一口径，勿各写一套）。 */
+export function effortDisplayName(id: string | undefined, levels: Array<{ id: string; name: string }>): string {
   return id === undefined ? "" : (levels.find((l) => l.id === id)?.name ?? id);
 }
 

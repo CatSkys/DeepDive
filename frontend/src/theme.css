@@ -322,9 +322,13 @@ button {
    **本块一律 `.app.mini-panel` 起头**：面板页整页复用主窗样式表，同属性上主窗规则
    （`.session-row > .session` 那类 2 类选择器）就写在文件后段，面板若也用 2 类会
    静默输掉——2026-10-13 面板整页变成主窗内容卡（深色底 + 卡圆角 + 卡投影）就是
-   这么来的（PITFALLS §10.2）；`check-architecture.mjs` 规则 6 机检这条约定。 */
+   这么来的（PITFALLS §10.2）；`check-architecture.mjs` 规则 6 机检这条约定。
+
+   上内边距 16：标题行中心 = 16 + 行高半 10 = 26px，与原生红绿灯同一条中心线
+   （主窗 .session-header / .window-top 那条 26 是同一条；用户 2026-10-13 报"新会话
+   这行没跟红绿灯对齐"——面板此前用 hero-top 的 8，中心在 18，比灯高 8px）。 */
 .app.mini-panel .session-header,
-.app.mini-panel .hero-top { padding-left: 84px; }
+.app.mini-panel .hero-top { padding-left: 84px; padding-top: 16px; }
 
 /* 面板页全出血：内容直接坐在窗体的原生玻璃底上（窗底 WindowGlassView 按 .panel
    表面档上 tint——深浅去那里调，网页不重复造一个旋钮）；会话列因此不铺卡面/
@@ -365,10 +369,11 @@ button {
   backdrop-filter: blur(24px) saturate(150%);
 }
 /* 组内项与胶囊**同心**（项半径 = 胶囊半径 − 内边距）：圆角套圆角是苹果给嵌套形状的规矩，
-   内层写小圆角会像两种形状叠在一起。 */
+   内层写小圆角会像两种形状叠在一起。32 是面板这一档（用户 2026-10-13 两次报"按键还是
+   有点小"，26 → 28 → 32；图标同步 15 → 17，见 MiniPanelControls）。 */
 .app.mini-panel .mini-controls .panel-expand-btn {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   margin-left: 0;
   border-radius: 999px;
 }
@@ -379,37 +384,47 @@ button {
   color: var(--ink);
 }
 /* 会话头右侧给控件簇让位：计划模式芯片（.plan-wrap）别钻到胶囊底下。
-   112 = 三钮 28×3 + 缝 2×2 + 内边距 3×2 + 描边 2 + 呼吸 ~18。 */
-.app.mini-panel .session-header { padding-right: 112px; }
+   124 = 三钮 32×3 + 缝 2×2 + 内边距 3×2 + 描边 2 + 呼吸 ~16。 */
+.app.mini-panel .session-header { padding-right: 124px; }
 
 /* 面板头部只留标题（用户 2026-10-13 定稿：模型行不在这儿——模型在设置那张命令中心里
    改，头部留两行反而把内容区压窄）。头部高度是 --session-header-h 一条链（头部多高、
    内容让位多少都吃它，见 :root 那条注释），所以在面板作用域里换值即可：标题行
-   8 + 20 + 8 ≈ 36，取 38 留一点余量。 */
-.app.mini-panel { --session-header-h: 38px; }
+   上内边距 16（对齐红绿灯中心线，见上方面板作用域的注释）+ 20 + 下 8 = 44。 */
+.app.mini-panel { --session-header-h: 44px; }
 
-/* ── 悬浮命令中心（历史 / 设置两张卡片共用这一副壳）：浮在页面之上，页面本身不换 ── */
+/* ── 悬浮命令中心（历史 / 设置两张卡共用这一副壳）：浮在面板**正中间**，页面本身不换 ──
+   用户 2026-10-13 定稿："不是从按钮下拉的状态，它就是面板中心的一个悬浮态。也是一个玻璃
+   面板"——所以是 translate(-50%) 之外的垂直居中（水平仍是左右各留 12 的满宽），不是贴在
+   控件簇下面的一条。底色走**命令面板**那一档（--panel-palette：比 --panel-glass 更浅也
+   更实，⌘K 同一份底），且**无描边**（同一条定稿："怎么会描边呢？这东西不要描边"）。
+   模糊与投影仍是弹层配方（--shadow-pop + blur 12/180）。 */
 .app.mini-panel .mini-cc {
   position: absolute;
-  top: 46px;
+  top: 50%;
   left: 12px;
   right: 12px;
+  transform: translateY(-50%);
   z-index: 7;
   display: flex;
   flex-direction: column;
-  max-height: 64%;
+  max-height: 76%;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-floating);
-  /* 弹层配方三件套（见上方 .model-menu 那条：glass 底 + 这口模糊 + 投影）——少了模糊，
-     卡片下面的页面正文会整片透上来读不清（用户 2026-10-13 报"面板是透明的"）。
-     同一 webview 内的弹层能吃 backdrop-filter（面板里的模型菜单就是这套），前缀顺序
-     与那条配方一致：-webkit- 在前。 */
-  background: var(--panel-glass);
+  background: var(--panel-palette);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   backdrop-filter: blur(12px) saturate(180%);
   box-shadow: var(--shadow-pop);
-  animation: menu-in var(--dur-fast) var(--ease-out) both;
+  /* 入场动画必须是**本卡片自己的一条**：menu-in 的 to 是 transform:none，用它会把
+     translateY(-50%) 一起抹掉（卡片掉回上半屏）。 */
+  animation: mini-cc-in var(--dur-fast) var(--ease-out) both;
+}
+@keyframes mini-cc-in {
+  from { opacity: 0; transform: translateY(calc(-50% + 8px)) scale(.97); }
+  to { opacity: 1; transform: translateY(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app.mini-panel .mini-cc { animation: none; }
 }
 .app.mini-panel .mini-cc-search {
   display: flex;
@@ -433,22 +448,18 @@ button {
 .app.mini-panel .mini-cc-clear { flex: none; display: inline-flex; color: var(--ink-3); }
 .app.mini-panel .mini-cc-clear:hover { color: var(--ink); }
 .app.mini-panel .mini-cc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-/* 排序与分组：命令中心里它就是一条工具行（值即当前组合） */
-.app.mini-panel .mini-cc-tools { flex: none; padding: 6px 6px 0; }
-.app.mini-panel .mini-cc-tool {
-  display: inline-flex;
+/* 选择页顶部那条返回行：页名 + 左箭头，点它或按 Esc 回根行。 */
+.app.mini-panel .mini-cc-back {
+  display: flex;
   align-items: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 8px;
-  border-radius: var(--dsh-radius-keycap);
-  color: var(--ink-3);
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
 }
-:where(html[data-hover-armed]) .app.mini-panel .mini-cc-tool:hover { background: var(--row-hover); color: var(--ink-2); }
-.app.mini-panel .mini-cc-view-menu { min-width: 180px; }
-.app.mini-panel .mini-cc-view-menu .ctx-item[data-on] { color: var(--ink-bright); }
-.app.mini-panel .mini-cc-view-menu .ctx-item svg { margin-left: auto; }
+.app.mini-panel .mini-cc-back:hover { color: var(--ink); }
 .app.mini-panel .mini-cc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 6px 8px; }
 .app.mini-panel .mini-cc-section + .mini-cc-section { margin-top: 10px; }
 .app.mini-panel .mini-cc-section-title {
@@ -458,6 +469,25 @@ button {
   font-size: var(--dsh-font-size-sm);
   font-weight: 500;
 }
+/* 选择页的行：单行式（标签左、当前值打勾），与历史行那套两行式不是一种东西，故不共用
+   .mini-cc-row。键盘光标与 hover 同一档填充（--fill-strong 比 --row-hover 更实，因为
+   这一屏只有一份列表、光标就是"选中的那一项"）。 */
+.app.mini-panel .mini-cc-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--dsh-radius-control);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-base);
+  text-align: left;
+}
+:where(html[data-hover-armed]) .app.mini-panel .mini-cc-choice:hover { background: var(--row-hover); }
+.app.mini-panel .mini-cc-choice[data-cursor="true"] { background: var(--fill-strong); }
+.app.mini-panel .mini-cc-choice-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app.mini-panel .mini-cc-choice-check { flex: none; color: var(--ink); }
 /* 行：沿用侧栏那条会话行（.task-row + row-slot/row-main/row-actions），面板里改成**两行式**
    （标题 + 元信息行，照参考图），并补三件：悬停出血、键盘光标行高亮、hover 出现的「更多」。 */
 .app.mini-panel .mini-cc-row {
