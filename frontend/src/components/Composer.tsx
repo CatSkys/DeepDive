@@ -387,7 +387,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     };
   }, [plusOpen]);
 
-  // 壳推来的截图与划词事件（全局截图热键、工具条上的「问 DeepDive」）：
+  // 壳推来的截图与划词事件（全局截图热键、工具条上的「问 AI」）：
   // 带 reqId 的截图是上面那次请求的应答，由 promise 消费，这里不重复摄入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "screenshotCaptured") {

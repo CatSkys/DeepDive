@@ -79,7 +79,7 @@ extension MiniPanelController {
         - (Double(index) + 0.5) * MiniPanelMetrics.rowHeight + model.flyoutScroll
       return (CGPoint(x: card.x + card.width / 2, y: middle), card)
     }
-    let buttons = MiniPanelControl.buttons(hasCommands: !commands.isEmpty)
+    let buttons = MiniPanelControl.buttons()
     guard let index = buttons.firstIndex(of: control), layout.buttons.indices.contains(index)
     else { return nil }
     let button = layout.buttons[index]
