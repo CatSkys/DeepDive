@@ -575,8 +575,7 @@ button {
 }
 
 /* 迷你面板的首页（草稿脸）：头部同会话页根条（复用 hero-top，靠 --hero-pad-x 负边距
-   抵齐）；其下左上问候 + 提示词胶囊（点一颗把整段提示词预填进输入框），输入框钉底，
-   与问候同缩进。 */
+   抵齐）；其下招呼语在中间居中、提示词胶囊一行贴在输入框上方、输入框钉底。 */
 .mini-draft {
   flex: 1;
   position: relative;
@@ -587,26 +586,22 @@ button {
   --hero-pad-x: 24px;
   padding: 0 var(--hero-pad-x) 12px;
 }
-/* 问候 + 胶囊这一组落在头部与输入框之间偏上的位置：两份 auto 外边距（这里一份、
-   .mini-draft-foot 一份）把自由空间对半分——输入框仍钉底，这一组不贴头部
-   （贴头部时下面空出一大片，用户 2026-10-13 报"位置不对"）。 */
-.mini-draft-greet { margin-top: auto; }
-/* 招呼语：display 档（hero 24）之下的一档（xl 18）——同一句在面板里是"招呼"不是
-   主窗 hero 的大标题（用户 2026-10-13 定：系统字体、调轻调小）。行高逐规则定。 */
+/* 招呼语在**中间居中**：上下两份 auto 外边距均分自由空间（经典空状态的样子，用户
+   2026-10-13 定稿——此前试过贴头部、试过按 1/3 与 2/3 分，都不对）。 */
 .mini-draft-hello {
-  margin: 0;
+  margin: auto 0;
   font-size: var(--dsh-font-size-xl);
   font-weight: 400;
   line-height: 24px;
   letter-spacing: .01em;
   color: var(--ink);
 }
-/* 胶囊按内容宽换行排布；一颗 = 一个短标签（预填的整段提示词看不见，进输入框才读）。
-   无描边（UI-SPEC §1.1「有底色的卡片一律不描边」），两端全圆走 radius.bubble 同
-   文件那颗文件 chip 的口径（30 高的盒子上被裁成半高整圆端，不写 999px）；
-   --fill 底配 --ink-soft 字同 .ws-pill 那条配方；hover 不门控——常驻控件不是随
-   内容滑动的行（UI-SPEC §1.10 门控范围）。 */
-.mini-draft-prompts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+/* 胶囊按内容宽换行排布，**贴在输入框上方**（同一组的下缘）；一颗 = 一个短标签（预填的
+   整段提示词看不见，进输入框才读）。无描边（UI-SPEC §1.1「有底色的卡片一律不描边」），
+   两端全圆走 radius.bubble 同文件那颗文件 chip 的口径（30 高的盒子上被裁成半高整圆端，
+   不写 999px）；--fill 底配 --ink-soft 字同 .ws-pill 那条配方；hover 不门控——常驻
+   控件不是随内容滑动的行（UI-SPEC §1.10 门控范围）。 */
+.mini-draft-prompts { display: flex; flex-wrap: wrap; gap: 10px; }
 .mini-prompt {
   height: 30px;
   padding: 0 14px;
@@ -617,7 +612,9 @@ button {
   white-space: nowrap;
 }
 .mini-prompt:hover { background: var(--fill-strong); color: var(--ink); }
-.mini-draft-foot { flex: none; margin-top: auto; padding-top: 8px; }
+/* 输入框钉底（自由空间全给招呼语那两份 auto，这里不再吃 auto）；上内边距就是胶囊
+   行与输入框之间的那道缝。 */
+.mini-draft-foot { flex: none; padding-top: 12px; }
 .mini-draft-foot .composer { width: 100%; }
 
 /* 启动过渡的舞台：把「侧栏 + 主卡」这对兄弟包进一个自己就是 flex row 的容器，
