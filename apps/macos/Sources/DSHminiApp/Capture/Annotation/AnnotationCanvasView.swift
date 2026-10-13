@@ -132,7 +132,7 @@ final class AnnotationCanvasView: NSView {
       return
     }
     context.setLineWidth(1.5)
-    context.setStrokeColor(NSColor.controlAccentColor.cgColor)
+    context.setStrokeColor(NSColor(white: 0, alpha: 0.4).cgColor)
     context.setFillColor(NSColor.white.cgColor)
     for (_, point) in handles {
       let grip = CGRect(x: point.x - 4, y: point.y - 4, width: 8, height: 8)
@@ -144,7 +144,7 @@ final class AnnotationCanvasView: NSView {
   private static func outline(_ rect: CGRect, in context: CGContext, width: CGFloat = 1) {
     context.saveGState()
     context.setLineWidth(width)
-    context.setStrokeColor(NSColor.controlAccentColor.cgColor)
+    context.setStrokeColor(NSColor(white: 1, alpha: 0.85).cgColor)
     context.setLineDash(phase: 0, lengths: [4, 3])
     context.stroke(rect.insetBy(dx: width / 2, dy: width / 2))
     context.restoreGState()

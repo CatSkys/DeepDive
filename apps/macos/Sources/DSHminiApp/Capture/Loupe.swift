@@ -74,7 +74,7 @@ final class LoupeView: NSView {
     let reticle = NSBezierPath(
       rect: CGRect(x: center, y: center, width: Self.zoom, height: Self.zoom))
     reticle.lineWidth = 1.5
-    NSColor.controlAccentColor.setStroke()
+    NSColor(white: 1, alpha: 0.9).setStroke()
     reticle.stroke()
     let border = NSBezierPath(rect: grid.insetBy(dx: 0.5, dy: 0.5))
     NSColor(white: 1, alpha: 0.8).setStroke()
