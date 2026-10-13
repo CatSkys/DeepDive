@@ -297,12 +297,12 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
   const requeueFile = (id: string) => setAttachments((prev) => prev.map((a): Attachment =>
     a.id === id && a.kind === "file" && a.status === "error" ? { ...a, status: "pending", error: undefined } : a));
 
-  /** ＋＝上传附件：壳内 NSOpenPanel（文件+文件夹多选）；纯浏览器降级为
-   *  文件选择 input（无路径可引用）。 */
-  const addAttachments = useCallback(() => {
+  /** ＋ 菜单的一行：壳内 NSOpenPanel（`kind` 决定文件还是文件夹）；纯浏览器
+   *  降级为文件选择 input（无路径可引用，文件夹那项在浏览器里等同无操作）。 */
+  const addAttachments = useCallback((kind: "files" | "folders" = "files") => {
     if (hasShell) {
-      void pickAttachments().then((items) => { if (items) ingestPicked(setAttachments, addFilePath, setText, items); });
-    } else {
+      void pickAttachments(kind).then((items) => { if (items) ingestPicked(setAttachments, addFilePath, setText, items); });
+    } else if (kind === "files") {
       fileRef.current?.click();
     }
   }, [hasShell, addFilePath, setText]);

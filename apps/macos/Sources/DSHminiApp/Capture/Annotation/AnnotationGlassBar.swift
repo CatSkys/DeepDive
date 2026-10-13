@@ -4,6 +4,8 @@ import AppKit
 /// Liquid Glass capsule (`NSGlassEffectView`), in groups split by hairlines. The capsule's radius
 /// is the buttons' radius plus the even ``padding``, so the outline and the circular buttons nest
 /// concentrically. A divider shows only between visible groups, and the capsule shrinks to fit.
+/// The glass is the shell's fixed dark surface (``GlassSurface``): it never adapts to what lies
+/// behind it, and its row stands on the panel's base fill, rounded like the capsule.
 ///
 /// The bar's own surface (anywhere but a control, including an ``AnnotationBarGrip``) moves it:
 /// a drag reports ``Drag`` to the owner, which places the bars. A bar without ``onDrag`` (the
@@ -55,7 +57,7 @@ final class AnnotationGlassBar: NSView {
       dividers.append(divider)
       for view in group { stack.addArrangedSubview(view) }
     }
-    glass.contentView = stack
+    GlassSurface.attach(glass, content: stack)
     addSubview(glass)
   }
 
@@ -68,7 +70,7 @@ final class AnnotationGlassBar: NSView {
   override func layout() {
     super.layout()
     glass.frame = bounds
-    glass.cornerRadius = bounds.height / 2
+    GlassSurface.shape(glass, content: stack, cornerRadius: bounds.height / 2)
   }
 
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }

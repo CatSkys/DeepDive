@@ -416,15 +416,15 @@ export interface PickedAttachment {
   bytes?: number;
 }
 
-/** 壳侧附件选择器（composer ＋）：NSOpenPanel 文件+文件夹多选，回推绝对
- *  路径（图片另带 base64）。纯浏览器环境 resolve null；取消/超时 resolve
- *  空数组（超时视同取消，别让按钮停在等待态）。 */
-export function pickAttachments(): Promise<PickedAttachment[] | null> {
+/** 壳侧附件选择器（composer ＋ 菜单的两项）：`kind` 决定挑文件还是文件夹，
+ *  回推绝对路径（图片另带 base64）。纯浏览器环境 resolve null；取消/超时
+ *  resolve 空数组（超时视同取消，别让按钮停在等待态）。 */
+export function pickAttachments(kind: "files" | "folders"): Promise<PickedAttachment[] | null> {
   return bridgeRequest(
     "pickedAttachments",
     null,
     (p) => (p as { items?: PickedAttachment[] }).items ?? [],
-    (reqId) => sendToShell({ type: "pick-attachments", reqId }),
+    (reqId) => sendToShell({ type: "pick-attachments", reqId, kind }),
   );
 }
 

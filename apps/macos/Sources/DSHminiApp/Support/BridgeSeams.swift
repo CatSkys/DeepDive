@@ -134,3 +134,30 @@ enum SystemSettings {
     NSWorkspace.shared.open(url)
   }
 }
+
+/// 附件选择器挑什么（composer ＋ 菜单的「上传文件」/「添加文件夹…」两项）：
+/// 认不出的值按 `any`（老前端/直连调试不该因为少一个字段就挑不了东西）。
+enum AttachmentPickKind {
+  case files
+  case folders
+  case any
+
+  init(raw: String?) {
+    switch raw {
+    case "files": self = .files
+    case "folders": self = .folders
+    default: self = .any
+    }
+  }
+
+  var choosesFiles: Bool { self != .folders }
+  var choosesDirectories: Bool { self != .files }
+
+  var message: String {
+    switch self {
+    case .files: "选择要附加的文件"
+    case .folders: "选择要附加的文件夹"
+    case .any: "选择要附加的文件或文件夹"
+    }
+  }
+}

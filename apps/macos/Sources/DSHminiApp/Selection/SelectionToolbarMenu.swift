@@ -118,9 +118,14 @@ final class SelectionToolbarMenu: NSObject {
     scroll.layer?.cornerCurve = .continuous
     // The rows are the menu's items, not a scroll area's.
     scroll.setAccessibilityElement(false)
+    // 滚动视图自带底色，而 GlassSurface 的底色与圆角画在内容层上——先包一层纯净容器。
+    let content = NSView(frame: NSRect(origin: .zero, size: list.fittingSize))
+    scroll.frame = content.bounds
+    scroll.autoresizingMask = [.width, .height]
+    content.addSubview(scroll)
     let glass = NSGlassEffectView()
-    glass.cornerRadius = layout.cornerRadius
-    glass.contentView = scroll
+    GlassSurface.attach(glass, content: content)
+    GlassSurface.shape(glass, content: content, cornerRadius: layout.cornerRadius)
     glass.setAccessibilityElement(true)
     glass.setAccessibilityRole(.menu)
     glass.setAccessibilityLabel(ShellStrings.shared.text(.selectionToolbarMore))

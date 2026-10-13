@@ -485,7 +485,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "screen-recording-request":
             screenshot.requestPermission()
         case "pick-attachments":
-            pickAttachments(reqId: body["reqId"] as? String ?? "")
+            pickAttachments(
+                reqId: body["reqId"] as? String ?? "",
+                kind: AttachmentPickKind(raw: body["kind"] as? String)
+            )
         // 按路径上传附件（选择器挑中的文件走这条：SPA 那侧要么整段进一次请求，
         // 要么把整个文件 base64 进消息——壳直接流式送给引擎，见 EngineGateway.uploadFile）
         case "upload-path":
@@ -790,18 +793,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 附件选择器（composer ＋）：文件与文件夹都可多选；绝对路径回推给前端
-    /// 走 @ 引用（引擎宿主侧读盘），图片附带 base64 走真字节上传。取消回推
-    /// 空数组——前端据此收尾，不悬挂 reqId。NSOpenPanel 留在主线程；整图
-    /// 磁盘读与 base64 编码移后台队列（读大图会卡主线程 UI，AUD-079，对齐
-    /// 同文件 gitRun 的后台样板），主线程只回推 payload。
-    private func pickAttachments(reqId: String) {
+    /// 附件选择器（composer ＋ 的二级菜单）：`kind` 决定挑文件还是文件夹（Atd 的 ＋ 菜单
+    /// 把「上传文件」与「添加文件夹…」分成两项，共用这一个面板入口）。绝对路径回推给前端
+    /// 走 @ 引用（引擎宿主侧读盘），图片附带 base64 走真字节上传。取消回推空数组——前端
+    /// 据此收尾，不悬挂 reqId。NSOpenPanel 留在主线程；整图磁盘读与 base64 编码移后台
+    /// 队列（读大图会卡主线程 UI，AUD-079，对齐同文件 gitRun 的后台样板），主线程只回推。
+    private func pickAttachments(reqId: String, kind: AttachmentPickKind) {
         guard let window = windowController.window else { return }
         let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = true
+        panel.canChooseFiles = kind.choosesFiles
+        panel.canChooseDirectories = kind.choosesDirectories
         panel.allowsMultipleSelection = true
-        panel.message = "选择要附加的文件或文件夹"
+        panel.message = kind.message
         panel.prompt = "添加"
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self else { return }
