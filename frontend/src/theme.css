@@ -913,40 +913,50 @@ button {
 .ws-row svg { color: var(--ink-3); flex: none; }
 /* 「新会话」入口（Safari New tab 式）：紧跟 .sessions 滚动列表之后——列表短时
    贴着最后一行，会话多到要滚时被顶到底部常驻（设置行上面那行）；
-   整行置灰（--ink-3）弱化，不与任务行抢视觉。 */
-.new-session-entry {
+   整行置灰（--ink-3）弱化，不与任务行抢视觉。
+   这一行是**一块**胶囊：左边文字建会话，行尾那颗快捷会话图标进快捷空间——
+   同一块底上两个落点，各自不画底也不各占一块（用户 2026-10-13 定稿）。 */
+.new-session-row {
   display: flex;
   align-items: center;
-  /* 度量对齐 .ws-row（内距 10 / 图标 14 / gap 8），也就是与侧栏其余行同一条左缘 */
-  gap: 8px;
-  width: 100%;
+  /* 度量对齐 .ws-row（内距 10 / 图标 14 / gap 8），也就是与侧栏其余行同一条左缘。
+     不给 width：内距在行上，写 100% 就变成 100%+20（content-box）撑出侧栏 20px；
+     .ws-pane-list 是 flex column，行靠拉伸吃满宽度——与 .ws-row 同一条口径。 */
   height: 32px;
   margin-top: 3px; /* 补回原在 .sessions gap 里的行距 */
   padding: 0 10px;
   border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
   color: var(--ink-3);
   font-size: var(--dsh-font-size-base);
+}
+:where(html[data-hover-armed]) .new-session-row:hover { background: var(--row-hover); color: var(--ink); }
+/* 文字落点：吃掉除行尾图标以外的整行；底与内距都在行上，自己透明 */
+.new-session-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  color: inherit;
+  font-size: inherit;
   text-align: left;
 }
-:where(html[data-hover-armed]) .new-session-entry:hover { background: var(--row-hover); color: var(--ink); }
 .new-session-entry svg { flex: none; } /* 颜色随行置灰（currentColor），只保住不压缩 */
-/* 快捷会话行（D14）：「新会话」右侧的快捷线入口——行容器承接原 100% 宽，
-   文字入口占 flex:1，快捷钮是等高方形，同一 hover 语言（--row-hover）。 */
-.new-session-row { display: flex; align-items: center; gap: 2px; width: 100%; }
+.new-session-entry .ns-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 快捷会话（D14）：行尾那颗图标——同一块底上的第二个落点，自己不画底，
+   指针压上来时随整行转亮（块不变，只有落点不同）。 */
 .quick-session-entry {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin-top: 3px;
-  border-radius: 16px; /* 胶囊用高度值（PITFALLS §1.1） */
-  color: var(--ink-3);
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  color: inherit;
 }
 .quick-session-entry svg { flex: none; }
-:where(html[data-hover-armed]) .quick-session-entry:hover { background: var(--row-hover); color: var(--ink); }
-.new-session-entry .ns-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ws-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 项目图标位的首字母回落（没有任何 glyph/图标文件时的末档，见 wsIcons.ts 头部
