@@ -339,9 +339,10 @@ button {
    的兄弟卡；收起态配方不动（width 0 + pointer-events none）。 */
 .app.mini-panel .panel:not([data-closed="true"]) { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; }
 
-/* 面板右上控件簇（面板自有，不借主窗的头部座位）：会话历史 + 会话设置。位置沿用草稿页
-   那颗齿轮的 8/16（旧入口位置不变）；z-index 6 在滚动辉光(4)与会话设置浮层(5)之上——
-   设置卡盖住整窗时这两个钮仍可点。 */
+/* 面板右上控件簇（面板自有，不借主窗的头部座位）：新建会话 + 会话历史 + 会话设置，
+   三颗钮**聚成一个悬浮胶囊**（macOS 悬浮工具组的样子：整组共享一个胶囊底，项 hover/选中
+   出内层高亮，而不是三颗各自浮着的独立圆钮）。位置沿用草稿页那颗齿轮的 8/16（旧入口位置
+   不变）；z-index 6 在滚动辉光(4)与会话设置浮层(5)之上——设置卡盖住整窗时这几颗仍可点。 */
 .app.mini-panel .mini-controls {
   position: absolute;
   top: 8px;
@@ -350,9 +351,26 @@ button {
   display: flex;
   align-items: center;
   gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--fill);
+  border: 1px solid var(--line);
+  /* 组内项与胶囊**同心**（胶囊全圆角、钮半径 = 胶囊半径 − 内边距）：圆角套圆角是
+     苹果给嵌套形状的规矩，内层若写小圆角会像两种形状叠在一起。 */
 }
-/* 会话头右侧给控件簇让位：计划模式芯片（.plan-wrap）别钻到钮底下 */
-.app.mini-panel .session-header { padding-right: 76px; }
+.app.mini-panel .mini-controls .panel-expand-btn {
+  margin-left: 0;
+  border-radius: 999px;
+}
+/* hover / 选中都在组内出高亮（底色用 fill-strong：胶囊底已经是 fill，同一档就看不见了） */
+.app.mini-panel .mini-controls .panel-expand-btn:hover,
+.app.mini-panel .mini-controls .panel-expand-btn[aria-pressed="true"] {
+  background: var(--fill-strong);
+  color: var(--ink);
+}
+/* 会话头右侧给控件簇让位：计划模式芯片（.plan-wrap）别钻到胶囊底下。
+   88 = 三钮 26×3 + 缝 2×2 + 内边距 2×2 + 描边 2，再留 8 的呼吸。 */
+.app.mini-panel .session-header { padding-right: 96px; }
 
 /* ── 会话历史脸（Atd task-history 的裁剪版）：搜索行 + 按分组分段的列表 ── */
 .app.mini-panel .mini-history {

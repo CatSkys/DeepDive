@@ -104,6 +104,14 @@ export function MiniPanelApp() {
     if (sessionFace && active !== null) panelActions.setSettings(active, true);
     else setDraftSettingsOpen(true);
   };
+  // 控件簇的「新建会话」：落快捷空间新草稿（SPEC §6.1——与药丸那颗「新建会话」同一落点；
+  // 壳命令 openQuickSession 那条路多推一次 quickPanel-show，是给"面板还没露脸"的召唤用的，
+  // 面板里点这颗不需要）。历史脸/设置卡先收，不然新草稿页被它们挡着。
+  const newSession = () => {
+    setHistoryOpen(false);
+    setDraftSettingsOpen(false);
+    storeRef.current.openQuickSession();
+  };
   return (
     <div className="app mini-panel">
       <TooltipHost />
@@ -111,6 +119,7 @@ export function MiniPanelApp() {
       {activeRunning && <MiniRunningGlow />}
       <MiniPanelControls
         historyOpen={historyOpen}
+        onNewSession={newSession}
         onToggleHistory={() => setHistoryOpen((v) => !v)}
         onOpenSettings={openSettings}
       />

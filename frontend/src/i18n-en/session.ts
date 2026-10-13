@@ -324,7 +324,8 @@ export const ENSession: Record<string, string> = {
   "重试": "Retry",
   "引擎正在重启（第 {n} 次）…": "Restarting the engine (attempt {n})…",
 
-  // 迷你面板 · 会话历史（面板右上历史钮那张脸）
+  // 迷你面板 · 右上控件簇与会话历史脸
+  "新建会话": "New session",
   "会话历史": "Chat history",
   "搜索会话…": "Search chats…",
   "排序与分组": "Sort & group",
