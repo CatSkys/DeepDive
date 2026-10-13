@@ -28,7 +28,7 @@ export function MiniPanelControls({
         data-tip={t("会话历史")}
         onClick={onToggleHistory}
       >
-        <History size={15} />
+        <History size={17} />
       </button>
       <button
         type="button"
@@ -37,7 +37,7 @@ export function MiniPanelControls({
         data-tip={t("会话设置")}
         onClick={onOpenSettings}
       >
-        <Settings2 size={15} />
+        <Settings2 size={17} />
       </button>
       {/* 新建会话放最右：与参考图里那颗「＋」同位的主动作 */}
       <button
@@ -47,7 +47,7 @@ export function MiniPanelControls({
         data-tip={t("新建会话")}
         onClick={onNewSession}
       >
-        <Plus size={15} />
+        <Plus size={17} />
       </button>
     </div>
   );

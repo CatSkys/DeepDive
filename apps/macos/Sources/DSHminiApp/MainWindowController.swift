@@ -131,6 +131,31 @@ final class EmptyToolbarDelegate: NSObject, NSToolbarDelegate {
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [] }
 }
 
+/// 头部中心线：52px 拖拽条（titlebar.ts STRIP_HEIGHT）的几何中点，三个窗口的头部行都
+/// 建在这条线上——主窗与迷你面板的 .session-header/.hero-top、以及 .window-top 那排钮
+/// （theme.css 那几条注释各记了自家算式）。窗口把三颗标准按钮压到这里，头部行与红绿灯
+/// 才是同一条线（AppKit 默认位置比它高几像素）。
+enum WindowHeaderLine {
+    static let centerY: CGFloat = 26
+
+    /// 把三颗标准窗口按钮移到 `centerY`（README 式的 12 行：只改 y，不动 x）。
+    /// 主窗（MainWindowController）与迷你面板（QuickPanelController）共用这一份。
+    static func alignTrafficLights(in window: NSWindow) {
+        guard !window.styleMask.contains(.fullScreen),
+              let content = window.contentView else { return }
+        let targetY = content.bounds.height - centerY
+        for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+            guard let button = window.standardWindowButton(kind), let container = button.superview else { continue }
+            let center = button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.midY), to: content)
+            let delta = targetY - center.y
+            guard delta != 0 else { continue }
+            var frame = button.frame
+            frame.origin.y += container.isFlipped ? -delta : delta
+            button.setFrameOrigin(frame.origin)
+        }
+    }
+}
+
 final class MainWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
     let webView: WKWebView
     /// 拖入的文件夹（路径只有壳拿得到）→ AppDelegate 推给 SPA 转 @ 引用。
@@ -323,31 +348,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
 
     // MARK: - traffic-light alignment
 
-    /// Shared header center line: the geometric middle of the 52px drag strip
-    /// (titlebar.ts STRIP_HEIGHT). The frontend header row is built to the
-    /// same line — theme.css `.window-top` (top 9 + 34/2 buttons) and
-    /// `.session-header`/`.hero-top` (padding 7 + line half) both center at 26.
-    private static let headerCenterY: CGFloat = 26
-
-    /// Shifts the three standard window buttons onto `headerCenterY`. The
-    /// math is done in contentView coordinates (unflipped, y-up): target
-    /// top-down CSS y → `height - y`. The delta is then applied in the
-    /// button container's own coords, honoring its `isFlipped` — assuming a
-    /// coordinate convention there instead of asking was exactly the bug
-    /// this replaces (the lights jumped to the window's top edge).
+    /// 把三颗标准按钮压到头部中心线（算式与共用实现见 WindowHeaderLine——迷你面板
+    /// 窗口用同一份，两个窗口的头部行因此落在同一条线上）。
     private func alignTrafficLights() {
-        guard let window, !window.styleMask.contains(.fullScreen),
-              let content = window.contentView else { return }
-        let targetY = content.bounds.height - Self.headerCenterY
-        for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
-            guard let button = window.standardWindowButton(kind), let container = button.superview else { continue }
-            let center = button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.midY), to: content)
-            let delta = targetY - center.y
-            guard delta != 0 else { continue }
-            var frame = button.frame
-            frame.origin.y += container.isFlipped ? -delta : delta
-            button.setFrameOrigin(frame.origin)
-        }
+        guard let window else { return }
+        WindowHeaderLine.alignTrafficLights(in: window)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

@@ -324,20 +324,14 @@ export const ENSession: Record<string, string> = {
   "重试": "Retry",
   "引擎正在重启（第 {n} 次）…": "Restarting the engine (attempt {n})…",
 
-  // 迷你面板 · 右上控件簇与会话历史脸
+  // 迷你面板 · 右上控件簇、会话历史脸与命令中心
   "新建会话": "New session",
   "会话历史": "Chat history",
   "搜索会话…": "Search chats…",
-  "排序与分组": "Sort & group",
   "搜索设置…": "Search settings…",
   "没有匹配的设置": "No matching settings",
   "没有匹配的会话": "No matching chats",
-  "按日期分组": "Group by date",
-  "按状态分组": "Group by status",
-  "按智能体分组": "Group by agent",
-  "不分组": "No grouping",
-  "最近更新": "Recently updated",
-  "标题": "Title",
+  "没有匹配的选项": "No matching options",
   "未读": "Unread",
   "删除": "Delete",
   "删除后聊天记录、投影缓存与工作区记账一起清掉，无法恢复。确定吗？": "Deleting removes the transcript, its projections and the workspace bookkeeping. This cannot be undone. Continue?",
