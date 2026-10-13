@@ -339,45 +339,77 @@ button {
    的兄弟卡；收起态配方不动（width 0 + pointer-events none）。 */
 .app.mini-panel .panel:not([data-closed="true"]) { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; }
 
-/* 迷你面板「会话进行中」的辉光（MiniRunningGlow）：**只有最上方一条**，而且是沿线
-   **滑动**的光——细带 + 柔和拖尾，沿顶缘从左滑到右循环；三条错拍接成不断流
-   （Raycast 那种"边缘的光在滚动"；用户 2026-10-13 否掉了之前原地明灭的闪烁版：
-   "一闪一闪的，没有波浪起伏的感觉"）。盖在内容之上（4）、不接事件，开着的右侧卡
-   （5）仍在其上。扫动周期由 --loop-breathe 推两倍＝2.4s（词汇表口径的"就地写
-   周期"，与状态点呼吸同族）。 */
+/* 迷你面板「会话进行中」的辉光（MiniRunningGlow）：**一圈沿边缘滚动的高光**——
+   conic-gradient 的亮弧在环形遮罩里转，光顺着面板的圆角边一路滑过去（用户要的
+   "边缘的辉光在滑动滚动"）；弧里两处波峰（一强一弱）让光走过时此起彼伏而不是
+   匀速一条（"波浪起伏"）；整层再轻轻呼吸（用户要的"闪烁"）。做法是社区标准式：
+   `@property` 声明角度 → conic 旋转；`mask-composite: exclude` 按
+   content-box/border-box 挖出环（MDN 记：Baseline 2023 / Safari 16.4+，本机
+   WKWebView 满足）。只在"会话进行中"挂载，不接事件；开着的右侧卡（5）仍在其上。
+   **调点**：转一圈的时长＝下面 ×3 那个系数；环宽＝padding；波峰形状＝--mini-glow-arc；
+   光晕范围＝::before 的 padding/blur。 */
+@property --mini-glow-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
 .mini-running-glow {
+  /* 亮弧的唯一事实源：两处波峰（一强一弱），余光全透明。 */
+  --mini-glow-arc: conic-gradient(
+    from var(--mini-glow-angle),
+    rgba(255,255,255,0) 0deg,
+    rgba(255,255,255,.95) 22deg,
+    rgba(255,255,255,0) 74deg,
+    rgba(255,255,255,0) 158deg,
+    rgba(255,255,255,.45) 192deg,
+    rgba(255,255,255,0) 238deg,
+    rgba(255,255,255,0) 360deg
+  );
   position: absolute;
   inset: 0;
   z-index: 4;
   pointer-events: none;
-  overflow: hidden;
   border-radius: 12px;
+  padding: 1.5px;
+  background: var(--mini-glow-arc);
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
+  mask-composite: exclude;
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  animation:
+    mini-running-glow-spin calc(var(--loop-breathe) * 3) linear infinite,
+    mini-running-glow-breathe calc(var(--loop-breathe) * 1.5) var(--ease-out) infinite;
 }
-.mini-running-glow > span {
+/* 光晕：同一份亮弧、更宽的环 + 模糊——贴着边往内散一小片，不是面板中间的一块色斑。
+   （同一个自定义属性被继承，所以两层始终同步转动。） */
+.mini-running-glow::before {
+  content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  height: 20px;
-  width: 40%;
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.5) 50%, rgba(255,255,255,0) 100%);
-  filter: blur(6px);
-  animation: mini-running-glow-run calc(var(--loop-breathe) * 2) linear infinite;
+  inset: 0;
+  border-radius: inherit;
+  padding: 6px;
+  background: var(--mini-glow-arc);
+  filter: blur(5px);
+  opacity: .5;
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
+  mask-composite: exclude;
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
 }
-/* 三条错拍（负延迟＝直接从中途起跑）：一条滑出去时下一条已在路上，接成不断流。 */
-.mini-running-glow > span:nth-child(2) { animation-delay: calc(var(--loop-breathe) * -2 / 3); }
-.mini-running-glow > span:nth-child(3) { animation-delay: calc(var(--loop-breathe) * -4 / 3); }
-@keyframes mini-running-glow-run {
-  from { transform: translateX(-110%); }
-  to   { transform: translateX(260%); }   /* 带宽 40% → 260% 时整条滑出右缘 */
+@keyframes mini-running-glow-spin {
+  to { --mini-glow-angle: 360deg; }
+}
+@keyframes mini-running-glow-breathe {
+  0%, 100% { opacity: .72; }
+  50%      { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  /* 全静止：不扫动，留一条贴顶缘的常亮细线（状态不丢）。 */
-  .mini-running-glow > span {
-    animation: none; width: 100%; transform: none; filter: none; height: 14px;
-    background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0));
-  }
-  .mini-running-glow > span:nth-child(2),
-  .mini-running-glow > span:nth-child(3) { display: none; }
+  /* 全静止：不转不呼吸，留一圈常亮的边光（状态不丢）。 */
+  .mini-running-glow { animation: none; opacity: .8; }
 }
 
 /* 迷你面板的草稿页（Atd 主面板的结构，我们的画法）：头部同会话页根条（复用
