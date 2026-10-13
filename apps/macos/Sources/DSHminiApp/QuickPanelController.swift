@@ -298,6 +298,18 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             EngineLog.shared.append("[mini-probe] \(tag) " + (result as? String ?? "eval-failed"))
         }
         forceRepaint(nudge: true) // 探针（临时）：采样点即强推一次重绘
+        // 探针试验（临时）：转换点 1s 后整页重载，验证「卡住态 reload 能否出画」。
+        // reload 后 boot 直接落在快捷空间最近会话，流各端重建，草稿在 localStorage 不丢。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.logAndReload()
+        }
+    }
+
+    /// 探针试验（临时）：记录重载动作并执行。只从转换点走一次；boot 后的重载由
+    /// didStartProvisionalNavigation 清掉计时器防回环。
+    private func logAndReload() {
+        EngineLog.shared.append("[mini-probe] reload-attempt url=\(webView.url?.absoluteString ?? "nil")")
+        webView.reload()
     }
 
     // MARK: - 外观（与 MainWindowController.applyAppearanceMode 同源解析）
