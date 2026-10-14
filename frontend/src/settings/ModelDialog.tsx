@@ -7,6 +7,7 @@ import { ProviderIcon } from "../components/ProviderIcon";
 import { Dropdown } from "../components/controls";
 import { HIDDEN_PROVIDERS, PROVIDER_SESSION_HEADERS, providerLabel } from "./vendors";
 import { PRESET_PROVIDERS, presetProviderOf, splitByRoute } from "./presetProviders";
+import { modelVision } from "../modelFacts";
 import { uuid } from "../uuid";
 import cssRows from "./SettingsRows.module.css";
 import { Modal } from "../components/Modal";
@@ -375,7 +376,13 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
             displayName: route.displayName,
             api: route.api,
             baseURL: preset.baseURL,
-            models: withDefaultReasoning(models, true),
+            // 引擎对手写路由的模型默认按「只收文本」处理（catalog.ts 的 DEFAULT_INPUT），
+            // 收图的要在这里显式声明：缺了它附件在本地就被拒（用户报的「DeepSeek 4.1
+            // 看不到图片」），而端点自报的清单里没有能力字段。判据取自**模型目录**
+            // （modelFacts 的收图清单）——能力是模型的事实，不按提供方各写一份。
+            models: withDefaultReasoning(models, true).map((m) => (
+              modelVision(m.id) ? { ...m, input: ["text", "image"] } : m
+            )),
           };
         }
         await updatePiProviders(providers);
