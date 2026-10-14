@@ -4,7 +4,7 @@
 // 预览开在下方还是上方是几何（要真排版），归 UI-SPEC 与真机；画面元素本身由
 // attachment-pill.test.tsx 钉。
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 // jsdom 里没有的几样（与 composer-overlay.test.tsx 同一套理由与配方）
@@ -41,6 +41,7 @@ vi.mock("../api", async (importOriginal) => {
   return { ...actual, api: { ...actual.api, sessions: vi.fn(async () => ({ items: [] })) } };
 });
 
+import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { Composer } from "../components/Composer";
 import { StoreProvider } from "../store";
 
@@ -55,10 +56,16 @@ function renderComposer() {
 
 afterEach(cleanup);
 
-/** 往输入框里粘一张图片（macOS 惯例的 ⌘V 那条路）。 */
+/** 往输入框里粘一张图片（macOS 惯例的 ⌘V 那条路）。
+ *  文本层是 CodeMirror 的 contenteditable：粘贴由它自己的 DOM 处理器接（不是 React 合成事件），
+ *  所以这里构造原生事件并把 clipboardData 挂上去。 */
 async function pasteImage(container: HTMLElement, name = "shot.png") {
-  const ta = container.querySelector<HTMLTextAreaElement>(".composer-field textarea")!;
-  fireEvent.paste(ta, { clipboardData: { files: [new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" })] } });
+  const content = container.querySelector<HTMLElement>(".composer-field .cm-content")!;
+  const event = new Event("paste", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "clipboardData", {
+    value: { files: [new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" })] },
+  });
+  content.dispatchEvent(event);
   await waitFor(() => expect(container.querySelector(".att-chip")).not.toBeNull());
 }
 
@@ -70,9 +77,9 @@ describe("输入框里的附件胶囊", () => {
     // 胶囊外面（wrap/anchor 的直接子元素）不能再有附件
     expect(container.querySelector(".composer-wrap > .att-chip, .composer-anchor > .att-chip")).toBeNull();
     const atts = container.querySelector(".composer-atts")!;
-    const text = container.querySelector(".composer-field textarea")!;
-    // 顺序：胶囊在前、输入框在后（DOM 序即视觉序）
-    expect(atts.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const editor = container.querySelector(".composer-field .composer-editor")!;
+    // 顺序：胶囊在前、编辑器在后（DOM 序即视觉序）
+    expect(atts.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("媒体悬停出预览画面；移除钮把胶囊摘掉", async () => {
@@ -86,25 +93,12 @@ describe("输入框里的附件胶囊", () => {
   });
 
   it("内容高过一行就进宽态（＋ 与右簇换到底部行，不再垂直居中在整块框里）", async () => {
-    // jsdom 不排版：文本列那一格的实测高度只能自己钉——判据就是"它比单行高"
-    // （用户 2026-10-14 报障：附件把框撑高后 ＋/发送钮居中在框中间）。
-    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
-    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
-      configurable: true,
-      // 只在真有附件时算"高过一行"（68），空框给 0——单行高的参照值来自 CSS
-      // （jsdom 不加载样式表，`min-height` 读出来是空串→0，所以这里不能给空框
-      // 也报一个正数，否则"空框恒等于单行高"这条前提在钉子里被钉反）。
-      get(this: HTMLElement) {
-        return this.classList.contains("composer-field") && this.querySelector(".composer-atts") ? 68 : 0;
-      },
-    });
-    try {
-      const { container } = renderComposer();
-      await pasteImage(container);
-      await waitFor(() => expect(container.querySelector(".composer.wide")).not.toBeNull());
-    } finally {
-      if (original) Object.defineProperty(HTMLElement.prototype, "clientHeight", original);
-      else delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
-    }
+    // 判据由编辑器自己量自己的排版报出（Composer 的 onOverflow）：jsdom 不排版，
+    // 折行量不出来，但**多行内容**（doc.lines > 1）是编辑器自己知道的事实——
+    // 走一次预填（整篇替换那条路）就能钉住"报高 → 展开"。
+    const { container } = renderComposer();
+    expect(container.querySelector(".composer.wide")).toBeNull();
+    act(() => { dispatchAppEvent(DD_EVENTS.composerPrefill, { text: "第一行\n第二行" }); });
+    await waitFor(() => expect(container.querySelector(".composer.wide")).not.toBeNull());
   });
 });

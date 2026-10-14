@@ -46,7 +46,8 @@ describe("ingestPicked：一律 chip，大小不设限", () => {
     ingestPicked(
       ((fn: (prev: never[]) => never[]) => chips.push(...(fn([]) as unknown as never[]))) as never,
       (path, name) => paths.push([path, name]),
-      ((fn: (cur: string) => string) => texts.push(fn(""))) as never,
+      // 引用串的落点：一律"往草稿末尾追加"（见 useComposerAttachments 的 appendToDraft）
+      (suffix: string) => { texts.push(suffix); },
       items,
     );
     return { chips, paths, texts };

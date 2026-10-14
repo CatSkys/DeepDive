@@ -35,17 +35,21 @@ function parseSlashToken(text: string): { query: string; start: number } | null 
 //   经 commands/execute 直发（编排方 submit 裁决）；
 // - 无 input 的命令 → 菜单点击即直发（官方 runDetached），成败明示；派发
 //   归编排方（onRunCommand）——草稿页要先把会话建出来才有 agentId 可用。
-type SetText = React.Dispatch<React.SetStateAction<string>>;
+/** 把纯文本坐标的 [from, to) 换成 insert：坐标是**纯文本**坐标（附件令牌不计入），
+ *  换算成文档坐标、写进编辑器由编排方给的这个函数做。菜单里的插入都是"从 token 起点
+ *  一直替换到文末"（菜单只在文末那种 token 上开）。
+ */
+type ReplacePlain = (from: number, to: number, insert: string) => void;
 
 function buildSlashRows(args: {
   t: TFunc["t"];
   text: string;
   slashTok: { query: string; start: number } | null;
-  setText: SetText;
+  replace: ReplacePlain;
   commands: CommandDescriptor[];
   onRunCommand: (name: string, start: number) => void;
 }): MenuRow[] {
-  const { t, text, slashTok, setText, commands, onRunCommand } = args;
+  const { t, text, slashTok, replace, commands, onRunCommand } = args;
   return commands.map((cmd) => {
     // 说明与图标：内建命令由本表补中文与图标（引擎给的是英文原文），插件命令
     // 回落引擎原文 + 通用终端图标。
@@ -61,7 +65,7 @@ function buildSlashRows(args: {
         section: t("命令"),
         run: () => {
           if (!slashTok) return;
-          setText(text.slice(0, slashTok.start) + `/${cmd.name} `);
+          replace(slashTok.start, text.length, `/${cmd.name} `);
         },
       };
     }
@@ -85,9 +89,9 @@ function buildAtRows(args: {
   atTok: ActiveAtToken | undefined;
   cursor: number;
   text: string;
-  setText: SetText;
+  replace: ReplacePlain;
 }): MenuRow[] {
-  const { t, atEntries, atTok, cursor, text, setText } = args;
+  const { t, atEntries, atTok, cursor, text, replace } = args;
   return atEntries.map((e) => ({
     id: e.path,
     icon: e.isDir ? Folder : FileIcon,
@@ -98,7 +102,7 @@ function buildAtRows(args: {
       if (!atTok) return;
       const mention = formatMention({ path: e.path, kind: e.isDir ? "directory" : "file" }, atTok.quoted);
       if (mention === undefined) return;
-      setText(text.slice(0, cursor - atTok.prefix.length) + mention);
+      replace(cursor - atTok.prefix.length, text.length, mention);
     },
   }));
 }
@@ -112,10 +116,10 @@ function buildSessionRows(args: {
   atTok: ActiveAtToken | undefined;
   cursor: number;
   text: string;
-  setText: SetText;
+  replace: ReplacePlain;
   sessionDateFmt: Intl.DateTimeFormat;
 }): MenuRow[] {
-  const { tt, candidates, atTok, cursor, text, setText, sessionDateFmt } = args;
+  const { tt, candidates, atTok, cursor, text, replace, sessionDateFmt } = args;
   return candidates.map((c) => ({
     id: `ref-session:${c.sessionId}`,
     icon: MessageSquare,
@@ -124,7 +128,7 @@ function buildSessionRows(args: {
     section: tt("会话", "Sessions"),
     run: () => {
       if (!atTok) return;
-      setText(text.slice(0, cursor - atTok.prefix.length) + c.mention);
+      replace(cursor - atTok.prefix.length, text.length, c.mention);
     },
   }));
 }
@@ -135,12 +139,12 @@ export function useComposerMenu(args: {
   dismissed: boolean;
   composing: boolean;
   sessionId: string | null;
-  setText: SetText;
+  replace: ReplacePlain;
   commands: CommandDescriptor[];
   /** 无参命令的直发（草稿页需先建会话才拿得到 agentId，故归编排方）。 */
   onRunCommand: (name: string, start: number) => void;
 }): { menu: "at" | "slash" | null; query: string; rows: MenuRow[] } {
-  const { text, cursor, dismissed, composing, sessionId, setText, commands, onRunCommand } = args;
+  const { text, cursor, dismissed, composing, sessionId, replace, commands, onRunCommand } = args;
   const store = useStore();
   const { t, tt, lang } = useT();
   // @ 文件候选：会话内引擎索引；草稿页用工作空间根（无空间面时无候选）。
@@ -154,8 +158,8 @@ export function useComposerMenu(args: {
   const atEntries = useFileCandidates({ query: atQuery, sessionId, wsPath });
   const sessionCands = useSessionCandidates({ sessionId, query: atQuery, sessions: store.sessions, lang });
 
-  const slashRows = buildSlashRows({ t, text, slashTok, setText, commands, onRunCommand });
-  const atRows = buildAtRows({ t, atEntries, atTok, cursor, text, setText });
+  const slashRows = buildSlashRows({ t, text, slashTok, replace, commands, onRunCommand });
+  const atRows = buildAtRows({ t, atEntries, atTok, cursor, text, replace });
   const sessionDateFmt = useMemo(
     () => new Intl.DateTimeFormat(lang === "zh" ? "zh-CN" : "en-US", {
       month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
@@ -165,7 +169,7 @@ export function useComposerMenu(args: {
   const sessionRows = buildSessionRows({
     tt,
     candidates: atQuery ? sessionCands : [],
-    atTok, cursor, text, setText, sessionDateFmt,
+    atTok, cursor, text, replace, sessionDateFmt,
   });
 
   const menu: "at" | "slash" | null = atTok ? "at" : slashTok ? "slash" : null;

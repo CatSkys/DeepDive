@@ -81,9 +81,12 @@ function mentionOf(path: string, isDir: boolean): string | undefined {
   return m.startsWith(`@"`) && !m.endsWith(`"`) ? `${m}"` : m;
 }
 
-/** 引用串追加到草稿末尾（已有内容且无尾随空白时先补一个空格）。 */
-function appendMentionsTo(setText: React.Dispatch<React.SetStateAction<string>>, mentions: string[]) {
-  setText((cur) => (cur && !/\s$/.test(cur) ? `${cur} ` : cur) + `${mentions.join(" ")} `);
+/** 引用串追加到草稿末尾（接在正文后面，前置空白由编辑器的 appendText 补）。
+ *  走 appendToDraft 而不是整篇 setText：整篇替换会把正文里的附件原子一起抹掉。 */
+type AppendToDraft = (suffix: string) => void;
+
+function appendMentionsTo(appendToDraft: AppendToDraft, mentions: string[]) {
+  appendToDraft(`${mentions.join(" ")} `);
 }
 
 function isFileDrag(e: DragEvent): boolean {
@@ -141,7 +144,7 @@ function ingestDropped(
 export function ingestPicked(
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>,
   addFilePath: (path: string, name: string, bytes?: number) => void,
-  setText: React.Dispatch<React.SetStateAction<string>>,
+  appendToDraft: AppendToDraft,
   items: PickedAttachment[],
 ): void {
   const mentions: string[] = [];
@@ -156,11 +159,12 @@ export function ingestPicked(
       if (m) mentions.push(m);
     }
   }
-  if (mentions.length > 0) appendMentionsTo(setText, mentions);
+  if (mentions.length > 0) appendMentionsTo(appendToDraft, mentions);
 }
 
-export function useComposerAttachments({ setText, hasShell, sessionId }: {
-  setText: React.Dispatch<React.SetStateAction<string>>;
+export function useComposerAttachments({ appendToDraft, hasShell, sessionId }: {
+  /** 往草稿末尾追加一段（文件夹转 `@` 引用时用）。 */
+  appendToDraft: AppendToDraft;
   hasShell: boolean;
   /** 上传目标会话；草稿页（null）文件 chip 挂 pending，发送时建会话再传。 */
   sessionId: string | null;
@@ -301,11 +305,11 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
    *  降级为文件选择 input（无路径可引用，文件夹那项在浏览器里等同无操作）。 */
   const addAttachments = useCallback((kind: "files" | "folders" = "files") => {
     if (hasShell) {
-      void pickAttachments(kind).then((items) => { if (items) ingestPicked(setAttachments, addFilePath, setText, items); });
+      void pickAttachments(kind).then((items) => { if (items) ingestPicked(setAttachments, addFilePath, appendToDraft, items); });
     } else if (kind === "files") {
       fileRef.current?.click();
     }
-  }, [hasShell, addFilePath, setText]);
+  }, [hasShell, addFilePath, appendToDraft]);
 
   // 命令面板「添加附件」与 composer ＋ 按钮同一条链路
   useEffect(() => onAppEvent(DD_EVENTS.composerAttach, () => addAttachments()), [addAttachments]);
@@ -320,8 +324,8 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
     clearDragOver();
     const items = (payload as { items?: Array<{ path: string }> } | undefined)?.items ?? [];
     const mentions = items.map((it) => mentionOf(it.path, true)).filter((m): m is string => m !== undefined);
-    if (mentions.length > 0) appendMentionsTo(setText, mentions);
-  }), [setText, clearDragOver]);
+    if (mentions.length > 0) appendMentionsTo(appendToDraft, mentions);
+  }), [appendToDraft, clearDragOver]);
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -352,8 +356,8 @@ export function useComposerAttachments({ setText, hasShell, sessionId }: {
 
   /** 把外部已备好的附件项（截图/屏幕上下文）按 ＋ 选择器同一份逻辑摄入。 */
   const ingestAttachments = useCallback(
-    (items: PickedAttachment[]) => ingestPicked(setAttachments, addFilePath, setText, items),
-    [addFilePath, setText],
+    (items: PickedAttachment[]) => ingestPicked(setAttachments, addFilePath, appendToDraft, items),
+    [addFilePath, appendToDraft],
   );
 
   return { attachments, setAttachments, addAttachments, ingestAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile };

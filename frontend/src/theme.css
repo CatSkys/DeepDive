@@ -1778,13 +1778,13 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 /* 附件胶囊组：多颗时自己也能折行，占满一行再往下排 */
 .composer-atts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
-/* 编辑器（文本列第 2 项）：与附件胶囊同处一条流——接在最后一颗胶囊后面写。
+/* 编辑器宿主（文本列第 2 项）：与附件胶囊同处一条流——接在最后一颗胶囊后面写。
    落脚宽度给它一个下限（320，约 15-20 字的正文宽）：剩下的宽度不够就整条折到下一行
    占满整行——**不**让它缩成一条贴着胶囊的窄柱（长正文挤在 100 多像素里会拉成一列
    细高柱）。下限随容器收窄（min(320px, 100%)），迷你面板那种窄宿主里不会撑破。
-   选择器带上 .composer：下面 `.composer textarea`（同特异度、但排在文件后面）用
-   `flex: 1; min-width: 0` 会把这套整个盖掉——同特异度只看先后，这里必须更特异。 */
-.composer .composer-field > textarea {
+   里面是可编辑区（CodeMirror 的 .cm-editor），字号/行高/内距/上限都在
+   composer/editor/editorTheme.ts 里（一处口径）。 */
+.composer-editor {
   flex: 1 1 320px;
   min-width: min(320px, 100%);
 }
@@ -1811,41 +1811,6 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .composer.wide .composer-field { grid-column: 1 / -1; grid-row: 1; }
 .composer.wide .composer-icon { grid-row: 2; grid-column: 1; }
 .composer.wide .composer-actions { grid-row: 2; grid-column: 1 / -1; justify-self: end; }
-.composer textarea {
-  flex: 1;
-  min-width: 0;
-  /* border-box 是对齐关键：autoGrow 写入的 inline height 必须已含上下
-     padding，否则打字后外框多出 8px、文本中心偏离按钮中心 */
-  box-sizing: border-box;
-  /* 单行高就是 --composer-h 的算式（行高 20 + 上下内距 8×2），与胶囊同源 */
-  min-height: var(--composer-h);
-  padding: 8px 0;
-  background: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-  color: var(--ink);
-  /* 与会话正文同号（`.md` 也是 base，2026-10-09 定稿"保持一致"）：字号只许走
-     阶梯变量（UI-SPEC §1.2 禁止在规则里手写字号）。框高由 --composer-h 与上下
-     内距定死，行高 20 只管字的落位。 */
-  font-size: var(--dsh-font-size-base);
-  line-height: 20px;
-  /* 上限 160：胶囊长高只吃掉会话流上方一点点。Raycast 的 66vh−106 是整窗 chat
-     的口径，搬到"对话在下、输入钉底"的会话页会把正文吃掉大半。autoGrow
-     （Composer.tsx）里是同一个数，改这里要一起改。 */
-  max-height: 160px;
-  overflow-wrap: anywhere;
-}
-/* 占位符**不折行**：它只是一句提示，折了行会把空输入框自己撑高——附件占掉宽度后
-   文本列变窄，提示语折成两行、编辑器的 scrollHeight 跟着变 56（autoGrow 按它定高），
-   于是"空框 + 一颗附件"就长成两行高、＋ 与右簇在框里居中（用户 2026-10-14 报障的
-   那一版正是这么来的）。Atd 的占位符也是 nowrap + 截断（.cm-composer-empty::before）。
-   窄列里提示语被裁短，比撑高整框好。 */
-.composer textarea::placeholder {
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-}
 .composer-icon,
 .composer-mic,
 .composer-send {

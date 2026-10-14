@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GlassLayer } from "./GlassLayer";
 import { createPortal } from "react-dom";
 import { ArrowUp, Square, Plus, Mic } from "lucide-react";
@@ -20,6 +20,7 @@ import { onHostEvent, screenshotCapture, selectionCapture, type PickedAttachment
 import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { useComposerDictation } from "./composer/useComposerDictation";
 import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
+import { DraftEditor, type DraftEditorHandle, type EditorKeyRouting } from "./composer/editor/DraftEditor";
 import { useSlashCommands } from "./composer/useSlashCommands";
 import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
@@ -53,11 +54,6 @@ import { renderSelectionPrompt } from "../settings/selectionCommands";
  * 本组件持键盘导航与发送（排队/插话）状态机。
  * ───────────────────────────────────────────────────────── */
 
-function autoGrow(el: HTMLTextAreaElement) {
-  el.style.height = "auto";
-  el.style.height = Math.min(el.scrollHeight, 160) + "px";
-}
-
 export function Composer({ sessionId, onSent, ctx, effort }: {
   sessionId: string | null;
   onSent?: () => void;
@@ -72,8 +68,6 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   const [busy, setBusy] = useState(false);
   /** 内容已折成两行以上（软换行也算）→ 卡片布局；清空回胶囊（见下方 useLayoutEffect） */
   const [multiline, setMultiline] = useState(false);
-  /** 文本列宽度变化的计数（只用来重跑上面那条 useLayoutEffect） */
-  const [widthTick, setWidthTick] = useState(0);
   // 繁忙时 Enter 行为（settings conversation ns，设置页同款；默认排队）
   const [busyEnter, setBusyEnter] = useState<"queue" | "steer">("queue");
   const [hasShell] = useState(() => inShell());
@@ -82,28 +76,32 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   // 中文输入法确认词的回车余波守卫（useCompositionGuard.ts 顶部注释）
   const ime = useCompositionGuard();
   const rootRef = useRef<HTMLDivElement>(null);
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  /** 文本列那一格（附件胶囊 + 编辑器）：折行判据读它的实测高度。 */
-  const fieldRef = useRef<HTMLDivElement>(null);
+  /** 文本的真正持有者（CodeMirror 编辑器）；React 那份 text 只是它的镜像。 */
+  const editorRef = useRef<DraftEditorHandle>(null);
   /** textarea 光标位（@ grammar 的 cursorCol）；onSelect 跟随 caret 更新。 */
   const [cursor, setCursorState] = useState(0);
   const store = useStore();
   const { t, tt } = useT();
   const running = sessionId ? (store.sessions.find((x) => x.sessionId === sessionId)?.running ?? false) : false;
 
-  const { text, setText, draftKey } = useComposerDraft(sessionId, store.activeWorkspaceId);
+  /** 往草稿末尾追加一段（听写落稿、文件夹转 `@` 引用、菜单提及都走它）：
+   *  编辑器按"有内容先补一个空格"接上——整篇替换会把正文里的附件原子抹掉。 */
+  const appendText = useCallback((value: string) => { editorRef.current?.appendText(value); }, []);
+  const { text, setText, draftKey } = useComposerDraft(
+    sessionId, store.activeWorkspaceId,
+    // 载入的草稿是整篇来源：编辑器文档一起换（正文里的附件原子随草稿丢，草稿只存文本）
+    (loaded) => editorRef.current?.setText(loaded),
+  );
   const { attachments, setAttachments, addAttachments, ingestAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile } =
-    useComposerAttachments({ setText, hasShell, sessionId });
+    useComposerAttachments({ appendToDraft: appendText, hasShell, sessionId });
   // 听写 final 落稿后回焦（长高由 [text] 的 useLayoutEffect 统一负责）
   const refocusDraft = () => requestAnimationFrame(() => {
-    taRef.current?.focus();
+    editorRef.current?.focus();
   });
-  const { listening, partial, toggleDictation } = useComposerDictation({ setText, refocus: refocusDraft });
-  // 高度与内容单向同步（"输入框突然不居中"的根因修复）：autoGrow 原先只挂在
-  // 键盘 onChange/compositionEnd 上，非键盘路径（发送清空/草稿回填/听写落稿/
-  // 菜单与"添加到当前任务"插入）改了 text 却残留旧 inline height——胶囊保持
-  // 旧高度、单行内容顶在天花板。收敛为单一机制：text 任何来源变化都重算
-  // （useLayoutEffect 避免 session 切换首帧闪错高度）。
+  const { listening, partial, toggleDictation } = useComposerDictation({ appendText, refocus: refocusDraft });
+  // 高度与内容单向同步：编辑器（CodeMirror）自己按内容排版长高，没有手写的 inline
+  // height 可残留；这一段只判「内容高过单行没有」，据此决定胶囊态还是展开态
+  // （useLayoutEffect：session 切换首帧别闪错布局）。
   //
   // 同一处判「是否多行」，单向铰链（2026-10-12 用户定稿，2026-10-14 改判据）：
   //   胶囊 → 卡片：**内容**高过单行——读的就是文本列那一格的实测高度（先把编辑器
@@ -118,34 +116,13 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   // 进/出各认一个门槛、且**退出只认清空**（与旧实现同一条纪律）：判定在胶囊态的列宽下
   // 做，宽态只在清空时回退，所以临界内容不会在两套布局间来回翻转（#185 那次输入时整框
   // 上下抽搐的根因就是按当前布局反复重判）。
+  /** 编辑器报的"内容高过一行没有"（它量自己的排版：折行、附件与文本都算）。
+   *  进出两档门槛在下一条——判定量来自编辑器，不会跟着外层布局的宽窄来回翻转。 */
+  const [tall, setTall] = useState(false);
   useLayoutEffect(() => {
-    const el = taRef.current;
-    const field = fieldRef.current;
-    if (!el || !field) return;
-    // 先按当前文本把编辑器的高度定下来（autoGrow 内部先置 auto 再读 scrollHeight，
-    // 所以拿到的是内容高度、与上一轮的 inline height 无关），接着才量那一格——
-    // 这样"这一轮刚折的行"当场就能看见，不必等下一次输入。
-    autoGrow(el);
-    const single = parseFloat(getComputedStyle(el).minHeight) || 0;
-    if (!multiline && field.clientHeight > single + 1) { setMultiline(true); return; }
-    if (multiline && text.length === 0 && attachments.length === 0) { setMultiline(false); }
-  }, [text, multiline, widthTick, attachments]);
-  // 列宽变化（窗口缩放、容量圈进出）会移动折行点：那一格宽度一变就重跑上面那条。
-  // 只认**宽度**：高度变化不移动折行点（#185 教训——盒子高度抖动引发的计数
-  // 重入是同步 setState 循环的燃料），宽度不变就不 tick。
-  useEffect(() => {
-    const field = fieldRef.current;
-    if (!field) return;
-    let lastWidth = -1;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w === undefined || w === lastWidth) return;
-      lastWidth = w;
-      setWidthTick((t) => t + 1);
-    });
-    ro.observe(field);
-    return () => ro.disconnect();
-  }, []);
+    if (!multiline && tall) { setMultiline(true); return; }
+    if (multiline && text.length === 0 && attachments.length === 0) setMultiline(false);
+  }, [tall, multiline, text, attachments]);
   /** 把「模型条目不吃 inline 图片」的那批图片按通用文件原件重投：同一份字节走
    *  文件回执，内容不减、顺序不变（文本/文件部件原样保留）。有一张投不出去就整条
    *  返回 null——由调用方按失败处理（不静默）。 */
@@ -319,25 +296,26 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
         void alertDialog({ message: res.result.text });
         return;
       }
-      setText((prev) => prev.slice(0, start));
+      editorRef.current?.replacePlain(start, text.length, "");
       enterSentSession(sid);
     } catch {
       void alertDialog({ message: tt("命令发送失败", "Failed to send command") });
     }
   };
-  const { menu, query, rows } = useComposerMenu({ text, cursor, dismissed, composing, sessionId, setText, commands, onRunCommand: runCommand });
+  /** 菜单里的插入按**纯文本坐标**给（附件令牌的换算在编辑器那层）。 */
+  const replacePlain = useCallback((from: number, to: number, insert: string) => {
+    editorRef.current?.replacePlain(from, to, insert);
+  }, []);
+  const { menu, query, rows } = useComposerMenu({ text, cursor, dismissed, composing, sessionId, replace: replacePlain, commands, onRunCommand: runCommand });
   // 选中文字「添加到当前任务」（SelectionActions 派发）：追加到现有草稿尾部
   // （带空行分隔），光标落末尾并重新长高。
   useEffect(() => {
     const onAppend = (e: Event) => {
       const text = (e as CustomEvent<{ text?: string }>).detail?.text;
       if (!text) return;
-      setText((prev) => (prev ? `${prev}\n${text}` : text));
+      editorRef.current?.replacePlain(text.length, text.length, text ? `\n${text}` : text);
       requestAnimationFrame(() => {
-        const ta = taRef.current;
-        if (!ta) return;
-        ta.focus();
-        ta.setSelectionRange(ta.value.length, ta.value.length);
+        editorRef.current?.focus();
       });
     };
     window.addEventListener(DD_EVENTS.composerAppend, onAppend);
@@ -352,16 +330,11 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     const onPrefill = (e: Event) => {
       const text = (e as CustomEvent<{ text?: string }>).detail?.text;
       if (typeof text !== "string" || !text) return;
-      setText(text);
-      requestAnimationFrame(() => {
-        const ta = taRef.current;
-        if (!ta) return;
-        ta.focus();
-        ta.setSelectionRange(ta.value.length, ta.value.length);
-      });
+      editorRef.current?.setText(text);
+      requestAnimationFrame(() => editorRef.current?.focus());
     };
     const onFocus = () => {
-      requestAnimationFrame(() => taRef.current?.focus());
+      requestAnimationFrame(() => editorRef.current?.focus());
     };
     window.addEventListener(DD_EVENTS.composerPrefill, onPrefill);
     window.addEventListener(DD_EVENTS.composerFocus, onFocus);
@@ -386,8 +359,8 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     }
     if (action === "files" || action === "folders") { addAttachments(action); return; }
     // 提及：插入 "@" 交给既有的 @ 菜单（键盘优先那条路，本项只是它的一个入口）
-    setText((prev) => `${prev}@`);
-    requestAnimationFrame(() => taRef.current?.focus());
+    editorRef.current?.replacePlain(text.length, text.length, "@");
+    requestAnimationFrame(() => editorRef.current?.focus());
   };
 
   // Esc 与点别处收起 ＋ 菜单（@/ 命令菜单由输入框自己管，这条只管 plusOpen）
@@ -540,7 +513,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
         void alertDialog({ message: failure });
         setBusy(false); return; // 失败保留草稿与附件供修正（官方语义）
       }
-      setText("");
+      editorRef.current?.setText("");
       setAttachments([]);
       if (draftKey) localStorage.removeItem(draftKey);
       setBusy(false);
@@ -594,7 +567,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
         return;
       }
     }
-    setText("");
+    editorRef.current?.setText("");
     setAttachments([]);
     if (draftKey) localStorage.removeItem(draftKey);
     setBusy(false);
@@ -602,11 +575,44 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     onSent?.();
   };
 
+  /** 键路由：菜单导航 / 发送 / Esc / 组合态守卫。编辑器每次按键现问一次这个函数，
+   *  所以里面读到的永远是最新渲染里的 menu/rows/active——不存第二份状态。 */
+  const keyRouting = (): EditorKeyRouting => ({
+    menuKey: (event) => {
+      if (menu === null || rows.length === 0) return event.key === "Escape";
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setActive((current) => (current + (event.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
+        return true;
+      }
+      if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+        event.preventDefault();
+        const row = rows[active];
+        if (row) pick(row);
+        return true;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setDismissed(true);
+        return true;
+      }
+      return false;
+    },
+    submit: (event) => {
+      // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
+      const other = busyEnter === "queue" ? "steer" : "queue";
+      void submit(event.metaKey || event.ctrlKey ? other : undefined);
+    },
+    swallow: (event) => ime.swallow(event),
+    compositionStart: () => { ime.onCompositionStart(); setComposing(true); },
+    compositionEnd: () => { ime.onCompositionEnd(); setComposing(false); },
+  });
+
   useEffect(() => setActive(0), [menu, query]);
 
   const pick = (row: MenuRow) => {
     row.run();
-    taRef.current?.focus();
+    editorRef.current?.focus();
   };
 
   const canSend = content.length > 0 && !busy && filesReady;
@@ -640,7 +646,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
               接在它后面）——胶囊在前，编辑器吃剩下的宽度；剩下的宽度不够它落脚
               （见 .composer-field 的 min-width）时整条折到下一行。这一格的实测高度
               就是"内容折了几行"的判据（见上面那条 useLayoutEffect）。 */}
-          <div className="composer-field" ref={fieldRef}>
+          <div className="composer-field">
             {attachments.length > 0 && (
               <div className="composer-atts">
                 {attachments.map((a) => (
@@ -654,48 +660,15 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
                 ))}
               </div>
             )}
-            <textarea
-              ref={taRef}
-              rows={1}
-              value={text}
+            <DraftEditor
+              ref={editorRef}
+              initialText={text}
               placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
-              onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); }}
-              onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
-              onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
-              onCompositionEnd={() => { ime.onCompositionEnd(); setComposing(false); }}
-              onPaste={(e) => {
-                // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
-                const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
-                if (files.length === 0) return;
-                e.preventDefault();
-                for (const f of files) addImageFile(f);
-              }}
-              onKeyDown={(e) => {
-                if (ime.swallow(e)) return;
-                if (menu && rows.length > 0) {
-                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                    e.preventDefault();
-                    setActive((current) => (current + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
-                    return;
-                  }
-                  if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
-                    e.preventDefault();
-                    const r = rows[active];
-                    if (r) pick(r);
-                    return;
-                  }
-                }
-                if (e.key === "Escape") {
-                  if (menu) { e.preventDefault(); setDismissed(true); }
-                  return;
-                }
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
-                  const other = busyEnter === "queue" ? "steer" : "queue";
-                  void submit(e.metaKey || e.ctrlKey ? other : undefined);
-                }
-              }}
+              routing={keyRouting}
+              onText={(value) => { setText(value); setDismissed(false); }}
+              onCaret={setCursorState}
+              onPasteFiles={(files) => { for (const f of files) addImageFile(f); }}
+              onOverflow={setTall}
             />
           </div>
           {/* 右侧控件簇：思考强度胶囊（有档位的模型才有）→ 容量圈 → 单槽位
