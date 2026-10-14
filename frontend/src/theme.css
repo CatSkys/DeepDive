@@ -2303,16 +2303,17 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .preview-frame[src*=".html"], .preview-frame[sandbox] { background: #fff; }
 
 /* 用户消息里的文件 chip（0.1.5 历史 file 块）与工具结果图片行 */
-/* 文件 chip：与输入框里那颗附件胶囊（.att-chip，26 高）同一套语言——图标 + 名 +
-   --fill-soft 底 + 两端全圆的胶囊；这里 30 高（消息流里不跟输入胶囊的高，站得开）。
-   胶囊用 radius.bubble(24)，30 高的盒子上被裁成半高整圆端；别写 999px
-   （§2.4 的胶囊口径：流内胶囊一律引 token）。 */
+/* 文件 chip：与输入框里那颗附件胶囊（.att-chip，26 高）同一套——图标 + 名、两端全圆
+   （radius.bubble，30 高的盒子上被裁成半高整圆端；别写 999px，§2.4）。**不描边**：
+   有底色的胶囊一律靠底色分层（UI-SPEC §1.1 / §458，用户 2026-10-14 重申"不要用描边，
+   还是用颜色来区分"）——`--fill-soft` 那种 3% 的底在卡面上几乎没有边，所以底色提到
+   `--fill`（与消息流里另一颗文件 chip `.produced-file` 同一个值；输入框那颗在玻璃上，
+   再强一档用 `--fill-strong`）。 */
 .user-file-chip {
   display: inline-flex; align-items: center; gap: 6px;
   height: 30px; padding: 0 10px;
   border-radius: var(--dsh-radius-bubble);
-  border: 1px solid var(--line);
-  background: var(--fill-soft);
+  background: var(--fill);
   color: var(--ink-2); font-size: var(--dsh-font-size-sm);
 }
 /* chip 用 gap 排版，图标自带的右边距在这里是多余的 */
