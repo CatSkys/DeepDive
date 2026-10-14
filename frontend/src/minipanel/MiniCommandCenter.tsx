@@ -88,7 +88,7 @@ export function MiniCommandCenter({
   };
 
   return (
-    <div className="mini-cc" ref={cardRef} role="dialog" aria-label={mode === "history" ? t("会话历史") : t("会话设置")}>
+    <div className="mini-cc" ref={cardRef} role="dialog" aria-label={mode === "history" ? t("会话历史") : t("命令中心")}>
       {mode === "history" && (
       <label className="mini-cc-search">
         <Search size={15} aria-hidden="true" />

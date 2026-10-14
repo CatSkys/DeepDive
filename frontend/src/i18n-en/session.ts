@@ -40,9 +40,9 @@ export const ENSession: Record<string, string> = {
   "保存": "Save",
   "取消": "Cancel",
 
-  // 右侧边栏（会话面板）与会话设置
+  // 右侧边栏（会话面板）与命令中心
   "展开边栏": "Open side panel",
-  "会话设置": "Chat settings",
+  "命令中心": "Command center",
 
   // tool titles（ToolRow 的 TOOL_TITLE_ZH；名字逐个对照引擎工具注册源）
   "提问": "Ask",

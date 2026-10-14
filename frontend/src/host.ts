@@ -626,6 +626,11 @@ export function installHostBridge(handlers: Partial<{
   miniCCFace: (payload: { mode: string; sessionId: string | null }) => void;
   miniCCClosed: () => void;
   miniCCOpenSession: (payload: { sessionId: string }) => void;
+  /** 命令中心那张卡的**动作行**（`mini-cc-action` 经壳转回来）：切脸 / 新会话 / 置顶。
+   *  与 `miniCCOpenSession` 同一条——卡片只报"点了哪个"，执行归面板页（见其注释）。 */
+  miniOverlay: (payload: { mode: string }) => void;
+  miniNewSession: () => void;
+  miniCCTogglePin: (payload: { sessionId: string }) => void;
   /** 壳端目录选择器（＋新建空间）选定后的回推；取消时不推送。 */
   workspacePicked: (path: string) => void;
   /** 系统唤醒通知（PITFALLS §4.7）：WKWebView 里的 WS 可能已假死，
@@ -681,6 +686,22 @@ export function installHostBridge(handlers: Partial<{
           const p = (payload ?? {}) as { sessionId?: string };
           if (typeof p.sessionId === "string" && p.sessionId) {
             handlers.miniCCOpenSession?.({ sessionId: p.sessionId });
+          }
+          break;
+        }
+        case "miniOverlay": {
+          const p = (payload ?? {}) as { mode?: string };
+          if (p.mode === "history" || p.mode === "settings") handlers.miniOverlay?.({ mode: p.mode });
+          break;
+        }
+        case "miniNewSession": {
+          handlers.miniNewSession?.();
+          break;
+        }
+        case "miniCCTogglePin": {
+          const p = (payload ?? {}) as { sessionId?: string };
+          if (typeof p.sessionId === "string" && p.sessionId) {
+            handlers.miniCCTogglePin?.({ sessionId: p.sessionId });
           }
           break;
         }

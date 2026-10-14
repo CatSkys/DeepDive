@@ -103,6 +103,19 @@ export function MiniPanelApp() {
         setOverlay(null);
         storeRef.current.openSession(sessionId);
       },
+      // 命令中心那张卡的**动作行**（用户 2026-10-14）：卡片只报"点了哪个"，由本页执行——
+      // 与上面那条 miniCCOpenSession 同一条纪律（卡片是另一块 webview、另一份 store，
+      // 它自己执行只会改一份不渲染的 store）。
+      miniOverlay: ({ mode }) => {
+        if (mode === "history" || mode === "settings") setOverlay(mode);
+      },
+      miniNewSession: () => {
+        setOverlay(null);
+        storeRef.current.openQuickSession();
+      },
+      miniCCTogglePin: ({ sessionId }) => {
+        if (sessionId) storeRef.current.togglePin(sessionId);
+      },
     });
     sendToShell({ type: "get-prefs" });
   }, []);

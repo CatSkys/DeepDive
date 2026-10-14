@@ -359,6 +359,29 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                         payload: AppDelegate.jsonPayload(["sessionId": sessionId]))
                     return
                 }
+                if type == "mini-cc-action" {
+                    // 命令中心里的**动作行**（用户 2026-10-14：新建会话 / 会话历史 / 置顶 /
+                    // 打开设置都进命令中心）。与上面那条同一条转发链——卡片是另一块 webview、
+                    // 另一份 store，所以"做什么"一律交给面板页（新建/切脸/置顶）或主窗（设置），
+                    // 卡片只报"点了哪个"。切脸与置顶都走后推命令，面板页的 overlay 才是事实源。
+                    switch body["action"] as? String ?? "" {
+                    case "history":
+                        pushHostCommand("miniOverlay", payload: AppDelegate.jsonPayload(["mode": "history"]))
+                    case "new-session":
+                        pushHostCommand("miniNewSession", payload: "{}")
+                    case "toggle-pin":
+                        pushHostCommand("miniCCTogglePin",
+                                        payload: AppDelegate.jsonPayload(["sessionId": body["sessionId"] as? String ?? ""]))
+                    case "open-settings":
+                        // 打开**主设置**：先收卡（与"点了历史里一行"同款），再走菜单那一条路。
+                        hideCard()
+                        pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
+                        pushHostCommand("miniCCClosed", payload: "{}")
+                        AppDelegate.shared?.openSettings()
+                    default: break
+                    }
+                    return
+                }
             }
             return
         }
