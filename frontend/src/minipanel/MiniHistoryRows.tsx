@@ -37,21 +37,24 @@ export function MiniHistoryRows({
    *  在本页 openSession 只会切换一个不渲染会话的 store（用户报"点哪一行都不进去"）。 */
   const openSession = (sessionId: string) => sendToShell({ type: "mini-cc-open-session", sessionId });
 
-  // 锚点 = 面板当前所在空间（= 快捷空间）：不依赖壳下发的 quickWorkspacePath
-  // （那条曾整条落空 → 列表恒空，见 MiniPanelApp 的 get-prefs 注释）。
-  // 空间归属规则与侧栏同一份（摘要缺映射落回第一空间，见 miniHistoryView 头注）。
-  const anchorWorkspaceId = store.activeWorkspaceId ?? store.workspaces[0]?.workspaceId ?? "";
+  // 锚点 = 快捷空间（面板的窗口）：认 store.quickWorkspaceId——壳下发的目录经
+  // get-prefs 到得了这一页（本页自己不装 host-ready，MiniCommandCenterApp 开局要来
+  // 一次，同面板页那条），store 按目录认出引擎里的那个空间。**不认 activeWorkspaceId**
+  // 了：那是主窗的"最后使用的空间"，面板页切过去也不再改写它（见 store 的
+  // persistActiveWs）。prefs 还在路上时落到第一个空间（面板页那份列表里它就在首位），
+  // 到了即归位，列表不会空转。
+  const anchorWorkspaceId = store.quickWorkspaceId ?? store.workspaces[0]?.workspaceId ?? "";
   const items = useMemo(
     () =>
       historyItems(store.sidebarSessions, {
         workspaceId: anchorWorkspaceId,
-        fallbackWorkspaceId: store.workspaces[0]?.workspaceId,
+        fallbackWorkspaceId: store.quickWorkspaceId ?? store.workspaces[0]?.workspaceId,
         workspaceOf: store.wsOfSession,
         pinned: store.pinned,
         unread: store.unread,
         lang,
       }),
-    [store.sidebarSessions, store.wsOfSession, store.pinned, store.unread, store.workspaces, anchorWorkspaceId, lang],
+    [store.sidebarSessions, store.wsOfSession, store.pinned, store.unread, store.workspaces, store.quickWorkspaceId, anchorWorkspaceId, lang],
   );
   const visible = useMemo(() => filterHistory(items, query), [items, query]);
   const sections = useMemo(() => groupByDate(visible, { lang, t }), [visible, lang, t]);

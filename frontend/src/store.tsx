@@ -32,10 +32,16 @@ export interface Store {
    *  侧栏/切换器/⌥N/⌘K/自动化/引导统统读这一份，别再各写一遍判断（判据只有
    *  store/pageVisibility.ts 一处）。 */
   workspaces: WorkspaceView[];
+  /** 快捷会话空间 id（引擎侧那个普通空间；null = 尚未注册 / 壳还没下发目录）。
+   *  悬浮面板那条线的锚点：命令中心的历史脸认的就是它（不用 activeWorkspaceId——
+   *  那是主窗的"最后使用的空间"，面板页切过去也不该改它，见 persistActiveWs）。 */
+  quickWorkspaceId: string | null;
   /** 归档会话全集（workspace follow 的 archivedSessionIds；归档唯一事实源）。 */
   archived: Set<string>;
   /** 当前工作空间（侧栏内容 = 新会话落点）；null = 未解析（引擎无 workspace
-   *  面或首拉未回）。持久化 key：dsh.workspace（§2.1 记住最后使用的空间）。 */
+   *  面或首拉未回）。持久化 key：dsh.workspace（§2.1 记住最后使用的空间）——
+   *  **只记主窗自己的落点**：快捷空间是面板那条线的窗口，面板页切到它不写这份存储
+   *  （写了就把主窗下次的落点顶掉，见 persistActiveWs）。 */
   activeWorkspaceId: string | null;
   /** sessionId → workspaceId 归属表（workspace follow 的 sessionIds 摊平）。
    *  无工作空间面时为空表，此时全部会话视为"当前空间"。 */
@@ -266,6 +272,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     () => workspacesOnPage(allWorkspaces, quickWorkspaceId, isPanelPage()),
     [allWorkspaces, quickWorkspaceId],
   );
+  // ref 镜像：persistActiveWs 被 switchWorkspace/openSession 那些 useCallback([]) 闭包
+  // 抓着（只捕获首帧），直接读 quickWorkspaceId 会永远是 null（同 activeIdRef 手法）。
+  const quickWsIdRef = useRef<string | null>(null);
+  quickWsIdRef.current = quickWorkspaceId;
 
   /** 取消归档：引擎落账 + 刷新（归档集在引擎里，调用返回即生效）。
    *  失败回引擎错误文本，调用方弹窗。 */
@@ -345,7 +355,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   wsOfRef.current = wsOfSession;
   const persistActiveWs = (id: string) => {
     activeWsRef.current = id;
-    localStorage.setItem("deepdive.workspace", JSON.stringify(id));
+    // 快捷空间不写进"最后使用的空间"（dsh.workspace = 主窗的落点，§2.1）：这份存储是
+    // 同 origin 共用的，而面板页与它的命令中心卡每次启动都会切到快捷空间——写进去就
+    // 把主窗下次的落点整个顶掉（实测存储里躺的就是快捷空间的 id，主窗醒来只认第一个
+    // 项目）。面板自己的锚点走 store.quickWorkspaceId，不靠这份存储。
+    if (id !== quickWsIdRef.current) localStorage.setItem("deepdive.workspace", JSON.stringify(id));
     setActiveWorkspaceId(id);
   };
 
@@ -758,6 +772,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<Store>(
     () => ({
       workspaces,
+      quickWorkspaceId,
       archived,
       activeWorkspaceId,
       wsOfSession,
@@ -834,7 +849,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, selectionToolbar, setSelectionToolbar, selectionCommands, setSelectionCommands, screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, modelDetail, setModelDetail, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, quickWorkspaceId, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, selectionToolbar, setSelectionToolbar, selectionCommands, setSelectionCommands, screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, modelDetail, setModelDetail, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
