@@ -31,8 +31,8 @@
   white-space: nowrap;
 }
 .btn:hover { background: var(--fill-heavy); }
-.btnPrimary { background: var(--dsh-text-primary); color: var(--dsh-surface-inverted); }
-.btnPrimary:hover { background: var(--dsh-text-primary); opacity: .88; }
+.btnPrimary { background: var(--ink); color: var(--on-ink); }
+.btnPrimary:hover { background: var(--ink); opacity: .88; }
 .btn:disabled, .btnPrimary:disabled { opacity: .4; }
 .iconBtn { width: 30px; padding: 0; justify-content: center; }
 
@@ -96,7 +96,7 @@
 .statusPill { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .statusPill[data-status="enabled"] { color: var(--ink-2); }
 .schedChip { display: inline-flex; align-items: center; gap: 5px; min-width: 0; white-space: nowrap; }
-.schedTime { color: var(--dsh-signal-live); }
+.schedTime { color: var(--dsh-signal-live-contrast); }
 .cardMeta { margin-left: auto; flex: none; }
 .tplIcon { flex: none; margin-top: 2px; color: var(--ink-3); }
 
@@ -173,14 +173,14 @@
   border-radius: var(--dsh-radius-control);
   color: var(--ink-3);
 }
-.trashBtn:hover { background: var(--fill); color: var(--dsh-signal-danger); }
+.trashBtn:hover { background: var(--fill); color: var(--dsh-signal-danger-contrast); }
 
 /* ── 运行历史 ── */
 .runRow { display: flex; align-items: center; gap: 12px; padding: 9px 2px; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
 .runTime { flex: none; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.runLate { color: var(--dsh-signal-warn, var(--ink-3)); }
+.runLate { color: var(--dsh-signal-warn-contrast, var(--ink-3)); }
 .runStatus[data-status="running"] { color: var(--ink); }
-.runStatus[data-status="error"] { color: var(--dsh-signal-danger); }
+.runStatus[data-status="error"] { color: var(--dsh-signal-danger-contrast); }
 .runError { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-3); }
 .link { height: 22px; padding: 0 4px; color: var(--ink-2); font-size: var(--dsh-font-size-sm); }
 .link:hover { color: var(--ink); }

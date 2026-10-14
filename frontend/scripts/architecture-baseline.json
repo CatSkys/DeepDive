@@ -99,12 +99,6 @@
       "detail": "#000"
     },
     {
-      "id": "36584fe74480ee81",
-      "rule": "bare-hex-color",
-      "file": "frontend/src/theme.css",
-      "detail": "#16171A"
-    },
-    {
       "id": "2332d8a65189409f",
       "rule": "bare-hex-color",
       "file": "frontend/src/theme.css",

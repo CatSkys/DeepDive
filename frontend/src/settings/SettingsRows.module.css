@@ -45,7 +45,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--ink-bright);
+  background: var(--ink);
   transition: transform var(--dur-fast) var(--ease-out);
 }
 .toggle.on { background: var(--ink); }
@@ -726,4 +726,4 @@
 }
 .listTitle { color: var(--ink); font-size: var(--dsh-font-size-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .listUrl { color: var(--ink-3); font-size: var(--dsh-font-size-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.listMain:hover .listTitle { color: var(--ink-bright); text-decoration: underline; }
+.listMain:hover .listTitle { text-decoration: underline; }
