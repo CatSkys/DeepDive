@@ -124,7 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 显示，对应 Actions 槽位先空着留给后续接线。
         miniPanel = MiniPanelController()
         miniPanel.actions = MiniPanelController.Actions(
-            toggle: { [weak self] in self?.quickPanel.togglePanel() },
+            openMainWindow: { [weak self] in self?.showMainWindow() },
             newTask: { [weak self] in self?.quickPanelNewTask() },
             ask: { [weak self] in self?.askAboutSelection() },
             screenshot: { [weak self] in self?.beginCapture(from: .panel, reqId: nil) },
@@ -135,7 +135,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             askAbout: { [weak self] text in self?.askAboutSelection(known: text) },
             showPanel: { [weak self] in self?.quickPanel.showPanel() },
             reportFailures: { _ in },
-            panelIsKey: { [weak self] in self?.quickPanel.window.isKeyWindow ?? false },
             stateChanged: {}
         )
         miniPanel.start()

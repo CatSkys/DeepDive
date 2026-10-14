@@ -1,13 +1,13 @@
 import Foundation
 
 /// The mini panel's own settings in UserDefaults, shell-local like `panel.pinned`: whether it
-/// shows (`miniPanel.shown`, on until turned off), how it opens (`miniPanel.openOn`, on a click
-/// until set to hover), its edge and height (`miniPanel.edge`, `miniPanel.position`) and its
-/// display (`miniPanel.display`, a display UUID). While that display is missing the panel shows on
-/// the main display at the same edge and height, and it goes back once the display returns.
+/// shows (`miniPanel.shown`, on until turned off), its edge and height (`miniPanel.edge`,
+/// `miniPanel.position`) and its display (`miniPanel.display`, a display UUID). While that display
+/// is missing the panel shows on the main display at the same edge and height, and it goes back
+/// once the display returns. How it opens is not a setting: the pointer resting in the hot zone
+/// expands it (``MiniPanelHover``).
 struct MiniPanelSettings {
   static let shownKey = "miniPanel.shown"
-  static let openOnKey = "miniPanel.openOn"
   static let edgeKey = "miniPanel.edge"
   static let positionKey = "miniPanel.position"
   static let displayKey = "miniPanel.display"
@@ -17,14 +17,6 @@ struct MiniPanelSettings {
   var shown: Bool { defaults.object(forKey: Self.shownKey) as? Bool ?? true }
 
   func setShown(_ shown: Bool) { defaults.set(shown, forKey: Self.shownKey) }
-
-  var openOn: MiniPanelOpenOn {
-    defaults.string(forKey: Self.openOnKey).flatMap(MiniPanelOpenOn.init(rawValue:)) ?? .click
-  }
-
-  func setOpenOn(_ openOn: MiniPanelOpenOn) {
-    defaults.set(openOn.rawValue, forKey: Self.openOnKey)
-  }
 
   var placement: MiniPanelPlacement {
     let edge = defaults.string(forKey: Self.edgeKey).flatMap(MiniPanelEdge.init(rawValue:))

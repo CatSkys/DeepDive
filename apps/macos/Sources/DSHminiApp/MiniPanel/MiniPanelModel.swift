@@ -159,8 +159,7 @@ struct MiniPanelDropZone: Equatable {
 /// user data and never pass through here.
 struct MiniPanelLabels: Equatable {
   var panel = ""
-  var open = ""
-  var hidePanel = ""
+  var openMainWindow = ""
   var newTask = ""
   var ask = ""
   var screenshot = ""
@@ -170,8 +169,9 @@ struct MiniPanelLabels: Equatable {
   static func current() -> MiniPanelLabels {
     let strings = ShellStrings.shared
     return MiniPanelLabels(
-      panel: strings.text(.miniPanelLabel), open: strings.text(.miniPanelOpen),
-      hidePanel: strings.text(.miniPanelHidePanel), newTask: strings.text(.miniPanelNewTask),
+      panel: strings.text(.miniPanelLabel),
+      openMainWindow: strings.text(.miniPanelOpenMainWindow),
+      newTask: strings.text(.miniPanelNewTask),
       ask: strings.text(.miniPanelAsk), screenshot: strings.text(.miniPanelScreenshot),
       commands: strings.text(.miniPanelCommands), drop: strings.text(.miniPanelDrop))
   }
@@ -215,7 +215,6 @@ final class MiniPanelModel {
   var dropZone: MiniPanelDropZone?
   /// Where a click opens the tucked pill, the pill and the space around it out to the screen
   /// edge (the hot zone), in the glass container; nil while the panel opens on hover.
-  var clickZone: CGRect?
   /// The control under the pointer, which shows its wash.
   var hovered: MiniPanelControl?
   /// The control being pressed, which shows its press until the release.
@@ -223,8 +222,6 @@ final class MiniPanelModel {
   /// Reduce Motion, followed live: no bounce, scale or deformation.
   var reduceMotion = false
   var labels = MiniPanelLabels()
-  /// The task panel has the keyboard, so the Atd mark hides it rather than showing it.
-  var panelIsKey = false
 
   /// The card's scroll offset in points, which the content reports.
   @ObservationIgnored var flyoutScroll = 0.0
@@ -235,8 +232,6 @@ final class MiniPanelModel {
   /// VoiceOver's escape on the open capsule.
   @ObservationIgnored var collapse: () -> Void = {}
 
-  /// The Atd mark's label: what a click on it does now.
-  var markLabel: String { panelIsKey ? labels.hidePanel : labels.open }
 
   func presence(_ content: MiniPanelContent) -> MiniPanelPresence {
     switch content {

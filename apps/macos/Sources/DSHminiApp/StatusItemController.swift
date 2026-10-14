@@ -16,6 +16,8 @@ final class StatusItemController: NSObject {
     var onQuit: (() -> Void)?
 
     private var item: NSStatusItem?
+    /// 右键那一份功能菜单。**不挂到 `item.menu` 上**——挂上去左键也会弹菜单（见 `install`）。
+    private var menu: NSMenu?
     private var engineState: EngineSupervisor.State = .launching
     private var activityRunning = false
     private var activityAttention = false
@@ -66,7 +68,14 @@ final class StatusItemController: NSObject {
         quit.target = self
         menu.addItem(quit)
 
-        item.menu = menu
+        item.menu = nil
+        // Atd 同款（用户 2026-10-14 定稿）：**左键 = 显示主界面，右键 = 弹这份功能菜单**。
+        // 把 menu 挂到 `item.menu` 上会变成"左右键都弹菜单"，所以改由按钮的动作分派：
+        // 两种按键都送上来，`buttonClicked` 按事件类型分流。
+        item.button?.target = self
+        item.button?.action = #selector(buttonClicked(_:))
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        self.menu = menu
         // 「黑白主题」menu item removed in P2: theme lives in settings → 外观
         // (SPEC-NOTIFICATIONS §1.4); single entry point, no dual controls.
         setState(.launching)
@@ -110,6 +119,18 @@ final class StatusItemController: NSObject {
     }
 
     // MARK: - actions
+
+    /// 状态项按钮的两用：左键显示主界面，右键（含 ⌃ 左键，等于右键的那套习惯）弹功能菜单。
+    @objc private func buttonClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        let secondary =
+            event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true
+        guard secondary, let menu else {
+            onShowWindow?()
+            return
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 5), in: sender)
+    }
 
     @objc private func showWindowAction() { onShowWindow?() }
     @objc private func openSettingsAction() { onOpenSettings?() }

@@ -59,7 +59,7 @@ extension MiniPanelController {
   /// The label's text: the control's name, or the row's command name, which is user data.
   private func labelText(_ control: MiniPanelControl) -> String {
     switch control {
-    case .mark: model.markLabel
+    case .mark: model.labels.openMainWindow
     case .newTask: model.labels.newTask
     case .ask: model.labels.ask
     case .screenshot: model.labels.screenshot

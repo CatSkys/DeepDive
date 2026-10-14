@@ -23,8 +23,9 @@ final class MiniPanelController {
 
   /// What the panel's controls and drops do, all through the shell's existing flows.
   struct Actions {
-    /// The Atd mark: the panel toggle's summon.
-    var toggle: () -> Void
+    /// The Atd mark: brings the main window forward (user decision 2026-10-14 — it used to be
+    /// the task panel's toggle; the panel keeps ⌥Space and the main window's own entries).
+    var openMainWindow: () -> Void
     /// New task: the panel shows, then its page starts a new task.
     var newTask: () -> Void
     /// Ask about selection, which reads the app in front: Atd never activated.
@@ -45,16 +46,14 @@ final class MiniPanelController {
     var showPanel: () -> Void
     /// A drop that came to nothing: the panel shows and reports it like an import's failures.
     var reportFailures: ([ResourcesImportedEvent.Failure]) -> Void
-    /// Whether the task panel has the keyboard, which the Atd mark's label follows.
-    var panelIsKey: () -> Bool
     /// The shown or the open-on setting changed, for the pages' `miniPanel.state`.
     var stateChanged: () -> Void
 
     static var inert: Actions {
       Actions(
-        toggle: {}, newTask: {}, ask: {}, screenshot: {}, command: { _ in }, openSettings: {},
-        openItems: { _ in }, importImage: { _ in }, askAbout: { _ in }, showPanel: {},
-        reportFailures: { _ in }, panelIsKey: { false }, stateChanged: {})
+        openMainWindow: {}, newTask: {}, ask: {}, screenshot: {}, command: { _ in },
+        openSettings: {}, openItems: { _ in }, importImage: { _ in }, askAbout: { _ in },
+        showPanel: {}, reportFailures: { _ in }, stateChanged: {})
     }
   }
 
@@ -123,7 +122,6 @@ final class MiniPanelController {
     settings = MiniPanelSettings(defaults: defaults)
     isShown = settings.shown
     placement = settings.placement
-    hover.openOn = settings.openOn
     model.labels = .current()
     model.reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     model.perform = { [weak self] control in self?.perform(control) }
@@ -152,20 +150,6 @@ final class MiniPanelController {
     isShown = shown
     settings.setShown(shown)
     if shown { present(trigger: "shown") } else { dismiss(trigger: "turned off") }
-    actions.stateChanged()
-  }
-
-  /// How the tucked pill opens, with its one owner here like the shown setting:
-  /// `miniPanel.setOpenOn` and the context menu land here. Opening on click, the pointer only
-  /// swells the pill, and a click anywhere it swells for opens it (``MiniPanelModel/clickZone``).
-  var openOn: MiniPanelOpenOn { hover.openOn }
-
-  func setOpenOn(_ openOn: MiniPanelOpenOn) {
-    guard openOn != hover.openOn else { return }
-    hover.openOn = openOn
-    settings.setOpenOn(openOn)
-    updateClickZone()
-    Self.log.info("Mini panel opens on \(openOn.rawValue, privacy: .public)")
     actions.stateChanged()
   }
 
@@ -289,20 +273,12 @@ final class MiniPanelController {
     let displays: @Sendable (Notification) -> Void = { [weak self] _ in
       MainActor.assumeIsolated { self?.displaysChanged() }
     }
-    // The Atd mark's label says what a click does: hide the task panel while it has the keyboard.
-    let keys: @Sendable (Notification) -> Void = { [weak self] _ in
-      MainActor.assumeIsolated { self?.refreshPanelKey() }
-    }
     observers = [
       center.addObserver(
         forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main,
         using: displays),
       workspace.addObserver(
         forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: displays),
-      center.addObserver(
-        forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main, using: keys),
-      center.addObserver(
-        forName: NSWindow.didResignKeyNotification, object: nil, queue: .main, using: keys),
       center.addObserver(forName: ShellStrings.didChange, object: nil, queue: .main) {
         [weak self] _ in MainActor.assumeIsolated { self?.model.labels = .current() }
       },
@@ -315,11 +291,6 @@ final class MiniPanelController {
         }
       },
     ]
-  }
-
-  func refreshPanelKey() {
-    let key = actions.panelIsKey()
-    if key != model.panelIsKey { model.panelIsKey = key }
   }
 
   /// A display came, went or changed its work area, or the Mac woke: the panel lays itself out
