@@ -560,6 +560,48 @@ export function requestScreenRecording(): void {
   sendToShell({ type: "screen-recording-request" });
 }
 
+/* ── 应用自身更新（壳侧 Sparkle；编排在 Sources/DSHminiApp/AppUpdater.swift）──
+   壳在每次 host-ready、以及「下载好一份待装更新」时推 `updateState`；设置页
+   打开得比 host-ready 晚，所以挂载时要一次快照——与 `get-prefs` → `prefs` 同形
+   （发请求 + 听推送），一条监听同时收「应答」与「后来的变化」，不给同一份状态
+   开第二条路。Release 构建才有更新器，Debug 构建 canUpdate=false。 ── */
+
+export interface UpdateState {
+  /** 当前应用版本（事实源 apps/macos/project.yml 的两个版本键）。 */
+  currentVersion: string;
+  /** 已下载待安装的版本；没有待装的就是 null。 */
+  readyVersion: string | null;
+  /** 这个构建会不会更新（Debug 构建不会）。 */
+  canUpdate: boolean;
+}
+
+/** 壳推来的 `updateState` 在边界处收窄（铁律 5）：字段漂移不许以 undefined
+ *  流进界面运算——版本号认不出来就当没收到，保留上一次的显示。 */
+export function narrowUpdateState(p: unknown): UpdateState | null {
+  const v = p as Partial<UpdateState> | null | undefined;
+  if (!v || typeof v.currentVersion !== "string") return null;
+  return {
+    currentVersion: v.currentVersion,
+    readyVersion: typeof v.readyVersion === "string" ? v.readyVersion : null,
+    canUpdate: v.canUpdate === true,
+  };
+}
+
+/** 要一次更新状态快照（壳回推 `updateState`）。 */
+export function requestUpdateState(): void {
+  sendToShell({ type: "update-state" });
+}
+
+/** 用户点「检查更新」：壳开 Sparkle 自己的进度与结果窗（不回执）。 */
+export function checkForUpdates(): void {
+  sendToShell({ type: "check-update" });
+}
+
+/** 装下已下载待装的那一份并重启（不回执）。 */
+export function installUpdate(): void {
+  sendToShell({ type: "install-update" });
+}
+
 export function installHostBridge(handlers: Partial<{
   navigateToSession: (sessionId: string) => void;
   navigateToSettings: () => void;

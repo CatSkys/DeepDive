@@ -1,4 +1,4 @@
-.PHONY: dev app package deliver check hooks tokens test clean
+.PHONY: dev app package publish deliver check hooks tokens test clean
 
 dev:
 	sh scripts/dev.sh
@@ -9,6 +9,9 @@ app:
 
 package:
 	sh scripts/package-macos.sh
+
+publish:
+	sh scripts/publish-release.sh
 
 deliver:
 	sh scripts/deliver.sh

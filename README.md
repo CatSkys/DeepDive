@@ -23,6 +23,7 @@ make dev          # 构建 Debug 并打开应用
 make app          # Release 构建并打开
 make package      # 生成 Developer ID 签名 DMG（dist/）
 DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 带公证与装钉（发给他人必须用这条）
+make publish      # 把刚打包的那份发成一次应用更新（签 appcast + 传到发布仓）
 ```
 
 **发给他人必须公证**：未公证的包在 macOS 15 及以上会被 Gatekeeper 拦下——新用户双击只看到「未打开 DeepDive」，而那个对话框的默认按钮是「移到废纸篓」，用户按常规操作根本进不去（右键 → 打开 的旧绕过入口自 macOS 15 起已被系统取消）。诊断锚点：`spctl -a -vvv -t exec <app>` 报 `rejected / source=Unnotarized Developer ID`，系统日志见 `syspolicyd: Terminating process due to Gatekeeper rejection`。
@@ -30,6 +31,14 @@ DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 带公证与装钉（发�
 **版本号（用户 2026-10-09 定稿）**：唯一事实源是 `apps/macos/project.yml` 的 `CFBundleShortVersionString` + `CFBundleVersion`（两处同步，别在别处再写；`Info.plist` 与 DMG 文件名都从它取）。**每次分发只递增最后一位**（0.1.0 → 0.1.1），由上面那条公证命令在 xcodegen 之前自动做（`scripts/bump-app-version.sh patch`），不需要谁记得；**前两位（major / minor）只有用户确认后才能动**，脚本对这两个要 `--user-confirmed`，没带旗标直接停。不带公证的本地 `make package` 不动版本号（那不算分发）。
 
 启动后：菜单栏出现引擎状态点；`⌥Space` 显示/隐藏窗口；菜单栏「设置启动工作区…」选择沙箱根目录（重启引擎生效）；设置内「外观」（跟随系统/亮/暗）即时生效。
+
+## 应用更新
+
+装好的 DeepDive 自己更新（Sparkle）：每小时后台查一次，静默下载，**退出时装上**（也可从菜单「检查更新…」或「设置 → 关于」立刻装）。Debug 构建不更新（`make dev` 的开发包不该被 Release 覆盖），也不摆入口。
+
+- **更新源**：公开发布仓 [CatSkys/DeepDive-releases](https://github.com/CatSkys/DeepDive-releases) 的 `appcast.xml`，应用读它的永久链接（`…/releases/latest/download/appcast.xml`，就是 Info.plist 的 `SUFeedURL`）。源码仓是私有的，装好的用户读不了它的 Release——所以 feed 落在那个只放产物的公开仓。**更新不需要对象存储**：客户端只做一件事——匿名 HTTPS 拉下 appcast 与 DMG 两个文件，任何能匿名读的 HTTPS 托管都行，GitHub Release 就是这种托管（Atd 另有一层 Cloudflare R2 镜像，那是给官网永久下载链接与 CDN 用的，不是更新的前置）。
+- **可信度**：更新包是否被接受由 appcast 里的 EdDSA 签名决定，公钥固化在 `project.yml` 的 `SUPublicEDKey`。私钥在钥匙串（账户 `com.deepdive.app`，一次性生成：`bash scripts/sparkle-tools.sh generate_keys --account com.deepdive.app`）——**它不在仓库里，丢了就只能靠旧版本的用户手动重装**。
+- **发布**：`DSHMINI_NOTARY_PROFILE=… make package` 出包（这一步会递增版本号）→ `make publish`。后者会先核验包里是 Developer ID + 已装订的公证票据 + 两个版本键都等于版本号，再签 DMG、写 appcast、上传，最后拉一次永久 feed 链接确认它真的指向新版本。**上传是外部动作**，没人替你兜底，所以每道核验都是硬失败。
 
 ## 数据
 
@@ -52,7 +61,7 @@ docs/                      架构(as-built)/UI 规范/语义蓝图/三个 P2 SPE
 
 ## 已知限制（见 docs/ARCHITECTURE.md §8 与 docs/REVIEW-P2.md）
 
-工作区切换需重启引擎（sandbox 根=cwd）；自动更新未做。路线待办见 `docs/TODO.md`。
+工作区切换需重启引擎（sandbox 根=cwd）。更新是整包替换（无差分包），且只在 Release 构建里生效。路线待办见 `docs/TODO.md`。
 
 ## 许可证
 

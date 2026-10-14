@@ -11,13 +11,13 @@
 
 ## 2. 分区
 
-**清单与分组的唯一事实源是 `SettingsPage.tsx` 的 `SETTINGS_SECTIONS`**（侧栏导航与命令面板搜索同一份）；现为 12 项分三组：
+**清单与分组的唯一事实源是 `SettingsPage.tsx` 的 `SETTINGS_SECTIONS`**（侧栏导航与命令面板搜索同一份）；现为 13 项分三组：
 
 | 组 | 分区 |
 |---|---|
 | 基础设置 | 通用（外观 / 语言 / 归档 / Enter 行为 / 通知 / 默认会话模式）· 模型 · 审批 · 快捷键 · 划词与截图 · 浏览器 |
 | Agent 能力 | 自动化 · 插件（插件 / MCP / 技能 三 tab）· 移动端远程控制 · 导入 |
-| 数据与统计 | 已归档的聊天 · 使用统计 |
+| 数据与统计 | 已归档的聊天 · 使用统计 · 关于（版本号与应用更新） |
 
 各分区的行为细节归各自的家，本文不抄第二份：
 
@@ -32,6 +32,7 @@
 | 插件 | `frontend/src/plugins/`；契约与实测证据见 `PITFALLS §7.6` |
 | 移动端远程控制 | `SPEC-MOBILE-REMOTE.md`；实现 `mobile/RemoteControlSection.tsx` |
 | 使用统计 | `stats/usageStats.ts`（数据编码色见 `tokens.json` 的 color.chart） |
+| 关于 | `settings/AboutSection.tsx`（版本号 + 检查更新 / 重启以安装）。版本与「有没有待装的一份」都来自壳的 `AppUpdater.swift`，经桥事件 `updateState`；更新源与发布链见 `scripts/publish-release.sh` |
 | 通用 · 已归档 · 导入 | `components/SettingsPage.tsx` 内的对应 section |
 
 ## 3. 通用编辑机制（一切命名空间）

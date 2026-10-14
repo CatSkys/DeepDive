@@ -44,6 +44,7 @@
 | 文件 | 职责 |
 |---|---|
 | `AppDelegate.swift` | 生命周期、host 指令路由、设置/外观/通知接线 |
+| `AppUpdater.swift` | **应用自身的更新**（Sparkle）：检查/下载/安装的编排与「已下载待装的版本」这一份状态。策略全在 Info.plist 的 `SU*` 键（每小时后台查、静默下载、退出即装，与 Atd 同档）；这里只补两件壳才知道的事——下载完不弹窗，把版本号交给界面自己给入口；那一次安装由 Sparkle 存下的回调触发。只在 Release 构建里存在（`isSupported`，Debug 连菜单入口都不摆）；feed 是公开发布仓的 appcast，发布链见 `scripts/publish-release.sh` |
 | `BrowserHost.swift`（+`+Navigation`/`+ZoomFind`） | 一个标签的壳侧宿主：一个 WKWebView（导航/UI delegate、协议白名单、截图/执行 JS/导航/唤醒原语）。当前标签的那个挂在舞台上；缩略图态由 `hitTest` 让位（见 `SPEC-BROWSER-USE.md §3`） |
 | `BrowserTab.swift` | 一个标签：身份 + 壳侧镜像（标题/地址/站点图标）+ **惰性**宿主 + 睡着时留的三样（`interactionState` 回去的路、停帧封面、镜像） |
 | `BrowserTabs.swift`（+`+Sleep`） | 标签集合：增删选与"永远留一个空白标签"、舞台换视图、观察扇出（`browserState`/`browserTabs`）、槽位；休眠策略与内存压力在 `+Sleep`。一个窗口一个 `WKWebsiteDataStore`（cookie 跨标签共享） |

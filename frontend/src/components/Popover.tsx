@@ -1,9 +1,10 @@
 // 浮层宿主：全站弹层的**唯一一个壳**。
 //
-// 它只管"盒"——把此前每个浮面各写一份的东西收成一份：portal 挂 body、按触发器的 rect 与
-// 视口算位置（放不下自动翻面、越界收敛、限高）、外点 / Esc / 窗口 resize 关闭、
-// 材质层（GlassLayer）、进出场动效与 `data-state`。**内容由调用方给**，本组件不认识菜单项，
-// 也不管宿主的尺寸、圆角、投影——那些在调用方自己的类里（见 theme.css 的浮层配方）。
+// 它只管"壳"——把此前每个浮面各写一份的东西收成一份：portal 挂容器、量触发器与自身尺寸、
+// 外点 / Esc / 窗口 resize 关闭、材质层（GlassLayer）、进出场动效与 `data-state`。
+// **落位算术不在本文件**：归 `./floatingPlacement.ts`（全站唯一一份，见那里头注的三条硬约束）。
+// **内容由调用方给**，本组件不认识菜单项，也不管宿主的尺寸、圆角、投影——那些在调用方
+// 自己的类里（见 theme.css 的浮层配方）。
 //
 // 模型照参考实现（Raycast 的 popover）：一组 side/sideOffset/align/alignOffset 定位参数 +
 // `position: fixed` + `transform-origin` 取"贴触发器的那一角"；开关是两态
@@ -17,19 +18,18 @@ import type {
 } from "react";
 import { createPortal } from "react-dom";
 import { GlassLayer } from "./GlassLayer";
+import { placeFloating } from "./floatingPlacement";
+import type {
+  FloatingAlign, FloatingAnchor, FloatingPlacement, FloatingSide,
+} from "./floatingPlacement";
 import css from "./Popover.module.css";
-
-/** 一条已知的矩形（文本选区、右键落点那类没有元素的锚点）。DOMRect 结构上就是它。 */
-export interface PopoverAnchorRect {
-  top: number; left: number; right: number; bottom: number; width: number; height: number;
-}
 
 /** 触发器：一个元素、一条矩形，或**装元素的 ref**。
  *  收 ref 是有原因的：`anchor={triggerRef.current}` 在子组件渲染时永远是 null
  *  ——ref 要到提交阶段才赋值，于是第一帧拿不到触发器。给 ref 则在测量那一刻才解析。 */
 export type PopoverAnchor =
   | HTMLElement
-  | PopoverAnchorRect
+  | FloatingAnchor
   | RefObject<HTMLElement | null>
   | MutableRefObject<HTMLElement | null>;
 
@@ -43,117 +43,21 @@ function elementOf(a: HTMLElement | RefObject<HTMLElement | null> | null): HTMLE
 }
 
 /** 解析出"量哪条矩形"。ref 还没挂上、或组件已卸载（current 为 null）时给出 null。 */
-function anchorRectOf(anchor: PopoverAnchor | null): PopoverAnchorRect | null {
+function anchorRectOf(anchor: PopoverAnchor | null): FloatingAnchor | null {
   if (anchor === null) return null;
   const el = isRef(anchor) ? anchor.current : anchor;
   if (!el) return null;
   return el instanceof HTMLElement ? el.getBoundingClientRect() : el;
 }
 
-/** 开向：贴着触发器的哪一边。放不下时自动翻面（对面那条边）。 */
-export type PopoverSide = "top" | "bottom" | "left" | "right";
-/** 沿触发器的哪条边对齐：竖开的取横轴，横开的取纵轴。 */
-export type PopoverAlign = "start" | "center" | "end";
+/** 开向与对齐用的是落位模块那两个类型，别在本文件另立一份同义词。 */
+export type PopoverSide = FloatingSide;
+export type PopoverAlign = FloatingAlign;
 
-/** 与视口边缘的最小留白（参考实现同值 8）。 */
-const EDGE = 8;
 /** 离场兜底时限：与 `.box[data-state="closed"]` 的 `var(--dur-fast)` 同长。
  *  为什么除了 animationend 还要它：动画事件在"动画根本没跑"的运行时不会来
  *  （jsdom、元素被外部样式表禁掉动画），只靠事件会永久留一个不可见的节点。 */
 const EXIT_MS = 150;
-
-interface Box {
-  style: CSSProperties;
-  /** 实际落定的开向（翻面后与请求的 side 不同，调用方可能要翻箭头）。 */
-  side: PopoverSide;
-  /** 放不下时该限哪一轴——竖开的限高、横开的限宽。 */
-  axis: "height" | "width";
-}
-
-const OPPOSITE: Record<PopoverSide, PopoverSide> = {
-  top: "bottom", bottom: "top", left: "right", right: "left",
-};
-
-/** 定位：算出一条 `position: fixed` 的内联样式。
- *
- *  两个轴用同一套逻辑：开向那条边上量"触发器到视口边还剩多少"（去掉 sideOffset 与
- *  EDGE），装不下就翻到对面；另一条轴上按 align 对齐再收敛进视口。
- *  `want` 是要固定下来的那条尺寸（`"anchor"` = 与触发器同宽），不给则用挂载后实测的
- *  `cross`（另一条轴的尺寸）来对齐与收敛。
- *  翻面判定：竖开比内容高度估计 `height`，横开比 `want`（要固定宽度才判得了）。 */
-function place(
-  anchor: PopoverAnchorRect,
-  side: PopoverSide,
-  sideOffset: number,
-  align: PopoverAlign,
-  alignOffset: number,
-  want: number | "anchor" | undefined,
-  cross: number,
-  height: number,
-  maxHeight: number | undefined,
-): Box {
-  const pin = want !== undefined;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const vertical = side === "top" || side === "bottom";
-  // 另一条轴上的尺寸：固定下来了就用它（对齐、收敛、写内联都用同一个数），否则用实测值。
-  const w = want === "anchor" ? anchor.width : want ?? cross;
-  // near/far：请求的那条边、以及它的对面各剩多少。
-  const near = side === "top" ? anchor.top - sideOffset - EDGE
-    : side === "bottom" ? vh - anchor.bottom - sideOffset - EDGE
-    : side === "left" ? anchor.left - sideOffset - EDGE
-    : vw - anchor.right - sideOffset - EDGE;
-  const far = side === "top" ? vh - anchor.bottom - sideOffset - EDGE
-    : side === "bottom" ? anchor.top - sideOffset - EDGE
-    : side === "left" ? vw - anchor.right - sideOffset - EDGE
-    : anchor.left - sideOffset - EDGE;
-  const fit = vertical
-    ? (maxHeight === undefined ? height : Math.min(height, maxHeight))
-    : (pin ? w : 0);
-  const out = near >= fit || far <= near ? side : OPPOSITE[side];
-  const space = Math.max(0, out === side ? near : far);
-
-  const style: CSSProperties = {
-    position: "fixed",
-    // 宿主类里往往带着 `top/right/bottom/left`（它们是给"挂在行内的绝对定位"那份写的）：
-    // 这里四条边全部显式写死，不靠"过量约束时哪个被忽略"的规则去猜。
-    top: "auto",
-    right: "auto",
-    bottom: "auto",
-    left: "auto",
-    // 从"贴触发器的那一角"长出（参考实现的 transformOrigin 算法）。
-    transformOrigin: vertical
-      ? `${align} ${out === "top" ? "bottom" : "top"}`
-      : `${out === "left" ? "right" : "left"} ${align}`,
-  };
-
-  if (vertical) {
-    let left: number;
-    if (align === "start") left = anchor.left + alignOffset;
-    else if (align === "center") left = anchor.left + (anchor.width - w) / 2 + alignOffset;
-    else left = anchor.right - w - alignOffset;
-    // 越界收敛：左边贴 EDGE，右边按宽度收（宽度还未知时挂载后实测再收敛一次）。
-    style.left = Math.max(EDGE, w === 0 ? left : Math.min(left, vw - w - EDGE));
-    style.maxHeight = Math.min(space, maxHeight ?? space);
-    // 向上开时锚 bottom：内容比可用空间短时贴着触发器往上排，而不是被顶到屏幕顶。
-    if (out === "top") style.bottom = vh - anchor.top + sideOffset;
-    else style.top = anchor.bottom + sideOffset;
-    if (pin && w > 0) style.width = style.minWidth = w;
-    return { style, side: out, axis: "height" };
-  }
-
-  let top: number;
-  if (align === "start") top = anchor.top + alignOffset;
-  else if (align === "center") top = anchor.top + (anchor.height - w) / 2 + alignOffset;
-  else top = anchor.bottom - w - alignOffset;
-  style.top = Math.max(EDGE, w === 0 ? top : Math.min(top, vh - w - EDGE));
-  // 竖向上剩下的空间就是限高（横开时另一条轴由内容和视口一起兜着）。
-  style.maxHeight = vh - EDGE - (style.top as number);
-  if (out === "left") style.right = vw - anchor.left + sideOffset;
-  else style.left = anchor.right + sideOffset;
-  if (pin && w > 0) style.width = style.minWidth = w;
-  return { style, side: out, axis: "width" };
-}
 
 export interface PopoverProps extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "style"> {
   /** 开合由调用方持有：本组件据此跑进场/离场并从 DOM 里摘掉。 */
@@ -198,7 +102,7 @@ export function Popover({
   children, ...rest
 }: PopoverProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const [box, setBox] = useState<Box | null>(null);
+  const [box, setBox] = useState<FloatingPlacement | null>(null);
   /** 没显式给尺寸时，另一条轴的尺寸由宿主自己的 CSS 决定，只有挂载后才量得到——而
    *  align=center/end 与边界收敛都要它。量到就进 state，让下面那次重算把它算进去
    *  （仍是 layout effect，绘制前完成，用户看不到中间态）。 */
@@ -219,18 +123,23 @@ export function Popover({
     if (!open) return;
     const r = anchorRectOf(anchor);
     if (!r) return;
-    const b = place(r, side, sideOffset, align, alignOffset, width, cross, height, maxHeight);
+    const b = placeFloating(r, {
+      side, gap: sideOffset, align, alignOffset,
+      size: width, cross, height, maxHeight,
+    });
     sideRef.current = b.side;
     axisRef.current = b.axis;
     setBox(b);
   }, [open, anchor, seenAnchor, side, sideOffset, align, alignOffset, width, cross, height, maxHeight]);
 
-  // 尺寸未给的场合：挂载后补量一次另一条轴，改的幅度超过半个像素才算（避免量—排—量的来回）。
+  // 尺寸未给的场合：挂载后补量一次**另一条轴**，改的幅度超过半个像素才算（避免量—排—量的
+  // 来回）。`axis` 是"内容超限时该滚的那一轴"（竖开=高、横开=宽），对齐与夹边要的是它的
+  // **对轴**，别拿滚轴自己当尺寸——竖开时量成高、横向夹边就会整体跑偏。
   useLayoutEffect(() => {
     const el = hostRef.current;
     if (!open || !el || width !== undefined) return;
     const r = el.getBoundingClientRect();
-    const v = axisRef.current === "width" ? r.width : r.height;
+    const v = axisRef.current === "width" ? r.height : r.width;
     if (v > 0 && Math.abs(v - crossSize) > 0.5) setCrossSize(v);
   }, [open, width, crossSize, box]);
 

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive, CalendarClock, ChartColumn, ChevronLeft, Cpu, Download, Folder, Globe, Keyboard,
+  Archive, CalendarClock, ChartColumn, ChevronLeft, Cpu, Download, Folder, Globe, Info, Keyboard,
   Moon, Monitor, Puzzle, Search, Settings as SettingsIcon, ShieldCheck, Smartphone, Sun,
   Trash2, Undo2,
   ScanText,
 } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
+import { AboutSection } from "../settings/AboutSection";
 import { BrowserSection } from "../settings/BrowserSection";
 import { HotkeysSection } from "../settings/HotkeysSection";
 import { SelectionToolbarSection } from "../settings/SelectionToolbarSection";
@@ -50,12 +51,13 @@ export const SETTINGS_SECTIONS: Array<{ id: string; label: string; icon: typeof 
   { id: "import", label: "导入", icon: Download, group: "agent" },
   { id: "archived", label: "已归档的聊天", icon: Archive, group: "data" },
   { id: "usage", label: "使用统计", icon: ChartColumn, group: "data" },
+  { id: "about", label: "关于", icon: Info, group: "data" },
 ];
 
 // 分类（侧栏按用途分三组；组定义与成员见下方 navGroups）：
 //   基础设置——通用（外观/语言/归档/Enter/通知/默认会话模式）、模型（提供方+密钥）、审批（默认权限预设）、快捷键
 //   Agent 能力——自动化、技能与插件、移动端远程控制、导入
-//   数据与统计——已归档的聊天、使用统计
+//   数据与统计——已归档的聊天、使用统计、关于（版本号与应用更新）
 
 export function SettingsPage({ initialSection, onClose, automationDraft, onAutomationDraftUsed }: {
   initialSection?: string;
@@ -169,6 +171,7 @@ export function SettingsPage({ initialSection, onClose, automationDraft, onAutom
           {activeId === "browser" && <BrowserSection />}
           {activeId === "archived" && <ArchivedSection onBulk={setBulk} />}
           {activeId === "usage" && <UsageSection />}
+          {activeId === "about" && <AboutSection />}
         </div>
       </main>
     </>

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { CirclePause, CirclePlay, Clock, Ellipsis, Pencil, Play, Trash2 } from "lucide-react";
 import { confirmDialog } from "../components/DialogHost";
+import { GlassLayer } from "../components/GlassLayer";
 import { useT } from "../i18n";
 import { describeSchedule, type AutomationTask } from "./model";
 import { useAutomation } from "./useAutomation";
@@ -83,6 +84,7 @@ export function TaskCard({ task, onEdit, onOpenSession }: {
       </div>
       {menuAt && (
         <div className="ctx-menu" style={{ top: menuAt.top, left: menuAt.left }} onClick={(e) => e.stopPropagation()}>
+          <GlassLayer />
           <div className="ctx-item" onClick={() => { setMenuAt(null); void runOnce(); }}>
             <Play size={13} /> {t("立即运行")}
           </div>
