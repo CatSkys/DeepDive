@@ -72,7 +72,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   const [busy, setBusy] = useState(false);
   /** 内容已折成两行以上（软换行也算）→ 卡片布局；清空回胶囊（见下方 useLayoutEffect） */
   const [multiline, setMultiline] = useState(false);
-  /** 量测件宽度变化的计数（只用来重跑上面那条 useLayoutEffect） */
+  /** 文本列宽度变化的计数（只用来重跑上面那条 useLayoutEffect） */
   const [widthTick, setWidthTick] = useState(0);
   // 繁忙时 Enter 行为（settings conversation ns，设置页同款；默认排队）
   const [busyEnter, setBusyEnter] = useState<"queue" | "steer">("queue");
@@ -83,8 +83,8 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   const ime = useCompositionGuard();
   const rootRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  /** 行数量测件（不绘制、不交互，只为读折行行数） */
-  const probeRef = useRef<HTMLTextAreaElement>(null);
+  /** 文本列那一格（附件胶囊 + 编辑器）：折行判据读它的实测高度。 */
+  const fieldRef = useRef<HTMLDivElement>(null);
   /** textarea 光标位（@ grammar 的 cursorCol）；onSelect 跟随 caret 更新。 */
   const [cursor, setCursorState] = useState(0);
   const store = useStore();
@@ -105,36 +105,37 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   // 旧高度、单行内容顶在天花板。收敛为单一机制：text 任何来源变化都重算
   // （useLayoutEffect 避免 session 切换首帧闪错高度）。
   //
-  // 同一处判「是否多行」，单向铰链（2026-10-12 用户定稿）：
-  //   胶囊 → 卡片：内容在**胶囊**文本列宽下折成两行以上（软换行也算）；
-  //   卡片 → 胶囊：只认「清空」。
-  // 行数必须用量测件（.composer-probe：同款只读 textarea，与输入框同格）读，
-  // 不能拿输入框自己的 scrollHeight。铰链的两档门槛刻意不重叠：旧逻辑按**当前
-  // 布局**的列宽判行数，临界文本在窄胶囊下折两行、在宽卡片下只有一行——每敲
-  // 一键就在两套布局间翻转一次（输入时整框上下抽搐，用户报障），还会停在折行
-  // 的胶囊上。改成进/出各认一个门槛后判定是 (text, 当前布局) 的纯函数，同段
-  // 文本的二次翻转（#185 的探针 resize → widthTick 死循环）在结构上不可能，
-  // 无需再钉任何「首次判定」。
+  // 同一处判「是否多行」，单向铰链（2026-10-12 用户定稿，2026-10-14 改判据）：
+  //   胶囊 → 卡片：**内容**高过单行——读的就是文本列那一格的实测高度（先把编辑器
+  //                按当前文本定好高，再看那一格有没有高出来）。文本折行、附件胶囊
+  //                折行、编辑器被挤到下一行，三种都算；
+  //   卡片 → 胶囊：只认「清空」（文本空且附件清空）。
+  // 判据为什么是"那一格有多高"而不是"数几行字"：附件与文本同处一条流，"内容不止
+  // 一行"有四种来源（文本折行 / 胶囊折行 / 胶囊把编辑器挤到下一行 / 空框占位符折行），
+  // 逐个枚举必漏。旧实现数的是量测件里的文本行数，于是"空框 + 一颗长名附件"那条路径
+  // 漏了：框长到两行高、＋ 与右簇仍按单行态垂直居中在框中间（用户 2026-10-14 截图
+  // 报障）。Atd 同一条判据也是"内容高过一行就展开"（`data-expanded`），不是数行。
+  // 进/出各认一个门槛、且**退出只认清空**（与旧实现同一条纪律）：判定在胶囊态的列宽下
+  // 做，宽态只在清空时回退，所以临界内容不会在两套布局间来回翻转（#185 那次输入时整框
+  // 上下抽搐的根因就是按当前布局反复重判）。
   useLayoutEffect(() => {
     const el = taRef.current;
-    const probe = probeRef.current;
-    if (!el || !probe) return;
-    const cs = getComputedStyle(probe);
-    const rows = Math.round(
-      (probe.scrollHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) / parseFloat(cs.lineHeight),
-    );
-    // 翻转的这一轮只改布局：输入框宽度跟着布局变，高度必须等新宽度落地后再量。
-    // 否则窄态量出的高度留着——框里多一条空行，再敲一个字才回落。
-    if (!multiline && rows > 1) { setMultiline(true); return; }
-    if (multiline && text.length === 0) { setMultiline(false); return; }
+    const field = fieldRef.current;
+    if (!el || !field) return;
+    // 先按当前文本把编辑器的高度定下来（autoGrow 内部先置 auto 再读 scrollHeight，
+    // 所以拿到的是内容高度、与上一轮的 inline height 无关），接着才量那一格——
+    // 这样"这一轮刚折的行"当场就能看见，不必等下一次输入。
     autoGrow(el);
-  }, [text, multiline, widthTick]);
-  // 列宽变化（窗口缩放、容量圈进出）会移动折行点：量测件宽度一变就重跑上面那条。
-  // 只认**宽度**：高度变化不移动折行点（#185 教训——探针盒高度抖动引发的计数
+    const single = parseFloat(getComputedStyle(el).minHeight) || 0;
+    if (!multiline && field.clientHeight > single + 1) { setMultiline(true); return; }
+    if (multiline && text.length === 0 && attachments.length === 0) { setMultiline(false); }
+  }, [text, multiline, widthTick, attachments]);
+  // 列宽变化（窗口缩放、容量圈进出）会移动折行点：那一格宽度一变就重跑上面那条。
+  // 只认**宽度**：高度变化不移动折行点（#185 教训——盒子高度抖动引发的计数
   // 重入是同步 setState 循环的燃料），宽度不变就不 tick。
   useEffect(() => {
-    const probe = probeRef.current;
-    if (!probe) return;
+    const field = fieldRef.current;
+    if (!field) return;
     let lastWidth = -1;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
@@ -142,7 +143,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
       lastWidth = w;
       setWidthTick((t) => t + 1);
     });
-    ro.observe(probe);
+    ro.observe(field);
     return () => ro.disconnect();
   }, []);
   /** 把「模型条目不吃 inline 图片」的那批图片按通用文件原件重投：同一份字节走
@@ -635,10 +636,11 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
           >
             <Plus size={16} strokeWidth={2} />
           </button>
-          {/* 文本列：附件胶囊在前、输入框紧随其后（同一行；一行放不下时输入框整条
-              换到下一行）。量测件与输入框同格叠放（.composer-text），所以"折成两行
-              没有"的判据跟着附件挤掉多少宽度一起走。 */}
-          <div className="composer-field">
+          {/* 文本列：附件胶囊与编辑器**同处一条流**（照 Atd：胶囊是行内的原子，正文
+              接在它后面）——胶囊在前，编辑器吃剩下的宽度；剩下的宽度不够它落脚
+              （见 .composer-field 的 min-width）时整条折到下一行。这一格的实测高度
+              就是"内容折了几行"的判据（见上面那条 useLayoutEffect）。 */}
+          <div className="composer-field" ref={fieldRef}>
             {attachments.length > 0 && (
               <div className="composer-atts">
                 {attachments.map((a) => (
@@ -652,54 +654,49 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
                 ))}
               </div>
             )}
-            <div className="composer-text">
-              {/* 行数量测件：与输入框同款式的只读 textarea，零高度、不可见，与输入框
-                  同格叠放（宽度＝输入框宽度）。 */}
-              <textarea ref={probeRef} className="composer-probe" readOnly tabIndex={-1} aria-hidden="true" value={text} />
-              <textarea
-                ref={taRef}
-                rows={1}
-                value={text}
-                placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
-                onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); }}
-                onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
-                onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
-                onCompositionEnd={() => { ime.onCompositionEnd(); setComposing(false); }}
-                onPaste={(e) => {
-                  // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
-                  const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
-                  if (files.length === 0) return;
-                  e.preventDefault();
-                  for (const f of files) addImageFile(f);
-                }}
-                onKeyDown={(e) => {
-                  if (ime.swallow(e)) return;
-                  if (menu && rows.length > 0) {
-                    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                      e.preventDefault();
-                      setActive((current) => (current + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
-                      return;
-                    }
-                    if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
-                      e.preventDefault();
-                      const r = rows[active];
-                      if (r) pick(r);
-                      return;
-                    }
-                  }
-                  if (e.key === "Escape") {
-                    if (menu) { e.preventDefault(); setDismissed(true); }
+            <textarea
+              ref={taRef}
+              rows={1}
+              value={text}
+              placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
+              onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); }}
+              onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
+              onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
+              onCompositionEnd={() => { ime.onCompositionEnd(); setComposing(false); }}
+              onPaste={(e) => {
+                // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
+                const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+                if (files.length === 0) return;
+                e.preventDefault();
+                for (const f of files) addImageFile(f);
+              }}
+              onKeyDown={(e) => {
+                if (ime.swallow(e)) return;
+                if (menu && rows.length > 0) {
+                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActive((current) => (current + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
                     return;
                   }
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
                     e.preventDefault();
-                    // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
-                    const other = busyEnter === "queue" ? "steer" : "queue";
-                    void submit(e.metaKey || e.ctrlKey ? other : undefined);
+                    const r = rows[active];
+                    if (r) pick(r);
+                    return;
                   }
-                }}
-              />
-            </div>
+                }
+                if (e.key === "Escape") {
+                  if (menu) { e.preventDefault(); setDismissed(true); }
+                  return;
+                }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
+                  const other = busyEnter === "queue" ? "steer" : "queue";
+                  void submit(e.metaKey || e.ctrlKey ? other : undefined);
+                }
+              }}
+            />
           </div>
           {/* 右侧控件簇：思考强度胶囊（有档位的模型才有）→ 容量圈 → 单槽位
               （空=听写 → 有内容=发送 → 运行中=停止）。同一格一个 flex 行，
