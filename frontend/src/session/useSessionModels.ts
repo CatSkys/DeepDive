@@ -22,6 +22,12 @@ export function useSessionModels(sessionId: string) {
   const [effortLevels, setEffortLevels] = useState<Array<{ id: string; name: string }>>([]);
   const [effort, setEffort] = useState<string | undefined>(undefined);
 
+  // `engineUp` 进依赖是**必须的**，不是顺手加的：冷启动与引擎重启的窗口里
+  // `api.modelOptions()` 会抛（引擎未就绪），两个 catch 都留空——不重拉的话这个会话
+  // 的档位表就一直是空表，输入框的档位胶囊整场都不出现（用户 2026-10-14 报「思考强度
+  // 的开关怎么没了」，`make deliver` 重启后撞的正是这个窗口）。草稿页
+  // （useDraftModelFace）与导入页早就是"engineUp 翻真再拉一次"的口径，这里是同一件事
+  // 的第三个落点；翻假那一次只是两条注定失败的请求，catch 自己吞掉，界面不会闪。
   useEffect(() => {
     // 0.1.2：session/modelCatalog 是唯一目录面（含默认选择与各模型 reasoning
     // 档位元数据）；会话的实时选择读 modelSelection 投影（next ?? lastUsed）。
@@ -55,7 +61,7 @@ export function useSessionModels(sessionId: string) {
         setEffort(cur?.reasoningEffort ?? hit?.defaultEffort ?? undefined);
       } catch { /* optional enrichment */ }
     })();
-  }, [sessionId]);
+  }, [sessionId, store.engineUp]);
 
   /** 切模型：只提交 provider/model。档位不跟着走——引擎按 resolveCallConfig 归一
    *  （省略档位＝该模型的适配器默认档，可能物化成一个具体 id），所以档位显示取
