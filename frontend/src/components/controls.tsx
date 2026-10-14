@@ -7,7 +7,7 @@ import { Check, MoreHorizontal } from "lucide-react";
 import { useBrowserPopup } from "../sidebar-right/useBrowserPopup";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { GlassLayer } from "./GlassLayer";
-import { placeFloating, useFloatingBox } from "./floatingPlacement";
+import { measuringStyle, placeFloating, useFloatingBox } from "./floatingPlacement";
 
 /** Global shared controls (settings sections + hero preset picker): monochrome
  *  toggle and custom dropdown (portaled so the options scroller cannot clip
@@ -77,15 +77,15 @@ export function Dropdown({ options, value, onChange, variant, block }: { options
   // 菜单探出屏幕——所以这里"先量后落位"（useFloatingBox），限高由它按实际余量给。
   const box = useFloatingBox(open, triggerRef, menuRef);
   const minWidth = Math.max(triggerWidth, rich ? 272 : 0);
-  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height });
+  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height, inset: box.inset });
   const menu = open && createPortal(
     <div
       ref={menuRef}
       className={rowsCss.ddMenu}
       role="listbox"
       style={placement === null
-        // 还没量到尺寸：不可见地渲一帧（不能加 maxHeight，否则量不到自然高度）
-        ? { position: "fixed", top: 0, left: 0, visibility: "hidden", minWidth }
+        // 还没量到尺寸：不可见地渲一帧（几何见 measuringStyle，别手写）
+        ? measuringStyle(minWidth)
         : {
           position: "fixed",
           top: placement.top,
@@ -180,7 +180,7 @@ export function RowMenu({ items, onSelect, label, nativePopup = false }: {
 
   // 菜单贴触发钮的右下、右边对齐（靠右的行不会溢出）：落位算术与 Dropdown 同一份
   const box = useFloatingBox(open, triggerRef, menuRef);
-  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height }, { align: "right" });
+  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height, inset: box.inset }, { align: "right" });
 
   return (
     <div className={rowsCss.dd} ref={rootRef}>
@@ -193,8 +193,8 @@ export function RowMenu({ items, onSelect, label, nativePopup = false }: {
           className={rowsCss.ddMenu}
           role="menu"
           style={placement === null
-            // 还没量到尺寸：不可见地渲一帧（不能加 maxHeight，否则量不到自然高度）
-            ? { position: "fixed", top: 0, left: 0, visibility: "hidden", minWidth: ROW_MENU_WIDTH }
+            // 还没量到尺寸：不可见地渲一帧（几何见 measuringStyle，别手写）
+            ? measuringStyle(ROW_MENU_WIDTH)
             : {
               position: "fixed",
               top: placement.top,

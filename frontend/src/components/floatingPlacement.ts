@@ -15,7 +15,7 @@
  * 探出屏幕右侧。所以"内容撑宽"的菜单要走 `useFloatingBox`（先渲染、量完再落位）。
  */
 import { useLayoutEffect, useState } from "react";
-import type { RefObject } from "react";
+import type { CSSProperties, RefObject } from "react";
 
 /** 锚点矩形：`DOMRect` 结构上就满足它（单测可直接造字面量，不必进 DOM）。 */
 export interface FloatingAnchor {
@@ -30,6 +30,10 @@ export interface FloatingAnchor {
 export interface FloatingSize {
   width: number;
   height: number;
+  /** 该面自身的**垂直**内垫 + 边框。`.ddMenu` 这类面是 content-box，CSS 的 `max-height`
+   *  限的是内容盒：实测来的盒子要带上它，限高才不会比余量多出这一截（10px 就能从窗底探出去）。
+   *  声明成"上限"的尺寸（照 CSS 类里 max-height 抄的常量）不带它。 */
+  inset?: number;
 }
 
 export interface FloatingPlacement {
@@ -63,16 +67,40 @@ export function placeFloating(
   return {
     top: Math.min(Math.max(MARGIN, top), window.innerHeight - MARGIN),
     left,
-    maxHeight: height,
+    // `max-height` 限的是内容盒，扣掉该面自己的内垫 + 边框才是"整个盒子不超过余量"
+    maxHeight: Math.max(0, height - (size.inset ?? 0)),
     below: openBelow,
   };
 }
 
-/** 菜单落位用的实测值：锚点矩形 + 菜单自身的宽高。 */
+/**
+ * **量尺寸那一帧**该用的内联几何。单独成函数是因为它有个必须记住的坑：
+ * `.ddMenu` / `.ctx-menu` / `.model-menu` 这些类自带 `right: 0`（也有自带 `top` 的），
+ * 只覆盖 `left` 就成 left+right **双约束**——CSS 会把宽度解成"包含块宽 − left − right"
+ * 即**整个视口宽**，于是量回来的宽是视口宽、不是菜单宽，夹右缘的算术全错。
+ * 2026-10-14 用户报「你这修到左边去了」的真因：`innerWidth - 视口宽 - 8` 是负数，
+ * `max(8, …)` 把菜单钉在左边 8px（实测 x=8、锚点在 x=950）。
+ * 所以这一帧必须把 `right`/`bottom` 也显式归 `auto`（不设 `maxHeight`，不然量不到自然高）。
+ * 用这个函数、别手写这帧的 style。
+ */
+export function measuringStyle(minWidth: number): CSSProperties {
+  return {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: "auto",
+    bottom: "auto",
+    visibility: "hidden",
+    minWidth,
+  };
+}
+
+/** 菜单落位用的实测值：锚点矩形 + 菜单自身的宽高 + 垂直内垫（见 `FloatingSize.inset`）。 */
 export interface FloatingBox {
   anchor: FloatingAnchor;
   width: number;
   height: number;
+  inset: number;
 }
 
 /**
@@ -101,7 +129,10 @@ export function useFloatingBox(
     if (!anchor || !menu) return;
     const a = anchor.getBoundingClientRect();
     const m = menu.getBoundingClientRect();
-    setBox({ anchor: a, width: m.width, height: m.height });
+    const cs = getComputedStyle(menu);
+    const px = (v: string) => Number.parseFloat(v) || 0;
+    const inset = px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth);
+    setBox({ anchor: a, width: m.width, height: m.height, inset });
   }, [open, box, anchorRef, menuRef]);
   return box;
 }
