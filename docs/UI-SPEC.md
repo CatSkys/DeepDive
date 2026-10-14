@@ -106,7 +106,7 @@
 | `font.size.sm` | base − 2 = 11px | 次要文案、分组标签（Pinned / Recent / Last Week）、浮层小标题、Tooltip、行内代码 |
 | `font.size.base` | base = 13px | **正文默认**：正文、按钮、列表行、会话标题、markdown h3、代码块正文 |
 | `font.size.lg` | base + 3 = 16px | 分区/弹窗标题、markdown h2 |
-| `font.size.xl` | base + 5 = 18px | markdown h1、浮层大字形（灯箱关闭/缩放）、命令面板查询行 |
+| `font.size.xl` | base + 5 = 18px | markdown h1、浮层大字形（灯箱关闭/缩放）、命令面板查询行（⌘K 与命令中心搜索行） |
 | `font.size.hero` | 24px（**显示级**，不随基准） | 面板主标题、引导页标题、页内一级标题、环图中心数 |
 | `font.weight` | 400 · 500 · 600 仅三档 | **600 = 标题（lg 及以上档）与数字/表头；500 = 其余一切强调**（列表行名、分组标签、选中态、按钮、chip、字形）；400 = 正文 |
 | `num.style` | `tabular-nums` | 计数、耗时 |
