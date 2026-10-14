@@ -32,6 +32,7 @@ import { useSessionModels } from "../session/useSessionModels";
 import { modeOverrides } from "../sidebar-right/SessionSettings";
 import { useDraftModelFace } from "../useDraftModelFace";
 import { MiniChoicePage, flattenChoices, type ChoiceSection } from "./MiniChoicePage";
+import { ROW_ICON } from "../components/panelRowIcon";
 import type { KeyHandler } from "./MiniCommandCenter";
 import type { ModelFace } from "../session/SessionHeader";
 
@@ -196,12 +197,9 @@ function CardRow({
       data-cursor={cursor || undefined}
       onClick={onClick}
     >
-      {/* 图标描边取**绝对 1.5px**（`absoluteStrokeWidth` 让 strokeWidth 不再随 size 缩放）：
-          lucide 默认是 24 格外框上 2，渲到 15px 只剩 1.25px，比参考面板细一圈；参考面板用的是
-          自己那套 0 0 16 16、`stroke-width="1.5"` 的字形，渲成 16px 就是 1.5px 线
-          （截图里 '+' 的横杠量出来 3 图像 px = 1.5 CSS px，正好对上）。取绝对值是为了**渲出来的
-          像素**两边一样，而不是只在等比上凑。 */}
-      <span className="panel-settings-icon"><Icon size={15} strokeWidth={1.5} absoluteStrokeWidth /></span>
+      {/* 行图标与 ⌘K 面板同一份参数（块注释在 `components/panelRowIcon.ts`）：参考面板的图标是
+          16 格里 1.5 描边，lucide 默认是 24 格里 2、渲到 15px 只剩 1.25。 */}
+      <span className="panel-settings-icon"><Icon {...ROW_ICON} /></span>
       <span className="panel-settings-label">
         {opens ? `${label}…` : label}
         {hint !== undefined && <CircleAlert size={12} className="panel-settings-hint-icon" data-tip={hint} />}

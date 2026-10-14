@@ -86,13 +86,16 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* 图标与标题之间 8：与命令中心卡同值，也正是参考面板的 `--space-8`（此行原写 10）。 */
+  gap: 8px;
   width: 100%;
-  /* 参考图的行高：图标 26 + 上下各 6。我们的图标是 16 的线形字形，故取 38 的视觉高度 */
-  height: 38px;
+  /* 36 = 参考面板的 `defaultItemHeight`（量出来 72 图像 px ÷ 2）；此前 38 是照"图标 26 + 上下各 6"
+     那个换算写的，但我们的图标本来就是 16 的线形字形，两处面板现在同高。 */
+  height: 36px;
   padding: 0 8px;
   border: none;
-  border-radius: var(--dsh-radius-control);
+  /* 行圆角走 radius.row（8，= 参考面板拟合出来的 r）；10 那份是控件档，行不再是它。 */
+  border-radius: var(--dsh-radius-row);
   background: none;
   color: var(--ink);
   font-size: var(--dsh-font-size-base);

@@ -11,6 +11,7 @@ enum ShellRadius {
   /// 与 tokens.json 的 radius 组逐档对应。
   static let micro: CGFloat = 4
   static let keycap: CGFloat = 6
+  static let row: CGFloat = 8
   static let control: CGFloat = 10
   static let card: CGFloat = 14
   static let panel: CGFloat = 18
