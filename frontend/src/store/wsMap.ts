@@ -4,7 +4,11 @@ import type { SessionSummary, WorkspaceView } from "../types";
 
 /** sessionId → workspaceId 归属表。workspace follow 的 sessionIds 为准；不在任何
  *  空间的会话（引擎未回填的老会话）按 cwd 与空间路径的最长前缀匹配归位；
- *  仍无主 → 第一个空间。无工作空间面时返回空表（全部视为"当前空间"）。 */
+ *  仍无主 → 第一个空间（引擎序首位＝快捷空间，这类会话因此不算主窗的面孔，只在
+ *  面板那条线可见——本地实测无主会话都是早年的、且全已归档）。无工作空间面时返回
+ *  空表（全部视为"当前空间"）。
+ *  **必须传引擎全量空间**（store 的 allWorkspaces）：传主窗筛过的那份会让快捷会话
+ *  匹配不上、落到第一个项目上，正好漏进主窗（见 store/pageVisibility.ts）。 */
 export function buildWsMap(workspaces: WorkspaceView[], sessions: SessionSummary[]): Map<string, string> {
   const m = new Map<string, string>();
   if (workspaces.length === 0) return m;

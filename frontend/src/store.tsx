@@ -13,6 +13,8 @@ import { useSidebarLayout } from "./useSidebarLayout";
 import type { KeybindOverrides } from "./keybinds";
 import { readDraftModel, writeDraftModel, type DraftModel } from "./draftModel";
 import { createUnreadBatcher } from "./store/unreadBatcher";
+import { sessionsOnPage, workspacesOnPage } from "./store/pageVisibility";
+import { isPanelPage } from "./page";
 import type { ApprovalPending, QuestionItem, QuestionPending, SessionQueuedItem, SessionSummary, WorkspaceView } from "./types";
 import { buildWsMap, projectionSig } from "./store/wsMap";
 
@@ -25,6 +27,10 @@ import { buildWsMap, projectionSig } from "./store/wsMap";
 type ControlHandler = (frame: ControlFrame) => void;
 
 export interface Store {
+  /** **这一页**的空间列表：引擎全量去掉「快捷会话」（用户 2026-10-14：「悬浮快捷会话
+   *  不在主面板中显示」——那个空间是悬浮面板那条线的窗口）；面板页反过来是全量。
+   *  侧栏/切换器/⌥N/⌘K/自动化/引导统统读这一份，别再各写一遍判断（判据只有
+   *  store/pageVisibility.ts 一处）。 */
   workspaces: WorkspaceView[];
   /** 归档会话全集（workspace follow 的 archivedSessionIds；归档唯一事实源）。 */
   archived: Set<string>;
@@ -34,6 +40,8 @@ export interface Store {
   /** sessionId → workspaceId 归属表（workspace follow 的 sessionIds 摊平）。
    *  无工作空间面时为空表，此时全部会话视为"当前空间"。 */
   wsOfSession: Map<string, string>;
+  /** 视图这一层：去掉隐藏/归档的，主窗另去掉快捷会话（用户 2026-10-14——侧栏、
+   *  ⌘K 搜索、@ 引用共用这一份；判据见 store/pageVisibility.ts）。 */
   sessions: SessionSummary[];
   /** 用户列表这一层：`sessions` 再去掉子代理派生会话（侧栏/搜索/切换空间/自动归档
    *  共用一份口径——各处自己 filter 一遍就是漏一处的开始）。 */
@@ -174,7 +182,8 @@ const Ctx = createContext<Store>(null as unknown as Store);
 export const useStore = () => useContext(Ctx);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [workspaces, setWorkspaces] = useState<WorkspaceView[]>([]);
+  // 引擎全量空间（含快捷空间）：对外的 `workspaces` 是这一页看得见的那份，见下方推导。
+  const [allWorkspaces, setAllWorkspaces] = useState<WorkspaceView[]>([]);
   const [archived, setArchived] = useState<Set<string>>(new Set());
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -240,6 +249,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
   const [unread, setUnread] = useState<Set<string>>(() => readIdSet("deepdive.unread"));
 
+  // ── 快捷空间这一层（D14）──
+  // 引擎侧「快捷会话」就是个普通空间（壳每次起引擎都注册一遍，因而恒排空间列表首位），
+  // 但它是**悬浮面板那条线的窗口**：主窗不认它、也不认它的会话（用户 2026-10-14）。
+  // 对外的 `workspaces` / `sessions` 各筛一次（判据在 store/pageVisibility.ts），
+  // 侧栏、切换器、⌥N、⌘K、自动化、引导读到的就都是干净的那份——不为它到处写判断。
+  // 引擎全量仍要留着：归属表（buildWsMap）拿全量建，快捷会话才归得到快捷空间（拿筛过
+  // 的建表会把它落到主窗第一个空间，正好漏进主窗）；推给壳的命令腿也要按路径找它。
+  const quickWorkspaceId = useMemo(
+    () => (quickWorkspacePath
+      ? allWorkspaces.find((w) => w.path === quickWorkspacePath)?.workspaceId ?? null
+      : null),
+    [allWorkspaces, quickWorkspacePath],
+  );
+  const workspaces = useMemo(
+    () => workspacesOnPage(allWorkspaces, quickWorkspaceId, isPanelPage()),
+    [allWorkspaces, quickWorkspaceId],
+  );
+
   /** 取消归档：引擎落账 + 刷新（归档集在引擎里，调用返回即生效）。
    *  失败回引擎错误文本，调用方弹窗。 */
   const unarchiveSession = useCallback(async (id: string) => {
@@ -303,13 +330,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // ── 工作空间状态 ──
   // ref 镜像：refresh 的轮询闭包只捕获首帧，同步读写必须走 ref（同 activeIdRef
   // 手法）；归属表摊平自 workspace follow 的 sessionIds。
+  // 两份镜像：`allWorkspacesRef` 是引擎全量（建归属表、按路径找快捷空间用），
+  // `workspacesRef` 是这一页看得见的那份（切空间落点、新会话落点、深链回退用）。
+  const allWorkspacesRef = useRef(allWorkspaces);
+  allWorkspacesRef.current = allWorkspaces;
   const workspacesRef = useRef(workspaces);
   workspacesRef.current = workspaces;
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
   const activeWsRef = useRef<string | null>(null);
   useEffect(() => { activeWsRef.current = activeWorkspaceId; }, [activeWorkspaceId]);
-  const wsOfSession = useMemo(() => buildWsMap(workspaces, sessions), [workspaces, sessions]);
+  const wsOfSession = useMemo(() => buildWsMap(allWorkspaces, sessions), [allWorkspaces, sessions]);
   const wsOfRef = useRef(wsOfSession);
   wsOfRef.current = wsOfSession;
   const persistActiveWs = (id: string) => {
@@ -327,41 +358,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     archivedRef.current = next;
     setArchived(next);
   };
-  // 工作空间解析（持久化的"最后使用空间"已不存在则回退第一个空间）只在
-  // 尚未解析时执行一次，流增量不覆盖用户的即时切换。
-  const resolveActiveWs = (items: WorkspaceView[]) => {
-    if (activeWsRef.current || items.length === 0) return;
+  // 工作空间解析（持久化的"最后使用空间"已不在**这一页的空间列表**里就回退第一个
+  // 可见空间）只在尚未解析时执行一次，流增量不覆盖用户的即时切换。
+  // 读的是筛过的列表，所以 localStorage 里那个值即便是快捷空间（面板页切过去写过，
+  // 同 origin 共用一份存储）也不会把主窗带进快捷空间——只会回退到第一个真项目。
+  const resolveActiveWs = () => {
+    if (activeWsRef.current || workspaces.length === 0) return;
     let stored: string | null = null;
     try { stored = JSON.parse(localStorage.getItem("deepdive.workspace") ?? "null"); } catch { /* corrupt */ }
-    const resolved = (items.find((w) => w.workspaceId === stored) ?? items[0])?.workspaceId ?? null;
-    if (resolved) {
-      activeWsRef.current = resolved;
-      setActiveWorkspaceId(resolved);
-    }
+    const resolved = (workspaces.find((w) => w.workspaceId === stored) ?? workspaces[0])?.workspaceId ?? null;
+    if (!resolved) return;
+    activeWsRef.current = resolved;
+    setActiveWorkspaceId(resolved);
   };
+  useEffect(resolveActiveWs, [workspaces]);
   useEffect(() => {
     return api.openWorkspaces((frame: WorkspaceFollowFrame) => {
       if (frame.type === "baseline") {
-        workspacesRef.current = frame.value.items;
-        setWorkspaces(frame.value.items);
+        allWorkspacesRef.current = frame.value.items;
+        setAllWorkspaces(frame.value.items);
         syncArchived(frame.value.archivedSessionIds ?? []);
-        resolveActiveWs(frame.value.items);
         return;
       }
-      const items = workspacesRef.current;
+      const items = allWorkspacesRef.current;
       if (frame.type === "upsert") {
         const next = items.filter((w) => w.workspaceId !== frame.workspace.workspaceId).concat(frame.workspace);
-        workspacesRef.current = next;
-        setWorkspaces(next);
+        allWorkspacesRef.current = next;
+        setAllWorkspaces(next);
       } else if (frame.type === "remove") {
         const next = items.filter((w) => w.workspaceId !== frame.workspaceId);
-        workspacesRef.current = next;
-        setWorkspaces(next);
+        allWorkspacesRef.current = next;
+        setAllWorkspaces(next);
       } else if (frame.type === "order") {
         const byId = new Map(items.map((w) => [w.workspaceId, w]));
         const next = frame.workspaceIds.map((id) => byId.get(id)).filter((w): w is WorkspaceView => w !== undefined);
-        workspacesRef.current = next;
-        setWorkspaces(next);
+        allWorkspacesRef.current = next;
+        setAllWorkspaces(next);
       } else if (frame.type === "archived") {
         syncArchived(frame.archivedSessionIds ?? []);
       }
@@ -429,11 +461,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       setEngineUp(true);
       setEverConnected(true);
-      resolveActiveWs(workspacesRef.current);
       // 会话→空间归属：任一输入变化才重算（归属表只由工作空间 sessionIds 与
       // 会话 cwd 集决定，签名/工作空间都没变就是同一张表），并同步回 ref 供
       // 即时读取——wsOfSession 的 memo 镜像要等重渲染才更新，boot 策略等不得。
-      const wsBase = workspacesRef.current;
+      // 拿**引擎全量**建表：快捷会话必须归到快捷空间，落到别的空间就漏进主窗了。
+      const wsBase = allWorkspacesRef.current;
       if (sigChanged || wsBase !== wsMapWorkspacesRef.current) {
         wsMapWorkspacesRef.current = wsBase;
         wsOfRef.current = buildWsMap(wsBase, sorted);
@@ -583,20 +615,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
   // ── 快捷会话（D14）──
   // 默认空间注册：workspace/create 幂等（已注册即返回既有，目录由壳保证存在）。
-  // 引擎对新建空间是"注册序置顶"（workspace/src/index.ts），所以首次注册后它排在
-  // 空间列表最前——属引擎语义，不前端重排。
+  // 引擎对新建空间是"注册序置顶"（workspace/src/index.ts），所以每次启动注册一遍后
+  // 它排在空间列表最前——属引擎语义，不前端重排；主窗看得见的那份已按 pageVisibility
+  // 把它摘掉，所以这条排序主窗侧读不出来（面板页读得到，它照旧是首个）。
   useEffect(() => {
     if (!engineUp || !quickWorkspacePath) return;
     api.workspaceCreate({ path: quickWorkspacePath }).catch(() => void 0);
   }, [engineUp, quickWorkspacePath]);
 
   const openQuickSession = useCallback(() => {
-    const quick = quickWorkspacePath
-      ? workspaces.find((w) => w.path === quickWorkspacePath)
-      : undefined;
-    if (quick) switchWorkspace(quick.workspaceId);
+    if (quickWorkspaceId) switchWorkspace(quickWorkspaceId);
     openSession(null);
-  }, [quickWorkspacePath, workspaces, switchWorkspace, openSession]);
+  }, [quickWorkspaceId, switchWorkspace, openSession]);
 
   // 选区工具条：设置（prefs）+ 划词命令目录合成一份推给壳——壳据此立即生效并持久化。
   // 胶囊上只放划词命令（提示词模板那批）；引擎的工具命令（/compact 这类）不在这儿，
@@ -611,9 +641,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // 推壳（Atd 桥契约 `miniPanel.setCommands`：条目 {id,name}，id 即引擎命令名
   // ——命令卡点行回推 runQuickCommand{name}，预填 `/{name}` 走执行链）。双窗
   // （主窗/迷你面板）各推一份，壳按内容去重；上限 64 条与壳契约一致。
+  // 取的是**引擎全量**里的快捷空间：主窗那一份已经摘掉它了，命令腿照旧要发。
   useEffect(() => {
-    const quick = quickWorkspacePath
-      ? workspaces.find((w) => w.path === quickWorkspacePath)
+    const quick = quickWorkspaceId
+      ? allWorkspaces.find((w) => w.workspaceId === quickWorkspaceId)
       : undefined;
     const ids = quick?.sessionIds ?? [];
     const sid = ids.length ? ids[ids.length - 1] : null;
@@ -636,7 +667,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [workspaces, quickWorkspacePath]);
+  }, [allWorkspaces, quickWorkspaceId]);
 
 
   // 草稿模型（见 Store 接口注释）：初值读档，写入即落 localStorage；ref 镜像供
@@ -696,10 +727,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [switchWorkspace]);
 
   /** 视图层（已按归档过滤）：Store.sessions 与 sidebarSessions 共用这一份，
-   *  别再各 filter 一遍。删除不必再过一遍——引擎的列表里已经没有了。 */
+   *  别再各 filter 一遍。删除不必再过一遍——引擎的列表里已经没有了。
+   *  主窗这一页另摘掉快捷会话（用户 2026-10-14「悬浮快捷会话不在主面板中显示」）：
+   *  侧栏/⌘K 搜索/@ 引用读的都是这一份。自动归档的候选也从这里挑，所以快捷会话
+   *  不归主窗的归档策略管——它归面板的历史行菜单。 */
   const visibleList = useMemo(
-    () => sessions.filter((s) => !isHiddenSession(s) && !archived.has(s.sessionId)),
-    [sessions, archived],
+    () => sessionsOnPage(
+      sessions.filter((s) => !isHiddenSession(s) && !archived.has(s.sessionId)),
+      wsOfSession,
+      quickWorkspaceId,
+      isPanelPage(),
+    ),
+    [sessions, archived, wsOfSession, quickWorkspaceId],
   );
   /** 用户列表层（见 Store.sidebarSessions）。留 ref 供 switchWorkspace 同步挑落点。 */
   const sidebarSessions = useMemo(() => visibleList.filter(isSidebarSession), [visibleList]);
