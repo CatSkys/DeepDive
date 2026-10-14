@@ -528,6 +528,33 @@ function checkGlassHosts(file, text, globalCss) {
   return violations;
 }
 
+// ── 规则 9：字号只走阶梯，字重不许出现 700 及以上 ──────────────────────────────
+// 两类都不报错、测试不红，只是页面上静默走样（2026-10-14 字体对齐 Raycast 时收口）：
+//   · 手写字号绕开 `--dsh-font-size-*` 之后，改基准不再带上它——阶梯的全部意义是"改一个字
+//     改整梯"，而全仓曾有一处 `font-size: 11px` 就这么留在六档之外（UI-SPEC §1.2）；
+//   · `font-weight: 700` 在中文上不是加粗而是**合成加粗**：PingFang SC 的真实字面最高只到
+//     Semibold，700 只能由 WebKit 描边伪造，笔画发糊发闷（UI-SPEC §1.2 称之为"中文界面显
+//     廉价的典型来源"）。700 在 2026-09-30 全仓收回过，2026-10-11 又漏进 3 处，所以机械拦。
+// 口径：字重只认 400/500/600，语义是「**600 = 标题（lg 及以上档）与数字，500 = 其余一切强调**」；
+// 字号只认 token（图形/图表内部件用 em 跟随容器几何，不算手写 px；TSX 里的内联 fontSize
+// 是图表轴标签与 monogram 的几何推导，UI-SPEC §1.2 已登记豁免，本规则不查 TSX）。
+const LITERAL_FONT_SIZE_RE = /(?:^|[;{])\s*font-size\s*:[^;{}]*\d(?:\.\d+)?px\b/;
+const HEAVY_FONT_WEIGHT_RE = /(?:^|[;{])\s*(?:font-weight|font)\s*:[^;{}]*\b(?:700|800|900|bold|bolder)\b/;
+
+function checkFontScale(file, text) {
+  const css = text.replace(/\/\*[\s\S]*?\*\//g, " ");
+  const violations = [];
+  for (const [re, why] of [
+    [LITERAL_FONT_SIZE_RE, "字号必须取 var(--dsh-font-size-*)"],
+    [HEAVY_FONT_WEIGHT_RE, "字重上限是 600（700 及以上在中文上是合成加粗）"],
+  ]) {
+    for (const m of css.matchAll(new RegExp(re.source, "g"))) {
+      violations.push({ rule: "font-scale", file, detail: `${m[0].replace(/^[;{]\s*/, "").trim()} —— ${why}` });
+    }
+  }
+  return violations;
+}
+
 function collect() {
   const files = SOURCE_ROOTS.flatMap((dir) => walk(dir)).filter((f) => !isTest(f));
   // 全局（非 module）CSS 的文本按文件留着：字面量类名的宿主在那几个文件里查。
@@ -538,10 +565,11 @@ function collect() {
   for (const file of files) {
     if (file.endsWith(".ts") || file.endsWith(".tsx")) violations.push(...checkCssModuleClasses(file));
   }
-  // 规则 3~6 只看前端：Swift 壳的样式不归 tokens.json 管。
+  // 规则 3~6、9 只看前端：Swift 壳的样式不归 tokens.json 管。
   for (const file of walk(FRONTEND_SRC, [], [".css"]).filter((f) => !isTest(f))) {
     const text = readFileSync(file, "utf8");
     violations.push(...checkBareHex(file, text, true));
+    violations.push(...checkFontScale(file, text));
     violations.push(...checkNarrowMediaMiniPanel(file, text));
     violations.push(...checkMiniPanelScope(file, text));
     violations.push(...checkSurfaceTiers(file, text.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))));

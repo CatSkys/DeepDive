@@ -971,7 +971,7 @@ button {
   padding: 0 10px;
   color: var(--ink);
   font-size: var(--dsh-font-size-base);
-  font-weight: 600;
+  font-weight: 500;
   border-radius: var(--dsh-radius-bubble); /* 胶囊与 task-row 同语法：半径用高度值（PITFALLS §1.1） */
 }
 :where(html[data-hover-armed]) .ws-row:hover { background: var(--row-hover); }
@@ -1034,7 +1034,7 @@ button {
   align-items: center;
   justify-content: center;
   font-size: var(--dsh-font-size-sm);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
   color: var(--ink-2);
 }
@@ -1139,7 +1139,7 @@ button {
   align-items: center;
   justify-content: center;
   font-size: var(--dsh-font-size-base);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink-2);
   overflow: hidden;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
@@ -1281,7 +1281,7 @@ button {
   box-sizing: border-box;
 }
 .hero-top .left { flex: 1; position: relative; }
-.hero-top .title { font-size: var(--dsh-font-size-base); font-weight: 600; line-height: 20px; color: var(--ink); }
+.hero-top .title { font-size: var(--dsh-font-size-base); font-weight: 500; line-height: 20px; color: var(--ink); }
 /* 草稿页与会话页同构：草稿列与右侧会话设置卡并列两张卡（.session-row 那套几何
    直接复用——.hero 在下面按会话卡同规格补圆角/描边/卡面）。 */
 .session-row > .hero {
@@ -1440,7 +1440,7 @@ button {
 .model-detail-view { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; }
 .model-detail-name {
   font-size: var(--dsh-font-size-base);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink-bright);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2199,7 +2199,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   padding: 10px 0;
   font-family: var(--dsh-font-mono-family);
   font-size: var(--dsh-font-size-base);
-  line-height: 20px;
+  line-height: 19px;
   color: var(--ink-2);
 }
 /* 换行开关（code/text 声明的 wrap）：开 = 长行折行且不横向撑开；
@@ -2339,7 +2339,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   text-align: left;
 }
 .menu-row svg { color: var(--ink-2); flex-shrink: 0; }
-.menu-row .label { flex-shrink: 0; font-weight: 600; }
+.menu-row .label { flex-shrink: 0; font-weight: 500; }
 .menu-row .menu-detail {
   flex: 1;
   min-width: 0;
@@ -2369,9 +2369,9 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .menu-hint svg { flex-shrink: 0; }
 
 /* ---------- markdown (agent replies, no bubble) ---------- */
-.md { font-size: var(--dsh-font-size-base); line-height: 23px;  /* 1.64：中文长段落 1.5 偏紧（工具感），阅读通道给到 1.6+ */ color: var(--ink); user-select: text; background: transparent !important; }
+.md { font-size: var(--dsh-font-size-base); line-height: 21px;  /* 1.62：中文长段落 1.5 偏紧（工具感），阅读通道给到 1.6+ */ color: var(--ink); user-select: text; background: transparent !important; }
 .md * { background: transparent; }
-.md strong { background: transparent; }
+.md strong { background: transparent; font-weight: 600; }
 .md h1 { font-size: var(--dsh-font-size-xl); font-weight: 600; color: var(--ink-bright); margin: 14px 0 6px; line-height: 24px; }
 .md h2 { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink-bright); margin: 12px 0 5px; line-height: 22px; }
 .md h3 { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); margin: 10px 0 4px; }
@@ -2390,7 +2390,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 .md table { margin: 0 0 9px; border-collapse: collapse; font-size: var(--dsh-font-size-base); }
 .md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; }
-.md th { background: var(--fill); color: var(--ink-bright); font-weight: 600; }
+.md th { background: var(--fill); color: var(--ink-bright); font-weight: 500; }
 
 /* ---------- session view ---------- */
 
@@ -2539,7 +2539,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .title.title-switch:hover { color: var(--ink-bright); }
 .session-header .title {
   font-size: var(--dsh-font-size-base);
-  font-weight: 600;
+  font-weight: 500;
   /* 行高固定 20px：行盒中心 = 8(main) + 8(padding) + 10 = 26px 中心线 */
   line-height: 20px;
   color: var(--ink);
@@ -3101,7 +3101,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 /* 样式与图标直接取自 @deepseek-ai/dsh-web-frontend（黑白映射） */
 
 :root {
-  --dsl-terminal-line-height: 22px;
+  --dsl-terminal-line-height: 20px;
   --dsl-terminal-font: var(--dsh-font-mono-family);
   --dsl-terminal-gutter: 30px;
 }
@@ -3216,7 +3216,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .tool-io-text {
   font-family: var(--dsh-font-mono-family);
   font-size: var(--dsh-font-size-base);
-  line-height: 19px;
+  line-height: 18px;
   color: var(--ink-soft);
   white-space: pre-wrap;
   word-break: break-word;
@@ -4200,7 +4200,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   scrollbar-width: none;
   font-family: var(--dsh-font-mono-family);
   font-size: var(--dsh-font-size-base);
-  line-height: 20px;
+  line-height: 19px;
 }
 .cbBody::-webkit-scrollbar { display: none; }
 .cbLines { position: relative; width: max-content; min-width: 100%; }
@@ -4249,7 +4249,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   color: var(--dsh-signal-warn);
   min-width: 0;
 }
-.md-widget-error-label { flex: none; font-weight: 600; }
+.md-widget-error-label { flex: none; font-weight: 500; }
 .md-widget-error-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
 .md-widget-errors .md-ui-btn { margin-left: auto; flex: none; height: 22px; padding: 0 10px; font-size: var(--dsh-font-size-sm); }
 
@@ -4279,7 +4279,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   gap: 8px;
   animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
-.md-ui-card-title { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-bright); }
+.md-ui-card-title { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink-bright); }
 .md-ui-card-text { font-size: var(--dsh-font-size-base); line-height: 1.65; color: var(--ink-2); }
 .md-ui-card-text .md p:last-child { margin-bottom: 0; }
 .md-ui-card[data-tone="warn"] { border-color: var(--dsh-signal-warn); }
@@ -4293,7 +4293,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   gap: 3px;
   animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
-.md-ui-stat-value { font-size: var(--dsh-font-size-hero); font-weight: 700; color: var(--ink-bright); line-height: 1.2; }
+.md-ui-stat-value { font-size: var(--dsh-font-size-hero); font-weight: 600; color: var(--ink-bright); line-height: 1.2; }
 .md-ui-stat-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .md-ui-stat-hint { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .md-ui-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -4315,7 +4315,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   padding: 8px 12px;
   border-bottom: 0.5px solid var(--line-strong);
   color: var(--ink-bright);
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
 }
 .md-ui-table td { padding: 7px 12px; border-bottom: 0.5px solid var(--line); color: var(--ink-2); }
@@ -4331,7 +4331,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 }
 .md-ui-compare-cols { display: grid; grid-template-columns: repeat(var(--cols, 2), 1fr); gap: 12px; }
 .md-ui-compare-col { min-width: 0; }
-.md-ui-compare-head { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-bright); margin-bottom: 6px; }
+.md-ui-compare-head { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink-bright); margin-bottom: 6px; }
 .md-ui-compare-col ul { margin: 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 4px; }
 .md-ui-compare-col li { font-size: var(--dsh-font-size-sm); line-height: 1.55; color: var(--ink-2); }
 .md-ui-form .md-ui-field { display: flex; flex-direction: column; gap: 4px; }
@@ -4360,7 +4360,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: var(--dsh-font-size-sm);
   color: var(--ink-2);
   box-sizing: border-box;
 }
@@ -4459,7 +4459,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 .snav-group .section-label { color: var(--ink-2); padding-bottom: 8px; }
 .snav-group + .snav-group { margin-top: 16px; }
 :where(html[data-hover-armed]) .snav-item:hover { background: var(--row-hover); color: var(--ink); }
-.snav-item.active { background: var(--fill-strong); color: var(--ink); font-weight: 600; }
+.snav-item.active { background: var(--fill-strong); color: var(--ink); font-weight: 500; }
 
 /* ── 设置内容（装进真实 .main 卡片，仅一层内容容器）── */
 .settings-content {
@@ -4496,7 +4496,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   border-radius: var(--dsh-radius-micro);
   border: 1px solid var(--line-strong);
   color: var(--ink-2);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
 }
 
@@ -4720,7 +4720,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 }
 .auto-proposal .auto-proposal-go:hover { border-color: var(--dsh-border-strong); color: var(--ink-bright); }
 .auto-proposal-main { display: flex; flex-direction: column; gap: 3px; }
-.auto-proposal-title { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-bright); }
+.auto-proposal-title { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink-bright); }
 .auto-proposal-meta { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .auto-proposal-desc {
   margin-top: 4px;
@@ -4808,7 +4808,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 /* hover 与流内行族同语言：只提亮文字，不铺底（此前铺 fill-soft 是行族里的孤例） */
 :where(html[data-hover-armed]) .command-main:hover :is(.command-name, .command-args) { color: var(--ink); }
 .command-leading { display: inline-flex; align-items: center; color: var(--ink-3); }
-.command-name { font-weight: 600; color: var(--ink-soft); font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); }
+.command-name { font-weight: 500; color: var(--ink-soft); font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); }
 .command-args { font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 「已完成」钉在箭头槽旁（槽空占位时它就是行右缘的住民）；可展开时本元素不渲染 */
 .command-hint { margin-left: auto; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
@@ -4860,7 +4860,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   justify-content: center;
   color: var(--ink-bright);
   font-size: var(--dsh-font-size-xl);
-  font-weight: 600;
+  font-weight: 500;
   background: rgba(255,255,255,.04);
 }
 @keyframes drop-in { from { opacity: 0; } }
@@ -4906,7 +4906,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   gap: 9px;
 }
 .ctx-cap-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.ctx-cap-title { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); }
+.ctx-cap-title { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink); }
 .ctx-cap-total { font-size: var(--dsh-font-size-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* 低高度进度条走 radius.bubble 的自动收半高（PITFALLS §1.1 禁 999px） */
 .ctx-cap-bar { height: 5px; border-radius: var(--dsh-radius-micro); background: var(--fill-strong); overflow: hidden; }
@@ -5267,8 +5267,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .capsule-pill-favicon { width: 13px; height: 13px; object-fit: contain; border-radius: var(--dsh-radius-micro); }
 .capsule-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capsule-pill-meta { color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
-.capsule-add { color: rgba(120,220,140,.95); font-weight: 600; }
-.capsule-del { color: rgba(255,120,110,.95); font-weight: 600; }
+.capsule-add { color: rgba(120,220,140,.95); font-weight: 500; }
+.capsule-del { color: rgba(255,120,110,.95); font-weight: 500; }
 /* 面板没有标题行（ZCode 如此）：收起控件浮在右上角，压在第一个区的区头上；
    区头因此留出右侧内距（ZCode 的 StatusSectionHeader 就是 pr-8）。 */
 .capsule-controls {
@@ -5600,7 +5600,7 @@ html[data-tooltip] .tip {
   box-sizing: border-box;
 }
 .workflow-leading { display: inline-flex; color: var(--ink-3); }
-.workflow-name { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-soft); }
+.workflow-name { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink-soft); }
 .workflow-count { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .workflow-reason { font-size: var(--dsh-font-size-sm); color: var(--ink-3); margin-left: auto; }
 .workflow-main .injection-chev[data-open="false"] { transform: rotate(-90deg); }
@@ -5796,7 +5796,7 @@ html[data-tooltip] .tip {
 /* 键盘焦点：本应用的黑白 2px 环（UI-SPEC §2）。不给的话按钮拿到焦点时是 WebKit
    的默认蓝环——全 app 唯一一处彩色，弹窗上尤其扎眼。 */
 .dialog-btn:focus-visible { outline: 2px solid var(--line-focus); outline-offset: 1px; }
-.dialog-btn.primary { border: none; background: var(--ink); color: var(--on-ink); font-weight: 600; }
+.dialog-btn.primary { border: none; background: var(--ink); color: var(--on-ink); font-weight: 500; }
 .dialog-btn.primary:hover { opacity: 0.85; background: var(--ink); }
 .dialog-btn.primary.danger { background: var(--dsh-signal-danger); color: #fff; }
 
@@ -6041,7 +6041,7 @@ html[data-tooltip] .tip {
 .panel-browser-tab-glyph {
   flex: none; display: flex; align-items: center; justify-content: center;
   width: 14px; height: 14px; border-radius: var(--dsh-radius-micro); background: var(--fill-strong);
-  font-size: var(--dsh-font-size-xs); font-weight: 600; color: var(--ink-3);
+  font-size: var(--dsh-font-size-xs); font-weight: 500; color: var(--ink-3);
 }
 /* 喇叭：页面在响（可按静音）或被静音（划掉的样子，可按恢复）时，叉前面那一枚 */
 .panel-browser-tab-speaker {

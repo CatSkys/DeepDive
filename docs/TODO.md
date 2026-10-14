@@ -179,6 +179,24 @@ backdrop-filter 渐隐带**——`theme.css:1535-1575`（`--session-fade-blur: 1
 - Agent 核心以 pi 为种子起步（收编进 @deepdive/* 归我们演进）、Cordis 留任组合内核（插件页 / 应用页的地基）、dsh 安全件收编保留、交接缝即自研层、终态全自研。
 - 决策、依据、四阶段路径与自研原则（交接缝即自研层）的唯一事实源：[PLAN-ENGINE-PI-CORE.md](PLAN-ENGINE-PI-CORE.md)。
 
+## 22. 界面尺寸（缩放）—— 机制已查明，本轮搁置（2026-10-14 用户决定先不做）
+
+要做时照下面走，不必再查一遍：
+
+- **形态**：设置里一个三段选择器（Raycast 的 `Interface Size = Default / Large / Larger` 就是离散
+  三档 `1 / 1+K / 1+2K`，**不是滑杆**）。
+- **我们的机制是壳侧 `WKWebView.pageZoom`，不是 Raycast 那套 `--spx` 单位乘法**：我们没有那份家底
+  （全站几何是 1181 处字面 px，不是 `calc(N * var(--spx))`，照抄等于先把几何 token 化＝另一次重构）；
+  壳侧一行即让整个 SPA（含几何）缩放，且已有先例与定论：`BrowserZoom.swift`（档位表）与
+  `BrowserHost.swift:179`（"pageZoom 是重新排版，不是放大镜"）。
+- **落点**：`MainWindowController` 的 SPA webview 一设，那 6 处 rect 换算（`browserZoom`
+  = `webView.pageZoom`）自动跟上——原生浏览器槽位与对话胶囊不用改。档位取自己那套
+  `BrowserZoom.steps` 里的 1 / 1.1 / 1.25，不引新数。
+- **必须先修的**：PITFALLS §9.2 点名的那条——`titlebar.ts` 的 52px 条带判定没乘 pageZoom，
+  缩放后条带深度在两端不一致。
+- **不给谁上**：迷你面板、悬浮注释、浏览器叠加卡是壳侧按点算尺寸（还有原生铬），网壳半缩会错配；
+  要给它们上得各自改尺寸算法，属独立一轮。
+
 ## 期间不做
 
 - **Agent Teams**（上游 experimental：单会话内 Lead + 命名队友 + 持久消息 + 共享任务板，四包 `experimental/agent-team*`）：用户拍板暂不用。接的话 = 挂 experimental profile + 花名册/任务板面板；地基已备——队友即 continuable 子会话，子代理续聊已落地。

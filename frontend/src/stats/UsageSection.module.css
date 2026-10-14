@@ -15,7 +15,7 @@
   gap: 12px;
   margin-bottom: 12px;
 }
-.cardTitle { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); }
+.cardTitle { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink); }
 
 /* ── 摘要五列（列间细分隔线）── */
 .summary {
@@ -56,7 +56,7 @@
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .segItem:hover { color: var(--ink); }
-.segItem.active { background: transparent; color: var(--on-ink); font-weight: 600; }  /* 底色交给滑移底片 */
+.segItem.active { background: transparent; color: var(--on-ink); font-weight: 500; }  /* 底色交给滑移底片 */
 
 /* ── 热力图 ── */
 .heatBody { display: flex; align-items: stretch; gap: 12px; }
@@ -132,7 +132,7 @@
   font-size: var(--dsh-font-size-sm);
   color: var(--ink);
 }
-.tipTitle { font-weight: 600; white-space: nowrap; }
+.tipTitle { font-weight: 500; white-space: nowrap; }
 .tipRow { display: flex; align-items: center; gap: 7px; margin-top: 6px; white-space: nowrap; }
 .tipRow .dot { width: 7px; height: 7px; }
 .tipMuted { color: var(--ink-2); font-weight: 400; }
