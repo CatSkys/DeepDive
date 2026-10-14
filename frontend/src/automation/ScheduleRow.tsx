@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Dropdown, type DropdownOption } from "../components/controls";
+import { GlassLayer } from "../components/GlassLayer";
 import { useT } from "../i18n";
 import { clockText, defaultSchedule, describeSchedule, SCHEDULE_KINDS, utcOffsetLabel, weekdayLabel, type Schedule, type ScheduleKind } from "./model";
 import css from "./Automation.module.css";
@@ -123,6 +124,7 @@ export function ScheduleRow({ value, onChange }: { value: Schedule | null; onCha
         </button>
         {menuAt && (
           <div className="ctx-menu" style={{ top: menuAt.top, left: menuAt.left }} onClick={(e) => e.stopPropagation()}>
+            <GlassLayer />
             {SCHEDULE_KINDS.map((kind) => (
               <div key={kind} className="ctx-item" onClick={() => { setMenuAt(null); onChange(defaultSchedule(kind)); }}>
                 {t(KIND_LABEL[kind])}

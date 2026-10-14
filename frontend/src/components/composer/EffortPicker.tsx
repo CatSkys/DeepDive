@@ -14,7 +14,7 @@ import { useT } from "../../i18n";
 import { useStore } from "../../store";
 import { DD_EVENTS } from "../../events";
 import rowsCss from "../../settings/SettingsRows.module.css";
-// from "../GlassLayer";
+import { GlassLayer } from "../GlassLayer";
 
 /** 输入框上的思考强度面：档位表 + 当前生效档（undefined = 引擎没报生效档）。 */
 export interface EffortFace {
@@ -143,7 +143,7 @@ export function EffortPicker({ levels, value, pick }: EffortFace) {
             overflowY: "auto",
           }}
         >
-          
+          <GlassLayer />
           {levels.map((level) => (
             <button
               key={level.id}
