@@ -121,10 +121,10 @@
 
 /* ── 下拉菜单（统一弹出面板配方） ── */
 .ddMenu {
-  /* 材质族（menu）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
+  /* 材质族（menu）：交材质层（GlassLayer）。两个值的口径见 theme.css 的同名预设块。
+     不描边——面的范围由底色承担（用户 2026-10-14 定稿，见 PITFALLS §5.20）。 */
   --glass-tint: var(--glass-fill-float);
   --glass-blur: var(--blur-float);
-  --glass-inset: var(--shadow-pop-inset);
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
@@ -133,9 +133,8 @@
   /* 候选多、上方空间不够时靠它内滚（Popover 只给 maxHeight，滚不滚是菜单自己的事） */
   overflow-y: auto;
   padding: 4px;
-  border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
-  box-shadow: var(--shadow-pop-drop);
+  box-shadow: var(--shadow-pop);
 }
 .ddItem {
   display: flex;

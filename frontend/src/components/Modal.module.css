@@ -1,8 +1,8 @@
 /* 居中弹层壳：Modal.tsx 的共享样式。
    全站**唯一一份**遮罩配方 + 卡片盒配方。卡片自己的类只补尺寸与布局。
 
-   卡片盒三件套照参考实现（Raycast 的 `--shadow-panel` 结构）：描边环走投影列表里的
-   inset 项（`--shadow-modal-inset`）、外投影 `--shadow-modal-drop`、材质交给 GlassLayer。
+   卡片盒照参考实现（Raycast 的 `--shadow-panel`）：投影一档 `--shadow-modal`、材质交给
+   GlassLayer。**不描边**——面的范围由底色承担（用户 2026-10-14 定稿，见 PITFALLS §5.20）。
    `position: relative; z-index: 0` 是材质层的硬前提：它用负 z 垫在内容之后，负 z 只在
    宿主自己是栈上下文时才被关在宿主里（见 GlassLayer.tsx 的约束 1）。 */
 .overlay {
@@ -17,13 +17,11 @@
 .card {
   position: relative;
   z-index: 0;
-  /* 材质族（dialog）：交材质层。三个值的口径见 theme.css 的同名预设块。 */
+  /* 材质族（dialog）：交材质层。两个值的口径见 theme.css 的同名预设块。 */
   --glass-tint: var(--glass-fill-dialog);
   --glass-blur: var(--blur-scrim);
-  --glass-inset: var(--shadow-modal-inset);
-  border: 1px solid var(--line-strong);
   border-radius: var(--dsh-radius-card);
-  box-shadow: var(--shadow-modal-drop);
+  box-shadow: var(--shadow-modal);
 }
 /* 进出场：与 Popover 同一份配方与同一条曲线（全站浮层只有这一份）。
    进场只许 `backwards`——`both` 会把末帧的 transform 永久留在卡片上（PITFALLS §1.10）；
