@@ -28,7 +28,7 @@ final class QuickPanelWindowTests: XCTestCase {
 
     /// 失焦收起的判据：键盘走了就收（点到别处、切走应用）；**我们自己还有活的窗拿走的键盘不算**
     /// ——输入区 ＋ 的附件选择器、截图的 overlay，它们干完都要回到面板页（PITFALLS §8.6bis），
-    /// 面板收了就没人接那一投。**置顶那一档（命令中心「面板置顶」）是唯一的例外**：开着它，
+    /// 面板收了就没人接那一投。**置顶那一档（命令中心「置顶」）是唯一的例外**：开着它，
     /// 点到别处也不收——那正是「除非开启指定」那句话里的"指定"。
     func testLosingKeyDismissesUnlessPinnedOrOneOfOurOwnToolsTookIt() {
         XCTAssertTrue(QuickPanelController.dismissesOnLosingKey(stillKey: false, toolTookKey: false, pinned: false))
@@ -38,12 +38,25 @@ final class QuickPanelWindowTests: XCTestCase {
     }
 
     /// 置顶抬窗口层级（面板默认是普通层级——2026-10-13 复盘收回的那条不变）：
-    /// 「面板置顶」打开后要压在普通窗口之上，但仍低于药丸与注释窗（它们不该被面板盖住）。
+    /// 「置顶」打开后要压在普通窗口之上，但仍低于药丸与注释窗（它们不该被面板盖住）。
     func testPinnedPanelRaisesTheLevelButStaysUnderThePill() {
         let normal = QuickPanelController.panelLevel(pinned: false)
         let pinned = QuickPanelController.panelLevel(pinned: true)
         XCTAssertEqual(normal, ShellWindowLevel.main)
         XCTAssertGreaterThan(pinned.rawValue, normal.rawValue)
         XCTAssertLessThan(pinned.rawValue, ShellWindowLevel.miniPanel.rawValue)
+    }
+
+    /// 置顶的另一半是窗口行为（用户 2026-10-14："我要说的是面板置于所有软件最上面"）：
+    /// 置顶要跨 Space、要在全屏应用旁边也在（与屏缘药丸同一份 collectionBehavior）；
+    /// 默认那档照旧不参与全屏、不跨 Space。
+    func testPinnedPanelJoinsAllSpacesAndFullScreen() {
+        let normal = QuickPanelController.panelBehavior(pinned: false)
+        let pinned = QuickPanelController.panelBehavior(pinned: true)
+        XCTAssertTrue(normal.contains(.fullScreenNone))
+        XCTAssertFalse(normal.contains(.canJoinAllSpaces))
+        XCTAssertTrue(pinned.contains(.canJoinAllSpaces))
+        XCTAssertTrue(pinned.contains(.fullScreenAuxiliary))
+        XCTAssertEqual(pinned, ShellWindowBehavior.screenEdge)
     }
 }

@@ -56,10 +56,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     /// 之间是一场竞速——第一次必然推空（页面还没装桥），此后差分又把同一张脸挡在门外，
     /// 表现就是"开机后第一次打开指令面板是空的，关掉再开就好"（面板页当年的 prefs 同型事故，
     /// 修法同一套：让页面开局自己问一次）。
-    /// `sessionPinned` 是脸的一部分而不是卡页自己读的：那行标签要显示"当前置顶与否"，而卡页
-    /// 是**另一块 webview、另一份 store**，它那份 `pinned` 只在页面加载时读一次 localStorage，
-    /// 面板页里点的那一下永远传不过去（点了没反应）。
-    private var currentFace: (mode: String, sessionId: String?, sessionPinned: Bool)?
+    private var currentFace: (mode: String, sessionId: String?)?
     /// 迷你面板页 → 壳（host-ready / set-pref / miniPanel.* 系列）。转发给
     /// AppDelegate.handleHostMessage；主窗与迷你面板各持一条，靠消息类型区分归属。
     var onHostMessage: (([String: Any]) -> Void)?
@@ -96,12 +93,13 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         window.hasShadow = true
         window.hidesOnDeactivate = false
         window.becomesKeyOnlyIfNeeded = false
-        window.collectionBehavior = [.fullScreenNone, .moveToActiveSpace]
         window.animationBehavior = .none
         // 默认不置顶：正常窗口层级（曾按"快捷对话面"的语义一直置到 `.floating`，2026-10-13
         // 实机用下来压在所有应用之上并不合理，用户复盘收回）。**置顶现在是显式打开的那一档**
-        // ——命令中心「面板置顶」那一行，落成 `DSHAppPrefs.quickPanelPinned`，见 `applyPinned`。
+        // ——命令中心「置顶」那一行，落成 `DSHAppPrefs.quickPanelPinned`，见 `applyPinned`：
+        // 层级与 collectionBehavior 一起摆（置顶 = 置于所有软件最上面，含全屏应用旁边）。
         window.level = Self.panelLevel(pinned: DSHAppPrefs.quickPanelPinned)
+        window.collectionBehavior = Self.panelBehavior(pinned: DSHAppPrefs.quickPanelPinned)
 
         let config = WKWebViewConfiguration()
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
@@ -230,16 +228,25 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         window.alphaValue > 0 && !window.ignoresMouseEvents && !window.isMiniaturized
     }
 
-    /// 面板置顶那一档（命令中心「面板置顶」）：窗口层级与偏好的唯一映射，也是 init 与
-    /// 设置改动的共用句（纯函数，单测锁住"置顶确实抬了层级"）。
+    /// 面板置顶那一档（命令中心「置顶」那一行）：窗口层级与偏好的唯一映射，也是 init 与
+    /// 设置改动的共用句（纯函数，单测锁住"置顶确实抬了层级、且不越过药丸与注释窗"）。
     static func panelLevel(pinned: Bool) -> NSWindow.Level {
         pinned ? ShellWindowLevel.pinnedPanel : ShellWindowLevel.main
     }
 
-    /// 置顶偏好改变后把窗口层级摆过去。**关掉它不必做别的**：失焦即收那条路自己会认新值，
-    /// 面板在那之前照旧留着（下一次失焦就按默认收掉）。
+    /// 置顶时的窗口行为：**所有 Space + 全屏应用旁边**（`ShellWindowBehavior.screenEdge`——
+    /// 与屏缘药丸同一份配方，用户 2026-10-14 的原话是"面板置于所有软件最上面"）。
+    /// 默认那一档照旧不参与全屏、不跨 Space（`.fullScreenNone` / `.moveToActiveSpace`，2026-10-13 定稿）。
+    static func panelBehavior(pinned: Bool) -> NSWindow.CollectionBehavior {
+        pinned ? ShellWindowBehavior.screenEdge : [.fullScreenNone, .moveToActiveSpace]
+    }
+
+    /// 置顶偏好改变后把窗口层级与行为摆过去。**关掉它不必做别的**：失焦即收那条路自己会认
+    /// 新值，面板在那之前照旧留着（下一次失焦就按默认收掉）。
     func applyPinned() {
-        window.level = Self.panelLevel(pinned: DSHAppPrefs.quickPanelPinned)
+        let pinned = DSHAppPrefs.quickPanelPinned
+        window.level = Self.panelLevel(pinned: pinned)
+        window.collectionBehavior = Self.panelBehavior(pinned: pinned)
     }
 
     func showPanel() {
@@ -417,15 +424,19 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     // MARK: - WKScriptMessageHandler（页面 → 壳）
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        // 卡片页的桥分两类（卡片是另一块 webview、另一份 store）：**动作**那几条是"卡片说了
+        // 卡片页的桥分三类（卡片是另一块 webview、另一份 store）：**动作**那几条是"卡片说了
         // 不算、面板页说了算"（Esc / 点历史里一行 / 动作行），一律由这里转发回面板页；
-        // **`get-prefs`** 是这一页自己的请求——它那份 store 的语言/明暗只从壳的偏好快照来，
-        // 而卡页不装 host-ready（见 MiniCommandCenterApp），所以转给 AppDelegate 由它回推。
-        // 这两类之外的消息不进 AppDelegate：那一层认的是主窗/面板页那套消息，卡片页没有它的活。
+        // **偏好**那两条（`get-prefs` / `set-pref`）是这一页自己的事——它那份 store 的语言、明暗
+        // 与面板置顶只从壳的偏好快照来，而卡页不装 host-ready（见 MiniCommandCenterApp），
+        // 所以转给 AppDelegate。**`set-pref` 必须在这份白名单里**：漏了它，卡片页那一排里
+        // "会写偏好"的行就成了**本地乐观值改一下、壳那边什么也没发生**——2026-10-14 用户报
+        // "置顶没法用"，就是命令中心的「置顶」写了偏好、消息在白名单外被静默丢掉
+        // （PITFALLS §10.7）。
+        // 这三类之外的消息不进 AppDelegate：那一层认的是主窗/面板页那套消息，卡片页没有它的活。
         if message.name == "deepdiveHost",
            userContentController === cardWeb?.configuration.userContentController {
             if let body = message.body as? [String: Any], let type = body["type"] as? String {
-                if type == "get-prefs" {
+                if type == "get-prefs" || type == "set-pref" {
                     onHostMessage?(body)
                     return
                 }
@@ -433,11 +444,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                     // 卡片页挂载完成后来要一次：清掉差分键重推，不受"没变就不推"那扇门
                     // 影响（它就是那次竞速失败后的确定性兜底）。
                     pushedFace = ""
-                    pushFace(
-                        mode: currentFace?.mode,
-                        sessionId: currentFace?.sessionId,
-                        sessionPinned: currentFace?.sessionPinned ?? false
-                    )
+                    pushFace(mode: currentFace?.mode, sessionId: currentFace?.sessionId)
                     return
                 }
                 if type == "mini-cc-close" {
@@ -457,17 +464,16 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                 }
                 if type == "mini-cc-action" {
                     // 命令中心里的**动作行**（用户 2026-10-14：新建会话 / 会话历史 / 置顶 /
-                    // 打开设置都进命令中心）。与上面那条同一条转发链——卡片是另一块 webview、
-                    // 另一份 store，所以"做什么"一律交给面板页（新建/切脸/置顶）或主窗（设置），
-                    // 卡片只报"点了哪个"。切脸与置顶都走后推命令，面板页的 overlay 才是事实源。
+                    // 打开设置进命令中心）。与上面那条同一条转发链——卡片是另一块 webview、
+                    // 另一份 store，所以"做什么"一律交给面板页（新建/切脸）或主窗（设置），
+                    // 卡片只报"点了哪个"。切脸走后推命令，面板页的 overlay 才是事实源。
+                    // **置顶不在这条链上**：它的拥有者是壳自己（窗口层级 + 偏好），卡片页直接
+                    // 写偏好（`set-pref` 已进白名单），不经面板页转手。
                     switch body["action"] as? String ?? "" {
                     case "history":
                         pushHostCommand("miniOverlay", payload: AppDelegate.jsonPayload(["mode": "history"]))
                     case "new-session":
                         pushHostCommand("miniNewSession", payload: "{}")
-                    case "toggle-pin":
-                        pushHostCommand("miniCCTogglePin",
-                                        payload: AppDelegate.jsonPayload(["sessionId": body["sessionId"] as? String ?? ""]))
                     case "open-settings":
                         // 打开**主设置**：先收卡（与"点了历史里一行"同款），再走菜单那一条路。
                         hideCard()
@@ -567,11 +573,10 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         if let ms = body["durationMs"] as? Double, ms > 0 { cardMotion = ms / 1000 }
         let mode = body["mode"] as? String
         let sessionId = body["sessionId"] as? String
-        let sessionPinned = body["sessionPinned"] as? Bool ?? false
-        currentFace = mode.map { ($0, sessionId, sessionPinned) }
+        currentFace = mode.map { ($0, sessionId) }
         loadCardIfNeeded()
         showCard()
-        pushFace(mode: mode, sessionId: sessionId, sessionPinned: sessionPinned)
+        pushFace(mode: mode, sessionId: sessionId)
     }
 
     /// 卡片页与面板页**同一时刻预载**（`load(bridgeURL:)` 里就叫它）：它那一份 store 要在
@@ -582,20 +587,15 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         cardWeb.load(URLRequest(url: url))
     }
 
-    /// 开卡/换脸时把"哪张脸"推给卡片页（含会话 id 与它是否置顶：设置那排行集与那行标签
-    /// 都按脸给）；没变就不推。
-    private func pushFace(mode: String?, sessionId: String?, sessionPinned: Bool) {
+    /// 开卡/换脸时把"哪张脸"推给卡片页（含会话 id：设置那排行集按脸给）；没变就不推。
+    private func pushFace(mode: String?, sessionId: String?) {
         guard let mode, !mode.isEmpty else { return }
-        let sig = "\(mode)|\(sessionId ?? "")|\(sessionPinned)"
+        let sig = "\(mode)|\(sessionId ?? "")"
         guard sig != pushedFace else { return }
         pushedFace = sig
         pushHostCommand(
             "miniCCFace",
-            payload: AppDelegate.jsonPayload([
-                "mode": mode,
-                "sessionId": sessionId ?? NSNull(),
-                "sessionPinned": sessionPinned,
-            ]),
+            payload: AppDelegate.jsonPayload(["mode": mode, "sessionId": sessionId ?? NSNull()]),
             to: cardWeb
         )
     }
@@ -679,7 +679,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
 
     /// 失焦即收（Raycast/Atd 同款）：这是"悬浮面板"的默认语义——点到别处、切走应用就消失。
     /// 键盘这一刻可能只是转手，所以等下一拍再看它落在谁手里（见 `dismissesOnLosingKey`）。
-    /// **置顶那一档是它唯一的例外**（「除非开启指定」：命令中心「面板置顶」）。
+    /// **置顶那一档是它唯一的例外**（「除非开启指定」：命令中心「置顶」）。
     func windowDidResignKey(_ notification: Notification) {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isVisible else { return }
