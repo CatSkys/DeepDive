@@ -1912,6 +1912,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
      从 36 长到 42（单行高是 --composer-h 的算式，见 UI-SPEC §2.2）。Atd 那颗 chip
      同一条口径（它的 chip 也正好填满 20 的行）。 */
   height: 20px;
+  /* 右侧**不预留移除钮的位置**（用户 2026-10-14 定稿：不要空着给叉）——那 3px 只是内缘，
+     移除钮是绝对定位的，悬停时内容自己让出它的位置（见 .att-chip-body 的 hover） */
   padding: 0 3px 0 6px;
   border-radius: var(--dsh-radius-bubble);
   background: var(--fill-strong);
@@ -1921,9 +1923,21 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   vertical-align: top;
   white-space: nowrap;
 }
-/* 行内子元素（图标/名字/状态/两颗钮）竖向对齐 + 间距（gap 在 inline 布局里没有） */
-.att-chip > * { vertical-align: middle; }
-.att-chip > * + * { margin-left: 5px; }
+/* 内容那一截（图标/名字/状态/重试）：默认铺满整颗；**悬停时右侧裁掉一条**给移除钮。
+   为什么用 clip-path 而不是 padding-right：padding 会把整颗撑宽 20px，紧跟其后的正文
+   跟着跳 20px（悬停时整行在抖）。裁的是**绘制**、布局宽度不动，所以行内其它字一动不动，
+   而内容的位置确实让出来了（用户 2026-10-14 定稿：内容填满、悬停时减少内容位置出叉）。 */
+.att-chip-body { display: inline-block; white-space: nowrap; }
+.att-chip-body > * { vertical-align: middle; }
+.att-chip-body > * + * { margin-left: 5px; }
+/* 悬停时**右边裁掉一条**给移除钮（那 20px = 钮的位置，见下）。为什么裁而不撑宽：
+   padding 会把整颗撑宽 20px，紧跟其后的正文跟着跳（悬停时整行在抖）；裁的是**绘制**、
+   布局宽度不动，行内其它字一动不动，而内容的位置确实让出来了——用户 2026-10-14 定稿：
+   "内容填满，hover 的时候减少内容位置，出现叉"。
+   代价（已知、接受）：名字已经短到不足那一条时，被裁掉的是名字的尾巴（"a.png" 悬停时
+   只剩头一个字符）。真机上附件名普遍偏长（截图/微信图/下载件），短名字这一档先这样；
+   真要治就得给胶囊兜一个最小宽度——那又变成"平时也空着给叉"，与定稿相冲。 */
+.att-chip:hover .att-chip-body { clip-path: inset(0 20px 0 0); }
 /* 点得开 Lightbox 的胶囊（图片部件）：鼠标给放大镜 */
 .att-chip[data-open="lightbox"] { cursor: zoom-in; }
 /* 图标与 26 的行高之间差半格，往下压 2px 才在视觉中线上（Atd 同款取法） */
@@ -1961,10 +1975,14 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 .att-chip-retry:hover { color: var(--ink); }
 .att-chip-x {
+  /* 绝对定位：不占内容的位置（见 .att-chip 的内距注释），悬停时内容让位后它正好落在那条上 */
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-block;
   width: 16px; height: 16px;
   line-height: 16px;
-  vertical-align: middle;
   text-align: center;
   border: none; border-radius: 50%;
   background: none;
@@ -1972,14 +1990,18 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   font-size: var(--dsh-font-size-base);
   line-height: 1;
 }
-.att-chip-x:hover { background: var(--fill-strong); color: var(--ink); }
+.att-chip-x:hover { background: var(--fill-heavy); color: var(--ink); }
 :where(html[data-hover-armed]) .att-chip .att-chip-x {
   opacity: 0;
+  /* 藏起来时**也不接事件**：它是绝对定位的、浮在名字尾部那一块上，不挡的话点名字末尾会
+     变成"删附件"（图片胶囊本该开大图）。触屏（没有 hover-armed）那一档不进这条规则：
+     钮常显、也照常可点。 */
+  pointer-events: none;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 :where(html[data-hover-armed]) .att-chip:hover .att-chip-x,
 :where(html[data-hover-armed]) .att-chip .att-chip-x:hover,
-:where(html[data-hover-armed]) .att-chip .att-chip-x:focus-visible { opacity: 1; }
+:where(html[data-hover-armed]) .att-chip .att-chip-x:focus-visible { opacity: 1; pointer-events: auto; }
 /* 媒体附件（图片/视频）的悬停预览：一张贴着胶囊的画面。**不接事件**——指针穿过去才
    收得掉，也不会抢走滚动与点击。
    **portal 到 body、视口坐标定位**（left/top 由 AttachmentPill 内联给）：胶囊住在编辑器的

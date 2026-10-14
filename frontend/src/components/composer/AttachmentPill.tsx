@@ -91,14 +91,18 @@ export function AttachmentPill({ att, t, onRemove, onRetry, onOpenImage }: {
       onMouseLeave={() => setPreview(null)}
       onClick={openable ? () => onOpenImage(att) : undefined}
     >
-      {att.kind === "file" && att.status === "uploading"
-        ? <span className="att-chip-spin" aria-hidden="true" />
-        : <FileIcon file={att.name} size={14} icon={att.kind === "image" ? "image" : undefined} />}
-      <span className="att-chip-name">{att.name}</span>
-      {meta !== null && <span className={`att-chip-meta${att.kind === "file" && att.status === "error" ? " failed" : ""}`}>{meta}</span>}
-      {att.kind === "file" && att.status === "error" && (
-        <button className="att-chip-retry" onClick={(e) => { e.stopPropagation(); onRetry(att.id); }}>{t("重试")}</button>
-      )}
+      {/* 内容（图标 + 名 + 状态）：平时**铺满整颗**，悬停时让出右侧一条给移除钮
+          （样式在 .att-chip-body，见 theme.css） */}
+      <span className="att-chip-body">
+        {att.kind === "file" && att.status === "uploading"
+          ? <span className="att-chip-spin" aria-hidden="true" />
+          : <FileIcon file={att.name} size={14} icon={att.kind === "image" ? "image" : undefined} />}
+        <span className="att-chip-name">{att.name}</span>
+        {meta ? <span className={`att-chip-meta${att.kind === "file" && att.status === "error" ? " failed" : ""}`}>{meta}</span> : null}
+        {att.kind === "file" && att.status === "error" && (
+          <button className="att-chip-retry" onClick={(e) => { e.stopPropagation(); onRetry(att.id); }}>{t("重试")}</button>
+        )}
+      </span>
       <button
         className="att-chip-x"
         aria-label={t("删除")}
