@@ -1776,8 +1776,6 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   gap: 6px;
   min-width: 0;
 }
-/* 附件胶囊组：多颗时自己也能折行，占满一行再往下排 */
-.composer-atts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 /* 编辑器宿主（文本列第 2 项）：与附件胶囊同处一条流——接在最后一颗胶囊后面写。
    落脚宽度给它一个下限（320，约 15-20 字的正文宽）：剩下的宽度不够就整条折到下一行
    占满整行——**不**让它缩成一条贴着胶囊的窄柱（长正文挤在 100 多像素里会拉成一列
@@ -1893,38 +1891,47 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   50% { transform: scaleY(1); }
 }
 
-/* ---- 输入框里的附件胶囊（统一形状）----
-   所有附件一个形状（照 Atd 输入条）：类型图标 + 名字 + 状态，高 26、两端全圆
-   （radius.bubble）、--fill-soft 底 + 1px 描边——与已发送侧那颗文件 chip 同一套
-   语言（.user-file-chip，高 30；这里矮一档是为了坐进 36 高的输入胶囊）。
-   移除钮跟着指针现（与侧栏行内动作同一套 hover 语言；键盘聚焦时也给看）。 */
+/* ---- 附件胶囊（输入框里的行内原子 + 已发送消息里那颗，同一个形状）----
+   类型图标 + 名字 + 状态，高 26、两端全圆（radius.bubble）、底色分层**不描边**
+   （用户 2026-10-14 定稿：不要用描边，还是用颜色来区分）。
+   布局一律 inline（**不用 flex**）：嵌在编辑器正文里的那颗是行内原子，inline-flex
+   的原子会让 Chrome 输入法把它后面刚打的第一个字重复一遍（Atd 实测）；已发送那颗
+   跟同一套写法，两处才真的长得一样。间距用 margin 顶替 gap。 */
+/* vertical-align: **top**（不是 middle）：middle 会把行盒顶高 2px（胶囊比 x 高中线低），
+   于是整个输入胶囊从 36 长到 38。Atd 的 chip 也是这么钉的（它们的 chip 高 20 = 行高 20，
+   顶对齐正好填满一行）。 */
+.att-atom { display: inline-block; vertical-align: top; }
 .att-chip {
-  /* 预览层的定位父级 */
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: inline-block;
   max-width: 100%;
-  height: 26px;
-  padding: 0 4px 0 8px;
+  /* 高 = 正文行高（20）：胶囊坐在正文里，**不能把行撑高**——撑高了整个输入胶囊跟着
+     从 36 长到 42（单行高是 --composer-h 的算式，见 UI-SPEC §2.2）。Atd 那颗 chip
+     同一条口径（它的 chip 也正好填满 20 的行）。 */
+  height: 20px;
+  padding: 0 3px 0 6px;
   border-radius: var(--dsh-radius-bubble);
-  /* 与输入胶囊同一块玻璃上的一颗**底色分层**的胶囊：**不描边**（体内流内胶囊一律靠
-     底色区分，见 UI-SPEC §2.2 与页内查找那颗。描边会在玻璃上叠出第二层轮廓，
-     读成"框里还有一框"——用户 2026-10-14 定稿）。 */
   background: var(--fill-strong);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
+  line-height: 20px;
+  vertical-align: top;
+  white-space: nowrap;
 }
+/* 行内子元素（图标/名字/状态/两颗钮）竖向对齐 + 间距（gap 在 inline 布局里没有） */
+.att-chip > * { vertical-align: middle; }
+.att-chip > * + * { margin-left: 5px; }
 /* 点得开 Lightbox 的胶囊（图片部件）：鼠标给放大镜 */
 .att-chip[data-open="lightbox"] { cursor: zoom-in; }
-.att-chip .file-icon { flex: none; }
-.att-chip-name { max-width: 168px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 图标与 26 的行高之间差半格，往下压 2px 才在视觉中线上（Atd 同款取法） */
+.att-chip .file-icon { display: inline-block; vertical-align: -2px; }
+.att-chip-name { display: inline-block; max-width: 168px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 名字右边那一截：待发送 / 上传中 42% / 失败原因 / 大小（口径与消息里那颗文件 chip
    一致）。失败一档用信号色，其余是 muted。失败原因是任意长度的原话，所以这里自己
    也截断：全文在胶囊的 tooltip 上，胶囊不会被一句报错撑爆。
    pending/uploading 整体降不透明度示意「还不可发送」。 */
 .att-chip-meta {
-  flex: none; max-width: 132px;
+  display: inline-block; max-width: 132px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--ink-3); font-size: var(--dsh-font-size-xs);
 }
@@ -1934,7 +1941,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
    底色是"这是一颗胶囊"的语言，不该被状态挪用它；红字那条已经是信号色）。 */
 .att-chip[data-status="error"] { color: var(--ink); }
 .att-chip-spin {
-  width: 10px; height: 10px; flex: none;
+  display: inline-block;
+  width: 9px; height: 9px;
   border-radius: 50%;
   border: 2px solid var(--line-strong);
   border-top-color: var(--ink-3);
@@ -1945,14 +1953,16 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
    **没有独立的「取消」钮**：同一颗 × 就是"取消并移除"；多一颗「取消」只会把上传中的
    胶囊变成一颗红的"已取消"错误态——既不是取消该有的样子，也和 × 重复。 */
 .att-chip-retry {
-  flex: none; border: none; background: none; padding: 0 2px;
+  border: none; background: none; padding: 0 1px;
   color: var(--ink-2); font-size: var(--dsh-font-size-sm);
 }
 .att-chip-retry:hover { color: var(--ink); }
 .att-chip-x {
-  flex: none;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px;
+  display: inline-block;
+  width: 16px; height: 16px;
+  line-height: 16px;
+  vertical-align: middle;
+  text-align: center;
   border: none; border-radius: 50%;
   background: none;
   color: var(--ink-3);
@@ -1967,15 +1977,14 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 :where(html[data-hover-armed]) .att-chip:hover .att-chip-x,
 :where(html[data-hover-armed]) .att-chip .att-chip-x:hover,
 :where(html[data-hover-armed]) .att-chip .att-chip-x:focus-visible { opacity: 1; }
-/* 媒体附件（图片/视频）的悬停预览：贴着胶囊的一块画面。**不接事件**——指针穿过去
-   才收得掉，也不会抢走滚动与点击。默认开在胶囊下方；下方放不下就翻到上方
-   （AttachmentPill 按可用空间选 .above——输入框贴底时恒走这一档，否则整块会被
-   卡片裁掉）。 */
+/* 媒体附件（图片/视频）的悬停预览：一张贴着胶囊的画面。**不接事件**——指针穿过去才
+   收得掉，也不会抢走滚动与点击。
+   **portal 到 body、视口坐标定位**（left/top 由 AttachmentPill 内联给）：胶囊住在编辑器的
+   滚动容器里，留在原地会被那个容器裁掉（画面比胶囊高得多）。`.above` 是"翻到上方"那档
+   （位置由内联 style 决定，这个类留给"从哪边翻出来"的语义与测试认）。 */
 .att-preview {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 6px);
-  z-index: 2;
+  position: fixed;
+  z-index: var(--z-tip);
   display: flex;
   padding: 4px;
   border: 1px solid var(--line);
@@ -1985,7 +1994,6 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   pointer-events: none;
   animation: fadein var(--dur-fast) var(--ease-out);
 }
-.att-preview.above { top: auto; bottom: calc(100% + 6px); }
 .att-preview img,
 .att-preview video {
   display: block;

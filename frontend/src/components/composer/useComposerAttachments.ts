@@ -145,13 +145,16 @@ export function ingestPicked(
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>,
   addFilePath: (path: string, name: string, bytes?: number) => void,
   appendToDraft: AppendToDraft,
+  onAdded: (attachment: Attachment) => void,
   items: PickedAttachment[],
 ): void {
   const mentions: string[] = [];
   for (const it of items) {
     const mime = IMAGE_MIME[it.name.split(".").pop()?.toLowerCase() ?? ""];
     if (it.isImage && it.base64 && mime) {
-      setAttachments((prev) => [...prev, { id: uuid(), kind: "image", data: it.base64!, mediaType: mime, name: it.name }]);
+      const att: Attachment = { id: uuid(), kind: "image", data: it.base64, mediaType: mime, name: it.name };
+      setAttachments((prev) => [...prev, att]);
+      onAdded(att);
     } else if (!it.isDir) {
       addFilePath(it.path, it.name, it.bytes);
     } else {
@@ -162,9 +165,11 @@ export function ingestPicked(
   if (mentions.length > 0) appendMentionsTo(appendToDraft, mentions);
 }
 
-export function useComposerAttachments({ appendToDraft, hasShell, sessionId }: {
+export function useComposerAttachments({ appendToDraft, onAdded, hasShell, sessionId }: {
   /** 往草稿末尾追加一段（文件夹转 `@` 引用时用）。 */
   appendToDraft: AppendToDraft;
+  /** 刚摄入一颗附件（图片/文件）：编排方据此在正文里插一枚行内令牌。 */
+  onAdded: (attachment: Attachment) => void;
   hasShell: boolean;
   /** 上传目标会话；草稿页（null）文件 chip 挂 pending，发送时建会话再传。 */
   sessionId: string | null;
@@ -185,7 +190,9 @@ export function useComposerAttachments({ appendToDraft, hasShell, sessionId }: {
       const dataURL = String(reader.result);
       const comma = dataURL.indexOf(",");
       const mediaType = dataURL.slice(5, dataURL.indexOf(";"));
-      setAttachments((prev) => [...prev, { id: uuid(), kind: "image", data: dataURL.slice(comma + 1), mediaType, name: file.name }]);
+      const att: Attachment = { id: uuid(), kind: "image", data: dataURL.slice(comma + 1), mediaType, name: file.name };
+      setAttachments((prev) => [...prev, att]);
+      onAdded(att);
     };
     reader.readAsDataURL(file);
   };
@@ -247,25 +254,25 @@ export function useComposerAttachments({ appendToDraft, hasShell, sessionId }: {
 
   const addFile = useCallback((file: File) => {
     const id = uuid();
-    if (sessionId) {
-      setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "uploading", file, progress: 0 }]);
-      void uploadOne(id, sessionId, { file });
-    } else {
-      setAttachments((prev) => [...prev, { id, kind: "file", name: file.name, status: "pending", file }]);
-    }
-  }, [sessionId, uploadOne]);
+    const att: FileAttachment = sessionId
+      ? { id, kind: "file", name: file.name, status: "uploading", file, progress: 0 }
+      : { id, kind: "file", name: file.name, status: "pending", file };
+    setAttachments((prev) => [...prev, att]);
+    onAdded(att);
+    if (sessionId) void uploadOne(id, sessionId, { file });
+  }, [sessionId, uploadOne, onAdded]);
 
   /** 路径来源的上传 chip（选择器挑的文件）：上传时请壳按路径流式送给引擎。
    *  草稿页没有会话可传 → pending，发送建会话时补传（与 addFile 同一套状态机）。 */
   const addFilePath = useCallback((path: string, name: string, bytes?: number) => {
     const id = uuid();
-    if (sessionId) {
-      setAttachments((prev) => [...prev, { id, kind: "file", name, bytes, status: "uploading", path }]);
-      void uploadOne(id, sessionId, { path, name });
-    } else {
-      setAttachments((prev) => [...prev, { id, kind: "file", name, bytes, status: "pending", path }]);
-    }
-  }, [sessionId, uploadOne]);
+    const att: FileAttachment = sessionId
+      ? { id, kind: "file", name, bytes, status: "uploading", path }
+      : { id, kind: "file", name, bytes, status: "pending", path };
+    setAttachments((prev) => [...prev, att]);
+    onAdded(att);
+    if (sessionId) void uploadOne(id, sessionId, { path, name });
+  }, [sessionId, uploadOne, onAdded]);
 
   /** 取消一次进行中的上传（chip 上的 ×；已取消/失败可重试）。 */
   const cancelUpload = (id: string) => {
@@ -273,22 +280,22 @@ export function useComposerAttachments({ appendToDraft, hasShell, sessionId }: {
   };
 
   /** 失败重试 / 草稿页 pending 在会话就绪后补传（编排方发送前调用）。
-   *  返回本次传就绪的 receiptId 列表——setAttachments 不影响调用方当轮
-   *  闭包里的 content，prompt 载荷必须据此补 {type:'file'} 部件；
-   *  任一文件失败/取消返回 null（chip 停在 error 供重试）。
+   *  返回本次传就绪的 **附件 id → receiptId**——setAttachments 不影响调用方当轮闭包里的
+   *  载荷，发送前必须据此补 {type:'file'} 部件（按 id 认，不是按数组下标对位：附件在正文
+   *  里的位置由文档决定）；任一文件失败/取消返回 null（chip 停在 error 供重试）。
    *  force：连已就绪的也重传一遍（引擎回 FILE_NOT_STAGED = 旧回执在引擎侧已不可用，
    *  用户定稿附件必须发出去，所以拿到新回执再重发一次；字节一直留到发送，别清）。 */
-  const uploadNow = async (sid: string, force = false): Promise<string[] | null> => {
+  const uploadNow = async (sid: string, force = false): Promise<Array<{ id: string; receiptId: string }> | null> => {
     const pendingFiles = attachments.filter((a): a is FileAttachment =>
       a.kind === "file" && (force || a.status !== "ready"));
-    const receipts: string[] = [];
+    const receipts: Array<{ id: string; receiptId: string }> = [];
     for (const f of pendingFiles) {
       const source = f.file ? { file: f.file } : f.path ? { path: f.path, name: f.name } : null;
       if (source === null) return null;
       setAttachments((prev) => prev.map((a): Attachment => a.id === f.id && a.kind === "file" ? { ...a, status: "uploading", progress: 0 } : a));
       const receiptId = await uploadOne(f.id, sid, source);
       if (receiptId === null) return null;
-      receipts.push(receiptId);
+      receipts.push({ id: f.id, receiptId });
     }
     return receipts;
   };
@@ -305,11 +312,11 @@ export function useComposerAttachments({ appendToDraft, hasShell, sessionId }: {
    *  降级为文件选择 input（无路径可引用，文件夹那项在浏览器里等同无操作）。 */
   const addAttachments = useCallback((kind: "files" | "folders" = "files") => {
     if (hasShell) {
-      void pickAttachments(kind).then((items) => { if (items) ingestPicked(setAttachments, addFilePath, appendToDraft, items); });
+      void pickAttachments(kind).then((items) => { if (items) ingestPicked(setAttachments, addFilePath, appendToDraft, onAdded, items); });
     } else if (kind === "files") {
       fileRef.current?.click();
     }
-  }, [hasShell, addFilePath, appendToDraft]);
+  }, [hasShell, addFilePath, appendToDraft, onAdded]);
 
   // 命令面板「添加附件」与 composer ＋ 按钮同一条链路
   useEffect(() => onAppEvent(DD_EVENTS.composerAttach, () => addAttachments()), [addAttachments]);
@@ -356,8 +363,8 @@ export function useComposerAttachments({ appendToDraft, hasShell, sessionId }: {
 
   /** 把外部已备好的附件项（截图/屏幕上下文）按 ＋ 选择器同一份逻辑摄入。 */
   const ingestAttachments = useCallback(
-    (items: PickedAttachment[]) => ingestPicked(setAttachments, addFilePath, appendToDraft, items),
-    [addFilePath, appendToDraft],
+    (items: PickedAttachment[]) => ingestPicked(setAttachments, addFilePath, appendToDraft, onAdded, items),
+    [addFilePath, appendToDraft, onAdded],
   );
 
   return { attachments, setAttachments, addAttachments, ingestAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile };

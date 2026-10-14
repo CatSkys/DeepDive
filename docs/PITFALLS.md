@@ -1337,6 +1337,29 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 事故：tokensPerSecond 写成了 `解码秒数`（公式里没有 tokens 分子），渲染成 "12.5 tok/s" 实为 12.5 秒——现有测试只钉了 runMs/ttftMs，恰好漏过。
 - 处置：新增派生指标时夹具必须带全输入（含 usage）并断言**带量纲的结果**；官方口径以 vendored `ui-conversation/turn-metrics` 为准（outputTokens ÷ 解码墙钟秒）。
 
+### 8.7 输入框的文本层是 CodeMirror：行内附件原子有五条硬约束（2026-10-14 换掉 textarea）
+- 背景：附件要能插进正文中间（用户定稿"混排"），textarea 装不下元素，照 Atd 换成 CodeMirror 6 的
+  **行内原子**（`Decoration.replace({widget})` + `EditorView.atomicRanges`）。
+- ① **原子与胶囊都必须是 `inline-block`，不能用 inline-flex**：inline-flex 的原子会让 Chrome 的
+  输入法把它**后面刚打的第一个字重复一遍**（Atd 的 `chip-widget.ts` 实测记录）。同理间距不能用
+  `gap`（inline 布局没有 gap），用 `margin-left`。
+- ② **胶囊要 `vertical-align: top`**：`middle` 会把行盒顶高 2px（胶囊比 x 高中线低），整个输入胶囊
+  从 36 长到 38——单行高是 `--composer-h` 的算式，一个附件就能破它。胶囊自身高度取**行高 20**
+  （填满一行、不撑高行），Atd 同款。
+- ③ **widget 是独立 React 根，拿不到外层 context**：`createRoot` 出来的这颗胶囊里 `useT()` 会直接
+  炸（store context 是 null）。所以它自己不读任何 context——词典 `t`、附件对象、三个动作都经
+  `editor/atomStore.ts` 给（编排方每次渲染推最新值，widget 用 `useSyncExternalStore` 订阅）。
+  **必须订阅而不是画一次**：上传进度/大小/失败原因都会变，只画一次的 widget 会永远停在"上传中 0%"。
+- ④ **编辑器的滚动容器会裁掉绝对定位的子元素**：媒体悬停预览比胶囊高得多，留在原地会被
+  `.cm-scroller` 裁掉——预览 portal 到 body、用 `position: fixed` + 视口坐标（位置在悬停那一刻量）。
+- ⑤ **附件用私有区哨兵令牌 `\uE000<id>\uE001` 表示，不用占位符也不靠查找文本**：复制/撤销/重做只搬
+  文本、令牌跟着走；私有区字符打不出来（键盘不产生），**粘贴进来的要剥掉**（否则会冒充附件）。
+  令牌表（id → 附件 id）**只增不删**：撤销把令牌救回来时还查得出是哪颗附件；配套地，React 那边
+  删掉的附件对象留 8 条（`REMOVED_KEEP`）给 ⌘Z——附件带字节，不能像 Atd 的 chip 表那样一直留着。
+- 另两条工程细节：菜单按**纯文本坐标**给插入点，写进文档前过 `docOffset`（令牌长度补回去；漏了
+  就"插入落在错的字后面"）；jsdom 里 CodeMirror 量排版要 `Range.prototype.getClientRects`，
+  测试里补一个空实现（见 composer-attach-layout.test.tsx）。
+
 ### 8.6 依赖渲染节奏的 DOM 接线在 WS 断连期静默死亡：必须自愈，不能只靠 React 生命周期
 - 事故：回到底部按钮「失效」——贴底布局的 padding-bottom 靠 ref 回调 + ResizeObserver 维护，引擎/WS 断连期间 React 长期不重渲染，ref 不重触发、RO 落在失去接线的状态上，padding 静默丢失，滚到底时末条消息被悬浮输入框盖住 ~40px（观感即「没回到最底」）。桥接页实证：悬浮区 44↔122px 变化而 pad 恒为污染值。
 - 处置：这类「保测量值同步」的接线（贴底 padding、悬浮位置等）加 **1s 看门狗兜底**（syncBottomPad 每秒跑、检测观察目标变更即重挂 RO），任何断线/换节点一秒内自愈；不要赌「React 会及时重渲染」。

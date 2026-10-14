@@ -20,7 +20,7 @@ beforeAll(() => {
       get length() { return map.size; },
     } as unknown as Storage;
   }
-  // 折行判据要读那一格的实测高度（真排版不在 jsdom 里做，这里只补上接口）
+  // 折行判据由编辑器自己报（真排版不在 jsdom 里做，这里只补上接口）
   if (!globalThis.ResizeObserver) {
     globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
   }
@@ -66,30 +66,30 @@ async function pasteImage(container: HTMLElement, name = "shot.png") {
     value: { files: [new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" })] },
   });
   content.dispatchEvent(event);
-  await waitFor(() => expect(container.querySelector(".att-chip")).not.toBeNull());
+  // 摄入 → 编排方在正文里插一枚令牌 → 装饰层把它画成行内原子 → 原子里的胶囊由**独立
+  // React 根**画出来（晚一拍：先有原子、再有胶囊）→ 等到底再断言，别在中途比 DOM
+  await waitFor(() => expect(container.querySelectorAll(".cm-content .att-atom .att-chip").length).toBe(1));
 }
 
 describe("输入框里的附件胶囊", () => {
-  it("住在输入胶囊里、排在编辑器之前（不在胶囊外面另起一行）", async () => {
+  it("胶囊住在正文里（编辑器文档内的行内原子），不再另起一行摆在胶囊外面", async () => {
     const { container } = renderComposer();
     await pasteImage(container);
-    expect(container.querySelector(".composer .composer-field .composer-atts .att-chip")).not.toBeNull();
-    // 胶囊外面（wrap/anchor 的直接子元素）不能再有附件
+    // 原子在编辑器正文里：文本列那一格 → 编辑器 → 文档 → 原子 → 胶囊
+    expect(container.querySelector(".composer .composer-field .composer-editor .cm-content .att-atom .att-chip")).not.toBeNull();
+    // 胶囊外面（wrap/anchor 的直接子元素）没有附件
     expect(container.querySelector(".composer-wrap > .att-chip, .composer-anchor > .att-chip")).toBeNull();
-    const atts = container.querySelector(".composer-atts")!;
-    const editor = container.querySelector(".composer-field .composer-editor")!;
-    // 顺序：胶囊在前、编辑器在后（DOM 序即视觉序）
-    expect(atts.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("媒体悬停出预览画面；移除钮把胶囊摘掉", async () => {
+  it("媒体悬停出预览画面；移除钮把正文里那颗删掉（附件集合跟着摘）", async () => {
     const { container } = renderComposer();
     await pasteImage(container);
-    expect(container.querySelector(".att-preview")).toBeNull();
+    expect(document.querySelector(".att-preview")).toBeNull();
     fireEvent.mouseEnter(container.querySelector(".att-chip")!);
-    expect(container.querySelector(".att-preview img")).not.toBeNull();
+    expect(document.querySelector(".att-preview img")).not.toBeNull();
     fireEvent.click(container.querySelector(".att-chip-x")!);
-    expect(container.querySelector(".att-chip")).toBeNull();
+    // 点 × → 编辑器删掉正文里的令牌 → 回吐"它没了" → 附件集合摘掉 → 原子消失
+    await waitFor(() => expect(container.querySelector(".att-atom")).toBeNull());
   });
 
   it("内容高过一行就进宽态（＋ 与右簇换到底部行，不再垂直居中在整块框里）", async () => {

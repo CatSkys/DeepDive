@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { GlassLayer } from "./GlassLayer";
 import { createPortal } from "react-dom";
 import { ArrowUp, Square, Plus, Mic } from "lucide-react";
@@ -15,18 +15,21 @@ import type { CommandSubmitAttachment, PromptContentPart } from "../types";
 import { classifyAttachmentRefusal, classifyAttachmentRefusalText, type AttachmentRefusalClass } from "../attachmentRefusal";
 import type { RpcErrorFacts } from "../api";
 import { useComposerDraft } from "./composer/useComposerDraft";
-import { useComposerAttachments, type ImageAttachment } from "./composer/useComposerAttachments";
+import { useComposerAttachments, type Attachment, type ImageAttachment } from "./composer/useComposerAttachments";
 import { onHostEvent, screenshotCapture, selectionCapture, type PickedAttachment } from "../host";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { useComposerDictation } from "./composer/useComposerDictation";
 import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
 import { DraftEditor, type DraftEditorHandle, type EditorKeyRouting } from "./composer/editor/DraftEditor";
+
+/** 刚删掉的附件在"回收站"里留几条（给 ⌘Z 用）：见 removeAttachment。 */
+const REMOVED_KEEP = 8;
 import { useSlashCommands } from "./composer/useSlashCommands";
 import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
 import { ComposerPlusMenu, type PlusAction } from "./composer/ComposerPlusMenu";
 import { EffortPicker, type EffortFace } from "./composer/EffortPicker";
-import { AttachmentPill } from "./composer/AttachmentPill";
+import { setAtomHost } from "./composer/editor/atomStore";
 import { uuid } from "../uuid";
 import { renderSelectionPrompt } from "../settings/selectionCommands";
 
@@ -78,6 +81,8 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   const rootRef = useRef<HTMLDivElement>(null);
   /** 文本的真正持有者（CodeMirror 编辑器）；React 那份 text 只是它的镜像。 */
   const editorRef = useRef<DraftEditorHandle>(null);
+  /** 刚删掉的附件留一小会儿（给 ⌘Z 用），上限 REMOVED_KEEP 条。 */
+  const removed = useRef(new Map<string, Attachment>());
   /** textarea 光标位（@ grammar 的 cursorCol）；onSelect 跟随 caret 更新。 */
   const [cursor, setCursorState] = useState(0);
   const store = useStore();
@@ -92,8 +97,10 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     // 载入的草稿是整篇来源：编辑器文档一起换（正文里的附件原子随草稿丢，草稿只存文本）
     (loaded) => editorRef.current?.setText(loaded),
   );
+  /** 刚摄入的附件：在光标处插一枚行内令牌（正文里就多了这颗胶囊）。 */
+  const attachToDraft = useCallback((att: Attachment) => { editorRef.current?.insertAttachment(att.id); }, []);
   const { attachments, setAttachments, addAttachments, ingestAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile } =
-    useComposerAttachments({ appendToDraft: appendText, hasShell, sessionId });
+    useComposerAttachments({ appendToDraft: appendText, onAdded: attachToDraft, hasShell, sessionId });
   // 听写 final 落稿后回焦（长高由 [text] 的 useLayoutEffect 统一负责）
   const refocusDraft = () => requestAnimationFrame(() => {
     editorRef.current?.focus();
@@ -123,69 +130,88 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     if (!multiline && tall) { setMultiline(true); return; }
     if (multiline && text.length === 0 && attachments.length === 0) setMultiline(false);
   }, [tall, multiline, text, attachments]);
-  /** 把「模型条目不吃 inline 图片」的那批图片按通用文件原件重投：同一份字节走
-   *  文件回执，内容不减、顺序不变（文本/文件部件原样保留）。有一张投不出去就整条
-   *  返回 null——由调用方按失败处理（不静默）。 */
-  const restageImages = async (sid: string, parts: PromptContentPart[]): Promise<PromptContentPart[] | null> => {
+  /** 把「模型条目不吃 inline 图片」的那批图片按通用文件原件重投：同一份字节走文件回执
+   *  （内容不减、顺序不变）。返回 附件 id → 回执；任一张投不出去就整条 null——由调用方
+   *  按失败处理（不静默）。载荷据这张表**整份重拼**，不再按位替换：附件落在正文哪个位置
+   *  由文档说了算（见 buildContent）。 */
+  const stageImagesAsFiles = async (sid: string): Promise<Map<string, string> | null> => {
     const images = attachments.filter((a): a is ImageAttachment => a.kind === "image");
     if (images.length === 0) return null;
-    const receipts = await Promise.all(images.map((a) => stageImageAsFile(sid, a)));
-    if (receipts.some((r) => r === null)) return null;
-    let next = 0;
-    return parts.map((part): PromptContentPart => (part.type === "image" ? { type: "file", receiptId: receipts[next++]! } : part));
+    const staged = await Promise.all(images.map(async (a): Promise<[string, string | null]> => [a.id, await stageImageAsFile(sid, a)]));
+    if (staged.some(([, receipt]) => receipt === null)) return null;
+    return new Map(staged.map(([id, receipt]) => [id, receipt!]));
   };
 
-  /** 文件回执在引擎侧失效（FILE_NOT_STAGED）时重传拿新回执：排掉旧文件部件，
-   *  按重传顺序换成新的（字节一直留在 chip 上，见 useComposerAttachments）。 */
-  const refreshFileReceipts = async (sid: string): Promise<string[] | null> => uploadNow(sid, true);
+  /** 文件回执在引擎侧失效（FILE_NOT_STAGED）时重传拿新回执：**按附件 id** 收（字节一直留在
+   *  胶囊上，见 useComposerAttachments），载荷据它重拼。 */
+  const refreshFileReceipts = async (sid: string): Promise<Map<string, string> | null> => {
+    const receipts = await uploadNow(sid, true);
+    return receipts === null ? null : new Map(receipts.map((r) => [r.id, r.receiptId]));
+  };
 
-  /** 摘掉一颗附件胶囊：上传中的先把这次上传取消掉，再移出清单。 */
+
+  /** 附件从正文里没了（用户退格删掉 / 删掉含它的整段 / 点胶囊上的 ×）→ 从集合里摘掉。
+   *  **正文是唯一的账本**：谁在正文里就留着，谁不在了就扔（上传中的先取消）。 */
   const removeAttachment = (id: string) => {
     const att = attachments.find((a) => a.id === id);
-    if (att?.kind === "file" && att.status === "uploading") cancelUpload(id);
+    if (att === undefined) return;
+    if (att.kind === "file" && att.status === "uploading") cancelUpload(id);
+    // 留一小会儿（上限 REMOVED_KEEP 条）：⌘Z 把令牌救回来时胶囊还画得出来。附件带字节，
+    // 不能一直留着（Atd 的 chip 表可以只增不删是因为它存的是 id，我们这里存的是字节）。
+    removed.current.set(id, att);
+    while (removed.current.size > REMOVED_KEEP) {
+      const oldest = removed.current.keys().next().value;
+      if (oldest === undefined) break;
+      removed.current.delete(oldest);
+    }
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
   /** 失败那颗胶囊上的「重试」：会话内直接重传（同一条链会把其余未就绪的也补上）；
    *  草稿页没有会话可传，回 pending 等发送时建会话补传。 */
-  const retryAttachment = (id: string) => {
+  const retryAttachment = useCallback((id: string) => {
     if (sessionId) void uploadNow(sessionId);
     else requeueFile(id);
-  };
+  }, [sessionId, uploadNow, requeueFile]);
 
-  /** 附件准入拒绝后的等效重投：判到图片类就把这批图片按通用文件原件投递（同一份
-   *  字节走文件回执），判到文件类就重传拿新回执；内容与顺序都不变，发送不被打断。 */
-  const redeliver = async (sid: string, parts: PromptContentPart[], reason: string | undefined): Promise<PromptContentPart[] | null> => {
+  /** 附件原子的接线：每次提交后推最新值（widget 是独立 React 根，靠订阅拿数据）。
+   *  查附件时连"刚删掉那一小会儿"的一起查——⌘Z 救回令牌时胶囊要能接着画。 */
+  useLayoutEffect(() => {
+    setAtomHost({
+      t,
+      attachment: (id) => attachments.find((a) => a.id === id) ?? removed.current.get(id),
+      onRemove: (id) => editorRef.current?.removeAttachment(id),
+      onRetry: retryAttachment,
+      onOpenImage: setPreview,
+    });
+  }, [attachments, retryAttachment, t]);
+
+
+  /** 附件准入拒绝后的等效重投：判到图片类就把这批图片按通用文件原件投递（同一份字节走
+   *  文件回执），判到文件类就重传拿新回执——两种情况都**整份重拼**载荷（附件在正文里的
+   *  位置由文档决定，按位替换是把位置当成了数组下标，正文里插过附件就对不上了）。 */
+  const redeliver = async (sid: string, reason: string | undefined): Promise<PromptContentPart[] | null> => {
     const cls = classifyAttachmentRefusal(reason);
-    if (cls === "images") return restageImages(sid, parts);
+    if (cls === "images") {
+      const staged = await stageImagesAsFiles(sid);
+      return staged === null ? null : buildContent(staged, true);
+    }
     if (cls !== "files") return null;
     const receipts = await refreshFileReceipts(sid);
-    if (receipts === null || receipts.length === 0) return null;
-    let next = 0;
-    return parts.map((part): PromptContentPart => (part.type === "file" && next < receipts.length ? { type: "file", receiptId: receipts[next++]! } : part));
+    return receipts === null ? null : buildContent(receipts);
   };
 
-  /** 命令载荷同理：重投被拒的那一类附件，其它部件不动（判类由调用方给——
-   *  抛错路径有 reason 码，error 结果路径只有引擎原文）。 */
+  /** 命令载荷同理（判类由调用方给——抛错路径有 reason 码，error 结果路径只有引擎原文）。 */
   const redeliverCommand = async (
-    sid: string, parts: CommandSubmitAttachment[], cls: AttachmentRefusalClass | undefined,
+    sid: string, cls: AttachmentRefusalClass | undefined,
   ): Promise<CommandSubmitAttachment[] | null> => {
-    if (cls === "images") return restageCommandImages(sid, parts);
+    if (cls === "images") {
+      const staged = await stageImagesAsFiles(sid);
+      return staged === null ? null : buildCommandAttachments(staged, true);
+    }
     if (cls !== "files") return null;
     const receipts = await refreshFileReceipts(sid);
-    if (receipts === null || receipts.length === 0) return null;
-    let next = 0;
-    return parts.map((part): CommandSubmitAttachment => (part.type === "file" && next < receipts.length ? { type: "file", receiptId: receipts[next++]! } : part));
-  };
-
-  /** 命令载荷：inline 图片部件换成文件回执，其它部件不动。 */
-  const restageCommandImages = async (sid: string, parts: CommandSubmitAttachment[]): Promise<CommandSubmitAttachment[] | null> => {
-    const images = attachments.filter((a): a is ImageAttachment => a.kind === "image");
-    if (images.length === 0 || !parts.some((p) => p.type === "image")) return null;
-    const receipts = await Promise.all(images.map((a) => stageImageAsFile(sid, a)));
-    if (receipts.some((r) => r === null)) return null;
-    let next = 0;
-    return parts.map((part): CommandSubmitAttachment => (part.type === "image" ? { type: "file", receiptId: receipts[next++]! } : part));
+    return receipts === null ? null : buildCommandAttachments(receipts);
   };
 
   /** 失败提示文案：优先引擎原文（带可读原因），没有就回落到通用一句。 */
@@ -422,15 +448,45 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
 
   // ---------- prompt assembly ----------
 
-  const content = useMemo(() => {
-    const parts: PromptContentPart[] = [];
-    for (const a of attachments) {
-      if (a.kind === "image") parts.push({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name });
-      else if (a.status === "ready" && a.receiptId) parts.push({ type: "file", receiptId: a.receiptId });
+  /** 一条一条按**文档序**取出来：正文段与附件段交替（附件插在正文哪一段后面，载荷里就在哪）。
+   *  receipts：本次刚拿到的文件回执（按附件 id 认）；imagesAsFiles：图片改走文件回执那一档。
+   *  还没就绪的文件跳过——发送前的 filesReady 门槛已经把它们拦住了。 */
+  const segmentsWithParts = (): Array<string | Attachment> => {
+    const byId = new Map(attachments.map((a) => [a.id, a]));
+    const out: Array<string | Attachment> = [];
+    for (const segment of editorRef.current?.payload() ?? []) {
+      if (typeof segment === "string") { out.push(segment); continue; }
+      const att = byId.get(segment.attachmentId);
+      if (att !== undefined) out.push(att);
     }
-    if (text.trim()) parts.push({ type: "text", text: text.trim() });
+    return out;
+  };
+
+  const buildContent = (receipts: Map<string, string>, imagesAsFiles = false): PromptContentPart[] => {
+    const parts: PromptContentPart[] = [];
+    for (const segment of segmentsWithParts()) {
+      if (typeof segment === "string") {
+        const body = segment.trim();
+        if (body) parts.push({ type: "text", text: body });
+        continue;
+      }
+      if (segment.kind === "image" && !imagesAsFiles) {
+        parts.push({ type: "image", mediaType: segment.mediaType, data: segment.data, name: segment.name });
+        continue;
+      }
+      const receiptId = segment.kind === "file" ? segment.receiptId ?? receipts.get(segment.id) : receipts.get(segment.id);
+      if (receiptId !== undefined) parts.push({ type: "file", receiptId });
+    }
     return parts;
-  }, [attachments, text]);
+  };
+
+  /** 命令的附件载荷：同一份文档序，但没有文本部件（命令正文在命令行里）。 */
+  const buildCommandAttachments = (receipts: Map<string, string>, imagesAsFiles = false): CommandSubmitAttachment[] =>
+    buildContent(receipts, imagesAsFiles).flatMap((part): CommandSubmitAttachment[] =>
+      part.type === "text" ? [] : [part]);
+
+  /** 有没有可发的：正文非空或挂着附件（发送门槛与发送钮/听写钮的切换都读它）。 */
+  const hasContent = text.trim().length > 0 || attachments.length > 0;
 
   /** 文件 chip 全部就绪才可发送（官方 sendSession 同款门槛）。草稿页的
    *  pending 例外——无会话可传，发送时先建会话补传（uploadNow）。 */
@@ -440,7 +496,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   // ---------- 发送 / 排队 / 插话 ----------
 
   const submit = async (modeOverride?: "queue" | "steer") => {
-    if (content.length === 0 || busy) return;
+    if (!hasContent || busy) return;
     if (!filesReady) {
       // 失败 chip 说真话：笼统的"还在上传中"会让一个永远不会完成的附件
       // 看着像在等（原因就在 chip 的 error 上，带出来）。
@@ -467,23 +523,20 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
       }
       setBusy(true);
       let sid = sessionId;
-      let submitted: CommandSubmitAttachment[] = [];
-      for (const a of attachments) {
-        if (a.kind === "image") submitted.push({ type: "image", mediaType: a.mediaType, data: a.data, name: a.name });
-        else if (a.status === "ready" && a.receiptId) submitted.push({ type: "file", receiptId: a.receiptId });
-      }
+      let receipts = new Map<string, string>();
       if (sid === null) {
         const created = await ensureSession();
         if (created === null) { setBusy(false); return; }
         sid = created;
         // 草稿页的 pending 文件此刻才有会话可落：补传后并入载荷（与 prompt 路径同法）
-        const receipts = await uploadNow(sid);
-        if (receipts === null) {
+        const uploaded = await uploadNow(sid);
+        if (uploaded === null) {
           void alertDialog({ message: uploadFailureText() });
           setBusy(false); return;
         }
-        submitted = [...submitted, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
+        receipts = new Map(uploaded.map((r) => [r.id, r.receiptId]));
       }
+      const submitted = buildCommandAttachments(receipts);
       const runLine = (parts: CommandSubmitAttachment[]) => api.commandExecute({ agentId: sid, line: decision.line, attachments: parts });
       // 附件被准入拒时**引擎不抛错**：它把失败包成一次成功 RPC 的 error 结果
       //（interaction/commands 的 settle），所以判类要看原文；抛错那条留给传输/其他
@@ -499,12 +552,12 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
             setBusy(false); return;
           }
           if (res.result.kind !== "error") break; // 成功
-          const retry = round === 0 ? await redeliverCommand(sid, parts, classifyAttachmentRefusalText(res.result.text)) : null;
+          const retry = round === 0 ? await redeliverCommand(sid, classifyAttachmentRefusalText(res.result.text)) : null;
           if (retry === null) failure = res.result.text;
           else parts = retry;
         } catch (err) {
           const facts = err as Error & RpcErrorFacts;
-          const retry = round === 0 ? await redeliverCommand(sid, parts, classifyAttachmentRefusal(facts.reason)) : null;
+          const retry = round === 0 ? await redeliverCommand(sid, classifyAttachmentRefusal(facts.reason)) : null;
           if (retry === null) failure = failureText(facts, tt("命令发送失败", "Failed to send command"));
           else parts = retry;
         }
@@ -528,22 +581,23 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
       ? (modeOverride ?? busyEnter)
       : "queue";
     let sid = sessionId;
-    // 发送载荷：content 是本轮渲染的快照，草稿页补传产生的回执不在其中，
-    // 需显式并入（否则文件传了消息里却没有）。
-    let sendContent = content;
+    // 发送载荷**在发送这一刻按文档序现拼**：正文段与附件段交替，附件插在正文哪一段后面
+    // 载荷里就在哪。草稿页这里刚补传的回执照附件 id 认（不是按数组下标对位）。
+    let receipts = new Map<string, string>();
     const fromDraft = sid === null;
     if (sid === null) {
       const created = await ensureSession();
       if (created === null) { setBusy(false); return; }
       sid = created;
-      // 草稿页的文件 chip 是 pending（无会话可传）：建好会话立即补传。
-      const receipts = await uploadNow(sid);
-      if (receipts === null) {
+      // 草稿页的文件胶囊是 pending（无会话可传）：建好会话立即补传。
+      const uploaded = await uploadNow(sid);
+      if (uploaded === null) {
         void alertDialog({ message: uploadFailureText() });
         setBusy(false); return;
       }
-      sendContent = [...content, ...receipts.map((r) => ({ type: "file" as const, receiptId: r }))];
+      receipts = new Map(uploaded.map((r) => [r.id, r.receiptId]));
     }
+    const sendContent = buildContent(receipts);
     const rpcId = uuid();
     try {
       await api.prompt({ requestId: rpcId, sessionId: sid, mode, content: sendContent });
@@ -553,7 +607,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
       // 文件原件投递（同一份字节，走文件回执），原样重发一次。模型能不能看图是模型自己
       // 的事（它会自己说），我们只负责把东西送到。
       const facts = err as Error & RpcErrorFacts;
-      const delivered = await redeliver(sid, sendContent, facts.reason);
+      const delivered = await redeliver(sid, facts.reason);
       if (delivered === null) {
         void alertDialog({ message: failureText(facts, tt("发送失败，请重试", "Send failed; please retry")) });
         setBusy(false);
@@ -615,7 +669,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     editorRef.current?.focus();
   };
 
-  const canSend = content.length > 0 && !busy && filesReady;
+  const canSend = hasContent && !busy && filesReady;
   const showCtx = hasContextData(ctx);
   return (
     <div className="composer-wrap" ref={rootRef}>
@@ -647,19 +701,6 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
               （见 .composer-field 的 min-width）时整条折到下一行。这一格的实测高度
               就是"内容折了几行"的判据（见上面那条 useLayoutEffect）。 */}
           <div className="composer-field">
-            {attachments.length > 0 && (
-              <div className="composer-atts">
-                {attachments.map((a) => (
-                  <AttachmentPill
-                    key={a.id}
-                    att={a}
-                    onRemove={removeAttachment}
-                    onRetry={retryAttachment}
-                    onOpenImage={setPreview}
-                  />
-                ))}
-              </div>
-            )}
             <DraftEditor
               ref={editorRef}
               initialText={text}
@@ -668,6 +709,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
               onText={(value) => { setText(value); setDismissed(false); }}
               onCaret={setCursorState}
               onPasteFiles={(files) => { for (const f of files) addImageFile(f); }}
+              onAttachmentRemoved={removeAttachment}
               onOverflow={setTall}
             />
           </div>
