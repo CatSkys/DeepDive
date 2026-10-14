@@ -43,16 +43,8 @@ export const ENShell: Record<string, string> = {
   "前往配置": "Open Configuration",
   "当前空间": "Current workspace",
 
-  // time buckets (Sidebar.fmtTime / bucketLabel)
-  "刚刚": "now",
-  " 分": "m",
-  " 小时": "h",
-  " 天": "d",
-  " 周": "w",
-  "今天": "Today",
-  "昨天": "Yesterday",
-  "上周": "This week",
-  " 月": " ",
+  // 会话列表的相对时间（"3 天"）与日期分组标签（"今天"、"8 月"）**不进词典**：
+  // session/sessionTime.ts 按 lang 现生成（英文走 m/h/d/w 与 Intl 月名）。
 
   // hero / composer
   "做点什么？": "What should we do?",
