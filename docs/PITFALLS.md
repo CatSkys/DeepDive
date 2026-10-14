@@ -1402,6 +1402,19 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 事故：tokensPerSecond 写成了 `解码秒数`（公式里没有 tokens 分子），渲染成 "12.5 tok/s" 实为 12.5 秒——现有测试只钉了 runMs/ttftMs，恰好漏过。
 - 处置：新增派生指标时夹具必须带全输入（含 usage）并断言**带量纲的结果**；官方口径以 vendored `ui-conversation/turn-metrics` 为准（outputTokens ÷ 解码墙钟秒）。
 
+### 8.6bis 面板页与主窗跑同一份 SPA：**应答必须回到发起请求的那一页**（2026-10-14 用户报"截图导入的 md 上传失败"）
+- 症状：迷你面板里截图 → 图那颗正常（内联字节，不经壳），**上下文 md 那颗一直转、最后变成"上传失败"**；
+  引擎侧其实**已经收到文件**（我拿那次截图的真文件走桥回放：HTTP 200 + receiptId），所以问题不在引擎。
+- 根因：`handleHostMessage(_:from:)` 拿到了 `source`，但几条应答把它**丢掉了**、写死 `windowController`
+  ——`upload-path → attachmentUploaded`、`pick-attachments → pickedAttachments`、`list-dir → dirListing`
+  三条都是；`dictation-*` 三条同理。面板页发起的请求，应答被推到主窗，面板页的 `bridgeRequest`
+  永远等不到 → 超时（120s）→ 界面只能报"上传失败"。
+- 为什么容易漏：**截图结果本身是回到面板的**（`currentSource()`：面板可见就 `.panel`），所以"发起方是面板"
+  这件事在上一条链里是对的，紧接着的附件上传却写死了主窗——同一段流程里两种路由，看着像引擎的锅。
+- 纪律：凡**面板页也会发起**的请求（附件上传/选择器/列目录/听写…），应答一律 `pushHost(..., to: source)`；
+  只有主窗独有的功能（设置、git、侧栏图标…）才可以推到 `windowController`。改完顺手 grep 一遍
+  `pushHostCommand` 的写死调用，按"面板会不会走到"逐个过一遍。
+
 ### 8.7 输入框的文本层是 CodeMirror：行内附件原子有五条硬约束（2026-10-14 换掉 textarea）
 - 背景：附件要能插进正文中间（用户定稿"混排"），textarea 装不下元素，照 Atd 换成 CodeMirror 6 的
   **行内原子**（`Decoration.replace({widget})` + `EditorView.atomicRanges`）。
