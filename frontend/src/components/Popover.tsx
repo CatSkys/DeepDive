@@ -105,8 +105,10 @@ export function Popover({
   const [box, setBox] = useState<FloatingPlacement | null>(null);
   /** 没显式给尺寸时，另一条轴的尺寸由宿主自己的 CSS 决定，只有挂载后才量得到——而
    *  align=center/end 与边界收敛都要它。量到就进 state，让下面那次重算把它算进去
-   *  （仍是 layout effect，绘制前完成，用户看不到中间态）。 */
-  const [crossSize, setCrossSize] = useState(0);
+   *  （仍是 layout effect，绘制前完成，用户看不到中间态）。
+   *  `inset` 是同一个宿主沿滚动轴的 padding+border（`max-height` 是内容盒的，不减它盒子
+   *  会比余量高一截）——`width` 给了也要量。 */
+  const [metrics, setMetrics] = useState({ cross: 0, inset: 0 });
   /** 触发器常是宿主自己的 ref（`anchor={triggerRef.current}`）：子组件渲染时 ref 还没挂
    *  （ref 在提交阶段才赋值），第一帧拿到的 anchor 就是 null——提交后补看一次。真没挂上
    *  （触发器是条件渲染的）就停在这里，等 props 变化再量。 */
@@ -115,7 +117,7 @@ export function Popover({
   const sideRef = useRef<PopoverSide>(side);
   const axisRef = useRef<"height" | "width">(
     side === "top" || side === "bottom" ? "height" : "width");
-  const cross = width === "anchor" ? 0 : width ?? crossSize;
+  const cross = width === "anchor" ? 0 : width ?? metrics.cross;
 
   // 开：同帧量、同帧落位（layout effect 在绘制前跑完，不会闪一帧在旧位置）。
   // 关：**不摘 box**——先让宿主跑完离场动画，animationend 才摘（见下面的 onAnimationEnd）。
@@ -125,23 +127,28 @@ export function Popover({
     if (!r) return;
     const b = placeFloating(r, {
       side, gap: sideOffset, align, alignOffset,
-      size: width, cross, height, maxHeight,
+      size: width, cross, height, maxHeight, inset: metrics.inset,
     });
     sideRef.current = b.side;
     axisRef.current = b.axis;
     setBox(b);
-  }, [open, anchor, seenAnchor, side, sideOffset, align, alignOffset, width, cross, height, maxHeight]);
+  }, [open, anchor, seenAnchor, side, sideOffset, align, alignOffset, width, cross, height, maxHeight, metrics.inset]);
 
   // 尺寸未给的场合：挂载后补量一次**另一条轴**，改的幅度超过半个像素才算（避免量—排—量的
   // 来回）。`axis` 是"内容超限时该滚的那一轴"（竖开=高、横开=宽），对齐与夹边要的是它的
   // **对轴**，别拿滚轴自己当尺寸——竖开时量成高、横向夹边就会整体跑偏。
   useLayoutEffect(() => {
     const el = hostRef.current;
-    if (!open || !el || width !== undefined) return;
+    if (!open || !el) return;
+    const horizontal = axisRef.current === "width";
     const r = el.getBoundingClientRect();
-    const v = axisRef.current === "width" ? r.height : r.width;
-    if (v > 0 && Math.abs(v - crossSize) > 0.5) setCrossSize(v);
-  }, [open, width, crossSize, box]);
+    const next = {
+      cross: width !== undefined ? 0 : (horizontal ? r.height : r.width),
+      // offset − client = padding + border：`max-height` 是内容盒的，余量里得先扣掉这一截
+      inset: horizontal ? el.offsetWidth - el.clientWidth : el.offsetHeight - el.clientHeight,
+    };
+    if (next.cross !== metrics.cross || next.inset !== metrics.inset) setMetrics(next);
+  }, [open, width, metrics, box]);
 
   // 外点：mousedown 而非 click——按下即关，指针在被按住的元素上抬起时不会误触发它
   // （全仓弹层的既有口径，别改成 pointerdown：同一件事两套事件名只会多一处不一致）。

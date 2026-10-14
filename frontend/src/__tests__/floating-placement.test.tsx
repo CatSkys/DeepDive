@@ -11,6 +11,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { placeFloating, type FloatingPlacement } from "../components/floatingPlacement";
+// 同一天还有第二轮报障「你这修到左边去了」：量尺寸那一帧只覆盖了 `left`，`.ddMenu` 类自带的
+// `right: 0` 仍在，left+right 双约束把宽度解成整个视口宽；量回来的宽＝视口宽，夹右缘算成
+// 负数 → 菜单被钉在左边 8px。落位算术因此**四条边一律显式写死**（用不上的写 auto），
+// 并把宿主自己的 padding+border（`inset`）从余量里扣掉——`max-height` 是内容盒的。
 import { Dropdown } from "../components/controls";
 
 const MARGIN = 8;
@@ -116,6 +120,18 @@ describe("placeFloating · 横向", () => {
     const flipped = placeFloating(anchor(100, 20, 30, 51), { side: "left", size: 240, cross: 200, gap: 10 });
     expect(flipped.side).toBe("right");
     expect(flipped.style.left).toBe(20 + 51 + 10);
+  });
+
+  it("实测来的盒子带 inset：限高要扣掉它自己的内垫+边框（max-height 是内容盒的）", () => {
+    setViewport(800, 200);
+    const placed = placeFloating(anchor(90, 40, 30, 60), { size: 148, cross: 148, height: 130, inset: 10 });
+    const p = boxOf(placed);
+    // 余量 78 → 限高 78 − 10；整个盒子 = 68 + 10 = 78 ≤ 余量
+    expect(p.maxHeight).toBe(68);
+    expect(p.top + p.maxHeight + 10).toBeLessThanOrEqual(200 - MARGIN);
+    // 四条边一律写死：类自带的 right/top 不许参与过量约束
+    expect(placed.style.right).toBe("auto");
+    expect(placed.style.left).not.toBe("auto");
   });
 });
 

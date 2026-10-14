@@ -11,7 +11,11 @@
  * 3. 翻到上方时菜单**底边贴锚点的上缘**（`anchor.top - gap`），不贴锚点的下缘——后者会让
  *    菜单盖住自己的触发器。四条边**全部显式写死**（用不上的那条写 `auto`）：`.ddMenu` /
  *    `.model-menu` 这类类自带 `top: calc(100% + 4px)`，只设 `bottom` 会踩 top/bottom
- *    双约束把菜单压成细条（PITFALLS §1.7 第二个实例）。
+ *    双约束把菜单压成细条（PITFALLS §1.7 第二个实例）；同理，量尺寸的那一帧也必须四边全写，
+ *    否则类自带的 `right: 0` 会把宽度解成视口宽，夹右缘算出负数、菜单被钉在左缘 8px
+ *    （用户 2026-10-14「你这修到左边去了」，PITFALLS §1.7 第三个实例）。
+ * 4. `max-height` 是**内容盒**的尺寸，得扣掉宿主自己的 padding+border（`inset`），不然
+ *    盒子比余量还高一截。
  */
 import type { CSSProperties } from "react";
 
@@ -24,6 +28,10 @@ export interface FloatingAnchor {
   /** 锚点自身的宽：`size: "anchor"` 时就是菜单的宽。 */
   width: number;
   height: number;
+  /** 该面自身的**垂直**内垫 + 边框。`.ddMenu` 这类面是 content-box，CSS 的 `max-height`
+   *  限的是内容盒：实测来的盒子要带上它，限高才不会比余量多出这一截（10px 就能从窗底探出去）。
+   *  声明成"上限"的尺寸（照 CSS 类里 max-height 抄的常量）不带它。 */
+  inset?: number;
 }
 
 /** 贴锚点的哪一边。放不下时翻到对面。 */
@@ -49,6 +57,8 @@ export interface FloatingOptions {
   height?: number;
   /** 限高的硬上限。 */
   maxHeight?: number;
+  /** 宿主沿**滚动轴**的 padding+border：`max-height` 是内容盒的，不减掉它盒子会比余量高一截。 */
+  inset?: number;
 }
 
 export interface FloatingPlacement {
@@ -90,9 +100,11 @@ export function placeFloating(anchor: FloatingAnchor, opts: FloatingOptions = {}
     : side === "bottom" ? anchor.top - gap - margin
     : side === "left" ? vw - anchor.right - gap - margin
     : anchor.left - gap - margin;
+  const inset = opts.inset ?? 0;
   // 装不装得下：竖开比内容高度估计，横开比要固定下来的那条宽（没固定就无从判定，不翻）。
+  // 竖开时把内垫算进去——盒子高 = 内容高 + inset。
   const fit = vertical
-    ? Math.min(opts.height ?? Infinity, opts.maxHeight ?? Infinity)
+    ? Math.min(opts.height ?? Infinity, opts.maxHeight ?? Infinity) + inset
     : (pin ? cross : 0);
   const out = near >= fit || far <= near ? side : OPPOSITE[side];
   const room = Math.max(0, out === side ? near : far);
@@ -116,7 +128,8 @@ export function placeFloating(anchor: FloatingAnchor, opts: FloatingOptions = {}
     else if (align === "center") left = anchor.left + (anchor.width - cross) / 2 + alignOffset;
     else left = anchor.right - cross - alignOffset;
     style.left = Math.max(margin, cross === 0 ? left : Math.min(left, vw - cross - margin));
-    style.maxHeight = Math.min(room, opts.maxHeight ?? room);
+    // 限高按**内容盒**给：减掉宿主自己的内垫+边框，盒子总高才等于余量。
+    style.maxHeight = Math.max(0, Math.min(room, opts.maxHeight ?? room) - inset);
     if (out === "top") style.bottom = vh - anchor.top + gap;
     else style.top = anchor.bottom + gap;
   } else {
