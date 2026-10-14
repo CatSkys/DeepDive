@@ -17,7 +17,7 @@
   --glass-tint: var(--glass-fill-dialog);
   --glass-blur: var(--blur-scrim);
   --glass-inset: var(--shadow-modal-inset);
-  animation: wizard-in var(--dur-slow) var(--ease-spring) both;
+  animation: wizard-in var(--dur-slow) var(--ease-spring) backwards;
   position: relative;
   display: flex;
   width: 880px;
