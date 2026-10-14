@@ -67,7 +67,7 @@
 | `ProfileComposer.swift` | 引擎组合的部署器：把随包的 `engine/profile` 装进 harness home 的 web profile，并把 `dsh.profile.bundles` 收敛到它（摘掉退役的上游两层、保留社区与用户自加的、迁移既有安装）。幂等 + 失败不阻塞启动，纪律同 `ChatImportPlugin` |
 | `DeploymentPrompt.swift` | 部署提示词（自动化协议 + 富输出围栏词表）及其落点：`<DSH_HOME>/AGENTS.md` 的托管块。**不走** `system-prompt` 的 personaPrefix——那条路被 agent preset 遮蔽（`PITFALLS §7.7`） |
 | `NativeAlerts.swift` / `MiniPanel/` | 原生通知（分级静默）+ 迷你面板启动器（屏缘药丸/展开列，Atd 整包移植；命令数据腿 `miniPanel.setCommands` 与命令卡代码仍在，但药丸不列命令——`SPEC-NOTIFICATIONS` / `SPEC-SEMANTICS §6.1`） |
-| `ScreenshotController.swift` + `Capture/`（+`Capture/Core/`） | **截图**：Atd 整包移植族（ScreenCaptureKit 逐屏冻结、overlay 选区与元素吸附、标注编辑器、导出与屏幕上下文）与壳侧编排（屏幕录制授权、激活借还、单会话、结果交付） |
+| `ScreenshotController.swift` + `Capture/`（+`Capture/Core/`） | **截图**：Atd 整包移植族（ScreenCaptureKit 逐屏冻结、overlay 选区与元素吸附、标注编辑器、导出、按需提取文字与翻译）与壳侧编排（屏幕录制授权、激活借还、单会话、结果交付） |
 | `SelectionController.swift` + `Selection/`（+`Selection/Core/`） | **划词**：Atd 移植族（全局鼠标抬起触发、AX 选区探测与读词、玻璃工具条与状态 HUD、排除应用）与壳侧编排（页面推来的设置、选区暂存、Ask/命令事件） |
 | `Support/`（`ShellSeams` / `BridgeSeams` / `ShellDesign` / `ShellMotion` / `Deadline` / `TextCapture` / `BackgroundCursor`） | 三块 Atd 移植族共用的壳侧接缝：壳文案表（zh/en）、桥 DTO 镜像与系统面板、系统设置深链、**面板设计常量**（`ShellDesign`：圆角阶梯与窗口层级档 / `ShellMotion`：窗口开合时长与曲线——原生侧这两个轴的事实源）、限时兜底 |
 | `QuickPanelController.swift` / `Screens.swift` / `WindowGeometry.swift` | 会话面板窗（⌥Space/药丸标志位的召唤目标）：非激活 NSPanel + 玻璃底板（`WindowGlassView`）+ 透明 WebView 载 SPA 的 `#/mini` 分支（快捷空间会话流+输入区）；命令中心卡那块面是原生玻璃（`WindowGlassView(surface: .floating)`，系统 Liquid Glass），按页面报来的矩形摆位（`mini-cc-frame`）；卡片**内容**在第二块透明 webview（`?minicc=1`，层序：面板页 → 玻璃 → 卡片页，见 PITFALLS §4.38）——**只有卡片这一块**能走原生，胶囊与输入框的内容与面板正文同处一块 webview，材质留在 CSS；每次召唤 dock 光标屏右下、常驻隐身保 WebKit 满速；屏幕工作区/面板几何助手为 Atd 同名移植 |

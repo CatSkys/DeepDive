@@ -1,21 +1,18 @@
 import AppKit
 
-/// Turns confirmed captures into files the page can attach, and keeps what reopening them needs.
-/// A capture is written as its image plus, when anything is known about the screen around it, a
-/// `… context.md` file beside it. The raw pixels, scale and annotations of the last ``capacity``
-/// captures stay in memory for this app run, keyed by the image's path; an image no longer in
-/// memory is reopened from the file itself (its annotations are then already drawn in).
+/// Turns confirmed captures into the file the page attaches, and keeps what reopening them needs.
+/// A capture is written as its image alone; the page imports that one file. The raw pixels, scale
+/// and annotations of the last ``capacity`` captures stay in memory for this app run, keyed by the
+/// image's path; an image no longer in memory is reopened from the file itself (its annotations
+/// are then already drawn in).
 ///
-/// Atd imports the two files through its service and hands the page resource ids; this app's page
+/// Atd imports the file through its service and hands the page a resource id; this app's page
 /// uploads by path (`upload-path`), so a capture is left on disk under ``folder`` and the page
-/// gets the paths.
+/// gets the path.
 final class CaptureLibrary {
-  /// One stored capture: the image file and its screen context, when the shell had anything to
-  /// write about the screen around it.
+  /// One stored capture: the image file the page attaches.
   struct Captured {
     let image: URL
-    let context: URL?
-    let capturedAt: Date
   }
 
   static let capacity = 10
@@ -30,10 +27,8 @@ final class CaptureLibrary {
 
   private var archive = RecentValues<ReopenBase>(capacity: capacity)
 
-  /// Stores `capture` under ``folder`` and archives it for reopening. Text recognition runs while
-  /// the image is encoded; a context that cannot be written is left out without failing the
-  /// capture.
-  func store(_ capture: CaptureConfirmation, capturedAt: Date, snapshot: WindowSnapshot?) async throws(BridgeError)
+  /// Stores `capture` under ``folder`` and archives it for reopening.
+  func store(_ capture: CaptureConfirmation, capturedAt: Date) async throws(BridgeError)
     -> Captured
   {
     do {
@@ -41,34 +36,14 @@ final class CaptureLibrary {
     } catch {
       throw BridgeError(ShellStrings.shared.text(.screenshotNotPrepared))
     }
-    let raw = capture.raw
-    async let recognized = snapshot == nil ? [] : ScreenText.lines(in: raw)
     // `CaptureExport.store` 自己把编码/写盘的失败折成带文案的 BridgeError，这里不再分支。
     let image = try await CaptureExport.store(
       capture.image, capturedAt: capturedAt, in: Self.folder)
-    var context: URL?
-    if let snapshot {
-      let centre = CaptureCoordinates.quartzPoint(
-        CGPoint(x: capture.selection.midX, y: capture.selection.midY),
-        display: capture.displayFrame)
-      let window = snapshot.describe(at: centre)
-      let screenContext = ScreenContext(
-        app: window.app, window: window.window, element: capture.element.map(Self.element),
-        lines: await recognized)
-      if let markdown = screenContext.markdown,
-        let file = await Self.write(
-          markdown,
-          to: Self.folder.appendingPathComponent(
-            ScreenshotRules.contextFileName(capturedAt: capturedAt)))
-      {
-        context = file
-      }
-    }
     archive.insert(
       ReopenBase(image: capture.raw, scale: capture.pixelScale, document: capture.document),
       for: image.path)
     Self.prune()
-    return Captured(image: image, context: context, capturedAt: capturedAt)
+    return Captured(image: image)
   }
 
   /// What `screenshot.edit` opens for `path`: the archived capture when it can keep its size on
@@ -90,7 +65,7 @@ final class CaptureLibrary {
     return decoded
   }
 
-  /// Keeps the newest ``keepOnDisk`` images (and their context files) in the folder.
+  /// Keeps the newest ``keepOnDisk`` images in the folder.
   private static func prune() {
     let keys: [URLResourceKey] = [.contentModificationDateKey]
     guard let entries = try? FileManager.default.contentsOfDirectory(
@@ -104,22 +79,5 @@ final class CaptureLibrary {
       return lhs > rhs
     }
     for url in sorted.dropFirst(keepOnDisk) { try? FileManager.default.removeItem(at: url) }
-  }
-
-  private static func element(_ description: ElementDescription) -> ScreenContext.Element {
-    ScreenContext.Element(
-      role: description.role, title: description.title, value: description.value,
-      help: description.help)
-  }
-
-  /// Writes the context file off the main actor; nil when it could not be written.
-  @concurrent
-  private nonisolated static func write(_ markdown: String, to file: URL) async -> URL? {
-    do {
-      try Data(markdown.utf8).write(to: file)
-      return file
-    } catch {
-      return nil
-    }
   }
 }

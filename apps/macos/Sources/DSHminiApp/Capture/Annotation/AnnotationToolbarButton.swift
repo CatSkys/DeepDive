@@ -29,8 +29,11 @@ final class AnnotationToolbarButton: NSButton, HoverReporting {
   static let disabledColor = NSColor.labelColor.withSystemEffect(.disabled)
 
   private let selection: Selection?
-  /// The text and leading glyph of a labelled button, which draws them itself.
-  private let label: (text: String, image: NSImage?)?
+  /// The text and leading glyph of a labelled button, which draws them itself; ``setLabel(_:)``
+  /// replaces the text when it changes with the state (the extract card's translate button).
+  private var label: (text: String, image: NSImage?)?
+  /// The width of a labelled button's constraints, so ``setLabel(_:)`` can follow its new text.
+  private var labelWidth: NSLayoutConstraint?
   private var trackingArea: NSTrackingArea?
 
   /// Whether the button follows the pointer itself, through a tracking area and cursor rects.
@@ -92,10 +95,23 @@ final class AnnotationToolbarButton: NSButton, HoverReporting {
     focusRingType = .exterior
     self.action = action
     translatesAutoresizingMaskIntoConstraints = false
+    let width = widthAnchor.constraint(equalToConstant: width)
+    labelWidth = width
     NSLayoutConstraint.activate([
-      widthAnchor.constraint(equalToConstant: width),
+      width,
       heightAnchor.constraint(equalToConstant: Self.side),
     ])
+  }
+
+  /// Replaces a labelled button's text and follows it with the width (the extract card's
+  /// translate button, which reads "original" while the translation is shown). Only for a button
+  /// made with ``init(label:image:width:action:)`` that was not stretched to a fixed `width`.
+  func setLabel(_ text: String) {
+    guard let current = label else { return }
+    label = (text, current.image)
+    setAccessibilityLabel(text)
+    labelWidth?.constant = Label.width(text: text, hasImage: current.image != nil)
+    needsDisplay = true
   }
 
   @available(*, unavailable)

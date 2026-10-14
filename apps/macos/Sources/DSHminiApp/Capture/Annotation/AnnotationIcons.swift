@@ -19,6 +19,8 @@ enum AnnotationIcons {
   static let send = "arrow-up"
   static let textBackground = "square-text"
   static let grip = "grip-vertical"
+  /// 工具条上的「提取文字」：扫描框里三行字。
+  static let extract = "scan-text"
 
   /// The Lucide glyph for pixelate and blur; a drawn black box for solid, which depicts itself.
   static func redaction(_ redaction: AnnotationRedaction, label: String) -> NSImage {

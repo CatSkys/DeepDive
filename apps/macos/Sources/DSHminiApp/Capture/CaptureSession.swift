@@ -144,9 +144,7 @@ final class CaptureSession {
     requestHover()
   }
 
-  /// Suspends until the session ends, then ends element detection. A confirmed or asked
-  /// selection that is still the element it was picked from is described first, while detection
-  /// still has that app prepared.
+  /// Suspends until the session ends, then ends element detection.
   func run() async -> Outcome {
     var outcome: Outcome
     if let finished = self.outcome {
@@ -156,20 +154,6 @@ final class CaptureSession {
     }
     await beginTask?.value
     guard began else { return outcome }
-    func described(_ confirmation: CaptureConfirmation) async -> CaptureConfirmation {
-      guard let pick, pick.selection == confirmation.selection else { return confirmation }
-      var described = confirmation
-      described.element = await targeting.describe(at: pick.point, frame: pick.frame)
-      return described
-    }
-    switch outcome {
-    case .confirmed(let confirmation):
-      outcome = .confirmed(await described(confirmation))
-    case .asked(let confirmation, let text):
-      outcome = .asked(await described(confirmation), text: text)
-    default:
-      break
-    }
     await targeting.end()
     return outcome
   }
@@ -339,6 +323,4 @@ struct CaptureConfirmation {
   let displayFrame: CGRect
   /// The selection in the display's view points.
   let selection: CGRect
-  /// The element the selection was picked from, described; set by ``CaptureSession/run()``.
-  var element: ElementDescription?
 }

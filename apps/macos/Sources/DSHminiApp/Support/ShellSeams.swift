@@ -68,6 +68,15 @@ enum ShellStringKey {
   case captureChatSend
   case captureChatPlaceholder
 
+  // 自有键（Atd 目录里没有这一族）：工具条上的「提取文字」与它的结果卡。
+  case captureExtract
+  case captureExtractBusy
+  case captureExtractEmpty
+  case captureExtractFailed
+  case captureTranslate
+  case captureTranslateOriginal
+  case captureClose
+
   case captureToolbar
   case captureToolbarMove
   case captureStyleBar
@@ -169,6 +178,14 @@ final class ShellStrings {
     case .captureChat: return zh ? "提问" : "Ask"
     case .captureChatSend: return zh ? "发送" : "Send"
     case .captureChatPlaceholder: return zh ? "说说这张图…" : "Ask about this shot…"
+
+    case .captureExtract: return zh ? "提取文字" : "Extract Text"
+    case .captureExtractBusy: return zh ? "识别中…" : "Reading text…"
+    case .captureExtractEmpty: return zh ? "没有识别到文字。" : "No text in this selection."
+    case .captureExtractFailed: return zh ? "文字识别失败，请重试。" : "Text recognition failed — try again."
+    case .captureTranslate: return zh ? "翻译" : "Translate"
+    case .captureTranslateOriginal: return zh ? "原文" : "Original"
+    case .captureClose: return zh ? "关闭" : "Close"
 
     case .captureToolbar: return zh ? "标注工具" : "Annotation Tools"
     case .captureToolbarMove: return zh ? "拖动以移动 · 双击放回原位" : "Drag to move · Double-click to put back"

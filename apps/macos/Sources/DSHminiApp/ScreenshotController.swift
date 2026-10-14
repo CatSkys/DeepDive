@@ -5,13 +5,11 @@ import AppKit
 /// 激活归属的借还、单会话互斥、以及把结果交给页面（页面按既有附件通道上传）。
 ///
 /// Atd 的同位件是 `ScreenshotTaker`：它把结果经服务导入成资源 id。本项目页面自己
-/// 上传（`upload-path`），所以产出是磁盘上的两个文件路径（图 + 屏幕上下文）。
+/// 上传（`upload-path`），所以产出是磁盘上那个图片文件路径。
 final class ScreenshotController {
-  /// 一次确认的捕获：页面要的两个文件（上下文可能没有），以及它是否来自复制。
+  /// 一次确认的捕获：页面要的那个图片文件。
   struct Delivered {
     let image: URL
-    let context: URL?
-    let capturedAt: Date
   }
 
   private let library = CaptureLibrary()
@@ -71,20 +69,20 @@ final class ScreenshotController {
       return .failed(error)
     case .notPermitted:
       return .needsPermission
-    case .confirmed(let capture, let capturedAt, let snapshot):
+    case .confirmed(let capture, let capturedAt):
       regions.remember(
         capture.selection, displayID: capture.displayID, displayFrame: capture.displayFrame)
       do {
-        return .delivered(try await storing(capture, capturedAt: capturedAt, snapshot: snapshot))
+        return .delivered(try await storing(capture, capturedAt: capturedAt))
       } catch {
         return .failed(error)
       }
-    case .asked(let capture, let text, let capturedAt, let snapshot):
+    case .asked(let capture, let text, let capturedAt):
       regions.remember(
         capture.selection, displayID: capture.displayID, displayFrame: capture.displayFrame)
       do {
         return .asked(
-          try await storing(capture, capturedAt: capturedAt, snapshot: snapshot), text: text)
+          try await storing(capture, capturedAt: capturedAt), text: text)
       } catch {
         return .failed(error)
       }
@@ -114,27 +112,26 @@ final class ScreenshotController {
       return .failed(error)
     case .notPermitted:
       return .needsPermission
-    case .confirmed(let capture, let capturedAt, _):
+    case .confirmed(let capture, let capturedAt):
       do {
-        return .delivered(try await storing(capture, capturedAt: capturedAt, snapshot: nil))
+        return .delivered(try await storing(capture, capturedAt: capturedAt))
       } catch {
         return .failed(error)
       }
-    case .asked(let capture, let text, let capturedAt, _):
+    case .asked(let capture, let text, let capturedAt):
       do {
-        return .asked(try await storing(capture, capturedAt: capturedAt, snapshot: nil), text: text)
+        return .asked(try await storing(capture, capturedAt: capturedAt), text: text)
       } catch {
         return .failed(error)
       }
     }
   }
 
-  /// 成图落盘并包成页面要的那两个文件路径；确认与带话两条收尾共用这一份。
-  private func storing(
-    _ capture: CaptureConfirmation, capturedAt: Date, snapshot: WindowSnapshot?
-  ) async throws(BridgeError) -> Delivered {
-    let stored = try await library.store(capture, capturedAt: capturedAt, snapshot: snapshot)
-    return Delivered(image: stored.image, context: stored.context, capturedAt: capturedAt)
+  /// 成图落盘并包成页面要的那个文件路径；确认与带话两条收尾共用这一份。
+  private func storing(_ capture: CaptureConfirmation, capturedAt: Date) async throws(BridgeError)
+    -> Delivered
+  {
+    Delivered(image: try await library.store(capture, capturedAt: capturedAt).image)
   }
 
   /// 结束进行中的会话（面板/热键要取消时）；调用方的请求答 `cancelled`。
@@ -150,9 +147,9 @@ final class ScreenshotController {
   private enum SessionEnd {
     case cancelled
     case notPermitted
-    case confirmed(CaptureConfirmation, capturedAt: Date, snapshot: WindowSnapshot)
+    case confirmed(CaptureConfirmation, capturedAt: Date)
     /// 带话收尾（工具条上的提问）：同确认，外加用户写的那句话。
-    case asked(CaptureConfirmation, text: String, capturedAt: Date, snapshot: WindowSnapshot)
+    case asked(CaptureConfirmation, text: String, capturedAt: Date)
     /// 结果按用户要求进了剪贴板（同确认，但页面不收附件）。
     case copied(CaptureConfirmation)
     /// 会话没能跑起来（预检过了但采集失败等）；文案已成型，直接交给页面。
@@ -177,9 +174,9 @@ final class ScreenshotController {
       makeEditor: { AnnotationEditor() })
     self.session = session
     defer { self.session = nil }
-    let presented: (capturedAt: Date, snapshot: WindowSnapshot)
+    let capturedAt: Date
     do {
-      presented = try await present(session, reopening: reopening)
+      capturedAt = try await present(session, reopening: reopening)
     } catch {
       session.cancel()
       _ = await session.run()
@@ -203,10 +200,9 @@ final class ScreenshotController {
     case .failed:
       return .failed(BridgeError(ShellStrings.shared.text(.screenshotNotPrepared)))
     case .confirmed(let capture):
-      return .confirmed(capture, capturedAt: presented.capturedAt, snapshot: presented.snapshot)
+      return .confirmed(capture, capturedAt: capturedAt)
     case .asked(let capture, let text):
-      return .asked(
-        capture, text: text, capturedAt: presented.capturedAt, snapshot: presented.snapshot)
+      return .asked(capture, text: text, capturedAt: capturedAt)
     case .copied(let capture):
       if reopening == nil {
         regions.remember(
@@ -232,13 +228,12 @@ final class ScreenshotController {
     if let tiff = image.tiffRepresentation { pasteboard.setData(tiff, forType: .tiff) }
   }
 
-  /// 取窗口快照（仅新截图）、逐屏冻结（光标所在屏先冻、冻好一屏就上 overlay），
-  /// 最后激活本应用。重开编辑把图铺在最先冻结的那块屏上并预选。
-  private func present(_ session: CaptureSession, reopening: ReopenBase?) async throws
-    -> (capturedAt: Date, snapshot: WindowSnapshot)
-  {
+  /// 取窗口快照（仅新截图，只服务元素检测）、逐屏冻结（光标所在屏先冻、冻好一屏就上
+  /// overlay），最后激活本应用，并答这次捕获的时刻（成图文件名用它）。重开编辑把图铺在
+  /// 最先冻结的那块屏上并预选。
+  private func present(_ session: CaptureSession, reopening: ReopenBase?) async throws -> Date {
     // overlay 出现之前取：元素检测要看用户当时看到的窗口。
-    let snapshot = reopening == nil ? WindowSnapshot.take() : WindowSnapshot(entries: [])
+    let snapshot = reopening == nil ? WindowSnapshot.take() : WindowSnapshot(windows: [])
     if reopening == nil { session.begin(windows: snapshot.windows) }
     let freezer: DisplayFreezer
     do {
@@ -261,7 +256,7 @@ final class ScreenshotController {
       }
       session.add(frozen, on: target.screen)
     }
-    if session.isFinished { return (capturedAt, snapshot) }
+    if session.isFinished { return capturedAt }
     guard !session.overlays.isEmpty else {
       throw BridgeError(ShellStrings.shared.text(.screenshotNoDisplay))
     }
@@ -272,6 +267,6 @@ final class ScreenshotController {
       session.preselect(
         preselection.rect, onDisplay: preselection.displayID, restoring: reopening.document)
     }
-    return (capturedAt, snapshot)
+    return capturedAt
   }
 }

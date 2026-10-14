@@ -373,7 +373,7 @@ export function useComposerAttachments({ appendToDraft, onAdded, hasShell, sessi
     }
   };
 
-  /** 把外部已备好的附件项（截图/屏幕上下文）按 ＋ 选择器同一份逻辑摄入。 */
+  /** 把外部已备好的附件项（截图等）按 ＋ 选择器同一份逻辑摄入。 */
   const ingestAttachments = useCallback(
     (items: PickedAttachment[]) => ingestPicked(setAttachments, addFilePath, appendToDraft, onAdded, items),
     [addFilePath, appendToDraft, onAdded],

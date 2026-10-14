@@ -9,6 +9,7 @@ import Foundation
 /// the style bar then above the toolbar. The style bar's room is kept even while it is hidden, so
 /// the toolbar never jumps as it appears. Everything stays `margin` inside the display. Once the
 /// user drags the bars, ``frames(toolbar:styleBar:at:within:stack:margin:)`` places them instead.
+/// ``card(_:under:within:gap:margin:)`` places the extract card beside the toolbar the same way.
 public enum AnnotationToolbarLayout {
   /// Room the overlay's "W × H" label takes above a selection (`CaptureChromeView`: a badge about
   /// 23 pt tall, 6 pt above the edge). A block placed above clears it rather than covering it.
@@ -67,6 +68,30 @@ public enum AnnotationToolbarLayout {
   ) -> (toolbar: CGRect, styleBar: CGRect) {
     let styleX = clamp(toolbar.minX, display.minX + margin, display.maxX - margin - styleBar.width)
     return (toolbar, CGRect(origin: CGPoint(x: styleX, y: styleY), size: styleBar))
+  }
+
+  /// 提取文字的结果卡（``AnnotationExtractCard``）：贴在 `toolbar` 下方，下方放不下就翻到
+  /// 上方，两处都放不下时贴在下方再夹进屏内（卡比显示器还高时允许压住工具条）；横向以工具
+  /// 条的中线对齐，同样夹进屏内。
+  public static func card(
+    _ size: CGSize, under toolbar: CGRect, within display: CGRect, gap: CGFloat = 8,
+    margin: CGFloat = 8
+  ) -> CGRect {
+    let below = toolbar.maxY + gap
+    let above = toolbar.minY - gap - size.height
+    let y =
+      if below + size.height <= display.maxY - margin {
+        below
+      } else if above >= display.minY + margin {
+        above
+      } else {
+        below
+      }
+    return CGRect(
+      x: clamp(
+        toolbar.midX - size.width / 2, display.minX + margin, display.maxX - margin - size.width),
+      y: clamp(y, display.minY + margin, display.maxY - margin - size.height),
+      width: size.width, height: size.height)
   }
 
   /// `value` within `lower...upper`; `lower` wins when the range is empty (a toolbar wider

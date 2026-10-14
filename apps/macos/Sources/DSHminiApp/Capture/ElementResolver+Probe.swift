@@ -86,45 +86,6 @@ nonisolated enum AccessibilityProbe {
     return nodes
   }
 
-  /// What the screen-context attachment says about `element`, in one round trip: its role,
-  /// `AXTitle` (else `AXDescription`), a text or number `AXValue` cut to
-  /// ``maximumValueLength`` characters, and `AXHelp`. Nil without a role.
-  static func description(of element: AXUIElement) -> ElementDescription? {
-    let names =
-      [
-        kAXRoleAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute,
-        kAXHelpAttribute,
-      ] as CFArray
-    var values: CFArray?
-    guard
-      AXUIElementCopyMultipleAttributeValues(
-        element, names, AXCopyMultipleAttributeOptions(), &values)
-        == .success,
-      let values = values as? [CFTypeRef], values.count == 5,
-      let role = text(values[0])
-    else { return nil }
-    let value: String? =
-      switch values[3] {
-      case let string as String: text(string).map { String($0.prefix(maximumValueLength)) }
-      case let number as NSNumber where CFGetTypeID(number) == CFNumberGetTypeID():
-        number.stringValue
-      default: nil
-      }
-    return ElementDescription(
-      role: role, title: text(values[1]) ?? text(values[2]), value: value, help: text(values[4]))
-  }
-
-  /// The longest `AXValue` a description keeps; a text area's whole content is not context.
-  static let maximumValueLength = 500
-
-  /// A string attribute, trimmed; nil when it is not a string or empty (a failed attribute is
-  /// an `AXValue` of type error, which is not a string either).
-  private static func text(_ value: Any) -> String? {
-    guard let string = value as? String else { return nil }
-    let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-    return trimmed.isEmpty ? nil : trimmed
-  }
-
   /// Descends from `element` towards the smallest child under `point`. Some apps (Chromium
   /// trees in particular) answer the hit-test with a container; the real target is a child.
   static func deepest(
