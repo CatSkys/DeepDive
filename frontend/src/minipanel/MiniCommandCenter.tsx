@@ -8,7 +8,7 @@
 // 键盘：↑↓ 走行、Enter 激活、Esc 先回上一层（设置的选择页）/清空搜索，空搜索再按才关。
 // 行件在 MiniHistoryRows / MiniSettingsRows，本文件只管卡片框架、搜索与键盘派发。
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useT } from "../i18n";
 import { MiniHistoryRows } from "./MiniHistoryRows";
 import { MiniSettingsRows } from "./MiniSettingsRows";
@@ -89,16 +89,14 @@ export function MiniCommandCenter({
 
   return (
     <div className="mini-cc" ref={cardRef} role="dialog" aria-label={mode === "history" ? t("会话历史") : t("命令中心")}>
-      {mode === "history" && (
       <label className="mini-cc-search">
-        <Search size={15} aria-hidden="true" />
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onSearchKeys}
-          placeholder={mode === "history" ? t("搜索会话…") : t("搜索设置…")}
-          aria-label={mode === "history" ? t("搜索会话…") : t("搜索设置…")}
+          placeholder={mode === "history" ? t("搜索会话…") : t("搜索命令…")}
+          aria-label={mode === "history" ? t("搜索会话…") : t("搜索命令…")}
         />
         {query !== "" && (
           <button
@@ -115,11 +113,10 @@ export function MiniCommandCenter({
           </button>
         )}
       </label>
-      )}
       <div className="mini-cc-body">
         {mode === "history"
           ? <MiniHistoryRows query={query} registerKeys={registerKeys} />
-          : <MiniSettingsRows sessionId={sessionId} registerKeys={registerKeys} />}
+          : <MiniSettingsRows sessionId={sessionId} registerKeys={registerKeys} query={query} />}
       </div>
     </div>
   );

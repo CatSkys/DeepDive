@@ -221,12 +221,15 @@ function SettingRow({ page, cursor, onOpen }: { page: SettingsPage; cursor: bool
 
 interface ShellProps {
   registerKeys: (handler: KeyHandler) => void;
+  /** 搜索词（两个脸共用卡片顶上那条搜索；空的 = 不过滤）。 */
+  query: string;
 }
 
 /** 设置模式的壳：根行 ↔ 选择页的翻页、搜索过滤与键盘，两脸共用（只喂 pages）。 */
 function SettingsShell({
   pages,
   actions,
+  query,
   registerKeys,
   onOpenPage,
 }: ShellProps & {
@@ -242,14 +245,20 @@ function SettingsShell({
   const open = pages.find((p) => p.id === openId) ?? null;
   // 设置脸没有搜索框（用户 2026-10-13 定稿："它就是一块设置页面"），所以行集与选项都不再过滤
   const rows = pages;
+  // 搜索（用户 2026-10-14："上面还要加个搜索"）：根层按名称过滤，翻页后的选项同一把尺子。
+  const q = query.trim().toLowerCase();
+  const hit = (s: string) => q === "" || s.toLowerCase().includes(q);
+  const visibleSections = open === null ? [] : open.sections
+    .map((s) => ({ ...s, options: s.options.filter((o) => hit(o.label)) }))
+    .filter((s) => s.options.length > 0);
   // 根层的键盘序 = 动作行 + 设置行（一条连续的光标序，↑↓/回车一视同仁）
   const root = [
-    ...actions.map((action) => ({ kind: "action" as const, action })),
-    ...rows.map((page) => ({ kind: "page" as const, page })),
+    ...actions.filter((a) => hit(a.label)).map((action) => ({ kind: "action" as const, action })),
+    ...rows.filter((p) => hit(p.label)).map((page) => ({ kind: "page" as const, page })),
   ];
-  const choices = open === null ? [] : flattenChoices(open.sections);
+  const choices = open === null ? [] : flattenChoices(visibleSections);
 
-  useEffect(() => { setCursor(0); }, [openId]);
+  useEffect(() => { setCursor(0); }, [openId, query]);
 
   const back = () => setOpenId(null);
 
@@ -306,13 +315,14 @@ function SettingsShell({
               }}
             />
           )))}
+        {root.length === 0 && <p className="mini-cc-empty">{tRaw("没有匹配的命令")}</p>}
       </div>
     );
   }
   return (
     <>
       <MiniChoicePage
-        sections={open.sections}
+        sections={visibleSections}
         value={open.valueId}
         cursor={cursor}
         onPick={(v) => {
