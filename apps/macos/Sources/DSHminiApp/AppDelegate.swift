@@ -357,6 +357,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     tooltip.applyAppearanceMode()
                 } else if key == "language" {
                     DSHAppPrefs.setLanguage(mode)
+                    // 语言是**运行中会变**的偏好，而 prefs 平时只在 host-ready / get-prefs 推
+                    // 快照：不在这里补这一条，设置里切语言就只到主窗（它自己乐观更新），面板页
+                    // 与命令中心卡页那两份 store 会一直停在启动时那一刻（2026-10-14 用户报
+                    // "整个浮动面板没有英文"）。
+                    pushPrefs()
                 } else if key == "keybinds" {
                     // 前端键位覆盖（JSON 串，结构由前端定义）：只存不解析。
                     DSHAppPrefs.setKeybinds(mode)
@@ -960,7 +965,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let data = try? JSONSerialization.data(withJSONObject: prefsPayload()),
               let json = String(data: data, encoding: .utf8) else { return }
         windowController.pushHostCommand("prefs", payload: json)
-        quickPanel.pushHostCommand("prefs", payload: json)
+        // 面板那一侧是**两块**承载 SPA 的页（面板页 + 命令中心卡页），各有自己的 store。
+        quickPanel.pushHostCommandToPanelPages("prefs", payload: json)
     }
 
     private func pushHotkey() {
