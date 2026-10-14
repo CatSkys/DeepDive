@@ -63,9 +63,14 @@ export function deriveRouteFromBaseURL(raw: string): string {
 /** llm.discoverModels 的候选（引擎只回这四个字段）。 */
 export interface DiscoveredModel { id: string; name?: string; contextWindow?: number; maxTokens?: number }
 
-/** llm-pi-ai 的模型条目：模态字段拼写是 input。 */
+/** llm-pi-ai 的模型条目：模态字段拼写是 input。
+ *
+ *  `reasoningEfforts` 是引擎侧的思考档位声明（档位名 → 线上取值；`false`＝明说不支持
+ *  推理）。界面不编辑它，但**新建手写路由的模型时要写一份默认值**，读判断也走它，所以
+ *  在这里声明；其余引擎字段（compat、imagePixelBudget…）仍靠整条带过，不逐个建模。 */
 export interface PiModelEntry extends DiscoveredModel {
   input?: string[];
+  reasoningEfforts?: Record<string, string | null> | false;
 }
 
 /** llm-deepseek 的目录条目：模态字段拼写是 inputModalities。 */
@@ -157,6 +162,37 @@ export function rewriteEntry<T extends { id: string }>(
   return next as T;
 }
 
+/** 手写路由（自定义提供方）新建模型时补的**默认思考档位**。
+ *
+ *  为什么必须有这一项：引擎只在条目**声明了** `reasoningEfforts` 时才把这个模型当成能
+ *  推理的——字段省略＝「继承安装目录里同 id 条目的能力」，而安装目录是**按提供方 id**
+ *  索引的（`catalogModels(provider)`），手写路由（自定义 baseURL）在那里面没有任何条目可
+ *  继承，于是模型进引擎就是 `reasoning: false`，输入框那颗档位胶囊永不出现
+ *  （用户 2026-10-14 报「思考强度的开关怎么没了」，配置里正是手写的自定义模型）。
+ *
+ *  取值不是猜的：**档位名即线上取值**——openai-compatible 的 `reasoning_effort` 取值域
+ *  就是 low/medium/high 这几个词，pi-ai 的 dispatch 在没有 map 项时也按请求的档位名原样
+ *  发（`mappedEffort === undefined ? requestedEffort : mappedEffort`）。`off` 不写＝
+ *  「支持，且不发这个参数」，所以「关掉思考」这一档仍然可选，且不需要替端点认一个
+ *  `none` 之类的拼写。要改档位名、加档（`xhigh`/`max` 需要显式声明）或整条关掉（`false`）
+ *  都在 settings.yaml 的 `reasoningEfforts` 里改。 */
+export const DEFAULT_REASONING_EFFORTS = { low: "low", medium: "medium", high: "high" };
+
+/** 手写路由的模型条目补上默认档位（**已有声明的一条都不动**——用户写过的优先）。
+ *  @param entries - 这次要落盘的条目。
+ *  @param customRoute - 这条路由是不是用户手写的（见调用点的判据）。
+ *  @returns 要落盘的条目；预置路由原样返回（那类有安装目录条目可继承，塞默认值反而会把
+ *  真实能力覆盖成这三档）。 */
+export function withDefaultReasoning(
+  entries: readonly PiModelEntry[],
+  customRoute: boolean,
+): PiModelEntry[] {
+  if (!customRoute) return [...entries];
+  return entries.map((m) => (m.reasoningEfforts === undefined
+    ? { ...m, reasoningEfforts: { ...DEFAULT_REASONING_EFFORTS } }
+    : m));
+}
+
 /** 回写一条 modelOverrides 项：形状与条目相同但没有 id（id 是字典的键）。
  *  返回 null＝这条声明清空后无话可说，调用方把该键删掉而不是留一个空对象。 */
 export function rewriteOverride(
@@ -218,6 +254,10 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
   const isCustom = !edit && providerId === CUSTOM_PROVIDER;
   const isDeepseek = providerId === "deepseek-official";
   const profile = providerId && !isCustom ? pi.providers[providerId] : undefined;
+  /** 这条路由是"用户手写"的：引擎只在安装目录没有该路由时才允许 profile 省略 baseURL
+   *  （`resolveEntry` 对缺失 baseURL 直接报错），所以**带 baseURL 的 profile 必然是手写
+   *  路由**——它没有安装目录条目可继承，模型条目要自带默认档位（见 {@link DEFAULT_REASONING_EFFORTS}）。 */
+  const customRoute = profile?.baseURL !== undefined;
   const knownEntries: Array<PiModelEntry | DeepseekModelEntry> =
     isDeepseek ? deepseek.models : (profile?.models ?? []);
   // 编辑已落盘条目必须回填原字段（AUD-067）：条目整条替换，界面不展示的字段
@@ -310,7 +350,10 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
           : [...deepseek.models.filter((m) => m.id !== typedId), entry];
         await updateDeepseekModels(models);
       } else if (isCustom) {
-        const models = discovered ?? [rewriteEntry<PiModelEntry>(undefined, typedId, "input", visual)];
+        const models = withDefaultReasoning(
+          discovered ?? [rewriteEntry<PiModelEntry>(undefined, typedId, "input", visual)],
+          true,
+        );
         await updatePiProviders({
           ...pi.providers,
           [finalRoute]: {
@@ -340,11 +383,11 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
           else overrides[typedId] = next;
           await updatePiProviders({ ...pi.providers, [providerId]: { ...merged, modelOverrides: overrides } });
         } else {
-          const models = discovered ?? (edit
+          const models = withDefaultReasoning(discovered ?? (edit
             ? (prev.models ?? []).map((m) => (m.id === edit.origId
               ? rewriteEntry<PiModelEntry>(origEntry as PiModelEntry | undefined, typedId, "input", visual)
               : m))
-            : [...(prev.models ?? []).filter((m) => m.id !== typedId), rewriteEntry<PiModelEntry>(undefined, typedId, "input", visual)]);
+            : [...(prev.models ?? []).filter((m) => m.id !== typedId), rewriteEntry<PiModelEntry>(undefined, typedId, "input", visual)]), customRoute);
           await updatePiProviders({ ...pi.providers, [providerId]: { ...merged, models } });
         }
       }
