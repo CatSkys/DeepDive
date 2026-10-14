@@ -120,8 +120,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey.onPanelHotKey = { [weak self] in self?.quickPanel.togglePanel() }
         hotKey.onScreenshotHotKey = { [weak self] in self?.beginCapture(from: nil, reqId: nil) }
         // 迷你面板的启动器（屏缘药丸/胶囊，Atd 整包移植）：Actions 接到本项目
-        // 的既有流程；划词（P2）/截图（P3）/拖放（P3）未上——条目按 §6.1 不
-        // 显示，对应 Actions 槽位先空着留给后续接线。
+        // 的既有流程；划词（P2）/截图（P3）未上——条目按 §6.1 不显示，对应
+        // Actions 槽位先空着留给后续接线。拖放那三条已接（见 importDroppedItems）。
         miniPanel = MiniPanelController()
         miniPanel.actions = MiniPanelController.Actions(
             openMainWindow: { [weak self] in self?.showMainWindow() },
@@ -130,11 +130,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             screenshot: { [weak self] in self?.beginCapture(from: .panel, reqId: nil) },
             command: { [weak self] id in self?.quickPanelCommand(id) },
             openSettings: { [weak self] in self?.openSettings() },
-            openItems: { _ in },
-            importImage: { _ in },
+            openItems: { [weak self] urls in self?.importDroppedItems(urls) },
+            importImage: { [weak self] data in self?.importDroppedImage(data) },
             askAbout: { [weak self] text in self?.askAboutSelection(known: text) },
             showPanel: { [weak self] in self?.quickPanel.showPanel() },
-            reportFailures: { _ in },
+            reportFailures: { [weak self] failures in self?.reportDropFailures(failures) },
             stateChanged: {}
         )
         miniPanel.start()
@@ -160,6 +160,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 就是崩溃；bridge 起不来时只加载不出页面（玻璃空壳），与主窗同命。
         quickPanel = QuickPanelController()
         quickPanel.onHostMessage = { [weak self] body in self?.handleHostMessage(body, from: .panel) }
+        // 这扇窗里拖入的**目录**：路径只有壳拿得到（页面拿不到，PITFALLS §4.36），
+        // 转 @ 引用推给**它自己那一页**（主窗那一投推主窗，别串页）
+        quickPanel.onFoldersDropped = { [weak self] urls in
+            self?.deliverDroppedFolders(urls, to: .panel)
+        }
         if let bridgeURL = BridgeServer.shared.url {
             // Deep link aid: DSHMINI_OPEN_SID=<session-id> opens that session on boot.
             if let sid = ProcessInfo.processInfo.environment["DSHMINI_OPEN_SID"],
@@ -843,6 +848,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 走 @ 引用（引擎宿主侧读盘），图片附带 base64 走真字节上传。取消回推空数组——前端
     /// 据此收尾，不悬挂 reqId。NSOpenPanel 留在主线程；整图磁盘读与 base64 编码移后台
     /// 队列（读大图会卡主线程 UI，AUD-079，对齐同文件 gitRun 的后台样板），主线程只回推。
+    /// 条目形状与拖入那条（`importDroppedItems`）共用 `attachmentItems(for:)`。
     private func pickAttachments(reqId: String, kind: AttachmentPickKind) {
         guard let window = windowController.window else { return }
         let panel = NSOpenPanel()
@@ -855,35 +861,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             let urls = response == .OK ? panel.urls : []
             DispatchQueue.global(qos: .userInitiated).async {
-                var items: [[String: Any]] = []
-                for url in urls {
-                    var item: [String: Any] = [
-                        "path": url.path,
-                        "name": url.lastPathComponent,
-                        "isDir": (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false,
-                    ]
-                    // 只有**图片**（且不超过内联上限）带 base64：它要随 prompt 直传，
-                    // 模型才看得见图。**其余一律不带字节**——前端拿着 path 请壳按路径
-                    // 流式上传（`upload-path`），桥不参与、没有上限，也不用把整个文件
-                    // base64 进一条桥消息（用户 2026-10-09："不应该有大小限制"）。
-                    let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-                    // 大小随载荷带上：chip 立刻显示（与消息里那颗文件 chip 同一口径），
-                    // 不用等上传回来才知道多大
-                    if !isDir, let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                        item["bytes"] = size
-                    }
-                    if !isDir, Self.imageExtensions.contains(url.pathExtension.lowercased()),
-                       let data = try? Data(contentsOf: url), data.count <= Self.maxInlineImageBytes {
-                        item["isImage"] = true
-                        item["base64"] = data.base64EncodedString()
-                    }
-                    items.append(item)
-                }
+                let items = Self.attachmentItems(for: urls)
                 let payload = Self.jsonPayload(["reqId": reqId, "items": items])
                 DispatchQueue.main.async {
                     self.windowController.pushHostCommand("pickedAttachments", payload: payload)
                 }
             }
+        }
+    }
+
+    /// 一批本机文件 → 桥的**附件项**（选择器回推与拖入摄入共用这一份，别写第二遍）：
+    /// 只有**图片**（且不超过内联上限）带 base64——它要随 prompt 直传，模型才看得见图；
+    /// **其余一律不带字节**，前端拿着 path 请壳按路径流式上传（`upload-path`），桥不参与、
+    /// 没有上限，也不用把整个文件 base64 进一条桥消息（用户 2026-10-09："不应该有大小限制"）。
+    /// 大小随载荷带上：chip 立刻显示，不用等上传回来才知道多大。目录只给路径（转 @ 引用）。
+    /// **读盘与 base64 编码**在调用方的后台队列上做（读大图会卡主线程，AUD-079）。
+    private static func attachmentItems(for urls: [URL]) -> [[String: Any]] {
+        urls.map { url in
+            let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+            var item: [String: Any] = [
+                "path": url.path,
+                "name": url.lastPathComponent,
+                "isDir": isDir,
+            ]
+            if !isDir, let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                item["bytes"] = size
+            }
+            if !isDir, imageExtensions.contains(url.pathExtension.lowercased()),
+               let data = try? Data(contentsOf: url), data.count <= maxInlineImageBytes {
+                item["isImage"] = true
+                item["base64"] = data.base64EncodedString()
+            }
+            return item
         }
     }
 
@@ -914,11 +923,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 拖入的**文件夹**（壳读拖放板得到真路径）→ 推给 SPA 转 @ 引用。
+    /// 拖入的**文件夹**（壳读拖放板得到真路径）→ 推给该窗口的页面转 @ 引用。
     /// 同一投里的文件与图片不走这条：WebKit 会把它们照常投给页面（页面拿得到字节）。
-    private func deliverDroppedFolders(_ urls: [URL]) {
-        let items = urls.map { ["path": $0.path, "name": $0.lastPathComponent, "isDir": true] }
-        windowController.pushHostCommand("hostDroppedFolders", payload: Self.jsonPayload(["items": items]))
+    private func deliverDroppedFolders(_ urls: [URL], to source: BridgeSource) {
+        pushHost("hostDroppedItems", payload: ["items": DragPasteboard.folderItems(urls)], to: source)
+    }
+
+    /// 药丸/胶囊面板（Atd 移植）那一投的落点：文件、文件承诺、长文字落成的文本文件、落盘的
+    /// 位图都会走到这儿。页面（DOM）拿不到路径，所以路径由壳给，**摄入走 ＋ 选择器同一条**
+    /// `ingestPicked`：图片内联 chip、普通文件上传 chip（按路径流式，没有大小上限）、
+    /// 文件夹转 @ 引用——面板页与主窗那一份输入区因此行为一致。
+    /// 面板先亮出来：Drop 的四条路由都要求"落进草稿并且看得见"（Atd 同款）。
+    private func importDroppedItems(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        quickPanel.showPanel()
+        // 读盘 + base64 编码在后台（读大图会卡主线程，AUD-079）；命令按通道推给面板页，
+        // 页面还没起来时暂存在壳里（QuickPanelController.pushHostCommand）。
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let items = Self.attachmentItems(for: urls)
+            DispatchQueue.main.async {
+                self?.pushHost("hostDroppedItems", payload: ["items": items], to: .panel)
+            }
+        }
+    }
+
+    /// 拖入的**位图**（没有文件的：从浏览器/预览里拖出来的一张图）：先落盘成面板拖放目录里的
+    /// 一份 PNG，再按普通文件那一条摄入——`attachmentItems` 会给它带上 base64，于是它和其它
+    /// 图片一样是内联 chip（模型看得见），而不是一颗"看不见内容"的文件 chip。
+    /// 解码 + 落盘在后台（读大图会卡主线程，AUD-079）；面板由落点那两条自己亮。
+    private func importDroppedImage(_ data: Data) {
+        let folder = miniPanel.folder
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let url = try folder.write(image: data, droppedAt: .now)
+                DispatchQueue.main.async { self?.importDroppedItems([url]) }
+            } catch {
+                EngineLog.shared.append("[drag] dropped image could not be written: \(error)")
+                DispatchQueue.main.async {
+                    self?.reportDropFailures([
+                        .init(name: MiniPanelDroppedImage.kind, reason: .unsupported),
+                    ])
+                }
+            }
+        }
+    }
+
+    /// 一投什么都没落下来（承诺的文件没到、文本写盘失败…）：面板亮出来**报出来**，
+    /// 不静默——用户定稿"附件不许静默丢"。
+    private func reportDropFailures(_ failures: [ResourcesImportedEvent.Failure]) {
+        guard !failures.isEmpty else { return }
+        quickPanel.showPanel()
+        pushHost(
+            "hostDropFailed",
+            payload: ["names": failures.map(\.name)],
+            to: .panel
+        )
     }
 
     /// Preference + path snapshot for the settings page (推送于 host-ready
@@ -1023,8 +1082,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 主菜单（结构在 MainMenu.swift，这里只放动作实现）
 
     private func installMainMenu() {
-        // 拖入的文件夹（路径只有壳拿得到）交给 SPA 转 @ 引用
-        windowController.onFoldersDropped = { [weak self] urls in self?.deliverDroppedFolders(urls) }
+        // 拖入的文件夹（路径只有壳拿得到）交给**窗口自己那一页**的 SPA 转 @ 引用
+        // （推错页 = 附件落进另一份草稿，用户看不见；迷你面板那条在 quickPanel 建好后接）
+        windowController.onFoldersDropped = { [weak self] urls in
+            self?.deliverDroppedFolders(urls, to: .main)
+        }
         MainMenu.install(app: NSApp, target: self, window: windowController)
     }
 

@@ -69,20 +69,45 @@ public enum MiniPanelDropRoute: Equatable, Sendable {
   }
 }
 
-/// The file long dropped text is written to, which has no name of its own.
-public enum MiniPanelDroppedText {
+/// The file a drop's own bytes are written to, which has no name of its own: long dropped text,
+/// and a bitmap dragged without a file. One date shape for both, so two drops of the same kind
+/// never collide; the name is data the page and the model read, so it stays English.
+public enum MiniPanelDroppedName {
   /// `Dropped text 2026-10-01 at 10.16.11.txt` in the user's time zone, shaped like
-  /// ``PastedImageName/fileName(pastedAt:encoding:timeZone:)``. The name is data the page and the
-  /// model read, so it stays English.
-  public static func fileName(droppedAt date: Date, timeZone: TimeZone = .current) -> String {
+  /// ``PastedImageName/fileName(pastedAt:encoding:timeZone:)``.
+  public static func fileName(
+    _ kind: String, extension ext: String, droppedAt date: Date, timeZone: TimeZone = .current
+  ) -> String {
     let style = Date.VerbatimFormatStyle(
       format: """
-        Dropped text \(year: .extended(minimumLength: 4))-\(month: .twoDigits)-\(day: .twoDigits) \
+        \(year: .extended(minimumLength: 4))-\(month: .twoDigits)-\(day: .twoDigits) \
         at \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)).\
         \(minute: .twoDigits).\(second: .twoDigits)
         """,
       locale: Locale(identifier: "en_US_POSIX"), timeZone: timeZone,
       calendar: Calendar(identifier: .gregorian))
-    return date.formatted(style) + ".txt"
+    return "\(kind) \(date.formatted(style)).\(ext)"
+  }
+}
+
+/// The file long dropped text is written to, which has no name of its own.
+public enum MiniPanelDroppedText {
+  /// `Dropped text 2026-10-01 at 10.16.11.txt` (see ``MiniPanelDroppedName``).
+  public static func fileName(droppedAt date: Date, timeZone: TimeZone = .current) -> String {
+    MiniPanelDroppedName.fileName(
+      "Dropped text", extension: "txt", droppedAt: date, timeZone: timeZone)
+  }
+}
+
+/// The file a dropped bitmap without a file is written to. Always PNG: the file's extension is
+/// what the page turns into the image's media type, so the bytes have to be PNG (``MiniPanelDropFolder/write(image:droppedAt:)``).
+public enum MiniPanelDroppedImage {
+  /// The kind name in the file's name, and what the drop is reported under when it cannot be
+  /// written (``MiniPanelDroppedName/fileName(_:extension:droppedAt:timeZone:)``).
+  public static let kind = "Dropped image"
+
+  /// `Dropped image 2026-10-01 at 10.16.11.png`.
+  public static func fileName(droppedAt date: Date, timeZone: TimeZone = .current) -> String {
+    MiniPanelDroppedName.fileName(kind, extension: "png", droppedAt: date, timeZone: timeZone)
   }
 }

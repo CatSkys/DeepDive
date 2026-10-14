@@ -9,6 +9,9 @@ import WebKit
 final class ComposerOverlayView: WKWebView {
     /// 父视图 point 坐标里的可点矩形；空时整层不收点击。
     var interactiveRect: NSRect = .zero
+    /// 卡片上拖入的**目录**（路径只有壳拿得到，PITFALLS §4.36）：卡片那一页收到的是
+    /// WebKit 的文件投，目录没有合法投递，会静默消失——所以壳读拖放板后另推一条命令。
+    var onFoldersDropped: (([URL]) -> Void)?
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard interactiveRect.width > 1, interactiveRect.height > 1 else { return nil }
@@ -20,16 +23,26 @@ final class ComposerOverlayView: WKWebView {
     // （alpha 0、rect 已清空）照样会把落在那一块的文件拖入吃掉，下面的 SPA 再也收不到
     // （同 BrowserHostView 那条：用户 2026-10-09 报"界面无法拖动导入文件"）。没卡片就不当
     // 拖放目标。
+    //
+    // 目录这一投要**自己认下来**：页面对目录没有合法投递，WebKit 回空操作，AppKit 就不把
+    // drop 交给这里（同主窗 TitlebarAwareWebView 那条：回空操作 = 这一投作废）。
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        interactiveRect.width > 1 ? super.draggingEntered(sender) : []
+        guard interactiveRect.width > 1 else { return [] }
+        let op = super.draggingEntered(sender)
+        return op.isEmpty && !DragPasteboard.folderURLs(sender).isEmpty ? .copy : op
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        interactiveRect.width > 1 ? super.draggingUpdated(sender) : []
+        guard interactiveRect.width > 1 else { return [] }
+        let op = super.draggingUpdated(sender)
+        return op.isEmpty && !DragPasteboard.folderURLs(sender).isEmpty ? .copy : op
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        interactiveRect.width > 1 ? super.performDragOperation(sender) : false
+        guard interactiveRect.width > 1 else { return false }
+        let folders = DragPasteboard.folderURLs(sender)
+        if !folders.isEmpty { onFoldersDropped?(folders) }
+        return super.performDragOperation(sender)
     }
 }
 
@@ -99,6 +112,15 @@ final class ComposerOverlayHost: NSObject {
         // 会露出一块"没有磨砂的卡片"，反之卡片没了磨砂还留着——两种都看得出来。
         frost.fadeOut(duration: motion)
         isVisible = false
+    }
+
+    /// 只推给**卡片这一页**的一条命令（`chatShow` 同一条路）。不能借主窗那条
+    /// `pushHostCommand`：它可见时会把同一条命令也投给主 SPA（见 `dispatchHostCommand`），
+    /// 同一批附件就会落进两份草稿——卡片这份用户看得见，主窗那份是脏的。
+    func pushHostCommand(_ cmd: String, payload: String) {
+        view.evaluateJavaScript(
+            "window.__deepDiveHost && window.__deepDiveHost.dispatch('\(cmd)', \(payload))",
+            completionHandler: nil)
     }
 
     /// 新卡片要来了：把上一块**即时**清掉（不淡出）。它跟的是上一轮或上一个会话的
