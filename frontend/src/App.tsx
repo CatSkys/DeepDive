@@ -30,6 +30,10 @@ import { Game2048Host } from "./game/twenty48/Game2048";
 import { useAppKeybinds } from "./useAppKeybinds";
 import { routeWorkspacePicked } from "./components/workspacePicker";
 import { SelectionActions } from "./components/SelectionActions";
+// 内置字体资产的入口：只打包拉丁子集（中文仍落系统字体）。族名与系统兜底
+// 栈的事实源在 tokens.json 的 font.ui/mono.family——两处写不一致就是静默回落。
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
 import "./theme.css";
 import { GlassLayer } from "./components/GlassLayer";
 

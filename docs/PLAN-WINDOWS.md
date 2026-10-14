@@ -153,9 +153,10 @@ Windows 侧的含义：
    读能力而不是读"是否在壳里"；mac 端声明全量能力，行为不变。
 3. **键位与控制键**：`⌘` → `Ctrl`（`keybinds.ts` 默认键位 + 显示串规范化 + Tooltip 键帽 + 词典）。
 4. **平台文案**：`i18n-en.ts` 的 Finder / Dock / Cmd-Tab 等条目需按平台取值。
-5. **字体 token**：`frontend/packages/design/tokens.json` 的 `font.ui.family` 是 Apple 栈
-   （`-apple-system, "PingFang SC", …`）、`font.mono.family` 是 `SF Mono` 栈——Windows 需
-   Segoe UI Variable / 微软雅黑 / Cascadia Mono。改 token 源后必须 `make tokens`（手写数值违规）。
+5. **字体 token**：字体栈（内置 Inter / JetBrains Mono ＋ 系统兜底，含 Windows 的
+   Segoe UI Variable / 微软雅黑 / Cascadia Mono 段）的唯一事实源是
+   `frontend/packages/design/tokens.json` 的 `font.ui.family` / `font.mono.family`——值不在本文
+   复述。改 token 源后必须 `make tokens`（手写数值违规）。
 6. **"桌面感"视觉决策已收敛，不再是开放项**：`theme.css` 现在是全局
    `* { cursor: default !important; }`（input/textarea 另行 `cursor: text`），源码里已无
    `cursor: pointer`——桌面惯例形态已经落地，Windows 直接共享同一份 `theme.css`，无需分叉决策。

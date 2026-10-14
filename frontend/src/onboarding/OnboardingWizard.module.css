@@ -105,7 +105,7 @@
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 :where(html[data-hover-armed]) .stepRow:hover { background: var(--row-hover); color: var(--ink); }
-.stepCurrent { background: var(--fill); color: var(--ink); font-weight: 600; }
+.stepCurrent { background: var(--fill); color: var(--ink); font-weight: 500; }
 
 .stepMark {
   flex: none;
@@ -257,7 +257,7 @@
 .groupLabel {
   margin-top: 6px;
   font-size: var(--dsh-font-size-xs);
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: .02em;
   color: var(--ink-3);
 }
@@ -355,7 +355,7 @@
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .chip:hover { background: var(--fill-strong); color: var(--ink); }
-.chipOn { background: var(--ink); color: var(--on-ink); border-color: transparent; font-weight: 600; }
+.chipOn { background: var(--ink); color: var(--on-ink); border-color: transparent; font-weight: 500; }
 .chipGhost { border-style: dashed; color: var(--ink-3); }
 
 .fieldLabel { margin-top: 6px; font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
@@ -401,13 +401,13 @@
   padding: 0 14px;
   border-radius: var(--dsh-radius-control);
   font-size: var(--dsh-font-size-base);
-  font-weight: 600;
+  font-weight: 500;
   transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 .primary { border: none; background: var(--ink); color: var(--on-ink); }
 .primary:hover { opacity: 0.85; }
 .primary:disabled { opacity: 0.45; cursor: default; }
-.secondary { background: var(--fill); color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+.secondary { background: var(--fill); color: var(--ink); border: 1px solid var(--line); }
 .secondary:hover { background: var(--fill-strong); }
 .secondary:disabled { opacity: 0.5; cursor: default; }
 

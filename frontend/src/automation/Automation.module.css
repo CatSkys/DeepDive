@@ -51,7 +51,7 @@
 .noticeText { flex: 1; min-width: 0; }
 
 /* ── 区块 ── */
-.sectionLabel { margin: 24px 0 10px; font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); }
+.sectionLabel { margin: 24px 0 10px; font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink); }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .empty { padding: 26px 0; text-align: center; font-size: var(--dsh-font-size-base); color: var(--ink-3); }
 

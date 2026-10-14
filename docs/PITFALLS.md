@@ -217,6 +217,26 @@
   上原生玻璃与 CSS 材质——**两层玻璃叠着会发灰**（注释窗口原本垫着原生 NSGlassEffectView，
   2026-10-13 撤掉、只留 CSS 那一层）。
 
+### 1.21 随包内置字体：族名写错是静默的，字重 700 在中文上是假的
+- 来由（2026-10-14 字体对齐 Raycast）：拉丁字体随包内置（`@fontsource-variable/inter` 与
+  `@fontsource-variable/jetbrains-mono`），系统字体降为兜底。下面三处都"不报错、看着还行"：
+- **族名按 `@font-face` 的声明写，不是按包名**。包叫 `@fontsource-variable/inter`，可它 CSS 里
+  声明的是 `font-family: 'Inter Variable'`（等宽是 `'JetBrains Mono Variable'`）。字体栈里写
+  `Inter` 不报任何错——`getComputedStyle` 回的也还是你写的那串——页面只是**静默回落到系统字体**，
+  字形/字重/字距全变。判据：页面里跑 `document.fonts.check('13px "Inter Variable"')`（false 就是
+  没接上），或探针读 computed 的 `font-family` 再跟 `document.fonts` 对一遍。
+- **`font-weight: 700` 在中文上不是加粗，是合成加粗**：CoreText 查字面即知——
+  `NSFontManager.availableMembers(ofFontFamily: "PingFang SC")` 只有
+  `Regular / Ultralight / Thin / Light / Medium / Semibold`，**没有 Bold**，700 只能由 WebKit
+  描边伪造（笔画发糊发闷）。所以 600 是上限、且只给标题与数字（UI-SPEC §1.2），架构门规则 9
+  会拦 `700/800/900/bold`；内置的可变字体（Inter 100–900）是真字重，不触发这条。
+- **字体是经壳的本地 HTTP 服务器加载的**（SPA 走 `BridgeServer` 的 `127.0.0.1`，不是 `file://`），
+  所以 MIME 必须对：`woff2 → font/woff2` 在 `BridgeServer.mimeType(for:)` 那张表里映射好了；
+  将来换字体格式（woff/ttf/otf）要同步补那张表，否则 WebKit 可能直接拒载。
+- 一条**不变量**：只打包拉丁子集，中文永远走系统字体——所以同一段中英混排里，中英字形来自两个
+  字体（Inter 的英文 + PingFang 的中文）。这是设计选择（Raycast 同样不给 Inter 分包 CJK），
+  别当成 bug 去"统一"。
+
 ---
 
 ## 2. 引擎事件载荷（反复踩）
