@@ -7,12 +7,15 @@
 // 登记表，上下文/能力来自引擎目录投影，未收录的显示「暂无基准数据」占位。
 // 卡片与菜单同 portal、都算「菜单内部」（点卡片不触发外点关闭）。
 //
+// 开合态是**用户偏好**（壳 UserDefaults 持久化，默认开），因此从 store 那份 prefs 读，
+// 不在这里 new 一份 state：菜单每次打开都重挂，组件自己的 state 会永远从默认值起。
+//
 // 弹层挂 body（portal + fixed）：会话头的触发器与会话设置面板的滚动容器都会裁掉
 // 行内/绝对定位的菜单——面板里当年内联展开还会把下方分区顶下去。
 import { useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { useT } from "../i18n";
-import { usePrefs } from "../prefs";
+import { useStore } from "../store";
 import { Check, Info, Search } from "lucide-react";
 import { ProviderIcon } from "./ProviderIcon";
 import { HoverScrollText } from "./HoverScrollText";
@@ -79,7 +82,7 @@ export function ModelMenu({
   anchorRef: RefObject<HTMLElement | null>;
 }) {
   const { t } = useT();
-  const { modelDetail: infoOn, setModelDetail: setInfoOn } = usePrefs();
+  const { modelDetail: infoOn, setModelDetail: setInfoOn } = useStore();
   const [query, setQuery] = useState("");
   const [hovered, setHovered] = useState<string | null>(null);
   /** 菜单宿主的元素：详情卡以它为锚点贴在旁边（Popover 把宿主交出来给调用方）。 */

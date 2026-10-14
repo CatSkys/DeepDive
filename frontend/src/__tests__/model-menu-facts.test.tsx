@@ -24,12 +24,40 @@ if (!window.matchMedia) {
   })) as unknown as typeof window.matchMedia;
 }
 
-// useT 依赖 store context：本测试只关心词典默认态（zh 恒等），给个最小壳。
-vi.mock("../store", () => ({ useStore: () => ({ lang: "zh" }) }));
+// useT 依赖 store context。这里给一个最小的 store：`lang` 只为词典默认态（zh 恒等），
+// `modelDetail` 是**本轮修的那条**——ⓘ 的开合态住在 store 那份偏好里（壳 UserDefaults
+// 持久化），菜单每次打开都重挂，读组件自己 new 的 state 会永远从默认值起。
+// 所以这份 mock 必须**跨挂载存活**（值放在 `storeMock.state` 上）且**写入会通知订阅方**
+// （useSyncExternalStore + 一张订阅表），否则旧实现（每次挂载重建默认值）也能蒙过去。
+const storeMock = vi.hoisted(() => {
+  // 值**整体替换**而不是原地改字段：useSyncExternalStore 拿 `Object.is` 比 snapshot，
+  // 原地改会让它认为"没变"、不重渲染（第一次写这条 mock 时就踩了）。
+  let state = { lang: "zh", modelDetail: true };
+  const subs = new Set<() => void>();
+  return {
+    /** 当前偏好（断言与播种用）。 */
+    get state() { return state; },
+    /** 模拟"壳里已经存着某个值"（挂载前播种，不通知）。 */
+    seed: (modelDetail: boolean) => { state = { ...state, modelDetail }; },
+    subscribe: (fn: () => void) => { subs.add(fn); return () => { subs.delete(fn); }; },
+    snapshot: () => state,
+    setModelDetail: (v: boolean) => { state = { ...state, modelDetail: v }; subs.forEach((f) => f()); },
+  };
+});
+vi.mock("../store", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    useStore: () => {
+      const s = useSyncExternalStore(storeMock.subscribe, storeMock.snapshot);
+      return { lang: s.lang, modelDetail: s.modelDetail, setModelDetail: storeMock.setModelDetail };
+    },
+  };
+});
 
 afterEach(() => {
   cleanup();
   document.body.innerHTML = ""; // portal 残留清干净
+  storeMock.seed(true); // 偏好默认开，逐条测试互不串
 });
 
 const opts: ModelOption[] = [
@@ -137,6 +165,26 @@ describe("模型菜单基准详情卡", () => {
     // 刻度条内缩（用户 2026-10-11 定稿）：0 档→10%、4 档→90%，永不空条/顶满
     const fills = [...document.querySelectorAll(".model-detail-meter .fill")].map((e) => (e as HTMLElement).style.width);
     expect(fills).toEqual(["50%", "90%", "70%"]); // 速度2 / 智能4 / 成本3（$5/$25 → 19）
+  });
+
+  it("ⓘ 开合态是偏好不是菜单的局部状态：偏好关着菜单开出来就是关的，点了写回偏好，重挂仍读它", async () => {
+    storeMock.seed(false);
+    const first = render(<Harness options={opts} current="Claude Fable 5.1" />);
+    // 偏好关着 → 菜单开出来不带卡（旧实现读的是组件自己那份 state，永远从默认值"开"起，
+    // 这就是用户报的"关了它每次开还出现"）
+    expect(document.querySelector(".model-detail")).toBeNull();
+    expect(document.querySelector(".model-menu-info")!.getAttribute("aria-pressed")).toBe("false");
+    // 点开 → 写回偏好（壳据此落 UserDefaults）
+    fireEvent.click(document.querySelector(".model-menu-info")!);
+    expect(storeMock.state.modelDetail).toBe(true);
+    expect(document.querySelector(".model-detail")).not.toBeNull();
+    // 再关掉 → 偏好跟着回去；菜单整体重挂（= 关掉菜单再打开）仍读偏好，不回默认值
+    fireEvent.click(document.querySelector(".model-menu-info")!);
+    await waitFor(() => expect(document.querySelector(".model-detail")).toBeNull());
+    expect(storeMock.state.modelDetail).toBe(false);
+    first.unmount();
+    render(<Harness options={opts} current="Claude Fable 5.1" />);
+    expect(document.querySelector(".model-detail")).toBeNull();
   });
 
   it("搜索过滤：空组标题隐藏", () => {

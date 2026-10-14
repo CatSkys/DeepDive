@@ -130,6 +130,8 @@ export function usePrefs() {
     setArchiveRetentionState(v);
   }, []);
   // 基准详情卡显隐（模型菜单 ⓘ；用户 2026-10-11 定稿：持久化、默认开）。
+  // **消费方经 store 读这一份**（主窗只有 store 那一份 prefs；菜单每次打开都重挂，
+  // 自己 new 一份 state 会永远从默认值起——2026-10-14 用户报"关了它每次开还出现"）。
   const [modelDetail, setModelDetailState] = useState(true);
   // 快捷会话默认空间目录（壳保证存在；D14）——注册与跳转都以它为锚。
   const [quickWorkspacePath, setQuickWorkspacePathState] = useState<string | null>(null);
