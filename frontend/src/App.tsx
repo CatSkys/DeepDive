@@ -67,20 +67,24 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
   // bubble) can arrive before the session list has loaded — hold it until the
   // list is in, then navigate only if the id is a live session (dropped/
   // archived ones must not resurrect as ghost conversations).
+  // 「还活着」= 引擎列表里有它、且没归档。**不能用 store.sessions**：那是这一页的
+  // 显示层（主窗摘掉了快捷会话，见 store/pageVisibility.ts），拿它当生死判据会把
+  // 快捷会话的通知点击整条吞掉——用户看见的就是"点了没反应"。
   const [deferredNav, setDeferredNav] = useState<string | null>(null);
   useEffect(() => {
     if (!deferredNav) return;
-    const hit = store.sessions.find((s) => s.sessionId === deferredNav);
+    const all = store.allSessions;
+    const hit = all.some((s) => s.sessionId === deferredNav && !store.archived.has(s.sessionId));
     if (hit) {
-      store.openSession(hit.sessionId);
+      store.openSession(deferredNav);
       setDeferredNav(null);
-    } else if (store.sessions.length > 0) {
+    } else if (all.length > 0) {
       // List is loaded and the id isn't in it — stale push, drop it.
       setDeferredNav(null);
     }
     // An empty list means "not loaded yet" — keep waiting.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredNav, store.sessions]);
+  }, [deferredNav, store.allSessions]);
 
   // 换视图（换会话/换空间/开关设置浮层）后指针可能正停在原处：新列表里那一行不该
   // 一亮就成了"指针选的"。机制与其余复位时机见 hoverArming.ts。
@@ -93,7 +97,9 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
     installHostBridge({
       navigateToSession: (sessionId) => {
         closeSettings();
-        const listed = store.sessions.some((s) => s.sessionId === sessionId);
+        // 生死判据同上面那段（allSessions + 未归档）：通知点了要有着落——快捷会话的
+        // 通知落进主窗打开它，是该次点击的显式意图，不算"在主面板里显示"。
+        const listed = store.allSessions.some((s) => s.sessionId === sessionId && !store.archived.has(s.sessionId));
         if (listed) store.openSession(sessionId);
         else setDeferredNav(sessionId);
       },

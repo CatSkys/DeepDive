@@ -14,18 +14,16 @@ import { installHoverArming } from "./hoverArming";
 import { installWindowFocus } from "./windowFocus";
 import { installCrashGuard } from "./crashGuard";
 import { inShell } from "./host";
+import { isMiniCardPage, isMiniPanelPage } from "./page";
 import { IS_WINDOWS_OS } from "./platform";
 
 // 叠加层入口：壳在浏览器页之上叠的那层透明 webview 用 `?composer=<sid>` 打开同一个包，
 // 只渲染输入框（悬浮在全屏网页上）。**不装**顶条与原生槽位桥——那两个是主窗口那一份的事，
 // 叠加层再推一份 rect 表会把主 SPA 的顶条命中区打乱。
 const overlaySession = new URLSearchParams(window.location.search).get("composer");
-// 迷你面板页：壳 QuickPanelWindow 载 `#/mini`——顶条桥与行悬停门控照装（迷你页有
+// 迷你面板页（`#/mini`）与命令中心卡（`?minicc=1`）的判定在 page.ts——store 也要按它
+// 决定"这一页看不看得见快捷空间"，一处定两份用。这一页装顶条桥与行悬停门控（面板页有
 // 顶条与门控行）；原生槽位/对话卡桥是主窗那一份的事，叠加层同款不装。
-const miniPanelPage = window.location.hash === "#/mini";
-// 命令中心卡的宿主页（`?minicc=1`）：壳把这块透明 webview 垫在面板页之上、原生玻璃之上，
-// 只渲染那张卡。store 与门控照装（卡里有 hover 行与设置行）；顶条/槽位桥是别家的，不装。
-const miniCardPage = new URLSearchParams(window.location.search).get("minicc") === "1";
 // 悬浮注释的宿主页（`?tooltip=1`）：壳的独立 Tooltip 窗口里那一块透明 webview，只渲染
 // 一条注释。素材全在壳（窗口按这页量出来的尺寸摆、底是系统液态玻璃），所以这里既不装
 // 顶条/槽位桥，也不装 store——注释的文案由壳从触发它的那一页转推过来。
@@ -55,7 +53,7 @@ if (tooltipPage) {
       </ErrorBoundary>
     </React.StrictMode>
   );
-} else if (miniCardPage) {
+} else if (isMiniCardPage()) {
   document.documentElement.dataset.overlay = "1";
   installCrashGuard();
   installHoverArming();
@@ -72,7 +70,7 @@ if (tooltipPage) {
       </ErrorBoundary>
     </React.StrictMode>
   );
-} else if (miniPanelPage) {
+} else if (isMiniPanelPage()) {
   installCrashGuard();
   initTitlebarBridge();
   installHoverArming();
