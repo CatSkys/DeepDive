@@ -30,6 +30,12 @@ export function MiniCommandCenterApp() {
     // （用户 2026-10-13 报"开机后每次打开都是空的，重新打开就正常"）。面板页的 prefs 当年
     // 是同一型事故，修法同一套。
     sendToShell({ type: "mini-cc-face" });
+    // 偏好也**自己来要一次**（与面板页 MiniPanelApp 同一条）：这一页不装 host-ready，而壳的
+    // prefs 平时只在 host-ready / get-prefs 推快照——不问这一句，本页 store 的语言与明暗就
+    // 永远是默认值，命令中心那张卡会一直停在中文（2026-10-14 用户报"整个浮动面板没有英文"：
+    // 面板页跟着走了，只有这张卡不动）。壳侧把这一条转给 AppDelegate 回推，见
+    // QuickPanelController 的 get-prefs 分支。
+    sendToShell({ type: "get-prefs" });
   }, []);
   if (face === null) return null;
   return (

@@ -298,6 +298,16 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         }
     }
 
+    /// Shell→**面板里两块承载 SPA 的页**（面板页 + 命令中心卡页）各推一条：两块各有自己的
+    /// store，"每页都要有"的快照只推给面板页就会漏——语言就是这么漏掉的（2026-10-14 用户报：
+    /// 浮动面板整个没有英文，面板页跟着走了、命令中心那张卡一直是中文）。
+    /// 卡页还没加载时这一条静默丢掉是**对的**：卡页挂载后会自己来要一次 `get-prefs`，
+    /// 不占那唯一一条暂存位，也就不会把别的推挤掉。
+    func pushHostCommandToPanelPages(_ cmd: String, payload: String) {
+        pushHostCommand(cmd, payload: payload)
+        pushHostCommand(cmd, payload: payload, to: cardWeb)
+    }
+
     /// 暂存命令的时效（与主窗同款：15s 内才值得重放）。
     private static let stagedCommandLifetime: TimeInterval = 15
 
@@ -329,12 +339,18 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     // MARK: - WKScriptMessageHandler（页面 → 壳）
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        // 卡片页那三条桥都是"卡片说了不算、面板页说了算"那一类（卡片是另一块 webview、
-        // 另一份 store）：Esc 与"点了历史里的一行"都报上来，由这里转发回面板页。**不转发给
-        // AppDelegate**——那一层认的是主窗/面板页那套消息，卡片页没有它的活。
+        // 卡片页的桥分两类（卡片是另一块 webview、另一份 store）：**动作**那几条是"卡片说了
+        // 不算、面板页说了算"（Esc / 点历史里一行 / 动作行），一律由这里转发回面板页；
+        // **`get-prefs`** 是这一页自己的请求——它那份 store 的语言/明暗只从壳的偏好快照来，
+        // 而卡页不装 host-ready（见 MiniCommandCenterApp），所以转给 AppDelegate 由它回推。
+        // 这两类之外的消息不进 AppDelegate：那一层认的是主窗/面板页那套消息，卡片页没有它的活。
         if message.name == "deepdiveHost",
            userContentController === cardWeb?.configuration.userContentController {
             if let body = message.body as? [String: Any], let type = body["type"] as? String {
+                if type == "get-prefs" {
+                    onHostMessage?(body)
+                    return
+                }
                 if type == "mini-cc-face" {
                     // 卡片页挂载完成后来要一次：清掉差分键重推，不受"没变就不推"那扇门
                     // 影响（它就是那次竞速失败后的确定性兜底）。
