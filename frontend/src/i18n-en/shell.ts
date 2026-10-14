@@ -15,8 +15,10 @@ export const ENShell: Record<string, string> = {
   "添加工作空间失败：{m}": "Add workspace failed: {m}",
   "展开会话": "Expand Sessions",
   "收起会话": "Collapse Sessions",
+  "快捷会话": "Quick session",
   "工作空间操作": "Workspace Actions",
   "调整侧栏宽度": "Resize sidebar",
+  "调整大小": "Resize",
   "搜索": "Search",
   "搜索项目": "Search projects",
   "新建项目": "New project",
@@ -100,6 +102,7 @@ export const ENShell: Record<string, string> = {
   "已提交：{m}": "Committed: {m}",
   "已推送": "Pushed",
   "输入提交信息…": "Commit message…",
+  "提交信息": "Commit message",
   "提醒与自动化": "Reminders & automation",
   "Git 工具": "Git tools",
 
@@ -174,4 +177,8 @@ export const ENShell: Record<string, string> = {
   "成 2048 了，还能继续": "Made 2048 — keep going",
   "方向键或 WASD 滑动，同数相合，凑出 2048": "Arrow keys / WASD to slide — equal numbers merge. Reach 2048",
   "游戏": "Games",
+
+  // 崩溃边界（ErrorBoundary）：页面级错误兜底那张脸
+  "界面出了点问题，已自动记录": "Something went wrong — the details were logged",
+  "重载界面": "Reload",
 };
