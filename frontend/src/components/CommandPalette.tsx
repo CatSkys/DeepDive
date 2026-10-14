@@ -73,9 +73,10 @@ interface PaletteRow {
   kind: string;
 }
 
-/** 雾带参数（抄参考图 EdgeDissolve）：上带 = 头部 54 + 32 溢入，下带 = 80；
- *  地板值让滚到边的内容仍留一点影，不是硬淡。 */
-const FADE_TOP_PX = 86;
+/** 雾带参数（抄参考图 EdgeDissolve）：上带 = 头部 40 + 32 溢入，下带 = 80；
+ *  地板值让滚到边的内容仍留一点影，不是硬淡。
+ *  **这两个数与 .module.css 的 mask 渐变必须一起改**（那边写的是同一组 px）。 */
+const FADE_TOP_PX = 72;
 const FADE_BOTTOM_PX = 80;
 const FADE_TOP_FLOOR = 0.15;
 const FADE_BOTTOM_FLOOR = 0.25;

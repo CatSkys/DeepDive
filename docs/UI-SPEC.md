@@ -126,7 +126,8 @@
 | Token | 值 | 用途 |
 |---|---|---|
 | `space.1..6` | 4 / 8 / 12 / 16 / 20 / 24 | 全局唯一间距阶梯 |
-| `row.height.compact` | 28px | 菜单、命令面板行 |
+| `row.height.compact` | 28px | 菜单行 |
+| `row.height.palette` | 38px | 命令面板族的行：⌘K 面板、命令中心卡的历史行/设置行/选择行（= 参考面板的 `defaultItemHeight`；2026-10-14 收窄这批面板时统一到这一个数） |
 | `row.height.standard` | 36px | 会话列表行、设置行 |
 | `sidebar.width` | 240px（可拖 200–320） | 主窗口侧栏 |
 | `input.minHeight` | 56px；最大 160px | 面板大输入框（居中） |
