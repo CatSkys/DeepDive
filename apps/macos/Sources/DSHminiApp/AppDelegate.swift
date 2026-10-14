@@ -493,6 +493,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "quickPanel-show":
             // 迷你面板页报新视图首帧已画出 → 把面板带到前台（Atd windowShow 语义）。
             quickPanel.showPanel()
+        case "mini-cc-escape":
+            // 面板页收到 Esc 而命令中心卡还开着 → 这一次按键的语义归卡页（先返回上层、
+            // 已在根行才收卡）。壳只转发，不代它收卡（见 forwardEscapeToCard）。
+            quickPanel.forwardEscapeToCard()
         case "open-quick-panel":
             // 主窗侧栏「快捷会话」图标 → 把面板窗带到前台（与 ⌥Space 同一落点；
             // 让面板自己决定露出哪一视图，这里不管内容，只负责"叫它出来"）。

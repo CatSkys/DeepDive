@@ -652,6 +652,12 @@ button {
   font-size: var(--dsh-font-size-sm);
   font-weight: 500;
 }
+/* 第一段那道上内距**不画**（模型页 / 历史脸的第一条都一样）：那 10px 是"与上一段隔开"
+   用的，而第一段上面只有清单自己的 8px 内距（根行的第一条行也从 8px 起）——两头相加
+   是 18px 的空带，进模型页看到的就是"搜索框下面一条空隙，然后才是一条小灰字"（用户
+   2026-10-14 报"进到模型页面的时候，上面的多余的空隙"）。去掉后标签与根行同一条起跑线；
+   下内距 4 不动（标签仍咬着自己那几行）。 */
+.app.mini-panel .mini-cc-list > .mini-cc-section:first-child > .mini-cc-section-title { padding-top: 0; }
 /* 选择页的行：单行式（标签左、当前值打勾），与历史行那套两行式不是一种东西，故不共用
    .mini-cc-row。键盘光标与 hover 同一档填充（--fill-strong 比 --row-hover 更实，因为
    这一屏只有一份列表、光标就是"选中的那一项"）。 */
