@@ -6,19 +6,26 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const setDraftModel = vi.fn();
-vi.mock("../store", () => ({ useStore: () => ({ setDraftModel }) }));
+/** store 的引擎就绪态：可翻，用来复现"挂载时引擎还没起来"那个窗口。 */
+let engineUp = true;
+vi.mock("../store", () => ({ useStore: () => ({ setDraftModel, engineUp }) }));
 
 const selectModel = vi.fn(async () => ({ selected: { provider: "opencode-go", model: "m2", reasoningEffort: "max" } }));
+/** 目录首拉是否落空（引擎未就绪那一下）。 */
+let catalogDown = false;
 vi.mock("../api", () => ({
   api: {
     selectModel: (...a: unknown[]) => selectModel(...(a as [])),
-    modelOptions: async () => ({
+    modelOptions: async () => {
+      if (catalogDown) throw new Error("engine not ready");
+      return {
       options: [
         { provider: "opencode-go", model: "m1", label: "M1", providerLabel: "P", efforts: [{ id: "low", name: "Low" }, { id: "max", name: "Max" }], defaultEffort: "low" },
         { provider: "opencode-go", model: "m2", label: "M2", providerLabel: "P", efforts: [{ id: "max", name: "Max" }], defaultEffort: "max" },
       ],
       default: { provider: "opencode-go", model: "m1" },
-    }),
+      };
+    },
     sessions: async () => ({
       items: [{ sessionId: "s1", projections: { values: { modelSelection: { next: { provider: "opencode-go", model: "m1", reasoningEffort: "low" } } } } }],
     }),
@@ -37,6 +44,8 @@ function Probe() {
 beforeEach(() => {
   setDraftModel.mockClear();
   selectModel.mockClear();
+  engineUp = true;
+  catalogDown = false;
   hook = null;
 });
 afterEach(cleanup);
@@ -75,5 +84,26 @@ describe("会话内换模型 → 写回「上次选择」", () => {
     await act(async () => { await hook!.pickModel({ provider: "opencode-go", model: "m2", label: "M2", providerLabel: "P" }); });
 
     expect(setDraftModel).not.toHaveBeenCalled();
+  });
+});
+
+describe("引擎晚起：目录要在就绪后补拉（用户 2026-10-14「思考强度的开关怎么没了」）", () => {
+  // 冷启动与引擎重启的窗口里 modelOptions 会抛，两个 catch 都留空；不重拉的话这个会话的
+  // 档位表整场都是空的，输入框那颗档位胶囊（`effort.levels.length > 0` 才渲染）不出现。
+  it("挂载时引擎未就绪 → 目录留空；engineUp 翻真后补拉，档位表补上", async () => {
+    catalogDown = true;
+    engineUp = false;
+    const { rerender } = render(<Probe />);
+    await settle();
+    expect(hook!.effortLevels).toEqual([]);      // 首拉落空＝胶囊此刻不渲染
+
+    catalogDown = false;
+    engineUp = true;                             // 引擎就绪（store 翻真 → 组件照常重渲）
+    rerender(<Probe />);
+    await settle();
+
+    // m1 的档位表回来了（low/max）——胶囊据此出现
+    expect(hook!.effortLevels).toEqual([{ id: "low", name: "Low" }, { id: "max", name: "Max" }]);
+    expect(hook!.effort).toBe("low");
   });
 });
