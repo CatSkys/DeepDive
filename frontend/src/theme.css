@@ -1625,9 +1625,14 @@ button {
 .composer {
   /* 输入胶囊的自有尺寸（完整口径见 UI-SPEC §2.2「输入胶囊」）：单行高 36
      = 编辑器行高 20 + 上下内距 8×2；**圆角 = 高 ÷ 2**（真胶囊，勿写 999px——
-     PITFALLS §1.1 合成伪影）。＋ 列宽、两端圆钮的直径、圆角都从这一个值派生，
-     连触屏档也只改它一处。 */
+     PITFALLS §1.1 合成伪影）。＋ 列宽、圆钮直径（下面那个）、圆角都从这一个值
+     派生，连触屏档也只改它一处。 */
   --composer-h: 36px;
+  /* 圆钮（＋/麦克风/发送·停止）的直径 = 单行高 − 8，即上下各留 4 的呼吸。**刻意不等于
+     单行高**：等高的圆钮与胶囊上下缘相切，常驻实心的发送钮会读成"把胶囊撑满"
+     （2026-10-14 用户报"发送钮有点大了"，实测直径 36 = 胶囊高、上下缝 0）。8 写进算式，
+     触屏档把 --composer-h 抬到 44 时它自己变 36，不必两处改。 */
+  --composer-knob: calc(var(--composer-h) - 8px);
   position: relative;
   display: grid;
   grid-template-columns: var(--composer-h) minmax(0,1fr) auto;
@@ -1804,10 +1809,12 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  /* 圆钮：**直径 = 单行高**（与胶囊上下缘相切），两端各留 4px 就贴到胶囊端上。
+  /* 圆钮：直径比单行高小一圈（`--composer-knob`：上下各留 4 的呼吸，不与上下缘相切），
+     横向仍贴胶囊两端——＋ 那一格宽度还是单行高（36）、钮按格内 start 对齐，发送那一枚
+     是右簇末位、右缘即胶囊内距，所以**三面各留 4**（横向缝 = 胶囊内距那 4）。
      圆角写 50%（等宽高的精确圆）：999px 这类无穷值本仓禁用（PITFALLS §1.1）。 */
-  width: var(--composer-h);
-  height: var(--composer-h);
+  width: var(--composer-knob);
+  height: var(--composer-knob);
   border: none;
   border-radius: 50%;
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
