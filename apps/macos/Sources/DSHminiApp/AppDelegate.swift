@@ -357,6 +357,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     tooltip.applyAppearanceMode()
                 } else if key == "language" {
                     DSHAppPrefs.setLanguage(mode)
+                    // 原生面那套文案（迷你面板药丸/选区工具条/截图标注与 HUD）走 ShellStrings，
+                    // 它在 init 里读一次语言、靠这条 apply 发通知让长寿命面重建——不喂它，
+                    // 原生面就停在启动时那一刻（2026-10-14 用户报"顺带检查划词工具和截图"）。
+                    ShellStrings.shared.apply(appLanguage: mode)
                     // 语言是**运行中会变**的偏好，而 prefs 平时只在 host-ready / get-prefs 推
                     // 快照：不在这里补这一条，设置里切语言就只到主窗（它自己乐观更新），面板页
                     // 与命令中心卡页那两份 store 会一直停在启动时那一刻（2026-10-14 用户报

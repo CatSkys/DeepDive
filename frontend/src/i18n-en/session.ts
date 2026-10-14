@@ -19,6 +19,7 @@ export const ENSession: Record<string, string> = {
 
   // session view
   "会话": "Session",
+  "会话设置": "Session settings",
   "加载中…": "Loading…",
   "历史加载失败": "Failed to load history",
   "载入更早": "Load earlier",
@@ -283,6 +284,8 @@ export const ENSession: Record<string, string> = {
   "每小时": "Hourly",
   "每天": "Daily",
   "每工作日": "Weekdays",
+  "每月": "Monthly",
+  "自定义": "Custom",
   "暂无运行记录": "No runs yet",
   "打开会话": "Open chat",
   "晨会动态": "Standup digest",
