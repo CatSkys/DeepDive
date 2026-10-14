@@ -1,6 +1,9 @@
-// 命令中心的**设置模式**：根行（左标签、右当前值）+ **卡内翻页**——点一行翻到那一页的
-// 选项列表，选中即写回并退回根行（用户 2026-10-13 定稿："模型页面相当于一个单独的页面，
+// 命令中心的**设置模式**：根行（图标 + 动作名 + 快捷键）+ **卡内翻页**——点一行翻到那一页
+// 的选项列表，选中即写回并退回根行（用户 2026-10-13 定稿："模型页面相当于一个单独的页面，
 // 是在命令中心里面进行跳转的"；不再弹主窗那套模型菜单 / 下拉）。
+// **根行只说"做什么"，不说"现在是什么"**（用户 2026-10-14 给 Raycast 动作面板参考：
+// "严格参考这个，不要把模型名字和其他内容直接放出来"）：所以标签是动作措辞（"更换模型"），
+// 行上既没有当前值也没有 ›，值只在翻进去那一页上以打勾表示——`SettingsPage.value` 因此删了。
 //
 // 按当前脸给行集——草稿脸：模型 / 思考强度 / 权限（新会话的初始权限）/ 发送方式；
 // 会话脸：模型 / 思考强度 / 权限（当前会话）/ 会话模式 / 发送方式。
@@ -9,13 +12,13 @@
 // 与 HeroPanel、SessionSettings 同源，不是第二份实现。选择页本身只有 MiniChoicePage 一个件。
 // 「插件」不进面板：主窗设置页的事（面板求简洁）。
 import { useEffect, useState } from "react";
-import { Bot, ChevronRight, CircleAlert, Cpu, Gauge, History, Pin, Send, Settings, SquarePen } from "lucide-react";
+import { Bot, CircleAlert, Cpu, Gauge, History, Pin, Send, Settings, SquarePen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { t as tRaw, tt } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
 import { modelKey, modelSections } from "../components/ModelMenu";
-import { effortDisplayName, shownLevel } from "../components/composer/EffortPicker";
+import { shownLevel } from "../components/composer/EffortPicker";
 import { agentPresetLabel, visibleAgentPresets } from "../settings/agentPreset";
 import {
   permissionPresetView, presetDropdownOptions, presetIcon,
@@ -32,18 +35,16 @@ import { MiniChoicePage, flattenChoices, type ChoiceSection } from "./MiniChoice
 import type { KeyHandler } from "./MiniCommandCenter";
 import type { ModelFace } from "../session/SessionHeader";
 
-/** 一页设置：根行右边那颗当前值 + 翻页后的选项集 + 写回。 */
+/** 一页设置：翻页后的选项集 + 写回。根行那半（图标 / 名称 / 快捷键）就是 `CardRow` 的入参。 */
 interface SettingsPage {
   id: string;
-  /** 根行左侧的图标（与主窗命令面板的行同一套解剖：icon + 名称 + 快捷键 + 右侧当前值）。 */
+  /** 根行左侧的图标（与主窗命令面板的行同一套解剖：icon + 名称 + 快捷键）。 */
   icon: LucideIcon;
-  /** 根行的标签。 */
+  /** 根行的标签，写成**动作**（"更换模型"）：行上不显示当前值，所以名称必须自己说清点了会怎样。 */
   label: string;
   /** 这一页对应的全局快捷键（有就画成键帽，与命令面板同一套 `.tip-key`）；没有就空着。 */
   combo?: string;
-  /** 根行右边的当前值（人可读）。 */
-  value: string;
-  /** 选项里打勾的那条（`ChoiceOption.v`）。 */
+  /** 选项里打勾的那条（`ChoiceOption.v`）——当前值只在这里露出来。 */
   valueId: string | undefined;
   sections: ChoiceSection[];
   hint?: string;
@@ -82,8 +83,7 @@ function busyPage(busy: { value: string; set: (v: string) => void }): SettingsPa
   return {
     id: "busy",
     icon: Send,
-    label: tRaw("发送方式"),
-    value: options.find((o) => o.v === busy.value)?.label ?? busy.value,
+    label: tRaw("更换发送方式"),
     valueId: busy.value,
     sections: [{ key: "busy", options }],
     pick: busy.set,
@@ -100,8 +100,7 @@ function modelPage(face: ModelFace): SettingsPage {
   return {
     id: "model",
     icon: Cpu,
-    label: tRaw("模型"),
-    value: face.modelName || tRaw("跟随默认"),
+    label: tRaw("更换模型"),
     valueId: face.currentModel ? `${face.currentModel.provider}/${face.currentModel.model}` : undefined,
     sections,
     pick: (v) => {
@@ -121,8 +120,7 @@ function effortPage(face: ModelFace, combo?: string): SettingsPage {
     id: "effort",
     icon: Gauge,
     combo,
-    label: tRaw("思考强度"),
-    value: effortDisplayName(id, levels),
+    label: tRaw("更换思考强度"),
     valueId: id,
     sections: [{ key: "effort", options: levels.map((l) => ({ v: l.id, label: l.name })) }],
     pick: (v) => void face.pickEffort?.(v),
@@ -164,57 +162,50 @@ function useCardActions(sessionId: string | null): ActionRow[] {
       run: () => cardAction("toggle-pin", sessionId),
     }]),
     {
-      id: "open-settings", icon: Settings, label: tRaw("设置"),
+      id: "open-settings", icon: Settings, label: tRaw("打开设置"),
       combo: comboFor("open-settings", store.keybinds),
       run: () => cardAction("open-settings"),
     },
   ];
 }
 
-function ActionLine({ action, cursor }: { action: ActionRow; cursor: boolean }) {
+/** 根层的一行：动作行与设置行是**同一副解剖**（图标 + 名称 + 快捷键芯片），差别只有"点了就走"
+ *  与"点了翻页"，所以共用这一个件（此前 ActionLine / SettingRow 两份是同一段 JSX 抄了两遍）。
+ *  右端**只有芯片**，没有当前值也没有 ›（用户 2026-10-14 给 Raycast 动作面板参考："严格参考
+ *  这个，不要把模型名字和其他内容直接放出来"）——当前值翻进去看，那一页里用打勾表示。
+ *  `opens` = 这一点会开卡内下一页：按参考面板的口径在名称后加「…」（"Change Model…"），
+ *  直接执行或换到别的界面的行没有它（"Open AI Settings" 也没有）。省略号是**行种类的渲染
+ *  约定**、不是文案的一部分，所以不进 i18n 词条。
+ *  cursor = 键盘光标（↑↓ 走到这一行）：与历史行同一档填充（hover 5% / 光标 10%），
+ *  没有它就看不出回车会开哪一行。 */
+function CardRow({
+  icon: Icon, label, combo, hint, opens = false, cursor, onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  combo?: string;
+  hint?: string;
+  opens?: boolean;
+  cursor: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       className="panel-settings-line panel-settings-row"
       data-cursor={cursor || undefined}
-      onClick={action.run}
+      onClick={onClick}
     >
-      <span className="panel-settings-icon"><action.icon size={15} /></span>
-      <span className="panel-settings-label">{action.label}</span>
-      {action.combo !== undefined && (
-        <span className="tip-keys-row outline">
-          {[...action.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
-        </span>
-      )}
-    </button>
-  );
-}
-
-/** 根行：左标签（可带说明图标）、右当前值 + 指出去下一页的箭头。
- *  cursor = 键盘光标（↑↓ 走到这一行）：设置模式此前只有取值没有选中态，用户看不出回车
- *  会开哪一页——与历史行同一档填充（hover 5% / 选中 10%，见 theme.css 那两条）。 */
-function SettingRow({ page, cursor, onOpen }: { page: SettingsPage; cursor: boolean; onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      className="panel-settings-line panel-settings-row"
-      data-cursor={cursor || undefined}
-      onClick={onOpen}
-    >
-      <span className="panel-settings-icon"><page.icon size={15} /></span>
+      <span className="panel-settings-icon"><Icon size={15} /></span>
       <span className="panel-settings-label">
-        {page.label}
-        {page.hint !== undefined && <CircleAlert size={12} className="panel-settings-hint-icon" data-tip={page.hint} />}
+        {opens ? `${label}…` : label}
+        {hint !== undefined && <CircleAlert size={12} className="panel-settings-hint-icon" data-tip={hint} />}
       </span>
-      {page.combo !== undefined && (
+      {combo !== undefined && (
         <span className="tip-keys-row outline">
-          {[...page.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
+          {[...combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
         </span>
       )}
-      <span className="panel-settings-value">
-        <span className="panel-settings-value-text">{page.value}</span>
-        <ChevronRight size={14} className="panel-settings-chev" />
-      </span>
     </button>
   );
 }
@@ -303,13 +294,26 @@ function SettingsShell({
     return (
       <div className="panel-settings mini-cc-settings">
         {root.map((entry, i) => (entry.kind === "action"
-          ? <ActionLine key={entry.action.id} action={entry.action} cursor={i === cursor} />
-          : (
-            <SettingRow
-              key={entry.page.id}
-              page={entry.page}
+          ? (
+            <CardRow
+              key={entry.action.id}
+              icon={entry.action.icon}
+              label={entry.action.label}
+              combo={entry.action.combo}
               cursor={i === cursor}
-              onOpen={() => {
+              onClick={entry.action.run}
+            />
+          )
+          : (
+            <CardRow
+              key={entry.page.id}
+              icon={entry.page.icon}
+              label={entry.page.label}
+              combo={entry.page.combo}
+              hint={entry.page.hint}
+              opens
+              cursor={i === cursor}
+              onClick={() => {
                 onOpenPage?.(entry.page.id);
                 setOpenId(entry.page.id);
               }}
@@ -363,9 +367,8 @@ function DraftSettings(props: ShellProps) {
     ...(permission === null ? [] : [{
       id: "permission",
       icon: presetIcon(permission.current),
-      label: tRaw("权限"),
+      label: tRaw("更换权限"),
       hint: tRaw("新建会话的初始权限。"),
-      value: permissionOptions.find((o) => o.v === permission.current)?.label ?? permission.current,
       valueId: permission.current,
       sections: [{ key: "permission", options: permissionOptions.map((o) => ({ v: o.v, label: o.label })) }],
       pick: (v: string) => void savePermission(v),
@@ -409,8 +412,7 @@ function SessionSettings({ sessionId, ...props }: ShellProps & { sessionId: stri
     ...(select === null ? [] : [{
       id: "permission",
       icon: presetIcon(permission),
-      label: tRaw("权限"),
-      value: permissionOptions.find((o) => o.v === permission)?.label ?? permission,
+      label: tRaw("更换权限"),
       valueId: permission,
       sections: [{ key: "permission", options: permissionOptions.map((o) => ({ v: o.v, label: o.label })) }],
       pick: (v: string) => {
@@ -422,8 +424,7 @@ function SessionSettings({ sessionId, ...props }: ShellProps & { sessionId: stri
     ...(modeList.length === 0 ? [] : [{
       id: "mode",
       icon: Bot,
-      label: tRaw("会话模式"),
-      value: modeList.find((o) => o.v === pinned)?.label ?? pinned,
+      label: tRaw("更换会话模式"),
       valueId: pinned || undefined,
       sections: [{ key: "mode", options: modeList }],
       pick: (v: string) => {

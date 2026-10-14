@@ -7,7 +7,7 @@ export const ENShell: Record<string, string> = {
   "返回工作区": "Back to workspace",
   "已复制": "Copied",
   "收起侧栏": "Collapse Sidebar",
-  "更换模型": "Change Model",
+  "更换模型": "Change model",
   "模型与推理": "Model & Reasoning",
   "设置 ⌘,": "Settings ⌘,",
   "新建项目空间": "New project workspace",
