@@ -160,7 +160,7 @@
 | `--shadow-pop` | 浮在内容之上：菜单类浮层、右键菜单、命令面板、流内卡（工具/审批/提问） |
 | `--shadow-modal` | 对话框与灯箱（更深一档；落点是近实色 `--panel-strong`，不吃"重投影描黑低透明边界"那条约束） |
 
-亮色另立配方（1px 底缘接地线 + 更浅更远的环境投影）——暗色那套的顶部白内高光在亮色下等于没有，黑 .20 落在近白卡上会发闷。**不属于档位、就地写的**：键帽底缘微投影、PDF 纸页、内高光、描边环。新表面选一档，别再就地写第四套。
+亮色另立配方（1px 底缘接地线 + 更浅更远的环境投影）——暗色那套的顶部白内高光在亮色下等于没有，黑 .20 落在近白卡上会发闷。**不属于档位、就地写的**：键帽底缘微投影、PDF 纸页、内高光。新表面选一档，别再就地写第四套。
 
 **同心圆角**：两个圆角相邻且同时看得见时，内圆角 = 外圆角 − 两者的间隙（`radius.panel 18` 就是从 `window 26` 减 8px 缝来的）。跟着它有两条优先级：
 
@@ -185,13 +185,15 @@
 | 输入胶囊 / 迷你控件簇 | composer / 迷你面板右上控件 / 排队胶囊 | 胶囊（`bubble` 或 `calc(高÷2)`） | `[data-liquid-glass-backdrop]` 材质层（系统材质；回退 `--panel-glass` + `--blur-glass`） | 内缘 `--composer-shadow` + 外 `--composer-drop` | 组件内部 | 反馈 `--dur-fast` |
 | 原生工具条 / HUD | 划词工具条、标注条、玻璃 HUD、悬浮注释窗 | 胶囊 = 半高 | `NSGlassEffectView`（`WindowGlassView`） | 玻璃自带 | `ShellWindowLevel` | `ShellMotion`（0.25 入 / 0.15 出） |
 
-**材质来源＝系统液态玻璃**（`-apple-visual-effect`，Raycast 同一条路）。做法统一：浮面本体只留几何、描边与外投影，材质全在**材质层**（`<GlassLayer />` / `[data-liquid-glass-backdrop]`，见 §2.2bis 的五条硬约束）；材质层由宿主的**材质族**参数化（`theme.css` 的材质族预设块与各 module 里的同名三项，一处在 theme.css、模块面在各自文件）：
+**材质来源＝系统液态玻璃**（`-apple-visual-effect`，Raycast 同一条路）。做法统一：浮面本体只留几何与外投影，材质全在**材质层**（`<GlassLayer />` / `[data-liquid-glass-backdrop]`，见 §2.2bis 的五条硬约束）；材质层由宿主的**材质族**参数化（`theme.css` 的材质族预设块与各 module 里的同名两项，一处在 theme.css、模块面在各自文件）：
 
-| 族 | 底色 tint | 回退模糊档 | 内缘高光 |
-|---|---|---|---|
-| 瞬时浮层（菜单 / 提示 / 选择器 / 下拉） | `--panel-glass` 真半透 | `--blur-float` | `--shadow-pop-inset` |
-| 对话框（设置族弹窗 / 项目弹窗 / 引导卡 / 游戏面） | `--panel-strong` 近实色 | `--blur-scrim` | `--shadow-modal-inset` |
-| 命令面板 ⌘K | `--panel-palette` | `--blur-float` | `--shadow-pop-inset` |
+| 族 | 底色 tint | 回退模糊档 |
+|---|---|---|
+| 瞬时浮层（菜单 / 提示 / 选择器 / 下拉） | `--panel-glass` 真半透 | `--blur-float` |
+| 对话框（设置族弹窗 / 项目弹窗 / 引导卡 / 游戏面） | `--panel-strong` 近实色 | `--blur-scrim` |
+| 命令面板 ⌘K | `--panel-palette` | `--blur-float` |
+
+**材质层没有装饰**：不描边、不勾内缘高光——面的范围由底色承担（用户 2026-10-14 定稿，见 PITFALLS §5.20）。全站只有输入胶囊那一族（`.composer` / `.mini-controls`）给自己写 `--glass-inset: var(--composer-shadow)` 那两条 inset 内缘高光，其余面一律 `--glass-inset` 缺省（= `none`）。
 
 回归档（系统材质不可用时自动落回）：`-apple-visual-effect` 在 `@supports` 里，关着就是材质层上那份 CSS 模糊——**所以模糊档与 tint 仍要写全**。
 
@@ -378,7 +380,7 @@
 > 此前的错误：两者共用 `.msg` 体系、气泡参数与 emoji/信息混调——已按"独立两套"重构并清空 `.msg` 残留。
 
 - **输入胶囊（`Composer.tsx`，主窗会话页/草稿页、迷你面板、浏览器悬浮卡同一颗）**：三列网格 `＋ | 文本列（附件胶囊 + 编辑器） | 右簇`（簇内档位/容量圈/发送·停止·听写，间距 12）。**单行高 36**（窄窗/触屏档 44，迷你面板页显式排除——它天生落在窄窗断点里、不是触屏，排除了主窗与面板才是同一条 36）= 编辑器行高 20 + 上下内距 8×2；**圆角 = 高 ÷ 2**（真胶囊，勿写 999px，PITFALLS §1.1）——`theme.css` 里由 `.composer` 的 `--composer-h` 一个值派生（＋ 列宽、圆钮直径、圆角、触屏档全跟着走）。**两端两格是圆钮**：直径 = 单行高 − 8（`--composer-knob`，36 的胶囊里 28；**不等于单行高**——等高的钮与胶囊上下缘相切，常驻实心的发送钮会读成"把胶囊撑满"）、圆角 `50%`，且**贴边站**（胶囊两侧内距各 4，不用左 16 / 右 8——内距一大就在两端各留一条空带，两颗钮被读成"浮在胶囊中间"；直径小一圈后横向缝仍是内距那 4，上下也各 4，三面等宽）。＋ 与麦克风是 hover 才现的实心眼，发送/停止是**同形、常驻实心**（形状同一条，分开的只是「一直填着」与「hover 才现」）。展开（`.wide`，内容折两行以上）时两侧 12、圆角转 `radius.bubble`；编辑器字号随正文（`base`）、上限 160px（Raycast 的 `66vh−106` 是整窗 chat 的口径，钉底输入框用会把正文吃掉大半）。改尺寸只动 `--composer-h` 与编辑器内距。
-- **输入胶囊的材质在分离层 `[data-liquid-glass-backdrop]` 上**（内容与材质分离，Raycast 同款结构）：胶囊本体只有网格/内距/单行高/圆角，**底色 `--composer-bg`（tint，只定基调——铁律见 PITFALLS §7 玻璃那条）、投影（只许 inset 内缘高光）、材质在这一层**（`position:absolute; inset:0; border-radius:inherit; pointer-events:none`，铺满胶囊）。**外投影 `--composer-drop` 留在胶囊本体**：系统材质是「托管材质」（`HAVE_MATERIAL_HOSTING`），WebKit 自动建的结构层 bounds ＝ **元素自己那层**的 bounds（`GraphicsLayerCA::updateGeometry`；圆角只读元素自身的 `border-radius`，没有任何 CSS 钩子），元素层带**外扩**投影时 bounds 会被撑大 → 材质板比胶囊每边大一圈（实测暗色下多出 ~17px ≈ 那条 `0 4px 12px` 的扩散量），所以材质层上不许有外投影。材质三档：macOS 26 起经 `@supports` 换成 `-apple-visual-effect: -apple-system-glass-material-media-controls`（系统合成器渲染液态玻璃、CSS 模糊撤下，两套玻璃叠着会发灰）→ 退回 `backdrop-filter: blur(24px) saturate(150%)`（WebKit 需双前缀）→ 退到底色，所以材质画不出来时胶囊仍是一块读得清的面。z 走 `0` + 内容层抬到 `1` 分先后（**不用 -1**：负 z 会逃到最近的栈上下文、画到宿主祖先的背景底下，悬浮卡那一页会整块消失），因此**不要求宿主做成栈上下文**。**成立前提是宿主干净**：`.composer` 及其祖先不许有 backdrop-root 触发器（`backdrop-filter`/`filter`/`opacity<1`/`mask`/`clip-path`/`transform`/`perspective`/`contain:paint`/`isolation:isolate`）——有一个就把子层采样锁进宿主内部、只剩底色＝一块实心（浮层配方③；2026-09 那两轮"子层不可见"的真因就是宿主自己挂着 blur、以及 pop-in 动画残留的 transform，不是"WKWebView 不渲染子层"）。浏览器悬浮卡那一页（另一块 webview）CSS 模糊本来就采不到面外内容，那一档由壳的原生磨砂兜着。**系统材质那一档要壳配合才亮**：`-apple-visual-effect` 在 WebKit 里带 `settings-flag: useSystemAppearance`（默认 false），关着时属性连解析器都不认识（`CSS.supports` 全 false、声明被丢弃）——开关在 `Support/WebKitSystemAppearance.swift`（主窗 / 迷你面板 / 悬浮输入框三处 webview 各开一次，走私有 `WKWebView._setUseSystemAppearance:`；浏览器页是别人的内容，不开；App Review 2.5.1 只认公开 API，本应用走 Developer ID 自行分发）。本机实测（macOS 27 / 26A428）：开启后同一段 CSS 的 computed 值从 `""` 变成 `-apple-system-glass-material-media-controls`。它是"网页内容里拿系统玻璃"的唯一入口——原生 `NSGlassEffectView` 糊不到同一块 webview 里的内容（PITFALLS §4.38）。**这条也是「材质层」机制本身的规范**：任何要系统玻璃的表面都照它办——宿主留几何与外投影（`--composer-drop`）、挂一个 `[data-liquid-glass-backdrop]` 子元素，层上只放底色 + **inset** 内缘高光，圆角写**实际值**（`inherit` 到 999px 会把一个给不出形状的数喂给 SwiftUI）。现役两处：输入胶囊（主窗/草稿页/迷你面板/悬浮卡共用同一个 `Composer`）、迷你面板右上角的控件胶囊（`.mini-controls`）。
+- **输入胶囊的材质在分离层 `[data-liquid-glass-backdrop]` 上**（内容与材质分离，Raycast 同款结构）：胶囊本体只有网格/内距/单行高/圆角，**底色 `--composer-bg`（tint，只定基调——铁律见 PITFALLS §7 玻璃那条）、投影（只许 inset 内缘高光）、材质在这一层**（`position:absolute; inset:0; border-radius:inherit; pointer-events:none`，铺满胶囊）。**外投影 `--composer-drop` 留在胶囊本体**：系统材质是「托管材质」（`HAVE_MATERIAL_HOSTING`），WebKit 自动建的结构层 bounds ＝ **元素自己那层**的 bounds（`GraphicsLayerCA::updateGeometry`；圆角只读元素自身的 `border-radius`，没有任何 CSS 钩子），元素层带**外扩**投影时 bounds 会被撑大 → 材质板比胶囊每边大一圈（实测暗色下多出 ~17px ≈ 那条 `0 4px 12px` 的扩散量），所以材质层上不许有外投影。材质三档：macOS 26 起经 `@supports` 换成 `-apple-visual-effect: -apple-system-glass-material-media-controls`（系统合成器渲染液态玻璃、CSS 模糊撤下，两套玻璃叠着会发灰）→ 退回 `backdrop-filter: blur(24px) saturate(150%)`（WebKit 需双前缀）→ 退到底色，所以材质画不出来时胶囊仍是一块读得清的面。z 走 `0` + 内容层抬到 `1` 分先后（**不用 -1**：负 z 会逃到最近的栈上下文、画到宿主祖先的背景底下，悬浮卡那一页会整块消失），因此**不要求宿主做成栈上下文**。**成立前提是宿主干净**：`.composer` 及其祖先不许有 backdrop-root 触发器（`backdrop-filter`/`filter`/`opacity<1`/`mask`/`clip-path`/`transform`/`perspective`/`contain:paint`/`isolation:isolate`）——有一个就把子层采样锁进宿主内部、只剩底色＝一块实心（浮层配方③；2026-09 那两轮"子层不可见"的真因就是宿主自己挂着 blur、以及 pop-in 动画残留的 transform，不是"WKWebView 不渲染子层"）。浏览器悬浮卡那一页（另一块 webview）CSS 模糊本来就采不到面外内容，那一档由壳的原生磨砂兜着。**系统材质那一档要壳配合才亮**：`-apple-visual-effect` 在 WebKit 里带 `settings-flag: useSystemAppearance`（默认 false），关着时属性连解析器都不认识（`CSS.supports` 全 false、声明被丢弃）——开关在 `Support/WebKitSystemAppearance.swift`（主窗 / 迷你面板 / 悬浮输入框三处 webview 各开一次，走私有 `WKWebView._setUseSystemAppearance:`；浏览器页是别人的内容，不开；App Review 2.5.1 只认公开 API，本应用走 Developer ID 自行分发）。本机实测（macOS 27 / 26A428）：开启后同一段 CSS 的 computed 值从 `""` 变成 `-apple-system-glass-material-media-controls`。它是"网页内容里拿系统玻璃"的唯一入口——原生 `NSGlassEffectView` 糊不到同一块 webview 里的内容（PITFALLS §4.38）。**这条也是「材质层」机制本身的规范**：任何要系统玻璃的表面都照它办——宿主留几何与外投影（`--composer-drop`）、挂一个 `[data-liquid-glass-backdrop]` 子元素，层上只放底色（**不描边、不勾环**；只有输入胶囊那一族另给自己两条 `inset` 内缘高光，见 §2.2bis 第 3 条），圆角写**实际值**（`inherit` 到 999px 会把一个给不出形状的数喂给 SwiftUI）。现役两处：输入胶囊（主窗/草稿页/迷你面板/悬浮卡共用同一个 `Composer`）、迷你面板右上角的控件胶囊（`.mini-controls`）。
 - **输入胶囊的失焦态**：窗口不是 key 窗口时内容（含附件胶囊）压到 **40%**，**材质层豁免**（`html[data-window-blur] .composer > :not([data-liquid-glass-backdrop])`——它连着底色与玻璃，调暗等于把材质也糊掉），即"内容退后、材质留下"。标记是 `html[data-window-blur]`（维护在 `windowFocus.ts`，文档级 focus/blur，不走壳侧通道）。**＋ 打开菜单**时转的是**图标**不是钮：`rotate(45deg) scale(1.15)`（＋ 变 ×），走 `--dur-fast`。
 - **用户消息里的文件 chip**（`.user-file-chip`）与输入框里的附件胶囊（`.att-chip`）是同一套语言：图标 + 名、`--fill-soft` 底 + 1px 描边、**两端全圆**（`radius.bubble`，胶囊口径同 §2.4；别写 999px）。高各随其位——消息里 30、输入框里 26（要坐进 36 高的输入胶囊）。同一段对话里两处文件看着是一套，改一个要看另一个。
 - **输入框里那颗胶囊的状态位**（名字右边一截，与 ZCode 的状态列同一职责）：待发送 / `上传中 42%` / **失败原因原话**（CSS 截断，全文在胶囊的 tooltip）/ 大小；只有失败才多一颗「重试」文字钮（不划线）。**没有独立的「取消」钮**——同一颗移除钮就是"取消并移除"，多一颗只会把上传中的胶囊变成红的"已取消"错误态（既不是取消的样子，也和移除重复，用户 2026-10-09 定稿：参考成熟产品）。移除钮**悬停才现**（与侧栏行内动作同一套 hover 语言），图片与文件两种胶囊一致。
@@ -394,7 +396,7 @@
 
 1. **宿主必须自己定位、且带显式 z-index**（＝栈上下文）。材质层用**负 z** 垫在宿主内容之后（照参考实现的 `chat-panel-glass`），内容层因此不需要任何定位或抬升。代价是负 z 只在宿主是栈上下文时才被关在宿主里——只有 `position` 而 `z-index: auto` **不算**，材质层会逃到祖先的背景底下、整块面消失（PITFALLS §5.17，实测在 `.composer` 上抓到过）。**这条由架构检查器的 `glass-host` 规则守着**。
 2. **宿主不许有自己的底色，也不许挂 `backdrop-filter`**。底色画在材质**之上**，垫一层就是把玻璃盖死——2026-10-14 报的"不像玻璃／一块平灰"就是这个；磨砂叠在材质上会发灰（PITFALLS §5.14 / §5.18）。要调节只许动 `filter` 的 `saturate/brightness`。
-3. **描边环归材质层、外投影留宿主**：托管材质的板按材质层自己的 bounds 铺，外投影挂在材质层上会把板撑大一圈；反过来描边环画在宿主身上会被材质层盖住。环走 `inset` 项（不外扩），形状照参考实现的 `--shadow-panel`——`inset 0 0 0 1px <fg-20>` 环与一组分层软影合成一条。
+3. **材质宿主一律不描边、装饰也不进材质层**：面的范围由**底色**承担——不画线、不勾 `inset` 内缘高光（用户 2026-10-14 定稿，PITFALLS §5.20）。参考实现的分工是"影留宿主、材质层只出材质与底色"：托管材质的板按材质层自己的 bounds 铺，任何外投影挂在材质层上都会把板撑大一圈（见 `--composer-shadow` 那条注释），所以外投影写宿主。全站唯一的例外是输入胶囊那一族自己的两条 `inset` 软高光（`--glass-inset: var(--composer-shadow)`，不外扩、不是线）。**这条由架构检查器的 `glass-host` 规则守着**（宿主规则里出现非 `none` 的 `border` 即失败）。
 4. **回退链要写全**：材质属性在 `@supports` 里（它要壳的 `useSystemAppearance` 私有门，见 §1.4bis 末），门外那份 CSS（真半透底色 + `--blur-*`）必须留着——拿不到材质、或材质没托管成功的运行时靠它读得清。材质可用时才把底色与 CSS 模糊一并撤下（见 §1.4bis 的材质族表）。
 
 ### 2.2ter 浮层宿主：两个原语（`Popover` 与 `Modal`）

@@ -80,8 +80,8 @@
   width: min(660px, 100%);
   height: 48px;
   padding: 0 14px;
+  /* 不描边：它是真胶囊的占位（真胶囊也不描边），免得开屏闪一下"有边的胶囊" */
   border-radius: var(--dsh-radius-bubble);      /* = .composer 胶囊 */
-  border: 1px solid var(--line);
   background: var(--composer-bg);
 }
 .plus { width: 18px; height: 18px; border-radius: var(--dsh-radius-keycap); flex: none; }

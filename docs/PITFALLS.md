@@ -119,7 +119,7 @@
 ### 1.14 消息流里的 `background` 是白费的：`.flow/.md * { background: transparent !important }` 会把按钮也一起清掉
 - 事故（2026-09-12，做「定时任务建议」卡时量出来的）：卡里的主按钮原本照抄全局 `.btn-primary`，实测 `getComputedStyle` 是 `background: rgba(0,0,0,0)`（theme.css:1698 那条 `.flow, .flow-inner, .md, .md *, .agent-message, .agent-message * { background: transparent !important }` 连着 `!important` 一起清），而 `.btn-primary` 的文字色是**反相面色**（暗色主题下 `--dsh-surface-inverted` = #2A2A2E）——深灰字压在深色卡上，等于隐形；亮色主题同理（白字压白底）。用户看到的只是「一块淡淡的字」。
 - 处置：**流内动作按钮一律走「描边 + 亮字」**（`border: 1px solid var(--line-heavy)` + `color: var(--ink-bright)`），别指望实底；给流内元素写 `background` 就是死代码。要让实底在流内成立，得给那条 `!important` 开显式例外（`.flow .btn-primary { background: … !important }`）——目前没开，别偷偷绕。
-- 附带事实（同源）：流内卡片（`.question-card` / `.approval-card` / `.plan-review-card` / `.auto-proposal`）的 `linear-gradient` 底色同样被清掉，它们在应用里本来就是**只有描边**的形态——别照着"应该有个底色"去调它们的层级。**已知同类隐患**：审批卡的「允许」用的是 `.btn-primary`，落在这条规则下同样是隐形文字（本轮未改，用户没提；要改就是上面那条例外或把它换成描边钮）。
+- 附带事实（同源）：流内卡片（`.question-card` / `.approval-card` / `.plan-review-card` / `.auto-proposal`）的 `linear-gradient` 底色同样被清掉，所以它们长期是**只有描边**的形态。2026-10-14 起改为**去线留色**：`theme.css` 有一条"流内面的唯一一份底色"给这一族显式 opt-in 底色（`!important`），卡片规则里不再自己写 `background`（写了也是死代码）。**已知同类隐患**：审批卡的「允许」用的是 `.btn-primary`，落在这条规则下同样是隐形文字（本轮未改，用户没提；要改就是上面那条例外或把它换成描边钮）。
 
 ### 1.15 会话日志是多帧 zstd：fzstd 的一次性 `decompress` 只解第一帧（静默给 1 行，不报错）
 - 事故（2026-09-13，写读会话日志的统计脚本时）：`decompress(await readFile(session.v3.jsonl.zstd))` 对一份 432KB 的日志返回了**一行**，而 `zstd -dc | grep -c` 在同一文件上数出 14 处命中——脚本于是报"0 命中"，看着像"这个坑没再出现"（最坏的方向：假有效）。根因：会话日志是**逐次追加**写出来的，文件里是多帧 zstd；fzstd 的 `decompress(dat, buf)` 只在**给了输出缓冲**时才连解多帧（README 原话），不给就停在第一帧且**不抛错**。
@@ -1078,8 +1078,7 @@
   `backdrop-filter`，它就是材质层的 backdrop root，子层采样被锁进宿主内部——**表现是"这块浮面
   只剩自己的底色"，像一块实心，而不是"没有玻璃"**（同 §1.20 的判据，只是铺开时更容易漏）。
 - 判别式：宿主规则里 grep `backdrop-filter` 与 `background: var(--panel-*`——接了材质层的面
-  这两样都该为空（底色与内缘高光在材质层上，外投影用 `--shadow-pop-drop`/`--shadow-modal-drop`
-  那半边）。共用配方组里的选择器要一并迁出（迁出后逐个补外投影半边）。
+  这两样都该为空（底色在材质层上，外投影用 `--shadow-pop`/`--shadow-modal`）。共用配方组里的选择器要一并迁出（迁出后逐个补外投影半边）。
 
 ### 5.15 接了材质层的宿主必须是定位元素（否则材质层铺到遮罩层上）
 - 事故（2026-10-14，用户报「看着都不像」并给出新建项目弹窗截图）：材质层是 `position:absolute;
@@ -1157,6 +1156,36 @@
   的 `glass-host` 规则（顺着 `<GlassLayer />` 所在 JSX 元素的 `className` 反查 CSS，要求那条规则
   同时给出 `position`（非 static）与 `z-index`），并顺带禁掉"裸写 `data-liquid-glass-backdrop`"
   这份第二实现。
+
+### 5.20 「面一律不描边」：参考实现的 `--shadow-panel` 分平台两版，我方抄了 Windows 那版
+- 事故（2026-10-14，用户报「很多面板还是都带描边」）：二十来个浮面接上材质层之后，每个面都带着
+  一条 1px 环。根因是一条 token——`--shadow-pop-inset` / `--shadow-modal-inset` 都写成
+  `inset 0 0 0 1px var(--line-strong)`、喂给材质层的 `--glass-inset`：**只要一个面接了材质层，
+  它就自动有环**。当时 UI-SPEC §2.2bis 还把它写成了规范（"描边环归材质层"）。
+- 出处错在哪：Raycast 的 `--shadow-panel` 有**两版**——`:root`（Windows）是
+  `var(--shadow-panel-border), var(--shadow-panel-shadow)`，其中
+  `--shadow-panel-border: inset 0 0 0 1px var(--fg-20)`；`[macos]:root` **只留** `var(--shadow-panel-shadow)`。
+  我方那五层软影逐字取自 macOS 那版，却把 Windows 那版的环一并抄了进来。macOS 上那个玻璃面的
+  装饰层（`[macos] .popover__webPopoverWrapper:before { box-shadow: var(--shadow-panel) }`）落到 mac
+  就是纯投影——整个 popover CSS 里连一条 `border` 声明都没有（唯一出现的是 `border-radius: inherit`）。
+- 处置：删掉两条环 token（`--shadow-pop` / `--shadow-modal` 各自只有影），材质层的装饰默认
+  `--glass-inset: none`——只有输入胶囊那一族（`.composer` / `.mini-controls`）自己 opt-in 两条 inset
+  内缘高光；宿主上那些**真 border**（`.card` / `.ddMenu` / `.tip` / `.chat-float` /
+  `.panel-browser-offers` / `.panel-browser-hint` / `.ctx-menu` / `.model-menu` 族 / 折叠态 `.sidebar` …）
+  一并清掉，缺了线撑不住的面补底色（`.panel-browser-hint` 补 `--panel-glass`）。`--shadow-pop-drop` /
+  `--shadow-modal-drop` 从此与它们的"合成版"同名同值，一并收敛成一个 token（平行值不外留）。
+- 边界（哪条线是"面的描边"、哪条不是）：**表单控件**（input / select / 按钮）、**行内小件**
+  （chip / badge / 键帽 / 状态点 / 行内 code / 表格单元格）、**功能性虚线**（`.drop-frame` 拖放框、
+  `.compaction-main` 折叠标记）、**焦点环** 一律保留；媒体件（`.md-img` / 内嵌 frame / 缩略图）也保留。
+  它们表达的不是"面的范围"。
+- 消息流：流内卡片的 `background` 一直被 `.flow/.md * { background: transparent !important }` 清掉
+  （§1.14），所以它们实际上只剩一圈描边。"消息流也改"落到实现上＝在 `theme.css` 的
+  **"流内面的唯一一份底色"** 里给这一族显式 opt-in 底色（11 个选择器 + `!important`），去线留色；
+  `.terminal-block` 不在列（黑底是它的本体），`.diff-block` 的填色从 `--fill-soft` 提到 `--fill`
+  （原来那条线在替它扛范围）。
+- 教训：**"照参考实现抄"要抄对平台分支**——同一条 token 在两个平台上语义不同（mac 让系统材质自己
+  出边，Windows 才靠 CSS 描一圈）。这类错同样不报错、测试不红：`check-architecture.mjs` 的
+  `glass-host` 规则已加一条"材质宿主不许出现非 `none` 的 `border`"（用伪造违规验过它会报）。
 
 ## 6. 调试技巧
 

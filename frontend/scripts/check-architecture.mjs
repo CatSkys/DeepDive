@@ -514,15 +514,29 @@ function checkGlassHosts(file, text, globalCss) {
       if (!cssText) continue;
       const body = ruleBodiesFor(cssText, name);
       if (body === "") continue;
+      const where = global ? "全局 CSS" : rel(cssFile);
       const hasPosition = /position\s*:\s*(?!static)[a-z-]+/.test(body);
       const hasZ = /(?:^|;)\s*z-index\s*:/.test(body);
-      if (hasPosition && hasZ) continue;
-      if (PRIMITIVE_BASES.has(name)) continue;
-      violations.push({
-        rule: "glass-host",
-        file,
-        detail: `材质层宿主缺 ${hasPosition ? "z-index" : "position"}（.${name} 在 ${global ? "全局 CSS" : rel(cssFile)}）——负 z 会逃出宿主`,
-      });
+      if (!PRIMITIVE_BASES.has(name) && !(hasPosition && hasZ)) {
+        violations.push({
+          rule: "glass-host",
+          file,
+          detail: `材质层宿主缺 ${hasPosition ? "z-index" : "position"}（.${name} 在 ${where}）——负 z 会逃出宿主`,
+        });
+      }
+      // 材质宿主不许描边（用户 2026-10-14 定稿）：材质层自己不再画环
+      // （[data-liquid-glass-backdrop] 的装饰默认 none），宿主写一条 border 就会直接显形。
+      // 面的范围一律由底色承担——`border: none`/`0` 是显式声明，不算。
+      const strokes = [...body.matchAll(/(?:^|;)\s*border(?:-(?:top|right|bottom|left))?\s*:\s*([^;]+)/g)]
+        .map((m) => m[1].trim())
+        .filter((v) => !/^(?:none|0)\b/.test(v));
+      if (strokes.length > 0) {
+        violations.push({
+          rule: "glass-host",
+          file,
+          detail: `材质层宿主不许描边（.${name} 的 border: ${strokes[0]} 在 ${where}）——面的范围由底色承担`,
+        });
+      }
     }
   }
   return violations;
