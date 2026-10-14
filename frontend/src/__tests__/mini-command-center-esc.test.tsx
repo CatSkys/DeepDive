@@ -59,7 +59,7 @@ afterEach(cleanup);
 
 describe("命令中心：Esc 的语义归卡页", () => {
   it("根行按 Esc = 收卡（认下的键要 preventDefault）", async () => {
-    render(<MiniCommandCenter mode="settings" sessionId={null} sessionPinned={false} onClose={close} />);
+    render(<MiniCommandCenter mode="settings" sessionId={null} onClose={close} />);
     await screen.findByText(/更换模型/);
     const ev = escFromPage();
     expect(close).toHaveBeenCalledTimes(1);
@@ -67,7 +67,7 @@ describe("命令中心：Esc 的语义归卡页", () => {
   });
 
   it("翻到模型页再按 Esc = 回根行，不收卡", async () => {
-    render(<MiniCommandCenter mode="settings" sessionId={null} sessionPinned={false} onClose={close} />);
+    render(<MiniCommandCenter mode="settings" sessionId={null} onClose={close} />);
     await openModelPage();
     const ev = escFromPage();
     expect(close).not.toHaveBeenCalled();
@@ -80,7 +80,7 @@ describe("命令中心：Esc 的语义归卡页", () => {
   });
 
   it("壳转来的 miniCCEscape（键盘其实在面板页手里）走同一条语义", async () => {
-    render(<MiniCommandCenter mode="settings" sessionId={null} sessionPinned={false} onClose={close} />);
+    render(<MiniCommandCenter mode="settings" sessionId={null} onClose={close} />);
     await openModelPage();
     act(() => { window.__deepDiveHost!.dispatch("miniCCEscape", {}); });
     expect(close).not.toHaveBeenCalled();
@@ -91,7 +91,7 @@ describe("命令中心：Esc 的语义归卡页", () => {
   });
 
   it("选中即回写并退回根行（Esc 之外的那条回路照旧）", async () => {
-    render(<MiniCommandCenter mode="settings" sessionId={null} sessionPinned={false} onClose={close} />);
+    render(<MiniCommandCenter mode="settings" sessionId={null} onClose={close} />);
     await openModelPage();
     act(() => { fireEvent.click(screen.getByText("DeepSeek V3")); });
     expect(onModelPage()).toBe(false);

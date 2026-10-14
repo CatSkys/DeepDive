@@ -12,7 +12,7 @@
 // 与 HeroPanel、SessionSettings 同源，不是第二份实现。选择页本身只有 MiniChoicePage 一个件。
 // 「插件」不进面板：主窗设置页的事（面板求简洁）。
 import { useEffect, useState } from "react";
-import { ArrowUpToLine, Bot, CircleAlert, Cpu, Gauge, History, Pin, Send, Settings, SquarePen } from "lucide-react";
+import { ArrowUpToLine, Bot, CircleAlert, Cpu, Gauge, History, Send, Settings, SquarePen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { t as tRaw, tt } from "../i18n";
@@ -148,11 +148,12 @@ const cardAction = (action: string, sessionId?: string) =>
     ? { type: "mini-cc-action", action }
     : { type: "mini-cc-action", action, sessionId });
 
-/** 两脸共用的动作行集（草稿脸没有会话 → 不出现"会话置顶"那一行）。
- *  **两个"置顶"是两件事**：`会话置顶` 把这条会话钉在列表最前（状态在面板页的 store，
- *  这里只画脸——所以它由 `sessionPinned` 报来，不读本页 store）；`面板置顶` 是这扇窗自己
- *  那一档（抬层级 + 失焦不收，状态在壳的 prefs 里，见 SPEC-SEMANTICS §6.1）。 */
-function useCardActions(sessionId: string | null, sessionPinned: boolean): ActionRow[] {
+/** 两脸共用的动作行集。**只有一行置顶，它管的是这扇窗**（用户 2026-10-14 定稿："只要一个置顶
+ *  就行了……我要说的是面板置于所有软件最上面，把会话置顶给删除了"）——抬层级 + 所有 Space /
+ *  全屏应用旁 + 失焦不收（SPEC-SEMANTICS §6.1「面板窗默认不置顶」那条）。
+ *  会话置顶不在卡片里（它归侧栏行菜单与 ⌘K 面板；卡片那行读不到面板页那份 store，见
+ *  PITFALLS §10.7）。置顶的事实源在壳（`quickPanelPinned`），点一下写偏好、壳推回来翻标签。 */
+function useCardActions(): ActionRow[] {
   const store = useStore();
   const { quickPanelPinned, setQuickPanelPinned } = usePrefs();
   return [
@@ -162,14 +163,9 @@ function useCardActions(sessionId: string | null, sessionPinned: boolean): Actio
       run: () => cardAction("new-session"),
     },
     { id: "history", icon: History, label: tRaw("会话历史"), run: () => cardAction("history") },
-    ...(sessionId === null ? [] : [{
-      id: "pin", icon: Pin,
-      label: tRaw(sessionPinned ? "取消会话置顶" : "会话置顶"),
-      run: () => cardAction("toggle-pin", sessionId),
-    }]),
     {
-      id: "panel-pin", icon: ArrowUpToLine,
-      label: tRaw(quickPanelPinned ? "取消面板置顶" : "面板置顶"),
+      id: "pin", icon: ArrowUpToLine,
+      label: tRaw(quickPanelPinned ? "取消置顶" : "置顶"),
       run: () => setQuickPanelPinned(!quickPanelPinned),
     },
     {
@@ -227,8 +223,6 @@ interface ShellProps {
   registerKeys: RegisterKeys;
   /** 搜索词（两个脸共用卡片顶上那条搜索；空的 = 不过滤）。 */
   query: string;
-  /** 当前会话是否置顶（面板页经壳按脸报来；草稿脸恒 false）——「会话置顶」那行的标签用它。 */
-  sessionPinned: boolean;
 }
 
 /** 设置模式的壳：根行 ↔ 选择页的翻页、搜索过滤与键盘，两脸共用（只喂 pages）。 */
@@ -396,7 +390,7 @@ function DraftSettings(props: ShellProps) {
     <SettingsShell
       {...props}
       pages={pages}
-      actions={useCardActions(null, props.sessionPinned)}
+      actions={useCardActions()}
       // 目录每次开模型页都重拉（与 HeroPanel 同一条：启动期目录可能是空的，只在挂载时拉
       // 一次会永久留空，表现为"点模型行没反应"）。
       onOpenPage={(id) => { if (id === "model") reloadModels(); }}
@@ -454,7 +448,7 @@ function SessionSettings({ sessionId, ...props }: ShellProps & { sessionId: stri
     }]),
     busyPage(busy),
   ];
-  return <SettingsShell {...props} pages={pages} actions={useCardActions(sessionId, props.sessionPinned)} />;
+  return <SettingsShell {...props} pages={pages} actions={useCardActions()} />;
 }
 
 /** 设置模式入口：按有没有活动会话交给对应那一支（两支各自调自己的 hook，不条件调 hook）。 */

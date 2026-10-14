@@ -60,7 +60,7 @@ export interface MiniCardHandle {
  * `getFace()` 返回 null 时推一条收起。返回 `pushNow`/`stop` 两个显式动作。
  */
 export function pushCardFrame(
-  getFace: () => { mode: string; sessionId: string | null; sessionPinned: boolean } | null,
+  getFace: () => { mode: string; sessionId: string | null } | null,
 ): MiniCardHandle {
   if (!hasRectChannel()) return { pushNow: () => {}, stop: () => {} };
   let lastSig = "";
@@ -73,9 +73,6 @@ export function pushCardFrame(
         frame: cardFrame(),
         mode: face.mode,
         sessionId: face.sessionId,
-        // 会话置顶与否也随脸走：卡页那行标签要显示当前状态，而它是另一块 webview、
-        // 另一份 store——让面板页把值报过来，卡页才看得见它（点了没反应那次的根因）。
-        sessionPinned: face.sessionPinned,
         radius: cssPx("--dsh-radius-floating", 20),
         // 入场节奏与卡片那块原生玻璃的弹性缩放同一档（--dur-med）：网页只淡、原生淡+弹，
         // 两边分开算就会看出"一块东西分两次出现"。

@@ -30,7 +30,7 @@ enum ShellRadius {
 enum ShellWindowLevel {
   /// 主窗与（默认的）快捷面板：普通窗口层级。
   static let main = NSWindow.Level.normal
-  /// 置顶的快捷面板（命令中心「面板置顶」那一行，默认关）：压在普通窗口之上，
+  /// 置顶的快捷面板（命令中心「置顶」那一行，默认关）：压在普通窗口之上，
   /// 但仍低于药丸与注释窗——那两块是屏幕边缘的常驻件，谁都不该被面板盖住。
   static let pinnedPanel = NSWindow.Level.floating
   /// 迷你面板（屏缘药丸）：浮在普通窗口之上，注释窗比它再高一档。
@@ -43,4 +43,12 @@ enum ShellWindowLevel {
   static let glassHUD = NSWindow.Level.statusBar
   /// 截图 overlay：整屏覆盖，必须压过一切。
   static let captureOverlay = NSWindow.Level.screenSaver
+}
+
+/// 屏缘常驻面（迷你面板药丸 / 置顶的面板）的窗口行为：**所有 Space、全屏应用旁边也在**、
+/// 切 Space 时位置不动、不进 ⌘` 窗口循环。两处共用这一份——"常驻在屏上"是同一条语义。
+enum ShellWindowBehavior {
+  static let screenEdge: NSWindow.CollectionBehavior = [
+    .canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary,
+  ]
 }

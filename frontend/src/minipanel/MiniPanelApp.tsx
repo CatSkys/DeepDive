@@ -119,9 +119,6 @@ export function MiniPanelApp() {
         setOverlay(null);
         storeRef.current.openQuickSession();
       },
-      miniCCTogglePin: ({ sessionId }) => {
-        if (sessionId) storeRef.current.togglePin(sessionId);
-      },
     });
     sendToShell({ type: "get-prefs" });
   }, []);
@@ -150,17 +147,9 @@ export function MiniPanelApp() {
     ? (store.sessions.find((s) => s.sessionId === active)?.running ?? false)
     : false;
   const sessionFace = face === "session" && active !== null;
-  // 卡片那张脸（模式 + 会话 id + 这条会话置顶与否）：设置行集与置顶那行的标签都按脸给，
-  // 会话 id 与置顶态由壳转给卡那一页——卡页是另一块 webview、另一份 store，它读不到本页的
-  // `pinned`（它那份只在页面加载时读过一次 localStorage），不报过去那行标签就永远不翻。
-  const cardFaceRef = useRef<{ mode: MiniOverlayMode; sessionId: string | null; sessionPinned: boolean } | null>(null);
-  cardFaceRef.current = overlay === null
-    ? null
-    : {
-      mode: overlay,
-      sessionId: sessionFace ? active : null,
-      sessionPinned: sessionFace && active !== null && store.pinned.has(active),
-    };
+  // 卡片那张脸（模式 + 会话 id）：设置行集按脸给，会话 id 由壳转给卡那一页。
+  const cardFaceRef = useRef<{ mode: MiniOverlayMode; sessionId: string | null } | null>(null);
+  cardFaceRef.current = overlay === null ? null : { mode: overlay, sessionId: sessionFace ? active : null };
   const overlayOpen = overlay !== null;
   const cardPush = useRef<{ pushNow: () => void } | null>(null);
   useEffect(() => {

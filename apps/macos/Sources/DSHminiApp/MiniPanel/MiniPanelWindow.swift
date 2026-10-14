@@ -94,7 +94,7 @@ final class MiniPanelWindow: NSPanel {
       contentRect: NSRect(origin: .zero, size: size),
       styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     level = Self.level
-    collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+    collectionBehavior = ShellWindowBehavior.screenEdge
     isOpaque = false
     backgroundColor = .clear
     hasShadow = false
