@@ -854,7 +854,7 @@ button {
 
 /* 迷你面板的首页（草稿脸）：头部同会话页根条（复用 hero-top，靠 --hero-pad-x 负边距
    抵齐）；其下招呼语横向居中、垂直居中（UI-SPEC §3.1 的空状态：留白、内容居中），
-   提示词胶囊一行贴在输入框上方，输入框钉底。 */
+   输入框钉底。 */
 .mini-draft {
   flex: 1;
   position: relative;
@@ -877,36 +877,7 @@ button {
   text-align: center;
   color: var(--ink);
 }
-/* 提示词胶囊行：**单行**（不折行），贴在输入框上方。放不下时横向滚动——滚动条隐藏 +
-   .fade-x 两端渐隐 + 滚轮就地消费，走 FadeEdge 这条超限标准件（UI-SPEC §0/§2.1：
-   超限只许渐隐表达，禁裸滚动条与生硬裁切线；配方同 .ws-switcher）。 */
-.mini-prompts {
-  display: flex;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none; /* Firefox：隐藏滚动条 */
-}
-.mini-prompts::-webkit-scrollbar { display: none; } /* WKWebView/Chromium：隐藏滚动条 */
-/* auto margin 居中（放得下时居中，溢出时归零，同 .ws-switcher-cells 那条注释的理由） */
-.mini-prompts-row { display: flex; align-items: center; gap: 8px; margin: 0 auto; }
-/* 一颗 = 一个短标签（预填的整段提示词看不见，进输入框才读）。无描边（UI-SPEC §1.1
-   「有底色的卡片一律不描边」），两端全圆走 radius.bubble 同文件那颗文件 chip 的口径
-   （盒子上被裁成半高整圆端，不写 999px）；--fill 底配 --ink-soft 字同 .ws-pill 那条
-   配方；flex: none 不许被压扁——放不下归横向滚动管。hover 不门控：常驻控件不是随内容
-   滑动的行（UI-SPEC §1.10 门控范围）。 */
-.mini-prompt {
-  flex: none;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: var(--dsh-radius-bubble);
-  background: var(--fill);
-  color: var(--ink-soft);
-  font-size: var(--dsh-font-size-sm);
-  white-space: nowrap;
-}
-.mini-prompt:hover { background: var(--fill-strong); color: var(--ink); }
-/* 输入框钉底（自由空间全给招呼语那两份 auto，这里不再吃 auto）；上内边距就是胶囊
-   行与输入框之间的那道缝。 */
+/* 输入框钉底（自由空间全给招呼语那两份 auto，这里不再吃 auto）。 */
 .mini-draft-foot { flex: none; padding-top: 12px; }
 .mini-draft-foot .composer { width: 100%; }
 
