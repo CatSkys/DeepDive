@@ -26,6 +26,12 @@ final class AnnotationChatBar: NSView, NSTextFieldDelegate {
   /// The field's width: a sentence or two, past which the text scrolls (the field is one line).
   private static let fieldWidth: CGFloat = 240
 
+  /// The field's row: as tall as the toolbar's buttons, with the field itself vertically centred
+  /// inside it. The row has to carry the rigid height — a single-line `NSTextField` draws its text
+  /// at the **top** of its own frame (stretched to the row's height, the text would sit on the
+  /// capsule's upper edge, which is what the user saw), while a short field directly in the stack
+  /// leaves the stack no rigid height at all and the capsule collapses to the field's height.
+  private let fieldRow = NSView()
   private let field = NSTextField()
   private let sendButton = AnnotationToolbarButton(selection: nil, action: #selector(sendClicked))
   private let bar: AnnotationGlassBar
@@ -36,7 +42,7 @@ final class AnnotationChatBar: NSView, NSTextFieldDelegate {
   override init(frame: NSRect) {
     // The field and its send button sit in one group (no hairline between them, unlike the
     // toolbar's groups) and stand further apart than its controls do.
-    bar = AnnotationGlassBar(groups: [[field, sendButton]], spacing: 8)
+    bar = AnnotationGlassBar(groups: [[fieldRow, sendButton]], spacing: 8)
     super.init(frame: frame)
     sendButton.target = self
     configureField()
@@ -96,9 +102,16 @@ final class AnnotationChatBar: NSView, NSTextFieldDelegate {
     field.textColor = .labelColor
     field.delegate = self
     field.translatesAutoresizingMaskIntoConstraints = false
+    fieldRow.translatesAutoresizingMaskIntoConstraints = false
+    fieldRow.addSubview(field)
+    // The field keeps its own (the font's) height — centred in the row rather than stretched to
+    // it, for the reason on ``fieldRow``.
     NSLayoutConstraint.activate([
-      field.widthAnchor.constraint(equalToConstant: Self.fieldWidth),
-      field.heightAnchor.constraint(equalToConstant: AnnotationToolbarButton.side),
+      fieldRow.widthAnchor.constraint(equalToConstant: Self.fieldWidth),
+      fieldRow.heightAnchor.constraint(equalToConstant: AnnotationToolbarButton.side),
+      field.leadingAnchor.constraint(equalTo: fieldRow.leadingAnchor),
+      field.trailingAnchor.constraint(equalTo: fieldRow.trailingAnchor),
+      field.centerYAnchor.constraint(equalTo: fieldRow.centerYAnchor),
     ])
   }
 
