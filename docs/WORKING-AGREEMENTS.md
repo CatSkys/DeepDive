@@ -33,6 +33,7 @@
 - **主仓一律只收合并，不接受任何直接改动与提交——无关大小，一行修复也要开树**：任务用 `scripts/new-worktree.sh <slug>` 开 `DSHmini-<slug>` 树（分支 `feat/<slug>`），merge 一律 `--no-ff`（一个任务一个合并提交），收尾 `scripts/remove-worktree.sh <slug>` 删树删分支，不留残树。
 - **机械卡点**：pre-commit 钩子（`scripts/git-hooks/`，`make hooks` 启用 `core.hooksPath`，worktree 与主仓共享该配置）在主仓检出上拒绝 commit；merge 不经过钩子。确需例外 `git commit --no-verify`（绕过是显式动作，不是默认）。
 - **每个任务的完整流程**：开树 → 树内改 + 验证（简单改动 `make check`；行为改动 `make test`，测试支撑目录按树隔离于 `.build/test-support`，多树可并行测试）→ 回主仓 `merge --no-ff` → 主仓 `make deliver` 交付 → `scripts/remove-worktree.sh` 清场。
+- **树里加过依赖（`package.json`/锁文件动过）**：合并回主仓后先在主仓 `cd frontend && npm install` 再 `make deliver`——`node_modules` 不跨树共享，否则前端 build 会以「无法解析 import」失败（2026-10-14 字体那轮踩到：包装在树里，主仓没有）。
 - **多个 agent 会话不共用同一个 working tree**（2026-10-11 教训：并行会话把彼此进行中的 WIP 卷进自己的 feature 提交，历史归属错乱；中断会话遗留的测试宿主占锁，后续 XCTest 全体秒挂）。
 - **棘轮基线与词典不并行改**（architecture-baseline.json、i18n-en.ts 等）：merge 必撞；动基线的任务独占进行。
 - **提交前 `git status` 复核**：只暂存本任务文件；非本任务 WIP（其他会话/用户的）拿不准就不 add。
