@@ -1672,6 +1672,13 @@ button {
      见 UI-SPEC §1.4bis 表面层级表（菜单族 / 对话框族各一组）。 */
   background: var(--glass-tint, var(--composer-bg));
   box-shadow: var(--glass-inset, var(--composer-shadow));
+  /* **强制本层独立合成**——这是托管材质的前提（2026-10-14 从 Raycast 拆出来的写法：
+     `[macos] .popover__webPopover { -apple-visual-effect: …; will-change: transform;
+     overflow: hidden }`）。没有它，声明了 `-apple-visual-effect` 也不会建宿主层，
+     表现就是"材质不出现"。放本层而非宿主：本层没有子元素，成为 backdrop root 对它
+     自己的 `backdrop-filter` 无影响；外投影仍留在宿主（挂本层会把托管板撑大）。 */
+  will-change: transform;
+  overflow: hidden;
   /* 悬浮后消息从胶囊背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
   -webkit-backdrop-filter: var(--glass-blur, var(--blur-glass));
   backdrop-filter: var(--glass-blur, var(--blur-glass));
