@@ -38,6 +38,14 @@ export function MiniCommandCenterApp() {
     // QuickPanelController 的 get-prefs 分支。
     sendToShell({ type: "get-prefs" });
   }, []);
+  // 每次开卡再自己问一次偏好快照：设置那几行（连同它们的 usePrefs 实例）是**随脸重挂**的
+  // （face 一归 null 整棵树就卸了），而上面那次 get-prefs 一辈子只发一次——不问这一句，
+  // 重开卡片时行上的"当前值"会退回默认（「面板置顶」的标签、「更换进行中动效」的勾选都读它，
+  // 2026-10-14）。放在这里而不是 miniCCFace 处理器里：处理器跑在渲染之前，跨进程那一趟回来
+  // 时挂载它们的组件还没出现。
+  useEffect(() => {
+    if (face !== null) sendToShell({ type: "get-prefs" });
+  }, [face]);
   if (face === null) return null;
   return (
     <div className="app mini-panel mini-cc-page">

@@ -384,6 +384,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // 壳只存不解析——胶囊按钮要的名字经 selection-toolbar-set 来，这里存的是
                     // 用户的编辑（名字与提示词模板）。
                     DSHAppPrefs.setSelectionCommands(mode)
+                } else if key == "miniRunningGlow" {
+                    // 面板进行中动效的形态：写的人在命令中心卡页，画的人在面板页——
+                    // 两块 webview 两份 store，不推回面板页它就换不过去（同 language 那条）。
+                    DSHAppPrefs.setMiniRunningGlow(mode)
+                    pushPrefs()
                 }
                 break
             }
@@ -1033,6 +1038,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "browserTabSleepMinutes": BrowserTabs.sleepMinutes(),
             "modelDetail": DSHAppPrefs.modelDetail,
             "quickPanelPinned": DSHAppPrefs.quickPanelPinned,
+            "miniRunningGlow": DSHAppPrefs.miniRunningGlow,
         ]
     }
 

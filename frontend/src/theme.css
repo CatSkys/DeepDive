@@ -861,9 +861,34 @@ button {
   0%, 100% { opacity: .72; }
   50%      { opacity: 1; }
 }
+/* 迷你面板「会话进行中」的另一种形态（命令中心「更换进行中动效」可选）：**顶边一条**
+   1px 的辉光带沿顶缘左右往复——Raycast 的 loaderGlow（那份逆向规范 §6.5：1.5s、
+   cubic-bezier(.45,0,.55,1)、translateX ∓35% 两端减速掉头，不是匀速扫过；渐变
+   "透明 → 亮 → 透明"所以看见的是一枚光团在滑）。1.5s 用本仓周期词表写出＝
+   --loop-breathe 1.2 × 1.25。与环绕版同一处前提（会话在跑），形态二选一。 */
+.mini-running-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(to right,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,.95) 50%,
+    rgba(255,255,255,0) 100%);
+  animation: mini-running-line-sweep calc(var(--loop-breathe) * 1.25) cubic-bezier(.45, 0, .55, 1) infinite;
+}
+@keyframes mini-running-line-sweep {
+  0%, 100% { transform: translateX(-35%); }
+  50%      { transform: translateX(35%); }
+}
 @media (prefers-reduced-motion: reduce) {
   /* 全静止：不转不呼吸，留一圈常亮的边光（状态不丢）。 */
   .mini-running-glow { animation: none; opacity: .8; }
+  /* 顶边那条同理：停在中点，留一枚常亮的光团在顶缘正中。 */
+  .mini-running-line { animation: none; opacity: .8; }
 }
 
 /* 迷你面板的首页（草稿脸）：头部同会话页根条（复用 hero-top，靠 --hero-pad-x 负边距

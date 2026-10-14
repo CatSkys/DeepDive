@@ -24,6 +24,10 @@ function readPref<T>(key: string, fallback: T, parse: (raw: string) => T | null)
  *  这条通道丢不掉，所以页面明暗以它为准；壳的 themeChanged / prefs 推送是同值确认。 */
 const SCHEME_QUERY = "(prefers-color-scheme: dark)";
 
+/** 迷你面板「会话进行中」的动效形态（prefs 的 `miniRunningGlow`，壳侧同值落
+ *  UserDefaults）：`ring` 环绕面板一圈滚动的高光（默认）· `line` 顶边一条左右往复的辉光。 */
+export type MiniRunningGlowStyle = "ring" | "line";
+
 export function usePrefs() {
   // 侧栏宽：壳 prefs（host-ready 时推送）为初值；setSidebarWidth 落点持久化。
   // 200–320 与 tokens.json size.sidebar.min/max 手工双写——改动须三处同步
@@ -147,12 +151,20 @@ export function usePrefs() {
     setQuickPanelPinnedState(v);
     sendToShell({ type: "set-pref", key: "quickPanelPinned", value: v });
   }, []);
+  // 面板「会话进行中」的动效形态（命令中心「更换进行中动效」那一行；默认环绕一圈）。
+  // 与 quickPanelPinned 同族：写的人在命令中心卡页、画的人在面板页，两侧各有 store，
+  // 所以改一次要壳推快照回来（`prefs` 推送 → 面板页换形态）。
+  const [miniRunningGlow, setMiniRunningGlowState] = useState<MiniRunningGlowStyle>("ring");
+  const setMiniRunningGlow = useCallback((v: MiniRunningGlowStyle) => {
+    setMiniRunningGlowState(v);
+    sendToShell({ type: "set-pref", key: "miniRunningGlow", value: v });
+  }, []);
   // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗、键位覆盖；
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送——themeChanged 只到
   // 这里（不经 installHostBridge 的 handler 表），与主题相关只有 store 状态一处写入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean; quickPanelPinned?: boolean; quickWorkspacePath?: string; selectionToolbar?: string; selectionCommands?: string; screenshotHotkey?: string; screenshotHotkeyOn?: boolean };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean; quickPanelPinned?: boolean; miniRunningGlow?: string; quickWorkspacePath?: string; selectionToolbar?: string; selectionCommands?: string; screenshotHotkey?: string; screenshotHotkeyOn?: boolean };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
@@ -166,6 +178,7 @@ export function usePrefs() {
       if (typeof p.browserTabSleepMinutes === "number") setBrowserTabSleepMinutesState(p.browserTabSleepMinutes);
       if (typeof p.modelDetail === "boolean") setModelDetailState(p.modelDetail);
       if (typeof p.quickPanelPinned === "boolean") setQuickPanelPinnedState(p.quickPanelPinned);
+      if (p.miniRunningGlow === "ring" || p.miniRunningGlow === "line") setMiniRunningGlowState(p.miniRunningGlow);
       if (typeof p.quickWorkspacePath === "string" && p.quickWorkspacePath) setQuickWorkspacePathState(p.quickWorkspacePath);
       if (typeof p.selectionToolbar === "string") setSelectionToolbarState(parseSelectionToolbar(p.selectionToolbar));
       if (typeof p.selectionCommands === "string") setSelectionCommandsState(parseSelectionCommands(p.selectionCommands));
@@ -198,6 +211,7 @@ export function usePrefs() {
     browserTabSleepMinutes, setBrowserTabSleepMinutes,
     modelDetail, setModelDetail,
     quickPanelPinned, setQuickPanelPinned,
+    miniRunningGlow, setMiniRunningGlow,
     quickWorkspacePath,
     onboarding, setOnboarding,
     selectionToolbar, setSelectionToolbar,
