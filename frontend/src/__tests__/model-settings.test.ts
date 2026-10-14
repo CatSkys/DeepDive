@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   apiKeyDeclaration,
+  DEFAULT_REASONING_EFFORTS,
   declaredInput,
   deriveRouteFromBaseURL,
   isRouteId,
@@ -10,6 +11,7 @@ import {
   rewriteOverride,
   sessionHeaders,
   visualKeyOf,
+  withDefaultReasoning,
 } from "../settings/ModelDialog";
 import { piProtocolsOf } from "../settings/piProtocols";
 
@@ -166,5 +168,35 @@ describe("piProtocolsOf", () => {
     expect(piProtocolsOf({})).toEqual([]);
     expect(piProtocolsOf({ schema: { uid: 1, refs: {} } })).toEqual([]);
     expect(piProtocolsOf({ schema: { uid: 1, refs: { "1": { type: "object", dict: {} } } } })).toEqual([]);
+  });
+});
+
+describe("手写路由的模型档位：新建时补默认阶梯（用户 2026-10-14 报「思考强度的开关怎么没了」）", () => {
+  // 引擎只在条目**声明了** reasoningEfforts 时才把模型当成能推理的；省略＝继承安装目录
+  // 里同 id 条目的能力，而安装目录按提供方 id 索引——手写路由在那里面没有任何条目，
+  // 于是模型进引擎就是 reasoning:false，输入框那颗档位胶囊永不出现。
+  it("没声明档位的条目补上默认阶梯（档位名即线上取值）", () => {
+    const [m] = withDefaultReasoning([{ id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash" }], true);
+    expect(m.reasoningEfforts).toEqual(DEFAULT_REASONING_EFFORTS);
+    expect(DEFAULT_REASONING_EFFORTS).toEqual({ low: "low", medium: "medium", high: "high" });
+  });
+
+  it("用户已声明的不动（改档位名 / 明说不支持都不用界面管）", () => {
+    const declared = { id: "m", reasoningEfforts: { max: "ultra" } };
+    expect(withDefaultReasoning([declared], true)[0]).toBe(declared);
+    const off = { id: "n", reasoningEfforts: false as const };
+    expect(withDefaultReasoning([off], true)[0]).toBe(off);
+  });
+
+  it("预置路由原样返回：那类有安装目录条目可继承，塞默认值会把真实能力盖成三档", () => {
+    const entry = { id: "deepseek-flash" };
+    expect(withDefaultReasoning([entry], false)).toEqual([entry]);
+    expect(withDefaultReasoning([entry], false)[0]).not.toHaveProperty("reasoningEfforts");
+  });
+
+  it("不就地改入参（同一次保存里别处还在用原条目）", () => {
+    const entries = [{ id: "m" }];
+    withDefaultReasoning(entries, true);
+    expect(entries[0]).not.toHaveProperty("reasoningEfforts");
   });
 });
