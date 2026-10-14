@@ -54,7 +54,12 @@ describe("附件胶囊", () => {
     try {
       const { container } = renderPill({ preview: pic });
       hover(container);
-      expect(document.querySelector(".att-preview.above")).not.toBeNull();
+      const box = document.querySelector<HTMLElement>(".att-preview.above")!;
+      expect(box).not.toBeNull();
+      // 上方那档钉的是 **bottom**（视口底到胶囊顶 - 缝）：钉 top 会把整块盖在输入框上
+      // ——画面多高要等渲染出来才知道（用户 2026-10-14 截图就是这个 bug）。
+      expect(box.style.bottom).not.toBe("");
+      expect(box.style.top).toBe("");
     } finally {
       Element.prototype.getBoundingClientRect = original;
     }
@@ -69,7 +74,10 @@ describe("附件胶囊", () => {
     try {
       const { container } = renderPill({ preview: pic });
       hover(container);
-      expect(document.querySelector(".att-preview.above")).toBeNull();
+      const box = document.querySelector<HTMLElement>(".att-preview")!;
+      expect(box.classList.contains("above")).toBe(false);
+      expect(box.style.top).not.toBe("");
+      expect(box.style.bottom).toBe("");
     } finally {
       Element.prototype.getBoundingClientRect = original;
     }

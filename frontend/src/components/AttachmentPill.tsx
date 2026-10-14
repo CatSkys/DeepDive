@@ -9,9 +9,9 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FileIcon } from "../session/FileIcon";
 
-/** 预览画面的最大高度与它到胶囊的缝：与 .att-preview 的 max-height / 6px 同值——
- *  只用来判「胶囊下方放不放得下」。 */
-const PREVIEW_MAX_H = 180;
+/** 预览画面**可能**占的最大高度、与它到胶囊的缝：与 .att-preview 的 max-height / 6px 同值。
+ *  只用来判「胶囊下方放不放得下」——按最大可能值判，宁可多翻一次也不摆一半。 */
+const PREVIEW_MAX_H = 160;
 const PREVIEW_GAP = 6;
 
 /** 附件状态：只用来上样式（待发送/上传中整颗淡一点、失败描红字）。 */
@@ -48,7 +48,9 @@ export function AttachmentPill({
 }: AttachmentPillProps) {
   /** 悬停时画面开在哪儿（视口坐标）；null = 没在悬停。**走 portal 画在 body 上**：
    *  输入框那颗住在编辑器的滚动容器里，绝对定位的子元素会被那个容器裁掉（画面比胶囊高得多）。 */
-  const [box, setBox] = useState<{ left: number; top: number; above: boolean } | null>(null);
+  /** 锚点二选一：下方那档钉 top（胶囊底 + 缝），上方那档钉 bottom（视口底到胶囊顶 - 缝）——
+   *  画面多高要等渲染出来才知道，钉 top 会把整块盖在输入框上。 */
+  const [box, setBox] = useState<{ left: number; above: boolean; top?: number; bottom?: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const hovering = box !== null;
 
@@ -58,7 +60,9 @@ export function AttachmentPill({
     if (el === null) return;
     const rect = el.getBoundingClientRect();
     const above = window.innerHeight - rect.bottom < PREVIEW_MAX_H + PREVIEW_GAP * 2;
-    setBox({ left: rect.left, top: above ? rect.top - PREVIEW_GAP : rect.bottom + PREVIEW_GAP, above });
+    setBox(above
+      ? { left: rect.left, above, bottom: window.innerHeight - rect.top + PREVIEW_GAP }
+      : { left: rect.left, above, top: rect.bottom + PREVIEW_GAP });
     onHoverChange?.(true);
   };
   const leave = () => {
@@ -105,7 +109,7 @@ export function AttachmentPill({
       {preview && hovering && box !== null && createPortal(
         <span
           className={`att-preview${box.above ? " above" : ""}`}
-          style={{ left: box.left, top: box.top }}
+          style={{ left: box.left, top: box.top, bottom: box.bottom }}
           aria-hidden="true"
         >
           {/* 视频取首帧当画面：`#t=0.001` 让 WebKit 落一帧 */}

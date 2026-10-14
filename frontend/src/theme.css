@@ -2040,8 +2040,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   position: fixed;
   z-index: var(--z-tip);
   display: flex;
-  padding: 4px;
-  border: 1px solid var(--line);
+  /* **不描边**（用户 2026-10-14："去掉黑色描边"）：与站内其它"有底色的卡片"同一条
+     （§1.1/§458）——范围由底色与投影承担；图自带圆角，框里不再留一圈边。 */
   border-radius: var(--dsh-radius-keycap);
   background: var(--panel-strong);
   box-shadow: var(--shadow-pop);
@@ -2051,8 +2051,11 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .att-preview img,
 .att-preview video {
   display: block;
-  max-width: 240px;
-  max-height: 180px;
+  /* 尺寸上限（用户 2026-10-14："大小给个限制"）：绝对值之外再按视口收一档——
+     迷你面板/窄窗里 240×180 会把输入框整个盖住；三成视口保证它始终是"一块画面"
+     而不是一层遮罩。数值与 AttachmentPill 的 PREVIEW_MAX_H 同源（那边只用来判翻转）。 */
+  max-width: min(240px, 34vw);
+  max-height: min(160px, 30vh);
   border-radius: var(--dsh-radius-micro);
   object-fit: contain;
   background: var(--fill-soft);
