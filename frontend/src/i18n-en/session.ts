@@ -339,6 +339,10 @@ export const ENSession: Record<string, string> = {
   "更换权限": "Change permissions",
   "更换会话模式": "Change session mode",
   "更换发送方式": "Change send behaviour",
+  // 面板进行中动效的两种形态（选项写形态本身，不写"样式 1/2"）：环绕面板一圈 / 顶边一条。
+  "更换进行中动效": "Change running animation",
+  "环绕一圈": "Ring around the edge",
+  "顶边一条": "Line along the top edge",
   "搜索会话…": "Search chats…",
   "没有匹配的会话": "No matching chats",
   "暂无选项": "Nothing to choose yet",

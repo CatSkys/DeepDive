@@ -36,7 +36,7 @@ export function miniPanelFace(
 
 export function MiniPanelApp() {
   const store = useStore();
-  const { quickWorkspacePath } = usePrefs();
+  const { quickWorkspacePath, miniRunningGlow } = usePrefs();
   // 壳命令只装一次（installHostBridge 幂等），回调取实时状态经 ref 镜像——
   // 闭包里 store.workspaces 是首渲染的空表，快捷空间会找不到（store.tsx 的
   // refreshRef 镜像同款纪律）。
@@ -142,7 +142,8 @@ export function MiniPanelApp() {
 
   const active = store.activeSessionId;
   const face = miniPanelFace(active, store.sessions);
-  // 会话在跑 → 整面板辉光（信号与 Composer 的停止按钮同一条：sessions[].running）。
+  // 会话在跑 → 整面板辉光（信号与 Composer 的停止按钮同一条：sessions[].running）；
+  // 画哪一版由偏好给（命令中心的「更换进行中动效」，默认环绕一圈）。
   const activeRunning = active
     ? (store.sessions.find((s) => s.sessionId === active)?.running ?? false)
     : false;
@@ -210,7 +211,7 @@ export function MiniPanelApp() {
     <div className="app mini-panel">
       <TooltipHost />
       <DialogHost />
-      {activeRunning && <MiniRunningGlow />}
+      {activeRunning && <MiniRunningGlow variant={miniRunningGlow} />}
       <MiniPanelControls
         historyOpen={overlay === "history"}
         onNewSession={newSession}

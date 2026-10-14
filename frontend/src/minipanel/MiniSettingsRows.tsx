@@ -12,7 +12,7 @@
 // 与 HeroPanel、SessionSettings 同源，不是第二份实现。选择页本身只有 MiniChoicePage 一个件。
 // 「插件」不进面板：主窗设置页的事（面板求简洁）。
 import { useEffect, useState } from "react";
-import { ArrowUpToLine, Bot, CircleAlert, Cpu, Gauge, History, Send, Settings, SquarePen } from "lucide-react";
+import { ArrowUpToLine, Bot, CircleAlert, Cpu, Gauge, History, Send, Settings, Sparkles, SquarePen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { t as tRaw, tt } from "../i18n";
@@ -25,7 +25,7 @@ import {
   type PermissionSelect, type PermissionSettingsView,
 } from "../settings/permissionPreset";
 import { comboFor } from "../keybinds";
-import { usePrefs } from "../prefs";
+import { usePrefs, type MiniRunningGlowStyle } from "../prefs";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { useStore } from "../store";
 import { sendToShell } from "../host";
@@ -89,6 +89,28 @@ function busyPage(busy: { value: string; set: (v: string) => void }): SettingsPa
     valueId: busy.value,
     sections: [{ key: "busy", options }],
     pick: busy.set,
+  };
+}
+
+/** 面板「会话进行中」动效的形态页（两脸共用；形态参数在 theme.css 的 .mini-running-glow /
+ *  .mini-running-line 上）。写回走 prefs 的 setMiniRunningGlow——壳落 UserDefaults 再把快照推回
+ *  **两块**承载页，面板页据此换形态（写的人在卡页、画的人在面板页，各有一份 store）。 */
+function runningGlowPage(value: MiniRunningGlowStyle, pick: (v: MiniRunningGlowStyle) => void): SettingsPage {
+  // 选项在函数里现拼：tRaw 读的是模块级当前语言，提到模块顶层会把文案冻在 import 那一刻。
+  const options: Array<{ v: MiniRunningGlowStyle; label: string }> = [
+    { v: "ring", label: tRaw("环绕一圈") },
+    { v: "line", label: tRaw("顶边一条") },
+  ];
+  return {
+    id: "running-glow",
+    icon: Sparkles,
+    label: tRaw("更换进行中动效"),
+    valueId: value,
+    sections: [{ key: "running-glow", options }],
+    pick: (v) => {
+      const style = options.find((o) => o.v === v)?.v;
+      if (style) pick(style);
+    },
   };
 }
 
@@ -356,6 +378,7 @@ function DraftSettings(props: ShellProps) {
   const { describe, update } = useSettingNamespace("permission");
   const [permission, setPermission] = useState<PermissionSettingsView | null>(null);
   const busy = useBusyEnter();
+  const { miniRunningGlow, setMiniRunningGlow } = usePrefs();
   useEffect(() => {
     void (async () => {
       try {
@@ -385,6 +408,7 @@ function DraftSettings(props: ShellProps) {
       pick: (v: string) => void savePermission(v),
     }]),
     busyPage(busy),
+    runningGlowPage(miniRunningGlow, setMiniRunningGlow),
   ];
   return (
     <SettingsShell
@@ -407,6 +431,7 @@ function SessionSettings({ sessionId, ...props }: ShellProps & { sessionId: stri
   /** 本地乐观值只用于点击后立刻反映；投影推进后以投影为准（与设置卡同口径）。 */
   const [picked, setPicked] = useState<string | null>(null);
   const busy = useBusyEnter();
+  const { miniRunningGlow, setMiniRunningGlow } = usePrefs();
   const permission = picked ?? select?.currentValue ?? "";
   const permissionOptions = select === null ? [] : presetDropdownOptions(select.options, tRaw);
 
@@ -447,6 +472,7 @@ function SessionSettings({ sessionId, ...props }: ShellProps & { sessionId: stri
       },
     }]),
     busyPage(busy),
+    runningGlowPage(miniRunningGlow, setMiniRunningGlow),
   ];
   return <SettingsShell {...props} pages={pages} actions={useCardActions()} />;
 }

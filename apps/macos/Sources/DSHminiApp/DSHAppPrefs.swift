@@ -39,6 +39,11 @@ enum DSHAppPrefs {
     /// 存壳不存 localStorage：窗口层级要在页面加载之前就按上次的设置摆好（同选区工具条），
     /// 而且这是「除非明确开启」的那一档——默认必须还是「点到别处就收」。
     static let quickPanelPinnedKey = "deepdive.quickPanel.pinned"
+    /// 迷你面板「会话进行中」的动效形态（命令中心「更换进行中动效」那一行）：
+    /// `"ring"` 环绕一圈（默认）| `"line"` 顶边一条。合法取值由前端 `prefs.ts` 的
+    /// `MiniRunningGlowStyle` 定义，壳只存不解析。存壳不存 localStorage：面板页与
+    /// 命令中心卡页是两块 webview、两份 store，只能靠壳推快照对齐（同 quickPanelPinned）。
+    static let miniRunningGlowKey = "deepdive.ui.miniRunningGlow"
     /// 新手引导进度（JSON 串，结构由前端 `onboarding/useOnboarding.ts` 定义并解析，
     /// 壳只存不解析）。跨启动的 durable 状态走壳而不走 localStorage——后者随 origin
     /// 漂移（PITFALLS §4.17）。
@@ -172,6 +177,16 @@ enum DSHAppPrefs {
 
     static func setQuickPanelPinned(_ value: Bool) {
         UserDefaults.standard.set(value, forKey: quickPanelPinnedKey)
+    }
+
+    /// 迷你面板进行中动效的形态；没存过或存了非法值一律回落默认的环绕一圈。
+    static var miniRunningGlow: String {
+        let v = UserDefaults.standard.string(forKey: miniRunningGlowKey) ?? ""
+        return ["ring", "line"].contains(v) ? v : "ring"
+    }
+
+    static func setMiniRunningGlow(_ value: String) {
+        UserDefaults.standard.set(value == "line" ? "line" : "ring", forKey: miniRunningGlowKey)
     }
 
     static var language: String {
