@@ -122,6 +122,11 @@ export interface Store {
   screenshotHotkey: string;
   screenshotHotkeyOn: boolean;
   setScreenshotHotkeyOn: (v: boolean) => void;
+  /** 模型菜单的基准详情卡显隐（壳偏好持久化，默认开）。**是偏好不是菜单的局部状态**：
+   *  菜单每次开都重挂，读组件自己那份 state 会永远从默认值起（用户 2026-10-14 报
+   *  "关了它每次开还出现"）；因此它跟其它壳偏好一样从 store 这一份读写。 */
+  modelDetail: boolean;
+  setModelDetail: (v: boolean) => void;
   /** 自动归档开关（客户端偏好，localStorage；默认关——归档单向不可撤销）。 */
   autoArchive: boolean;
   setAutoArchive: (v: boolean) => void;
@@ -230,6 +235,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     selectionToolbar, setSelectionToolbar,
     selectionCommands, setSelectionCommands,
     screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn,
+    modelDetail, setModelDetail,
   } = prefs;
   const [pinned, setPinned] = useState<Set<string>>(() => readIdSet("deepdive.pinned"));
   const [unread, setUnread] = useState<Set<string>>(() => readIdSet("deepdive.unread"));
@@ -767,6 +773,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setAutoArchive,
       archiveRetention,
       setArchiveRetention,
+      modelDetail,
+      setModelDetail,
 
       unarchiveSession,
       removeSessions,
@@ -787,7 +795,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // keybinds/hotkeyOn 必须入表（AUD-061）：缺了它们，运行中改键后 value 不
     // 重建，消费者拿到旧键位——启动期被 prefs 批量下发掩盖，只在改键时复现。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, selectionToolbar, setSelectionToolbar, selectionCommands, setSelectionCommands, screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
+    [workspaces, archived, activeWorkspaceId, wsOfSession, sessions, sidebarSessions, presets, engineUp, everConnected, enginePhase, engineFailureReason, engineFailureTail, engineRestartingAttempt, restartEngine, activeSessionId, approvals, questions, settleEvent, queues, jobsBySession, openSession, openQuickSession, switchWorkspace, createWorkspace, draftModel, setDraftModel, controlHandlers, sidebarCollapsed, toggleSidebar, sidebarWidth, setSidebarWidth, lang, setLang, schemeDark, appearance, setAppearance, keybinds, setKeybinds, hotkeyOn, setHotkeyOn, hotkey, setHotkey, selectionToolbar, setSelectionToolbar, selectionCommands, setSelectionCommands, screenshotHotkey, screenshotHotkeyOn, setScreenshotHotkeyOn, autoArchive, setAutoArchive, archiveRetention, setArchiveRetention, modelDetail, setModelDetail, sessions, unarchiveSession, removeSessions, archiveSession, pinned, unread, togglePin, markUnread, clearUnread]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
