@@ -571,11 +571,16 @@ button {
   max-height: 72%;
   overflow: hidden;
   border-radius: var(--dsh-radius-floating);
+  /* 卡内**一个基准字号**：正文 13（= 侧栏会话行的字号，也正是 Raycast 命令面板的行字号）。
+     卡里除两处例外——搜索行 18（xl）、分组标签 11（sm）——一律继承它。
+     这条基准此前是 sm（"卡内统一 12"，比正文小一档）：历史行本来就照侧栏会话行做（同一套
+     几何、同一个行高），只有字号小了一档，于是同一屏里卡片比它背后的侧栏还小。用户 2026-10-14
+     对照 Raycast 报"他的命令中的字体都很大，我们的都很小"——收敛到 base 后与侧栏同档。 */
+  font-size: var(--dsh-font-size-base);
   /* 入场只做**不透明度**（--dur-med：与壳那块原生玻璃的弹性缩放同一节奏，两边一起到）。
      位移/缩放不能进这一层的动画——卡片矩形是页面量出来推给壳的，动画中的 transform 会让
      上报的矩形每帧都是错的；"弹性"那一下由壳在原生的玻璃与 webview 上做。 */
   animation: mini-cc-in var(--dur-med) var(--ease-out) both;
-  font-size: var(--dsh-font-size-sm);
 }
 @keyframes mini-cc-in {
   from { opacity: 0; }
@@ -616,7 +621,9 @@ button {
   border: none;
   background: none;
   color: var(--ink);
-  font-size: var(--dsh-font-size-base);
+  /* 搜索行是全卡最大的字：Raycast 命令面板的搜索框就是 18（"输入焦点优先"），我们自己的
+     ⌘K 查询行也是 xl（UI-SPEC §1.2）——两处终于同口径。行高 40 与它同值，18px 塞进去正好。 */
+  font-size: var(--dsh-font-size-xl);
   outline: none;
 }
 .app.mini-panel .mini-cc-search input::placeholder { color: var(--ink-faint); }
@@ -641,6 +648,8 @@ button {
 /* 上下内距与设置脸（.mini-cc-settings 的 10/14）对齐，两脸的"第一行离卡片顶"才是同一个数 */
 .app.mini-panel .mini-cc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 6px 14px; }
 .app.mini-panel .mini-cc-section { display: flex; flex-direction: column; gap: 3px; }
+/* 分组标签（今天 / 昨天）：全卡唯一的**次级档**——Raycast 的列表分组标签就是 11
+   （small-text），比行文本小一档正是它的层级表达；升到 13 就与行齐平、分组感没了。 */
 .app.mini-panel .mini-cc-section-title {
   margin: 0;
   padding: 10px 10px 4px;
@@ -672,15 +681,13 @@ button {
 .app.mini-panel .mini-cc-choice-check { flex: none; color: var(--ink); }
 /* 行：沿用侧栏那条会话行（.task-row + row-slot/title/row-actions）的**单行胶囊**几何——
    高 32、圆角 16（= 行高的一半，本仓"半径 = 行高"的胶囊口径）、hover 与键盘光标都是这颗
-   胶囊（用户 2026-10-13 定稿："改变 hover 的形状，改为胶囊样式"）。卡里只加两样：
-   出血 4（文字列与搜索框同在 12）与卡内字号（.task-row 自带 base 14，不覆盖就比卡里大一档）。 */
+   胶囊（用户 2026-10-13 定稿："改变 hover 的形状，改为胶囊样式"）。卡里只加一样：出血 4
+   （文字列与搜索框同在 12）——字号不再覆盖，继承卡基准 13，与侧栏那条行**同档**。 */
 .app.mini-panel .mini-cc-row {
   margin: 0 -4px;
-  font-size: var(--dsh-font-size-sm);
 }
-/* 最右的时间：借用侧栏那条 `.row-time`（字号在卡里落回 12——侧栏那条是 14）。
+/* 最右的时间：借用侧栏那条 `.row-time`，字号同样继承卡基准（与侧栏同档）。
    状态不写字：未读/在跑由行首那颗亮点表示（见行件注释）。 */
-.app.mini-panel .mini-cc-row .row-time { font-size: var(--dsh-font-size-sm); }
 /* 光标行 = "选中"档：hover 是"指针在挑"（--row-hover 5%），光标行是"回车就开这一条"
    ——两档同色等于没有选中态（用户 2026-10-13 报"hover 和选中的颜色好像是一样的"）。
    数值口径：前景色透明度阶梯的 5/10（--row-hover .05 / --fill-strong .11）——与 ⌘K 那排
@@ -708,14 +715,14 @@ button {
   color: var(--ink-faint);
   text-align: center;
 }
-/* 设置模式：行就是面板设置行那套（.panel-settings-line），这里只收内边距、字号与填充档——
-   ① 同一行里标签 12 而取值 14 是主窗设置卡的口径（那边有整卡留白撑得住），塞进这张小卡
-      就是"同一行两种字号"（用户要求字体统一）；
+/* 设置模式：行就是面板设置行那套（.panel-settings-line），这里只收内边距与填充档——
+   ① 字号**不再覆盖**：全局那条 `.panel-settings-row` 本来就是 base 13，卡里再压一档会
+      同时把标签与取值压小（此行原先的用意是"同一行不许两种字号"，用户早前报过；统一到
+      基准后那条约束依然成立——标签与取值都继承卡的 13）；
    ② hover 用 --fill（7%）也是主窗那套，同一张卡里历史行 hover 5%、设置行 7% 是两种深浅
       ——计数卡内统一到 5%（hover），选中态另给 10%（下方 data-cursor 那条）；
    ③ 光标行与历史行同档，设置模式才有可见的"回车开哪一行"。 */
 .app.mini-panel .mini-cc-settings { padding: 10px 12px 14px; gap: 3px; overflow: visible; }
-.app.mini-panel .mini-cc-settings .panel-settings-row { font-size: var(--dsh-font-size-sm); }
 .app.mini-panel .mini-cc-settings .panel-settings-line {
   min-height: 32px;
   /* 同一张卡里行态一种形状：设置行也用胶囊（主窗那张设置卡仍是控件档圆角，那是另一张卡） */
@@ -2296,16 +2303,17 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .preview-frame[src*=".html"], .preview-frame[sandbox] { background: #fff; }
 
 /* 用户消息里的文件 chip（0.1.5 历史 file 块）与工具结果图片行 */
-/* 文件 chip：与输入框里那颗附件胶囊（.att-chip，26 高）同一套语言——图标 + 名 +
-   --fill-soft 底 + 两端全圆的胶囊；这里 30 高（消息流里不跟输入胶囊的高，站得开）。
-   胶囊用 radius.bubble(24)，30 高的盒子上被裁成半高整圆端；别写 999px
-   （§2.4 的胶囊口径：流内胶囊一律引 token）。 */
+/* 文件 chip：与输入框里那颗附件胶囊（.att-chip，26 高）同一套——图标 + 名、两端全圆
+   （radius.bubble，30 高的盒子上被裁成半高整圆端；别写 999px，§2.4）。**不描边**：
+   有底色的胶囊一律靠底色分层（UI-SPEC §1.1 / §458，用户 2026-10-14 重申"不要用描边，
+   还是用颜色来区分"）——`--fill-soft` 那种 3% 的底在卡面上几乎没有边，所以底色提到
+   `--fill`（与消息流里另一颗文件 chip `.produced-file` 同一个值；输入框那颗在玻璃上，
+   再强一档用 `--fill-strong`）。 */
 .user-file-chip {
   display: inline-flex; align-items: center; gap: 6px;
   height: 30px; padding: 0 10px;
   border-radius: var(--dsh-radius-bubble);
-  border: 1px solid var(--line);
-  background: var(--fill-soft);
+  background: var(--fill);
   color: var(--ink-2); font-size: var(--dsh-font-size-sm);
 }
 /* chip 用 gap 排版，图标自带的右边距在这里是多余的 */
