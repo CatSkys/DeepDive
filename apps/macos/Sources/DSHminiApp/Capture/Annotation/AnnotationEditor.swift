@@ -110,8 +110,8 @@ final class AnnotationEditor: AnnotationEditing {
     selectionDidChange(selection)
     refresh()
     focusCanvas()
-    // 识别器的冷启动现在就付掉（后台、整进程一次）：用户可能马上要按那颗扫描钮，而首次识别
-    // 最坏要等系统那份识别服务就位几十秒（PITFALLS §11.9）——那时候他正在看选区，是在等自己。
+    // 识别服务的再次热身：启动期已经热过一次，这一下覆盖"应用开了一整天、模型被系统换出去了"
+    // （PITFALLS §11.9）。用户可能马上要按那颗扫描钮，这时候他正在看选区，等的是他自己。
     Task.detached(priority: .utility) { await ScreenText.warmUp() }
   }
 

@@ -181,6 +181,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             tooltip.load(bridgeURL: bridgeURL)
         }
 
+        // 「提取文字」那颗钮要用的识别服务先热起来：它的首次请求实测可能是分钟级（服务/模型
+        // 冷启动，热起来 ~1s，PITFALLS §11.9），那份代价该在启动期后台付掉，而不是等用户按下
+        // 那颗钮之后。用户拿不出这么久的余量，启动期拿得出。
+        Task.detached(priority: .utility) { await ScreenText.warmUp() }
+
         // 铺盘期放后台：首启/升级那一次 ProfileComposer/ChatImport/BotChannel 各要
         // 整树拷贝（node_modules 闭包数万文件），同步在主线程上=启动卡死；凭据迁移
         // 也要触文件面板。**串行保证**：引擎 spawn 必须等它们做完（profile bundles
