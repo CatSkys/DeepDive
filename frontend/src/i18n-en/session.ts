@@ -119,6 +119,11 @@ export const ENSession: Record<string, string> = {
   // phase 1 closures
   "置顶": "Pinned",
   "取消置顶": "Unpin",
+  // 命令中心动作行里那两个"置顶"是两件事：会话那行钉的是列表，面板那行钉的是窗口。
+  "会话置顶": "Pin session",
+  "取消会话置顶": "Unpin session",
+  "面板置顶": "Keep panel on top",
+  "取消面板置顶": "Stop keeping panel on top",
   "计划审查": "Plan review",
   "继续讨论": "Discuss instead",
   "与引擎的连接已断开，正在重试…": "Engine connection lost — retrying…",

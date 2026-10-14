@@ -35,6 +35,10 @@ enum DSHAppPrefs {
     static let bridgePortKey = "deepdive.bridge.port"
     /// 模型菜单基准详情卡的显隐（前端模型菜单 ⓘ 开关，默认开）。
     static let modelDetailKey = "deepdive.ui.modelDetail"
+    /// 快捷面板**置顶**（命令中心那一行，默认关）：开着时面板抬到浮动层级、失焦也不收起。
+    /// 存壳不存 localStorage：窗口层级要在页面加载之前就按上次的设置摆好（同选区工具条），
+    /// 而且这是「除非明确开启」的那一档——默认必须还是「点到别处就收」。
+    static let quickPanelPinnedKey = "deepdive.quickPanel.pinned"
     /// 新手引导进度（JSON 串，结构由前端 `onboarding/useOnboarding.ts` 定义并解析，
     /// 壳只存不解析）。跨启动的 durable 状态走壳而不走 localStorage——后者随 origin
     /// 漂移（PITFALLS §4.17）。
@@ -157,6 +161,17 @@ enum DSHAppPrefs {
 
     static func setHotkeyOn(_ value: Bool) {
         UserDefaults.standard.set(value, forKey: hotkeyOnKey)
+    }
+
+    /// 快捷面板是否置顶（默认关——「除非开启指定」那一档）。
+    static var quickPanelPinned: Bool {
+        UserDefaults.standard.object(forKey: quickPanelPinnedKey) == nil
+            ? false
+            : UserDefaults.standard.bool(forKey: quickPanelPinnedKey)
+    }
+
+    static func setQuickPanelPinned(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: quickPanelPinnedKey)
     }
 
     static var language: String {

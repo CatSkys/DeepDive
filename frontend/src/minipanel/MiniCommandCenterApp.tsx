@@ -15,13 +15,14 @@ import { TooltipHost } from "../components/Tooltip";
 import { MiniCommandCenter, type MiniOverlayMode } from "./MiniCommandCenter";
 
 export function MiniCommandCenterApp() {
-  const [face, setFace] = useState<{ mode: MiniOverlayMode; sessionId: string | null } | null>(null);
+  const [face, setFace] = useState<{ mode: MiniOverlayMode; sessionId: string | null; sessionPinned: boolean } | null>(null);
   useEffect(() => {
     installHostBridge({
-      // 壳每次开卡/换脸都推一条（含会话 id：设置那排行集按脸给，草稿脸与会话脸不同）。
-      miniCCFace: ({ mode, sessionId }: { mode?: string; sessionId?: string | null }) => {
+      // 壳每次开卡/换脸都推一条（含会话 id 与它是否置顶：设置那排行集与置顶那行的标签都按脸给，
+      // 草稿脸与会话脸不同）。
+      miniCCFace: ({ mode, sessionId, sessionPinned }: { mode?: string; sessionId?: string | null; sessionPinned?: boolean }) => {
         if (mode !== "history" && mode !== "settings") { setFace(null); return; }
-        setFace({ mode, sessionId: sessionId ?? null });
+        setFace({ mode, sessionId: sessionId ?? null, sessionPinned: sessionPinned === true });
       },
       miniCCClosed: () => setFace(null),
     });
@@ -45,6 +46,7 @@ export function MiniCommandCenterApp() {
       <MiniCommandCenter
         mode={face.mode}
         sessionId={face.sessionId}
+        sessionPinned={face.sessionPinned}
         onClose={() => sendToShell({ type: "mini-cc-close" })}
       />
     </div>

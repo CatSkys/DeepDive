@@ -22,14 +22,17 @@ enum ShellRadius {
 /// 窗口层级表（顺序即语义，别在中间插值）。
 ///
 /// 页内浮层的层级档在 `theme.css` 的 `--z-*`；原生窗口这一侧此前是散落的值
-/// （`.normal` / `.floating+1` / `.floating+2` / `.popUpMenu` / `.statusBar` /
+/// （`.normal` / `.floating` / `.floating+1` / `.floating+2` / `.popUpMenu` / `.statusBar` /
 /// `.screenSaver`），谁高谁低只体现在各自的字面量里。收在这里一处。
 ///
 /// 与页内那套的对应：遮挡垫 < 菜单 < 提示 < 最上。原生这一列同理——窗口底（main）
 /// 在最下，工具条与选择浮层压在内容之上，注释窗再高一档，截图的整屏覆盖层在最上。
 enum ShellWindowLevel {
-  /// 主窗与快捷面板：普通窗口层级。
+  /// 主窗与（默认的）快捷面板：普通窗口层级。
   static let main = NSWindow.Level.normal
+  /// 置顶的快捷面板（命令中心「面板置顶」那一行，默认关）：压在普通窗口之上，
+  /// 但仍低于药丸与注释窗——那两块是屏幕边缘的常驻件，谁都不该被面板盖住。
+  static let pinnedPanel = NSWindow.Level.floating
   /// 迷你面板（屏缘药丸）：浮在普通窗口之上，注释窗比它再高一档。
   static let miniPanel = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)
   /// 悬浮注释窗：比迷你面板再高一档（它要给迷你面板里的东西做注释）。
