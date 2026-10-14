@@ -487,7 +487,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                 view.alphaValue = 0
                 view.isHidden = false
             }
-            springInCard(view)
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = cardMotion
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -497,23 +496,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         // 键盘交给卡片那一页：设置脸没有搜索框（用户定稿"它就是一块设置页面"），它的 ↑↓/Enter/Esc
         // 全靠整页 keydown——那要求这块 webview 是第一响应者。历史脸的搜索框也在这一页里，一并管用。
         window.makeFirstResponder(cardWeb)
-    }
-
-    /// 卡片入场的**弹性**：0.96 → 1 的缩放（CASpringAnimation），与 alpha 淡入同时起。
-    /// 为什么不给网页那侧加 transform：那张卡的矩形是页面量出来推给壳的，动画中的 transform
-    /// 会让壳每帧收到错的矩形（底下那块原生玻璃跟着抖）——弹性只能做在原生这一层。
-    /// 两个旋钮：stiffness 越大越脆、damping 越大回弹越小（现值约 0.2 秒回稳、尾部一点点过冲，
-    /// 与页面报来的 `--dur-med` 同一个节奏）。
-    private func springInCard(_ view: NSView) {
-        guard let layer = view.layer else { return }
-        let spring = CASpringAnimation(keyPath: "transform.scale")
-        spring.fromValue = 0.96
-        spring.toValue = 1
-        spring.mass = 1
-        spring.stiffness = 1400
-        spring.damping = 38
-        spring.duration = spring.settlingDuration
-        layer.add(spring, forKey: "mini-card-in")
     }
 
     private func hideCard() {
