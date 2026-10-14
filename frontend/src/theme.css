@@ -88,6 +88,10 @@
   --glass-fill-float: var(--panel-glass);
   --glass-fill-dialog: var(--panel-strong);
   --glass-fill-palette: var(--panel-palette);
+  /* --glass-overlay / --glass-overlay-strong 暂留：等网页浮层改成原生弹窗窗口（真要玻璃的
+     那条路）时，这三个 --glass-fill-* 指过去即可，其余代码不动。 */
+  --glass-overlay: rgba(255,255,255,.07);
+  --glass-overlay-strong: rgba(255,255,255,.10);
   /* 命令面板（⌘K）的底：比菜单更浅也更实。它浮在应用自己的近黑铬件上——用
      --panel-glass 那两个数会跟背景糊成一片（实测两者相差 1 级亮度），所以要往
      亮处抬一档拉开隔离，同时把不透明度提到 .82 让背后的正文不再透上来。 */
@@ -1699,13 +1703,6 @@ button {
    注：浏览器悬浮卡那一页（另一块 webview）里 CSS 模糊本来就采不到面外内容，那一档
    由壳的原生磨砂兜着（见 .chat-float 段）。 */
 @supports (-apple-visual-effect: -apple-system-glass-material-media-controls) {
-  /* 系统材质档：三个族的底色一起换成轻叠加。变量在这里改——模块里那些哈希类也吃得到
-     （按类名写 @supports 覆盖则匹配不到它们）。 */
-  :root {
-    --glass-fill-float: var(--glass-overlay);
-    --glass-fill-dialog: var(--glass-overlay-strong);
-    --glass-fill-palette: var(--glass-overlay);
-  }
   /* 已实测能托管的宿主（输入胶囊、迷你控件簇）：材质顶上，CSS 模糊撤下——两层玻璃叠着会发灰。 */
   .composer [data-liquid-glass-backdrop],
   .mini-controls [data-liquid-glass-backdrop] {
@@ -1713,9 +1710,13 @@ button {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  /* 其余浮面：系统材质是**增强**、CSS 模糊是**地板**。托管没成立时（或被祖先的
-     backdrop root 锁住时）至少还有磨砂，不会变成"透明的一块"——2026-10-14 用户给的八张
-     截图全是这个症状：面只剩描边，底下的字清清楚楚穿过来。 */
+  /* 其余浮面：**声明材质，但 CSS 模糊一并不撤**——三层叠加（底色 + 磨砂 + 系统材质）。
+     为什么不做"材质顶上、模糊撤下"（输入胶囊那套）：那只在托管确实成立的宿主上才安全。
+     2026-10-14 实测两次的结论是——**一旦撤掉模糊，托管又没成立，面就只剩轻底色＝完全透明**
+     （用户八张截图：菜单底下的字清清楚楚穿过来）。留着模糊，最坏情况就是"与铺开前一样
+     的磨砂面"，最好情况是"磨砂 + 玻璃"；两种都不会坏。
+     判据（下次要收紧时先量这个）：探针的 `materialHostingLayers` 里出现该面的宿主层
+     （几何＝该面的 padding box）才算托管成立；成立一族才可以把模糊撤下、底色换轻叠加。 */
   [data-liquid-glass-backdrop] {
     -apple-visual-effect: -apple-system-glass-material-media-controls;
   }
