@@ -620,9 +620,11 @@ button {
   border: none;
   background: none;
   color: var(--ink);
-  /* 搜索行是全卡最大的字：Raycast 命令面板的搜索框就是 18（"输入焦点优先"），我们自己的
-     ⌘K 查询行也是 xl（UI-SPEC §1.2）——两处终于同口径。行高 40 与它同值，18px 塞进去正好。 */
-  font-size: var(--dsh-font-size-xl);
+  /* 与行标签**同号**（base 13）：参考面板量下来 "Search for actions…" 和行标签是同一个字号
+     ——两个字符串的宽度比 1.122，而同字号的理论比正好 1.124（同一把尺子量两处，所以这个结论
+     不依赖对绝对字号的假设）。此前这里是 xl 18（照 ⌘K 查询行那份"输入焦点优先"抄的），
+     比参考大 5 档里的一整档。行高仍是 40（参考实测 39.5）——搜索行比行高，这是对的。 */
+  font-size: var(--dsh-font-size-base);
   outline: none;
 }
 /* 占位字与卡片外的 ⌘K 面板同档（`--ink-3`），不是更浅的 `--ink-faint`：参考面板的
@@ -658,12 +660,14 @@ button {
   align-items: center;
   gap: 8px;
   width: 100%;
-  /* 与三处面板的行高同值（38）：一行的高度在命令面板这一族里只有一个数 */
-  height: 38px;
+  /* 与三处面板的行高同值（36）：一行的高度在命令面板这一族里只有一个数。
+     36 是参考面板的 `defaultItemHeight`（带分组线那一支；不带线那支是 38，我们两处都不画线，
+     所以整族按参考这一屏量出来的实际值走）。 */
+  height: 36px;
   padding: 0 8px;
-  /* 与历史行逐项同构（满宽连续行、内距 8、圆角 radius.control）：翻页时文字列左右不跳。 */
+  /* 与历史行逐项同构（满宽连续行、内距 8、圆角 radius.row）：翻页时文字列左右不跳。 */
   margin: 0;
-  border-radius: var(--dsh-radius-control);
+  border-radius: var(--dsh-radius-row);
   color: var(--ink);
   text-align: left;
 }
@@ -677,13 +681,13 @@ button {
    （文字列与搜索框同在 12）——字号不再覆盖，继承卡基准 13，与侧栏那条行**同档**。 */
 /* 行与主窗命令面板**逐项同构**（用户 2026-10-14："样式也照左边的命令中心"）：满宽连续行
    （`margin: 0`，去掉原先 −4 的出血）、内距 8（列表内距 8 + 行内距 8 = 文字列 16，与搜索行
-   的 padding 同列）、高 38、圆角 radius.control——`.task-row` 带过来的胶囊圆角（bubble）
+   的 padding 同列）、高 36、圆角 radius.row——`.task-row` 带过来的胶囊圆角（bubble）
    与 32 的高度在这里被覆盖掉。 */
 .app.mini-panel .mini-cc-row {
   margin: 0;
-  height: 38px;
+  height: 36px;
   padding: 0 8px;
-  border-radius: var(--dsh-radius-control);
+  border-radius: var(--dsh-radius-row);
 }
 /* 最右的时间：借用侧栏那条 `.row-time`，字号同样继承卡基准（与侧栏同档）。
    状态不写字：未读/在跑由行首那颗亮点表示（见行件注释）。 */
@@ -724,10 +728,10 @@ button {
 /* 内距与行距同历史脸（列表内距 8、连续行）。 */
 .app.mini-panel .mini-cc-settings { padding: 8px; gap: 0; overflow: visible; }
 .app.mini-panel .mini-cc-settings .panel-settings-line {
-  /* 与历史行、主窗命令面板的行同高（38）；原先 32 是照侧栏会话行留下的 */
-  min-height: 38px;
-  /* 同一张卡里行态一种形状：设置行也用胶囊（主窗那张设置卡仍是控件档圆角，那是另一张卡） */
-  border-radius: var(--dsh-radius-control);
+  /* 与历史行、主窗命令面板的行同高（36；参考面板量出来 72 图像 px ÷ 2） */
+  min-height: 36px;
+  /* 同一张卡里行态一种形状：设置行也用行圆角（主窗那张设置卡仍归 radius.control，那是另一张卡） */
+  border-radius: var(--dsh-radius-row);
   /* **撤掉全局那条 −8 出血**（`width: calc(100% + 16px); margin: 0 -8px`）：那是主窗设置卡的
      形态——那张卡的左右内距是 12，行靠出血把 hover 铺到卡沿。卡里列表内距本来就是 8，
      再出血一次就把这 8 吃掉了：填充块贴到卡片沿上、图标只离边 8（2026-10-14 用户："还有
@@ -5644,7 +5648,10 @@ html[data-tooltip] .tip {
   background: var(--fill-strong);
   color: var(--ink);
   font-size: var(--dsh-font-size-xs);
-  font-weight: 500;
+  /* 键帽正文是 400，不是强调档：参考面板的 `.shortcut__kbd` 从头到尾没设 font-weight
+     （`shortcut-*.css` / `visual-shortcut-*.css` 里 grep 都是空的），继承根元素的 400。
+     这里原写 500（上一轮"字重 500 主导"把 chip 归进强调档），在 10px 上比参考重一档。 */
+  font-weight: 400;
   line-height: 1;
   /* 键帽是 <kbd>：UA 样式表给 kbd 钉了 font-family: monospace（元素上的声明压过
      body 的继承），于是修饰符走 Menlo——⌘ 比字母矮一截、⇧ 只有一半宽，键帽看着

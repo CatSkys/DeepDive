@@ -19,6 +19,7 @@ import { sessionTitle } from "../session/sessionTitle";
 import { titleHidesSession } from "../session/backgroundSession";
 import { WsGlyph } from "./IconPicker";
 import { IconProjectAddOutline16 } from "./Icons";
+import { ROW_ICON } from "./panelRowIcon";
 import { openNewProjectDialog } from "./NewProjectDialog";
 import { openDeepDiving } from "../game/store";
 import { openGame2048 } from "../game/twenty48/store";
@@ -97,12 +98,12 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     const hit = (label: string) => !q || label.toLowerCase().includes(q);
     const actions: Row[] = [
       { key: "new-project", icon: <IconProjectAddOutline16 size={15} />, label: t("新建项目"), run: () => openNewProjectDialog() },
-      { key: "new-session", icon: <SquarePen size={15} />, label: t("新会话"), combo: comboFor("new-session", store.keybinds), run: () => store.openSession(null) },
-      { key: "attach", icon: <Plus size={15} />, label: t("添加附件"), run: () => dispatchAppEvent(DD_EVENTS.composerAttach) },
-      { key: "dictation", icon: <Mic size={15} />, label: t("听写"), combo: comboFor("dictation", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.dictationToggle) },
-      { key: "cycle-effort", icon: <Gauge size={15} />, label: t("思考强度切换"), combo: comboFor("cycle-effort", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.cycleEffort) },
-      { key: "toggle-sidebar", icon: <PanelLeft size={15} />, label: t("收起 / 展开侧栏"), combo: comboFor("toggle-sidebar", store.keybinds), run: () => store.toggleSidebar() },
-      { key: "settings", icon: <Settings size={15} />, label: t("设置"), combo: comboFor("open-settings", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.openSettings) },
+      { key: "new-session", icon: <SquarePen {...ROW_ICON} />, label: t("新会话"), combo: comboFor("new-session", store.keybinds), run: () => store.openSession(null) },
+      { key: "attach", icon: <Plus {...ROW_ICON} />, label: t("添加附件"), run: () => dispatchAppEvent(DD_EVENTS.composerAttach) },
+      { key: "dictation", icon: <Mic {...ROW_ICON} />, label: t("听写"), combo: comboFor("dictation", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.dictationToggle) },
+      { key: "cycle-effort", icon: <Gauge {...ROW_ICON} />, label: t("思考强度切换"), combo: comboFor("cycle-effort", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.cycleEffort) },
+      { key: "toggle-sidebar", icon: <PanelLeft {...ROW_ICON} />, label: t("收起 / 展开侧栏"), combo: comboFor("toggle-sidebar", store.keybinds), run: () => store.toggleSidebar() },
+      { key: "settings", icon: <Settings {...ROW_ICON} />, label: t("设置"), combo: comboFor("open-settings", store.keybinds), run: () => dispatchAppEvent(DD_EVENTS.openSettings) },
     ].filter((r) => hit(r.label));
 
     const projects: Row[] = store.workspaces
@@ -124,7 +125,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
       .slice(0, 20)
       .map((s) => ({
         key: `sess-${s.sessionId}`,
-        icon: <MessageSquare size={15} />,
+        icon: <MessageSquare {...ROW_ICON} />,
         label: sessionTitle(s, lang),
         activeMark: s.sessionId === store.activeSessionId,
         run: () => store.openSession(s.sessionId),
@@ -133,7 +134,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     // 当前会话动作（草稿页无活动会话，整组不出现）
     const sid = store.activeSessionId ?? undefined;
     const current: Row[] = sid ? ([
-      { key: "rename-session", icon: <SquarePen size={15} />, label: t("重命名当前会话"), run: () => {
+      { key: "rename-session", icon: <SquarePen {...ROW_ICON} />, label: t("重命名当前会话"), run: () => {
         void promptDialog({ title: t("重命名任务") }).then(async (title) => {
           if (!title || !title.trim()) return;
           const next = title.trim();
@@ -150,8 +151,8 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
           catch (err) { void alertDialog({ message: tt(`重命名失败：${(err as Error).message}`, `Rename failed: ${(err as Error).message}`) }); }
         });
       } },
-      { key: "pin-session", icon: <Pin size={15} />, label: t(store.pinned.has(sid) ? "取消置顶" : "置顶"), run: () => store.togglePin(sid) },
-      { key: "archive-session", icon: <Archive size={15} />, label: t("归档当前会话"), run: () => {
+      { key: "pin-session", icon: <Pin {...ROW_ICON} />, label: t(store.pinned.has(sid) ? "取消置顶" : "置顶"), run: () => store.togglePin(sid) },
+      { key: "archive-session", icon: <Archive {...ROW_ICON} />, label: t("归档当前会话"), run: () => {
         void (async () => {
           const err = await store.archiveSession(sid);
           if (err) void alertDialog({ message: tt("归档失败：{m}", "Archive failed: {m}", { m: err }) });
@@ -165,7 +166,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         const Icon = sec.icon;
         return {
           key: `set-${sec.id}`,
-          icon: <Icon size={15} />,
+          icon: <Icon {...ROW_ICON} />,
           label: t(sec.label),
           run: () => dispatchAppEvent(DD_EVENTS.openSettings, { section: sec.id }),
         };
@@ -174,8 +175,8 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     // 五类的顺序就是列表顺序；列表平铺，每行尾部标自己的种类（参考图的做法），
     // 所以这里的分组只在建表时用来打 kind，渲染时不再有分组头。
     const games: Row[] = [
-      { key: "deepdiving", icon: <Waves size={15} />, label: t("DeepDiving"), run: () => openDeepDiving() },
-      { key: "2048", icon: <LayoutGrid size={15} />, label: t("2048"), run: () => openGame2048() },
+      { key: "deepdiving", icon: <Waves {...ROW_ICON} />, label: t("DeepDiving"), run: () => openDeepDiving() },
+      { key: "2048", icon: <LayoutGrid {...ROW_ICON} />, label: t("2048"), run: () => openGame2048() },
     ].filter((r) => hit(r.label));
 
     return [

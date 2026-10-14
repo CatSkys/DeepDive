@@ -141,9 +141,9 @@ Raycast 用 colorjs 在运行时做这件事（它的主题是运行时可换的
 | `font.size.sm` | base − 2 = 11px | 次要文案、分组标签（Pinned / Recent / Last Week）、浮层小标题、Tooltip、行内代码 |
 | `font.size.base` | base = 13px | **正文默认**：正文、按钮、列表行、会话标题、markdown h3、代码块正文 |
 | `font.size.lg` | base + 3 = 16px | 分区/弹窗标题、markdown h2 |
-| `font.size.xl` | base + 5 = 18px | markdown h1、浮层大字形（灯箱关闭/缩放）、命令面板查询行（⌘K 与命令中心搜索行） |
+| `font.size.xl` | base + 5 = 18px | markdown h1、浮层大字形（灯箱关闭/缩放）、⌘K 面板的查询行 |
 | `font.size.hero` | 24px（**显示级**，不随基准） | 面板主标题、引导页标题、页内一级标题、环图中心数 |
-| `font.weight` | 400 · 500 · 600 仅三档 | **600 = 标题（lg 及以上档）与数字/表头；500 = 其余一切强调**（列表行名、分组标签、选中态、按钮、chip、字形）；400 = 正文 |
+| `font.weight` | 400 · 500 · 600 仅三档 | **600 = 标题（lg 及以上档）与数字/表头；500 = 其余一切强调**（列表行名、分组标签、选中态、按钮、字形）；400 = 正文与**键帽**（键帽是正文，不是强调：参考面板的 `.shortcut__kbd` 从不设字重，继承根元素的 400） |
 | `num.style` | `tabular-nums` | 计数、耗时 |
 
 - 六档一律由基准加偏移生成（`calc(var(--dsh-ui-font-size) ± Npx)`），**禁止**在规则里手写字号：写 `var(--dsh-font-size-*)`——架构门规则 9 会拦手写 px。偏移表**不等距**（−3/−2/0/+3/+5，照 Raycast 的 8/11/13/16/18/24 收敛；最低档取 10 而不是 8：xs 承载中文微文案，8px 汉字不可读，而 10px 恰是 Raycast 自己键帽组件的档位）。迁移口径同 ZCode——遗留的 12.5/13px 归 `base`（不是新建一档），11.5/11px 归 `sm`，10px 归 `xs`。
@@ -171,7 +171,7 @@ Raycast 用 colorjs 在运行时做这件事（它的主题是运行时可换的
 |---|---|---|
 | `space.1..6` | 4 / 8 / 12 / 16 / 20 / 24 | 全局唯一间距阶梯 |
 | `row.height.compact` | 28px | 菜单行 |
-| `row.height.palette` | 38px | 命令面板族的行：⌘K 面板、命令中心卡的历史行/设置行/选择行（= 参考面板的 `defaultItemHeight`；2026-10-14 收窄这批面板时统一到这一个数） |
+| `row.height.palette` | 36px | 命令面板族的行：⌘K 面板、命令中心卡的历史行/设置行/选择行（= 参考面板的 `defaultItemHeight`——Raycast 那一支随 `separators` 取 36/38，我们两处都不画线，所以按参考那一屏量出来的实际值 36 收敛） |
 | `row.height.standard` | 36px | 会话列表行、设置行 |
 | `sidebar.width` | 240px（可拖 200–320） | 主窗口侧栏 |
 | `input.minHeight` | 56px；最大 160px | 面板大输入框（居中） |
@@ -182,13 +182,14 @@ Raycast 用 colorjs 在运行时做这件事（它的主题是运行时可换的
 
 ### 1.4 圆角 / 边框 / 高光 / 阴影
 
-**阶梯七档**（`tokens.json` 的 radius 组是唯一事实源；档间没有第二套值——网页侧手写圆角为零，`make test` 的架构门会拦）。**壳侧的同一套刻度在 `Support/ShellDesign.swift`**（`ShellRadius` 镜像本表，改一处必须同时对另一处改），窗口层级表（`ShellWindowLevel`）与原生独有的动效值（`Support/ShellMotion.swift`）同在 `Support/`：
+**阶梯八档**（`tokens.json` 的 radius 组是唯一事实源；档间没有第二套值——网页侧手写圆角为零，`make test` 的架构门会拦）。**壳侧的同一套刻度在 `Support/ShellDesign.swift`**（`ShellRadius` 镜像本表，改一处必须同时对另一处改），窗口层级表（`ShellWindowLevel`）与原生独有的动效值（`Support/ShellMotion.swift`）同在 `Support/`：
 
 | Token | 值 | 用途 |
 |---|---|---|
 | `radius.micro` | 4px | 12–18px 微元素的几何：勾选标记、图标底板、热力图格、量表条 |
 | `radius.keycap` | 6px | 键帽、迷你图标钮、小标签 |
-| `radius.control` | 10px | 按钮、输入控件、列表行、设置行 |
+| `radius.row` | 8px | 命令面板族的行：⌘K 面板、命令中心卡的历史/设置/选择行（= 参考面板拟合出来的 r ≈ 7.5–8） |
+| `radius.control` | 10px | 按钮、输入控件、其余行、设置行 |
 | `radius.card` | 14px | 卡片与紧凑浮层：工具卡、diff 卡、对话框、右键菜单 |
 | `radius.panel` | 18px | 面板与主卡（= window 26 − 8 缝，HIG 同心规则） |
 | `radius.floating` | 20px | 大型浮层：模型菜单、命令面板、浮动会话卡、迷你命令中心 |
