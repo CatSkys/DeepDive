@@ -257,8 +257,11 @@ function SettingsShell({
   const back = () => setOpenId(null);
 
   // 每渲染重注册一份最新的（处理器闭包要拿当下的 open/cursor）；返回的注销交给 effect 清理。
+  // 认下的键一律 preventDefault（Esc 也算：页面不管的 Esc 在 WKWebView 里会沿 responder
+  // chain 变成窗口的 cancelOperation，见 MiniCommandCenter 那条注释）。
   useEffect(() => registerKeys((e) => {
       if (e.key === "Escape" && open !== null) {
+        e.preventDefault();
         back();
         return true;
       }

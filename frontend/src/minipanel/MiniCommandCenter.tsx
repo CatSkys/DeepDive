@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { useT } from "../i18n";
+import { onHostEvent } from "../host";
 import { isKeybind } from "../keybinds";
 import { useStore } from "../store";
 import { MiniHistoryRows } from "./MiniHistoryRows";
@@ -28,7 +29,11 @@ export type KeyHandler = (e: { key: string; preventDefault(): void }) => boolean
  *  **子先父后**，父层那条会紧跟在子层的注册之后跑、把它抹掉。于是卡片**刚打开时** keyRef
  *  是 null，方向键/回车/Esc 整片失灵，要等下一次任意重渲染（比如打一个字）才回来。
  *  表现就是设置脸里按 Esc 不返回上层、直接把整张卡片收掉（用户 2026-10-14 报"Raycast 可以
- *  ESC 返回，我们也要可以，因为没有返回按钮"——返回行删掉之后 Esc 是唯一的回路）。 */
+ *  ESC 返回，我们也要可以，因为没有返回按钮"——返回行删掉之后 Esc 是唯一的回路）。
+ *
+ *  注册方**只注册一次、读实时状态**（行件里那份 stateRef 镜像）：重注册挂上的是 effect，
+ *  而 effect 的 flush 晚于渲染一个任务——点一行翻页后立刻按键，拿到的还是上一份处理器，
+ *  一样是"Esc 收卡"而不是"返回上层"（2026-10-14 复现，见 MiniSettingsRows 注释）。 */
 export type RegisterKeys = (handler: KeyHandler) => () => void;
 
 export function MiniCommandCenter({
@@ -70,6 +75,10 @@ export function MiniCommandCenter({
   //  Esc：先问行件（设置脸里它负责"退回根行"），没人认领才收卡——返回行删掉之后这条是
   //  唯一的回路。⌘K 是这一页的开关（与面板页那颗 ⌘ 钮、与卡片外的 ⌘K 面板同一个键位），
   //  卡片拿着键盘时由这里收；"打开"那一半在面板页。
+  //  **认下的键一律 preventDefault**：WKWebView 里页面不管的 Esc 会沿 responder chain
+  //  变成窗口的 cancelOperation（实测：不 preventDefault 就到达窗口、preventDefault 就
+  //  停住）——页面既然把它当命令使了，就不能再放它出去（同一条纪律见 onSearchKeys 与
+  //  MiniSettingsRows 的行件）。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target === inputRef.current) return;
@@ -79,11 +88,23 @@ export function MiniCommandCenter({
         return;
       }
       if (keyRef.current?.(e)) return;
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, store.keybinds]);
+
+  // 壳转来的 Esc（`miniCCEscape`）：面板页拿着键盘时它不代卡页收卡，只把这一次按键转过来
+  // （见 MiniPanelApp 那条）——这里与真实的 Esc 走同一条路：先问行件（设置脸里它负责
+  // "退回根行"），没人认领才收卡。
+  useEffect(() => onHostEvent((cmd) => {
+    if (cmd !== "miniCCEscape") return;
+    if (keyRef.current?.({ key: "Escape", preventDefault: () => {} })) return;
+    onClose();
+  }), [onClose]);
 
   // 点卡片外收掉。两类不算"外"：卡片自己，以及卡片上弹出的右键菜单（.ctx-menu——
   // 历史行的「更多」/右键菜单挂在 body，点它不该把卡片一起收掉）。
@@ -104,6 +125,7 @@ export function MiniCommandCenter({
     // 行件优先（设置的选择页借 Esc 回上一层）；它不管的才落到框架的搜索/关闭语义
     if (keyRef.current?.(e)) return;
     if (e.key === "Escape") {
+      e.preventDefault();
       if (query !== "") setQuery("");
       else onClose();
     }

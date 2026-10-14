@@ -180,14 +180,19 @@ export function MiniPanelApp() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [overlayOpen]);
 
-  // Esc 收卡：卡片页拿着键盘时由它自己上报（miniCCClosed），面板页这类只在"焦点其实还在
-  // 本页"时兜底——输入框/菜单里的 Esc 是它们自己的语义，不抢。
+  // 卡开着时这一次 Esc 的语义**归卡页**（先返回上层、已在根行才收卡），面板页只把按键转过去
+  // （mini-cc-escape → 壳 → 卡页，见 QuickPanelController.forwardEscapeToCard）——不代它做决定。
+  // 此前这里直接 `setOverlay(null)`：卡片翻到模型页/思考强度页时按 Esc，返回上层整条失灵、
+  // 整张卡直接消失（用户 2026-10-14："仍然无法 esc 返回"）。卡页拿着键盘时它自己那条整页
+  // keydown 已经处理了，这条只在"焦点其实还在本页"时走。
+  // 也不再挡输入框/可编辑区（原先按 `instanceof HTMLInputElement` 跳过）：卡开着时面板页
+  // 背后那块输入区没有自己的 Esc 语义，而它的元素现在是编辑器（contenteditable），那道判断
+  // 本来就漏。
   useEffect(() => {
     if (!overlayOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      const el = document.activeElement;
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
-      if (e.key === "Escape") setOverlay(null);
+      if (e.key !== "Escape") return;
+      sendToShell({ type: "mini-cc-escape" });
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);

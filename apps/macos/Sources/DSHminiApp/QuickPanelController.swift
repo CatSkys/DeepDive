@@ -527,6 +527,22 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         )
     }
 
+    /// 面板页收到 Esc、而命令中心卡还开着：这一次按键的语义**归卡页**（先返回上层、已在根行
+    /// 才收卡），壳只把它转给卡页，**不代它收卡**。此前是面板页自己 `setOverlay(null)`，
+    /// 卡片翻到模型页时按 Esc 就成了"整张卡收掉"、返回上层整条失灵（用户 2026-10-14："现在
+    /// 仍然无法 esc 返回，esc 就悬浮面板就直接消失了"）。卡页拿着键盘时它自己那条整页
+    /// keydown 已经处理，这里走不到。
+    ///
+    /// 键盘也一并交回卡页：这条能走到就说明第一响应者**不在**卡页上——页面里的
+    /// `element.focus()` 会把第一响应者从别块 webview 抢走（两块 WKWebView 实测如此），
+    /// 而卡开着时面板页背后那块输入区没有任何键盘语义。不交回的话，这一次 Esc 转过去了，
+    /// 下一次按键还是进面板页。
+    func forwardEscapeToCard() {
+        guard cardVisible else { return }
+        window.makeFirstResponder(cardWeb)
+        pushHostCommand("miniCCEscape", payload: "{}", to: cardWeb)
+    }
+
     /// 淡入（幂等）。只做入场：离场要页面把 DOM 留到动画跑完才不闪，收益不值那份编排
     /// 复杂度——收起直接藏，两边同时消失看不出过程。
     private func showCard() {
