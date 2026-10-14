@@ -2,18 +2,27 @@
 // 底下那块原生玻璃摆上去（QuickPanelController.placeCard）。
 //
 // 为什么几何在页面算：面板页知道面板的视口尺寸与胶囊位置（与 `composer-overlay` 同一条
-// 分工——"rect 由 SPA 算，它知道面板网页那一格的几何"）。口径沿用成卡片时的那套：面板正中、
-// 宽 min(视口 − 72, 380)、限高 72%；圆角与时长按 CSS token 读（壳里不写第二份）——
-// 时长取 `--dur-med`：卡片入场是"原生弹性缩放 + 两边一起淡入"，节奏要对齐。
+// 分工——"rect 由 SPA 算，它知道面板网页那一格的几何"）。口径：面板正中、
+// 宽 min(视口 − 72, 320)、高 min(视口 × 72%, 420)——两个上限都取**主窗命令面板的同值**
+// （用户 2026-10-14："你这三个面板都可以跟他一样大"；320 是参考面板实测 314 的取整）。
+// 圆角与时长按 CSS token 读（壳里不写第二份）——时长取 `--dur-med`：卡片入场是"原生弹性
+// 缩放 + 两边一起淡入"，节奏要对齐。
+//
+// **这是卡片尺寸的唯一事实源**：卡片页的 CSS 只把 `.mini-cc` 铺满视口（那边不写尺寸），
+// 壳按这里算出的矩形摆那块 webview 与它下面的原生玻璃。在 CSS 里改卡片宽高是无效的
+// （2026-10-14 踩过：在 `theme.css` 把 380 改成 320，卡片纹丝不动）。
 // 推送做差分，外加 300ms 安全网（无过渡的重排只有节拍兜得住，titlebar.ts 同款纪律）。
 import { sendRects } from "../host";
 import { hasRectChannel } from "../platform";
 
 const PUSH_INTERVAL_MS = 300;
-/** 卡片与面板边缘的横向留白总和（左右各一半）：与成卡片时 CSS 的 min(100% − 72px, 380px) 同值。 */
+/** 卡片与面板边缘的横向留白总和（左右各一半）：窄面板里卡片贴边站的上限。 */
 const SIDE_GUTTER = 72;
-const MAX_WIDTH = 380;
-/** 限高占面板高度的比例（成卡片时 CSS 的 max-height: 72%）。 */
+/** 宽上限 = 主窗命令面板的宽（320）。 */
+const MAX_WIDTH = 320;
+/** 高上限 = 主窗命令面板的高（420）：面板矮时仍由比例兜住，不硬撑。 */
+const MAX_HEIGHT = 420;
+/** 限高占面板高度的比例（面板很矮时的兜底）。 */
 const MAX_HEIGHT_RATIO = 0.72;
 
 export interface MiniCardFrame {
@@ -26,7 +35,7 @@ export interface MiniCardFrame {
 /** 卡片该占的矩形（面板视口坐标，CSS px）。 */
 export function cardFrame(): MiniCardFrame {
   const w = Math.min(window.innerWidth - SIDE_GUTTER, MAX_WIDTH);
-  const h = window.innerHeight * MAX_HEIGHT_RATIO;
+  const h = Math.min(window.innerHeight * MAX_HEIGHT_RATIO, MAX_HEIGHT);
   return { x: (window.innerWidth - w) / 2, y: (window.innerHeight - h) / 2, w, h };
 }
 

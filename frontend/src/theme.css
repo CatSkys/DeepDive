@@ -557,17 +557,16 @@ button {
    字号**卡内统一**（"字体统一一下，命令面板里的字体有点偏大"）：12 是基准，只有搜索行抬到
    base（这一屏的主体，与 ⌘K 同一口径）。 */
 .app.mini-panel .mini-cc {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  /* 宽 = 主窗命令面板的同值（320，取自参考面板实测 314）：三个面板一个规格。
-     面板窗更窄时仍由 100% − 72 兜住（窄窗里卡片贴边站）。 */
-  width: min(calc(100% - 72px), 320px);
+  /* **几何不在这里**（2026-10-14 的教训）：卡片只由 `MiniCommandCenterApp`（`?minicc=1`）
+     那一页渲染，而下方 `.app.mini-cc-page .mini-cc` 把 position/width/height/max-height/
+     transform/animation 全数覆盖——真实矩形由面板页算锚点时定，**要改卡片大小就改
+     `miniCardAnchor.ts`**。上次在这条死规则里把 380 改成 320，卡片纹丝不动，于是主窗面板
+     与卡片"大小不一致"（用户当场就看出来了）。所以这里只留不与那一页冲突的部分：
+     层级、排布、裁切、圆角、字号。入场动画同样由壳对那块 webview 与玻璃跑（那一页
+     `animation: none`），本层不参与。 */
   z-index: 7;
   display: flex;
   flex-direction: column;
-  max-height: 72%;
   overflow: hidden;
   border-radius: var(--dsh-radius-floating);
   /* 卡内**一个基准字号**：正文 13（= 侧栏会话行的字号，也正是 Raycast 命令面板的行字号）。
@@ -576,14 +575,6 @@ button {
      几何、同一个行高），只有字号小了一档，于是同一屏里卡片比它背后的侧栏还小。用户 2026-10-14
      对照 Raycast 报"他的命令中的字体都很大，我们的都很小"——收敛到 base 后与侧栏同档。 */
   font-size: var(--dsh-font-size-base);
-  /* 入场只做**不透明度**（--dur-med：与壳那块原生玻璃的弹性缩放同一节奏，两边一起到）。
-     位移/缩放不能进这一层的动画——卡片矩形是页面量出来推给壳的，动画中的 transform 会让
-     上报的矩形每帧都是错的；"弹性"那一下由壳在原生的玻璃与 webview 上做。 */
-  animation: mini-cc-in var(--dur-med) var(--ease-out) both;
-}
-@keyframes mini-cc-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 /* 卡片宿主页（`?minicc=1` 那块透明 webview）：那块 webview 就是卡片本身（壳按面板页报来的
    矩形摆它，底下垫着原生玻璃），所以卡在这里铺满视口，位置/尺寸/材质一律不自己管。
@@ -602,8 +593,8 @@ button {
 }
 /* 搜索行：定高 **40**（Raycast 面板规范的 --space-40），**不画分隔线**（用户 2026-10-13
    定稿：面板里不要分割线；规范里那条 0.5px 发丝线按此删掉，列表与它的分界交给留白与
-   列表自己的超限渐隐）。横向下内距 12 与行文字同列（= 列表 6 + 行内距 10 − 出血 4；
-   规范写 16 是它自己那套留白算出来的等价值，不是硬数值）。
+   列表自己的超限渐隐）。横向下内距 **16**：与主窗命令面板同一个数（那边是列表内距 8 +
+   行内距 8），所以两边的文字列在同一个 x 上。
    **只有历史脸有这一行**：设置脸是一块纯设置页，没有可搜的东西。 */
 .app.mini-panel .mini-cc-search {
   display: flex;
@@ -611,7 +602,7 @@ button {
   gap: 8px;
   flex: none;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 16px;
   color: var(--ink-3);
 }
 .app.mini-panel .mini-cc-search input {
@@ -640,18 +631,17 @@ button {
   color: var(--ink-2);
 }
 .app.mini-panel .mini-cc-back:hover { color: var(--ink); }
-/* 清单节奏（两脸**统一**，且以**侧栏会话列**为准）：行高 32 + **行距 3**——`.sessions`
-   那条列表就是 flex column + gap 3（用户 2026-10-13："这两个行距都太高了，你看一下我们边栏
-   的行距"）。段与段之间不另加 margin：分组标签自带上下内距（与侧栏 `.section-label` 的
-   10/4 同口径），间距由标签自己给。 */
-/* 上下内距与设置脸（.mini-cc-settings 的 10/14）对齐，两脸的"第一行离卡片顶"才是同一个数 */
-.app.mini-panel .mini-cc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 6px 14px; }
-.app.mini-panel .mini-cc-section { display: flex; flex-direction: column; gap: 3px; }
+/* 清单节奏与主窗命令面板同构（用户 2026-10-14："样式也照左边的命令中心"）：**连续行**
+   （行距 0——去掉原先照侧栏会话列留的 3px gap 与行出血）、列表内距 8（与行内距 8 相加
+   = 文字列 16，与搜索行同列）。分组标签自带上下内距，段与段之间不另加 margin。
+   这条覆盖了 2026-10-13 那次"行距照侧栏"的定稿：三个命令面板现在共用一套行样式。 */
+.app.mini-panel .mini-cc-list { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
+.app.mini-panel .mini-cc-section { display: flex; flex-direction: column; gap: 0; }
 /* 分组标签（今天 / 昨天）：全卡唯一的**次级档**——Raycast 的列表分组标签就是 11
    （small-text），比行文本小一档正是它的层级表达；升到 13 就与行齐平、分组感没了。 */
 .app.mini-panel .mini-cc-section-title {
   margin: 0;
-  padding: 10px 10px 4px;
+  padding: 10px 8px 4px;
   color: var(--ink-3);
   font-size: var(--dsh-font-size-sm);
   font-weight: 500;
@@ -666,11 +656,9 @@ button {
   width: 100%;
   /* 与三处面板的行高同值（38）：一行的高度在命令面板这一族里只有一个数 */
   height: 38px;
-  padding: 0 10px;
-  /* 与历史行同一文字列：出血 4（列表内距 6 + 行内距 10 − 出血 4 = 12），否则选择页的
-     标签比历史标题右移 4px，翻页时文字列左右跳。
-     圆角走胶囊（半径 ≥ 半高即整圆）：与历史行、设置行同一形状（用户定稿"改为胶囊样式"）。 */
-  margin: 0 -4px;
+  padding: 0 8px;
+  /* 与历史行逐项同构（满宽连续行、内距 8、圆角 radius.control）：翻页时文字列左右不跳。 */
+  margin: 0;
   border-radius: var(--dsh-radius-control);
   color: var(--ink);
   text-align: left;
@@ -683,12 +671,15 @@ button {
    高 32、圆角 16（= 行高的一半，本仓"半径 = 行高"的胶囊口径）、hover 与键盘光标都是这颗
    胶囊（用户 2026-10-13 定稿："改变 hover 的形状，改为胶囊样式"）。卡里只加一样：出血 4
    （文字列与搜索框同在 12）——字号不再覆盖，继承卡基准 13，与侧栏那条行**同档**。 */
+/* 行与主窗命令面板**逐项同构**（用户 2026-10-14："样式也照左边的命令中心"）：满宽连续行
+   （`margin: 0`，去掉原先 −4 的出血）、内距 8（列表内距 8 + 行内距 8 = 文字列 16，与搜索行
+   的 padding 同列）、高 38、圆角 radius.control——`.task-row` 带过来的胶囊圆角（bubble）
+   与 32 的高度在这里被覆盖掉。 */
 .app.mini-panel .mini-cc-row {
-  margin: 0 -4px;
-  /* 行高抬到 38，与主窗命令面板、设置行同一个数——`尺寸 = 行高` 的胶囊圆角（radius.bubble
-     在 38 上被夹到半高 19）与 3px 行距仍是侧栏那一套，只有行高跟着命令面板族走
-     （`.task-row` 那条 32 是侧栏的，卡片不再照抄）。 */
+  margin: 0;
   height: 38px;
+  padding: 0 8px;
+  border-radius: var(--dsh-radius-control);
 }
 /* 最右的时间：借用侧栏那条 `.row-time`，字号同样继承卡基准（与侧栏同档）。
    状态不写字：未读/在跑由行首那颗亮点表示（见行件注释）。 */
@@ -726,7 +717,9 @@ button {
    ② hover 用 --fill（7%）也是主窗那套，同一张卡里历史行 hover 5%、设置行 7% 是两种深浅
       ——计数卡内统一到 5%（hover），选中态另给 10%（下方 data-cursor 那条）；
    ③ 光标行与历史行同档，设置模式才有可见的"回车开哪一行"。 */
-.app.mini-panel .mini-cc-settings { padding: 10px 12px 14px; gap: 3px; overflow: visible; }
+/* 内距与行距同历史脸（列表内距 8、连续行）：设置行是满宽行（.panel-settings-row 自带
+   内距 8），文字列因此也在 16，与搜索行、历史行同一列。 */
+.app.mini-panel .mini-cc-settings { padding: 8px; gap: 0; overflow: visible; }
 .app.mini-panel .mini-cc-settings .panel-settings-line {
   /* 与历史行、主窗命令面板的行同高（38）；原先 32 是照侧栏会话行留下的 */
   min-height: 38px;
