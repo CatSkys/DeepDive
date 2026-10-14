@@ -67,6 +67,27 @@ SIGNATURE=$(bash scripts/sparkle-tools.sh sign_update --account "$SPARKLE_KEY_AC
        echo "      一次性生成：bash scripts/sparkle-tools.sh generate_keys --account $SPARKLE_KEY_ACCOUNT" >&2; exit 1; }
 
 cp -f "$DMG" "dist/$ASSET"
+
+# ── 发布说明（Markdown）──
+# 取数：本版自上一个发布 tag 以来的提交主题（`--no-merges`——本仓一个任务一个合并提交，
+# 300 条里 51 条是它，不进说明）。tag 打在本仓（app-v<版本>），发布成功后创建；
+# 下一版就靠它算「自上一版以来」。
+PREV_TAG=$(git describe --tags --abbrev=0 --match 'app-v*' 2>/dev/null || true)
+NOTES=dist/release-notes.md
+{
+  echo "## 本版变更"
+  echo
+  if [ -n "$PREV_TAG" ]; then
+    echo "自 $PREV_TAG 以来："
+    echo
+    git log --no-merges --pretty='- %s' "$PREV_TAG..HEAD" -- .
+  else
+    echo "首个发布版。"
+  fi
+} > "$NOTES"
+echo "== 发布说明（上次基准：${PREV_TAG:-无}）=="
+cat "$NOTES"
+
 APPCAST=dist/appcast.xml
 cat > "$APPCAST" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
@@ -79,6 +100,7 @@ cat > "$APPCAST" <<EOF
       <sparkle:version>$VERSION</sparkle:version>
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <link>https://github.com/$RELEASES_REPO/releases/tag/$TAG</link>
+      <sparkle:releaseNotesLink>https://github.com/$RELEASES_REPO/releases/download/$TAG/release-notes.md</sparkle:releaseNotesLink>
       <enclosure url="https://github.com/$RELEASES_REPO/releases/download/$TAG/$ASSET" type="application/octet-stream" $SIGNATURE/>
     </item>
   </channel>
@@ -94,17 +116,30 @@ xmllint --noout "$APPCAST" \
 # 签名与长度必须真的进了 enclosure：少了它们，Sparkle 会拒收这个更新。
 grep -q 'sparkle:edSignature="' "$APPCAST" && grep -q "length=\"$(wc -c < "$DMG" | tr -d ' ')\"" "$APPCAST" \
   || { echo "FAIL: appcast 的 enclosure 缺 edSignature 或 length 与 DMG 字节数对不上" >&2; exit 1; }
+# 说明链接必须在：应用的「有更新」那张卡正文就是从它指的资产拉回来的；漏了不会报错，
+# 只是卡片永远少一段正文（症状很轻、原因很远）。
+grep -q "<sparkle:releaseNotesLink>https://github.com/$RELEASES_REPO/releases/download/$TAG/release-notes.md</sparkle:releaseNotesLink>" "$APPCAST" \
+  || { echo "FAIL: appcast 缺 releaseNotesLink（或它指的不是本版那份说明）" >&2; exit 1; }
 
 # ── ③ 发布 ──
-# appcast 与 DMG 同一个 Release：enclosure 指向 versioned 资产，feed 走
-# releases/latest/download/appcast.xml 这条永久链接（每次发布自动换到最新那份）。
-gh release create "$TAG" --repo "$RELEASES_REPO" \
-  "dist/$ASSET" "$APPCAST" \
-  --title "$TAG" \
-  --notes "macOS 26 及以上，Apple 芯片（arm64）。
+# 正文 = 说明 + 装机要求。同一份说明既进 GitHub Release 正文（人看），也作为资产上传
+# （应用看）——一处产出，两个消费者，不各写一份。
+BODY=dist/release-body.md
+{
+  cat "$NOTES"
+  echo
+  echo "macOS 26 及以上，Apple 芯片（arm64）。"
+  echo
+  echo "装好的 DeepDive 会自己更新（每小时后台查一次，下载完在退出时装上）；也可以从"
+  echo "标题栏那颗更新钮、菜单里的「检查更新…」或「设置 → 关于」手动装。"
+} > "$BODY"
 
-装好的 DeepDive 会自己更新（每小时后台查一次，下载完在退出时装上）；也可以从
-「设置 → 关于」或菜单里的「检查更新…」手动装。"
+# appcast、说明与 DMG 同一个 Release：enclosure 与 releaseNotesLink 都指向 versioned 资产，
+# feed 走 releases/latest/download/appcast.xml 这条永久链接（每次发布自动换到最新那份）。
+gh release create "$TAG" --repo "$RELEASES_REPO" \
+  "dist/$ASSET" "$APPCAST" "$NOTES" \
+  --title "$TAG" \
+  --notes-file "$BODY"
 
 # 永久链接必须真的能拉到这一份：它是 Info.plist 里 SUFeedURL 的落点，
 # 拉不到等于所有已装用户从此收不到更新。
@@ -113,6 +148,22 @@ echo "== 核对永久 feed 链接：$FEED_URL =="
 for attempt in 1 2 3 4 5; do
   if curl -fsSL "$FEED_URL" 2>/dev/null | grep -q "<sparkle:version>$VERSION</sparkle:version>"; then
     echo "OK: $TAG 已发布，feed 指向 $VERSION"
+    # 说明的资产也要真的能匿名拉到：应用就是去那儿取正文的。
+    NOTES_URL="https://github.com/$RELEASES_REPO/releases/download/$TAG/release-notes.md"
+    if curl -fsSL "$NOTES_URL" 2>/dev/null | grep -q "本版变更"; then
+      echo "OK: 发布说明可读（$NOTES_URL）"
+    else
+      echo "WARN: $NOTES_URL 拉不到或内容不对——应用的更新卡会少一段正文。" >&2
+    fi
+    # 打基准 tag（下一版算「自上一版以来」靠它）。发布已经成功了，所以这一步失败
+    # 只告警不判负——但要说清后果：不打 tag，下一版的说明会把这一版又列一遍。
+    if git tag "app-v$VERSION" && git push origin "app-v$VERSION"; then
+      echo "OK: 基准 tag app-v$VERSION 已打并推送"
+    else
+      echo "WARN: app-v$VERSION 没打上/没推上去——手动补：" >&2
+      echo "      git tag app-v$VERSION && git push origin app-v$VERSION" >&2
+      echo "      不补的话，下一版的发布说明会把这一版以来的提交再列一遍。" >&2
+    fi
     exit 0
   fi
   sleep 3

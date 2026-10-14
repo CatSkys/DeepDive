@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { PanelLeft, Search } from "lucide-react";
+import { UpdateBadge } from "./components/UpdateBadge";
 import { alertDialog, confirmDialog } from "./components/DialogHost";
 import { installHostBridge, copyText } from "./host";
 import { comboFor } from "./keybinds";
@@ -193,6 +194,9 @@ function Shell({ settingsOpen, settingsSection, openSettings, closeSettings, aut
           <button className="window-top-btn" data-tip={t("搜索")} data-tip-keys={comboFor("command-palette", store.keybinds)} onClick={() => openCommandPalette()}>
             <Search size={17} />
           </button>
+          {/* 有更新待装时自己冒出来（自带 hover 说明卡）；没有就是 null。
+              它只有 aria-label、不带 data-tip——见 UpdateBadge 文件头 ①。 */}
+          <UpdateBadge />
         </div>
       )}
       {settingsOpen ? (

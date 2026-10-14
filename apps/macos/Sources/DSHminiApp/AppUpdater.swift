@@ -2,13 +2,13 @@ import AppKit
 import Sparkle
 
 /// DeepDive 自身的应用更新（Sparkle）。管什么：检查/下载/安装的编排，以及「已下载待装
-/// 的版本」这一份状态；不管什么：下载与校验（Sparkle 自己做，EdDSA 公钥在 Info.plist 的
-/// `SUPublicEDKey`）、界面（原生入口在 MainMenu / StatusItemController，设置页那一屏
-/// 经桥事件 `updateState`）。
+/// 的版本（含它的发布日期与说明正文）」这一份状态；不管什么：下载与校验（Sparkle 自己做，
+/// EdDSA 公钥在 Info.plist 的 `SUPublicEDKey`）、界面（原生入口在 MainMenu /
+/// StatusItemController，前端那颗标题栏钮与设置页那一屏经桥事件 `updateState`）。
 ///
 /// 「多久查一次、要不要自动装」全部由 Info.plist 的 `SU*` 键定（每小时后台查、静默下载、
-/// 退出即装，与 Atd 同档）；这里只补两件壳才知道的事——下载好的更新先不弹窗，把版本号
-/// 交给界面自己给入口；那一次安装由 Sparkle 存下来的 immediate 回调触发。
+/// 退出即装，与 Atd 同档）；这里只补 Sparkle 不知道的两件事——下载完不弹窗而是把版本号交给
+/// 界面自己给入口，以及那一次安装由 Sparkle 存下来的 immediate 回调触发。
 final class AppUpdater: NSObject {
     /// 这个构建会不会更新——**唯一的那一处判断**，菜单摆不摆「检查更新…」与设置页显不
     /// 显示更新入口都看它。
@@ -25,7 +25,11 @@ final class AppUpdater: NSObject {
 
     /// 已下载待安装的版本号（还没有就是 nil）。
     private(set) var readyVersion: String?
-    /// 状态变化（壳据此把新状态推给设置页）。
+    /// 那一版的发布日期（appcast 的 pubDate → ISO8601）与说明正文（`sparkle:releaseNotesLink`
+    /// 指的 Markdown）。说明要另拉一次，所以它比版本号晚到；拉不到就是 nil，卡片少一段正文。
+    private(set) var readyDate: String?
+    private(set) var readyNotes: String?
+    /// 状态变化（壳据此把新状态推给前端）。
     var onChange: (() -> Void)?
 
     /// 不支持的构建里它就是 nil——这是设计出来的状态，不是没接好。
@@ -59,30 +63,57 @@ final class AppUpdater: NSObject {
         installHandler?()
     }
 
-    /// 设置页「关于」那一屏的状态载荷（桥事件 `updateState`）。键名即契约
+    /// 设置页「关于」与标题栏那颗钮的状态载荷（桥事件 `updateState`）。键名即契约
     /// （docs/ARCHITECTURE.md §2 通信矩阵），改这里要同步 frontend/src/host.ts。
     /// 写成纯函数是为了让两种构建的各一态都有可钉住的断言。
     static func statusPayload(
-        currentVersion: String, readyVersion: String?, canUpdate: Bool
+        currentVersion: String, readyVersion: String?, readyDate: String?,
+        readyNotes: String?, canUpdate: Bool
     ) -> [String: Any] {
         [
             "currentVersion": currentVersion,
             // null 而不是空串：前端据此区分「没有待装更新」与「待装但版本号读不到」。
             "readyVersion": readyVersion ?? NSNull(),
+            "readyDate": readyDate ?? NSNull(),
+            "readyNotes": readyNotes ?? NSNull(),
             "canUpdate": canUpdate,
         ]
     }
 
     var status: [String: Any] {
         Self.statusPayload(
-            currentVersion: Self.appVersion, readyVersion: readyVersion, canUpdate: Self.isSupported
+            currentVersion: Self.appVersion, readyVersion: readyVersion,
+            readyDate: readyDate, readyNotes: readyNotes, canUpdate: Self.isSupported
         )
+    }
+
+    /// 拉 appcast 指的那份发布说明，回来后把状态再推一次（卡片先出「已下载 x.y.z」，
+    /// 正文随后补上）。拉不到不是错误——卡片少一段正文照常能用，但别静默（铁律 5）。
+    private func refreshNotes(from url: URL) {
+        Task { @MainActor in
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 15
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      let text = String(data: data, encoding: .utf8), !text.isEmpty
+                else {
+                    EngineLog.shared.append("[update] release notes unusable: \(url.absoluteString)")
+                    return
+                }
+                readyNotes = text
+                onChange?()
+            } catch {
+                // 症状是这个：发布仓改名 / 资产没传上去 / 没网。卡片退化成「只有版本与日期」。
+                EngineLog.shared.append("[update] release notes fetch failed: \(error.localizedDescription)")
+            }
+        }
     }
 }
 
 extension AppUpdater: SPUUpdaterDelegate {
     /// 静默下载完的更新在等退出时装它。返回 true = 这一次不惊动用户（界面自己有入口），
-    /// 但装照装：退出时装它，点「立即安装」也装它。
+    /// 但装照装：退出时装它，点「重启以安装」也装它。
     func updater(
         _ updater: SPUUpdater,
         willInstallUpdateOnQuit item: SUAppcastItem,
@@ -90,7 +121,12 @@ extension AppUpdater: SPUUpdaterDelegate {
     ) -> Bool {
         installHandler = immediateInstallHandler
         readyVersion = item.displayVersionString
+        // pubDate 给的是 RFC822，转成 ISO8601 再上桥（前端 `new Date()` 两种都认，
+        // 但 ISO 没有时区陷阱）。
+        readyDate = item.date.map { ISO8601DateFormatter().string(from: $0) }
+        readyNotes = nil
         onChange?()
+        if let notesURL = item.releaseNotesURL { refreshNotes(from: notesURL) }
         return true
     }
 }

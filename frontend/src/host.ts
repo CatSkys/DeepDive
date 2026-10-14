@@ -571,6 +571,11 @@ export interface UpdateState {
   currentVersion: string;
   /** 已下载待安装的版本；没有待装的就是 null。 */
   readyVersion: string | null;
+  /** 那一版的发布日期（ISO8601，appcast 的 pubDate 定的）。 */
+  readyDate: string | null;
+  /** 那一版的发布说明正文（Markdown，来自 appcast 的 `sparkle:releaseNotesLink`）。
+   *  没拉回来、或那一版没附说明时为 null——卡片就少一段正文，不是错误。 */
+  readyNotes: string | null;
   /** 这个构建会不会更新（Debug 构建不会）。 */
   canUpdate: boolean;
 }
@@ -583,6 +588,8 @@ export function narrowUpdateState(p: unknown): UpdateState | null {
   return {
     currentVersion: v.currentVersion,
     readyVersion: typeof v.readyVersion === "string" ? v.readyVersion : null,
+    readyDate: typeof v.readyDate === "string" ? v.readyDate : null,
+    readyNotes: typeof v.readyNotes === "string" ? v.readyNotes : null,
     canUpdate: v.canUpdate === true,
   };
 }
