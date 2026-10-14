@@ -561,7 +561,9 @@ button {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(calc(100% - 72px), 380px);
+  /* 宽 = 主窗命令面板的同值（320，取自参考面板实测 314）：三个面板一个规格。
+     面板窗更窄时仍由 100% − 72 兜住（窄窗里卡片贴边站）。 */
+  width: min(calc(100% - 72px), 320px);
   z-index: 7;
   display: flex;
   flex-direction: column;
@@ -662,7 +664,8 @@ button {
   align-items: center;
   gap: 8px;
   width: 100%;
-  height: 34px;
+  /* 与三处面板的行高同值（38）：一行的高度在命令面板这一族里只有一个数 */
+  height: 38px;
   padding: 0 10px;
   /* 与历史行同一文字列：出血 4（列表内距 6 + 行内距 10 − 出血 4 = 12），否则选择页的
      标签比历史标题右移 4px，翻页时文字列左右跳。
@@ -682,6 +685,10 @@ button {
    （文字列与搜索框同在 12）——字号不再覆盖，继承卡基准 13，与侧栏那条行**同档**。 */
 .app.mini-panel .mini-cc-row {
   margin: 0 -4px;
+  /* 行高抬到 38，与主窗命令面板、设置行同一个数——`尺寸 = 行高` 的胶囊圆角（radius.bubble
+     在 38 上被夹到半高 19）与 3px 行距仍是侧栏那一套，只有行高跟着命令面板族走
+     （`.task-row` 那条 32 是侧栏的，卡片不再照抄）。 */
+  height: 38px;
 }
 /* 最右的时间：借用侧栏那条 `.row-time`，字号同样继承卡基准（与侧栏同档）。
    状态不写字：未读/在跑由行首那颗亮点表示（见行件注释）。 */
@@ -721,7 +728,8 @@ button {
    ③ 光标行与历史行同档，设置模式才有可见的"回车开哪一行"。 */
 .app.mini-panel .mini-cc-settings { padding: 10px 12px 14px; gap: 3px; overflow: visible; }
 .app.mini-panel .mini-cc-settings .panel-settings-line {
-  min-height: 32px;
+  /* 与历史行、主窗命令面板的行同高（38）；原先 32 是照侧栏会话行留下的 */
+  min-height: 38px;
   /* 同一张卡里行态一种形状：设置行也用胶囊（主窗那张设置卡仍是控件档圆角，那是另一张卡） */
   border-radius: var(--dsh-radius-control);
 }
