@@ -3,11 +3,12 @@ import AppKit
 /// The annotation step of a capture session (``AnnotationEditing``): a canvas over the
 /// committed selection, a glass toolbar beside it and, in the slot next to the toolbar, the style
 /// bar while there is something to style or the chat bar while a message is being typed
-/// (``AnnotationChatBar``, opened by the toolbar's ask button); all are subviews of the host
-/// overlay view. Annotations are in the host's view points, so they stay on the screen while the
-/// selection moves or resizes; the canvas and the bars follow the selection, and the export takes
-/// what lies inside it. Focus and key routing between the canvas and the host are described on
-/// ``AnnotationCanvasView``.
+/// (``AnnotationChatBar``, opened by the toolbar's ask button), plus the extract card
+/// (``AnnotationExtractCard``, opened by its extract button) anchored under the toolbar; all are
+/// subviews of the host overlay view. Annotations are in the host's view points, so they stay on
+/// the screen while the selection moves or resizes; the canvas and the bars follow the selection,
+/// and the export takes what lies inside it. Focus and key routing between the canvas and the host
+/// are described on ``AnnotationCanvasView``.
 ///
 /// The model, hit-testing and geometry are AICore's (`Annotation*.swift`); this type wires the
 /// store, the pointer state machine, the text editor, the renderer, the element picker and the
@@ -30,6 +31,7 @@ final class AnnotationEditor: AnnotationEditing {
   private let toolbar = AnnotationToolbar()
   private let styleBar = AnnotationStyleBar()
   private let chatBar = AnnotationChatBar()
+  private let extractCard = AnnotationExtractCard()
 
   private var display: FrozenDisplay?
   private var selection = CGRect.zero
@@ -70,6 +72,10 @@ final class AnnotationEditor: AnnotationEditing {
     canvas.onStepStroke = { [weak self] in self?.stepStroke($0) ?? false }
     canvas.onClearAll = { [weak self] in self?.clearAll() ?? false }
     toolbar.onTool = { [weak self] in self?.choose($0) }
+    toolbar.onExtract = { [weak self] in self?.extractText() }
+    extractCard.onCopy = { [weak self] in self?.copyExtracted($0) }
+    extractCard.onTranslate = { [weak self] in self?.translateExtracted($0) }
+    extractCard.onClose = { [weak self] in self?.closeExtract() }
     styleBar.onChange = { [weak self] in self?.restyle($0, burst: $1) }
     toolbar.onUndo = { [weak self] in self?.store.undo() }
     toolbar.onRedo = { [weak self] in self?.store.redo() }
@@ -93,10 +99,12 @@ final class AnnotationEditor: AnnotationEditing {
     toolbar.applyStrings()
     styleBar.applyStrings()
     chatBar.applyStrings()
+    extractCard.applyStrings()
     host.addSubview(canvas)
     host.addSubview(toolbar)
     host.addSubview(styleBar)
     host.addSubview(chatBar)
+    host.addSubview(extractCard)
     selectionDidChange(selection)
     refresh()
     focusCanvas()
@@ -131,10 +139,12 @@ final class AnnotationEditor: AnnotationEditing {
     interaction.cancelGesture()
     textEditor.cancel()
     chatBar.close()
+    extractCard.close()
     canvas.removeFromSuperview()
     toolbar.removeFromSuperview()
     styleBar.removeFromSuperview()
     chatBar.removeFromSuperview()
+    extractCard.removeFromSuperview()
     canvas.backdrop = nil
     interaction.tool = nil
     picker.reset()
@@ -177,6 +187,8 @@ final class AnnotationEditor: AnnotationEditing {
   private func stepBack() -> Bool {
     if chatBar.isOpen {
       closeChat()
+    } else if extractCard.isOpen {
+      closeExtract()
     } else if textEditor.isEditing {
       textEditor.end()
     } else if interaction.isGesturing {
@@ -308,6 +320,72 @@ final class AnnotationEditor: AnnotationEditing {
     onAsk?(text)
   }
 
+  // MARK: 提取文字（工具条那颗扫描钮）
+
+  /// 提取文字：按选区裁**原图**像素去识别（标注不进识别——那只会给读出来的字添噪），结果
+  /// 开在卡里。识别是用户按出来的那一下才跑的（``ScreenText``），识别期间卡先开出来报"识别中"。
+  private func extractText() {
+    textEditor.end()
+    guard let display,
+      let crop = CaptureCoordinates.pixelRect(
+        selection, scale: display.pixelScale, width: display.image.width,
+        height: display.image.height),
+      let image = display.image.cropping(to: crop)
+    else { return report(.captureExtractFailed) }
+    extractCard.openBusy()
+    placeExtractCard()
+    Task { [weak self] in
+      let lines = await ScreenText.lines(in: image)
+      guard let self else { return }
+      guard let lines else { return self.report(.captureExtractFailed) }
+      guard !lines.isEmpty else { return self.report(.captureExtractEmpty) }
+      let text = lines.joined(separator: "\n")
+      // 探一次模型在不在：不在就**不摆**翻译钮（按了必然失败的那种钮，比没有更糟）。
+      var canTranslate = false
+      if let plan = ScreenTranslation.plan(for: text, appLanguage: DSHAppPrefs.language) {
+        canTranslate = await ScreenTranslation.isInstalled(plan)
+      }
+      self.extractCard.show(text: text, canTranslate: canTranslate)
+      self.placeExtractCard()
+    }
+  }
+
+  /// 卡上的「翻译」：按识别结果的语种翻进应用自己那门语言（``ScreenTranslation``），译文替身
+  /// 卡里的正文；系统里没有这对模型时不摆那颗钮。
+  private func translateExtracted(_ text: String) {
+    guard let plan = ScreenTranslation.plan(for: text, appLanguage: DSHAppPrefs.language) else {
+      return extractCard.translationUnavailable()
+    }
+    Task { [weak self] in
+      do {
+        let translated = try await ScreenTranslation.translate(text, plan)
+        self?.extractCard.showTranslation(translated)
+      } catch {
+        self?.extractCard.translationUnavailable()
+      }
+    }
+  }
+
+  /// 卡上的「复制」：识别出来的那一段进通用剪贴板（同整图复制那个剪贴板）。
+  private func copyExtracted(_ text: String) {
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    pasteboard.setString(text, forType: .string)
+  }
+
+  /// 关掉结果卡（关闭钮或 Esc）；键盘交回画布，下一次 Esc 才回到会话那架阶梯。
+  private func closeExtract() {
+    guard extractCard.isOpen else { return }
+    extractCard.close()
+    focusCanvas()
+  }
+
+  /// 卡里一句说明（没认到字 / 识别失败）：没有可复制的东西，动作也一并收起来。
+  private func report(_ key: ShellStringKey) {
+    extractCard.show(note: ShellStrings.shared.text(key))
+    placeExtractCard()
+  }
+
   private func focusCanvas() {
     guard !textEditor.isEditing, canvas.superview != nil else { return }
     canvas.window?.makeFirstResponder(canvas)
@@ -365,5 +443,14 @@ final class AnnotationEditor: AnnotationEditing {
     toolbar.frame = frames.toolbar
     let secondBar: NSView = chatBar.isOpen ? chatBar : styleBar
     secondBar.frame = CGRect(origin: frames.styleBar.origin, size: secondBar.fittingSize)
+    placeExtractCard()
+  }
+
+  /// The extract card hangs under the toolbar and follows it (``AnnotationToolbarLayout/card``):
+  /// it is a reading surface, so it goes where the toolbar the user just pressed is.
+  private func placeExtractCard() {
+    guard extractCard.isOpen, let host = extractCard.superview else { return }
+    extractCard.frame = AnnotationToolbarLayout.card(
+      extractCard.fittingSize, under: toolbar.frame, within: host.bounds)
   }
 }

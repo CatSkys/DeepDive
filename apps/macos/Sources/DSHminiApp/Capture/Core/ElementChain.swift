@@ -102,27 +102,6 @@ public enum ElementChain {
     return result + [area]
   }
 
-  /// The positions in `chain` of the elements that offered `frame` as a candidate at `point`
-  /// (``targets(at:window:displays:chain:)`` with the same arguments), deepest first. Stacked
-  /// elements can share one candidate, so there may be several; the caller picks the one that
-  /// describes best. Empty when `frame` is the window area (a window is not an element) or no
-  /// element offered it.
-  public static func elementIndices(
-    offering frame: CGRect, at point: CGPoint, window: Window, displays: [CGRect], chain: [Node]
-  ) -> [Int] {
-    guard let area = windowArea(at: point, window: window, displays: displays),
-      !nearlyEqual(frame, area, duplicateTolerance),
-      let boundary = verifiedBoundary(of: chain, in: window)
-    else { return [] }
-    return chain[..<boundary].indices.filter { index in
-      let node = chain[index]
-      guard !deniedRoles.contains(node.role), isUsable(node.frame) else { return false }
-      let candidate = node.frame.intersection(area)
-      return isUsable(candidate) && candidate.contains(point)
-        && nearlyEqual(candidate, frame, duplicateTolerance)
-    }
-  }
-
   /// Index of the first window or sheet in `chain` that is `window` itself. Anything beyond it
   /// is outside the window and ignored.
   private static func verifiedBoundary(of chain: [Node], in window: Window) -> Int? {

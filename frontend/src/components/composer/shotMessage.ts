@@ -1,14 +1,14 @@
 // 「截图带话」那条消息的载荷拼装（截图工具条上的「提问」）：话在前，随后是本批内联的图，
-// 最后是文件回执（屏幕上下文 md）。只管这层纯拼装；建会话、上传、发送的编排在
-// Composer.tsx 的 `sendShotMessage`（与划词命令同一口径：不经输入框草稿）。
+// 最后是文件回执（图被引擎的图片准入拒收时改走的那一份）。只管这层纯拼装；建会话、上传、
+// 发送的编排在 Composer.tsx 的 `sendShotMessage`（与划词命令同一口径：不经输入框草稿）。
 
 import type { PickedAttachment } from "../../host";
 import type { PromptContentPart } from "../../types";
 import { pickedDelivery, type ShotImage } from "./useComposerAttachments";
 
-/** 壳回来的那批截图项分成两拨：随消息内联的图（模型才看得见）与要传成回执的文件。
- *  文件夹走不到这里——截图只出图与屏幕上下文两个文件（`pickedDelivery` 的判据仍共用，
- *  不必在这里再判一遍）。 */
+/** 壳回来的那批截图项分成两拨：随消息内联的图（模型才看得见）与要传成回执的文件。壳的
+ *  截图产物只有那张图，文件这一拨留给"图没带字节 / 认不出扩展名"那几种（判据与 ＋ 选择器
+ *  共用，不在这里再判一遍）；文件夹走不到这里。 */
 export function splitShotItems(items: PickedAttachment[]): {
   images: ShotImage[];
   files: PickedAttachment[];

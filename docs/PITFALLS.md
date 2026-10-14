@@ -1414,6 +1414,8 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 纪律：凡**面板页也会发起**的请求（附件上传/选择器/列目录/听写…），应答一律 `pushHost(..., to: source)`；
   只有主窗独有的功能（设置、git、侧栏图标…）才可以推到 `windowController`。改完顺手 grep 一遍
   `pushHostCommand` 的写死调用，按"面板会不会走到"逐个过一遍。
+- 订正（2026-10-14 晚）：那条"上下文 md"附件已随自动 OCR 一起去掉（§11.9），纪律与处置照旧——
+  同族的附件上传/选择器/列目录仍在，面板页照样会发起它们。
 
 ### 8.7 输入框的文本层是 CodeMirror：行内附件原子有五条硬约束（2026-10-14 换掉 textarea）
 - 背景：附件要能插进正文中间（用户定稿"混排"），textarea 装不下元素，照 Atd 换成 CodeMirror 6 的
@@ -1810,3 +1812,18 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - 处置：**输入框外面套一格与按钮同高的容器**（宽度照旧 240），输入框在容器里只锚 `centerY` 与左右贴边——容器给栈刚性高度（胶囊 40），输入框自己保持字体那么高（文字因此落在中线上）。
 - 判据（`apps/macos/Tests/AnnotationChatBarTests.swift`）：量的是 cell 的 `drawingRect(forBounds:)`——**那才是"画"文字的位置**，量 frame 会漏掉坑 1；换到胶囊坐标系里与胶囊中线比，误差 ≤0.5pt。另一条钉住胶囊高度 = `AnnotationToolbarButton.side + AnnotationGlassBar.padding * 2`。
 - 附带认识：`AnnotationGlassBar` 的玻璃**按 frame 摆**（`layout()` 里 `glass.frame = bounds`），栈又钉在它四边——所以 owner 给出真实 frame 之前，`fittingSize` 的测量期会报一串 `Unable to simultaneously satisfy constraints`（横向那几条，根是 `NSGlassEffectView.width == 0` 的 autoresizing 约束）。家族里每条条都这样，app 里 owner 总会先给 frame，**别去"修"这些告警**（把玻璃改成约束驱动就是动家族地基）。
+
+### 11.9 慢活挂在交付链上：截图后"面板启动两三秒"的真因是那一步 OCR（2026-10-14 用户报"悬浮面板的启动有点慢"）
+
+- 症状：热键截图、确认之后，迷你面板要两三秒才亮（用户原话"我截图然后启动得两三秒"）。
+- 定因（**离线实测**，不是猜）：那条链是 用户确认 → `CaptureSession.run()` → `ScreenshotController.storing()`
+  （编码写图 + Vision OCR）→ 才 `quickPanel.showPanel()`——OCR 就排在面板前面，而它的超时是 3s。
+  拿真实捕获文件实测：同一进程**首次**识别 30s 以上（识别器要现载模型），热态 0.64s（1348×1553 的选区）；
+  同一张图的 PNG 缩放编码 + 写盘只要 0.03–0.05s。**慢的是识别，不是编码**。
+- 处置（用户定稿）：OCR 与它喂的那份「屏幕上下文 md」**整个从交付链上撤下来**——截图只交付那张图
+  （`ScreenText`/`ScreenTranslation` 留着，改成按需）；识别改为工具条上一颗钮（序号右边的扫描钮，
+  结果开在 `AnnotationExtractCard` 这张玻璃卡里：复制 + 翻译）。这一轮同时删掉了它带出的一串死代码：
+  屏幕上下文 md、`WindowSnapshot` 的窗口名/App 名、确认时那次 AX `describe`。
+- 教训：① **交付链上的每一步都要问一句"用户等它做什么"**——OCR 出来的字当年是给模型的上下文，
+  可它拦在用户要看的那块面板前面，功能"顺手多做一步"的代价就是每次截图都多等它。
+  ② 热路径上的耗时**要拿数字说话**：同一张图上 OCR 0.64s、编码 0.04s（冷启 30s+），不量就会去优化错的那一半。

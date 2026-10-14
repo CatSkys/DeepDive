@@ -196,7 +196,7 @@
 | `PanelWindow` nonactivating NSPanel 实践 | `QuickPanelWindow`（QuickPanelController.swift:12，nonactivatingPanel+常驻隐身）、`MiniPanelWindow`（MiniPanelWindow.swift:53-101，borderless+nonactivating+floating+1 层） | 形态同族，overlay/HUD 窗口照 Atd 参数新开即可 |
 | Carbon 热键 | `HotKeyManager`（Carbon、单条、spec 字符串） | 需扩成**多命名槽位**+冲突四态上报（Atd `HotKeyPlan` 逻辑值得整搬） |
 | 桥 | `AppDelegate.handleHostMessage` + `window.__deepDiveHost.dispatch` | 新增方法/事件按 `deepdive.*` 语义对齐（`toolbar.set`→推送配置、`capture`、`screenshot.capture/edit`、事件 `selectionAsk`/`shortcutScreenshot`/`shortcutCommand` 的等价物） |
-| 附件导入 | SPEC-SEMANTICS §82 附件三入口（图片 ≤32MB 内联直传/文件按路径） | 截图 PNG ≤8MiB 直传无压力；`context.md` 走文件附件；Atd 的 importPaths 等价于我们既有附件上传链 |
+| 附件导入 | SPEC-SEMANTICS §82 附件三入口（图片 ≤32MB 内联直传/文件按路径） | 截图 PNG ≤8MiB 直传无压力；Atd 的 importPaths 等价于我们既有附件上传链。**Atd 那份 `context.md` 不搬**：它的 OCR 挂在截图交付链上（PITFALLS §11.9），我们改成工具条上按需提取文字 |
 | 设置 | `DSHAppPrefs`（UserDefaults `deepdive.*`）+ 前端设置浮层 | 划词/截图的开关与排除表存哪（UserDefaults vs 推送模型）= 提案④ |
 | 玻璃胶囊/工具条按钮 | `MiniPanelGlassPieces`、`WindowGlassView`（NSGlassEffectView 门） | Atd 的 `AnnotationGlassBar` 可参照其风格自写或对照移植 |
 | i18n | 前端 `t()/tt()`；壳侧文案尚无统一表 | 工具条壳侧文案需一处置放 |

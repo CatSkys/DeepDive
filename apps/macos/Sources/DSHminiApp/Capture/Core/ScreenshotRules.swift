@@ -90,14 +90,6 @@ public enum ScreenshotRules {
     stem(capturedAt: date, timeZone: timeZone) + "." + encoding.fileExtension
   }
 
-  /// The screen-context attachment imported beside the image: the image's name with
-  /// ` context.md` in place of its extension, so the two sort and read as a pair.
-  public static func contextFileName(capturedAt date: Date, timeZone: TimeZone = .current)
-    -> String
-  {
-    stem(capturedAt: date, timeZone: timeZone) + " context.md"
-  }
-
   private static func stem(capturedAt date: Date, timeZone: TimeZone) -> String {
     let style = Date.VerbatimFormatStyle(
       format: """

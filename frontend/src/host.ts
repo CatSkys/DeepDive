@@ -462,7 +462,7 @@ export function uploadAttachmentPath(path: string, sessionId: string, name: stri
 }
 
 /* ── 截图与划词（Atd 移植）：截图整段会话在壳里跑（冻结屏幕/选区/标注），回来的是与
-   附件选择器同形的 items（图片内联 base64、屏幕上下文按路径）——摄入路径复用 ＋ 选择器
+   附件选择器同形的 items（那张标注图，内联 base64）——摄入路径复用 ＋ 选择器
    那一份（`ingestPicked`）。划词的选中文字走「读一次」请求，工具条设置整份推给壳。 ── */
 
 /** 一次截图的结果：成功给附件项（与选择器同形），失败给壳的成品文案。

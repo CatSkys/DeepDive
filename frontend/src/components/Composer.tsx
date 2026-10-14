@@ -275,12 +275,12 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     if (fromDraft) enterSentSession(sid);
   };
 
-  /** 截图工具条上的「提问」：把用户写的那句话与这张标注图（连屏幕上下文）当**一条消息**
-   *  直接发出去，答案在会话里流式回来。与划词命令同一口径——有意不走 `submit`（那条链读的
-   *  是输入框草稿，不该动用户正打到一半的字），也不建 chip：消息落在会话里，不在草稿里。
-   *  图内联（模型才看得见），屏幕上下文 md 由壳按路径上传拿回执（与 ＋ 选择器同一条通道）；
-   *  引擎按图片准入拒收时，同一份字节改走文件回执重投一次（同 submit：附件与内容必须发
-   *  出去，跟模型无关）。 */
+  /** 截图工具条上的「提问」：把用户写的那句话与这张标注图当**一条消息**直接发出去，
+   *  答案在会话里流式回来。与划词命令同一口径——有意不走 `submit`（那条链读的是输入框
+   *  草稿，不该动用户正打到一半的字），也不建 chip：消息落在会话里，不在草稿里。
+   *  图内联（模型才看得见）；壳回来的项里若有只能按路径走的文件（如认不出扩展名的那份），
+   *  由壳按路径上传拿回执（与 ＋ 选择器同一条通道）。引擎按图片准入拒收时，同一份字节改走
+   *  文件回执重投一次（同 submit：附件与内容必须发出去，跟模型无关）。 */
   const sendShotMessage = async (text: string, items: PickedAttachment[]) => {
     const { images, files } = splitShotItems(items);
     let sid = sessionId;
@@ -294,7 +294,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     for (const file of files) {
       const receipt = await uploadAttachmentPath(file.path, sid, file.name);
       if (receipt === null) {
-        void alertDialog({ message: tt("截图没能发出去：屏幕上下文上传失败", "The screenshot was not sent: its screen context failed to upload") });
+        void alertDialog({ message: tt("截图没能发出去：附件上传失败", "The screenshot was not sent: its attachment failed to upload") });
         return;
       }
       fileReceipts.push(receipt.receiptId);

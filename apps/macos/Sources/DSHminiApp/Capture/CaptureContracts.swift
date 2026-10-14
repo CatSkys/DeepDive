@@ -41,19 +41,6 @@ nonisolated enum ElementDetection: Equatable, Sendable {
   case windowsOnly
 }
 
-/// What Accessibility says about one detected interface element, for the screen-context
-/// attachment. Strings are as the app reports them, trimmed; empty ones are nil.
-nonisolated struct ElementDescription: Equatable, Sendable {
-  /// The AX role, e.g. `AXButton`.
-  let role: String
-  /// `AXTitle`, else `AXDescription`.
-  let title: String?
-  /// `AXValue` when it is text or a number, bounded.
-  let value: String?
-  /// `AXHelp`.
-  let help: String?
-}
-
 /// Candidate areas under the pointer. Implementations run their Accessibility work off the main
 /// actor and hand back plain rects only.
 nonisolated protocol ElementTargeting: Sendable {
@@ -63,10 +50,6 @@ nonisolated protocol ElementTargeting: Sendable {
   /// when no window is there (the session then offers the display). Each rect lies within its
   /// window and display. A call may be superseded by a later one: callers keep the latest answer.
   func targets(at point: CGPoint) async -> [CGRect]
-  /// The element among `targets(at: point)` whose frame is `frame` (Quartz), described; nil for
-  /// a window, the display, or when Accessibility cannot tell. Called once, when the selection is
-  /// confirmed, for a selection committed from a detected element.
-  func describe(at point: CGPoint, frame: CGRect) async -> ElementDescription?
   /// Ends the session and restores any state it changed in other apps.
   func end() async
 }

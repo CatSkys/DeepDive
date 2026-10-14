@@ -61,29 +61,6 @@ actor ElementResolver: ElementTargeting {
     return await resolve(point, request: request)
   }
 
-  /// Walks the chain under `point` again, this time keeping the elements, and describes the one
-  /// whose candidate is `frame`. Stacked elements often share it (a button and its label); the
-  /// first of them, deepest first, that has a title describes best. Called once per capture, so
-  /// its budgets are more generous than a hover's.
-  func describe(at point: CGPoint, frame: CGRect) async -> ElementDescription? {
-    advanceRequest()
-    guard let session, session.trusted,
-      let window = ElementChain.topmostWindow(at: point, in: session.windows),
-      let hit = AccessibilityProbe.element(at: point, in: application(pid: window.pid))
-    else { return nil }
-    var refinement = AccessibilityBudget(milliseconds: 100, calls: 96)
-    let target = AccessibilityProbe.deepest(below: hit, at: point, budget: &refinement)
-    var walk = AccessibilityBudget(milliseconds: 400, calls: 160)
-    let elements = AccessibilityProbe.elements(from: target, budget: &walk)
-    let indices = ElementChain.elementIndices(
-      offering: frame, at: point, window: window, displays: session.displays,
-      chain: elements.map(\.node))
-    let described = indices.prefix(4).compactMap {
-      AccessibilityProbe.description(of: elements[$0].element)
-    }
-    return described.first { $0.title != nil } ?? described.first
-  }
-
   func end() async {
     advanceRequest()
     restoreChangedApplications()

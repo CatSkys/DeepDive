@@ -1432,6 +1432,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pushHost("screenshotCaptured", payload: body, to: target)
     }
 
+    /// 一次截图的附件清单：**只有那张图**（能内联就带字节，页面按既有通道摄入）。
     private func captureItems(_ delivered: ScreenshotController.Delivered) -> [[String: Any]] {
         var items: [[String: Any]] = []
         if let data = try? Data(contentsOf: delivered.image),
@@ -1443,13 +1444,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "isImage": true,
                 "bytes": data.count,
                 "base64": data.base64EncodedString(),
-            ])
-        }
-        if let context = delivered.context {
-            let bytes = (try? context.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-            items.append([
-                "path": context.path, "name": context.lastPathComponent, "isDir": false,
-                "bytes": bytes,
             ])
         }
         return items
