@@ -155,7 +155,7 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
       </div>
       {drop !== null && popupTarget && suggestions.length > 0 && createPortal(
         <div className="panel-browser-offers" role="listbox" style={dropStyle}>
-             <GlassLayer />
+          <GlassLayer />
           {suggestions.map((item, index) => (
             <button
               key={`${item.url}-${index}`}
@@ -175,6 +175,7 @@ export function AddressField({ face, big = false, focusTick = 0, onEditingChange
       )}
       {drop !== null && popupTarget && face.failure !== undefined && createPortal(
         <div className="panel-browser-offers" style={dropStyle}>
+          <GlassLayer />
           <div className="panel-browser-offer refused">
             {face.failure === "empty" ? t("请输入地址")
               : face.failure === "protocol" ? t("只支持 http/https 地址")

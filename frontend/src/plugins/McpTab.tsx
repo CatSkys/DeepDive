@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Settings, Trash2 } from "lucide-react";
 import { Toggle } from "../components/controls";
+import { GlassLayer } from "../components/GlassLayer";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
 import { api, type McpServerRow } from "../api";
 import { useT } from "../i18n";
@@ -57,6 +58,7 @@ function ServerDialog({ draft, isNew, configured, onCancel, onSave, onDelete }: 
   return (
     <div className="dialog-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="dialog-card" role="dialog" aria-modal="true" onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}>
+        <GlassLayer />
         <div className="dialog-title">{isNew ? t("添加 MCP 服务器") : t("编辑 MCP 服务器")}</div>
         <div className={css.form}>
           <label className={css.field}>

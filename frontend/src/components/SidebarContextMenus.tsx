@@ -49,7 +49,7 @@ export function SidebarContextMenus({
     <>
       {workspaceAt && activeWs && (
         <div className="ctx-menu" style={{ top: workspaceAt.y, left: Math.min(workspaceAt.x, window.innerWidth - 200) }} onClick={(e) => e.stopPropagation()}>
-             <GlassLayer />
+          <GlassLayer />
           {/* 与 hero 胶囊 / 空间格的右键菜单同一份（五项全量）；iconAt 取 ⋯
               按钮落点——「修改图标」的选择器贴项目行弹 */}
           <WorkspaceMenuItems ws={activeWs} onDone={onClose} iconAt={workspaceAt} />
@@ -57,6 +57,7 @@ export function SidebarContextMenus({
       )}
       {row && (
         <div className="ctx-menu" style={{ top: row.y, left: Math.min(row.x, window.innerWidth - 220) }} onClick={(e) => e.stopPropagation()}>
+          <GlassLayer />
           <div className="ctx-item" onClick={() => {
             onClose();
             void promptDialog({ title: t("重命名任务"), initialValue: row.title }).then(async (title) => {

@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FileCode2, Folder, FolderInput, Plus, Trash2 } from "lucide-react";
 import { api, type SkillAdminEntry } from "../api";
+import { GlassLayer } from "../components/GlassLayer";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
 import { inShell, revealPath, skillPickDirectory } from "../host";
 import { useT } from "../i18n";
@@ -44,6 +45,7 @@ function SkillDialog({ onCancel, onSave }: {
   return (
     <div className="dialog-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="dialog-card" role="dialog" aria-modal="true" onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}>
+        <GlassLayer />
         <div className="dialog-title">{t("新建技能")}</div>
         <div className={css.form}>
           <label className={css.field}>

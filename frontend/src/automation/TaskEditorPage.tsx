@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight, CirclePause, CirclePlay, Ellipsis, Folder, Gauge, Hand, MessagesSquare, Play, Trash2 } from "lucide-react";
 import { Dropdown, type DropdownOption } from "../components/controls";
+import { GlassLayer } from "../components/GlassLayer";
 import { confirmDialog } from "../components/DialogHost";
 import { t, useT } from "../i18n";
 import { Seg } from "../stats/Seg";
@@ -314,6 +315,7 @@ export function TaskEditorPage({ taskId, template, proposal, onBack, onOpenSessi
 
       {menuAt && task !== null && (
         <div className="ctx-menu" style={{ top: menuAt.top, left: menuAt.left }} onClick={(e) => e.stopPropagation()}>
+          <GlassLayer />
           <div
             className="ctx-item"
             onClick={() => {
