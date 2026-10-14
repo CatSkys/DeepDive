@@ -142,6 +142,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         self.window = window
 
         super.init()
+        applyMinimumSize(Screens.workAreaUnderCursor())
         window.delegate = self
         wv.navigationDelegate = self
         wv.uiDelegate = self
@@ -173,6 +174,17 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
 
     // MARK: - summon（Atd dockAtCursor + show）
 
+    /// 面板窗的尺寸下限（Atd `PanelWindowController.applyMinimumSize` 的同位移植）。
+    /// **没有它，面板能被拖到比页面还窄**：面板页的内容横向溢出，被 html/body 的
+    /// `overflow:hidden` 裁在窗口右缘——草稿页的招呼语、输入框连同输入框右簇的发送钮
+    /// 一起切掉（2026-10-14 用户报"悬浮面板没有最小尺寸限制"，截图里面板 236pt 宽）。
+    /// 下限是设计常量（``PanelGeometry/minimumSize``，与主窗设置页同一档），并按工作区
+    /// 收窄——小屏上不会留下一个够不到的约束。
+    private func applyMinimumSize(_ workArea: ScreenRect) {
+        let minimum = PanelGeometry.minimumSize(in: workArea)
+        window.minSize = NSSize(width: minimum.width, height: minimum.height)
+    }
+
     /// 每次召唤都重新 dock：光标屏工作区右下角、16pt 边距；尺寸用上次记忆的。
     func dockAtCursor() {
         let workArea = Screens.workAreaUnderCursor()
@@ -181,11 +193,9 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         let size = savedW > 0 && savedH > 0
             ? WindowSize(width: savedW, height: savedH)
             : PanelGeometry.defaultSize
+        applyMinimumSize(workArea)
         let frame = NSRect(PanelGeometry.dockedFrame(in: workArea, size: size))
         window.setFrame(frame, display: false)
-        window.minSize = NSSize(
-            width: min(PanelGeometry.minimumSize.width, workArea.width),
-            height: min(PanelGeometry.minimumSize.height, workArea.height))
     }
 
     /// 显隐开关（⌥Space / 胶囊 logo 钮 / Dock 点击共用）。
@@ -577,10 +587,13 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         dockToSavedWorkArea()
     }
 
-    /// 屏幕参数变化：仍在 dock 位就跟着新工作区重新 dock（PanelGeometry.follow）。
+    /// 屏幕参数变化：下限按新工作区重算（换到小屏时收窄），仍在 dock 位就跟着新工作区
+    /// 重新 dock（PanelGeometry.follow）。
     private func dockToSavedWorkArea() {
         let frame = ScreenRect(window.frame)
-        let (kept, _) = PanelGeometry.follow(frame, docked: nil, workArea: Screens.workArea(containing: frame))
+        let workArea = Screens.workArea(containing: frame)
+        applyMinimumSize(workArea)
+        let (kept, _) = PanelGeometry.follow(frame, docked: nil, workArea: workArea)
         window.setFrame(NSRect(kept), display: true)
     }
 }
