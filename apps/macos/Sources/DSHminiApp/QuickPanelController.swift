@@ -204,8 +204,22 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     }
 
     /// 显隐开关（⌥Space / 胶囊 logo 钮 / Dock 点击共用）。
+    /// **只有"开着、还拿着键盘、应用在前台"才当收起**：面板不置顶（SPEC-SEMANTICS §6.1），
+    /// 被别的应用或自家主窗盖住时 alpha 仍是 1——盲判 `isVisible` 就会把这一次按键吃成
+    /// "收一扇看不见的窗"，用户得连按两次才看得见它（2026-10-14 报"有时候要按两次，
+    /// 一次隐藏一次唤出"）。其余一律唤出/带到前台。
     func togglePanel() {
-        if isVisible { hidePanel() } else { showPanel() }
+        let dismiss = Self.hotKeyDismisses(
+            isOpen: isVisible,
+            isKeyWindow: window.isKeyWindow,
+            appIsActive: NSApp.isActive
+        )
+        if dismiss { hidePanel(restoreFocus: true) } else { showPanel() }
+    }
+
+    /// ⌥Space 的判据（抽出成纯函数便于单测，见 `QuickPanelWindowTests`）。
+    static func hotKeyDismisses(isOpen: Bool, isKeyWindow: Bool, appIsActive: Bool) -> Bool {
+        isOpen && isKeyWindow && appIsActive
     }
 
     var isVisible: Bool {
@@ -213,28 +227,50 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     }
 
     func showPanel() {
-        // 召唤前记住前台应用（giveUpKey 用）；此时还没激活自己。
-        previousApp = NSWorkspace.shared.frontmostApplication
+        // 键盘的来处（收起时归还）：别的应用在前台就是它，否则是自家那扇拿着键盘的窗。
+        // **只在"面板本来没开着"时记**——把已经开着的面板带到前台，不该覆盖这份记账。
+        let wasOpen = isVisible
+        if !wasOpen {
+            if NSApp.isActive {
+                previousApp = nil
+                previousKeyWindow = NSApp.keyWindow
+            } else {
+                previousApp = NSWorkspace.shared.frontmostApplication
+                previousKeyWindow = nil
+            }
+        }
         if window.isMiniaturized { window.deminiaturize(nil) }
-        window.alphaValue = 0
         window.ignoresMouseEvents = false
         window.orderFrontRegardless()
-        window.makeKey()
         NSApp.activate(ignoringOtherApps: true)
-        DispatchQueue.main.async {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = ShellMotion.windowShow
-                self.window.animator().alphaValue = 1
+        // 键盘**激活之后再断言**：激活应用时 AppKit 自己也会挑一扇窗给 key（它恢复的那扇
+        // key 窗不一定是我们），而失焦复核（windowDidResignKey）凭的正是"这一刻键盘在面板上"
+        // ——先把 key 交出去再激活，就可能刚唤出就被那条复核收掉。
+        window.makeKey()
+        // 已经在屏上（不透明）就只是把它带到前台，不再压 alpha 重放淡入——主窗同款
+        // （点 Dock 图标时整窗闪一下就是这么来的）；还在收/进场途中则照常淡入。
+        if !(wasOpen && window.alphaValue >= 1) {
+            window.alphaValue = 0
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = ShellMotion.windowShow
+                    self.window.animator().alphaValue = 1
+                }
             }
         }
         focusComposerSoon()
     }
 
-    func hidePanel() {
-        // 卡片那块原生玻璃不必单独藏：它是本窗的子视图，窗口 alpha 归零它跟着一起没了
-        // （真去藏它反而有害——页面还开着卡、下一次矩形上报要 300ms 才来，那半秒里
-        // 卡是没有面的）。
+    /// 收起。`restoreFocus` = 把键盘还给"召唤前的那一方"（⌥Space 收起 / 红灯 / ⌘W 都是这个
+    /// 语义）；**用户点到别处而收（失焦那条路）不能还**——那时他已经选了新的前台，抢回来是
+    /// 跟人抢键盘。
+    func hidePanel(restoreFocus: Bool) {
         guard window.alphaValue > 0 else { return }
+        // 卡跟着一起收：窗口只是 alpha 归零、页面状态留着，卡片不收的话下次召唤它会原地再
+        // 冒出来，要等页面下一次矩形上报（300ms 一拍）才消失——那半秒里它是一张有面的旧卡。
+        // "哪张脸"的记账也一并清（收卡只有 hideCard 这一个出口）。
+        if cardVisible { hideCard() }
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = ShellMotion.windowHide
             self.window.animator().alphaValue = 0
@@ -242,18 +278,29 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             guard !self.isVisible else { return }
             self.window.ignoresMouseEvents = true
         })
-        // 焦点归还：迷你面板是 nonactivatingPanel，常驻不 orderOut——上一前台应用
-        // （召唤前的活跃应用）要回来接键盘，否则它还在前台却丢了 key。
-        giveUpKeyToPreviousApp()
+        if restoreFocus { returnKeyToOrigin() } else { forgetKeyOrigin() }
     }
 
-    /// 召唤前记住前台应用，隐藏时把它请回来（Atd onGaveUpKey 的语义）。
+    /// 键盘的来处：召唤前的前台应用（Atd onGaveUpKey 的语义），或自家那扇拿着键盘的窗
+    /// （召唤时前台就是自己，那时没有"别的应用"可还）。
     private var previousApp: NSRunningApplication?
+    private var previousKeyWindow: NSWindow?
 
-    private func giveUpKeyToPreviousApp() {
-        guard let app = previousApp, !app.isTerminated, app != NSRunningApplication.current else { return }
-        app.activate(options: [])
+    /// 收起后把键盘还回去。**这一半和"收窗"同样要紧**：alpha 归零的窗仍然是 key，不交出去
+    /// 就会把用户接下来的键吞进一扇看不见的输入框——召唤时前台就是自己、`previousApp`
+    /// 交无可交，正是这一半负责的场景。
+    private func returnKeyToOrigin() {
+        if let app = previousApp, !app.isTerminated, app != NSRunningApplication.current {
+            app.activate(options: [])
+        } else if let origin = previousKeyWindow, origin !== window, origin.isVisible {
+            origin.makeKey()
+        }
+        forgetKeyOrigin()
+    }
+
+    private func forgetKeyOrigin() {
         previousApp = nil
+        previousKeyWindow = nil
     }
 
     /// 键盘要进输入框：页面收到 quickPanelFocus 后聚焦自己的输入区
@@ -584,7 +631,7 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     // MARK: - NSWindowDelegate
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        hidePanel()
+        hidePanel(restoreFocus: true)
         return false
     }
 
@@ -602,6 +649,32 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
 
     func windowDidBecomeKey(_ notification: Notification) {
         WindowHeaderLine.alignTrafficLights(in: window)
+    }
+
+    /// 失焦即收（Raycast/Atd 同款）：这是"悬浮面板"的默认语义——点到别处、切走应用就消失。
+    /// 键盘这一刻可能只是转手，所以等下一拍再看它落在谁手里（见 `dismissesOnLosingKey`）。
+    func windowDidResignKey(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.isVisible else { return }
+            guard Self.dismissesOnLosingKey(
+                stillKey: self.window.isKeyWindow,
+                toolTookKey: Self.ownToolHoldsKey
+            ) else { return }
+            self.hidePanel(restoreFocus: false)
+        }
+    }
+
+    /// "我们自己还有活没干完"的窗此刻拿着键盘——键盘是交给它了，但这不是"点到别处"。
+    /// 壳里能拿键盘的窗只有四扇：主窗（就是"点到别处"本身）、面板窗自己、截图 overlay
+    /// （`makeKeyAndOrderFront`，`CaptureOverlayPanel`）、系统面板（打开/另存）。后两扇各自的活
+    /// 干完都要回到面板页：＋ 选完的附件、截完的图（PITFALLS §8.6bis）——按失焦收掉就没人接。
+    private static var ownToolHoldsKey: Bool {
+        NSApp.keyWindow is NSSavePanel || NSApp.keyWindow is CaptureOverlayPanel
+    }
+
+    /// 失焦收起的判据（纯函数，便于单测）。
+    static func dismissesOnLosingKey(stillKey: Bool, toolTookKey: Bool) -> Bool {
+        !stillKey && !toolTookKey
     }
 
     func windowDidChangeScreen(_ notification: Notification) {

@@ -14,4 +14,24 @@ final class QuickPanelWindowTests: XCTestCase {
         // 高度上 AppKit 会把标题栏加在设定值之上（写 400、读回 434）：不小于设计下限即可。
         XCTAssertGreaterThanOrEqual(panel.window.minSize.height, minimum.height)
     }
+
+    /// ⌥Space 的判据（2026-10-14 用户报"有时候我要按两次，一次隐藏一次唤出"）：
+    /// 面板不置顶（SPEC-SEMANTICS §6.1），被别的应用或自家主窗盖住时 `isVisible` 仍是 true
+    /// ——盲判它就会把第一次按键吃成"收一扇看不见的窗"。只有"开着 + 拿着键盘 + 应用在前台"
+    /// 才是收起，其余一律唤出/带到前台。
+    func testHotKeyDismissesOnlyWhenPanelIsOpenAndKeyAndAppIsActive() {
+        XCTAssertTrue(QuickPanelController.hotKeyDismisses(isOpen: true, isKeyWindow: true, appIsActive: true))
+        XCTAssertFalse(QuickPanelController.hotKeyDismisses(isOpen: true, isKeyWindow: false, appIsActive: true))
+        XCTAssertFalse(QuickPanelController.hotKeyDismisses(isOpen: true, isKeyWindow: true, appIsActive: false))
+        XCTAssertFalse(QuickPanelController.hotKeyDismisses(isOpen: false, isKeyWindow: false, appIsActive: true))
+    }
+
+    /// 失焦收起的判据：键盘走了就收（点到别处、切走应用）；**我们自己还有活的窗拿走的键盘不算**
+    /// ——输入区 ＋ 的附件选择器、截图的 overlay，它们干完都要回到面板页（PITFALLS §8.6bis），
+    /// 面板收了就没人接那一投。
+    func testLosingKeyDismissesUnlessOneOfOurOwnToolsTookIt() {
+        XCTAssertTrue(QuickPanelController.dismissesOnLosingKey(stillKey: false, toolTookKey: false))
+        XCTAssertFalse(QuickPanelController.dismissesOnLosingKey(stillKey: true, toolTookKey: false))
+        XCTAssertFalse(QuickPanelController.dismissesOnLosingKey(stillKey: false, toolTookKey: true))
+    }
 }
