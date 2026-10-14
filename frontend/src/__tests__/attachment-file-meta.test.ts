@@ -22,8 +22,8 @@ describe("fileMeta", () => {
     expect(fileMeta(att({ status: "uploading" }), t)).toBe("上传中");
   });
 
-  it("草稿页（还没有会话可传）说待发送", () => {
-    expect(fileMeta(att({ status: "pending" }), t)).toBe("待发送");
+  it("草稿页（还没有会话可传）**不摆字**：附件在正文里、还没发出去，这一眼看得出来", () => {
+    expect(fileMeta(att({ status: "pending" }), t)).toBe("");
   });
 
   it("失败摆原因原话；没拿到原话才回落到「上传失败」", () => {
