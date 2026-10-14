@@ -275,7 +275,7 @@ button {
 .update-badge { color: var(--ink); }
 
 /* 更新说明卡（上面那颗钮 hover 出来的）：材质来自材质族共享组（本文件上方那条选择器
-   列表，`.update-card` 已登记），这里只写定位与内容。 */
+   列表，`.update-card` 已登记），这里只写尺寸与定位——**不描边**，范围由底色承担。 */
 .update-card {
   width: 340px;
   display: flex;
@@ -283,11 +283,10 @@ button {
   gap: 10px;
   padding: 12px 14px;
   border-radius: var(--dsh-radius-floating);
-  border: 1px solid var(--line);
   /* 与 .model-detail 同层：都是挂 body 的浮动卡 */
   z-index: var(--z-menu);
-  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
-  box-shadow: var(--shadow-pop-drop);
+  /* 投影挂本体：材质层只出材质与底色，自己不带任何装饰（[data-liquid-glass-backdrop]） */
+  box-shadow: var(--shadow-pop);
 }
 .update-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .update-card-title { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); }
