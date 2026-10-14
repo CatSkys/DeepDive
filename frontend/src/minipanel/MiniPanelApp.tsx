@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { installHostBridge, sendToShell } from "../host";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
+import { isKeybind } from "../keybinds";
 import { usePrefs } from "../prefs";
 import { useStore } from "../store";
 import { DialogHost } from "../components/DialogHost";
@@ -92,6 +93,11 @@ export function MiniPanelApp() {
         dispatchAppEvent(DD_EVENTS.composerPrefill, { text: `/${name}` });
       },
       quickPanelFocus: () => {
+        // 召唤即复位（用户 2026-10-14："关闭窗口后重新打开也要是新的窗口"）：面板只是
+        // alpha 归零，页面与 React 状态都留着——命令中心会原地再冒出来，搜索词与翻到的那一页
+        // 也还在。壳每次 showPanel 都在 makeKey 之后推这一条（见 focusComposerSoon），
+        // 所以"这一条到达"就是"面板刚被召唤"：先收卡，再把键盘交给输入框。
+        setOverlay(null);
         dispatchAppEvent(DD_EVENTS.composerFocus);
       },
       // 卡那一页按 Esc（它拿着键盘）→ 壳转回来：开合的事实源在本页（胶囊按钮在这儿）。
@@ -118,6 +124,23 @@ export function MiniPanelApp() {
       },
     });
     sendToShell({ type: "get-prefs" });
+  }, []);
+
+  // ⌘K 开命令中心（用户 2026-10-14："悬浮面板的命令中心要可以用 cmd+k 打开"）。
+  // 键位读注册表的 `command-palette`（默认 ⌘K、可被用户改键、可被关掉）——与卡片外的 ⌘K
+  // 面板同一个键位，语义也一样："当前这一面的命令面"。**这一层只管"开"**：卡片一打开，
+  // 第一响应者就交给卡那块 webview（壳 showCard 里 makeFirstResponder(cardWeb)），
+  // 面板页收不到键了，"再按一次收掉"那一半在 MiniCommandCenter 里。
+  // 捕获段（`true`）与 useAppKeybinds 同款；输入框聚焦时照放行——⌘K 不是文本编辑键
+  // （useAppKeybinds 的 typingAllowed 同因）。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isKeybind(e, "command-palette", storeRef.current.keybinds)) return;
+      e.preventDefault();
+      setOverlay("settings");
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   const active = store.activeSessionId;
