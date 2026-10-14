@@ -1,5 +1,6 @@
 import { siXiaomi, type SimpleIcon } from "simple-icons";
-// lobe 单色 SVG 资产（覆盖全部主流 AI 提供方）
+// 单色 SVG 资产：lobe 覆盖绝大多数提供方；lobe 没有的（commandcode）用随仓自持的官方符号
+import commandcodeSvgRaw from "../assets/commandcode.svg?raw";
 import alibabaSvgRaw from "@lobehub/icons-static-svg/icons/alibaba.svg?raw";
 import anthropicSvgRaw from "@lobehub/icons-static-svg/icons/anthropic.svg?raw";
 import azureSvgRaw from "@lobehub/icons-static-svg/icons/azure.svg?raw";
@@ -26,11 +27,14 @@ import vercelSvgRaw from "@lobehub/icons-static-svg/icons/vercel.svg?raw";
 import xaiSvgRaw from "@lobehub/icons-static-svg/icons/xai.svg?raw";
 import zaiSvgRaw from "@lobehub/icons-static-svg/icons/zai.svg?raw";
 
-// 模型提供方图标：@lobehub/icons-static-svg 单色 SVG + CSS mask 反白
-// （currentColor 随主题，亮暗通用）；lobe 缺失的（小米）回退 Simple Icons
-// 单色；再缺则首字母 monogram——三种来源合计覆盖全部提供方，无裸图标。
+// 模型提供方图标：单色 SVG + 反白（currentColor 随主题，亮暗通用）。三类来源合计
+// 覆盖全部提供方，无裸图标：① lobe 资产（多数）；② 随仓自持的官方符号（lobe 没有
+// 的那家，如 commandcode）；③ Simple Icons（小米）；④ 首字母 monogram 兜底。
 
-const LOBE: Record<string, string> = {
+/** provider id → 内联单色 SVG（lobe 资产与自持符号同住一处：查找只此一张表）。 */
+const MARKS: Record<string, string> = {
+  commandcode: commandcodeSvgRaw,
+  "commandcode-anthropic": commandcodeSvgRaw,
   "deepseek-official": deepseekSvgRaw,
   deepseek: deepseekSvgRaw,
   anthropic: anthropicSvgRaw,
@@ -74,8 +78,8 @@ const SI: Record<string, SimpleIcon> = {
   "xiaomi-token-plan-sgp": siXiaomi,
 };
 
-const lobeRawFor = (provider: string | undefined): string | undefined =>
-  provider ? LOBE[provider] ?? Object.entries(LOBE).find(([id]) => provider.startsWith(`${id}-`) || provider.startsWith(`${id}_`))?.[1] : undefined;
+const markFor = (provider: string | undefined): string | undefined =>
+  provider ? MARKS[provider] ?? Object.entries(MARKS).find(([id]) => provider.startsWith(`${id}-`) || provider.startsWith(`${id}_`))?.[1] : undefined;
 
 const siFor = (provider: string | undefined): SimpleIcon | undefined => {
   if (!provider) return undefined;
@@ -93,7 +97,7 @@ export function ProviderIcon({
   size?: number;
   className?: string;
 }) {
-  const lobe = lobeRawFor(provider);
+  const lobe = markFor(provider);
   if (lobe) {
     return (
       <span
