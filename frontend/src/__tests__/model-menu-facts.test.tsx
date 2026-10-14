@@ -1,6 +1,7 @@
 // 模型菜单基准详情卡测试：withFacts join 命中（**按模型名匹配，键不带提供方**）/
-// 未收录回退、成本刻度推导（引擎牌价优先、手抄档兜发不了价的）、按厂商分组、ⓘ 开合、
-// hover 换内容、搜索空组隐藏、点卡片不算外点。
+// 未收录回退、成本刻度推导（引擎牌价优先、手抄档兜发不了价的）、收图标注（同一张模型
+// 目录，手写路由声明模型条目时取它）、按厂商分组、ⓘ 开合、hover 换内容、搜索空组隐藏、
+// 点卡片不算外点。
 // portal 到 body 的节点不在 RTL 容器内——直接 document.querySelector
 // （仿 context-menu.test.tsx 的 portal 路线）。
 // @vitest-environment jsdom
@@ -8,7 +9,7 @@ import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
-import { benchKey, costMeter, costScaleFromPrices, withFacts } from "../modelFacts";
+import { benchKey, costMeter, costScaleFromPrices, modelVision, withFacts } from "../modelFacts";
 
 // jsdom 不实现 matchMedia（prefs.ts 初始化外观要用），补标准 stub
 if (!window.matchMedia) {
@@ -81,6 +82,9 @@ const opts: ModelOption[] = [
   },
 ];
 
+/** 造一个只填 provider/model 的选项（跨路由同名匹配的用例都在用它）。 */
+const opt = (provider: string, model: string): ModelOption => ({ provider, model, label: model, providerLabel: provider });
+
 /** 持开合 state 的壳：外点关闭真的会卸菜单，断言"点卡片不关"才有效。 */
 function Harness(props: { options: ModelOption[]; current: string }) {
   const ref = useRef<HTMLButtonElement>(null);
@@ -108,8 +112,6 @@ describe("模型基准登记表 join", () => {
 // 这张表此前按 `${provider}/${model}` 存，同一个模型在每条路由上各抄一份，新接的
 // 提供商（CommandCode）因为键对不上，详情卡整片"暂无基准数据"。
 describe("按模型名匹配（键不带提供方）", () => {
-  const opt = (provider: string, model: string): ModelOption => ({ provider, model, label: model, providerLabel: provider });
-
   it("benchKey：小写 + 只取最后一个 / 之后那段", () => {
     expect(benchKey("zai-org/GLM-5.2")).toBe("glm-5.2");
     expect(benchKey("MiniMaxAI/MiniMax-M3")).toBe("minimax-m3");
@@ -141,6 +143,33 @@ describe("按模型名匹配（键不带提供方）", () => {
     const out = withFacts([opt("commandcode", "tencent/hy4-preview"), opt("commandcode", "tencent/hy4")]);
     expect(out[0].facts).toBeUndefined();
     expect(out[1].facts).toBeUndefined();
+  });
+});
+
+// 收图同样是**模型**事实（用户 2026-10-14：提供方是无限的、模型是有限的——维护好模型，
+// 后面模型匹配上就有相应配置）。手写路由的模型在引擎目录里没有条目、能力无处继承，
+// 所以声明模型条目时从这里取判据。
+describe("模型目录：收图标注", () => {
+  it("按模型名匹配：带厂商前缀、带点、大小写都命中", () => {
+    expect(modelVision("deepseek/deepseek-v4.1-flash")).toBe(true);
+    expect(modelVision("moonshotai/Kimi-K3")).toBe(true);
+    expect(modelVision("Qwen/Qwen3.8-Flash")).toBe(true);
+  });
+
+  it("厂商没标收图的一律不收（引擎的默认口径，不替厂商放大能力）", () => {
+    for (const id of ["deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash", "zai-org/GLM-5.2", "zai-org/GLM-5", "MiniMaxAI/MiniMax-M2.7"]) {
+      expect(modelVision(id)).toBe(false);
+    }
+  });
+
+  it("目录外的陌生模型不收图（宁可本地早拒一张图，也别让已落库的请求中途失败）", () => {
+    expect(modelVision("acme/brand-new-model")).toBe(false);
+  });
+
+  it("只有能力标注的行不挂刻度（不冒充「收录了基准」，卡片仍是占位、也不声明工具）", () => {
+    const [o] = withFacts([opt("commandcode", "stepfun/Step-5-Preview")]);
+    expect(modelVision("stepfun/Step-5-Preview")).toBe(true);
+    expect(o.facts).toBeUndefined();
   });
 });
 

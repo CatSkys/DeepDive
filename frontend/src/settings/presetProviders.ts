@@ -9,6 +9,8 @@
 // **目录之外**的整条声明。表里的端点与分流规则来自厂商文档，并对着厂商自己的模型清单
 // 端点核过（2026-10-14 实测 `api.commandcode.ai/provider/v1/models`：89 条中 78 条只报
 // `/chat/completions`〔70 条另带 `/responses`〕、11 条 `claude-*` 只报 `/messages`）。
+// 模型能力（收不收图）端点不报,由**模型目录**（`modelFacts.ts` 的收图清单）给出——
+// 能力是模型的事实、不是提供商的事实，所以本表一个字都不写（见 `modelVision`）。
 
 /** 一条预置路由：引擎 llm-pi-ai.providers 的一个键。 */
 export interface PresetRoute {
@@ -83,3 +85,4 @@ export function splitByRoute<T extends { id: string }>(
     .map((route) => ({ route, models: models.filter((model) => route.takes(model.id)) }))
     .filter((bucket) => bucket.models.length > 0);
 }
+
