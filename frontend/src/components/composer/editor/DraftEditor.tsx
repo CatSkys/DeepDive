@@ -234,6 +234,11 @@ function extensions(
       ...historyKeymap,
     ]),
     drawSelection(),
+    /* **折行**：输入框里的内容一律软换行（与旧 textarea 同一个口径）。漏了这条会静默坏两处：
+       长正文/多颗胶囊横向溢出、被胶囊圆角裁掉（用户 2026-10-14 截图："截图导入不换行"），
+       以及折行判据报不出"内容高过一行"（没有可视行块、reportOverflow 恒 false）→ 输入框
+       永远停在单行态。 */
+    EditorView.lineWrapping,
     EditorView.contentAttributes.of({ spellcheck: "true" }),
     composerEditorTheme,
     slot.of([]),
@@ -290,11 +295,17 @@ function routeKey(event: KeyboardEvent, view: EditorView, routing: EditorKeyRout
   return false;
 }
 
-/** 内容有没有高过一行：最后那个可视行块的 top > 0 就是前面还有行（折了行）。
- *  用 CodeMirror 自己量出来的排版（lineBlockAt），不读外层盒子的 clientHeight——
- *  外层那个数在测试与真实环境里含义不同（也会被全局 stub 带偏）。 */
+/** 内容有没有高过一行。两条判据缺一不可：
+ *   · `doc.lines > 1`：手动换行（软换行不算逻辑行）；
+ *   · `contentHeight > 一行高`：**软换行**折出来的高度——只看逻辑行会漏掉它（一个逻辑行能
+ *     占好几行视觉行，lineBlockAt 的 top 仍是 0，用户 2026-10-14 截图"长内容不换行/不展开"
+ *     就是漏了这条 + 忘了开 lineWrapping）。
+ *  量的是 CodeMirror 自己的排版（contentHeight / defaultLineHeight），不读外层盒子的
+ *  clientHeight——外层那个数在测试与真实环境里含义不同（也会被全局 stub 带偏）。
+ *  contentHeight 来自上一趟量测，所以换行的**那一帧**可能还没更新：measure 完成后
+ *  CodeMirror 会再发一次 geometryChanged，这里跟着再报一次就收敛（一帧，看不见）。 */
 function reportOverflow(view: EditorView, report: (tall: boolean) => void): void {
-  report(view.state.doc.lines > 1 || view.lineBlockAt(view.state.doc.length).top > 0);
+  report(view.state.doc.lines > 1 || view.contentHeight > view.defaultLineHeight + 1);
 }
 
 /** 文档里"少了的附件"回吐给编排方：React 那份集合据此把附件摘掉（正文说了算）。
