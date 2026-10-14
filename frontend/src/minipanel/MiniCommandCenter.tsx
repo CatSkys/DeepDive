@@ -39,11 +39,14 @@ export type RegisterKeys = (handler: KeyHandler) => () => void;
 export function MiniCommandCenter({
   mode,
   sessionId,
+  sessionPinned,
   onClose,
 }: {
   mode: MiniOverlayMode;
   /** 设置模式的行集按脸给：有会话用会话那一支，否则草稿那一支。 */
   sessionId: string | null;
+  /** 这条会话当前是否置顶（由面板页经壳报来——卡页那份 store 看不到它，见 MiniSettingsRows 的置顶行）。 */
+  sessionPinned: boolean;
   onClose: () => void;
 }) {
   const { t } = useT();
@@ -160,7 +163,7 @@ export function MiniCommandCenter({
       <div className="mini-cc-body">
         {mode === "history"
           ? <MiniHistoryRows query={query} registerKeys={registerKeys} />
-          : <MiniSettingsRows sessionId={sessionId} registerKeys={registerKeys} query={query} />}
+          : <MiniSettingsRows sessionId={sessionId} sessionPinned={sessionPinned} registerKeys={registerKeys} query={query} />}
       </div>
     </div>
   );

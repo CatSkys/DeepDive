@@ -421,6 +421,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "screenshotHotkeyOn":
                     DSHAppPrefs.setScreenshotHotkeyOn(value)
                     registerScreenshotHotkey()
+                case "quickPanelPinned":
+                    // 快捷面板置顶（命令中心那一行）：偏好落壳，窗口层级立刻摆过去；
+                    // 这一条要**推回**两块面板承载页——标签的当前值在它们手上（同 language 那条：
+                    // 命令中心卡页是另一份 store，不推它就永远停在上一次的快照上）。
+                    DSHAppPrefs.setQuickPanelPinned(value)
+                    quickPanel.applyPinned()
+                    pushPrefs()
                 default: break
                 }
             } else if key == "sidebarWidth" {
@@ -1025,6 +1032,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "browserZoomRememberSite": BrowserZoom.remembersPerSite(),
             "browserTabSleepMinutes": BrowserTabs.sleepMinutes(),
             "modelDetail": DSHAppPrefs.modelDetail,
+            "quickPanelPinned": DSHAppPrefs.quickPanelPinned,
         ]
     }
 

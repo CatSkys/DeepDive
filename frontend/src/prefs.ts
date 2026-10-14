@@ -139,12 +139,20 @@ export function usePrefs() {
     setModelDetailState(v);
     sendToShell({ type: "set-pref", key: "modelDetail", value: v });
   }, []);
+  // 快捷面板**置顶**（命令中心那一行；默认关——默认是"点别处就收"，见 SPEC-SEMANTICS §6.1）。
+  // 事实源在壳（窗口层级要在页面加载前就摆好），这里只是它的镜像；改一次要壳推回来
+  // 才能让**两块**承载页的标签一起翻（命令中心卡页是另一份 store）。
+  const [quickPanelPinned, setQuickPanelPinnedState] = useState(false);
+  const setQuickPanelPinned = useCallback((v: boolean) => {
+    setQuickPanelPinnedState(v);
+    sendToShell({ type: "set-pref", key: "quickPanelPinned", value: v });
+  }, []);
   // 壳偏好下发（host-ready / get-prefs）：侧栏宽、语言、生效明暗、键位覆盖；
   // appearance=system 时系统明暗变化由壳经 themeChanged 实时推送——themeChanged 只到
   // 这里（不经 installHostBridge 的 handler 表），与主题相关只有 store 状态一处写入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "prefs" && payload) {
-      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean; quickWorkspacePath?: string; selectionToolbar?: string; selectionCommands?: string; screenshotHotkey?: string; screenshotHotkeyOn?: boolean };
+      const p = payload as { sidebarWidth?: number; language?: string; schemeDark?: boolean; appearance?: string; keybinds?: string; hotkeyOn?: boolean; hotkey?: string; onboarding?: string; browserZoomDefault?: number; browserZoomRememberSite?: boolean; browserTabSleepMinutes?: number; modelDetail?: boolean; quickPanelPinned?: boolean; quickWorkspacePath?: string; selectionToolbar?: string; selectionCommands?: string; screenshotHotkey?: string; screenshotHotkeyOn?: boolean };
       if (typeof p.sidebarWidth === "number" && p.sidebarWidth >= 200 && p.sidebarWidth <= 320) setSidebarWidthState(p.sidebarWidth);
       if (p.language === "zh" || p.language === "en") setLangState(p.language);
       if (typeof p.schemeDark === "boolean") setSchemeDark(p.schemeDark);
@@ -157,6 +165,7 @@ export function usePrefs() {
       if (typeof p.browserZoomRememberSite === "boolean") setBrowserZoomRememberSiteState(p.browserZoomRememberSite);
       if (typeof p.browserTabSleepMinutes === "number") setBrowserTabSleepMinutesState(p.browserTabSleepMinutes);
       if (typeof p.modelDetail === "boolean") setModelDetailState(p.modelDetail);
+      if (typeof p.quickPanelPinned === "boolean") setQuickPanelPinnedState(p.quickPanelPinned);
       if (typeof p.quickWorkspacePath === "string" && p.quickWorkspacePath) setQuickWorkspacePathState(p.quickWorkspacePath);
       if (typeof p.selectionToolbar === "string") setSelectionToolbarState(parseSelectionToolbar(p.selectionToolbar));
       if (typeof p.selectionCommands === "string") setSelectionCommandsState(parseSelectionCommands(p.selectionCommands));
@@ -188,6 +197,7 @@ export function usePrefs() {
     browserZoomRememberSite, setBrowserZoomRememberSite,
     browserTabSleepMinutes, setBrowserTabSleepMinutes,
     modelDetail, setModelDetail,
+    quickPanelPinned, setQuickPanelPinned,
     quickWorkspacePath,
     onboarding, setOnboarding,
     selectionToolbar, setSelectionToolbar,

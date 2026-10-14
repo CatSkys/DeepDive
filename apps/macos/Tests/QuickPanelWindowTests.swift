@@ -28,10 +28,22 @@ final class QuickPanelWindowTests: XCTestCase {
 
     /// 失焦收起的判据：键盘走了就收（点到别处、切走应用）；**我们自己还有活的窗拿走的键盘不算**
     /// ——输入区 ＋ 的附件选择器、截图的 overlay，它们干完都要回到面板页（PITFALLS §8.6bis），
-    /// 面板收了就没人接那一投。
-    func testLosingKeyDismissesUnlessOneOfOurOwnToolsTookIt() {
-        XCTAssertTrue(QuickPanelController.dismissesOnLosingKey(stillKey: false, toolTookKey: false))
-        XCTAssertFalse(QuickPanelController.dismissesOnLosingKey(stillKey: true, toolTookKey: false))
-        XCTAssertFalse(QuickPanelController.dismissesOnLosingKey(stillKey: false, toolTookKey: true))
+    /// 面板收了就没人接那一投。**置顶那一档（命令中心「面板置顶」）是唯一的例外**：开着它，
+    /// 点到别处也不收——那正是「除非开启指定」那句话里的"指定"。
+    func testLosingKeyDismissesUnlessPinnedOrOneOfOurOwnToolsTookIt() {
+        XCTAssertTrue(QuickPanelController.dismissesOnLosingKey(stillKey: false, toolTookKey: false, pinned: false))
+        XCTAssertFalse(QuickPanelController.dismissesOnLosingKey(stillKey: true, toolTookKey: false, pinned: false))
+        XCTAssertFalse(QuickPanelController.dismissesOnLosingKey(stillKey: false, toolTookKey: true, pinned: false))
+        XCTAssertFalse(QuickPanelController.dismissesOnLosingKey(stillKey: false, toolTookKey: false, pinned: true))
+    }
+
+    /// 置顶抬窗口层级（面板默认是普通层级——2026-10-13 复盘收回的那条不变）：
+    /// 「面板置顶」打开后要压在普通窗口之上，但仍低于药丸与注释窗（它们不该被面板盖住）。
+    func testPinnedPanelRaisesTheLevelButStaysUnderThePill() {
+        let normal = QuickPanelController.panelLevel(pinned: false)
+        let pinned = QuickPanelController.panelLevel(pinned: true)
+        XCTAssertEqual(normal, ShellWindowLevel.main)
+        XCTAssertGreaterThan(pinned.rawValue, normal.rawValue)
+        XCTAssertLessThan(pinned.rawValue, ShellWindowLevel.miniPanel.rawValue)
     }
 }
