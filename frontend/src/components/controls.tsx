@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { Check, MoreHorizontal } from "lucide-react";
 import { useBrowserPopup } from "../sidebar-right/useBrowserPopup";
 import rowsCss from "../settings/SettingsRows.module.css";
+import { GlassLayer } from "./GlassLayer";
 
 /** Global shared controls (settings sections + hero preset picker): monochrome
  *  toggle and custom dropdown (portaled so the options scroller cannot clip
@@ -96,6 +97,7 @@ export function Dropdown({ options, value, onChange, variant, block }: { options
         overflowY: "auto",
       }}
     >
+      <GlassLayer />
       {options.map((o) => {
         const Icon = o.icon;
         return (
@@ -210,6 +212,7 @@ export function RowMenu({ items, onSelect, label, nativePopup = false }: {
             minWidth: ROW_MENU_WIDTH,
           }}
         >
+          <GlassLayer />
           {items.map((item) => {
             const Icon = item.icon;
             return (
