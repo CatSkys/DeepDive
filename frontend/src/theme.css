@@ -625,7 +625,10 @@ button {
   font-size: var(--dsh-font-size-xl);
   outline: none;
 }
-.app.mini-panel .mini-cc-search input::placeholder { color: var(--ink-faint); }
+/* 占位字与卡片外的 ⌘K 面板同档（`--ink-3`），不是更浅的 `--ink-faint`：参考面板的
+   "Search for actions…" 实测最亮 133，正是面板底 52 上叠 40% 白的结果（0.4×255+0.6×52=133）
+   ——同一把尺子量下来，这一屏的占位字就是三档。 */
+.app.mini-panel .mini-cc-search input::placeholder { color: var(--ink-3); }
 .app.mini-panel .mini-cc-clear { flex: none; display: inline-flex; color: var(--ink-3); }
 .app.mini-panel .mini-cc-clear:hover { color: var(--ink); }
 .app.mini-panel .mini-cc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -739,12 +742,23 @@ button {
 .app.mini-panel .mini-cc-settings .panel-settings-line { justify-content: flex-start; }
 .app.mini-panel .mini-cc-settings .panel-settings-row { gap: 10px; }
 .app.mini-panel .mini-cc-settings .tip-keys-row { margin-left: auto; }
+/* 行上的字与图标都回到**一级**（--ink）：`.panel-settings-label` 全局那条是 `--ink-2`（60%），
+   那是主窗设置卡的形态——名称退后、右边的取值才是这行的主体。卡里已经没有取值了（见上），
+   名称自己就是主体，再压到 60% 就整行发灰。
+   两个来源都指向同一个值：① 参考面板实测——行标签与图标位置的像素都是 **纯白 255**，
+   而面板底色 52、键帽文字 174（= 60%，与我们 `.tip-keys-row.outline` 的 `--ink-2` 一致），
+   也就是说它那一屏里**只有芯片是次级**；Raycast 前端 CSS 里也能直接读到
+   `.standard-list-item__iconWrapper{color:var(--color-text-primary)}`；
+   ② 我们自己的 ⌘K 面板：`.row{color:var(--ink)}`——卡片此前比它暗两档，两边同名的一块面却两种亮度。
+   （`.rowIcon` 那边我们是 `--ink-2`、选中才转 `--ink`，与参考面板不同，那是面板自己的事，
+   不在这一处改。） */
+.app.mini-panel .mini-cc-settings .panel-settings-label { color: var(--ink); }
 .app.mini-panel .mini-cc-settings .panel-settings-icon {
   flex: none;
   display: inline-flex;
   width: 16px;
   justify-content: center;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 :where(html[data-hover-armed]) .app.mini-panel .mini-cc-settings .panel-settings-line:hover {
   background: var(--row-hover);
