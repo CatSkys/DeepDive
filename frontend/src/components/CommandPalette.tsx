@@ -174,9 +174,11 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
     // 五类的顺序就是列表顺序；列表平铺，每行尾部标自己的种类（参考图的做法），
     // 所以这里的分组只在建表时用来打 kind，渲染时不再有分组头。
+    // 两个游戏名不进词典（zh 同串，见 i18n-en/shell.ts 那两条注释），所以不套 t()——
+    // 套了是空转，还会让"t() 的源串都在词典里"那道门永远亮着红灯（i18n-coverage 测试）。
     const games: Row[] = [
-      { key: "deepdiving", icon: <Waves {...ROW_ICON} />, label: t("DeepDiving"), run: () => openDeepDiving() },
-      { key: "2048", icon: <LayoutGrid {...ROW_ICON} />, label: t("2048"), run: () => openGame2048() },
+      { key: "deepdiving", icon: <Waves {...ROW_ICON} />, label: "DeepDiving", run: () => openDeepDiving() },
+      { key: "2048", icon: <LayoutGrid {...ROW_ICON} />, label: "2048", run: () => openGame2048() },
     ].filter((r) => hit(r.label));
 
     return [
