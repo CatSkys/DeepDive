@@ -31,41 +31,50 @@ const PDF: Attachment = {
 /** 壳选择器挑来的文件：只有路径、没有字节。 */
 const PATH_ONLY: Attachment = { id: "a4", kind: "file", name: "clip.mov", status: "ready", path: "/tmp/clip.mov" };
 
+/** 词典桩：源串即回退，与 fileMeta 那条测试同一个用法。 */
+const t = (zh: string) => zh;
+
 function renderPill(att: Attachment) {
-  return render(<AttachmentPill att={att} onRemove={noop} onRetry={noop} onOpenImage={noop} />);
+  return render(<AttachmentPill att={att} t={t} onRemove={noop} onRetry={noop} onOpenImage={noop} />);
 }
 
-/** 悬停这颗胶囊（指针进场）。 */
+/** 悬停这颗胶囊（指针进场）。预览是 portal 到 body 的（编辑器滚动容器会裁掉它），
+ *  所以断言一律查 document。 */
 function hover(container: HTMLElement) {
   fireEvent.mouseEnter(container.querySelector(".att-chip")!);
+}
+
+/** 预览画面（挂在 body 上）。 */
+function preview(): Element | null {
+  return document.querySelector(".att-preview");
 }
 
 describe("附件胶囊", () => {
   it("图片：悬停出预览画面；胶囊点得开 Lightbox（字节常驻）", () => {
     const { container } = renderPill(IMAGE);
-    expect(container.querySelector(".att-preview")).toBeNull();
+    expect(preview()).toBeNull();
     hover(container);
-    expect(container.querySelector(".att-preview img")).not.toBeNull();
+    expect(document.querySelector(".att-preview img")).not.toBeNull();
     expect(container.querySelector(".att-chip")?.getAttribute("data-open")).toBe("lightbox");
   });
 
   it("视频：悬停出首帧画面", () => {
     const { container } = renderPill(VIDEO);
-    expect(container.querySelector(".att-preview")).toBeNull();
+    expect(preview()).toBeNull();
     hover(container);
-    expect(container.querySelector(".att-preview video")).not.toBeNull();
+    expect(document.querySelector(".att-preview video")).not.toBeNull();
   });
 
   it("非媒体（pdf）：悬停不弹预览", () => {
     const { container } = renderPill(PDF);
     hover(container);
-    expect(container.querySelector(".att-preview")).toBeNull();
+    expect(preview()).toBeNull();
   });
 
   it("只有路径、没有字节的媒体：不摆空白预览框", () => {
     const { container } = renderPill(PATH_ONLY);
     hover(container);
-    expect(container.querySelector(".att-preview")).toBeNull();
+    expect(preview()).toBeNull();
   });
 
   it("名字与状态摆在同一颗胶囊上，移除钮带无障碍名字", () => {
@@ -90,7 +99,7 @@ describe("附件胶囊", () => {
     try {
       const { container } = renderPill(IMAGE);
       hover(container);
-      expect(container.querySelector(".att-preview.above")).not.toBeNull();
+      expect(document.querySelector(".att-preview.above")).not.toBeNull();
     } finally {
       restore();
     }
@@ -101,9 +110,9 @@ describe("附件胶囊", () => {
     try {
       const { container } = renderPill(IMAGE);
       hover(container);
-      const preview = container.querySelector(".att-preview")!;
-      expect(preview).not.toBeNull();
-      expect(preview.classList.contains("above")).toBe(false);
+      const box = preview()!;
+      expect(box).not.toBeNull();
+      expect(box.classList.contains("above")).toBe(false);
     } finally {
       restore();
     }

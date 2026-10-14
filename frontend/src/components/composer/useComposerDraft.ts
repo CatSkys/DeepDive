@@ -2,7 +2,7 @@
 // localStorage，空稿清除、变更 250ms 防抖落盘。只管草稿键的存取；
 // 发送成功后的清除由编排方拿返回的 draftKey 自己做。
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** 草稿键：会话按 sessionId，新会话页（hero）按工作空间。 */
 export function draftKeyOf(sessionId: string | null, activeWorkspaceId: string | null): string | null {
@@ -18,13 +18,23 @@ export function writeDraft(key: string | null, text: string): void {
   else localStorage.removeItem(key);
 }
 
-export function useComposerDraft(sessionId: string | null, activeWorkspaceId: string | null) {
+export function useComposerDraft(
+  sessionId: string | null,
+  activeWorkspaceId: string | null,
+  /** 载入草稿时通知编排方：载入的是**整篇来源**（编辑器的文档要一起换成它，
+   *  正文里的附件原子随草稿一起丢——草稿本来就只存文本）。 */
+  onLoad?: (text: string) => void,
+) {
   const [text, setText] = useState("");
   // 草稿页（sessionId=null）按工作空间存：新会话页上打的字切走再回来不丢
   // （旧模型每个"新建会话"都是真会话、草稿天然有家；草稿化后 hero 是唯一落点）。
   const draftKey = draftKeyOf(sessionId, activeWorkspaceId);
+  const loadRef = useRef(onLoad);
+  loadRef.current = onLoad;
   useEffect(() => {
-    if (draftKey) setText(localStorage.getItem(draftKey) ?? "");
+    const loaded = draftKey ? localStorage.getItem(draftKey) ?? "" : "";
+    setText(loaded);
+    loadRef.current?.(loaded);
   }, [draftKey]);
   useEffect(() => {
     if (!draftKey) return;

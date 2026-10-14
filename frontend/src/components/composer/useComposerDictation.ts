@@ -8,11 +8,13 @@ import { DD_EVENTS } from "../../events";
 import { alertDialog } from "../DialogHost";
 
 export function useComposerDictation({
-  setText,
+  appendText,
   refocus,
 }: {
-  setText: React.Dispatch<React.SetStateAction<string>>;
-  /** final 落稿后回焦 textarea 并按新内容重新长高。 */
+  /** final 落稿：**追加**到草稿末尾（不能整篇替换——正文里的附件原子会被抹掉；
+   *  怎么接（有内容先补一个空格）由编辑器的 appendText 管）。 */
+  appendText: (text: string) => void;
+  /** final 落稿后回焦编辑器并重新长高。 */
   refocus: () => void;
 }) {
   // 听写（壳端 SFSpeechRecognizer）：partial 进 placeholder，final 落入草稿。
@@ -29,14 +31,14 @@ export function useComposerDictation({
     } else if (cmd === "dictation-final") {
       setListening(false);
       setPartial("");
-      setText((current) => (current.trim() ? `${current.trimEnd()} ${text}`.trim() : text));
+      appendText(text);
       refocus();
     } else if (cmd === "dictation-error") {
       setListening(false);
       setPartial("");
       void alertDialog({ message: text || globalT("听写失败") });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 订阅只挂一次：setText 为 setState 稳定引用，refocus 仅触达稳定 taRef（拖拽订阅同款）
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 订阅只挂一次：appendText 经 ref 读实时值，refocus 仅触达稳定的编辑器 ref（拖拽订阅同款）
   }), []);
 
   const toggleDictation = () => {

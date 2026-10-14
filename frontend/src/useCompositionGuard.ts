@@ -25,9 +25,12 @@ export function useCompositionGuard() {
   return {
     onCompositionStart: () => { composing.current = true; },
     onCompositionEnd: () => { composing.current = false; endedAt.current = Date.now(); },
-    /** keydown 守卫：组合中 / 刚结束的余波 → true（调用方直接 return）。 */
-    swallow: (e: React.KeyboardEvent) => {
-      if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return true;
+    /** keydown 守卫：组合中 / 刚结束的余波 → true（调用方直接 return）。
+     *  两种事件都收：输入框的文本层是 CodeMirror（原生 KeyboardEvent），
+     *  队列/目标/卡片里的输入框仍是 React 合成事件。 */
+    swallow: (e: React.KeyboardEvent | KeyboardEvent) => {
+      const native = "nativeEvent" in e ? e.nativeEvent : e;
+      if (native.isComposing || native.keyCode === 229) return true;
       const aftermath =
         composing.current || (e.key === "Enter" && Date.now() - endedAt.current < GRACE_MS);
       if (aftermath && e.key === "Enter") e.preventDefault();
