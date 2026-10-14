@@ -24,13 +24,15 @@ import { adjudicateSlashLine } from "../commandLine";
 import { ComposerMenu } from "./composer/ComposerMenu";
 import { ComposerPlusMenu, type PlusAction } from "./composer/ComposerPlusMenu";
 import { EffortPicker, type EffortFace } from "./composer/EffortPicker";
-import { FileIcon } from "../session/FileIcon";
-import { fileMeta } from "./composer/fileMeta";
+import { AttachmentPill } from "./composer/AttachmentPill";
 import { uuid } from "../uuid";
 import { renderSelectionPrompt } from "../settings/selectionCommands";
 
 /* ─────────────────────────────────────────────────────────
- * COMPOSER — single glass pill: [＋] [textarea] [思考强度] [容量圈] [发送]
+ * COMPOSER — single glass pill: [＋] [附件胶囊… 输入框] [思考强度] [容量圈] [发送]
+ *
+ * 附件在**输入框内部**：胶囊排在输入框前面（同一行，见 composer/AttachmentPill.tsx），
+ * 不再另起一行摆在胶囊外面。媒体附件悬停出预览画面。
  *
  * 思考强度档位是输入框自己的控件（用户 2026-10-09 定稿：与模型选择分开，
  * 档位跟输入走、模型仍留头部）——数据经 effort prop 由调用方给，见
@@ -157,6 +159,20 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   /** 文件回执在引擎侧失效（FILE_NOT_STAGED）时重传拿新回执：排掉旧文件部件，
    *  按重传顺序换成新的（字节一直留在 chip 上，见 useComposerAttachments）。 */
   const refreshFileReceipts = async (sid: string): Promise<string[] | null> => uploadNow(sid, true);
+
+  /** 摘掉一颗附件胶囊：上传中的先把这次上传取消掉，再移出清单。 */
+  const removeAttachment = (id: string) => {
+    const att = attachments.find((a) => a.id === id);
+    if (att?.kind === "file" && att.status === "uploading") cancelUpload(id);
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  /** 失败那颗胶囊上的「重试」：会话内直接重传（同一条链会把其余未就绪的也补上）；
+   *  草稿页没有会话可传，回 pending 等发送时建会话补传。 */
+  const retryAttachment = (id: string) => {
+    if (sessionId) void uploadNow(sessionId);
+    else requeueFile(id);
+  };
 
   /** 附件准入拒绝后的等效重投：判到图片类就把这批图片按通用文件原件投递（同一份
    *  字节走文件回执），判到文件类就重传拿新回执；内容与顺序都不变，发送不被打断。 */
@@ -595,33 +611,6 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   const showCtx = hasContextData(ctx);
   return (
     <div className="composer-wrap" ref={rootRef}>
-      {attachments.length > 0 && (
-        <div className="composer-chips">
-          {attachments.map((a, i) => (
-            a.kind === "image" ? (
-              <span key={a.id} className="att-chip" onClick={() => setPreview(a)}>
-                <img className="att-chip-thumb" src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} />
-                <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
-              </span>
-            ) : (
-              <span key={a.id} className="att-chip file" data-status={a.status} data-tip={a.error}>
-                {/* 名字不做悬浮注释（用户 2026-10-09 定稿：没必要）——chip 自己已经把名字
-                    截断摆着了；只有失败原因还留着 tooltip，那是 chip 展不开的原话。
-                    图标位与官方 FileCard 同款：**上传中换成转圈**，其余时候就是文件类型图标
-                    （图标永远在，不会出现"前面那块不知道是什么"）；状态写在名字右边，
-                    大小用与消息里那颗文件 chip 同一个 sizeText。 */}
-                {a.status === "uploading"
-                  ? <span className="att-file-spin" aria-hidden="true" />
-                  : <FileIcon file={a.name} size={16} />}
-                <span className="att-file-name">{a.name}</span>
-                <span className={`att-file-meta${a.status === "error" ? " failed" : ""}`}>{fileMeta(a, t)}</span>
-                {a.status === "error" && <button className="att-file-retry" onClick={(e) => { e.stopPropagation(); if (sessionId) void uploadNow(sessionId); else requeueFile(a.id); }}>{t("重试")}</button>}
-                <button className="att-chip-x" aria-label={t("删除")} onClick={(e) => { e.stopPropagation(); if (a.status === "uploading") cancelUpload(a.id); setAttachments((prev) => prev.filter((_, j) => j !== i)); }}>×</button>
-              </span>
-            )
-          ))}
-        </div>
-      )}
       <div className="composer-anchor">
         {menu && (
           <ComposerMenu menu={menu} query={query} rows={rows} active={active} setActive={setActive} onPick={pick} />
@@ -633,9 +622,6 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
               **不许**有 backdrop-root 触发器，否则本层会被锁进胶囊内部＝一块实心
               （完整约束见 theme.css 的 [data-liquid-glass-backdrop] 段）。 */}
           <div data-liquid-glass-backdrop aria-hidden="true" />
-          {/* 行数量测件：与输入框同款式的只读 textarea，零高度、不可见，占第 2 列
-              （＝单行态文本列宽）。列宽与当前布局无关，所以行数判据不会抖。 */}
-          <textarea ref={probeRef} className="composer-probe" readOnly tabIndex={-1} aria-hidden="true" value={text} />
           <button
             type="button"
             className="composer-icon"
@@ -648,49 +634,72 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
           >
             <Plus size={16} strokeWidth={2} />
           </button>
-          <textarea
-            ref={taRef}
-            rows={1}
-            value={text}
-            placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
-            onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); }}
-            onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
-            onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
-            onCompositionEnd={() => { ime.onCompositionEnd(); setComposing(false); }}
-            onPaste={(e) => {
-              // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
-              const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
-              if (files.length === 0) return;
-              e.preventDefault();
-              for (const f of files) addImageFile(f);
-            }}
-            onKeyDown={(e) => {
-              if (ime.swallow(e)) return;
-              if (menu && rows.length > 0) {
-                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          {/* 文本列：附件胶囊在前、输入框紧随其后（同一行；一行放不下时输入框整条
+              换到下一行）。量测件与输入框同格叠放（.composer-text），所以"折成两行
+              没有"的判据跟着附件挤掉多少宽度一起走。 */}
+          <div className="composer-field">
+            {attachments.length > 0 && (
+              <div className="composer-atts">
+                {attachments.map((a) => (
+                  <AttachmentPill
+                    key={a.id}
+                    att={a}
+                    onRemove={removeAttachment}
+                    onRetry={retryAttachment}
+                    onOpenImage={setPreview}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="composer-text">
+              {/* 行数量测件：与输入框同款式的只读 textarea，零高度、不可见，与输入框
+                  同格叠放（宽度＝输入框宽度）。 */}
+              <textarea ref={probeRef} className="composer-probe" readOnly tabIndex={-1} aria-hidden="true" value={text} />
+              <textarea
+                ref={taRef}
+                rows={1}
+                value={text}
+                placeholder={listening ? (partial || t("正在听写…")) : running ? t("继续输入以排队后续修改") : t("输入任务，@ 引用 · / 命令")}
+                onChange={(e) => { setText(e.target.value); setCursorState(e.target.selectionStart ?? 0); setDismissed(false); }}
+                onSelect={(e) => setCursorState(e.currentTarget.selectionStart ?? 0)}
+                onCompositionStart={() => { ime.onCompositionStart(); setComposing(true); }}
+                onCompositionEnd={() => { ime.onCompositionEnd(); setComposing(false); }}
+                onPaste={(e) => {
+                  // 剪贴板图片按 macOS 惯例走 ⌘V（＋ 菜单不再设剪贴板项）；纯文本走默认粘贴
+                  const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+                  if (files.length === 0) return;
                   e.preventDefault();
-                  setActive((current) => (current + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
-                  return;
-                }
-                if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
-                  e.preventDefault();
-                  const r = rows[active];
-                  if (r) pick(r);
-                  return;
-                }
-              }
-              if (e.key === "Escape") {
-                if (menu) { e.preventDefault(); setDismissed(true); }
-                return;
-              }
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
-                const other = busyEnter === "queue" ? "steer" : "queue";
-                void submit(e.metaKey || e.ctrlKey ? other : undefined);
-              }
-            }}
-          />
+                  for (const f of files) addImageFile(f);
+                }}
+                onKeyDown={(e) => {
+                  if (ime.swallow(e)) return;
+                  if (menu && rows.length > 0) {
+                    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setActive((current) => (current + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
+                      return;
+                    }
+                    if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+                      e.preventDefault();
+                      const r = rows[active];
+                      if (r) pick(r);
+                      return;
+                    }
+                  }
+                  if (e.key === "Escape") {
+                    if (menu) { e.preventDefault(); setDismissed(true); }
+                    return;
+                  }
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    // 修饰键取另一行为：设置 queue 时 Cmd/Ctrl+Enter=steer，反之亦然
+                    const other = busyEnter === "queue" ? "steer" : "queue";
+                    void submit(e.metaKey || e.ctrlKey ? other : undefined);
+                  }
+                }}
+              />
+            </div>
+          </div>
           {/* 右侧控件簇：思考强度胶囊（有档位的模型才有）→ 容量圈 → 单槽位
               （空=听写 → 有内容=发送 → 运行中=停止）。同一格一个 flex 行，
               宽态整簇换到底部行。 */}
