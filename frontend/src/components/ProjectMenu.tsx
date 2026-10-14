@@ -5,7 +5,8 @@ import { Check, Folder, Plus, Search } from "lucide-react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { openNewProjectDialog } from "./NewProjectDialog";
-import { popupRect } from "./ModelMenu";
+import { placeFloating } from "./floatingPlacement";
+import type { FloatingPlacement } from "./floatingPlacement";
 import { GlassLayer } from "./GlassLayer";
 
 // 项目切换菜单（搜索 + 项目列表（文件夹图标 + 名称，当前项目右侧打勾）+ 底部
@@ -23,12 +24,12 @@ export function ProjectMenu({ onClose, anchorRef }: { onClose: () => void; ancho
   const { t } = useT();
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  const [rect, setRect] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+  const [rect, setRect] = useState<FloatingPlacement | null>(null);
 
   // 量触发器必须在绘制前完成，否则首帧会闪在左上角（ModelMenu 同款）
   useLayoutEffect(() => {
     const el = anchorRef.current;
-    if (el) setRect(popupRect(el, { width: MENU_WIDTH, maxHeight: MENU_MAX_HEIGHT }));
+    if (el) setRect(placeFloating(el.getBoundingClientRect(), { width: MENU_WIDTH, height: MENU_MAX_HEIGHT }));
   }, [anchorRef]);
 
   // click-outside 关闭：portal 挂 body，触发器也算"内部"——点触发器由父级的

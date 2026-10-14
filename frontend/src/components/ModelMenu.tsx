@@ -20,6 +20,8 @@ import { HoverScrollText } from "./HoverScrollText";
 import { ModelDetailCard } from "./ModelDetailCard";
 import type { ModelBench, ModelPrice } from "../modelFacts";
 import { GlassLayer } from "./GlassLayer";
+import { placeFloating } from "./floatingPlacement";
+import type { FloatingPlacement } from "./floatingPlacement";
 
 export interface ModelOption {
   provider: string;
@@ -63,21 +65,6 @@ const MENU_MAX_HEIGHT = 460;
 /** 与 .model-detail 的 width 同步（卡片贴菜单旁定位要按它算）。 */
 const CARD_WIDTH = 240;
 
-/** 触发器下方的弹层位置：下方放不下且上方更宽裕就翻上去，两侧留 8px 边距。
- *  弹层宽度与限高由调用方给（各家菜单尺寸不同），翻转判定全站共用这一条。 */
-export function popupRect(anchor: HTMLElement, opts: { width: number; maxHeight: number }): { top: number; left: number; maxHeight: number } {
-  const r = anchor.getBoundingClientRect();
-  const below = window.innerHeight - r.bottom - 8;
-  const above = r.top - 8;
-  const flip = below < 260 && above > below;
-  const maxHeight = Math.min(opts.maxHeight, Math.max(200, (flip ? above : below) - 4));
-  return {
-    top: flip ? Math.max(8, r.top - maxHeight - 4) : r.bottom + 4,
-    left: Math.max(8, Math.min(r.left, window.innerWidth - opts.width - 12)),
-    maxHeight,
-  };
-}
-
 export function ModelMenu({
   options,
   current,
@@ -99,14 +86,14 @@ export function ModelMenu({
   const { modelDetail: infoOn, setModelDetail: setInfoOn } = usePrefs();
   const [query, setQuery] = useState("");
   const [hovered, setHovered] = useState<string | null>(null);
-  const [rect, setRect] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+  const [rect, setRect] = useState<FloatingPlacement | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // 量触发器必须在绘制前完成，否则首帧会闪在左上角（useLayoutEffect）
   useLayoutEffect(() => {
     const el = anchorRef.current;
-    if (el) setRect(popupRect(el, { width: MENU_WIDTH, maxHeight: MENU_MAX_HEIGHT }));
+    if (el) setRect(placeFloating(el.getBoundingClientRect(), { width: MENU_WIDTH, height: MENU_MAX_HEIGHT }));
   }, [anchorRef]);
 
   useEffect(() => {
