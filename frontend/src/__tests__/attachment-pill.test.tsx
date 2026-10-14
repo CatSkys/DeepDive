@@ -74,4 +74,38 @@ describe("附件胶囊", () => {
     expect(screen.getByText("2.0 KB")).not.toBeNull();
     expect(screen.getByRole("button", { name: "删除" })).not.toBeNull();
   });
+
+  /** 把胶囊摆到离视口底 `gap` 的位置（jsdom 不排版，矩形只能自己钉）。 */
+  function stubPillBottom(gap: number) {
+    const original = Element.prototype.getBoundingClientRect;
+    const bottom = window.innerHeight - gap;
+    Element.prototype.getBoundingClientRect = function () {
+      return { x: 0, y: bottom - 26, left: 0, top: bottom - 26, right: 120, bottom, width: 120, height: 26, toJSON: () => ({}) } as DOMRect;
+    };
+    return () => { Element.prototype.getBoundingClientRect = original; };
+  }
+
+  it("下方放不下就翻到胶囊上方（输入框钉在会话底那一档）", () => {
+    const restore = stubPillBottom(20);
+    try {
+      const { container } = renderPill(IMAGE);
+      hover(container);
+      expect(container.querySelector(".att-preview.above")).not.toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it("下方放得下就开在胶囊下方（草稿页那种四周有地方的一档）", () => {
+    const restore = stubPillBottom(400);
+    try {
+      const { container } = renderPill(IMAGE);
+      hover(container);
+      const preview = container.querySelector(".att-preview")!;
+      expect(preview).not.toBeNull();
+      expect(preview.classList.contains("above")).toBe(false);
+    } finally {
+      restore();
+    }
+  });
 });
