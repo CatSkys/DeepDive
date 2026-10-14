@@ -1358,7 +1358,7 @@ button {
   /* 与 .ddMenu 同层：都是挂 body 的浮动菜单（portaled 菜单的层序） */
   z-index: var(--z-menu);
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
-  box-shadow: --shadow-pop-drop;
+  box-shadow: var(--shadow-pop-drop);
 }
 .model-menu::before {
   content: "";
@@ -1450,7 +1450,7 @@ button {
   /* 与 .model-menu 同层：都是挂 body 的浮动菜单 */
   z-index: var(--z-menu);
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
-  box-shadow: --shadow-pop-drop;
+  box-shadow: var(--shadow-pop-drop);
 }
 .model-detail-view { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; }
 .model-detail-name {
@@ -1533,10 +1533,10 @@ button {
   border: 1px solid var(--line);
   overflow: hidden;
   z-index: var(--z-menu);
-  animation: menu-in var(--dur-med) var(--ease-out) both;
+  animation: menu-in var(--dur-med) var(--ease-out) backwards;
   transform-origin: top center;
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
-  box-shadow: --shadow-pop-drop;
+  box-shadow: var(--shadow-pop-drop);
 }
 .ws-menu::before {
   content: "";
@@ -1706,10 +1706,18 @@ button {
     --glass-fill-dialog: var(--glass-overlay-strong);
     --glass-fill-palette: var(--glass-overlay);
   }
-  [data-liquid-glass-backdrop] {
+  /* 已实测能托管的宿主（输入胶囊、迷你控件簇）：材质顶上，CSS 模糊撤下——两层玻璃叠着会发灰。 */
+  .composer [data-liquid-glass-backdrop],
+  .mini-controls [data-liquid-glass-backdrop] {
     -apple-visual-effect: -apple-system-glass-material-media-controls;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+  /* 其余浮面：系统材质是**增强**、CSS 模糊是**地板**。托管没成立时（或被祖先的
+     backdrop root 锁住时）至少还有磨砂，不会变成"透明的一块"——2026-10-14 用户给的八张
+     截图全是这个症状：面只剩描边，底下的字清清楚楚穿过来。 */
+  [data-liquid-glass-backdrop] {
+    -apple-visual-effect: -apple-system-glass-material-media-controls;
   }
 }
 /* 窗口失焦：**内容退后、材质留下**——内容与附件 chip 压到 40%，材质层豁免（它连着
@@ -2264,10 +2272,10 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   border-radius: var(--dsh-radius-card);
   border: 1px solid var(--line);
   /* 材质（玻璃底/模糊/投影）来自配方组；面板自身不得再挂 backdrop-filter */
-  animation: pop-in var(--dur-fast) var(--ease-out) both;
+  animation: pop-in var(--dur-fast) var(--ease-out) backwards;
   transform-origin: bottom;
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
-  box-shadow: --shadow-pop-drop;
+  box-shadow: var(--shadow-pop-drop);
 }
 .menu-noise {
   position: absolute;
@@ -2573,7 +2581,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   border-radius: var(--dsh-radius-bubble);
   animation: fadein var(--dur-fast) var(--ease-out);
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
-  box-shadow: --shadow-pop-drop;
+  box-shadow: var(--shadow-pop-drop);
 }
 .find-input {
   width: 176px;
@@ -2621,7 +2629,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   border: 1px solid var(--line-strong);
   /* 前缀顺序勿倒（见配方组注释）：-webkit- 在前 */
   box-shadow: var(--shadow-pop-drop);
-  animation: pop-in var(--dur-fast) var(--ease-out) both;
+  animation: pop-in var(--dur-fast) var(--ease-out) backwards;
   transform: translateX(-50%);
   user-select: none;
 }
@@ -3901,10 +3909,10 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
-  animation: menu-in var(--dur-fast) var(--ease-out) both;
+  animation: menu-in var(--dur-fast) var(--ease-out) backwards;
   transform-origin: top left;
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
-  box-shadow: --shadow-pop-drop;
+  box-shadow: var(--shadow-pop-drop);
 }
 .ctx-item {
   display: flex;
@@ -4025,6 +4033,10 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+/* 入场只许 `backwards`，**禁 `both`**：这两个关键帧的终态就是基础态（opacity 1 /
+   transform none），`both` 只是让 transform 永久挂着——那会把宿主变成常驻堆叠上下文与
+   backdrop root，材质层/磨砂全部采不到面外内容（PITFALLS §1.10；2026-10-14 用户截图里
+   "菜单底下的字全看得见"就是这个）。 */
 @keyframes menu-in {
   from { opacity: 0; transform: translateY(-4px) scale(.97); }
   to { opacity: 1; transform: none; }
@@ -4043,7 +4055,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 .approval-card { animation: pop-in var(--dur-slow) var(--ease-out) both; }
 
 /* 弹层菜单：缩放浮现（transform-origin 跟随锚点）。 */
-.model-menu { animation: menu-in var(--dur-med) var(--ease-out) both; transform-origin: top left; }
+.model-menu { animation: menu-in var(--dur-med) var(--ease-out) backwards; transform-origin: top left; }
 /* 菜单内视图切换（根 → 模型 / 推理等级）：子视图滑入。 */
 .model-menu-view { display: flex; flex-direction: column; min-height: 0; animation: view-in var(--dur-med) var(--ease-out) both; }
 
@@ -4863,7 +4875,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   flex-direction: column;
   gap: 5px;
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
-  box-shadow: --shadow-pop-drop;
+  box-shadow: var(--shadow-pop-drop);
 }
 .ctx-pop-row { display: flex; justify-content: space-between; gap: 16px; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .ctx-pop-row b { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
