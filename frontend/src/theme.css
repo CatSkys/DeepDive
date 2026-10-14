@@ -1770,10 +1770,16 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 /* 附件胶囊组：多颗时自己也能折行，占满一行再往下排 */
 .composer-atts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
-/* 输入框那一格：量测件与输入框**同一格叠放**，所以量到的宽度就是输入框的宽度
-   ——附件挤掉多少它跟着窄多少，「折成两行没有」与真实排版同一份判据 */
-.composer-text { flex: 1 1 auto; min-width: 88px; display: grid; }
-.composer-text > textarea { grid-area: 1 / 1; }
+/* 编辑器（文本列第 2 项）：与附件胶囊同处一条流——接在最后一颗胶囊后面写。
+   落脚宽度给它一个下限（320，约 15-20 字的正文宽）：剩下的宽度不够就整条折到下一行
+   占满整行——**不**让它缩成一条贴着胶囊的窄柱（长正文挤在 100 多像素里会拉成一列
+   细高柱）。下限随容器收窄（min(320px, 100%)），迷你面板那种窄宿主里不会撑破。
+   选择器带上 .composer：下面 `.composer textarea`（同特异度、但排在文件后面）用
+   `flex: 1; min-width: 0` 会把这套整个盖掉——同特异度只看先后，这里必须更特异。 */
+.composer .composer-field > textarea {
+  flex: 1 1 320px;
+  min-width: min(320px, 100%);
+}
 /* 右侧控件簇占第 3 列（auto）：档位胶囊 / 容量圈 / 单槽位（发送·停止·听写）同住
    一格 flex 行。三颗各自占列会长成「有档位 × 有容量圈 × 宽态」一张组合表，收成
    一簇后换行只有一处规则（用户 2026-10-09：档位从模型菜单挪进输入框）。 */
@@ -1786,27 +1792,17 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
      的圆钮，紧挨着读成一块；用户 2026-10-09 定稿"三个之间可以大些"。 */
   gap: 12px;
 }
-/* 多行（参考图 4）：文本独占首行，＋/右簇换到底部行，圆角转大。多行 = 内容在
-   文本列宽下折成两行以上（Composer 的 .composer-probe 量出来的行数），软换行
-   与手动换行同等对待——整框只按内容长高，底边不动即向上生长。展开态两侧内距
-   12（单行态 16/8 的不对称在宽胶囊里就不合身了）。 */
+/* 多行（参考图 4）：文本独占首行，＋/右簇换到底部行，圆角转大。多行 = 内容高过单行
+   （Composer 读的是文本列那一格的实测高度：文本折行 / 附件胶囊折行 / 编辑器被挤到
+   下一行，三种都算），软换行与手动换行同等对待——整框只按内容长高，底边不动即向上
+   生长。展开态两侧内距 12（单行态 16/8 的不对称在宽胶囊里就不合身了）。 */
 .composer.wide { grid-template-rows: auto auto; row-gap: 8px; border-radius: var(--dsh-radius-bubble); padding: 12px 12px 8px; }
-/* 宽态：附件胶囊行在上、文本独占一行在下。多行文本里把胶囊留在首行旁边，它会与
-   第一行文字的行基线错开（胶囊 26 高、行高 20），分家读起来才稳。 */
-.composer.wide .composer-field { grid-column: 1 / -1; grid-row: 1; flex-direction: column; align-items: stretch; row-gap: 8px; }
-.composer.wide .composer-text { flex: none; }
+/* 宽态里文本列整条占满首行（＋ 与右簇让到底部行）、**仍是那一条会折行的流**：胶囊与
+   文本继续混排（照 Atd 的 expanded：编辑区整条拓开，胶囊仍在自己那一行里），不分成
+   上下两段。 */
+.composer.wide .composer-field { grid-column: 1 / -1; grid-row: 1; }
 .composer.wide .composer-icon { grid-row: 2; grid-column: 1; }
 .composer.wide .composer-actions { grid-row: 2; grid-column: 1 / -1; justify-self: end; }
-/* 行数量测件：与输入框同格叠放（.composer-text 里）、零高度、不绘制、不交互——只为读
-   它的 scrollHeight 得折行行数。宽度由那一格给（与输入框同宽），所以「几行」的判据
-   与当前是单行态还是宽态无关。 */
-.composer textarea.composer-probe {
-  height: 0;
-  min-height: 0;
-  overflow: hidden;
-  visibility: hidden;
-  pointer-events: none;
-}
 .composer textarea {
   flex: 1;
   min-width: 0;
@@ -1832,7 +1828,16 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   max-height: 160px;
   overflow-wrap: anywhere;
 }
-.composer textarea::placeholder { color: var(--ink-3); }
+/* 占位符**不折行**：它只是一句提示，折了行会把空输入框自己撑高——附件占掉宽度后
+   文本列变窄，提示语折成两行、编辑器的 scrollHeight 跟着变 56（autoGrow 按它定高），
+   于是"空框 + 一颗附件"就长成两行高、＋ 与右簇在框里居中（用户 2026-10-14 报障的
+   那一版正是这么来的）。Atd 的占位符也是 nowrap + 截断（.cm-composer-empty::before）。
+   窄列里提示语被裁短，比撑高整框好。 */
+.composer textarea::placeholder {
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+}
 .composer-icon,
 .composer-mic,
 .composer-send {
@@ -1929,9 +1934,11 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   max-width: 100%;
   height: 26px;
   padding: 0 4px 0 8px;
-  border: 1px solid var(--line);
   border-radius: var(--dsh-radius-bubble);
-  background: var(--fill-soft);
+  /* 与输入胶囊同一块玻璃上的一颗**底色分层**的胶囊：**不描边**（体内流内胶囊一律靠
+     底色区分，见 UI-SPEC §2.2 与页内查找那颗。描边会在玻璃上叠出第二层轮廓，
+     读成"框里还有一框"——用户 2026-10-14 定稿）。 */
+  background: var(--fill-strong);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
 }
@@ -1950,7 +1957,9 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 .att-chip-meta.failed { color: var(--dsh-signal-danger); }
 .att-chip[data-status="pending"], .att-chip[data-status="uploading"] { opacity: .72; }
-.att-chip[data-status="error"] { border-color: var(--dsh-signal-danger); color: var(--ink); }
+/* 失败态：靠名字右边那截红字 + 一颗「重试」说清，胶囊自己不再改色（描边已取消，
+   底色是"这是一颗胶囊"的语言，不该被状态挪用它；红字那条已经是信号色）。 */
+.att-chip[data-status="error"] { color: var(--ink); }
 .att-chip-spin {
   width: 10px; height: 10px; flex: none;
   border-radius: 50%;
