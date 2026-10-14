@@ -92,6 +92,16 @@ describe("输入框里的附件胶囊", () => {
     await waitFor(() => expect(container.querySelector(".att-atom")).toBeNull());
   });
 
+  it("悬停图片胶囊出画面（媒体判据与字节都在编辑器适配层）", async () => {
+    const { container } = renderComposer();
+    await pasteImage(container);
+    expect(document.querySelector(".att-preview")).toBeNull();
+    fireEvent.mouseEnter(container.querySelector(".att-chip")!);
+    expect(document.querySelector(".att-preview img")).not.toBeNull();
+    fireEvent.mouseLeave(container.querySelector(".att-chip")!);
+    await waitFor(() => expect(document.querySelector(".att-preview")).toBeNull());
+  });
+
   it("内容高过一行就进宽态（＋ 与右簇换到底部行，不再垂直居中在整块框里）", async () => {
     // 判据由编辑器自己量自己的排版报出（Composer 的 onOverflow）：jsdom 不排版，
     // 折行量不出来，但**多行内容**（doc.lines > 1）是编辑器自己知道的事实——

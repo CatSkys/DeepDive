@@ -1969,17 +1969,23 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
    为什么用 clip-path 而不是 padding-right：padding 会把整颗撑宽 20px，紧跟其后的正文
    跟着跳 20px（悬停时整行在抖）。裁的是**绘制**、布局宽度不动，所以行内其它字一动不动，
    而内容的位置确实让出来了（用户 2026-10-14 定稿：内容填满、悬停时减少内容位置出叉）。 */
-.att-chip-body { display: inline-block; white-space: nowrap; }
+.att-chip-body {
+  display: inline-block;
+  white-space: nowrap;
+  /* 最小宽度（用户 2026-10-14 定稿"加个最小宽度"）：= 图标那一截（图标 14 + 间距 5）
+     + 一个短名字的余地（约 32）+ 移除钮那一条（20）。短名字的胶囊因此尾部留有余地，
+     悬停时裁掉的是那片**空白**而不是名字；名字本来就够长的胶囊不受影响（宽度由内容撑）。 */
+  min-width: 71px;
+}
 .att-chip-body > * { vertical-align: middle; }
 .att-chip-body > * + * { margin-left: 5px; }
 /* 悬停时**右边裁掉一条**给移除钮（那 20px = 钮的位置，见下）。为什么裁而不撑宽：
    padding 会把整颗撑宽 20px，紧跟其后的正文跟着跳（悬停时整行在抖）；裁的是**绘制**、
    布局宽度不动，行内其它字一动不动，而内容的位置确实让出来了——用户 2026-10-14 定稿：
    "内容填满，hover 的时候减少内容位置，出现叉"。
-   代价（已知、接受）：名字已经短到不足那一条时，被裁掉的是名字的尾巴（"a.png" 悬停时
-   只剩头一个字符）。真机上附件名普遍偏长（截图/微信图/下载件），短名字这一档先这样；
-   真要治就得给胶囊兜一个最小宽度——那又变成"平时也空着给叉"，与定稿相冲。 */
-.att-chip:hover .att-chip-body { clip-path: inset(0 20px 0 0); }
+   裁切只对**带移除钮**的那颗生效（消息里那颗没有钮，内容不该被裁）。短名字靠内容那一截的
+   最小宽度兜住：悬停时裁掉的是尾部那片空白，不是名字。 */
+.att-chip[data-removable]:hover .att-chip-body { clip-path: inset(0 20px 0 0); }
 /* 点得开 Lightbox 的胶囊（图片部件）：鼠标给放大镜 */
 .att-chip[data-open="lightbox"] { cursor: zoom-in; }
 /* 图标与 26 的行高之间差半格，往下压 2px 才在视觉中线上（Atd 同款取法） */
@@ -2342,24 +2348,6 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .preview-frame { flex: 1; min-height: 0; border: none; background: #fff; }
 .preview-frame[src*=".html"], .preview-frame[sandbox] { background: #fff; }
 
-/* 用户消息里的文件 chip（0.1.5 历史 file 块）与工具结果图片行 */
-/* 文件 chip：与输入框里那颗附件胶囊（.att-chip，26 高）同一套——图标 + 名、两端全圆
-   （radius.bubble，30 高的盒子上被裁成半高整圆端；别写 999px，§2.4）。**不描边**：
-   有底色的胶囊一律靠底色分层（UI-SPEC §1.1 / §458，用户 2026-10-14 重申"不要用描边，
-   还是用颜色来区分"）——`--fill-soft` 那种 3% 的底在卡面上几乎没有边，所以底色提到
-   `--fill`（与消息流里另一颗文件 chip `.produced-file` 同一个值；输入框那颗在玻璃上，
-   再强一档用 `--fill-strong`）。 */
-.user-file-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  height: 30px; padding: 0 10px;
-  border-radius: var(--dsh-radius-bubble);
-  background: var(--fill);
-  color: var(--ink-2); font-size: var(--dsh-font-size-sm);
-}
-/* chip 用 gap 排版，图标自带的右边距在这里是多余的 */
-.user-file-chip .file-icon, .att-chip .file-icon { margin-right: 0; }
-.user-file-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.user-file-size { color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
 .tool-result-images { display: flex; gap: 8px; margin: 4px 0 2px 26px; }
 .tool-result-images img { width: 92px; height: 68px; object-fit: cover; border-radius: var(--dsh-radius-keycap); border: 1px solid var(--line-strong); cursor: zoom-in; }
 
@@ -5759,19 +5747,7 @@ html[data-tooltip] .tip {
 .user-attachment-thumb img, .user-attachment-thumb video { width: 100%; height: 100%; object-fit: cover; }
 .user-attachment-loading { width: 100%; height: 100%; background: var(--fill); animation: pulse var(--loop-breathe) ease-in-out infinite; }
 /* 视频缩略图上的播放角标：叠在任意亮度的帧上，配色不随主题（与 .lightbox-close 同语言） */
-.user-attachment-play {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, .5);
-  color: #fff;
-}
+
 /* Lightbox 里的视频：按视口适配，控件交给播放器自己 */
 .lightbox-video { max-width: 94vw; max-height: 94vh; flex: none; margin: auto; }
 

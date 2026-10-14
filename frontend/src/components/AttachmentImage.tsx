@@ -1,18 +1,23 @@
 import { useEffect, useState } from "react";
-import { Play } from "lucide-react";
 import { api } from "../api";
 import { Lightbox } from "./Lightbox";
-import { FileIcon } from "../session/FileIcon";
+import { AttachmentPill } from "./AttachmentPill";
 import { resolveFileIconName } from "../session/fileIcons";
 import { sizeText } from "../session/format";
 import { localMediaUrl } from "../session/localMedia";
+// 词典走模块级的 t（与排队区/插话区同一套）：消息流里这几个组件不保证在
+// Provider 里渲染（队列快照也能画），所以不读 context——那一层由 useT 的调用方
+// 维护 currentLang（会话页随处都有输入框在渲染）。
+import { t } from "../i18n";
 import type { ContentBlock } from "../types";
 
-// 用户消息附件（3.2 收尾 + 0.1.5 通用文件）：attachment 引用块的渲染——
-// 图片出缩略图（点击 Lightbox 放大），**视频按同一口径出首帧缩略图 + 播放角标**
-// （点击 Lightbox 里播），其余通用文件出 chip（按类型图标 + 名字 + 大小）。
+// 用户消息附件（3.2 收尾 + 0.1.5 通用文件）：attachment 引用块的渲染——**一律胶囊**
+// （与输入框里那颗同一个组件，用户 2026-10-14 定稿"保持统一"）：图片/视频把字节当
+// 悬停预览、点开进 Lightbox；其余通用文件出图标 + 名字 + 大小。
 // 字节经 session.attachment 拉取，attachmentId 全局缓存（历史回放与实时帧
 // 可能重复出现同一附件）。
+// **工具结果的图片不走这里**（AttachmentThumb 的 92×68 缩略图）：那是工具输出的内容，
+// 不是用户带的附件。
 
 interface Att {
   attachmentId: string;
@@ -58,30 +63,8 @@ function fileRefsOf(content: readonly ContentBlock[]): Array<{ attachmentId: str
     });
 }
 
-/** 视频缩略图：与图片同一尺寸/同一条附件带，首帧当封面（`#t=0.001` 让 WebKit 落一帧），
- *  叠一枚播放角标；点击进 Lightbox 播。字节来自**本端上传时留的 blob URL**——引擎的
- *  session/attachment 只服务图片（文件部件回 ATTACHMENT_NOT_REFERENCED），文件字节
- *  拿不回来（见 session/localMedia.ts）。拿不到 URL 时调用方退回文件 chip，不摆空白框。 */
-function VideoThumb({ url, name, onOpen }: { url: string; name: string; onOpen: (src: string, name?: string) => void }) {
-  return (
-    <button
-      type="button"
-      className="user-attachment-thumb"
-      onClick={() => onOpen(url, name)}
-      data-tip={name}
-      aria-label={name}
-    >
-      <video src={`${url}#t=0.001`} preload="metadata" muted playsInline />
-      <span className="user-attachment-play" aria-hidden="true">
-        <Play size={14} fill="currentColor" strokeWidth={0} />
-      </span>
-    </button>
-  );
-}
-
-/** 用户消息的附件带：图片出缩略图（点击 Lightbox）、视频出首帧缩略图、通用文件出
- *  图标 + 名字 + 大小。传的是**内容块**而不是事件本体：排队区手里只有队列快照里的
- *  content，没有事件。 */
+/** 用户消息的附件带：**一律胶囊**（与输入框里那颗同一个组件）。传的是**内容块**而不是
+ *  事件本体：排队区手里只有队列快照里的 content，没有事件。 */
 export function UserAttachments({ sessionId, content }: { sessionId: string; content: readonly ContentBlock[] }) {
   const [lightbox, setLightbox] = useState<{ src: string; name?: string; kind?: "video" } | null>(null);
   const atts = attachmentsOf(content);
@@ -90,24 +73,43 @@ export function UserAttachments({ sessionId, content }: { sessionId: string; con
   return (
     <div className="user-attachments">
       {atts.map((a) => (
-        <Thumb key={a.attachmentId} sessionId={sessionId} att={a} onOpen={(src, name) => setLightbox({ src, name })} />
+        <ImageCapsule key={a.attachmentId} sessionId={sessionId} att={a} t={t}
+          onOpen={(src, name) => setLightbox({ src, name })} />
       ))}
       {files.map((f) => {
-        // 视频且本端有它的字节（刚上传过）→ 缩略图（同图片口径）；否则按类型出
-        // 图标 + 名字 + 大小的 chip——没有字节就摆空白框是骗人的
+        // 视频且本端有它的字节（刚上传过）→ 胶囊 + 首帧悬停画面；否则出
+        // 图标 + 名字 + 大小——没有字节就不摆画面（宁可没有，也不摆一块空白）
         const videoUrl = resolveFileIconName(f.name) === "video" ? localMediaUrl(f.attachmentId) : undefined;
         return videoUrl ? (
-          <VideoThumb key={f.attachmentId} url={videoUrl} name={f.name} onOpen={(src, name) => setLightbox({ src, name, kind: "video" })} />
+          <AttachmentPill key={f.attachmentId} name={f.name} icon="file" t={t}
+            preview={{ src: videoUrl, video: true }}
+            onOpen={() => setLightbox({ src: videoUrl, name: f.name, kind: "video" })} />
         ) : (
-          <span key={f.attachmentId} className="user-file-chip" data-tip={f.name}>
-            <FileIcon file={f.name} size={16} />
-            <span className="user-file-name">{f.name}</span>
-            {f.bytes !== undefined && <span className="user-file-size">{sizeText(f.bytes)}</span>}
-          </span>
+          <AttachmentPill key={f.attachmentId} name={f.name} icon="file" t={t}
+            meta={f.bytes !== undefined ? sizeText(f.bytes) : undefined} />
         );
       })}
       {lightbox && <Lightbox src={lightbox.src} alt={lightbox.name} kind={lightbox.kind} onClose={() => setLightbox(null)} />}
     </div>
+  );
+}
+
+/** 用户消息里的图片胶囊：字节拉回来当悬停画面，点开进 Lightbox。 */
+function ImageCapsule({ sessionId, att, t, onOpen }: {
+  sessionId: string;
+  att: Att;
+  t: (zh: string) => string;
+  onOpen: (src: string, name?: string) => void;
+}) {
+  const src = useAttachmentBytes(sessionId, att.attachmentId);
+  return (
+    <AttachmentPill
+      name={att.name ?? att.attachmentId.slice(0, 16)}
+      icon="image"
+      t={t}
+      preview={src ? { src, video: false } : null}
+      onOpen={src ? () => onOpen(src, att.name) : undefined}
+    />
   );
 }
 

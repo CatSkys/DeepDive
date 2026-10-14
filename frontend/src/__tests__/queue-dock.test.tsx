@@ -3,7 +3,7 @@
 // 点别处收回；「立即」把它转成插话（next-step）。插话中的消息不摆这里——那条
 // 走消息形态（SteerQueue，用户 2026-10-10 定稿）。
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { QueueDock } from "../session/QueueDock";
 import type { SessionQueuedItem } from "../types";
@@ -64,16 +64,15 @@ describe("QueueDock", () => {
     expect(screen.getByText("排队中")).toBeTruthy();
     expect(screen.getByText("图片 · 文件")).toBeTruthy();
     expect(container.querySelector(".user-attachments")).toBeNull();
-    // 展开：出附件带——图片缩略图 + 文件 chip（图标 + 名字 + 大小）
+    // 展开：出附件带——**一律胶囊**（与输入框里那颗同一个组件）
     screen.getByText("图片 · 文件").click();
     expect(await screen.findByText("报告.pdf")).toBeTruthy();
-    expect(container.querySelector(".user-attachments .user-attachment-thumb")).toBeTruthy();
-    expect(container.querySelector(".user-attachments .user-file-chip")).toBeTruthy();
-    // 文件 chip 出**按类型**的图标（FileIcon 的 .file-icon）：pdf 与 txt 的图标必须不同
-    const pdfIcon = container.querySelector(".user-file-chip .file-icon")?.innerHTML ?? "";
+    expect(container.querySelectorAll(".user-attachments .att-chip")).toHaveLength(2);
+    // 胶囊出**按类型**的图标（FileIcon 的 .file-icon）：pdf 与 txt 的图标必须不同
+    const pdfIcon = container.querySelector(".att-chip .file-icon")?.innerHTML ?? "";
     expect(pdfIcon).toContain("svg");
     const txt = render(<QueueDock sessionId="s" items={[{ ...withFiles, id: "t", message: { id: "t", content: [{ type: "file", attachment: { attachmentId: "att-3", name: "笔记.txt", bytes: 10 } }] } }]} />);
-    expect(txt.container.querySelector(".user-file-chip .file-icon")?.innerHTML).not.toBe(pdfIcon);
+    expect(txt.container.querySelector(".att-chip .file-icon")?.innerHTML).not.toBe(pdfIcon);
     // 引擎的排队编辑只收文本（改一次就丢附件）：编辑钮禁用，立即/删除照旧
     const edit = await screen.findByLabelText("编辑排队消息");
     expect((edit as HTMLButtonElement).disabled).toBe(true);
@@ -81,28 +80,31 @@ describe("QueueDock", () => {
     expect(screen.getByText("立即")).toBeTruthy();
   });
 
-  it("视频附件：本端有字节时出缩略图（首帧 + 播放角标），没有则退回文件 chip", async () => {
+  it("视频附件：本端有字节时胶囊带首帧悬停画面，没有则只是胶囊", async () => {
     const withVideo: SessionQueuedItem = {
       id: "v",
       rpcId: "rpc-v",
       placement: "queued",
       message: { id: "v", content: [{ type: "file", attachment: { attachmentId: "att-v", name: "clip.mp4", bytes: 1024 } }] },
     };
-    // 没有本端字节（历史回放/重启后）：退回按类型图标的 chip，不摆空白框
+    // 没有本端字节（历史回放/重启后）：还是胶囊（按类型图标），只是悬停不弹画面
     const bare = render(<QueueDock sessionId="s" items={[withVideo]} />);
     screen.getByText("视频").click();
     expect(await screen.findByText("clip.mp4")).toBeTruthy();
-    expect(bare.container.querySelector(".user-file-chip")).toBeTruthy();
-    expect(bare.container.querySelector(".user-attachment-thumb")).toBeNull();
+    const bareChip = bare.container.querySelector(".user-attachments .att-chip")!;
+    expect(bareChip).toBeTruthy();
+    fireEvent.mouseEnter(bareChip);
+    expect(document.querySelector(".att-preview")).toBeNull();
     bare.unmount();
-    // 本端刚上传过（blob URL 在）：出缩略图 + 播放角标
+    // 本端刚上传过（blob URL 在）：同一颗胶囊，悬停出首帧画面
     rememberLocalMedia("att-v", "blob:probe");
     const { container } = render(<QueueDock sessionId="s" items={[withVideo]} />);
     screen.getByText("视频").click();
     await screen.findByText("立即"); // 等展开这一帧落定，再查附件带的形状
-    expect(container.querySelector(".user-attachments .user-attachment-thumb")).toBeTruthy();
-    expect(container.querySelector(".user-attachment-play")).toBeTruthy();
-    expect(container.querySelector(".user-file-chip")).toBeNull();
+    const chip = container.querySelector(".user-attachments .att-chip")!;
+    expect(chip).toBeTruthy();
+    fireEvent.mouseEnter(chip);
+    expect(document.querySelector(".att-preview video")).toBeTruthy();
   });
 
   it("展开后点编辑：文本装进输入框（保存/取消两枚钮）", async () => {

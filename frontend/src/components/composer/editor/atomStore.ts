@@ -11,6 +11,7 @@ export interface AtomHost {
   attachment(id: string): Attachment | undefined;
   onRemove(id: string): void;
   onRetry(id: string): void;
+  /** 点开大图（图片部件的胶囊）。 */
   onOpenImage(att: ImageAttachment): void;
 }
 
