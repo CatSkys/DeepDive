@@ -34,6 +34,9 @@ final class ScreenshotController {
   enum Outcome {
     /// 成图：文件已落盘，页面按既有附件通道摄入。
     case delivered(Delivered)
+    /// 成图 + 用户写的那句话（工具条上的提问）：页面把两者当**一条消息**直接发出去，
+    /// 与划词命令同一口径——不经输入框草稿。
+    case asked(Delivered, text: String)
     /// 图进了剪贴板，页面不收东西。
     case copied
     case cancelled
@@ -72,8 +75,16 @@ final class ScreenshotController {
       regions.remember(
         capture.selection, displayID: capture.displayID, displayFrame: capture.displayFrame)
       do {
-        let stored = try await library.store(capture, capturedAt: capturedAt, snapshot: snapshot)
-        return .delivered(Delivered(image: stored.image, context: stored.context, capturedAt: capturedAt))
+        return .delivered(try await storing(capture, capturedAt: capturedAt, snapshot: snapshot))
+      } catch {
+        return .failed(error)
+      }
+    case .asked(let capture, let text, let capturedAt, let snapshot):
+      regions.remember(
+        capture.selection, displayID: capture.displayID, displayFrame: capture.displayFrame)
+      do {
+        return .asked(
+          try await storing(capture, capturedAt: capturedAt, snapshot: snapshot), text: text)
       } catch {
         return .failed(error)
       }
@@ -105,12 +116,25 @@ final class ScreenshotController {
       return .needsPermission
     case .confirmed(let capture, let capturedAt, _):
       do {
-        let stored = try await library.store(capture, capturedAt: capturedAt, snapshot: nil)
-        return .delivered(Delivered(image: stored.image, context: stored.context, capturedAt: capturedAt))
+        return .delivered(try await storing(capture, capturedAt: capturedAt, snapshot: nil))
+      } catch {
+        return .failed(error)
+      }
+    case .asked(let capture, let text, let capturedAt, _):
+      do {
+        return .asked(try await storing(capture, capturedAt: capturedAt, snapshot: nil), text: text)
       } catch {
         return .failed(error)
       }
     }
+  }
+
+  /// 成图落盘并包成页面要的那两个文件路径；确认与带话两条收尾共用这一份。
+  private func storing(
+    _ capture: CaptureConfirmation, capturedAt: Date, snapshot: WindowSnapshot?
+  ) async throws(BridgeError) -> Delivered {
+    let stored = try await library.store(capture, capturedAt: capturedAt, snapshot: snapshot)
+    return Delivered(image: stored.image, context: stored.context, capturedAt: capturedAt)
   }
 
   /// 结束进行中的会话（面板/热键要取消时）；调用方的请求答 `cancelled`。
@@ -127,6 +151,8 @@ final class ScreenshotController {
     case cancelled
     case notPermitted
     case confirmed(CaptureConfirmation, capturedAt: Date, snapshot: WindowSnapshot)
+    /// 带话收尾（工具条上的提问）：同确认，外加用户写的那句话。
+    case asked(CaptureConfirmation, text: String, capturedAt: Date, snapshot: WindowSnapshot)
     /// 结果按用户要求进了剪贴板（同确认，但页面不收附件）。
     case copied(CaptureConfirmation)
     /// 会话没能跑起来（预检过了但采集失败等）；文案已成型，直接交给页面。
@@ -178,6 +204,9 @@ final class ScreenshotController {
       return .failed(BridgeError(ShellStrings.shared.text(.screenshotNotPrepared)))
     case .confirmed(let capture):
       return .confirmed(capture, capturedAt: presented.capturedAt, snapshot: presented.snapshot)
+    case .asked(let capture, let text):
+      return .asked(
+        capture, text: text, capturedAt: presented.capturedAt, snapshot: presented.snapshot)
     case .copied(let capture):
       if reopening == nil {
         regions.remember(

@@ -1,11 +1,12 @@
 import AppKit
 
 /// The annotation step of a capture session (``AnnotationEditing``): a canvas over the
-/// committed selection, a glass toolbar beside it and, while there is something to style, the
-/// style bar next to the toolbar; all are subviews of the host overlay view. Annotations are in
-/// the host's view points, so they stay on the screen while the selection moves or resizes;
-/// the canvas and the bars follow the selection, and the export takes what lies inside it.
-/// Focus and key routing between the canvas and the host are described on
+/// committed selection, a glass toolbar beside it and, in the slot next to the toolbar, the style
+/// bar while there is something to style or the chat bar while a message is being typed
+/// (``AnnotationChatBar``, opened by the toolbar's ask button); all are subviews of the host
+/// overlay view. Annotations are in the host's view points, so they stay on the screen while the
+/// selection moves or resizes; the canvas and the bars follow the selection, and the export takes
+/// what lies inside it. Focus and key routing between the canvas and the host are described on
 /// ``AnnotationCanvasView``.
 ///
 /// The model, hit-testing and geometry are AICore's (`Annotation*.swift`); this type wires the
@@ -16,6 +17,7 @@ final class AnnotationEditor: AnnotationEditing {
   var onConfirm: (() -> Void)?
   var onCancel: (() -> Void)?
   var onCopy: (() -> Void)?
+  var onAsk: ((String) -> Void)?
   var onInteriorClaimChange: ((Bool) -> Void)?
 
   private let store = AnnotationStore()
@@ -27,6 +29,7 @@ final class AnnotationEditor: AnnotationEditing {
   private let canvas: AnnotationCanvasView
   private let toolbar = AnnotationToolbar()
   private let styleBar = AnnotationStyleBar()
+  private let chatBar = AnnotationChatBar()
 
   private var display: FrozenDisplay?
   private var selection = CGRect.zero
@@ -70,11 +73,15 @@ final class AnnotationEditor: AnnotationEditing {
     styleBar.onChange = { [weak self] in self?.restyle($0, burst: $1) }
     toolbar.onUndo = { [weak self] in self?.store.undo() }
     toolbar.onRedo = { [weak self] in self?.store.redo() }
+    toolbar.onChat = { [weak self] in self?.toggleChat() }
     toolbar.onCancel = { [weak self] in self?.onCancel?() }
     toolbar.onConfirm = { [weak self] in self?.confirm() }
     toolbar.onCopy = { [weak self] in self?.copy() }
     toolbar.onDrag = { [weak self] in self?.moveBars($0) }
     styleBar.onDrag = { [weak self] in self?.moveBars($0) }
+    chatBar.onDrag = { [weak self] in self?.moveBars($0) }
+    chatBar.onSend = { [weak self] in self?.ask($0) }
+    chatBar.onClose = { [weak self] in self?.closeChat() }
   }
 
   func show(in host: NSView, selection: CGRect, display: FrozenDisplay) {
@@ -85,9 +92,11 @@ final class AnnotationEditor: AnnotationEditing {
     canvas.backdrop = display.image
     toolbar.applyStrings()
     styleBar.applyStrings()
+    chatBar.applyStrings()
     host.addSubview(canvas)
     host.addSubview(toolbar)
     host.addSubview(styleBar)
+    host.addSubview(chatBar)
     selectionDidChange(selection)
     refresh()
     focusCanvas()
@@ -121,9 +130,11 @@ final class AnnotationEditor: AnnotationEditing {
   func hide() {
     interaction.cancelGesture()
     textEditor.cancel()
+    chatBar.close()
     canvas.removeFromSuperview()
     toolbar.removeFromSuperview()
     styleBar.removeFromSuperview()
+    chatBar.removeFromSuperview()
     canvas.backdrop = nil
     interaction.tool = nil
     picker.reset()
@@ -164,7 +175,9 @@ final class AnnotationEditor: AnnotationEditing {
   /// deselects, else drops the tool. False when none applied, so the key goes on to the
   /// session, which cancels.
   private func stepBack() -> Bool {
-    if textEditor.isEditing {
+    if chatBar.isOpen {
+      closeChat()
+    } else if textEditor.isEditing {
       textEditor.end()
     } else if interaction.isGesturing {
       interaction.cancelGesture()
@@ -266,6 +279,35 @@ final class AnnotationEditor: AnnotationEditing {
     onCopy?()
   }
 
+  /// The toolbar's ask button: opens or closes the chat bar. Only one bar sits in the slot beside
+  /// the toolbar at a time (the style bar steps aside), so the toolbar keeps its place as the chat
+  /// bar comes and goes (``placeToolbar()``).
+  private func toggleChat() {
+    if chatBar.isOpen {
+      closeChat()
+    } else {
+      textEditor.end()
+      chatBar.open()
+      refresh()
+    }
+  }
+
+  /// Closes the chat bar: the style bar comes back and the keyboard returns to the canvas, so the
+  /// next Esc (the ladder in ``stepBack()``) cancels the capture as usual.
+  private func closeChat() {
+    guard chatBar.isOpen else { return }
+    chatBar.close()
+    refresh()
+    focusCanvas()
+  }
+
+  /// Sends the message with this capture; text still being typed as an annotation is committed
+  /// first, so the export includes it.
+  private func ask(_ text: String) {
+    textEditor.end()
+    onAsk?(text)
+  }
+
   private func focusCanvas() {
     guard !textEditor.isEditing, canvas.superview != nil else { return }
     canvas.window?.makeFirstResponder(canvas)
@@ -276,7 +318,8 @@ final class AnnotationEditor: AnnotationEditing {
     toolbar.update(
       tool: interaction.tool, canUndo: store.undoManager.canUndo,
       canRedo: store.undoManager.canRedo)
-    if let target = styleTarget {
+    // The chat bar takes the style bar's slot while it is open; closing it brings the style back.
+    if let target = styleTarget, !chatBar.isOpen {
       styleBar.update(style: target.style, controls: target.controls)
       styleBar.isHidden = false
     } else {
@@ -303,22 +346,24 @@ final class AnnotationEditor: AnnotationEditing {
     return controls.isEmpty ? nil : (target.style, controls)
   }
 
-  /// Both bars as one block (``AnnotationToolbarLayout``), beside the selection or where the
+  /// The two bars as one block (``AnnotationToolbarLayout``), beside the selection or where the
   /// user dragged them, with room kept for the style bar's widest form so the toolbar stays put
-  /// while the style bar comes and goes or narrows.
+  /// while the style bar comes and goes or narrows. The open chat bar takes that second slot (one
+  /// bar at a time).
   private func placeToolbar() {
     guard let host = toolbar.superview else { return }
+    let second = chatBar.isOpen ? chatBar.fittingSize : styleBar.fullSize
     let frames =
       if let movedOrigin {
         AnnotationToolbarLayout.frames(
-          toolbar: toolbar.fittingSize, styleBar: styleBar.fullSize, at: movedOrigin,
-          within: host.bounds)
+          toolbar: toolbar.fittingSize, styleBar: second, at: movedOrigin, within: host.bounds)
       } else {
         AnnotationToolbarLayout.frames(
-          toolbar: toolbar.fittingSize, styleBar: styleBar.fullSize, beside: selection,
+          toolbar: toolbar.fittingSize, styleBar: second, beside: selection,
           within: host.bounds)
       }
     toolbar.frame = frames.toolbar
-    styleBar.frame = CGRect(origin: frames.styleBar.origin, size: styleBar.fittingSize)
+    let secondBar: NSView = chatBar.isOpen ? chatBar : styleBar
+    secondBar.frame = CGRect(origin: frames.styleBar.origin, size: secondBar.fittingSize)
   }
 }

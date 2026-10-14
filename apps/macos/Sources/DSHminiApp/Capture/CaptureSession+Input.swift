@@ -183,6 +183,7 @@ extension CaptureSession: CaptureOverlayDelegate {
     editor.onConfirm = { [weak self] in self?.confirm() }
     editor.onCancel = { [weak self] in self?.cancel() }
     editor.onCopy = { [weak self] in self?.copy() }
+    editor.onAsk = { [weak self] text in self?.ask(text) }
     editor.onInteriorClaimChange = { [weak self, weak owner] claimed in
       self?.interiorClaimed = claimed
       owner?.refreshCursor()

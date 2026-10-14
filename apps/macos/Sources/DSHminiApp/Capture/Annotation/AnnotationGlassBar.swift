@@ -38,12 +38,16 @@ final class AnnotationGlassBar: NSView {
   /// make the drag jitter. (The capture overlay's window never moves, so both agree there.)
   private var dragStart: CGPoint?
 
-  init(groups: [[NSView]], padding: CGFloat = AnnotationGlassBar.padding) {
+  /// `spacing` is the gap between the controls of one group (the dividers keep their own 6 pt on
+  /// either side): the toolbar's circular buttons sit closer than a field and its send button do.
+  init(
+    groups: [[NSView]], padding: CGFloat = AnnotationGlassBar.padding, spacing: CGFloat = 2
+  ) {
     self.groups = groups
     super.init(frame: .zero)
     stack.orientation = .horizontal
     stack.alignment = .centerY
-    stack.spacing = 2
+    stack.spacing = spacing
     let inset = padding
     stack.edgeInsets = NSEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
     for (index, group) in groups.enumerated() {

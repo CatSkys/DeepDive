@@ -1401,10 +1401,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pendingCapture = nil
         var body: [String: Any]
         var delivered = false
+        // 工具条上的提问（`chat`）：页面把这句话与这张图当**一条消息**直接发出去。
+        var asked = false
         switch outcome {
         case .delivered(let shot):
             body = ["ok": true, "items": captureItems(shot)]
             delivered = true
+        case .asked(let shot, let text):
+            body = ["ok": true, "items": captureItems(shot), "chat": text]
+            delivered = true
+            asked = true
         case .copied:
             body = ["ok": false, "copied": true]
         case .cancelled:
@@ -1415,11 +1421,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             body = ["ok": false, "error": error.message]
         }
         if let reqId = pending.reqId { body["reqId"] = reqId }
+        // 热键召来的（无请求方）由**面板**接手：提问那条消息发进面板会话（照划词命令——
+        // 亮起面板，答案在面板对话里流式回来），成图那条只是把面板亮出来（Atd 的
+        // 「截图后见面板」）。目标页要在亮面板**之前**定：面板一显示，`currentSource()`
+        // 就认它了，成图那条的口径会跟着变。
+        let target = pending.source ?? (asked ? BridgeSource.panel : currentSource())
         EngineLog.shared.append(
-            "[capture] \(pending.reqId == nil ? "hotkey" : "request") → \(delivered ? "delivered" : String(describing: outcome))")
-        pushHost("screenshotCaptured", payload: body, to: pending.source ?? currentSource())
-        // 热键召唤：图进了草稿就把面板亮出来（Atd 的「截图后见面板」）。
+            "[capture] \(pending.reqId == nil ? "hotkey" : "request") → \(delivered ? (asked ? "asked" : "delivered") : String(describing: outcome))")
         if pending.source == nil, delivered { quickPanel.showPanel() }
+        pushHost("screenshotCaptured", payload: body, to: target)
     }
 
     private func captureItems(_ delivered: ScreenshotController.Delivered) -> [[String: Any]] {
