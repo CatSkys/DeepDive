@@ -527,9 +527,7 @@ function checkGlassHosts(file, text, globalCss) {
       // 材质宿主不许描边（用户 2026-10-14 定稿）：材质层自己不再画环
       // （[data-liquid-glass-backdrop] 的装饰默认 none），宿主写一条 border 就会直接显形。
       // 面的范围一律由底色承担——`border: none`/`0` 是显式声明，不算。
-      const strokes = [...body.matchAll(/(?:^|;)\s*border(?:-(?:top|right|bottom|left))?\s*:\s*([^;]+)/g)]
-        .map((m) => m[1].trim())
-        .filter((v) => !/^(?:none|0)\b/.test(v));
+      const strokes = strokesIn(body);
       if (strokes.length > 0) {
         violations.push({
           rule: "glass-host",
@@ -569,6 +567,62 @@ function checkFontScale(file, text) {
   return violations;
 }
 
+/** 规则体里**非** `none`/`0` 的 border 声明——"这条面描边了"的机械判据。 */
+function strokesIn(body) {
+  return [...body.matchAll(/(?:^|;)\s*border(?:-(?:top|right|bottom|left))?\s*:\s*([^;]+)/g)]
+    .map((m) => m[1].trim())
+    .filter((v) => !/^(?:none|0)\b/.test(v));
+}
+
+/** 从 `<` 的**下一个字符**开始取一个 JSX 开标签：跳过字符串与 `{}` 里的表达式，在深度 0
+ *  遇到 `>` 收尾——`onClose={() => …}` 里的 `>`、引号里的 `>` 都不算标签结束。 */
+function jsxTagAt(text, start) {
+  let depth = 0;
+  let quote = "";
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (quote) { if (c === quote) quote = ""; continue; }
+    if (c === '"' || c === "'" || c === "`") { quote = c; continue; }
+    if (c === "{" || c === "(" || c === "[") depth++;
+    else if (c === "}" || c === ")" || c === "]") depth--;
+    else if (depth === 0 && c === ">") return text.slice(start, i);
+    else if (depth === 0 && c === "<") return null;
+  }
+  return null;
+}
+
+/** `<Popover>` / `<Modal>` 的**调用方类**也是材质宿主的一半：材质层挂在这两个原语内部，
+ *  宿主类由调用方传进来（`className` / `cardClassName`）——上面按 `<GlassLayer />` 反查宿主
+ *  类的那套跨文件看不见它们（原语那个 div 的 className 是拼出来的，调用方的类在别的文件里）。
+ *  2026-10-14 正是这里漏过一次：并发分支新加的 `.update-card` 带着一条 `border` 与一个已被
+ *  收敛掉的 `--shadow-pop-drop` 落进合并，人工扫描与检查器都没看见。
+ *  判据：开标签上的 className / cardClassName 解析出的类名，其规则不许有非 none 的 border。 */
+function checkPrimitiveCallerStrokes(file, text, globalCss) {
+  const violations = [];
+  const modules = cssImportsOf(file, text);
+  for (const m of text.matchAll(/<(?:Popover|Modal)\b/g)) {
+    const tag = jsxTagAt(text, m.index + 1);
+    if (!tag) continue;
+    const attr = tag.match(/\b(?:className|cardClassName)\s*=\s*(\{[^{}]*\}|"[^"]*"|`[^`]*`)/);
+    if (!attr) continue;
+    for (const { file: cssFile, name, global } of glassHostClasses(attr[1], modules)) {
+      const cssText = global
+        ? [...globalCss.values()].find((txt) => ruleBodiesFor(txt, name) !== "")
+        : readFileSync(cssFile, "utf8");
+      if (!cssText) continue;
+      const strokes = strokesIn(ruleBodiesFor(cssText, name));
+      if (strokes.length > 0) {
+        violations.push({
+          rule: "glass-host",
+          file,
+          detail: `材质层宿主不许描边（.${name} 的 border: ${strokes[0]} 在 ${global ? "全局 CSS" : rel(cssFile)}）——面的范围由底色承担`,
+        });
+      }
+    }
+  }
+  return violations;
+}
+
 function collect() {
   const files = SOURCE_ROOTS.flatMap((dir) => walk(dir)).filter((f) => !isTest(f));
   // 全局（非 module）CSS 的文本按文件留着：字面量类名的宿主在那几个文件里查。
@@ -594,6 +648,7 @@ function collect() {
       violations.push(...checkBareHex(file, text, false));
       violations.push(...checkInlineStaticStyle(file, text));
       violations.push(...checkGlassHosts(file, text, globalCss));
+      violations.push(...checkPrimitiveCallerStrokes(file, text, globalCss));
       violations.push(...checkGlassLayerDuplication(file, text));
     }
   }
