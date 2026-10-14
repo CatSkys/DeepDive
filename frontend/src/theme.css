@@ -270,6 +270,42 @@ button {
   background: transparent;
 }
 .window-top-btn:hover { background: var(--fill); color: var(--ink); }
+/* 「有更新待装」那颗钮：与另两颗同尺寸同 hover，只在有待装更新时出现（没有就是 null）。
+   用 --ink 而不是兄弟那颗的 --ink-2：黑白体系里靠"更实"而不是靠加色提示。 */
+.update-badge { color: var(--ink); }
+
+/* 更新说明卡（上面那颗钮 hover 出来的）：材质来自材质族共享组（本文件上方那条选择器
+   列表，`.update-card` 已登记），这里只写定位与内容。 */
+.update-card {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--dsh-radius-floating);
+  border: 1px solid var(--line);
+  /* 与 .model-detail 同层：都是挂 body 的浮动卡 */
+  z-index: var(--z-menu);
+  /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
+  box-shadow: var(--shadow-pop-drop);
+}
+.update-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.update-card-title { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); }
+.update-card-date { font-size: var(--dsh-font-size-sm); color: var(--ink-3); white-space: nowrap; }
+.update-card-div { height: 1px; background: var(--line); }
+/* 说明正文（Markdown）：长说明在卡内滚动，卡本身不跟着长——它悬在标题栏下面，
+   高度失控会盖住整个窗口。 */
+.update-card-notes { max-height: 320px; overflow-y: auto; font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
+.update-card-install {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-bubble);
+  background: var(--fill);
+  color: var(--ink);
+  font-size: var(--dsh-font-size-sm);
+}
+.update-card-install:hover { background: var(--fill-strong); border-color: var(--line-strong); }
 
 /* ── 弹出面板统一配方 ─────────────────────────────────────────────
    菜单类浮层（模型菜单 / @ 附件 / / 命令 / 右键菜单 / 容量弹层 / 胶囊面板 /
@@ -355,7 +391,7 @@ button {
    CSS Module 里的面（设置族弹窗与下拉、命令面板、游戏面、引导卡、图表提示）类名被哈希，
    匹配不到本块，那几处在自己的 module 文件里给同样的三个值。 */
 .model-menu, .model-detail, .composer-menu, .ctx-menu, .ws-menu, .ctx-pop,
-.find-capsule, .engine-banner, .sel-actions, .panel-browser-offers {
+.find-capsule, .engine-banner, .sel-actions, .panel-browser-offers, .update-card {
   --glass-tint: var(--glass-fill-float);
   --glass-blur: var(--blur-float);
   --glass-inset: var(--shadow-pop-inset);

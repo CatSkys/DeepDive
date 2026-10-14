@@ -7,10 +7,13 @@ import XCTest
 final class AppUpdaterTests: XCTestCase {
     func testPayloadCarriesVersionsAndSupport() {
         let payload = AppUpdater.statusPayload(
-            currentVersion: "1.2.3", readyVersion: "1.2.4", canUpdate: true
+            currentVersion: "1.2.3", readyVersion: "1.2.4", readyDate: "2026-10-14T01:04:50Z",
+            readyNotes: "## 本版变更\n\n- 修了更新的退出", canUpdate: true
         )
         XCTAssertEqual(payload["currentVersion"] as? String, "1.2.3")
         XCTAssertEqual(payload["readyVersion"] as? String, "1.2.4")
+        XCTAssertEqual(payload["readyDate"] as? String, "2026-10-14T01:04:50Z")
+        XCTAssertEqual(payload["readyNotes"] as? String, "## 本版变更\n\n- 修了更新的退出")
         XCTAssertEqual(payload["canUpdate"] as? Bool, true)
     }
 
@@ -18,17 +21,31 @@ final class AppUpdaterTests: XCTestCase {
     /// 「有待装但版本号读不到」。
     func testMissingReadyVersionIsNull() {
         let payload = AppUpdater.statusPayload(
-            currentVersion: "1.2.3", readyVersion: nil, canUpdate: false
+            currentVersion: "1.2.3", readyVersion: nil, readyDate: nil, readyNotes: nil,
+            canUpdate: false
         )
         XCTAssertTrue(payload["readyVersion"] is NSNull)
         XCTAssertEqual(payload["canUpdate"] as? Bool, false)
+    }
+
+    /// 说明与日期**独立地**可以为空：说明是发布链另传的一份资产，要再拉一次才到
+    /// （那一版没附说明、或拉失败，卡片就少一段正文与日期，版本号照常在）。
+    func testNotesAndDateAreIndependentlyNullable() {
+        let payload = AppUpdater.statusPayload(
+            currentVersion: "1.2.3", readyVersion: "1.2.4", readyDate: nil, readyNotes: nil,
+            canUpdate: true
+        )
+        XCTAssertEqual(payload["readyVersion"] as? String, "1.2.4")
+        XCTAssertTrue(payload["readyDate"] is NSNull)
+        XCTAssertTrue(payload["readyNotes"] is NSNull)
     }
 
     /// 载荷要真的能 JSON 化——桥推的就是 JSONSerialization 的产物，
     /// NSNull 是它唯一认的 null。
     func testPayloadIsJSONSerializable() throws {
         let payload = AppUpdater.statusPayload(
-            currentVersion: "1.2.3", readyVersion: nil, canUpdate: true
+            currentVersion: "1.2.3", readyVersion: nil, readyDate: nil, readyNotes: nil,
+            canUpdate: true
         )
         let data = try JSONSerialization.data(withJSONObject: payload)
         let back = try JSONSerialization.jsonObject(with: data) as? [String: Any]
