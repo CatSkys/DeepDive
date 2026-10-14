@@ -4,8 +4,9 @@
 // useAppKeybinds）。档位数据与提交由调用方经 EffortFace 传入——真会话读会话的
 // modelSelection 投影，草稿页读 store.draftModel；本组件不去猜这两条路。
 //
-// 弹层默认贴在胶囊**上方**：输入框就在窗口底部，向下开必出屏。样式复用设置族的
-// 紧凑菜单配方（SettingsRows 的 ddMenu/ddItem，与设置页下拉同一套观感）。
+// 弹层往哪开由 floatingPlacement 定（下方放不下才翻上方）：输入框钉在窗口底部，所以
+// 常态是向上开、窗口矮到上方也放不下时改为向下并在余量内内滚，任何情况都不出视口。
+// 样式复用设置族的紧凑菜单配方（SettingsRows 的 ddMenu/ddItem，与设置页下拉同一套观感）。
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
@@ -15,6 +16,7 @@ import { useStore } from "../../store";
 import { DD_EVENTS } from "../../events";
 import rowsCss from "../../settings/SettingsRows.module.css";
 import { GlassLayer } from "../GlassLayer";
+import { placeFloating, useFloatingBox } from "../floatingPlacement";
 
 /** 输入框上的思考强度面：档位表 + 当前生效档（undefined = 引擎没报生效档）。 */
 export interface EffortFace {
@@ -43,31 +45,16 @@ export function effortDisplayName(id: string | undefined, levels: Array<{ id: st
 }
 
 const MENU_MIN_WIDTH = 148;
-/** 与 .ddItem 的高度同步（算弹层翻转与限高用）。 */
-const MENU_ROW_HEIGHT = 30;
-
-interface PopupPos { top?: number; bottom?: number; left: number; maxHeight: number }
-
-/** 胶囊的弹层位置：上方放得下就向上（输入框贴底），否则翻到下方；左右按视口收敛。 */
-function popupRect(anchor: HTMLElement, rows: number): PopupPos {
-  const r = anchor.getBoundingClientRect();
-  const height = rows * MENU_ROW_HEIGHT + 10;
-  const above = r.top - 8;
-  const below = window.innerHeight - r.bottom - 8;
-  const flip = above < height && below > above;
-  const left = Math.max(8, Math.min(r.left, window.innerWidth - MENU_MIN_WIDTH - 12));
-  return flip
-    ? { top: r.bottom + 4, left, maxHeight: Math.max(120, below) }
-    : { bottom: window.innerHeight - r.top + 4, left, maxHeight: Math.max(120, above) };
-}
 
 export function EffortPicker({ levels, value, pick }: EffortFace) {
   const { t } = useT();
   const store = useStore();
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<PopupPos | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  // 弹层尺寸只有量了才知道（宽由档位名撑），所以先渲一帧不可见的再落位
+  const box = useFloatingBox(open, triggerRef, menuRef);
+  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height });
 
   const shown = shownLevel(value, levels);
 
@@ -106,11 +93,7 @@ export function EffortPicker({ levels, value, pick }: EffortFace) {
     };
   }, [open]);
 
-  const toggle = () => {
-    // 位置在开之前算：首帧就带着坐标渲染，不在左上角闪一下
-    if (!open && triggerRef.current) setPos(popupRect(triggerRef.current, levels.length));
-    setOpen((v) => !v);
-  };
+  const toggle = () => setOpen((v) => !v);
 
   return (
     <>
@@ -127,21 +110,24 @@ export function EffortPicker({ levels, value, pick }: EffortFace) {
         <span className="composer-effort-label">{effortDisplayName(shown, levels)}</span>
         <ChevronDown size={12} strokeWidth={2} />
       </button>
-      {open && pos && createPortal(
+      {open && createPortal(
         <div
           ref={menuRef}
           className={rowsCss.ddMenu}
           role="menu"
-          style={{
-            position: "fixed",
-            top: pos.top ?? "auto",
-            bottom: pos.bottom ?? "auto",
-            left: pos.left,
-            right: "auto",
-            minWidth: MENU_MIN_WIDTH,
-            maxHeight: pos.maxHeight,
-            overflowY: "auto",
-          }}
+          style={placement === null
+            // 还没量到尺寸：不可见地渲一帧（不能加 maxHeight，否则量不到自然高度）
+            ? { position: "fixed", top: 0, left: 0, visibility: "hidden", minWidth: MENU_MIN_WIDTH }
+            : {
+              position: "fixed",
+              top: placement.top,
+              bottom: "auto",
+              left: placement.left,
+              right: "auto",
+              minWidth: MENU_MIN_WIDTH,
+              maxHeight: placement.maxHeight,
+              overflowY: "auto",
+            }}
         >
           <GlassLayer />
           {levels.map((level) => (

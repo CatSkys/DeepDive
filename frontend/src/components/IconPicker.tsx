@@ -19,6 +19,8 @@ import rowsCss from "../settings/SettingsRows.module.css";
 import css from "./NewProjectDialog.module.css";
 import { t } from "../i18n";
 import { GlassLayer } from "./GlassLayer";
+import { placeFloating } from "./floatingPlacement";
+import type { FloatingPlacement } from "./floatingPlacement";
 
 /** 精选集（名字即菜单行文案，图标名保持 lucide 原名不翻译）。 */
 const ICONS: Array<{ name: string; icon: LucideIcon }> = [
@@ -99,7 +101,7 @@ export function IconPicker({ value, label, onChange }: { value: string | null; l
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState<{ top: number; maxH: number; left: number } | null>(null);
+  const [pos, setPos] = useState<FloatingPlacement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -122,17 +124,8 @@ export function IconPicker({ value, label, onChange }: { value: string | null; l
   const toggle = () => {
     if (!open) {
       const r = triggerRef.current?.getBoundingClientRect();
-      if (r) {
-        const h = menuHeight(filtered.length);
-        const below = window.innerHeight - r.bottom;
-        // 下方放不下且上方更高才向上翻；翻转分支显式 top:"auto"（PITFALLS §1.7）
-        const flip = below < h + 12 && r.top > below;
-        setPos({
-          top: flip ? Math.max(8, r.top - Math.min(h, r.top - 12) - 4) : r.bottom + 4,
-          maxH: Math.min(h, (flip ? r.top : below) - 16),
-          left: Math.max(8, Math.min(r.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)),
-        });
-      }
+      // 菜单右缘对齐触发钮、尺寸是常量：落位算术与全站同一份（floatingPlacement）
+      if (r) setPos(placeFloating(r, { width: MENU_WIDTH, height: menuHeight(filtered.length) }, { align: "right" }));
       setQuery("");
     }
     setOpen((o) => !o);
@@ -155,7 +148,7 @@ export function IconPicker({ value, label, onChange }: { value: string | null; l
         // 会把菜单撑到整屏宽）
         width: MENU_WIDTH,
         minWidth: MENU_WIDTH,
-        maxHeight: pos.maxH,
+        maxHeight: pos.maxHeight,
         overflowY: "auto",
       }}
       onKeyDown={(e) => {
@@ -260,12 +253,11 @@ export function IconPickerHost() {
   }, [req]);
 
   if (!req) return null;
-  // 位置夹在视口内；底部放不下向上翻（maxH 压限内滚）
-  const left = Math.max(8, Math.min(req.x, window.innerWidth - MENU_WIDTH - 8));
-  const h = menuHeight(ICONS.length);
-  const below = window.innerHeight - req.y;
-  const flip = below < h + 12 && req.y > below;
-  const top = flip ? Math.max(8, req.y - Math.min(h, req.y - 12) - 4) : req.y + 4;
+  // 锚点是一个点（点开的位置）：菜单从它下方展开；落位算术与全站同一份
+  const pos = placeFloating(
+    { top: req.y, bottom: req.y, left: req.x, right: req.x, width: 0 },
+    { width: MENU_WIDTH, height: menuHeight(ICONS.length) },
+  );
   return createPortal(
     <div
       ref={menuRef}
@@ -273,13 +265,13 @@ export function IconPickerHost() {
       role="listbox"
       style={{
         position: "fixed",
-        top,
+        top: pos.top,
         bottom: "auto",
-        left,
+        left: pos.left,
         right: "auto",
         width: MENU_WIDTH,
         minWidth: MENU_WIDTH,
-        maxHeight: Math.min(h, (flip ? req.y : below) - 16),
+        maxHeight: pos.maxHeight,
         overflowY: "auto",
       }}
     >

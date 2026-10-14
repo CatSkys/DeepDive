@@ -7,6 +7,7 @@ import { Check, MoreHorizontal } from "lucide-react";
 import { useBrowserPopup } from "../sidebar-right/useBrowserPopup";
 import rowsCss from "../settings/SettingsRows.module.css";
 import { GlassLayer } from "./GlassLayer";
+import { placeFloating, useFloatingBox } from "./floatingPlacement";
 
 /** Global shared controls (settings sections + hero preset picker): monochrome
  *  toggle and custom dropdown (portaled so the options scroller cannot clip
@@ -46,7 +47,8 @@ export function Dropdown({ options, value, onChange, variant, block }: { options
   // portal 菜单也在"内部"：否则 mousedown 命中选项时先被判为外部点击而
   // 卸载菜单，click 永远到不了选项（用户报告的下拉"看得到点不了"）。
   const menuRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null);
+  // 触发器自身的宽：菜单的最小宽按它定（量菜单之前就得知道，见 floatingPlacement）
+  const [triggerWidth, setTriggerWidth] = useState(0);
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
@@ -62,40 +64,38 @@ export function Dropdown({ options, value, onChange, variant, block }: { options
     };
   }, [open]);
   const toggle = () => {
-    if (!open) {
-      const r = triggerRef.current?.getBoundingClientRect();
-      if (r) setPos({ top: r.bottom + 4, left: r.left, minWidth: r.width });
-    }
+    if (!open) setTriggerWidth(triggerRef.current?.getBoundingClientRect().width ?? 0);
     setOpen((o) => !o);
   };
   const current = options.find((o) => o.v === value);
   const rich = options.some((o) => o.description);
-  const menuHeight = options.reduce((h, o) => h + (o.description ? 48 : 30), 0) + 24;
   // Portaled to <body> with fixed positioning: the options scroller clips
   // absolutely-positioned menus (user report). 长清单（模型提供方 38 项）菜单
   // 高过视口时压限高度内滚——否则首项被顶出屏幕外无法选择。
-  const menu = open && pos && createPortal(
+  //
+  // 落位交给 floatingPlacement：菜单宽由内容撑（≈88），拿触发器宽（≈51）去夹右缘会让
+  // 菜单探出屏幕——所以这里"先量后落位"（useFloatingBox），限高由它按实际余量给。
+  const box = useFloatingBox(open, triggerRef, menuRef);
+  const minWidth = Math.max(triggerWidth, rich ? 272 : 0);
+  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height });
+  const menu = open && createPortal(
     <div
       ref={menuRef}
       className={rowsCss.ddMenu}
       role="listbox"
-      style={{
-        position: "fixed",
-        // space below the trigger, else flip above it。翻转分支必须显式
-        // top:"auto"——.ddMenu 类自带 top:calc(100%+4px)（absolute 时代
-        // 遗留），不清掉会与 bottom 双约束把菜单压成视口外细条（用户报告
-        // 的"提供商没法点"）。
-        ...(window.innerHeight - pos.top > menuHeight
-          ? { top: pos.top, bottom: "auto" }
-          : { top: "auto", bottom: window.innerHeight - pos.top + 4 }),
-        right: "auto",
-        left: Math.max(8, Math.min(pos.left, window.innerWidth - Math.max(pos.minWidth, rich ? 272 : 0) - 12)),
-        minWidth: Math.max(pos.minWidth, rich ? 272 : 0),
-        maxHeight: Math.max(180, (window.innerHeight - pos.top > menuHeight
-          ? window.innerHeight - pos.top
-          : pos.top) - 24),
-        overflowY: "auto",
-      }}
+      style={placement === null
+        // 还没量到尺寸：不可见地渲一帧（不能加 maxHeight，否则量不到自然高度）
+        ? { position: "fixed", top: 0, left: 0, visibility: "hidden", minWidth }
+        : {
+          position: "fixed",
+          top: placement.top,
+          bottom: "auto",
+          right: "auto",
+          left: placement.left,
+          minWidth,
+          maxHeight: placement.maxHeight,
+          overflowY: "auto",
+        }}
     >
       <GlassLayer />
       {options.map((o) => {
@@ -158,7 +158,6 @@ export function RowMenu({ items, onSelect, label, nativePopup = false }: {
 }) {
   const [open, setOpen] = useState(false);
   const popupTarget = useBrowserPopup(nativePopup && open, () => setOpen(false));
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -179,38 +178,33 @@ export function RowMenu({ items, onSelect, label, nativePopup = false }: {
     };
   }, [open]);
 
-  const toggle = () => {
-    if (!open) {
-      const r = triggerRef.current?.getBoundingClientRect();
-      if (r) {
-        const menuHeight = items.length * 30 + 12;
-        // 下方放不下就向上翻；翻转分支必须显式给 top:"auto"，否则与 .ddMenu 类自带的
-        // top 双约束把菜单压成细条（PITFALLS §1.7）
-        const top = window.innerHeight - r.bottom > menuHeight ? r.bottom + 4 : Math.max(8, r.top - menuHeight - 4);
-        setPos({ top, left: Math.max(8, Math.min(r.right - ROW_MENU_WIDTH, window.innerWidth - ROW_MENU_WIDTH - 8)) });
-      }
-    }
-    setOpen((o) => !o);
-  };
+  // 菜单贴触发钮的右下、右边对齐（靠右的行不会溢出）：落位算术与 Dropdown 同一份
+  const box = useFloatingBox(open, triggerRef, menuRef);
+  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height }, { align: "right" });
 
   return (
     <div className={rowsCss.dd} ref={rootRef}>
-      <button ref={triggerRef} type="button" className={rowsCss.ddIconTrigger} aria-label={label} onClick={toggle}>
+      <button ref={triggerRef} type="button" className={rowsCss.ddIconTrigger} aria-label={label} onClick={() => setOpen((o) => !o)}>
         <MoreHorizontal size={15} />
       </button>
-      {open && pos && (!nativePopup || popupTarget) && createPortal(
+      {open && (!nativePopup || popupTarget) && createPortal(
         <div
           ref={menuRef}
           className={rowsCss.ddMenu}
           role="menu"
-          style={{
-            position: "fixed",
-            top: pos.top,
-            bottom: "auto",
-            left: pos.left,
-            right: "auto",
-            minWidth: ROW_MENU_WIDTH,
-          }}
+          style={placement === null
+            // 还没量到尺寸：不可见地渲一帧（不能加 maxHeight，否则量不到自然高度）
+            ? { position: "fixed", top: 0, left: 0, visibility: "hidden", minWidth: ROW_MENU_WIDTH }
+            : {
+              position: "fixed",
+              top: placement.top,
+              bottom: "auto",
+              left: placement.left,
+              right: "auto",
+              minWidth: ROW_MENU_WIDTH,
+              maxHeight: placement.maxHeight,
+              overflowY: "auto",
+            }}
         >
           <GlassLayer />
           {items.map((item) => {
