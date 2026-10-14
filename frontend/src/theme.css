@@ -719,8 +719,14 @@ button {
   border-radius: var(--dsh-radius-control);
 }
 /* 根行的解剖与主窗命令面板的行**逐项同构**（用户 2026-10-14 给的第二张参考图：icon + 名称 +
-   快捷键芯片 + 右侧指出去）：图标列定宽 16 居中（同 `.rowIcon`），行内距间距 10（同 `.row`）。 */
+   快捷键芯片 + 右侧指出去）：图标列定宽 16 居中（同 `.rowIcon`），行内距间距 10（同 `.row`）。
+   **行内分布也要跟过来**：全局那条 `.panel-settings-line` 是 `justify-content: space-between`
+   （主窗设置卡的两栏形态：名称在左、取值顶到右边），卡里多了图标与芯片之后，space-between 会把
+   名称甩到中间、芯片散在两侧（用户 2026-10-14 看到的"问题很多"就是这个）——这里改成
+   `flex-start` + 取值自己 `margin-left: auto` 顶右边，顺序即 图标 → 名称 → 芯片 →（留白）→ 取值 ›。 */
+.app.mini-panel .mini-cc-settings .panel-settings-line { justify-content: flex-start; }
 .app.mini-panel .mini-cc-settings .panel-settings-row { gap: 10px; }
+.app.mini-panel .mini-cc-settings .panel-settings-value { margin-left: auto; }
 .app.mini-panel .mini-cc-settings .panel-settings-icon {
   flex: none;
   display: inline-flex;

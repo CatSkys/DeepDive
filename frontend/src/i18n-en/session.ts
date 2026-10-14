@@ -43,6 +43,8 @@ export const ENSession: Record<string, string> = {
   // 右侧边栏（会话面板）与命令中心
   "展开边栏": "Open side panel",
   "命令中心": "Command center",
+  "搜索命令…": "Search commands…",
+  "没有匹配的命令": "No matching commands",
 
   // tool titles（ToolRow 的 TOOL_TITLE_ZH；名字逐个对照引擎工具注册源）
   "提问": "Ask",
