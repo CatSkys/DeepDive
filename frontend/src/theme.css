@@ -1728,15 +1728,33 @@ button {
     -apple-visual-effect: -apple-system-glass-material-media-controls;
   }
 }
-/* 窗口失焦：**内容退后、材质留下**——内容与附件 chip 压到 40%，材质层豁免（它连着
-   底色与玻璃，调暗等于把材质也糊掉）。标记的维护见 windowFocus.ts。 */
-html[data-window-blur] .composer-wrap > .composer-chips,
+/* 窗口失焦：**内容退后、材质留下**——内容（含胶囊里的附件）压到 40%，材质层豁免
+   （它连着底色与玻璃，调暗等于把材质也糊掉）。标记的维护见 windowFocus.ts。 */
 html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity: .4; }
 
-/* 单行态落位一律显式写死（原来靠自动排布按 DOM 顺序找空格）：行数量测件与输入框
-   共用第 2 列首行，自动排布会把它们互相挤到第 3 列/第 2 行去。 */
-.composer textarea { grid-column: 2; grid-row: 1; }
+/* 单行态落位一律显式写死（原来靠自动排布按 DOM 顺序找空格）：文本列、＋、右簇各有
+   其列，自动排布会把它们互相挤到别的列/行去。 */
 .composer-icon { grid-column: 1; grid-row: 1; }
+/* 文本列（第 2 格）= 附件胶囊 + 输入框，排成一行：**胶囊在前、输入框吃剩下的宽度**
+   （照 Atd 的输入条：附件是行内的胶囊，光标紧随其后）。一行放不下（名字长、附件多）
+   时输入框整条换到下一行——flex-wrap 的换行判据用的是各自的假想宽度，所以胶囊够宽
+   时输入框绝不会被挤成一条缝。 */
+.composer-field {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* 6 比胶囊内距那条 4 宽一档：附件胶囊自带描边，紧贴 ＋ 会读成另一颗钮 */
+  gap: 6px;
+  min-width: 0;
+}
+/* 附件胶囊组：多颗时自己也能折行，占满一行再往下排 */
+.composer-atts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+/* 输入框那一格：量测件与输入框**同一格叠放**，所以量到的宽度就是输入框的宽度
+   ——附件挤掉多少它跟着窄多少，「折成两行没有」与真实排版同一份判据 */
+.composer-text { flex: 1 1 auto; min-width: 88px; display: grid; }
+.composer-text > textarea { grid-area: 1 / 1; }
 /* 右侧控件簇占第 3 列（auto）：档位胶囊 / 容量圈 / 单槽位（发送·停止·听写）同住
    一格 flex 行。三颗各自占列会长成「有档位 × 有容量圈 × 宽态」一张组合表，收成
    一簇后换行只有一处规则（用户 2026-10-09：档位从模型菜单挪进输入框）。 */
@@ -1754,16 +1772,16 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
    与手动换行同等对待——整框只按内容长高，底边不动即向上生长。展开态两侧内距
    12（单行态 16/8 的不对称在宽胶囊里就不合身了）。 */
 .composer.wide { grid-template-rows: auto auto; row-gap: 8px; border-radius: var(--dsh-radius-bubble); padding: 12px 12px 8px; }
-.composer.wide textarea { grid-column: 1 / -1; grid-row: 1; }
+/* 宽态：附件胶囊行在上、文本独占一行在下。多行文本里把胶囊留在首行旁边，它会与
+   第一行文字的行基线错开（胶囊 26 高、行高 20），分家读起来才稳。 */
+.composer.wide .composer-field { grid-column: 1 / -1; grid-row: 1; flex-direction: column; align-items: stretch; row-gap: 8px; }
+.composer.wide .composer-text { flex: none; }
 .composer.wide .composer-icon { grid-row: 2; grid-column: 1; }
 .composer.wide .composer-actions { grid-row: 2; grid-column: 1 / -1; justify-self: end; }
-/* 行数量测件：与输入框同格（第 2 列首行）、零高度、不绘制、不交互——只为读它的
-   scrollHeight 得折行行数。宽度天然等于输入框宽度（同一条网格轨上的拉伸项），
-   所以「几行」的判据与当前是单行态还是宽态无关。放 .wide 之后是为了压过
-   `.composer.wide textarea` 的整行跨列（量测宽度不能跟着布局变）。 */
+/* 行数量测件：与输入框同格叠放（.composer-text 里）、零高度、不绘制、不交互——只为读
+   它的 scrollHeight 得折行行数。宽度由那一格给（与输入框同宽），所以「几行」的判据
+   与当前是单行态还是宽态无关。 */
 .composer textarea.composer-probe {
-  grid-column: 2;
-  grid-row: 1;
   height: 0;
   min-height: 0;
   overflow: hidden;
@@ -1876,103 +1894,104 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   50% { transform: scaleY(1); }
 }
 
-.composer-chips {
-  display: flex;
-  align-items: flex-end; /* 混排（图片缩略图 68 高 + 文件 chip 30 高）时矮的靠下站 */
-  gap: 6px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-/* 图片附件：大缩略图即预览（92×68 对齐已发送侧 .user-attachment-thumb 规格，
-   无文字），点击 Lightbox；× 叠图右上角移除 */
+/* ---- 输入框里的附件胶囊（统一形状）----
+   所有附件一个形状（照 Atd 输入条）：类型图标 + 名字 + 状态，高 26、两端全圆
+   （radius.bubble）、--fill-soft 底 + 1px 描边——与已发送侧那颗文件 chip 同一套
+   语言（.user-file-chip，高 30；这里矮一档是为了坐进 36 高的输入胶囊）。
+   移除钮跟着指针现（与侧栏行内动作同一套 hover 语言；键盘聚焦时也给看）。 */
 .att-chip {
+  /* 预览层的定位父级 */
   position: relative;
   display: inline-flex;
-  flex: none;
-  cursor: zoom-in;
-}
-.att-chip-thumb {
-  display: block;
-  width: 92px;
-  height: 68px;
-  border-radius: var(--dsh-radius-keycap);
-  object-fit: cover;
-  border: 1px solid var(--line-strong);
-  background: var(--fill-soft);
-}
-.att-chip-x {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: 50%;
-  /* 叠在任意亮度的图片上，配色不随主题：白字 + 半透明黑底（lightbox 遮罩同语言） */
-  background: rgba(0, 0, 0, .5);
-  color: #fff;
-  font-size: var(--dsh-font-size-base);
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.att-chip-x:hover { background: rgba(0, 0, 0, .7); }
-
-/* 通用文件 chip（0.1.5 上传面）：图标+名+状态；uploading 自旋点、error 带重试。
-   data-status=pending/uploading 期间整体降不透明度示意「还不可发送」。
-   两端全圆（radius.bubble，见 .user-file-chip）：它与已发送侧那颗是同一套。 */
-.att-chip.file {
-  cursor: default;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 26px 0 10px;
-  border-radius: var(--dsh-radius-bubble);
+  max-width: 100%;
+  height: 26px;
+  padding: 0 4px 0 8px;
   border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-bubble);
   background: var(--fill-soft);
   color: var(--ink-2);
   font-size: var(--dsh-font-size-sm);
 }
-.att-chip.file[data-status="pending"], .att-chip.file[data-status="uploading"] { opacity: .72; }
-.att-chip.file[data-status="error"] { border-color: var(--dsh-signal-danger); color: var(--ink); }
-.att-file-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 名字右边那一截：待发送 / 上传中 42% / 失败原因 / 大小（口径与消息里那颗文件 chip 一致）。
-   失败一档用信号色，其余是 muted——和官方的 meta 行同一套语义。失败原因是任意长度的
-   原话，所以这里自己也截断：全文在 chip 的 tooltip 上，chip 不会被一句报错撑爆。 */
-.att-file-meta {
+/* 点得开 Lightbox 的胶囊（图片部件）：鼠标给放大镜 */
+.att-chip[data-open="lightbox"] { cursor: zoom-in; }
+.att-chip .file-icon { flex: none; }
+.att-chip-name { max-width: 168px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 名字右边那一截：待发送 / 上传中 42% / 失败原因 / 大小（口径与消息里那颗文件 chip
+   一致）。失败一档用信号色，其余是 muted。失败原因是任意长度的原话，所以这里自己
+   也截断：全文在胶囊的 tooltip 上，胶囊不会被一句报错撑爆。
+   pending/uploading 整体降不透明度示意「还不可发送」。 */
+.att-chip-meta {
   flex: none; max-width: 132px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--ink-3); font-size: var(--dsh-font-size-xs);
 }
-.att-file-meta.failed { color: var(--dsh-signal-danger); }
-.att-file-spin {
+.att-chip-meta.failed { color: var(--dsh-signal-danger); }
+.att-chip[data-status="pending"], .att-chip[data-status="uploading"] { opacity: .72; }
+.att-chip[data-status="error"] { border-color: var(--dsh-signal-danger); color: var(--ink); }
+.att-chip-spin {
   width: 10px; height: 10px; flex: none;
   border-radius: 50%;
   border: 2px solid var(--line-strong);
   border-top-color: var(--ink-3);
-  animation: att-file-rotate .8s linear infinite;
+  animation: att-chip-rotate .8s linear infinite;
 }
-@keyframes att-file-rotate { to { transform: rotate(360deg); } }
-/* 重试：chip 里的一颗文字钮，不划线（流内胶囊里没有下划线这种网页语言）。
+@keyframes att-chip-rotate { to { transform: rotate(360deg); } }
+/* 重试：胶囊里的一颗文字钮，不划线（流内胶囊里没有下划线这种网页语言）。
    **没有独立的「取消」钮**：同一颗 × 就是"取消并移除"；多一颗「取消」只会把上传中的
-   chip 变成一颗红的"已取消"错误态——既不是取消该有的样子，也和 × 重复。 */
-.att-file-retry {
-  border: none; background: none; padding: 0 2px;
+   胶囊变成一颗红的"已取消"错误态——既不是取消该有的样子，也和 × 重复。 */
+.att-chip-retry {
+  flex: none; border: none; background: none; padding: 0 2px;
   color: var(--ink-2); font-size: var(--dsh-font-size-sm);
 }
-.att-file-retry:hover { color: var(--ink); }
-.att-chip.file .att-chip-x { position: absolute; top: 5px; right: 4px; }
-/* 移除钮跟着指针现（与侧栏行内动作同一套 hover 语言；键盘聚焦时也给看）。定在
-   .composer-chips 上而不是单颗 chip：一行里图片与文件两种 chip 的移除入口必须长得
-   一样，只管一种就是分叉。 */
-:where(html[data-hover-armed]) .composer-chips .att-chip-x {
+.att-chip-retry:hover { color: var(--ink); }
+.att-chip-x {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px;
+  border: none; border-radius: 50%;
+  background: none;
+  color: var(--ink-3);
+  font-size: var(--dsh-font-size-base);
+  line-height: 1;
+}
+.att-chip-x:hover { background: var(--fill-strong); color: var(--ink); }
+:where(html[data-hover-armed]) .att-chip .att-chip-x {
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
-:where(html[data-hover-armed]) .composer-chips .att-chip:hover .att-chip-x,
-:where(html[data-hover-armed]) .composer-chips .att-chip-x:hover,
-:where(html[data-hover-armed]) .composer-chips .att-chip-x:focus-visible { opacity: 1; }
+:where(html[data-hover-armed]) .att-chip:hover .att-chip-x,
+:where(html[data-hover-armed]) .att-chip .att-chip-x:hover,
+:where(html[data-hover-armed]) .att-chip .att-chip-x:focus-visible { opacity: 1; }
+/* 媒体附件（图片/视频）的悬停预览：贴着胶囊的一块画面。**不接事件**——指针穿过去
+   才收得掉，也不会抢走滚动与点击。默认开在胶囊下方；下方放不下就翻到上方
+   （AttachmentPill 按可用空间选 .above——输入框贴底时恒走这一档，否则整块会被
+   卡片裁掉）。 */
+.att-preview {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 2;
+  display: flex;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--dsh-radius-keycap);
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-pop-drop);
+  pointer-events: none;
+  animation: fadein var(--dur-fast) var(--ease-out);
+}
+.att-preview.above { top: auto; bottom: calc(100% + 6px); }
+.att-preview img,
+.att-preview video {
+  display: block;
+  max-width: 240px;
+  max-height: 180px;
+  border-radius: var(--dsh-radius-micro);
+  object-fit: contain;
+  background: var(--fill-soft);
+}
 
 /* ---- 文件预览窗口（0.1.5 产物/文件预览）：little 浮窗 + 全屏两态 ----
    little 态 = 整窗蒙版（模糊 + 变暗）上的居中浮窗，控制钮挂在窗外右侧；
@@ -2247,10 +2266,10 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .preview-frame[src*=".html"], .preview-frame[sandbox] { background: #fff; }
 
 /* 用户消息里的文件 chip（0.1.5 历史 file 块）与工具结果图片行 */
-/* 文件 chip：与输入框里那颗 .att-chip.file 同一套（30 高、--fill-soft 底、
-   两端全圆的胶囊）——同一段对话里两处文件看着是一套（图片附件早就是这个口径：
-   92×68 两边一致）。胶囊用 radius.bubble(24)，30 高的盒子上被裁成半高整圆端；
-   别写 999px（§2.4 的胶囊口径：流内胶囊一律引 token）。 */
+/* 文件 chip：与输入框里那颗附件胶囊（.att-chip，26 高）同一套语言——图标 + 名 +
+   --fill-soft 底 + 两端全圆的胶囊；这里 30 高（消息流里不跟输入胶囊的高，站得开）。
+   胶囊用 radius.bubble(24)，30 高的盒子上被裁成半高整圆端；别写 999px
+   （§2.4 的胶囊口径：流内胶囊一律引 token）。 */
 .user-file-chip {
   display: inline-flex; align-items: center; gap: 6px;
   height: 30px; padding: 0 10px;
@@ -2260,7 +2279,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   color: var(--ink-2); font-size: var(--dsh-font-size-sm);
 }
 /* chip 用 gap 排版，图标自带的右边距在这里是多余的 */
-.user-file-chip .file-icon, .att-chip.file .file-icon { margin-right: 0; }
+.user-file-chip .file-icon, .att-chip .file-icon { margin-right: 0; }
 .user-file-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-file-size { color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
 .tool-result-images { display: flex; gap: 8px; margin: 4px 0 2px 26px; }

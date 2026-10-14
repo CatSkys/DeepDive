@@ -67,14 +67,15 @@ const ICON_SVG: Record<FileIconName, string> = {
 };
 
 /** 文件行前导图标（默认 14，与工具行其他前导 glyph 同尺寸）。装饰性：文件名
- *  就在旁边，故 aria-hidden。 */
-export function FileIcon({ file, size = 14 }: { file: string; size?: number }) {
+ *  就在旁边，故 aria-hidden。`icon` 是给**类型已知**的调用方用的（附件的图片部件
+ *  就是图片）：名字没有扩展名时（粘贴来的图）图标才不会掉成通用文件。 */
+export function FileIcon({ file, size = 14, icon }: { file: string; size?: number; icon?: FileIconName }) {
   return (
     <span
       className="file-icon"
       style={{ width: size, height: size }}
       aria-hidden="true"
-      dangerouslySetInnerHTML={{ __html: ICON_SVG[resolveFileIconName(file)] }}
+      dangerouslySetInnerHTML={{ __html: ICON_SVG[icon ?? resolveFileIconName(file)] }}
     />
   );
 }
