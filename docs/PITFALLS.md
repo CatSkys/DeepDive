@@ -77,6 +77,19 @@
   （含"窗口高度扫一遍都不出上下缘"与旧算术下必挂的阳性对照）。三条硬约束写在该模块头注：
   **限高＝所选那侧的实际余量、不给下限**；**宽度必须实测**（触发器宽 ≠ 菜单宽）；
   **返回绝对 top、翻上方时底边贴锚点上缘**。
+- **第四个实例：修完反而"修到左边去了"（用户 2026-10-14 当天复报）**。"宽度必须实测"要渲一帧
+  不可见的菜单来量，而那一帧只覆盖了 `left`——`.ddMenu` 类自带的 **`right: 0`** 还在，left+right
+  双约束让 CSS 把宽度解成"包含块宽 − left − right"＝**整个视口宽**。于是量回来的宽是视口宽
+  （真机实测 1105，菜单实际 158），夹右缘算成 `innerWidth − 1105 − 8`＝负数，`max(8, …)` 把菜单
+  钉在左边 8px。真机取证（`probe.py rect` / `styles`，见 §6 取数口）：菜单 `x=8`、锚点在 `x=950`、
+  纵向 `y = 锚点底边 + 4` 是对的——**纵向对、横向错，就说明锚点量对了而"宽"是错的**。
+  处置：那一帧的几何收成 `measuringStyle(minWidth)`（`right`/`bottom` 显式归 `auto`、不加
+  `maxHeight`），三处实测菜单都用它、不许手写；**jsdom 不做布局，这类"量出来的数"只能靠
+  真机探针验，单测只能钉住那一帧的样式对象**（阳性对照：把 `right: "auto"` 删掉，那条断言即红）。
+- **同轮的另一处**：`.ddMenu` 是 content-box，CSS 的 `max-height` 限的是**内容盒**——实测来的
+  盒子高度是 border-box，直接当限高用会让整个盒子比余量多出一截（padding 8 + border 2 = 10px，
+  正好能从窗底探出去）。`FloatingSize.inset` 就是这两个数，`maxHeight` 减掉它才是"整个盒子不出视口"。
+  真机实证：余量 130 时限高 120、渲染出的 border-box 高 130 ✓。
 - **事件**：React portal 的点击沿 **React 树**冒泡，不沿 DOM 树——菜单在 DOM 上挂 body，选中项的点击仍会路过组件树上的 modal overlay；overlay 用 `onClick` + `.modal` 上 DOM 级 `stopPropagation` 拦不住（选提供方第一下整个弹窗就被关掉）。modal"点空白关闭"必须用 `onMouseDown` 且判 `e.target === e.currentTarget`。
 - **第二个实例：模型菜单（`ModelMenu`）**。它当初是 `.left` 里的 `position:absolute; top:45px; left:-6px`，右侧边栏的会话设置里只能退化成"内联展开"——菜单把下面的分区顶下去（用户报告"点下拉内容都下移了"）。现统一成同一配方：portal 到 body、`.model-menu` 改 `position:fixed`（类里不再留 top/left，全部内联）、`z-index:1100` 与 `.ddMenu` 同层。两处要点：① 定位要**先量触发器再画**（`useLayoutEffect`），否则首帧闪在左上角；② 外部点击判定要把**触发器**也算内部（`anchorRef.current.contains`），否则 mousedown 先关、click 再开，看着像"点不动"。
 

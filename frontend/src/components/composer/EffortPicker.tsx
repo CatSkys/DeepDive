@@ -16,7 +16,7 @@ import { useStore } from "../../store";
 import { DD_EVENTS } from "../../events";
 import rowsCss from "../../settings/SettingsRows.module.css";
 import { GlassLayer } from "../GlassLayer";
-import { placeFloating, useFloatingBox } from "../floatingPlacement";
+import { measuringStyle, placeFloating, useFloatingBox } from "../floatingPlacement";
 
 /** 输入框上的思考强度面：档位表 + 当前生效档（undefined = 引擎没报生效档）。 */
 export interface EffortFace {
@@ -54,7 +54,7 @@ export function EffortPicker({ levels, value, pick }: EffortFace) {
   const menuRef = useRef<HTMLDivElement>(null);
   // 弹层尺寸只有量了才知道（宽由档位名撑），所以先渲一帧不可见的再落位
   const box = useFloatingBox(open, triggerRef, menuRef);
-  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height });
+  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height, inset: box.inset });
 
   const shown = shownLevel(value, levels);
 
@@ -116,8 +116,8 @@ export function EffortPicker({ levels, value, pick }: EffortFace) {
           className={rowsCss.ddMenu}
           role="menu"
           style={placement === null
-            // 还没量到尺寸：不可见地渲一帧（不能加 maxHeight，否则量不到自然高度）
-            ? { position: "fixed", top: 0, left: 0, visibility: "hidden", minWidth: MENU_MIN_WIDTH }
+            // 还没量到尺寸：不可见地渲一帧（几何见 measuringStyle，别手写）
+            ? measuringStyle(MENU_MIN_WIDTH)
             : {
               position: "fixed",
               top: placement.top,
