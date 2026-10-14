@@ -251,7 +251,7 @@
 
 /* ── 步骤内部 ── */
 .step { display: flex; flex-direction: column; gap: 8px; }
-.stepTitle { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink-bright); }
+.stepTitle { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
 .stepLead { font-size: var(--dsh-font-size-base); line-height: 1.6; color: var(--ink-2); }
 
 .groupLabel {
@@ -412,7 +412,7 @@
 .secondary:disabled { opacity: 0.5; cursor: default; }
 
 .ok { display: flex; align-items: center; gap: 6px; font-size: var(--dsh-font-size-sm); color: var(--dsh-signal-ok, var(--ink-2)); }
-.error { font-size: var(--dsh-font-size-sm); color: var(--dsh-signal-danger); line-height: 1.5; }
+.error { font-size: var(--dsh-font-size-sm); color: var(--dsh-signal-danger-contrast); line-height: 1.5; }
 .empty { font-size: var(--dsh-font-size-sm); color: var(--ink-3); line-height: 1.6; }
 .scanning { display: flex; align-items: center; gap: 8px; font-size: var(--dsh-font-size-base); color: var(--ink-2); }
 

@@ -22,16 +22,23 @@
 @import "../packages/design/generated/tokens.css";
 
 /* ── 语义颜色变量（暗色 = 现值；亮色经 media query 覆盖）───────────────
-   亮色目标（用户规格）：主界面（侧栏/边铬）偏白，会话卡（前界面）偏灰。
+   亮色的分工：侧栏/边铬偏灰（--chrome-gradient 是黑叠加），会话卡偏白（白叠加抬亮）。
+   文字色阶（--ink 族 / --on-ink）不在这里定值——它们是 color.ink 的基色加停靠点
+   派生出来的（见下），亮色只是同一个基色翻面。承载正文的面（--card-gradient /
+   --panel-*）基色同样取纯极值，正文的标称对比度才成立（Raycast 同口径）。
    终端与代码块保持深色内容面（macOS 惯例），不随 ink 翻转。 */
 :root {
-  --ink: rgba(255,255,255,.92);
-  --ink-soft: rgba(255,255,255,.78);
-  --ink-2: rgba(255,255,255,.56);
-  --ink-3: rgba(255,255,255,.40);
-  --ink-faint: rgba(255,255,255,.22);
-  --ink-faintest: rgba(255,255,255,.10);
-  --ink-bright: #FFFFFF;
+  /* 文字色阶：**一个基色 + 统一 alpha 停靠点**（tokens.json 的 color.ink，Raycast 口径）。
+     停靠点是 Raycast 的 fg-100/80/60/40/20/10，一份值两套主题共用；亮色只是同一个基色
+     翻面（生成文件的 prefers-color-scheme 块），所以这里没有按主题各写一套 alpha 的余地。
+     档位映射：--ink 正文（=primary）、--ink-2 次级（=secondary）、--ink-3 三级（=tertiary）、
+     --ink-faint 四级（=quaternary）。 */
+  --ink: var(--dsh-ink-100);
+  --ink-soft: var(--dsh-ink-80);
+  --ink-2: var(--dsh-ink-60);
+  --ink-3: var(--dsh-ink-40);
+  --ink-faint: var(--dsh-ink-20);
+  --ink-faintest: var(--dsh-ink-10);
   --line: rgba(255,255,255,.10);
   --line-strong: rgba(255,255,255,.17);
   --line-heavy: rgba(255,255,255,.30);
@@ -44,19 +51,24 @@
      的提示，不能盖过"这一项被选中"。只有行用它；控件/表面仍用 --fill 一族。 */
   --row-hover: rgba(255,255,255,.05);
   --selection: rgba(255,255,255,.20);
-  /* Diff 增删色：消息流的 diff 卡与审查面板的 diff 行同源，别处不再写字面量
-     （原是 .diff-line.del/add 上的 rgba，这里提出来是为了不出现第二份）。 */
-  --diff-add-bg: rgba(48,209,88,.13);
-  --diff-del-bg: rgba(255,69,58,.13);
-  --diff-add-ink: rgba(120,220,140,.95);
-  --diff-del-ink: rgba(255,120,110,.95);
+  /* Diff 增删色：色值与对比度校正都在 tokens.json（color.diff），这里只是别名。
+     ink 的两种用法各取一个变体——`--diff-*-ink` 压自己的染色底（.diff-line / .rv-line），
+     `--diff-*-ink-on-card` 压卡面（.rv-add 这类没有底的）。亮色主题下两者差得很远，
+     同一份值两处都用必有一处不可读。 */
+  --diff-add-bg: var(--dsh-diff-add-tint);
+  --diff-del-bg: var(--dsh-diff-del-tint);
+  --diff-add-ink: var(--dsh-diff-add-ink-on-tint);
+  --diff-del-ink: var(--dsh-diff-del-ink-on-tint);
+  --diff-add-ink-on-card: var(--dsh-diff-add-ink-contrast);
+  --diff-del-ink-on-card: var(--dsh-diff-del-ink-contrast);
   /* 表面海拔（自下而上）：窗口玻璃在壳侧（不在本文件）→ 内容卡 --card-gradient
      （近实色，正文要读得清）→ 菜单浮层 --panel-glass → 弹层/对话框 --panel-strong。
      这三档的 alpha 各自来自一次实机反馈（见各条注释），**不要为了"档位更少"而并**：
      .55 是"下方内容要透出来"，.92 是"弹层正后的文字要压得住"。
      --on-ink 不是表面：它是**反色面（--ink）上的前景色**——白底黑字按钮里的字、
-     开关旋钮、选中标签的字，12 处全是这个用法（曾叫 --panel-bg，名字骗人，已改）。 */
-  --on-ink: rgba(22,23,26,.78);
+     开关旋钮、选中标签的字，12 处全是这个用法（曾叫 --panel-bg，名字骗人，已改）。
+     它与 --ink 共用同一套停靠点，基色取反色基（color.ink.inverse-base）。 */
+  --on-ink: var(--dsh-ink-inverse-80);
   /* 状态点的"白"是**亮度极点**、不是固定白色：暗色下最亮的是白，亮色下最跳的
      是墨。写死 rgba(255,255,255,·) 在亮色主题里白压白、直接消失（2026-09-30
      走查发现）。两套主题各给一份面与环；暗色这组的值与原字面量相同，观感不变。 */
@@ -74,12 +86,12 @@
   /* 胶囊的外投影（贴身一层）：挂胶囊本体，**别挂材质层**（见上）。 */
   --composer-drop: 0 4px 12px rgba(0,0,0,.06);
   /* 大弹层（居中 dialog）：毛玻璃但比菜单浮层更实——.55/.78 都压不住弹层正后的文字 */
-  --panel-strong: rgba(24,24,27,.92);
+  --panel-strong: rgba(0,0,0,.92);
   /* 明显毛玻璃档（composer @// 菜单）：backdrop-root 修复后模糊真正生效，
      底色 .45 让下方内容透出来；要求弹层背后是消息流等有意义的内容。
      blur 强度在 .composer-menu 单独降为 14px（40px 会把背景糊成无法
      辨认的浓雾，反而显得「没有模糊」） */
-  --panel-glass: rgba(24,24,27,.55);
+  --panel-glass: rgba(0,0,0,.55);
   /* 材质层的**回退底色**：只在系统材质拿不到的那个运行时用（`@supports` 之外的分支）。
      拿到材质时材质层**没有底色**——参考实现（Raycast 的 `[macos] .popover__webPopover`）
      在 macOS 上就是 `background-color: transparent`，整块面由材质自己画；要调节只许动
@@ -92,7 +104,7 @@
   /* 命令面板（⌘K）的底：比菜单更浅也更实。它浮在应用自己的近黑铬件上——用
      --panel-glass 那两个数会跟背景糊成一片（实测两者相差 1 级亮度），所以要往
      亮处抬一档拉开隔离，同时把不透明度提到 .82 让背后的正文不再透上来。 */
-  --panel-palette: rgba(42,42,47,.82);
+  --panel-palette: rgba(42,42,42,.82);
   /* 预览浮窗蒙版（little 态四周）：只做"轻微退后"，不是压掉背景——用户
      实机反馈"semi-transparent 遮罩+模糊"要的是看得见：底色压到 .15、
      blur 收到 6px（40px 会把暗色界面糊成一团黑，20px 仍嫌糊；同一条坑见
@@ -105,7 +117,7 @@
      卡片底下是原生液态玻璃 + 用户的壁纸，半透明会把正文压花、没法读。原来的
      .34–.46 是"窗口底本来就接近不透明"时代的配方，窗口玻璃化之后必须收回。
      要调透明度只改这里的 alpha——别再往卡片上叠第二层底色。 */
-  --card-gradient: linear-gradient(180deg, rgba(20,20,23,.96), rgba(15,15,18,.97) 35%, rgba(18,18,21,.96));
+  --card-gradient: linear-gradient(180deg, rgba(0,0,0,.96), rgba(0,0,0,.97) 35%, rgba(0,0,0,.96));
   /* 动效词汇（唯一一处定义，场景对应关系见 UI-SPEC §1.7）：
      四档过渡时长 + 两条常驻循环周期 + 两条曲线，就这么些。
      时长按参考实现（Raycast 动效规范）的梯度校准：微交互 150ms、位移 200ms、
@@ -155,13 +167,8 @@
   --ease-pop: cubic-bezier(.3, .7, 0, 1.26);
 }
 :root[data-theme="light"] {
-    --ink: rgba(22,23,26,.90);
-    --ink-soft: rgba(22,23,26,.66);
-    --ink-2: rgba(22,23,26,.55);
-    --ink-3: rgba(22,23,26,.46);
-    --ink-faint: rgba(22,23,26,.38);
-    --ink-faintest: rgba(22,23,26,.26);
-    --ink-bright: #16171A;
+    /* 文字色阶与 --on-ink 不在这里覆盖：它们由 color.ink 的基色派生，亮色是基色翻到
+       #000000 的结果（生成文件的 prefers-color-scheme 块）。 */
     --line: rgba(0,0,0,.12);
     --line-strong: rgba(0,0,0,.20);
     --line-heavy: rgba(0,0,0,.36);
@@ -172,7 +179,6 @@
     --fill-heavy: rgba(0,0,0,.15);
     --row-hover: rgba(0,0,0,.045);
     --selection: rgba(0,0,0,.16);
-    --on-ink: rgba(250,250,251,.86);
     --dot-face: rgba(22,23,26,.85);
     --dot-ring: rgba(22,23,26,.25);
     --dot-hole: rgba(255,255,255,.75);
@@ -187,11 +193,11 @@
       0 1px 8px -8px rgba(0,0,0,.10),
       0 4px 12px rgba(0,0,0,.05),
       0 -8px 64px 8px rgba(0,0,0,.05);
-    --panel-strong: rgba(250,250,251,.94);
+    --panel-strong: rgba(255,255,255,.94);
     /* 明显毛玻璃档（同 dark 注释）：浅色白底 .45，下方内容透出且保持雾感 */
-    --panel-glass: rgba(250,250,251,.55);
+    --panel-glass: rgba(255,255,255,.55);
     /* 命令面板的底（同 dark 注释）：亮色下"更浅"是更白更实——纯白近实色浮在浅灰应用上 */
-    --panel-palette: rgba(252,252,253,.90);
+    --panel-palette: rgba(255,255,255,.90);
     /* 预览浮窗蒙版（同 dark 注释）：亮色界面压太狠会把背景压没 */
     --veil: rgba(0,0,0,.12);
     --composer-bg: rgba(0,0,0,.05);
@@ -199,7 +205,7 @@
     /* 侧栏偏灰（深 tint 压在原生浅底上），会话卡偏白（白 overlay 抬亮） */
     --chrome-gradient: linear-gradient(180deg, rgba(0,0,0,.11), rgba(0,0,0,.075) 40%, rgba(0,0,0,.09));
     /* 内容区近实色（同 dark 注释）：亮色的内容卡是近白，同样不跟着窗口吃玻璃 */
-    --card-gradient: linear-gradient(180deg, rgba(252,252,253,.96), rgba(246,246,248,.97) 35%, rgba(250,250,251,.96));
+    --card-gradient: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.97) 35%, rgba(255,255,255,.96));
 }
 :root {
   color-scheme: light dark;
@@ -211,7 +217,7 @@ html, body, #root {
   background: transparent !important;
   font-family: var(--dsh-font-ui-family);
   font-weight: 400;
-  color: var(--dsh-text-primary);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow: hidden;
@@ -971,8 +977,8 @@ button {
 :where(html[data-hover-armed]) .task-row:hover { background: var(--row-hover); }
 /* 选中行悬停时不再叠一层 fill——底片已经在下面，否则滑过去的底会被冲淡 */
 .task-row.selected:hover { background: transparent; }
-.task-row.running .title { color: var(--ink-bright); }
-.task-row.selected { color: var(--ink-bright); }  /* 底色交给滑移底片 */
+.task-row.running .title { color: var(--ink); }
+.task-row.selected { color: var(--ink); }  /* 底色交给滑移底片 */
 .task-row .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .sidebar-foot {
@@ -1198,7 +1204,7 @@ button {
 :where(html[data-hover-armed]) .ws-cell:hover { background: var(--row-hover); color: var(--ink); }
 /* 选中态：底色由滑移底片（.glide-ws）给，自身裸图标——文字亮度仍由这里给。
    hover 透明：悬停那层 fill 会把滑过来的底冲淡。 */
-.ws-cell.active { color: var(--ink-bright); }
+.ws-cell.active { color: var(--ink); }
 .ws-cell.active:hover { background: transparent; }
 
 /* 底行右侧：新建空间入口（图标钮，本期占位，点击无行为）。 */
@@ -1312,7 +1318,7 @@ button {
   font-size: var(--dsh-font-size-hero);
   font-weight: 400;
   letter-spacing: .01em;
-  color: var(--ink-bright);
+  color: var(--ink);
 }
 .hero-top {
   display: flex;
@@ -1426,7 +1432,7 @@ button {
 .model-menu-row.active svg { color: var(--ink); }
 :where(html[data-hover-armed]) .model-menu-row:hover { background: var(--row-hover); }
 
-.model-menu-row.active { background: var(--fill-strong); color: var(--ink-bright); }
+.model-menu-row.active { background: var(--fill-strong); color: var(--ink); }
 .model-menu-empty { padding: 16px; color: var(--ink-3); font-size: var(--dsh-font-size-base); text-align: center; }
 /* 厂商分组小标题：列表按厂商聚合（行内不再重复厂商名） */
 .model-menu-group {
@@ -1488,7 +1494,7 @@ button {
 .model-detail-name {
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
-  color: var(--ink-bright);
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1958,7 +1964,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--ink-3); font-size: var(--dsh-font-size-xs);
 }
-.att-chip-meta.failed { color: var(--dsh-signal-danger); }
+.att-chip-meta.failed { color: var(--dsh-signal-danger-contrast); }
 .att-chip[data-status="pending"], .att-chip[data-status="uploading"] { opacity: .72; }
 /* 失败态：靠名字右边那截红字 + 一颗「重试」说清，胶囊自己不再改色（描边已取消，
    底色是"这是一颗胶囊"的语言，不该被状态挪用它；红字那条已经是信号色）。 */
@@ -2428,8 +2434,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 .md { font-size: var(--dsh-font-size-base); line-height: 21px;  /* 1.62：中文长段落 1.5 偏紧（工具感），阅读通道给到 1.6+ */ color: var(--ink); user-select: text; background: transparent !important; }
 .md * { background: transparent; }
 .md strong { background: transparent; font-weight: 600; }
-.md h1 { font-size: var(--dsh-font-size-xl); font-weight: 600; color: var(--ink-bright); margin: 14px 0 6px; line-height: 24px; }
-.md h2 { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink-bright); margin: 12px 0 5px; line-height: 22px; }
+.md h1 { font-size: var(--dsh-font-size-xl); font-weight: 600; color: var(--ink); margin: 14px 0 6px; line-height: 24px; }
+.md h2 { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); margin: 12px 0 5px; line-height: 22px; }
 .md h3 { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink); margin: 10px 0 4px; }
 .md p { margin: 0 0 9px; white-space: pre-wrap; word-break: break-word; }
 /* 消息末尾不留段距：行与行的间隔统一由 flow 的 12px 节奏负责。 */
@@ -2446,7 +2452,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 .md table { margin: 0 0 9px; border-collapse: collapse; font-size: var(--dsh-font-size-base); }
 .md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; }
-.md th { background: var(--fill); color: var(--ink-bright); font-weight: 500; }
+.md th { background: var(--fill); color: var(--ink); font-weight: 500; }
 
 /* ---------- session view ---------- */
 
@@ -2590,9 +2596,11 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
    （曾把菜单钉在窗口左上角盖住侧栏）。与 .hero-top .left 同款。 */
 .session-header .left { flex: 1; min-width: 0; position: relative; }
 .title-anchor { position: relative; }
-/* 标题即右侧面板「会话设置」的入口（onTitleClick，用户定稿；hover 亮字给
-   可点暗示）。收起态的项目切换走 WorkspacePill，不走标题。 */
-.title.title-switch:hover { color: var(--ink-bright); }
+/* 标题即右侧面板「会话设置」的入口（onTitleClick，用户定稿）。可点暗示用**下划线**
+   而不是"亮字"：正文已占色阶最高档（--ink = 停靠点 100），没有更亮的一档可去，
+   而"文字可点"在本仓的既有写法就是下划线（.listTitle:hover、.md a）。
+   收起态的项目切换走 WorkspacePill，不走标题。 */
+.title.title-switch:hover { text-decoration: underline; }
 .session-header .title {
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
@@ -2615,7 +2623,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   text-align: left;
 }
 .session-header .model:hover { background: var(--fill); color: var(--ink); }
-.session-header .meta { font-size: var(--dsh-font-size-sm); color: var(--dsh-text-tertiary); }
+.session-header .meta { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 /* 底部悬浮区（用户定稿「消息区下延贴底」）：goalbar/排队坞/composer 整体
    悬浮于消息流之上，内容延伸到窗口底、从胶囊磨砂后穿过；flow 的
    padding-bottom 由 SessionView 的 ResizeObserver 按本区实测高度动态设置
@@ -2800,7 +2808,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   flex-direction: column;
   gap: 10px;
 }
-.approval-card .cmd { font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); color: var(--dsh-text-secondary); user-select: text; white-space: pre-wrap; }
+.approval-card .cmd { font-family: var(--dsh-font-mono-family); font-size: var(--dsh-font-size-sm); color: var(--ink-2); user-select: text; white-space: pre-wrap; }
 .approval-card .actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 /* ---- 排队区（QueueDock）：会话框上方一叠**胶囊** ----
@@ -2901,7 +2909,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   font-weight: 500;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.queue-now:hover { color: var(--ink-bright); }
+.queue-now:hover { background: var(--fill-heavy); }
 .queue-btn {
   width: 22px;
   height: 22px;
@@ -3139,8 +3147,8 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
 }
-.btn-primary { background: var(--dsh-text-primary); color: var(--dsh-surface-inverted); }
-.btn-plain { background: var(--line); color: var(--dsh-text-primary); border: 1px solid var(--dsh-border-default); }
+.btn-primary { background: var(--ink); color: var(--on-ink); }
+.btn-plain { background: var(--line); color: var(--ink); border: 1px solid var(--dsh-border-default); }
 
 /* pulse 关键帧供 .state-dot 复用 */
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
@@ -3150,7 +3158,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--dsh-text-tertiary);
+  color: var(--ink-3);
   font-size: var(--dsh-font-size-base);
 }
 
@@ -3623,7 +3631,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   justify-content: center;
   gap: 10px;
   padding: 10px 0;
-  color: var(--dsh-signal-danger);
+  color: var(--dsh-signal-danger-contrast);
   font-size: var(--dsh-font-size-base);
 }
 .load-error button {
@@ -3899,7 +3907,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   line-height: 20px;
   display: inline-flex;
 }
-:where(html[data-hover-armed]) .plan-chip:hover { color: var(--ink-bright); background: var(--fill-heavy); }
+:where(html[data-hover-armed]) .plan-chip:hover { background: var(--fill-heavy); }
 
 /* ---- 任务行:悬停操作区(归档/时间/置顶)+ 右键菜单 ---- */
 /* 选中态滑移的底片（useSelectionGlide 驱动，三处共用）：绝对定位在定位祖先里，
@@ -3976,9 +3984,9 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--ink-bright);
+  background: var(--ink);
 }
-.task-row.unread .title { color: var(--ink-bright); font-weight: 500; }
+.task-row.unread .title { color: var(--ink); font-weight: 500; }
 
 /* 右键任务菜单（材质走弹出面板统一配方，与模型/@ 菜单同款） */
 .ctx-menu {
@@ -4005,7 +4013,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 :where(html[data-hover-armed]) .ctx-item:hover { background: var(--row-hover); }
 /* 破坏性动作（删除工作区）：官方菜单同款红色 */
-.ctx-item.danger { color: var(--dsh-signal-danger); }
+.ctx-item.danger { color: var(--dsh-signal-danger-contrast); }
 .ctx-item.danger svg { color: currentColor; }
 .ctx-sep { height: 1px; margin: 5px 8px; background: var(--fill); }
 
@@ -4299,7 +4307,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   padding: 6px 12px;
   border-top: 0.5px solid var(--line);
   font-size: var(--dsh-font-size-sm);
-  color: var(--dsh-signal-warn);
+  color: var(--dsh-signal-warn-contrast);
   min-width: 0;
 }
 .md-widget-error-label { flex: none; font-weight: 500; }
@@ -4331,11 +4339,11 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   gap: 8px;
   animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
-.md-ui-card-title { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink-bright); }
+.md-ui-card-title { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink); }
 .md-ui-card-text { font-size: var(--dsh-font-size-base); line-height: 1.65; color: var(--ink-2); }
 .md-ui-card-text .md p:last-child { margin-bottom: 0; }
 /* warn 档原来靠 `border-color` 上色——面不描边之后，这个信号由**标题的颜色**承担（靠颜色区分，不靠线）。 */
-.md-ui-card[data-tone="warn"] .md-ui-card-title { color: var(--dsh-signal-warn); }
+.md-ui-card[data-tone="warn"] .md-ui-card-title { color: var(--dsh-signal-warn-contrast); }
 .md-ui-stat {
   box-sizing: border-box;
   border-radius: var(--dsh-radius-card);
@@ -4345,7 +4353,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   gap: 3px;
   animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
-.md-ui-stat-value { font-size: var(--dsh-font-size-hero); font-weight: 600; color: var(--ink-bright); line-height: 1.2; }
+.md-ui-stat-value { font-size: var(--dsh-font-size-hero); font-weight: 600; color: var(--ink); line-height: 1.2; }
 .md-ui-stat-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 .md-ui-stat-hint { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .md-ui-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -4354,7 +4362,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   padding: 0 12px;
   border: 1px solid var(--line-heavy);
   border-radius: var(--dsh-radius-control);
-  color: var(--ink-bright);
+  color: var(--ink);
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
   white-space: nowrap;
@@ -4366,7 +4374,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   text-align: left;
   padding: 8px 12px;
   border-bottom: 0.5px solid var(--line-strong);
-  color: var(--ink-bright);
+  color: var(--ink);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -4382,7 +4390,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 }
 .md-ui-compare-cols { display: grid; grid-template-columns: repeat(var(--cols, 2), 1fr); gap: 12px; }
 .md-ui-compare-col { min-width: 0; }
-.md-ui-compare-head { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink-bright); margin-bottom: 6px; }
+.md-ui-compare-head { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink); margin-bottom: 6px; }
 .md-ui-compare-col ul { margin: 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 4px; }
 .md-ui-compare-col li { font-size: var(--dsh-font-size-sm); line-height: 1.55; color: var(--ink-2); }
 .md-ui-form .md-ui-field { display: flex; flex-direction: column; gap: 4px; }
@@ -4399,7 +4407,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
 }
 .md-ui-field-slider-row { display: flex; align-items: center; gap: 8px; }
 .md-ui-field-slider-row input[type="range"] { flex: 1; height: auto; padding: 0; border: 0; }
-.md-ui-field-value { min-width: 36px; text-align: right; font-size: var(--dsh-font-size-sm); color: var(--ink-bright); }
+.md-ui-field-value { min-width: 36px; text-align: right; font-size: var(--dsh-font-size-sm); color: var(--ink); }
 .md-ui-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .md-ui-steps li { display: flex; align-items: flex-start; gap: 8px; }
 .md-ui-step-dot {
@@ -4415,8 +4423,8 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   color: var(--ink-2);
   box-sizing: border-box;
 }
-.md-ui-steps li[data-state="active"] .md-ui-step-dot { border-color: var(--line-heavy); color: var(--ink-bright); }
-.md-ui-steps li[data-state="done"] .md-ui-step-dot { color: var(--ink-bright); }
+.md-ui-steps li[data-state="active"] .md-ui-step-dot { border-color: var(--line-heavy); color: var(--ink); }
+.md-ui-steps li[data-state="done"] .md-ui-step-dot { color: var(--ink); }
 .md-ui-step-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .md-ui-step-title { font-size: var(--dsh-font-size-base); color: var(--ink); line-height: 1.5; }
 .md-ui-steps li[data-state="idle"] .md-ui-step-title { color: var(--ink-2); }
@@ -4450,7 +4458,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   padding: 0 14px;
   border: 1px solid var(--line-heavy);
   border-radius: var(--dsh-radius-control);
-  color: var(--ink-bright);
+  color: var(--ink);
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
 }
@@ -4665,8 +4673,8 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   white-space: nowrap;
 }
 .rv-file-count { margin-left: auto; font-size: var(--dsh-font-size-xs); white-space: nowrap; }
-.rv-add { color: var(--diff-add-ink); margin-right: 6px; }
-.rv-del { color: var(--diff-del-ink); }
+.rv-add { color: var(--diff-add-ink-on-card); margin-right: 6px; }
+.rv-del { color: var(--diff-del-ink-on-card); }
 .rv-file-caret { color: var(--ink-faint); flex: none; transition: transform var(--dur-fast) var(--ease-out); }
 .rv-file[data-open] .rv-file-caret { transform: rotate(180deg); }
 .rv-file-body { padding-bottom: 6px; }
@@ -4755,14 +4763,14 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   padding: 0 12px;
   border: 1px solid var(--line-heavy);
   border-radius: var(--dsh-radius-control);
-  color: var(--ink-bright);
+  color: var(--ink);
   font-size: var(--dsh-font-size-base);
   font-weight: 500;
   white-space: nowrap;
 }
-.auto-proposal .auto-proposal-go:hover { border-color: var(--dsh-border-strong); color: var(--ink-bright); }
+.auto-proposal .auto-proposal-go:hover { border-color: var(--dsh-border-strong); }
 .auto-proposal-main { display: flex; flex-direction: column; gap: 3px; }
-.auto-proposal-title { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink-bright); }
+.auto-proposal-title { font-size: var(--dsh-font-size-base); font-weight: 500; color: var(--ink); }
 .auto-proposal-meta { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .auto-proposal-desc {
   margin-top: 4px;
@@ -4899,7 +4907,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ink-bright);
+  color: var(--ink);
   font-size: var(--dsh-font-size-xl);
   font-weight: 500;
   background: rgba(255,255,255,.04);
@@ -4920,7 +4928,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   cursor: default;
 }
 .ctx-ring:hover { background: var(--fill); color: var(--ink); }
-.ctx-ring[data-hot="true"] { color: var(--dsh-signal-warn); }.ctx-pop {
+.ctx-ring[data-hot="true"] { color: var(--dsh-signal-warn-contrast); }.ctx-pop {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
@@ -4960,7 +4968,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 
 /* Markdown 补齐 */
 /* 链接下划线统一点状虚线（用户定稿：实线下划线不好看） */
-.md a { color: var(--ink-bright); text-decoration: underline dotted; text-decoration-color: var(--ink-3); text-underline-offset: 3px; opacity: .85; }
+.md a { color: var(--ink); text-decoration: underline dotted; text-decoration-color: var(--ink-3); text-underline-offset: 3px; opacity: .85; }
 .md a:hover { opacity: 1; }
 .md del { opacity: .55; }
 .md-img { max-width: min(100%, 360px); max-height: 240px; border-radius: var(--dsh-radius-card); border: 1px solid var(--line); cursor: zoom-in; display: block; margin: 4px 0; }
@@ -5194,8 +5202,8 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
 .turn-issue-btn {
   padding: 2px 10px;
   border-radius: var(--dsh-radius-panel);
-  background: var(--dsh-text-primary);
-  color: var(--dsh-surface-inverted);
+  background: var(--ink);
+  color: var(--on-ink);
   font-size: var(--dsh-font-size-sm);
   flex: none;
 }
@@ -5520,7 +5528,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   font-size: var(--dsh-font-size-sm); color: var(--ink-3);
 }
 .capsule-stop { color: var(--ink-3); padding: 3px; border-radius: var(--dsh-radius-micro); flex: none; align-self: center; }
-.capsule-stop:hover:not(:disabled) { color: var(--dsh-signal-warn); background: var(--fill); }
+.capsule-stop:hover:not(:disabled) { color: var(--dsh-signal-warn-contrast); background: var(--fill); }
 .capsule-sec-toggle {
   display: inline-flex;
   align-items: center;
@@ -6166,7 +6174,7 @@ html[data-tooltip] .tip {
   border: 0; border-radius: var(--dsh-radius-control); background: transparent; text-align: left;
 }
 .panel-browser-offer.active, .panel-browser-offer:hover { background: var(--fill); }
-.panel-browser-offer.refused { color: var(--dsh-signal-danger); font-size: var(--dsh-font-size-sm); }
+.panel-browser-offer.refused { color: var(--dsh-signal-danger-contrast); font-size: var(--dsh-font-size-sm); }
 .panel-browser-offer-mark { flex: none; color: var(--ink-3); }
 .panel-browser-offer-key {
   flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -6355,7 +6363,7 @@ html[data-tooltip] .tip {
   cursor: grab;
 }
 .chat-float-head:active { cursor: grabbing; }
-.chat-float-title { font-size: var(--dsh-font-size-sm); color: var(--dsh-text-tertiary); }
+.chat-float-title { font-size: var(--dsh-font-size-sm); color: var(--ink-3); }
 .chat-float-close {
   display: flex;
   align-items: center;
@@ -6366,7 +6374,7 @@ html[data-tooltip] .tip {
   border: 0;
   border-radius: var(--dsh-radius-control);
   background: none;
-  color: var(--dsh-text-tertiary);
+  color: var(--ink-3);
 }
 .chat-float-close:hover { background: var(--fill-soft); color: var(--ink); }
 .chat-float-body { display: flex; flex: 1; min-height: 0; overflow: hidden; padding: 8px 12px; }
@@ -6409,7 +6417,7 @@ html[data-tooltip] .tip {
 .panel-chat-btn:hover { background: var(--fill-soft); }
 .panel-chat-btn.on {
   background: var(--fill-strong);
-  color: var(--ink-bright);
+  color: var(--ink);
 }
 
 /* ── 页内查找 / 「浏览器」设置页用到的零碎 ───────────────────── */
@@ -6432,7 +6440,7 @@ html[data-tooltip] .tip {
   color: var(--ink);
   font-size: var(--dsh-font-size-sm);
 }
-.panel-browser-find-miss { flex: none; color: var(--dsh-text-tertiary); font-size: var(--dsh-font-size-xs); }
+.panel-browser-find-miss { flex: none; color: var(--ink-3); font-size: var(--dsh-font-size-xs); }
 
 /* ── 按下态（PRESS）：全 app 一套语言，两种器件各一条 ───────────────────────
    实心/描边按钮：变暗（opacity .8）。方形图标钮：缩小（scale .94）。

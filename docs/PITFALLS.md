@@ -6,7 +6,7 @@
 
 ## 症状索引
 
-**渲染怪象（CSS / WebKit，细节 §1）**：圆角失控→1.1 · 全选色块→1.2 · 模糊失效→1.3/1.8 · 一类元素被整体改样式→1.4/1.11 · 表单塌细条→1.6 · 下拉压扁/点不动/出视口→1.7 · mask 不生效→1.9 · 浮层被困纯透明→1.10 · 删 token 后透明→1.13 · 流内按钮隐形→1.14 · 会话日志只解一行→1.15 · 滚动落点偏短→1.12 · 浮层整条看不见→1.16 · "收起"仍有高度→1.17 · 滚动进度条抖动→1.18 · 键帽字符怪→1.19 · 网页系统玻璃不生效/材质板大一圈→1.20
+**渲染怪象（CSS / WebKit，细节 §1）**：圆角失控→1.1 · 全选色块→1.2 · 模糊失效→1.3/1.8 · 一类元素被整体改样式→1.4/1.11 · 表单塌细条→1.6 · 下拉压扁/点不动/出视口→1.7 · mask 不生效→1.9 · 浮层被困纯透明→1.10 · 删 token 后透明→1.13 · 流内按钮隐形→1.14 · 会话日志只解一行→1.15 · 滚动落点偏短→1.12 · 浮层整条看不见→1.16 · "收起"仍有高度→1.17 · 滚动进度条抖动→1.18 · 键帽字符怪→1.19 · 网页系统玻璃不生效/材质板大一圈→1.20 · 同屏两种正文字色/删彩字 token 后 mermaid 炸/彩字亮色下不可读→1.22
 
 **事件/数据形状（细节 §2）**：正文渲染为空→2.1 · RPC invalid-request→2.2 · 到处 as any→2.3 · 注入上下文成大气泡→2.4 · 提问后状态卡死→2.5 · 直播空白历史正常→2.6
 
@@ -26,6 +26,14 @@
 - 定因：只跑壳腿（`xcodebuild test …`，不并行前端）187/187 全绿；单跑该套件 20/20 全绿。即这批用例起 git 子进程、对机器负载敏感，不是代码回归。
 - 频率与可疑机制：整轮并行下约每三次命中一两次；`seedRepo()` 起 git 子进程 seed 临时仓库，负载下一旦某步没落地（超时/失败未被检查），被测文件就还是 untracked，断言随即从 .patch 变 .untracked——**待查**，但这属于测试基建，不是产品代码。
 - 处置：见到这批用例在整轮里红、单跑绿，**先按环境抖动处理**（别去改 GitChanges）；判定改动是否真红，以「只跑壳腿」或 `-only-testing:` 单套件为准，并把两次结果都记进报告。
+- **同族第二例（2026-10-14 发现，与上一条不同因）**：`BrowserCookieTests.testChromiumUnwrapRoundTrips` 在**同一份二进制**上
+  两轮一绿一红（中间只改了前端 CSS 与生成器，Swift 一行未动），失败断言是 `XCTAssertNil` 在
+  `unwrap(Data("v10garbage".utf8))` 上拿到了合法 UTF-8 的乱码。定因在 `ChromiumCookieCrypto.unwrap`：
+  它把 `body` 直接丢给 `CCCrypt`，**没有校验 body 是不是整块**——7 字节（不足一个 AES 块）不是合法密文，
+  CCCrypt 这时既可能报错（→ nil，测试绿）也可能"成功"并返回一段取决于**相邻堆内存**的乱码
+  （→ 恰好是合法 UTF-8 时返回非 nil，测试红）。并行腿下堆布局不同，于是时红时绿。
+  单跑该套件全绿。**一行可修**：`guard body.count >= kCCBlockSizeAES128, body.count % kCCBlockSizeAES128 == 0 else { return nil }`
+  （本轮未改：它属于浏览器 cookie 那块，不在本次改动范围内）。
 
 **调试技巧（细节 §6）**：抓事件流→6.1 · Playwright 验证→6.2 · 后台 subagent 失败→6.3 · hdiutil 僵尸→6.4
 
@@ -118,7 +126,7 @@
 
 ### 1.14 消息流里的 `background` 是白费的：`.flow/.md * { background: transparent !important }` 会把按钮也一起清掉
 - 事故（2026-09-12，做「定时任务建议」卡时量出来的）：卡里的主按钮原本照抄全局 `.btn-primary`，实测 `getComputedStyle` 是 `background: rgba(0,0,0,0)`（theme.css:1698 那条 `.flow, .flow-inner, .md, .md *, .agent-message, .agent-message * { background: transparent !important }` 连着 `!important` 一起清），而 `.btn-primary` 的文字色是**反相面色**（暗色主题下 `--dsh-surface-inverted` = #2A2A2E）——深灰字压在深色卡上，等于隐形；亮色主题同理（白字压白底）。用户看到的只是「一块淡淡的字」。
-- 处置：**流内动作按钮一律走「描边 + 亮字」**（`border: 1px solid var(--line-heavy)` + `color: var(--ink-bright)`），别指望实底；给流内元素写 `background` 就是死代码。要让实底在流内成立，得给那条 `!important` 开显式例外（`.flow .btn-primary { background: … !important }`）——目前没开，别偷偷绕。
+- 处置：**流内动作按钮一律走「描边 + 亮字」**（`border: 1px solid var(--line-heavy)` + `color: var(--ink)`——正文即色阶最高档（`--ink-bright` 已并入 `--ink`，见 §1.22），别指望实底；给流内元素写 `background` 就是死代码。要让实底在流内成立，得给那条 `!important` 开显式例外（`.flow .btn-primary { background: … !important }`）——目前没开，别偷偷绕。
 - 附带事实（同源）：流内卡片（`.question-card` / `.approval-card` / `.plan-review-card` / `.auto-proposal`）的 `linear-gradient` 底色同样被清掉，所以它们长期是**只有描边**的形态。2026-10-14 起改为**去线留色**：`theme.css` 有一条"流内面的唯一一份底色"给这一族显式 opt-in 底色（`!important`），卡片规则里不再自己写 `background`（写了也是死代码）。**已知同类隐患**：审批卡的「允许」用的是 `.btn-primary`，落在这条规则下同样是隐形文字（本轮未改，用户没提；要改就是上面那条例外或把它换成描边钮）。
 
 ### 1.15 会话日志是多帧 zstd：fzstd 的一次性 `decompress` 只解第一帧（静默给 1 行，不报错）
@@ -236,6 +244,29 @@
 - 一条**不变量**：只打包拉丁子集，中文永远走系统字体——所以同一段中英混排里，中英字形来自两个
   字体（Inter 的英文 + PingFang 的中文）。这是设计选择（Raycast 同样不给 Inter 分包 CJK），
   别当成 bug 去"统一"。
+
+### 1.22 文字色阶对齐 Raycast：三处"不报错"的连带（2026-10-14）
+
+把文字色阶改成「一个基色 + 统一 alpha 停靠点」时同时撞到三件事，都属于"测试不红、看着正常"那一类：
+
+- **同一概念两份系数**：`tokens.json` 的 `color.text.{primary,secondary,tertiary}`（生成成 `--dsh-text-*`，
+  不透明 hex）与 `theme.css` 的 `--ink` 族（alpha 阶梯）是同一件事的两份实现。全仓 703 处在用后者、
+  只有 12 处在用前者——但其中一处是 `html, body, #root` 的**根默认色**，于是亮色主题下同一界面里
+  继承得到的正文是 `#1A1A1A`（16.4:1）、显式写 `--ink` 的是 `#2D2D30`（12.9:1），**同一屏两种深度**。
+  判别式：`grep -c 'var(--ink'` 与 `grep -c 'var(--dsh-text-'` 差两个数量级时，小的那族就该并回去。
+- **删 CSS 变量在 TS 侧不是静默、是抛错**：`rich/mermaidRender.ts` 用 `readVar("--ink-bright")` 按**名字**读
+  CSS 变量，而它的 `requireColor` 是"变量缺失即 throw"语义（该文件自身的设计）。删 `--ink-bright` 时
+  CSS 侧 grep 全绿，mermaid 图会在运行时直接炸。**这是 §1.13 的反例补全**：那次是 CSS 侧静默失效，
+  这次是 TS 侧抛错——两种都要查。判别式：`grep -rn '"--[a-z-]*"' frontend/src --include=*.ts --include=*.tsx`
+  找按字符串读变量的地方。
+- **对比度算完要按 8 位取整复验**：彩字校正层二分出的是浮点插值，取整后可能掉回门槛之下
+  （实测 `signal.warn` 在亮色下目标 4.5、取整后 4.48）。处置：二分的目标函数用**取整后**的颜色，
+  末尾再复验、不够就继续往极端挪一格。
+
+- **另两处是设计连带，不是 bug**：①正文占满最高档后，"hover / 选中把字提亮"无处可去
+  （`--ink-bright` 因此并入 `--ink`，5 处 hover 规则随之变成空规则）——可点/悬停改用**填充**（§1.10）
+  或**下划线**；②`--dsh-signal-*` 是"压面"用法、`--diff-*-ink` 是"压自己染色底"用法，两个落点各需
+  一个校正变体，直取 `color: var(--dsh-signal-x)` 在亮色下不可读（1.5–1.9:1）。
 
 ---
 
