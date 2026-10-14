@@ -792,8 +792,14 @@ button {
    `@property` 声明角度 → conic 旋转；`mask-composite: exclude` 按
    content-box/border-box 挖出环（MDN 记：Baseline 2023 / Safari 16.4+，本机
    WKWebView 满足）。只在"会话进行中"挂载，不接事件；开着的右侧卡（5）仍在其上。
-   **调点**：转一圈的时长＝下面 ×3 那个系数；环宽＝padding；波峰形状＝--mini-glow-arc；
-   光晕范围＝::before 的 padding/blur。 */
+   **两层各自摆在哪是硬约束**（2026-10-14 用户报"辉光被挡住，只剩一条线"）：环形遮罩
+   裁的是**整棵子树**——遮罩一旦落在容器上，里面的光晕层就被一起裁进那条 1.5px 的环里、
+   整层消失；而 `filter` 在遮罩**之前**生效，blur 与环遮罩写在同一层等于模糊白做（散出去
+   的部分被环裁掉，只剩一条硬边）。所以：容器只定位不遮罩 → `::before` 画锐利边光（自带
+   环遮罩）→ `.mini-running-glow-halo` 是**不带遮罩的包裹层**、它才挂 blur，环由它的
+   `::before` 挖。两层关系见 PITFALLS §1.23。
+   **调点**：转一圈的时长＝下面 ×3 那个系数；边光宽度＝::before 的 padding；波峰形状＝
+   --mini-glow-arc；光晕范围＝光晕层的 padding/blur。 */
 @property --mini-glow-angle {
   syntax: "<angle>";
   inherits: true;
@@ -816,29 +822,19 @@ button {
   z-index: 4;
   pointer-events: none;
   border-radius: var(--dsh-radius-panel);
-  padding: 1.5px;
-  background: var(--mini-glow-arc);
-  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
-  mask-clip: content-box, border-box;
-  mask-composite: exclude;
-  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
-  -webkit-mask-clip: content-box, border-box;
-  -webkit-mask-composite: xor;
   animation:
     mini-running-glow-spin calc(var(--loop-breathe) * 3) linear infinite,
     mini-running-glow-breathe calc(var(--loop-breathe) * 1.5) var(--ease-out) infinite;
 }
-/* 光晕：同一份亮弧、更宽的环 + 模糊——贴着边往内散一小片，不是面板中间的一块色斑。
-   （同一个自定义属性被继承，所以两层始终同步转动。） */
-.mini-running-glow::before {
+/* 两层共用的环遮罩：把亮弧挖成只有边上一圈（content-box 与 border-box 两片相消）。
+   环宽由各层自己的 padding 给，所以这条只写遮罩。 */
+.mini-running-glow::before,
+.mini-running-glow-halo::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  padding: 6px;
   background: var(--mini-glow-arc);
-  filter: blur(5px);
-  opacity: .5;
   mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
   mask-clip: content-box, border-box;
   mask-composite: exclude;
@@ -846,6 +842,18 @@ button {
   -webkit-mask-clip: content-box, border-box;
   -webkit-mask-composite: xor;
 }
+/* 锐利边光：贴边的一条亮弧。 */
+.mini-running-glow::before { padding: 1.5px; }
+/* 光晕：同一份亮弧、更宽的环，由本层 blur 糊成贴着边往内散的一小片（不是面板中间的
+   一块色斑）。**遮罩不能上这一层**——上了 blur 就被裁回环内。 */
+.mini-running-glow-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  filter: blur(5px);
+  opacity: .5;
+}
+.mini-running-glow-halo::before { padding: 6px; }
 @keyframes mini-running-glow-spin {
   to { --mini-glow-angle: 360deg; }
 }
