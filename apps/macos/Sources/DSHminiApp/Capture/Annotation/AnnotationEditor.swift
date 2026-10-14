@@ -43,6 +43,8 @@ final class AnnotationEditor: AnnotationEditing {
   private var lastWheel: TimeInterval = 0
   /// The toolbar's origin when the drag in progress began.
   private var dragOrigin = CGPoint.zero
+  /// 在途的那一次提取文字：识别与翻译都认这个记号，卡一关就作废（``beginExtractRun()``）。
+  private var extractRun: UUID?
 
   /// `defaults` keeps the remembered styles.
   init(defaults: UserDefaults = .standard) {
@@ -108,6 +110,9 @@ final class AnnotationEditor: AnnotationEditing {
     selectionDidChange(selection)
     refresh()
     focusCanvas()
+    // 识别器的冷启动现在就付掉（后台、整进程一次）：用户可能马上要按那颗扫描钮，而首次识别
+    // 最坏要等系统那份识别服务就位几十秒（PITFALLS §11.9）——那时候他正在看选区，是在等自己。
+    Task.detached(priority: .utility) { await ScreenText.warmUp() }
   }
 
   var hasAnnotations: Bool { !store.document.isEmpty || textEditor.isEditing }
@@ -151,6 +156,7 @@ final class AnnotationEditor: AnnotationEditing {
     store.reset()
     display = nil
     movedOrigin = nil
+    extractRun = nil
   }
 
   /// Annotations are in view points: they are moved into the crop's pixels and clipped to the
@@ -323,30 +329,43 @@ final class AnnotationEditor: AnnotationEditing {
   // MARK: 提取文字（工具条那颗扫描钮）
 
   /// 提取文字：按选区裁**原图**像素去识别（标注不进识别——那只会给读出来的字添噪），结果
-  /// 开在卡里。识别是用户按出来的那一下才跑的（``ScreenText``），识别期间卡先开出来报"识别中"。
+  /// 开在卡里。识别是用户按出来的那一下才跑的（``ScreenText``），识别期间卡先开出来报"识别中"；
+  /// 识别没有死线，识别器本身已在编辑器出现时预热过（见 ``show(in:selection:display:)``）。
+  ///
+  /// 喂给识别的是**导出那条路径上的无标注位图**（`CaptureExport.render` 的 `raw`，也是旧管道
+  /// 喂给识别器的同一份）：直接 `cropping` 冻屏图看着等价，端出去的却是它原样的像素格式。
   private func extractText() {
     textEditor.end()
     guard let display,
-      let crop = CaptureCoordinates.pixelRect(
-        selection, scale: display.pixelScale, width: display.image.width,
-        height: display.image.height),
-      let image = display.image.cropping(to: crop)
+      let image = CaptureExport.render(selection: selection, display: display, editor: nil)?.raw
     else { return report(.captureExtractFailed) }
     extractCard.openBusy()
     placeExtractCard()
+    let run = beginExtractRun()
     Task { [weak self] in
-      let lines = await ScreenText.lines(in: image)
-      guard let self else { return }
-      guard let lines else { return self.report(.captureExtractFailed) }
-      guard !lines.isEmpty else { return self.report(.captureExtractEmpty) }
-      let text = lines.joined(separator: "\n")
-      // 探一次模型在不在：不在就**不摆**翻译钮（按了必然失败的那种钮，比没有更糟）。
-      var canTranslate = false
-      if let plan = ScreenTranslation.plan(for: text, appLanguage: DSHAppPrefs.language) {
-        canTranslate = await ScreenTranslation.isInstalled(plan)
+      let started = Date()
+      do {
+        let lines = try await ScreenText.lines(in: image)
+        let text = lines.joined(separator: "\n")
+        // 探一次模型在不在：不在就**不摆**翻译钮（按了必然失败的那种钮，比没有更糟）。
+        var canTranslate = false
+        if !text.isEmpty,
+          let plan = ScreenTranslation.plan(for: text, appLanguage: DSHAppPrefs.language) {
+          canTranslate = await ScreenTranslation.isInstalled(plan)
+        }
+        guard let self, self.extractRun == run else { return }
+        EngineLog.shared.append(
+          "[capture] extract text: \(lines.count) lines in \(Self.seconds(since: started))")
+        guard !text.isEmpty else { return self.report(.captureExtractEmpty) }
+        self.extractCard.show(text: text, canTranslate: canTranslate)
+        self.placeExtractCard()
+      } catch {
+        guard let self, self.extractRun == run else { return }
+        // 失败要留第一现场：卡上只给一句"请重试"，原始错误（Vision 报的那个）进日志。
+        EngineLog.shared.append(
+          "[capture] extract text failed after \(Self.seconds(since: started)): \(error)")
+        self.report(.captureExtractFailed)
       }
-      self.extractCard.show(text: text, canTranslate: canTranslate)
-      self.placeExtractCard()
     }
   }
 
@@ -356,12 +375,16 @@ final class AnnotationEditor: AnnotationEditing {
     guard let plan = ScreenTranslation.plan(for: text, appLanguage: DSHAppPrefs.language) else {
       return extractCard.translationUnavailable()
     }
+    let run = extractRun
     Task { [weak self] in
       do {
         let translated = try await ScreenTranslation.translate(text, plan)
-        self?.extractCard.showTranslation(translated)
+        guard let self, self.extractRun == run else { return }
+        self.extractCard.showTranslation(translated)
       } catch {
-        self?.extractCard.translationUnavailable()
+        guard let self, self.extractRun == run else { return }
+        EngineLog.shared.append("[capture] translate failed: \(error)")
+        self.extractCard.translationUnavailable()
       }
     }
   }
@@ -374,10 +397,23 @@ final class AnnotationEditor: AnnotationEditing {
   }
 
   /// 关掉结果卡（关闭钮或 Esc）；键盘交回画布，下一次 Esc 才回到会话那架阶梯。
+  /// 在途的识别/翻译随这一关作废——迟到的结果不该把卡再顶回来。
   private func closeExtract() {
     guard extractCard.isOpen else { return }
+    extractRun = nil
     extractCard.close()
     focusCanvas()
+  }
+
+  /// 一次识别的记号（``extractRun``）：每按一次换一个，卡一关就作废，迟到的结果按记号丢掉。
+  private func beginExtractRun() -> UUID {
+    let run = UUID()
+    extractRun = run
+    return run
+  }
+
+  private static func seconds(since start: Date) -> String {
+    String(format: "%.2fs", Date().timeIntervalSince(start))
   }
 
   /// 卡里一句说明（没认到字 / 识别失败）：没有可复制的东西，动作也一并收起来。
