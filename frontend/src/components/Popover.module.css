@@ -1,0 +1,28 @@
+/* 浮层壳：Popover.tsx 的共享样式。
+   宿主自己的类负责尺寸/圆角/投影/材质族参数（theme.css 的浮层配方），这里只放
+   **每个浮层都必须一致**的两条：进出场动效，与"动效被减弱时也不卡住"的收口。
+
+   进出场就是全站那份配方（theme.css 的 @keyframes pop-in / pop-out，数值照参考实现的
+   popover）。`transform-origin` 不在这里——它逐面不同，由 Popover 按 align/side 算出
+   写进内联样式。 */
+/* 宿主是**定位元素**：位置由 Popover 内联算出（`position: fixed` + 四边），这里写一遍是
+   让"材质层的宿主必须定位"这条约束在类上也看得见——调用方那个类（.ctx-menu 等）给的是
+   z-index，两者合起来才成栈上下文（负 z 的材质层靠它被关在宿主里，见 GlassLayer.tsx）。 */
+.box {
+  position: fixed;
+}
+.box[data-state="open"] {
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
+}
+/* 离场必须 `both`：元素要停在 opacity 0 / scale .97 等 JS 摘 DOM（onAnimationEnd）。
+   期间不收事件，免得"已经看不见了还能点到"。 */
+.box[data-state="closed"] {
+  animation: pop-out var(--dur-fast) var(--ease-out) both;
+  pointer-events: none;
+}
+/* 减弱动态效果：**不能整条 animation:none**——那样 animationend 不来，离场这一帧
+   就永远挂在那里。压到 1ms：等于瞬时，事件照发。 */
+@media (prefers-reduced-motion: reduce) {
+  .box[data-state="open"],
+  .box[data-state="closed"] { animation-duration: 1ms; }
+}

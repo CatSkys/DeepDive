@@ -80,18 +80,15 @@
      blur 强度在 .composer-menu 单独降为 14px（40px 会把背景糊成无法
      辨认的浓雾，反而显得「没有模糊」） */
   --panel-glass: rgba(24,24,27,.55);
-  /* 材质层的底色：**回退档**（没有系统材质）用真半透/近实色，**系统材质档**（@supports 里）
-     换成轻叠加——底色原是为"自带模糊"配的，玻璃本体由系统给时重底色会把玻璃盖死
-     （2026-10-14 用户报"看着都不像"；与参考实现的面板叠加 ~10% 白对齐）。 */
-  --glass-overlay: rgba(255,255,255,.07);
-  --glass-overlay-strong: rgba(255,255,255,.10);
+  /* 材质层的**回退底色**：只在系统材质拿不到的那个运行时用（`@supports` 之外的分支）。
+     拿到材质时材质层**没有底色**——参考实现（Raycast 的 `[macos] .popover__webPopover`）
+     在 macOS 上就是 `background-color: transparent`，整块面由材质自己画；要调节只许动
+     `filter` 的 saturate/brightness（它的侧栏 `saturate(1.25)`、工具栏
+     `saturate(1.35) brightness(50%)`）。底色画在材质**之上**，垫一层就等于把玻璃盖死——
+     2026-10-14 报的"不像玻璃/一块平灰"就是这个（见 PITFALLS §7 材质层那条）。 */
   --glass-fill-float: var(--panel-glass);
   --glass-fill-dialog: var(--panel-strong);
   --glass-fill-palette: var(--panel-palette);
-  /* --glass-overlay / --glass-overlay-strong 暂留：等网页浮层改成原生弹窗窗口（真要玻璃的
-     那条路）时，这三个 --glass-fill-* 指过去即可，其余代码不动。 */
-  --glass-overlay: rgba(255,255,255,.07);
-  --glass-overlay-strong: rgba(255,255,255,.10);
   /* 命令面板（⌘K）的底：比菜单更浅也更实。它浮在应用自己的近黑铬件上——用
      --panel-glass 那两个数会跟背景糊成一片（实测两者相差 1 级亮度），所以要往
      亮处抬一档拉开隔离，同时把不透明度提到 .82 让背后的正文不再透上来。 */
@@ -152,6 +149,10 @@
      两条曲线的形状取自参考实现（Raycast 动效规范）：ease-out-expo 的强减速做入场、
      ease-out-back 的过冲做俏皮回弹。 */
   --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  /* 浮层曲线：**只给"浮层进场"用**（菜单/弹窗/提示那一族，`@keyframes pop-in`）。
+     逐字取自参考实现：Raycast 的 popover 进场就是这条（`.3,.7,0,1.26`，尾端一点过冲），
+     它的离场用 ease-out——快出慢入。此前这个字面量散在 tip 那两条规则里，这里收成 token。 */
+  --ease-pop: cubic-bezier(.3, .7, 0, 1.26);
 }
 :root[data-theme="light"] {
     --ink: rgba(22,23,26,.90);
@@ -243,7 +244,6 @@ button {
   cursor: default;
 }
 
-
 /* ---------- liquid glass (Apple Tahoe-style, WebKit-safe layers) ---------- */
 
 /* refraction edge: bright top-left -> dark bottom-right */
@@ -302,23 +302,32 @@ button {
    ④ 投影统一 --shadow-pop：重投影会把低透明面板边界重新描黑
       （2026-09 阴影过重反馈）。 */
 :root {
-  /* 浮层投影拆两半：**内缘高光归材质层**（--shadow-pop-inset，画在宿主身上会被材质层
-     盖住）、**外投影留在宿主**（--shadow-pop-drop，托管材质的板按材质层的 bounds 铺，
-     外投影挂在材质层上会把板撑大一圈）。--shadow-pop 是两者的合成，留给没有材质层的面。 */
-  --shadow-pop-inset: inset 0 1px 0 rgba(255,255,255,.08);
+  /* 浮层投影拆两半：**描边环归材质层**（--shadow-pop-inset——画在宿主身上会被材质层盖住；
+     走 inset 也不外扩，不会把托管材质的板撑大）、**外投影留在宿主**（--shadow-pop-drop）。
+     这个"环 + 分层软影"的结构照参考实现：Raycast 的 `--shadow-panel` 就是
+     `inset 0 0 0 1px <fg-20>` 环与五层软影合成的一条。--shadow-pop 是两者的合成，
+     留给没有材质层的面。 */
+  --shadow-pop-inset: inset 0 0 0 1px var(--line-strong);
+  /* 五层软影：前三层贴身描接缝、第四层主影、第五层大范围环境影。比两层写法更经得住
+     "浮起来"的观感，又不像单层大影那样在低透明面板边界上糊出一圈（§2 阴影过重那条）。 */
   --shadow-pop-drop:
-    0 12px 28px rgba(0,0,0,.20),
-    0 2px 6px rgba(0,0,0,.10);
+    0 1px 1px -1px rgba(0,0,0,.05),
+    0 4px 2px -3px rgba(0,0,0,.05),
+    0 8px 4px -6px rgba(0,0,0,.05),
+    0 12px 40px -12px rgba(0,0,0,.10),
+    0 24px 64px -24px rgba(0,0,0,.18);
   --shadow-pop: var(--shadow-pop-inset), var(--shadow-pop-drop);
   /* 悬浮卡（.main 主卡 / 会话卡 / 右侧面板卡是同一张卡的三处落地）：
      只留贴身一档——大范围环境投影会让下沿发糊、显松散。 */
   --shadow-card:
     inset 0 1px 0 rgba(255,255,255,.06),
     0 4px 14px rgba(0,0,0,.20);
-  /* 对话框与灯箱（唯一比浮层更深的一档）：落点是近实色的 --panel-strong，
-     边界不靠低透明面板那套"描边"逻辑，所以深投影在这里不吃 §④ 那条约束。 */
-  --shadow-modal-inset: inset 0 1px 0 rgba(255,255,255,.08);
-  --shadow-modal-drop: 0 24px 64px rgba(0,0,0,.4);
+  /* 对话框与灯箱（唯一比浮层更深的一档）：同一枚描边环，外投影换成更远的两层。 */
+  --shadow-modal-inset: inset 0 0 0 1px var(--line-strong);
+  --shadow-modal-drop:
+    0 8px 10px -6px rgba(0,0,0,.10),
+    0 20px 25px -5px rgba(0,0,0,.18),
+    0 32px 80px -24px rgba(0,0,0,.32);
   --shadow-modal: var(--shadow-modal-inset), var(--shadow-modal-drop);
 }
 /* 投影就这三档（--shadow-card 贴地卡 / --shadow-pop 浮在内容之上 / --shadow-modal 对话框），
@@ -333,18 +342,15 @@ button {
   --shadow-card:
     0 1px 0 rgba(0,0,0,.05),
     0 4px 12px rgba(0,0,0,.10);
-  /* 亮色没有内缘高光——那 1px 底缘接地线本身就是**外**投影，留在宿主（bubble 里没有
-     inset 项，所以合成式不能写 `none, …`：那是非法值，整条声明会被丢掉）。 */
-  --shadow-pop-inset: none;
+  /* 亮色没有内缘高光——那 1px 底缘接地线本身就是**外**投影，留在宿主。
+     描边环不在这里覆盖：它取 `--line-strong`，亮色下自动变成黑 ring（浅色玻璃不勾边
+     就与白底糊在一起），整套配方一份即可。 */
   --shadow-pop-drop:
     0 1px 0 rgba(0,0,0,.04),
     0 12px 28px rgba(0,0,0,.11);
-  --shadow-pop: var(--shadow-pop-drop);
-  --shadow-modal-inset: none;
   --shadow-modal-drop:
     0 1px 0 rgba(0,0,0,.06),
     0 24px 64px rgba(0,0,0,.17);
-  --shadow-modal: var(--shadow-modal-drop);
 }
 /* 材质族：给材质层定三个值（底色 / 内缘高光 / 回退模糊档）。宿主引这一条即得，不必各写
    三个值——两族的分野（瞬时浮层用真半透、承载内容的浮窗用近实色）见 UI-SPEC §1.4bis。
@@ -356,12 +362,6 @@ button {
   --glass-blur: var(--blur-float);
   --glass-inset: var(--shadow-pop-inset);
 }
-.dialog-card {
-  --glass-tint: var(--glass-fill-dialog);
-  --glass-blur: var(--blur-scrim);
-  --glass-inset: var(--shadow-modal-inset);
-}
-
 /* 浮在会话流之上的一档材质：**还没接材质层的两个面**（回到底部钮、文件预览浮窗——
    后者是承载大块内容的浮窗，与面板卡同族，见 UI-SPEC §1.4bis）。
    其余菜单面（模型菜单/工作区菜单/@·/ 菜单/右键/胶囊面板/页内查找…）改由
@@ -906,7 +906,6 @@ button {
 /* 设置侧栏的分组：组距与「标签→首项」的间距都在 .snav-item/.snav-group 那组
    规则里给（同一处维护），这里不再重复一份。 */
 
-
 .task-row.pinned svg { color: var(--ink-2); }
 .task-row {
   display: flex;
@@ -1351,8 +1350,6 @@ button {
   /* 弹层挂 body（ModelMenu 的 portal）：fixed + 行内 top/left 由触发器 rect 算出，
      放在会话头或右侧边栏的滚动容器里都不会被裁、也不占布局 */
   position: fixed;
-  width: 280px;
-  max-height: 460px;
   display: flex;
   flex-direction: column;
   border-radius: var(--dsh-radius-floating);
@@ -1363,20 +1360,6 @@ button {
   z-index: var(--z-menu);
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
   box-shadow: var(--shadow-pop-drop);
-}
-.model-menu::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(165deg,
-    rgba(255,255,255,.18), rgba(255,255,255,.04) 30%,
-    rgba(255,255,255,.02) 62%, rgba(0,0,0,.22) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
 }
 .model-menu-body { overflow-y: auto; padding: 0 6px 6px; max-height: 330px; }
 .model-menu-row {
@@ -1525,36 +1508,19 @@ button {
 }
 .hero-ws:hover { text-decoration-color: var(--ink-2); }
 
-/* Hero 项目切换菜单：材质走浮层配方（同 model-menu），锚定在项目名下方
-   居中——定宽 280 用 left: calc 偏移而非 translateX，避免与 menu-in 动画
-   的 transform（fill-mode 会覆盖静态 transform）打架。 */
+/* Hero 项目切换菜单：材质走浮层配方（同 model-menu）。摆位（fixed + 四边 + maxHeight）
+   全归 Popover——它按触发器算，定宽由 MENU_WIDTH 内联钉住，不再用 translateX 居中
+   （静态 transform 会和进出场动画那条 transform 打架）。 */
 .ws-menu {
-  /* 定位（fixed + top/left + maxHeight）由 ProjectMenu 按触发器实测内联给 */
-  width: 280px;
   display: flex;
   flex-direction: column;
   border-radius: var(--dsh-radius-floating);
   border: 1px solid var(--line);
   overflow: hidden;
   z-index: var(--z-menu);
-  animation: menu-in var(--dur-med) var(--ease-out) backwards;
-  transform-origin: top center;
+
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
   box-shadow: var(--shadow-pop-drop);
-}
-.ws-menu::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(165deg,
-    rgba(255,255,255,.18), rgba(255,255,255,.04) 30%,
-    rgba(255,255,255,.02) 62%, rgba(0,0,0,.22) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
 }
 .ws-menu-search {
   display: flex;
@@ -1628,12 +1594,17 @@ button {
      PITFALLS §1.1 合成伪影）。＋ 列宽、圆钮直径（下面那个）、圆角都从这一个值
      派生，连触屏档也只改它一处。 */
   --composer-h: 36px;
+  /* 定位 + 显式 z-index = 栈上下文：材质层用**负 z** 垫在内容之后（照参考实现），
+     负 z 只在宿主自己是栈上下文时才被关在宿主里——只有 position 是不够的
+     （z-index:auto 不成栈上下文，材质层会一路逃到 .main 近实色卡的底下、整块消失）。
+     这条由架构检查器的 glass-host 规则守着。 */
   /* 圆钮（＋/麦克风/发送·停止）的直径 = 单行高 − 8，即上下各留 4 的呼吸。**刻意不等于
      单行高**：等高的圆钮与胶囊上下缘相切，常驻实心的发送钮会读成"把胶囊撑满"
      （2026-10-14 用户报"发送钮有点大了"，实测直径 36 = 胶囊高、上下缝 0）。8 写进算式，
      触屏档把 --composer-h 抬到 44 时它自己变 36，不必两处改。 */
   --composer-knob: calc(var(--composer-h) - 8px);
   position: relative;
+  z-index: 0;
   display: grid;
   grid-template-columns: var(--composer-h) minmax(0,1fr) auto;
   align-items: center;
@@ -1657,51 +1628,54 @@ button {
      挂一个，子层的采样就被锁进胶囊内部、只剩自己的底色＝一块实心（浮层配方③，
      2026-09 那两轮子层事故的根因）。 */
 }
-/* 液态玻璃材质层（内容与材质分离）：铺满胶囊的 padding box（inset:0 对绝对定位子元素
-   就是 padding box，胶囊无边框所以正好是整颗胶囊，单行态与 .wide 都对），圆角继承
-   胶囊（18 / 宽态 24）。底色搬到这里（inset 高光同理——画在胶囊身上会被本层盖住），
-   但**外投影留在胶囊本体**：托管材质的宿主层按本层的 bounds 铺，外投影会把那块板撑大
-   （Raycast 的同一层也只有材质、既无底色也无投影）。 */
+/* 液态玻璃材质层（内容与材质分离）：铺满宿主的 padding box（inset:0 对绝对定位子元素就是
+   padding box；胶囊无边框，所以正好是整颗胶囊，单行态与 .wide 都对），圆角继承宿主。
+
+   **分工照参考实现**（Raycast 的 `chat-panel-glass__root`，逐字同构）：
+     position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+     pointer-events: none; -apple-visual-effect: -apple-system-glass-material;
+   三处照抄各自的理由：
+
+   ① `z-index: -1` 垫在宿主**内容的后面**——内容层因此不需要任何定位或抬升。
+      我方曾用一条兄弟规则（`[data-liquid-glass-backdrop] ~ *`）把内容抬到 z:1，那条会给
+      每个后续兄弟加 `position: relative`，把同期同特异度的类规则盖掉（游戏面的暂停遮罩、
+      命令面板的浮动头都被改成 relative），已删。**代价是宿主必须是栈上下文**
+      （定位 + 显式 z-index），否则负 z 会逃到宿主祖先的背景底下（悬浮卡那一页
+      `.chat-float` 自带近实色底，胶囊会整块消失）。这条由架构门兜着。
+
+   ② **没有底色**。macOS 上参考实现的 popover 就是 `background-color: transparent`，
+      整块面由材质自己画；要调节只许动 `filter` 的 saturate/brightness。底色画在材质
+      **之上**，垫一层就等于把玻璃盖死——2026-10-14 报的"不像玻璃/一块平灰"就是这个。
+      底色只留在 `@supports` 之外的回退分支，当"这个运行时拿不到材质，但面得读得清"的底。
+
+   ③ 描边环走 `box-shadow` 的 **inset** 项（宿主写 `--glass-inset`）：inset 不外扩，不会
+      把托管材质的板撑大；**外投影留在宿主**（挂本层会把板一起撑大，见 `--composer-shadow`）。
+
+   **强制本层独立合成**——托管材质的前提（同一条在参考实现的 `[macos]
+   .popover__webPopover` 里：`will-change: transform; overflow: hidden`）。没有它，
+   声明了 `-apple-visual-effect` 也不会建宿主层，表现就是"材质不出现"。
+   **本层自己不许再挂 backdrop-root 触发器**——那会把采样锁进自己内部（PITFALLS §1.20）。 */
 [data-liquid-glass-backdrop] {
   position: absolute;
   inset: 0;
-  /* z 用 0、不用 -1：负 z 会逃到最近的栈上下文里画到宿主祖先的背景底下（悬浮卡那一页
-     .chat-float 自带近实色底，胶囊会整块消失）。0 与内容层同栈、只靠内容层抬到 1
-     分先后，四个宿主（会话页 / 草稿页 / 迷你面板 / 浏览器悬浮卡）都成立。 */
-  z-index: 0;
+  z-index: -1;
   border-radius: inherit;
-  /* 材质层不接事件：胶囊的空白处该点回胶囊本身 */
+  /* 材质层不接事件：宿主的空白处该点回宿主本身 */
   pointer-events: none;
-  /* 三个值由宿主参数化（默认＝输入胶囊那一套）：底色、内缘高光、回退模糊档。
+  /* 回退分支的三个值由宿主参数化（默认＝输入胶囊那一套）：底色、描边环、回退模糊档。
      宿主在自己的规则里写 --glass-tint/--glass-inset/--glass-blur 即可复用本层，
      见 UI-SPEC §1.4bis 表面层级表（菜单族 / 对话框族各一组）。 */
   background: var(--glass-tint, var(--composer-bg));
   box-shadow: var(--glass-inset, var(--composer-shadow));
-  /* **强制本层独立合成**——这是托管材质的前提（2026-10-14 从 Raycast 拆出来的写法：
-     `[macos] .popover__webPopover { -apple-visual-effect: …; will-change: transform;
-     overflow: hidden }`）。没有它，声明了 `-apple-visual-effect` 也不会建宿主层，
-     表现就是"材质不出现"。放本层而非宿主：本层没有子元素，成为 backdrop root 对它
-     自己的 `backdrop-filter` 无影响；外投影仍留在宿主（挂本层会把托管板撑大）。 */
   will-change: transform;
   overflow: hidden;
-  /* 悬浮后消息从胶囊背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
+  /* 悬浮后内容从宿主背后穿过，磨砂成承重件：WebKit 需双前缀（PITFALLS §1.3） */
   -webkit-backdrop-filter: var(--glass-blur, var(--blur-glass));
   backdrop-filter: var(--glass-blur, var(--blur-glass));
 }
-/* 内容抬到材质之上：同一条栈里靠 z 分先后。**不要求宿主做成栈上下文**——那正是会把
-   宿主自己变成 backdrop root 的嫌疑动作（isolation / z-index 都得带上它）。
-   两个宿主共用一条：会话/草稿页的输入胶囊，与迷你面板右上那颗控件胶囊。 */
-/* 内容抬到材质之上（同一栈里靠 z 分先后）。**特异度必须是 0**（:where()）——
-   这条规则会给每个后续兄弟加 `position: relative`，而同特异度的类规则（游戏面的
-   `.ov` 暂停遮罩、命令面板的 `.searchRow` 浮动头）可能排在它后面，那样就把它们的
-   `position: absolute` 覆盖成 relative（遮罩不再铺满、浮动头落回文档流）。零特异度后
-   任何写明定位的子元素都稳赢。 */
-:where([data-liquid-glass-backdrop] ~ *) { position: relative; z-index: 1; }
-/* macOS 26 的原生液态玻璃：材质交系统合成器直接渲染（media-controls 档），折射、
-   边缘光、深浅自适应都不归我们管。CSS 模糊撤下（两套玻璃叠着会发灰），底色
-   --composer-bg 保留作 tint——「tint 只定基调、玻璃观感归材质」（PITFALLS §7 玻璃那条），
-   所以即使材质在本运行时画不出东西，胶囊仍是一块读得清的面，不会凭空消失。
-   降级链：系统材质 → 上面的 CSS 模糊 → 底色；不支持的运行时整块不生效。
+/* macOS 26 的原生液态玻璃：材质交系统合成器直接渲染（折射、边缘光、深浅自适应都不归
+   我们管）。**底色与 CSS 模糊一并撤下**——底色会盖死玻璃，两层模糊叠着会发灰。
+   降级链因此是：系统材质 → 上面的 CSS 模糊 + 底色；不支持的运行时整段不生效。
    **这一档要壳配合**：属性在 WebKit 里带 `settings-flag: useSystemAppearance`，默认 false
    ——关着时它连解析器都不认识（`CSS.supports` 全 false、声明被丢弃），所以下面这段
    `@supports` 自己不会亮。壳侧的开关在 `Support/WebKitSystemAppearance.swift`
@@ -1709,30 +1683,36 @@ button {
    `WKWebView._setUseSystemAppearance:`；浏览器页是别人的内容，不开）。
    本机实测（macOS 27 / build 26A428 / WebKit 22625.1.29.11.27）：开关打开后同一段 CSS 的
    computed 值从 `""` 变成 `-apple-system-glass-material-media-controls`，`CSS.supports`
-   三个查询全 true——即这一档**是活的**，不再只是渐进增强的占位。
+   三个查询全 true——即这一档**是活的**。探测值用实测过的那个写法（`-media-controls`），
+   里面的取值另按角色给（见下）。
    它是"网页内容里拿系统玻璃"的唯一入口：原生 `NSGlassEffectView` 糊不到同一块 webview
    里的内容（PITFALLS §4.38）。
    注：浏览器悬浮卡那一页（另一块 webview）里 CSS 模糊本来就采不到面外内容，那一档
    由壳的原生磨砂兜着（见 .chat-float 段）。 */
 @supports (-apple-visual-effect: -apple-system-glass-material-media-controls) {
-  /* 已实测能托管的宿主（输入胶囊、迷你控件簇）：材质顶上，CSS 模糊撤下——两层玻璃叠着会发灰。 */
-  .composer [data-liquid-glass-backdrop],
-  .mini-controls [data-liquid-glass-backdrop] {
-    -apple-visual-effect: -apple-system-glass-material-media-controls;
+  [data-liquid-glass-backdrop] {
+    -apple-visual-effect: -apple-system-glass-material;
+    background: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  /* 其余浮面：**声明材质，但 CSS 模糊一并不撤**——三层叠加（底色 + 磨砂 + 系统材质）。
-     为什么不做"材质顶上、模糊撤下"（输入胶囊那套）：那只在托管确实成立的宿主上才安全。
-     2026-10-14 实测两次的结论是——**一旦撤掉模糊，托管又没成立，面就只剩轻底色＝完全透明**
-     （用户八张截图：菜单底下的字清清楚楚穿过来）。留着模糊，最坏情况就是"与铺开前一样
-     的磨砂面"，最好情况是"磨砂 + 玻璃"；两种都不会坏。
-     判据（下次要收紧时先量这个）：探针的 `materialHostingLayers` 里出现该面的宿主层
-     （几何＝该面的 padding box）才算托管成立；成立一族才可以把模糊撤下、底色换轻叠加。 */
-  [data-liquid-glass-backdrop] {
+  /* 输入胶囊与迷你控件簇取 media-controls 档——参考实现里 AI 输入底栏
+     （`quick-ai-footer`）用的就是这一档：它自带更强的亮度自适应，坐在正文之上时更薄。 */
+  .composer [data-liquid-glass-backdrop],
+  .mini-controls [data-liquid-glass-backdrop] {
     -apple-visual-effect: -apple-system-glass-material-media-controls;
   }
 }
+/* 窗口失焦：材质退成 subdued 档（`windowFocus.ts` 维护 `html[data-window-blur]`）。
+   参考实现在 `[window-blurred]` 下就是这条思路——macOS 26 直接撤材质、退成
+   `background-color + backdrop-filter`，27 换 `-subdued`。不降的话，失焦窗口里的玻璃
+   会继续按自己的采样亮度发亮，读起来像"这个窗口还活着"。
+   注意这一段**不撤底色**：subdued 仍是一块玻璃，只是压低了一档。 */
+html[data-window-blur] [data-liquid-glass-backdrop] {
+  -apple-visual-effect: -apple-system-glass-material-subdued;
+}
+/* 失焦时**内容退后、材质留下**：内容与附件 chip 压到 40%，材质层豁免（它连着玻璃，
+   调暗等于把材质也糊掉）。 */
 /* 窗口失焦：**内容退后、材质留下**——内容（含胶囊里的附件）压到 40%，材质层豁免
    （它连着底色与玻璃，调暗等于把材质也糊掉）。标记的维护见 windowFocus.ts。 */
 html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity: .4; }
@@ -2306,7 +2286,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   border-radius: var(--dsh-radius-card);
   border: 1px solid var(--line);
   /* 材质（玻璃底/模糊/投影）来自配方组；面板自身不得再挂 backdrop-filter */
-  animation: pop-in var(--dur-fast) var(--ease-out) backwards;
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
   transform-origin: bottom;
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
   box-shadow: var(--shadow-pop-drop);
@@ -2663,7 +2643,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   border: 1px solid var(--line-strong);
   /* 前缀顺序勿倒（见配方组注释）：-webkit- 在前 */
   box-shadow: var(--shadow-pop-drop);
-  animation: pop-in var(--dur-fast) var(--ease-out) backwards;
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
   transform: translateX(-50%);
   user-select: none;
 }
@@ -2803,7 +2783,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   /* 与输入框同一套磨砂（WebKit 需双前缀，PITFALLS §1.3） */
   -webkit-backdrop-filter: var(--blur-glass);
   backdrop-filter: var(--blur-glass);
-  animation: pop-in var(--dur-med) var(--ease-out) both;
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
   transition: min-width var(--dur-med) var(--ease-out), max-width var(--dur-med) var(--ease-out),
               height var(--dur-med) var(--ease-out), border-radius var(--dur-med) var(--ease-out),
               background-color var(--dur-fast) var(--ease-out);
@@ -2960,7 +2940,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   display: flex;
   flex-direction: column;
   gap: 10px;
-  animation: pop-in var(--dur-med) var(--ease-out) both;
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
 .question-card .q-top {
   display: flex;
@@ -3821,9 +3801,21 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
 }
 
 @keyframes shimmer-text { to { background-position: -200% 0; } }
+/* 浮层进出场（全站唯一一份配方，数值与形状照参考实现 Raycast 的 popover）：
+   进场 --dur-med + --ease-pop，从 opacity .6 / scale .97；离场 --dur-fast + --ease-out
+   到 opacity 0 / scale .97（快出慢入）。`transform-origin` 由各个面自己定
+   （贴着触发器的那个角），不出现在配方里。
+   **进场 fill 一律 `backwards`**：末帧就是元素自身状态，动画跑完必须把 transform 摘掉
+   ——`both` 会把 `scale(1)` 永久留在宿主上，那是非 `none` 的 transform，于是宿主变成
+   固定定位后代的包含块与新的栈上下文（PITFALLS §1.10；2026-10-14 用户截图里
+   "菜单底下的字全看得见"就是这个）。离场反过来必须 `both`：元素要停在隐藏态等 JS 摘 DOM。 */
 @keyframes pop-in {
-  from { opacity: 0; transform: scale(.96); }
-  to { opacity: 1; transform: none; }
+  from { opacity: .6; transform: scale(.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pop-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(.97); }
 }
 
 /* 减弱动态效果：微光停住（标签转为静态文字），计时器照常走。转圈不随此开关停——
@@ -3854,7 +3846,6 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   display: inline-flex;
 }
 :where(html[data-hover-armed]) .plan-chip:hover { color: var(--ink-bright); background: var(--fill-heavy); }
-
 
 /* ---- 任务行:悬停操作区(归档/时间/置顶)+ 右键菜单 ---- */
 /* 选中态滑移的底片（useSelectionGlide 驱动，三处共用）：绝对定位在定位祖先里，
@@ -3943,8 +3934,7 @@ html[data-window-blur] .composer > :not([data-liquid-glass-backdrop]) { opacity:
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: var(--dsh-radius-card);
-  animation: menu-in var(--dur-fast) var(--ease-out) backwards;
-  transform-origin: top left;
+
   /* 外投影半边：内缘高光在材质层上（--shadow-pop-inset） */
   box-shadow: var(--shadow-pop-drop);
 }
@@ -4071,10 +4061,6 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
    transform none），`both` 只是让 transform 永久挂着——那会把宿主变成常驻堆叠上下文与
    backdrop root，材质层/磨砂全部采不到面外内容（PITFALLS §1.10；2026-10-14 用户截图里
    "菜单底下的字全看得见"就是这个）。 */
-@keyframes menu-in {
-  from { opacity: 0; transform: translateY(-4px) scale(.97); }
-  to { opacity: 1; transform: none; }
-}
 @keyframes view-in {
   from { opacity: 0; transform: translateX(10px); }
   to { opacity: 1; transform: none; }
@@ -4086,10 +4072,9 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   animation: row-in var(--dur-med) var(--ease-out) both;
 }
 /* 卡片类（授权/澄清）用轻缩放浮现，比平移更"实体"。 */
-.approval-card { animation: pop-in var(--dur-slow) var(--ease-out) both; }
+.approval-card { animation: pop-in var(--dur-med) var(--ease-pop) backwards; }
 
 /* 弹层菜单：缩放浮现（transform-origin 跟随锚点）。 */
-.model-menu { animation: menu-in var(--dur-med) var(--ease-out) backwards; transform-origin: top left; }
 /* 菜单内视图切换（根 → 模型 / 推理等级）：子视图滑入。 */
 .model-menu-view { display: flex; flex-direction: column; min-height: 0; animation: view-in var(--dur-med) var(--ease-out) both; }
 
@@ -4294,7 +4279,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   display: flex;
   flex-direction: column;
   gap: 8px;
-  animation: pop-in var(--dur-med) var(--ease-out) both;
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
 .md-ui-card-title { font-size: var(--dsh-font-size-base); font-weight: 600; color: var(--ink-bright); }
 .md-ui-card-text { font-size: var(--dsh-font-size-base); line-height: 1.65; color: var(--ink-2); }
@@ -4308,7 +4293,7 @@ html[data-platform="windows"] .session-header :is(button, a, input, textarea, se
   display: flex;
   flex-direction: column;
   gap: 3px;
-  animation: pop-in var(--dur-med) var(--ease-out) both;
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
 .md-ui-stat-value { font-size: var(--dsh-font-size-hero); font-weight: 700; color: var(--ink-bright); line-height: 1.2; }
 .md-ui-stat-label { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
@@ -4683,7 +4668,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   display: flex;
   flex-direction: column;
   gap: 10px;
-  animation: pop-in var(--dur-med) var(--ease-out) both;
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
 .plan-review-card .plan-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: pulse var(--loop-breathe) ease-in-out infinite; }
 .plan-review-card .plan-body {
@@ -4709,7 +4694,7 @@ button.rv-fold-bar:hover { background: var(--fill); color: var(--ink); }
   display: flex;
   flex-direction: column;
   gap: 10px;
-  animation: pop-in var(--dur-med) var(--ease-out) both;
+  animation: pop-in var(--dur-med) var(--ease-pop) backwards;
 }
 .auto-proposal .head {
   display: flex;
@@ -5543,18 +5528,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
   box-shadow: var(--shadow-pop-drop);
 }
 .tip-text { padding-inline: 4px; white-space: pre-wrap; }
-/* 开合动效＝Raycast popover 那两条：打开 .25s 带一点过冲、关闭 .15s 更干脆（"快出慢入"）。
-   页内这份按相位属性跑；壳内那份由原生窗口跑同一条曲线（TooltipController 的动画）。 */
-.tip[data-phase="open"] { animation: tip-in .25s cubic-bezier(.3, .7, 0, 1.26) both; }
-.tip[data-phase="closing"] { animation: tip-out .15s ease-out both; }
-@keyframes tip-in {
-  from { opacity: .6; transform: scale(.97); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes tip-out {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(.97); }
-}
+/* 开合动效就是全站那份浮层配方（`@keyframes pop-in` / `pop-out`，数值照参考实现的
+   popover）：打开带一点过冲、关闭更干脆（"快出慢入"）。页内这份按相位属性跑；
+   壳内那份由原生窗口跑同一条曲线（TooltipController 的动画）。 */
+.tip[data-phase="open"] { animation: pop-in var(--dur-med) var(--ease-pop) backwards; }
+.tip[data-phase="closing"] { animation: pop-out var(--dur-fast) var(--ease-out) both; }
 /* 壳的 Tooltip 窗口那一页（`?tooltip=1`）：窗口就贴着这一条注释（壳按本页报上来的实测
    尺寸摆窗口与它那块 webview）。这一页里注释只管把自己排出来——位置不自己定（窗口就是
    它）、动效由原生窗口跑；**材质照旧画在材质层上**（与页内那份同一份 CSS 系统玻璃，
@@ -5612,7 +5590,6 @@ html[data-tooltip] .tip {
   /* 文字脉冲停下后必须把字色还回来——否则 color:transparent 会留下一块空白 */
   .capsule-live-text { animation: none; background-image: none; color: var(--ink); -webkit-text-fill-color: currentColor; }
 }
-
 
 .workflow-card { margin: 4px 0; border: 1px solid var(--line); border-radius: var(--dsh-radius-card); background: var(--fill-soft); overflow: hidden; }
 .workflow-main {
@@ -5772,27 +5749,10 @@ html[data-tooltip] .tip {
 /* ---- 应用弹窗（DialogHost，替换 window.confirm/alert 系统原生弹窗）----
    玻璃配方与设置弹窗同款：--panel-strong + blur 40 + 14px 圆角。层级
    1500：高于一切页面内浮层（设置 overlay 210），低于右键菜单 2000。 */
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-scrim);
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: pop-in var(--dur-fast) var(--ease-out);
-}.dialog-card {
+.dialog-card {
   width: 400px;
   max-width: 92vw;
   padding: 18px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--dsh-radius-card);
-  box-shadow: var(--shadow-modal-drop);
-  animation: pop-in var(--dur-fast) var(--ease-out);
-  /* 材质层是绝对定位子元素（inset:0）：宿主必须是定位元素，否则它铺到最近的定位
-     祖先上（对话框那层是 fixed inset:0 的遮罩）——2026-10-14 用户截图里"整窗一块暗面、
-     卡片找不到边"就是这个。 */
-  position: relative;
 }
 .dialog-title { font-size: var(--dsh-font-size-lg); font-weight: 600; color: var(--ink); }
 /* 正文：长错误串里全是不可断的路径（引擎的 dlopen 报错就是十几行绝对路径），
@@ -5841,10 +5801,6 @@ html[data-tooltip] .tip {
 .dialog-btn.primary { border: none; background: var(--ink); color: var(--on-ink); font-weight: 600; }
 .dialog-btn.primary:hover { opacity: 0.85; background: var(--ink); }
 .dialog-btn.primary.danger { background: var(--dsh-signal-danger); color: #fff; }
-@media (prefers-reduced-motion: reduce) {
-  .dialog-overlay, .dialog-card { animation: none; }
-}
-
 
 /* ---------- 右侧边栏（会话面板）----------
    移植官方 ui-sidebar-right：两种呈现 push（会话让位）/ fullscreen（盖住整卡）。

@@ -1,16 +1,20 @@
 // 浮层落位（components/floatingPlacement）：菜单永不出视口、翻上方不盖触发器。
 //
-// 两轮用户报障各钉住一条：
-//   · 2026-10-14「弹层位置容易跑到外面去，窗口小了后」——限高写了 `Math.max(180, …)` 的
-//     下限（比余量还大）、夹右缘用的是触发器宽而不是菜单宽、翻上方时菜单盖住自己的触发器。
-//   · 2026-10-14「你这修到左边去了」——"先量后落位"那帧只覆盖了 `left`，`.ddMenu` 类自带的
-//     `right: 0` 仍在，left+right 双约束把宽度解成整个视口宽；量回来的宽＝视口宽，
-//     夹右缘算成负数 → 菜单被钉在左边 8px。**jsdom 不做布局，这条只能靠"测量帧的几何"
-//     这一条断言来钉**（真机实测见 measuringStyle 的注释）。
+// 用户 2026-10-14 报「弹层位置容易跑到外面去，窗口小了后」——症状出在 HeroPanel 那条
+// Dropdown（思考强度/权限/发送方式）：菜单宽由内容撑（≈88），夹右缘用的却是触发器宽
+// （≈51），于是窗口一窄菜单就探出右缘；矮窗口下 `max-height` 又有个 180 的下限，
+// 比实际余量还大，菜单从窗顶/窗底出去一截。
+//
+// 这一份量的是**纯算术**（`placeFloating`）：结果以内联样式给出，所以断言读样式、不读元素
+// 几何。壳那一侧（量实测尺寸、落样式、开合）在 `components/Popover.tsx`。
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { measuringStyle, placeFloating } from "../components/floatingPlacement";
+import { placeFloating, type FloatingPlacement } from "../components/floatingPlacement";
+// 同一天还有第二轮报障「你这修到左边去了」：量尺寸那一帧只覆盖了 `left`，`.ddMenu` 类自带的
+// `right: 0` 仍在，left+right 双约束把宽度解成整个视口宽；量回来的宽＝视口宽，夹右缘算成
+// 负数 → 菜单被钉在左边 8px。落位算术因此**四条边一律显式写死**（用不上的写 auto），
+// 并把宿主自己的 padding+border（`inset`）从余量里扣掉——`max-height` 是内容盒的。
 import { Dropdown } from "../components/controls";
 
 const MARGIN = 8;
@@ -20,9 +24,22 @@ function setViewport(w: number, h: number) {
   Object.defineProperty(window, "innerHeight", { value: h, configurable: true });
 }
 
-/** 锚点：只要 top/bottom/left/right/width 五个数（DOMRect 结构上满足同一形状）。 */
+/** 锚点：只要 top/bottom/left/right/width/height 六个数（DOMRect 结构上满足同一形状）。 */
 function anchor(top: number, left: number, height: number, width: number) {
-  return { top, bottom: top + height, left, right: left + width, width };
+  return { top, bottom: top + height, left, right: left + width, width, height };
+}
+
+/** 从落位结果反推"盒子"：绝对 top 由 `top` 或 `bottom + maxHeight` 定（翻上方时是后者）。 */
+function boxOf(p: FloatingPlacement) {
+  const s = p.style;
+  const at = (v: unknown) => Number.parseFloat(String(v));
+  const maxHeight = at(s.maxHeight);
+  return {
+    top: s.top === "auto" ? window.innerHeight - at(s.bottom) - maxHeight : at(s.top),
+    left: at(s.left),
+    maxHeight,
+    below: p.side === "bottom",
+  };
 }
 
 afterEach(() => {
@@ -34,16 +51,17 @@ afterEach(() => {
 describe("placeFloating · 纵向", () => {
   it("下方放得下就贴下方：菜单顶边 = 锚点底边 + 间距", () => {
     setViewport(800, 600);
-    const p = placeFloating(anchor(100, 40, 30, 60), { width: 148, height: 130 });
+    const p = boxOf(placeFloating(anchor(100, 40, 30, 60), { size: 148, cross: 148, height: 130 }));
     expect(p.below).toBe(true);
     expect(p.top).toBe(134);
-    expect(p.maxHeight).toBe(130);
+    // 余量远大于内容：限高按**余量**给，实际高度由内容决定（超了才内滚）
+    expect(p.maxHeight).toBeGreaterThanOrEqual(130);
   });
 
   it("下方放不下、上方更宽裕就翻上去：菜单底边贴锚点**上缘**，不盖触发器", () => {
     setViewport(800, 300);
     const a = anchor(200, 40, 30, 60);
-    const p = placeFloating(a, { width: 148, height: 130 });
+    const p = boxOf(placeFloating(a, { size: 148, cross: 148, height: 130 }));
     expect(p.below).toBe(false);
     // 底边落在锚点上缘之上（留间距）——不是锚点下缘，后者会让菜单盖住自己的触发器
     expect(p.top + p.maxHeight).toBe(a.top - 4);
@@ -52,7 +70,7 @@ describe("placeFloating · 纵向", () => {
   it("两侧都放不下时限高＝更宽裕那一侧的**实际余量**，绝不出视口", () => {
     setViewport(800, 200);
     const a = anchor(90, 40, 30, 60);
-    const p = placeFloating(a, { width: 148, height: 130 });
+    const p = boxOf(placeFloating(a, { size: 148, cross: 148, height: 130 }));
     expect(p.maxHeight).toBeLessThan(130);          // 内容高被真实余量压住
     expect(p.top).toBeGreaterThanOrEqual(MARGIN);
     expect(p.top + p.maxHeight).toBeLessThanOrEqual(window.innerHeight - MARGIN);
@@ -63,7 +81,7 @@ describe("placeFloating · 纵向", () => {
       setViewport(800, h);
       // 锚点在窗口里从上到下走一遍（含贴近上下缘的极端位）
       for (let top = 0; top <= h - 30; top += Math.max(1, Math.floor(h / 7))) {
-        const p = placeFloating(anchor(top, 40, 30, 60), { width: 148, height: 130 });
+        const p = boxOf(placeFloating(anchor(top, 40, 30, 60), { size: 148, cross: 148, height: 130 }));
         expect(p.top).toBeGreaterThanOrEqual(MARGIN);
         expect(p.top + p.maxHeight).toBeLessThanOrEqual(h - MARGIN);
       }
@@ -71,47 +89,49 @@ describe("placeFloating · 纵向", () => {
   });
 });
 
-describe("measuringStyle · 量尺寸那一帧", () => {
-  it("必须把 right/bottom 归 auto：否则 .ddMenu 自带的 right:0 把宽度撑成视口宽", () => {
-    const st = measuringStyle(148);
-    expect(st.position).toBe("fixed");
-    expect(st.right).toBe("auto");
-    expect(st.bottom).toBe("auto");
-    expect(st.visibility).toBe("hidden");
-    expect(st.minWidth).toBe(148);
-    expect(st.maxHeight).toBeUndefined();      // 加了就量不到自然高度
-    expect(st.overflowY).toBeUndefined();
-  });
-});
-
-describe("placeFloating · 水平", () => {
+describe("placeFloating · 横向", () => {
   it("菜单比触发器宽时，左侧要按**菜单宽**夹，右缘不出视口", () => {
     setViewport(380, 600);
     const a = anchor(100, 300, 30, 51);            // 触发器贴右缘
-    const p = placeFloating(a, { width: 148, height: 130 });
+    const p = boxOf(placeFloating(a, { size: 148, cross: 148, height: 130 }));
     expect(p.left).toBe(380 - 148 - MARGIN);
     expect(p.left + 148).toBeLessThanOrEqual(380 - MARGIN);
   });
 
-  it("align=right：菜单右缘对齐锚点右缘", () => {
+  it("align=end：菜单右缘对齐锚点右缘", () => {
     setViewport(800, 600);
     const a = anchor(100, 300, 30, 51);
-    const p = placeFloating(a, { width: 148, height: 130 }, { align: "right" });
+    const p = boxOf(placeFloating(a, { size: 148, cross: 148, height: 130, align: "end" }));
     expect(p.left).toBe(300 + 51 - 148);
   });
 
   it("窗口比菜单还窄时退到左缘（不出左缘）", () => {
     setViewport(100, 600);
-    const p = placeFloating(anchor(100, 80, 30, 20), { width: 148, height: 130 });
+    const p = boxOf(placeFloating(anchor(100, 80, 30, 20), { size: 148, cross: 148, height: 130 }));
     expect(p.left).toBe(MARGIN);
   });
 
-  it("实测来的盒子带 inset：限高要扣掉它自己的内垫+边框（content-box 的 max-height）", () => {
+  it("横开（side=left/right）：贴锚点那条边，左边放不下翻到右边", () => {
+    setViewport(800, 600);
+    const left = placeFloating(anchor(100, 300, 30, 51), { side: "left", size: 240, cross: 200, gap: 10 });
+    expect(left.side).toBe("left");
+    expect(left.style.right).toBe(800 - 300 + 10);
+    // 锚点贴左缘时左侧没地方 → 翻到右缘外侧
+    const flipped = placeFloating(anchor(100, 20, 30, 51), { side: "left", size: 240, cross: 200, gap: 10 });
+    expect(flipped.side).toBe("right");
+    expect(flipped.style.left).toBe(20 + 51 + 10);
+  });
+
+  it("实测来的盒子带 inset：限高要扣掉它自己的内垫+边框（max-height 是内容盒的）", () => {
     setViewport(800, 200);
-    const p = placeFloating(anchor(90, 40, 30, 60), { width: 148, height: 130, inset: 10 });
-    // 余量 78 → 限高 78 - 10；整个盒子 = 68 + 10 = 78 ≤ 余量
+    const placed = placeFloating(anchor(90, 40, 30, 60), { size: 148, cross: 148, height: 130, inset: 10 });
+    const p = boxOf(placed);
+    // 余量 78 → 限高 78 − 10；整个盒子 = 68 + 10 = 78 ≤ 余量
     expect(p.maxHeight).toBe(68);
     expect(p.top + p.maxHeight + 10).toBeLessThanOrEqual(200 - MARGIN);
+    // 四条边一律写死：类自带的 right/top 不许参与过量约束
+    expect(placed.style.right).toBe("auto");
+    expect(placed.style.left).not.toBe("auto");
   });
 });
 
@@ -147,7 +167,6 @@ describe("Dropdown · 落位（用户报的那处）", () => {
     const menu = openMenu();
     const left = Number.parseFloat(menu.style.left);
     expect(left + 148).toBeLessThanOrEqual(380 - MARGIN);
-    expect(menu.style.visibility).not.toBe("hidden");   // 量完就落位，不停在隐藏态
   });
 
   it("矮窗口：限高＝真实余量，不出下缘", () => {

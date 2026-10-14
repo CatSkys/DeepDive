@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { GlassLayer } from "./GlassLayer";
 import { createPortal } from "react-dom";
 import { ArrowUp, Square, Plus, Mic } from "lucide-react";
 import { api } from "../api";
@@ -621,7 +622,7 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
               材质）都落在这个元素上。失焦、降级、换材质因此只动它一个；胶囊身上
               **不许**有 backdrop-root 触发器，否则本层会被锁进胶囊内部＝一块实心
               （完整约束见 theme.css 的 [data-liquid-glass-backdrop] 段）。 */}
-          <div data-liquid-glass-backdrop aria-hidden="true" />
+          <GlassLayer />
           <button
             type="button"
             className="composer-icon"

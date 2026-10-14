@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Plus, QrCode, SlidersHorizontal, Trash2, X } from "lucide-react";
 import css from "./Bots.module.css";
 import rowsCss from "../settings/SettingsRows.module.css";
@@ -10,7 +9,7 @@ import { channelLabel, provisionPending } from "./im";
 import { visibleAgentPresets } from "../settings/agentPreset";
 import { useT } from "../i18n";
 import { confirmDialog } from "../components/DialogHost";
-import { GlassLayer } from "../components/GlassLayer";
+import { Modal } from "../components/Modal";
 
 // 机器人管理弹窗：一个渠道的机器人台账 + 扫码新建。数据全来自插件自己的渠道
 // 面（api.im），这里只做呈现与动作转发——配对令牌、凭据存储、连接状态都在
@@ -91,12 +90,6 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
     if (attempt) void api.im.cancel(channel, attempt).catch(() => void 0 /* 尝试可能已自行结束 */);
   };
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [close]);
-
   const removeBot = async (bot: ImBot) => {
     const ok = await confirmDialog({
       message: tt("移除机器人「{name}」？移除后它不再响应{label}消息。",
@@ -113,102 +106,98 @@ export function BotManageDialog({ channel, onClose }: { channel: string; onClose
   // 模式清单与设置页同一份开放口径（引擎目录里的 ptc / cordis 不呈现）
   const presets = visibleAgentPresets(snapshot?.presets ?? []);
 
-  return createPortal(
-    <div className={rowsCss.modalOverlay} onClick={close} role="dialog" aria-label={t("机器人")}>
-      <div className={rowsCss.modal} onClick={(e) => e.stopPropagation()}>
-           <GlassLayer />
-        <div className={rowsCss.modalHead}>
-          <span className={rowsCss.modalTitle}>{tt("{label}机器人", "{label} bots", { label })}</span>
-          {/* 关闭钮顶到右上角（modalHead 是 flex 行，marginLeft:auto 推到行尾）——
-              与 ModelDialog 同款做法，别写成紧跟标题。 */}
-          <button className={rowsCss.iconBtn} style={{ marginLeft: "auto" }} onClick={close} aria-label={t("关闭")}>
-            <X size={15} />
-          </button>
-        </div>
+  return (
+    <Modal open onClose={close} cardClassName={rowsCss.modal} ariaLabel={t("机器人")}>
+      <div className={rowsCss.modalHead}>
+        <span className={rowsCss.modalTitle}>{tt("{label}机器人", "{label} bots", { label })}</span>
+        {/* 关闭钮顶到右上角（modalHead 是 flex 行，marginLeft:auto 推到行尾）——
+            与 ModelDialog 同款做法，别写成紧跟标题。 */}
+        <button className={rowsCss.iconBtn} style={{ marginLeft: "auto" }} onClick={close} aria-label={t("关闭")}>
+          <X size={15} />
+        </button>
+      </div>
 
-        <div className={rowsCss.modalBody}>
-          {error && <p className={css.error}>{error}</p>}
+      <div className={rowsCss.modalBody}>
+        {error && <p className={css.error}>{error}</p>}
 
-          {provision ? (
-            <div className={css.pairPane}>
-              {qr
-                ? <img className={css.pairQr} src={qr} alt={t("配对二维码")} />
-                : <div className={css.pairQrPending}><QrCode size={26} /></div>}
-              <p className={css.pairHint}>
-                {provision.status === "scanned" || provision.status === "needs_verification"
-                  ? t("已扫码，请在手机上确认。")
-                  : tt("用{label}扫这个二维码完成关联。", "Scan this code in {label} to link.", { label })}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className={css.manageHead}>
-                <span className={css.manageHint}>{t("扫码后自动保存凭据。")}</span>
-                <button className={rowsCss.secondaryButton} disabled={busy} onClick={startPairing}>
-                  <Plus size={12} />
-                  {t("新建机器人")}
-                </button>
-              </div>
-
-              {bots.length === 0 ? (
-                <p className={css.empty}>{t("这个渠道还没有机器人。")}</p>
-              ) : (
-                bots.map((bot) => (
-                  <div key={bot.botId}>
-                    <div className={css.botRow}>
-                      <div className={css.botIdentity}>
-                        <div className={css.botName}>
-                          <span className={css.botDot} data-tone={bot.connected ? "on" : "off"} />
-                          {bot.bot.name}
-                        </div>
-                        <div className={css.botCaption}>{bot.health.summary || bot.bot.accountIdMasked}</div>
-                        {bot.workspace && <div className={css.botCaption}>{bot.workspace}</div>}
-                        {/* 当前模型 / 预设：收起时也看得出这个机器人跑什么 */}
-                        {(bot.model || bot.agentPreset) && (
-                          <div className={css.botCaption}>
-                            {[bot.model?.model, presets.find((p) => p.id === bot.agentPreset)?.label].filter(Boolean).join(" · ")}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        className={rowsCss.secondaryButton}
-                        onClick={() => setExpanded((cur) => (cur === bot.botId ? null : bot.botId))}
-                      >
-                        <SlidersHorizontal size={12} />
-                        {t("设置")}
-                      </button>
-                      <button className={rowsCss.dangerButton} onClick={() => void removeBot(bot)}>
-                        <Trash2 size={12} />
-                        {t("移除")}
-                      </button>
-                    </div>
-                    {expanded === bot.botId && (
-                      <BotSettings
-                        channel={channel}
-                        bot={bot}
-                        models={snapshot?.models ?? []}
-                        presets={snapshot?.presets ?? []}
-                        onSaved={(next) => { setSnapshot(next); setError(""); }}
-                        onError={setError}
-                      />
-                    )}
-                  </div>
-                ))
-              )}
-            </>
-          )}
-        </div>
-
-        {/* 动作行：与全站弹窗一致放页脚右对齐（modalFoot），不塞进正文里居中 */}
-        {provision && (
-          <div className={rowsCss.modalFoot}>
-            <button className={rowsCss.secondaryButton} onClick={stopPairing}>
-              {t("取消")}
-            </button>
+        {provision ? (
+          <div className={css.pairPane}>
+            {qr
+              ? <img className={css.pairQr} src={qr} alt={t("配对二维码")} />
+              : <div className={css.pairQrPending}><QrCode size={26} /></div>}
+            <p className={css.pairHint}>
+              {provision.status === "scanned" || provision.status === "needs_verification"
+                ? t("已扫码，请在手机上确认。")
+                : tt("用{label}扫这个二维码完成关联。", "Scan this code in {label} to link.", { label })}
+            </p>
           </div>
+        ) : (
+          <>
+            <div className={css.manageHead}>
+              <span className={css.manageHint}>{t("扫码后自动保存凭据。")}</span>
+              <button className={rowsCss.secondaryButton} disabled={busy} onClick={startPairing}>
+                <Plus size={12} />
+                {t("新建机器人")}
+              </button>
+            </div>
+
+            {bots.length === 0 ? (
+              <p className={css.empty}>{t("这个渠道还没有机器人。")}</p>
+            ) : (
+              bots.map((bot) => (
+                <div key={bot.botId}>
+                  <div className={css.botRow}>
+                    <div className={css.botIdentity}>
+                      <div className={css.botName}>
+                        <span className={css.botDot} data-tone={bot.connected ? "on" : "off"} />
+                        {bot.bot.name}
+                      </div>
+                      <div className={css.botCaption}>{bot.health.summary || bot.bot.accountIdMasked}</div>
+                      {bot.workspace && <div className={css.botCaption}>{bot.workspace}</div>}
+                      {/* 当前模型 / 预设：收起时也看得出这个机器人跑什么 */}
+                      {(bot.model || bot.agentPreset) && (
+                        <div className={css.botCaption}>
+                          {[bot.model?.model, presets.find((p) => p.id === bot.agentPreset)?.label].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className={rowsCss.secondaryButton}
+                      onClick={() => setExpanded((cur) => (cur === bot.botId ? null : bot.botId))}
+                    >
+                      <SlidersHorizontal size={12} />
+                      {t("设置")}
+                    </button>
+                    <button className={rowsCss.dangerButton} onClick={() => void removeBot(bot)}>
+                      <Trash2 size={12} />
+                      {t("移除")}
+                    </button>
+                  </div>
+                  {expanded === bot.botId && (
+                    <BotSettings
+                      channel={channel}
+                      bot={bot}
+                      models={snapshot?.models ?? []}
+                      presets={snapshot?.presets ?? []}
+                      onSaved={(next) => { setSnapshot(next); setError(""); }}
+                      onError={setError}
+                    />
+                  )}
+                </div>
+              ))
+            )}
+          </>
         )}
       </div>
-    </div>,
-    document.body,
+
+      {/* 动作行：与全站弹窗一致放页脚右对齐（modalFoot），不塞进正文里居中 */}
+      {provision && (
+        <div className={rowsCss.modalFoot}>
+          <button className={rowsCss.secondaryButton} onClick={stopPairing}>
+            {t("取消")}
+          </button>
+        </div>
+      )}
+    </Modal>
   );
 }

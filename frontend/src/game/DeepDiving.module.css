@@ -1,23 +1,14 @@
-/* DeepDiving 浮层：屏幕居中面板（对话族近实色材质 §2.2bis），画布 480×320 横版固定。
-   无全屏遮罩——点外部不关（游玩中的误触会打断），关闭走 ✕ / Esc；键盘焦点收在
-   面板上（tabIndex=-1，组件内处理），空格/方向键是推力，焦点离开即自动暂停。 */
+/* DeepDiving：居中浮层的卡片内容（几何）。遮罩/居中/圆角/投影/材质、进出场与
+   关法（Esc、点外部）都归 Modal；画布 480×320 横版固定。键盘焦点收在可聚焦内容层
+   （.surface，tabIndex=-1）：空格/方向键是推力，焦点离开即自动暂停。 */
 .panel {
-  /* 材质族（dialog）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--glass-fill-dialog);
-  --glass-blur: var(--blur-scrim);
-  --glass-inset: var(--shadow-modal-inset);
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: 480px;
   height: 320px;
-  z-index: var(--z-menu);
-  border-radius: var(--dsh-radius-floating);
-  box-shadow: var(--shadow-pop-drop);
   overflow: hidden;
-  outline: none;
 }
+
+/* 可聚焦内容层：键盘（推力）只在这里生效，焦点离开即暂停；Focus 环对游戏面无意义。 */
+.surface { outline: none; }
 
 .canvas {
   display: block;

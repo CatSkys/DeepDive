@@ -11,8 +11,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { FileCode2, Folder, FolderInput, Plus, Trash2 } from "lucide-react";
 import { api, type SkillAdminEntry } from "../api";
-import { GlassLayer } from "../components/GlassLayer";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
+import { Modal } from "../components/Modal";
 import { inShell, revealPath, skillPickDirectory } from "../host";
 import { useT } from "../i18n";
 import rs from "../settings/SettingsRows.module.css";
@@ -43,26 +43,23 @@ function SkillDialog({ onCancel, onSave }: {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   return (
-    <div className="dialog-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="dialog-card" role="dialog" aria-modal="true" onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}>
-        <GlassLayer />
-        <div className="dialog-title">{t("新建技能")}</div>
-        <div className={css.form}>
-          <label className={css.field}>
-            <span className={css.fieldLabel}>{t("名字（也是目录名与 /调用名）")}</span>
-            <input className="dialog-input" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label className={css.field}>
-            <span className={css.fieldLabel}>{t("描述（模型据此决定何时加载）")}</span>
-            <input className="dialog-input" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </label>
-        </div>
-        <div className="dialog-actions">
-          <button type="button" className="dialog-btn" onClick={onCancel}>{t("取消")}</button>
-          <button type="button" className="dialog-btn primary" onClick={() => onSave(name, description)}>{t("创建")}</button>
-        </div>
+    <Modal open onClose={onCancel} cardClassName="dialog-card" ariaLabel={t("新建技能")}>
+      <div className="dialog-title">{t("新建技能")}</div>
+      <div className={css.form}>
+        <label className={css.field}>
+          <span className={css.fieldLabel}>{t("名字（也是目录名与 /调用名）")}</span>
+          <input className="dialog-input" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className={css.field}>
+          <span className={css.fieldLabel}>{t("描述（模型据此决定何时加载）")}</span>
+          <input className="dialog-input" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </label>
       </div>
-    </div>
+      <div className="dialog-actions">
+        <button type="button" className="dialog-btn" onClick={onCancel}>{t("取消")}</button>
+        <button type="button" className="dialog-btn primary" onClick={() => onSave(name, description)}>{t("创建")}</button>
+      </div>
+    </Modal>
   );
 }
 

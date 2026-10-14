@@ -14,8 +14,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Settings, Trash2 } from "lucide-react";
 import { Toggle } from "../components/controls";
-import { GlassLayer } from "../components/GlassLayer";
 import { alertDialog, confirmDialog } from "../components/DialogHost";
+import { Modal } from "../components/Modal";
 import { api, type McpServerRow } from "../api";
 import { useT } from "../i18n";
 import rs from "../settings/SettingsRows.module.css";
@@ -56,92 +56,94 @@ function ServerDialog({ draft, isNew, configured, onCancel, onSave, onDelete }: 
   const isHttp = row.transport === "streamable-http";
 
   return (
-    <div className="dialog-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="dialog-card" role="dialog" aria-modal="true" onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}>
-        <GlassLayer />
-        <div className="dialog-title">{isNew ? t("添加 MCP 服务器") : t("编辑 MCP 服务器")}</div>
-        <div className={css.form}>
+    <Modal
+      open
+      onClose={onCancel}
+      cardClassName="dialog-card"
+      ariaLabel={isNew ? t("添加 MCP 服务器") : t("编辑 MCP 服务器")}
+    >
+      <div className="dialog-title">{isNew ? t("添加 MCP 服务器") : t("编辑 MCP 服务器")}</div>
+      <div className={css.form}>
+        <label className={css.field}>
+          <span className={css.fieldLabel}>{t("名字")}</span>
+          <input className="dialog-input" autoFocus value={row.name} onChange={(e) => patch({ name: e.target.value })} />
+        </label>
+        <label className={css.field}>
+          <span className={css.fieldLabel}>{t("传输")}</span>
+          <select
+            className="dialog-input"
+            value={row.transport}
+            onChange={(e) => patch({ transport: e.target.value === "streamable-http" ? "streamable-http" : "stdio" })}
+          >
+            <option value="stdio">stdio</option>
+            <option value="streamable-http">streamable-http</option>
+          </select>
+        </label>
+        {isHttp ? (
           <label className={css.field}>
-            <span className={css.fieldLabel}>{t("名字")}</span>
-            <input className="dialog-input" autoFocus value={row.name} onChange={(e) => patch({ name: e.target.value })} />
+            <span className={css.fieldLabel}>URL</span>
+            <input className="dialog-input" value={row.url} placeholder="https://…" onChange={(e) => patch({ url: e.target.value })} />
           </label>
-          <label className={css.field}>
-            <span className={css.fieldLabel}>{t("传输")}</span>
-            <select
-              className="dialog-input"
-              value={row.transport}
-              onChange={(e) => patch({ transport: e.target.value === "streamable-http" ? "streamable-http" : "stdio" })}
-            >
-              <option value="stdio">stdio</option>
-              <option value="streamable-http">streamable-http</option>
-            </select>
-          </label>
-          {isHttp ? (
+        ) : (
+          <>
             <label className={css.field}>
-              <span className={css.fieldLabel}>URL</span>
-              <input className="dialog-input" value={row.url} placeholder="https://…" onChange={(e) => patch({ url: e.target.value })} />
+              <span className={css.fieldLabel}>{t("命令")}</span>
+              <input className="dialog-input" value={row.command} placeholder="npx" onChange={(e) => patch({ command: e.target.value })} />
             </label>
-          ) : (
-            <>
-              <label className={css.field}>
-                <span className={css.fieldLabel}>{t("命令")}</span>
-                <input className="dialog-input" value={row.command} placeholder="npx" onChange={(e) => patch({ command: e.target.value })} />
-              </label>
-              <label className={css.field}>
-                <span className={css.fieldLabel}>{t("参数（空格分隔）")}</span>
-                <input
-                  className="dialog-input"
-                  value={row.args.join(" ")}
-                  onChange={(e) => patch({ args: splitNames(e.target.value) })}
-                />
-              </label>
-            </>
-          )}
-          <label className={css.field}>
-            <span className={css.fieldLabel}>{isHttp ? t("请求头名（逗号分隔）") : t("环境变量名（逗号分隔）")}</span>
-            <input
-              className="dialog-input"
-              value={envText}
-              placeholder={isHttp ? "Authorization" : "GITHUB_TOKEN"}
-              onChange={(e) => {
-                setEnvText(e.target.value);
-                patch(isHttp ? { headers: splitNames(e.target.value) } : { env: splitNames(e.target.value) });
-              }}
-            />
-          </label>
-          <label className={css.field}>
-            <span className={css.fieldLabel}>{t("密钥（每行 KEY=VALUE；留空表示不改动已有）")}</span>
-            <textarea
-              className="dialog-input"
-              rows={3}
-              value={secretText}
-              placeholder={configured.length > 0 ? configured.map((k) => `${k}=…`).join("\n") : "GITHUB_TOKEN=ghp_xxx"}
-              onChange={(e) => setSecretText(e.target.value)}
-            />
-          </label>
-          <div className={css.formNote}>
-            {configured.length > 0
-              ? tt(
-                "已配置：{keys}。密钥存在本机密钥表里，不写进 patch 文件。",
-                "Configured: {keys}. Secrets live in this machine's key store, never in the patch file.",
-                { keys: configured.join("、") },
-              )
-              : t("密钥由壳存进本机密钥表、启动引擎时注入环境变量；patch 文件里只留变量名这个引用。")}
-          </div>
-        </div>
-        <div className="dialog-actions">
-          {!isNew && (
-            <button type="button" className="dialog-btn danger" onClick={onDelete}>
-              <Trash2 size={12} /> {t("删除")}
-            </button>
-          )}
-          <button type="button" className="dialog-btn" onClick={onCancel}>{t("取消")}</button>
-          <button type="button" className="dialog-btn primary" onClick={() => onSave(row, parseSecretLines(secretText))}>
-            {t("保存")}
-          </button>
+            <label className={css.field}>
+              <span className={css.fieldLabel}>{t("参数（空格分隔）")}</span>
+              <input
+                className="dialog-input"
+                value={row.args.join(" ")}
+                onChange={(e) => patch({ args: splitNames(e.target.value) })}
+              />
+            </label>
+          </>
+        )}
+        <label className={css.field}>
+          <span className={css.fieldLabel}>{isHttp ? t("请求头名（逗号分隔）") : t("环境变量名（逗号分隔）")}</span>
+          <input
+            className="dialog-input"
+            value={envText}
+            placeholder={isHttp ? "Authorization" : "GITHUB_TOKEN"}
+            onChange={(e) => {
+              setEnvText(e.target.value);
+              patch(isHttp ? { headers: splitNames(e.target.value) } : { env: splitNames(e.target.value) });
+            }}
+          />
+        </label>
+        <label className={css.field}>
+          <span className={css.fieldLabel}>{t("密钥（每行 KEY=VALUE；留空表示不改动已有）")}</span>
+          <textarea
+            className="dialog-input"
+            rows={3}
+            value={secretText}
+            placeholder={configured.length > 0 ? configured.map((k) => `${k}=…`).join("\n") : "GITHUB_TOKEN=ghp_xxx"}
+            onChange={(e) => setSecretText(e.target.value)}
+          />
+        </label>
+        <div className={css.formNote}>
+          {configured.length > 0
+            ? tt(
+              "已配置：{keys}。密钥存在本机密钥表里，不写进 patch 文件。",
+              "Configured: {keys}. Secrets live in this machine's key store, never in the patch file.",
+              { keys: configured.join("、") },
+            )
+            : t("密钥由壳存进本机密钥表、启动引擎时注入环境变量；patch 文件里只留变量名这个引用。")}
         </div>
       </div>
-    </div>
+      <div className="dialog-actions">
+        {!isNew && (
+          <button type="button" className="dialog-btn danger" onClick={onDelete}>
+            <Trash2 size={12} /> {t("删除")}
+          </button>
+        )}
+        <button type="button" className="dialog-btn" onClick={onCancel}>{t("取消")}</button>
+        <button type="button" className="dialog-btn primary" onClick={() => onSave(row, parseSecretLines(secretText))}>
+          {t("保存")}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

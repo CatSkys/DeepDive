@@ -5,7 +5,7 @@
 // 这几条钉住"档位不再搭模型菜单的车"，也钉住胶囊本身的开合与提交口径。
 // @vitest-environment jsdom
 import { createRef, type ComponentProps } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
 import { EffortPicker } from "../components/composer/EffortPicker";
@@ -65,16 +65,18 @@ function setupMenu(over: Partial<ComponentProps<typeof ModelMenu>> = {}) {
 }
 
 describe("模型菜单 · 只选模型", () => {
-  it("点带档位的模型：提交模型并关闭，菜单里不再进档位第二层", () => {
+  // 浮层关掉是**两层**：open 转 false → 跑离场动画 → 动画收尾才摘 DOM。
+  // 所以"关掉了"的断言一律 waitFor（同步断言会撞在动画那一帧上）。
+  it("点带档位的模型：提交模型并关闭，菜单里不再进档位第二层", async () => {
     const { onPick, onClose } = setupMenu();
     fireEvent.click(screen.getByText("DeepSeek-V41-Flash"));
 
     expect(onPick).toHaveBeenCalledWith(FLASH);
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(screen.queryAllByRole("menuitemradio")).toHaveLength(0);
+    await waitFor(() => expect(screen.queryAllByRole("menuitemradio")).toHaveLength(0));
   });
 
-  it("点无档位模型：同样提交并关闭（两条路径同一口径）", () => {
+  it("点无档位模型：同样提交并关闭（两条路径同一口径）", async () => {
     const { onPick, onClose } = setupMenu();
     // 基准详情默认开（用户 2026-10-11 定稿）：卡上也有一份当前选择名，点菜单行
     fireEvent.click(screen.getAllByText("GPT-4o")[0]);
@@ -140,14 +142,14 @@ describe("输入框 · 思考强度胶囊", () => {
     expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "true", "false"]);
   });
 
-  it("点一档：提交该档并关闭（选择即完成，没有第二个确认动作）", () => {
+  it("点一档：提交该档并关闭（选择即完成，没有第二个确认动作）", async () => {
     const { pick } = setupPicker();
     fireEvent.click(screen.getByRole("button", { name: /High/ }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Max" }));
 
     expect(pick).toHaveBeenCalledTimes(1);
     expect(pick).toHaveBeenCalledWith("max");
-    expect(screen.queryAllByRole("menuitemradio")).toHaveLength(0);
+    await waitFor(() => expect(screen.queryAllByRole("menuitemradio")).toHaveLength(0));
   });
 
   it("⇧⌘E：循环到下一档（派发方是 useAppKeybinds / 命令面板）", () => {

@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { createPortal } from "react-dom";
 import { Check, MoreHorizontal } from "lucide-react";
 import { useBrowserPopup } from "../sidebar-right/useBrowserPopup";
 import rowsCss from "../settings/SettingsRows.module.css";
-import { GlassLayer } from "./GlassLayer";
-import { measuringStyle, placeFloating, useFloatingBox } from "./floatingPlacement";
+import { Popover } from "./Popover";
 
 /** Global shared controls (settings sections + hero preset picker): monochrome
  *  toggle and custom dropdown (portaled so the options scroller cannot clip
@@ -44,60 +42,25 @@ export function Dropdown({ options, value, onChange, variant, block }: { options
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  // portal 菜单也在"内部"：否则 mousedown 命中选项时先被判为外部点击而
-  // 卸载菜单，click 永远到不了选项（用户报告的下拉"看得到点不了"）。
-  const menuRef = useRef<HTMLDivElement>(null);
-  // 触发器自身的宽：菜单的最小宽按它定（量菜单之前就得知道，见 floatingPlacement）
-  const [triggerWidth, setTriggerWidth] = useState(0);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  /** 触发器的宽：菜单至少与它同宽（沿用旧口径）。开的时候量一次。 */
+  const [anchorW, setAnchorW] = useState(0);
   const toggle = () => {
-    if (!open) setTriggerWidth(triggerRef.current?.getBoundingClientRect().width ?? 0);
+    if (!open) setAnchorW(triggerRef.current?.getBoundingClientRect().width ?? 0);
     setOpen((o) => !o);
   };
   const current = options.find((o) => o.v === value);
   const rich = options.some((o) => o.description);
-  // Portaled to <body> with fixed positioning: the options scroller clips
-  // absolutely-positioned menus (user report). 长清单（模型提供方 38 项）菜单
-  // 高过视口时压限高度内滚——否则首项被顶出屏幕外无法选择。
-  //
-  // 落位交给 floatingPlacement：菜单宽由内容撑（≈88），拿触发器宽（≈51）去夹右缘会让
-  // 菜单探出屏幕——所以这里"先量后落位"（useFloatingBox），限高由它按实际余量给。
-  const box = useFloatingBox(open, triggerRef, menuRef);
-  const minWidth = Math.max(triggerWidth, rich ? 272 : 0);
-  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height, inset: box.inset });
-  const menu = open && createPortal(
-    <div
-      ref={menuRef}
+  // 长清单（模型提供方 38 项）压限高度内滚——否则首项被顶出屏幕外无法选择。
+  const menu = (
+    <Popover
+      open={open}
+      anchor={triggerRef}
+      onClose={() => setOpen(false)}
+      sideOffset={4}
       className={rowsCss.ddMenu}
       role="listbox"
-      style={placement === null
-        // 还没量到尺寸：不可见地渲一帧（几何见 measuringStyle，别手写）
-        ? measuringStyle(minWidth)
-        : {
-          position: "fixed",
-          top: placement.top,
-          bottom: "auto",
-          right: "auto",
-          left: placement.left,
-          minWidth,
-          maxHeight: placement.maxHeight,
-          overflowY: "auto",
-        }}
+      style={{ minWidth: Math.max(anchorW, rich ? 272 : 0), overflowY: "auto" }}
     >
-      <GlassLayer />
       {options.map((o) => {
         const Icon = o.icon;
         return (
@@ -121,8 +84,7 @@ export function Dropdown({ options, value, onChange, variant, block }: { options
           </button>
         );
       })}
-    </div>,
-    document.body,
+    </Popover>
   );
   return (
     <div className={`${rowsCss.dd}${variant === "bare" ? ` ${rowsCss.ddBare}` : ""}${block ? ` ${rowsCss.ddBlock}` : ""}`} ref={rootRef}>
@@ -159,54 +121,27 @@ export function RowMenu({ items, onSelect, label, nativePopup = false }: {
   const [open, setOpen] = useState(false);
   const popupTarget = useBrowserPopup(nativePopup && open, () => setOpen(false));
   const rootRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      const target = e.target as Node;
-      // portal 菜单挂 body，但点击沿 React 树冒泡——判定必须两个子树都算"内部"
-      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  // 菜单贴触发钮的右下、右边对齐（靠右的行不会溢出）：落位算术与 Dropdown 同一份
-  const box = useFloatingBox(open, triggerRef, menuRef);
-  const placement = box === null ? null : placeFloating(box.anchor, { width: box.width, height: box.height, inset: box.inset }, { align: "right" });
+  const toggle = () => setOpen((o) => !o);
 
   return (
     <div className={rowsCss.dd} ref={rootRef}>
-      <button ref={triggerRef} type="button" className={rowsCss.ddIconTrigger} aria-label={label} onClick={() => setOpen((o) => !o)}>
+      <button ref={triggerRef} type="button" className={rowsCss.ddIconTrigger} aria-label={label} onClick={toggle}>
         <MoreHorizontal size={15} />
       </button>
-      {open && (!nativePopup || popupTarget) && createPortal(
-        <div
-          ref={menuRef}
+      {(!nativePopup || popupTarget) && (
+        <Popover
+          open={open}
+          anchor={triggerRef}
+          onClose={() => setOpen(false)}
+          sideOffset={4}
+          align="end"
+          width={ROW_MENU_WIDTH}
+          height={items.length * 30 + 12}
           className={rowsCss.ddMenu}
           role="menu"
-          style={placement === null
-            // 还没量到尺寸：不可见地渲一帧（几何见 measuringStyle，别手写）
-            ? measuringStyle(ROW_MENU_WIDTH)
-            : {
-              position: "fixed",
-              top: placement.top,
-              bottom: "auto",
-              left: placement.left,
-              right: "auto",
-              minWidth: ROW_MENU_WIDTH,
-              maxHeight: placement.maxHeight,
-              overflowY: "auto",
-            }}
+          container={nativePopup ? popupTarget : undefined}
         >
-          <GlassLayer />
           {items.map((item) => {
             const Icon = item.icon;
             return (
@@ -225,8 +160,7 @@ export function RowMenu({ items, onSelect, label, nativePopup = false }: {
               </button>
             );
           })}
-        </div>,
-        nativePopup ? popupTarget! : document.body,
+        </Popover>
       )}
     </div>
   );

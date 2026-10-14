@@ -1,21 +1,13 @@
-/* 命令面板（⌘K）：屏幕居中的浮层，底色走命令面板族（--panel-palette，§2.2bis）。
-   版式照参考图（tinycast 的调色板，逐项对齐）：
+/* 命令面板（⌘K）：居中浮层的卡片内容。遮罩、居中、圆角/投影/材质、进出场与关法
+   （Esc、点外部）都归 Modal；这里只给尺寸与版式。版式照参考图（tinycast 的调色板，
+   逐项对齐）：
    · 面板固定 750×475（不随结果多少变高），头部浮在列表之上，行从它下面滑过；
    · 搜索行没有自己的底色、也没有分隔线——结构靠查询字大一档 + 图标与行图标同列；
    · 列表平铺，**每行尾部标种类**（参考图的 "Application"），分组头因此不必再出现；
    · 行内热键移到标题之后（不是顶到最右），用空心键帽；
    · 头尾各一条六段渐隐雾带（alpha 由组件按滚动深度写进 --palette-fade-*），
-     内容在头部与面板下沿处幽灵式淡出；内容放得下时整条掩码撤下。
-   无全屏遮罩——点外部关闭（组件内 document mousedown）。 */
+     内容在头部与面板下沿处幽灵式淡出；内容放得下时整条掩码撤下。 */
 .panel {
-  /* 材质族（palette）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--glass-fill-palette);
-  --glass-blur: var(--blur-float);
-  --glass-inset: var(--shadow-pop-inset);
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   /* 参考图的窗口尺寸：750×475。两个 max-* 只是给窄窗/矮窗兜底，正常窗口不生效。 */
   width: 750px;
   height: 475px;
@@ -25,11 +17,7 @@
      约束在 475 内滚动；少了它列表会按内容长高、被 overflow 裁掉且永远不滚。 */
   display: flex;
   flex-direction: column;
-  z-index: var(--z-menu);
-  /* 圆角取 radius.floating：§1.4 把命令面板登记在这一档；行圆角 radius.control——
-     行与面板的角不共处，不必凑同心（§1.4）。 */
-  border-radius: var(--dsh-radius-floating);
-  box-shadow: var(--shadow-pop-drop);
+  /* 行圆角 radius.control——行与面板的角不共处，不必凑同心（§1.4）。 */
   overflow: hidden;
 }
 

@@ -4,7 +4,6 @@
 // 千项长列表。菜单配方复用 Dropdown 的 .ddMenu/.ddItem（portal 防裁切、
 // 放不下向上翻、翻转分支显式 top:"auto"，PITFALLS §1.7）。
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   Anchor, Bot, Boxes, Bug, Building2, Bike, Book, BookOpen, Briefcase, Car,
   Camera, Cloud, Code, Coffee, Cpu, Database, Feather, Film,
@@ -18,9 +17,7 @@ import { Check, ChevronDown } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import css from "./NewProjectDialog.module.css";
 import { t } from "../i18n";
-import { GlassLayer } from "./GlassLayer";
-import { placeFloating } from "./floatingPlacement";
-import type { FloatingPlacement } from "./floatingPlacement";
+import { Popover } from "./Popover";
 
 /** 精选集（名字即菜单行文案，图标名保持 lucide 原名不翻译）。 */
 const ICONS: Array<{ name: string; icon: LucideIcon }> = [
@@ -99,20 +96,8 @@ export function IconPicker({ value, label, onChange }: { value: string | null; l
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState<FloatingPlacement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      const target = e.target as Node;
-      // portal 菜单挂 body，但点击沿 React 树冒泡——两个子树都算"内部"
-      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -120,45 +105,28 @@ export function IconPicker({ value, label, onChange }: { value: string | null; l
     return ICONS.filter((i) => i.name.toLowerCase().includes(q));
   }, [query]);
 
-  // 菜单高：搜索行 + 最多 5 项 + 内边距；摆不下时压限高度内滚。
   const toggle = () => {
-    if (!open) {
-      const r = triggerRef.current?.getBoundingClientRect();
-      // 菜单右缘对齐触发钮、尺寸是常量：落位算术与全站同一份（floatingPlacement）
-      if (r) setPos(placeFloating(r, { width: MENU_WIDTH, height: menuHeight(filtered.length) }, { align: "right" }));
-      setQuery("");
-    }
+    if (!open) setQuery("");
     setOpen((o) => !o);
   };
 
-  // 菜单 portal 到 body 但仍是弹窗的 React 子树：keydown 在此截断
-  //（stopPropagation），Escape 只关菜单不关整个弹窗。
-  const menu = open && pos && createPortal(
-    <div
-      ref={menuRef}
+  // Esc 由 Popover 在 document 捕获阶段截断（stopPropagation），弹窗那层收不到
+  // ——「Esc 只关菜单不关整个弹窗」这条因此仍然是菜单自己的事。
+  const menu = (
+    <Popover
+      open={open}
+      anchor={triggerRef}
+      onClose={() => setOpen(false)}
+      sideOffset={4}
+      align="end"
+      width={MENU_WIDTH}
+      height={menuHeight(filtered.length)}
       className={rowsCss.ddMenu}
       role="listbox"
-      style={{
-        position: "fixed",
-        top: pos.top,
-        bottom: "auto",
-        left: pos.left,
-        right: "auto",
-        // 显式 min-width：.ddMenu 类自带 min-width:100%（以 body 为基准，
-        // 会把菜单撑到整屏宽）
-        width: MENU_WIDTH,
-        minWidth: MENU_WIDTH,
-        maxHeight: pos.maxHeight,
-        overflowY: "auto",
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") { e.stopPropagation(); setOpen(false); }
-      }}
+      contentRef={menuRef}
     >
-      <GlassLayer />
       <IconMenuBody value={value} label={label} onPick={(v) => { setOpen(false); onChange(v); }} query={query} setQuery={setQuery} />
-    </div>,
-    document.body,
+    </Popover>
   );
 
   return (
@@ -231,7 +199,7 @@ export function openIconPickerAt(req: IconPickerRequest): void {
 export function IconPickerHost() {
   const [req, setReq] = useState<IconPickerRequest | null>(null);
   const [query, setQuery] = useState("");
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     dispatchReq = (r) => { setQuery(""); setReq(r); };
@@ -253,29 +221,18 @@ export function IconPickerHost() {
   }, [req]);
 
   if (!req) return null;
-  // 锚点是一个点（点开的位置）：菜单从它下方展开；落位算术与全站同一份
-  const pos = placeFloating(
-    { top: req.y, bottom: req.y, left: req.x, right: req.x, width: 0 },
-    { width: MENU_WIDTH, height: menuHeight(ICONS.length) },
-  );
-  return createPortal(
-    <div
-      ref={menuRef}
+  return (
+    <Popover
+      open
+      anchor={{ top: req.y, bottom: req.y, left: req.x, right: req.x, width: 0, height: 0 }}
+      onClose={() => setReq(null)}
+      sideOffset={4}
+      width={MENU_WIDTH}
+      height={menuHeight(ICONS.length)}
       className={rowsCss.ddMenu}
       role="listbox"
-      style={{
-        position: "fixed",
-        top: pos.top,
-        bottom: "auto",
-        left: pos.left,
-        right: "auto",
-        width: MENU_WIDTH,
-        minWidth: MENU_WIDTH,
-        maxHeight: pos.maxHeight,
-        overflowY: "auto",
-      }}
+      contentRef={menuRef}
     >
-      <GlassLayer />
       <IconMenuBody
         value={req.value}
         label={req.label}
@@ -283,7 +240,6 @@ export function IconPickerHost() {
         query={query}
         setQuery={setQuery}
       />
-    </div>,
-    document.body,
+    </Popover>
   );
 }

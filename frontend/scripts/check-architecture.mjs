@@ -413,8 +413,127 @@ function checkSurfaceTiers(file, css) {
   return violations;
 }
 
+
+// ── 规则 8：材质层的宿主必须是栈上下文 ────────────────────────────────────────
+// [data-liquid-glass-backdrop]（`components/GlassLayer.tsx`）用**负 z** 垫在宿主内容之后
+// （照参考实现的 `chat-panel-glass`），所以内容层不需要任何定位或抬升。代价是宿主必须
+// 自己是**栈上下文**（定位 + 显式 z-index）：少了这一条，负 z 会一路逃到宿主祖先的背景
+// 底下——页面上表现为"这块浮面整片消失"。不报错、测试不红，只能机械检查。
+// 判据：每个含 <GlassLayer /> 的 JSX 元素，解析它的 className，再在对应 CSS 里要求那条
+// 规则（同名规则取并集）同时给出 position（非 static）与 z-index。
+const PRIMITIVE_BASES = new Set(["box"]);
+const GLASS_LAYER_TSX = "<GlassLayer";
+// 两个原语（Popover / Modal）的宿主类只承担"盒"这一半：position 在类里，**层级那一半
+// 由调用方传进来的类给**（.ctx-menu 的 --z-top、.ddMenu/.model-menu 的 --z-menu…）——
+// 跨文件合并静态看不出来。它们的层级因此由各自那条"调用方类必须带 z-index"的约定守着，
+// 这里按已知基类放行；下面 11 个**直接**挂材质层的面照查不误（宿主类都在同文件或它的
+// module 里）。
+
+/** `import alias from "./x.module.css"` → alias → 绝对路径。 */
+function cssImportsOf(file, text) {
+  const map = new Map();
+  for (const m of text.matchAll(/import\s+(\w+)\s+from\s+"([^"]*\.css)"/g)) {
+    map.set(m[1], resolve(dirname(file), m[2]));
+  }
+  return map;
+}
+
+/** 每个含 <GlassLayer /> 的 JSX 元素的 className 属性文本（取到标签末尾）。
+ *  复杂表达式（三元、模板串）也照收——下面按 `alias.name` 与字符串字面量两种形态去认。 */
+function glassHostClassAttrs(body) {
+  const out = [];
+  let i = body.indexOf(GLASS_LAYER_TSX);
+  while (i !== -1) {
+    // 往回找宿主标签的起点（i - 1：别把 <GlassLayer 自己的那个 < 当成宿主）
+    const open = body.lastIndexOf("<", i - 1);
+    const tag = open === -1 ? "" : body.slice(open, i);
+    const m = tag.match(/className\s*=\s*([\s\S]*)$/);
+    if (m) out.push(m[1]);
+    i = body.indexOf(GLASS_LAYER_TSX, i + GLASS_LAYER_TSX.length);
+  }
+  return out;
+}
+
+/** 解析 className 属性文本 → [{ file, name }]。
+ *  三种形态都要认：`"a b"` 字面量、`css.x` / `rowsCss.x` 模块类、模板串
+ *  `` `composer${cond ? " wide" : ""}` ``——模板串里只算**静态段**（`${}` 里是条件，
+ *  不是这个元素常带的类）。 */
+function glassHostClasses(attr, modules) {
+  const out = [];
+  const push = (raw) => {
+    if (/^[\w-]+$/.test(raw)) out.push({ file: null, name: raw, global: true });
+  };
+  for (const m of attr.matchAll(/(\w+)\.(\w+)/g)) {
+    const target = modules.get(m[1]);
+    if (target) out.push({ file: target, name: m[2] });
+  }
+  const ticks = [...attr.matchAll(/`([^`]*)`/g)];
+  if (ticks.length > 0) {
+    for (const m of ticks) {
+      for (const raw of m[1].replace(/\$\{[^}]*\}/g, " ").split(/[\s`]+/)) push(raw);
+    }
+  } else {
+    for (const m of attr.matchAll(/"([^"]*)"/g)) {
+      for (const raw of m[1].split(/\s+/)) push(raw);
+    }
+  }
+  return out;
+}
+
+/** 该 CSS 里所有匹配 `.name` 的规则体拼在一起（同名多条取并集）。 */
+function ruleBodiesFor(cssText, name) {
+  const re = new RegExp(`\\.${name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}(?![\\w-])`);
+  let bodies = "";
+  for (const m of cssText.replace(/\/\*[\s\S]*?\*\//g, " ").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (re.test(m[1])) bodies += m[2] + ";";
+  }
+  return bodies;
+}
+
+/** 裸写 `data-liquid-glass-backdrop` 的元素 = GlassLayer 的第二份实现。 */
+function checkGlassLayerDuplication(file, text) {
+  if (file.endsWith("GlassLayer.tsx")) return [];
+  // 注释里提到这个属性名是正常的（解释约束）；只有真当属性用才算重复实现。
+  const code = text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+  return code.includes("data-liquid-glass-backdrop")
+    ? [{ rule: "glass-host", file, detail: "材质层要经 components/GlassLayer.tsx，别再手写这个属性" }]
+    : [];
+}
+
+function checkGlassHosts(file, text, globalCss) {
+  const attrs = glassHostClassAttrs(text);
+  if (attrs.length === 0) return [];
+  const modules = cssImportsOf(file, text);
+  const violations = [];
+  for (const attr of attrs) {
+    for (const { file: cssFile, name, global } of glassHostClasses(attr, modules)) {
+      // 字面量类名可能是全局的也可能在某个 module 里：两个都查，命中即用。
+      const cssText = global
+        ? [...globalCss.values()].find((txt) => ruleBodiesFor(txt, name) !== "")
+        : readFileSync(cssFile, "utf8");
+      if (!cssText) continue;
+      const body = ruleBodiesFor(cssText, name);
+      if (body === "") continue;
+      const hasPosition = /position\s*:\s*(?!static)[a-z-]+/.test(body);
+      const hasZ = /(?:^|;)\s*z-index\s*:/.test(body);
+      if (hasPosition && hasZ) continue;
+      if (PRIMITIVE_BASES.has(name)) continue;
+      violations.push({
+        rule: "glass-host",
+        file,
+        detail: `材质层宿主缺 ${hasPosition ? "z-index" : "position"}（.${name} 在 ${global ? "全局 CSS" : rel(cssFile)}）——负 z 会逃出宿主`,
+      });
+    }
+  }
+  return violations;
+}
+
 function collect() {
   const files = SOURCE_ROOTS.flatMap((dir) => walk(dir)).filter((f) => !isTest(f));
+  // 全局（非 module）CSS 的文本按文件留着：字面量类名的宿主在那几个文件里查。
+  const globalCss = new Map(walk(FRONTEND_SRC, [], [".css"])
+    .filter((f) => !f.endsWith(".module.css"))
+    .map((f) => [f, readFileSync(f, "utf8")]));
   const violations = [...checkFlowRhythm()];
   for (const file of files) {
     if (file.endsWith(".ts") || file.endsWith(".tsx")) violations.push(...checkCssModuleClasses(file));
@@ -432,6 +551,8 @@ function collect() {
       const text = readFileSync(file, "utf8");
       violations.push(...checkBareHex(file, text, false));
       violations.push(...checkInlineStaticStyle(file, text));
+      violations.push(...checkGlassHosts(file, text, globalCss));
+      violations.push(...checkGlassLayerDuplication(file, text));
     }
   }
   return violations.sort((a, b) =>

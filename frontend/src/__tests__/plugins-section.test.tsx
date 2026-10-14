@@ -150,6 +150,7 @@ describe("插件页", () => {
     getByText("立即试用").click();
     getAllByLabelText("更多")[1].click();
     await waitFor(() => expect(queryByText("立即试用")).toBeTruthy());
-    expect(queryByText("卸载")).toBeNull();
+    // 菜单关掉要等离场动画收尾才从 DOM 里摘：第一行那份（带「卸载」）这时才真的走掉
+    await waitFor(() => expect(queryByText("卸载")).toBeNull());
   });
 });

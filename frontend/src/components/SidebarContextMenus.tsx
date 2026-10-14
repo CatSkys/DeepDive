@@ -1,7 +1,6 @@
 // 侧栏的两处右键/长按菜单：会话行菜单与项目行菜单。
 // 单独成文件是因为它们只是菜单项的声明，没有状态机——留在 Sidebar 里只会把那个
 // 文件撑大。两处都用 .ctx-menu 绝对定位于 pointer 坐标，随手在 window click 关掉。
-import { useEffect } from "react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
 import { api } from "../api";
@@ -10,7 +9,7 @@ import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { WorkspaceMenuItems } from "./WorkspaceMenu";
 import { titleHidesSession } from "../session/backgroundSession";
 import type { SessionSummary } from "../types";
-import { GlassLayer } from "./GlassLayer";
+import { Popover } from "./Popover";
 
 export interface RowMenuState {
   sessionId: string;
@@ -38,26 +37,29 @@ export function SidebarContextMenus({
   const { t, tt } = useT();
   const activeWs = store.workspaces.find((w) => w.workspaceId === store.activeWorkspaceId);
 
-  useEffect(() => {
-    if (!row && !workspaceAt) return;
-    const close = () => onClose();
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [row, workspaceAt, onClose]);
-
   return (
     <>
       {workspaceAt && activeWs && (
-        <div className="ctx-menu" style={{ top: workspaceAt.y, left: Math.min(workspaceAt.x, window.innerWidth - 200) }} onClick={(e) => e.stopPropagation()}>
-          <GlassLayer />
+        <Popover
+          open
+          anchor={{ top: workspaceAt.y, bottom: workspaceAt.y, left: workspaceAt.x, right: workspaceAt.x, width: 0, height: 0 }}
+          onClose={onClose}
+          sideOffset={0}
+          className="ctx-menu"
+        >
           {/* 与 hero 胶囊 / 空间格的右键菜单同一份（五项全量）；iconAt 取 ⋯
               按钮落点——「修改图标」的选择器贴项目行弹 */}
           <WorkspaceMenuItems ws={activeWs} onDone={onClose} iconAt={workspaceAt} />
-        </div>
+        </Popover>
       )}
       {row && (
-        <div className="ctx-menu" style={{ top: row.y, left: Math.min(row.x, window.innerWidth - 220) }} onClick={(e) => e.stopPropagation()}>
-          <GlassLayer />
+        <Popover
+          open
+          anchor={{ top: row.y, bottom: row.y, left: row.x, right: row.x, width: 0, height: 0 }}
+          onClose={onClose}
+          sideOffset={0}
+          className="ctx-menu"
+        >
           <div className="ctx-item" onClick={() => {
             onClose();
             void promptDialog({ title: t("重命名任务"), initialValue: row.title }).then(async (title) => {
@@ -115,7 +117,7 @@ export function SidebarContextMenus({
             });
           }}>{t("删除")}</div>
           {onOpenSettings && <div className="ctx-item" onClick={() => { onClose(); onOpenSettings(); }}>{t("前往配置")}</div>}
-        </div>
+        </Popover>
       )}
     </>
   );

@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { Eye, EyeOff, X } from "lucide-react";
 import { SettingsConflictError, writeNamespaceOnce } from "./useSettingNamespace";
 import { api } from "../api";
@@ -9,7 +8,7 @@ import { Dropdown } from "../components/controls";
 import { HIDDEN_PROVIDERS, PROVIDER_SESSION_HEADERS, providerLabel } from "./vendors";
 import { uuid } from "../uuid";
 import cssRows from "./SettingsRows.module.css";
-import { GlassLayer } from "../components/GlassLayer";
+import { Modal } from "../components/Modal";
 
 // 添加/编辑模型弹窗（版式照参考图）：提供商 → 接口地址 → API Key → 模型名称 →
 // 高级配置（模型类型）。字段落点按适配器分流——密钥走 credentials.set，DeepSeek
@@ -237,12 +236,6 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel]);
-
   /** 手写路由的名字：用户填了就用填的，留空按接口地址取（输入框把推导值当占位显示）。 */
   const derivedRoute = deriveRouteFromBaseURL(baseURL);
   const finalRoute = route.trim() || derivedRoute;
@@ -376,121 +369,114 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
   ];
   const protocolOptions = piProtocols.map((p) => ({ v: p, label: p }));
 
-  return createPortal(
-    // 关闭只认"按下 overlay 自身"（target===currentTarget）：Dropdown 的菜单
-    // portal 在 DOM 上挂 body，但其点击沿 React 树冒泡会路过这里——若用
-    // onClick+stopPropagation 拦截，选提供方的第一下就会把整个弹窗关掉。
-    <div
-      className={cssRows.modalOverlay}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-      role="dialog"
-      aria-label={edit ? t("编辑模型") : t("添加模型")}
+  return (
+    <Modal
+      open
+      onClose={onCancel}
+      cardClassName={cssRows.modal}
+      ariaLabel={edit ? t("编辑模型") : t("添加模型")}
     >
-      <div className={cssRows.modal} onClick={(e) => e.stopPropagation()}>
-           <GlassLayer />
-        <div className={cssRows.modalHead}>
-          <span className={cssRows.modalTitle}>{edit ? t("编辑模型") : t("添加模型")}</span>
-          <button className={cssRows.iconBtn} style={{ marginLeft: "auto" }} onClick={onCancel} aria-label={t("关闭")}>
-            <X size={15} />
-          </button>
-        </div>
-        <div className={cssRows.modalBody}>
-          <div>
-            <span className={cssRows.fieldLabel}>{t("提供商")}</span>
-            {edit ? (
-              <div className={cssRows.modelProviderLocked}>
-                <ProviderIcon provider={providerId} size={15} />
-                <span>{providerLabel(providerId, info?.displayName ?? providerId)}</span>
-                <span className={cssRows.mono}>{providerId}</span>
-              </div>
-            ) : (
-              <Dropdown
-                block
-                options={providerOptions}
-                value={providerId}
-                onChange={(v) => { setProviderId(v); setModelId(""); setVisual(false); setError(null); }}
-              />
-            )}
-          </div>
-          {isCustom && (
-            <div>
-              <span className={cssRows.fieldLabel}>{t("接口地址")}</span>
-              <input
-                className={cssRows.textField}
-                style={{ display: "block", width: "100%" }}
-                placeholder="https://api.example.com/v1"
-                value={baseURL}
-                onChange={(e) => setBaseURL(e.target.value)}
-                onBlur={() => { if (baseURL.trim()) { const n = normalizeBaseURL(baseURL); if (n) setBaseURL(n); } }}
-              />
+      <div className={cssRows.modalHead}>
+        <span className={cssRows.modalTitle}>{edit ? t("编辑模型") : t("添加模型")}</span>
+        <button className={cssRows.iconBtn} style={{ marginLeft: "auto" }} onClick={onCancel} aria-label={t("关闭")}>
+          <X size={15} />
+        </button>
+      </div>
+      <div className={cssRows.modalBody}>
+        <div>
+          <span className={cssRows.fieldLabel}>{t("提供商")}</span>
+          {edit ? (
+            <div className={cssRows.modelProviderLocked}>
+              <ProviderIcon provider={providerId} size={15} />
+              <span>{providerLabel(providerId, info?.displayName ?? providerId)}</span>
+              <span className={cssRows.mono}>{providerId}</span>
             </div>
+          ) : (
+            <Dropdown
+              block
+              options={providerOptions}
+              value={providerId}
+              onChange={(v) => { setProviderId(v); setModelId(""); setVisual(false); setError(null); }}
+            />
           )}
+        </div>
+        {isCustom && (
           <div>
-            <span className={cssRows.fieldLabel}>API Key</span>
-            <div className={cssRows.fieldRow}>
-              <input
-                className={cssRows.textField}
-                style={{ flex: 1 }}
-                type={showKey ? "text" : "password"}
-                placeholder={keyIsConfigured ? t("已配置 —— 留空保持不变") : t("输入你的 API Key")}
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-              />
-              <button className={cssRows.iconBtn} onClick={() => setShowKey(!showKey)} aria-label={t("显示密钥")}>
-                {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <span className={cssRows.fieldLabel}>{t("模型名称")}</span>
+            <span className={cssRows.fieldLabel}>{t("接口地址")}</span>
             <input
               className={cssRows.textField}
               style={{ display: "block", width: "100%" }}
-              placeholder={isDeepseek ? "例如 deepseek-v4-flash" : "例如 gpt-4o 或 deepseek-chat"}
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
+              placeholder="https://api.example.com/v1"
+              value={baseURL}
+              onChange={(e) => setBaseURL(e.target.value)}
+              onBlur={() => { if (baseURL.trim()) { const n = normalizeBaseURL(baseURL); if (n) setBaseURL(n); } }}
             />
-            {discoversAll && <div className={cssRows.fieldHint}>{t("留空则添加该提供方的全部模型")}</div>}
           </div>
-          <div>
-            <div className={cssRows.advTitle}>{t("高级配置")}</div>
-            {isCustom && (
-              <>
-                <div className={cssRows.advField}>
-                  <span className={cssRows.fieldLabel}>{t("提供方 ID")}</span>
-                  {/* 引擎里那条路由的键（也是密钥名）；留空＝按接口地址取名，
-                      placeholder 把推导出来的名字直接摆出来，不再写一行说明。 */}
-                  <input
-                    className={cssRows.textField}
-                    style={{ display: "block", width: "100%" }}
-                    placeholder={derivedRoute || "acme-gateway"}
-                    value={route}
-                    onChange={(e) => setRoute(e.target.value)}
-                  />
-                </div>
-                <div className={cssRows.advField}>
-                  <span className={cssRows.fieldLabel}>{t("协议")}</span>
-                  {/* 默认取引擎报的第一个协议（provider.ts 的表首＝手写网关最常说的
-                      openai-completions），照官方卡片的默认口径。 */}
-                  <Dropdown block options={protocolOptions} value={apiProto} onChange={setApiProto} />
-                </div>
-              </>
-            )}
-            <label className={cssRows.checkRow}>
-              <input type="checkbox" checked={visual} onChange={(e) => setVisual(e.target.checked)} />
-              <span>{t("视觉（图片输入）")}</span>
-            </label>
+        )}
+        <div>
+          <span className={cssRows.fieldLabel}>API Key</span>
+          <div className={cssRows.fieldRow}>
+            <input
+              className={cssRows.textField}
+              style={{ flex: 1 }}
+              type={showKey ? "text" : "password"}
+              placeholder={keyIsConfigured ? t("已配置 —— 留空保持不变") : t("输入你的 API Key")}
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+            />
+            <button className={cssRows.iconBtn} onClick={() => setShowKey(!showKey)} aria-label={t("显示密钥")}>
+              {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
           </div>
-          {error && <div className={cssRows.modelError}>{error}</div>}
         </div>
-        <div className={cssRows.modalFoot}>
-          <button className={cssRows.secondaryButton} onClick={onCancel}>{t("取消")}</button>
-          <button className={cssRows.primaryButton} disabled={saving} onClick={() => void save()}>
-            {saving ? t("载入中…") : t("保存")}
-          </button>
+        <div>
+          <span className={cssRows.fieldLabel}>{t("模型名称")}</span>
+          <input
+            className={cssRows.textField}
+            style={{ display: "block", width: "100%" }}
+            placeholder={isDeepseek ? "例如 deepseek-v4-flash" : "例如 gpt-4o 或 deepseek-chat"}
+            value={modelId}
+            onChange={(e) => setModelId(e.target.value)}
+          />
+          {discoversAll && <div className={cssRows.fieldHint}>{t("留空则添加该提供方的全部模型")}</div>}
         </div>
+        <div>
+          <div className={cssRows.advTitle}>{t("高级配置")}</div>
+          {isCustom && (
+            <>
+              <div className={cssRows.advField}>
+                <span className={cssRows.fieldLabel}>{t("提供方 ID")}</span>
+                {/* 引擎里那条路由的键（也是密钥名）；留空＝按接口地址取名，
+                    placeholder 把推导出来的名字直接摆出来，不再写一行说明。 */}
+                <input
+                  className={cssRows.textField}
+                  style={{ display: "block", width: "100%" }}
+                  placeholder={derivedRoute || "acme-gateway"}
+                  value={route}
+                  onChange={(e) => setRoute(e.target.value)}
+                />
+              </div>
+              <div className={cssRows.advField}>
+                <span className={cssRows.fieldLabel}>{t("协议")}</span>
+                {/* 默认取引擎报的第一个协议（provider.ts 的表首＝手写网关最常说的
+                    openai-completions），照官方卡片的默认口径。 */}
+                <Dropdown block options={protocolOptions} value={apiProto} onChange={setApiProto} />
+              </div>
+            </>
+          )}
+          <label className={cssRows.checkRow}>
+            <input type="checkbox" checked={visual} onChange={(e) => setVisual(e.target.checked)} />
+            <span>{t("视觉（图片输入）")}</span>
+          </label>
+        </div>
+        {error && <div className={cssRows.modelError}>{error}</div>}
       </div>
-    </div>,
-    document.body,
+      <div className={cssRows.modalFoot}>
+        <button className={cssRows.secondaryButton} onClick={onCancel}>{t("取消")}</button>
+        <button className={cssRows.primaryButton} disabled={saving} onClick={() => void save()}>
+          {saving ? t("载入中…") : t("保存")}
+        </button>
+      </div>
+    </Modal>
   );
 }

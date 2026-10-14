@@ -1,21 +1,23 @@
 /**
- * 浮层（菜单 / 下拉 / 详情卡）贴锚点落位的**唯一一份算术**：贴下方还是翻上方、限高多少、
- * 左右夹到哪。只管几何——尺寸由调用方给（常量或实测），题材、渲染、开合都不在这里。
+ * 浮层（菜单 / 下拉 / 详情卡）贴锚点落位的**唯一一份算术**：贴哪一侧、限多少、另一条轴夹到哪。
+ * 只管几何——尺寸由调用方给（常量或实测），题材、渲染、开合都不在这里。
+ * 消费方是 `components/Popover.tsx`（全站浮层的唯一壳），它把这份结果落成内联样式。
  *
- * 两条硬约束（破了就是"菜单跑到窗口外面"，PITFALLS §1.7）：
+ * 三条硬约束（破了就是"菜单跑到窗口外面"，PITFALLS §1.7）：
  * 1. `maxHeight` 永远等于所选那一侧的**实际余量**，不给下限：给下限就等于允许出视口。
  *    内容高过余量时靠调用方的 `overflow-y: auto` 内滚。
- * 2. 返回**绝对 `top`**（不回 `bottom`）：`.ddMenu` / `.model-menu` 这类类自带
- *    `top: calc(100% + 4px)`，调用方只写 `top` + `bottom: "auto"`，不会踩
- *    top/bottom 双约束把菜单压成细条（PITFALLS §1.7）。
- * 3. 翻上方时菜单**底边贴锚点的上缘**（`anchor.top - gap`），不贴锚点的下缘——后者会让
- *    菜单盖住自己的触发器。
- *
- * 宽度为什么要实测：菜单宽由内容撑（触发器宽 ≠ 菜单宽），拿触发器宽去夹右缘会让菜单
- * 探出屏幕右侧。所以"内容撑宽"的菜单要走 `useFloatingBox`（先渲染、量完再落位）。
+ * 2. 另一条轴的尺寸**必须实测**（触发器宽 ≠ 菜单宽）：拿触发器宽去夹右缘会让菜单探出屏幕
+ *    右侧。所以 Popover 不给 `size` 时会先渲染一帧、量完真实尺寸再落位。
+ * 3. 翻到上方时菜单**底边贴锚点的上缘**（`anchor.top - gap`），不贴锚点的下缘——后者会让
+ *    菜单盖住自己的触发器。四条边**全部显式写死**（用不上的那条写 `auto`）：`.ddMenu` /
+ *    `.model-menu` 这类类自带 `top: calc(100% + 4px)`，只设 `bottom` 会踩 top/bottom
+ *    双约束把菜单压成细条（PITFALLS §1.7 第二个实例）；同理，量尺寸的那一帧也必须四边全写，
+ *    否则类自带的 `right: 0` 会把宽度解成视口宽，夹右缘算出负数、菜单被钉在左缘 8px
+ *    （用户 2026-10-14「你这修到左边去了」，PITFALLS §1.7 第三个实例）。
+ * 4. `max-height` 是**内容盒**的尺寸，得扣掉宿主自己的 padding+border（`inset`），不然
+ *    盒子比余量还高一截。
  */
-import { useLayoutEffect, useState } from "react";
-import type { CSSProperties, RefObject } from "react";
+import type { CSSProperties } from "react";
 
 /** 锚点矩形：`DOMRect` 结构上就满足它（单测可直接造字面量，不必进 DOM）。 */
 export interface FloatingAnchor {
@@ -23,11 +25,7 @@ export interface FloatingAnchor {
   right: number;
   bottom: number;
   left: number;
-  /** 锚点自身的宽（触发器的宽）：菜单最小宽的来源，落位算术本身不用它。 */
-  width: number;
-}
-
-export interface FloatingSize {
+  /** 锚点自身的宽：`size: "anchor"` 时就是菜单的宽。 */
   width: number;
   height: number;
   /** 该面自身的**垂直**内垫 + 边框。`.ddMenu` 这类面是 content-box，CSS 的 `max-height`
@@ -36,103 +34,117 @@ export interface FloatingSize {
   inset?: number;
 }
 
-export interface FloatingPlacement {
-  top: number;
-  left: number;
-  maxHeight: number;
-  /** 贴的是哪一侧。调用方一般不关心，留给调试与断言。 */
-  below: boolean;
+/** 贴锚点的哪一边。放不下时翻到对面。 */
+export type FloatingSide = "top" | "bottom" | "left" | "right";
+/** 沿锚点的哪条边对齐：竖开的取横轴，横开的取纵轴。 */
+export type FloatingAlign = "start" | "center" | "end";
+
+export interface FloatingOptions {
+  /** 期望开向，默认下方。 */
+  side?: FloatingSide;
+  /** 与锚点的间距（默认 4）。 */
+  gap?: number;
+  /** 与视口四边的最小留白（默认 8）。 */
+  margin?: number;
+  align?: FloatingAlign;
+  /** 沿着对齐轴再挪一点（负值往锚点里收）。 */
+  alignOffset?: number;
+  /** 要固定下来的那条尺寸；`"anchor"` = 与锚点同宽。不给则由 `cross` 参与对齐与收敛。 */
+  size?: number | "anchor";
+  /** 另一条轴的实测尺寸（竖开的宽 / 横开的高）。 */
+  cross?: number;
+  /** 内容高度估计：竖开时参与翻面判定（估大了只是翻得更早，不会出视口）。 */
+  height?: number;
+  /** 限高的硬上限。 */
+  maxHeight?: number;
+  /** 宿主沿**滚动轴**的 padding+border：`max-height` 是内容盒的，不减掉它盒子会比余量高一截。 */
+  inset?: number;
 }
 
-/** 与锚点的间距、与视口四边的最小留白。 */
+export interface FloatingPlacement {
+  /** 直接落给浮层宿主的内联样式（已含 `transform-origin`）。 */
+  style: CSSProperties;
+  /** 实际落定的开向（翻面后与请求的 `side` 不同，调用方可能要翻箭头）。 */
+  side: FloatingSide;
+  /** 内容超限时该滚哪一轴——竖开滚纵向、横开滚横向。 */
+  axis: "height" | "width";
+}
+
 const GAP = 4;
 const MARGIN = 8;
 
-/** 锚点 + 菜单尺寸 → 菜单该用的内联几何。纯函数：同一份输入永远同一份输出。 */
-export function placeFloating(
-  anchor: FloatingAnchor,
-  size: FloatingSize,
-  opts: { align?: "left" | "right" } = {},
-): FloatingPlacement {
-  const below = window.innerHeight - MARGIN - anchor.bottom - GAP;
-  const above = anchor.top - GAP - MARGIN;
-  // 下方放得下就走下方；放不下时取余量更大的一侧（相等偏向下方——菜单贴触发器更自然）
-  const openBelow = below >= size.height || below >= above;
-  const room = Math.max(0, openBelow ? below : above);
-  const height = Math.min(size.height, room);
-  const top = openBelow ? anchor.bottom + GAP : anchor.top - GAP - height;
-  const left = opts.align === "right"
-    ? Math.max(MARGIN, Math.min(anchor.right - size.width, window.innerWidth - size.width - MARGIN))
-    : Math.max(MARGIN, Math.min(anchor.left, window.innerWidth - size.width - MARGIN));
-  return {
-    top: Math.min(Math.max(MARGIN, top), window.innerHeight - MARGIN),
-    left,
-    // `max-height` 限的是内容盒，扣掉该面自己的内垫 + 边框才是"整个盒子不超过余量"
-    maxHeight: Math.max(0, height - (size.inset ?? 0)),
-    below: openBelow,
-  };
-}
+const OPPOSITE: Record<FloatingSide, FloatingSide> = {
+  top: "bottom", bottom: "top", left: "right", right: "left",
+};
 
-/**
- * **量尺寸那一帧**该用的内联几何。单独成函数是因为它有个必须记住的坑：
- * `.ddMenu` / `.ctx-menu` / `.model-menu` 这些类自带 `right: 0`（也有自带 `top` 的），
- * 只覆盖 `left` 就成 left+right **双约束**——CSS 会把宽度解成"包含块宽 − left − right"
- * 即**整个视口宽**，于是量回来的宽是视口宽、不是菜单宽，夹右缘的算术全错。
- * 2026-10-14 用户报「你这修到左边去了」的真因：`innerWidth - 视口宽 - 8` 是负数，
- * `max(8, …)` 把菜单钉在左边 8px（实测 x=8、锚点在 x=950）。
- * 所以这一帧必须把 `right`/`bottom` 也显式归 `auto`（不设 `maxHeight`，不然量不到自然高）。
- * 用这个函数、别手写这帧的 style。
- */
-export function measuringStyle(minWidth: number): CSSProperties {
-  return {
+/** 锚点 + 期望开向 + 尺寸 → 浮层该用的内联几何。纯函数：同一份输入永远同一份输出。 */
+export function placeFloating(anchor: FloatingAnchor, opts: FloatingOptions = {}): FloatingPlacement {
+  const side = opts.side ?? "bottom";
+  const gap = opts.gap ?? GAP;
+  const margin = opts.margin ?? MARGIN;
+  const align = opts.align ?? "start";
+  const alignOffset = opts.alignOffset ?? 0;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const vertical = side === "top" || side === "bottom";
+  const pin = opts.size !== undefined;
+  // 另一条轴上的尺寸：固定下来了就用它（对齐、收敛、写内联都用同一个数），否则用实测值。
+  const cross = opts.size === "anchor" ? anchor.width : opts.size ?? opts.cross ?? 0;
+
+  // near/far：请求的那条边、以及它的对面各剩多少。
+  const near = side === "top" ? anchor.top - gap - margin
+    : side === "bottom" ? vh - anchor.bottom - gap - margin
+    : side === "left" ? anchor.left - gap - margin
+    : vw - anchor.right - gap - margin;
+  const far = side === "top" ? vh - anchor.bottom - gap - margin
+    : side === "bottom" ? anchor.top - gap - margin
+    : side === "left" ? vw - anchor.right - gap - margin
+    : anchor.left - gap - margin;
+  const inset = opts.inset ?? 0;
+  // 装不装得下：竖开比内容高度估计，横开比要固定下来的那条宽（没固定就无从判定，不翻）。
+  // 竖开时把内垫算进去——盒子高 = 内容高 + inset。
+  const fit = vertical
+    ? Math.min(opts.height ?? Infinity, opts.maxHeight ?? Infinity) + inset
+    : (pin ? cross : 0);
+  const out = near >= fit || far <= near ? side : OPPOSITE[side];
+  const room = Math.max(0, out === side ? near : far);
+
+  const style: CSSProperties = {
     position: "fixed",
-    top: 0,
-    left: 0,
+    // 用不上的边显式写 auto：宿主类里的 `top: calc(100% + 4px)` 留着会和 bottom 双约束
+    top: "auto",
     right: "auto",
     bottom: "auto",
-    visibility: "hidden",
-    minWidth,
+    left: "auto",
+    // 从"贴锚点的那一角"长出（参考实现的 transformOrigin 算法）。
+    transformOrigin: vertical
+      ? `${align} ${out === "top" ? "bottom" : "top"}`
+      : `${out === "left" ? "right" : "left"} ${align}`,
   };
-}
 
-/** 菜单落位用的实测值：锚点矩形 + 菜单自身的宽高 + 垂直内垫（见 `FloatingSize.inset`）。 */
-export interface FloatingBox {
-  anchor: FloatingAnchor;
-  width: number;
-  height: number;
-  inset: number;
-}
-
-/**
- * "先渲染、量完再落位"：打开时菜单先按 `visibility: hidden` 渲一帧，本帧内量出真实尺寸
- * 再换成落位后的几何（在 `useLayoutEffect` 里 setState——两帧都在 paint 之前，用户只看到
- * 落位后的那一帧，没有闪动）。
- *
- * 调用方约定：`box === null` 时把菜单渲成不可见、位置随意，且**不要**加 `maxHeight`
- * （加上就量不到自然高度）、**要**带上最终的最小宽（量出来的宽必须等于落位后的宽，
- * 否则夹右缘用的还是错的数）。宽度只有量了才知道，所以内容撑宽的菜单必须走这条。
- */
-export function useFloatingBox(
-  open: boolean,
-  anchorRef: RefObject<HTMLElement | null>,
-  menuRef: RefObject<HTMLElement | null>,
-): FloatingBox | null {
-  const [box, setBox] = useState<FloatingBox | null>(null);
-  useLayoutEffect(() => {
-    if (!open) {
-      setBox(null);
-      return;
-    }
-    if (box !== null) return;
-    const anchor = anchorRef.current;
-    const menu = menuRef.current;
-    if (!anchor || !menu) return;
-    const a = anchor.getBoundingClientRect();
-    const m = menu.getBoundingClientRect();
-    const cs = getComputedStyle(menu);
-    const px = (v: string) => Number.parseFloat(v) || 0;
-    const inset = px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth);
-    setBox({ anchor: a, width: m.width, height: m.height, inset });
-  }, [open, box, anchorRef, menuRef]);
-  return box;
+  if (vertical) {
+    let left: number;
+    if (align === "start") left = anchor.left + alignOffset;
+    else if (align === "center") left = anchor.left + (anchor.width - cross) / 2 + alignOffset;
+    else left = anchor.right - cross - alignOffset;
+    style.left = Math.max(margin, cross === 0 ? left : Math.min(left, vw - cross - margin));
+    // 限高按**内容盒**给：减掉宿主自己的内垫+边框，盒子总高才等于余量。
+    style.maxHeight = Math.max(0, Math.min(room, opts.maxHeight ?? room) - inset);
+    if (out === "top") style.bottom = vh - anchor.top + gap;
+    else style.top = anchor.bottom + gap;
+  } else {
+    let top: number;
+    if (align === "start") top = anchor.top + alignOffset;
+    else if (align === "center") top = anchor.top + (anchor.height - cross) / 2 + alignOffset;
+    else top = anchor.bottom - cross - alignOffset;
+    style.top = Math.max(margin, cross === 0 ? top : Math.min(top, vh - cross - margin));
+    // 竖向上剩下的空间就是限高（横开时另一条轴由内容和视口一起兜着）。
+    style.maxHeight = vh - margin - (style.top as number);
+    if (out === "left") style.right = vw - anchor.left + gap;
+    else style.left = anchor.right + gap;
+  }
+  // 固定尺寸时连 min-width 一起钉住：宿主类里的 `min-width: 100%` 是按**包含块**算的，
+  // portal 挂 body 后那个 100% 就是整屏宽，会把菜单撑成一条横贯全屏的带子。
+  if (pin && cross > 0) style.width = style.minWidth = cross;
+  return { style, side: out, axis: vertical ? "height" : "width" };
 }

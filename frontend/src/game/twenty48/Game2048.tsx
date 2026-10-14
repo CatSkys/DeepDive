@@ -1,8 +1,8 @@
 // 2048 游戏面板（经典黑白）：命令面板入口（流末 loader 是 DeepDiving 的），挂载壳
-// Game2048Host 挂 App 根部。键盘焦点收在面板（tabIndex=-1）：方向键/WASD 走子，
-// Esc 直接关（回合制无暂停概念）；棋局在 store——关了再开续局。分数/最高分落
-// store（localStorage）。RAF 只在浮层开着时跑：每帧重画棋盘，滑动补间由 render
-// 按 moveAt 时间戳算（回合制不需要暂停循环）。
+// Game2048Host 挂 App 根部。键盘焦点收在内容层（tabIndex=-1）：方向键/WASD 走子；
+// Esc/点遮罩关闭归共享 Modal（回合制无暂停概念）；棋局在 store——关了再开续局。
+// 分数/最高分落 store（localStorage）。RAF 只在浮层开着时跑：每帧重画棋盘，滑动补间由
+// render 按 moveAt 时间戳算（回合制不需要暂停循环）。
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Volume2, VolumeX, X } from "lucide-react";
@@ -13,8 +13,8 @@ import { setSoundOn, soundOn } from "../soundPref";
 import { bestScore, currentGame, newGame, register2048, replaceGame, submitScore } from "./store";
 import { drawBoard, BOARD_PX } from "./render";
 import { step, type Dir, type GameState, type Move } from "./world";
+import { Modal } from "../../components/Modal";
 import css from "./Game2048.module.css";
-import { GlassLayer } from "../../components/GlassLayer";
 
 /** App 根部挂一次：消费 openGame2048 请求；浮层出现时复位 hover（命令面板同一条事件）。 */
 export function Game2048Host() {
@@ -107,12 +107,6 @@ export function Game2048({ onClose }: { onClose: () => void }) {
   };
 
   const onKeyDown = (e: ReactKeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      onClose();
-      return;
-    }
     const dir = DIR_KEYS.get(e.key);
     if (!dir) return;
     e.preventDefault();
@@ -121,113 +115,113 @@ export function Game2048({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div
-      ref={panelRef}
-      className={css.panel}
-      role="dialog"
-      aria-label="2048"
-      tabIndex={-1}
-      onKeyDown={onKeyDown}
-    >
-      <GlassLayer />
-      <div className={css.hud}>
-        <div className={css.scores}>
-          <div className={css.scoreCol}>
-            <span className={css.scoreLabel}>{t("分数")}</span>
-            <span className={css.scoreValue}>{game.score}</span>
+    <Modal open onClose={onClose} cardClassName={css.panel} ariaLabel="2048">
+      {/* 方向键/WASD 走子挂内容层；Esc/点遮罩关闭归 Modal。 */}
+      <div
+        ref={panelRef}
+        className={css.surface}
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
+        <div className={css.hud}>
+          <div className={css.scores}>
+            <div className={css.scoreCol}>
+              <span className={css.scoreLabel}>{t("分数")}</span>
+              <span className={css.scoreValue}>{game.score}</span>
+            </div>
+            <div className={css.scoreCol}>
+              <span className={css.scoreLabel}>{t("最佳")}</span>
+              <span className={css.scoreValue}>{bestScore()}</span>
+            </div>
           </div>
-          <div className={css.scoreCol}>
-            <span className={css.scoreLabel}>{t("最佳")}</span>
-            <span className={css.scoreValue}>{bestScore()}</span>
-          </div>
-        </div>
-        <div className={css.hudBtns}>
-          <button
-            type="button"
-            className={css.newBtn}
-            aria-label={t("新的一局")}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={doNewGame}
-          >
-            {t("新的一局")}
-          </button>
-          <button
-            type="button"
-            className={css.hudBtn}
-            aria-label={t("提示音")}
-            aria-pressed={sound}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              const on = !sound;
-              setSoundOn(on);
-              setSound(on);
-            }}
-          >
-            {sound ? <Volume2 size={14} /> : <VolumeX size={14} />}
-          </button>
-          <button
-            type="button"
-            className={css.hudBtn}
-            aria-label={t("关闭")}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onClose}
-          >
-            <X size={14} />
-          </button>
-        </div>
-      </div>
-      <canvas ref={canvasRef} className={css.board} aria-hidden />
-      {!moved && (
-        <div className={css.hint}>{t("方向键或 WASD 滑动，同数相合，凑出 2048")}</div>
-      )}
-      {game.status === "over" && (
-        <div className={css.ov}>
-          <div className={css.ovTitle}>{tt("本局 {s} 分", "Score {s}", { s: game.score })}</div>
-          <div className={css.ovBest}>{tt("最佳 {s} 分", "Best {s}", { s: Math.max(bestScore(), game.score) })}</div>
-          <div className={css.ovRow}>
+          <div className={css.hudBtns}>
             <button
               type="button"
-              className={css.ovBtn}
+              className={css.newBtn}
+              aria-label={t("新的一局")}
               onMouseDown={(e) => e.preventDefault()}
               onClick={doNewGame}
             >
-              {t("再来")}
+              {t("新的一局")}
             </button>
             <button
               type="button"
-              className={css.ovBtn}
+              className={css.hudBtn}
+              aria-label={t("提示音")}
+              aria-pressed={sound}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                const on = !sound;
+                setSoundOn(on);
+                setSound(on);
+              }}
+            >
+              {sound ? <Volume2 size={14} /> : <VolumeX size={14} />}
+            </button>
+            <button
+              type="button"
+              className={css.hudBtn}
+              aria-label={t("关闭")}
               onMouseDown={(e) => e.preventDefault()}
               onClick={onClose}
             >
-              {t("关闭")}
+              <X size={14} />
             </button>
           </div>
         </div>
-      )}
-      {wonOpen && game.status !== "over" && (
-        <div className={css.ov}>
-          <div className={css.ovTitle}>2048</div>
-          <div className={css.ovBest}>{t("成 2048 了，还能继续")}</div>
-          <div className={css.ovRow}>
-            <button
-              type="button"
-              className={css.ovBtn}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setWonOpen(false)}
-            >
-              {t("继续")}
-            </button>
-            <button
-              type="button"
-              className={css.ovBtn}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={onClose}
-            >
-              {t("关闭")}
-            </button>
+        <canvas ref={canvasRef} className={css.board} aria-hidden />
+        {!moved && (
+          <div className={css.hint}>{t("方向键或 WASD 滑动，同数相合，凑出 2048")}</div>
+        )}
+        {game.status === "over" && (
+          <div className={css.ov}>
+            <div className={css.ovTitle}>{tt("本局 {s} 分", "Score {s}", { s: game.score })}</div>
+            <div className={css.ovBest}>{tt("最佳 {s} 分", "Best {s}", { s: Math.max(bestScore(), game.score) })}</div>
+            <div className={css.ovRow}>
+              <button
+                type="button"
+                className={css.ovBtn}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={doNewGame}
+              >
+                {t("再来")}
+              </button>
+              <button
+                type="button"
+                className={css.ovBtn}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={onClose}
+              >
+                {t("关闭")}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+        {wonOpen && game.status !== "over" && (
+          <div className={css.ov}>
+            <div className={css.ovTitle}>2048</div>
+            <div className={css.ovBest}>{t("成 2048 了，还能继续")}</div>
+            <div className={css.ovRow}>
+              <button
+                type="button"
+                className={css.ovBtn}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setWonOpen(false)}
+              >
+                {t("继续")}
+              </button>
+              <button
+                type="button"
+                className={css.ovBtn}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={onClose}
+              >
+                {t("关闭")}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }

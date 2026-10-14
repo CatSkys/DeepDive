@@ -4,7 +4,7 @@
 // portal 到 body 的节点不在 RTL 容器内——直接 document.querySelector
 // （仿 context-menu.test.tsx 的 portal 路线）。
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
@@ -104,14 +104,15 @@ describe("模型菜单基准详情卡", () => {
     expect(document.querySelector(".model-menu-row .provider")).toBeNull();
   });
 
-  it("ⓘ 基准详情默认开（壳偏好持久化，用户 2026-10-11 定稿）：点击收起/再开；hover 换内容；未收录显示占位框", () => {
+  it("ⓘ 基准详情默认开（壳偏好持久化，用户 2026-10-11 定稿）：点击收起/再开；hover 换内容；未收录显示占位框", async () => {
     render(<Harness options={opts} current="Claude Fable 5.1" />);
     // 默认开：卡直接在，内容跟当前选择
     expect(document.querySelector(".model-detail")).not.toBeNull();
     expect(document.querySelector(".model-detail-name")!.textContent).toBe("Claude Fable 5.1");
     // 点击收起 → 再点重开
     fireEvent.click(document.querySelector(".model-menu-info")!);
-    expect(document.querySelector(".model-detail")).toBeNull();
+    // 旁位卡也是浮层：关掉要等它的离场动画收尾才从 DOM 里摘
+    await waitFor(() => expect(document.querySelector(".model-detail")).toBeNull());
     fireEvent.click(document.querySelector(".model-menu-info")!);
     expect(document.querySelector(".model-detail")).not.toBeNull();
     // ⓘ 的悬浮注释走全局 data-tip 规范（不是原生 title）
@@ -156,6 +157,6 @@ describe("模型菜单基准详情卡", () => {
       fireEvent.mouseDown(document.body);
       await Promise.resolve();
     });
-    expect(document.querySelector(".model-menu")).toBeNull();
+    await waitFor(() => expect(document.querySelector(".model-menu")).toBeNull());
   });
 });
