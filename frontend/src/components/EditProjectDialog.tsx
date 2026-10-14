@@ -4,7 +4,6 @@
 // 工作区文件夹是项目身份，编辑态只展示不可改（fixedPath）。
 // 保存是三步显式编排（改名→图标→指令），一步失败即报错停住，不做部分成功。
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { api } from "../api";
 import { fileUrlOf } from "./preview/previewModel";
 import { writeProjectAgents } from "../host";
@@ -14,7 +13,7 @@ import { clearWsIcon, getWsIcon, setWsIcon } from "../wsIcons";
 import type { WorkspaceView } from "../types";
 import { ProjectFormFields, useProjectForm } from "./projectForm";
 import rowsCss from "../settings/SettingsRows.module.css";
-import { GlassLayer } from "./GlassLayer";
+import { Modal } from "./Modal";
 
 let editReq: ((ws: WorkspaceView) => void) | null = null;
 
@@ -93,22 +92,22 @@ function EditProjectDialog({ ws, onClose }: { ws: WorkspaceView; onClose: () => 
     }
   };
 
-  return createPortal(
-    <div
-      className={rowsCss.modalOverlay}
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}
-      role="dialog"
-      aria-label={t("编辑项目")}
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      cardClassName={rowsCss.modal}
+      ariaLabel={t("编辑项目")}
+      // 保存中（busy）时点遮罩不关：三步编辑还没走完就撤掉弹窗会留下半截状态
+      dismissOnOverlay={!busy}
     >
+      {/* Esc/点遮罩归 Modal；卡片内的 ⌘/Ctrl+↵ 保存挂内容包装上 */}
       <div
-        className={rowsCss.modal}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submit();
         }}
       >
-        <GlassLayer />
         <div className={rowsCss.modalHead}>
           <span className={rowsCss.modalTitle}>{t("编辑项目")}</span>
         </div>
@@ -123,7 +122,6 @@ function EditProjectDialog({ ws, onClose }: { ws: WorkspaceView; onClose: () => 
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

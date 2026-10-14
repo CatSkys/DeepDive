@@ -1,12 +1,11 @@
 // 全局搜索面板（⌘K，版式照参考图 Search for actions）：操作 / 当前会话 / 项目 /
 // 会话 / 设置五类统一搜索，回车直达。OpenHost 挂 App 根部，openCommandPalette() /
-// toggleCommandPalette() 供键位与其它入口调用。无全屏遮罩：屏幕居中浮层，点外部 /
-// Esc 关闭。版式抄参考图（tinycast 调色板）：列表平铺、**每行尾部标种类**、行内热键
+// toggleCommandPalette() 供键位与其它入口调用。遮罩 / 居中 / 关法（Esc、点外部）走共享
+// Modal。版式抄参考图（tinycast 调色板）：列表平铺、**每行尾部标种类**、行内热键
 // 用空心键帽紧随标题、头部浮在列表之上、头尾两条按滚动深度渐隐的雾带；行 hover 走
 // 全站门控口径（§1.10）。
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Archive, Check, Gauge, LayoutGrid, MessageSquare, Mic, PanelLeft, Pin, Plus, Search, Settings, SquarePen, Waves } from "lucide-react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useStore } from "../store";
@@ -24,8 +23,8 @@ import { openNewProjectDialog } from "./NewProjectDialog";
 import { openDeepDiving } from "../game/store";
 import { openGame2048 } from "../game/twenty48/store";
 import { SETTINGS_SECTIONS } from "./SettingsPage";
+import { Modal } from "./Modal";
 import css from "./CommandPalette.module.css";
-import { GlassLayer } from "./GlassLayer";
 
 let openReq: (() => void) | null = null;
 let toggleReq: (() => void) | null = null;
@@ -91,14 +90,6 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (!panelRef.current?.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [onClose]);
 
   const groups = useMemo<Array<[string, Row[]]>>(() => {
     const q = query.trim().toLowerCase();
@@ -243,15 +234,13 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   };
 
   const onInputKeyDown = (e: ReactKeyboardEvent) => {
-    if (e.key === "Escape") { e.stopPropagation(); onClose(); return; }
     if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => Math.min(i + 1, flat.length - 1)); return; }
     if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); return; }
     if (e.key === "Enter" && flat[active]) { e.preventDefault(); runRow(flat[active]); }
   };
 
-  return createPortal(
-    <div className={css.panel} ref={panelRef} role="dialog" aria-label={t("搜索")}>
-         <GlassLayer />
+  return (
+    <Modal open onClose={onClose} cardClassName={css.panel} ariaLabel={t("搜索")} contentRef={panelRef}>
       <div className={css.searchRow}>
         <Search size={16} />
         <input
@@ -288,8 +277,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
         ))}
         {flat.length === 0 && <div className={css.empty}>{t("无结果")}</div>}
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }
 

@@ -9,8 +9,7 @@
 //
 // 弹层挂 body（portal + fixed）：会话头的触发器与会话设置面板的滚动容器都会裁掉
 // 行内/绝对定位的菜单——面板里当年内联展开还会把下方分区顶下去。
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { useT } from "../i18n";
 import { usePrefs } from "../prefs";
@@ -19,8 +18,7 @@ import { ProviderIcon } from "./ProviderIcon";
 import { HoverScrollText } from "./HoverScrollText";
 import { ModelDetailCard } from "./ModelDetailCard";
 import type { ModelBench, ModelPrice } from "../modelFacts";
-import { GlassLayer } from "./GlassLayer";
-
+import { Popover } from "./Popover";
 export interface ModelOption {
   provider: string;
   model: string;
@@ -63,21 +61,6 @@ const MENU_MAX_HEIGHT = 460;
 /** 与 .model-detail 的 width 同步（卡片贴菜单旁定位要按它算）。 */
 const CARD_WIDTH = 240;
 
-/** 触发器下方的弹层位置：下方放不下且上方更宽裕就翻上去，两侧留 8px 边距。
- *  弹层宽度与限高由调用方给（各家菜单尺寸不同），翻转判定全站共用这一条。 */
-export function popupRect(anchor: HTMLElement, opts: { width: number; maxHeight: number }): { top: number; left: number; maxHeight: number } {
-  const r = anchor.getBoundingClientRect();
-  const below = window.innerHeight - r.bottom - 8;
-  const above = r.top - 8;
-  const flip = below < 260 && above > below;
-  const maxHeight = Math.min(opts.maxHeight, Math.max(200, (flip ? above : below) - 4));
-  return {
-    top: flip ? Math.max(8, r.top - maxHeight - 4) : r.bottom + 4,
-    left: Math.max(8, Math.min(r.left, window.innerWidth - opts.width - 12)),
-    maxHeight,
-  };
-}
-
 export function ModelMenu({
   options,
   current,
@@ -99,27 +82,10 @@ export function ModelMenu({
   const { modelDetail: infoOn, setModelDetail: setInfoOn } = usePrefs();
   const [query, setQuery] = useState("");
   const [hovered, setHovered] = useState<string | null>(null);
-  const [rect, setRect] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // 量触发器必须在绘制前完成，否则首帧会闪在左上角（useLayoutEffect）
-  useLayoutEffect(() => {
-    const el = anchorRef.current;
-    if (el) setRect(popupRect(el, { width: MENU_WIDTH, maxHeight: MENU_MAX_HEIGHT }));
-  }, [anchorRef]);
-
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      const target = e.target as Node;
-      // 触发器与详情卡也算"内部"：点触发器由父级的开合逻辑接管（否则 mousedown
-      // 先关、click 再开，看着像"点不动"）；点卡片只是看数据，不该顺手关菜单。
-      if (!ref.current?.contains(target) && !cardRef.current?.contains(target)
-        && !anchorRef.current?.contains(target)) onClose();
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [onClose, anchorRef]);
+  /** 菜单宿主的元素：详情卡以它为锚点贴在旁边（Popover 把宿主交出来给调用方）。 */
+  const [menuEl, setMenuEl] = useState<HTMLDivElement | null>(null);
+  /** 详情卡的元素：回给菜单，让"点卡片"不算外点（否则看数据时菜单会被关掉）。 */
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   const flat = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -129,26 +95,24 @@ export function ModelMenu({
 
   const groups = useMemo(() => modelSections(flat), [flat]);
 
-  if (rect === null) return null;
-
-  // 卡片位置：优先贴菜单左（参考样式同款），左放不下贴右，再不行贴窗右缘。
-  const cardLeft = (() => {
-    const l = rect.left - CARD_WIDTH - 10;
-    if (l >= 8) return l;
-    const r = rect.left + MENU_WIDTH + 10;
-    if (r + CARD_WIDTH <= window.innerWidth - 8) return r;
-    return Math.max(8, window.innerWidth - CARD_WIDTH - 8);
-  })();
-  const cardTop = Math.max(8, rect.top);
-
   // 卡片内容：hover 行优先；无 hover 落回当前选择（当前选择不在目录里则不出卡）。
   const activeOption = options.find((m) => m.label === current || (currentModel?.provider === m.provider && currentModel?.model === m.model));
   const cardOption = (hovered === null ? undefined : flat.find((m) => modelKey(m) === hovered)) ?? activeOption;
 
-  return createPortal(
+  return (
     <>
-      <div className="model-menu" ref={ref} style={{ top: rect.top, left: rect.left, maxHeight: rect.maxHeight }}>
-           <GlassLayer />
+      <Popover
+        open
+        anchor={anchorRef}
+        onClose={onClose}
+        sideOffset={4}
+        width={MENU_WIDTH}
+        maxHeight={MENU_MAX_HEIGHT}
+        height={MENU_MAX_HEIGHT}
+        className="model-menu"
+        contentRef={setMenuEl}
+        alsoInside={[cardRef]}
+      >
         <div className="model-menu-view">
           <div className="model-menu-search">
             <Search size={13} />
@@ -187,18 +151,25 @@ export function ModelMenu({
             {flat.length === 0 && <div className="model-menu-empty">{t("无匹配模型")}</div>}
           </div>
         </div>
-      </div>
-      {infoOn && cardOption && (
-        <div
+      </Popover>
+      {/* 旁位卡：贴菜单左侧（横开），左边放不下 Popover 自己翻到右侧。
+          它不是菜单——关法归菜单，外点由菜单那一层判（alsoInside 把本卡算作内部）。 */}
+      {infoOn && cardOption && menuEl && (
+        <Popover
+          open
+          anchor={menuEl}
+          onClose={onClose}
+          side="left"
+          sideOffset={10}
+          width={CARD_WIDTH}
           className="model-detail"
-          ref={cardRef}
-          style={{ top: cardTop, left: cardLeft, maxHeight: window.innerHeight - cardTop - 8 }}
+          contentRef={cardRef}
+          dismissOnOutside={false}
+          dismissOnEscape={false}
         >
-          <GlassLayer />
           <ModelDetailCard option={cardOption} />
-        </div>
+        </Popover>
       )}
-    </>,
-    document.body,
+    </>
   );
 }

@@ -1,5 +1,3 @@
-import { useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import type { WorkspaceView } from "../types";
 import { revealPath } from "../host";
 import { api } from "../api";
@@ -9,7 +7,7 @@ import { openIconPickerAt } from "./IconPicker";
 import { openEditProjectDialog } from "./EditProjectDialog";
 import { alertDialog, confirmDialog, promptDialog } from "./DialogHost";
 import { useT } from "../i18n";
-import { GlassLayer } from "./GlassLayer";
+import { Popover } from "./Popover";
 
 // 项目（工作区）的"文件夹"类动作：打开项目文件夹 / 复制路径。
 //
@@ -105,33 +103,19 @@ export function WorkspaceMenuItems({ ws, onDone, iconAt }: { ws: WorkspaceView; 
  *  传送到 body 渲染：空间格在侧栏最底部，菜单留在侧栏里会被 overflow 裁掉
  *  （用户报「下方项目的右键都看不到了」）；空间不够向下就向上翻。 */
 export function WorkspaceMenu({ ws, x, y, onClose }: { ws: WorkspaceView; x: number; y: number; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [onClose]);
+  // 七个菜单项 + 分隔线 + 内边距：给 Popover 判翻面与限高用。
+  const estimatedH = 240;
 
-  const estimatedH = 240; // 七个菜单项 + 分隔线 + 内边距
-  const flip = y + estimatedH > window.innerHeight - 8;
-
-  return createPortal(
-    <div
-      ref={ref}
+  return (
+    <Popover
+      open
+      anchor={{ top: y, bottom: y, left: x, right: x, width: 0, height: 0 }}
+      onClose={onClose}
+      sideOffset={0}
+      height={estimatedH}
       className="ctx-menu"
-      style={{
-        position: "fixed",
-        top: flip ? undefined : y,
-        bottom: flip ? window.innerHeight - y : undefined,
-        left: Math.max(8, Math.min(x, window.innerWidth - 228)),
-      }}
-      onClick={(e) => e.stopPropagation()}
     >
-      <GlassLayer />
       <WorkspaceMenuItems ws={ws} onDone={onClose} iconAt={{ x, y }} />
-    </div>,
-    document.body,
+    </Popover>
   );
 }

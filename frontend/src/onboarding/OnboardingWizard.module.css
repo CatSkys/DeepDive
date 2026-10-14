@@ -1,32 +1,14 @@
-/* 新手引导卡（OnboardingWizard）：配方沿用旧欢迎卡/设置弹窗——760×480 磨砂卡
-   （--panel-strong + blur 40 + 圆角 14），左栏品牌与步进，右栏当前步内容，
-   右栏底铺黑白液态金属（本文件只给一层底色，SVG 由步骤外的 .metal 容器承载）。
+/* 新手引导卡（OnboardingWizard）：遮罩 / 居中 / 圆角投影材质 / 进出场 / 关法走共享 Modal
+   （.card 只是它的 cardClassName，这里只给尺寸与布局）。本文件管左栏品牌与步进、右栏当前
+   步内容，右栏底铺黑白液态金属（本文件只给一层底色，SVG 由步骤外的 .metal 容器承载）。
    颜色/圆角/时长一律走语义变量与 theme.css 的 --dur-*，不写裸值。 */
 
-.overlay {
-  animation: wizard-veil var(--dur-med) var(--ease-out) both;
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-scrim);
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}.card {
-  /* 材质族（dialog）：交材质层（GlassLayer）。三个值的口径见 theme.css 的同名预设块 */
-  --glass-tint: var(--glass-fill-dialog);
-  --glass-blur: var(--blur-scrim);
-  --glass-inset: var(--shadow-modal-inset);
-  animation: wizard-in var(--dur-slow) var(--ease-spring) backwards;
-  position: relative;
+.card {
   display: flex;
   width: 880px;
   max-width: calc(100vw - 48px);
   height: 560px;
   max-height: calc(100vh - 48px);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--dsh-radius-card);
-  box-shadow: var(--shadow-modal-drop);
   overflow: hidden;
 }
 
@@ -193,15 +175,6 @@
 /* 条目错落入场：给列表项加 .rowIn + 内联 animation-delay（步进 20ms 上下）。 */
 .rowIn { animation: row-in-soft var(--dur-med) var(--ease-out) both; }
 
-/* 退场：卡片先淡出 + 轻微缩小/下沉（--dur-med，spring 收尾），礼花此时还在撒。 */
-.overlayLeaving { animation: none; transition: opacity var(--dur-med) var(--ease-spring); opacity: 0; }
-.cardLeaving { animation: none; transition: opacity var(--dur-med) var(--ease-spring), transform var(--dur-med) var(--ease-spring); opacity: 0; transform: scale(.965) translateY(8px); }
-
-@keyframes wizard-veil { from { opacity: 0; } to { opacity: 1; } }
-@keyframes wizard-in {
-  from { opacity: 0; transform: translateY(10px) scale(.965); }
-  to   { opacity: 1; transform: none; }
-}
 @keyframes step-in-fwd {
   from { opacity: 0; transform: translateX(18px); }
   to   { opacity: 1; transform: none; }
@@ -215,7 +188,7 @@
   to   { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .overlay, .card, .stepInFwd, .stepInBack, .rowIn { animation: none; }
+  .stepInFwd, .stepInBack, .rowIn { animation: none; }
 }
 
 /* 扫描期骨架（形状照真实清单）：分组标签 + 勾选行，整组同步脉冲（行间微错落）。 */

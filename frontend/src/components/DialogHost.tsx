@@ -6,7 +6,7 @@
 //（与设置弹窗同一玻璃配方）。
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
-import { GlassLayer } from "./GlassLayer";
+import { Modal } from "./Modal";
 
 export interface DialogOptions {
   /** 正文（可多行，\n 保留） */
@@ -90,13 +90,15 @@ export function DialogHost() {
   const confirm = () => settle(isPrompt ? text : true);
 
   return (
-    <div className="dialog-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) cancel(); }}>
-      <div className="dialog-card" role={isAlert ? "alertdialog" : "dialog"} aria-modal="true"
-        onKeyDown={(e) => {
-          if (e.key === "Escape") cancel();
-          if (e.key === "Enter" && isPrompt) confirm();
-        }}>
-           <GlassLayer />
+    <Modal
+      open
+      onClose={cancel}
+      cardClassName="dialog-card"
+      role={isAlert ? "alertdialog" : "dialog"}
+      ariaLabel={req.opts.title}
+    >
+      {/* Esc/点遮罩由 Modal 接管，这里只留 Enter 确认：内容挂一层包装，输入框回车才冒泡得到 */}
+      <div onKeyDown={(e) => { if (e.key === "Enter" && isPrompt) confirm(); }}>
         {req.opts.title && <div className="dialog-title">{req.opts.title}</div>}
         {req.opts.message && <div className="dialog-msg">{req.opts.message}</div>}
         {isPrompt && (
@@ -125,6 +127,6 @@ export function DialogHost() {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

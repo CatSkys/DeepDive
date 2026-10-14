@@ -1,5 +1,6 @@
-/* 新建项目弹窗专属样式。弹窗壳（modalOverlay/modal/modalHead/modalBody/
-   modalFoot/按钮/fieldLabel/modelError）与分组卡（rowGroup/rowCard）全部
+/* 新建项目弹窗专属样式。弹窗壳（components/Modal.tsx + SettingsRows 的
+   modal/modalHead/modalBody/modalFoot/按钮/fieldLabel/modelError）与分组卡
+   （rowGroup/rowCard）全部
    复用 settings/SettingsRows.module.css 的现成类——与添加模型弹窗、设置页
    完全同一套字号与控件规格（标题 15、输入 30 高 12.5、按钮 28 高），
    本文件只补本弹窗独有的几个部件，度量对齐 textField。 */

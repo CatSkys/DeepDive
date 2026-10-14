@@ -1062,11 +1062,37 @@
   inset:0` 的子元素，**靠宿主是定位元素才铺在宿主上**。`.modal` 与 `.dialog-card` 两条规则都没有
   `position`，于是材质层按最近的定位祖先铺——那正是 `fixed; inset:0` 的遮罩层，结果是「整窗一块
   暗面、卡片找不到边」。同一轮里菜单族没犯这个错（它们各自有 `position: fixed/absolute`，或由组件
-  行内给位）。**这一轮同时把底色换成轻叠加**：重底色会把系统玻璃盖死（菜单/命令面板看着像实心）。
+  行内给位）。
 - 判别式：宿主规则里要有 `position`；排查时看材质层的实际矩形——它该等于宿主的 padding box，
   不是遮罩层的。
 - 教训：**「装饰层/材质层」这类绝对定位子元素，等于给宿主新增一条「必须是定位元素」的隐式契约**——
-  已写进 UI-SPEC §2.2 的四条硬约束，铺开时逐面核。
+  已写进 UI-SPEC §2.2bis 的四条硬约束，铺开时逐面核。
+
+### 5.16 材质层垫底色 = 把玻璃盖成一块平灰（用户报"不像玻璃"的根因）
+- 事故（2026-10-14，用户第二、第三轮反馈"看着都不像/没有修好"）：材质层上一直垫着一层 `.55`
+  的深色 tint（`--panel-glass`）。`background` 画在 `-apple-visual-effect` **之上**，于是系统材质
+  再漂亮也只是衬在下面——用户看到的是一块平滑的灰面。三轮里查过定位、托管前提、非法投影值、
+  入场动画的 backdrop root，都对，但都没碰到这一条。
+- 正解是从参考实现（Raycast 的 `[macos] .popover__webPopover`）读出来的：**macOS 上那块面
+  `background-color: transparent`，整块面由材质自己画**；要压暗/加饱和只许动 `filter: saturate()/
+  brightness()`（它的侧栏 `saturate(1.25)`、工具栏 `saturate(1.35) brightness(50%)`）。底色只该留在
+  **回退分支**（`@supports` 之外，拿不到材质或没托管时那块面还得读得清）。
+- 教训：**"给玻璃垫个底色更稳"是反的**——材质是背景层的一员，任何不透明的东西压在它上面都等于
+  把它关掉。拿不准就去读参考实现，别按直觉叠色。
+
+### 5.17 材质层的负 z 要求宿主是"定位 + 显式 z-index"的栈上下文
+- 2026-10-14 把材质层从 `z-index: 0` 改成 `-1`（照参考实现的 `chat-panel-glass`：垫在内容之后，
+  内容层因此不需要任何定位或抬升，也免掉了此前那条会给子元素乱加 `position: relative` 的兄弟规则）。
+  代价是**负 z 只在宿主自己是栈上下文时才被关在宿主里**：`position: relative` + `z-index: auto`
+  **不算**栈上下文，材质层会逃到最近那个栈上下文里、画到祖先的背景底下——表现是"这块面整片消失"。
+  实测抓到一处：`.composer` 只有 `position: relative`（输入胶囊的材质层会逃到 `.main` 近实色卡的
+  后面）。另有三处对话框卡片同样只有 `position: relative`，已一并补 `z-index: 0`。
+- `z-index` 不是 backdrop-root 触发器（`isolation` / `transform` 才是），所以补它不会伤到材质采样。
+- 判别式：宿主规则里 `position` 与 `z-index` **要同时有**（`z-index: auto` 不算）。
+- 教训：这类错不报错、测试不红，只能机械检查——已写成 `frontend/scripts/check-architecture.mjs`
+  的 `glass-host` 规则（顺着 `<GlassLayer />` 所在 JSX 元素的 `className` 反查 CSS，要求那条规则
+  同时给出 `position`（非 static）与 `z-index`），并顺带禁掉"裸写 `data-liquid-glass-backdrop`"
+  这份第二实现。
 
 ## 6. 调试技巧
 

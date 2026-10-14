@@ -4,6 +4,7 @@
 // 只管这三颗钮的渲染与选中态——「设置」开的是哪张卡由调用方按当前脸给（草稿脸开草稿的
 // 设置卡，会话脸开会话设置卡），「新建」落哪里也由调用方给（面板里 = 快捷空间新草稿）。
 import { useState } from "react";
+import { GlassLayer } from "../components/GlassLayer";
 import { History, Plus, Settings2 } from "lucide-react";
 import { useT } from "../i18n";
 
@@ -33,7 +34,7 @@ export function MiniPanelControls({
     >
       {/* 材质层：与输入胶囊同一条规则（[data-liquid-glass-backdrop] 是全局面），
           所以这组只留几何、材质（含系统液态玻璃档）自动接上 */}
-      <div data-liquid-glass-backdrop aria-hidden="true" />
+      <GlassLayer />
       <button
         type="button"
         className="panel-expand-btn"

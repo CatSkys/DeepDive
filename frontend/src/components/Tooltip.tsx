@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { GlassLayer } from "./GlassLayer";
 import { createPortal } from "react-dom";
 import type { CSSProperties, Ref } from "react";
 import { displayKeyCaps } from "../keybinds";
@@ -20,7 +21,7 @@ import { shellCapabilities } from "../platform";
 
 type Pos = TipSide;
 const MARGIN = 8;
-/** 页内这份的离场时长：与 theme.css 的 tip-out 同长（跑完才摘 DOM）。 */
+/** 页内这份的离场时长：与 theme.css 的 pop-out 同长（跑完才摘 DOM）。 */
 const CLOSE_MS = 150;
 
 interface Tip {
@@ -66,7 +67,7 @@ export function TooltipChip({
     <div ref={boxRef} className="tip" role="tooltip" data-phase={phase} style={style}>
       {/* 材质层：与输入胶囊同一条规则（[data-liquid-glass-backdrop] 是全局面），所以
           这一层只留几何与外投影，材质（含系统液态玻璃档）自动接上。 */}
-      <div data-liquid-glass-backdrop aria-hidden="true" />
+      <GlassLayer />
       <span className="tip-text">{text}</span>
       {caps.length > 0 && <KeyCaps caps={caps} />}
     </div>

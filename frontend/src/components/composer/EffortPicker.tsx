@@ -7,14 +7,13 @@
 // 弹层默认贴在胶囊**上方**：输入框就在窗口底部，向下开必出屏。样式复用设置族的
 // 紧凑菜单配方（SettingsRows 的 ddMenu/ddItem，与设置页下拉同一套观感）。
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { comboFor } from "../../keybinds";
 import { useT } from "../../i18n";
 import { useStore } from "../../store";
 import { DD_EVENTS } from "../../events";
 import rowsCss from "../../settings/SettingsRows.module.css";
-// from "../GlassLayer";
+import { Popover } from "../Popover";
 
 /** 输入框上的思考强度面：档位表 + 当前生效档（undefined = 引擎没报生效档）。 */
 export interface EffortFace {
@@ -43,31 +42,15 @@ export function effortDisplayName(id: string | undefined, levels: Array<{ id: st
 }
 
 const MENU_MIN_WIDTH = 148;
-/** 与 .ddItem 的高度同步（算弹层翻转与限高用）。 */
+/** 与 .ddItem 的高度同步：交给 Popover 估内容高度（它据此决定翻面与限高）。 */
 const MENU_ROW_HEIGHT = 30;
-
-interface PopupPos { top?: number; bottom?: number; left: number; maxHeight: number }
-
-/** 胶囊的弹层位置：上方放得下就向上（输入框贴底），否则翻到下方；左右按视口收敛。 */
-function popupRect(anchor: HTMLElement, rows: number): PopupPos {
-  const r = anchor.getBoundingClientRect();
-  const height = rows * MENU_ROW_HEIGHT + 10;
-  const above = r.top - 8;
-  const below = window.innerHeight - r.bottom - 8;
-  const flip = above < height && below > above;
-  const left = Math.max(8, Math.min(r.left, window.innerWidth - MENU_MIN_WIDTH - 12));
-  return flip
-    ? { top: r.bottom + 4, left, maxHeight: Math.max(120, below) }
-    : { bottom: window.innerHeight - r.top + 4, left, maxHeight: Math.max(120, above) };
-}
 
 export function EffortPicker({ levels, value, pick }: EffortFace) {
   const { t } = useT();
   const store = useStore();
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<PopupPos | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const shown = shownLevel(value, levels);
 
@@ -89,29 +72,6 @@ export function EffortPicker({ levels, value, pick }: EffortFace) {
     return () => window.removeEventListener(DD_EVENTS.cycleEffort, onCycle);
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      const target = e.target as Node;
-      // 弹层挂 body，点击沿 React 树冒泡——触发器与弹层都算"内部"，否则点选项时
-      // mousedown 先判外部把菜单卸掉，click 永远到不了选项。
-      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const toggle = () => {
-    // 位置在开之前算：首帧就带着坐标渲染，不在左上角闪一下
-    if (!open && triggerRef.current) setPos(popupRect(triggerRef.current, levels.length));
-    setOpen((v) => !v);
-  };
-
   return (
     <>
       <button
@@ -122,50 +82,44 @@ export function EffortPicker({ levels, value, pick }: EffortFace) {
         aria-haspopup="menu"
         data-tip={t("思考强度")}
         data-tip-keys={comboFor("cycle-effort", store.keybinds)}
-        onClick={toggle}
+        onClick={() => setOpen((v) => !v)}
       >
         <span className="composer-effort-label">{effortDisplayName(shown, levels)}</span>
         <ChevronDown size={12} strokeWidth={2} />
       </button>
-      {open && pos && createPortal(
-        <div
-          ref={menuRef}
-          className={rowsCss.ddMenu}
-          role="menu"
-          style={{
-            position: "fixed",
-            top: pos.top ?? "auto",
-            bottom: pos.bottom ?? "auto",
-            left: pos.left,
-            right: "auto",
-            minWidth: MENU_MIN_WIDTH,
-            maxHeight: pos.maxHeight,
-            overflowY: "auto",
-          }}
+      {/* 向上开：输入框贴窗口底，向下开必出屏（放不下时 Popover 自己翻面）。 */}
+      <Popover
+        open={open}
+        anchor={triggerRef}
+        onClose={() => setOpen(false)}
+        side="top"
+        sideOffset={4}
+        width={MENU_MIN_WIDTH}
+        height={levels.length * MENU_ROW_HEIGHT + 10}
+        className={rowsCss.ddMenu}
+        role="menu"
+        contentRef={menuRef}
         >
-          
-          {levels.map((level) => (
-            <button
-              key={level.id}
-              type="button"
-              role="menuitemradio"
-              aria-checked={level.id === shown}
-              className={rowsCss.ddItem}
-              // 点选不夺焦点：光标留在输入框里，与 @ // 候选行同一口径
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                setOpen(false);
-                // 点当前显示的那档（引擎没报生效档时可能是兜底显示的最高档）不提交
-                if (level.id !== shown) void pick(level.id);
-              }}
-            >
-              <span>{level.name}</span>
-              {level.id === shown && <Check size={14} className={rowsCss.ddCheck} />}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
+        {levels.map((level) => (
+          <button
+            key={level.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={level.id === shown}
+            className={rowsCss.ddItem}
+            // 点选不夺焦点：光标留在输入框里，与 @ // 候选行同一口径
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setOpen(false);
+              // 点当前显示的那档（引擎没报生效档时可能是兜底显示的最高档）不提交
+              if (level.id !== shown) void pick(level.id);
+            }}
+          >
+            <span>{level.name}</span>
+            {level.id === shown && <Check size={14} className={rowsCss.ddCheck} />}
+          </button>
+        ))}
+      </Popover>
     </>
   );
 }

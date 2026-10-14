@@ -1,8 +1,9 @@
 // DeepDiving（深潜）游戏面板（横版穿越）：流末 loader「Deep diving...」与命令面板都经
 // openDeepDiving() 打开（挂载壳在 DeepDivingHost.tsx）。RAF 循环在 ready（浮动）与 run
 // （物理）两个相位跑，暂停=定格；关闭只卸浮层，世界保留在 store——再开从原地继续。
-// 键盘焦点收在面板上（tabIndex=-1）：空格/方向键只在这里当推力，焦点离开/切窗即
-// 自动暂停；Esc=暂停，暂停/结束态 Esc=关闭。相位转换归本组件与 store，world 只管物理。
+// 键盘焦点收在内容层（tabIndex=-1）：空格/方向键只在这里当推力，焦点离开/切窗即
+// 自动暂停；Esc 归共享 Modal（close 先 pauseWorld 再卸浮层）。相位转换归本组件与 store，
+// world 只管物理。
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Volume2, VolumeX, X } from "lucide-react";
@@ -21,8 +22,8 @@ import {
 import { drawFrame } from "./render";
 import { DeadOverlay, PausedOverlay } from "./Overlays";
 import { createWorld, distanceM, randomSeed, step, VIEW_H, VIEW_W, type Phase } from "./world";
+import { Modal } from "../components/Modal";
 import css from "./DeepDiving.module.css";
-import { GlassLayer } from "../components/GlassLayer";
 
 const THRUST_KEYS = new Set([" ", "ArrowUp", "ArrowDown"]);
 
@@ -150,13 +151,6 @@ export function DeepDiving({ onClose }: { onClose: () => void }) {
   };
 
   const onKeyDown = (e: ReactKeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      if (currentWorld().phase === "run") doPause();
-      else close();
-      return;
-    }
     if (!THRUST_KEYS.has(e.key)) return;
     e.preventDefault();
     if (e.repeat) return;
@@ -187,100 +181,100 @@ export function DeepDiving({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div
-      ref={panelRef}
-      className={css.panel}
-      role="dialog"
-      aria-label="DeepDiving"
-      tabIndex={-1}
-      onKeyDown={onKeyDown}
-      onKeyUp={onKeyUp}
-      onBlur={doPause}
-    >
-      <GlassLayer />
-      <canvas
-        ref={canvasRef}
-        className={css.canvas}
-        aria-hidden
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      />
-      <div className={css.hud}>
-        <div className={css.hudTop}>
-          <span ref={depthRef} className={css.hudDepth}>0m</span>
-          <div className={css.hudBtns}>
-            <button
-              type="button"
-              className={css.hudBtn}
-              aria-label={t("提示音")}
-              aria-pressed={sound}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                const on = !sound;
-                setSoundOn(on);
-                setSound(on);
-              }}
-            >
-              {sound ? <Volume2 size={14} /> : <VolumeX size={14} />}
-            </button>
-            <button
-              type="button"
-              className={css.hudBtn}
-              aria-label={t("关闭")}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={close}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-        <div className={css.hudBest}>{tt("最佳 {m} 米", "Best {m} m", { m: best })}</div>
-        {phase === "ready" && (
-          <div className={css.hint}>{t("按住上浮，松开下潜")}</div>
-        )}
-        {phase === "paused" && (
-          <PausedOverlay
-            onResume={() => {
-              resumeWorld();
-              syncHud();
-            }}
-            onClose={close}
-          />
-        )}
-        {phase === "dead" && (
-          <DeadOverlay
-            meters={Math.floor(distanceM(currentWorld()))}
-            best={best}
-            onRetry={retry}
-            onClose={close}
-          />
-        )}
-        {phase === "dead" && (
-          <div className={css.ov}>
-            <div className={css.ovDepth}>{Math.floor(distanceM(currentWorld()))}m</div>
-            <div className={css.ovBest}>{tt("最佳 {m} 米", "Best {m} m", { m: best })}</div>
-            <div className={css.ovRow}>
+    <Modal open onClose={close} cardClassName={css.panel} ariaLabel="DeepDiving">
+      {/* 键盘（空格/方向键=推力）挂内容层：焦点离开即暂停；Esc/点遮罩关闭归 Modal。 */}
+      <div
+        ref={panelRef}
+        className={css.surface}
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
+        onBlur={doPause}
+      >
+        <canvas
+          ref={canvasRef}
+          className={css.canvas}
+          aria-hidden
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        />
+        <div className={css.hud}>
+          <div className={css.hudTop}>
+            <span ref={depthRef} className={css.hudDepth}>0m</span>
+            <div className={css.hudBtns}>
               <button
                 type="button"
-                className={css.ovBtn}
+                className={css.hudBtn}
+                aria-label={t("提示音")}
+                aria-pressed={sound}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={retry}
+                onClick={() => {
+                  const on = !sound;
+                  setSoundOn(on);
+                  setSound(on);
+                }}
               >
-                {t("再来")}
+                {sound ? <Volume2 size={14} /> : <VolumeX size={14} />}
               </button>
               <button
                 type="button"
-                className={css.ovBtn}
+                className={css.hudBtn}
+                aria-label={t("关闭")}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={close}
               >
-                {t("关闭")}
+                <X size={14} />
               </button>
             </div>
           </div>
-        )}
+          <div className={css.hudBest}>{tt("最佳 {m} 米", "Best {m} m", { m: best })}</div>
+          {phase === "ready" && (
+            <div className={css.hint}>{t("按住上浮，松开下潜")}</div>
+          )}
+          {phase === "paused" && (
+            <PausedOverlay
+              onResume={() => {
+                resumeWorld();
+                syncHud();
+              }}
+              onClose={close}
+            />
+          )}
+          {phase === "dead" && (
+            <DeadOverlay
+              meters={Math.floor(distanceM(currentWorld()))}
+              best={best}
+              onRetry={retry}
+              onClose={close}
+            />
+          )}
+          {phase === "dead" && (
+            <div className={css.ov}>
+              <div className={css.ovDepth}>{Math.floor(distanceM(currentWorld()))}m</div>
+              <div className={css.ovBest}>{tt("最佳 {m} 米", "Best {m} m", { m: best })}</div>
+              <div className={css.ovRow}>
+                <button
+                  type="button"
+                  className={css.ovBtn}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={retry}
+                >
+                  {t("再来")}
+                </button>
+                <button
+                  type="button"
+                  className={css.ovBtn}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={close}
+                >
+                  {t("关闭")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

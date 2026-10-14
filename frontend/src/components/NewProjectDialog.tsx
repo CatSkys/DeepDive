@@ -13,14 +13,13 @@
 //   · 指令：壳写入 <项目>/AGENTS.md（引擎按 cwd 读它）；已存在不改动。
 //   · 图标：纯前端装饰层，按 workspaceId 存 localStorage（wsIcons.ts）。
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { createProject } from "./projectCreate";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { ProjectFormFields, useProjectForm } from "./projectForm";
 import { endWorkspacePick, setWorkspacePickSink } from "./workspacePicker";
 import rowsCss from "../settings/SettingsRows.module.css";
-import { GlassLayer } from "./GlassLayer";
+import { Modal } from "./Modal";
 
 let openReq: (() => void) | null = null;
 
@@ -71,25 +70,23 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
     onClose();
   };
 
-  return createPortal(
-    // 关闭只认"按下 overlay 自身"；图标选择器的 portal 点击沿 React 树冒泡
-    <div
-      className={rowsCss.modalOverlay}
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}
-      role="dialog"
-      aria-label={t("新建项目")}
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      cardClassName={rowsCss.modal}
+      ariaLabel={t("新建项目")}
+      // 创建中（busy）时点遮罩不关：请求未落定就撤掉弹窗会把结果静默丢掉
+      dismissOnOverlay={!busy}
     >
-      {/* Escape/⌘↵ 挂卡片上（不挂 document）：图标选择器 portal 后仍在本弹窗 React
-          子树里，其内部 Escape 已被菜单 stopPropagation 截住，不会连带关掉弹窗 */}
+      {/* Esc/点遮罩归 Modal；卡片内的 ⌘/Ctrl+↵ 提交挂内容包装上。
+          保留 stopPropagation：图标选择器的 portal 点击沿 React 树冒泡，不挡会串到祖先。 */}
       <div
-        className={rowsCss.modal}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submit();
         }}
       >
-        <GlassLayer />
         <div className={rowsCss.modalHead}>
           <span className={rowsCss.modalTitle}>{t("新建项目")}</span>
         </div>
@@ -104,7 +101,6 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

@@ -6,7 +6,7 @@
 
 - **主窗内浮层页**（`frontend/src/components/SettingsPage.tsx`）：与主界面同一套 `.sidebar` / `.main` 底板与语义变量；左导航 + 主区内容，黑白。
 - 曾经试作过的**独立原生 AppKit 窗口**（480×600、左导航 160、原生控件）已废弃——面板风格与主界面割裂、不可收敛。原生设置窗口那几个文件已删；**原生侧只剩桥指令**：`restart-engine` / `rebind-hotkey`（录制窗）/ `set-pref` / `set-theme` / `get-prefs` / `reveal-home` / `open-host-doc`，以及 `prefs` / `hotkeyChanged` 回推。
-- 设置族**弹出面**（模型弹窗 / 导入弹窗 / 机器人管理 / 划词命令 / 新建·编辑项目）统一走对话框档（`SettingsRows.module.css` 的 `.modalOverlay` + `.modal`）——几何与材质见 `UI-SPEC §1.4bis` 的表面层级表，本文不重述。
+- 设置族**弹出面**（模型弹窗 / 导入弹窗 / 机器人管理 / 划词命令 / 新建·编辑项目）统一走 `components/Modal.tsx`（遮罩、居中、圆角描边投影、材质层、Esc 与点遮罩关闭、进出场都归它），各自只补几何（`SettingsRows.module.css` 的 `.modal` 只剩宽高与滚动）——圆角/材质/动效的取法见 `UI-SPEC §1.4bis` 与 §2.2ter，本文不重述。
 - 快捷键 / 通知等纯原生开关经桥读写 UserDefaults（`DSHAppPrefs`）；凭据配置成功后触发 `restart-engine` 走 `SPEC-ENGINE-RUNTIME §4.4` 的冷启动闭环。
 
 ## 2. 分区

@@ -80,7 +80,7 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 
 ## 代码约定
 
-- **写新代码前先搜项目内同类实现**；同一功能禁止出现第二份拷贝。统一入口：RPC 只走 `api.ts`、壳桥只走 `host.ts`、共享状态经 `store.tsx`、样式用语义变量——同类通道禁止另开第二份。
+- **写新代码前先搜项目内同类实现**；同一功能禁止出现第二份拷贝。统一入口：RPC 只走 `api.ts`、壳桥只走 `host.ts`、共享状态经 `store.tsx`、样式用语义变量、**浮层只走 `Popover`/`Modal` 两个原语**（材质层只经 `GlassLayer`）、原生设计常量只取 `ShellDesign`/`ShellMotion`——同类通道禁止另开第二份。
 - **一文件一职责**（参考 Search 项目的组织法，2026-10-12 定稿）：文件以它管的唯一一件事命名，一件事要分家时**按职责拆、不按行数硬切**；新文件开头一两句注明职责（管什么、不管什么）。不再设行数上限。
 - TypeScript 严格：无可辨识联合不用 `as any` 溢出；`sessionId`/`callId`/`toolCallId` 是裸 string，同名概念勿混用。
 - 事件摄取热路径 O(1)（Map 索引），禁止整窗扫描（PITFALLS §3.3）。

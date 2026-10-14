@@ -5,7 +5,7 @@
 // 版式（用户定稿）：卡 880×560，左栏固定 216px 步进（窄），右栏吃满剩下一半以上；
 // **导航统一在右下角**（上一步 / 下一步，末步是「开始使用」）；不再有"跳过"按钮——
 // 右上角的 × 就是整卡退出，单步不做副操作。卡是盖在主界面上的覆盖层（不替换：
-// 用户能看到自己的侧栏在下面长出来）。
+// 用户能看到自己的侧栏在下面长出来）；遮罩 / 居中 / 圆角投影材质 / 进出场走共享 Modal。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Info, X } from "lucide-react";
 import { useT } from "../i18n";
@@ -18,9 +18,9 @@ import { OnboardingCatalogProvider } from "./catalog";
 import { Confetti } from "./Confetti";
 import { useModelCatalog } from "../settings/useModelCatalog";
 import { useStore } from "../store";
+import { Modal } from "../components/Modal";
 import css from "./OnboardingWizard.module.css";
 import logoUrl from "../assets/deepdive-logo-256.png";
-import { GlassLayer } from "../components/GlassLayer";
 
 /** 步骤文案（中英成对，进 i18n 词典）。 */
 const STEP_LABELS: Record<OnboardingStepId, [string, string]> = {
@@ -56,9 +56,10 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
   // 当前步登记的主操作（迁移步＝导入并前进；项目步＝创建并前进）。未登记时用默认
   // 的「下一步 / 开始使用」——底栏永远只有一个前进按钮，不做重复动作。
   const [primary, setPrimary] = useState<{ label: string; run: () => void | Promise<void>; disabled?: boolean } | null>(null);
-  /** 收尾庆祝：卡片先丝滑淡出，礼花继续撒；撒完（或降低动效时立即）再卸载。 */
+  // 收尾庆祝：置位即让卡片交给 Modal 的离场动画（open 转 false），礼花继续撒到落屏外，
+  // 撒完再让外层收尾。这一个标记同时当"卡片已离场"的闩——撒完不回落，卡片不回弹；
+  // 无密钥时卡按设计不许消失，回落会让它重新冒出来。
   const [celebrating, setCelebrating] = useState(false);
-  const [leaving, setLeaving] = useState(false);
   const registerPrimary = useCallback((next: { label: string; run: () => void | Promise<void>; disabled?: boolean } | null) => {
     setPrimary(next);
   }, []);
@@ -69,9 +70,7 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
   const goForward = async () => {
     if (primary) { await primary.run(); return; }
     if (last) {
-      // 卡片退场与礼花同时开始：卡片 --dur-med 淡出缩放（--ease-spring 收尾），
-      // 礼花继续撒到落屏外（最多 3.2s），撒完再真正卸载。
-      setLeaving(true);
+      // 开始使用：卡片离场与礼花同时开始（离场动画归 Modal），礼花撒完才真正卸载。
       setCelebrating(true);
       return;
     }
@@ -82,13 +81,14 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
     <>
       {children}
       {celebrating && (
-        <Confetti
-          onDone={() => { setCelebrating(false); finish(); onClosed?.(); }}
-        />
+        <Confetti onDone={() => { finish(); onClosed?.(); }} />
       )}
-      <div className={leaving ? `${css.overlay} ${css.overlayLeaving}` : css.overlay}>
-        <div className={leaving ? `${css.card} ${css.cardLeaving}` : css.card} role="dialog" aria-modal="true" aria-label={t("新手引导")}>
-        <GlassLayer />
+      <Modal
+        open={!celebrating}
+        onClose={() => { skip(); onClosed?.(); }}
+        cardClassName={css.card}
+        ariaLabel={t("新手引导")}
+      >
           <button className={css.close} onClick={() => { skip(); onClosed?.(); }} aria-label={t("关闭引导")} title={t("关闭引导")}>
             <X size={15} />
           </button>
@@ -147,8 +147,7 @@ export function OnboardingWizard({ children, forced = false, onClosed }: {
               </button>
             </div>
           </div>
-        </div>
-      </div>
+      </Modal>
     </>
   );
 }

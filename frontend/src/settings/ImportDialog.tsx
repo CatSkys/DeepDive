@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { api, type ImportRunResult, type ImportableSession } from "../api";
 import { useT } from "../i18n";
 import cssRows from "./SettingsRows.module.css";
-import { GlassLayer } from "../components/GlassLayer";
+import { Modal } from "../components/Modal";
 
 // 导入确认弹窗（参考 ChatGPT「导入自 …」选择对话框）：点来源卡的「导入」
 // 先弹出本窗——勾选要导入的会话（按项目分组，已导入的默认不勾）→「导入
@@ -79,62 +78,59 @@ export function ImportDialog({ sourceName, format, sessions, onDone, onClose }: 
     setSaving(false);
   };
 
-  return createPortal(
-    <div
-      className={cssRows.modalOverlay}
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}
-      role="dialog"
-      aria-label={tt("从 {s} 导入", "Import from {s}", { s: sourceName })}
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      cardClassName={cssRows.modal}
+      ariaLabel={tt("从 {s} 导入", "Import from {s}", { s: sourceName })}
+      dismissOnOverlay={!saving}
     >
-      <div className={cssRows.modal} onClick={(e) => e.stopPropagation()}>
-           <GlassLayer />
-        <div className={cssRows.modalHead}>
-          <span className={cssRows.modalTitle}>{tt("从 {s} 导入", "Import from {s}", { s: sourceName })}</span>
-          <span className={cssRows.modalBadge}>{tt("{n} 个会话", "{n} chats", { n: sessions.length })}</span>
-        </div>
-        <div className={cssRows.modalBody}>
-          <label className={cssRows.pickAllRow}>
-            <input type="checkbox" checked={allChecked} onChange={toggleAll} aria-label={t("全选")} />
-            <span>{t("全选")}</span>
-            <span className={cssRows.pickCount}>
-              {tt("已选 {n} 个", "{n} selected", { n: selected.size })}
-            </span>
-          </label>
-          <div className={cssRows.pickList}>
-            {groups.map((g) => (
-              <div key={g.name} className={cssRows.pickGroup}>
-                <div className={cssRows.pickGroupHead}>{g.name}</div>
-                {g.sessions.map((s) => {
-                  const imported = s.importStatus === "imported";
-                  return (
-                    <label key={s.sessionId} className={cssRows.pickRow}>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(s.sessionId)}
-                        onChange={() => toggle(s.sessionId)}
-                      />
-                      <span className={cssRows.pickTitle}>{s.title || t("（无标题）")}</span>
-                      {imported && <span className={cssRows.metaTag}>{t("已导入")}</span>}
-                      <span className={cssRows.pickMeta}>
-                        {tt("{n} 条消息", "{n} messages", { n: s.messageCount ?? 0 })}
-                        {s.lastActiveAt ? ` · ${dateFmt(s.lastActiveAt)}` : ""}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className={cssRows.modalFoot}>
-          <button className={cssRows.secondaryButton} onClick={onClose} disabled={saving}>{t("取消")}</button>
-          <button className={cssRows.primaryButton} disabled={saving || selected.size === 0} onClick={() => void run()}>
-            {saving ? <Loader2 size={13} className={cssRows.spin} /> : null}
-            {saving ? t("导入中…") : tt("导入 {n} 个会话", "Import {n} chats", { n: selected.size })}
-          </button>
+      <div className={cssRows.modalHead}>
+        <span className={cssRows.modalTitle}>{tt("从 {s} 导入", "Import from {s}", { s: sourceName })}</span>
+        <span className={cssRows.modalBadge}>{tt("{n} 个会话", "{n} chats", { n: sessions.length })}</span>
+      </div>
+      <div className={cssRows.modalBody}>
+        <label className={cssRows.pickAllRow}>
+          <input type="checkbox" checked={allChecked} onChange={toggleAll} aria-label={t("全选")} />
+          <span>{t("全选")}</span>
+          <span className={cssRows.pickCount}>
+            {tt("已选 {n} 个", "{n} selected", { n: selected.size })}
+          </span>
+        </label>
+        <div className={cssRows.pickList}>
+          {groups.map((g) => (
+            <div key={g.name} className={cssRows.pickGroup}>
+              <div className={cssRows.pickGroupHead}>{g.name}</div>
+              {g.sessions.map((s) => {
+                const imported = s.importStatus === "imported";
+                return (
+                  <label key={s.sessionId} className={cssRows.pickRow}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(s.sessionId)}
+                      onChange={() => toggle(s.sessionId)}
+                    />
+                    <span className={cssRows.pickTitle}>{s.title || t("（无标题）")}</span>
+                    {imported && <span className={cssRows.metaTag}>{t("已导入")}</span>}
+                    <span className={cssRows.pickMeta}>
+                      {tt("{n} 条消息", "{n} messages", { n: s.messageCount ?? 0 })}
+                      {s.lastActiveAt ? ` · ${dateFmt(s.lastActiveAt)}` : ""}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
-    </div>,
-    document.body,
+      <div className={cssRows.modalFoot}>
+        <button className={cssRows.secondaryButton} onClick={onClose} disabled={saving}>{t("取消")}</button>
+        <button className={cssRows.primaryButton} disabled={saving || selected.size === 0} onClick={() => void run()}>
+          {saving ? <Loader2 size={13} className={cssRows.spin} /> : null}
+          {saving ? t("导入中…") : tt("导入 {n} 个会话", "Import {n} chats", { n: selected.size })}
+        </button>
+      </div>
+    </Modal>
   );
 }

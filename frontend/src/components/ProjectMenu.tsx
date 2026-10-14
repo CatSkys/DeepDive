@@ -1,13 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import type { RefObject } from "react";
 import { Check, Folder, Plus, Search } from "lucide-react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { openNewProjectDialog } from "./NewProjectDialog";
-import { popupRect } from "./ModelMenu";
-import { GlassLayer } from "./GlassLayer";
-
+import { Popover } from "./Popover";
 // 项目切换菜单（搜索 + 项目列表（文件夹图标 + 名称，当前项目右侧打勾）+ 底部
 // 「新建项目」）：hero 品牌组的项目名与会话头的项目胶囊（侧栏收起态）两处入口
 // 共用。弹层挂 body（portal + fixed，按触发器实测定位）——先前是纯 CSS 绝对定位
@@ -22,25 +19,6 @@ export function ProjectMenu({ onClose, anchorRef }: { onClose: () => void; ancho
   const store = useStore();
   const { t } = useT();
   const [query, setQuery] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-  const [rect, setRect] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
-
-  // 量触发器必须在绘制前完成，否则首帧会闪在左上角（ModelMenu 同款）
-  useLayoutEffect(() => {
-    const el = anchorRef.current;
-    if (el) setRect(popupRect(el, { width: MENU_WIDTH, maxHeight: MENU_MAX_HEIGHT }));
-  }, [anchorRef]);
-
-  // click-outside 关闭：portal 挂 body，触发器也算"内部"——点触发器由父级的
-  // 开合逻辑接管（否则 mousedown 先关、click 再开，看着像"点不动"），ModelMenu 同款
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (!ref.current?.contains(target) && !anchorRef.current?.contains(target)) onClose();
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [onClose, anchorRef]);
 
   // 搜索过滤：标题或路径命中
   const list = useMemo(() => {
@@ -49,11 +27,18 @@ export function ProjectMenu({ onClose, anchorRef }: { onClose: () => void; ancho
     return store.workspaces.filter((w) => w.title.toLowerCase().includes(q) || w.path.toLowerCase().includes(q));
   }, [store.workspaces, query]);
 
-  if (rect === null) return null;
-  return createPortal(
-    <div className="ws-menu" ref={ref} data-strip-interactive
-      style={{ position: "fixed", top: rect.top, left: rect.left, maxHeight: rect.maxHeight }}>
-         <GlassLayer />
+  return (
+    <Popover
+      open
+      anchor={anchorRef}
+      onClose={onClose}
+      sideOffset={4}
+      width={MENU_WIDTH}
+      maxHeight={MENU_MAX_HEIGHT}
+      className="ws-menu"
+      data-strip-interactive=""
+      style={{ maxHeight: MENU_MAX_HEIGHT }}
+    >
       <div className="ws-menu-search">
         <Search size={13} />
         <input autoFocus placeholder={t("搜索项目")} value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -94,7 +79,6 @@ export function ProjectMenu({ onClose, anchorRef }: { onClose: () => void; ancho
           <span className="name">{t("新建项目")}</span>
         </button>
       </div>
-    </div>,
-    document.body,
+    </Popover>
   );
 }

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { t, tt } from "../i18n";
-import { GlassLayer } from "./GlassLayer";
+import { Popover } from "./Popover";
 
 // 用量呈现（阶段 3.1）：ContextRing = 输入框内的上下文容量圈（hover 弹层看
 // 容量/组成/缓存命中）。数据均来自引擎
@@ -44,18 +43,11 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
   // 离圈到弹层之间有缝，延时关闭让指针安全走过；再次进入即取消
   const closeTimer = useRef<number | undefined>(undefined);
   const wrapRef = useRef<HTMLDivElement>(null);
-  // 弹层 portal 到 body + fixed 定位：ring 在 composer 模糊面内，弹层若作为
-  // 其子元素会被 backdrop root 锁死采样（配方注释②）；ring 在固定 footer，
-  // 弹层存续期坐标不漂移，hover 时取一次视口坐标即可
-  const [popPos, setPopPos] = useState<{ right: number; bottom: number } | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
   const hover = (v: boolean) => {
     window.clearTimeout(closeTimer.current);
-    if (v) {
-      const r = wrapRef.current?.getBoundingClientRect();
-      if (r) setPopPos({ right: window.innerWidth - r.right - 6, bottom: window.innerHeight - r.top + 8 });
-      setOpen(true);
-    } else closeTimer.current = window.setTimeout(() => setOpen(false), 120);
+    if (v) setOpen(true);
+    else closeTimer.current = window.setTimeout(() => setOpen(false), 120);
   };
   if (!hasContextData(ctx)) return null;
   const { projected, window: win } = ctx;
@@ -93,10 +85,21 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
           />
         </svg>
       </div>
-      {open && popPos && createPortal(
-        <div className="ctx-pop ctx-cap" style={{ position: "fixed", top: "auto", right: popPos.right, bottom: popPos.bottom }}>
-             <GlassLayer />
-          <div className="ctx-cap-head">
+      {/* 向上开、右缘对齐：圈贴在窗口底部的输入区里，向下开必出屏。
+          hover 驱动，所以外点与 Esc 都不关它——指针离开由上面的延时负责。 */}
+      <Popover
+        open={open}
+        anchor={wrapRef}
+        onClose={() => setOpen(false)}
+        side="top"
+        sideOffset={8}
+        align="end"
+        alignOffset={-6}
+        className="ctx-pop ctx-cap"
+        dismissOnOutside={false}
+        dismissOnEscape={false}
+      >
+        <div className="ctx-cap-head">
             <span className="ctx-cap-title">{t("上下文容量")}</span>
             <span className="ctx-cap-total">{tt("{a} / {b}（{p}）", "{a} / {b} ({p})", { a: fmtTokens(projected), b: fmtTokens(win), p: fmtPct(pct) })}</span>
           </div>
@@ -122,9 +125,7 @@ export function ContextRing({ ctx }: { ctx?: ContextData }) {
               {ctx.stats.ttftSteps ? <div className="ctx-cap-row"><span>{t("平均首 token")}</span><b>{fmtMs(Math.round(ctx.stats.ttftMs! / ctx.stats.ttftSteps))}</b></div> : null}
             </>
           )}
-        </div>,
-        document.body,
-      )}
+      </Popover>
     </div>
   );
 }
