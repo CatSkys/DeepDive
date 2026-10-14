@@ -537,7 +537,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "pick-attachments":
             pickAttachments(
                 reqId: body["reqId"] as? String ?? "",
-                kind: AttachmentPickKind(raw: body["kind"] as? String)
+                kind: AttachmentPickKind(raw: body["kind"] as? String),
+                to: source
             )
         // 按路径上传附件（选择器挑中的文件走这条：SPA 那侧要么整段进一次请求，
         // 要么把整个文件 base64 进消息——壳直接流式送给引擎，见 EngineGateway.uploadFile）
@@ -547,9 +548,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 path: body["path"] as? String ?? "",
                 sessionId: body["sessionId"] as? String ?? "",
                 name: body["name"] as? String ?? "",
+                to: source,
             )
         case "list-dir":
-            listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", out: windowController)
+            listDirectory(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", to: source)
         case "read-workspace-icon":
             readWorkspaceIcon(reqId: body["reqId"] as? String ?? "", path: body["path"] as? String ?? "", out: windowController)
         case "miniPanel.setCommands":
@@ -635,6 +637,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSWorkspace.shared.open(url)
             }
         case "dictation-start":
+            // 听写结果回**发起它的那一页**（面板里的麦克风与主窗共用这套回调）
+            dictationTarget = source
             DictationController.shared.start()
         case "dictation-stop":
             DictationController.shared.stop()
@@ -647,20 +651,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// 听写事件回推：partial 实时、final 终稿、error 权限/设备问题。
+    /// 听写结果回哪一页：`dictation-start` 那一刻的发起页（热键那条没有页面，沿用上一次）。
+    private var dictationTarget: BridgeSource = .main
+
     /// pending 槽位是 last-wins，partial 相互覆盖正是期望行为。
     private func installDictation() {
-        func payload(_ text: String) -> String {
-            let data = try? JSONSerialization.data(withJSONObject: ["text": text])
-            return String(data: data ?? Data(), encoding: .utf8) ?? "{}"
-        }
         DictationController.shared.onPartial = { [weak self] text in
-            self?.windowController.pushHostCommand("dictation-partial", payload: payload(text))
+            guard let self else { return }
+            self.pushHost("dictation-partial", payload: ["text": text], to: self.dictationTarget)
         }
         DictationController.shared.onFinal = { [weak self] text in
-            self?.windowController.pushHostCommand("dictation-final", payload: payload(text))
+            guard let self else { return }
+            self.pushHost("dictation-final", payload: ["text": text], to: self.dictationTarget)
         }
         DictationController.shared.onError = { [weak self] text in
-            self?.windowController.pushHostCommand("dictation-error", payload: payload(text))
+            guard let self else { return }
+            self.pushHost("dictation-error", payload: ["text": text], to: self.dictationTarget)
         }
     }
 
@@ -849,7 +855,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 据此收尾，不悬挂 reqId。NSOpenPanel 留在主线程；整图磁盘读与 base64 编码移后台
     /// 队列（读大图会卡主线程 UI，AUD-079，对齐同文件 gitRun 的后台样板），主线程只回推。
     /// 条目形状与拖入那条（`importDroppedItems`）共用 `attachmentItems(for:)`。
-    private func pickAttachments(reqId: String, kind: AttachmentPickKind) {
+    private func pickAttachments(reqId: String, kind: AttachmentPickKind, to source: BridgeSource) {
         guard let window = windowController.window else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = kind.choosesFiles
@@ -862,9 +868,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let urls = response == .OK ? panel.urls : []
             DispatchQueue.global(qos: .userInitiated).async {
                 let items = Self.attachmentItems(for: urls)
-                let payload = Self.jsonPayload(["reqId": reqId, "items": items])
                 DispatchQueue.main.async {
-                    self.windowController.pushHostCommand("pickedAttachments", payload: payload)
+                    self.pushHost("pickedAttachments", payload: ["reqId": reqId, "items": items], to: source)
                 }
             }
         }
@@ -906,19 +911,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 按路径上传一个附件（选择器挑的大文件）：壳直接流式送给引擎，桥不参与，
     /// 于是没有那条单请求缓冲上限，也不用把文件 base64 进消息。
     /// 结果经 `attachmentUploaded` 回前端（ok/value 或 error），chip 据此转终态。
-    private func uploadAttachmentPath(reqId: String, path: String, sessionId: String, name: String) {
+    private func uploadAttachmentPath(reqId: String, path: String, sessionId: String, name: String, to source: BridgeSource) {
         Task { @MainActor in
             do {
                 let value = try await EngineGateway.shared.uploadFile(
                     at: URL(fileURLWithPath: path), sessionId: sessionId, name: name)
-                self.windowController.pushHostCommand(
-                    "attachmentUploaded",
-                    payload: Self.jsonPayload(["reqId": reqId, "ok": true, "value": value]))
+                self.pushHost("attachmentUploaded", payload: ["reqId": reqId, "ok": true, "value": value], to: source)
             } catch {
                 let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                self.windowController.pushHostCommand(
-                    "attachmentUploaded",
-                    payload: Self.jsonPayload(["reqId": reqId, "ok": false, "error": message]))
+                self.pushHost("attachmentUploaded", payload: ["reqId": reqId, "ok": false, "error": message], to: source)
             }
         }
     }
@@ -1332,7 +1333,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         (quickPanel?.window.isVisible ?? false) ? .panel : .main
     }
 
-    private func pushHost(_ cmd: String, payload: [String: Any], to source: BridgeSource) {
+    /// 应答一律回到**发起请求的那一页**（主窗 or 迷你面板页）：两页跑的是同一份 SPA，
+    /// 写死主窗会让面板里的等待永远等不到——前端 `bridgeRequest` 超时后只能报"上传失败"，
+    /// 而引擎那边其实已经成功了（用户 2026-10-14 报：面板里截图导入的上下文 md 上传失败）。
+    func pushHost(_ cmd: String, payload: [String: Any], to source: BridgeSource) {
         let json = Self.jsonPayload(payload)
         switch source {
         case .main: windowController.pushHostCommand(cmd, payload: json)

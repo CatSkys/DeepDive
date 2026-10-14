@@ -10,11 +10,12 @@ extension AppDelegate {
     /// 一层目录、目录优先、隐藏文件排除。错误也回包（entries 空 + error），
     /// 前端按 reqId 配对。目录 IO 在后台队列（对齐 runGit 的线程纪律——此前在
     /// 主线程同步读目录，深目录/慢盘会把输入框的 @ 弹层卡住）。
-    func listDirectory(reqId: String, path: String, out window: MainWindowController) {
+    func listDirectory(reqId: String, path: String, to source: BridgeSource) {
+        // 应答回**发起的那一页**（@ 引用候选两页都要用，见 pushHost 的注释）
         func reply(_ entries: [[String: Any]], error: String? = nil) {
             var fields: [String: Any] = ["reqId": reqId, "entries": entries]
             if let error { fields["error"] = error }
-            window.pushHostCommand("dirListing", payload: Self.jsonPayload(fields))
+            pushHost("dirListing", payload: fields, to: source)
         }
         guard FileManager.default.fileExists(atPath: path) else {
             reply([], error: "not-found")
