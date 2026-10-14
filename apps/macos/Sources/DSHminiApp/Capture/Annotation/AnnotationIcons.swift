@@ -14,6 +14,9 @@ enum AnnotationIcons {
   static let cancel = "x"
   static let copy = "copy"
   static let confirm = "check"
+  /// The chat bar's two glyphs: open the message field, and send what it holds.
+  static let chat = "message-circle"
+  static let send = "arrow-up"
   static let textBackground = "square-text"
   static let grip = "grip-vertical"
 

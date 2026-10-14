@@ -467,15 +467,17 @@ export function uploadAttachmentPath(path: string, sessionId: string, name: stri
 
 /** 一次截图的结果：成功给附件项（与选择器同形），失败给壳的成品文案。
  *  失败**必须**让调用方看见——静默 resolve null 会把"权限没生效/采集失败"
- *  这类真话说没（2026-10-13 实机：授权后截图打不开，界面毫无反应）。 */
+ *  这类真话说没（2026-10-13 实机：授权后截图打不开，界面毫无反应）。
+ *  带 `chat` 的是工具条上的「提问」：用户在截图里写了话，页面把图与话当**一条消息**
+ *  直接发出去（见 Composer 的 `sendShotMessage`），不建 chip、不进草稿。 */
 export type ScreenshotResult =
-  | { ok: true; items: PickedAttachment[] }
+  | { ok: true; items: PickedAttachment[]; chat?: string }
   /** `cancelled`（用户取消）与 `copied`（图进了剪贴板）都是正常收尾，不报错也不建 chip。 */
   | { ok: false; error: string; cancelled?: boolean; copied?: boolean };
 
 function parseShot(p: unknown): ScreenshotResult {
-  const r = p as { ok?: boolean; items?: PickedAttachment[]; error?: string; cancelled?: boolean; copied?: boolean } | undefined;
-  if (r?.ok) return { ok: true, items: r.items ?? [] };
+  const r = p as { ok?: boolean; items?: PickedAttachment[]; chat?: string; error?: string; cancelled?: boolean; copied?: boolean } | undefined;
+  if (r?.ok) return { ok: true, items: r.items ?? [], chat: r.chat };
   return { ok: false, error: r?.error ?? "", cancelled: r?.cancelled, copied: r?.copied };
 }
 

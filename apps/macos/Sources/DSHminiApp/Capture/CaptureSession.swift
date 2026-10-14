@@ -20,6 +20,9 @@ final class CaptureSession {
     case confirmed(CaptureConfirmation)
     /// The same result as `confirmed`, for the clipboard rather than an attachment.
     case copied(CaptureConfirmation)
+    /// The same result as `confirmed`, with the message the user typed in the toolbar's chat bar:
+    /// the caller sends the two together as one message rather than attaching them.
+    case asked(CaptureConfirmation, text: String)
     case failed
   }
 
@@ -141,9 +144,9 @@ final class CaptureSession {
     requestHover()
   }
 
-  /// Suspends until the session ends, then ends element detection. A confirmed selection that
-  /// is still the element it was picked from is described first, while detection still has
-  /// that app prepared.
+  /// Suspends until the session ends, then ends element detection. A confirmed or asked
+  /// selection that is still the element it was picked from is described first, while detection
+  /// still has that app prepared.
   func run() async -> Outcome {
     var outcome: Outcome
     if let finished = self.outcome {
@@ -153,11 +156,19 @@ final class CaptureSession {
     }
     await beginTask?.value
     guard began else { return outcome }
-    if case .confirmed(var confirmation) = outcome, let pick,
-      pick.selection == confirmation.selection
-    {
-      confirmation.element = await targeting.describe(at: pick.point, frame: pick.frame)
-      outcome = .confirmed(confirmation)
+    func described(_ confirmation: CaptureConfirmation) async -> CaptureConfirmation {
+      guard let pick, pick.selection == confirmation.selection else { return confirmation }
+      var described = confirmation
+      described.element = await targeting.describe(at: pick.point, frame: pick.frame)
+      return described
+    }
+    switch outcome {
+    case .confirmed(let confirmation):
+      outcome = .confirmed(await described(confirmation))
+    case .asked(let confirmation, let text):
+      outcome = .asked(await described(confirmation), text: text)
+    default:
+      break
     }
     await targeting.end()
     return outcome
@@ -170,6 +181,9 @@ final class CaptureSession {
 
   /// Ends the session like ``confirm()``, with the result meant for the clipboard.
   func copy() { end(as: Outcome.copied) }
+
+  /// Ends the session like ``confirm()``, carrying the message typed in the toolbar's chat bar.
+  func ask(_ text: String) { end(as: { .asked($0, text: text) }) }
 
   /// The editor's document is read before ``finish(_:)`` hides it.
   private func end(as outcome: (CaptureConfirmation) -> Outcome) {

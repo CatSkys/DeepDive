@@ -83,6 +83,9 @@ protocol AnnotationEditing: AnyObject {
   var onCancel: (() -> Void)? { get set }
   /// The user asked to copy the result instead of attaching it (toolbar or ⌘C).
   var onCopy: (() -> Void)? { get set }
+  /// The user sent a message with this capture (the toolbar's ask button opens
+  /// ``AnnotationChatBar``): the session ends with the selection and that message.
+  var onAsk: ((String) -> Void)? { get set }
   /// True while a tool is chosen: presses inside the selection (away from its handles and edge
   /// band) go to the editor. False: they move the selection. Called on every change.
   var onInteriorClaimChange: ((Bool) -> Void)? { get set }

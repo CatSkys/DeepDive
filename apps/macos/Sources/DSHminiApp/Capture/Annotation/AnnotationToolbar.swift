@@ -1,8 +1,8 @@
 import AppKit
 
-/// The annotation toolbar beside the selection: a grip, the tools, undo and redo, cancel, copy
-/// and confirm, on the shared glass capsule (``AnnotationGlassBar``), which the grip or its surface
-/// drags. Colours and stroke widths live on the
+/// The annotation toolbar beside the selection: a grip, the tools, undo and redo, ask, cancel,
+/// copy and confirm, on the shared glass capsule (``AnnotationGlassBar``), which the grip or its
+/// surface drags. Colours and stroke widths live on the
 /// separate ``AnnotationStyleBar``, which appears next to this bar only when there is something
 /// to style. Every control carries the app's own hover annotation (``NativeTooltip``: the name
 /// and the shortcut as a key cap), and its glyph a VoiceOver description.
@@ -10,6 +10,8 @@ final class AnnotationToolbar: NSView {
   var onTool: ((AnnotationTool) -> Void)?
   var onUndo: (() -> Void)?
   var onRedo: (() -> Void)?
+  /// 提问：打开聊天输入条（``AnnotationChatBar``），它把话与这张图一起送出去。
+  var onChat: (() -> Void)?
   var onCancel: (() -> Void)?
   var onCopy: (() -> Void)?
   var onConfirm: (() -> Void)?
@@ -25,6 +27,7 @@ final class AnnotationToolbar: NSView {
   }
   private let undoButton = AnnotationToolbarButton(selection: nil, action: #selector(undoClicked))
   private let redoButton = AnnotationToolbarButton(selection: nil, action: #selector(redoClicked))
+  private let chatButton = AnnotationToolbarButton(selection: nil, action: #selector(chatClicked))
   private let cancelButton = AnnotationToolbarButton(
     selection: nil, action: #selector(cancelClicked))
   private let copyButton = AnnotationToolbarButton(selection: nil, action: #selector(copyClicked))
@@ -33,10 +36,10 @@ final class AnnotationToolbar: NSView {
   private let bar: AnnotationGlassBar
 
   override init(frame: NSRect) {
-    let actions = [undoButton, redoButton, cancelButton, copyButton, confirmButton]
+    let actions = [undoButton, redoButton, chatButton, cancelButton, copyButton, confirmButton]
     bar = AnnotationGlassBar(groups: [
       [grip] + (tools as [NSView]), [undoButton, redoButton],
-      [cancelButton, copyButton, confirmButton],
+      [chatButton, cancelButton, copyButton, confirmButton],
     ])
     super.init(frame: frame)
     for button in tools + actions { button.target = self }
@@ -73,6 +76,7 @@ final class AnnotationToolbar: NSView {
     for (button, icon, key, shortcut) in [
       (undoButton, AnnotationIcons.undo, ShellStringKey.captureUndo, "⌘Z"),
       (redoButton, AnnotationIcons.redo, .captureRedo, "⇧⌘Z"),
+      (chatButton, AnnotationIcons.chat, .captureChat, ""),
       (cancelButton, AnnotationIcons.cancel, .cancel, "Esc"),
       (copyButton, AnnotationIcons.copy, .captureCopy, "⌘C"),
       (confirmButton, AnnotationIcons.confirm, .captureConfirm, "↩"),
@@ -104,6 +108,7 @@ final class AnnotationToolbar: NSView {
 
   @objc private func undoClicked() { onUndo?() }
   @objc private func redoClicked() { onRedo?() }
+  @objc private func chatClicked() { onChat?() }
   @objc private func cancelClicked() { onCancel?() }
   @objc private func copyClicked() { onCopy?() }
   @objc private func confirmClicked() { onConfirm?() }

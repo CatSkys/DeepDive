@@ -16,7 +16,8 @@ import { classifyAttachmentRefusal, classifyAttachmentRefusalText, type Attachme
 import type { RpcErrorFacts } from "../api";
 import { useComposerDraft } from "./composer/useComposerDraft";
 import { useComposerAttachments, type Attachment, type ImageAttachment } from "./composer/useComposerAttachments";
-import { onHostEvent, screenshotCapture, selectionCapture, type PickedAttachment } from "../host";
+import { shotMessageContent, splitShotItems } from "./composer/shotMessage";
+import { onHostEvent, screenshotCapture, selectionCapture, uploadAttachmentPath, type PickedAttachment } from "../host";
 import { DD_EVENTS, dispatchAppEvent } from "../events";
 import { useComposerDictation } from "./composer/useComposerDictation";
 import { useComposerMenu, type MenuRow } from "./composer/useComposerMenu";
@@ -274,6 +275,67 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     if (fromDraft) enterSentSession(sid);
   };
 
+  /** 截图工具条上的「提问」：把用户写的那句话与这张标注图（连屏幕上下文）当**一条消息**
+   *  直接发出去，答案在会话里流式回来。与划词命令同一口径——有意不走 `submit`（那条链读的
+   *  是输入框草稿，不该动用户正打到一半的字），也不建 chip：消息落在会话里，不在草稿里。
+   *  图内联（模型才看得见），屏幕上下文 md 由壳按路径上传拿回执（与 ＋ 选择器同一条通道）；
+   *  引擎按图片准入拒收时，同一份字节改走文件回执重投一次（同 submit：附件与内容必须发
+   *  出去，跟模型无关）。 */
+  const sendShotMessage = async (text: string, items: PickedAttachment[]) => {
+    const { images, files } = splitShotItems(items);
+    let sid = sessionId;
+    const fromDraft = sid === null;
+    if (sid === null) {
+      const created = await ensureSession();
+      if (created === null) return; // 建会话失败已弹窗
+      sid = created;
+    }
+    const fileReceipts: string[] = [];
+    for (const file of files) {
+      const receipt = await uploadAttachmentPath(file.path, sid, file.name);
+      if (receipt === null) {
+        void alertDialog({ message: tt("截图没能发出去：屏幕上下文上传失败", "The screenshot was not sent: its screen context failed to upload") });
+        return;
+      }
+      fileReceipts.push(receipt.receiptId);
+    }
+    const rpcId = uuid();
+    try {
+      await api.prompt({
+        requestId: rpcId, sessionId: sid, mode: "queue",
+        content: shotMessageContent(text, images, fileReceipts),
+      });
+    } catch (err) {
+      const facts = err as Error & RpcErrorFacts;
+      if (classifyAttachmentRefusal(facts.reason) !== "images") {
+        void alertDialog({ message: failureText(err, tt("发送失败，请重试", "Send failed; please retry")) });
+        return;
+      }
+      const staged: string[] = [];
+      for (const image of images) {
+        const receiptId = await stageImageAsFile(sid, image);
+        if (receiptId === null) {
+          void alertDialog({ message: tt("发送失败，请重试", "Send failed; please retry") });
+          return;
+        }
+        staged.push(receiptId);
+      }
+      try {
+        await api.prompt({
+          requestId: rpcId, sessionId: sid, mode: "queue",
+          content: shotMessageContent(text, [], [...fileReceipts, ...staged]),
+        });
+      } catch (err2) {
+        void alertDialog({ message: failureText(err2, tt("发送失败，请重试", "Send failed; please retry")) });
+        return;
+      }
+    }
+    if (fromDraft) enterSentSession(sid);
+  };
+  // 壳推来的事件订阅一次就够（与划词命令同一份纪律）：处理函数经 ref 镜像取实时值。
+  const shotMessageRef = useRef(sendShotMessage);
+  shotMessageRef.current = sendShotMessage;
+
   /** 工具条上的划词命令被点了：壳已把选中的文字存进暂存（面板抢焦点之前读的），
    *  随后推来命令 id——这里取文字、套模板、发出去，答案在面板会话里流式回来。 */
   const runSelectionCommand = (id: string) => {
@@ -376,7 +438,12 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
     setPlusOpen(false);
     if (action === "screenshot") {
       void screenshotCapture().then((result) => {
-        if (result.ok) { if (result.items.length > 0) ingestAttachments(result.items); return; }
+        if (result.ok) {
+          // 带话（工具条上的提问）：图与这句话直接成一条消息，不建 chip。
+          if (result.chat !== undefined) { void sendShotMessage(result.chat, result.items); return; }
+          if (result.items.length > 0) ingestAttachments(result.items);
+          return;
+        }
         if (result.copied) { void alertDialog({ message: tt("截图已复制到剪贴板", "Screenshot copied to the clipboard") }); return; }
         if (result.cancelled) return; // 用户取消：正常收尾，不打扰
         if (result.error) void alertDialog({ message: result.error });
@@ -408,10 +475,12 @@ export function Composer({ sessionId, onSent, ctx, effort }: {
   // 带 reqId 的截图是上面那次请求的应答，由 promise 消费，这里不重复摄入。
   useEffect(() => onHostEvent((cmd, payload) => {
     if (cmd === "screenshotCaptured") {
-      const p = payload as { reqId?: string; items?: PickedAttachment[]; error?: string; copied?: boolean } | undefined;
+      const p = payload as { reqId?: string; items?: PickedAttachment[]; chat?: string; error?: string; copied?: boolean } | undefined;
       if (p?.reqId) return; // 有请求方的由那次 promise 处理
       if (p?.copied) { void alertDialog({ message: tt("截图已复制到剪贴板", "Screenshot copied to the clipboard") }); return; }
       if (p?.error) { void alertDialog({ message: p.error }); return; }
+      // 带话（工具条上的提问，热键召来的截图走这条）：图与这句话直接成一条消息。
+      if (p?.chat !== undefined) { void shotMessageRef.current(p.chat, p.items ?? []); return; }
       ingestAttachments(p?.items ?? []);
       return;
     }

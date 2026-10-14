@@ -63,6 +63,11 @@ enum ShellStringKey {
   case selectionHudHint
   case selectionHudHide
 
+  // 自有键（Atd 目录里没有这三条）：截图工具条上的 chat 输入条。
+  case captureChat
+  case captureChatSend
+  case captureChatPlaceholder
+
   case captureToolbar
   case captureToolbarMove
   case captureStyleBar
@@ -160,6 +165,10 @@ final class ShellStrings {
     case .selectionHudOff: return zh ? "选区工具栏已关闭" : "Selection toolbar off"
     case .selectionHudHint: return zh ? "连按两次 %@ 关闭" : "Press %@ twice to turn off"
     case .selectionHudHide: return zh ? "隐藏到下次开启" : "Hide until next time"
+
+    case .captureChat: return zh ? "提问" : "Ask"
+    case .captureChatSend: return zh ? "发送" : "Send"
+    case .captureChatPlaceholder: return zh ? "说说这张图…" : "Ask about this shot…"
 
     case .captureToolbar: return zh ? "标注工具" : "Annotation Tools"
     case .captureToolbarMove: return zh ? "拖动以移动 · 双击放回原位" : "Drag to move · Double-click to put back"

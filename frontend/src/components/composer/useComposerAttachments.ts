@@ -46,6 +46,14 @@ export interface ImageAttachment {
   name: string;
 }
 
+/** 一份内联图的字节与类型（`ImageAttachment` 里真正进载荷的那三样）：截图直发那条路
+ *  不建 chip，没有 id 可言。 */
+export interface ShotImage {
+  name: string;
+  mediaType: string;
+  data: string;
+}
+
 /** 通用文件 chip（0.1.5 流式路由）：摄入即上传（草稿页无会话则 pending 到
  *  发送时），带进度百分比与取消；回执就绪才能随 prompt 发送。 */
 export interface FileAttachment {
@@ -140,6 +148,20 @@ function ingestDropped(
 }
 
 
+/** 一个壳侧 pick 项怎么投递：**能内联的图**（模型才看得见）、**要传成回执的文件**、
+ *  **文件夹**（没有字节可传，只能给路径）。＋ 选择器的摄入与截图直发那条消息共用这一份
+ *  判据——认不出的扩展名按文件办，与 `ingestPicked` 同款（别在两处各判一遍）。 */
+export type PickedDelivery =
+  | { kind: "image"; mime: string; base64: string }
+  | { kind: "file" }
+  | { kind: "folder" };
+
+export function pickedDelivery(item: PickedAttachment): PickedDelivery {
+  const mime = IMAGE_MIME[item.name.split(".").pop()?.toLowerCase() ?? ""];
+  if (item.isImage && item.base64 && mime) return { kind: "image", mime, base64: item.base64 };
+  return item.isDir ? { kind: "folder" } : { kind: "file" };
+}
+
 /** 壳选择器结果：图片→字节 chip（要内联给模型看）；其余文件→上传 chip（拿不到字节
  *  的那批由壳按路径流式上传，**没有大小上限**）；文件夹→@ 引用（没有字节可传）。 */
 export function ingestPicked(
@@ -151,12 +173,12 @@ export function ingestPicked(
 ): void {
   const mentions: string[] = [];
   for (const it of items) {
-    const mime = IMAGE_MIME[it.name.split(".").pop()?.toLowerCase() ?? ""];
-    if (it.isImage && it.base64 && mime) {
-      const att: Attachment = { id: uuid(), kind: "image", data: it.base64, mediaType: mime, name: it.name };
+    const delivery = pickedDelivery(it);
+    if (delivery.kind === "image") {
+      const att: Attachment = { id: uuid(), kind: "image", data: delivery.base64, mediaType: delivery.mime, name: it.name };
       setAttachments((prev) => [...prev, att]);
       onAdded(att);
-    } else if (!it.isDir) {
+    } else if (delivery.kind === "file") {
       addFilePath(it.path, it.name, it.bytes);
     } else {
       const m = mentionOf(it.path, true);
@@ -335,15 +357,15 @@ export function useComposerAttachments({ appendToDraft, onAdded, hasShell, sessi
   /** 图片按通用文件原件再传一份（返回文件回执）：引擎对「模型条目没声明图片能力」
    *  的会话会在准入处拒 inline 图片部件，编排方据此把同一份字节改走文件回执投递，
    *  内容不减、发送不被打断（用户定稿：附件与内容必须发出去，跟模型无关）。 */
-  const stageImageAsFile = async (sid: string, a: ImageAttachment): Promise<string | null> => {
-    const binary = atob(a.data);
+  const stageImageAsFile = async (sid: string, image: ShotImage): Promise<string | null> => {
+    const binary = atob(image.data);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     try {
       const r = await api.uploadFileStreaming({
         sessionId: sid,
-        file: new Blob([bytes], { type: a.mediaType }),
-        name: a.name || "image",
+        file: new Blob([bytes], { type: image.mediaType }),
+        name: image.name || "image",
       });
       return r.receiptId;
     } catch {
