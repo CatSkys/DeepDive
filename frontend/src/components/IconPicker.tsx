@@ -18,6 +18,7 @@ import { Check, ChevronDown } from "lucide-react";
 import rowsCss from "../settings/SettingsRows.module.css";
 import css from "./NewProjectDialog.module.css";
 import { t } from "../i18n";
+import { GlassLayer } from "./GlassLayer";
 
 /** 精选集（名字即菜单行文案，图标名保持 lucide 原名不翻译）。 */
 const ICONS: Array<{ name: string; icon: LucideIcon }> = [
@@ -161,6 +162,7 @@ export function IconPicker({ value, label, onChange }: { value: string | null; l
         if (e.key === "Escape") { e.stopPropagation(); setOpen(false); }
       }}
     >
+      <GlassLayer />
       <IconMenuBody value={value} label={label} onPick={(v) => { setOpen(false); onChange(v); }} query={query} setQuery={setQuery} />
     </div>,
     document.body,
@@ -281,6 +283,7 @@ export function IconPickerHost() {
         overflowY: "auto",
       }}
     >
+      <GlassLayer />
       <IconMenuBody
         value={req.value}
         label={req.label}
