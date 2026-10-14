@@ -1421,6 +1421,15 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   文本、令牌跟着走；私有区字符打不出来（键盘不产生），**粘贴进来的要剥掉**（否则会冒充附件）。
   令牌表（id → 附件 id）**只增不删**：撤销把令牌救回来时还查得出是哪颗附件；配套地，React 那边
   删掉的附件对象留 8 条（`REMOVED_KEEP`）给 ⌘Z——附件带字节，不能像 Atd 的 chip 表那样一直留着。
+- **⑥ 忘了 `EditorView.lineWrapping` 会静默坏两处**（2026-10-14 用户截图"截图导入不换行"）：长正文与多枚
+  胶囊横向溢出、被输入胶囊的圆角裁掉（看着像"只画了一半"），而且折行判据永远报不出"内容高过一行"
+  ——编辑器停在单行态、`:hover` 也永远轮不到展开。换文本层时这条属于"必须显式带上"的默认值。
+- **⑦ 折行判据要量"视觉行高"，不能只数逻辑行**：`doc.lines > 1` 只管手动换行；**软换行**折出来的
+  高度要另判（`contentHeight > defaultLineHeight + 1`）。只看逻辑行时一个逻辑行占三行视觉行也报
+  "单行"。measure 完成后 CodeMirror 会再发一次 geometryChanged，跟着再报一次即可收敛（一帧）。
+- **⑧ 文本列那句 `min-width: min(320px, 100%)` 在窄宿主里会算成 0**：百分比 min-width 对着"宽度还没定"
+  的 flex 容器解析→0，编辑器被压到几十像素、胶囊溢出。胶囊搬进正文之后它本来就多余（腾地方靠
+  lineWrapping + 展开态），已删。
 - 另两条工程细节：菜单按**纯文本坐标**给插入点，写进文档前过 `docOffset`（令牌长度补回去；漏了
   就"插入落在错的字后面"）；jsdom 里 CodeMirror 量排版要 `Range.prototype.getClientRects`，
   测试里补一个空实现（见 composer-attach-layout.test.tsx）。
