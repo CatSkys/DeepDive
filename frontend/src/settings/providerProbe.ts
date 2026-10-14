@@ -3,11 +3,13 @@
 //
 // 两条探测路径（引擎能力决定的，不是偏好）：
 //  · 有发现路由的提供方（llm-pi-ai 自定义路由）：`llm/discoverModels` 列出模型 =
-//    连通且密钥有效；
+//    连通且密钥有效；预置路由（引擎安装目录之外的整条声明）要捎上它自己的端点与协议
+//    ——引擎不会替手写路由猜端点。
 //  · 内置 DeepSeek 没有发现路由：退化为 `credentials/describe` 的密钥配置状态检查。
 import { api } from "../api";
 import { tt } from "../i18n";
 import { keyRefOf } from "./ModelDialog";
+import { presetRouteDraft } from "./presetProviders";
 
 export interface ProbeResult {
   ok: boolean;
@@ -28,7 +30,8 @@ export async function probeProvider(args: {
       const ok = !!cr?.[ref]?.configured;
       return { ok, message: ok ? tt("密钥已配置", "Key configured") : tt("未配置密钥", "No key configured") };
     }
-    const models = await api.discoverModels({ settingsNs: "llm-pi-ai", provider });
+    const draft = presetRouteDraft(provider);
+    const models = await api.discoverModels({ settingsNs: "llm-pi-ai", ...(draft ?? { provider }) });
     return { ok: true, message: tt("连通 · {n} 个模型", "Connected · {n} models", { n: models.length }) };
   } catch (err) {
     return { ok: false, message: String((err as Error).message).slice(0, 140) };

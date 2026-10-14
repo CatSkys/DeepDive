@@ -23,7 +23,7 @@
 
 | 分区 | 家 |
 |---|---|
-| 模型 | `settings/ModelsManage.tsx` + `settings/ModelDialog.tsx` + `settings/piProtocols.ts`；快速添加 + 折叠卡片（2026-09 定稿）：一家一张卡，有 Token Plan 指套餐端点、否则指国内端点；「自定义」＝手写一条路由。已保存模型按提供方聚成可折叠分组（单色反白 logo），行内联 Meta 胶囊（推理 / 额外输入模态 / 上下文窗口）。**模型名称留空 = 按 API 自动发现全部支持模型**；高级配置＝提供方 ID（留空按接口地址主机名派生）+ 协议（枚举读 `llm-pi-ai` 自己的 schema）+ 视觉（写 pi 的 `input` / DeepSeek 的 `inputModalities`，改目录里的模型走 `modelOverrides`，避免 `models` 整条替换挤掉目录其余模型）。行内「测试连通」：pi 走发现探测、DeepSeek 无发现路由退化为密钥状态检查 |
+| 模型 | `settings/ModelsManage.tsx` + `settings/ModelDialog.tsx` + `settings/piProtocols.ts` + `settings/presetProviders.ts`；快速添加 + 折叠卡片（2026-09 定稿）：一家一张卡，有 Token Plan 指套餐端点、否则指国内端点；「自定义」＝手写一条路由；**预置提供方**（引擎目录之外、由前端整条声明的厂商端点，如 CommandCode）＝选它就只填密钥：端点、协议与模型清单都在那张表里，保存时按表的协议分流**一次建齐各条路由**（引擎侧一条路由只挂一个协议）并共用这一把密钥。已保存模型按提供方聚成可折叠分组（单色反白 logo），行内联 Meta 胶囊（推理 / 额外输入模态 / 上下文窗口）。**模型名称留空 = 按 API 自动发现全部支持模型**；高级配置＝提供方 ID（留空按接口地址主机名派生）+ 协议（枚举读 `llm-pi-ai` 自己的 schema）+ 视觉（写 pi 的 `input` / DeepSeek 的 `inputModalities`，改目录里的模型走 `modelOverrides`，避免 `models` 整条替换挤掉目录其余模型）。行内「测试连通」：pi 走发现探测（预置路由捎上表里的端点与协议）、DeepSeek 无发现路由退化为密钥状态检查 |
 | 快捷键 | 三档：**全局热键**（`HotKeyManager`）· **应用快捷键**（`KEYBIND_DEFS`，可改可停用，录制时拒绝裸键 / 系统占用 / 撞车）· **固定键位**（`FIXED_KEYBINDS`）。两表由设置页直接渲染，清单不另抄（`UI-SPEC §2.3`） |
 | 审批 | `settings/permissionPreset.ts` 是权限名与说明的唯一本地化表（会话设置 / 设置页审批 / 新建项目表单共用；wire 上的 `name` 是裸预设键，不直接摆给用户） |
 | 划词与截图 | `SPEC-SEMANTICS §6.2`；实现 `settings/SelectionToolbarSection.tsx` + `settings/SelectionCommandDialog.tsx` |
