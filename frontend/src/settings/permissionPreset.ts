@@ -40,6 +40,12 @@ const PRESET_META: Record<string, { label: string; desc: string; icon: LucideIco
   "danger-full-access": { label: "完全访问", desc: "全部可写，不再逐步确认。", icon: ShieldAlert, danger: true },
 };
 
+/** 预设 → 图标（命令中心的「权限」行拿它当行首图标：行图标即当前模式）。
+ *  未知预设（引擎 derived 的 custom）退回 ShieldCheck。 */
+export function presetIcon(value: string): LucideIcon {
+  return PRESET_META[value]?.icon ?? ShieldCheck;
+}
+
 /** 预设选项 → 下拉项：已知预设走本地化标签/说明/图标，未知预设用引擎原文。 */
 export function presetDropdownOptions(options: PresetOption[], t: (s: string) => string): DropdownOption[] {
   return options.map((o) => {

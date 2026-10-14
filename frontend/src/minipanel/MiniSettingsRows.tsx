@@ -9,7 +9,8 @@
 // 与 HeroPanel、SessionSettings 同源，不是第二份实现。选择页本身只有 MiniChoicePage 一个件。
 // 「插件」不进面板：主窗设置页的事（面板求简洁）。
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, CircleAlert } from "lucide-react";
+import { Bot, ChevronRight, CircleAlert, Cpu, Gauge, Send } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { t as tRaw, tt } from "../i18n";
 import { alertDialog } from "../components/DialogHost";
@@ -17,9 +18,10 @@ import { modelKey, modelSections } from "../components/ModelMenu";
 import { effortDisplayName, shownLevel } from "../components/composer/EffortPicker";
 import { agentPresetLabel, visibleAgentPresets } from "../settings/agentPreset";
 import {
-  permissionPresetView, presetDropdownOptions,
+  permissionPresetView, presetDropdownOptions, presetIcon,
   type PermissionSelect, type PermissionSettingsView,
 } from "../settings/permissionPreset";
+import { comboFor } from "../keybinds";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { useStore } from "../store";
 import { useSessionModels } from "../session/useSessionModels";
@@ -32,8 +34,12 @@ import type { ModelFace } from "../session/SessionHeader";
 /** 一页设置：根行右边那颗当前值 + 翻页后的选项集 + 写回。 */
 interface SettingsPage {
   id: string;
-  /** 根行的标签，也是翻页后返回行上的页名。 */
+  /** 根行左侧的图标（与主窗命令面板的行同一套解剖：icon + 名称 + 快捷键 + 右侧当前值）。 */
+  icon: LucideIcon;
+  /** 根行的标签。 */
   label: string;
+  /** 这一页对应的全局快捷键（有就画成键帽，与命令面板同一套 `.tip-key`）；没有就空着。 */
+  combo?: string;
   /** 根行右边的当前值（人可读）。 */
   value: string;
   /** 选项里打勾的那条（`ChoiceOption.v`）。 */
@@ -74,6 +80,7 @@ function busyPage(busy: { value: string; set: (v: string) => void }): SettingsPa
   const options = [{ v: "steer", label: tRaw("插话发送") }, { v: "queue", label: tRaw("排队") }];
   return {
     id: "busy",
+    icon: Send,
     label: tRaw("发送方式"),
     value: options.find((o) => o.v === busy.value)?.label ?? busy.value,
     valueId: busy.value,
@@ -91,6 +98,7 @@ function modelPage(face: ModelFace): SettingsPage {
   }));
   return {
     id: "model",
+    icon: Cpu,
     label: tRaw("模型"),
     value: face.modelName || tRaw("跟随默认"),
     valueId: face.currentModel ? `${face.currentModel.provider}/${face.currentModel.model}` : undefined,
@@ -102,12 +110,16 @@ function modelPage(face: ModelFace): SettingsPage {
   };
 }
 
-/** 思考强度页。档位表空 = 模型不支持调档 → 调用方整页不出（见各脸）。 */
-function effortPage(face: ModelFace): SettingsPage {
+/** 思考强度页。档位表空 = 模型不支持调档 → 调用方整页不出（见各脸）。
+ *  `combo` 由调用方给（`comboFor("cycle-effort", keybinds)`）：同一件事在命令面板里就带键帽，
+ *  两处显示同一个键（PITFALLS §4.28 ④：键帽一律 comboFor，不许写死）。 */
+function effortPage(face: ModelFace, combo?: string): SettingsPage {
   const levels = face.effortLevels ?? [];
   const id = shownLevel(face.effort, levels);
   return {
     id: "effort",
+    icon: Gauge,
+    combo,
     label: tRaw("思考强度"),
     value: effortDisplayName(id, levels),
     valueId: id,
@@ -127,10 +139,16 @@ function SettingRow({ page, cursor, onOpen }: { page: SettingsPage; cursor: bool
       data-cursor={cursor || undefined}
       onClick={onOpen}
     >
+      <span className="panel-settings-icon"><page.icon size={15} /></span>
       <span className="panel-settings-label">
         {page.label}
         {page.hint !== undefined && <CircleAlert size={12} className="panel-settings-hint-icon" data-tip={page.hint} />}
       </span>
+      {page.combo !== undefined && (
+        <span className="tip-keys-row outline">
+          {[...page.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
+        </span>
+      )}
       <span className="panel-settings-value">
         <span className="panel-settings-value-text">{page.value}</span>
         <ChevronRight size={14} className="panel-settings-chev" />
@@ -217,10 +235,6 @@ function SettingsShell({
   }
   return (
     <>
-      <button type="button" className="mini-cc-back" onClick={back}>
-        <ChevronLeft size={14} />
-        <span>{open.label}</span>
-      </button>
       <MiniChoicePage
         sections={open.sections}
         value={open.valueId}
@@ -236,6 +250,7 @@ function SettingsShell({
 
 /** 草稿脸：权限写引擎 permission 命名空间的 defaultPreset（新会话的初始权限）。 */
 function DraftSettings(props: ShellProps) {
+  const store = useStore();
   const { face, reloadModels } = useDraftModelFace();
   const { describe, update } = useSettingNamespace("permission");
   const [permission, setPermission] = useState<PermissionSettingsView | null>(null);
@@ -258,9 +273,10 @@ function DraftSettings(props: ShellProps) {
   const permissionOptions = permission === null ? [] : presetDropdownOptions(permission.options, tRaw);
   const pages: SettingsPage[] = [
     modelPage(face),
-    ...((face.effortLevels?.length ?? 0) > 0 ? [effortPage(face)] : []),
+    ...((face.effortLevels?.length ?? 0) > 0 ? [effortPage(face, comboFor("cycle-effort", store.keybinds))] : []),
     ...(permission === null ? [] : [{
       id: "permission",
+      icon: presetIcon(permission.current),
       label: tRaw("权限"),
       hint: tRaw("新建会话的初始权限。"),
       value: permissionOptions.find((o) => o.v === permission.current)?.label ?? permission.current,
@@ -302,9 +318,10 @@ function SessionSettings({ sessionId, ...props }: ShellProps & { sessionId: stri
 
   const pages: SettingsPage[] = [
     modelPage(face),
-    ...((face.effortLevels?.length ?? 0) > 0 ? [effortPage(face)] : []),
+    ...((face.effortLevels?.length ?? 0) > 0 ? [effortPage(face, comboFor("cycle-effort", store.keybinds))] : []),
     ...(select === null ? [] : [{
       id: "permission",
+      icon: presetIcon(permission),
       label: tRaw("权限"),
       value: permissionOptions.find((o) => o.v === permission)?.label ?? permission,
       valueId: permission,
@@ -317,6 +334,7 @@ function SessionSettings({ sessionId, ...props }: ShellProps & { sessionId: stri
     }]),
     ...(modeList.length === 0 ? [] : [{
       id: "mode",
+      icon: Bot,
       label: tRaw("会话模式"),
       value: modeList.find((o) => o.v === pinned)?.label ?? pinned,
       valueId: pinned || undefined,

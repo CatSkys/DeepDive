@@ -620,17 +620,9 @@ button {
 .app.mini-panel .mini-cc-clear { flex: none; display: inline-flex; color: var(--ink-3); }
 .app.mini-panel .mini-cc-clear:hover { color: var(--ink); }
 .app.mini-panel .mini-cc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-/* 选择页顶部那条返回行：页名 + 左箭头，点它或按 Esc 回根行。 */
-.app.mini-panel .mini-cc-back {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  height: 30px;
-  padding: 0 12px;
-  color: var(--ink-2);
-}
-.app.mini-panel .mini-cc-back:hover { color: var(--ink); }
+/* 选择页**没有返回行**（用户 2026-10-14："第二个页面上面不需要有那个返回的那一栏"）。
+   回根行只有两条路：Esc（MiniSettingsRows 挂的整页键盘）与"选中即回写并退回"——原先那条
+   「← 页名」的按钮连同 `.mini-cc-back` 一起删了，页名也不再在那一栏重复一遍。 */
 /* 清单节奏与主窗命令面板同构（用户 2026-10-14："样式也照左边的命令中心"）：**连续行**
    （行距 0——去掉原先照侧栏会话列留的 3px gap 与行出血）、列表内距 8（与行内距 8 相加
    = 文字列 16，与搜索行同列）。分组标签自带上下内距，段与段之间不另加 margin。
@@ -725,6 +717,16 @@ button {
   min-height: 38px;
   /* 同一张卡里行态一种形状：设置行也用胶囊（主窗那张设置卡仍是控件档圆角，那是另一张卡） */
   border-radius: var(--dsh-radius-control);
+}
+/* 根行的解剖与主窗命令面板的行**逐项同构**（用户 2026-10-14 给的第二张参考图：icon + 名称 +
+   快捷键芯片 + 右侧指出去）：图标列定宽 16 居中（同 `.rowIcon`），行内距间距 10（同 `.row`）。 */
+.app.mini-panel .mini-cc-settings .panel-settings-row { gap: 10px; }
+.app.mini-panel .mini-cc-settings .panel-settings-icon {
+  flex: none;
+  display: inline-flex;
+  width: 16px;
+  justify-content: center;
+  color: var(--ink-2);
 }
 :where(html[data-hover-armed]) .app.mini-panel .mini-cc-settings .panel-settings-line:hover {
   background: var(--row-hover);
