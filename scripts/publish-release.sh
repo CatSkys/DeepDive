@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."
 
 # 更新的落点：一个只放 Release 的公开仓。源码仓是私有的——装好的用户读不到它的
 # Release（GitHub 要鉴权），所以 feed 必须落在这里。
-RELEASES_REPO="${DSHMINI_RELEASES_REPO:-CatSkys/DSH-deck-releases}"
+RELEASES_REPO="${DSHMINI_RELEASES_REPO:-CatSkys/DeepDive-releases}"
 # 与 apps/macos/project.yml 的 SUPublicEDKey 配对的私钥所在账户。
 SPARKLE_KEY_ACCOUNT="${DSHMINI_SPARKLE_ACCOUNT:-com.deepdive.app}"
 
