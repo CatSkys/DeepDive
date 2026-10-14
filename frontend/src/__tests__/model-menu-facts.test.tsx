@@ -1,6 +1,6 @@
-// 模型菜单基准详情卡测试：withFacts join 命中/未收录回退、成本刻度推导
-// （手工档覆盖、引擎 peak 价兜默认家）、按厂商分组、ⓘ 开合、hover 换内容、
-// 搜索空组隐藏、点卡片不算外点。
+// 模型菜单基准详情卡测试：withFacts join 命中（**按模型名匹配，键不带提供方**）/
+// 未收录回退、成本刻度推导（引擎牌价优先、手抄档兜发不了价的）、按厂商分组、ⓘ 开合、
+// hover 换内容、搜索空组隐藏、点卡片不算外点。
 // portal 到 body 的节点不在 RTL 容器内——直接 document.querySelector
 // （仿 context-menu.test.tsx 的 portal 路线）。
 // @vitest-environment jsdom
@@ -8,7 +8,7 @@ import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModelMenu, type ModelOption } from "../components/ModelMenu";
-import { costMeter, costScaleFromPrices, withFacts } from "../modelFacts";
+import { benchKey, costMeter, costScaleFromPrices, withFacts } from "../modelFacts";
 
 // jsdom 不实现 matchMedia（prefs.ts 初始化外观要用），补标准 stub
 if (!window.matchMedia) {
@@ -96,11 +96,51 @@ function Harness(props: { options: ModelOption[]; current: string }) {
 }
 
 describe("模型基准登记表 join", () => {
-  it("原值折档：deepseek-v4-pro（84.7 tok/s · II 36）→ 速度 2 / 智能 2；未收录原样回退", () => {
+  it("原值折档：deepseek-v4-pro（84.7 tok/s · II 36 · $1.32/$3.96）→ 速度 2 / 智能 2 / 成本 2；未收录原样回退", () => {
     const out = withFacts(opts);
-    expect(out[0].facts).toEqual({ speed: 2, intelligence: 2 });
+    expect(out[0].facts).toEqual({ speed: 2, intelligence: 2, cost: 2 });
     expect(out[1].facts).toBeUndefined();
-    expect(out[2].facts).toEqual({ speed: 2, intelligence: 4 }); // 70.2 · 53
+    expect(out[2].facts).toEqual({ speed: 2, intelligence: 4, cost: 4 }); // 70.2 · 53 · $10/$50
+  });
+});
+
+// 键规则（用户 2026-10-14 定稿）：一个模型一行，键是**模型名**本身——谁家端点都一样。
+// 这张表此前按 `${provider}/${model}` 存，同一个模型在每条路由上各抄一份，新接的
+// 提供商（CommandCode）因为键对不上，详情卡整片"暂无基准数据"。
+describe("按模型名匹配（键不带提供方）", () => {
+  const opt = (provider: string, model: string): ModelOption => ({ provider, model, label: model, providerLabel: provider });
+
+  it("benchKey：小写 + 只取最后一个 / 之后那段", () => {
+    expect(benchKey("zai-org/GLM-5.2")).toBe("glm-5.2");
+    expect(benchKey("MiniMaxAI/MiniMax-M3")).toBe("minimax-m3");
+    expect(benchKey("deepseek/deepseek-v4.1-flash")).toBe("deepseek-v4.1-flash");
+    expect(benchKey("gpt-6-astra")).toBe("gpt-6-astra");
+  });
+
+  it("同一模型走哪条路由都是同一份刻度（83.3 tok/s · II 34 → 速度 2 / 智能 1 / 成本 2）", () => {
+    const [cc, zai, go] = withFacts([
+      opt("commandcode", "zai-org/GLM-5.2"),
+      opt("zai", "glm-5.2"),
+      opt("opencode-go", "glm-5.2"),
+    ]);
+    expect(cc.facts).toEqual({ speed: 2, intelligence: 1, cost: 2 });
+    expect(cc.facts).toEqual(zai.facts);
+    expect(cc.facts).toEqual(go.facts);
+  });
+
+  it("厂商前缀照带：moonshotai/Kimi-K3、MiniMaxAI/MiniMax-M3 都命中那一行（大小写无关）", () => {
+    const [kimi, minimax] = withFacts([
+      opt("commandcode", "moonshotai/Kimi-K3"),
+      opt("commandcode", "MiniMaxAI/MiniMax-M3"),
+    ]);
+    expect(kimi.facts).toEqual({ speed: 1, intelligence: 3, cost: 3 }); // 39.2 · 44 · $3/$15
+    expect(minimax.facts).toEqual({ speed: 2, intelligence: 1, cost: 1 }); // 96.6 · 29 · $0.6/$2.4
+  });
+
+  it("表里没有的模型原样回退（带不带前缀都一样：ga 不上就不现编）", () => {
+    const out = withFacts([opt("commandcode", "tencent/hy4-preview"), opt("commandcode", "tencent/hy4")]);
+    expect(out[0].facts).toBeUndefined();
+    expect(out[1].facts).toBeUndefined();
   });
 });
 
@@ -116,9 +156,10 @@ describe("成本刻度推导", () => {
     expect(costScaleFromPrices(undefined)).toBeUndefined();
   });
 
-  it("costMeter：登记表手工档覆盖，引擎 peak 价兜默认家", () => {
-    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: { cost: 3 } })).toBe(3);
-    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: undefined })).toBe(0);
+  it("costMeter：有引擎牌价一律跟引擎，引擎发不了价的模型才用手抄档兜底", () => {
+    expect(costMeter({ cost: { input: 0.3, output: 1.2 }, facts: { cost: 3 } })).toBe(0); // 实况 0.93 → 0 档
+    expect(costMeter({ cost: undefined, facts: { cost: 2 } })).toBe(2);
+    expect(costMeter({ cost: { input: 20, output: 40 }, facts: undefined })).toBe(4);
     expect(costMeter({ cost: undefined, facts: undefined })).toBeUndefined();
   });
 });
