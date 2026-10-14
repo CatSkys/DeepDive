@@ -189,6 +189,12 @@ enum MiniPanelPromises {
   }
 }
 
+/// Why a drop's own bytes could not be written as the file the page expects.
+enum MiniPanelDropWriteError: Error {
+  /// The pasteboard's bitmap data could not be read as any bitmap, so it cannot be a PNG.
+  case notAnImage
+}
+
 /// The app's own folder for what a drop on the mini panel brings without a file of its own:
 /// promised files and long dropped text, each drop in a folder of its own
 /// (`~/Library/Application Support/<bundle id>/mini-panel-drops/<uuid>/`).
@@ -224,6 +230,23 @@ struct MiniPanelDropFolder {
     let file = try makeDropFolder().appending(
       path: MiniPanelDroppedText.fileName(droppedAt: date))
     try Data(text.utf8).write(to: file, options: .atomic)
+    return file
+  }
+
+  /// A dropped bitmap as `Dropped image <date>.png`, in a new drop folder.
+  ///
+  /// The pasteboard hands PNG, TIFF or JPEG (``MiniPanelDropPayload/image(on:)``) and the **file
+  /// extension is what the page turns into the media type** it sends the model — so anything that
+  /// is not already PNG is re-encoded here rather than mislabelled. Data no bitmap can read is an
+  /// error the caller reports (never a file with bytes that do not match its name).
+  func write(image data: Data, droppedAt date: Date) throws -> URL {
+    guard let bitmap = NSBitmapImageRep(data: data),
+          let png = bitmap.representation(using: .png, properties: [:]) else {
+      throw MiniPanelDropWriteError.notAnImage
+    }
+    let file = try makeDropFolder().appending(
+      path: MiniPanelDroppedImage.fileName(droppedAt: date))
+    try png.write(to: file, options: .atomic)
     return file
   }
 

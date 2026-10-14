@@ -1,4 +1,5 @@
-// 附件摄入 hook：＋ 选择器 / 窗口级拖拽 两条入口。只管摄入与 chip 集合；
+// 附件摄入 hook：三条入口——＋ 选择器、窗口级拖拽、壳按路径推回来的拖入项
+// （`hostDroppedItems`：目录，以及悬浮面板那一投整批）。只管摄入与 chip 集合；
 // chip 预览与发送时拼 PromptContentPart 由编排方做。
 //
 // 口径（用户心智：一律 chip）：
@@ -96,7 +97,7 @@ function isFileDrag(e: DragEvent): boolean {
 // 拖拽载荷分类：**不碰 `getAsString`**——WebKit 对文件项根本不回调它（实测：整个
 // 拖放只暴露 `["Files"]`），拿它求文件夹路径会让整批挂在 Promise.all 上、一个都不
 // 摄入，用户看到的就是"文件夹拖入不显示"（PITFALLS §4.36）。文件夹路径只有壳拿得到
-// （拖放板），所以这里只同步挑出"有没有文件夹"，路径由壳另推（hostDroppedFolders）。
+// （拖放板），所以这里只同步挑出"有没有文件夹"，路径由壳另推（hostDroppedItems）。
 export function classifyDrop(dt: DataTransfer): { files: File[]; dirs: number } {
   const items = Array.from(dt.items ?? []).filter((i) => i.kind === "file");
   if (items.length === 0) {
@@ -323,17 +324,6 @@ export function useComposerAttachments({ appendToDraft, onAdded, hasShell, sessi
 
   const { dragOver, clearDragOver } = useWindowFileDrag({ addImageFile, addFileFile, hasShell });
 
-  // 壳推来的**拖入文件夹**（路径只有它拿得到）：转 @ 引用。壳接手这一投之后，DOM 的
-  // drop 可能压根不来（WebKit 没认下"目录投"，见 TitlebarAwareWebView.draggingEntered），
-  // 那条路径下唯一会到的就是这条命令——所以蒙版必须在这里收，否则它挂一整块挡着界面。
-  useEffect(() => onHostEvent((cmd, payload) => {
-    if (cmd !== "hostDroppedFolders") return;
-    clearDragOver();
-    const items = (payload as { items?: Array<{ path: string }> } | undefined)?.items ?? [];
-    const mentions = items.map((it) => mentionOf(it.path, true)).filter((m): m is string => m !== undefined);
-    if (mentions.length > 0) appendMentionsTo(appendToDraft, mentions);
-  }), [appendToDraft, clearDragOver]);
-
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -366,6 +356,31 @@ export function useComposerAttachments({ appendToDraft, onAdded, hasShell, sessi
     (items: PickedAttachment[]) => ingestPicked(setAttachments, addFilePath, appendToDraft, onAdded, items),
     [addFilePath, appendToDraft, onAdded],
   );
+
+  // 壳推来的**拖入的东西**（路径只有它拿得到），两条路都会到这儿：
+  //   · 目录：DOM 侧 WebKit 认文件不认目录，那一投页面根本收不到，只有壳读得到路径；
+  //   · 药丸/胶囊悬浮面板那一投整批：那一投被壳的原生落点卡接走（`MiniPanelDropView`），
+  //     页面连 drop 事件都没有，文件与文件夹都只能由壳按路径推回来。
+  // 摄入复用 ＋ 选择器那一份（`ingestPicked`）：图片内联 chip、文件上传 chip、文件夹转
+  // @ 引用，各面上的行为因此一致。壳接手之后 DOM 的 drop 可能压根不来，蒙版必须在这
+  // 条命令里自己收（否则它挂一整块挡着界面）。
+  useEffect(() => onHostEvent((cmd, payload) => {
+    if (cmd !== "hostDroppedItems") return;
+    clearDragOver();
+    ingestAttachments((payload as { items?: PickedAttachment[] } | undefined)?.items ?? []);
+  }), [clearDragOver, ingestAttachments]);
+
+  // 壳推来的**一投没落下来**（承诺的文件没到、位图读不成图…）：面板上当场说出来——
+  // 附件不许静默丢（与"图太大/文件夹拿不到路径"同一条口径）。
+  useEffect(() => onHostEvent((cmd, payload) => {
+    if (cmd !== "hostDropFailed") return;
+    const names = (payload as { names?: string[] } | undefined)?.names ?? [];
+    void alertDialog({
+      message: names.length > 0
+        ? tt(`没能导入：${names.join("、")}`, `Could not import: ${names.join(", ")}`)
+        : tt("拖入的东西没能导入", "The dropped items could not be imported"),
+    });
+  }), []);
 
   return { attachments, setAttachments, addAttachments, ingestAttachments, addImageFile, uploadNow, stageImageAsFile, requeueFile, cancelUpload, firstUploadError, dragOver, fileRef, onFile };
 }

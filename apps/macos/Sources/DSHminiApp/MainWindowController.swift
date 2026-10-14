@@ -65,29 +65,21 @@ final class TitlebarAwareWebView: WKWebView {
     /// 顺序是先请 super 走一遍：DOM 的 dragenter/dragover 靠它派发（拖拽蒙版据此亮）。
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         let op = super.draggingEntered(sender)
-        return op.isEmpty && !Self.droppedFolders(sender).isEmpty ? .copy : op
+        return op.isEmpty && !DragPasteboard.folderURLs(sender).isEmpty ? .copy : op
     }
 
     /// 同 draggingEntered：draggingUpdated 回空操作等于半路把投递收回去。
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
         let op = super.draggingUpdated(sender)
-        return op.isEmpty && !Self.droppedFolders(sender).isEmpty ? .copy : op
+        return op.isEmpty && !DragPasteboard.folderURLs(sender).isEmpty ? .copy : op
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let folders = Self.droppedFolders(sender)
+        let folders = DragPasteboard.folderURLs(sender)
         // 这条路上没有任何别的痕迹（DOM 侧看不到文件夹路径），留一行读数好对账
         EngineLog.shared.append("[drag] drop: folders=\(folders.count)")
         if !folders.isEmpty { onFoldersDropped?(folders) }
         return super.performDragOperation(sender)
-    }
-
-    /// 拖放板上的**目录** URL（文件会被过滤掉，见上）。判据是问磁盘（实测：Finder 给的
-    /// 目录 URL `hasDirectoryPath` 是 **false**，只看 URL 尾巴认不出来）。
-    private static func droppedFolders(_ sender: NSDraggingInfo) -> [URL] {
-        let urls = sender.draggingPasteboard.readObjects(
-            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        return urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
     }
 
     func setTitlebarControlRects(_ rects: [NSRect]) {
@@ -328,6 +320,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         overlayController.add(self, name: "deepdive")
         composerOverlay.view.navigationDelegate = self
         composerOverlay.view.uiDelegate = self
+        // 卡片上拖入的目录：路径只有壳拿得到，由壳读拖放板后推给**这一页**转 @ 引用
+        // （只推卡片页——借主窗那条推送给它会把同一条 @ 引用也塞进主窗草稿）
+        composerOverlay.view.onFoldersDropped = { [weak self] urls in
+            guard let self else { return }
+            self.composerOverlay.pushHostCommand(
+                "hostDroppedItems",
+                payload: AppDelegate.jsonPayload(["items": DragPasteboard.folderItems(urls)]))
+        }
         composerOverlay.install(in: glass)
         installBrowserKeyMonitor()
 

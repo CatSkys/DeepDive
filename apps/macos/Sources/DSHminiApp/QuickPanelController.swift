@@ -60,6 +60,9 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
     /// 迷你面板页 → 壳（host-ready / set-pref / miniPanel.* 系列）。转发给
     /// AppDelegate.handleHostMessage；主窗与迷你面板各持一条，靠消息类型区分归属。
     var onHostMessage: (([String: Any]) -> Void)?
+    /// 拖入的面板页**目录**（路径只有壳拿得到，PITFALLS §4.36）→ AppDelegate 推给这一页
+    /// 转 @ 引用（`TitlebarAwareWebView` 同款口子，主窗那一份在 MainWindowController）。
+    var onFoldersDropped: (([URL]) -> Void)?
     /// Shell→frontend：与 MainWindowController 同款 pending 暂存（host 未挂载时不丢）。
     private var pendingHostCommand: (cmd: String, payload: String, stagedAt: Date)?
     /// Feeds the window's visible-but-empty toolbar (Tahoe large-corner class, 见 EmptyToolbarDelegate)。
@@ -147,13 +150,15 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
         wv.uiDelegate = self
         wv.configuration.userContentController.add(self, name: "deepdive")
         wv.configuration.userContentController.add(self, name: "deepdiveHost")
+        // 拖入的**目录**这条口子照接（主窗同款）：这一页的 body 没有侧栏，但文件与文件夹
+        // 一样会被从 Finder 拖进来——不接就是"文件夹投进面板静默消失"（路径只有壳拿得到，
+        // 见 PITFALLS §4.36）。注册必须在 super.init 之后（那时才能把 self 交出去）。
+        wv.onFoldersDropped = { [weak self] urls in self?.onFoldersDropped?(urls) }
         // 卡片页与面板页用**同名**两条桥，消息按"哪块 webview 发来的"分流（见
         // userContentController）；注册必须等 super.init 之后（那时才能把 self 交出去）。
         cardWeb.configuration.userContentController.add(self, name: "deepdive")
         cardWeb.configuration.userContentController.add(self, name: "deepdiveHost")
         cardWeb.navigationDelegate = self
-        // 标题栏拖拽条（MainWindowController 的自绘条配方）：迷你面板没有自己的
-        // 拖放源，文件夹投递不接（body 无侧栏、附件走输入区）。
         // 常驻隐身（Atd 同款：alpha 0 保 WebKit 计时器满速；不用 orderOut）。
         window.alphaValue = 0
         window.ignoresMouseEvents = true
