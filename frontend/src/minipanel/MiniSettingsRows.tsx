@@ -33,7 +33,7 @@ import { modeOverrides } from "../sidebar-right/SessionSettings";
 import { useDraftModelFace } from "../useDraftModelFace";
 import { MiniChoicePage, flattenChoices, type ChoiceSection } from "./MiniChoicePage";
 import { ROW_ICON } from "../components/panelRowIcon";
-import type { KeyHandler } from "./MiniCommandCenter";
+import type { RegisterKeys } from "./MiniCommandCenter";
 import type { ModelFace } from "../session/SessionHeader";
 
 /** 一页设置：翻页后的选项集 + 写回。根行那半（图标 / 名称 / 快捷键）就是 `CardRow` 的入参。 */
@@ -214,7 +214,7 @@ function CardRow({
 }
 
 interface ShellProps {
-  registerKeys: (handler: KeyHandler) => void;
+  registerKeys: RegisterKeys;
   /** 搜索词（两个脸共用卡片顶上那条搜索；空的 = 不过滤）。 */
   query: string;
 }
@@ -256,8 +256,8 @@ function SettingsShell({
 
   const back = () => setOpenId(null);
 
-  useEffect(() => {
-    registerKeys((e) => {
+  // 每渲染重注册一份最新的（处理器闭包要拿当下的 open/cursor）；返回的注销交给 effect 清理。
+  useEffect(() => registerKeys((e) => {
       if (e.key === "Escape" && open !== null) {
         back();
         return true;
@@ -290,8 +290,7 @@ function SettingsShell({
         return true;
       }
       return false;
-    });
-  });
+    }));
 
   if (open === null) {
     return (

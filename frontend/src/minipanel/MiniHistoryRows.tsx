@@ -16,7 +16,7 @@ import { HoverScrollText } from "../components/HoverScrollText";
 import { SidebarContextMenus, type RowMenuState } from "../components/SidebarContextMenus";
 import { filterHistory, groupByDate, historyItems } from "./miniHistoryView";
 import { MiniCcList } from "./MiniCcList";
-import type { KeyHandler } from "./MiniCommandCenter";
+import type { RegisterKeys } from "./MiniCommandCenter";
 
 export function MiniHistoryRows({
   query,
@@ -24,7 +24,7 @@ export function MiniHistoryRows({
 }: {
   query: string;
   /** 把 ↑↓/Enter 交给命令中心：它的搜索框拿着焦点，行件的处理每次渲染注册一份最新的。 */
-  registerKeys: (handler: KeyHandler) => void;
+  registerKeys: RegisterKeys;
 }) {
   const store = useStore();
   const { t, lang } = useT();
@@ -69,8 +69,8 @@ export function MiniHistoryRows({
     listRef.current?.querySelector('[data-cursor="true"]')?.scrollIntoView({ block: "nearest" });
   }, [cursor, flat.length]);
 
-  useEffect(() => {
-    registerKeys((e) => {
+  // 每渲染重注册一份最新的（处理器闭包要拿当下的光标与列表）；返回的注销交给 effect 清理。
+  useEffect(() => registerKeys((e) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         if (flat.length === 0) return true;
@@ -85,8 +85,7 @@ export function MiniHistoryRows({
         return true;
       }
       return false;
-    });
-  });
+  }));
 
   return (
     <>

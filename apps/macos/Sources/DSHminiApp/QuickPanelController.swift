@@ -360,7 +360,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                 }
                 if type == "mini-cc-close" {
                     hideCard()
-                    pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
                     pushHostCommand("miniCCClosed", payload: "{}")
                     return
                 }
@@ -369,7 +368,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                     // 所以这里收卡并把"切到这条会话"转给面板页——与 Esc 那条同一条转发链。
                     let sessionId = body["sessionId"] as? String ?? ""
                     hideCard()
-                    pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
                     pushHostCommand(
                         "miniCCOpenSession",
                         payload: AppDelegate.jsonPayload(["sessionId": sessionId]))
@@ -391,7 +389,6 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
                     case "open-settings":
                         // 打开**主设置**：先收卡（与"点了历史里一行"同款），再走菜单那一条路。
                         hideCard()
-                        pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
                         pushHostCommand("miniCCClosed", payload: "{}")
                         AppDelegate.shared?.openSettings()
                     default: break
@@ -545,6 +542,10 @@ final class QuickPanelController: NSObject, NSWindowDelegate, WKNavigationDelega
             view.isHidden = true
         }
         pushedFace = ""
+        // 卡页也要清脸：不清的话它那份 MiniCommandCenter 不卸载，搜索词与翻到的那一页会留到
+        // 下一次打开（用户 2026-10-14："关闭窗口后重新打开也要是新的窗口"）。收在这里而不是
+        // 各调用点——"藏卡"就是"这一轮结束"，三处调用点各推一遍是同一句话抄三份。
+        pushHostCommand("miniCCClosed", payload: "{}", to: cardWeb)
         // 键盘还给面板页：收卡后用户接着打字（输入框在那儿），不该留在一张看不见的页上。
         window.makeFirstResponder(webView)
     }

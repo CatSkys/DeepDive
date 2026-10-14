@@ -196,6 +196,16 @@ export function isOff(id: string, overrides: KeybindOverrides | undefined): bool
   return !!overrides?.[id]?.off;
 }
 
+/** 这一下键盘是不是某个动作的键位。
+ *  用途是"某个面自己判一条固定键"（迷你面板页/命令中心卡的 ⌘K），不是替代表驱动派发
+ *  （整表那条循环在 `useAppKeybinds`）——两处都只是 `comboOf` + `comboFor` 一次比对，
+ *  键位清单本身仍只有 `KEYBIND_DEFS` 一份。关掉的键位一律不算。 */
+export function isKeybind(e: KeyboardEvent, id: string, overrides: KeybindOverrides | undefined): boolean {
+  if (isOff(id, overrides)) return false;
+  const combo = comboOf(e);
+  return combo !== undefined && combo === comboFor(id, overrides);
+}
+
 /** 主键标准化：字母大写、常见键名映射；未识别返回 undefined（不可绑）。 */
 function normKey(e: KeyboardEvent): string | undefined {
   const k = e.key;
