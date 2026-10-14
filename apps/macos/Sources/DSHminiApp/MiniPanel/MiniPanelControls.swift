@@ -35,7 +35,7 @@ struct MiniPanelCapsule: View {
 
   private func label(_ control: MiniPanelControl) -> String {
     switch control {
-    case .mark: model.markLabel
+    case .mark: model.labels.openMainWindow
     case .newTask: model.labels.newTask
     case .ask: model.labels.ask
     case .screenshot: model.labels.screenshot

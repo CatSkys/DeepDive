@@ -34,6 +34,10 @@
   （→ 恰好是合法 UTF-8 时返回非 nil，测试红）。并行腿下堆布局不同，于是时红时绿。
   单跑该套件全绿。**一行可修**：`guard body.count >= kCCBlockSizeAES128, body.count % kCCBlockSizeAES128 == 0 else { return nil }`
   （本轮未改：它属于浏览器 cookie 那块，不在本次改动范围内）。
+- **同族第三例（2026-10-14 发现，症状又不同）**：`make test` 报 `Test Suite 'DSHminiAppTests.xctest' failed`，
+  但**没有任何一条 `Test Case … failed`**——跑过的用例全是 passed，日志里只有成片的 WebContent/RBS 噪声；
+  同一棵树**只跑壳腿**（`xcodebuild test …`）exit 0、`** TEST SUCCEEDED **`。失败发生在"整腿"这一层
+  （宿主进程与套件账目），不是某条断言。见到这个形状照 §7.12 处置，别去翻被测代码。
 
 **调试技巧（细节 §6）**：抓事件流→6.1 · Playwright 验证→6.2 · 后台 subagent 失败→6.3 · hdiutil 僵尸→6.4
 

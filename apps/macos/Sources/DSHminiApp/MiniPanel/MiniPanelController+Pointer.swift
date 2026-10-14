@@ -77,20 +77,14 @@ extension MiniPanelController {
     collapse(trigger: "pointer left")
   }
 
-  /// The tucked pill and the hot zone: swell at once, open after the dwell (or, opening on click,
-  /// wait swollen for the click), relax on leaving.
+  /// The tucked pill and the hot zone: swell at once, open after the dwell, relax on leaving.
   private func hoverTucked(_ point: CGPoint, at time: Double) {
     guard let layout else { return }
     let reduce = model.reduceMotion
     switch hover.tucked(inHotZone: layout.isInHotZone(point), at: time) {
     case .swell?:
-      if openOn == .hover {
-        respond(
-          "open", at: time, settling: MiniPanelHover.dwell + settling(.expand, from: .swell))
-        openStartedAt = time
-      } else {
-        respond("swell", at: time, settling: settling(.swell, from: .pill))
-      }
+      respond("open", at: time, settling: MiniPanelHover.dwell + settling(.expand, from: .swell))
+      openStartedAt = time
       morphBody(to: .swell, motion: MiniPanelChoreography.shape(.swell, reduceMotion: reduce))
       pointer.wake()
     case .relax?:
@@ -151,7 +145,6 @@ extension MiniPanelController {
       respond("open", at: CACurrentMediaTime(), settling: settling(.expand, from: .pill))
     }
     openStartedAt = nil
-    refreshPanelKey()
     transition(to: .expanded, trigger: trigger)
     hover.reset(awaitingVisit: awaitingVisit)
   }
@@ -194,9 +187,7 @@ extension MiniPanelController {
     var cursor: NSCursor?
     switch model.phase {
     case .tucked:
-      if isInClickZone(pointer) {
-        cursor = .pointingHand
-      } else if drawnBody.contains(pointer) {
+      if drawnBody.contains(pointer) {
         cursor = .openHand
       }
     case .expanded where snap == nil:
@@ -233,7 +224,7 @@ extension MiniPanelController {
         return isOnScrollbar(point) ? .scroller : .card(control(at: point))
       }
       if drawnBody.contains(point) { return .body(control(at: point)) }
-      return isInClickZone(point) ? .body(nil) : .none
+      return .none
     case .invite, .target, .absorbing:
       return .dropShape
     case .hidden, .dragging, .draggingPill:
@@ -262,23 +253,17 @@ extension MiniPanelController {
     releaseHeldLabel()
   }
 
-  /// A click the panel takes itself rather than replaying it to SwiftUI: on the tucked pill, or
-  /// anywhere a click opens it from while it opens on click, it opens. The controls take theirs.
+  /// A click the panel takes itself rather than replaying it to SwiftUI: on the tucked pill (or
+  /// anywhere in its click zone) it opens. The controls take theirs.
   func click(_ target: MiniPanelPress) -> Bool {
     guard target == .body(nil), model.phase == .tucked else { return false }
     expand(trigger: "click")
     return true
   }
 
-  /// Whether `point` is where a click opens the tucked pill while it opens on click: the hot zone,
-  /// pill and all, out to the screen edge (``MiniPanelModel/clickZone``).
-  private func isInClickZone(_ point: CGPoint) -> Bool {
-    model.phase == .tucked && model.clickZone != nil && layout?.isInHotZone(point) == true
-  }
-
   func perform(_ control: MiniPanelControl) {
     switch control {
-    case .mark: actions.toggle()
+    case .mark: actions.openMainWindow()
     case .newTask: actions.newTask()
     case .ask: actions.ask()
     case .screenshot: actions.screenshot()
@@ -303,21 +288,13 @@ extension MiniPanelController {
 
   // MARK: Context menu
 
-  /// Move to the other edge, Open on Click (checked while it does), Hide Mini Panel, then
-  /// Settings… (Settings › General).
+  /// Move to the other edge, Hide Mini Panel, then Settings… (Settings › General).
   func makeMenu() -> NSMenu {
     let strings = ShellStrings.shared
     let menu = NSMenu()
     let other = placement.edge.opposite
     let move: ShellStringKey = other == .left ? .miniPanelMoveLeft : .miniPanelMoveRight
     menu.addItem(ActionMenuItem(strings.text(move)) { [weak self] in self?.move(to: other) })
-    menu.addItem(
-      ActionMenuItem(
-        strings.text(.miniPanelOpenOnClick), isOn: { [weak self] in self?.openOn == .click }
-      ) { [weak self] in
-        guard let self else { return }
-        setOpenOn(openOn == .click ? .hover : .click)
-      })
     menu.addItem(
       ActionMenuItem(strings.text(.miniPanelHide)) { [weak self] in self?.setShown(false) })
     menu.addItem(.separator())

@@ -1,18 +1,10 @@
-/// How the tucked mini panel opens (`miniPanel.openOn`): only on a click there, the pointer only
-/// swelling the pill, which is the setting's default, or as the pointer rests in the hot zone.
-public enum MiniPanelOpenOn: String, Equatable, Sendable {
-  case hover
-  case click
-}
-
 /// When the pointer opens and closes the mini panel (perf-v1), read on every pointer event and
 /// display frame. Times are seconds on any steady clock.
 ///
 /// - Tucked, the pill swells the moment the pointer enters the hot zone (``Change/swell``), so the
 ///   panel answers at once; after ``dwell`` there it opens (``Change/expand``), and leaving
 ///   before that relaxes the swell (``Change/relax``). A pointer passing along the screen edge
-///   only swells it. Opening on click (``openOn``), it stays swollen while the pointer is there
-///   and only a click opens it.
+///   only swells it.
 /// - Expanded, the pointer must stay away from the capsule (and its open card) plus
 ///   ``MiniPanelMetrics/collapseMargin`` for ``collapseDelay`` to close it again. Nothing closes
 ///   it while it is held: a press, a drag or the context menu.
@@ -34,9 +26,6 @@ public struct MiniPanelHover: Equatable, Sendable {
   /// When the pointer left the open capsule, while it stays away.
   private var leftAt: Double?
   public private(set) var awaitsVisit = false
-  /// Whether resting in the hot zone opens the panel, or only a click does. The panel sets it from
-  /// its setting; on its own the rule opens on hover.
-  public var openOn = MiniPanelOpenOn.hover
 
   public init() {}
 
@@ -63,7 +52,7 @@ public struct MiniPanelHover: Equatable, Sendable {
       enteredAt = now
       return .swell
     }
-    guard openOn == .hover, now - since >= Self.dwell else { return nil }
+    guard now - since >= Self.dwell else { return nil }
     reset()
     return .expand
   }
@@ -84,7 +73,6 @@ public struct MiniPanelHover: Equatable, Sendable {
     return .collapse
   }
 
-  /// A dwell or a departure is being timed, so the frames must keep coming. A swell waiting for a
-  /// click times nothing: leaving the hot zone relaxes it on the pointer's own event.
-  public var isTiming: Bool { (enteredAt != nil && openOn == .hover) || leftAt != nil }
+  /// A dwell or a departure is being timed, so the frames must keep coming.
+  public var isTiming: Bool { enteredAt != nil || leftAt != nil }
 }

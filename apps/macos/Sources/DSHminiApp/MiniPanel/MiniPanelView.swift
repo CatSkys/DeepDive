@@ -36,16 +36,6 @@ struct MiniPanelView: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
-        if model.phase == .tucked, let zone = model.clickZone {
-          // Invisible, but drawn, as the drop zone is: opening on click, the window server gives
-          // the panel a click anywhere the pill swells for, the screen edge included.
-          Rectangle()
-            .fill(Color.black.opacity(1.0 / 255))
-            .frame(width: zone.width, height: zone.height)
-            .offset(x: zone.minX, y: zone.minY)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        }
         if model.phase != .hidden {
           MiniPanelBody(model: model)
         }
@@ -189,7 +179,7 @@ private struct MiniPanelPill: View {
       .accessibilityLabel(Text(verbatim: model.labels.panel))
       .accessibilityAddTraits(.isButton)
       .accessibilityAction { model.expand() }
-      .accessibilityAction(named: Text(verbatim: model.markLabel)) { model.perform(.mark) }
+      .accessibilityAction(named: Text(verbatim: model.labels.openMainWindow)) { model.perform(.mark) }
       .accessibilityAction(named: Text(verbatim: model.labels.newTask)) {
         model.perform(.newTask)
       }

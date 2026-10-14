@@ -527,10 +527,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
         // 菜单给了「最小化」：缩进 Dock 的窗口不会因为 orderFront 回来，必须先还原——
         // 否则 ⌘M 会把窗口丢进 Dock 后再也唤不出（hotkey/菜单/Dock 图标都只是 orderFront）。
         if window.isMiniaturized { window.deminiaturize(nil) }
+        // 已经在屏上（不透明）就只是把它带回前台，**不要**再压 alpha 重放淡入：那正是点
+        // Dock 图标时整个窗口闪一下的来源（2026-10-14 用户报）。还在收/进场途中则照常淡入。
+        let needsFade = !(window.isVisible && window.alphaValue >= 1)
         showWindow(nil)
-        window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        guard needsFade else { return }
+        window.alphaValue = 0
         DispatchQueue.main.async {
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = ShellMotion.windowShow

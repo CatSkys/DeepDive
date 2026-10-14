@@ -19,8 +19,7 @@ enum ShellLanguage: String, CaseIterable, Sendable {
 /// zh-Hans/en 两条，产品名换成 DeepDive）。
 enum ShellStringKey {
   case miniPanelLabel
-  case miniPanelOpen
-  case miniPanelHidePanel
+  case miniPanelOpenMainWindow
   case miniPanelNewTask
   case miniPanelAsk
   case miniPanelScreenshot
@@ -28,7 +27,6 @@ enum ShellStringKey {
   case miniPanelDrop
   case miniPanelMoveLeft
   case miniPanelMoveRight
-  case miniPanelOpenOnClick
   case miniPanelHide
   case menuSettings
   case appPickTitle
@@ -119,8 +117,7 @@ final class ShellStrings {
     let zh = language == .simplifiedChinese
     switch key {
     case .miniPanelLabel: return zh ? "DeepDive 快捷面板" : "DeepDive Mini Panel"
-    case .miniPanelOpen: return zh ? "打开面板" : "Open the panel"
-    case .miniPanelHidePanel: return zh ? "收起面板" : "Hide the panel"
+    case .miniPanelOpenMainWindow: return zh ? "显示主界面" : "Show the main window"
     case .miniPanelNewTask: return zh ? "新会话" : "New session"
     case .miniPanelAsk: return zh ? "就所选文字询问" : "Ask about the selected text"
     case .miniPanelScreenshot: return zh ? "截图" : "Take a screenshot"
@@ -128,7 +125,6 @@ final class ShellStrings {
     case .miniPanelDrop: return zh ? "松手放进会话" : "Drop to add to the session"
     case .miniPanelMoveLeft: return zh ? "移到屏幕左侧" : "Move to the left edge"
     case .miniPanelMoveRight: return zh ? "移到屏幕右侧" : "Move to the right edge"
-    case .miniPanelOpenOnClick: return zh ? "点击打开" : "Open on click"
     case .miniPanelHide: return zh ? "隐藏迷你面板" : "Hide the mini panel"
     case .menuSettings: return zh ? "设置…" : "Settings…"
     case .appPickTitle: return zh ? "选择不显示选择文字工具栏的 App" : "Choose apps where the selection toolbar stays hidden"

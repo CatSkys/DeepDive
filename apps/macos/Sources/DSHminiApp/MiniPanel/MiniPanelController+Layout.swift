@@ -64,15 +64,7 @@ extension MiniPanelController {
       $0.union(local(layout.rect(of: $1)))
     }
     if lane != model.cardLane { model.cardLane = lane }
-    updateClickZone()
     updateDropZone()
-  }
-
-  /// Opening on click, the hot zone takes the click that opens the tucked pill, out to the screen
-  /// edge, where the pointer comes to rest; opening on hover, the pill takes its own clicks.
-  func updateClickZone() {
-    let zone = openOn == .click ? layout.map { local($0.hotZone) } : nil
-    if zone != model.clickZone { model.clickZone = zone }
   }
 
   /// A global rectangle in the glass container at rest (the layout's), y down.
