@@ -12,6 +12,7 @@ import { useModelCatalog } from "./useModelCatalog";
 import { probeProvider } from "./providerProbe";
 import { confirmDialog } from "../components/DialogHost";
 import { providerLabel, QUICK_ADD_PROVIDERS } from "./vendors";
+import { PRESET_PROVIDERS } from "./presetProviders";
 import cssRows from "./SettingsRows.module.css";
 
 // 模型设置（折叠卡片式）：按提供方聚类的可折叠分组，模型行展示 Meta
@@ -174,6 +175,19 @@ export function ModelsManage() {
             >
               <ProviderIcon provider={pid} size={18} />
               <span>{providerLabel(pid, pid)}</span>
+            </button>
+          ))}
+          {/* 预置提供方（presetProviders.ts）：引擎目录之外、由前端整条声明的端点，
+              挑中它只填密钥——端点、协议、模型清单都在表里。 */}
+          {PRESET_PROVIDERS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={cssRows.quickAddChip}
+              onClick={() => { setNotice(null); setDialog({ edit: null, initialProvider: p.id }); }}
+            >
+              <ProviderIcon provider={p.id} size={18} />
+              <span>{p.displayName}</span>
             </button>
           ))}
           {/* 自定义入口＝手写一条路由：弹窗直接落到「自定义 / Custom」，

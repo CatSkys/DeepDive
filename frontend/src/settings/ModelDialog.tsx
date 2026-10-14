@@ -6,6 +6,7 @@ import { t, tt } from "../i18n";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { Dropdown } from "../components/controls";
 import { HIDDEN_PROVIDERS, PROVIDER_SESSION_HEADERS, providerLabel } from "./vendors";
+import { PRESET_PROVIDERS, presetProviderOf, splitByRoute } from "./presetProviders";
 import { uuid } from "../uuid";
 import cssRows from "./SettingsRows.module.css";
 import { Modal } from "../components/Modal";
@@ -16,6 +17,10 @@ import { Modal } from "../components/Modal";
 // 发现走 llm.discoverModels。可声明的协议从 llm-pi-ai 的 schema 读（piProtocols.ts），
 // 前端不另存一份协议表。pi 提供方存密钥时必须同时声明 ref（apiKeyDeclaration）：
 // 引擎只按 profile 的 apiKeyEnv 去凭据服务取密钥。
+//
+// 「预置提供方」（presetProviders.ts 的 CommandCode 这类）走的还是手写路由那一套，
+// 只是端点与协议由表给：用户只填密钥，保存时**按表的协议分流一次建齐所有路由**
+// （引擎侧一条路由只挂一个协议），各条路由用自己的密钥 ref 存同一把密钥。
 //
 // 条目字段以各适配器自己的 Config 为准（0.1.2-rc.1 settings/describe 实测）：
 //   · pi      ：id / name / contextWindow / maxTokens / input / reasoningEfforts / compat
@@ -252,6 +257,8 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
   // 添加模式默认 DeepSeek 官方（引擎目录必有；编辑模式仍按编辑对象回填）。
   const [providerId, setProviderId] = useState(edit?.provider ?? initialProvider ?? "deepseek-official");
   const isCustom = !edit && providerId === CUSTOM_PROVIDER;
+  /** 预置提供方（表里的厂商整条声明）：端点与协议由表给，用户只填密钥。 */
+  const preset = edit === null ? presetProviderOf(providerId) : undefined;
   const isDeepseek = providerId === "deepseek-official";
   const profile = providerId && !isCustom ? pi.providers[providerId] : undefined;
   /** 这条路由是"用户手写"的：引擎只在安装目录没有该路由时才允许 profile 省略 baseURL
@@ -285,19 +292,25 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
   const keyIsConfigured = !!credentials[keyRef];
   /** 模型名称留空＝保存时问提供方要一份清单（手写路由靠它一次配齐）；编辑态名称必填。 */
   const discoversAll = !isDeepseek && edit === null;
+  /** 预置提供方里还没配过密钥的那些路由（保存前要点名要一把密钥；已配的不算）。 */
+  const presetRoutesWithoutKey = preset === undefined ? [] : preset.routes.filter(
+    (r) => !credentials[keyRefOf(r.id, deepseek.apiKeyEnv)],
+  );
 
-  /** 向提供方要一份模型清单：手写路由上送表单里的接口地址与协议，
-   *  预置提供方只报 id；带 apiKey 时用刚填的 Key（还没落盘）。 */
-  const discover = async (apiKey: string): Promise<DiscoveredModel[]> => {
-    const r = await api.discoverModels({
-      settingsNs: "llm-pi-ai",
-      ...(isCustom
-        ? { baseURL: normalizeBaseURL(baseURL) ?? baseURL.trim(), api: apiProto }
-        : { provider: providerId }),
-      ...(apiKey ? { apiKey } : {}),
-    });
+  /** 向提供方要一份模型清单：草稿给什么就问什么（手写路由＝表单里的地址与协议、
+   *  预置提供方＝表里的端点与协议、引擎目录里的提供方只报 id）；带 apiKey 时用
+   *  刚填的 Key（还没落盘）。 */
+  const discover = async (draft: { provider?: string; baseURL?: string; api?: string }, apiKey: string): Promise<DiscoveredModel[]> => {
+    const r = await api.discoverModels({ settingsNs: "llm-pi-ai", ...draft, ...(apiKey ? { apiKey } : {}) });
     return (r ?? []).map((m) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, maxTokens: m.maxTokens }));
   };
+
+  /** 这次保存要问的端点/协议（发现那一步的草稿）。 */
+  const discoveryDraft = preset !== undefined
+    ? { baseURL: preset.baseURL, api: preset.routes[0].api }
+    : isCustom
+      ? { baseURL: normalizeBaseURL(baseURL) ?? baseURL.trim(), api: apiProto }
+      : { provider: providerId };
 
   const save = async () => {
     setError(null);
@@ -317,12 +330,15 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
     }
     // 模型类型描述的是一个具体模型；留空＝整体并入发现结果，标注无处可落。
     if (visual && !typedId) { setError(t("要标注模型类型，先填模型名称。")); return; }
+    // 预置提供方是"一把密钥换若干条路由"：还有路由没配过密钥时密钥必填——空着存下去
+    // 会写出没有 apiKeyEnv 的路由，请求时才 401。
+    if (presetRoutesWithoutKey.length > 0 && !key.trim()) { setError(t("请输入 API Key。")); return; }
     // 目录条目没有 id 无法落盘（DeepSeek 官方没有发现路由，编辑态同样必须有个 id）。
     if (!typedId && (isDeepseek || edit !== null)) { setError(t("模型名称必填。")); return; }
     setSaving(true);
     try {
-      // ① 密钥：留空 = 保持不变
-      if (key.trim()) {
+      // ① 密钥：留空 = 保持不变（预置提供方的密钥在下面按路由逐条落，这里跳过）
+      if (key.trim() && preset === undefined) {
         await api.credentialsSet({ ref: keyRef, value: key.trim() });
       }
       // ② pi 提供方且手填了一个模型名时直接用；留空才去发现（发现失败必须
@@ -330,20 +346,40 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
       let discovered: DiscoveredModel[] | null = null;
       if (discoversAll && !typedId) {
         try {
-          discovered = await discover(key.trim());
+          discovered = await discover(discoveryDraft, key.trim());
         } catch (err) {
           setError(tt("自动发现模型失败：{m}", "Auto-discovery failed: {m}", { m: (err as Error).message }));
           setSaving(false);
           return;
         }
         if (!discovered.length) {
-          setError(t("该提供方未发现任何模型，请手动填写模型名称。"));
+          setError(preset === undefined
+            ? t("该提供方未发现任何模型，请手动填写模型名称。")
+            : t("该端点没有报出任何模型。"));
           setSaving(false);
           return;
         }
       }
       // ③ 落点分流（同 id 的旧条目在新增路径上先滤掉，避免出现重复目录行）。
-      if (isDeepseek) {
+      if (preset !== undefined) {
+        // 一次发现 → 按预置表的协议分流：每条路由一段，空段不建（表里那条协议的模型
+        // 这一轮一条都没报出来时，建空路由只会让模型菜单多一个空分组）。profile 的
+        // 原有字段整条带过，只覆盖这份清单认领的那几项。
+        const providers = { ...pi.providers };
+        for (const { route, models } of splitByRoute(preset, discovered ?? [])) {
+          const routeRef = keyRefOf(route.id, deepseek.apiKeyEnv);
+          if (key.trim()) await api.credentialsSet({ ref: routeRef, value: key.trim() });
+          providers[route.id] = {
+            ...(pi.providers[route.id] ?? {}),
+            ...apiKeyDeclaration(key, routeRef),
+            displayName: route.displayName,
+            api: route.api,
+            baseURL: preset.baseURL,
+            models: withDefaultReasoning(models, true),
+          };
+        }
+        await updatePiProviders(providers);
+      } else if (isDeepseek) {
         const entry = rewriteEntry<DeepseekModelEntry>(origEntry as DeepseekModelEntry | undefined, typedId, visualKey, visual);
         const models = edit
           ? deepseek.models.map((m) => (m.id === edit.origId ? entry : m))
@@ -400,14 +436,23 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
     setSaving(false);
   };
 
+  // 预置提供方的卡片键不出现在引擎目录里（它的路由是前端整条声明的，配过之后才会以
+  // 路由 id 进目录），所以从目录那一档滤掉、由表补上——免得配过之后同一个名字出现两遍。
+  const presetIds = new Set(PRESET_PROVIDERS.map((p) => p.id));
   const providerOptions = [
     ...providers
+      .filter((p) => !presetIds.has(p.provider))
       .filter((p) => !HIDDEN_PROVIDERS.includes(p.provider) || pi.providers[p.provider] !== undefined)
       .map((p) => ({
         v: p.provider,
         label: providerLabel(p.provider, p.displayName),
         iconNode: <ProviderIcon provider={p.provider} size={14} />,
       })),
+    ...PRESET_PROVIDERS.map((p) => ({
+      v: p.id,
+      label: p.displayName,
+      iconNode: <ProviderIcon provider={p.id} size={14} />,
+    })),
     { v: CUSTOM_PROVIDER, label: t("自定义 / Custom") },
   ];
   const protocolOptions = piProtocols.map((p) => ({ v: p, label: p }));
@@ -472,46 +517,60 @@ export function ModelDialog({ providers, deepseek, pi, piProtocols, edit, initia
             </button>
           </div>
         </div>
-        <div>
-          <span className={cssRows.fieldLabel}>{t("模型名称")}</span>
-          <input
-            className={cssRows.textField}
-            style={{ display: "block", width: "100%" }}
-            placeholder={isDeepseek ? "例如 deepseek-v4-flash" : "例如 gpt-4o 或 deepseek-chat"}
-            value={modelId}
-            onChange={(e) => setModelId(e.target.value)}
-          />
-          {discoversAll && <div className={cssRows.fieldHint}>{t("留空则添加该提供方的全部模型")}</div>}
-        </div>
-        <div>
-          <div className={cssRows.advTitle}>{t("高级配置")}</div>
-          {isCustom && (
-            <>
-              <div className={cssRows.advField}>
-                <span className={cssRows.fieldLabel}>{t("提供方 ID")}</span>
-                {/* 引擎里那条路由的键（也是密钥名）；留空＝按接口地址取名，
-                    placeholder 把推导出来的名字直接摆出来，不再写一行说明。 */}
-                <input
-                  className={cssRows.textField}
-                  style={{ display: "block", width: "100%" }}
-                  placeholder={derivedRoute || "acme-gateway"}
-                  value={route}
-                  onChange={(e) => setRoute(e.target.value)}
-                />
-              </div>
-              <div className={cssRows.advField}>
-                <span className={cssRows.fieldLabel}>{t("协议")}</span>
-                {/* 默认取引擎报的第一个协议（provider.ts 的表首＝手写网关最常说的
-                    openai-completions），照官方卡片的默认口径。 */}
-                <Dropdown block options={protocolOptions} value={apiProto} onChange={setApiProto} />
-              </div>
-            </>
-          )}
-          <label className={cssRows.checkRow}>
-            <input type="checkbox" checked={visual} onChange={(e) => setVisual(e.target.checked)} />
-            <span>{t("视觉（图片输入）")}</span>
-          </label>
-        </div>
+        {preset === undefined && (
+          <div>
+            <span className={cssRows.fieldLabel}>{t("模型名称")}</span>
+            <input
+              className={cssRows.textField}
+              style={{ display: "block", width: "100%" }}
+              placeholder={isDeepseek ? "例如 deepseek-v4-flash" : "例如 gpt-4o 或 deepseek-chat"}
+              value={modelId}
+              onChange={(e) => setModelId(e.target.value)}
+            />
+            {discoversAll && <div className={cssRows.fieldHint}>{t("留空则添加该提供方的全部模型")}</div>}
+          </div>
+        )}
+        {/* 预置提供方：端点、协议、模型清单都是表里的事实，用户没有可填的——整段高级
+            配置（协议/提供方 ID/视觉标注）都不出现，只留上面那把密钥。 */}
+        {preset !== undefined ? (
+          <div className={cssRows.fieldHint}>
+            {tt(
+              "{p} 的模型按协议分流：保存后自动建好各条路由，共用这一把密钥。",
+              "{p} routes its models by protocol: saving creates each route, all sharing this key.",
+              { p: preset.displayName },
+            )}
+          </div>
+        ) : (
+          <div>
+            <div className={cssRows.advTitle}>{t("高级配置")}</div>
+            {isCustom && (
+              <>
+                <div className={cssRows.advField}>
+                  <span className={cssRows.fieldLabel}>{t("提供方 ID")}</span>
+                  {/* 引擎里那条路由的键（也是密钥名）；留空＝按接口地址取名，
+                      placeholder 把推导出来的名字直接摆出来，不再写一行说明。 */}
+                  <input
+                    className={cssRows.textField}
+                    style={{ display: "block", width: "100%" }}
+                    placeholder={derivedRoute || "acme-gateway"}
+                    value={route}
+                    onChange={(e) => setRoute(e.target.value)}
+                  />
+                </div>
+                <div className={cssRows.advField}>
+                  <span className={cssRows.fieldLabel}>{t("协议")}</span>
+                  {/* 默认取引擎报的第一个协议（provider.ts 的表首＝手写网关最常说的
+                      openai-completions），照官方卡片的默认口径。 */}
+                  <Dropdown block options={protocolOptions} value={apiProto} onChange={setApiProto} />
+                </div>
+              </>
+            )}
+            <label className={cssRows.checkRow}>
+              <input type="checkbox" checked={visual} onChange={(e) => setVisual(e.target.checked)} />
+              <span>{t("视觉（图片输入）")}</span>
+            </label>
+          </div>
+        )}
         {error && <div className={cssRows.modelError}>{error}</div>}
       </div>
       <div className={cssRows.modalFoot}>
