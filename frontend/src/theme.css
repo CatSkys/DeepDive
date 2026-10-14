@@ -709,9 +709,9 @@ button {
   text-align: center;
 }
 /* 设置模式：行就是面板设置行那套（.panel-settings-line），这里只收内边距与填充档——
-   ① 字号**不再覆盖**：全局那条 `.panel-settings-row` 本来就是 base 13，卡里再压一档会
-      同时把标签与取值压小（此行原先的用意是"同一行不许两种字号"，用户早前报过；统一到
-      基准后那条约束依然成立——标签与取值都继承卡的 13）；
+   ① 字号**不再覆盖**：全局那条 `.panel-settings-row` 本来就是 base 13，卡里再压一档会把
+      行上的字一起压小（此行原先的用意是"同一行不许两种字号"，用户早前报过；统一到基准后
+      那条约束依然成立——卡里这一族行都继承卡的 13）；
    ② hover 用 --fill（7%）也是主窗那套，同一张卡里历史行 hover 5%、设置行 7% 是两种深浅
       ——计数卡内统一到 5%（hover），选中态另给 10%（下方 data-cursor 那条）；
    ③ 光标行与历史行同档，设置模式才有可见的"回车开哪一行"。 */
@@ -725,14 +725,17 @@ button {
   border-radius: var(--dsh-radius-control);
 }
 /* 根行的解剖与主窗命令面板的行**逐项同构**（用户 2026-10-14 给的第二张参考图：icon + 名称 +
-   快捷键芯片 + 右侧指出去）：图标列定宽 16 居中（同 `.rowIcon`），行内距间距 10（同 `.row`）。
+   快捷键芯片）：图标列定宽 16 居中（同 `.rowIcon`），行内距间距 10（同 `.row`）。
    **行内分布也要跟过来**：全局那条 `.panel-settings-line` 是 `justify-content: space-between`
    （主窗设置卡的两栏形态：名称在左、取值顶到右边），卡里多了图标与芯片之后，space-between 会把
    名称甩到中间、芯片散在两侧（用户 2026-10-14 看到的"问题很多"就是这个）——这里改成
-   `flex-start` + 取值自己 `margin-left: auto` 顶右边，顺序即 图标 → 名称 → 芯片 →（留白）→ 取值 ›。 */
+   `flex-start`，顺序即 图标 → 名称 →（留白）→ 快捷键芯片。
+   芯片自己 `margin-left: auto` 顶到最右：参考面板的芯片贴着行右沿（"⇧ ⌘ A" 那一列），
+   而卡里**不再有当前值**（用户 2026-10-14："不要把模型名字和其他内容直接放出来"），
+   所以这一档只留在芯片上。 */
 .app.mini-panel .mini-cc-settings .panel-settings-line { justify-content: flex-start; }
 .app.mini-panel .mini-cc-settings .panel-settings-row { gap: 10px; }
-.app.mini-panel .mini-cc-settings .panel-settings-value { margin-left: auto; }
+.app.mini-panel .mini-cc-settings .tip-keys-row { margin-left: auto; }
 .app.mini-panel .mini-cc-settings .panel-settings-icon {
   flex: none;
   display: inline-flex;

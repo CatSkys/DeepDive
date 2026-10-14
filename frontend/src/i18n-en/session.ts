@@ -329,8 +329,14 @@ export const ENSession: Record<string, string> = {
   // 迷你面板 · 右上控件簇、会话历史脸与命令中心
   "新建会话": "New session",
   "会话历史": "Chat history",
+  "打开设置": "Open settings",
+  // 命令中心的设置行写成**动作**（根行不显示当前值，所以名称自己要说清点了会怎样——见
+  // MiniSettingsRows 头注释）；「更换模型」那条在 shell.ts。
+  "更换思考强度": "Change effort",
+  "更换权限": "Change permissions",
+  "更换会话模式": "Change session mode",
+  "更换发送方式": "Change send behaviour",
   "搜索会话…": "Search chats…",
-  "搜索设置…": "Search settings…",
   "没有匹配的会话": "No matching chats",
   "暂无选项": "Nothing to choose yet",
   "未读": "Unread",
