@@ -1068,6 +1068,24 @@
 - 教训：**「装饰层/材质层」这类绝对定位子元素，等于给宿主新增一条「必须是定位元素」的隐式契约**——
   已写进 UI-SPEC §2.2 的四条硬约束，铺开时逐面核。
 
+### 5.16 逐个签 Mach-O：内部件改了，容器的封印就过期（接 Sparkle 时撞到）
+- 事故（2026-10-14，接入应用自动更新时）：`sign-app.sh --distribution` 跑完、逐件单验全过，
+  但 `codesign --verify --deep --strict` 整包挂——`Sparkle.framework: nested code is modified or
+  invalid`（内部件列的是 `Updater.app` / 两个 `.xpc`）。**内部件单独验都"valid on disk"，
+  只有容器那一层说不认**，所以逐件验完很容易以为没事（公证会以同样理由拒收）。
+- 根因：容器的封印（`_CodeSignature/CodeResources`）记着内部件的摘要。walk 按"先库、后可执行"
+  两组签，**组内顺序是 find 给的**——`Versions/B/Sparkle`（框架主二进制，签它即封整个框架）可能
+  排在 `Versions/B/Autoupdate` 与两个 XPC 之前，于是框架封印记的是内部件**旧**的摘要。
+  按路径深度排也不够：`Versions/B/Sparkle` 与 `Versions/B/Autoupdate` 深度相同，谁先谁后无定论。
+- 处置：walk 之后**按深度降序把嵌套容器（`.app`/`.framework`/`.xpc`）再封一次**（深的先封，
+  外层容器才记得到内层刚签好的那份），并在 `sign-app.sh --distribution` 末尾加**机械门**
+  `codesign --verify --deep --strict`——不过就停，别把坏包交给公证、更别交给用户。
+  实测：Sparkle 的两个 XPC 的 entitlements 是**空字典**，所以重签不需要 `--preserve-metadata`。
+- 判别式（两条，缺一不可）：`codesign --verify --strict <容器>` 与
+  `codesign --verify --deep --strict <app>`——**`--deep` 那条才是容器封印的判据**，逐件验会漏掉这一层。
+- 教训：**"内部件都要先签好"这条规则的对象是容器，不是文件清单**——一个目录同时是"内部件"和
+  "某个容器的代表"时（框架主二进制），按文件路径排不出正确的顺序。
+
 ## 6. 调试技巧
 
 ### 6.1 抓真实事件流

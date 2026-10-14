@@ -114,6 +114,25 @@ while IFS= read -r bin; do
   [[ -n "$bin" ]] || continue
   sign_macho "$bin"
 done <<< "$EXECS"
+
+# **嵌套容器要在内部件签完之后再封一次，深的先封**（2026-10-14 接入 Sparkle 时撞到）：
+# 容器（框架 / XPC / 子 app）的封印里记着内部件的摘要，上面那轮 walk 改过内部件，
+# 容器在那之前封的封印就过期了。实测症状是内部件单独验全过、`Sparkle.framework`
+# 自身报 nested code is modified or invalid —— 整包 --strict 挂，公证也过不去。
+# 深度降序是硬要求：外层容器的封印要记到内层刚签好的那一份。
+CONTAINERS=$(find "$APP" -mindepth 1 -type d \( -name "*.app" -o -name "*.framework" -o -name "*.xpc" \) -print \
+  | awk -F/ '{print NF"\t"$0}' | sort -rn | cut -f2-)
+while IFS= read -r container; do
+  [[ -n "$container" ]] || continue
+  codesign --force -s "$IDENTITY" --options runtime --timestamp "$container" \
+    || { echo "FAIL: codesign $container"; exit 1; }
+done <<< "$CONTAINERS"
+
 codesign --force -s "$IDENTITY" --options runtime --timestamp "$APP" \
   || { echo "FAIL: codesign $APP"; exit 1; }
-echo "signed (distribution): 逐个 Mach-O（库在前、可执行在后）+ secure timestamp（公证要求）"
+
+# 封完必须严格验过才算数（机械门）：漏在哪个容器上是上面那条规则的活，这里是
+# 「封好的包一定是有效包」的兜底断言——不过就停，别把坏包交给公证（更别交给用户）。
+codesign --verify --deep --strict "$APP" \
+  || { echo "FAIL: $APP 严格校验不过——上面哪个容器没按深度顺序封？" >&2; exit 1; }
+echo "signed (distribution): 逐个 Mach-O（库在前、可执行在后）+ 嵌套容器按深度补封 + secure timestamp（公证要求）"

@@ -201,7 +201,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, WKNaviga
     /// pick-workspace / pick-attachments / list-dir / read-workspace-icon /
     /// run-git / git-run / git-changes / git-diff / open-url / dictation-start / dictation-stop /
     /// skill-list / skill-remove / plugin-patch-list / plugin-patch-set /
-    /// plugin-admin-info / plugin-uninstall.
+    /// plugin-admin-info / plugin-uninstall / check-update / install-update / update-state.
     var onHostMessage: (([String: Any]) -> Void)?
     /// Shell→frontend pending instruction: at most one, last-wins; flushed
     /// when the page finishes loading or the frontend reports `host-ready`.

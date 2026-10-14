@@ -9,6 +9,7 @@ final class StatusItemController: NSObject {
 
     var onShowWindow: (() -> Void)?
     var onOpenSettings: (() -> Void)?
+    var onCheckForUpdates: (() -> Void)?
     var onReloadWeb: (() -> Void)?
     var onRestartEngine: (() -> Void)?
     var onChooseWorkspace: (() -> Void)?
@@ -37,6 +38,13 @@ final class StatusItemController: NSObject {
         let settings = NSMenuItem(title: "设置…", action: #selector(openSettingsAction), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
+
+        // 与 App 菜单同一份判断：Debug 构建不摆「检查更新…」。
+        if AppUpdater.isSupported {
+            let updates = NSMenuItem(title: "检查更新…", action: #selector(checkForUpdatesAction), keyEquivalent: "")
+            updates.target = self
+            menu.addItem(updates)
+        }
 
         let reload = NSMenuItem(title: "刷新界面", action: #selector(reloadAction), keyEquivalent: "r")
         reload.target = self
@@ -105,6 +113,7 @@ final class StatusItemController: NSObject {
 
     @objc private func showWindowAction() { onShowWindow?() }
     @objc private func openSettingsAction() { onOpenSettings?() }
+    @objc private func checkForUpdatesAction() { onCheckForUpdates?() }
     @objc private func reloadAction() { onReloadWeb?() }
     @objc private func restartAction() { onRestartEngine?() }
     @objc private func workspaceAction() { onChooseWorkspace?() }

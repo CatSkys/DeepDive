@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var quickPanel: QuickPanelController!
     private var miniPanel: MiniPanelController!
     private var statusItem: StatusItemController!
+    /// 应用自身更新（Sparkle）；Debug 构建里它是空壳（永远不更新，见 AppUpdater）。
+    private var updater: AppUpdater!
     private var hotKey: HotKeyManager!
     /// 悬浮注释的宿主（独立原生玻璃窗口 + 注释那一页）：三块页面（主窗/迷你面板/命令
     /// 中心卡）的 `data-tip` 都汇到这一处——注释窗口只有一块，按屏幕坐标摆，天然同时
@@ -68,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.install()
         statusItem.onShowWindow = { [weak self] in self?.windowController.showPanel() }
         statusItem.onOpenSettings = { [weak self] in self?.openSettings() }
+        statusItem.onCheckForUpdates = { [weak self] in self?.updater.checkForUpdates() }
         statusItem.onReloadWeb = { [weak self] in self?.windowController.reloadWeb() }
         statusItem.onRestartEngine = { [weak self] in self?.startEngine() }
         statusItem.onChooseWorkspace = { [weak self] in self?.chooseWorkspace() }
@@ -81,6 +84,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // accessory 策略（不经 Dock/Cmd⌘-Tab，窗口与热键不受影响）。
         statusItem.setVisible(DSHAppPrefs.menuBar)
         NSApp.setActivationPolicy(DSHAppPrefs.dockIcon ? .regular : .accessory)
+
+        // 应用自身更新（Sparkle）：起在引擎之前——它只碰 Info.plist 里的 feed 与公钥，
+        // 与引擎无关，慢一点起就少一次后台检查。下载完只把版本号交出来（不弹窗），
+        // 原生入口在菜单里，设置页那一屏收 `updateState`。
+        updater = AppUpdater()
+        updater.onChange = { [weak self] in self?.pushUpdateState() }
+        updater.start()
 
         supervisor.onState = { [weak self] state in
             self?.handleEngineState(state)
@@ -314,6 +324,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // 引擎状态的快照也要推：SPA 每次 ready 都会整体重载，重载后它只剩默认
             // 相位——不补这一下，"重启中/已失败"在重载后就退回成笼统的"正在重试…"。
             pushEngineState(supervisor.state)
+            // 更新状态同理：重载后「已下载 x.y.z 待装」不该消失。
+            pushUpdateState()
+        case "check-update":
+            updater.checkForUpdates()
+        case "install-update":
+            updater.installNow()
+        case "update-state":
+            pushUpdateState()
         case "restart-engine":
             // 真正的重启：start() 对运行中的引擎是 no-op（process 幂等守卫），
             // 只调它等于"什么都不做"——而 bundle 成员变化（如卸载插件）必须换进程才生效。
@@ -1037,6 +1055,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         openSettings()
     }
 
+    @objc func checkForUpdatesFromMenu(_ sender: Any?) {
+        updater.checkForUpdates()
+    }
+
     // MARK: - lifecycle
 
     /// WebKit anti-throttle (Raycast deep-dive): WebKit suspends rendering and
@@ -1071,6 +1093,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         windowController.pushHostCommand("engineState", payload: Self.jsonPayload(payload))
         quickPanel.pushHostCommand("engineState", payload: Self.jsonPayload(payload))
+    }
+
+    /// 应用更新状态 → 前端（设置页「关于」那一屏：当前版本 + 有没有待装的一份）。
+    private func pushUpdateState() {
+        let json = Self.jsonPayload(updater.status)
+        windowController.pushHostCommand("updateState", payload: json)
+        quickPanel.pushHostCommand("updateState", payload: json)
     }
 
     /// A SIGTERM (kill from terminal / launchd) must not orphan the engine:

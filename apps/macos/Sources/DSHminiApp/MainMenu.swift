@@ -15,7 +15,7 @@ enum MainMenu {
     static func install(app: NSApplication, target: AppDelegate, window: MainWindowController) {
         let main = NSMenu()
 
-        main.addItem(appMenuItem())
+        main.addItem(appMenuItem(target: target))
         main.addItem(fileMenuItem(target: target))
         main.addItem(editMenuItem())
         main.addItem(viewMenuItem(window: window))
@@ -26,11 +26,18 @@ enum MainMenu {
 
     // MARK: - 各区
 
-    private static func appMenuItem() -> NSMenuItem {
+    private static func appMenuItem(target: AppDelegate) -> NSMenuItem {
         let item = NSMenuItem()
         let menu = NSMenu()
         item.submenu = menu
         menu.addItem(withTitle: "关于 DeepDive", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        // 「检查更新…」是 macOS 惯例位（关于之下）。Debug 构建不摆它——那种构建本来就不
+        // 更新（AppUpdater.isSupported），摆一个点下去没反应的菜单项只会让人以为功能没做。
+        if AppUpdater.isSupported {
+            let checkUpdates = NSMenuItem(title: "检查更新…", action: #selector(AppDelegate.checkForUpdatesFromMenu(_:)), keyEquivalent: "")
+            checkUpdates.target = target
+            menu.addItem(checkUpdates)
+        }
         menu.addItem(.separator())
         let settings = NSMenuItem(title: "设置…", action: #selector(AppDelegate.openSettingsFromMenu(_:)), keyEquivalent: "")
         menu.addItem(settings)
