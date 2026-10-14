@@ -217,6 +217,9 @@ html, body, #root {
   background: transparent !important;
   font-family: var(--dsh-font-ui-family);
   font-weight: 400;
+  /* 只关字重合成（UI-SPEC §1.2）：700 在中文上是 WebKit 描边伪造的假粗，关掉后中文回落到
+     PingFang 真实的 Semibold。字形（斜体）合成**不关**——我们只引正体，关了一起失去斜意。 */
+  font-synthesis: weight;
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -839,7 +842,7 @@ button {
   font-size: var(--dsh-font-size-xl);
   font-weight: 400;
   line-height: 24px;
-  letter-spacing: .01em;
+  letter-spacing: -.01em;   /* 显示级大字收紧（UI-SPEC §1.2 字距随字号反向） */
   text-align: center;
   color: var(--ink);
 }
@@ -1317,7 +1320,7 @@ button {
   animation: row-in var(--dur-slow) var(--ease-out) 80ms backwards;
   font-size: var(--dsh-font-size-hero);
   font-weight: 400;
-  letter-spacing: .01em;
+  letter-spacing: -.01em;   /* 显示级大字收紧（UI-SPEC §1.2 字距随字号反向） */
   color: var(--ink);
 }
 .hero-top {

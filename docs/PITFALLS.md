@@ -244,6 +244,12 @@
 - 一条**不变量**：只打包拉丁子集，中文永远走系统字体——所以同一段中英混排里，中英字形来自两个
   字体（Inter 的英文 + PingFang 的中文）。这是设计选择（Raycast 同样不给 Inter 分包 CJK），
   别当成 bug 去"统一"。
+- **同一个包里有多个变量变体，入口决定有哪些轴**（2026-10-14 定字体规范时查出）：
+  `@fontsource-variable/inter` 同时提供 `index.css` / `standard.css` / `wght.css` / `opsz.css`，
+  分别指向 `*-standard-*` / `*-wght-*` / `*-opsz-*` 三套 woff2。我们引的是 `index.css` →
+  **`wght` 单轴**（只有字重，没有光学尺寸轴）。所以照抄 Raycast 的 `font-optical-sizing: none`
+  在我们这儿是一条**空属性**——字体里没有 `opsz` 可调，写了只会让下一个人以为这里调过什么。
+  要换变体（例如改用带 `opsz` 的那套）改的是 `App.tsx` 的 import 那一行，不是 CSS。
 
 ### 1.22 文字色阶对齐 Raycast：三处"不报错"的连带（2026-10-14）
 
