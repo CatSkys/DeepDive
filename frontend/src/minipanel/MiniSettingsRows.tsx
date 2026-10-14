@@ -9,7 +9,7 @@
 // 与 HeroPanel、SessionSettings 同源，不是第二份实现。选择页本身只有 MiniChoicePage 一个件。
 // 「插件」不进面板：主窗设置页的事（面板求简洁）。
 import { useEffect, useState } from "react";
-import { Bot, ChevronRight, CircleAlert, Cpu, Gauge, Send } from "lucide-react";
+import { Bot, ChevronRight, CircleAlert, Cpu, Gauge, History, Pin, Send, Settings, SquarePen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { t as tRaw, tt } from "../i18n";
@@ -24,6 +24,7 @@ import {
 import { comboFor } from "../keybinds";
 import { SettingsConflictError, useSettingNamespace } from "../settings/useSettingNamespace";
 import { useStore } from "../store";
+import { sendToShell } from "../host";
 import { useSessionModels } from "../session/useSessionModels";
 import { modeOverrides } from "../sidebar-right/SessionSettings";
 import { useDraftModelFace } from "../useDraftModelFace";
@@ -128,6 +129,67 @@ function effortPage(face: ModelFace, combo?: string): SettingsPage {
   };
 }
 
+/** 命令中心里的**动作行**（用户 2026-10-14："新建会话、会话历史、会话置顶、打开设置……
+ *  这些都可以加到命令中心里面"）：形态与设置行同一副解剖（图标 + 名称 + 快捷键），差别只在
+ *  "点了就执行"而不是"翻页"——所以右边没有当前值、也没有 ›。
+ *  动作**不在卡片页执行**：卡片是另一块 webview、另一份 store，它执行只会改一份不渲染的
+ *  store（`mini-cc-open-session` 那条踩过）。一律 `sendToShell` 报给壳，由壳转回面板页
+ *  （新建/切脸/置顶）或主窗（打开设置）——见 QuickPanelController 的 `mini-cc-action` 分支。 */
+interface ActionRow {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+  combo?: string;
+  run: () => void;
+}
+
+const cardAction = (action: string, sessionId?: string) =>
+  sendToShell(sessionId === undefined
+    ? { type: "mini-cc-action", action }
+    : { type: "mini-cc-action", action, sessionId });
+
+/** 两脸共用的动作行集（草稿脸没有会话 → 不出现"置顶"那一行）。 */
+function useCardActions(sessionId: string | null): ActionRow[] {
+  const store = useStore();
+  return [
+    {
+      id: "new-session", icon: SquarePen, label: tRaw("新建会话"),
+      combo: comboFor("new-session", store.keybinds),
+      run: () => cardAction("new-session"),
+    },
+    { id: "history", icon: History, label: tRaw("会话历史"), run: () => cardAction("history") },
+    ...(sessionId === null ? [] : [{
+      id: "pin", icon: Pin,
+      label: store.pinned.has(sessionId) ? tRaw("取消置顶") : tRaw("置顶"),
+      run: () => cardAction("toggle-pin", sessionId),
+    }]),
+    {
+      id: "open-settings", icon: Settings, label: tRaw("设置"),
+      combo: comboFor("open-settings", store.keybinds),
+      run: () => cardAction("open-settings"),
+    },
+  ];
+}
+
+function ActionLine({ action, cursor }: { action: ActionRow; cursor: boolean }) {
+  return (
+    <button
+      type="button"
+      className="panel-settings-line panel-settings-row"
+      data-cursor={cursor || undefined}
+      onClick={action.run}
+    >
+      <span className="panel-settings-icon"><action.icon size={15} /></span>
+      <span className="panel-settings-label">{action.label}</span>
+      {action.combo !== undefined && (
+        <span className="tip-keys-row outline">
+          {[...action.combo].map((ch, i) => <kbd key={i} className="tip-key">{ch}</kbd>)}
+        </span>
+      )}
+    </button>
+  );
+}
+
 /** 根行：左标签（可带说明图标）、右当前值 + 指出去下一页的箭头。
  *  cursor = 键盘光标（↑↓ 走到这一行）：设置模式此前只有取值没有选中态，用户看不出回车
  *  会开哪一页——与历史行同一档填充（hover 5% / 选中 10%，见 theme.css 那两条）。 */
@@ -164,10 +226,13 @@ interface ShellProps {
 /** 设置模式的壳：根行 ↔ 选择页的翻页、搜索过滤与键盘，两脸共用（只喂 pages）。 */
 function SettingsShell({
   pages,
+  actions,
   registerKeys,
   onOpenPage,
 }: ShellProps & {
   pages: SettingsPage[];
+  /** 命令中心顶部那组动作行（「操作」在前、「设置」类在后，同一副行解剖）。 */
+  actions: ActionRow[];
   /** 打开某页时的钩子（草稿脸的模型页借它重拉目录）。 */
   onOpenPage?: (id: string) => void;
 }) {
@@ -177,6 +242,11 @@ function SettingsShell({
   const open = pages.find((p) => p.id === openId) ?? null;
   // 设置脸没有搜索框（用户 2026-10-13 定稿："它就是一块设置页面"），所以行集与选项都不再过滤
   const rows = pages;
+  // 根层的键盘序 = 动作行 + 设置行（一条连续的光标序，↑↓/回车一视同仁）
+  const root = [
+    ...actions.map((action) => ({ kind: "action" as const, action })),
+    ...rows.map((page) => ({ kind: "page" as const, page })),
+  ];
   const choices = open === null ? [] : flattenChoices(open.sections);
 
   useEffect(() => { setCursor(0); }, [openId]);
@@ -190,7 +260,7 @@ function SettingsShell({
         return true;
       }
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        const len = open === null ? rows.length : choices.length;
+        const len = open === null ? root.length : choices.length;
         if (len === 0) return true;
         e.preventDefault();
         setCursor((c) => (e.key === "ArrowDown" ? Math.min(c + 1, len - 1) : Math.max(c - 1, 0)));
@@ -198,11 +268,15 @@ function SettingsShell({
       }
       if (e.key === "Enter") {
         if (open === null) {
-          const row = rows[cursor];
-          if (!row) return false;
+          const entry = root[cursor];
+          if (!entry) return false;
           e.preventDefault();
-          onOpenPage?.(row.id);
-          setOpenId(row.id);
+          if (entry.kind === "action") {
+            entry.action.run();
+            return true;
+          }
+          onOpenPage?.(entry.page.id);
+          setOpenId(entry.page.id);
           return true;
         }
         const option = choices[cursor];
@@ -219,17 +293,19 @@ function SettingsShell({
   if (open === null) {
     return (
       <div className="panel-settings mini-cc-settings">
-        {rows.map((p, i) => (
-          <SettingRow
-            key={p.id}
-            page={p}
-            cursor={i === cursor}
-            onOpen={() => {
-              onOpenPage?.(p.id);
-              setOpenId(p.id);
-            }}
-          />
-        ))}
+        {root.map((entry, i) => (entry.kind === "action"
+          ? <ActionLine key={entry.action.id} action={entry.action} cursor={i === cursor} />
+          : (
+            <SettingRow
+              key={entry.page.id}
+              page={entry.page}
+              cursor={i === cursor}
+              onOpen={() => {
+                onOpenPage?.(entry.page.id);
+                setOpenId(entry.page.id);
+              }}
+            />
+          )))}
       </div>
     );
   }
@@ -290,6 +366,7 @@ function DraftSettings(props: ShellProps) {
     <SettingsShell
       {...props}
       pages={pages}
+      actions={useCardActions(null)}
       // 目录每次开模型页都重拉（与 HeroPanel 同一条：启动期目录可能是空的，只在挂载时拉
       // 一次会永久留空，表现为"点模型行没反应"）。
       onOpenPage={(id) => { if (id === "model") reloadModels(); }}
@@ -349,7 +426,7 @@ function SessionSettings({ sessionId, ...props }: ShellProps & { sessionId: stri
     }]),
     busyPage(busy),
   ];
-  return <SettingsShell {...props} pages={pages} />;
+  return <SettingsShell {...props} pages={pages} actions={useCardActions(sessionId)} />;
 }
 
 /** 设置模式入口：按有没有活动会话交给对应那一支（两支各自调自己的 hook，不条件调 hook）。 */
