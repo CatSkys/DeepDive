@@ -10,6 +10,10 @@
 # 用法：DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package && make publish
 # 前置：gh 已登录（有 repo 权限）；EdDSA 私钥已在钥匙串（scripts/sparkle-tools.sh
 #       generate_keys --account com.deepdive.app，一次性，见 README 开发节）。
+#
+# 中文文案里的变量一律写 ${VAR}：本脚本由 `sh` 拉起，而 macOS 的 /bin/sh 是 bash 3.2，
+# 它会把 $VAR 后紧跟的全角字符吞进变量名——`$V 是` 被当成变量 `V 是`，set -u 下直接
+# 以 unbound variable 中断（半角字符与空格不会）。2026-10-15 首次发布时踩到。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -47,7 +51,7 @@ esac
 for key in CFBundleShortVersionString CFBundleVersion; do
   built=$(/usr/libexec/PlistBuddy -c "Print :$key" "$APP/Contents/Info.plist")
   [ "$built" = "$VERSION" ] \
-    || { echo "FAIL: 包里的 $key 是 $built，不是 $VERSION —— 更新会比较不到新版本。" >&2; exit 1; }
+    || { echo "FAIL: 包里的 ${key} 是 ${built}，不是 ${VERSION} —— 更新会比较不到新版本。" >&2; exit 1; }
 done
 
 # 同一个版本号只能发一次：再发一次会把已经装上的用户晾在"同版本"上，
@@ -151,7 +155,7 @@ for attempt in 1 2 3 4 5; do
     # 说明的资产也要真的能匿名拉到：应用就是去那儿取正文的。
     NOTES_URL="https://github.com/$RELEASES_REPO/releases/download/$TAG/release-notes.md"
     if curl -fsSL "$NOTES_URL" 2>/dev/null | grep -q "本版变更"; then
-      echo "OK: 发布说明可读（$NOTES_URL）"
+      echo "OK: 发布说明可读（${NOTES_URL}）"
     else
       echo "WARN: $NOTES_URL 拉不到或内容不对——应用的更新卡会少一段正文。" >&2
     fi
@@ -168,5 +172,5 @@ for attempt in 1 2 3 4 5; do
   fi
   sleep 3
 done
-echo "FAIL: 发布了 $TAG，但 $FEED_URL 还读不到 $VERSION（GitHub 缓存？手查一次再决定要不要重发）" >&2
+echo "FAIL: 发布了 ${TAG}，但 ${FEED_URL} 还读不到 ${VERSION}（GitHub 缓存？手查一次再决定要不要重发）" >&2
 exit 1
