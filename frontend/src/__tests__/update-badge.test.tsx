@@ -22,8 +22,8 @@ afterEach(() => {
 /** 壳推一条更新状态（与 AppDelegate.pushUpdateState 同一个事件名与载荷）。 */
 function pushUpdate(payload: Record<string, unknown>) {
   act(() => window.__deepDiveHost!.dispatch("updateState", {
-    currentVersion: "0.1.1", readyVersion: null, readyDate: null, readyNotes: null,
-    canUpdate: true, ...payload,
+    currentVersion: "0.1.1", readyVersion: null, downloadingVersion: null,
+    readyDate: null, readyNotes: null, canUpdate: true, ...payload,
   }));
 }
 
@@ -109,5 +109,54 @@ describe("UpdateBadge", () => {
     // 从卡上离开 → 到点收（延时 120ms + 离场动画收尾 150ms，给足 1.5s）。
     act(() => { fireEvent.mouseLeave(card()!); });
     await waitFor(() => expect(card()).toBeNull(), { timeout: 1500 });
+  });
+
+  it("下载期就冒出那颗钮，卡里只报状态：没有日期、没有正文、没有安装动作", () => {
+    render(<UpdateBadge />);
+    pushUpdate({ downloadingVersion: "0.1.2" });
+    const btn = badge();
+    expect(btn).not.toBeNull();
+    expect(btn!.getAttribute("aria-label")).toBe("正在下载 0.1.2");
+
+    act(() => { fireEvent.mouseEnter(btn!); });
+    expect(card()!.textContent).toContain("正在下载 0.1.2");
+    // 还没下好的东西不给按钮，也不假装知道发布日期与变更内容。
+    expect(document.querySelector(".update-card-install")).toBeNull();
+    expect(document.querySelector(".update-card-date")).toBeNull();
+    expect(document.querySelector(".update-card-notes")).toBeNull();
+  });
+
+  it("两个字段同时为真时显示已下载（下载完那一刻的短暂重叠）", () => {
+    render(<UpdateBadge />);
+    pushUpdate({ readyVersion: "0.1.2", downloadingVersion: "0.1.2" });
+    expect(badge()!.getAttribute("aria-label")).toBe("已下载 0.1.2");
+  });
+
+  it("待装时卡片说清「退出时自动安装」（与设置→关于同一句话）", () => {
+    render(<UpdateBadge />);
+    pushUpdate({ readyVersion: "0.1.2" });
+    act(() => { fireEvent.mouseEnter(badge()!); });
+    expect(card()!.textContent).toContain("退出 DeepDive 时自动安装");
+  });
+
+  it("说明正文可以收起再展开", () => {
+    render(<UpdateBadge />);
+    pushUpdate({ readyVersion: "0.1.2", readyNotes: "## 本版变更\n\n- 一条变更" });
+    act(() => { fireEvent.mouseEnter(badge()!); });
+
+    const toggle = () => document.querySelector<HTMLButtonElement>(".update-card-toggle");
+    expect(document.querySelector(".update-card-notes")).not.toBeNull();
+    expect(toggle()!.textContent).toBe("收起");
+
+    act(() => { fireEvent.click(toggle()!); });
+    expect(document.querySelector(".update-card-notes")).toBeNull();
+    expect(toggle()!.textContent).toBe("查看本版变更");
+    // 收起只压正文：版本与安装入口都还在。
+    expect(card()!.textContent).toContain("已下载 0.1.2");
+    expect(document.querySelector(".update-card-install")).not.toBeNull();
+
+    act(() => { fireEvent.click(toggle()!); });
+    expect(document.querySelector(".update-card-notes")).not.toBeNull();
+    expect(toggle()!.textContent).toBe("收起");
   });
 });

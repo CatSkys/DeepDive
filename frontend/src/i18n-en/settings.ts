@@ -408,12 +408,16 @@ export const ENSettings: Record<string, string> = {
   // worktrees（设置 → 工作树）
   "工作树": "Worktrees",
 
-  // 关于（设置 → 关于：版本号与应用更新）
+  // 关于（设置 → 关于：版本号与应用更新）与标题栏那颗更新钮的说明卡
   "关于": "About",
   "版本": "Version",
   "读取中…": "Loading…",
   "检查更新": "Check for updates",
   "已下载 {version}": "Downloaded {version}",
+  "正在下载 {version}": "Downloading {version}",
+  "下载完成后，退出 DeepDive 时自动安装。": "Installs automatically when you quit DeepDive.",
   "退出 DeepDive 时自动安装；也可以现在就装，应用会重启一次。": "Installs automatically when you quit DeepDive, or install now — the app restarts once.",
+  "查看本版变更": "Show changes",
+  "收起": "Hide",
   "重启以安装": "Restart to install",
 };

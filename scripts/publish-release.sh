@@ -73,23 +73,39 @@ SIGNATURE=$(bash scripts/sparkle-tools.sh sign_update --account "$SPARKLE_KEY_AC
 cp -f "$DMG" "dist/$ASSET"
 
 # ── 发布说明（Markdown）──
-# 取数：本版自上一个发布 tag 以来的提交主题（`--no-merges`——本仓一个任务一个合并提交，
-# 300 条里 51 条是它，不进说明）。tag 打在本仓（app-v<版本>），发布成功后创建；
-# 下一版就靠它算「自上一版以来」。
-PREV_TAG=$(git describe --tags --abbrev=0 --match 'app-v*' 2>/dev/null || true)
+# 两级来源：**优先用撰写的** docs/release-notes/<版本>.md（`.agents/skills/release-notes`
+# 那个 skill 的产物，面向用户的人话）；没有再退回「自上一版以来的提交主题」并大声告警。
+# 回退那一档是工程语气——主题里带 PITFALLS 编号、内部组件名、提交前缀，装好的用户直接从
+# 更新卡里读它，所以能不用就不用。
+AUTHORED="docs/release-notes/${VERSION}.md"
 NOTES=dist/release-notes.md
-{
-  echo "## 本版变更"
-  echo
-  if [ -n "$PREV_TAG" ]; then
-    echo "自 $PREV_TAG 以来："
+if [ -f "$AUTHORED" ]; then
+  echo "== 发布说明：用撰写的 $AUTHORED =="
+  cp -f "$AUTHORED" "$NOTES"
+else
+  echo "WARN: 没有 $AUTHORED —— 退回用提交主题生成，这一版的说明会是工程语气。" >&2
+  echo "      要给人看，先用 .agents/skills/release-notes 写一份 $AUTHORED 再发。" >&2
+  # 取数：本版自上一个发布 tag 以来的提交主题（`--no-merges`——本仓一个任务一个合并提交，
+  # 300 条里 51 条是它，不进说明）。tag 打在本仓（app-v<版本>），发布成功后创建；
+  # 下一版就靠它算「自上一版以来」。
+  PREV_TAG=$(git describe --tags --abbrev=0 --match 'app-v*' 2>/dev/null || true)
+  {
+    echo "## 本版变更"
     echo
-    git log --no-merges --pretty='- %s' "$PREV_TAG..HEAD" -- .
-  else
-    echo "首个发布版。"
-  fi
-} > "$NOTES"
-echo "== 发布说明（上次基准：${PREV_TAG:-无}）=="
+    if [ -n "$PREV_TAG" ]; then
+      echo "自 $PREV_TAG 以来："
+      echo
+      git log --no-merges --pretty='- %s' "$PREV_TAG..HEAD" -- .
+    else
+      echo "首个发布版。"
+    fi
+  } > "$NOTES"
+  echo "== 发布说明（退回自动生成；上次基准：${PREV_TAG:-无}）=="
+fi
+# 上传后有一道门按这个串验说明资产可匿名读到（见下方 curl 那一段）：撰写的说明也必须
+# 以它开头，否则那道门会把一次发布判负。
+grep -q '^## 本版变更' "$NOTES" \
+  || { echo "FAIL: $NOTES 的第一行不是「## 本版变更」——发布链按这个串验资产，见 .agents/skills/release-notes" >&2; exit 1; }
 cat "$NOTES"
 
 APPCAST=dist/appcast.xml

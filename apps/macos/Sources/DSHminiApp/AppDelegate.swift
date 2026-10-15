@@ -10,6 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController!
     /// 应用自身更新（Sparkle）；Debug 构建里它是空壳（永远不更新，见 AppUpdater）。
     private var updater: AppUpdater!
+    /// App 菜单里那一项「更新」（状态栏那份在 StatusItemController 上）。两份的标题随
+    /// 更新状态变，由 `refreshUpdateMenuItems()` 一处刷新。
+    private var appMenuUpdateItem: NSMenuItem?
     private var hotKey: HotKeyManager!
     /// 悬浮注释的宿主（独立原生玻璃窗口 + 注释那一页）：三块页面（主窗/迷你面板/命令
     /// 中心卡）的 `data-tip` 都汇到这一处——注释窗口只有一块，按屏幕坐标摆，天然同时
@@ -67,10 +70,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey = HotKeyManager()
         installDictation()
 
+        // 状态栏那份「更新」项的动作与校验借 AppDelegate（两份菜单同源，见 StatusItemController）。
+        statusItem.updateMenuTarget = self
         statusItem.install()
         statusItem.onShowWindow = { [weak self] in self?.windowController.showPanel() }
         statusItem.onOpenSettings = { [weak self] in self?.openSettings() }
-        statusItem.onCheckForUpdates = { [weak self] in self?.updater.checkForUpdates() }
         statusItem.onReloadWeb = { [weak self] in self?.windowController.reloadWeb() }
         statusItem.onRestartEngine = { [weak self] in self?.startEngine() }
         statusItem.onChooseWorkspace = { [weak self] in self?.chooseWorkspace() }
@@ -89,7 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 与引擎无关，慢一点起就少一次后台检查。下载完只把版本号交出来（不弹窗），
         // 原生入口在菜单里，设置页那一屏收 `updateState`。
         updater = AppUpdater()
-        updater.onChange = { [weak self] in self?.pushUpdateState() }
+        updater.onChange = { [weak self] in self?.updateStateChanged() }
         updater.start()
 
         supervisor.onState = { [weak self] state in
@@ -1111,7 +1115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.onFoldersDropped = { [weak self] urls in
             self?.deliverDroppedFolders(urls, to: .main)
         }
-        MainMenu.install(app: NSApp, target: self, window: windowController)
+        appMenuUpdateItem = MainMenu.install(app: NSApp, target: self, window: windowController)
     }
 
     /// 新建会话：会话由前端 store 管，菜单只发桥指令（与侧栏「新建会话」同一入口）。
@@ -1150,8 +1154,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         openSettings()
     }
 
-    @objc func checkForUpdatesFromMenu(_ sender: Any?) {
-        updater.checkForUpdates()
+    /// 两份菜单里那一项「更新」共用的动作：有待装的一份就是「装」，否则就是「查」。
+    /// 标题由 `refreshUpdateMenuItems()` 刷，可用性由下面的 `validateMenuItem` 给。
+    @objc func updateMenuItemAction(_ sender: Any?) {
+        if case .restart = updater.menuState {
+            updater.installNow()
+        } else {
+            updater.checkForUpdates()
+        }
+    }
+
+    /// 下载期那一项是状态展示而不是入口，禁用它——一个点下去什么都不发生的菜单项比没有它更难查。
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(updateMenuItemAction(_:)) {
+            return updater.menuState.isActionable
+        }
+        return true
     }
 
     // MARK: - lifecycle
@@ -1188,6 +1206,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         windowController.pushHostCommand("engineState", payload: Self.jsonPayload(payload))
         quickPanel.pushHostCommand("engineState", payload: Self.jsonPayload(payload))
+    }
+
+    /// 更新状态变化的统一收口：推给前端 + 刷两份菜单的标题（标题要说「已下载/正在下载」）。
+    private func updateStateChanged() {
+        pushUpdateState()
+        refreshUpdateMenuItems()
+    }
+
+    /// 两份菜单那一项「更新」的标题。文案的事实源在 `AppUpdater.menuTitle`——这里只负责
+    /// 把同一个串写到两份 NSMenu 上，不自己再拼一次。
+    private func refreshUpdateMenuItems() {
+        let title = AppUpdater.menuTitle(for: updater.menuState)
+        appMenuUpdateItem?.title = title
+        statusItem.updateMenuItem?.title = title
     }
 
     /// 应用更新状态 → 前端（设置页「关于」那一屏：当前版本 + 有没有待装的一份）。
