@@ -1,7 +1,7 @@
 # engine/ — DeepDive 自有引擎
 
-本目录是 DeepDive 的引擎源码：以 dsh 内核（MIT，`deepseek-harness/` 为对照副本）为起点
-的 fork，加 DeepDive 自己的插件与组合。目标形态见 `docs/ARCHITECTURE.md §5`——
+本目录是 DeepDive 的引擎源码：以 dsh 内核（MIT）为起点的 fork，加 DeepDive 自己的插件
+与组合。目标形态见 `docs/ARCHITECTURE.md §5`——
 **产品的一切都是插件，Swift 只做 OS 能力与进程监督**。
 
 ## 目录
@@ -17,10 +17,11 @@ scripts/             collect-engine-closure.mjs（闭包收集，DeepDive 侧脚
                      仓库 scripts/ 下，这里只有上游自带的）
 ```
 
-`deepseek-harness/` 与本目录的关系：**上游对照副本 vs 本仓实体**。升引脚 = 同步
-`deepseek-harness/` 后重跑 `scripts/sync-engine-fork.mjs`（逐字覆盖 + 重放本仓补丁），
-再过两道对等闸门（见下）。fork 是逐字复制、未改名（`@deepseek-ai/*` 保持原样）：
-改名触及全部 manifest 与 import，无行为收益，后续需要时再做。
+本目录与上游 DSH 的关系：**本仓实体 vs 上游基线**。上游基线**不随仓库**（`.gitignore` 的
+`deepseek-harness/`，取法见 `docs/DSH-SOURCE-MAP.md`）。升引脚 = 按引脚取回上游后重跑
+`scripts/sync-engine-fork.mjs`（逐字覆盖 + 重放本仓补丁），再过三道对等闸门（见下）。
+fork 是逐字复制、未改名（`@deepseek-ai/*` 保持原样）：改名触及全部 manifest 与 import，
+无行为收益，后续需要时再做。
 
 ## 构建与产物
 

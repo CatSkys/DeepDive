@@ -325,7 +325,7 @@
 - 处置：**挂起身份 = server-request 信封的 rpcId**（与前端 store 同一语义）；帧解析前先查 vendored schema（`packages/*/src/api/*.schema.ts`），契约字段直取、缺即 return，不做 UUID/空串兜底掩盖漂移（铁律 9/10）。表驱动 XCTest 钉住配对语义（EngineEventObserverTests）。
 
 ### 2.6 session/follow live 帧就是 SessionEventEntry 本体，勿多剥一层
-- 引擎 `SessionFollowFrame = snapshot | SessionEventEntry`，而 `SessionEventEntry = {type:'event', event: SessionEvent}`（`deepseek-harness/packages/api/session-controller/src/types.ts:382`）。mux item 的 `value` 即该帧。
+- 引擎 `SessionFollowFrame = snapshot | SessionEventEntry`，而 `SessionEventEntry = {type:'event', event: SessionEvent}`（官方源码 `packages/api/session-controller/src/types.ts:382`）。mux item 的 `value` 即该帧。
 - 事故（2026-09-10 实机）：`api.followSession` 写成 `onEvent(frame.event.event)`——live 帧多剥一层得到 `undefined`，`onEvent` 访问 `ev.type` 抛错被 mux `onmessage` 的 try/catch 吞掉。快照路径（`type==='snapshot'`）完全正常，所以冷读/刷新有内容、直播正文永远空白；WS 表面健康、引擎在推、独立探针全收到，极像桥中继假死。
 - 处置：`onEvent(frame.event as SessionEvent)`。契约钉测在 `api.test.ts`「session/follow 帧解包」。官方 client 测试同款形状：`frame.type === 'event' && frame.event.type === ...`。
 
@@ -1543,9 +1543,9 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   调一次**不带** `reasoningEffort` 的 `session/selectModel`，看返回的
   `selected.reasoningEffort`。⚠️ 这条调用**会改写该会话的 pending 选择**，别拿正在跑
   的会话试（我犯过：顺手拿列表第一个会话试，把它的 pending 模型改了才发现）。
-- 改 `engine/` 要知道它会被覆盖：`engine/` 是 `deepseek-harness/` 的逐字 fork，
-  `scripts/sync-engine-fork.mjs` 在每次升引脚时整树覆盖。改引擎源码要么记在
-  `docs/` 里（本条即是），要么接受下次同步要重放。
+- `engine/` 是手工拥有的实体，不是产物：它由 `scripts/sync-engine-fork.mjs` 从上游逐字
+  物化而来（构建链不调用该工具，跑 `make app`/`make package` 不会覆盖它）。整树覆盖只
+  发生在升引脚时手工重跑它——那时候本仓对引擎源码的改动要按 `docs/` 里的记录补回来。
 
 ### 7.10 测试环境的假信号：cookie store 超时（已根治）/ 重构建并发饿死 / CommonCrypto 偶发（2026-10-11 实况）
 - BrowserCookieTests 曾对固定 UUID（`B0A1C2D3-…`）的**持久化** store 在每个用例的

@@ -11,8 +11,8 @@ export default defineConfig({
   },
   test: {
     // 范围钉在 frontend/src：vitest v4 从仓库根（无 include 默认全仓）跑的场合
-    // 会把 vendored 的 deepseek-harness/scripts/*.spec 一并抓进来当失败——那些
-    // 属于上游自身的验证套件，与本仓 test 无关。（2026-10-10 实测教训。）
+    // 会把 engine/ 里上游自带的 *.spec 一并抓进来当失败——那些属于上游自身的验证
+    // 套件，与本仓 test 无关。（2026-10-10 实测教训。）
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     // jsdom 缺的全局 DOM 接口补丁（Rail：Range 量文本，CodeMirror 排版要用）——见该文件注释
     setupFiles: ["src/test-setup.ts"],

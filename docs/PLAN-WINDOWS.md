@@ -34,7 +34,7 @@
 
 ## 3. 为什么不是别的路
 
-- **Electron**：上游官方桌面端即 Electron（`deepseek-harness/apps/desktop`），有完整先例可抄；
+- **Electron**：上游官方桌面端即 Electron（`apps/desktop`），有完整先例可抄；
   但它与我们已建成的壳能力（原生通知/悬浮球/热键/标题栏契约/引擎失败面）和打包链全不兼容，
   且 Chromium 基线内存换不来我们需要的东西。文章对 Electron 的排除理由（深集成、系统 WebView）
   在我们这里同样成立。

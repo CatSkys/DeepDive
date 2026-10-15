@@ -57,7 +57,6 @@ frontend/                  自建 SPA（React + TS + Vite）：消息流渲染 +
 frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css
 design/logo/               DeepDive logo 种子工程与导出（白底实心 D + 右侧渐变模糊；docs/BRANDING.md）
 scripts/                   构建/打包/引擎嵌入脚本 + 运行时版本引脚（dsh-runtime-version.txt）
-deepseek-harness/          官方 DSH 源码 vendored 副本（版本=引擎引脚，embed 时强校验）：资产源/移植对照，勿当运行时
 docs/                      架构(as-built)/UI 规范/语义蓝图/三个 P2 SPEC/踩坑记录/协作约定
 ```
 
@@ -67,4 +66,4 @@ docs/                      架构(as-built)/UI 规范/语义蓝图/三个 P2 SPE
 
 ## 许可证
 
-MIT（见 [LICENSE](LICENSE)）。捆绑的 DeepSeek Harness 运行时与其 vendored 源码遵循其自身许可证（`deepseek-harness/LICENSE`、`deepseek-harness/THIRD_PARTY_NOTICES.md`）；本项目与 DeepSeek 无隶属关系。
+MIT（见 [LICENSE](LICENSE)）。`engine/` 是 DeepSeek Harness（MIT）的 fork，随其自身许可证（`engine/LICENSE`）；本项目与 DeepSeek 无隶属关系。

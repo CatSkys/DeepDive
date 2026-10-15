@@ -2,7 +2,15 @@
 
 官方实现源码的移植对照图。以后移植 DSH UI 直接读源码，**不要自行发挥**。
 
-- **唯一对照源：本仓库 vendored 副本** `deepseek-harness/`（根目录）——随仓库走，版本恒等于引擎版本号（`scripts/dsh-runtime-version.txt`；嵌入引擎时 `scripts/check-dsh-source.sh` 强校验）。引擎自研后本副本冻结为 fork 基线对照（官方 `dsh-v<引擎版本号>` tag tarball），不再从上游换源。
+- **唯一对照源：上游官方仓库** [`deepseek-ai/deepseek-harness`](https://github.com/deepseek-ai/deepseek-harness)，取与引擎同版本的那个 tag（版本号唯一事实源是 `scripts/dsh-runtime-version.txt`）：
+
+  ```sh
+  git clone --depth 1 --branch "dsh-v$(tr -d '[:space:]' < scripts/dsh-runtime-version.txt)" \
+    https://github.com/deepseek-ai/deepseek-harness deepseek-harness
+  ```
+
+  这份副本**不随仓库**（`.gitignore` 的 `deepseek-harness/`），只在移植时按需取回；`engine/` 的 fork 与它的 `tsconfig.host.json` / `tsconfig.client.json` 也对着它生成（`scripts/sync-engine-fork.mjs`、`scripts/gen-engine-*.mjs`），所以取不回来就别动引擎的 tsconfig。
+- 本文下文形如 `packages/…`、`apps/…` 的路径，都指上面那个 tag 下的官方源码。
 - 勿用本机 Downloads 散落副本对照（历史上曾 vendored 0.1.2-alpha.2 与引擎版本 0.1.1-rc.2 错位，造成 wire 契约误判）。
 
 ## 图标

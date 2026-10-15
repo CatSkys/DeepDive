@@ -24,8 +24,6 @@ SOFTWARE.
 
 Third-party notices:
 
-- DeepSeek Harness (dsh) engine runtime and the vendored source under
-  deepseek-harness/ are distributed under their own license — see
-  deepseek-harness/LICENSE and deepseek-harness/THIRD_PARTY_NOTICES.md.
-  This repository bundles the pinned runtime unmodified and is not affiliated
-  with DeepSeek.
+- DeepSeek Harness (dsh): `engine/` is a fork of it, distributed under its own
+  license — see engine/LICENSE. It is bundled with local modifications; this
+  repository is not affiliated with DeepSeek.

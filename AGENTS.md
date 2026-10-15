@@ -1,6 +1,6 @@
 # AGENTS.md
 
-DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit 原生壳（`apps/macos`）+ 自建 React SPA（`frontend`）+ 被监督的自研 dsh 引擎子进程（`engine/`，仓内构建随包分发）。对外品牌 DeepDive；内部代号 DSHmini（scheme/目录/包名）有意保留（`docs/BRANDING.md §5`）。
+DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit 原生壳（`apps/macos`）+ 自建 React SPA（`frontend`）+ 被监督的 dsh 引擎子进程（`engine/`：MIT 的官方 DSH 内核 fork，仓内构建随包分发）。对外品牌 DeepDive；内部代号 DSHmini（scheme/目录/包名）有意保留（`docs/BRANDING.md §5`）。
 
 动手前先读对应的家，不要凭记忆：
 
@@ -8,7 +8,7 @@ DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit �
 - `docs/PITFALLS.md` — 踩坑记录：**改相关代码前必读对应条目**（每条都来自真实事故）
 - `docs/WORKING-AGREEMENTS.md` — 用户定稿的协作与交付纪律，每轮改动必须遵守
 - `docs/UI-SPEC.md` / `docs/SPEC-SEMANTICS.md` — 视觉规范 / 产品语义（头部有已实现/未实现状态）
-- `docs/DSH-SOURCE-MAP.md` — 移植官方 UI 的源码对照图（对照仓内 vendored 副本 `deepseek-harness/`，勿自行发挥）
+- `docs/DSH-SOURCE-MAP.md` — 移植官方 UI 的源码对照图（勿自行发挥；上游源码不随仓库，按需取回，取法在该文开头）
 
 ## 心法
 
@@ -24,10 +24,9 @@ apps/macos/                Swift 壳（XcodeGen；局部规则见 apps/macos/AGE
 frontend/                  自建 SPA（React+TS+Vite；局部规则见 frontend/AGENTS.md）
 frontend/packages/design/  tokens.json 唯一事实源 → gen-tokens.mjs → tokens.css
 design/logo/               品牌 logo 种子工程（BRANDING.md）
-engine/                    自研 dsh 引擎（pnpm monorepo；构建 scripts/build-engine.sh，说明见 engine/README.md）
+engine/                    官方 DSH 内核的仓内 fork（本仓拥有并随包分发；构建 scripts/build-engine.sh，说明见 engine/README.md）
 scripts/                   构建/打包/引擎嵌入脚本 + 引擎/插件版本号
 docs/                      架构/规范/踩坑/协作约定
-deepseek-harness/          官方 DSH 源码 vendored 副本（fork 基线对照源，版本=引擎版本号，embed 时强校验）：资产源/移植对照，勿当运行时、勿改动
 ```
 
 ## 命令
