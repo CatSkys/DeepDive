@@ -4,7 +4,7 @@ Swift + AppKit 原生壳（XcodeGen）。根规则见 [../../AGENTS.md](../../AG
 
 ## 工程生成
 
-- `DSHmini.xcodeproj/` 与 `Info.plist` 是 XcodeGen 生成物（已 ignore）：改 `project.yml` 后跑 `xcodegen generate`，勿手改生成物。
+- `DeepDive.xcodeproj/` 与 `Info.plist` 是 XcodeGen 生成物（已 ignore）：改 `project.yml` 后跑 `xcodegen generate`，勿手改生成物。
 
 ## 勿动的"看起来像死代码"（PITFALLS §4.7、§1.5）
 
@@ -14,11 +14,11 @@ Swift + AppKit 原生壳（XcodeGen）。根规则见 [../../AGENTS.md](../../AG
 ## 引擎（EngineSupervisor 一族）
 
 - 版本引脚唯一事实源：`scripts/dsh-runtime-version.txt`；代码与文档不内联版本号。
-- 入口优先级：`DSHMINI_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（node + `Runtime/dsh`）→ 系统探测 → PATH。
-- **版本门（V3 单行道）**：bundled 残缺拒启（不回落系统 dsh）；无 bundled 时的系统/PATH 入口版本必须与随包 pin（`Resources/dsh-runtime-version.txt`，由 project.yml 从引脚文件原样拷入，未嵌引擎的构建也读得到）逐字一致（`EngineVersion`）。`DSHMINI_DSH_ENTRY` 允许异版本但仅告警，对照实验请配 `DSHMINI_SUPPORT_DIR`。
+- 入口优先级：`DEEPDIVE_DSH_ENTRY`（开发对照，最强覆盖）→ bundled（node + `Runtime/dsh`）→ 系统探测 → PATH。
+- **版本门（V3 单行道）**：bundled 残缺拒启（不回落系统 dsh）；无 bundled 时的系统/PATH 入口版本必须与随包 pin（`Resources/dsh-runtime-version.txt`，由 project.yml 从引脚文件原样拷入，未嵌引擎的构建也读得到）逐字一致（`EngineVersion`）。`DEEPDIVE_DSH_ENTRY` 允许异版本但仅告警，对照实验请配 `DEEPDIVE_SUPPORT_DIR`。
 - **embed 必须在实例停止后执行**：覆盖运行中的 node/引擎文件会被 SIGKILL（自检/启动全 137，PITFALLS §7.1）。
-- 第二实例被 main.swift 单实例锁拦掉（exit 0 无声）：调试新构建先退运行中实例，或 `DSHMINI_SUPPORT_DIR=<dir>` 隔离（PITFALLS §7.2）。
-- `DSHMINI_BROWSER_IMPORT_ROOT=<dir>` 覆盖 cookie 导入的来源根（该目录下按同样的相对路径摆
+- 第二实例被 main.swift 单实例锁拦掉（exit 0 无声）：调试新构建先退运行中实例，或 `DEEPDIVE_SUPPORT_DIR=<dir>` 隔离（PITFALLS §7.2）。
+- `DEEPDIVE_BROWSER_IMPORT_ROOT=<dir>` 覆盖 cookie 导入的来源根（该目录下按同样的相对路径摆
   `Application Support/…` 与 `Library/…`）：真机上验导入要么读别人 keychain、要么要完全磁盘
   访问权限，只能靠假档案走通全链（`BrowserCookies.installed()` 读它）。
 - 缺 `.credentials.yaml` 会静默空回复：启动断言凭据，缺失走恢复屏冷启动闭环（PITFALLS §4.1）。
@@ -26,8 +26,8 @@ Swift + AppKit 原生壳（XcodeGen）。根规则见 [../../AGENTS.md](../../AG
 ## 桥与标识符
 
 - 宿主消息统一在 `AppDelegate.handleHostMessage` 加 case，并同步 `MainWindowController` 的指令清单注释；壳→前端经 `window.__deepDiveHost.dispatch`（pending 单条暂存 + 时限丢弃，SPEC-NOTIFICATIONS §3.1）。
-- 偏好键用 `deepdive.*` 命名空间（`DSHAppPrefs`）；桥标识符 `__deepDiveHost`/`deepdive`/`deepdiveHost`，勿用旧名 dshmini。
-- 数据目录 `~/Library/Application Support/DeepDive`（`AppPaths`，含自 DSHmini 的一次性迁移），勿在别处硬编码路径。
+- 偏好键用 `deepdive.*` 命名空间（`DSHAppPrefs`）；桥标识符 `__deepDiveHost`/`deepdive`/`deepdiveHost`。
+- 数据目录 `~/Library/Application Support/DeepDive`（`AppPaths`；首启动会把品牌改名前的旧目录整体搬进来），勿在别处硬编码路径。
 
 ## 进程纪律
 

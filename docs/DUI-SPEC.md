@@ -9,7 +9,7 @@
 | ` ```ui ` | **结构化交互组件**（词表八种）：统一设计基调、免沙箱、直接回调 | `frontend/src/rich/ui/` |
 | ` ```widget ` | **自由 HTML**（媒体播放器、自定义布局）：沙箱 iframe + 受控桥 | `frontend/src/rich/WidgetBlock.tsx` + `widgetBridge.ts` |
 
-路由偏好由壳侧部署提示词（`apps/macos/Sources/DSHminiApp/DeploymentPrompt.swift` 的 `uiComponentPrompt`，落在 `<DSH_HOME>/AGENTS.md` 托管块，PITFALLS §7.7）教给模型：**结构化交互优先 `ui`；词表表达不了的自由 HTML（含媒体）才走 `widget`**。词表教学段落必须与本文及 `types.ts` 同步改动。
+路由偏好由壳侧部署提示词（`apps/macos/Sources/DeepDiveApp/DeploymentPrompt.swift` 的 `uiComponentPrompt`，落在 `<DSH_HOME>/AGENTS.md` 托管块，PITFALLS §7.7）教给模型：**结构化交互优先 `ui`；词表表达不了的自由 HTML（含媒体）才走 `widget`**。词表教学段落必须与本文及 `types.ts` 同步改动。
 
 ## 1. `ui` 围栏
 

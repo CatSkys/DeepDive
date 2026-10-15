@@ -12,7 +12,7 @@ case "$git_dir" in
 esac
 if [ "$git_dir" = "$common_dir" ]; then
   echo "WORKING-AGREEMENTS §5：主仓不承接任务开发（必须，无关大小）——并行会话共用工作区会互卷 WIP。" >&2
-  echo "  scripts/new-worktree.sh <slug>   # 开树（目录 DSHmini-<slug>，分支 feat/<slug>）" >&2
+  echo "  scripts/new-worktree.sh <slug>   # 开树（目录 DeepDive-<slug>，分支 feat/<slug>）" >&2
   echo "  树内改完 → 回主仓 merge --no-ff → scripts/remove-worktree.sh <slug>" >&2
   echo "  确需例外绕过：git commit --no-verify" >&2
   exit 1

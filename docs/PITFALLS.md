@@ -1,4 +1,4 @@
-# DSHmini 踩坑记录（必读）
+# DeepDive 踩坑记录（必读）
 
 本文件记录开发本客户端时踩过、且**极易复发**的坑。每条都来自真实事故，先读这里再改对应代码，避免重蹈覆辙。
 
@@ -34,7 +34,7 @@
   （→ 恰好是合法 UTF-8 时返回非 nil，测试红）。并行腿下堆布局不同，于是时红时绿。
   单跑该套件全绿。**一行可修**：`guard body.count >= kCCBlockSizeAES128, body.count % kCCBlockSizeAES128 == 0 else { return nil }`
   （本轮未改：它属于浏览器 cookie 那块，不在本次改动范围内）。
-- **同族第三例（2026-10-14 发现，症状又不同）**：`make test` 报 `Test Suite 'DSHminiAppTests.xctest' failed`，
+- **同族第三例（2026-10-14 发现，症状又不同）**：`make test` 报 `Test Suite 'DeepDiveAppTests.xctest' failed`，
   但**没有任何一条 `Test Case … failed`**——跑过的用例全是 passed，日志里只有成片的 WebContent/RBS 噪声；
   同一棵树**只跑壳腿**（`xcodebuild test …`）exit 0、`** TEST SUCCEEDED **`。失败发生在"整腿"这一层
   （宿主进程与套件账目），不是某条断言。见到这个形状照 §7.12 处置，别去翻被测代码。
@@ -402,7 +402,7 @@
 ## 4. Engine / 壳端
 
 ### 4.1 独立 harness home 需自带 `.credentials.yaml`
-- 事故：`DSH_HOME` 指向独立 harness home（现为 `~/Library/Application Support/DeepDive/harness`；改名前 `…/DSHmini/…`，首启动已自动迁移），无 `~/.dsh/.credentials.yaml` → LLM 每轮返回**空回复**（assistant 文本为空），且无报错。
+- 事故：`DSH_HOME` 指向独立 harness home（现为 `~/Library/Application Support/DeepDive/harness`；品牌改名前的旧目录由首启动自动迁移进来），无 `~/.dsh/.credentials.yaml` → LLM 每轮返回**空回复**（assistant 文本为空），且无报错。
 - 处置：缺凭据**不再拒启**（照常 spawn，引擎侧容忍缺文件且热发布；冷启动闭环改由 SPA 的新手引导卡接管，见 §5.6）。老 dsh CLI 的凭据由壳在**启动期一次性迁移**进 harness home（`LegacyCredentials.perform()`，已有/无来源静默；成功与失败各落一行日志）。
 
 ### 4.2 mux 帧是 `server-request` wrapper，需解包 `payload`
@@ -428,7 +428,7 @@
 
 ### 4.7 主窗口大圆角来自「可见的空 NSToolbar」（删掉/隐藏即退回小圆角档）
 - macOS 26 (Tahoe) 窗口圆角分两档（本机 26.5 截图实测，2x 拟合）：纯标题栏窗口 ≈16pt；**带可见 toolbar 的窗口 ≈26pt**（连续曲率，WindowServer 裁切，与 Finder/Notes 同款）。`toolbar.isVisible = false` 也会退回小档。
-- DSHmini 标题栏整个画在 web 层，壳里那个 `NSToolbar`（`EmptyToolbarDelegate`，0 item）唯一作用就是**把窗口选进大圆角档**：`titlebarAppearsTransparent` 让它不可见、0 item 不交互，空白条 hitTest 与无 toolbar 完全一致（实测）。副产物：挂上后红绿灯默认中心线 16→26pt，恰好等于前端 26px 头部中心线，`alignTrafficLights()` 成为 no-op 兜底。
+- DeepDive 标题栏整个画在 web 层，壳里那个 `NSToolbar`（`EmptyToolbarDelegate`，0 item）唯一作用就是**把窗口选进大圆角档**：`titlebarAppearsTransparent` 让它不可见、0 item 不交互，空白条 hitTest 与无 toolbar 完全一致（实测）。副产物：挂上后红绿灯默认中心线 16→26pt，恰好等于前端 26px 头部中心线，`alignTrafficLights()` 成为 no-op 兜底。
 - 铁律：不要"清理"这个空 toolbar；前端圆角阶梯以 26 为锚（tokens.json v5 `radius.window`，`.main` 18 = 26−8 同心）。改动后必须截图自检圆角档位（对比 Finder 窗口角）。
 
 ### 4.8 重打包换签名 → TCC 授权重置、启动弹系统授权框
@@ -1056,7 +1056,7 @@
 ### 5.1 版本号的唯一呈现是包名与 Info.plist（buildSha define 是死码，已删）
 - 曾有"角标显示假 SHA"事故（58ecf97 之谜），当时的处置是在 vite.config define 烘焙 `__DSH_BUILD_SHA__`；后续 UI 改版角标被移除，define 变成零消费死码、其注释还在宣称存在 sidebar badge——2026-09 体检（AUD-033）删除。
 - 现状态：版本以 `scripts/package-macos.sh` 从生成的 Info.plist 读取并进 DMG 文件名（xcodegen 先行、读取 fail-loud）；**不要再往 vite.config 加无人消费的 define**，加了也查不到消费者（grep src 为准）。
-- **递增只在打包成功时才留下**：带 `DSHMINI_NOTARY_PROFILE` 的打包在 xcodegen 之前 `bump-app-version.sh patch`，并在同一处留一份 `project.yml` 原文——任何一步挂掉（公证被拒、staple 挂、磁盘满…）都由 EXIT trap 还原，失败的尝试不消耗版本号（`scripts/package-macos.sh`）。当时的原状见本条事故：2026-10-14 真机打包 Sparkle 版时连撞两次打包竞态（§5.5），没有还原，版本从 0.1.1 一路走到 0.1.4，0.1.2/0.1.3 成了空号。**没发过版的号是空号，不用心疼，但别把"版本号连跳三格"当成有人在乱改**；已经被产物占用的号不要手工往回改（改回去反而与已存在的 DMG 产物对不上）。
+- **递增只在打包成功时才留下**：带 `DEEPDIVE_NOTARY_PROFILE` 的打包在 xcodegen 之前 `bump-app-version.sh patch`，并在同一处留一份 `project.yml` 原文——任何一步挂掉（公证被拒、staple 挂、磁盘满…）都由 EXIT trap 还原，失败的尝试不消耗版本号（`scripts/package-macos.sh`）。当时的原状见本条事故：2026-10-14 真机打包 Sparkle 版时连撞两次打包竞态（§5.5），没有还原，版本从 0.1.1 一路走到 0.1.4，0.1.2/0.1.3 成了空号。**没发过版的号是空号，不用心疼，但别把"版本号连跳三格"当成有人在乱改**；已经被产物占用的号不要手工往回改（改回去反而与已存在的 DMG 产物对不上）。
 
 ### 5.2 验收对象必须是 .build/release 最新包——Debug 实例会混入
 - `xcodebuild test` 会产出 `.build/debug` 的 Debug app；它可能被 launchd/误点启动，**内嵌前端是旧的**，在它上面调试/验收会看到与最新代码不符的行为（2026-09-04 事故：快捷键轮在 Debug 残留实例上测，行为对不上源码）。
@@ -1071,7 +1071,7 @@
 ### 5.3 视觉自检的配方与死路（仅用户要求时；平日不截图，验收归用户）
 - 改完样式/渲染 → 构建 → 打包 → 启动 → 截图，核对：消息流居中、无卡片、tool 行/产物/turn-tail/meta 位置、用户消息右对齐等。
 - 只改用户指出的项；不质疑用户、不拿"旧实例"当借口。
-- **看真实会话的配方（2026-09-24 定稿并实测，照这个走别再摸）**：`DSHMINI_OPEN_SID=session-<uuid> <app>/Contents/MacOS/DeepDive`（要直接跑二进制才带得上环境变量）→ 等 ~16s → `osascript -e 'tell application "System Events" to tell process "DeepDive" to get {position, size} of window 1'` 现取窗口矩形 → `screencapture -x -R<x,y,w,h> <png>` → PIL **粗步长**采样量边缘（逐像素全图扫会跑几分钟）。三个关键点：① **id 必须带 `session-` 前缀**——wire 上的 `sessionId` 本就带前缀（拿 `storages/workspace.json` 的 `archivedSessionIds` 对），裸 uuid 会被 `store.tsx` 的深链判定静默忽略，页面停在草稿页且**零报错**；② **窗口矩形每次现取**——位置/尺寸随用户拖动变化，写死会截到桌面；③ 屏幕上是这条会话的**哪一段取决于它的尾部**，要看工具行/代码块就挑一条尾部含 ``` 的会话（`cd $DSH_HOME/sessions && du -sk ./*/*/ | sort -rn | head -12 | awk '{print $2}' | while read d; do zstd -dc "${d}session.v3.jsonl.zstd" 2>/dev/null | tail -8 | grep -c '```'; done`——**`./` 前缀不能省**：工作区目录名以 `--` 开头，`du */*/` 会被当成选项吃掉），别去滚动（`.flow` 不吃 End/PageDown）；最后一条消息很长时视口停在这条消息的开头，看不到尾部的代码块——换一条尾部消息短的。另：启动后落在哪个界面还受 SPA 现有状态影响（实测有一次停在设置页），**截图先确认画面确实是会话流再下结论**。
+- **看真实会话的配方（2026-09-24 定稿并实测，照这个走别再摸）**：`DEEPDIVE_OPEN_SID=session-<uuid> <app>/Contents/MacOS/DeepDive`（要直接跑二进制才带得上环境变量）→ 等 ~16s → `osascript -e 'tell application "System Events" to tell process "DeepDive" to get {position, size} of window 1'` 现取窗口矩形 → `screencapture -x -R<x,y,w,h> <png>` → PIL **粗步长**采样量边缘（逐像素全图扫会跑几分钟）。三个关键点：① **id 必须带 `session-` 前缀**——wire 上的 `sessionId` 本就带前缀（拿 `storages/workspace.json` 的 `archivedSessionIds` 对），裸 uuid 会被 `store.tsx` 的深链判定静默忽略，页面停在草稿页且**零报错**；② **窗口矩形每次现取**——位置/尺寸随用户拖动变化，写死会截到桌面；③ 屏幕上是这条会话的**哪一段取决于它的尾部**，要看工具行/代码块就挑一条尾部含 ``` 的会话（`cd $DSH_HOME/sessions && du -sk ./*/*/ | sort -rn | head -12 | awk '{print $2}' | while read d; do zstd -dc "${d}session.v3.jsonl.zstd" 2>/dev/null | tail -8 | grep -c '```'; done`——**`./` 前缀不能省**：工作区目录名以 `--` 开头，`du */*/` 会被当成选项吃掉），别去滚动（`.flow` 不吃 End/PageDown）；最后一条消息很长时视口停在这条消息的开头，看不到尾部的代码块——换一条尾部消息短的。另：启动后落在哪个界面还受 SPA 现有状态影响（实测有一次停在设置页），**截图先确认画面确实是会话流再下结论**。
 - **三条死路别再试**（2026-09-24 各烧掉十几分钟）：① 无头 Chrome 开 bridge URL——没有壳就没有 vibrancy、渲染成**亮色草稿页**，深链也打不开会话（只对草稿页/纯布局改动有效）；② 发键盘或 `CGEvent` 合成滚轮——滚不动 `.flow`，且事件落在**当时最前的那个 App** 上（本日两次打进用户正在用的别的窗口，属事故级）；③ 手动 `embed-web` + `pkill` + `open` 当快路径（封签/路径击杀，见 §5.2）。
 - **成本纪律（同次复盘）**：单条 grep/read 占一轮 = 5–15s 模型时间 + 每轮约 5s 固定开销；查代码/查文档要**一轮并发发多条探针**。只改样式时中间用浏览器看（草稿页足够验布局与字号），**最后一次才 `make package`**——本日为一个 `clamp` 打了两次包（各约 2.5 min）。
 - 截图通道不可用时（Read 返回 CDN 回执而非像素）：如实说明"像素级目检未完成"，改用 DOM/computed-style 断言覆盖改动面（类存在性、token 变量解析值、原生 title= 归零等），绝不假装看过图。
@@ -1101,11 +1101,11 @@
 ### 5.6 全新机器首启黑屏：桥接把静态页也挡在引擎 503 后面，凭据拒启又焊死了闭环
 - 事故（2026-09-06，分享给新用户后报告）：主窗纯黑，恢复窗「打开设置」点了还是黑。两个叠加根因：① `BridgeServer.route` 的 `guard let engineBase else 503` 排在 `serveStatic` 之前——引擎没起来时连 `index.html` 都 503，WKWebView 拿到空 body 的 503 也算导航完成（日志有 `didFinish`、无任何 JS 报错），页面就是空的、透出底层 tint；② `EngineSupervisor` 缺 `.credentials.yaml` 直接 `.failed` 不 spawn，而设置页配 Key 走的 `credentials.set` 是**引擎 RPC**——恢复窗引导的「打开设置配 Key」在设计上就不可能走通。开发机永远有凭据，这条路从未被端到端跑过。
 - 处置：静态资源一律不看引擎状态（只有 `/api` 保留 503）；缺凭据照常启动引擎（引擎侧对文件缺失容忍且 watch 热发布，见 vendored `packages/credentials/credentials-local`），首启由 SPA 的新手引导卡接管（`credentials.describe` 正向确证无任何已配置密钥才出门，读失败绝不冒充"未配置"）。
-- 复现/验收手法：`DSHMINI_SUPPORT_DIR=/tmp/fresh <app>/Contents/MacOS/DeepDive` 用空目录模拟全新机器（隔离锁/harness/日志，不动真实实例）；引擎 ready 后打开 bridge URL 走完配 Key → 检查 `/tmp/fresh/harness/.credentials.yaml` 落盘 → 门放行。**显示器休眠/合盖时 `screencapture -l` 截 WKWebView 只有原生 tint 层（纯黑）**——那是采集假象不是页面黑，以 `host-ready`/`[titlebar] control rects` 日志与浏览器同源渲染为准，显示器亮后再补像素图。
+- 复现/验收手法：`DEEPDIVE_SUPPORT_DIR=/tmp/fresh <app>/Contents/MacOS/DeepDive` 用空目录模拟全新机器（隔离锁/harness/日志，不动真实实例）；引擎 ready 后打开 bridge URL 走完配 Key → 检查 `/tmp/fresh/harness/.credentials.yaml` 落盘 → 门放行。**显示器休眠/合盖时 `screencapture -l` 截 WKWebView 只有原生 tint 层（纯黑）**——那是采集假象不是页面黑，以 `host-ready`/`[titlebar] control rects` 日志与浏览器同源渲染为准，显示器亮后再补像素图。
 
 ### 5.7 公证的签名要求：`--deep` 漏签 Resources 下散文件；hardened runtime 还需 JIT entitlements，否则公证过了引擎也崩
 - 事故（2026-09-06 首跑公证）：notarytool 判 Invalid，两类错——①主程序/内嵌 node 无 hardened runtime（只有 `codesign --deep`，没带 `--options runtime --timestamp`）；②`Resources/Runtime/dsh/node_modules` 的 rg/pty.node/spawn-helper/sharp「未签名」：**`--deep` 只覆盖 Frameworks/PlugIns 等标准嵌套位置，散文件一律不碰**。
-- 处置：`package-macos.sh` 最终 seal = find 全部嵌套 Mach-O **逐个签**（Developer ID + `--options runtime --timestamp`）→ 整体 seal bundle；node 单独挂 `scripts/node-entitlements.plist`——`allow-jit` 供 V8 MAP_JIT、`allow-unsigned-executable-memory` 供 koffi/libffi trampoline，**hardened runtime 默认禁可执行内存，缺一则公证通过后引擎运行即崩**。启用：`DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package`（凭据 `DSHMINI_NOTARY` 已存钥匙串）。
+- 处置：`package-macos.sh` 最终 seal = find 全部嵌套 Mach-O **逐个签**（Developer ID + `--options runtime --timestamp`）→ 整体 seal bundle；node 单独挂 `scripts/node-entitlements.plist`——`allow-jit` 供 V8 MAP_JIT、`allow-unsigned-executable-memory` 供 koffi/libffi trampoline，**hardened runtime 默认禁可执行内存，缺一则公证通过后引擎运行即崩**。启用：`DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package`（凭据 `DEEPDIVE_NOTARY` 已存钥匙串）。
 - 附（同轮踩）：Makefile 用 `sh` 调脚本（POSIX 模式 bash），脚本里进程替换 `< <()` 直接语法错——构建脚本写 POSIX 安全写法（`find -print0` 管道 + case）。
 
 ### 5.8 嵌入的运行时 node 绝不能取机器本地安装：绝对路径 dylib 在用户机器必死、库校验下连开发机都死
@@ -1502,9 +1502,9 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
 - **`credentials/describe` 返回值从包裹变裸 map → 首启门误判「一个密钥都没配」**：0.1.2 返回 `{credentials:{ref:CredentialInfo}}`，0.1.5 直接返回 `Record<string, CredentialInfo>`（权威：钉住运行时的生成客户端声明 `dsh-api-settings-controller/lib/typert.remote-client.d.ts` 的 `describe: refs => Promise<RemoteResult<Record<string, CredentialInfo>>>`）。SPA 的 `api.credentialsDescribe` 仍按旧包裹取 `cr.credentials`，于是密钥态恒空、`configuredKnown && !anyConfigured` 成立，**每次启动都弹首启引导页**（密钥明明配好，引擎侧 `credentials/describe` 实况 configured:true）；设置页「测试连通」同样恒判「未配置」。处置：类型改裸 map、三处消费（useModelCatalog/ModelsManage）同步。（2026-09-11 撞上：重打包后交付链自检时页面上就是那道门。**升级引擎后凡"包裹层"契约都要按生成客户端 d.ts 复读一遍**，0.1.5 已有多处这类去包裹。）
 
 ### 7.2 引擎并存的第二实例会被单实例锁拦掉（exit 0 无声）
-- main.swift 的 flock 单实例守卫：已有一份 DSHmini 运行时，第二个直接 `exit(0)`（exit 前把锁路径打到 stderr）——测试新构建时极易误判"app 秒退"。
-- 处置：`DSHMINI_SUPPORT_DIR=<dir>` 隔离支撑目录（P2 新增 dev 钩子），或先退掉运行中的实例。
-- 中断/超时的**测试运行**会留下孤儿测试宿主：它握着测试支撑目录（`<树>/.build/test-support`）的 instance.lock 不放，此后每轮 xcodebuild test 的宿主一启动就撞锁 exit(0)，xcodebuild 只报 "test runner exited with code 0 before establishing connection"——极难对上号（2026-10-11 实况：上会话遗留的 xcodebuild 连同宿主占锁，后续 XCTest 全体秒挂）。宿主被 kill 后其 xcodebuild 还会重拉一个，只杀宿主不够。处置：test.sh 起跑前预检该锁，按 Debug 产物路径识别宿主自动清场（清不掉宿主时连同本树仍在跑的 xcodebuild 一起停）；非测试进程占锁则报错不动手。测试支撑目录按树隔离（AppPaths 认 XCTest 环境派生于 bundle 路径，2026-10-12）：锁互撞与跨树误杀整类消失；`DSHMINI_SUPPORT_DIR` 仍可手动隔离第二实例。
+- main.swift 的 flock 单实例守卫：已有一份 DeepDive 运行时，第二个直接 `exit(0)`（exit 前把锁路径打到 stderr）——测试新构建时极易误判"app 秒退"。
+- 处置：`DEEPDIVE_SUPPORT_DIR=<dir>` 隔离支撑目录（P2 新增 dev 钩子），或先退掉运行中的实例。
+- 中断/超时的**测试运行**会留下孤儿测试宿主：它握着测试支撑目录（`<树>/.build/test-support`）的 instance.lock 不放，此后每轮 xcodebuild test 的宿主一启动就撞锁 exit(0)，xcodebuild 只报 "test runner exited with code 0 before establishing connection"——极难对上号（2026-10-11 实况：上会话遗留的 xcodebuild 连同宿主占锁，后续 XCTest 全体秒挂）。宿主被 kill 后其 xcodebuild 还会重拉一个，只杀宿主不够。处置：test.sh 起跑前预检该锁，按 Debug 产物路径识别宿主自动清场（清不掉宿主时连同本树仍在跑的 xcodebuild 一起停）；非测试进程占锁则报错不动手。测试支撑目录按树隔离（AppPaths 认 XCTest 环境派生于 bundle 路径，2026-10-12）：锁互撞与跨树误杀整类消失；`DEEPDIVE_SUPPORT_DIR` 仍可手动隔离第二实例。
 
 ### 7.3 settings.describe 的真实 namespace 图谱（rc.2 实测）
 - `agent-default-model` = `{provider, model, reasoningEffort}`（对象，不是字符串）；`permission` = `{defaultPreset}`；`ui-theme` = `{preference}`——**都不是以 ns 名直接存标量**，写值要 `settings.update(ns, patch=整值改路径, expectedRevision)` 或 mutate ops 指向子路径。
@@ -1833,7 +1833,7 @@ await page.goto(`http://127.0.0.1:<bridge>/?sid=<sid>`, ...);
   （`Developer ID Application: HANGBIN JIN (49LSZKN27V)`）重签，所以**重建不掉授权**——
   实测交付后 `codesign -dv` 的 TeamIdentifier 就是它，日志也这么写。
 - 会掉授权的只有**没有固定身份的构建**：adhoc（`CODE_SIGNING_ALLOWED=NO` 的测试宿主、
-  或显式 `DSHMINI_CODESIGN_IDENTITY=-` / 证书不可用时的回退）。那种构建每次重编都换 cdhash，
+  或显式 `DEEPDIVE_CODESIGN_IDENTITY=-` / 证书不可用时的回退）。那种构建每次重编都换 cdhash，
   两项授权随之失效；Atd 自己的 `AGENTS.md` 同样记着这条（它靠固定证书 + `StaleGrantRecovery` 缓解）。
 - 判定与自查：`CGPreflightScreenCaptureAccess()`（**每次截图前现查**，别缓存——授权被吊销的构建
   只会截到壁纸）、`AXIsProcessTrusted()`；两个工具的 2s 轮询会自己跟上授权变化，不必重启应用。

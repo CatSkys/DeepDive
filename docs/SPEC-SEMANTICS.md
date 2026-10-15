@@ -1,4 +1,4 @@
-# DSHmini 语义层产品规格（v0.4 · P2+ 蓝图）
+# DeepDive 语义层产品规格（v0.4 · P2+ 蓝图）
 
 > 文档位置：架构 `docs/ARCHITECTURE.md` → 语义 `docs/SPEC-SEMANTICS.md`。
 > **状态（2026-09-03）**：本文是**部分已落地的产品蓝图**。已实现：多工作区侧栏（置顶/最近）、会话流+工具行折叠+异常高亮、审批卡/提问卡/排队消息（WebView 内卡片，非原生弹窗）、模型菜单+思考强度、通知分级（`SPEC-NOTIFICATIONS`）、引擎监督/恢复/凭据冷启动、自动标题+重命名、turn-tail 分支 fork（`session.fork`）、子会话只读视图、**审查面板**（预览面板的第二面，只读，v1 只有未暂存一档）、**会话状态胶囊**（头部聚合，收起态是一条优先级回落链——当前任务/目标/改动/已完成任务/运行中计数/提醒/已结束；展开为分区面板：目标（含暂停·恢复·编辑·清除，原 composer 上方的 GoalBar 条已并入此处）/任务与计划（N/M、长清单聚焦窗）/子智能体（在跑 + 已结束折叠）/Git 工具（更改·分支·提交或推送，Git 摘要经壳层 `run-git` 桥命令；「更改」行开预览面板的**审查面**，只读列工作区未暂存改动）/提醒/后台任务（在跑 + 已结束折叠））、全文搜索、@文件引用、拖放图片、KaTeX、上下文用量环。**未实现**（仍为蓝图）：Memory 卡、任务 detach、专注模式、Windows；轨迹视图/Jobs kill/导出为用户拍板不做。**已定稿落地中（2026-10-12，Atd 对照调研拍板）**：迷你面板 Mini Panel（= 蓝图里的 Launcher 面板，语义见 §6.1）、快捷空间、通知悬浮球退役并入药丸。**已移除**：消息反馈（轮尾 👍/👎+备注）——引擎侧三 RPC、`/feedback` 命令与 OTLP 遥测随通道一并撤出组合，见 `engine/profile/cordis.patch.yml`。
@@ -20,7 +20,7 @@
 > 定位：**DSH 引擎定义语义**（每行"引擎来源"是事实）；参考图/Codex 的对应词汇仅为一致的 UX 参照。
 > 实测依据：本机 `dsh --profile web --dump-config` + 已装包 `dsh-agent-presets` / `dsh-persona` / `dsh-skill` / `dsh-client-ui-agent-preset`。
 
-| 参考图（Ask Anything 截图） | DSHmini 对象 | 引擎来源 |
+| 参考图（Ask Anything 截图） | DeepDive 对象 | 引擎来源 |
 |---|---|---|
 | **Ask Anything 单入口**（标题+大输入框） | **Launcher Composer**：一行输入 = 任务/@引用/命令 | `ctx.sessions`、`commands`、`attachment` |
 | **AI Agents 面板**（选择器） | **Agent Preset 角色**：通用设置「默认会话模式」卡片选定，**新建会话生效、创建即锁定**（`agent-preset-locked`，引擎拒绝运行中切换）；只开放 standard（标准）/ minimal（极简）两项 | `agent-presets` 设置命名空间 `default`、`agentPresets/list`、`agent-preset/selected` |
@@ -144,7 +144,7 @@
 │ │ + 新建任务      │ │ ┌ 对话流 ─────────────────┐ │ │
 │ │ ─ 任务列表 ──    │ │ │ 用户消息                │ │ │
 │ │ ● 修登录 bug    │ │ │ 助手回复(流式)          │ │ │
-│ │   [dshmini]    │ │ │ ⏱ 工具卡(折叠) …        │ │ │
+│ │   [deepdive]    │ │ │ ⏱ 工具卡(折叠) …        │ │ │
 │ │ ● 写导出文档    │ │ └ ────────────────────────┘ │ │
 │ │   [doc]        │ │ [输入框 ⌘V 附件]  [/ 命令]   │ │
 │ │ ✓ 发版检查      │ └────────────────────────────┘ │

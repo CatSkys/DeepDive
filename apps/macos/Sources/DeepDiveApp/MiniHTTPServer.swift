@@ -1,6 +1,6 @@
 import Foundation
 
-/// Minimal threaded HTTP/1.1 server — the DSHmini bridge origin (loopback by
+/// Minimal threaded HTTP/1.1 server — the DeepDive bridge origin (loopback by
 /// default；移动端远程面另起一个局域网监听，见 `RemoteAccess`).
 /// Short connections for static files and unary /api hops; WebSocket upgrades
 /// are handed to the relay raw. POSIX sockets keep it dependency-free.

@@ -170,8 +170,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.deliverDroppedFolders(urls, to: .panel)
         }
         if let bridgeURL = BridgeServer.shared.url {
-            // Deep link aid: DSHMINI_OPEN_SID=<session-id> opens that session on boot.
-            if let sid = ProcessInfo.processInfo.environment["DSHMINI_OPEN_SID"],
+            // Deep link aid: DEEPDIVE_OPEN_SID=<session-id> opens that session on boot.
+            if let sid = ProcessInfo.processInfo.environment["DEEPDIVE_OPEN_SID"],
                !sid.isEmpty,
                var comps = URLComponents(url: bridgeURL, resolvingAgainstBaseURL: false) {
                 comps.queryItems = [URLQueryItem(name: "sid", value: sid)]
@@ -234,9 +234,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 图标 / 菜单栏 / ⌥Space 三条唤出路径）。bridge URL 已在上方 load。
         windowController.showPanel()
 
-        // Dev/verification hook (same family as DSHMINI_OPEN_SID): open the
+        // Dev/verification hook (same family as DEEPDIVE_OPEN_SID): open the
         // settings window right after boot.
-        if ProcessInfo.processInfo.environment["DSHMINI_OPEN_SETTINGS"] == "1" {
+        if ProcessInfo.processInfo.environment["DEEPDIVE_OPEN_SETTINGS"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 self?.openSettings()
             }
@@ -1308,7 +1308,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func webRoot() -> URL? {
-        if let env = ProcessInfo.processInfo.environment["DSHMINI_WEB_ROOT"] {
+        if let env = ProcessInfo.processInfo.environment["DEEPDIVE_WEB_ROOT"] {
             return URL(fileURLWithPath: env, isDirectory: true)
         }
         return Bundle.main.resourceURL?.appendingPathComponent("web", isDirectory: true)

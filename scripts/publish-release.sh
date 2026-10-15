@@ -7,7 +7,7 @@
 #   ② 用 Sparkle 的 EdDSA 私钥签 DMG，写出 appcast.xml（装好的应用认的是这个签名）；
 #   ③ 传到公开发布仓：装好的 DeepDive 读的就是那里的 appcast（Info.plist 的 SUFeedURL）。
 #
-# 用法：DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package && make publish
+# 用法：DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package && make publish
 # 前置：gh 已登录（有 repo 权限）；EdDSA 私钥已在钥匙串（scripts/sparkle-tools.sh
 #       generate_keys --account com.deepdive.app，一次性，见 README 开发节）。
 #
@@ -19,9 +19,9 @@ cd "$(dirname "$0")/.."
 
 # 更新的落点：一个只放 Release 的公开仓。源码仓是私有的——装好的用户读不到它的
 # Release（GitHub 要鉴权），所以 feed 必须落在这里。
-RELEASES_REPO="${DSHMINI_RELEASES_REPO:-CatSkys/DeepDive-releases}"
+RELEASES_REPO="${DEEPDIVE_RELEASES_REPO:-CatSkys/DeepDive-releases}"
 # 与 apps/macos/project.yml 的 SUPublicEDKey 配对的私钥所在账户。
-SPARKLE_KEY_ACCOUNT="${DSHMINI_SPARKLE_ACCOUNT:-com.deepdive.app}"
+SPARKLE_KEY_ACCOUNT="${DEEPDIVE_SPARKLE_ACCOUNT:-com.deepdive.app}"
 
 VERSION=$(awk -F'"' '/CFBundleShortVersionString/ {print $2; exit}' apps/macos/project.yml)
 [ -n "$VERSION" ] || { echo "FAIL: 读不到 apps/macos/project.yml 里的 CFBundleShortVersionString" >&2; exit 1; }
@@ -33,14 +33,14 @@ APP=.build/release/Build/Products/Release/DeepDive.app
 ASSET="DeepDive-${VERSION}.dmg"
 TAG="v${VERSION}"
 
-[ -f "$DMG" ] || { echo "FAIL: 找不到 $DMG —— 先跑 DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package" >&2; exit 1; }
+[ -f "$DMG" ] || { echo "FAIL: 找不到 $DMG —— 先跑 DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package" >&2; exit 1; }
 [ -d "$APP" ] || { echo "FAIL: 找不到 $APP —— 先跑 make package" >&2; exit 1; }
 
 # ── ① 核验待发布的包 ──
 # 公证：票据没装订的话，用户首次联网前过不了 Gatekeeper（README 开发节记了这条）。
 xcrun stapler validate "$APP" >/dev/null 2>&1 \
   || { echo "FAIL: $APP 没有装订公证票据 —— 这个包发出去用户双击打不开。" >&2
-       echo "      用 DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package 重出一份。" >&2; exit 1; }
+       echo "      用 DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package 重出一份。" >&2; exit 1; }
 SEAL="$(codesign -dv --verbose=2 "$APP" 2>&1 || true)"
 case "$SEAL" in
   *"Authority=Developer ID Application"*) ;;

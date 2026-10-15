@@ -1,4 +1,4 @@
-/* DSHmini frontend theme — values from tokens.json (single source of truth).
+/* DeepDive frontend theme — values from tokens.json (single source of truth).
    Reference style: near-black glass, monochrome, no brand color.
    The window's vibrancy + dark tint show through transparent html/body; the
    in-page layers are translucent with backdrop blur — that is the glass.

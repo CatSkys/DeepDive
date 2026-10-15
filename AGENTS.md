@@ -1,6 +1,6 @@
 # AGENTS.md
 
-DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit 原生壳（`apps/macos`）+ 自建 React SPA（`frontend`）+ 被监督的 dsh 引擎子进程（`engine/`：MIT 的官方 DSH 内核 fork，仓内构建随包分发）。对外品牌 DeepDive；内部代号 DSHmini（scheme/目录/包名）有意保留（`docs/BRANDING.md §5`）。
+DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit 原生壳（`apps/macos`）+ 自建 React SPA（`frontend`）+ 被监督的 dsh 引擎子进程（`engine/`：MIT 的官方 DSH 内核 fork，仓内构建随包分发）。对外品牌 DeepDive；内部代号 DeepDive（scheme/目录/包名）有意保留（`docs/BRANDING.md §5`）。
 
 动手前先读对应的家，不要凭记忆：
 
@@ -35,7 +35,7 @@ docs/                      架构/规范/踩坑/协作约定
 make dev        # Debug 构建并打开（scripts/dev.sh）
 make app        # Release 构建 + 嵌入 web/engine 并打开（scripts/build-release.sh）
 make package    # Release + adhoc 深签 + DMG（dist/）
-DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 分发档（公证+装钉）：打包前自动把版本号最后一位 +1；前两位只有用户确认才能动（README 开发节）
+DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package   # 分发档（公证+装钉）：打包前自动把版本号最后一位 +1；前两位只有用户确认才能动（README 开发节）
 make deliver    # 一键日常交付：lint → 前端 build → 引擎保鲜 → Release+嵌入 → pkill → open → 日志确认（简单改动这一条就是全部）
 make check      # 树内快速验证：前端 lint + build（含严格 tsc，~10s）
 make hooks      # 启用 §5 机械卡点（core.hooksPath → scripts/git-hooks；worktree 共享）
@@ -44,7 +44,7 @@ make test       # 前端 vitest+两道门 ∥ 壳 XCTest 两腿并行（scripts/
 make publish    # 发一次应用更新：签 appcast + 传到公开发布仓。**外部动作**，只在用户要发版时才跑（README 应用更新节）
 make clean      # 清 .build 与 dist
 
-scripts/new-worktree.sh <slug>    # 开并行任务树 DSHmini-<slug>（分支 feat/<slug>，纪律见 WORKING-AGREEMENTS §5）
+scripts/new-worktree.sh <slug>    # 开并行任务树 DeepDive-<slug>（分支 feat/<slug>，纪律见 WORKING-AGREEMENTS §5）
 scripts/remove-worktree.sh <slug> # 合并后清场（删树删分支；--force 才允许丢脏树/未合并分支）
 
 cd frontend && npm run build   # tsc -b --noEmit && vite build
@@ -52,15 +52,15 @@ cd frontend && npm run test    # vitest run（事件回放/纯函数/api 信封�
 cd frontend && npm run lint    # eslint src，零报错
 node frontend/scripts/check-architecture.mjs   # 架构约束门（make test 已含）：CSS Module 类名写错这类静默失效
 cd apps/macos && xcodegen generate   # 改 project.yml 后重新生成工程
-cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -configuration Debug -derivedDataPath ../../.build/debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO   # 壳 XCTest 全量；开发中迭代用 -only-testing:DSHminiAppTests/<类名> 只跑受影响套件（秒级），全量留给 make test
+cd apps/macos && xcodebuild test -project DeepDive.xcodeproj -scheme DeepDive -configuration Debug -derivedDataPath ../../.build/debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO   # 壳 XCTest 全量；开发中迭代用 -only-testing:DeepDiveAppTests/<类名> 只跑受影响套件（秒级），全量留给 make test
 ```
 
 ## 完成的定义
 
-- **任务必须开树（§5，机械卡点在 pre-commit）**：先 `scripts/new-worktree.sh <slug>` 开 `DSHmini-<slug>` 树，所有改动在树里做；主仓只收 `merge --no-ff`，收尾 `scripts/remove-worktree.sh`。
+- **任务必须开树（§5，机械卡点在 pre-commit）**：先 `scripts/new-worktree.sh <slug>` 开 `DeepDive-<slug>` 树，所有改动在树里做；主仓只收 `merge --no-ff`，收尾 `scripts/remove-worktree.sh`。
 - **树内验证两条路（用户 2026-10-12 定稿）**：简单改动（文案/样式/注释/文档/脚本）= `make check`（lint+build，~10s）；改行为逻辑（事件摄取/渲染语义/壳侧 Swift/引擎契约）= `make test` 全绿。拿不准算不算行为改动，按行为改动跑。
 - **主仓合并后 `make deliver` 交付**（内含 lint、build、引擎保鲜、pkill/open/日志确认）——应用重启、用户可直接看；**验收归用户，不自行截图/做视觉验收**（铁律 2）。
-- **测试纪律**：单次测试严禁超过 2 分钟（test.sh 看门狗超时即杀，手动跑同样掐表）；同一轮改动最多跑 2 次，仍红带日志停下报告，禁止冷却/第三轮重跑；壳侧开发中迭代用 `-only-testing:DSHminiAppTests/<类名>` 快速腿。
+- **测试纪律**：单次测试严禁超过 2 分钟（test.sh 看门狗超时即杀，手动跑同样掐表）；同一轮改动最多跑 2 次，仍红带日志停下报告，禁止冷却/第三轮重跑；壳侧开发中迭代用 `-only-testing:DeepDiveAppTests/<类名>` 快速腿。
 - 无死代码残留：删除功能时代码、样式、文案、文档引用一并删干净；禁止留下注释掉的代码。
 
 ## 工程铁律
@@ -88,7 +88,7 @@ cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -con
 - UI 文案一律经 `t()`/`tt()` 词典（`frontend/src/i18n.ts`），JSX 不写裸中文；同一概念全项目同一词。
 - 注释只写代码看不出的约束（契约/边界/为什么），不写实现叙述。
 - 平行值的未解释不对称通常意味着漏了一次抽取——优先补齐而非各写一套。
-- 引擎/壳侧标识符用 `deepdive.*` 命名空间（桥钩子 `__deepDiveHost`、消息通道 `deepdive`/`deepdiveHost`），勿再用 dshmini 旧名。
+- 引擎/壳侧标识符一律用 `deepdive.*` 命名空间（桥钩子 `__deepDiveHost`、消息通道 `deepdive`/`deepdiveHost`）。
 
 ## 文档约定
 

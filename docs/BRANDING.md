@@ -1,7 +1,7 @@
 # DeepDive（深潜）品牌定稿（2026-09-02）
 
 > 状态：**品牌名已定（DeepDive · 深潜）**；logo 定稿（白底实心 D + 右侧渐变模糊，2026-10-08）。
-> 工程改名已于 2026-09-02 执行（见 §5 清单，全部落地；内部代号 scheme/源码目录按 §5 保留 DSHmini 减少 diff）。仓库：CatSkys/DeepDive。
+> 工程改名已于 2026-09-02 执行（见 §5 清单）。内部代号当时按 §5 保留，已于 2026-10-15 随仓库改名 **CatSkys/DeepDive** 一并退役——代码、脚本与文档里只应出现 DeepDive；下表 §5 的"现值"列是当时的历史记录，不为现状。
 
 ## 1. 品牌名
 
@@ -49,6 +49,6 @@
 | 壳↔前端桥 | `window.__dshminiHost` / handler `dshmini`·`dshminiHost` | `__deepDiveHost` / `deepdive`·`deepdiveHost` | ✅ 双端同步改 |
 | 本地存储键 | `dsh.pinned` / `dsh.unread` / `dsh.workspace` | `deepdive.*` | ✅ 已改名（localStorage 随桥端口轮换本就不持久，接受重置） |
 | 数据/日志目录 | `~/Library/Application Support/DSHmini`（AppPaths） | `DeepDive` | ✅ 已迁移：首启动按子项整体搬入新目录，偏好域 com.dshmini.app→com.deepdive.app 一次性拷贝 |
-| 内部代号 | `Sources/DSHminiApp/`、scheme `DSHmini`、package `@dshmini/frontend` | 可选保留 | 减少 diff，纯内部 |
+| 内部代号 | `Sources/DSHminiApp/`、scheme `DSHmini`、package `@dshmini/frontend`、环境变量 `DSHMINI_*` | `DeepDiveApp`/`DeepDive`/`@deepdive/frontend`/`DEEPDIVE_*` | ✅ 2026-10-15 退役（仓库已改名 DeepDive）；仅剩两处**必须**保留旧串：`AppPaths` 的旧数据目录搬迁与 `DSHAppPrefs` 读旧偏好域 |
 | logo 资产文件名 | `dshmini-logo-*` / `dshmini-icon-*` | `deepdive-*` | 与种子生成器同步改后重新导出 |
 | 协议层（session.* / workspace.* / question/*） | — | 不动 | 引擎自身契约，与品牌无关 |

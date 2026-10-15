@@ -1,6 +1,6 @@
 import Foundation
 
-/// DSHmini bridge: the same-origin frontend seat.
+/// DeepDive bridge: the same-origin frontend seat.
 ///
 /// Serves the self-built SPA (dark glass, UI-SPEC) and forwards the engine's
 /// own `/api` gateway. Forwarding goes out through URLSession without a

@@ -51,7 +51,7 @@ describe("bashSummary 终端行摘要", () => {
     expect(bashSummary(JSON.stringify({ command: "git status", description: "查看工作区状态" }))).toBe("查看工作区状态");
   });
   it("无 description 回退命令摘要：剥掉开头的 cd … && 前缀（会话本就在那个目录）", () => {
-    expect(bashSummary(JSON.stringify({ command: "cd /Users/me/DSHmini && npm run build" }))).toBe("npm run build");
+    expect(bashSummary(JSON.stringify({ command: "cd /Users/me/DeepDive && npm run build" }))).toBe("npm run build");
     expect(bashSummary(JSON.stringify({ command: "cd /a b/c&& make package" }))).toBe("make package");
   });
   it("回退路径不碰无 cd 前缀的命令；多行取首行", () => {
@@ -80,7 +80,7 @@ describe("browserSummary", () => {
 });
 
 describe("relativizePath", () => {
-  const cwd = "/Users/me/DSHmini";
+  const cwd = "/Users/me/DeepDive";
   it("cwd 内的绝对路径剥前缀为项目内路径", () => {
     expect(relativizePath(`${cwd}/frontend/src/a.ts`, cwd)).toBe("frontend/src/a.ts");
   });

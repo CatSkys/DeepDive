@@ -4,7 +4,7 @@ import XCTest
 /// 静态文件服务的路径穿越守卫（R-002）：先 percent-decode 再标准化再前缀
 /// 检查，编码或裸 `../` 都不得逃出 web root。
 final class BridgeServerTests: XCTestCase {
-    let root = URL(fileURLWithPath: "/tmp/dshmini-static-root", isDirectory: true).standardizedFileURL
+    let root = URL(fileURLWithPath: "/tmp/deepdive-static-root", isDirectory: true).standardizedFileURL
 
     func testResolvesIndexAndAssets() throws {
         let index = try XCTUnwrap(BridgeServer.staticFileURL(for: "/", root: root))

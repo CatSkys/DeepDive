@@ -1,5 +1,5 @@
 #!/bin/bash
-# DeepDive — 新建并行任务 worktree：目录 DSHmini-<slug>（主仓同级），分支 feat/<slug>.
+# DeepDive — 新建并行任务 worktree：目录 DeepDive-<slug>（主仓同级），分支 feat/<slug>.
 # 纪律见 docs/WORKING-AGREEMENTS §5：主仓只收合并，任务在树里做，收尾 remove-worktree.sh 清场。
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -8,7 +8,7 @@ SLUG="${1:-}"
 case "$SLUG" in
   ""|-*|*/*) echo "用法: scripts/new-worktree.sh <slug> [--skip-bootstrap]" >&2; exit 1 ;;
 esac
-DIR="../DSHmini-${SLUG}"
+DIR="../DeepDive-${SLUG}"
 BRANCH="feat/${SLUG}"
 
 git show-ref --verify --quiet "refs/heads/$BRANCH" && {
@@ -49,6 +49,6 @@ cat <<EOF
 在该树工作：
   cd $DIR_ABS
   提交到 ${BRANCH}（不动 main）；完成后回主仓 merge --no-ff，再 scripts/remove-worktree.sh ${SLUG}
-  在树里跑 app 必带隔离支撑目录（PITFALLS §7.2）：DSHMINI_SUPPORT_DIR=$DIR_ABS/.support
+  在树里跑 app 必带隔离支撑目录（PITFALLS §7.2）：DEEPDIVE_SUPPORT_DIR=$DIR_ABS/.support
   XCTest 测试支撑目录按树隔离（.build/test-support）：多棵树可并行跑 make test
 EOF

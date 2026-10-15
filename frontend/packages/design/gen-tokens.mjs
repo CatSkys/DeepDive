@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// DSHmini design-token codegen.
+// DeepDive design-token codegen.
 // Single source of truth: frontend/packages/design/tokens.json
 // Output:
 //   frontend/packages/design/generated/tokens.css  (CSS custom properties)

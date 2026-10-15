@@ -25,8 +25,8 @@ const fenced = (body: string) => "```automation\n" + body + "\n```";
 describe("parseProposal", () => {
   it("接受协议形状并归一可选字段", () => {
     expect(parseProposal(JSON.stringify(daily))).toEqual({ ...daily, workspace: null, permission: null });
-    expect(parseProposal(JSON.stringify({ ...daily, workspace: "DSHmini", permission: "workspace-write" })))
-      .toEqual({ ...daily, workspace: "DSHmini", permission: "workspace-write" });
+    expect(parseProposal(JSON.stringify({ ...daily, workspace: "DeepDive", permission: "workspace-write" })))
+      .toEqual({ ...daily, workspace: "DeepDive", permission: "workspace-write" });
   });
 
   it("坏 JSON / 缺字段 / 计划形状不对一律 null", () => {

@@ -1,6 +1,6 @@
 # NOTIFICATIONS — 通知与迷你面板状态面 spec（v3）
 
-> **状态**：通知（§1）与事件源（§3）**已实现**；§2 悬浮球 **v3 退役**——状态面并入迷你面板药丸（产品语义的家 = `SPEC-SEMANTICS §6.1`）。落地文件：`NativeAlerts.swift`、`FloatingBubble.swift`（v3 起由迷你面板承接后撤除）、`EngineEventObserver.swift`（方案 A：壳自读 mux）。工程改名后标识符已变：桥钩子 `__dshminiHost` → **`__deepDiveHost`**、messageHandler `dshminiHost` → **`deepdiveHost`**、偏好键 `dsh.alerts.*` → **`deepdive.alerts.*`**（见 BRANDING §5）。
+> **状态**：通知（§1）与事件源（§3）**已实现**；§2 悬浮球 **v3 退役**——状态面并入迷你面板药丸（产品语义的家 = `SPEC-SEMANTICS §6.1`）。落地文件：`NativeAlerts.swift`、`FloatingBubble.swift`（v3 起由迷你面板承接后撤除）、`EngineEventObserver.swift`（方案 A：壳自读 mux）。工程改名后标识符已变：桥钩子 `__deepdiveHost` → **`__deepDiveHost`**、messageHandler `deepdiveHost` → **`deepdiveHost`**、偏好键 `dsh.alerts.*` → **`deepdive.alerts.*`**（见 BRANDING §5）。
 > 工程流 C。重点参考 `luochenw/deepseek-harness-macos`：`NativeAlerts.swift`（`UNUserNotificationCenter` + `NSStatusItem`）、`FloatingBubble.swift`（`NSPanel` 悬浮球）。这些是 **WebView 标签页做不到的 OS 级能力**，必须落在原生 Swift 层。
 > 视觉纪律（`UI-SPEC`）：黑白灰阶、无强调色（彩色仅 diff 内容层语义色）；状态用符号+亮度，**不用红点/彩色海景**——参考项目的红点与海景需按 spec 转 monochrome。
 > v2 变更：①通知按 `SPEC-SEMANTICS §5` 分级静默（回合完成不带 sound）②补引擎失败通知③新增 **§3.1 外壳↔前端通道**（通知点击"转入会话"/悬浮球聚焦会话/主题联动的落地前提，现状为零通道）④授权时机定为首次派发任务⑤菜单对现状的两处取舍写明。
@@ -62,7 +62,7 @@
 ## 3. 事件来源（原生侧感知会话状态）
 
 通知/悬浮球要在**原生侧**知道"运行中 / 回合完成 / 待审批 / 待提问"。两种方案：
-- **A（推荐，对齐参考）**：原生侧**直接订阅引擎事件流**（DSHmini shell 读 `ws://…/api/events.mux`，解析 `server-request` 交 `session/event`、`approval/requested`、`approval/resolved` 等），在原生层派生 running/turn-finish/approval 状态。原生层自持有业务状态，不依赖前端。
+- **A（推荐，对齐参考）**：原生侧**直接订阅引擎事件流**（DeepDive shell 读 `ws://…/api/events.mux`，解析 `server-request` 交 `session/event`、`approval/requested`、`approval/resolved` 等），在原生层派生 running/turn-finish/approval 状态。原生层自持有业务状态，不依赖前端。
 - **B**：前端（React，已订阅 mux）经 **前端→外壳桥**上报状态给原生层。
 - 选用 **A**：外壳自读引擎事件，通知/悬浮球/菜单栏徽标全部原生实时，逻辑集中、可靠。可在现有 `BridgeServer`/`EngineSupervisor` 增加一个轻量事件监听器。
 
@@ -76,12 +76,12 @@
 
 | 文件 | 变更 |
 |---|---|
-| `apps/macos/Sources/DSHminiApp/NativeAlerts.swift` | 新增（通知 + 状态条徽标） |
-| `apps/macos/Sources/DSHminiApp/FloatingBubble.swift`（Manager+View 合一） | 新增（悬浮球） |
-| `apps/macos/Sources/DSHminiApp/StatusItemController.swift` | 扩展徽标 + 设置入口 |
-| `apps/macos/Sources/DSHminiApp/EngineEventObserver.swift` | 新增（读引擎 mux，派生状态） |
-| `apps/macos/Sources/DSHminiApp/MainWindowController.swift` | `__deepDiveHost` 钩子注入 + `evaluateJavaScript` 下发（§3.1；SETTINGS 外观联动复用） |
-| `apps/macos/Sources/DSHminiApp/DSHAppPrefs.swift` | 新增（notifyTurnEnd/notifyAttention 开关） |
+| `apps/macos/Sources/DeepDiveApp/NativeAlerts.swift` | 新增（通知 + 状态条徽标） |
+| `apps/macos/Sources/DeepDiveApp/FloatingBubble.swift`（Manager+View 合一） | 新增（悬浮球） |
+| `apps/macos/Sources/DeepDiveApp/StatusItemController.swift` | 扩展徽标 + 设置入口 |
+| `apps/macos/Sources/DeepDiveApp/EngineEventObserver.swift` | 新增（读引擎 mux，派生状态） |
+| `apps/macos/Sources/DeepDiveApp/MainWindowController.swift` | `__deepDiveHost` 钩子注入 + `evaluateJavaScript` 下发（§3.1；SETTINGS 外观联动复用） |
+| `apps/macos/Sources/DeepDiveApp/DSHAppPrefs.swift` | 新增（notifyTurnEnd/notifyAttention 开关） |
 | 设置「通用」分区 | 接两个通知开关与悬浮球开关 |
 
 > v3：`FloatingBubble.swift` 随迷你面板落地撤除，其观察者 feed 与点击聚焦语义由药丸承接（§2）；上表保留为 §1/§3 的实现记录。

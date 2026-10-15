@@ -6,7 +6,7 @@
 
 ## 0. 工作方式
 
-- **载体**：worktree `DSHmini-engine-self`（分支 `feat/engine-self`），主 checkout 与其在途改动不动；
+- **载体**：worktree `DeepDive-engine-self`（分支 `feat/engine-self`），主 checkout 与其在途改动不动；
   每个里程碑独立 PR 链，合并即进下一段。
 - **闸门**：现有三道闸门（真实启动 / 消息可落 / 组合等价）全程跑，形态随阶段演进——M0/M1 照旧，
   M2 起按自研形态重定义（boot 冒烟与组合快照对着新引擎推）；`make test` 两道门全程绿。

@@ -68,7 +68,7 @@ extension EngineSupervisor {
                 && url.path != "/usr/local/bin/dsh"
                 && url.path != "/usr/bin/dsh"
             if isOverride {
-                return "无法启动引擎（\(url.path)）：\(error.localizedDescription)\n\n请检查 DSHMINI_DSH_ENTRY 指向的 dsh 是否可用。"
+                return "无法启动引擎（\(url.path)）：\(error.localizedDescription)\n\n请检查 DEEPDIVE_DSH_ENTRY 指向的 dsh 是否可用。"
             }
             return "无法启动引擎：\(error.localizedDescription)\n\n请确认已安装 dsh：\nnpm i -g @deepseek-ai/dsh"
         }
