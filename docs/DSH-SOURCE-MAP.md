@@ -65,7 +65,7 @@
 
 ## 侧栏浏览器
 - `@deepseek-ai/dsh-client-ui-sidebar-browser`（**0.1.7 才有**，本仓 vendored 副本是 0.1.5，
-  所以参考物单独入库在 `reference/dsh-0.1.7-client-ui/sidebar-browser/`）
+  所以参考物另存本地 `reference/dsh-0.1.7-client-ui/sidebar-browser/`，不入库）
   - `lib/types/client/browser/url.ts` → `frontend/src/sidebar-right/browserUrl.ts`（逐条照抄）
   - `lib/types/client/browser/BrowserNavigation.js`（编译在 `lib/client.js`）→
     `frontend/src/sidebar-right/browserNavigation.ts`（类改成不可变纯函数）

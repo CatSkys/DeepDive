@@ -24,7 +24,7 @@ export const INPUT_PLACEHOLDER = "{{input}}";
 
 /**
  * 内置命令（Atd 的 starter 同源：名字与提示词照搬，参数先取默认值——翻译目标语言、
- * 总结形态、待办分组；参数化菜单见 docs/atd-research/SELECTION-CAPTURE.md 提案③）。
+ * 总结形态、待办分组；参数化菜单见本地调研 docs/atd-research/SELECTION-CAPTURE.md 提案③，不入库）。
  * Atd 另两条 starter（总结文件 / 就截图提问）的输入是附件与截图，划词给不了，不收。
  */
 export function builtinSelectionCommands(): SelectionCommand[] {

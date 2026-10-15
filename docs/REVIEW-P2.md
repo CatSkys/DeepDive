@@ -1,7 +1,7 @@
 # 架构 Review（P2）— 对照 DSH 官方源码
 
 日期：2026-08-31
-对照依据：`/Users/hanbyking/Downloads/deepseek-harness-master`（官方源码 + docs/architecture.zh.md / AGENTS.md / docs/subsystems/{session,conversation}.zh.md）
+对照依据：官方源码副本 `deepseek-harness-master`（含 docs/architecture.zh.md / AGENTS.md / docs/subsystems/{session,conversation}.zh.md）
 结论先行：**功能可用，但事件→UI 模型与官方有结构性差距**。当前是"能跑的自建"，若要长期对齐官方、避免反复踩坑，需按本文优先级收敛。
 
 > **收口状态（2026-09-03 更新）**：§6 建议清单里 P0 与 P1 各项**均已落地**——

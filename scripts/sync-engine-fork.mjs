@@ -19,8 +19,9 @@
 // point, naming is cosmetic and reversible.
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = "/Users/hanbyking/Documents/DSHmini";
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const HS = join(ROOT, "deepseek-harness");
 const OUT = join(ROOT, "engine");
 
