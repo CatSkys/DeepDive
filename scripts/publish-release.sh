@@ -5,7 +5,7 @@
 #   ① 核验待发布的包：Developer ID 签名 + 已装订公证票据 + 两个版本键都等于版本号
 #      —— 发出去的更新是**装到别人机器上**的，坏包没有第二次机会；
 #   ② 用 Sparkle 的 EdDSA 私钥签 DMG，写出 appcast.xml（装好的应用认的是这个签名）；
-#   ③ 传到公开发布仓：装好的 DeepDive 读的就是那里的 appcast（Info.plist 的 SUFeedURL）。
+#   ③ 传到本仓 Releases：装好的 DeepDive 读的就是那里的 appcast（Info.plist 的 SUFeedURL）。
 #
 # 用法：DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package && make publish
 # 前置：gh 已登录（有 repo 权限）；EdDSA 私钥已在钥匙串（scripts/sparkle-tools.sh
@@ -17,9 +17,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# 更新的落点：一个只放 Release 的公开仓。源码仓是私有的——装好的用户读不到它的
-# Release（GitHub 要鉴权），所以 feed 必须落在这里。
-RELEASES_REPO="${DEEPDIVE_RELEASES_REPO:-CatSkys/DeepDive-releases}"
+# 更新的落点：**本仓 Releases**——源码仓公开后装好的用户能匿名读它的 Release，
+# 专用发布仓随即退役（2026-10-15）。换源有个尾巴：换源之前发的构建读的是旧仓那份
+# feed，要对旧仓再发一版（DEEPDIVE_RELEASES_REPO=CatSkys/DeepDive-releases 跑一次）
+# 它们才升得上来；升完旧仓即可归档。
+RELEASES_REPO="${DEEPDIVE_RELEASES_REPO:-CatSkys/DeepDive}"
 # 与 apps/macos/project.yml 的 SUPublicEDKey 配对的私钥所在账户。
 SPARKLE_KEY_ACCOUNT="${DEEPDIVE_SPARKLE_ACCOUNT:-com.deepdive.app}"
 

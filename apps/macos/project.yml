@@ -75,10 +75,12 @@ targets:
         NSCameraUsageDescription: "网页（视频通话、拍照上传）需要使用摄像头。"
         NSSpeechRecognitionUsageDescription: "听写使用系统语音识别将你的语音转换为文字。"
         # ── 应用自身更新（Sparkle）──
-        # feed 指向公开发布仓的 appcast.xml：`releases/latest/download/<asset>` 这条
+        # feed 指向本仓 Releases 的 appcast.xml：`releases/latest/download/<asset>` 这条
         # 永久链接每次发布都换成最新那份，装好的用户永远读它。发布链见
         # scripts/publish-release.sh（签 DMG + 写 appcast + 上传，三件事一起）。
-        SUFeedURL: https://github.com/CatSkys/DeepDive-releases/releases/latest/download/appcast.xml
+        # 2026-10-15 之前发的构建读的是 CatSkys/DeepDive-releases 那份 feed（当时源码仓私有）：
+        # 换源后那批装机要靠对旧仓再发一版才升得上来，见 README「应用更新」节。
+        SUFeedURL: https://github.com/CatSkys/DeepDive/releases/latest/download/appcast.xml
         # EdDSA 公钥：核对下载到的 DMG 用的是不是我们自己签的那一份。私钥在钥匙串
         # （账户 com.deepdive.app，scripts/sparkle-tools.sh 的 generate_keys 生成）。
         SUPublicEDKey: q5T7gNJ4Jf74sLSJjkQVNzPYQnBdTYBS9xvnNOPehwY=
