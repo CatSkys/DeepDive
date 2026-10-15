@@ -3,12 +3,39 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# 正在运行的实例会挡住打包：它就是从这个包跑起来的，引擎子进程正映射着包里 Runtime 下的
+# 文件，prune 那步的 `rm -rf` 会以 `Directory not empty` 失败（PITFALLS §5.5）。交付链
+# 一直在停旧实例，打包链之前没有——这条差就是它。停不掉即停：带着旧实例打包是撞竞态。
+bash scripts/stop-app.sh
+
 # 分发档 = 带公证的这一份（README：发给他人必须用这条）。**每次分发自动递增最后一位
 # 版本号**——用户 2026-10-09 定稿："每次分发就更新最后一位，前两位只有我确认才能更新"。
 # 必须放在 xcodegen **之前**：Info.plist 与 DMG 文件名都是从这里之后的 build 取的
 # （版本号唯一事实源 = apps/macos/project.yml，见 scripts/bump-app-version.sh）。
 # 不带公证的本地包不动版本号（不算分发）。
+#
+# 递增是"这一版真的发出去了"的一部分，所以先留一份 project.yml 原文、失败时还原：打包
+# 任何一步挂掉（公证被拒、staple 挂、磁盘满…）都不该吃掉一个号，否则重打就是再 +1——
+# 0.1.2/0.1.3 就是这么空的（PITFALLS §5.1）。这与 §5.1「别手工往回改」不冲突：还原的是
+# **没产出任何包**的那次尝试，不会与任何已存在的 DMG 产物对不上。
+VERSION_SNAPSHOT=""
+STAGE=""
+on_exit() {
+  status=$?
+  if [ -n "$VERSION_SNAPSHOT" ]; then
+    cp -f "$VERSION_SNAPSHOT" apps/macos/project.yml
+    rm -f "$VERSION_SNAPSHOT"
+    echo "WARN: 打包失败（exit ${status}）—— 版本号已还原，本次没有消耗版本号。" >&2
+  fi
+  if [ -n "$STAGE" ]; then
+    rm -rf "$STAGE"
+  fi
+}
+trap on_exit EXIT
+
 if [ -n "${DSHMINI_NOTARY_PROFILE:-}" ]; then
+  VERSION_SNAPSHOT="$(mktemp)"
+  cp -f apps/macos/project.yml "$VERSION_SNAPSHOT"
   bash scripts/bump-app-version.sh patch
 fi
 
@@ -80,7 +107,6 @@ rm -f "$DMG" "$RW"
 # 画在窗口背景上（浅底黑字——窗口不跟随系统外观，暗底图在浅色模式里会跳）。
 # design/dmg/ 是背景图的唯一事实源，见其 README。
 STAGE="$(mktemp -d)"
-trap 'rm -rf "$STAGE"' EXIT
 ditto "$APP" "$STAGE/DeepDive.app"
 ln -s /Applications "$STAGE/Applications"
 
@@ -153,4 +179,6 @@ fi
 
 hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -o "$DMG" -quiet
 rm -f "$RW" "$BG"
+# 包已经出来了：撤销 on_exit 的还原，让这一版版本号留在 project.yml 上。
+VERSION_SNAPSHOT=""
 echo "OK: $DMG"

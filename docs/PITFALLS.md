@@ -1056,7 +1056,7 @@
 ### 5.1 版本号的唯一呈现是包名与 Info.plist（buildSha define 是死码，已删）
 - 曾有"角标显示假 SHA"事故（58ecf97 之谜），当时的处置是在 vite.config define 烘焙 `__DSH_BUILD_SHA__`；后续 UI 改版角标被移除，define 变成零消费死码、其注释还在宣称存在 sidebar badge——2026-09 体检（AUD-033）删除。
 - 现状态：版本以 `scripts/package-macos.sh` 从生成的 Info.plist 读取并进 DMG 文件名（xcodegen 先行、读取 fail-loud）；**不要再往 vite.config 加无人消费的 define**，加了也查不到消费者（grep src 为准）。
-- **递增发生在打包之前，所以"打包失败"也会消耗一个版本号**：带 `DSHMINI_NOTARY_PROFILE` 的打包在 xcodegen 之前先 `bump-app-version.sh patch`，失败（公证被拒、staple 挂、磁盘满…）之后重打就是**再 +1**。2026-10-14 真机打包 Sparkle 版时连撞两次打包竞态（§5.5），版本从 0.1.1 一路走到 0.1.4——**没发过版的号是空号，不用心疼，但别把"版本号连跳三格"当成有人在乱改**。要重来一遍就从当前号继续，别手工往回改（改回去反而与已存在的 DMG 产物对不上）。
+- **递增只在打包成功时才留下**：带 `DSHMINI_NOTARY_PROFILE` 的打包在 xcodegen 之前 `bump-app-version.sh patch`，并在同一处留一份 `project.yml` 原文——任何一步挂掉（公证被拒、staple 挂、磁盘满…）都由 EXIT trap 还原，失败的尝试不消耗版本号（`scripts/package-macos.sh`）。当时的原状见本条事故：2026-10-14 真机打包 Sparkle 版时连撞两次打包竞态（§5.5），没有还原，版本从 0.1.1 一路走到 0.1.4，0.1.2/0.1.3 成了空号。**没发过版的号是空号，不用心疼，但别把"版本号连跳三格"当成有人在乱改**；已经被产物占用的号不要手工往回改（改回去反而与已存在的 DMG 产物对不上）。
 
 ### 5.2 验收对象必须是 .build/release 最新包——Debug 实例会混入
 - `xcodebuild test` 会产出 `.build/debug` 的 Debug app；它可能被 launchd/误点启动，**内嵌前端是旧的**，在它上面调试/验收会看到与最新代码不符的行为（2026-09-04 事故：快捷键轮在 Debug 残留实例上测，行为对不上源码）。
@@ -1094,7 +1094,7 @@
 - 事故（2026-09-05）：两个会话同时在仓库里构建/打包，`dist/.dsh-runtime-cache/<ver>` 被打断后 lib 级兄弟依赖丢失——嵌入自检通过（只验 bin.js 存在）但启动 `ERR_MODULE_NOT_FOUND: @deepseek-ai/dsh-app-boot`，引擎 3 连崩后 app 空转；同窗口还出现过另一版本号新缓存，证明确有并行写入。
 - 处置：先 `rm -rf dist/.dsh-runtime-cache/<版本> && bash scripts/prepare-dsh-runtime.sh` 重建再打包；**多会话并行时打包/构建类命令前确认对方没在跑**。已知盲区：`validate_runtime` 只查 3 个嵌套 @deepseek-ai 依赖、不查 lib/node_modules 兄弟包，坏缓存能过校验（待补校验）。
 - **同一个竞态的两个新症状（2026-10-14，真机打包 Sparkle 版时连着撞到）**：
-  - **正在运行的实例会挡住打包**：`make package` 在 prune 那步死在 `rm -rf .build/release/…/Runtime/dsh/node_modules: Directory not empty`（跟着 dsh 也删不掉）。实例就是从这个包跑的，它的引擎子进程正执行/映射着那些文件——**`rm -rf` 删完目录又发现里面冒出新条目，就报这个错**（不是权限、也不是"没删干净"）。判别式：报错路径落在 `.build/release/…/Runtime` 下，`lsof +D <那个 Runtime 目录>` 能看到 `node` 的行。处置：**打包前先 `pkill -f "DeepDive.app/Contents/MacOS/DeepDive"`**——交付链（`deliver.sh`）本来就在做，打包链（`package-macos.sh`）没有，这条差就是它。
+  - **正在运行的实例会挡住打包**：`make package` 在 prune 那步死在 `rm -rf .build/release/…/Runtime/dsh/node_modules: Directory not empty`（跟着 dsh 也删不掉）。实例就是从这个包跑的，它的引擎子进程正执行/映射着那些文件——**`rm -rf` 删完目录又发现里面冒出新条目，就报这个错**（不是权限、也不是"没删干净"）。判别式：报错路径落在 `.build/release/…/Runtime` 下，`lsof +D <那个 Runtime 目录>` 能看到 `node` 的行。处置：**打包前先停掉旧实例**——交付链（`deliver.sh`）与打包链（`package-macos.sh`）共用 `scripts/stop-app.sh`（SIGTERM + 等它真的退出，超时即 FAIL）；此前只有交付链在 pkill、打包链没有，这条差就是它。
   - **公证窗口里包被重签 → staple 必挂**：`notarytool` 报 `status: Accepted`，紧接着 `stapler staple` 报 `Could not find base64 encoded ticket in response for 2/<cdhash>` / `Record not found`（Error 65）。原因是**票据按 cdhash 记账**，而包在「打成 zip」与「装钉」之间被另一个交付动作（同树上的 `make deliver`：重签 + `open`）换掉了签名，cdhash 就变了——Apple 那儿根本没有这个新 cdhash 的记录，等多久都不会有。判别式（两条任一即成）：staple 报错里的 `<cdhash>` ≠ 当下 `codesign -dvvv <app>` 的 `CDHash=`；或**公证用的那份 zip 里 `Contents/MacOS/DeepDive` 的 sha256 ≠ 现在这个文件的**（`unzip -p .build/notary-upload.zip … | shasum -a 256`）。处置：打包→公证→装钉这一整段里，同一棵树不能有别的构建/交付动作——这正是 §5「多会话不共用同一 working tree」那条纪律要防的事；撞上就只能重打一次（注意：**失败的那次已经消耗掉一个版本号**，见 §5.1）。
   - 教训：**"并行会话"的代价不只是缓存被写坏，还会以完全无关的报错出现**（目录删不掉、票据查不到）。两处的判别式都在"谁在动这个包"上，不在报错文字上。
 
