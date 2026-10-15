@@ -1,6 +1,6 @@
 # AGENTS.md
 
-DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit 原生壳（`apps/macos`）+ 自建 React SPA（`frontend`）+ 被监督的 dsh 引擎子进程（`engine/`：MIT 的官方 DSH 内核 fork，仓内构建随包分发）。对外品牌 DeepDive；内部代号 DeepDive（scheme/目录/包名）有意保留（`docs/BRANDING.md §5`）。
+DeepDive（深潜）—— DeepSeek Harness 的 macOS 客户端：Swift+AppKit 原生壳（`apps/macos`）+ 自建 React SPA（`frontend`）+ 被监督的 dsh 引擎子进程（`engine/`：MIT 的官方 DSH 内核 fork，仓内构建随包分发）。
 
 动手前先读对应的家，不要凭记忆：
 
