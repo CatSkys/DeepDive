@@ -7,7 +7,8 @@ import XCTest
 final class AppUpdaterTests: XCTestCase {
     func testPayloadCarriesVersionsAndSupport() {
         let payload = AppUpdater.statusPayload(
-            currentVersion: "1.2.3", readyVersion: "1.2.4", readyDate: "2026-10-14T01:04:50Z",
+            currentVersion: "1.2.3", readyVersion: "1.2.4", downloadingVersion: nil,
+            readyDate: "2026-10-14T01:04:50Z",
             readyNotes: "## 本版变更\n\n- 修了更新的退出", canUpdate: true
         )
         XCTAssertEqual(payload["currentVersion"] as? String, "1.2.3")
@@ -17,14 +18,26 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertEqual(payload["canUpdate"] as? Bool, true)
     }
 
+    /// 下载期那一份也要上桥：界面靠它显示「正在下载 x」，不然整段下载是空白的。
+    func testPayloadCarriesDownloadingVersion() {
+        let payload = AppUpdater.statusPayload(
+            currentVersion: "1.2.3", readyVersion: nil, downloadingVersion: "1.2.4",
+            readyDate: nil, readyNotes: nil, canUpdate: true
+        )
+        XCTAssertEqual(payload["downloadingVersion"] as? String, "1.2.4")
+        XCTAssertTrue(payload["readyVersion"] is NSNull)
+    }
+
     /// 没有待装更新时给 null 而不是空串：前端据此区分「没有待装的一份」与
     /// 「有待装但版本号读不到」。
     func testMissingReadyVersionIsNull() {
         let payload = AppUpdater.statusPayload(
-            currentVersion: "1.2.3", readyVersion: nil, readyDate: nil, readyNotes: nil,
+            currentVersion: "1.2.3", readyVersion: nil, downloadingVersion: nil,
+            readyDate: nil, readyNotes: nil,
             canUpdate: false
         )
         XCTAssertTrue(payload["readyVersion"] is NSNull)
+        XCTAssertTrue(payload["downloadingVersion"] is NSNull)
         XCTAssertEqual(payload["canUpdate"] as? Bool, false)
     }
 
@@ -32,7 +45,8 @@ final class AppUpdaterTests: XCTestCase {
     /// （那一版没附说明、或拉失败，卡片就少一段正文与日期，版本号照常在）。
     func testNotesAndDateAreIndependentlyNullable() {
         let payload = AppUpdater.statusPayload(
-            currentVersion: "1.2.3", readyVersion: "1.2.4", readyDate: nil, readyNotes: nil,
+            currentVersion: "1.2.3", readyVersion: "1.2.4", downloadingVersion: nil,
+            readyDate: nil, readyNotes: nil,
             canUpdate: true
         )
         XCTAssertEqual(payload["readyVersion"] as? String, "1.2.4")
@@ -44,12 +58,25 @@ final class AppUpdaterTests: XCTestCase {
     /// NSNull 是它唯一认的 null。
     func testPayloadIsJSONSerializable() throws {
         let payload = AppUpdater.statusPayload(
-            currentVersion: "1.2.3", readyVersion: nil, readyDate: nil, readyNotes: nil,
+            currentVersion: "1.2.3", readyVersion: nil, downloadingVersion: nil,
+            readyDate: nil, readyNotes: nil,
             canUpdate: true
         )
         let data = try JSONSerialization.data(withJSONObject: payload)
         let back = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         XCTAssertEqual(back?["currentVersion"] as? String, "1.2.3")
+    }
+
+    /// 两份菜单（App 菜单 / 状态栏）那一项「更新」的文案与可用性都取这一处——
+    /// 三态各钉一句，改文案时这两处不会各飘一边。
+    func testMenuItemTitleAndActionabilityPerState() {
+        XCTAssertEqual(AppUpdater.menuTitle(for: .check), "检查更新…")
+        XCTAssertEqual(AppUpdater.menuTitle(for: .downloading("1.2.4")), "正在下载 1.2.4…")
+        XCTAssertEqual(AppUpdater.menuTitle(for: .restart("1.2.4")), "重启以更新（1.2.4）")
+        // 下载中那项是状态展示而非入口：点它没有意义，菜单里禁用。
+        XCTAssertTrue(AppUpdater.MenuState.check.isActionable)
+        XCTAssertTrue(AppUpdater.MenuState.restart("1.2.4").isActionable)
+        XCTAssertFalse(AppUpdater.MenuState.downloading("1.2.4").isActionable)
     }
 
     /// 版本号读的是 bundle 的 marketing version（事实源 apps/macos/project.yml），

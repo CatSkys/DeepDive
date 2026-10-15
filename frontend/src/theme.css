@@ -314,6 +314,18 @@ button {
   font-size: var(--dsh-font-size-sm);
 }
 .update-card-install:hover { background: var(--fill-strong); border-color: var(--line-strong); }
+/* 说明正文的收起/展开：安静的纯文字钮、靠右——它归说明那一段，不去跟安装钮抢视线。 */
+.update-card-toggle {
+  align-self: flex-end;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: var(--dsh-font-size-sm);
+}
+.update-card-toggle:hover { color: var(--ink); }
+/* 「退出 DeepDive 时自动安装…」：与设置→关于那一行同一句话，这里只是落点不同。 */
+.update-card-caption { font-size: var(--dsh-font-size-sm); color: var(--ink-2); }
 
 /* ── 弹出面板统一配方 ─────────────────────────────────────────────
    菜单类浮层（模型菜单 / @ 附件 / / 命令 / 右键菜单 / 容量弹层 / 胶囊面板 /

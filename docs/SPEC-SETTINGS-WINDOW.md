@@ -32,7 +32,7 @@
 | 插件 | `frontend/src/plugins/`；契约与实测证据见 `PITFALLS §7.6` |
 | 移动端远程控制 | `SPEC-MOBILE-REMOTE.md`；实现 `mobile/RemoteControlSection.tsx` |
 | 使用统计 | `stats/usageStats.ts`（数据编码色见 `tokens.json` 的 color.chart） |
-| 关于 | `settings/AboutSection.tsx`（版本号 + 检查更新 / 重启以安装）。版本与「有没有待装的一份」都来自壳的 `AppUpdater.swift`，经桥事件 `updateState`；更新源与发布链见 `scripts/publish-release.sh` |
+| 关于 | `settings/AboutSection.tsx`（版本号 + 检查更新 / 正在下载 / 重启以安装三态）。版本、有没有在下的、有没有待装的一份都来自壳的 `AppUpdater.swift`，经桥事件 `updateState`；更新源、说明来源与发布链见 `scripts/publish-release.sh` 与 `.agents/skills/release-notes` |
 | 通用 · 已归档 · 导入 | `components/SettingsPage.tsx` 内的对应 section |
 
 ## 3. 通用编辑机制（一切命名空间）

@@ -12,31 +12,38 @@ import AppKit
 /// ② 其余按系统惯例给足（⌘O/⌘W/⌘M/⌘±/⌘0/⌘Z），包括「窗口」菜单的三条标准动作与
 ///    帮助里的日志/诊断入口——这些是"像正常 Mac 应用一样"的部分。
 enum MainMenu {
-    static func install(app: NSApplication, target: AppDelegate, window: MainWindowController) {
+    /// 返回 App 菜单里那一项「更新」（不支持更新的构建里是 nil）：它的标题随更新状态变，
+    /// 由 AppDelegate 刷新；动作与可用性与状态栏菜单共用 AppDelegate 那一份实现。
+    @discardableResult
+    static func install(app: NSApplication, target: AppDelegate, window: MainWindowController) -> NSMenuItem? {
         let main = NSMenu()
 
-        main.addItem(appMenuItem(target: target))
+        let appMenu = appMenuItem(target: target)
+        main.addItem(appMenu.item)
         main.addItem(fileMenuItem(target: target))
         main.addItem(editMenuItem())
         main.addItem(viewMenuItem(window: window))
         main.addItem(windowMenuItem())
         main.addItem(helpMenuItem(target: target))
         app.mainMenu = main
+        return appMenu.updateItem
     }
 
     // MARK: - 各区
 
-    private static func appMenuItem(target: AppDelegate) -> NSMenuItem {
+    private static func appMenuItem(target: AppDelegate) -> (item: NSMenuItem, updateItem: NSMenuItem?) {
         let item = NSMenuItem()
         let menu = NSMenu()
         item.submenu = menu
         menu.addItem(withTitle: "关于 DeepDive", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         // 「检查更新…」是 macOS 惯例位（关于之下）。Debug 构建不摆它——那种构建本来就不
         // 更新（AppUpdater.isSupported），摆一个点下去没反应的菜单项只会让人以为功能没做。
+        var updateItem: NSMenuItem?
         if AppUpdater.isSupported {
-            let checkUpdates = NSMenuItem(title: "检查更新…", action: #selector(AppDelegate.checkForUpdatesFromMenu(_:)), keyEquivalent: "")
+            let checkUpdates = NSMenuItem(title: "检查更新…", action: #selector(AppDelegate.updateMenuItemAction(_:)), keyEquivalent: "")
             checkUpdates.target = target
             menu.addItem(checkUpdates)
+            updateItem = checkUpdates
         }
         menu.addItem(.separator())
         let settings = NSMenuItem(title: "设置…", action: #selector(AppDelegate.openSettingsFromMenu(_:)), keyEquivalent: "")
@@ -55,7 +62,7 @@ enum MainMenu {
         menu.addItem(withTitle: "全部显示", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "退出 DeepDive", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        return item
+        return (item, updateItem)
     }
 
     private static func fileMenuItem(target: AppDelegate) -> NSMenuItem {

@@ -563,16 +563,19 @@ export function requestScreenRecording(): void {
 }
 
 /* ── 应用自身更新（壳侧 Sparkle；编排在 Sources/DSHminiApp/AppUpdater.swift）──
-   壳在每次 host-ready、以及「下载好一份待装更新」时推 `updateState`；设置页
-   打开得比 host-ready 晚，所以挂载时要一次快照——与 `get-prefs` → `prefs` 同形
-   （发请求 + 听推送），一条监听同时收「应答」与「后来的变化」，不给同一份状态
-   开第二条路。Release 构建才有更新器，Debug 构建 canUpdate=false。 ── */
+   壳在每次 host-ready、以及更新状态每变一次（发现新版本开始下载 / 下载完 / 没了）时推
+   `updateState`；设置页打开得比 host-ready 晚，所以挂载时要一次快照——与 `get-prefs` →
+   `prefs` 同形（发请求 + 听推送），一条监听同时收「应答」与「后来的变化」，不给同一份
+   状态开第二条路。Release 构建才有更新器，Debug 构建 canUpdate=false。 ── */
 
 export interface UpdateState {
   /** 当前应用版本（事实源 apps/macos/project.yml 的两个版本键）。 */
   currentVersion: string;
   /** 已下载待安装的版本；没有待装的就是 null。 */
   readyVersion: string | null;
+  /** 发现且正在下载的版本；没有在下的就是 null。下载期界面就靠它显示「正在下载 x」——
+   *  只有下完那一瞬才出现的入口会让人以为更新是突然冒出来的。 */
+  downloadingVersion: string | null;
   /** 那一版的发布日期（ISO8601，appcast 的 pubDate 定的）。 */
   readyDate: string | null;
   /** 那一版的发布说明正文（Markdown，来自 appcast 的 `sparkle:releaseNotesLink`）。
@@ -590,6 +593,7 @@ export function narrowUpdateState(p: unknown): UpdateState | null {
   return {
     currentVersion: v.currentVersion,
     readyVersion: typeof v.readyVersion === "string" ? v.readyVersion : null,
+    downloadingVersion: typeof v.downloadingVersion === "string" ? v.downloadingVersion : null,
     readyDate: typeof v.readyDate === "string" ? v.readyDate : null,
     readyNotes: typeof v.readyNotes === "string" ? v.readyNotes : null,
     canUpdate: v.canUpdate === true,

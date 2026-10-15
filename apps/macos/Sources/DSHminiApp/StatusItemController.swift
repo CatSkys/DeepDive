@@ -9,11 +9,17 @@ final class StatusItemController: NSObject {
 
     var onShowWindow: (() -> Void)?
     var onOpenSettings: (() -> Void)?
-    var onCheckForUpdates: (() -> Void)?
     var onReloadWeb: (() -> Void)?
     var onRestartEngine: (() -> Void)?
     var onChooseWorkspace: (() -> Void)?
     var onQuit: (() -> Void)?
+
+    /// 「更新」那一项的动作与可用性都落在 AppDelegate（`updateMenuItemAction` /
+    /// `validateMenuItem`）：App 菜单与这份状态栏菜单是两份 NSMenu，文案、动作、禁用条件
+    /// 必须同源，所以这里只借它的 target，不自己再实现一遍。
+    weak var updateMenuTarget: AnyObject?
+    /// App 菜单里那一项的同款引用由 `MainMenu.install` 返回；两份都由 AppDelegate 刷标题。
+    private(set) var updateMenuItem: NSMenuItem?
 
     private var item: NSStatusItem?
     /// 右键那一份功能菜单。**不挂到 `item.menu` 上**——挂上去左键也会弹菜单（见 `install`）。
@@ -43,9 +49,10 @@ final class StatusItemController: NSObject {
 
         // 与 App 菜单同一份判断：Debug 构建不摆「检查更新…」。
         if AppUpdater.isSupported {
-            let updates = NSMenuItem(title: "检查更新…", action: #selector(checkForUpdatesAction), keyEquivalent: "")
-            updates.target = self
+            let updates = NSMenuItem(title: "检查更新…", action: #selector(AppDelegate.updateMenuItemAction(_:)), keyEquivalent: "")
+            updates.target = updateMenuTarget
             menu.addItem(updates)
+            updateMenuItem = updates
         }
 
         let reload = NSMenuItem(title: "刷新界面", action: #selector(reloadAction), keyEquivalent: "r")
@@ -134,7 +141,6 @@ final class StatusItemController: NSObject {
 
     @objc private func showWindowAction() { onShowWindow?() }
     @objc private func openSettingsAction() { onOpenSettings?() }
-    @objc private func checkForUpdatesAction() { onCheckForUpdates?() }
     @objc private func reloadAction() { onReloadWeb?() }
     @objc private func restartAction() { onRestartEngine?() }
     @objc private func workspaceAction() { onChooseWorkspace?() }

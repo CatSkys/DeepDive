@@ -49,6 +49,21 @@ export function AboutSection() {
           )}
         </div>
 
+        {/* 已经找到新版本、正在静默下载：也给一行状态——否则从点下「检查更新」到
+            「已下载」之间整段是空白的，看起来像什么都没发生。 */}
+        {state?.canUpdate && !state.readyVersion && state.downloadingVersion && (
+          <div className={rowsCss.rowCard}>
+            <div className={rowsCss.rowIdentity}>
+              <div className={rowsCss.rowName}>
+                {tt("正在下载 {version}", "Downloading {version}", { version: state.downloadingVersion })}
+              </div>
+              <div className={rowsCss.rowCaption}>
+                {t("下载完成后，退出 DeepDive 时自动安装。")}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 静默下载好的那一份：退出时会自己装上，这一行是「现在就想装」的入口。
             没有待装的一份时整行不出现。 */}
         {state?.canUpdate && state.readyVersion && (
