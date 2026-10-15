@@ -35,7 +35,7 @@ docs/                      架构/规范/踩坑/协作约定
 make dev        # Debug 构建并打开（scripts/dev.sh）
 make app        # Release 构建 + 嵌入 web/engine 并打开（scripts/build-release.sh）
 make package    # Release + adhoc 深签 + DMG（dist/）
-DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package   # 分发档（公证+装钉）：打包前自动把版本号最后一位 +1；前两位只有用户确认才能动（README 开发节）
+DEEPDIVE_NOTARY_PROFILE=<钥匙串里的公证 profile 名> make package   # 分发档（公证+装钉）：打包前自动把版本号最后一位 +1；前两位只有用户确认才能动（README 开发节）
 make deliver    # 一键日常交付：lint → 前端 build → 引擎保鲜 → Release+嵌入 → pkill → open → 日志确认（简单改动这一条就是全部）
 make check      # 树内快速验证：前端 lint + build（含严格 tsc，~10s）
 make hooks      # 启用 §5 机械卡点（core.hooksPath → scripts/git-hooks；worktree 共享）
