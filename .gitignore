@@ -22,3 +22,8 @@ engine/**/lib/
 # 只人读的移植对照物与第三方调研素材：留在本地工作目录，不入库
 reference/
 docs/atd-research/
+
+# 上游 DSH 基线对照副本（按需取回，不入库）。engine/ 的 fork、两份 tsconfig 与
+# 移植对照都对着它：scripts/sync-engine-fork.mjs、gen-engine-*.mjs 的输入。
+# 取法见 docs/DSH-SOURCE-MAP.md（官方 tag 恒等于 scripts/dsh-runtime-version.txt）。
+deepseek-harness/

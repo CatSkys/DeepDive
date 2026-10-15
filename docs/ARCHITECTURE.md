@@ -145,12 +145,11 @@
 ```
 apps/macos/                Swift 壳（XcodeGen project.yml；xcodeproj/Info.plist 生成物已 ignore）
 frontend/                  自建 SPA（Vite 单入口）；packages/design = token 源 + 生成器
-engine/                    自研 dsh 引擎（pnpm monorepo；README 记 fork 范围与纪律）
+engine/                    官方 DSH 内核的仓内 fork（pnpm monorepo；README 记 fork 范围与纪律）
 engine/profile/            引擎组合：装载哪些插件的唯一事实源（bundle 包 + 期望快照 + README）
 design/logo/               DeepDive logo 种子工程与导出（白底实心 D + 右侧渐变模糊；BRANDING.md）
 scripts/                   构建/打包/嵌入/裁剪/组合门脚本 + 引擎/插件版本号
 docs/                      本架构 + 规范（UI/SEMANTICS/三个 P2 SPEC）+ PITFALLS + WORKING-AGREEMENTS
-deepseek-harness/          官方 DSH 源码 vendored 副本（fork 基线对照源，版本=引擎版本号，embed 时 check-dsh-source.sh 强校验）——资产/移植对照，勿当运行时
 ```
 
 ## 8. 与原蓝图（v0.3）的偏差（有意为之）

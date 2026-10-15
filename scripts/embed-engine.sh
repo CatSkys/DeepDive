@@ -38,8 +38,8 @@ ACTUAL_NODE_VERSION="$("$NODE" -p 'process.versions.node')"
   exit 1
 }
 
-# The vendored reference source must match the runtime pin before we embed it.
-bash "$ROOT/scripts/check-dsh-source.sh"
+# 这里不校验引脚：默认嵌的是 engine/ 的产物，其版本已由 build-engine.sh 对着
+# scripts/dsh-runtime-version.txt 验过（产物目录本身也按 pin 命名）。
 
 # 引擎来源：**默认嵌本仓构建的自有引擎**（engine/ 的产物，scripts/build-engine.sh）。
 # `DEEPDIVE_ENGINE_SOURCE=npm` 回退到 npm 闭包轨（对照/回退用）——产品面（设置→插件/技能、

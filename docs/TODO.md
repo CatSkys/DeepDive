@@ -46,7 +46,7 @@ personaSuffix}`（值 JSON 序列化防 YAML 注入，`--dump-config` 可验挂�
 SPA 平台化（platform.ts 能力清单/键位映射/字体栈/app-region 标题栏）落在本仓 `feat/windows` 分支；
 构建与冒烟见壳仓 `scripts/build.ps1`。待办：Windows 真机跑 P0 出口判据（完整对话/静态托管/关机收尾）、
 native flock addon 无 win32 平台包的消费者实测（PLAN-WINDOWS §6）、浏览器套件等降级面按期补齐（§9 P4）。
-已查明的关键路径：引擎 win32-x64 由上游 CI 与专用实现背书（`deepseek-harness/.github/workflows/ci.yml`、
+已查明的关键路径：引擎 win32-x64 由上游 CI 与专用实现背书（`.github/workflows/ci.yml`、
 `packages/sandbox/sandbox-windows-acl`、`session-persistence-jsonl/src/win32.ts`）；
 运行时闭包必须在 Windows 构建机准备（macOS 上的 `npm install` 只取 darwin 预编译产物）。
 

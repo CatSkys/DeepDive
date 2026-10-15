@@ -30,7 +30,7 @@
 
 - **事实**：双轨已经名存实亡。设置面的新 RPC（`skills/admin*`、`pluginInventory/patch*`）与会话的 `session/deleteSessions` / `workspace/unarchiveSessions` **只存在于 `engine/`**，npm 闭包轨下这些面直接不可用（前端已降级为"这个引擎没有该接口"）。也就是说：默认轨产出的应用是**功能残缺**的。
 - **做什么**：`scripts/embed-engine.sh` 的默认改成 fork；npm 闭包轨降级为"对照 / 回退"（脚本保留，`DEEPDIVE_ENGINE_SOURCE=npm` 显式选择）。
-- **判据**：不带 env 跑 `make app`，产出应用里 `skills/adminList`、`session/deleteSessions`、`pluginInventory/patchList` 三条 RPC 可用（经桥打一次即可）；`scripts/check-dsh-source.sh` 仍与 `scripts/dsh-runtime-version.txt` 对齐。
+- **判据**：不带 env 跑 `make app`，产出应用里 `skills/adminList`、`session/deleteSessions`、`pluginInventory/patchList` 三条 RPC 可用（经桥打一次即可）；引擎与 `scripts/dsh-runtime-version.txt` 的引脚对齐（`build-engine.sh` 构建时校验）。
 - **风险**：fork 与上游发布闭包的版本漂移（约 74 个包，已记在 `engine/README.md`）。等价性不靠版本号一致，靠三道闸门（真实启动 / 消息可落 / 组合零差异）。
 
 ## 3. 方向二：精简——把不消费的层剪掉

@@ -56,8 +56,8 @@ PNPM="${PNPM_SOURCE:-$(command -v pnpm || true)}"
 [[ -n "$PNPM" && -x "$PNPM" ]] || { echo "pnpm is required to build the engine workspace" >&2; exit 1; }
 
 # The forked root manifest must still agree with the pin: validate_runtime()
-# and check-dsh-source.sh both read that version, and a silent mismatch here
-# would only surface much later as a confusing boot failure.
+# also reads that version, and a silent mismatch here would only surface much
+# later as a confusing boot failure.
 ENGINE_VERSION="$(sed -n 's/^[[:space:]]*"version": "\(.*\)",\{0,1\}$/\1/p' "$ENGINE_DIR/apps/cli/package.json" | head -1)"
 [[ "$ENGINE_VERSION" == "$PIN" ]] || {
   echo "engine/apps/cli is $ENGINE_VERSION but the pin is $PIN." >&2
