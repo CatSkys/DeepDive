@@ -7,7 +7,7 @@
 #   ② 用 Sparkle 的 EdDSA 私钥签 DMG，写出 appcast.xml（装好的应用认的是这个签名）；
 #   ③ 传到本仓 Releases：装好的 DeepDive 读的就是那里的 appcast（Info.plist 的 SUFeedURL）。
 #
-# 用法：DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package && make publish
+# 用法：DEEPDIVE_NOTARY_PROFILE=<钥匙串里的公证 profile 名> make package && make publish
 # 前置：gh 已登录（有 repo 权限）；EdDSA 私钥已在钥匙串（scripts/sparkle-tools.sh
 #       generate_keys --account com.deepdive.app，一次性，见 README 开发节）。
 #
@@ -35,14 +35,14 @@ APP=.build/release/Build/Products/Release/DeepDive.app
 ASSET="DeepDive-${VERSION}.dmg"
 TAG="v${VERSION}"
 
-[ -f "$DMG" ] || { echo "FAIL: 找不到 $DMG —— 先跑 DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package" >&2; exit 1; }
+[ -f "$DMG" ] || { echo "FAIL: 找不到 $DMG —— 先跑 DEEPDIVE_NOTARY_PROFILE=<钥匙串里的公证 profile 名> make package" >&2; exit 1; }
 [ -d "$APP" ] || { echo "FAIL: 找不到 $APP —— 先跑 make package" >&2; exit 1; }
 
 # ── ① 核验待发布的包 ──
 # 公证：票据没装订的话，用户首次联网前过不了 Gatekeeper（README 开发节记了这条）。
 xcrun stapler validate "$APP" >/dev/null 2>&1 \
   || { echo "FAIL: $APP 没有装订公证票据 —— 这个包发出去用户双击打不开。" >&2
-       echo "      用 DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package 重出一份。" >&2; exit 1; }
+       echo "      用 DEEPDIVE_NOTARY_PROFILE=<钥匙串里的公证 profile 名> make package 重出一份。" >&2; exit 1; }
 SEAL="$(codesign -dv --verbose=2 "$APP" 2>&1 || true)"
 case "$SEAL" in
   *"Authority=Developer ID Application"*) ;;

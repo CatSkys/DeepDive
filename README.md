@@ -24,11 +24,13 @@ DMG 里只有两项：**DeepDive.app** 与 **Applications 链接**，安装引�
 make dev          # 构建 Debug 并打开应用
 make app          # Release 构建并打开
 make package      # 生成 Developer ID 签名 DMG（dist/）
-DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package   # 带公证与装钉（发给他人必须用这条）
+DEEPDIVE_NOTARY_PROFILE=<钥匙串里的公证 profile 名> make package   # 带公证与装钉（发给他人必须用这条）
 make publish      # 把刚打包的那份发成一次应用更新（签 appcast + 传到本仓 Releases）
 ```
 
 **发给他人必须公证**：未公证的包在 macOS 15 及以上会被 Gatekeeper 拦下——新用户双击只看到「未打开 DeepDive」，而那个对话框的默认按钮是「移到废纸篓」，用户按常规操作根本进不去（右键 → 打开 的旧绕过入口自 macOS 15 起已被系统取消）。诊断锚点：`spctl -a -vvv -t exec <app>` 报 `rejected / source=Unnotarized Developer ID`，系统日志见 `syspolicyd: Terminating process due to Gatekeeper rejection`。
+
+`<钥匙串里的公证 profile 名>` 是当初 `xcrun notarytool store-credentials` 存进钥匙串时起的名字（机器本地状态，本仓不内联）：能过 `xcrun notarytool history --keychain-profile <名字>` 就说明可用。
 
 **版本号（用户 2026-10-09 定稿）**：唯一事实源是 `apps/macos/project.yml` 的 `CFBundleShortVersionString` + `CFBundleVersion`（两处同步，别在别处再写；`Info.plist` 与 DMG 文件名都从它取）。**每次分发只递增最后一位**（0.1.0 → 0.1.1），由上面那条公证命令在 xcodegen 之前自动做（`scripts/bump-app-version.sh patch`），不需要谁记得；**前两位（major / minor）只有用户确认后才能动**，脚本对这两个要 `--user-confirmed`，没带旗标直接停。不带公证的本地 `make package` 不动版本号（那不算分发）。
 
