@@ -41,7 +41,7 @@ make check      # 树内快速验证：前端 lint + build（含严格 tsc，~10
 make hooks      # 启用 §5 机械卡点（core.hooksPath → scripts/git-hooks；worktree 共享）
 make tokens     # 手工重生成 tokens.json → tokens.css（构建已自动跑，这只用于想立刻看结果）
 make test       # 前端 vitest+两道门 ∥ 壳 XCTest 两腿并行（scripts/test.sh；起跑前自动清占测试锁的残留宿主）
-make publish    # 发一次应用更新：签 appcast + 传到公开发布仓。**外部动作**，只在用户要发版时才跑（README 应用更新节）
+make publish    # 发一次应用更新：签 appcast + 传到本仓 Releases。**外部动作**，只在用户要发版时才跑（README 应用更新节）
 make clean      # 清 .build 与 dist
 
 scripts/new-worktree.sh <slug>    # 开并行任务树 DeepDive-<slug>（分支 feat/<slug>，纪律见 WORKING-AGREEMENTS §5）
