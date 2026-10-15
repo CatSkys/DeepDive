@@ -23,11 +23,11 @@ enum BrowserCookies {
 
     /// 这台机器上可导入的来源（设置页那张表）。
     ///
-    /// 根目录可以被 `DSHMINI_BROWSER_IMPORT_ROOT` 覆盖：真机上验一遍导入的完整链路要么读别人的
+    /// 根目录可以被 `DEEPDIVE_BROWSER_IMPORT_ROOT` 覆盖：真机上验一遍导入的完整链路要么读别人的
     /// keychain（要用户输密码）、要么要完全磁盘访问权限，所以得能栽一份假档案进去
-    /// （与 `DSHMINI_SUPPORT_DIR` 同一条思路：只在开发/自检时设）。
+    /// （与 `DEEPDIVE_SUPPORT_DIR` 同一条思路：只在开发/自检时设）。
     static func installed() -> [BrowserCookieSource] {
-        let override = ProcessInfo.processInfo.environment["DSHMINI_BROWSER_IMPORT_ROOT"] ?? ""
+        let override = ProcessInfo.processInfo.environment["DEEPDIVE_BROWSER_IMPORT_ROOT"] ?? ""
         if !override.isEmpty {
             let base = URL(fileURLWithPath: override)
             return BrowserCookieSource.installed(home: base, applicationSupport: base.appendingPathComponent("Application Support"))

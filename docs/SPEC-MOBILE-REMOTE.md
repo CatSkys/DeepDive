@@ -1,6 +1,6 @@
 # SPEC：移动端远程控制
 
-> 状态：**第一阶段已实现**（2026-09-13，手机扫码连接）。拥有「远程访问」的产品语义与安全边界；壳桥消息清单归 `frontend/src/host.ts` 头部，HTTP/配对实现归 `apps/macos/Sources/DSHminiApp/RemoteAccess.swift`。Bot Channel（IM 机器人）见 §5「尚未做」。
+> 状态：**第一阶段已实现**（2026-09-13，手机扫码连接）。拥有「远程访问」的产品语义与安全边界；壳桥消息清单归 `frontend/src/host.ts` 头部，HTTP/配对实现归 `apps/macos/Sources/DeepDiveApp/RemoteAccess.swift`。Bot Channel（IM 机器人）见 §5「尚未做」。
 
 ## 0. 一句话
 

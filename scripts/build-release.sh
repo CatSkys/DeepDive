@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 (cd apps/macos && xcodegen generate)
-xcodebuild -project apps/macos/DSHmini.xcodeproj -scheme DSHmini \
+xcodebuild -project apps/macos/DeepDive.xcodeproj -scheme DeepDive \
   -configuration Release -derivedDataPath .build/release \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build \
   | tail -3

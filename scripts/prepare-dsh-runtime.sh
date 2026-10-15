@@ -1,5 +1,5 @@
 #!/bin/bash
-# DSHmini — prepare the pinned DSH runtime closure for bundling.
+# DeepDive — prepare the pinned DSH runtime closure for bundling.
 #
 # Aligned with luochenw/deepseek-harness-macos scripts/prepare-dsh-runtime.sh:
 #   - `scripts/dsh-runtime-version.txt` is the single version pin.
@@ -12,7 +12,7 @@
 #   - Optional DSH_RUNTIME_VERIFY_LATEST=1 requires `npm view` latest == pin
 #     (opt-in; with a prerelease pin this fails by design once npm latest has
 #     moved on — that is the "bump pin + test" signal).
-# DSHmini addition (SPEC-ENGINE-RUNTIME §3.1): `scripts/node-version.txt`
+# DeepDive addition (SPEC-ENGINE-RUNTIME §3.1): `scripts/node-version.txt`
 # pins the Node build-time toolchain; a mismatch fails loud instead of
 # silently bundling whatever node the build machine happens to have.
 set -euo pipefail

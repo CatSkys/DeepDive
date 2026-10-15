@@ -153,7 +153,7 @@ export function parseKeybinds(raw: unknown): KeybindOverrides {
 }
 
 /** 被 macOS 系统或本应用主菜单占着的组合：按键先到它们手里，绑了永远不会响
- *  （清单对应 apps/macos/Sources/DSHminiApp/MainMenu.swift 与系统全局键）。
+ *  （清单对应 apps/macos/Sources/DeepDiveApp/MainMenu.swift 与系统全局键）。
  *  录制时据此拒绝——不然用户会得到一个「看着绑好了、按下去没反应」的键位。 */
 export const RESERVED_COMBOS: ReadonlySet<string> = new Set([
   // 主菜单（MainMenu.swift）

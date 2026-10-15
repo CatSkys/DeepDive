@@ -219,7 +219,7 @@ final class EngineSupervisor {
 
     // MARK: - entry resolution
 
-    /// Priority (SPEC-ENGINE-RUNTIME §3.4): explicit `DSHMINI_DSH_ENTRY` is
+    /// Priority (SPEC-ENGINE-RUNTIME §3.4): explicit `DEEPDIVE_DSH_ENTRY` is
     /// the strongest override (must beat bundled, or cross-version A/B testing
     /// in §5 could not force a system dsh) → bundled node+bin.js → usual
     /// system locations → `PATH`.
@@ -229,19 +229,19 @@ final class EngineSupervisor {
     /// - bundled 残缺 → 拒启（重装），禁止静默换系统 dsh（`spawn` 拦下）；
     /// - 无 bundled 时的系统/PATH 入口 → 版本必须与 `EngineVersion.pinnedVersion`
     ///   逐字一致，否则拒启；
-    /// - `DSHMINI_DSH_ENTRY` 允许异版本（开发对照），但对生产 home 高危，仅告警。
+    /// - `DEEPDIVE_DSH_ENTRY` 允许异版本（开发对照），但对生产 home 高危，仅告警。
     /// `failure` = 找到了入口但被版本门拒启（Failure 须为 Error：String 不是，
     /// 包一层）。
     private struct EntryRejection: Error { let message: String }
 
     private func resolveEntry() -> Result<Entry, EntryRejection> {
-        let env = ProcessInfo.processInfo.environment["DSHMINI_DSH_ENTRY"]
+        let env = ProcessInfo.processInfo.environment["DEEPDIVE_DSH_ENTRY"]
         if let env, FileManager.default.isExecutableFile(atPath: env) {
             let url = URL(fileURLWithPath: env)
             let pin = EngineVersion.pinnedVersion
             let found = EngineVersion.probeExecutableVersion(url)
             if let pin, let found, found != pin {
-                log.append("[engine] DSHMINI_DSH_ENTRY version \(found) != pinned \(pin) (dev override; isolate with DSHMINI_SUPPORT_DIR)")
+                log.append("[engine] DEEPDIVE_DSH_ENTRY version \(found) != pinned \(pin) (dev override; isolate with DEEPDIVE_SUPPORT_DIR)")
             }
             return .success(.single(url))
         }

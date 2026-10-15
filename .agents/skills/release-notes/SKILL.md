@@ -1,6 +1,6 @@
 ---
 name: release-notes
-description: Write DeepDive's user-facing app update notes — the docs/release-notes/<version>.md file that ships as release-notes.md and shows up in the in-app update card. Use this whenever preparing a release (before DSHMINI_NOTARY_PROFILE=... make package, or before make publish), and whenever someone asks what changed in a version, wants release notes drafted, or wants a list of changes summarized for users.
+description: Write DeepDive's user-facing app update notes — the docs/release-notes/<version>.md file that ships as release-notes.md and shows up in the in-app update card. Use this whenever preparing a release (before DEEPDIVE_NOTARY_PROFILE=... make package, or before make publish), and whenever someone asks what changed in a version, wants release notes drafted, or wants a list of changes summarized for users.
 ---
 
 # DeepDive 应用更新说明

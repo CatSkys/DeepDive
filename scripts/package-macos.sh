@@ -33,7 +33,7 @@ on_exit() {
 }
 trap on_exit EXIT
 
-if [ -n "${DSHMINI_NOTARY_PROFILE:-}" ]; then
+if [ -n "${DEEPDIVE_NOTARY_PROFILE:-}" ]; then
   VERSION_SNAPSHOT="$(mktemp)"
   cp -f apps/macos/project.yml "$VERSION_SNAPSHOT"
   bash scripts/bump-app-version.sh patch
@@ -46,7 +46,7 @@ VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" apps/mac
   echo "FAIL: cannot read CFBundleShortVersionString from generated apps/macos/Info.plist"
   exit 1
 }
-xcodebuild -project apps/macos/DSHmini.xcodeproj -scheme DSHmini \
+xcodebuild -project apps/macos/DeepDive.xcodeproj -scheme DeepDive \
   -configuration Release -derivedDataPath .build/release \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build \
   | tail -3
@@ -64,12 +64,12 @@ bash scripts/embed-engine.sh "$APP"
 # 二者顺序勿倒（embed → 最终 seal → DMG）。
 bash scripts/sign-app.sh "$APP" --distribution
 
-# 公证（可选）：DSHMINI_NOTARY_PROFILE = notarytool 钥匙串 profile 名
+# 公证（可选）：DEEPDIVE_NOTARY_PROFILE = notarytool 钥匙串 profile 名
 # （一次性配置：xcrun notarytool store-credentials <名字> --apple-id … --team-id 49LSZKN27V）。
 # 未设置 → 显式跳过（无凭据环境照常出包）；设置后任何一步失败必须停——
 # 静默交付未公证包与 AUD-013 同型。只公证 .app（zip 提交）并装钉：票据随
 # app 走，离线首启也过 Gatekeeper；DMG 由已装钉的 app 组装，不再重复提交。
-if [ -n "${DSHMINI_NOTARY_PROFILE:-}" ]; then
+if [ -n "${DEEPDIVE_NOTARY_PROFILE:-}" ]; then
   # 公证前置：封签必须是 Developer ID（adhoc 没有 Team ID，notarytool 直接拒收）。
   # 判定读**刚签好的包**，不比对身份字符串——身份的唯一事实源在 sign-app.sh，
   # 这里引用它的局部变量 `$IDENTITY` 会随 set -u 直接 "unbound variable" 退出
@@ -86,15 +86,15 @@ if [ -n "${DSHMINI_NOTARY_PROFILE:-}" ]; then
   esac
   rm -f .build/notary-upload.zip
   ditto -c -k --keepParent "$APP" .build/notary-upload.zip
-  xcrun notarytool submit .build/notary-upload.zip --keychain-profile "$DSHMINI_NOTARY_PROFILE" --wait \
-    || { echo "FAIL: notarytool submit（详情：xcrun notarytool log <id> --keychain-profile ${DSHMINI_NOTARY_PROFILE}）"; exit 1; }
+  xcrun notarytool submit .build/notary-upload.zip --keychain-profile "$DEEPDIVE_NOTARY_PROFILE" --wait \
+    || { echo "FAIL: notarytool submit（详情：xcrun notarytool log <id> --keychain-profile ${DEEPDIVE_NOTARY_PROFILE}）"; exit 1; }
   xcrun stapler staple "$APP" || { echo "FAIL: stapler staple $APP"; exit 1; }
   xcrun stapler validate "$APP" || { echo "FAIL: stapler validate $APP"; exit 1; }
   echo "OK: notarized + stapled"
 else
   echo "WARN: SKIP notarization —— 此包**不能发给他人**：未公证包在 macOS 15+ 会被 Gatekeeper 拦下，"
   echo "      新用户双击只看到「未打开 DeepDive」（对话框默认按钮还是「移到废纸篓」）。"
-  echo "      发给他人请用：DSHMINI_NOTARY_PROFILE=<profile> make package（见 README 开发节）"
+  echo "      发给他人请用：DEEPDIVE_NOTARY_PROFILE=<profile> make package（见 README 开发节）"
 fi
 
 mkdir -p dist

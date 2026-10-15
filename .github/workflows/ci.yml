@@ -36,4 +36,4 @@ jobs:
       - name: Generate Xcode project
         run: cd apps/macos && xcodegen generate
       - name: XCTest
-        run: cd apps/macos && xcodebuild test -project DSHmini.xcodeproj -scheme DSHmini -configuration Debug -derivedDataPath ../../.build/debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+        run: cd apps/macos && xcodebuild test -project DeepDive.xcodeproj -scheme DeepDive -configuration Debug -derivedDataPath ../../.build/debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO

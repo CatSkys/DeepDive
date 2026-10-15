@@ -7,20 +7,20 @@
 > 工程流 A。目标：**用户无需安装 dsh** + **引擎版本变化对客户端无感**。
 > 参考：`luochenw/deepseek-harness-macos` 的 `scripts/prepare-dsh-runtime.sh`、`scripts/build-macos-app.sh`、`scripts/dsh-runtime-version.txt`、`DSHHostProtocol` 的 settings/credentials 端点。
 > v2 变更：钉死 bundled 入口形状（node + `lib/bin.js`，修 v1 的路径自相矛盾）；node 二进制版本同样引脚化；新增 §4.4 凭据冷启动闭环。
-> v2.1 变更：入口优先级修正（`DSHMINI_DSH_ENTRY` 显式 env 最强覆盖、压过 bundled，否则 §5"对照不同版本"失效）；子命令形状以实测为准；`PATH` 注入 bundled node；`package-macos.sh` 签名改 `--deep`；node 引脚不符改 fail-loud（不做自动下载）。
+> v2.1 变更：入口优先级修正（`DEEPDIVE_DSH_ENTRY` 显式 env 最强覆盖、压过 bundled，否则 §5"对照不同版本"失效）；子命令形状以实测为准；`PATH` 注入 bundled node；`package-macos.sh` 签名改 `--deep`；node 引脚不符改 fail-loud（不做自动下载）。
 > **引擎版本以 `scripts/dsh-runtime-version.txt` 为唯一事实源，不在本文内联数字**。版本史：rc.2 → 0.1.2-alpha.2 协议移植试验 → c590653 回退 rc.2（alpha.2 UNARY 面当时不可用）→ 2026-09-09 **升 0.1.2-rc.1 全量落地** → 2026-09-10 **升 0.1.5-rc.1 全量落地**（会话格式 V3 → §3.4 版本门；wire 契约现状态见 `DSH-WIRE.md`；旧兼容层已删）→ 2026-09-24 **评估上游 0.1.7-rc.1：暂不升**（依据与触发条件见 §5.1）→ 2026-10-10 **引擎自研化**（`engine/` 仓内构建，"引脚"语义收口为自研引擎自己的版本号，上游 dsh 转为种子/对照；npm 闭包轨降为回退）。
 
 ---
 
 ## 1. 背景与根因
 
-- DSHmini 现为**系统级浮动 `dsh`**：`EngineSupervisor.resolveDshEntry()` 只探测 `/opt/homebrew/bin/dsh` → `/usr/local/bin/dsh` → `/usr/bin/dsh` → PATH，找不到即 `failed` 并提示"请安装 dsh"。**无 dsh 无法运行。**
+- DeepDive 现为**系统级浮动 `dsh`**：`EngineSupervisor.resolveDshEntry()` 只探测 `/opt/homebrew/bin/dsh` → `/usr/local/bin/dsh` → `/usr/bin/dsh` → PATH，找不到即 `failed` 并提示"请安装 dsh"。**无 dsh 无法运行。**
 - 引擎网关对 `@Remote` 端点做认领（`claimsEndpoint`），非 Remote 方法直接回 HTTP 404。**`llm.listProviders`/`listConfigurableProviders` 在 0.1.1-rc.2 是普通方法（`dsh-llm/lib/index.js:1240` 前无 `@Remote`），0.1.2-alpha.2 起才升级为 `@Remote`**。→ 客户端依赖"一组方法名"必然被版本卡住。
 
 ## 2. 目标
 
 1. 引擎随 App 分发：`App` 自带 Node LTS + DSH runtime 闭包。
-2. 启动默认用 bundled 引擎；`DSHMINI_DSH_ENTRY`/系统 dsh 仅作覆盖。
+2. 启动默认用 bundled 引擎；`DEEPDIVE_DSH_ENTRY`/系统 dsh 仅作覆盖。
 3. 版本可管理：`dsh-runtime-version.txt` 为唯一版本引脚；构建校验 = npm `latest`（可关）；缓存命中跳过安装。
 4. 客户端对引擎版本**无感**：稳定面直接可用，版本敏感面**能力探测**，缺则隐藏、绝不崩溃。
 
@@ -61,15 +61,15 @@
 ### 3.4 入口解析与 spawn 形状（`EngineSupervisor`）
 - **入口形状改变**：bundled 场景不再是"单一 `dsh` 可执行直启"，而是 **bundled node + 入口脚本**——`executableURL = <bundle>/Contents/Resources/Runtime/node`，`arguments = [<bundle>/Contents/Resources/Runtime/dsh/lib/bin.js, "--profile", "web", "--no-open", "--port", "0"]`。**子命令形状以实测为准**：现状系统 dsh 用 `--profile web` 标志式，参考项目 bin.js 用 `web` 子命令式（`bin.js web --host 127.0.0.1 --port 0 --no-open`）——两者应等价，验收标准是能输出 `dsh web:` URL 行。`DSH_HOME` 仍指向应用数据目录（隔离）；环境 `PATH` 前置 bundled node 所在目录（runtime 内子进程需要，对齐参考项目）。
 - `resolveEntry()` 优先级（返回入口形状枚举，供 spawn 区分）：
-  1. `DSHMINI_DSH_ENTRY`（若可执行）→ 单可执行直启（现状形状）。**显式 env 是最强覆盖、压过 bundled**——§5"对照不同版本 API 面"依赖此优先级（若 bundled 更高，设了 env 仍启动 bundled，覆盖即失效）；普通用户无此 env，不受影响。
+  1. `DEEPDIVE_DSH_ENTRY`（若可执行）→ 单可执行直启（现状形状）。**显式 env 是最强覆盖、压过 bundled**——§5"对照不同版本 API 面"依赖此优先级（若 bundled 更高，设了 env 仍启动 bundled，覆盖即失效）；普通用户无此 env，不受影响。
   2. **bundled**：`Bundle.main` 下 `Resources/Runtime/dsh/lib/bin.js` 存在**且** `Resources/Runtime/node` 存在 → node + bin.js 形状。（注意 `Bundle.main.url(forResource:subdirectory:)` 相对 `Contents/Resources` 解析，subdirectory 应为 `Runtime/dsh/lib`——v1 写的 `Runtime/Contents` 有误。）
   3. 系统路径探测（现状）→ `PATH` 的 `dsh`。
 - **版本门（V3 会话格式单行道）**：会话数据被新引擎迁移后旧引擎读不了，故非 bundled 入口必须与随包引脚一致：
   - bundled 残缺（`Runtime/node` 或 `Runtime/dsh` 任一半在）→ 拒启并提示重装，**绝不回落系统 dsh**；
   - 无 bundled 时，系统/PATH 入口的 `--version` 须与随包 pin 逐字一致；不一致或识别不出版本同样拒启（「引擎版本不匹配」文案，两侧版本都写出来）；
-  - `DSHMINI_DSH_ENTRY` 保留为开发对照，异版本**仅告警**（§5 的对照实验靠它）。
+  - `DEEPDIVE_DSH_ENTRY` 保留为开发对照，异版本**仅告警**（§5 的对照实验靠它）。
   - pin 读 `Resources/dsh-runtime-version.txt`：由 `apps/macos/project.yml` 把 `scripts/dsh-runtime-version.txt` **原文件**拷进 bundle（不复制版本值），故未嵌入引擎的构建（`make dev`）也读得出 pin——否则版本门恰好在唯一需要它的场景里失效（`EngineVersion`）。
-- **失败文案随来源区分**：bundled 缺失/损坏（bin.js 或 node 不存在、启动即崩）提示"引擎程序不完整，请重新安装 App"；版本门拒启提示两侧版本 + 重装/`DSHMINI_DSH_ENTRY`；仅系统 dsh 找不到时才提示"请安装 dsh"（现状文案）。
+- **失败文案随来源区分**：bundled 缺失/损坏（bin.js 或 node 不存在、启动即崩）提示"引擎程序不完整，请重新安装 App"；版本门拒启提示两侧版本 + 重装/`DEEPDIVE_DSH_ENTRY`；仅系统 dsh 找不到时才提示"请安装 dsh"（现状文案）。
 
 
 ### 3.5 组合归属（自有组合取代挂载上游两层）
@@ -126,7 +126,7 @@
 
 - 引擎版本随**应用整体发布**（当前规格）——升级 bundled runtime = 发新版 App。
 - 长期：**App 自更新（Sparkle，`ARCHITECTURE §12` 已选型）**随更新带新内核；配合 §4 能力探测，双保险使引擎更新无感。
-- 开发：`DSHMINI_DSH_ENTRY` 指向任意目标版本 dsh，用于对照不同版本 API 面（异版本仅告警；对照务必配 `DSHMINI_SUPPORT_DIR` 隔离——生产 home 的会话格式不可降级读取，§3.4 版本门拦的正是这种混用）。
+- 开发：`DEEPDIVE_DSH_ENTRY` 指向任意目标版本 dsh，用于对照不同版本 API 面（异版本仅告警；对照务必配 `DEEPDIVE_SUPPORT_DIR` 隔离——生产 home 的会话格式不可降级读取，§3.4 版本门拦的正是这种混用）。
 
 ### 5.1 上游新 rc 的升级裁决：0.1.7-rc.1 暂不升（2026-09-24）
 
@@ -189,17 +189,17 @@
 | `scripts/dsh-runtime-version.txt` | 新增（运行时版本引脚） |
 | `scripts/node-version.txt` | 新增（node 二进制引脚，§3.1） |
 | `scripts/build-release.sh` / `package-macos.sh` / `dev.sh` | 追加 embed-engine；`package-macos.sh` 签名改 `codesign --force --deep`（现有浅签不覆盖嵌入的 `Runtime/node`，参考项目 embed 后即深签） |
-| `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` | 入口解析优先 bundled + spawn 形状（node+bin.js）+ 失败文案区分（§3.4） |
-| `apps/macos/Sources/DSHminiApp/EngineVersion.swift` / `apps/macos/project.yml` | 版本门：随包引脚（`dsh-runtime-version.txt` 作 bundle 资源）+ 外部入口 `--version` 探测与拒启文案（§3.4） |
-| `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` / `BridgeServer.swift` | 缺凭据只记日志、照常 spawn；静态资源不受引擎状态门控（§4.4） |
-| `apps/macos/Sources/DSHminiApp/AppDelegate.swift` / `frontend/src/App.tsx` | 失败面在 SPA 内：`engineState`（原因 + 日志尾部）+ 横幅/详情弹窗（§4.4）；`LegacyCredentials` 启动期迁移 |
+| `apps/macos/Sources/DeepDiveApp/EngineSupervisor.swift` | 入口解析优先 bundled + spawn 形状（node+bin.js）+ 失败文案区分（§3.4） |
+| `apps/macos/Sources/DeepDiveApp/EngineVersion.swift` / `apps/macos/project.yml` | 版本门：随包引脚（`dsh-runtime-version.txt` 作 bundle 资源）+ 外部入口 `--version` 探测与拒启文案（§3.4） |
+| `apps/macos/Sources/DeepDiveApp/EngineSupervisor.swift` / `BridgeServer.swift` | 缺凭据只记日志、照常 spawn；静态资源不受引擎状态门控（§4.4） |
+| `apps/macos/Sources/DeepDiveApp/AppDelegate.swift` / `frontend/src/App.tsx` | 失败面在 SPA 内：`engineState`（原因 + 日志尾部）+ 横幅/详情弹窗（§4.4）；`LegacyCredentials` 启动期迁移 |
 | `engine/profile/` | 新增：自有组合（`cordis.patch.yml` 唯一事实源 + `composition.expected.txt` 期望快照 + README 的改法与升引脚流程）（§3.5） |
 | `scripts/embed-engine.sh` | 追加：拷 `EngineProfile` + 组合自检；插入裁剪与启动冒烟，并把步骤顺序固定下来（§3.3） |
 | `scripts/prune-dsh-runtime.sh` | 新增：按自有组合裁掉闭包里不装载的包（移除清单与 `cordis.patch.yml` 同源） |
 | `scripts/smoke-engine-boot.sh` | 新增：真起一次引擎等就绪行——裁剪与组合的唯一有效判据（§3.3） |
 | `scripts/dump-engine-composition.sh` / `check-engine-composition.sh` | 新增：组合的可 diff 事实源 + 漂移门（接进 `make test`） |
-| `apps/macos/Sources/DSHminiApp/ProfileComposer.swift` | 新增：组合的部署与既有安装迁移（§3.5） |
-| `apps/macos/Sources/DSHminiApp/DeploymentPrompt.swift` | 新增：部署提示词及其落点（`<DSH_HOME>/AGENTS.md` 托管块）（§3.6） |
-| `apps/macos/Sources/DSHminiApp/EngineSupervisor.swift` | `enginePatchBody` 去掉 `system-prompt` 的 personaPrefix（那条路被 preset 遮蔽，§3.6）、缩到只剩"装配"两行 insert |
+| `apps/macos/Sources/DeepDiveApp/ProfileComposer.swift` | 新增：组合的部署与既有安装迁移（§3.5） |
+| `apps/macos/Sources/DeepDiveApp/DeploymentPrompt.swift` | 新增：部署提示词及其落点（`<DSH_HOME>/AGENTS.md` 托管块）（§3.6） |
+| `apps/macos/Sources/DeepDiveApp/EngineSupervisor.swift` | `enginePatchBody` 去掉 `system-prompt` 的 personaPrefix（那条路被 preset 遮蔽，§3.6）、缩到只剩"装配"两行 insert |
 
-> 依赖：DSHmini 需在构建机有 Node/npm（仅构建时）。运行时自包含，不依赖全局 npm/PATH。
+> 依赖：DeepDive 需在构建机有 Node/npm（仅构建时）。运行时自包含，不依赖全局 npm/PATH。

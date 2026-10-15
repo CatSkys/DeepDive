@@ -1,5 +1,5 @@
 // 设置 → 关于：当前应用版本号 + 应用更新（Sparkle）。只管这一屏的渲染与桥交互——
-// 版本号与「有没有待装的一份」都来自壳（Sources/DSHminiApp/AppUpdater.swift），
+// 版本号与「有没有待装的一份」都来自壳（Sources/DeepDiveApp/AppUpdater.swift），
 // 检查/安装的动作也都在壳里（桥命令 check-update / install-update）。
 
 import { useEffect, useState } from "react";

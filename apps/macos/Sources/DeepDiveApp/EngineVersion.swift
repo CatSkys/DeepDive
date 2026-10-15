@@ -55,7 +55,7 @@ enum EngineVersion {
     }
 
     /// 会话格式单行道：非 bundled 入口必须与随包 pin 逐字一致，否则拒启。
-    /// 开发对照走 `DSHMINI_DSH_ENTRY` + 隔离 `DSHMINI_SUPPORT_DIR`（SPEC §5），
+    /// 开发对照走 `DEEPDIVE_DSH_ENTRY` + 隔离 `DEEPDIVE_SUPPORT_DIR`（SPEC §5），
     /// 不对生产 home 做“随便找个系统 dsh 凑合”的降级。`nil` = 放行。
     static func gateNonBundled(pin: String?, found: String?, path: String) -> String? {
         guard let pin, !pin.isEmpty else { return nil }
@@ -63,14 +63,14 @@ enum EngineVersion {
             return """
             无法确认外部 dsh 的版本（\(path)）。\n\n\
             本应用随包引擎为 \(pin)。会话数据格式不可降级读取，已拒绝使用无法识别版本的入口。\n\n\
-            请重新安装 DeepDive，或设置 DSHMINI_DSH_ENTRY 指向与随包同版本的 dsh（开发对照）。
+            请重新安装 DeepDive，或设置 DEEPDIVE_DSH_ENTRY 指向与随包同版本的 dsh（开发对照）。
             """
         }
         if found == pin { return nil }
         return """
         引擎版本不匹配：外部 dsh（\(path)）为 \(found)，本应用随包为 \(pin)。\n\n\
         会话数据格式升级后不可降级读取，混用旧引擎会导致会话打不开。\n\n\
-        请重新安装 DeepDive（使用随包引擎），或设置 DSHMINI_DSH_ENTRY 指向 \(pin)。
+        请重新安装 DeepDive（使用随包引擎），或设置 DEEPDIVE_DSH_ENTRY 指向 \(pin)。
         """
     }
 

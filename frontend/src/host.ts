@@ -562,7 +562,7 @@ export function requestScreenRecording(): void {
   sendToShell({ type: "screen-recording-request" });
 }
 
-/* ── 应用自身更新（壳侧 Sparkle；编排在 Sources/DSHminiApp/AppUpdater.swift）──
+/* ── 应用自身更新（壳侧 Sparkle；编排在 Sources/DeepDiveApp/AppUpdater.swift）──
    壳在每次 host-ready、以及更新状态每变一次（发现新版本开始下载 / 下载完 / 没了）时推
    `updateState`；设置页打开得比 host-ready 晚，所以挂载时要一次快照——与 `get-prefs` →
    `prefs` 同形（发请求 + 听推送），一条监听同时收「应答」与「后来的变化」，不给同一份

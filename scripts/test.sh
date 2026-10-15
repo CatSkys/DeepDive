@@ -25,7 +25,7 @@ unlock_test_lock() {
   kill -9 "$holder" 2>/dev/null || true
   holder=$(lsof -t "$lock" 2>/dev/null | head -1 || true)
   if [[ -z "$holder" ]]; then return 0; fi
-  pkill -f "xcodebuild test .*DSHmini.xcodeproj" 2>/dev/null || true
+  pkill -f "xcodebuild test .*DeepDive.xcodeproj" 2>/dev/null || true
   sleep 2
   holder=$(lsof -t "$lock" 2>/dev/null | head -1 || true)
   if [[ -n "$holder" ]]; then
@@ -56,7 +56,7 @@ shell_leg() {
   unlock_test_lock || return 1
   (cd apps/macos && xcodegen generate) || return 1
   # 输出落盘再截尾：exit code 不经管道丢失（xcodebuild 输出很长）
-  if ! xcodebuild test -project "$PWD/apps/macos/DSHmini.xcodeproj" -scheme DSHmini \
+  if ! xcodebuild test -project "$PWD/apps/macos/DeepDive.xcodeproj" -scheme DeepDive \
       -configuration Debug -derivedDataPath "$PWD/.build/debug" \
       CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO > .build/xctest.log 2>&1; then
     tail -30 .build/xctest.log; return 1
@@ -73,7 +73,7 @@ shell_leg & SH_PID=$!
 watchdog() {
   sleep 120
   echo "FAIL: 测试超过 120s——按用户口径直接杀" >&2
-  pkill -9 -f "xcodebuild test -project $PWD/apps/macos/DSHmini.xcodeproj" 2>/dev/null
+  pkill -9 -f "xcodebuild test -project $PWD/apps/macos/DeepDive.xcodeproj" 2>/dev/null
   pkill -9 -f "$PWD/.build/debug/Build/Products/Debug/DeepDive.app" 2>/dev/null
   kill -9 "$FE_PID" "$SH_PID" 2>/dev/null
   exit 1

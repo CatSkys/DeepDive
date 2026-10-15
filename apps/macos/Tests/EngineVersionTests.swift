@@ -18,7 +18,7 @@ final class EngineVersionTests: XCTestCase {
     }
 
     /// 未嵌入引擎的构建（make dev）没有 pin 可比：不设门，交开发流程自理
-    /// （对照实验隔离走 DSHMINI_SUPPORT_DIR）。
+    /// （对照实验隔离走 DEEPDIVE_SUPPORT_DIR）。
     func testGateSkippedWithoutPinnedVersion() {
         XCTAssertNil(EngineVersion.gateNonBundled(pin: nil, found: "1.1.1", path: "/opt/homebrew/bin/dsh"))
         XCTAssertNil(EngineVersion.gateNonBundled(pin: "", found: nil, path: "/opt/homebrew/bin/dsh"))

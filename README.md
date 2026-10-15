@@ -5,7 +5,7 @@ DeepSeek Harness 桌面客户端：原生玻璃窗口（Swift + AppKit + WKWebVi
 ## 环境
 
 - macOS 14+，Xcode 26（或 16+），[XcodeGen](https://github.com/yonaskolb/XcodeGen)（`brew install xcodegen`）
-- `dsh` CLI：`npm i -g @deepseek-ai/dsh`（`make dev` 默认用系统 dsh，Release/package 构建捆绑引脚版运行时；`DSHMINI_DSH_ENTRY` 可覆盖路径）
+- `dsh` CLI：`npm i -g @deepseek-ai/dsh`（`make dev` 默认用系统 dsh，Release/package 构建捆绑引脚版运行时；`DEEPDIVE_DSH_ENTRY` 可覆盖路径）
 
 ## 安装（把 DMG 给使用者）
 
@@ -22,7 +22,7 @@ DMG 里只有两项：**DeepDive.app** 与 **Applications 链接**，安装引�
 make dev          # 构建 Debug 并打开应用
 make app          # Release 构建并打开
 make package      # 生成 Developer ID 签名 DMG（dist/）
-DSHMINI_NOTARY_PROFILE=DSHMINI_NOTARY make package   # 带公证与装钉（发给他人必须用这条）
+DEEPDIVE_NOTARY_PROFILE=DEEPDIVE_NOTARY make package   # 带公证与装钉（发给他人必须用这条）
 make publish      # 把刚打包的那份发成一次应用更新（签 appcast + 传到发布仓）
 ```
 
@@ -36,11 +36,11 @@ make publish      # 把刚打包的那份发成一次应用更新（签 appcast 
 
 装好的 DeepDive 自己更新（Sparkle）：每小时后台查一次，静默下载，**退出时装上**（也可从菜单「检查更新…」或「设置 → 关于」立刻装）。Debug 构建不更新（`make dev` 的开发包不该被 Release 覆盖），也不摆入口。
 
-- **状态可见**：找到新版本**标题栏就多一颗更新钮**（红绿灯旁那排，收起侧栏/搜索的右边），hover 出的卡在下载期报「正在下载 x.y.z」，下载完变成版本、发布日期、本版变更正文（Markdown，可点链接，可收起）、一句「退出 DeepDive 时自动安装」与卡底那颗「重启以安装」。没有更新在途时那颗钮不存在。菜单里那一项同源：待装时是「重启以更新（x.y.z）」且点了就装，下载期是「正在下载 x.y.z…」并禁用。状态来自壳（`Sources/DSHminiApp/AppUpdater.swift`）经桥推给界面（`components/UpdateBadge.tsx`、设置→关于）。
+- **状态可见**：找到新版本**标题栏就多一颗更新钮**（红绿灯旁那排，收起侧栏/搜索的右边），hover 出的卡在下载期报「正在下载 x.y.z」，下载完变成版本、发布日期、本版变更正文（Markdown，可点链接，可收起）、一句「退出 DeepDive 时自动安装」与卡底那颗「重启以安装」。没有更新在途时那颗钮不存在。菜单里那一项同源：待装时是「重启以更新（x.y.z）」且点了就装，下载期是「正在下载 x.y.z…」并禁用。状态来自壳（`Sources/DeepDiveApp/AppUpdater.swift`）经桥推给界面（`components/UpdateBadge.tsx`、设置→关于）。
 - **说明正文**：首选仓库里**撰写的** `docs/release-notes/<版本>.md`（面向用户的人话，用 `.agents/skills/release-notes` 那个 skill 写）；没有它才退回「自上一个 tag 以来的提交主题」并告警。无论哪一档都随发布上传，应用读 appcast 的 `sparkle:releaseNotesLink` 拉回来。
 - **更新源**：公开发布仓 [CatSkys/DeepDive-releases](https://github.com/CatSkys/DeepDive-releases) 的 `appcast.xml`，应用读它的永久链接（`…/releases/latest/download/appcast.xml`，就是 Info.plist 的 `SUFeedURL`）。源码仓是私有的，装好的用户读不了它的 Release——所以 feed 落在那个只放产物的公开仓。**更新不需要对象存储**：客户端只做一件事——匿名 HTTPS 拉下 appcast 与 DMG 两个文件，任何能匿名读的 HTTPS 托管都行，GitHub Release 就是这种托管（Atd 另有一层 Cloudflare R2 镜像，那是给官网永久下载链接与 CDN 用的，不是更新的前置）。
 - **可信度**：更新包是否被接受由 appcast 里的 EdDSA 签名决定，公钥固化在 `project.yml` 的 `SUPublicEDKey`。私钥在钥匙串（账户 `com.deepdive.app`，一次性生成：`bash scripts/sparkle-tools.sh generate_keys --account com.deepdive.app`）——**它不在仓库里，丢了就只能靠旧版本的用户手动重装**。
-- **发布**：`DSHMINI_NOTARY_PROFILE=… make package` 出包（这一步会递增版本号）→ `make publish`。后者会先核验包里是 Developer ID + 已装订的公证票据 + 两个版本键都等于版本号，再签 DMG、准备发布说明（优先取撰写的 `docs/release-notes/<版本>.md`，见 `.agents/skills/release-notes`；没有才退回自上一个 `app-v*` tag 以来的提交主题并告警）、写 appcast、上传（说明既进 Release 正文也作为资产给应用读），最后拉一次永久 feed 链接确认它真的指向新版本，发布成功后打新 tag 作为下一版的基准。**上传是外部动作**，没人替你兜底，所以每道核验都是硬失败。
+- **发布**：`DEEPDIVE_NOTARY_PROFILE=… make package` 出包（这一步会递增版本号）→ `make publish`。后者会先核验包里是 Developer ID + 已装订的公证票据 + 两个版本键都等于版本号，再签 DMG、准备发布说明（优先取撰写的 `docs/release-notes/<版本>.md`，见 `.agents/skills/release-notes`；没有才退回自上一个 `app-v*` tag 以来的提交主题并告警）、写 appcast、上传（说明既进 Release 正文也作为资产给应用读），最后拉一次永久 feed 链接确认它真的指向新版本，发布成功后打新 tag 作为下一版的基准。**上传是外部动作**，没人替你兜底，所以每道核验都是硬失败。
 
 ## 数据
 

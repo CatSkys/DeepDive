@@ -1,12 +1,12 @@
 import Foundation
 
-/// Filesystem locations owned by DSHmini.
+/// Filesystem locations owned by DeepDive.
 enum AppPaths {
     static var supportDir: URL {
-        // Dev isolation hook (same family as DSHMINI_WEB_ROOT/DSHMINI_DSH_ENTRY):
+        // Dev isolation hook (same family as DEEPDIVE_WEB_ROOT/DEEPDIVE_DSH_ENTRY):
         // lets a second, test instance run beside a live one without touching
         // its harness home or instance lock.
-        if let env = ProcessInfo.processInfo.environment["DSHMINI_SUPPORT_DIR"], !env.isEmpty {
+        if let env = ProcessInfo.processInfo.environment["DEEPDIVE_SUPPORT_DIR"], !env.isEmpty {
             let override = URL(fileURLWithPath: env, isDirectory: true)
             try? FileManager.default.createDirectory(at: override, withIntermediateDirectories: true)
             return override

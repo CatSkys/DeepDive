@@ -36,7 +36,7 @@ VERSION 1.0.3）。本文只做**参考梳理**：它分成哪些块、每块假
 | **M 会话与标签休眠** | `Session.swift` 63、`Sleep.swift` 112。每空间 session JSON、闲置 30 分钟或内存压力时睡眠（先快照） | **要** | **壳**。63+112 行纯逻辑、零 UI；我们多标签后必然需要它（`takeSnapshot` 封面我们已经在用） |
 | **N 设置、偏好与更新** | `Settings.swift` 656、`Prefs.swift` 313、`Updater.swift` 458、`Inspector.swift` 59。7 页设置、`@Published` 偏好、自更新 | **部分要** | **SPA**：设置项照我们的设置页风格接（缩放、拦截、权限、快捷键）；**更新不要**（我们有自己的分发链） |
 | **O 扩展引擎** | `Extensions.swift` 1407、`ExtensionShims.swift` 3291、`ExtensionNative.swift` 242、`ExtensionPopup.swift` 348、`ExtensionSocket.swift` 164、`ExtensionsUI.swift` 234、`Crx.swift` 204。WKWebExtension 宿主契约 + Chrome 缺失 API shim + CRX3 验签 | **不要** | 它的前提是"自己是浏览器"（自有 tab/window/书签/历史/下载/钥匙串/进程宿主）；5,990 行成本极高，与"agent 用的面板"无关 |
-| **P 宿主持久化与杂项** | `Store.swift` 141、`Links.swift` 246。数据目录、测试世界隔离（`SEARCH_PROBE`）、跨 App 链接、默认浏览器注册 | **部分要** | **壳**：测试世界隔离的思路值得照抄（我们已有 `DSHMINI_SUPPORT_DIR`）；默认浏览器注册/Apple Event 不要 |
+| **P 宿主持久化与杂项** | `Store.swift` 141、`Links.swift` 246。数据目录、测试世界隔离（`SEARCH_PROBE`）、跨 App 链接、默认浏览器注册 | **部分要** | **壳**：测试世界隔离的思路值得照抄（我们已有 `DEEPDIVE_SUPPORT_DIR`）；默认浏览器注册/Apple Event 不要 |
 | **Q 共享 UI 原语与浮层** | `Plate.swift` 222、`Peek.swift` 116、`Welcome.swift` 425。面板共用盘子/卡片/行/胶囊、shift 预览层、首启导览 | **不要**（我们已有等价物） | SwiftUI 设计系统；我们的等价物是 `theme.css` 与现成组件 |
 | **R 内部测试与自动化** | `Bench.swift` 1626（Unix socket 驱动 open/wait/text/click/key/screenshot） | **要**（思路） | **agent**：我们的 `/browser-control` 就是它的对应物；它的命令表（click/key/wait/screenshot）可以当我们的**能力清单对照**，看还缺什么 |
 
@@ -80,7 +80,7 @@ VERSION 1.0.3）。本文只做**参考梳理**：它分成哪些块、每块假
 - **CRX3 离线验签**：手写 protobuf varint + `SecItemImport` + `SecKeyVerifySignature`，用 id = SHA-256(pubkey) 前 16 字节映射自证归属，拒绝符号链接包（`Crx.swift:75-141`）。
 - **worker WebSocket 走原生代理**：WebKit 会把扩展 worker 的 WS 阻塞主线程，改为 shim 经 native port + `URLSessionWebSocketTask`，连 Origin/UA 都按 Chrome 发（`ExtensionSocket.swift:1-15`）。
 - **性能判据实例**：浮窗去阴影让 WindowServer GPU 28%→16-20%（`Float.swift:88-93`）；滚动进度每 1% 才重绘（`Tab.swift:726-732`）。
-- **测试世界彻底隔离**：`SEARCH_PROBE` 下独立数据目录 + UserDefaults suite + `WKWebsiteDataStore` UUID；注释说明隔离失败曾导致真实用户 pin 丢失（`Store.swift:17-77`）——与我们的 `DSHMINI_SUPPORT_DIR` 同源思路。
+- **测试世界彻底隔离**：`SEARCH_PROBE` 下独立数据目录 + UserDefaults suite + `WKWebsiteDataStore` UUID；注释说明隔离失败曾导致真实用户 pin 丢失（`Store.swift:17-77`）——与我们的 `DEEPDIVE_SUPPORT_DIR` 同源思路。
 - **键盘让渡（Chrome 风格）**：`pageFirst` 把 ⌘K/⌘F/⌘S 先给页面、未被消费再回落，并用 handed 去重消掉系统提示音（`App.swift:782-793`、`Tab.swift:1285-1313`）——我们面板的快捷键将来会遇到同一个问题。
 
 ## 4. 与我们现状的差距（按块看我们还缺什么）

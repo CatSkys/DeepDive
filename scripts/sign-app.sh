@@ -29,7 +29,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="${1:?usage: sign-app.sh <app> [--distribution]}"
 MODE="${2:-dev}"
-IDENTITY="${DSHMINI_CODESIGN_IDENTITY:-Developer ID Application: HANGBIN JIN (49LSZKN27V)}"
+IDENTITY="${DEEPDIVE_CODESIGN_IDENTITY:-Developer ID Application: HANGBIN JIN (49LSZKN27V)}"
 
 if ! security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
   echo "WARN: '$IDENTITY' not in keychain; falling back to ad-hoc signing" >&2

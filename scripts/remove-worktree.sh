@@ -14,7 +14,7 @@ for arg in "$@"; do
   esac
 done
 [[ -n "$SLUG" ]] || { echo "用法: scripts/remove-worktree.sh <slug> [--force]" >&2; exit 1; }
-DIR="../DSHmini-${SLUG}"
+DIR="../DeepDive-${SLUG}"
 BRANCH="feat/${SLUG}"
 
 git worktree list --porcelain | grep -q "branch refs/heads/$BRANCH" || {

@@ -1,6 +1,6 @@
 # DeepDive Windows 客户端 — 方案与施工计划
 
-> **状态（2026-10-10）：壳主体已按本方案施工完成——C# 壳仓 `DeepDive-win`（用户指定独立目录）三层全落地（基础层+引擎链+桥 / 主窗+HostCommands+壳能力 / 构建车道+CI+测试钉子），SPA 平台化落在 DSHmini `feat/windows` 分支；macOS 端已跨编译验证（运行与 P0 出口判据待 Windows 真机）。** 本期不含浏览器套件等，见 §9/§11.2 的能力清单降级。
+> **状态（2026-10-10）：壳主体已按本方案施工完成——C# 壳仓 `DeepDive-win`（用户指定独立目录）三层全落地（基础层+引擎链+桥 / 主窗+HostCommands+壳能力 / 构建车道+CI+测试钉子），SPA 平台化落在 DeepDive `feat/windows` 分支；macOS 端已跨编译验证（运行与 P0 出口判据待 Windows 真机）。** 本期不含浏览器套件等，见 §9/§11.2 的能力清单降级。
 > 运行时偏差：实际用 **.NET 10 LTS**（本文各处写的 .NET 8 于 2026-11 EOL，已升档；WPF/WebView2 选型不变）。
 > 本文仍是 Windows 端决策与施工图的唯一事实源；macOS 端 as-built 归 `ARCHITECTURE.md`，路线归 `TODO.md`。
 > 依据：Raycast 2.0 技术复盘（`raycast.com/blog/a-technical-deep-dive-into-the-new-raycast`）
@@ -118,7 +118,7 @@ Windows 侧的含义：
    我们在 C# 用 P/Invoke 建一次即可。
 3. **入口形状不变但解析不同**：bundled 仍是 `node.exe + lib/bin.js`，子命令与
    `dsh web:` URL 行的解析逻辑照旧（`apps/cli` 的就绪行输出，纯 stdout，无平台依赖）。
-   `DSHMINI_DSH_ENTRY` 开发对照面保留。
+   `DEEPDIVE_DSH_ENTRY` 开发对照面保留。
 
 引擎本身的 Windows 可行性（2026-10-10 对 `engine/` fork 实查，非推测）：
 
